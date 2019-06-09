@@ -42,6 +42,7 @@ public:
 	bool fetchTrades = true;
 	Value firstId;
 	Value all_pairs;
+	std::size_t lastFrom = -1;
 
 	struct FeeInfo {
 		double fee;
@@ -85,6 +86,11 @@ public:
 
 Interface::TradeHistory Interface::getTrades(json::Value lastId, std::uintptr_t fromTime, const std::string_view & pair) {
 
+		if (!lastId.defined() && fromTime < lastFrom) {
+			trades.clear();
+			fetchTrades = true;
+		}
+
 
 		if (fetchTrades) {
 			auto fetchLastId = lastId;
@@ -116,6 +122,8 @@ Interface::TradeHistory Interface::getTrades(json::Value lastId, std::uintptr_t 
 			start = trades.begin();
 			firstId = lastId;
 		}
+
+		lastFrom = fromTime?fromTime:trades.empty()?size_t(-1):trades[0]["createdTimestamp"].getUInt();
 
 		if ((*start)["transactionId"] == lastId)
 			++start;
