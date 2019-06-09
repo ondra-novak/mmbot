@@ -89,7 +89,7 @@
     	
     <storageModule moduleId="cdtBuildSystem" version="4.0.0">
         		
-        <project id="markettrader.null.1505100433" name="markettrader"/>
+        <project id="mmbot.null.1505100433" name="mmbot"/>
         	
     </storageModule>
     	
@@ -243,7 +243,7 @@
                 				
                 <buildCommand>/usr/bin/make</buildCommand>
                 				
-                <buildArguments>-C "/home/ondra/workspace/markettrader" -j4</buildArguments>
+                <buildArguments>-C "/home/ondra/workspace/mmbot" -j4</buildArguments>
                 				
                 <buildTarget>imtjson</buildTarget>
                 				
@@ -257,7 +257,7 @@
                 				
                 <buildCommand>/usr/bin/cmake</buildCommand>
                 				
-                <buildArguments>-E chdir "/home/ondra/workspace/markettrader/src/imtjson/src/imtjson" "/usr/bin/cmake" -P "CMakeFiles/imtjson.dir/cmake_clean.cmake"</buildArguments>
+                <buildArguments>-E chdir "/home/ondra/workspace/mmbot/src/imtjson/src/imtjson" "/usr/bin/cmake" -P "CMakeFiles/imtjson.dir/cmake_clean.cmake"</buildArguments>
                 				
                 <buildTarget/>
                 				
@@ -327,7 +327,7 @@
                 				
                 <buildCommand>/usr/bin/make</buildCommand>
                 				
-                <buildArguments>-C "/home/ondra/workspace/markettrader" -j4</buildArguments>
+                <buildArguments>-C "/home/ondra/workspace/mmbot" -j4</buildArguments>
                 				
                 <buildTarget>simpleServer</buildTarget>
                 				
@@ -341,7 +341,7 @@
                 				
                 <buildCommand>/usr/bin/cmake</buildCommand>
                 				
-                <buildArguments>-E chdir "/home/ondra/workspace/markettrader/src/server/src/simpleServer" "/usr/bin/cmake" -P "CMakeFiles/simpleServer.dir/cmake_clean.cmake"</buildArguments>
+                <buildArguments>-E chdir "/home/ondra/workspace/mmbot/src/server/src/simpleServer" "/usr/bin/cmake" -P "CMakeFiles/simpleServer.dir/cmake_clean.cmake"</buildArguments>
                 				
                 <buildTarget/>
                 				
@@ -379,13 +379,13 @@
                 			
             </target>
             			
-            <target name="[exe] markettrader" path="src/main" targetID="org.eclipse.cdt.make.MakeTargetBuilder">
+            <target name="[exe] mmbot" path="src/main" targetID="org.eclipse.cdt.make.MakeTargetBuilder">
                 				
                 <buildCommand>/usr/bin/make</buildCommand>
                 				
                 <buildArguments>-j4</buildArguments>
                 				
-                <buildTarget>markettrader</buildTarget>
+                <buildTarget>mmbot</buildTarget>
                 				
                 <stopOnError>true</stopOnError>
                 				
@@ -393,13 +393,13 @@
                 			
             </target>
             			
-            <target name="[exe] markettrader/fast" path="src/main" targetID="org.eclipse.cdt.make.MakeTargetBuilder">
+            <target name="[exe] mmbot/fast" path="src/main" targetID="org.eclipse.cdt.make.MakeTargetBuilder">
                 				
                 <buildCommand>/usr/bin/make</buildCommand>
                 				
                 <buildArguments>-j4</buildArguments>
                 				
-                <buildTarget>markettrader/fast</buildTarget>
+                <buildTarget>mmbot/fast</buildTarget>
                 				
                 <stopOnError>true</stopOnError>
                 				
@@ -407,13 +407,13 @@
                 			
             </target>
             			
-            <target name="Build" path="[Targets]/[exe] markettrader" targetID="org.eclipse.cdt.make.MakeTargetBuilder">
+            <target name="Build" path="[Targets]/[exe] mmbot" targetID="org.eclipse.cdt.make.MakeTargetBuilder">
                 				
                 <buildCommand>/usr/bin/make</buildCommand>
                 				
-                <buildArguments>-C "/home/ondra/workspace/markettrader" -j4</buildArguments>
+                <buildArguments>-C "/home/ondra/workspace/mmbot" -j4</buildArguments>
                 				
-                <buildTarget>markettrader</buildTarget>
+                <buildTarget>mmbot</buildTarget>
                 				
                 <stopOnError>true</stopOnError>
                 				
@@ -421,11 +421,11 @@
                 			
             </target>
             			
-            <target name="Clean" path="[Targets]/[exe] markettrader" targetID="org.eclipse.cdt.make.MakeTargetBuilder">
+            <target name="Clean" path="[Targets]/[exe] mmbot" targetID="org.eclipse.cdt.make.MakeTargetBuilder">
                 				
                 <buildCommand>/usr/bin/cmake</buildCommand>
                 				
-                <buildArguments>-E chdir "/home/ondra/workspace/markettrader/src/main" "/usr/bin/cmake" -P "CMakeFiles/markettrader.dir/cmake_clean.cmake"</buildArguments>
+                <buildArguments>-E chdir "/home/ondra/workspace/mmbot/src/main" "/usr/bin/cmake" -P "CMakeFiles/mmbot.dir/cmake_clean.cmake"</buildArguments>
                 				
                 <buildTarget/>
                 				
@@ -1253,9 +1253,9 @@
         		
         <pathentry kind="mac" name="_GNU_SOURCE" path="" value="1"/>
         		
-        <pathentry include="/home/ondra/workspace/markettrader/src" kind="inc" path="" system="true"/>
+        <pathentry include="/home/ondra/workspace/mmbot/src" kind="inc" path="" system="true"/>
         		
-        <pathentry include="/home/ondra/workspace/markettrader/src/imtjson/src" kind="inc" path="" system="true"/>
+        <pathentry include="/home/ondra/workspace/mmbot/src/imtjson/src" kind="inc" path="" system="true"/>
         		
         <pathentry include="/usr/lib/gcc/x86_64-linux-gnu/7/include" kind="inc" path="" system="true"/>
         		
@@ -1279,7 +1279,7 @@
         		
         <configuration configurationName="Default">
             			
-            <resource resourceType="PROJECT" workspacePath="/markettrader"/>
+            <resource resourceType="PROJECT" workspacePath="/mmbot"/>
             		
         </configuration>
         	

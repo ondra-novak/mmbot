@@ -3,7 +3,7 @@
 Nastavení robota je uloženo v konfiguračním souboru. Robot hledá konfigurační soubor v adresáři `../conf` pod názvem odvozeného z názvu pod kterým je spuštěn a přidáním `conf` jako přípony
 
 ```
-bin/markettrader -> bin/../conf/markettrader.conf
+bin/mmbot -> bin/../conf/mmbot.conf
 ```
 
 Cestu na config lze změnit parametrem `-f`
@@ -33,7 +33,7 @@ Pokud je hodnotou cesta na nějaký soubor, složky a podobně, zpravidla jako v
 logfile=../log/logfile
 ```
 
-Pokud se hodnota nachází v konfiguračním souboru `/usr/local/share/markettrader/conf/markettrader.conf`, pak log bude generován do souboru `/usr/local/share/markettrader/conf/../log/logfile`
+Pokud se hodnota nachází v konfiguračním souboru `/usr/local/share/mmbot/conf/mmbot.conf`, pak log bude generován do souboru `/usr/local/share/mmbot/conf/../log/logfile`
 
 
 

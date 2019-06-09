@@ -20,8 +20,8 @@ $ apt install cmake make g++ git libcurl4-openssl-dev libssl-dev libcurlpp-dev
 choose directory for source
 
 ```
-$ git clone ... markettrader.git
-$ cd markettrader
+$ git clone https://github.com/ondra-novak/mmbot.git
+$ cd mmbot
 $ git submodule update --init
 $ cmake .
 $ make all

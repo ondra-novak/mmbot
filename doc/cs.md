@@ -39,7 +39,7 @@ Více informací na install.md
 
 ```
  +-- bin
- |    + -- markettrader
+ |    + -- mmbot
  |    + -- brokers
  |            + -- coinmate
  |            + -- poloniex
@@ -48,7 +48,7 @@ Více informací na install.md
  |     + -- brokers
  |     |      + -- coinmate.conf
  |     |      + -- poloniex.conf
- |     + -- markettrader.conf
+ |     + -- mmbot.conf
  |     + -- brokers.conf
  |     + -- traders.conf
  + -- log
@@ -67,7 +67,7 @@ Více informací na install.md
 
 Podrobnosti v nastavení hledejte v config_cs.md
 
-- **markettrader.conf** - obsahuje základni nastavení aplikace, které z pravidla není třeba měnit. 
+- **mmbot.conf** - obsahuje základni nastavení aplikace, které z pravidla není třeba měnit. 
 - **brokers.conf** - obsahuje nastavení broketů. Nastavení není třeba měnit, není třeba zavést dalšíhi brokera. Je vhodné znát jména broketů, které jsou v tomto configu deklarovány
 - **traders.conf** - do tohoto konfiguračního souboru se vkládají definice jednotlivých obchodovaných párů a jejich nastavení
 - **brokes/*.conf** - pro každého brokera je zde config, ve kterém je třeba doplnit API klíče na burzy. Stačí upravit jen ty, které se používají
@@ -150,7 +150,7 @@ Robota lze spustit tak, aby vypisoval co dělá, ale neprováděl žádnou obcho
 V adresáři kde je robot nainstalován:
 
 ```
-$ bin/markettrader -vdt run
+$ bin/mmbot -vdt run
 ```
 
 - `-vdt` je kombinace tří přepínačů
@@ -164,19 +164,19 @@ $ bin/markettrader -vdt run
 ### Ostré spuštění robota jako služba
 
 ```
-$ bin/markettrader start
+$ bin/mmbot start
 ```
 
 V režimu služby se nic na konzoli nezobrazí. Pokud chcete zkontrolovat, že robot běží, napište do konzoli
 
 ```
-$ bin/markettrader status
+$ bin/mmbot status
 ```
 
 ### Ukončení robota spuštěněho jako služba
 
 ```
-$ bin/markettrader stop
+$ bin/mmbot stop
 ```
 
 **Poznámka:** Zastavení robota nezpůsobí smazání umístěných pokynů na burzách. Pokud je robot znovy spuštěn, pokračuje v činnosti tam kde přestal.
@@ -184,7 +184,7 @@ $ bin/markettrader stop
 ### Restart robota
 
 ```
-$ bin/markettrader restart
+$ bin/mmbot restart
 ```
 
 
@@ -239,7 +239,7 @@ Robot disponuje funkcí odhadu bezpečného cenového pásma.
 Pokud máme robota delší čas v provozu například v režimu **na zkoušku**, lze z příkazové řádky napsat následující příkaz
 
 ```
-$ bin/markettrader calc_range
+$ bin/mmbot calc_range
 ```
 
 Robot vypíše pro každý měnový pár informaci o maximální a minimální ceně na základě stavu balance na burze

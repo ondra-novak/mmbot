@@ -305,7 +305,7 @@ int main(int argc, char **argv) {
 
 			auto servicesection = ini["service"];
 			auto pidfile = servicesection.mandatory["inst_file"].getPath();
-			auto name = servicesection["name"].getString("markettrader");
+			auto name = servicesection["name"].getString("mmbot");
 			auto user = servicesection["user"].getString();
 
 			std::vector<StrViewA> argList;
