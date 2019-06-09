@@ -135,6 +135,8 @@ double glob_calcSpread(ondra_shared::StringView<IStatSvc::ChartItem> chart,
 	if (chart.empty()) return prev_val;
 	double min_spread = chart[0].ask - chart[0].bid;
 	double init_spread = prev_val && prev_val > min_spread?prev_val:min_spread;
+	if (init_spread > chart[0].bid/2) init_spread = chart[0].bid/2;
+
 
 	using ResultItem = std::pair<double,double>;
 	ResultItem bestResults[]={
@@ -146,7 +148,7 @@ double glob_calcSpread(ondra_shared::StringView<IStatSvc::ChartItem> chart,
 
 	double low_spread = init_spread*0.2;
 	const int steps = 200;
-	double hi_spread = init_spread*2;
+	double hi_spread = std::min(init_spread*2,chart[0].bid/2);
 	auto resend = std::end(bestResults);
 	auto resbeg = std::begin(bestResults);
 	auto resiter = resbeg;
