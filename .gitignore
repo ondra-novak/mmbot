@@ -1,0 +1,10 @@
+CMakeCache.txt
+CMakeFiles
+cmake_install.cmake
+Makefile
+bin
+/log
+/build/
+data
+www/report*
+local.conf

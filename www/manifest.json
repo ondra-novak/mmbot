@@ -1,0 +1,17 @@
+{
+  "short_name": "MM Bot",
+  "name": "MM Bot",
+  "start_url": "index.html",
+  "background_color": "#CCCCCC",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "scope": "."
+}
+
+
+
+
+
+
+
+

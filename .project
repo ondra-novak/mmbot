@@ -1,0 +1,379 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<projectDescription>
+	<name>markettrader-DEBUG@markettrader</name>
+	<comment></comment>
+	<projects>
+	</projects>
+	<buildSpec>
+		<buildCommand>
+			<name>org.eclipse.cdt.managedbuilder.core.genmakebuilder</name>
+			<triggers>clean,full,incremental,</triggers>
+			<arguments>
+			</arguments>
+		</buildCommand>
+		<buildCommand>
+			<name>org.eclipse.cdt.managedbuilder.core.ScannerConfigBuilder</name>
+			<triggers>full,incremental,</triggers>
+			<arguments>
+			</arguments>
+		</buildCommand>
+	</buildSpec>
+	<natures>
+		<nature>org.eclipse.cdt.core.ccnature</nature>
+		<nature>org.eclipse.cdt.core.cnature</nature>
+		<nature>org.eclipse.cdt.managedbuilder.core.managedBuildNature</nature>
+		<nature>org.eclipse.cdt.managedbuilder.core.ScannerConfigNature</nature>
+	</natures>
+	<linkedResources>
+		<link>
+			<name>[Subprojects]</name>
+			<type>2</type>
+			<locationURI>virtual:/virtual</locationURI>
+		</link>
+		<link>
+			<name>[Targets]</name>
+			<type>2</type>
+			<locationURI>virtual:/virtual</locationURI>
+		</link>
+		<link>
+			<name>[Targets]/[exe] markettrader/</name>
+			<type>2</type>
+			<locationURI>virtual:/virtual</locationURI>
+		</link>
+		<link>
+			<name>[Targets]/[lib] imtjson/</name>
+			<type>2</type>
+			<locationURI>virtual:/virtual</locationURI>
+		</link>
+		<link>
+			<name>[Targets]/[lib] simpleServer/</name>
+			<type>2</type>
+			<locationURI>virtual:/virtual</locationURI>
+		</link>
+		<link>
+			<name>[Targets]/[exe] markettrader/CMake Rules</name>
+			<type>2</type>
+			<locationURI>virtual:/virtual</locationURI>
+		</link>
+		<link>
+			<name>[Targets]/[exe] markettrader/Header Files</name>
+			<type>2</type>
+			<locationURI>virtual:/virtual</locationURI>
+		</link>
+		<link>
+			<name>[Targets]/[exe] markettrader/Object Files</name>
+			<type>2</type>
+			<locationURI>virtual:/virtual</locationURI>
+		</link>
+		<link>
+			<name>[Targets]/[exe] markettrader/Object Libraries</name>
+			<type>2</type>
+			<locationURI>virtual:/virtual</locationURI>
+		</link>
+		<link>
+			<name>[Targets]/[exe] markettrader/Resources</name>
+			<type>2</type>
+			<locationURI>virtual:/virtual</locationURI>
+		</link>
+		<link>
+			<name>[Targets]/[exe] markettrader/Source Files</name>
+			<type>2</type>
+			<locationURI>virtual:/virtual</locationURI>
+		</link>
+		<link>
+			<name>[Targets]/[lib] imtjson/CMake Rules</name>
+			<type>2</type>
+			<locationURI>virtual:/virtual</locationURI>
+		</link>
+		<link>
+			<name>[Targets]/[lib] imtjson/Header Files</name>
+			<type>2</type>
+			<locationURI>virtual:/virtual</locationURI>
+		</link>
+		<link>
+			<name>[Targets]/[lib] imtjson/Object Files</name>
+			<type>2</type>
+			<locationURI>virtual:/virtual</locationURI>
+		</link>
+		<link>
+			<name>[Targets]/[lib] imtjson/Object Libraries</name>
+			<type>2</type>
+			<locationURI>virtual:/virtual</locationURI>
+		</link>
+		<link>
+			<name>[Targets]/[lib] imtjson/Resources</name>
+			<type>2</type>
+			<locationURI>virtual:/virtual</locationURI>
+		</link>
+		<link>
+			<name>[Targets]/[lib] imtjson/Source Files</name>
+			<type>2</type>
+			<locationURI>virtual:/virtual</locationURI>
+		</link>
+		<link>
+			<name>[Targets]/[lib] simpleServer/CMake Rules</name>
+			<type>2</type>
+			<locationURI>virtual:/virtual</locationURI>
+		</link>
+		<link>
+			<name>[Targets]/[lib] simpleServer/Header Files</name>
+			<type>2</type>
+			<locationURI>virtual:/virtual</locationURI>
+		</link>
+		<link>
+			<name>[Targets]/[lib] simpleServer/Object Files</name>
+			<type>2</type>
+			<locationURI>virtual:/virtual</locationURI>
+		</link>
+		<link>
+			<name>[Targets]/[lib] simpleServer/Object Libraries</name>
+			<type>2</type>
+			<locationURI>virtual:/virtual</locationURI>
+		</link>
+		<link>
+			<name>[Targets]/[lib] simpleServer/Resources</name>
+			<type>2</type>
+			<locationURI>virtual:/virtual</locationURI>
+		</link>
+		<link>
+			<name>[Targets]/[lib] simpleServer/Source Files</name>
+			<type>2</type>
+			<locationURI>virtual:/virtual</locationURI>
+		</link>
+		<link>
+			<name>[Targets]/[exe] markettrader/Source Files/coinmate.cpp</name>
+			<type>1</type>
+			<location>/home/ondra/workspace/markettrader/src/main/coinmate.cpp</location>
+		</link>
+		<link>
+			<name>[Targets]/[exe] markettrader/Source Files/main.cpp</name>
+			<type>1</type>
+			<location>/home/ondra/workspace/markettrader/src/main/main.cpp</location>
+		</link>
+		<link>
+			<name>[Targets]/[exe] markettrader/Source Files/ordergen.cpp</name>
+			<type>1</type>
+			<location>/home/ondra/workspace/markettrader/src/main/ordergen.cpp</location>
+		</link>
+		<link>
+			<name>[Targets]/[lib] imtjson/Source Files/abstractValue.cpp</name>
+			<type>1</type>
+			<location>/home/ondra/workspace/markettrader/src/imtjson/src/imtjson/abstractValue.cpp</location>
+		</link>
+		<link>
+			<name>[Targets]/[lib] imtjson/Source Files/array.cpp</name>
+			<type>1</type>
+			<location>/home/ondra/workspace/markettrader/src/imtjson/src/imtjson/array.cpp</location>
+		</link>
+		<link>
+			<name>[Targets]/[lib] imtjson/Source Files/arrayValue.cpp</name>
+			<type>1</type>
+			<location>/home/ondra/workspace/markettrader/src/imtjson/src/imtjson/arrayValue.cpp</location>
+		</link>
+		<link>
+			<name>[Targets]/[lib] imtjson/Source Files/base64.cpp</name>
+			<type>1</type>
+			<location>/home/ondra/workspace/markettrader/src/imtjson/src/imtjson/base64.cpp</location>
+		</link>
+		<link>
+			<name>[Targets]/[lib] imtjson/Source Files/basicValues.cpp</name>
+			<type>1</type>
+			<location>/home/ondra/workspace/markettrader/src/imtjson/src/imtjson/basicValues.cpp</location>
+		</link>
+		<link>
+			<name>[Targets]/[lib] imtjson/Source Files/binary.cpp</name>
+			<type>1</type>
+			<location>/home/ondra/workspace/markettrader/src/imtjson/src/imtjson/binary.cpp</location>
+		</link>
+		<link>
+			<name>[Targets]/[lib] imtjson/Source Files/key.cpp</name>
+			<type>1</type>
+			<location>/home/ondra/workspace/markettrader/src/imtjson/src/imtjson/key.cpp</location>
+		</link>
+		<link>
+			<name>[Targets]/[lib] imtjson/Source Files/namedEnum.cpp</name>
+			<type>1</type>
+			<location>/home/ondra/workspace/markettrader/src/imtjson/src/imtjson/namedEnum.cpp</location>
+		</link>
+		<link>
+			<name>[Targets]/[lib] imtjson/Source Files/object.cpp</name>
+			<type>1</type>
+			<location>/home/ondra/workspace/markettrader/src/imtjson/src/imtjson/object.cpp</location>
+		</link>
+		<link>
+			<name>[Targets]/[lib] imtjson/Source Files/objectValue.cpp</name>
+			<type>1</type>
+			<location>/home/ondra/workspace/markettrader/src/imtjson/src/imtjson/objectValue.cpp</location>
+		</link>
+		<link>
+			<name>[Targets]/[lib] imtjson/Source Files/path.cpp</name>
+			<type>1</type>
+			<location>/home/ondra/workspace/markettrader/src/imtjson/src/imtjson/path.cpp</location>
+		</link>
+		<link>
+			<name>[Targets]/[lib] imtjson/Source Files/rpc.cpp</name>
+			<type>1</type>
+			<location>/home/ondra/workspace/markettrader/src/imtjson/src/imtjson/rpc.cpp</location>
+		</link>
+		<link>
+			<name>[Targets]/[lib] imtjson/Source Files/string.cpp</name>
+			<type>1</type>
+			<location>/home/ondra/workspace/markettrader/src/imtjson/src/imtjson/string.cpp</location>
+		</link>
+		<link>
+			<name>[Targets]/[lib] imtjson/Source Files/stringValue.cpp</name>
+			<type>1</type>
+			<location>/home/ondra/workspace/markettrader/src/imtjson/src/imtjson/stringValue.cpp</location>
+		</link>
+		<link>
+			<name>[Targets]/[lib] imtjson/Source Files/validator.cpp</name>
+			<type>1</type>
+			<location>/home/ondra/workspace/markettrader/src/imtjson/src/imtjson/validator.cpp</location>
+		</link>
+		<link>
+			<name>[Targets]/[lib] imtjson/Source Files/value.cpp</name>
+			<type>1</type>
+			<location>/home/ondra/workspace/markettrader/src/imtjson/src/imtjson/value.cpp</location>
+		</link>
+		<link>
+			<name>[Targets]/[lib] imtjson/Source Files/valueref.cpp</name>
+			<type>1</type>
+			<location>/home/ondra/workspace/markettrader/src/imtjson/src/imtjson/valueref.cpp</location>
+		</link>
+		<link>
+			<name>[Targets]/[lib] simpleServer/Source Files/abstractStream.cpp</name>
+			<type>1</type>
+			<location>/home/ondra/workspace/markettrader/src/server/src/simpleServer/abstractStream.cpp</location>
+		</link>
+		<link>
+			<name>[Targets]/[lib] simpleServer/Source Files/address.cpp</name>
+			<type>1</type>
+			<location>/home/ondra/workspace/markettrader/src/server/src/simpleServer/linux/address.cpp</location>
+		</link>
+		<link>
+			<name>[Targets]/[lib] simpleServer/Source Files/asyncProvider.cpp</name>
+			<type>1</type>
+			<location>/home/ondra/workspace/markettrader/src/server/src/simpleServer/asyncProvider.cpp</location>
+		</link>
+		<link>
+			<name>[Targets]/[lib] simpleServer/Source Files/base64.cpp</name>
+			<type>1</type>
+			<location>/home/ondra/workspace/markettrader/src/server/src/simpleServer/base64.cpp</location>
+		</link>
+		<link>
+			<name>[Targets]/[lib] simpleServer/Source Files/chunkedStream.cpp</name>
+			<type>1</type>
+			<location>/home/ondra/workspace/markettrader/src/server/src/simpleServer/chunkedStream.cpp</location>
+		</link>
+		<link>
+			<name>[Targets]/[lib] simpleServer/Source Files/common.cpp</name>
+			<type>1</type>
+			<location>/home/ondra/workspace/markettrader/src/server/src/simpleServer/common.cpp</location>
+		</link>
+		<link>
+			<name>[Targets]/[lib] simpleServer/Source Files/exceptions.cpp</name>
+			<type>1</type>
+			<location>/home/ondra/workspace/markettrader/src/server/src/simpleServer/exceptions.cpp</location>
+		</link>
+		<link>
+			<name>[Targets]/[lib] simpleServer/Source Files/http_client.cpp</name>
+			<type>1</type>
+			<location>/home/ondra/workspace/markettrader/src/server/src/simpleServer/http_client.cpp</location>
+		</link>
+		<link>
+			<name>[Targets]/[lib] simpleServer/Source Files/http_dynpathmap.cpp</name>
+			<type>1</type>
+			<location>/home/ondra/workspace/markettrader/src/server/src/simpleServer/http_dynpathmap.cpp</location>
+		</link>
+		<link>
+			<name>[Targets]/[lib] simpleServer/Source Files/http_filemapper.cpp</name>
+			<type>1</type>
+			<location>/home/ondra/workspace/markettrader/src/server/src/simpleServer/http_filemapper.cpp</location>
+		</link>
+		<link>
+			<name>[Targets]/[lib] simpleServer/Source Files/http_headers.cpp</name>
+			<type>1</type>
+			<location>/home/ondra/workspace/markettrader/src/server/src/simpleServer/http_headers.cpp</location>
+		</link>
+		<link>
+			<name>[Targets]/[lib] simpleServer/Source Files/http_hostmapping.cpp</name>
+			<type>1</type>
+			<location>/home/ondra/workspace/markettrader/src/server/src/simpleServer/http_hostmapping.cpp</location>
+		</link>
+		<link>
+			<name>[Targets]/[lib] simpleServer/Source Files/http_parser.cpp</name>
+			<type>1</type>
+			<location>/home/ondra/workspace/markettrader/src/server/src/simpleServer/http_parser.cpp</location>
+		</link>
+		<link>
+			<name>[Targets]/[lib] simpleServer/Source Files/http_pathmapper.cpp</name>
+			<type>1</type>
+			<location>/home/ondra/workspace/markettrader/src/server/src/simpleServer/http_pathmapper.cpp</location>
+		</link>
+		<link>
+			<name>[Targets]/[lib] simpleServer/Source Files/http_server.cpp</name>
+			<type>1</type>
+			<location>/home/ondra/workspace/markettrader/src/server/src/simpleServer/http_server.cpp</location>
+		</link>
+		<link>
+			<name>[Targets]/[lib] simpleServer/Source Files/linuxService.cpp</name>
+			<type>1</type>
+			<location>/home/ondra/workspace/markettrader/src/server/src/simpleServer/linux/linuxService.cpp</location>
+		</link>
+		<link>
+			<name>[Targets]/[lib] simpleServer/Source Files/netEventDispatcher.cpp</name>
+			<type>1</type>
+			<location>/home/ondra/workspace/markettrader/src/server/src/simpleServer/linux/netEventDispatcher.cpp</location>
+		</link>
+		<link>
+			<name>[Targets]/[lib] simpleServer/Source Files/query_parser.cpp</name>
+			<type>1</type>
+			<location>/home/ondra/workspace/markettrader/src/server/src/simpleServer/query_parser.cpp</location>
+		</link>
+		<link>
+			<name>[Targets]/[lib] simpleServer/Source Files/realpath.cpp</name>
+			<type>1</type>
+			<location>/home/ondra/workspace/markettrader/src/server/src/simpleServer/linux/realpath.cpp</location>
+		</link>
+		<link>
+			<name>[Targets]/[lib] simpleServer/Source Files/sha1.cpp</name>
+			<type>1</type>
+			<location>/home/ondra/workspace/markettrader/src/server/src/simpleServer/sha1.cpp</location>
+		</link>
+		<link>
+			<name>[Targets]/[lib] simpleServer/Source Files/ssl_socket.cpp</name>
+			<type>1</type>
+			<location>/home/ondra/workspace/markettrader/src/server/src/simpleServer/linux/ssl_socket.cpp</location>
+		</link>
+		<link>
+			<name>[Targets]/[lib] simpleServer/Source Files/tcpStream.cpp</name>
+			<type>1</type>
+			<location>/home/ondra/workspace/markettrader/src/server/src/simpleServer/linux/tcpStream.cpp</location>
+		</link>
+		<link>
+			<name>[Targets]/[lib] simpleServer/Source Files/tcpStreamFactory.cpp</name>
+			<type>1</type>
+			<location>/home/ondra/workspace/markettrader/src/server/src/simpleServer/linux/tcpStreamFactory.cpp</location>
+		</link>
+		<link>
+			<name>[Targets]/[lib] simpleServer/Source Files/threadPoolAsync.cpp</name>
+			<type>1</type>
+			<location>/home/ondra/workspace/markettrader/src/server/src/simpleServer/threadPoolAsync.cpp</location>
+		</link>
+		<link>
+			<name>[Targets]/[lib] simpleServer/Source Files/urlencode.cpp</name>
+			<type>1</type>
+			<location>/home/ondra/workspace/markettrader/src/server/src/simpleServer/urlencode.cpp</location>
+		</link>
+		<link>
+			<name>[Targets]/[lib] simpleServer/Source Files/webSocketsHandler.cpp</name>
+			<type>1</type>
+			<location>/home/ondra/workspace/markettrader/src/server/src/simpleServer/webSocketsHandler.cpp</location>
+		</link>
+		<link>
+			<name>[Targets]/[lib] simpleServer/Source Files/websockets_parse.cpp</name>
+			<type>1</type>
+			<location>/home/ondra/workspace/markettrader/src/server/src/simpleServer/websockets_parse.cpp</location>
+		</link>
+	</linkedResources>
+</projectDescription>

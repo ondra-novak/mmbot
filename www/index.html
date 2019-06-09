@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>MM Bot</title>
+  <link rel="stylesheet" href="style.css">
+  <link href='https://fonts.googleapis.com/css?family=Abel' rel='stylesheet'>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="manifest" href="manifest.json"  crossOrigin='use-credentials'>
+</head>
+<body onload="app_start();">
+<div class="selchart"><div id="indicator"></div>
+<div id="home">⌂</div>
+<select id="selchart">
+<option value="+summary">Summary</option>
+<option disabled value=""></option>
+<option value="pl">P/L from positions</option>
+<option value="norm">Normalized profit</option>
+<option value="achg">Trades</option>
+<option value="pos">Position</option>
+<option value="price">Price</option>
+<option disabled value=""></option>
+<option value="+pl">Total P/L from positions</option>
+<option value="+norm">Total normalized profit</option>
+<option disabled value=""></option>
+</select>
+<div id="outage">
+<div class="hdr">Outage detected</div>
+<div class="note">The robot is probably stopped or crashed. <br>Please check the status of the robot at the server.</div>
+</div>
+</div>
+<template id="chart"><div>
+<div class="head">
+ <div class="title" data-name="title"></div>
+ <div class="info" data-name="info"></div>
+</div>
+<div data-name="chart"></div>
+</div>
+</template>
+
+<template id="summary"><div class="summary">
+<div class="head">
+ <div class="title" data-name="title"></div>
+ <div class="info" data-name="info"></div>
+</div>
+<div class="daystats">
+<div>24h: </div>
+<div><span data-name="price" class="plusminus"></span><span data-name="curc"></span></div>
+<div>t: <span data-name="trades"></span></div>
+<div>vol: <span data-name="vol"></span><span data-name="curc"></span></div>
+<div>pos: <span data-name="pos" class="plusminus"></span><span data-name="assets"></span></div>
+<div>avg: <span data-name="avg"></span><span data-name="curc"></span></div>
+<div>p/l: <span data-name="pl" class="plusminus"></span><span data-name="curc"></span></div>
+<div>norm: <span data-name="norm" class="plusminus"></span><span data-name="curc"></span></div>
+</div>
+</div>
+</template>
+
+<div id="chartarea"></div>
+<div id="lastevents">
+<template id="lastevents_hdr">
+<x-trbgr  class="hdr">
+<x-tr class="hdr">
+<x-td><span data-name="export_csv">CSV</span>date</x-td>
+<x-td>time</x-td>
+<x-td>pair</x-td>
+<x-td></x-td>
+<x-td>size</x-td>
+<x-td>price</x-td>
+<x-td>currency</x-td>
+<x-td>&pm;norm</x-td>
+</x-tr>
+</x-trbgr>
+</template>
+</div>
+<div id="logo" hidden>
+<img src="logo.png">
+</div>
+<script src="code.js" type="text/javascript"></script>
+
+
+</body>
+</html>
