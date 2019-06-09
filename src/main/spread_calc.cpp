@@ -158,7 +158,7 @@ double glob_calcSpread(ondra_shared::StringView<IStatSvc::ChartItem> chart,
 		double curSpread = low_spread+(hi_spread-low_spread)*i/(steps-1.0);
 		double profit= emulateMarket(chart, config, minfo, balance, curSpread);
 		ResultItem resitem(profit,curSpread);
-		if (*resiter < resitem) {
+		if (resiter->first < resitem.first) {
 			*resiter = resitem;
 			resiter = std::min_element(resbeg, resend);
 		}
