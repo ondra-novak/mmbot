@@ -1,0 +1,9 @@
+[submodule "src/imtjson"]
+	path = src/imtjson
+	url = https://www.github.com/ondra-novak/imtjson.git
+[submodule "src/server"]
+	path = src/server
+	url = https://www.github.com/ondra-novak/simpleServer.git
+[submodule "src/shared"]
+	path = src/shared
+	url = https://www.github.com/ondra-novak/ondra_shared.git
