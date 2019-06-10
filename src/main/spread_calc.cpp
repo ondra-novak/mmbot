@@ -26,7 +26,6 @@ public:
 	virtual json::Value placeOrder(const std::string_view & pair, const Order &order) override;
 	virtual bool reset() ;
 	virtual double getBalance(const std::string_view &) override;
-	std::size_t getTradeCount() {return trades.size();}
 	virtual bool isTest() const override {return false;}
 	virtual MarketInfo getMarketInfo(const std::string_view &) {
 		return minfo;
@@ -36,8 +35,11 @@ public:
 	}
 	virtual std::vector<std::string> getAllPairs() override {return {};}
 
-	double getScore() {
+	double getScore() const {
 		return currency+sqrt(chart[0].bid*chart[0].ask)*(balance-initial_balance);
+	}
+	unsigned int getTradeCount() const {
+		return std::min(buys,sells);
 	}
 
 protected:
@@ -51,6 +53,7 @@ protected:
 	MarketInfo minfo;
 	double balance;
 	double initial_balance;
+	unsigned int buys=0, sells=0;
 
 };
 
@@ -245,6 +248,7 @@ inline bool StockEmulator::reset() {
 		trades.push_back(tr);
 		balance += tr.eff_size;
 		currency -= tr.eff_size*tr.eff_price;
+		sells++;
 	}
 	if (p.ask < buy.price && !buy_ex) {
 		Trade tr;
@@ -259,6 +263,7 @@ inline bool StockEmulator::reset() {
 		trades.push_back(tr);
 		balance += tr.eff_size;
 		currency -= tr.eff_size*tr.eff_price;
+		buys++;
 	}
 
 	return true;
