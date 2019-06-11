@@ -28,6 +28,7 @@ public:
 		GET, POST, PUT
 	};
 
+	bool hasKey;
 
 	json::Value request(Method method, std::string path, json::Value data);
 	std::string createQuery(json::Value data);

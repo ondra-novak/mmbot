@@ -27,6 +27,9 @@ Proxy::Proxy(Config config):config(config) {
 	auto now = std::chrono::system_clock::now();
 	std::size_t init_time = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count() - start_time;
 	nonce = init_time * 100;
+	hasKey = !config.privKey.empty()
+			&& !config.pubKey.empty()
+			&& !config.clientid.empty();
 
 }
 
@@ -59,6 +62,9 @@ json::Value Proxy::request(Method method, std::string path, json::Value data) {
 		std::size_t cnt = src.gcount();
 		return cnt;
 	};*/
+
+	if (!hasKey && method != GET)
+		throw std::runtime_error("This operation requires valid API key");
 
 	const char *m = "";
 	curl_handle.reset();
@@ -97,11 +103,13 @@ json::Value Proxy::request(Method method, std::string path, json::Value data) {
 
 std::string Proxy::createQuery(json::Value data) {
 	std::ostringstream out;
-	auto sig = createSignature();
-	out << "clientId=" << config.clientid
-		<< "&publicKey=" << config.pubKey
-		<< "&nonce=" << sig.second
-		<< "&signature=" << sig.first;
+	if (hasKey) {
+		auto sig = createSignature();
+		out << "clientId=" << config.clientid
+			<< "&publicKey=" << config.pubKey
+			<< "&nonce=" << sig.second
+			<< "&signature=" << sig.first;
+	}
 
 	for(json::Value x: data) {
 		out << "&" << x.getKey() << "=";

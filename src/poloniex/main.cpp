@@ -273,9 +273,9 @@ inline Value Interface::getInfo(Value req) {
 	StrViewA cur = splt();
 	StrViewA asst = splt();
 
-	Value allPairs = getBalanceSymbols(Value());
-	if (allPairs.indexOf(cur) == allPairs.npos
-			|| allPairs.indexOf(asst) == allPairs.npos)
+	auto currencies = cm.public_request("returnCurrencies", Value());
+	if (!currencies[cur].defined() ||
+			!currencies[asst].defined())
 				throw std::runtime_error("Unknown trading pair symbol");
 
 
@@ -292,12 +292,16 @@ inline Value Interface::getInfo(Value req) {
 }
 
 inline Value Interface::getFees(Value ) {
-	auto now = std::chrono::system_clock::now();
-	if (!feeInfo.defined() || feeInfoExpiration < now) {
-		feeInfo = cm.private_request("returnFeeInfo", Value());
-		feeInfoExpiration = now + std::chrono::hours(1);
+	if (cm.hasKey) {
+		auto now = std::chrono::system_clock::now();
+		if (!feeInfo.defined() || feeInfoExpiration < now) {
+			feeInfo = cm.private_request("returnFeeInfo", Value());
+			feeInfoExpiration = now + std::chrono::hours(1);
+		}
+		return PreciseNumberValue<double>::create(feeInfo["makerFee"].getString());
+	} else {
+		return 0.0015;
 	}
-	return PreciseNumberValue<double>::create(feeInfo["makerFee"].getString());
 
 }
 

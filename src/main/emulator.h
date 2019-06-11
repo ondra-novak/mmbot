@@ -9,6 +9,7 @@
 #define SRC_MAIN_EMULATOR_H_
 #include <optional>
 
+#include "../shared/logOutput.h"
 #include "istockapi.h"
 
 
@@ -45,6 +46,7 @@ protected:
 
 	MarketInfo minfo;
 
+	ondra_shared::LogObject log;
 
 	void simulation(const Ticker &tk);
 

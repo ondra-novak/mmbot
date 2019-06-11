@@ -28,6 +28,8 @@ public:
 	json::Value public_request(std::string method, json::Value data);
 	json::Value private_request(std::string method, json::Value data);
 
+	bool hasKey;
+
 private:
 	void buildParams(const json::Value& params, std::ostream& data);
 };

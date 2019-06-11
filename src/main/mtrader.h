@@ -125,6 +125,7 @@ protected:
 	StoragePtr storage;
 	PStatSvc statsvc;
 	bool need_load = true;
+	bool first_order = true;
 
 	using TradeItem = IStockApi::Trade;
 

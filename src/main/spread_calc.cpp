@@ -95,6 +95,7 @@ static double emulateMarket(ondra_shared::StringView<IStatSvc::ChartItem> chart,
 
 	MTrader_Config cfg(config);
 	cfg.dry_run = false;
+	cfg.asset_base = 0;
 	cfg.spread_calc_mins=1;
 
 	class Selector: public IStockSelector {
@@ -135,7 +136,7 @@ double glob_calcSpread(ondra_shared::StringView<IStatSvc::ChartItem> chart,
 		const IStockApi::MarketInfo &minfo,
 		double balance,
 		double prev_val) {
-	if (chart.empty()) return prev_val;
+	if (chart.empty() || balance == 0) return prev_val;
 	double min_spread = chart[0].ask - chart[0].bid;
 	double init_spread = prev_val && prev_val > min_spread?prev_val:min_spread;
 	if (init_spread > chart[0].bid/2) init_spread = chart[0].bid/2;

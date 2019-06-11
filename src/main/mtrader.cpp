@@ -91,8 +91,9 @@ int MTrader::perform() {
 
 	auto status = getMarketStatus();
 	auto orders = getOrders();
-	buy_dynmult = raise_fall(buy_dynmult, !orders.buy.has_value());
-	sell_dynmult = raise_fall(sell_dynmult, !orders.sell.has_value());
+	buy_dynmult = raise_fall(buy_dynmult, !orders.buy.has_value() && !first_order);
+	sell_dynmult = raise_fall(sell_dynmult, !orders.sell.has_value() && !first_order);
+	first_order = false;
 	minfo.fees = status.new_fees;
 	trades.insert(trades.end(),status.new_trades.begin(), status.new_trades.end());
 	mergeTrades(trades.size() - status.new_trades.size());
@@ -142,6 +143,8 @@ bool MTrader::replaceIfNotSame(std::optional<Order>& orig, Order neworder) {
 	try {
 		if (neworder.price < 0)
 			throw std::runtime_error("Negative price - rejected");
+		if (neworder.size == 0)
+			throw std::runtime_error("Zero size - rejected");
 		neworder.client_id = magic;
 		bool res = false;
 		if (!orig.has_value()) {
@@ -396,7 +399,7 @@ double MTrader::range_min_price(Status st, double &avail_money) {
 
 MTrader::CalcRes MTrader::calc_min_max_range() {
 
-	CalcRes res;
+	CalcRes res {};
 	loadState();
 	Status st = getMarketStatus();
 	res.avail_assets = stock.getBalance(minfo.asset_symbol);
@@ -406,8 +409,10 @@ MTrader::CalcRes MTrader::calc_min_max_range() {
 	res.value = res.assets * res.cur_price;
 	res.money_left = res.avail_money;
 	res.assets_left = res.avail_assets;
-	res.min_price = range_min_price(st, res.money_left);
-	res.max_price = range_max_price(st, res.assets_left);
+	if (st.assetBalance > 1e-20) {
+		res.min_price = range_min_price(st, res.money_left);
+		res.max_price = range_max_price(st, res.assets_left);
+	}
 	return res;
 
 

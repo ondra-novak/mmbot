@@ -14,7 +14,7 @@
 EmulatorAPI::EmulatorAPI(IStockApi &datasrc):datasrc(datasrc)
 	,prevId(std::chrono::duration_cast<std::chrono::milliseconds>(
 				std::chrono::system_clock::now().time_since_epoch()
-				).count())
+				).count()),log("emulator")
 {
 
 }
@@ -22,7 +22,12 @@ EmulatorAPI::EmulatorAPI(IStockApi &datasrc):datasrc(datasrc)
 double EmulatorAPI::getBalance(const std::string_view & symb) {
 
 	if (symb != balance_symb) {
-		balance = datasrc.getBalance(symb);
+		try {
+			balance = datasrc.getBalance(symb);
+		} catch (std::exception &e) {
+			log.warning("Balance is not available, setting to 0 - ", e.what());
+			balance = 0;
+		}
 		balance_symb = symb;
 		return balance;
 	} else {

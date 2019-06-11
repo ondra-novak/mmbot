@@ -233,16 +233,20 @@ std::vector<std::string> Interface::getAllPairs() {
 }
 
 double Interface::getFees(const std::string_view &pair) {
-	auto now = std::chrono::system_clock::now();
-	auto iter = feeMap.find(StrViewA(pair));
-	if (iter == feeMap.end() || iter->second.expiration < now) {
-		Value fresp = cm.request(Proxy::POST, "traderFees", Object("currencyPair", pair));
-		FeeInfo &fi = feeMap[StrViewA(pair)];
-		fi.fee = fresp["maker"].getNumber()*0.01;
-		fi.expiration = now + std::chrono::hours(1);
-		return fi.fee;
+	if (cm.hasKey) {
+		auto now = std::chrono::system_clock::now();
+		auto iter = feeMap.find(StrViewA(pair));
+		if (iter == feeMap.end() || iter->second.expiration < now) {
+			Value fresp = cm.request(Proxy::POST, "traderFees", Object("currencyPair", pair));
+			FeeInfo &fi = feeMap[StrViewA(pair)];
+			fi.fee = fresp["maker"].getNumber()*0.01;
+			fi.expiration = now + std::chrono::hours(1);
+			return fi.fee;
+		} else {
+			return iter->second.fee;
+		}
 	} else {
-		return iter->second.fee;
+		return 0.0012;
 	}
 }
 

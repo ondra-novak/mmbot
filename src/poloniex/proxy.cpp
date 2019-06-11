@@ -27,6 +27,7 @@ Proxy::Proxy(Config config):config(config) {
 	auto now = std::chrono::system_clock::now();
 	std::size_t init_time = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count() - start_time;
 	nonce = init_time * 100;
+	hasKey = !config.privKey.empty() && !config.pubKey.empty();
 
 }
 
@@ -78,6 +79,9 @@ static std::string signData(std::string_view key, std::string_view data) {
 }
 
 json::Value Proxy::private_request(std::string method, json::Value data) {
+	if (!hasKey)
+		throw std::runtime_error("Function requires valid API keys");
+
 	std::ostringstream databld;
 	buildParams({json::Value("command", method), json::Value("nonce", ++nonce)}, databld);
 	buildParams(data, databld);
