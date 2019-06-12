@@ -40,6 +40,8 @@ struct MTrader_Config {
 	unsigned int spread_calc_max_trades;
 
 	bool dry_run;
+	bool internal_balance;
+	bool detect_manual_trades;
 
 	std::size_t start_time;
 
@@ -57,13 +59,19 @@ public:
 
 
 	struct Order: public IStockApi::Order {
-		bool isSimilarTo(const Order &other);
+		bool isSimilarTo(const Order &other, double step);
 		Order(const IStockApi::Order& o):IStockApi::Order(o) {}
 		Order() {}
+		Order(double size, double price){
+			this->size = size;
+			this->price = price;
+		}
 	};
 
 	struct OrderPair {
 		std::optional<Order> buy,sell;
+		static OrderPair fromJSON(json::Value json);
+		json::Value toJSON() const;
 	};
 
 
@@ -142,6 +150,7 @@ protected:
 	IStockApi::MarketInfo minfo;
 	StoragePtr storage;
 	PStatSvc statsvc;
+	OrderPair lastOrders;
 	bool need_load = true;
 	bool first_order = true;
 
@@ -176,6 +185,7 @@ protected:
 	static IStockApi &selectStock(IStockSelector &stock_selector, const Config &conf, std::unique_ptr<IStockApi> &ownedStock);
 	std::size_t testStartTime;
 
+	BalanceState processTrades(const Status &st, bool partial_execution);
 
 	void mergeTrades(std::size_t fromPos);
 

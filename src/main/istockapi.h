@@ -46,11 +46,14 @@ public:
 
 	struct TradeWithBalance: public Trade {
 	public:
+		//total balance (including external assets) after the trade
 		double balance;
 		static constexpr double no_balance = -9e99;
+		//true if the trade was detected as manual trade
+		bool manual_trade;
 
 		TradeWithBalance() {}
-		TradeWithBalance(const Trade &t, double balance):Trade(t),balance(balance) {}
+		TradeWithBalance(const Trade &t, double balance,bool manual):Trade(t),balance(balance),manual_trade(manual) {}
 
 	    static TradeWithBalance fromJSON(json::Value v);
 	    json::Value toJSON() const;
@@ -69,6 +72,10 @@ public:
 		double size;
 		//price
 		double price;
+
+		static Order fromJSON(json::Value v);
+		json::Value toJSON() const;
+
 	};
 
 	///Current asset value

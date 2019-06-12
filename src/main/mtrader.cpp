@@ -51,6 +51,8 @@ MTrader::Config MTrader::load(const ondra_shared::IniConfig::Section& ini, bool 
 	cfg.acm_factor_sell = ini["acm_factor_sell"].getNumber(0)/100.0;
 
 	cfg.dry_run = force_dry_run?true:ini["dry_run"].getBool(false);
+	cfg.internal_balance = cfg.dry_run?true:ini["internal_balance"].getBool(false);
+	cfg.detect_manual_trades = cfg.dry_run?true:ini["detect_manual_trades"].getBool(true);
 
 	cfg.dynmult_raise = ini["dynmult_raise"].getNumber(200);
 	cfg.dynmult_fall = ini["dynmult_fall"].getNumber(1);
@@ -62,9 +64,10 @@ MTrader::Config MTrader::load(const ondra_shared::IniConfig::Section& ini, bool 
 	return cfg;
 }
 
-bool MTrader::Order::isSimilarTo(const Order& other) {
-	return std::fabs(price - other.price) < fabs((price+other.price)/1e8) && size * other.size > 0;
+bool MTrader::Order::isSimilarTo(const Order& other, double step) {
+	return std::fabs(price - other.price) < step && size * other.size > 0;
 }
+
 
 IStockApi &MTrader::selectStock(IStockSelector &stock_selector, const Config &conf,	std::unique_ptr<IStockApi> &ownedStock) {
 	IStockApi *s = stock_selector.getStock(conf.broker);
@@ -101,13 +104,8 @@ int MTrader::perform() {
 	sell_dynmult = raise_fall(sell_dynmult, !orders.sell.has_value() && !first_order);
 	first_order = false;
 	minfo.fees = status.new_fees;
-	for(auto &&t : status.new_trades) {
-		trades.push_back(TWBItem(t, status.assetBalance+cfg.asset_base));
-	}
+	BalanceState lastTrade = processTrades(status, orders.buy.has_value() && orders.sell.has_value());
 	mergeTrades(trades.size() - status.new_trades.size());
-
-	BalanceState lastTrade = getLastTrade(status);
-
 
 	if (status.curStep > status.curPrice*1e-10) {
 		auto buyorder = calculateOrder(-status.curStep*buy_dynmult*cfg.buy_step_mult,
@@ -118,6 +116,7 @@ int MTrader::perform() {
 		replaceIfNotSame(orders.sell, sellorder);
 	}
 	statsvc->reportOrders(orders.buy,orders.sell);
+	lastOrders = orders;
 	if (!orders.buy.has_value()) buy_dynmult = 1;
 	if (!orders.sell.has_value()) sell_dynmult = 1;
 
@@ -163,7 +162,7 @@ bool MTrader::replaceIfNotSame(std::optional<Order>& orig, Order neworder) {
 		if (!orig.has_value()) {
 			neworder.id = stock.placeOrder(cfg.pairsymb, neworder );
 			res = true;
-		} else if (!orig->isSimilarTo(neworder)) {
+		} else if (!orig->isSimilarTo(neworder, minfo.currency_step)) {
 			neworder.id = orig->id;
 			neworder.id = stock.placeOrder(cfg.pairsymb, neworder);
 		} else {
@@ -191,8 +190,6 @@ MTrader::Status MTrader::getMarketStatus() const {
 
 	Status res;
 
-	auto balance = stock.getBalance(minfo.asset_symbol);
-	res.assetBalance = balance;
 
 	auto ticker = stock.getTicker(cfg.pairsymb);
 	res.curPrice = std::sqrt(ticker.ask*ticker.bid);
@@ -204,11 +201,21 @@ MTrader::Status MTrader::getMarketStatus() const {
 	if (!trades.empty()) lastId = trades.back().id;
 	res.new_trades = stock.getTrades(lastId, cfg.start_time, cfg.pairsymb);
 
-	auto step = statsvc->calcSpread(chart,cfg,minfo,res.assetBalance+cfg.asset_base,prev_spread);
+
+	if (cfg.internal_balance) {
+		double balance = trades.empty()?stock.getBalance(minfo.asset_symbol)+cfg.asset_base:trades.back().balance;
+		for (auto &&t:res.new_trades) {
+			balance+=t.eff_size;
+		}
+		res.assetBalance = balance;
+	} else{
+		res.assetBalance = stock.getBalance(minfo.asset_symbol)+ cfg.asset_base;
+	}
+
+
+	auto step = statsvc->calcSpread(chart,cfg,minfo,res.assetBalance,prev_spread);
 	res.curStep = step;
 	prev_spread = step;
-
-
 
 	res.chartItem.time = ticker.time;
 	res.chartItem.bid = ticker.bid;
@@ -376,6 +383,7 @@ void MTrader::loadState() {
 			mergeTrades(0);
 		}
 	}
+	lastOrders = OrderPair::fromJSON(st["orders"]);
 	if (curtest && testStartTime == 0) {
 		testStartTime = std::chrono::duration_cast<std::chrono::milliseconds>(
 				std::chrono::system_clock::now().time_since_epoch()
@@ -424,6 +432,7 @@ void MTrader::saveState() {
 			tr.push_back(itm.toJSON());
 		}
 	}
+	obj.set("orders", lastOrders.toJSON());
 	storage->store(obj);
 }
 
@@ -535,8 +544,13 @@ bool MTrader::eraseTrade(std::string_view id, bool trunc) {
 }
 
 MTrader::BalanceState MTrader::getLastTrade(const Status& st) {
-	if (trades.empty()) return {st.curPrice, st.assetBalance+cfg.asset_base};
-	else return {trades.back().eff_price, st.assetBalance+cfg.asset_base};
+	auto iter = trades.rbegin();
+	while (iter != trades.rend()) {
+		if (!iter->manual_trade) return {iter->eff_price, st.assetBalance};
+		++iter;
+	}
+	if (trades.empty()) return {st.curPrice, st.assetBalance};
+	else return {trades.back().eff_price, st.assetBalance};
 }
 
 void MTrader::backtest() {
@@ -544,10 +558,10 @@ void MTrader::backtest() {
 	decltype(trades) data(std::move(trades));
 	trades.clear();
 	Status st;
-	double bal = data.empty()?0:data[0].balance;
+	double bal = cfg.asset_base;
 	for (auto k : data) {
 		st.curPrice = k.eff_price;
-		st.assetBalance = bal-cfg.asset_base;
+		st.assetBalance = bal;
 		auto lastT = getLastTrade(st);
 		double step = k.eff_price - lastT.price;
 		auto ord = calculateOrder(step,lastT.price,lastT);
@@ -559,4 +573,36 @@ void MTrader::backtest() {
 		trades.push_back(k);
 	}
 	saveState();
+}
+
+MTrader::OrderPair MTrader::OrderPair::fromJSON(json::Value json) {
+	json::Value bj = json["bj"];
+	json::Value sj = json["sj"];
+	std::optional<Order> nullorder;
+	return 	OrderPair {
+		bj.defined()?std::optional<Order>(Order::fromJSON(bj)):nullorder,
+		sj.defined()?std::optional<Order>(Order::fromJSON(sj)):nullorder
+	};
+}
+
+json::Value MTrader::OrderPair::toJSON() const {
+	return json::Object
+			("buy",buy.has_value()?buy->toJSON():json::Value())
+			("sell",sell.has_value()?sell->toJSON():json::Value());
+}
+
+MTrader::BalanceState MTrader::processTrades( const Status &st, bool partial_execution) {
+	BalanceState bs = getLastTrade(st);
+
+	for (auto &&t : st.new_trades) {
+		bool manual = false;
+		if (cfg.detect_manual_trades) {
+			Order fkord(t.size, t.price);
+			manual = !((lastOrders.buy.has_value() && lastOrders.buy->isSimilarTo(fkord, minfo.currency_step))
+					|| (lastOrders.sell.has_value() && lastOrders.sell->isSimilarTo(fkord, minfo.currency_step)));
+		}
+		if (!manual && !partial_execution) bs.price = t.eff_price;
+		trades.push_back(TWBItem(t, st.assetBalance, manual));
+	}
+	return bs;
 }

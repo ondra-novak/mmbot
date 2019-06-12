@@ -114,12 +114,30 @@ void IStockApi::MarketInfo::removeFees(double &assets, double &price) const {
 
 IStockApi::TradeWithBalance IStockApi::TradeWithBalance::fromJSON(json::Value v) {
 	json::Value jbal = v["bal"];
+	json::Value jman = v["man"];
 	double bal = jbal.defined()?jbal.getNumber():no_balance;
-	TradeWithBalance ret(Trade::fromJSON(v),bal);
+	TradeWithBalance ret(Trade::fromJSON(v),bal,jman.getBool());
 	return ret;
 }
 
 json::Value IStockApi::TradeWithBalance::toJSON() const {
 	json::Value v = Trade::toJSON();
-	return v.replace("bal", balance);
+	return json::Object(v)("bal", balance)("man", manual_trade);
+}
+
+IStockApi::Order IStockApi::Order::fromJSON(json::Value v) {
+	return IStockApi::Order {
+		v["id"],
+		v["client_id"],
+		v["size"].getNumber(),
+		v["price"].getNumber()
+	};
+}
+
+json::Value IStockApi::Order::toJSON() const {
+	return json::Object
+			("id",id)
+			("client_id",client_id)
+			("size",size)
+			("price",price);
 }

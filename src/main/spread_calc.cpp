@@ -97,6 +97,7 @@ static double emulateMarket(ondra_shared::StringView<IStatSvc::ChartItem> chart,
 	cfg.dry_run = false;
 	cfg.asset_base = 0;
 	cfg.spread_calc_mins=1;
+	cfg.internal_balance = true;
 
 	class Selector: public IStockSelector {
 	public:
