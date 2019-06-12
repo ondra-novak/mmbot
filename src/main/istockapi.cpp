@@ -111,3 +111,15 @@ void IStockApi::MarketInfo::removeFees(double &assets, double &price) const {
 					else price = price*(1+fees);
 	}
 }
+
+IStockApi::TradeWithBalance IStockApi::TradeWithBalance::fromJSON(json::Value v) {
+	json::Value jbal = v["bal"];
+	double bal = jbal.defined()?jbal.getNumber():no_balance;
+	TradeWithBalance ret(Trade::fromJSON(v),bal);
+	return ret;
+}
+
+json::Value IStockApi::TradeWithBalance::toJSON() const {
+	json::Value v = Trade::toJSON();
+	return v.replace("bal", balance);
+}

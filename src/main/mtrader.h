@@ -32,6 +32,9 @@ struct MTrader_Config {
 	double dynmult_raise;
 	double dynmult_fall;
 
+	double acm_factor_buy;
+	double acm_factor_sell;
+
 	unsigned int spread_calc_mins;
 	unsigned int spread_calc_min_trades;
 	unsigned int spread_calc_max_trades;
@@ -81,8 +84,6 @@ public:
 
 
 	struct Status {
-		double lastTradePrice;
-		double basePrice;
 		double curPrice;
 		double curStep;
 		double assetBalance;
@@ -93,8 +94,24 @@ public:
 
 	Status getMarketStatus() const;
 
-	Order calculateBuyOrder(const Status &status, double dynmult, const std::optional<Order> &curOrder) const;
-	Order calculateSellOrder(const Status& status, double dynmult, const std::optional<Order> &curOrder) const;
+	///Hold balance at given price
+	struct BalanceState {
+		double price;
+		double balance;
+	};
+
+	/// Calculate order
+	/**
+	 * @param step precalculated step (spread), negative for sell, positive for buy
+	 * @param oldPrice price of last trade (reference price)
+	 * @param curPrice current price (center price)
+	 * @param balance current balance (including external)
+	 * @return order
+	 */
+	Order calculateOrder(double step,
+			double curPrice, const BalanceState &lastTrade) const;
+	Order calculateOrderFeeLess(double step,
+			double curPrice, const BalanceState &lastTrade) const;
 
 	const Config &getConfig() {return cfg;}
 
@@ -116,6 +133,7 @@ public:
 	CalcRes calc_min_max_range();
 
 	bool eraseTrade(std::string_view id, bool trunc);
+	void backtest();
 
 protected:
 	std::unique_ptr<IStockApi> ownedStock;
@@ -128,9 +146,10 @@ protected:
 	bool first_order = true;
 
 	using TradeItem = IStockApi::Trade;
+	using TWBItem = IStockApi::TradeWithBalance;
 
 	std::vector<ChartItem> chart;
-	IStockApi::TradeHistory trades;
+	IStockApi::TWBHistory trades;
 
 	double buy_dynmult=1.0;
 	double sell_dynmult=1.0;
@@ -159,6 +178,8 @@ protected:
 
 
 	void mergeTrades(std::size_t fromPos);
+
+	BalanceState getLastTrade(const Status &st);
 
 };
 

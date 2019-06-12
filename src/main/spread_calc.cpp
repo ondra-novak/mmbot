@@ -68,7 +68,7 @@ class EmulStatSvc: public IStatSvc {
 public:
 	EmulStatSvc(double spread):spread(spread) {}
 
-	virtual void reportTrades(double, ondra_shared::StringView<IStockApi::Trade> trades) {}
+	virtual void reportTrades(ondra_shared::StringView<IStockApi::TradeWithBalance> trades) {}
 	virtual void reportOrders(const std::optional<IStockApi::Order> &,
 							  const std::optional<IStockApi::Order> &) {}
 	virtual void reportPrice(double ) {}

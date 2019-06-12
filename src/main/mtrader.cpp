@@ -8,6 +8,8 @@
 #include <shared/logOutput.h>
 #include <imtjson/object.h>
 #include <imtjson/array.h>
+#include <numeric>
+
 #include "emulator.h"
 #include "sgn.h"
 
@@ -44,6 +46,9 @@ MTrader::Config MTrader::load(const ondra_shared::IniConfig::Section& ini, bool 
 	cfg.buy_step_mult = ini["buy_step_mult"].getNumber(1.0);
 	cfg.sell_step_mult = ini["sell_step_mult"].getNumber(1.0);
 	cfg.asset_base = ini["external_assets"].getNumber(0);
+
+	cfg.acm_factor_buy = ini["acm_factor_buy"].getNumber(0)/100.0;
+	cfg.acm_factor_sell = ini["acm_factor_sell"].getNumber(0)/100.0;
 
 	cfg.dry_run = force_dry_run?true:ini["dry_run"].getBool(false);
 
@@ -89,18 +94,26 @@ int MTrader::perform() {
 		need_load = false;
 	}
 
+
 	auto status = getMarketStatus();
 	auto orders = getOrders();
 	buy_dynmult = raise_fall(buy_dynmult, !orders.buy.has_value() && !first_order);
 	sell_dynmult = raise_fall(sell_dynmult, !orders.sell.has_value() && !first_order);
 	first_order = false;
 	minfo.fees = status.new_fees;
-	trades.insert(trades.end(),status.new_trades.begin(), status.new_trades.end());
+	for(auto &&t : status.new_trades) {
+		trades.push_back(TWBItem(t, status.assetBalance+cfg.asset_base));
+	}
 	mergeTrades(trades.size() - status.new_trades.size());
 
+	BalanceState lastTrade = getLastTrade(status);
+
+
 	if (status.curStep > status.curPrice*1e-10) {
-		auto buyorder = calculateBuyOrder(status,buy_dynmult,orders.buy);
-		auto sellorder = calculateSellOrder(status,sell_dynmult,orders.sell);
+		auto buyorder = calculateOrder(-status.curStep*buy_dynmult*cfg.buy_step_mult,
+									   status.curPrice, lastTrade);
+		auto sellorder = calculateOrder(status.curStep*sell_dynmult*cfg.sell_step_mult,
+				   	   	   	   	   	   status.curPrice, lastTrade);
 		replaceIfNotSame(orders.buy, buyorder);
 		replaceIfNotSame(orders.sell, sellorder);
 	}
@@ -108,7 +121,7 @@ int MTrader::perform() {
 	if (!orders.buy.has_value()) buy_dynmult = 1;
 	if (!orders.sell.has_value()) sell_dynmult = 1;
 
-	statsvc->reportTrades(status.assetBalance+cfg.asset_base, trades);
+	statsvc->reportTrades(trades);
 	statsvc->reportPrice(status.curPrice);
 
 	chart.push_back(status.chartItem);
@@ -191,15 +204,6 @@ MTrader::Status MTrader::getMarketStatus() const {
 	if (!trades.empty()) lastId = trades.back().id;
 	res.new_trades = stock.getTrades(lastId, cfg.start_time, cfg.pairsymb);
 
-	const IStockApi::TradeHistory &lasttr = res.new_trades.empty()?trades:res.new_trades;
-	if (lasttr.empty()) res.lastTradePrice = res.basePrice = initial_price;
-	else {
-		auto &t = lasttr.back();
-		res.lastTradePrice = t.price;
-		res.basePrice = t.eff_price;
-	}
-
-
 	auto step = statsvc->calcSpread(chart,cfg,minfo,res.assetBalance+cfg.asset_base,prev_spread);
 	res.curStep = step;
 	prev_spread = step;
@@ -216,11 +220,64 @@ MTrader::Status MTrader::getMarketStatus() const {
 }
 
 
+MTrader::Order MTrader::calculateOrderFeeLess(double step,
+		double curPrice, const BalanceState &lastTrade) const {
+	Order order;
+	// calculate new price for the order
+	double newPrice = lastTrade.price + step;
+	double fact;
+	double mult;
+
+	if (step < 0) {
+		//if price is lower than old, check whether current price is above
+		//otherwise lower the price more
+		if (newPrice > curPrice) newPrice = curPrice;
+		fact = cfg.acm_factor_buy;
+		mult = cfg.buy_mult;
+	} else {
+		//if price is higher then old, check whether current price is below
+		//otherwise highter the newPrice more
+
+		if (newPrice < curPrice) newPrice = curPrice;
+		fact = cfg.acm_factor_sell;
+		mult = cfg.sell_mult;
+	}
+
+	// calculate new assets for the new price
+	double newAssets = lastTrade.balance * sqrt(lastTrade.price/newPrice) * mult;
+	// express the difference
+	double size = newAssets - lastTrade.balance;
+	// calculate extra money available after this trade
+	double extra = (lastTrade.price*lastTrade.balance-newPrice*size-lastTrade.balance*sqrt(lastTrade.price*newPrice))/newPrice;
+	// use that extra money to additional trade specified as factor in the config
+	double extra_c = extra*fact;
+
+	//fill order
+	order.size = size+extra_c;
+	order.price = newPrice;
+
+	return order;
+
+}
+
+MTrader::Order MTrader::calculateOrder(double step,
+		double curPrice, const BalanceState &lastTrade) const {
+
+	Order order(calculateOrderFeeLess(step,curPrice,lastTrade));
+	//apply fees
+	minfo.addFees(order.size, order.price);
+	//order here
+	return order;
+
+}
+
+
+/*
 
 MTrader::Order MTrader::calculateSellOrder(const Status& status, double dynmult, const std::optional<Order> &curOrder) const {
 
 	Order order;
-	double basePrice = status.basePrice;
+	double curPrice = status.basePrice;
 	double step = status.curStep*cfg.buy_step_mult*dynmult;
 
 	double newPrice = basePrice + step;
@@ -259,7 +316,7 @@ MTrader::Order MTrader::calculateBuyOrder(const Status& status, double dynmult, 
 	order.price = newPrice;
 	return order;
 }
-
+*/
 
 double MTrader::adjValue(double sz, double step) {
 	return std::round(sz/step)*step;
@@ -276,6 +333,8 @@ void MTrader::loadState() {
 	bool wastest = false;
 
 	auto curtest = stock.isTest();
+
+	bool recalc_trades = false;
 
 	if (st.defined()) {
 		json::Value tst = st["testStartTime"];
@@ -305,11 +364,12 @@ void MTrader::loadState() {
 			if (trSect.defined()) {
 				trades.clear();
 				for (json::Value v: trSect) {
-					TradeItem itm = TradeItem::fromJSON(v);
+					TWBItem itm = TWBItem::fromJSON(v);
 					if (wastest && !curtest && itm.time > testStartTime ) {
 						continue;
 					} else {
 						trades.push_back(itm);
+						recalc_trades = recalc_trades || itm.balance == TWBItem::no_balance;
 					}
 				}
 			}
@@ -320,6 +380,18 @@ void MTrader::loadState() {
 		testStartTime = std::chrono::duration_cast<std::chrono::milliseconds>(
 				std::chrono::system_clock::now().time_since_epoch()
 				).count();
+	}
+
+	if (recalc_trades) {
+		double endBal = stock.getBalance(cfg.pairsymb) + cfg.asset_base;
+		double chng = std::accumulate(trades.begin(), trades.end(),0.0,[](auto &&a, auto &&b) {
+			return a + b.eff_size;
+		});
+		double begBal = endBal-chng;
+		for (auto &&t:trades) {
+			if (t.balance < 0) t.balance = begBal+t.eff_size;
+			begBal = t.balance;
+		}
 	}
 }
 
@@ -355,7 +427,7 @@ void MTrader::saveState() {
 	storage->store(obj);
 }
 
-
+/*
 double MTrader::range_max_price(Status st, double &avail_assets) {
 	std::optional<Order> empty;
 	double budget = avail_assets;
@@ -396,7 +468,7 @@ double MTrader::range_min_price(Status st, double &avail_money) {
 	return st.basePrice;
 
 }
-
+*/
 MTrader::CalcRes MTrader::calc_min_max_range() {
 
 	CalcRes res {};
@@ -409,10 +481,10 @@ MTrader::CalcRes MTrader::calc_min_max_range() {
 	res.value = res.assets * res.cur_price;
 	res.money_left = res.avail_money;
 	res.assets_left = res.avail_assets;
-	if (st.assetBalance > 1e-20) {
+/*	if (st.assetBalance > 1e-20) {
 		res.min_price = range_min_price(st, res.money_left);
 		res.max_price = range_max_price(st, res.assets_left);
-	}
+	}*/
 	return res;
 
 
@@ -429,6 +501,7 @@ void MTrader::mergeTrades(std::size_t fromPos) {
 	while (rd != end) {
 		if (rd->price == wr->price && rd->size * wr->size > 0) {
 			wr->size+=rd->size;
+			wr->balance = rd->balance;
 			wr->eff_price = rd->eff_price;
 			wr->eff_size+=rd->eff_size;
 			wr->time = rd->time;
@@ -459,4 +532,31 @@ bool MTrader::eraseTrade(std::string_view id, bool trunc) {
 	}
 	saveState();
 	return true;
+}
+
+MTrader::BalanceState MTrader::getLastTrade(const Status& st) {
+	if (trades.empty()) return {st.curPrice, st.assetBalance+cfg.asset_base};
+	else return {trades.back().eff_price, st.assetBalance+cfg.asset_base};
+}
+
+void MTrader::backtest() {
+	if (need_load) loadState();
+	decltype(trades) data(std::move(trades));
+	trades.clear();
+	Status st;
+	double bal = data.empty()?0:data[0].balance;
+	for (auto k : data) {
+		st.curPrice = k.eff_price;
+		st.assetBalance = bal-cfg.asset_base;
+		auto lastT = getLastTrade(st);
+		double step = k.eff_price - lastT.price;
+		auto ord = calculateOrder(step,lastT.price,lastT);
+		k.size = k.eff_size = ord.size;
+		k.price = k.eff_price = ord.price;
+		minfo.removeFees(k.eff_size, k.eff_price);
+		k.balance = bal + k.eff_size;
+		bal = k.balance;
+		trades.push_back(k);
+	}
+	saveState();
 }

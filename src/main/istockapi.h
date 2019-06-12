@@ -44,11 +44,19 @@ public:
 	using TradeHistory = std::vector<Trade>;
 
 
-	class TradeWithBalance: Trade {
+	struct TradeWithBalance: public Trade {
+	public:
 		double balance;
+		static constexpr double no_balance = -9e99;
 
+		TradeWithBalance() {}
 		TradeWithBalance(const Trade &t, double balance):Trade(t),balance(balance) {}
-	};
+
+	    static TradeWithBalance fromJSON(json::Value v);
+	    json::Value toJSON() const;
+};
+
+	using TWBHistory = std::vector<TradeWithBalance>;
 
 
 	///Order

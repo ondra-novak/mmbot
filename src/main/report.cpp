@@ -65,7 +65,11 @@ void Report::setOrders(StrViewA symb, const std::optional<IStockApi::Order> &buy
 
 }
 
-void Report::setTrades(StrViewA symb, double current_balance, StringView<IStockApi::Trade> trades) {
+inline double pow2(double x) {
+	return x*x;
+}
+
+void Report::setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> trades) {
 
 	using ondra_shared::range;
 
@@ -75,42 +79,55 @@ void Report::setTrades(StrViewA symb, double current_balance, StringView<IStockA
 
 	if (!trades.empty()) {
 
-		auto trange = range(trades.begin()+1, trades.end());
-
-		double delta_assets = 0;
-		for (const IStockApi::Trade &t : trange) delta_assets+= t.eff_size;
-		double init_assets = current_balance - delta_assets;
-
-
 		std::size_t last = trades[trades.length-1].time;
 		std::size_t first = last - interval_in_ms;
 
 
-		double last_price = trades[0].eff_price;
-		double pl = 0;
-		double assets = 0;
-		double volsum = 0;
-		double init_price = trades[0].eff_price;
-		double init_fiat = init_price * init_assets;
-//		double init_val = init_fiat + init_price*init_assets;
+		auto tend = trades.end();
+		auto iter = trades.begin();
+		auto &&t = *iter;
+
+		//guess initial balance by substracting size
+		double init_balance = (t.balance-t.eff_size);
+		//guess initial fiat to achieve balance
+		double init_fiat = (t.balance+t.eff_size)*t.eff_price;
+		//so the first trade doesn't change the value of portfolio
+//		double init_value = init_balance*t.eff_price+init_fiat;
+		//
+		double init_price = t.eff_price;
+
+		double prev_balance = init_balance;
+		double prev_price = init_price;
+		double prev_fiat = init_fiat;
+		double ass_sum = 0;
+		double cur_sum = 0;
+		double cur_fromPos = 0;
+		double cur_fromHodl = 0;
+//		double prev_value = init_value;
+		double norm = 0;
+
+		while (iter != tend) {
+
+			auto &&t = *iter;
+
+			double gain = (t.eff_price - prev_price)*ass_sum ;
+
+			cur_fromPos += gain;
+			cur_fromHodl += (t.eff_price - prev_price)*prev_balance;
+			ass_sum += t.eff_size;
+			cur_sum += t.eff_price;
+
+			double b = prev_balance+t.eff_size;
+			double f = prev_fiat-t.eff_size*t.eff_price;
+
+//			double value = b*t.eff_price + f;
+			norm = f - b*t.eff_price;
 
 
-		for (const IStockApi::Trade &t : trange) {
-
-			double volume = t.eff_price*t.eff_size ;
-			double gain = (t.eff_price - last_price)*assets ;
-//			double prev_assets = assets;
-
-			pl += gain;
-			last_price = t.eff_price;
-			assets += t.eff_size;
-			volsum -= volume;
-
-			double vbal = 2*init_assets*sqrt(init_price * t.eff_price);
-			double vcur = (init_assets + assets) * t.eff_price + init_fiat + volsum;
-			double norm = vcur - vbal;
-
-			double rel = assets * t.eff_price + volsum;
+			prev_balance = t.balance;
+//			prev_value = value;
+			prev_price = t.eff_price;
+			prev_fiat = f;
 
 			if (t.time >= first) {
 				records.push_back(Object
@@ -119,17 +136,17 @@ void Report::setTrades(StrViewA symb, double current_balance, StringView<IStockA
 						("achg", t.eff_size)
 						("gain", gain)
 						("norm", norm)
-						("rel", rel)
-						("pos", assets)
-						("pl", pl)
+						("pos", ass_sum)
+						("pl", cur_fromPos)
+						("hodl", cur_fromHodl)
 						("price", t.price)
 						("volume", -t.eff_price*t.eff_size)
 				);
 			}
 
+
+			++iter;
 		}
-
-
 
 	}
 	tradeMap[symb] = records;

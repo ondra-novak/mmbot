@@ -48,8 +48,8 @@ public:
 							  const std::optional<IStockApi::Order> &sell) override {
 		rpt.setOrders(name, buy, sell);
 	}
-	virtual void reportTrades(double cur_balance, ondra_shared::StringView<IStockApi::Trade> trades) {
-		rpt.setTrades(name,cur_balance, trades);
+	virtual void reportTrades(ondra_shared::StringView<IStockApi::TradeWithBalance> trades) {
+		rpt.setTrades(name,trades);
 	}
 
 	virtual void setInfo(StrViewA title,StrViewA asst,StrViewA curc, bool emulated) {
@@ -254,6 +254,31 @@ static int eraseTradeHandler(Worker &wrk, simpleServer::ArgList args, simpleServ
 	}
 }
 
+
+static int backtest(Worker &wrk, simpleServer::ArgList args, simpleServer::Stream stream, bool trunc) {
+	if (args.length<1) {
+		stream << "Needsd arguments: <trader_ident>\n";
+		return 1;
+	} else {
+		auto iter = std::find_if(traders.begin(), traders.end(),[&](const NamedMTrader &tr) {
+			return StrViewA(tr.ident) == args[0];
+		});
+		if (iter == traders.end()) {
+			stream << "Trader idenitification is invalid: " << args[0] << "\n";
+			return 2;
+		} else {
+			NamedMTrader  &trader = *iter;
+			ondra_shared::Countdown wt(1);
+			wrk >> [&] {
+				trader.backtest();
+				wt.dec();
+			};
+			wt.wait();
+			return 0;
+		}
+	}
+}
+
 int main(int argc, char **argv) {
 
 	auto refdir = std::experimental::filesystem::current_path();
@@ -435,6 +460,9 @@ int main(int argc, char **argv) {
 					});
 					cntr.addCommand("resync_trades_from", [&](simpleServer::ArgList args, simpleServer::Stream stream){
 						return eraseTradeHandler(wrk, args,stream,true);
+					});
+					cntr.addCommand("backtest", [&](simpleServer::ArgList args, simpleServer::Stream stream){
+						return backtest(wrk, args,stream,true);
 					});
 					std::size_t id = 0;
 					cntr.addCommand("run",[&](simpleServer::ArgList, simpleServer::Stream) {
