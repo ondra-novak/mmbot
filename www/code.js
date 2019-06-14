@@ -312,6 +312,12 @@ function app_start(){
 			}
 			tr.addEventListener("mousedown", hold_handler);
 			tr.addEventListener("touchstart", hold_handler);
+			tr.addEventListener("touchend", function() {
+				if (hold_tm) {
+					clearTimeout(hold_tm);
+					hold_tm = null;
+				}				
+			})
 			tr.addEventListener("click", function() {
 				if (hold_tm) {
 					clearTimeout(hold_tm);
