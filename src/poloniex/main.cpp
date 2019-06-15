@@ -93,7 +93,7 @@ Interface::MethodMap Interface::methodMap = {
 		 balanceCache = cm.private_request("returnCompleteBalances",json::Value());
 	 }
 	 Value v =balanceCache[req.getString()];
-	 if (v.defined()) return v["available"].getNumber();
+	 if (v.defined()) return v["available"].getNumber()+v["onOrders"].getNumber();
 	 else throw std::runtime_error("No such symbol");
 }
 

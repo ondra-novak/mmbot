@@ -392,7 +392,7 @@ void MTrader::loadState() {
 				).count();
 	}
 	if (recalc_trades) {
-			double endBal = stock.getBalance(cfg.pairsymb) + cfg.external_assets;
+			double endBal = stock.getBalance(minfo.asset_symbol) + cfg.external_assets;
 		double chng = std::accumulate(trades.begin(), trades.end(),0.0,[](auto &&a, auto &&b) {
 			return a + b.eff_size;
 		});
@@ -404,7 +404,7 @@ void MTrader::loadState() {
 	}
 	if (internal_balance == 0 && cfg.internal_balance) {
 		if (!trades.empty()) internal_balance = trades.back().balance- cfg.external_assets;
-		else internal_balance = stock.getBalance(cfg.pairsymb);
+		else internal_balance = stock.getBalance(minfo.asset_symbol);
 	}
 }
 
@@ -488,7 +488,8 @@ MTrader::CalcRes MTrader::calc_min_max_range() {
 
 	CalcRes res {};
 	loadState();
-//	Status st = getMarketStatus();
+
+
 	res.avail_assets = stock.getBalance(minfo.asset_symbol);
 	res.avail_money = stock.getBalance(minfo.currency_symbol);
 	res.cur_price = stock.getTicker(cfg.pairsymb).last;
