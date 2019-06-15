@@ -27,7 +27,7 @@ struct MTrader_Config {
 	double sell_mult;
 	double buy_step_mult;
 	double sell_step_mult;
-	double asset_base;
+	double external_assets;
 
 	double dynmult_raise;
 	double dynmult_fall;
@@ -133,8 +133,6 @@ public:
 		double min_price;
 		double max_price;
 		double cur_price;
-		double money_left;
-		double assets_left;
 
 	};
 
@@ -162,8 +160,9 @@ protected:
 
 	double buy_dynmult=1.0;
 	double sell_dynmult=1.0;
+	double internal_balance = 0;
 	mutable double prev_spread=0;
-	mutable double initial_price = 0;
+
 
 	static double adjValue(double sz, double step);
 	static double adjValueCeil(double sz, double step);

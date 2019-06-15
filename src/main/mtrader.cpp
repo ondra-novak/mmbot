@@ -24,8 +24,10 @@ MTrader::MTrader(IStockSelector &stock_selector,
 ,cfg(std::move(config))
 ,minfo(stock.getMarketInfo(cfg.pairsymb))
 ,storage(std::move(storage))
-,statsvc(std::move(statsvc)) {
+,statsvc(std::move(statsvc))
+{
 	this->statsvc->setInfo(cfg.title, minfo.asset_symbol, minfo.currency_symbol, stock.isTest());
+
 
 }
 
@@ -45,10 +47,10 @@ MTrader::Config MTrader::load(const ondra_shared::IniConfig::Section& ini, bool 
 	cfg.sell_mult = ini["sell_mult"].getNumber(1.0);
 	cfg.buy_step_mult = ini["buy_step_mult"].getNumber(1.0);
 	cfg.sell_step_mult = ini["sell_step_mult"].getNumber(1.0);
-	cfg.asset_base = ini["external_assets"].getNumber(0);
+	cfg.external_assets = ini["external_assets"].getNumber(0);
 
-	cfg.acm_factor_buy = ini["acm_factor_buy"].getNumber(0)/100.0;
-	cfg.acm_factor_sell = ini["acm_factor_sell"].getNumber(0)/100.0;
+	cfg.acm_factor_buy = ini["acm_factor_buy"].getNumber(0);
+	cfg.acm_factor_sell = ini["acm_factor_sell"].getNumber(1);
 
 	cfg.dry_run = force_dry_run?true:ini["dry_run"].getBool(false);
 	cfg.internal_balance = cfg.dry_run?true:ini["internal_balance"].getBool(false);
@@ -194,7 +196,7 @@ MTrader::Status MTrader::getMarketStatus() const {
 	auto ticker = stock.getTicker(cfg.pairsymb);
 	res.curPrice = std::sqrt(ticker.ask*ticker.bid);
 
-	if (!initial_price) initial_price = res.curPrice;
+//	if (!initial_price) initial_price = res.curPrice;
 
 	json::Value lastId;
 
@@ -203,14 +205,13 @@ MTrader::Status MTrader::getMarketStatus() const {
 
 
 	if (cfg.internal_balance) {
-		double balance = trades.empty()?stock.getBalance(minfo.asset_symbol)+cfg.asset_base:trades.back().balance;
-		for (auto &&t:res.new_trades) {
-			balance+=t.eff_size;
-		}
-		res.assetBalance = balance;
+		double balance = 0;
+		for (auto &&t:res.new_trades) balance+=t.eff_size;
+		res.assetBalance = internal_balance + balance + cfg.external_assets;
 	} else{
-		res.assetBalance = stock.getBalance(minfo.asset_symbol)+ cfg.asset_base;
+		res.assetBalance = stock.getBalance(minfo.asset_symbol)+ cfg.external_assets;
 	}
+
 
 
 	auto step = statsvc->calcSpread(chart,cfg,minfo,res.assetBalance,prev_spread);
@@ -354,6 +355,7 @@ void MTrader::loadState() {
 				sell_dynmult = state["sell_dynmult"].getNumber();
 			}
 			prev_spread = state["spread"].getNumber();
+			internal_balance = state["internal_balance"].getNumber();
 		}
 		auto chartSect = st["chart"];
 		if (chartSect.defined()) {
@@ -389,9 +391,8 @@ void MTrader::loadState() {
 				std::chrono::system_clock::now().time_since_epoch()
 				).count();
 	}
-
 	if (recalc_trades) {
-		double endBal = stock.getBalance(cfg.pairsymb) + cfg.asset_base;
+			double endBal = stock.getBalance(cfg.pairsymb) + cfg.external_assets;
 		double chng = std::accumulate(trades.begin(), trades.end(),0.0,[](auto &&a, auto &&b) {
 			return a + b.eff_size;
 		});
@@ -400,6 +401,10 @@ void MTrader::loadState() {
 			if (t.balance < 0) t.balance = begBal+t.eff_size;
 			begBal = t.balance;
 		}
+	}
+	if (internal_balance == 0 && cfg.internal_balance) {
+		if (!trades.empty()) internal_balance = trades.back().balance- cfg.external_assets;
+		else internal_balance = stock.getBalance(cfg.pairsymb);
 	}
 }
 
@@ -417,6 +422,7 @@ void MTrader::saveState() {
 		st.set("buy_dynmult", buy_dynmult);
 		st.set("sell_dynmult", sell_dynmult);
 		st.set("spread", prev_spread);
+		st.set("internal_balance", internal_balance);
 	}
 	{
 		auto ch = obj.array("chart");
@@ -482,18 +488,15 @@ MTrader::CalcRes MTrader::calc_min_max_range() {
 
 	CalcRes res {};
 	loadState();
-	Status st = getMarketStatus();
+//	Status st = getMarketStatus();
 	res.avail_assets = stock.getBalance(minfo.asset_symbol);
 	res.avail_money = stock.getBalance(minfo.currency_symbol);
 	res.cur_price = stock.getTicker(cfg.pairsymb).last;
-	res.assets = res.avail_assets+cfg.asset_base;
+	res.assets = res.avail_assets+cfg.external_assets;
 	res.value = res.assets * res.cur_price;
-	res.money_left = res.avail_money;
-	res.assets_left = res.avail_assets;
-/*	if (st.assetBalance > 1e-20) {
-		res.min_price = range_min_price(st, res.money_left);
-		res.max_price = range_max_price(st, res.assets_left);
-	}*/
+	res.max_price = pow2((res.assets * sqrt(res.cur_price))/(res.assets -res.avail_assets));
+	double S = res.value - res.avail_money;
+	res.min_price = S<=0?0:pow2(S/(res.assets*sqrt(res.cur_price)));
 	return res;
 
 
@@ -558,7 +561,7 @@ void MTrader::backtest() {
 	decltype(trades) data(std::move(trades));
 	trades.clear();
 	Status st;
-	double bal = cfg.asset_base;
+	double bal = cfg.external_assets;
 	for (auto k : data) {
 		st.curPrice = k.eff_price;
 		st.assetBalance = bal;
@@ -602,6 +605,15 @@ MTrader::BalanceState MTrader::processTrades( const Status &st, bool partial_exe
 					|| (lastOrders.sell.has_value() && lastOrders.sell->isSimilarTo(fkord, minfo.currency_step)));
 		}
 		if (!manual && !partial_execution) bs.price = t.eff_price;
+
+		if (cfg.internal_balance) {
+			if (!manual) {
+				internal_balance += t.eff_size;
+			}
+		} else {
+			internal_balance = st.assetBalance-cfg.external_assets;
+		}
+
 		trades.push_back(TWBItem(t, st.assetBalance, manual));
 	}
 	return bs;

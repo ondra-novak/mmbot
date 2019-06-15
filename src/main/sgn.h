@@ -14,4 +14,8 @@ template <typename T> int sgn(T val) {
     return (T(0) < val) - (val < T(0));
 }
 
+inline double pow2(double x) {
+	return x*x;
+}
+
 #endif /* SRC_MAIN_SGN_H_ */

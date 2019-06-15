@@ -65,9 +65,6 @@ void Report::setOrders(StrViewA symb, const std::optional<IStockApi::Order> &buy
 
 }
 
-inline double pow2(double x) {
-	return x*x;
-}
 
 void Report::setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> trades) {
 
@@ -89,8 +86,6 @@ void Report::setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> tr
 
 		//guess initial balance by substracting size
 		double init_balance = (t.balance-t.eff_size);
-		//guess initial fiat to achieve balance
-		double init_fiat = (t.balance+t.eff_size)*t.eff_price;
 		//so the first trade doesn't change the value of portfolio
 //		double init_value = init_balance*t.eff_price+init_fiat;
 		//
@@ -98,36 +93,35 @@ void Report::setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> tr
 
 		double prev_balance = init_balance;
 		double prev_price = init_price;
-		double prev_fiat = init_fiat;
 		double ass_sum = 0;
 		double cur_sum = 0;
 		double cur_fromPos = 0;
-		double cur_fromHodl = 0;
-//		double prev_value = init_value;
-		double norm = 0;
+		double norm_sum_ass = 0;
+		double norm_sum_cur = 0;
 
 		while (iter != tend) {
 
 			auto &&t = *iter;
 
 			double gain = (t.eff_price - prev_price)*ass_sum ;
+			double earn = -t.eff_price * t.eff_size;
 
-			cur_fromPos += gain;
-			cur_fromHodl += (t.eff_price - prev_price)*prev_balance;
-			ass_sum += t.eff_size;
-			cur_sum += t.eff_price;
 
-			double b = prev_balance+t.eff_size;
-			double f = prev_fiat-t.eff_size*t.eff_price;
+			double calcbal = prev_balance * sqrt(prev_price/t.eff_price);
+			double asschg = calcbal - prev_balance;
+			double curchg = calcbal * t.eff_price -  prev_balance * prev_price;
+			if (iter != trades.begin() && !iter->manual_trade) {
+				cur_fromPos += gain;
+				ass_sum += t.eff_size;
+				cur_sum += earn;
 
-//			double value = b*t.eff_price + f;
-			norm = f - b*t.eff_price;
-
+				norm_sum_ass += t.eff_size - asschg;
+				norm_sum_cur += earn - curchg;
+			}
+			double norm = norm_sum_ass * t.eff_price + norm_sum_cur;
 
 			prev_balance = t.balance;
-//			prev_value = value;
 			prev_price = t.eff_price;
-			prev_fiat = f;
 
 			if (t.time >= first) {
 				records.push_back(Object
@@ -136,9 +130,9 @@ void Report::setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> tr
 						("achg", t.eff_size)
 						("gain", gain)
 						("norm", norm)
+						("nacum", norm_sum_ass)
 						("pos", ass_sum)
 						("pl", cur_fromPos)
-						("hodl", cur_fromHodl)
 						("price", t.price)
 						("volume", -t.eff_price*t.eff_size)
 				);

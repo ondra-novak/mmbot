@@ -417,9 +417,7 @@ int main(int argc, char **argv) {
 											<< "\tAvailable assets:\t" << result.avail_assets << " " << ass << std::endl
 											<< "\tAvailable money:\t" << result.avail_money << " " << curs << std::endl
 											<< "\tMin price:\t\t" << result.min_price << " " << curs << std::endl
-											<< "\t- Money left:\t\t" << result.money_left << " " << curs << std::endl
-											<< "\tMax price:\t\t" << result.max_price << " " << curs << std::endl
-											<< "\t- Assets left:\t\t" << result.assets_left<< " " << ass << std::endl;
+											<< "\tMax price:\t\t" << result.max_price << " " << curs << std::endl;
 									out << buff.str();
 									out.flush();
 

@@ -36,7 +36,7 @@ public:
 	virtual std::vector<std::string> getAllPairs() override {return {};}
 
 	double getScore() const {
-		return currency+sqrt(chart[0].bid*chart[0].ask)*(balance-initial_balance);
+		return currency+sqrt(chart[0].bid*chart[0].ask)*balance;
 	}
 	unsigned int getTradeCount() const {
 		return std::min(buys,sells);
@@ -95,9 +95,8 @@ static double emulateMarket(ondra_shared::StringView<IStatSvc::ChartItem> chart,
 
 	MTrader_Config cfg(config);
 	cfg.dry_run = false;
-	cfg.asset_base = 0;
 	cfg.spread_calc_mins=1;
-	cfg.internal_balance = true;
+	cfg.internal_balance = false;
 
 	class Selector: public IStockSelector {
 	public:
