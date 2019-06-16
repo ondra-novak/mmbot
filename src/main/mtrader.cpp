@@ -639,9 +639,9 @@ MTrader::BalanceState MTrader::processTrades( const Status &st, bool partial_exe
 		sell_trade = sell_trade || t.eff_size < 0;
 
 		trades.push_back(TWBItem(t, st.assetBalance, manual));
+		last_trade_partial = partial_execution;
 	}
 	this->buy_dynmult= raise_fall(this->buy_dynmult, buy_trade);
 	this->sell_dynmult= raise_fall(this->sell_dynmult, sell_trade);
-	last_trade_partial = partial_execution;
 	return bs;
 }
