@@ -54,7 +54,7 @@ MTrader::Config MTrader::load(const ondra_shared::IniConfig::Section& ini, bool 
 
 	cfg.dry_run = force_dry_run?true:ini["dry_run"].getBool(false);
 	cfg.internal_balance = cfg.dry_run?true:ini["internal_balance"].getBool(false);
-	cfg.detect_manual_trades = cfg.dry_run?true:ini["detect_manual_trades"].getBool(true);
+	cfg.detect_manual_trades = cfg.dry_run?true:ini["detect_manual_trades"].getBool(false);
 
 	cfg.dynmult_raise = ini["dynmult_raise"].getNumber(200);
 	cfg.dynmult_fall = ini["dynmult_fall"].getNumber(1);
@@ -100,13 +100,11 @@ int MTrader::perform() {
 	}
 
 
-	auto status = getMarketStatus();
 	auto orders = getOrders();
-	buy_dynmult = raise_fall(buy_dynmult, !orders.buy.has_value() && !first_order);
-	sell_dynmult = raise_fall(sell_dynmult, !orders.sell.has_value() && !first_order);
-	first_order = false;
+	auto status = getMarketStatus();
 	minfo.fees = status.new_fees;
-	BalanceState lastTrade = processTrades(status, orders.buy.has_value() && orders.sell.has_value());
+	BalanceState lastTrade = processTrades(status, orders.buy.has_value() && orders.sell.has_value(), first_order);
+	first_order = false;
 	mergeTrades(trades.size() - status.new_trades.size());
 
 	if (status.curStep > status.curPrice*1e-10) {
@@ -118,9 +116,8 @@ int MTrader::perform() {
 		replaceIfNotSame(orders.sell, sellorder);
 	}
 	statsvc->reportOrders(orders.buy,orders.sell);
-	lastOrders = orders;
-	if (!orders.buy.has_value()) buy_dynmult = 1;
-	if (!orders.sell.has_value()) sell_dynmult = 1;
+	std::swap(lastOrders[0],lastOrders[1]);
+	lastOrders[0] = orders;
 
 	statsvc->reportTrades(trades);
 	statsvc->reportPrice(status.curPrice);
@@ -143,8 +140,14 @@ MTrader::OrderPair MTrader::getOrders() {
 		if (x.client_id == magic) {
 			Order o(x);
 			if (o.size<0) {
+				if (ret.sell.has_value()) {
+					ondra_shared::logWarning("Multiple sell orders");
+				}
 				ret.sell = o;
 			} else {
+				if (ret.buy.has_value()) {
+					ondra_shared::logWarning("Multiple buy orders");
+				}
 				ret.buy = o;
 			}
 		}
@@ -193,8 +196,6 @@ MTrader::Status MTrader::getMarketStatus() const {
 	Status res;
 
 
-	auto ticker = stock.getTicker(cfg.pairsymb);
-	res.curPrice = std::sqrt(ticker.ask*ticker.bid);
 
 //	if (!initial_price) initial_price = res.curPrice;
 
@@ -218,11 +219,15 @@ MTrader::Status MTrader::getMarketStatus() const {
 	res.curStep = step;
 	prev_spread = step;
 
+
+	res.new_fees = stock.getFees(cfg.pairsymb);
+
+	auto ticker = stock.getTicker(cfg.pairsymb);
+	res.curPrice = std::sqrt(ticker.ask*ticker.bid);
+
 	res.chartItem.time = ticker.time;
 	res.chartItem.bid = ticker.bid;
 	res.chartItem.ask = ticker.ask;
-
-	res.new_fees = stock.getFees(cfg.pairsymb);
 
 	return res;
 }
@@ -385,7 +390,8 @@ void MTrader::loadState() {
 			mergeTrades(0);
 		}
 	}
-	lastOrders = OrderPair::fromJSON(st["orders"]);
+	lastOrders[0] = OrderPair::fromJSON(st["orders"][0]);
+	lastOrders[1] = OrderPair::fromJSON(st["orders"][1]);
 	if (curtest && testStartTime == 0) {
 		testStartTime = std::chrono::duration_cast<std::chrono::milliseconds>(
 				std::chrono::system_clock::now().time_since_epoch()
@@ -438,7 +444,7 @@ void MTrader::saveState() {
 			tr.push_back(itm.toJSON());
 		}
 	}
-	obj.set("orders", lastOrders.toJSON());
+	obj.set("orders", {lastOrders[0].toJSON(),lastOrders[1].toJSON()});
 	storage->store(obj);
 }
 
@@ -549,6 +555,7 @@ bool MTrader::eraseTrade(std::string_view id, bool trunc) {
 
 MTrader::BalanceState MTrader::getLastTrade(const Status& st) {
 	auto iter = trades.rbegin();
+	if (last_trade_partial) ++iter;
 	while (iter != trades.rend()) {
 		if (!iter->manual_trade) return {iter->eff_price, st.assetBalance};
 		++iter;
@@ -595,18 +602,32 @@ json::Value MTrader::OrderPair::toJSON() const {
 			("sell",sell.has_value()?sell->toJSON():json::Value());
 }
 
-MTrader::BalanceState MTrader::processTrades( const Status &st, bool partial_execution) {
+MTrader::BalanceState MTrader::processTrades( const Status &st, bool partial_execution, bool first_trade) {
 	BalanceState bs = getLastTrade(st);
+
+	bool buy_trade = false;
+	bool sell_trade = false;
 
 	for (auto &&t : st.new_trades) {
 		bool manual = false;
-		if (cfg.detect_manual_trades) {
+		if (cfg.detect_manual_trades && !first_trade) {
+			manual = true;
 			Order fkord(t.size, t.price);
-			manual = !((lastOrders.buy.has_value() && lastOrders.buy->isSimilarTo(fkord, minfo.currency_step))
-					|| (lastOrders.sell.has_value() && lastOrders.sell->isSimilarTo(fkord, minfo.currency_step)));
+			for (auto &lo : lastOrders) {
+				manual = manual && !((lo.buy.has_value() && lo.buy->isSimilarTo(fkord, minfo.currency_step))
+						|| (lo.sell.has_value() && lo.sell->isSimilarTo(fkord, minfo.currency_step)));
+			}
+			if (manual) {
+				for (auto &lo : lastOrders) {
+					ondra_shared::logNote("Detected manual trade: $1 $2 $3",
+							!lo.buy.has_value()?0.0:lo.buy->price, fkord.price, !lo.sell.has_value()?0.0:lo.sell->price);
+				}
+			}
 		}
-		if (!manual && !partial_execution) bs.price = t.eff_price;
+		if (partial_execution)
+			ondra_shared::logNote("Detected partial execution");
 
+		if (!manual && !partial_execution) bs.price = t.eff_price;
 		if (cfg.internal_balance) {
 			if (!manual) {
 				internal_balance += t.eff_size;
@@ -614,8 +635,13 @@ MTrader::BalanceState MTrader::processTrades( const Status &st, bool partial_exe
 		} else {
 			internal_balance = st.assetBalance-cfg.external_assets;
 		}
+		buy_trade = buy_trade || t.eff_size > 0;
+		sell_trade = sell_trade || t.eff_size < 0;
 
 		trades.push_back(TWBItem(t, st.assetBalance, manual));
 	}
+	this->buy_dynmult= raise_fall(this->buy_dynmult, buy_trade);
+	this->sell_dynmult= raise_fall(this->sell_dynmult, sell_trade);
+	last_trade_partial = partial_execution;
 	return bs;
 }

@@ -135,6 +135,7 @@ void Report::setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> tr
 						("pl", cur_fromPos)
 						("price", t.price)
 						("volume", -t.eff_price*t.eff_size)
+						("man",t.manual_trade)
 				);
 			}
 

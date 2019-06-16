@@ -186,15 +186,23 @@ Interface::TradeHistory Interface::getTrades(json::Value lastId, std::uintptr_t 
 }
 
 static const char *place[] = {"sellLimit","buyLimit"};
-static const char *replace[] = {"replaceBySellLimit","replaceByBuyLimit"};
+//static const char *replace[] = {"replaceBySellLimit","replaceByBuyLimit"};
 
 
 json::Value Interface::placeOrder(const std::string_view & pair, const Order &order) {
 
+	if (order.id.defined()) {
+		Value res = cm.request(Proxy::POST, "cancelOrderWithInfo",Object("orderId", order.id));
+		if (res["success"].getBool() != true && res["remainingAmount"].getNumber()>0) {
+			throw std::runtime_error("Order was not placed, because cancelOrder failed");
+		}
+	}
+
+
 	const char *cmd = nullptr;
 
 	double amount;
-	const char **cmdset = order.id.defined()?replace:place;
+	const char **cmdset = place;
 	if (order.size<0) {
 		cmd = cmdset[0];
 		amount = -order.size;
@@ -207,13 +215,11 @@ json::Value Interface::placeOrder(const std::string_view & pair, const Order &or
 		json::Value("amount", amount),
 		json::Value("price", order.price),
 		json::Value("currencyPair", pair),
-		json::Value("clientOrderId",order.client_id),
-		json::Value("orderIdToBeReplaced",order.id)
+		json::Value("clientOrderId",order.client_id)
 	});
 
 	auto resp = cm.request(Proxy::POST, cmd, args);
-	if (order.id.defined()) return resp["createdOrderId"];
-	else return resp;
+	return resp;
 }
 
 bool Interface::reset() {

@@ -42,7 +42,8 @@ using ondra_shared::schedulerGetWorker;
 
 class StatsSvc: public IStatSvc {
 public:
-	StatsSvc(std::string name, Report &rpt, int interval, int cnt ):rpt(rpt),name(name),interval(interval),cnt(cnt) {}
+	StatsSvc(Worker wrk, std::string name, Report &rpt, int interval, int cnt ):wrk(wrk),rpt(rpt),name(name),interval(interval),cnt(cnt)
+		,spread(std::make_shared<double>(0)) {}
 
 	virtual void reportOrders(const std::optional<IStockApi::Order> &buy,
 							  const std::optional<IStockApi::Order> &sell) override {
@@ -64,20 +65,34 @@ public:
 			double balance,
 			double prev_value) const {
 
+		if (*spread == 0) *spread = prev_value;
+
 		if (cnt) {
 			--cnt;
-			return prev_value;
+			return *spread;
 		} else {
 			cnt = interval;
-			return  glob_calcSpread(chart, cfg, minfo, balance, prev_value);
+			wrk >> [chart = std::vector<ChartItem>(chart.begin(),chart.end()),
+					cfg = MTrader_Config(cfg),
+					minfo = IStockApi::MarketInfo(minfo),
+					balance,
+					spread = this->spread,
+					name = this->name] {
+				LogObject logObj(name);
+				LogObject::Swap swap(logObj);
+				*spread = glob_calcSpread(chart, cfg, minfo, balance, *spread);
+			};
+			return *spread;
 		}
 
 	}
 
+	Worker wrk;
 	Report &rpt;
 	std::string name;
 	int interval;
 	mutable int cnt = 0;
+	std::shared_ptr<double> spread;
 
 
 };
@@ -146,7 +161,8 @@ static StockSelector stockSelector;
 
 
 void loadTraders(const ondra_shared::IniConfig &ini,
-		ondra_shared::StrViewA names, StorageFactory &sf, Report &rpt, bool force_dry_run) {
+		ondra_shared::StrViewA names, StorageFactory &sf,
+		Worker wrk, Report &rpt, bool force_dry_run) {
 	traders.clear();
 	std::vector<StrViewA> nv;
 
@@ -162,7 +178,7 @@ void loadTraders(const ondra_shared::IniConfig &ini,
 		MTrader::Config mcfg = MTrader::load(ini[n], force_dry_run);
 		logProgress("Started trader $1 (for $2)", n, mcfg.pairsymb);
 		traders.emplace_back(stockSelector, sf.create(n),
-				std::make_unique<StatsSvc>(n, rpt, nv.size(), ++p),
+				std::make_unique<StatsSvc>(wrk, n, rpt, nv.size(), ++p),
 				mcfg, n);
 	}
 }
@@ -396,7 +412,7 @@ int main(int argc, char **argv) {
 					Worker wrk = schedulerGetWorker(sch);
 
 
-					loadTraders(ini, names, sf, rpt, test);
+					loadTraders(ini, names, sf,wrk, rpt, test);
 
 					logNote("---- Starting service ----");
 

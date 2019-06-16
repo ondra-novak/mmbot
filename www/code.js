@@ -289,6 +289,7 @@ function app_start(){
 			]
 			tr.classList.toggle("sell", r.achg<0);
 			tr.classList.toggle("buy", r.achg>0);
+			tr.classList.toggle("manual", r.man);
 			data.forEach(function(z) {
 				var td = document.createElement("x-td");
 				if (typeof z == "number") {
@@ -648,8 +649,15 @@ function app_start(){
 		}
 		for (var i = 0; i <cnt; i++) if (chart[i].achg) {
 			var x1 = map_x(chart[i].time/base_interval-tmstart);
-			var y1 = map_y(chart[i][fld]);		
-			new_svg_el("circle",{cx:x1,cy:y1,r:4,class:"marker "+(chart[i].achg<0?"sell":"buy")},svg);
+			var y1 = map_y(chart[i][fld]);
+			var man = chart[i].man;
+			var marker = "marker "+(chart[i].achg<0?"sell":"buy") 
+			if (man) {
+				new_svg_el("line",{x1:x1-5,y1:y1-5,x2:x1+5,y2:y1+5,class:marker},svg);
+				new_svg_el("line",{x1:x1+5,y1:y1-5,x2:x1-5,y2:y1+5,class:marker},svg);
+			} else {				
+				new_svg_el("circle",{cx:x1,cy:y1,r:4,class:marker},svg);
+			}
 		}
 		
 		if (Array.isArray(lines)) {

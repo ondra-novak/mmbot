@@ -85,7 +85,7 @@ void IStockApi::MarketInfo::addFees(double &assets, double &price) const {
 	}
 
 	//round price to lower value on buy and higher value on sell
-	price = adjValue(price, currency_step, assets>0?&floor:&ceil);
+	price = adjValue(price, currency_step, floor);
 
 	if (assets < min_size && assets > -min_size)
 		assets = sgn(assets)*min_size;

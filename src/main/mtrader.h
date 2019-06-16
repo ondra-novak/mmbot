@@ -148,7 +148,7 @@ protected:
 	IStockApi::MarketInfo minfo;
 	StoragePtr storage;
 	PStatSvc statsvc;
-	OrderPair lastOrders;
+	OrderPair lastOrders[2];
 	bool need_load = true;
 	bool first_order = true;
 
@@ -162,6 +162,7 @@ protected:
 	double sell_dynmult=1.0;
 	double internal_balance = 0;
 	mutable double prev_spread=0;
+	bool last_trade_partial = false;
 
 
 	static double adjValue(double sz, double step);
@@ -184,7 +185,7 @@ protected:
 	static IStockApi &selectStock(IStockSelector &stock_selector, const Config &conf, std::unique_ptr<IStockApi> &ownedStock);
 	std::size_t testStartTime;
 
-	BalanceState processTrades(const Status &st, bool partial_execution);
+	BalanceState processTrades(const Status &st, bool partial_execution, bool first_trade);
 
 	void mergeTrades(std::size_t fromPos);
 

@@ -61,18 +61,32 @@ void Storage::store(json::Value data) {
 }
 
 json::Value Storage::load() {
-	std::ifstream f(file, std::ios::in);
-	if (!f) {
-		f.clear(f.failbit);
-		f.open(file+"~1", std::ios::in);
-		if (!f) return json::Value();
-	}
-	int x = f.get();
-	if (x != EOF) f.putback(x);
-	if (x == '{' ) {
-		return json::Value::fromStream(f);
-	} else {
-		return json::Value::parseBinary([&] {return f.get();}, json::base64);
+
+	auto loadFile=[](const std::string &file) {
+		std::ifstream f(file, std::ios::in);
+		if (!f) {
+			throw std::runtime_error("Failed to open storage file");
+		}
+
+		int x = f.get();
+		f.putback(x);
+		if (x == '{' ) {
+			return json::Value::fromStream(f);
+		} else {
+			return json::Value::parseBinary([&] {int i = f.get();
+			if (i == -1) throw std::runtime_error("unexpected end of file");
+			return i;}, json::base64);
+		}
+	};
+
+	try {
+		return loadFile(file);
+	} catch (...) {
+		try {
+			return loadFile(file+"~1");
+		} catch (...) {
+			return json::Value();
+		}
 	}
 }
 

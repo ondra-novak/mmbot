@@ -27,7 +27,14 @@ body {
 .marker.sell {
 	fill: #F44;
 }
-
+line.marker.buy {
+	stroke:#4f4;
+	stroke-width:3px;
+}
+line.marker.sell {
+	stroke:#F44;
+	stroke-width:3px;
+}
 .majoraxe {
 	stroke: #FFF;	
 }
@@ -222,6 +229,10 @@ x-tr.sell x-td {
 }
 x-tr.buy x-td {
 	color: #8F8;
+}
+
+x-tr.manual x-td {
+	opacity: 0.5;	
 }
 
 x-tr.sell x-td:nth-child(7) {color: #8F8;}
