@@ -30,12 +30,14 @@ bool Calculator::addTrade(double new_price, double abs_balance, double order_siz
 
 double Calculator::price2balance(double new_price) const {
 
+	//basic formula to map price to balance
 	return balance*sqrt(price/new_price);
 
 }
 
 double Calculator::balance2price(double new_balance) const {
 
+	//formula to map balance to price
 	/*
 	 * c = b * sqrt(p/n)
 	 * c/b = sqrt(p/n)
@@ -49,12 +51,20 @@ double Calculator::balance2price(double new_balance) const {
 
 
 double Calculator::calcExtra(double last_price, double new_price) const {
+	//balance after last trade (at last price)
 	double b1 = price2balance(last_price);
+	//balance at new price
 	double b2 = price2balance(new_price);
+	//so we must buy (+) or sell (-) that assets
 	double sz = b2 - b1;
-	double vol = -sz * new_price;
-	double vol2 = b2* new_price - b1 * last_price;
-	return (vol - vol2)/new_price;
+	//currency need for the trade
+	double cur = -sz * new_price;
+	//currency change due changed equilibrum
+	double cur2 = b2* new_price - b1 * last_price;
+	//difference between these currencies (extra profit)
+	//divided by new price
+	//- extra profit can be used to increase balance
+	return (cur - cur2)/new_price;
 
 
 }

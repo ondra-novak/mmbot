@@ -49,8 +49,8 @@ MTrader::Config MTrader::load(const ondra_shared::IniConfig::Section& ini, bool 
 	cfg.sell_step_mult = ini["sell_step_mult"].getNumber(1.0);
 	cfg.external_assets = ini["external_assets"].getNumber(0);
 
-	cfg.acm_factor_buy = ini["acm_factor_buy"].getNumber(0);
-	cfg.acm_factor_sell = ini["acm_factor_sell"].getNumber(1);
+	cfg.acm_factor_buy = ini["acum_factor_buy"].getNumber(0.5);
+	cfg.acm_factor_sell = ini["acum_factor_sell"].getNumber(0.5);
 
 	cfg.dry_run = force_dry_run?true:ini["dry_run"].getBool(false);
 	cfg.internal_balance = cfg.dry_run?true:ini["internal_balance"].getBool(false);
