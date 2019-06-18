@@ -204,7 +204,7 @@ Velikost pokynu se počítá na základě ceny posledního obchodu `Tp` a cenu p
 
 ```
           ________
-S = A * (√ Tp / Op  - 1)
+S = A × (√ Tp / Op  - 1)
 
  
 ```
@@ -212,13 +212,13 @@ S = A * (√ Tp / Op  - 1)
 Pokud se Bitcoin obchoduje na ceně 200000 Kč a spočítaný spread je 1700 Kč, pak prodejní příkaz bude na ceně `201700 Kč` o velikosti
 
 ```
-Ss = -0,004223 * A
+Ss = -0,004223 × A
 ```
 
 Nákupní příkaz bude na ceně `198300 Kč`o velikosti
 
 ```
-Sb = 0,0042773 * A
+Sb = 0,0042773 × A
 ```
 
 Pokud dosadíte za **A = 1 BTC**, pak nakupovat budeme `0.0043 BTC`, což představuje objem `852,69Kč`, prodávat se bude `0.0042 BTC` o objemu `847,14Kč`. Cenový rozdíl zde dělá `3,55Kč`. Pokud by cena bitcoinu poklesla o polovinu (na 100000kč), musel bych předtím udělat zhruba **28tis obchodů** abych ztrátu dohnal.
@@ -341,14 +341,14 @@ K pochopení normalizovaného zisku je třeba se vrátit k výše uvedenému vzo
 
 ```
            _________
-S = A * ( √ Tp / Op  - 1)
+S = A × ( √ Tp / Op  - 1)
 ```
 
 Tento vzorce lze upravit tak, aby vracel počet assetů na zadané ceně
  
 ```
          ______
-B = A * √ P / N
+B = A × √ P / N
 ```
 
 Kde `A` je počet asetů na ceně `P` a `N` je nová cena na které vychází počet assetů `B`. Zajímavé na vzorci je také to, že je reflexivní a tranzitivní. Tedy, že též platí:
@@ -356,44 +356,46 @@ Kde `A` je počet asetů na ceně `P` a `N` je nová cena na které vychází po
 
 ```
          _______
-A = B * √ N / P 
+A = B × √ N / P 
 ```
 (důkaz, dosaďte A horního vzorce a dostane B=B)
 
-Jinými slovy, když nastaví, `B` a `N` jako nový výchozí bod, mohu se zadáním `P` vrátit k původnímu `A`
+Jinými slovy, když nastavím, `B` a `N` jako nový výchozí bod, mohu se zadáním `P` vrátit k původnímu `A`
 
-Tranzitivita se projevuje tak, že si mohu vybrat libovolnou cenu X a z této ceny X a vypočtených assetů Y přejít na cenu N a získat původní B
+Tranzitivita se projevuje tak, že si mohu vybrat libovolnou cenu X. Z této ceny a z vypočtených assetů Y přejít na cenu N a získat původní B
 
 ```
          _______
-Y = A * √ P / X
+Y = A × √ P / X
          _______
-B = Y * √ X / N 
+B = Y × √ X / N 
 ```
 (důkaz opět dosazením, X se vykrátí , zůstane P/N)
 
-Tato vlastost v praxi znamená, že stačí si pamatovat výchozí nastavení `A` a `P`, a mohu pro zadání libovolné cenu `N` spočítat, kolik mám mít assetů na účtu. Robot jednoduše k zadané ceně spočítá požadované množství assetů a vydá pokyn na burzu, aby se tak stalo. 
+Tato vlastost v praxi znamená, že si stačí pamatovat výchozí nastavení `A` a `P`, a mohu po zadání libovolné ceny `N` spočítat, kolik mám mít assetů na účtu. Robot jednoduše k zadané ceně spočítá požadované množství assetů a vydá pokyn na burzu, aby se tak stalo. 
 
-Pro pochopení důsledku tohoto vzorce je třeba si ještě určit, jak bude vypadat vývoj `currency` na účtu, tedy to, čím se platí. Pro robota se doporučuje, aby na účtu bylo připraveno vždy stejné množství currency jako odpovídá hodnotě assety. Pokud je toto dodrženo, pak pro rozdělení hodnoty celého portfolia 50:50 platí currency se bude vyvíjet podle vzorce
+Pro pochopení důsledku tohoto vzorce je třeba si ještě určit, jak bude vypadat vývoj `currency` na účtu, tedy to, čím se platí. Pro robota se doporučuje, aby na účtu bylo připraveno vždy stejné množství currency jako odpovídá hodnotě assetů. Hodnota držených assetů `C` na ceně `N` je:
 
 ```
                  _______            _______
-C = B * N = A * √ P / N  * N = A * √ P * N 
+C = B × N = A × √ P / N  × N = A × √ P × N 
 ```
+
+Stejnou hodnotu musím držet v `currency`
 
 Například, pokud Bitcoin stojí 200000 Kč a mám na účtu právě 1 BTC, pak mám na účtu také 200000Kč v penězích a dohromady má moje portfolio 400000kč. Pokud cena BTC klesne na 180000Kč, pak budu mít na účtu
 
 ```
          _____________
-B = 1 * √200000/180000 = 1,0541 BTC
+B = 1 × √200000/180000 = 1,0541 BTC
          _____________
-C = 1 * √200000*180000 = 189736,66 Kč
+C = 1 × √200000×180000 = 189736,66 Kč
 ```
 
 Pokud ale budu provádět nákup na ceně 180000kč, pak mi na účtu zůstane
 
 ```
-C' = 200000 - (0.0541 * 180000) = 190262 Kč
+C' = 200000 - (0.0541 × 180000) = 190262 Kč
 ```
 
 Rozdíl mezi `C` a `C'` se nazývá **normalizovaný profit**
@@ -402,15 +404,15 @@ Rozdíl mezi `C` a `C'` se nazývá **normalizovaný profit**
 Cn = C' - C = 525,34 Kč
 ```
 
-Tyto peníze už mohu odebrat z účtu, protože již nikdy nebudou potřeba. Lze totiž využít reflexivity vzorce a prokázat, že **k dalším nákupům** za nižší ceny bude třeba **méně peněz** a při návratu na původní cenu nám tyto peníze k získání přesné poloviny nebudou chybět
+Tyto peníze už mohu z účtu odebrat, protože  nikdy nebudou potřeba. Lze totiž využít reflexivity vzorce a prokázat, že **k dalším nákupům** za nižší ceny bude třeba **méně peněz** a při návratu na původní cenu nám tyto peníze k získání přesné poloviny nebudou chybět
 
 ```
                _____________
-B2 = 1.0541 * √180000/200000 = 1 BTC
+B2 = 1.0541 × √180000/200000 = 1 BTC
                _____________
-C2 = 1.0541 * √180000*200000 ~= 200000 Kč
+C2 = 1.0541 × √180000×200000 ~= 200000 Kč
 
-C2' = 189736,66 - (-0.0541 * 200000) = 200556,66 Kč 
+C2' = 189736,66 - (-0.0541 × 200000) = 200556,66 Kč 
 ```
 
 A opět, rozdíl mezi `C2` a `C2'` se nazývá **normalizovaný profit**
