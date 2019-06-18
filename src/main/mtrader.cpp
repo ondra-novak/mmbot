@@ -112,12 +112,16 @@ int MTrader::perform() {
 	//merge trades on same price
 	mergeTrades(trades.size() - status.new_trades.size());
 
-	//update calculator using current account state
-	calculator.addTrade(trades.empty()?status.curPrice:
-			trades.back().eff_price, status.assetBalance);
 
+	bool calcadj;
 	//only create orders, if there are no trades from previous run
 	if (status.new_trades.empty()) {
+
+		//update calculator using current account state
+		calcadj = calculator.addTrade(
+				trades.empty()?status.curPrice:trades.back().eff_price,
+				status.assetBalance, 0);
+
 		//calculate buy order
 		auto buyorder = calculateOrder(-status.curStep*buy_dynmult*cfg.buy_step_mult,
 									   status.curPrice, status.assetBalance);
@@ -131,7 +135,10 @@ int MTrader::perform() {
 		//remember the orders (keep previous orders as well)
 		std::swap(lastOrders[0],lastOrders[1]);
 		lastOrders[0] = orders;
+	} else {
+		calcadj = calculator.addTrade(trades.back().eff_price, status.assetBalance, trades.back().eff_size);
 	}
+	if (calcadj) ondra_shared::logNote("Calculator adjusted: $1 at $2", calculator.getBalance(), calculator.getPrice());
 	//report orders to UI
 	statsvc->reportOrders(orders.buy,orders.sell);
 	//report trades to UI
@@ -502,8 +509,9 @@ void MTrader::backtest() {
 	Status st;
 	double bal = cfg.external_assets;
 	double p = data[0].eff_price;
+	double osz = 0;
 	for (auto k : data) {
-		calculator.addTrade(p,bal);
+		calculator.addTrade(p,bal,osz);
 		double step = k.eff_price - p;
 		auto ord = calculateOrder(step,p,bal);
 		k.size = k.eff_size = ord.size;
@@ -512,6 +520,7 @@ void MTrader::backtest() {
 		k.balance = bal + k.eff_size;
 		bal = k.balance;
 		p = k.eff_price;
+		osz = k.eff_size;
 		trades.push_back(k);
 	}
 	saveState();

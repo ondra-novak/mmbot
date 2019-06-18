@@ -20,12 +20,13 @@ public:
 
 	///add trade to calculate internal state
 	/**
-	 * @param eff_price effective price
-	 * @param eff_size effective size
-	 * @retval false internal balance did not changed (this is probably ok)
-	 * @retval true internal balance changed (probably manual trade)
+	 * @param new_price new price of the last prder
+	 * @param abs_balance absolute balance
+	 * @param order_size order size
+	 * @retval true calculator adjusted
+	 * @retval false calculator not adjusted
 	 */
-	bool addTrade(double eff_price, double abs_balance);
+	bool addTrade(double new_price, double abs_balance, double order_size);
 
 	double balance2price(double balance) const;
 
@@ -37,8 +38,13 @@ public:
 
 	static Calculator fromJSON(json::Value v);
 
+	double getBalance() const {
+		return balance;
+	}
 
-
+	double getPrice() const {
+		return price;
+	}
 
 protected:
 	double price = 0;

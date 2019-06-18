@@ -108,14 +108,22 @@ static double emulateMarket(ondra_shared::StringView<IStatSvc::ChartItem> chart,
 		IStockApi &emul;
 	};
 
-	Selector selector(emul);
-	MTrader trader(selector, nullptr,std::make_unique<EmulStatSvc>(spread),cfg);
 
-	trader.perform();
+	Selector selector(emul);
 	std::size_t counter = 1;
-	while (emul.reset()) {
+	{
+		ondra_shared::PLogProvider nullprovider (std::make_unique<ondra_shared::NullLogProvider>());
+		ondra_shared::LogObject nullLog(*nullprovider,"");
+		ondra_shared::LogObject::Swap swp(nullLog);
+
+		MTrader trader(selector, nullptr,std::make_unique<EmulStatSvc>(spread),cfg);
+
 		trader.perform();
-		counter++;
+		while (emul.reset()) {
+			trader.perform();
+			counter++;
+		}
+
 	}
 
 	double score = emul.getScore();

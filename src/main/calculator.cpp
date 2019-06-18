@@ -11,17 +11,21 @@
 #include "sgn.h"
 #include "calculator.h"
 
-bool Calculator::addTrade(double eff_price, double b) {
+bool Calculator::addTrade(double new_price, double abs_balance, double order_size) {
 
-	double c = price2balance(eff_price);
-	if (c < b || c > b * 1.1) {
-		price = eff_price;
-		balance = b;
-		return true;
-	} else {
 
-		return false;
-	}
+	double eb = price2balance(new_price);
+	double bdiff = abs_balance - eb;
+	//if difference is very small
+	if (fabs(bdiff) < fabs(abs_balance+eb)*1e-10) return false;
+	//if the buy order was too small on given price - we can compensate
+	if (bdiff < 0 && order_size > 0) return false;
+	//so if the balance was manually lowered, because order size was negative
+	//or if the balance was manually raised
+	//we will adjust the balance
+	price = new_price;
+	balance = abs_balance;
+	return true;
 }
 
 double Calculator::price2balance(double new_price) const {
