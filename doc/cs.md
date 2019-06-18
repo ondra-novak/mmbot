@@ -398,7 +398,7 @@ Pokud ale budu provádět nákup na ceně 180000kč, pak mi na účtu zůstane
 C' = 200000 - (0.0541 × 180000) = 190262 Kč
 ```
 
-Rozdíl mezi `C` a `C'` se nazývá **normalizovaný profit**
+Rozdíl mezi `C` a `C'` se nazývá **normalizovaný zisk**
 
 ```
 Cn = C' - C = 525,34 Kč
@@ -415,15 +415,15 @@ C2 = 1.0541 × √180000×200000 ~= 200000 Kč
 C2' = 189736,66 - (-0.0541 × 200000) = 200556,66 Kč 
 ```
 
-A opět, rozdíl mezi `C2` a `C2'` se nazývá **normalizovaný profit**
+A opět, rozdíl mezi `C2` a `C2'` se nazývá **normalizovaný zisk**
 
 ```
 C2n = C2' - C2 = 556,66 Kč
 ```
 
-Idea normalizovaného profitu je tedy založena na tom, že mám na burze vyhrazené peníze přesně v poměru 50:50 a pouze přelévám prostředky z jedné strany na druhou podle vývoje aktuální ceny. Vůbec přitom není třeba hlídat aktuální hodnotu celého portfolia, protože ta z dlouhodobého hlediska není důležitá. Důležitější je umět správně změřit **normalizovaný profit**, ten má totiž schopnost generovat **trvalý příjem** bez ohledu na to, co se děje na burze. Důležité samozřejmě je, aby se cena na burze hýbala, a aby se obchodovalo. Nezáleží kam, ale kolik. Z každého obchodu je pak **normalizovaný** profit kladný.
+Idea normalizovaného zisku je tedy založena na tom, že mám na burze vyhrazené peníze přesně v poměru 50:50 a pouze přelévám prostředky z jedné strany na druhou podle vývoje aktuální ceny. Vůbec přitom není třeba hlídat aktuální hodnotu celého portfolia, protože ta z dlouhodobého hlediska není důležitá. Důležitější je umět správně změřit **normalizovaný zisk**, ten má totiž schopnost generovat **trvalý příjem** bez ohledu na to, co se děje na burze. Důležité samozřejmě je, aby se cena na burze hýbala, a aby se obchodovalo. Nezáleží kam, ale kolik. Z každého obchodu je pak **normalizovaný** zisk kladný.
 
-Robot umožňuje zapnout funkci, kdy část normalizovaného profitu se akumuluje do assetů. V takovém případě může i tento profit být ovlivněn cenou vlastního assetu. Toto nastavení je třeba si dobře rozmyslet a určit si správně cíle. U potenciálně rostoucího assetu se vyplatí například polovinu zisku akumulovat. U potenciálně klesajícího assetu spíš neakumulovat.
+Robot umožňuje zapnout funkci, kdy část normalizovaného zisku se akumuluje do assetů. V takovém případě může i tento zisk být ovlivněn cenou vlastního assetu. Toto nastavení je třeba si dobře rozmyslet a určit si správně cíle. U potenciálně rostoucího assetu se vyplatí například polovinu zisku akumulovat. U potenciálně klesajícího assetu spíš neakumulovat.
 
 Množství akumulovaných assetů navíc se pak říká **normalizované akumulované assety**. Robot je ovšem začlení do celkové balance `A` a tak se jejich akumulace projeví v drobném zesílení budoucích zisků.
 
