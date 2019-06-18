@@ -94,38 +94,65 @@ double MTrader::raise_fall(double v, bool raise) const {
 
 int MTrader::perform() {
 
+	//Load state on first run (if the state is not loaded)
 	if (need_load) {
 		loadState();
 		need_load = false;
 	}
 
 
+	//Get opened orders
 	auto orders = getOrders();
+	//get current status
 	auto status = getMarketStatus();
+	//update market fees
 	minfo.fees = status.new_fees;
-	BalanceState lastTrade = processTrades(status, orders.buy.has_value() && orders.sell.has_value(), first_order);
-	first_order = false;
+	//process all new trades
+	processTrades(status, first_order);
+	//merge trades on same price
 	mergeTrades(trades.size() - status.new_trades.size());
 
-	if (status.curStep > status.curPrice*1e-10) {
+	//update calculator using current account state
+	calculator.addTrade(trades.empty()?status.curPrice:
+			trades.back().eff_price, status.assetBalance);
+
+	//only create orders, if there are no trades from previous run
+	if (status.new_trades.empty()) {
+		//calculate buy order
 		auto buyorder = calculateOrder(-status.curStep*buy_dynmult*cfg.buy_step_mult,
-									   status.curPrice, lastTrade);
+									   status.curPrice, status.assetBalance);
+		//calculate sell order
 		auto sellorder = calculateOrder(status.curStep*sell_dynmult*cfg.sell_step_mult,
-				   	   	   	   	   	   status.curPrice, lastTrade);
+				   	   	   	   	   	   status.curPrice, status.assetBalance);
+		//replace order on stockmarket
 		replaceIfNotSame(orders.buy, buyorder);
+		//replace order on stockmarket
 		replaceIfNotSame(orders.sell, sellorder);
+		//remember the orders (keep previous orders as well)
+		std::swap(lastOrders[0],lastOrders[1]);
+		lastOrders[0] = orders;
 	}
+	//report orders to UI
 	statsvc->reportOrders(orders.buy,orders.sell);
-	std::swap(lastOrders[0],lastOrders[1]);
-	lastOrders[0] = orders;
-
+	//report trades to UI
 	statsvc->reportTrades(trades);
+	//report price to UI
 	statsvc->reportPrice(status.curPrice);
-
+	//store current price (to build chart)
 	chart.push_back(status.chartItem);
+	//delete very old data from chart
 	if (chart.size() > cfg.spread_calc_mins)
 		chart.erase(chart.begin(),chart.end()-cfg.spread_calc_mins);
 
+	//if this was first order, the next will not first order
+	first_order = false;
+
+	//update internal balance
+	if (!cfg.internal_balance) {
+		internal_balance = status.assetBalance-cfg.external_assets;
+	}
+
+	//save state
 	saveState();
 
 	return 0;
@@ -161,7 +188,8 @@ bool MTrader::replaceIfNotSame(std::optional<Order>& orig, Order neworder) {
 		if (neworder.price < 0)
 			throw std::runtime_error("Negative price - rejected");
 		if (neworder.size == 0)
-			throw std::runtime_error("Zero size - rejected");
+			return false;
+
 		neworder.client_id = magic;
 		bool res = false;
 		if (!orig.has_value()) {
@@ -182,13 +210,7 @@ bool MTrader::replaceIfNotSame(std::optional<Order>& orig, Order neworder) {
 	}
 
 }
-double MTrader::addFees(double price, double dir) const {
-	return price*(1 - minfo.fees*dir);
-}
 
-double MTrader::removeFees(double price, double dir) const {
-	return price/(1 - minfo.fees*dir);
-}
 
 
 MTrader::Status MTrader::getMarketStatus() const {
@@ -204,11 +226,15 @@ MTrader::Status MTrader::getMarketStatus() const {
 	if (!trades.empty()) lastId = trades.back().id;
 	res.new_trades = stock.getTrades(lastId, cfg.start_time, cfg.pairsymb);
 
-
-	if (cfg.internal_balance) {
+	{
 		double balance = 0;
 		for (auto &&t:res.new_trades) balance+=t.eff_size;
-		res.assetBalance = internal_balance + balance + cfg.external_assets;
+		res.internalBalance = internal_balance + balance + cfg.external_assets;
+	}
+
+
+	if (cfg.internal_balance) {
+		res.assetBalance = res.internalBalance;
 	} else{
 		res.assetBalance = stock.getBalance(minfo.asset_symbol)+ cfg.external_assets;
 	}
@@ -233,11 +259,11 @@ MTrader::Status MTrader::getMarketStatus() const {
 }
 
 
-MTrader::Order MTrader::calculateOrderFeeLess(double step,
-		double curPrice, const BalanceState &lastTrade) const {
+MTrader::Order MTrader::calculateOrderFeeLess(double step, double curPrice, double balance) const {
 	Order order;
-	// calculate new price for the order
-	double newPrice = lastTrade.price + step;
+
+	double prevPrice = calculator.balance2price(balance);
+	double newPrice = prevPrice + step;
 	double fact;
 	double mult;
 
@@ -256,87 +282,41 @@ MTrader::Order MTrader::calculateOrderFeeLess(double step,
 		mult = cfg.sell_mult;
 	}
 
-	// calculate new assets for the new price
-	double newAssets = lastTrade.balance * sqrt(lastTrade.price/newPrice) * mult;
-	// express the difference
-	double size = newAssets - lastTrade.balance;
-	// calculate extra money available after this trade
-	double extra = (lastTrade.price*lastTrade.balance-newPrice*size-lastTrade.balance*sqrt(lastTrade.price*newPrice))/newPrice;
-	// use that extra money to additional trade specified as factor in the config
-	double extra_c = extra*fact;
+	double newBalance = calculator.price2balance(newPrice);
+	double extra = calculator.calcExtra(prevPrice, newPrice);
+	double size = (newBalance - balance)*mult+extra*fact;
 
+	if (size * step > 0) size = 0;
 	//fill order
-	order.size = size+extra_c;
+	order.size = size;
 	order.price = newPrice;
+
 
 	return order;
 
 }
 
-MTrader::Order MTrader::calculateOrder(double step,
-		double curPrice, const BalanceState &lastTrade) const {
+MTrader::Order MTrader::calculateOrder(double step, double curPrice, double balance) const {
 
-	Order order(calculateOrderFeeLess(step,curPrice,lastTrade));
+	Order order(calculateOrderFeeLess(step,curPrice,balance));
 	//apply fees
 	minfo.addFees(order.size, order.price);
+
+	if (order.size < minfo.min_size && order.size > -minfo.min_size) {
+		order.size = 0;
+	} else if (minfo.min_volume) {
+		double vol = order.size * order.price;
+		if (vol < minfo.min_volume && vol > -minfo.min_size) {
+			order.size = 0;
+		}
+	}
 	//order here
 	return order;
 
 }
 
 
-/*
 
-MTrader::Order MTrader::calculateSellOrder(const Status& status, double dynmult, const std::optional<Order> &curOrder) const {
-
-	Order order;
-	double curPrice = status.basePrice;
-	double step = status.curStep*cfg.buy_step_mult*dynmult;
-
-	double newPrice = basePrice + step;
-	if (newPrice < status.curPrice) {
-		if (curOrder.has_value()) return *curOrder;
-		else newPrice = status.curPrice;
-	}
-	double assets = status.assetBalance*cfg.buy_mult + cfg.asset_base;
-	double newAssets = assets*0.5*( basePrice/newPrice - 1.0);
-
-	minfo.addFees(newAssets, newPrice);
-
-	order.size = newAssets;
-	order.price = newPrice;
-	return order;
-}
-
-MTrader::Order MTrader::calculateBuyOrder(const Status& status, double dynmult, const std::optional<Order> &curOrder) const {
-
-	Order order;
-	double basePrice = status.basePrice;
-	double step = status.curStep*cfg.buy_step_mult*dynmult;
-
-	double newPrice = basePrice - step;
-	if (newPrice > status.curPrice) {
-		if (curOrder.has_value()) return *curOrder;
-		else newPrice = status.curPrice-minfo.currency_step*2;
-	}
-
-	double assets = status.assetBalance*cfg.buy_mult + cfg.asset_base;
-	double newAssets = assets*0.5*(basePrice/newPrice - 1.0);
-
-	minfo.addFees(newAssets, newPrice);
-
-	order.size = newAssets;
-	order.price = newPrice;
-	return order;
-}
-*/
-
-double MTrader::adjValue(double sz, double step) {
-	return std::round(sz/step)*step;
-}
-double MTrader::adjValueCeil(double sz, double step) {
-	return std::ceil(sz/step)*step;
-}
 
 void MTrader::loadState() {
 	if (storage == nullptr) return;
@@ -389,9 +369,10 @@ void MTrader::loadState() {
 			}
 			mergeTrades(0);
 		}
+		calculator = Calculator::fromJSON(st["calc"]);
+		lastOrders[0] = OrderPair::fromJSON(st["orders"][0]);
+		lastOrders[1] = OrderPair::fromJSON(st["orders"][1]);
 	}
-	lastOrders[0] = OrderPair::fromJSON(st["orders"][0]);
-	lastOrders[1] = OrderPair::fromJSON(st["orders"][1]);
 	if (curtest && testStartTime == 0) {
 		testStartTime = std::chrono::duration_cast<std::chrono::milliseconds>(
 				std::chrono::system_clock::now().time_since_epoch()
@@ -444,52 +425,11 @@ void MTrader::saveState() {
 			tr.push_back(itm.toJSON());
 		}
 	}
+	obj.set("calc", calculator.toJSON());
 	obj.set("orders", {lastOrders[0].toJSON(),lastOrders[1].toJSON()});
 	storage->store(obj);
 }
 
-/*
-double MTrader::range_max_price(Status st, double &avail_assets) {
-	std::optional<Order> empty;
-	double budget = avail_assets;
-	double steppart = st.curStep/st.basePrice;
-	Order o = calculateSellOrder(st, 1.0, empty);
-	while (budget+o.size > minfo.min_size) {
-		budget += o.size;
-		st.assetBalance += o.size;
-		ondra_shared::logDebug("Sell $1 at $2 - remaining: $3 $4", o.size, o.price, budget, minfo.asset_symbol);
-		st.basePrice = removeFees(o.price, -1);
-		st.curStep = st.basePrice*steppart;
-		o = calculateSellOrder(st, 1.0, empty);
-	}
-	avail_assets = budget;
-	return st.basePrice;
-
-}
-double MTrader::range_min_price(Status st, double &avail_money) {
-	std::optional<Order> empty;
-	double budget = avail_money;
-	double min_price = st.basePrice*0.00001;
-	double steppart = st.curStep/st.basePrice;
-	Order o = calculateBuyOrder(st, 1.0, empty);
-	Order p = o;
-	while (budget > 0  && o.price>min_price) {
-		st.basePrice = removeFees(o.price, +1);
-		st.curStep = st.basePrice*steppart;
-		st.assetBalance += o.size;
-		budget -= o.size*st.basePrice;
-		ondra_shared::logDebug("Buy $1 at $2 - remaining: $3 $4", o.size, o.price, budget, minfo.currency_symbol);
-		o = calculateBuyOrder(st, 1.0, empty);
-		if (fabs(o.price - p.price) < (o.price+p.price)*1e-8) {
-			steppart=steppart*2;
-		}
-		p = o;
-	}
-	avail_money = budget;
-	return st.basePrice;
-
-}
-*/
 MTrader::CalcRes MTrader::calc_min_max_range() {
 
 	CalcRes res {};
@@ -553,34 +493,25 @@ bool MTrader::eraseTrade(std::string_view id, bool trunc) {
 	return true;
 }
 
-MTrader::BalanceState MTrader::getLastTrade(const Status& st) {
-	auto iter = trades.rbegin();
-	if (last_trade_partial) ++iter;
-	while (iter != trades.rend()) {
-		if (!iter->manual_trade) return {iter->eff_price, st.assetBalance};
-		++iter;
-	}
-	if (trades.empty()) return {st.curPrice, st.assetBalance};
-	else return {trades.back().eff_price, st.assetBalance};
-}
 
 void MTrader::backtest() {
 	if (need_load) loadState();
 	decltype(trades) data(std::move(trades));
 	trades.clear();
+	if (data.empty()) return;
 	Status st;
 	double bal = cfg.external_assets;
+	double p = data[0].eff_price;
 	for (auto k : data) {
-		st.curPrice = k.eff_price;
-		st.assetBalance = bal;
-		auto lastT = getLastTrade(st);
-		double step = k.eff_price - lastT.price;
-		auto ord = calculateOrder(step,lastT.price,lastT);
+		calculator.addTrade(p,bal);
+		double step = k.eff_price - p;
+		auto ord = calculateOrder(step,p,bal);
 		k.size = k.eff_size = ord.size;
 		k.price = k.eff_price = ord.price;
 		minfo.removeFees(k.eff_size, k.eff_price);
 		k.balance = bal + k.eff_size;
 		bal = k.balance;
+		p = k.eff_price;
 		trades.push_back(k);
 	}
 	saveState();
@@ -602,46 +533,42 @@ json::Value MTrader::OrderPair::toJSON() const {
 			("sell",sell.has_value()?sell->toJSON():json::Value());
 }
 
-MTrader::BalanceState MTrader::processTrades( const Status &st, bool partial_execution, bool first_trade) {
-	BalanceState bs = getLastTrade(st);
+void MTrader::processTrades(Status &st,bool first_trade) {
 
 	bool buy_trade = false;
 	bool sell_trade = false;
 
 	for (auto &&t : st.new_trades) {
 		bool manual = false;
-		if (cfg.detect_manual_trades && !first_trade) {
-			manual = true;
-			Order fkord(t.size, t.price);
+		manual = true;
+		Order fkord(t.size, t.price);
+		for (auto &lo : lastOrders) {
+			manual = manual && !((lo.buy.has_value() && lo.buy->isSimilarTo(fkord, minfo.currency_step))
+					|| (lo.sell.has_value() && lo.sell->isSimilarTo(fkord, minfo.currency_step)));
+		}
+		if (manual) {
 			for (auto &lo : lastOrders) {
-				manual = manual && !((lo.buy.has_value() && lo.buy->isSimilarTo(fkord, minfo.currency_step))
-						|| (lo.sell.has_value() && lo.sell->isSimilarTo(fkord, minfo.currency_step)));
-			}
-			if (manual) {
-				for (auto &lo : lastOrders) {
-					ondra_shared::logNote("Detected manual trade: $1 $2 $3",
-							!lo.buy.has_value()?0.0:lo.buy->price, fkord.price, !lo.sell.has_value()?0.0:lo.sell->price);
-				}
+				ondra_shared::logNote("Detected manual trade: $1 $2 $3",
+						!lo.buy.has_value()?0.0:lo.buy->price, fkord.price, !lo.sell.has_value()?0.0:lo.sell->price);
 			}
 		}
-		if (partial_execution)
-			ondra_shared::logNote("Detected partial execution");
 
-		if (!manual && !partial_execution) bs.price = t.eff_price;
+		if (!cfg.detect_manual_trades || first_trade)
+			manual = false;
+
 		if (cfg.internal_balance) {
 			if (!manual) {
 				internal_balance += t.eff_size;
 			}
-		} else {
-			internal_balance = st.assetBalance-cfg.external_assets;
 		}
+
 		buy_trade = buy_trade || t.eff_size > 0;
 		sell_trade = sell_trade || t.eff_size < 0;
 
 		trades.push_back(TWBItem(t, st.assetBalance, manual));
-		last_trade_partial = partial_execution;
 	}
 	this->buy_dynmult= raise_fall(this->buy_dynmult, buy_trade);
 	this->sell_dynmult= raise_fall(this->sell_dynmult, sell_trade);
-	return bs;
+	st.internalBalance = internal_balance + cfg.external_assets;
+
 }

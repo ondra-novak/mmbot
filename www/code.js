@@ -75,22 +75,24 @@ function app_start(){
 		var info = curchart.querySelector("[data-name=info]");
 		if (ranges) {
 			info.hidden = false;
+			var pricet = adjNum((ranges.last && ranges.last[0])||0).replace(/[0-9]/g,"–");
+			var post = adjNum((ranges.pos && ranges.pos[0])||0).replace(/[0-9]/g,"–");
 			while (info.firstChild) info.removeChild(info.firstChild);
 			["buy","last","sell", "pos"].forEach(function(n) {
-				if (ranges[n]) {
-					var r = ranges[n];
-					var elem = document.createElement("div");
-					elem.classList.add(n);
-					info.appendChild(elem);					
-					var e = document.createElement("div")
-					e.classList.add("price");
-					e.innerText = adjNum(r[0]);
-					elem.appendChild(e);
-					e = document.createElement("div")
-					e.classList.add("size");
-					e.innerText = adjNum(r[1]);
-					elem.appendChild(e);
-				}
+				var r = ranges[n];
+				var l1 = r?adjNum(r[0]):pricet;
+				var l2 = r?adjNum(r[1]):post;
+				var elem = document.createElement("div");
+				elem.classList.add(n);
+				info.appendChild(elem);					
+				var e = document.createElement("div")
+				e.classList.add("price");
+				e.innerText = l1;
+				elem.appendChild(e);
+				e = document.createElement("div")
+				e.classList.add("size");
+				e.innerText = l2;
+				elem.appendChild(e);				
 			});
 		} else {
 			info.hidden = true;
@@ -434,7 +436,7 @@ function app_start(){
 				updateOptions(n, infoMap[n].title);
 			}
 			
-			stats.orders.forEach(function(o) {
+			(stats.orders || []).forEach(function(o) {
 				var s = orders[o.symb];
 				var sz = o.size;
 				var ch =  charts[o.symb];

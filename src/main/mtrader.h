@@ -12,6 +12,7 @@
 #include <type_traits>
 
 #include <shared/ini_config.h>
+#include "calculator.h"
 #include "istatsvc.h"
 #include "storage.h"
 #include "report.h"
@@ -95,6 +96,7 @@ public:
 		double curPrice;
 		double curStep;
 		double assetBalance;
+		double internalBalance;
 		double new_fees;
 		IStockApi::TradeHistory new_trades;
 		ChartItem chartItem;
@@ -102,11 +104,6 @@ public:
 
 	Status getMarketStatus() const;
 
-	///Hold balance at given price
-	struct BalanceState {
-		double price;
-		double balance;
-	};
 
 	/// Calculate order
 	/**
@@ -116,10 +113,8 @@ public:
 	 * @param balance current balance (including external)
 	 * @return order
 	 */
-	Order calculateOrder(double step,
-			double curPrice, const BalanceState &lastTrade) const;
-	Order calculateOrderFeeLess(double step,
-			double curPrice, const BalanceState &lastTrade) const;
+	Order calculateOrder(double step, double curPrice, double balance) const;
+	Order calculateOrderFeeLess(double step,double curPrice, double balance) const;
 
 	const Config &getConfig() {return cfg;}
 
@@ -151,6 +146,7 @@ protected:
 	OrderPair lastOrders[2];
 	bool need_load = true;
 	bool first_order = true;
+	Calculator calculator;
 
 	using TradeItem = IStockApi::Trade;
 	using TWBItem = IStockApi::TradeWithBalance;
@@ -162,15 +158,7 @@ protected:
 	double sell_dynmult=1.0;
 	double internal_balance = 0;
 	mutable double prev_spread=0;
-	bool last_trade_partial = false;
 
-
-	static double adjValue(double sz, double step);
-	static double adjValueCeil(double sz, double step);
-	double adjSize(double sz) const {return adjValueCeil(sz, minfo.asset_step);}
-	double adjPrice(double p) const {return adjValue(p, minfo.currency_step);}
-	double addFees(double price, double dir) const;
-	double removeFees(double price, double dir) const;
 
 	void loadState();
 	void saveState();
@@ -185,11 +173,11 @@ protected:
 	static IStockApi &selectStock(IStockSelector &stock_selector, const Config &conf, std::unique_ptr<IStockApi> &ownedStock);
 	std::size_t testStartTime;
 
-	BalanceState processTrades(const Status &st, bool partial_execution, bool first_trade);
+	void processTrades(Status &st,bool first_trade);
 
 	void mergeTrades(std::size_t fromPos);
 
-	BalanceState getLastTrade(const Status &st);
+
 
 };
 

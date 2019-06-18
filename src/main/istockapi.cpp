@@ -87,15 +87,8 @@ void IStockApi::MarketInfo::addFees(double &assets, double &price) const {
 	//round price to lower value on buy and higher value on sell
 	price = adjValue(price, currency_step, floor);
 
-	if (assets < min_size && assets > -min_size)
-		assets = sgn(assets)*min_size;
 	//use floor to always accumulate small amount coins
 	assets = adjValue(assets, asset_step, floor);
-	double vol = assets * price;
-
-	if (vol < min_volume && vol > -min_volume)
-		assets = sgn(assets)*adjValue(min_volume/price,asset_step,ceil);
-
 }
 
 void IStockApi::MarketInfo::removeFees(double &assets, double &price) const {
