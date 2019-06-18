@@ -138,7 +138,7 @@ int MTrader::perform() {
 	} else {
 		calcadj = calculator.addTrade(trades.back().eff_price, status.assetBalance, trades.back().eff_size);
 	}
-	if (calcadj) ondra_shared::logNote("Calculator adjusted: $1 at $2", calculator.getBalance(), calculator.getPrice());
+	if (calcadj) ondra_shared::logNote("Calculator adjusted: $1 at $2 (ref_price=$3)", calculator.getBalance(), calculator.getPrice(), calculator.balance2price(1.0));
 	//report orders to UI
 	statsvc->reportOrders(orders.buy,orders.sell);
 	//report trades to UI

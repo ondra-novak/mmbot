@@ -15,6 +15,7 @@
 #include "../shared/linear_map.h"
 #include "../shared/logOutput.h"
 #include "../shared/range.h"
+#include "../shared/stdLogOutput.h"
 #include "sgn.h"
 
 using ondra_shared::logError;
@@ -33,6 +34,8 @@ void Report::genReport() {
 	st.set("time", std::chrono::duration_cast<std::chrono::milliseconds>(
 					std::chrono::system_clock::now().time_since_epoch()
 				   ).count());
+	st.set("log", logLines);
+	while (logLines.size()>30) logLines.erase(0);
 	report->store(st);
 }
 
@@ -200,4 +203,36 @@ void Report::exportPrices(json::Object &&out) {
 	for (auto &&rec: priceMap) {
 			out.set(rec.first, rec.second);
 		}
+}
+
+void Report::addLogLine(StrViewA ln) {
+	logLines.push_back(ln);
+}
+
+using namespace ondra_shared;
+
+class CaptureLog: public ondra_shared::StdLogProviderFactory {
+public:
+	CaptureLog(Report &rpt, ondra_shared::PStdLogProviderFactory target):rpt(rpt),target(target) {}
+
+	virtual void writeToLog(const StrViewA &line, const std::time_t &, LogLevel level) override;
+	virtual bool isLogLevelEnabled(ondra_shared::LogLevel lev) const override;
+
+
+protected:
+	Report &rpt;
+	ondra_shared::PStdLogProviderFactory target;
+};
+
+inline void CaptureLog::writeToLog(const StrViewA& line, const std::time_t&tm, LogLevel level) {
+	if (level >= LogLevel::info) rpt.addLogLine(line);
+	target->sendToLog(line, tm, level);
+}
+
+inline bool CaptureLog::isLogLevelEnabled(ondra_shared::LogLevel lev) const {
+	return target->isLogLevelEnabled(lev);
+}
+
+ondra_shared::PStdLogProviderFactory Report::captureLog(ondra_shared::PStdLogProviderFactory target) {
+	return new CaptureLog(*this, target);
 }

@@ -100,6 +100,33 @@ line.marker.sell {
 	z-index: 10;
 }
 
+#logfile {
+	width: 100%;
+	background-color: black;
+	color: #CCC;
+	border: 0;
+	font-size: 0.3cm;
+	overflow: hidden;
+	white-space: pre-wrap;
+	margin: 0;
+}
+#logfilearea{
+	position:relative;
+}
+#logfileactivate {
+	text-align: center;
+	position: absolute;
+	right: 0;
+	top: -2em;
+	margin: auto 0 auto auto;
+	font-size: 0.3cm;
+	background-color: #555;
+	padding: 0.1cm;
+	width: 2em;
+	z-index: 100;
+	
+}
+
 select {
 	font-size: 0.5cm;
 	display:  block;

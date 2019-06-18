@@ -31,6 +31,7 @@ function app_start(){
 	var selector = document.getElementById("selchart");
 	var outage = document.getElementById("outage");
 	var home = document.getElementById("home");
+	var opencloselog = document.getElementById("logfileactivate");
 	var options = [];
 	var lastEvents = document.getElementById("lastevents")
 	var selMode = 0;
@@ -424,8 +425,11 @@ function app_start(){
 			
 			var orders = {};
 			var ranges = {};
+			
 
 			infoMap = stats["info"];
+			
+			document.getElementById("logfile").innerText = " > "+ stats["log"].join("\r\n > ");
 
 			
 			var charts = stats["charts"];
@@ -704,6 +708,11 @@ function app_start(){
 		logo.hidden = false;
 		setTimeout(removeLogo, 3000);
 	}
+	
+	opencloselog.addEventListener("click",function() {
+		var v = document.getElementById("logfile");
+		v.hidden = !v.hidden;
+	})
 }
 
 

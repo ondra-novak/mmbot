@@ -481,7 +481,18 @@ int main(int argc, char **argv) {
 					std::size_t id = 0;
 					cntr.addCommand("run",[&](simpleServer::ArgList, simpleServer::Stream) {
 
+						ondra_shared::PStdLogProviderFactory current =
+								&dynamic_cast<ondra_shared::StdLogProviderFactory &>(*ondra_shared::AbstractLogProviderFactory::getInstance());
+						ondra_shared::PStdLogProviderFactory logcap = rpt.captureLog(current);
+
+						sch.immediate() >> [logcap]{
+							ondra_shared::AbstractLogProvider::getInstance() = logcap->create();
+						};
+
+
 						auto main_cycle = [&] {
+
+
 							try {
 								runTraders();
 								rpt.genReport();

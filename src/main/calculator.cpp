@@ -36,7 +36,14 @@ double Calculator::price2balance(double new_price) const {
 
 double Calculator::balance2price(double new_balance) const {
 
-	return pow2((balance * sqrt(price))/(new_balance));
+	/*
+	 * c = b * sqrt(p/n)
+	 * c/b = sqrt(p/n)
+	 * pow2(c/b) = (p/n)
+	 * pow2(c/b)/p = 1/n
+	 * p*pow(c/b) = n
+	 */
+	return price * pow2(new_balance/balance);
 
 }
 

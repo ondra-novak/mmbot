@@ -8,10 +8,12 @@
 #ifndef SRC_MAIN_REPORT_H_
 #define SRC_MAIN_REPORT_H_
 
+#include <imtjson/array.h>
 #include <string_view>
 #include "istockapi.h"
 #include "storage.h"
 #include "../shared/linear_map.h"
+#include "../shared/stdLogOutput.h"
 #include "../shared/stringview.h"
 
 namespace json {
@@ -41,6 +43,9 @@ public:
 			StrViewA currencySymb,
 			bool emulated);
 	void setPrice(StrViewA symb, double price);
+	void addLogLine(StrViewA ln);
+
+	ondra_shared::PStdLogProviderFactory captureLog(ondra_shared::PStdLogProviderFactory target);
 
 protected:
 
@@ -69,6 +74,7 @@ protected:
 	TradeMap tradeMap;
 	TitleMap titleMap;
 	PriceMap priceMap;
+	json::Array logLines;
 
 	StoragePtr report;
 
@@ -79,6 +85,7 @@ protected:
 	void exportPrices(json::Object &&out);
 	std::size_t interval_in_ms;
 };
+
 
 
 #endif /* SRC_MAIN_REPORT_H_ */
