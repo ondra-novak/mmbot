@@ -115,7 +115,7 @@ Interface::TradeHistory Interface::getTrades(json::Value lastId, std::uintptr_t 
 		})):trades.begin();
 
 		Value result;
-		if (start == trades.end()) {
+		if (start == trades.end() && lastId.defined()) {
 			trades.clear();
 			Value res = readTradesPerPartes(lastId,fromTime);
 			trades.addSet(res);
@@ -123,7 +123,9 @@ Interface::TradeHistory Interface::getTrades(json::Value lastId, std::uintptr_t 
 			firstId = lastId;
 		}
 
-		lastFrom = fromTime?fromTime:trades.empty()?size_t(-1):trades[0]["createdTimestamp"].getUInt();
+		if (start == trades.end()) return {};
+
+		lastFrom = fromTime?fromTime:trades[0]["createdTimestamp"].getUInt();
 
 		if ((*start)["transactionId"] == lastId)
 			++start;
