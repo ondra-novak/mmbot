@@ -54,6 +54,7 @@ public:
 	}
 
 	virtual void setInfo(StrViewA title,StrViewA asst,StrViewA curc, bool emulated) {
+		if (title.empty()) title = name;
 		rpt.setInfo(name, title, asst, curc, emulated);
 	}
 	virtual void reportPrice(double price) {

@@ -158,6 +158,7 @@ protected:
 	double sell_dynmult=1.0;
 	double internal_balance = 0;
 	mutable double prev_spread=0;
+	double prev_calc_ref = 0;
 
 
 	void loadState();
