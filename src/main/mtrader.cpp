@@ -49,8 +49,8 @@ MTrader::Config MTrader::load(const ondra_shared::IniConfig::Section& ini, bool 
 	cfg.sell_step_mult = ini["sell_step_mult"].getNumber(1.0);
 	cfg.external_assets = ini["external_assets"].getNumber(0);
 
-	cfg.acm_factor_buy = ini["acum_factor_buy"].getNumber(0.5);
-	cfg.acm_factor_sell = ini["acum_factor_sell"].getNumber(0.5);
+	cfg.acm_factor_buy = ini["acum_factor_buy"].getNumber(1);
+	cfg.acm_factor_sell = ini["acum_factor_sell"].getNumber(0);
 
 	cfg.dry_run = force_dry_run?true:ini["dry_run"].getBool(false);
 	cfg.internal_balance = cfg.dry_run?true:ini["internal_balance"].getBool(false);
@@ -105,6 +105,12 @@ int MTrader::perform() {
 	auto orders = getOrders();
 	//get current status
 	auto status = getMarketStatus();
+
+	if (status.assetBalance < 1e-20) {
+		ondra_shared::logFatal("No balance available. Please add some assets or set 'external_assets' to a positive value");
+		return 0;
+	}
+
 	//update market fees
 	minfo.fees = status.new_fees;
 	//process all new trades
@@ -143,7 +149,7 @@ int MTrader::perform() {
 	}
 	if (calcadj) {
 		double c = calculator.balance2price(1.0);
-		ondra_shared::logNote("Calculator adjusted: $1 at $2, ref_price=$3 ($4)", calculator.getBalance(), calculator.getPrice(), c - prev_calc_ref);
+		ondra_shared::logNote("Calculator adjusted: $1 at $2, ref_price=$3 ($4)", calculator.getBalance(), calculator.getPrice(), c, c - prev_calc_ref);
 		prev_calc_ref = c;
 	}
 
