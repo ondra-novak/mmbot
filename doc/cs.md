@@ -18,7 +18,7 @@ Více o nastavení robota dále
 
 ## Jaké je riziko?
 
-Dokud robot obchoduje pouze s prostředky bez páky, je riziko malé. Sám algoritmus dlouhodobě negeneruje ztrátu. Ztráta může přijít pouze tím, že trh, na kterém robot obchoduje jde dlouhodobě dolu a přestává generovat vlnky, nebo na něm klesají objemy. Takový trh signalizuje, že o něj obchodníci ztrácí zájem. Robot se tak může dostat do situace, kdy zůstane back holderem, tedy bude držet assety, které nemají žádnou cenu. 
+Dokud robot obchoduje pouze s prostředky bez páky, je riziko malé. Sám algoritmus dlouhodobě negeneruje ztrátu. Ztráta může přijít pouze tím, že trh, na kterém robot obchoduje jde dlouhodobě dolu a přestává generovat vlnky, nebo na něm klesají objemy. Takový trh signalizuje, že o něj obchodníci ztrácí zájem. Robot se tak může dostat do situace, kdy zůstane bagholderem, tedy bude držet assety, které nemají žádnou cenu. 
 
 Neznamená to ale, že každý trh jdoucí dolu může být ztrátový. Pokud jde trh dolu pomaleji než zisky z vlnek, pak i takový trh může přinášet v celku zisk.
 

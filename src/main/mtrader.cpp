@@ -143,7 +143,7 @@ int MTrader::perform() {
 	}
 	if (calcadj) {
 		double c = calculator.balance2price(1.0);
-		ondra_shared::logNote("Calculator adjusted: $1 at $2, ref_price=$3 ($4)", calculator.getBalance(), calculator.getPrice(), c - prev_calc_ref);
+		ondra_shared::logNote("Calculator adjusted: $1 at $2, ref_price=$3 ($4)", calculator.getBalance(), calculator.getPrice(), c, c - prev_calc_ref);
 		prev_calc_ref = c;
 	}
 
