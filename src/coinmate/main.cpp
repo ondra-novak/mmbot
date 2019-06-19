@@ -25,15 +25,20 @@ public:
 	Interface(Proxy &cm):cm(cm) {}
 
 
-	virtual double getBalance(const std::string_view & symb);
-	virtual TradeHistory getTrades(json::Value lastId, std::uintptr_t fromTime, const std::string_view & pair);
-	virtual Orders getOpenOrders(const std::string_view & par);
-	virtual Ticker getTicker(const std::string_view & piar);
-	virtual json::Value placeOrder(const std::string_view & pair, const Order &order);
-	virtual bool reset() ;
-	virtual MarketInfo getMarketInfo(const std::string_view & pair) ;
-	virtual double getFees(const std::string_view &pair) ;
-	virtual std::vector<std::string> getAllPairs() ;
+	virtual double getBalance(const std::string_view & symb) override;
+	virtual TradeHistory getTrades(json::Value lastId, std::uintptr_t fromTime, const std::string_view & pair) override;
+	virtual Orders getOpenOrders(const std::string_view & par) override;
+	virtual Ticker getTicker(const std::string_view & piar) override;
+	virtual json::Value placeOrder(const std::string_view & pair,
+			double size,
+			double price,
+			json::Value clientId,
+			json::Value replaceId,
+			double replaceSize) override;
+	virtual bool reset() override ;
+	virtual MarketInfo getMarketInfo(const std::string_view & pair) override ;
+	virtual double getFees(const std::string_view &pair) override ;
+	virtual std::vector<std::string> getAllPairs() override ;
 
 
 	Value balanceCache;
@@ -189,33 +194,39 @@ static const char *place[] = {"sellLimit","buyLimit"};
 //static const char *replace[] = {"replaceBySellLimit","replaceByBuyLimit"};
 
 
-json::Value Interface::placeOrder(const std::string_view & pair, const Order &order) {
+json::Value Interface::placeOrder(const std::string_view & pair,
+		double size,
+		double price,
+		json::Value clientId,
+		json::Value replaceId,
+		double replaceSize) {
 
-	if (order.id.defined()) {
-		Value res = cm.request(Proxy::POST, "cancelOrderWithInfo",Object("orderId", order.id));
-		if (res["success"].getBool() != true && res["remainingAmount"].getNumber()>0) {
-			throw std::runtime_error("Order was not placed, because cancelOrder failed");
+	if (replaceId.defined()) {
+		Value res = cm.request(Proxy::POST, "cancelOrderWithInfo",Object("orderId", replaceId));
+		if (replaceSize && (
+				res["success"].getBool() != true
+				|| res["remainingAmount"].getNumber()>fabs(replaceSize))) {
+				return null;
 		}
 	}
-
 
 	const char *cmd = nullptr;
 
 	double amount;
 	const char **cmdset = place;
-	if (order.size<0) {
+	if (size<0) {
 		cmd = cmdset[0];
-		amount = -order.size;
+		amount = -size;
 	} else {
 		cmd = cmdset[1];
-		amount = +order.size;
+		amount = +size;
 	}
 
 	json::Value args(json::object,{
 		json::Value("amount", amount),
-		json::Value("price", order.price),
+		json::Value("price", price),
 		json::Value("currencyPair", pair),
-		json::Value("clientOrderId",order.client_id)
+		json::Value("clientOrderId",clientId)
 	});
 
 	auto resp = cm.request(Proxy::POST, cmd, args);

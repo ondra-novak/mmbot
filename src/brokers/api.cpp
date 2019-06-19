@@ -66,12 +66,11 @@ static Value getTicker(IStockApi &handler, const Value &req) {
 
 static Value placeOrder(IStockApi &handler, const Value &req) {
 	return handler.placeOrder(req["pair"].getString(),
-			IStockApi::Order {
-					req["replaceOrderId"],
-					req["clientOrderId"],
-					req["size"].getNumber(),
-					req["price"].getNumber()
-				});
+			req["size"].getNumber(),
+			req["price"].getNumber(),
+			req["clientOrderId"],
+			req["replaceOrderId"],
+			req["replaceOrderSize"].getNumber());
 }
 
 static Value reset(IStockApi &handler, const Value &req) {

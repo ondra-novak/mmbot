@@ -52,18 +52,26 @@ EmulatorAPI::Ticker EmulatorAPI::getTicker(const std::string_view & pair) {
 	return tk;
 }
 
-json::Value EmulatorAPI::placeOrder(const std::string_view & pair, const Order& order) {
-	if (order.id.defined()) {
+json::Value EmulatorAPI::placeOrder(const std::string_view & pair,
+		double size, double price,json::Value clientId,
+		json::Value replaceId,double replaceSize) {
+
+	Order order{genID(), clientId, size, price};
+
+	if (replaceId.defined()) {
 		auto iter = std::find_if(orders.begin(), orders.end(), [&](const Order &o){
-			return o.id == order.id;
+			return o.id == replaceId;
 		});
 		if (iter != orders.end()) {
 			*iter = order;
-			return iter->id = genID();
+			return iter->id;
+		} else {
+			return nullptr;
 		}
+	} else {
+		orders.push_back(order);
+		return order.id;
 	}
-	orders.push_back(order);
-	return orders.back().id = genID();
 }
 
 EmulatorAPI::MarketInfo EmulatorAPI::getMarketInfo(const std::string_view & pair) {

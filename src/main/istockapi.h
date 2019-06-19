@@ -171,15 +171,29 @@ public:
 	virtual Ticker getTicker(const std::string_view & piar) = 0;
 	///Place new order
 	/**
+	 * @param pair pair identifier
+	 * @param size size of the order. Positive number is buy, negative number is sell,
+	 *   zero causes, that new order will not be placed (however, can be used to cancel
+	 *   other order)
+	 * @param price price of the LIMIT order. Set zero to place MARKET order
+	 * @param clientId client's identifier associated with the order.
+	 * @param replaceId (optional) if specified, function cancels specified order before
+	 * it places new one
+	 * @param replaceSize (optional) checks result of cancelation. In this case,
+	 * absolute of the number is used (so it is possible to replace buy order with
+	 * sell order). If canceled order has remaining size less than this number, the
+	 * function fails to place new order. Set this value to 0 to disable check.
 	 *
-	 * @param pair trading pair
-	 * @param order order information
-	 * @return order ID (can be string or number)
-	 *
-	 * @note To place new order, set it's id to json::undefined. If you specify
-	 * a valid id, the specified order will be canceled and replaced by the new order
+	 * @return Function returns ID of new order. If the order was not placed but
+	 * retains old order, the function returns replaceId. If the order was
+	 * canceled but new order was not placed, the function returns null.
 	 */
-	virtual json::Value placeOrder(const std::string_view & pair, const Order &order) = 0;
+	virtual json::Value placeOrder(const std::string_view & pair,
+			double size,
+			double price,
+			json::Value clientId = json::Value(),
+			json::Value replaceId = json::Value(),
+			double replaceSize = 0) = 0;
 	///Reset the API
 	/**
 	 * @retval true continue in trading
