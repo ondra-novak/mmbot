@@ -117,10 +117,13 @@ int MTrader::perform() {
 	//only create orders, if there are no trades from previous run
 	if (status.new_trades.empty()) {
 
+		bool balchange = status.internalBalance != status.assetBalance;
+		if (balchange)
+			ondra_shared::logWarning("Detected balance change: $1 => $2", status.internalBalance, status.assetBalance);
 		//update calculator using current account state
 		calcadj = calculator.addTrade(
 				trades.empty()?status.curPrice:trades.back().eff_price,
-				status.assetBalance, 0);
+				status.assetBalance, balchange?-1:0);
 
 		//calculate buy order
 		auto buyorder = calculateOrder(-status.curStep*buy_dynmult*cfg.buy_step_mult,
@@ -138,7 +141,12 @@ int MTrader::perform() {
 	} else {
 		calcadj = calculator.addTrade(trades.back().eff_price, status.assetBalance, trades.back().eff_size);
 	}
-	if (calcadj) ondra_shared::logNote("Calculator adjusted: $1 at $2 (ref_price=$3)", calculator.getBalance(), calculator.getPrice(), calculator.balance2price(1.0));
+	if (calcadj) {
+		double c = calculator.balance2price(1.0);
+		ondra_shared::logNote("Calculator adjusted: $1 at $2, ref_price=$3 ($4)", calculator.getBalance(), calculator.getPrice(), c - prev_calc_ref);
+		prev_calc_ref = c;
+	}
+
 	//report orders to UI
 	statsvc->reportOrders(orders.buy,orders.sell);
 	//report trades to UI
@@ -579,5 +587,5 @@ void MTrader::processTrades(Status &st,bool first_trade) {
 	this->buy_dynmult= raise_fall(this->buy_dynmult, buy_trade);
 	this->sell_dynmult= raise_fall(this->sell_dynmult, sell_trade);
 	st.internalBalance = internal_balance + cfg.external_assets;
-
+	prev_calc_ref = calculator.balance2price(1);
 }
