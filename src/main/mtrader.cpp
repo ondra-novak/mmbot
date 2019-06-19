@@ -105,6 +105,12 @@ int MTrader::perform() {
 	auto orders = getOrders();
 	//get current status
 	auto status = getMarketStatus();
+
+	if (status.assetBalance < 1e-20) {
+		ondra_shared::logFatal("No balance available. Please add some assets or set 'external_assets' to a positive value");
+		return 0;
+	}
+
 	//update market fees
 	minfo.fees = status.new_fees;
 	//process all new trades
