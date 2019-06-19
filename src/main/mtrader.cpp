@@ -107,7 +107,7 @@ int MTrader::perform() {
 	auto status = getMarketStatus();
 
 	if (status.assetBalance < 1e-20) {
-		ondra_shared::logFatal("No balance available. Please add some assets or set 'external_assets' to a positive value");
+		ondra_shared::logFatal("No balance available ($1 $2). Please add some assets or set 'external_assets' to a positive value", status.assetBalance, minfo.asset_symbol);
 		return 0;
 	}
 
