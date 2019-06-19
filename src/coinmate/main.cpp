@@ -207,7 +207,7 @@ json::Value Interface::placeOrder(const std::string_view & pair,
 		Value res = cm.request(Proxy::POST, "cancelOrderWithInfo",Object("orderId", replaceId));
 		if (replaceSize && (
 				res["success"].getBool() != true
-				|| res["remainingAmount"].getNumber()>fabs(replaceSize))) {
+				|| res["remainingAmount"].getNumber()<std::fabs(replaceSize)*0.999999)) {
 				return null;
 		}
 	}
@@ -219,9 +219,11 @@ json::Value Interface::placeOrder(const std::string_view & pair,
 	if (size<0) {
 		cmd = cmdset[0];
 		amount = -size;
-	} else {
+	} else if (size > 0){
 		cmd = cmdset[1];
 		amount = +size;
+	} else {
+		return null;
 	}
 
 	json::Value args(json::object,{

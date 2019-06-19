@@ -179,14 +179,21 @@ public:
 	 * @param clientId client's identifier associated with the order.
 	 * @param replaceId (optional) if specified, function cancels specified order before
 	 * it places new one
-	 * @param replaceSize (optional) checks result of cancelation. In this case,
-	 * absolute of the number is used (so it is possible to replace buy order with
-	 * sell order). If canceled order has remaining size less than this number, the
-	 * function fails to place new order. Set this value to 0 to disable check.
+	 * @param replaceSize (optional) check, whether the replacing order has remaining
+	 * size equal or above specified size. If the replacing order has size below this
+	 * number, the new order is not placed. This operation can cause, that replacing
+	 * order will be canceled because this can be emulated by cancel+check+place. If
+	 * the check fails, the old order is canceled, but new order is not placed.
+	 * NOTE: The absoulute value of the number is taken and compared
 	 *
 	 * @return Function returns ID of new order. If the order was not placed but
 	 * retains old order, the function returns replaceId. If the order was
 	 * canceled but new order was not placed, the function returns null.
+	 *
+	 * @exception any if the function throws an exception, the state of the market
+	 * should be unchanged. However, most APIs doesn't support transactions, so
+	 * failure of placing order can result to canceling previous order but not placing
+	 * the new one.
 	 */
 	virtual json::Value placeOrder(const std::string_view & pair,
 			double size,
