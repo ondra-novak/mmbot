@@ -54,7 +54,8 @@ MTrader::Config MTrader::load(const ondra_shared::IniConfig::Section& ini, bool 
 
 	cfg.dry_run = force_dry_run?true:ini["dry_run"].getBool(false);
 	cfg.internal_balance = cfg.dry_run?true:ini["internal_balance"].getBool(false);
-	cfg.detect_manual_trades = cfg.dry_run?true:ini["detect_manual_trades"].getBool(false);
+	cfg.detect_manual_trades = ini["detect_manual_trades"].getBool(false);
+	cfg.lnspread = ini["lnspread"].getBool(false);
 
 	cfg.dynmult_raise = ini["dynmult_raise"].getNumber(200);
 	cfg.dynmult_fall = ini["dynmult_fall"].getNumber(1);
@@ -111,6 +112,8 @@ int MTrader::perform() {
 		return 0;
 	}
 
+
+
 	//update market fees
 	minfo.fees = status.new_fees;
 	//process all new trades
@@ -118,18 +121,27 @@ int MTrader::perform() {
 	//merge trades on same price
 	mergeTrades(trades.size() - status.new_trades.size());
 
+	double lastTradePrice = trades.empty()?status.curPrice:trades.back().eff_price;
+
+
 
 	bool calcadj;
 	//only create orders, if there are no trades from previous run
 	if (status.new_trades.empty()) {
 
-		bool balchange = status.internalBalance != status.assetBalance;
-		if (balchange)
+		ondra_shared::logDebug("internal_balance=$1, external_balance=$2",status.internalBalance,status.assetBalance);
+		bool balchange = false;
+		if ( !similar(status.internalBalance ,status.assetBalance,1e-5)) {
 			ondra_shared::logWarning("Detected balance change: $1 => $2", status.internalBalance, status.assetBalance);
+			balchange = true;
+		}
+
+		if (!cfg.internal_balance) {
+			internal_balance = status.assetBalance-cfg.external_assets;
+		}
+
 		//update calculator using current account state
-		calcadj = calculator.addTrade(
-				trades.empty()?status.curPrice:trades.back().eff_price,
-				status.assetBalance, balchange?-1:0);
+		calcadj = calculator.addTrade(lastTradePrice, status.assetBalance, balchange?-1:0);
 
 		//calculate buy order
 		auto buyorder = calculateOrder(-status.curStep*buy_dynmult*cfg.buy_step_mult,
@@ -169,9 +181,6 @@ int MTrader::perform() {
 	first_order = false;
 
 	//update internal balance
-	if (!cfg.internal_balance) {
-		internal_balance = status.assetBalance-cfg.external_assets;
-	}
 
 	//save state
 	saveState();
@@ -290,7 +299,7 @@ MTrader::Order MTrader::calculateOrderFeeLess(double step, double curPrice, doub
 	Order order;
 
 	double prevPrice = calculator.balance2price(balance);
-	double newPrice = prevPrice + step;
+	double newPrice = cfg.lnspread?(prevPrice * exp(step)):(prevPrice+step);
 	double fact;
 	double mult;
 
@@ -333,7 +342,7 @@ MTrader::Order MTrader::calculateOrder(double step, double curPrice, double bala
 		order.size = 0;
 	} else if (minfo.min_volume) {
 		double vol = order.size * order.price;
-		if (vol < minfo.min_volume && vol > -minfo.min_size) {
+		if (vol < minfo.min_volume && vol > -minfo.min_volume) {
 			order.size = 0;
 		}
 	}
@@ -585,10 +594,8 @@ void MTrader::processTrades(Status &st,bool first_trade) {
 		if (!cfg.detect_manual_trades || first_trade)
 			manual = false;
 
-		if (cfg.internal_balance) {
-			if (!manual) {
-				internal_balance += t.eff_size;
-			}
+		if (!manual) {
+			internal_balance += t.eff_size;
 		}
 
 		buy_trade = buy_trade || t.eff_size > 0;

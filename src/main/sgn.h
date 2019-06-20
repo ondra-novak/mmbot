@@ -18,4 +18,12 @@ inline double pow2(double x) {
 	return x*x;
 }
 
+inline bool similar(double a, double b, double e) {
+	double c1 = std::fabs(a-b);
+	double c2 = std::fabs(a+b)/2;
+
+	return (c1/c2) < e;
+
+}
+
 #endif /* SRC_MAIN_SGN_H_ */
