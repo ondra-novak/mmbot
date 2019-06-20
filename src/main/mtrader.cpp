@@ -212,18 +212,24 @@ bool MTrader::replaceIfNotSame(std::optional<Order>& orig, Order neworder) {
 			return false;
 
 		neworder.client_id = magic;
-		bool res = false;
+		json::Value placeid;
 		if (!orig.has_value()) {
-			neworder.id = stock.placeOrder(cfg.pairsymb, neworder );
-			res = true;
+			placeid = stock.placeOrder(cfg.pairsymb, neworder.size, neworder.price,
+					neworder.client_id);
 		} else if (!orig->isSimilarTo(neworder, minfo.currency_step)) {
-			neworder.id = orig->id;
-			neworder.id = stock.placeOrder(cfg.pairsymb, neworder);
+			placeid = stock.placeOrder(cfg.pairsymb, neworder.size, neworder.price,
+					neworder.client_id, orig->id, std::fabs(orig->size));
+			if (placeid == orig->id) return false;
 		} else {
 			return false;
 		}
-		orig = neworder;
-		return res;
+		if (placeid.isNull() || !placeid.defined()) {
+			orig.reset();
+			return false;
+		} else {
+			orig = neworder;
+			return true;
+		}
 	} catch (const std::exception &e) {
 		logNote("Order was not placed: ($1 at $2) -  $3", neworder.size, neworder.price, e.what());
 		orig.reset();

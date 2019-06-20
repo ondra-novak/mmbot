@@ -21,7 +21,6 @@
 #include "report.h"
 #include "spread_calc.h"
 #include "ext_stockapi.h"
-#include "notrade.h"
 
 
 using ondra_shared::StdLogFile;
@@ -133,9 +132,8 @@ public:
 			ondra_shared::StrViewA name = def.first;
 			ondra_shared::StrViewA cmdline = def.second.getString();
 			ondra_shared::StrViewA workDir = def.second.getCurPath();
-			data.push_back(StockMarketMap::value_type(name,std::make_unique<ExtStockApi>(workDir, name, cmdline, test)));
+			data.push_back(StockMarketMap::value_type(name,std::make_unique<ExtStockApi>(workDir, name, cmdline)));
 		}
-		data.push_back(StockMarketMap::value_type("notrade",std::make_unique<NoTrade>()));
 		StockMarketMap map(std::move(data));
 		stock_markets.swap(map);
 	}

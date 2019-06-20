@@ -23,7 +23,9 @@ public:
 	virtual TradeHistory getTrades(json::Value lastId, std::uintptr_t fromTime, const std::string_view & pair) override;
 	virtual Orders getOpenOrders(const std::string_view & par) override;
 	virtual Ticker getTicker(const std::string_view & piar) override;
-	virtual json::Value placeOrder(const std::string_view & pair, const Order &order) override;
+	virtual json::Value placeOrder(const std::string_view & pair,
+			double size, double price,json::Value clientId,
+			json::Value replaceId,double replaceSize) override;
 	virtual bool reset() ;
 	virtual double getBalance(const std::string_view &) override;
 	virtual bool isTest() const override {return false;}
@@ -214,13 +216,16 @@ inline StockEmulator::Ticker StockEmulator::getTicker(const std::string_view & p
 	};
 }
 
-inline json::Value StockEmulator::placeOrder(const std::string_view & , const Order &order) {
+inline json::Value StockEmulator::placeOrder(const std::string_view & ,
+		double size, double price,json::Value clientId,
+		json::Value ,double ) {
 
-	if (order.size < 0) {
-		sell = order;
+	Order ord{0,clientId, size, price};
+	if (size < 0) {
+		sell = ord;
 		sell_ex = false;
 	} else {
-		buy = order;
+		buy = ord;
 		buy_ex = false;
 	}
 

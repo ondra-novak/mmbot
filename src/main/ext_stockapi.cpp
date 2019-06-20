@@ -16,8 +16,8 @@ using namespace ondra_shared;
 
 
 
-ExtStockApi::ExtStockApi(const std::string_view & workingDir, const std::string_view & name, const std::string_view & cmdline, bool test)
-:AbstractExtern(workingDir, name, cmdline),test(test) {
+ExtStockApi::ExtStockApi(const std::string_view & workingDir, const std::string_view & name, const std::string_view & cmdline)
+:AbstractExtern(workingDir, name, cmdline) {
 }
 
 
@@ -64,21 +64,17 @@ ExtStockApi::Ticker ExtStockApi::getTicker(const std::string_view & pair) {
 	};
 }
 
-json::Value  ExtStockApi::placeOrder(const std::string_view & pair, const Order &req) {
-	json::Object z;
-	z.set("pair",StrViewA(pair))
-		("price",req.price)
-		("size",req.size)
-		("clientOrderId",req.client_id)
-		("replaceOrderId",req.id);
+json::Value  ExtStockApi::placeOrder(const std::string_view & pair,
+		double size, double price,json::Value clientId,
+		json::Value replaceId,double replaceSize) {
 
-	if (test) {
-		log.info("Dry run: $1", json::Value(z).toString());
-		return 1;
-	}
-	else {
-		return jsonRequestExchange("placeOrder",z);
-	}
+	return jsonRequestExchange("placeOrder",json::Object
+					("pair",StrViewA(pair))
+					("price",price)
+					("size",size)
+					("clientOrderId",clientId)
+					("replaceOrderId",replaceId)
+					("replaceOrderSize",replaceSize));
 }
 
 

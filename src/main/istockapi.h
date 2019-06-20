@@ -171,15 +171,36 @@ public:
 	virtual Ticker getTicker(const std::string_view & piar) = 0;
 	///Place new order
 	/**
+	 * @param pair pair identifier
+	 * @param size size of the order. Positive number is buy, negative number is sell,
+	 *   zero causes, that new order will not be placed (however, can be used to cancel
+	 *   other order)
+	 * @param price price of the LIMIT order. Set zero to place MARKET order
+	 * @param clientId client's identifier associated with the order.
+	 * @param replaceId (optional) if specified, function cancels specified order before
+	 * it places new one
+	 * @param replaceSize (optional) check, whether the replacing order has remaining
+	 * size equal or above specified size. If the replacing order has size below this
+	 * number, the new order is not placed. This operation can cause, that replacing
+	 * order will be canceled because this can be emulated by cancel+check+place. If
+	 * the check fails, the old order is canceled, but new order is not placed.
+	 * NOTE: The absoulute value of the number is taken and compared
 	 *
-	 * @param pair trading pair
-	 * @param order order information
-	 * @return order ID (can be string or number)
+	 * @return Function returns ID of new order. If the order was not placed but
+	 * retains old order, the function returns replaceId. If the order was
+	 * canceled but new order was not placed, the function returns null.
 	 *
-	 * @note To place new order, set it's id to json::undefined. If you specify
-	 * a valid id, the specified order will be canceled and replaced by the new order
+	 * @exception any if the function throws an exception, the state of the market
+	 * should be unchanged. However, most APIs doesn't support transactions, so
+	 * failure of placing order can result to canceling previous order but not placing
+	 * the new one.
 	 */
-	virtual json::Value placeOrder(const std::string_view & pair, const Order &order) = 0;
+	virtual json::Value placeOrder(const std::string_view & pair,
+			double size,
+			double price,
+			json::Value clientId = json::Value(),
+			json::Value replaceId = json::Value(),
+			double replaceSize = 0) = 0;
 	///Reset the API
 	/**
 	 * @retval true continue in trading
