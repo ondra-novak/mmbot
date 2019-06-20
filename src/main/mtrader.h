@@ -43,7 +43,6 @@ struct MTrader_Config {
 	bool dry_run;
 	bool internal_balance;
 	bool detect_manual_trades;
-	bool lnspread;
 
 	std::size_t start_time;
 

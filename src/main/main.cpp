@@ -67,11 +67,11 @@ public:
 
 		if (*spread == 0) *spread = prev_value;
 
-		if (cnt) {
+		if (cnt && *spread != 0) {
 			--cnt;
 			return *spread;
 		} else {
-			cnt = interval;
+			cnt += interval;
 			wrk >> [chart = std::vector<ChartItem>(chart.begin(),chart.end()),
 					cfg = MTrader_Config(cfg),
 					minfo = IStockApi::MarketInfo(minfo),

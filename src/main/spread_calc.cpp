@@ -130,6 +130,7 @@ static double emulateMarket(ondra_shared::StringView<IStatSvc::ChartItem> chart,
 
 	double score = emul.getScore();
 	std::intptr_t tcount = emul.getTradeCount();
+	if (tcount == 0) return -1001;
 	std::intptr_t min_count = std::max<std::intptr_t>(counter*cfg.spread_calc_min_trades/1440,1);
 	std::intptr_t max_count = (counter*cfg.spread_calc_max_trades+1439)/1440;
 	if (tcount < min_count) score = tcount-min_count;
@@ -148,18 +149,18 @@ double glob_calcSpread(ondra_shared::StringView<IStatSvc::ChartItem> chart,
 		double prev_val) {
 	if (chart.empty() || balance == 0) return prev_val;
 	double curprice = sqrt(chart[chart.length-1].ask*chart[chart.length-1].bid);
-	if (prev_val < 1e-20) prev_val = config.lnspread?0.01:curprice*0.0001;
+	if (prev_val < 1e-20) prev_val = 0.01;
 
 
 	using ResultItem = std::pair<double,double>;
 	ResultItem bestResults[]={
-			{-9e98,prev_val},
-			{-9e98,prev_val},
-			{-9e98,prev_val},
-			{-9e98,prev_val}
+			{-1000,prev_val},
+			{-1000,prev_val},
+			{-1000,prev_val},
+			{-1000,prev_val}
 	};
 
-	double low_spread = prev_val/2;
+	double low_spread = prev_val/4;
 	const int steps = 200;
 	double hi_spread = prev_val*2;
 	auto resend = std::end(bestResults);
@@ -181,7 +182,7 @@ double glob_calcSpread(ondra_shared::StringView<IStatSvc::ChartItem> chart,
 			std::end(bestResults), ResultItem(1,1),
 			[](const ResultItem &a, const ResultItem &b) {
 				return ResultItem(0,a.second * b.second);}).second,1.0/std::distance(resbeg, resend));
-	ondra_shared::logInfo("Spread calculated: $1", config.lnspread?(curprice*exp(sugg_spread)-curprice):sugg_spread);
+	ondra_shared::logInfo("Spread calculated: $1 (log=$2)", curprice*exp(sugg_spread)-curprice, sugg_spread);
 	return sugg_spread;
 }
 

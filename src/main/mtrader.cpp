@@ -55,7 +55,6 @@ MTrader::Config MTrader::load(const ondra_shared::IniConfig::Section& ini, bool 
 	cfg.dry_run = force_dry_run?true:ini["dry_run"].getBool(false);
 	cfg.internal_balance = cfg.dry_run?true:ini["internal_balance"].getBool(false);
 	cfg.detect_manual_trades = ini["detect_manual_trades"].getBool(false);
-	cfg.lnspread = ini["lnspread"].getBool(false);
 
 	cfg.dynmult_raise = ini["dynmult_raise"].getNumber(200);
 	cfg.dynmult_fall = ini["dynmult_fall"].getNumber(1);
@@ -112,6 +111,10 @@ int MTrader::perform() {
 		return 0;
 	}
 
+	if (status.curStep == 0) {
+		ondra_shared::logWarning("No spread is calculated yet. Skipping");
+		return 0;
+	}
 
 
 	//update market fees
@@ -194,19 +197,27 @@ MTrader::OrderPair MTrader::getOrders() {
 	OrderPair ret;
 	auto data = stock.getOpenOrders(cfg.pairsymb);
 	for (auto &&x: data) {
-		if (x.client_id == magic) {
-			Order o(x);
-			if (o.size<0) {
-				if (ret.sell.has_value()) {
-					ondra_shared::logWarning("Multiple sell orders");
+		try {
+			if (x.client_id == magic) {
+				Order o(x);
+				if (o.size<0) {
+					if (ret.sell.has_value()) {
+						ondra_shared::logWarning("Multiple sell orders (trying to cancel)");
+						stock.placeOrder(cfg.pairsymb,0,0,json::Value(),x.id);
+					} else {
+						ret.sell = o;
+					}
+				} else {
+					if (ret.buy.has_value()) {
+						ondra_shared::logWarning("Multiple buy orders (trying to cancel)");
+						stock.placeOrder(cfg.pairsymb,0,0,json::Value(),x.id);
+					} else {
+						ret.buy = o;
+					}
 				}
-				ret.sell = o;
-			} else {
-				if (ret.buy.has_value()) {
-					ondra_shared::logWarning("Multiple buy orders");
-				}
-				ret.buy = o;
 			}
+		} catch (std::exception &e) {
+			ondra_shared::logError("$1", e.what());
 		}
 	}
 	return ret;
@@ -299,7 +310,7 @@ MTrader::Order MTrader::calculateOrderFeeLess(double step, double curPrice, doub
 	Order order;
 
 	double prevPrice = calculator.balance2price(balance);
-	double newPrice = cfg.lnspread?(prevPrice * exp(step)):(prevPrice+step);
+	double newPrice = prevPrice * exp(step);
 	double fact;
 	double mult;
 
@@ -319,8 +330,11 @@ MTrader::Order MTrader::calculateOrderFeeLess(double step, double curPrice, doub
 	}
 
 	double newBalance = calculator.price2balance(newPrice);
+	double base = (newBalance - balance)*mult;
 	double extra = calculator.calcExtra(prevPrice, newPrice);
-	double size = (newBalance - balance)*mult+extra*fact;
+	double size = base +extra*fact;
+
+	ondra_shared::logDebug("Set order: step=$1, price=$2, base=$3, extra=$4, total=$5",step, newPrice, base, extra, size);
 
 	if (size * step > 0) size = 0;
 	//fill order
@@ -375,7 +389,7 @@ void MTrader::loadState() {
 				buy_dynmult = state["buy_dynmult"].getNumber();
 				sell_dynmult = state["sell_dynmult"].getNumber();
 			}
-			prev_spread = state["spread"].getNumber();
+			prev_spread = state["lnspread"].getNumber();
 			internal_balance = state["internal_balance"].getNumber();
 		}
 		auto chartSect = st["chart"];
@@ -444,7 +458,7 @@ void MTrader::saveState() {
 		auto st = obj.object("state");
 		st.set("buy_dynmult", buy_dynmult);
 		st.set("sell_dynmult", sell_dynmult);
-		st.set("spread", prev_spread);
+		st.set("lnspread", prev_spread);
 		st.set("internal_balance", internal_balance);
 	}
 	{
