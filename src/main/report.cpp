@@ -11,6 +11,7 @@
 #include <imtjson/object.h>
 #include <imtjson/array.h>
 #include <chrono>
+#include <numeric>
 
 #include "../shared/linear_map.h"
 #include "../shared/logOutput.h"
@@ -89,10 +90,21 @@ void Report::setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> tr
 
 		//guess initial balance by substracting size
 		double init_balance = (t.balance-t.eff_size);
+		auto invest = std::accumulate(trades.begin()+1, trades.end(), std::make_pair(0.0,0.0),
+				[](auto &&a, auto &&b){
+					double assdiff = b.balance - a.first;
+					double robot_trade = b.manual_trade?0:b.eff_size;
+					double netto_diff = assdiff - robot_trade;
+					double cost = netto_diff * b.eff_price;
+					return std::make_pair(b.balance, a.second+cost);
+		}).second;
+		std::size_t invest_beg_time = t.time;
+
 		//so the first trade doesn't change the value of portfolio
 //		double init_value = init_balance*t.eff_price+init_fiat;
 		//
 		double init_price = t.eff_price;
+
 
 		double prev_balance = init_balance;
 		double prev_price = init_price;
@@ -101,6 +113,7 @@ void Report::setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> tr
 		double cur_fromPos = 0;
 		double norm_sum_ass = 0;
 		double norm_sum_cur = 0;
+
 
 		while (iter != tend) {
 
@@ -126,6 +139,10 @@ void Report::setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> tr
 			prev_balance = t.balance;
 			prev_price = t.eff_price;
 
+			double invest_time = t.time - invest_beg_time;
+			double app = ((norm/invest_time)*(365.0*24.0*60.0*60.0*1000.0)*100.0)/invest;
+			if (!std::isfinite(app)) app = 0;
+
 			if (t.time >= first) {
 				records.push_back(Object
 						("id", t.id)
@@ -137,6 +154,7 @@ void Report::setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> tr
 						("pos", ass_sum)
 						("pl", cur_fromPos)
 						("price", t.price)
+						("app", app)
 						("volume", -t.eff_price*t.eff_size)
 						("man",t.manual_trade)
 				);
