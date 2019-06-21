@@ -174,7 +174,10 @@ protected:
 	static IStockApi &selectStock(IStockSelector &stock_selector, const Config &conf, std::unique_ptr<IStockApi> &ownedStock);
 	std::size_t testStartTime;
 
-	void processTrades(Status &st,bool first_trade);
+	struct PTResult {
+		bool manual_trades;
+	};
+	PTResult processTrades(Status &st,bool first_trade);
 
 	void mergeTrades(std::size_t fromPos);
 

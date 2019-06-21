@@ -26,7 +26,7 @@ public:
 	 * @retval true calculator adjusted
 	 * @retval false calculator not adjusted
 	 */
-	bool addTrade(double new_price, double abs_balance, double order_size);
+	bool addTrade(double new_price, double abs_balance, bool manual_trade);
 
 	double balance2price(double balance) const;
 

@@ -120,7 +120,7 @@ int MTrader::perform() {
 	//update market fees
 	minfo.fees = status.new_fees;
 	//process all new trades
-	processTrades(status, first_order);
+	auto ptres = processTrades(status, first_order);
 	//merge trades on same price
 	mergeTrades(trades.size() - status.new_trades.size());
 
@@ -144,7 +144,7 @@ int MTrader::perform() {
 		}
 
 		//update calculator using current account state
-		calcadj = calculator.addTrade(lastTradePrice, status.assetBalance, balchange?-1:0);
+		calcadj = calculator.addTrade(lastTradePrice, status.assetBalance, balchange);
 
 		//calculate buy order
 		auto buyorder = calculateOrder(-status.curStep*buy_dynmult*cfg.buy_step_mult,
@@ -160,7 +160,7 @@ int MTrader::perform() {
 		std::swap(lastOrders[0],lastOrders[1]);
 		lastOrders[0] = orders;
 	} else {
-		calcadj = calculator.addTrade(trades.back().eff_price, status.assetBalance, trades.back().eff_size);
+		calcadj = calculator.addTrade(trades.back().eff_price, status.assetBalance, ptres.manual_trades);
 	}
 	if (calcadj) {
 		double c = calculator.balance2price(1.0);
@@ -585,10 +585,11 @@ json::Value MTrader::OrderPair::toJSON() const {
 			("sell",sell.has_value()?sell->toJSON():json::Value());
 }
 
-void MTrader::processTrades(Status &st,bool first_trade) {
+MTrader::PTResult MTrader::processTrades(Status &st,bool first_trade) {
 
 	bool buy_trade = false;
 	bool sell_trade = false;
+	bool was_manual = false;
 
 	for (auto &&t : st.new_trades) {
 		bool manual = false;
@@ -604,6 +605,9 @@ void MTrader::processTrades(Status &st,bool first_trade) {
 						!lo.buy.has_value()?0.0:lo.buy->price, fkord.price, !lo.sell.has_value()?0.0:lo.sell->price);
 			}
 		}
+
+		was_manual = was_manual || manual;
+
 
 		if (!cfg.detect_manual_trades || first_trade)
 			manual = false;
@@ -621,4 +625,5 @@ void MTrader::processTrades(Status &st,bool first_trade) {
 	this->sell_dynmult= raise_fall(this->sell_dynmult, sell_trade);
 	st.internalBalance = internal_balance + cfg.external_assets;
 	prev_calc_ref = calculator.balance2price(1);
+	return {was_manual};
 }
