@@ -54,7 +54,7 @@ MTrader::Config MTrader::load(const ondra_shared::IniConfig::Section& ini, bool 
 
 	cfg.dry_run = force_dry_run?true:ini["dry_run"].getBool(false);
 	cfg.internal_balance = cfg.dry_run?true:ini["internal_balance"].getBool(false);
-	cfg.detect_manual_trades = ini["detect_manual_trades"].getBool(false);
+	cfg.detect_manual_trades = ini["detect_manual_trades"].getBool(true);
 
 	cfg.dynmult_raise = ini["dynmult_raise"].getNumber(200);
 	cfg.dynmult_fall = ini["dynmult_fall"].getNumber(1);
@@ -113,59 +113,59 @@ int MTrader::perform() {
 
 	if (status.curStep == 0) {
 		ondra_shared::logWarning("No spread is calculated yet. Skipping");
-		return 0;
-	}
+	} else {
 
 
-	//update market fees
-	minfo.fees = status.new_fees;
-	//process all new trades
-	auto ptres = processTrades(status, first_order);
-	//merge trades on same price
-	mergeTrades(trades.size() - status.new_trades.size());
+		//update market fees
+		minfo.fees = status.new_fees;
+		//process all new trades
+		auto ptres =processTrades(status, first_order);
+		//merge trades on same price
+		mergeTrades(trades.size() - status.new_trades.size());
 
-	double lastTradePrice = trades.empty()?status.curPrice:trades.back().eff_price;
+		double lastTradePrice = trades.empty()?status.curPrice:trades.back().eff_price;
 
 
 
-	bool calcadj;
-	//only create orders, if there are no trades from previous run
-	if (status.new_trades.empty()) {
+		bool calcadj;
+		//only create orders, if there are no trades from previous run
+		if (status.new_trades.empty()) {
 
-		ondra_shared::logDebug("internal_balance=$1, external_balance=$2",status.internalBalance,status.assetBalance);
-		bool balchange = false;
-		if ( !similar(status.internalBalance ,status.assetBalance,1e-5)) {
-			ondra_shared::logWarning("Detected balance change: $1 => $2", status.internalBalance, status.assetBalance);
-			balchange = true;
-		}
+			ondra_shared::logDebug("internal_balance=$1, external_balance=$2",status.internalBalance,status.assetBalance);
+			bool balchange = false;
+			if ( !similar(status.internalBalance ,status.assetBalance,1e-5)) {
+				ondra_shared::logWarning("Detected balance change: $1 => $2", status.internalBalance, status.assetBalance);
+				balchange = true;
+			}
 
-		if (!cfg.internal_balance) {
-			internal_balance = status.assetBalance-cfg.external_assets;
-		}
+			if (!cfg.internal_balance) {
+				internal_balance = status.assetBalance-cfg.external_assets;
+			}
 
 		//update calculator using current account state
 		calcadj = calculator.addTrade(lastTradePrice, status.assetBalance, balchange);
 
 		//calculate buy order
-		auto buyorder = calculateOrder(-status.curStep*buy_dynmult*cfg.buy_step_mult,
-									   status.curPrice, status.assetBalance);
-		//calculate sell order
-		auto sellorder = calculateOrder(status.curStep*sell_dynmult*cfg.sell_step_mult,
-				   	   	   	   	   	   status.curPrice, status.assetBalance);
-		//replace order on stockmarket
-		replaceIfNotSame(orders.buy, buyorder);
-		//replace order on stockmarket
-		replaceIfNotSame(orders.sell, sellorder);
-		//remember the orders (keep previous orders as well)
-		std::swap(lastOrders[0],lastOrders[1]);
-		lastOrders[0] = orders;
-	} else {
-		calcadj = calculator.addTrade(trades.back().eff_price, status.assetBalance, ptres.manual_trades);
-	}
-	if (calcadj) {
-		double c = calculator.balance2price(1.0);
-		ondra_shared::logNote("Calculator adjusted: $1 at $2, ref_price=$3 ($4)", calculator.getBalance(), calculator.getPrice(), c, c - prev_calc_ref);
-		prev_calc_ref = c;
+			auto buyorder = calculateOrder(-status.curStep*buy_dynmult*cfg.buy_step_mult,
+										   status.curPrice, status.assetBalance);
+			//calculate sell order
+			auto sellorder = calculateOrder(status.curStep*sell_dynmult*cfg.sell_step_mult,
+										   status.curPrice, status.assetBalance);
+			//replace order on stockmarket
+			replaceIfNotSame(orders.buy, buyorder);
+			//replace order on stockmarket
+			replaceIfNotSame(orders.sell, sellorder);
+			//remember the orders (keep previous orders as well)
+			std::swap(lastOrders[0],lastOrders[1]);
+			lastOrders[0] = orders;
+		} else {
+			calcadj = calculator.addTrade(trades.back().eff_price, status.assetBalance, ptres.manual_trades);
+		}
+		if (calcadj) {
+			double c = calculator.balance2price(1.0);
+			ondra_shared::logNote("Calculator adjusted: $1 at $2, ref_price=$3 ($4)", calculator.getBalance(), calculator.getPrice(), c, c - prev_calc_ref);
+			prev_calc_ref = c;
+		}
 	}
 
 	//report orders to UI
@@ -174,16 +174,16 @@ int MTrader::perform() {
 	statsvc->reportTrades(trades);
 	//report price to UI
 	statsvc->reportPrice(status.curPrice);
+
 	//store current price (to build chart)
 	chart.push_back(status.chartItem);
 	//delete very old data from chart
 	if (chart.size() > cfg.spread_calc_mins)
 		chart.erase(chart.begin(),chart.end()-cfg.spread_calc_mins);
 
+
 	//if this was first order, the next will not first order
 	first_order = false;
-
-	//update internal balance
 
 	//save state
 	saveState();
@@ -334,7 +334,7 @@ MTrader::Order MTrader::calculateOrderFeeLess(double step, double curPrice, doub
 	double extra = calculator.calcExtra(prevPrice, newPrice);
 	double size = base +extra*fact;
 
-	ondra_shared::logDebug("Set order: step=$1, price=$2, base=$3, extra=$4, total=$5",step, newPrice, base, extra, size);
+	ondra_shared::logDebug("Set order: step=$1, base_price=$6, price=$2, base=$3, extra=$4, total=$5",step, newPrice, base, extra, size, prevPrice);
 
 	if (size * step > 0) size = 0;
 	//fill order
@@ -596,8 +596,19 @@ MTrader::PTResult MTrader::processTrades(Status &st,bool first_trade) {
 		manual = true;
 		Order fkord(t.size, t.price);
 		for (auto &lo : lastOrders) {
-			manual = manual && !((lo.buy.has_value() && lo.buy->isSimilarTo(fkord, minfo.currency_step))
-					|| (lo.sell.has_value() && lo.sell->isSimilarTo(fkord, minfo.currency_step)));
+			if (t.eff_size < 0) {
+				if (lo.sell.has_value() && t.eff_size > lo.sell->size*1.001) {
+					manual = false; lo.sell->size -= t.eff_size;
+				}
+				else {lo.sell.reset();}
+			}
+			if (t.eff_size > 0) {
+				if (lo.buy.has_value() && t.eff_size < lo.buy->size*1.001) {
+					manual = false;lo.buy->size -= t.eff_size;
+				}
+				else {lo.buy.reset();}
+			}
+			if (!manual) break;
 		}
 		if (manual) {
 			for (auto &lo : lastOrders) {

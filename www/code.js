@@ -471,7 +471,7 @@ function app_start(){
 				var ch =  charts[sm];
 				var last;
 				if (!ch || !ch.length) {
-					last = {pl:0,price:stats.prices[sm],pos:0};
+					last = {pl:0,price:stats.prices[sm],pos:0,app:0,norm:0,nacum:0};
 				} else {
 					 last = ch[ch.length-1];
 				}
@@ -480,6 +480,9 @@ function app_start(){
 					price: stats.prices[sm],
 					pl: last.pl + (stats.prices[sm]- last.price)* last.pos,
 					label: "",
+					norm:last.norm,
+					nacum:last.nacum,
+					app:last.app,
 					class: "last",
 				})
 				ranges[sm]["last"] = [stats.prices[sm],""];

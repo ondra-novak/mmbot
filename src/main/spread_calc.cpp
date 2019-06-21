@@ -160,16 +160,16 @@ double glob_calcSpread(ondra_shared::StringView<IStatSvc::ChartItem> chart,
 			{-1000,prev_val}
 	};
 
-	double low_spread = prev_val/4;
+	double low_spread = curprice*(std::exp(prev_val)-1)/10;
 	const int steps = 200;
-	double hi_spread = prev_val*2;
+	double hi_spread = curprice*(std::exp(prev_val)-1)*10;
 	auto resend = std::end(bestResults);
 	auto resbeg = std::begin(bestResults);
 	auto resiter = resbeg;
 
 	for (int i = 0; i < steps; i++) {
 
-		double curSpread = low_spread+(hi_spread-low_spread)*i/(steps-1.0);
+		double curSpread = std::log(((low_spread+(hi_spread-low_spread)*i/(steps-1.0))+curprice)/curprice);
 		double profit= emulateMarket(chart, config, minfo, balance, curSpread);
 		ResultItem resitem(profit,curSpread);
 		if (resiter->first < resitem.first) {

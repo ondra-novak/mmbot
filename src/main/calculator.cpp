@@ -18,7 +18,7 @@ bool Calculator::addTrade(double new_price, double abs_balance, bool manual_trad
 	double bdiff = abs_balance - eb;
 
 	//if balance is less then expected, and not is manual trade, then don't update calculator
-	if (bdiff < 0 && !manual_trade) return false;
+	if (bdiff <= 0 && !manual_trade) return false;
 
 	//we will adjust the balance
 	price = new_price;
@@ -43,7 +43,7 @@ double Calculator::balance2price(double new_balance) const {
 	 * pow2(c/b)/p = 1/n
 	 * p*pow(c/b) = n
 	 */
-	return price * pow2(new_balance/balance);
+	return price * pow2(balance/new_balance);
 
 }
 
