@@ -376,12 +376,16 @@ void MTrader::loadState() {
 	bool wastest = false;
 
 	auto curtest = stock.isTest();
+	bool drop_calc = false;
 
 	bool recalc_trades = false;
 
 	if (st.defined()) {
 		json::Value tst = st["testStartTime"];
 		wastest = tst.defined();
+
+		drop_calc = drop_calc || (wastest != curtest);
+
 		testStartTime = tst.getUInt();
 		auto state = st["state"];
 		if (state.defined()) {
@@ -391,6 +395,9 @@ void MTrader::loadState() {
 			}
 			prev_spread = state["lnspread"].getNumber();
 			internal_balance = state["internal_balance"].getNumber();
+			double ext_ass = state["external_assets"].getNumber();
+			if (ext_ass != cfg.external_assets) drop_calc = true;
+
 		}
 		auto chartSect = st["chart"];
 		if (chartSect.defined()) {
@@ -419,9 +426,11 @@ void MTrader::loadState() {
 			}
 			mergeTrades(0);
 		}
-		calculator = Calculator::fromJSON(st["calc"]);
-		lastOrders[0] = OrderPair::fromJSON(st["orders"][0]);
-		lastOrders[1] = OrderPair::fromJSON(st["orders"][1]);
+		if (!drop_calc) {
+			calculator = Calculator::fromJSON(st["calc"]);
+			lastOrders[0] = OrderPair::fromJSON(st["orders"][0]);
+			lastOrders[1] = OrderPair::fromJSON(st["orders"][1]);
+		}
 	}
 	if (curtest && testStartTime == 0) {
 		testStartTime = std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -460,6 +469,7 @@ void MTrader::saveState() {
 		st.set("sell_dynmult", sell_dynmult);
 		st.set("lnspread", prev_spread);
 		st.set("internal_balance", internal_balance);
+		st.set("external_assets", cfg.external_assets);
 	}
 	{
 		auto ch = obj.array("chart");
