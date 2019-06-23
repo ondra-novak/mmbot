@@ -147,9 +147,9 @@ double glob_calcSpread(ondra_shared::StringView<IStatSvc::ChartItem> chart,
 		const IStockApi::MarketInfo &minfo,
 		double balance,
 		double prev_val) {
+	if (prev_val == 0) prev_val = 0.01;
 	if (chart.empty() || balance == 0) return prev_val;
 	double curprice = sqrt(chart[chart.length-1].ask*chart[chart.length-1].bid);
-	if (prev_val < 1e-20) prev_val = 0.01;
 
 
 	using ResultItem = std::pair<double,double>;

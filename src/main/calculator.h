@@ -16,7 +16,7 @@ class Calculator {
 public:
 
 	Calculator();
-	Calculator(double price, double balance);
+	Calculator(double price, double balance, bool achieve);
 
 	///add trade to calculate internal state
 	/**
@@ -26,7 +26,7 @@ public:
 	 * @retval true calculator adjusted
 	 * @retval false calculator not adjusted
 	 */
-	bool addTrade(double new_price, double abs_balance, bool manual_trade);
+	bool update(double new_price, double abs_balance, bool manual_trade);
 
 	double balance2price(double balance) const;
 
@@ -46,9 +46,17 @@ public:
 		return price;
 	}
 
+	bool isValid() const {
+		return price > 0 && balance > 0;
+	}
+
+	void achieve(double new_price, double new_balance);
+	bool isAchieveMode() const {return achieve_mode;}
+
 protected:
 	double price = 0;
 	double balance = 0;
+	bool achieve_mode = false;
 
 };
 

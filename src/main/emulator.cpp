@@ -41,7 +41,8 @@ EmulatorAPI::TradeHistory EmulatorAPI::getTrades(json::Value lastId, std::uintpt
 	return TradeHistory(std::move(trades));
 }
 
-EmulatorAPI::Orders EmulatorAPI::getOpenOrders(const std::string_view & par) {
+EmulatorAPI::Orders EmulatorAPI::getOpenOrders(const std::string_view & pair) {
+	simulation(datasrc.getTicker(pair));
 	return Orders(orders.begin(), orders.end());
 }
 

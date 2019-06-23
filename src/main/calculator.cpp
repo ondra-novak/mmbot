@@ -11,11 +11,19 @@
 #include "sgn.h"
 #include "calculator.h"
 
-bool Calculator::addTrade(double new_price, double abs_balance, bool manual_trade) {
+bool Calculator::update(double new_price, double abs_balance, bool manual_trade) {
 
 
 	double eb = price2balance(new_price);
 	double bdiff = abs_balance - eb;
+
+	if (achieve_mode) {
+		if (std::fabs(bdiff) < balance*0.001) {
+			achieve_mode = false;
+		} else {
+			return false;
+		}
+	}
 
 	//if balance is less then expected, and not is manual trade, then don't update calculator
 	if (bdiff <= 0 && !manual_trade) return false;
@@ -35,6 +43,7 @@ double Calculator::price2balance(double new_price) const {
 
 double Calculator::balance2price(double new_balance) const {
 
+	if (new_balance == 0) return 9e99;
 	//formula to map balance to price
 	/*
 	 * c = b * sqrt(p/n)
@@ -49,6 +58,7 @@ double Calculator::balance2price(double new_balance) const {
 
 
 double Calculator::calcExtra(double last_price, double new_price) const {
+	if (achieve_mode) return 0;
 	//balance after last trade (at last price)
 	double b1 = price2balance(last_price);
 	//balance at new price
@@ -70,18 +80,27 @@ double Calculator::calcExtra(double last_price, double new_price) const {
 json::Value Calculator::toJSON() const {
 	return json::Value(json::object,{
 			json::Value("price", price),
-			json::Value("balance", balance)
+			json::Value("balance", balance),
+			json::Value("achieve", achieve_mode)
 	});
+}
+
+
+void Calculator::achieve(double new_price, double new_balance) {
+	achieve_mode = true;
+	price = new_price;
+	balance = new_balance;
 }
 
 Calculator::Calculator() {}
 
-Calculator::Calculator(double price, double balance):price(price),balance(balance) {
+Calculator::Calculator(double price, double balance, bool achieve):price(price),balance(balance),achieve_mode(achieve) {
 }
 
 Calculator Calculator::fromJSON(json::Value v) {
 	return Calculator(
 		v["price"].getNumber(),
-		v["balance"].getNumber()
+		v["balance"].getNumber(),
+		v["achieve"].getBool()
 	);
 }

@@ -43,8 +43,11 @@ MTrader::Config MTrader::load(const ondra_shared::IniConfig::Section& ini, bool 
 	cfg.spread_calc_max_trades = ini["spread_calc_max_trades"].getUInt(24);
 	cfg.pairsymb = ini.mandatory["pair_symbol"].getString();
 
-	cfg.buy_mult = ini["buy_mult"].getNumber(1.0);
-	cfg.sell_mult = ini["sell_mult"].getNumber(1.0);
+	if (ini["buy_mult"].getNumber(1.0) != 1.0)
+		ondra_shared::logWarning("Am option 'buy_mult' is no longer supported. If you need to 'boost' orders, use 'external_assets'");
+	if (ini["sell_mult"].getNumber(1.0) != 1.0)
+		ondra_shared::logWarning("An option 'sell_mult' is no longer supported. If you need to 'boost' orders, use 'external_assets'");
+
 	cfg.buy_step_mult = ini["buy_step_mult"].getNumber(1.0);
 	cfg.sell_step_mult = ini["sell_step_mult"].getNumber(1.0);
 	cfg.external_assets = ini["external_assets"].getNumber(0);
@@ -106,15 +109,9 @@ int MTrader::perform() {
 	//get current status
 	auto status = getMarketStatus();
 
-	if (status.assetBalance < 1e-20) {
-		ondra_shared::logFatal("No balance available ($1 $2). Please add some assets or set 'external_assets' to a positive value", status.assetBalance, minfo.asset_symbol);
-		return 0;
-	}
-
 	if (status.curStep == 0) {
 		ondra_shared::logWarning("No spread is calculated yet. Skipping");
 	} else {
-
 
 		//update market fees
 		minfo.fees = status.new_fees;
@@ -125,46 +122,51 @@ int MTrader::perform() {
 
 		double lastTradePrice = trades.empty()?status.curPrice:trades.back().eff_price;
 
+		bool calcadj = false;
 
-
-		bool calcadj;
-		//only create orders, if there are no trades from previous run
-		if (status.new_trades.empty()) {
-
-			ondra_shared::logDebug("internal_balance=$1, external_balance=$2",status.internalBalance,status.assetBalance);
-			bool balchange = false;
-			if ( !similar(status.internalBalance ,status.assetBalance,1e-5)) {
-				ondra_shared::logWarning("Detected balance change: $1 => $2", status.internalBalance, status.assetBalance);
-				balchange = true;
-			}
-
-			if (!cfg.internal_balance) {
-				internal_balance = status.assetBalance-cfg.external_assets;
-			}
-
-		//update calculator using current account state
-		calcadj = calculator.addTrade(lastTradePrice, status.assetBalance, balchange);
-
-		//calculate buy order
-			auto buyorder = calculateOrder(-status.curStep*buy_dynmult*cfg.buy_step_mult,
-										   status.curPrice, status.assetBalance);
-			//calculate sell order
-			auto sellorder = calculateOrder(status.curStep*sell_dynmult*cfg.sell_step_mult,
-										   status.curPrice, status.assetBalance);
-			//replace order on stockmarket
-			replaceIfNotSame(orders.buy, buyorder);
-			//replace order on stockmarket
-			replaceIfNotSame(orders.sell, sellorder);
-			//remember the orders (keep previous orders as well)
-			std::swap(lastOrders[0],lastOrders[1]);
-			lastOrders[0] = orders;
-		} else {
-			calcadj = calculator.addTrade(trades.back().eff_price, status.assetBalance, ptres.manual_trades);
+		//if calculator is not valid, update it using current price and assets
+		if (!calculator.isValid()) {
+			calcadj = calculator.update(lastTradePrice, status.assetBalance, true);
 		}
-		if (calcadj) {
-			double c = calculator.balance2price(1.0);
-			ondra_shared::logNote("Calculator adjusted: $1 at $2, ref_price=$3 ($4)", calculator.getBalance(), calculator.getPrice(), c, c - prev_calc_ref);
-			prev_calc_ref = c;
+		if (!calculator.isValid()) {
+			ondra_shared::logError("No asset balance is available. Buy some assets, use 'external_assets=' or use command achieve to invoke automatic initial trade");
+		} else {
+
+
+			//only create orders, if there are no trades from previous run
+			if (status.new_trades.empty()) {
+
+				ondra_shared::logDebug("internal_balance=$1, external_balance=$2",status.internalBalance,status.assetBalance);
+				if ( !similar(status.internalBalance ,status.assetBalance,1e-5)) {
+					//when balance changes, we need to update calculator
+					ondra_shared::logWarning("Detected balance change: $1 => $2", status.internalBalance, status.assetBalance);
+					calcadj = calculator.update(lastTradePrice, status.assetBalance, true);
+				}
+
+				//calculate buy order
+				auto buyorder = calculateOrder(-status.curStep*buy_dynmult*cfg.buy_step_mult,
+											   status.curPrice, status.assetBalance);
+				//calculate sell order
+				auto sellorder = calculateOrder(status.curStep*sell_dynmult*cfg.sell_step_mult,
+											   status.curPrice, status.assetBalance);
+				//replace order on stockmarket
+				replaceIfNotSame(orders.buy, buyorder);
+				//replace order on stockmarket
+				replaceIfNotSame(orders.sell, sellorder);
+				//remember the orders (keep previous orders as well)
+				std::swap(lastOrders[0],lastOrders[1]);
+				lastOrders[0] = orders;
+
+			} else {
+				//update after trade
+				calcadj = calculator.update(lastTradePrice, status.assetBalance, ptres.manual_trades);
+			}
+
+			if (calcadj) {
+				double c = calculator.balance2price(1.0);
+				ondra_shared::logNote("Calculator adjusted: $1 at $2, ref_price=$3 ($4)", calculator.getBalance(), calculator.getPrice(), c, c - prev_calc_ref);
+				prev_calc_ref = c;
+			}
 		}
 	}
 
@@ -312,25 +314,24 @@ MTrader::Order MTrader::calculateOrderFeeLess(double step, double curPrice, doub
 	double prevPrice = calculator.balance2price(balance);
 	double newPrice = prevPrice * exp(step);
 	double fact;
-	double mult;
 
 	if (step < 0) {
 		//if price is lower than old, check whether current price is above
 		//otherwise lower the price more
 		if (newPrice > curPrice) newPrice = curPrice;
 		fact = cfg.acm_factor_buy;
-		mult = cfg.buy_mult;
 	} else {
 		//if price is higher then old, check whether current price is below
 		//otherwise highter the newPrice more
 
 		if (newPrice < curPrice) newPrice = curPrice;
 		fact = cfg.acm_factor_sell;
-		mult = cfg.sell_mult;
 	}
 
+
+
 	double newBalance = calculator.price2balance(newPrice);
-	double base = (newBalance - balance)*mult;
+	double base = (newBalance - balance);
 	double extra = calculator.calcExtra(prevPrice, newPrice);
 	double size = base +extra*fact;
 
@@ -448,9 +449,8 @@ void MTrader::loadState() {
 			begBal = t.balance;
 		}
 	}
-	if (internal_balance == 0 && cfg.internal_balance) {
+	if (internal_balance == 0) {
 		if (!trades.empty()) internal_balance = trades.back().balance- cfg.external_assets;
-		else internal_balance = stock.getBalance(minfo.asset_symbol);
 	}
 }
 
@@ -554,31 +554,6 @@ bool MTrader::eraseTrade(std::string_view id, bool trunc) {
 }
 
 
-void MTrader::backtest() {
-	if (need_load) loadState();
-	decltype(trades) data(std::move(trades));
-	trades.clear();
-	if (data.empty()) return;
-	Status st;
-	double bal = cfg.external_assets;
-	double p = data[0].eff_price;
-	double osz = 0;
-	for (auto k : data) {
-		calculator.addTrade(p,bal,osz);
-		double step = k.eff_price - p;
-		auto ord = calculateOrder(step,p,bal);
-		k.size = k.eff_size = ord.size;
-		k.price = k.eff_price = ord.price;
-		minfo.removeFees(k.eff_size, k.eff_price);
-		k.balance = bal + k.eff_size;
-		bal = k.balance;
-		p = k.eff_price;
-		osz = k.eff_size;
-		trades.push_back(k);
-	}
-	saveState();
-}
-
 MTrader::OrderPair MTrader::OrderPair::fromJSON(json::Value json) {
 	json::Value bj = json["bj"];
 	json::Value sj = json["sj"];
@@ -640,11 +615,25 @@ MTrader::PTResult MTrader::processTrades(Status &st,bool first_trade) {
 		buy_trade = buy_trade || t.eff_size > 0;
 		sell_trade = sell_trade || t.eff_size < 0;
 
-		trades.push_back(TWBItem(t, st.assetBalance, manual));
+		trades.push_back(TWBItem(t, st.assetBalance, manual || calculator.isAchieveMode()));
 	}
 	this->buy_dynmult= raise_fall(this->buy_dynmult, buy_trade);
 	this->sell_dynmult= raise_fall(this->sell_dynmult, sell_trade);
 	st.internalBalance = internal_balance + cfg.external_assets;
 	prev_calc_ref = calculator.balance2price(1);
 	return {was_manual};
+}
+
+void MTrader::reset() {
+	if (need_load) loadState();
+	if (trades.size() > 1) {
+		trades.erase(trades.begin(), trades.end()-1);
+	}
+	saveState();
+}
+
+void MTrader::achieve_balance(double price, double balance) {
+	if (need_load) loadState();
+	calculator.achieve(price, balance);
+	saveState();
 }

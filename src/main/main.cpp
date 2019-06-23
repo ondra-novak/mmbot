@@ -196,6 +196,27 @@ bool runTraders() {
 }
 
 
+template<typename Fn>
+auto run_in_worker(Worker wrk, Fn &&fn) -> decltype(fn()) {
+	using Ret = decltype(fn());
+	ondra_shared::Countdown c(1);
+	std::exception_ptr exp;
+	std::optional<Ret> ret;
+	wrk >> [&] {
+		try {
+			ret = fn();
+		} catch (...) {
+			exp = std::current_exception();
+		}
+		c.dec();
+	};
+	c.wait();
+	if (exp != nullptr) {
+		std::rethrow_exception(exp);
+	}
+	return *ret;
+}
+
 class AuthMapper {
 public:
 
@@ -251,46 +272,79 @@ static int eraseTradeHandler(Worker &wrk, simpleServer::ArgList args, simpleServ
 			return 2;
 		} else {
 			NamedMTrader  &trader = *iter;
-			ondra_shared::Countdown wt(1);
-			bool res;
-			wrk >> [&] {
-				res = trader.eraseTrade(args[1],trunc);
-				wt.dec();
-			};
-			wt.wait();
-			if (!res) {
-				stream << "Trade not found: " << args[1] << "\n";
-				return 2;
-			} else {
-				stream << "OK\n";
-				return 0;
+			try {
+				bool res = run_in_worker(wrk, [&] {
+					return trader.eraseTrade(args[1],trunc);
+				});
+				if (!res) {
+					stream << "Trade not found: " << args[1] << "\n";
+					return 2;
+				} else {
+					stream << "OK\n";
+					return 0;
+				}
+			} catch (std::exception &e) {
+				stream << e.what() << "\n";
+				return 3;
 			}
 		}
 	}
 }
 
-
-static int backtest(Worker &wrk, simpleServer::ArgList args, simpleServer::Stream stream, bool trunc) {
-	if (args.length<1) {
-		stream << "Needsd arguments: <trader_ident>\n";
+static int cmd_reset(Worker &wrk, simpleServer::ArgList args, simpleServer::Stream stream, bool trunc) {
+	if (args.empty()) {
+		stream << "Need argument: <trader_ident>\n"; return 1;
+	}
+	StrViewA trader = args[0];
+	auto iter = std::find_if(traders.begin(), traders.end(), [&](const NamedMTrader &dr){
+		return StrViewA(dr.ident) == trader;
+	});
+	if (iter == traders.end()) {
+		stream << "Trader idenitification is invalid: " << trader << "\n";
 		return 1;
-	} else {
-		auto iter = std::find_if(traders.begin(), traders.end(),[&](const NamedMTrader &tr) {
-			return StrViewA(tr.ident) == args[0];
+	}
+	try {
+		NamedMTrader &t = *iter;
+		run_in_worker(wrk, [&]{
+			t.reset();return true;
 		});
-		if (iter == traders.end()) {
-			stream << "Trader idenitification is invalid: " << args[0] << "\n";
-			return 2;
-		} else {
-			NamedMTrader  &trader = *iter;
-			ondra_shared::Countdown wt(1);
-			wrk >> [&] {
-				trader.backtest();
-				wt.dec();
-			};
-			wt.wait();
-			return 0;
-		}
+		stream << "OK\n";
+		return 0;
+	} catch (std::exception &e) {
+		stream << e.what() << "\n";
+		return 3;
+	}
+}
+
+static int cmd_achieve(Worker &wrk, simpleServer::ArgList args, simpleServer::Stream stream, bool trunc) {
+	if (args.length != 3) {
+		stream << "Need arguments: <trader_ident> <price> <balance>\n"; return 1;
+	}
+
+	double price = strtod(args[1].data,nullptr);
+	double balance = strtod(args[2].data,nullptr);
+	if (price<=0 || balance<=0) {
+		stream << "second or third argument must be positive real numbers. Use dot (.) as decimal point\n";return 1;
+	}
+
+	StrViewA trader = args[0];
+	auto iter = std::find_if(traders.begin(), traders.end(), [&](const NamedMTrader &dr){
+		return StrViewA(dr.ident) == trader;
+	});
+	if (iter == traders.end()) {
+		stream << "Trader idenitification is invalid: " << trader << "\n";
+		return 1;
+	}
+	try {
+		NamedMTrader &t = *iter;
+		run_in_worker(wrk, [&]{
+			t.achieve_balance(price,balance);return true;
+		});
+		stream << "OK\n";
+		return 0;
+	} catch (std::exception &e) {
+		stream << e.what() << "\n";
+		return 3;
 	}
 }
 
@@ -313,7 +367,7 @@ int main(int argc, char **argv) {
 		case 'h': std::cout << "Usage: " << std::endl << "\t" << argv[0]
 					<< " [-vdt] -f <cfgname>  <cmd>" << std::endl << "\t" << argv[0]
 					<< " -h" << std::endl << std::endl
-					<< "-f\tspecift config pathname" << std::endl
+					<< "-f\tspecify config pathname" << std::endl
 					<< "-h\tthis help" << std::endl
 					<< "-v\tverbose - redirect log to stderr (only for 'run' command)" << std::endl
 					<< "-d\tdebug - force debug level of logging" << std::endl
@@ -329,6 +383,9 @@ int main(int argc, char **argv) {
 					<< "\t\tlogrotate    - close and reopen logfile"<< std::endl
 					<< "\t\tcalc_range   - calculate and print trading range for each pair"<< std::endl
 					<< "\t\tget_all_pairs- print all tradable pairs - need broker name as argument"<< std::endl
+					<< "\t\terase_trade  - erases trade. Need id of trader and id of trade"<< std::endl
+					<< "\t\treset        - erases all trades expect the last one"<< std::endl
+					<< "\t\tachieve      - achieve an internal state (achieve mode)"<< std::endl
 					<< std::endl;
 					return 1;
 		case 'v': verbose = true;break;
@@ -476,8 +533,11 @@ int main(int argc, char **argv) {
 					cntr.addCommand("resync_trades_from", [&](simpleServer::ArgList args, simpleServer::Stream stream){
 						return eraseTradeHandler(wrk, args,stream,true);
 					});
-					cntr.addCommand("backtest", [&](simpleServer::ArgList args, simpleServer::Stream stream){
-						return backtest(wrk, args,stream,true);
+					cntr.addCommand("reset", [&](simpleServer::ArgList args, simpleServer::Stream stream){
+						return cmd_reset(wrk, args,stream,true);
+					});
+					cntr.addCommand("achieve", [&](simpleServer::ArgList args, simpleServer::Stream stream){
+						return cmd_achieve(wrk, args,stream,true);
 					});
 					std::size_t id = 0;
 					cntr.addCommand("run",[&](simpleServer::ArgList, simpleServer::Stream) {
@@ -520,7 +580,7 @@ int main(int argc, char **argv) {
 					return 0;
 
 				}, simpleServer::ArgList(argList.data(), argList.size()),
-				cmd == "calc_range" || cmd == "get_all_pairs");
+				cmd == "calc_range" || cmd == "get_all_pairs" || cmd == "achieve" || cmd == "reset");
 		} catch (std::exception &e) {
 			std::cerr << "Error: " << e.what() << std::endl;
 			return 2;

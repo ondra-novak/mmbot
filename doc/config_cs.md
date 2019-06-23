@@ -258,9 +258,8 @@ Informaci o tom, kdy lze očekávat vyčerpání assetů nebo currency poskytne 
 
 #### starší a obsolete
 
-**buy_mult** = (volitelné) Nákupní multiplikátor. Upravuje spočítané množství pro nákup tím, že ho vynásobí zadaným číslem. Výchozí hodnota je **1**
-
-**sell_mult** = (volitelné) Prodejní multiplikátor. Upravuje spočítané množství pro prodej tím, že ho vynásobí zadaným číslem. Výchozí hodnota je **1**
+**buy_mult** = _není dále podporován_
+**sell_mult** = _není dále podporován_
 
 **buy_step_mult** = (volitelné) Nákupní multiplikátor kroku. Upravuje krok spreadu tím, že ho vynásobí zadaným číslem. Nákupní příkaz tak bude umístěn dále (>1) nebo blíže (<1) středu. Adekvátně bude upraveno i množství dle výpočtu: Výchozí hodnota je **1**
 

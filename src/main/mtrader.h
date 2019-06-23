@@ -24,8 +24,6 @@ struct MTrader_Config {
 	std::string broker;
 	std::string title;
 
-	double buy_mult;
-	double sell_mult;
 	double buy_step_mult;
 	double sell_step_mult;
 	double external_assets;
@@ -134,7 +132,8 @@ public:
 	CalcRes calc_min_max_range();
 
 	bool eraseTrade(std::string_view id, bool trunc);
-	void backtest();
+	void reset();
+	void achieve_balance(double price, double balance);
 
 protected:
 	std::unique_ptr<IStockApi> ownedStock;
