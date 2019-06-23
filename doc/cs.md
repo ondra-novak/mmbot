@@ -1,3 +1,21 @@
+# Novinky ve verzi Square
+
+1. Upravený výpočet 
+2. Upravený výpočet spreadu
+3. Možnost řídit faktor akumulace, nebo jej úplně vypnout
+4. Redukce race conditions na burzách, zpomalení robota po exekuci
+5. Řešení duplicitních orderů
+6. Zamítnutí vystavení orderu, pokud původní byl exekuován
+7. Nevystavování orderů příliš malých (redukce počtu hlášení z API burzy)
+8. Kalkulátor - referenčí stav výpočtu
+9. Detekce ručně provedených obchodů
+10. Detekce změny balance na burze
+11. Interní balance (možnost sledovat balanci jen pomocí vygenerovaných obchodů)
+12. Příkaz `reset` snadno vyresetuje statistiky 
+13. Příkaz `achieve` pomůže změnit nastavení kalkulátoru, případně provede počáteční nákup
+
+
+
 # Nastavení a provozování robota
 
 ## Jak robot funguje?
