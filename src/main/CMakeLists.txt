@@ -1,8 +1,18 @@
 cmake_minimum_required(VERSION 2.8) 
 add_compile_options(-std=c++17)
-file(GLOB main_SRC "*.cpp" )
-file(GLOB main_HDR "*.h" "*.tcc")
 
-add_executable (mmbot ${main_SRC} )
+add_executable (mmbot  
+	abstractExtern.cpp
+	ext_stockapi.cpp
+	mtrader.cpp
+	spread_calc.cpp
+	calculator.cpp
+	istockapi.cpp
+	ordergen.cpp
+	storage.cpp
+	emulator.cpp
+	main.cpp
+	report.cpp
+	)
 target_link_libraries (mmbot LINK_PUBLIC simpleServer imtjson curlpp ssl crypto curl stdc++fs pthread)
 install(TARGETS mmbot DESTINATION "bin") 

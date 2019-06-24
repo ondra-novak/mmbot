@@ -114,9 +114,11 @@ std::string Proxy::createQuery(json::Value data) {
 	for(json::Value x: data) {
 		out << "&" << x.getKey() << "=";
 		json::String s = x.toString();
-		char *esc = curl_easy_escape(curl_handle.getHandle(),s.c_str(), s.length());
-		out << esc;
-		curl_free(esc);
+		if (!s.empty()) {
+			char *esc = curl_easy_escape(curl_handle.getHandle(),s.c_str(), s.length());
+			out << esc;
+			curl_free(esc);
+		}
 	}
 	return out.str();
 

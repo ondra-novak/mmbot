@@ -1,3 +1,21 @@
+# Novinky ve verzi Square
+
+1. Upravený výpočet 
+2. Upravený výpočet spreadu
+3. Možnost řídit faktor akumulace, nebo jej úplně vypnout
+4. Redukce race conditions na burzách, zpomalení robota po exekuci
+5. Řešení duplicitních orderů
+6. Zamítnutí vystavení orderu, pokud původní byl exekuován
+7. Nevystavování orderů příliš malých (redukce počtu hlášení z API burzy)
+8. Kalkulátor - referenčí stav výpočtu
+9. Detekce ručně provedených obchodů
+10. Detekce změny balance na burze
+11. Interní balance (možnost sledovat balanci jen pomocí vygenerovaných obchodů)
+12. Příkaz `reset` snadno vyresetuje statistiky 
+13. Příkaz `achieve` pomůže změnit nastavení kalkulátoru, případně provede počáteční nákup
+
+
+
 # Nastavení a provozování robota
 
 ## Jak robot funguje?
@@ -18,7 +36,7 @@ Více o nastavení robota dále
 
 ## Jaké je riziko?
 
-Dokud robot obchoduje pouze s prostředky bez páky, je riziko malé. Sám algoritmus dlouhodobě negeneruje ztrátu. Ztráta může přijít pouze tím, že trh, na kterém robot obchoduje jde dlouhodobě dolu a přestává generovat vlnky, nebo na něm klesají objemy. Takový trh signalizuje, že o něj obchodníci ztrácí zájem. Robot se tak může dostat do situace, kdy zůstane back holderem, tedy bude držet assety, které nemají žádnou cenu. 
+Dokud robot obchoduje pouze s prostředky bez páky, je riziko malé. Sám algoritmus dlouhodobě negeneruje ztrátu. Ztráta může přijít pouze tím, že trh, na kterém robot obchoduje jde dlouhodobě dolu a přestává generovat vlnky, nebo na něm klesají objemy. Takový trh signalizuje, že o něj obchodníci ztrácí zájem. Robot se tak může dostat do situace, kdy zůstane bagholderem, tedy bude držet assety, které nemají žádnou cenu. 
 
 Neznamená to ale, že každý trh jdoucí dolu může být ztrátový. Pokud jde trh dolu pomaleji než zisky z vlnek, pak i takový trh může přinášet v celku zisk.
 
@@ -203,19 +221,22 @@ V základním nastavení robot vždy obchoduje procentní rozdíl spreadu vůči
 Velikost pokynu se počítá na základě ceny posledního obchodu `Tp` a cenu pokynu `Op` a aktuální balance assetů `A`
 
 ```
-S = A * 0.5 * ( Tp / Op - 1 )
+          ________
+S = A × (√ Tp / Op  - 1)
+
+ 
 ```
 
-Jedná se vlastně o vzorec přepočtu procentní změnu. Pokud se Bitcoin obchoduje na ceně 200000 Kč a spočítaný spread je 1700 Kč, pak prodejní příkaz bude na ceně `2017000 Kč` o velikosti
+Pokud se Bitcoin obchoduje na ceně 200000 Kč a spočítaný spread je 1700 Kč, pak prodejní příkaz bude na ceně `201700 Kč` o velikosti
 
 ```
-Ss = −0,004214179 * A
+Ss = -0,004223 × A
 ```
 
 Nákupní příkaz bude na ceně `198300 Kč`o velikosti
 
 ```
-Sb = 0,004286435 * A
+Sb = 0,0042773 × A
 ```
 
 Pokud dosadíte za **A = 1 BTC**, pak nakupovat budeme `0.0043 BTC`, což představuje objem `852,69Kč`, prodávat se bude `0.0042 BTC` o objemu `847,14Kč`. Cenový rozdíl zde dělá `3,55Kč`. Pokud by cena bitcoinu poklesla o polovinu (na 100000kč), musel bych předtím udělat zhruba **28tis obchodů** abych ztrátu dohnal.
@@ -251,9 +272,7 @@ Trader LTC/CZK:
 	Available assets:	8.79527 LTC
 	Available money:	77392.6 CZK
 	Min price:		0.030036 CZK
-	- Money left:		39523.4 CZK
 	Max price:		4829.33 CZK
-	- Assets left:		0.0592706 LTC
 ```
 
 Příklad ukazuje:
@@ -261,8 +280,8 @@ Příklad ukazuje:
 - **Assets value** - spočítáná hodnota assetů vůči aktuální ceně
 - **Available assets** - skutečné množství assetů k dispozici na burze (tady je vidět, že `external_assets` je nastaven na 20)
 - **Available money** - množství peněz na burze k nákupu
-- **Min price** - minimální možná cena. Je vidět, že na burze je dostatek prostředku na pád Litecoinu až do oblasti halířů a ještě zbyde více než polovina peněz (**Money left**)
-- **Max price** - maximální možná cena. Je vidět, že při ceně 4829.33 Kč za 1 LTC robotovi dojdou LTC a nebude mít co prodávat. Položka **Assets left** ukazuje, kolik zbyde assetů na burzovním účtu. Toto množství už nepůjde udat za aktuálního spreadu
+- **Min price** - minimální možná cena. Je vidět, že na burze je dostatek prostředku na pád Litecoinu až do oblasti halířů
+- **Max price** - maximální možná cena. Je vidět, že při ceně 4829.33 Kč za 1 LTC robotovi dojdou LTC a nebude mít co prodávat
 
  Je třeba počítat s tím, že se jedna o odhad a to ještě za předpokladu, že by cena šla pouze jedním směrem bez korekcí a tak pomalu, aby třeba na situaci nezareagoval dynamický multiplikátor, který toto pásmo může ještě rozšířit díky efektivnějším nákupům. Určitou představu o možnostech spekulace výpočet je schopen poskytnout.
  
@@ -334,22 +353,95 @@ Grafy lze zobrazovat buď jeden graf za každý pár, nebo pro určitý pár vš
 - **Total P/L** a **Total Normalized** - sloučený vývoj zisků a ztrát přes všechn páry vztažené na jejich základní měnu. Pokud je víc základních měn, je zde více grafů, pro každou měnu.
 
 
-## Normalizovaný zisk
+## Normalizovaný zisk a normalizované akumulované assety
 
-Způsob obchodování robota garantuje zisk z každé dvojice nákup-prodej. A protože nákupy jsou vždy pod prodeji, každý malý prodej který má k sobě adekvátní nákup automaticky generuje zisk. Né vždy však se cena vrací na začátek a někdy by čekání na návrat k vyhodnocení celkového zisku bylo neúměrně dlouhé nebo dokonce nemožné.
+K pochopení normalizovaného zisku je třeba se vrátit k výše uvedenému vzorci. 
 
-**Normalizovaný zisk** se znaží odhadnout zisk už v době vzniku obchodu při posouzení rozdílu mezi nákupem a prodejem a s možností návratu. Umožňuje zejména specifikovat **kolik prostředků navíc už strategie vydělala, a které lze z účtu odebrat nyní, aniž by strategii robota chyběly**
+```
+           _________
+S = A × ( √ Tp / Op  - 1)
+```
 
-Strategie robota pracuje s rovnováhou. Pokud se nepočítá vliv **external_assets**, tedy pokud se bere celý stav účtu, i při započtení assetů a peněz mimo účet, pak robot se snaží docílit rovnováhy mezi hodnotou assetů a peněz. Pakliže je schopen docílit rovnováhy, tak extra prostředky, které to vygenerovalo jsou profit a to bez ohledu na to, kde se podařilo rovnováhy docílit. **Normalizovaný zisk** totiž nebere v úvahu kolísání ceny. Robot je schopen docílit rovnováhy na jakékoliv aktuální ceně a to i se vznikem extra prostředků, které již nebude k dalšímu docilování rovnoháhy potřebovat.
-
-Základním pohledem na chování robota je tedy v utopených prostředcích, které tvoří pracovní náplň robota. Ty prostředky jsou tam jednou vloženy a už je není třeba vybírat. Dokud se bude obchodovat, lze to dělat do nekonečna. Robot s každým obchodem je schopen generovat malý profit a ten lze z robota odebírat jako jakýsi úrok. Samozřejmě, pokud extra profit odebírán není, stává se součástí účtu a podílí se na dalším generování profitu.
-
-**Normalizovaný profit** je tedy profit, který eliminuje kolísání hodnoty vlastního portfolia a pouze vyjadřuje rozdíly mezi jednotlivými obchody. A ty jsou vesměs kladné.
-
-Při nákupu se vyjádří extra profit, který by vznikl prodejem za předchozí cenu. Tento profit již není k prodeji potřeba, lze jej odebrat. Pro prodej zase vznikne extra asset, který je nad rámec rovnováhy, vůči původnímu stavu. I ten je možné odebrat. **Normalizovaný profit** je součtem těchto extra profitů jak v penězích tak v assetech a vyjadřike jeho aktuální stav vůči aktuální ceně assetu. Při výběru prostředku je třeba částku rozdělit na polovinu, vybrat polovinu peněz a polovinu assetů. Pak je dobré vyresetovat statistiky robota, aby se vybraný profit již na statistikách nezobrazoval.
-
-
-
+Tento vzorce lze upravit tak, aby vracel počet assetů na zadané ceně
  
+```
+         ______
+B = A × √ P / N
+```
 
- 
+Kde `A` je počet asetů na ceně `P` a `N` je nová cena na které vychází počet assetů `B`. Zajímavé na vzorci je také to, že je reflexivní a tranzitivní. Tedy, že též platí:
+
+
+```
+         _______
+A = B × √ N / P 
+```
+(důkaz, dosaďte A horního vzorce a dostane B=B)
+
+Jinými slovy, když nastavím, `B` a `N` jako nový výchozí bod, mohu se zadáním `P` vrátit k původnímu `A`
+
+Tranzitivita se projevuje tak, že si mohu vybrat libovolnou cenu X. Z této ceny a z vypočtených assetů Y přejít na cenu N a získat původní B
+
+```
+         _______
+Y = A × √ P / X
+         _______
+B = Y × √ X / N 
+```
+(důkaz opět dosazením, X se vykrátí , zůstane P/N)
+
+Tato vlastost v praxi znamená, že si stačí pamatovat výchozí nastavení `A` a `P`, a mohu po zadání libovolné ceny `N` spočítat, kolik mám mít assetů na účtu. Robot jednoduše k zadané ceně spočítá požadované množství assetů a vydá pokyn na burzu, aby se tak stalo. 
+
+Pro pochopení důsledku tohoto vzorce je třeba si ještě určit, jak bude vypadat vývoj `currency` na účtu, tedy to, čím se platí. Pro robota se doporučuje, aby na účtu bylo připraveno vždy stejné množství currency jako odpovídá hodnotě assetů. Hodnota držených assetů `C` na ceně `N` je:
+
+```
+                 _______            _______
+C = B × N = A × √ P / N  × N = A × √ P × N 
+```
+
+Stejnou hodnotu musím držet v `currency`
+
+Například, pokud Bitcoin stojí 200000 Kč a mám na účtu právě 1 BTC, pak mám na účtu také 200000Kč v penězích a dohromady má moje portfolio 400000kč. Pokud cena BTC klesne na 180000Kč, pak budu mít na účtu
+
+```
+         _____________
+B = 1 × √200000/180000 = 1,0541 BTC
+         _____________
+C = 1 × √200000×180000 = 189736,66 Kč
+```
+
+Pokud ale budu provádět nákup na ceně 180000kč, pak mi na účtu zůstane
+
+```
+C' = 200000 - (0.0541 × 180000) = 190262 Kč
+```
+
+Rozdíl mezi `C` a `C'` se nazývá **normalizovaný zisk**
+
+```
+Cn = C' - C = 525,34 Kč
+```
+
+Tyto peníze už mohu z účtu odebrat, protože  nikdy nebudou potřeba. Lze totiž využít reflexivity vzorce a prokázat, že **k dalším nákupům** za nižší ceny bude třeba **méně peněz** a při návratu na původní cenu nám tyto peníze k získání přesné poloviny nebudou chybět
+
+```
+               _____________
+B2 = 1.0541 × √180000/200000 = 1 BTC
+               _____________
+C2 = 1.0541 × √180000×200000 ~= 200000 Kč
+
+C2' = 189736,66 - (-0.0541 × 200000) = 200556,66 Kč 
+```
+
+A opět, rozdíl mezi `C2` a `C2'` se nazývá **normalizovaný zisk**
+
+```
+C2n = C2' - C2 = 556,66 Kč
+```
+
+Idea normalizovaného zisku je tedy založena na tom, že mám na burze vyhrazené peníze přesně v poměru 50:50 a pouze přelévám prostředky z jedné strany na druhou podle vývoje aktuální ceny. Vůbec přitom není třeba hlídat aktuální hodnotu celého portfolia, protože ta z dlouhodobého hlediska není důležitá. Důležitější je umět správně změřit **normalizovaný zisk**, ten má totiž schopnost generovat **trvalý příjem** bez ohledu na to, co se děje na burze. Důležité samozřejmě je, aby se cena na burze hýbala, a aby se obchodovalo. Nezáleží kam, ale kolik. Z každého obchodu je pak **normalizovaný** zisk kladný.
+
+Robot umožňuje zapnout funkci, kdy část normalizovaného zisku se akumuluje do assetů. V takovém případě může i tento zisk být ovlivněn cenou vlastního assetu. Toto nastavení je třeba si dobře rozmyslet a určit si správně cíle. U potenciálně rostoucího assetu se vyplatí například polovinu zisku akumulovat. U potenciálně klesajícího assetu spíš neakumulovat.
+
+Množství akumulovaných assetů navíc se pak říká **normalizované akumulované assety**. Robot je ovšem začlení do celkové balance `A` a tak se jejich akumulace projeví v drobném zesílení budoucích zisků.
+

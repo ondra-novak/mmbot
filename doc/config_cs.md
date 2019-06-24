@@ -237,19 +237,29 @@ Informaci o tom, kdy lze očekávat vyčerpání assetů nebo currency poskytne 
 
 **dynmult_fall** = (volitelné) definuje snížení dynamického multiplikátoru. Dynamický multiplikátor má stejný význam jako **buy_step_mult**/**sell_step_mult**, pouze se po čas obchodování dynamicky mění. Pokaždé, když je realizován obchod dojde k jeho zvýšení. Když se neobchoduje, časem se snižuje až na 1. Existují dva nezávislé multiplikátory, jeden pro nákup a druhý pro prodej. Tato hodnota definuje o kolik procent klesne dynamicky multiplikátor, když se v daném kole neobchoduje. Výchozí hodnota je 2.5%. V praxi to znamená, že multiplikátor zvýšený o 200% v době obchodu klesne po cca 27 minutách na hodnotu 1.5x a na normální hodnotu se dostane po cca 44 minutách.
 
+**acum_factor_buy** - akumulační faktor při nákupu. Určuje, zda má robot spíš akumulovat assety nebo peníze. Pokud je zadáno 0, pak veškerý profit je připsán do peněz. Pokud je zadáno 1, pak profit je použit na nákup většího množství assetů. To může ve výsledku zvýšit budoucí profity, ale zároveň způsobí, že celkový normalizovaný profit bude závislý na aktuální ceně assetů. Výchozí hodnota je 0.5, tedy 50% normalizovaného profitu jde do assetů 
+
+**acum_factor_sell** - akumulační faktor při prodeji. Určuje, zda má robot spíš akumulovat assety nebo peníze. Pokud je zadáno 0, pak veškerý profit je připsán do peněz. Pokud je zadáno 1, pak je profit ponechán v assetech (je prodáno o trochu méně). To může ve výsledku zvýšit budoucí profity, ale zároveň způsobí, že celkový normalizovaný profit bude závislý na aktuální ceně assetů. Výchozí hodnota je 0.5, tedy 50% normalizovaného profitu jde do assetů 
+
+**internal_balance** - způsobí, že robot nebude sledovat balanci na burze, ale bude ji počítat z načtených obchodů. Tím přestane být výpočet ovlivňován změnami balance na burze, což může být přínosné zejména pro pár BTC/USD, pokud se zároveň obchoduje XXX/BTC (kdy BTC funguje jako currency). Tuto funkci zapněte později, až když nejaké trady byly na páru zaznamenány a uloženy, robot pak použije poslední uložený stav za výchozí. Je-li tato funkce zapnuta pro pár od začátku, pak je výchozí balancí 0 a výpočet funguje správně pouze pokud je zároveň nastavena položka `external_assets`
+
+**detect_manual_trades** - `(experimentální)` Robot se pokouší označit načtené obchody které neprovedl on jako manuální obchody (provedené uživatelem ručně na burze). Tyto obchody se pak nezapočítávají do statistik a přehledů. Pokud je zároveň zapnuta `internal_balance`, pak se tyto trady nezapočítávají ani do balance. Funkce je v režimu experimentální, protože zaznamenává nemalé procento false positive (robot někdy nepozná svůj obchod)
+
 **start_time** = (volitelné) specifikuje počáteční čas obchodování od začátku epochy v milisekundách (linux timestamp * 1000). Výchozí hodnota je 0. Nastavení na jinou hodnotu způsobí, že robot bude ignorovat starší obchody než je zadaný čas a nebude je zobrazovat v reportech ani z nich počítat statistiky a dalších informace
 
 **spread_calc_hours** = (volitelné) Specifikuje, jak dlouhý úsek se bude používat na výpočet spreadu. Výchozí hodnota je **120**, tedy pět dní. Pokud nastavíte větší číslo, je třeba počítat s tím, že robot musí dodatečná data časem nasbírat a bude mu to trvat přesně tolik hodin, o kolik větší číslo napíšete.
-
 
 **spread_calc_min_trades** = (volitelné) Minimální počet obchodů na den při backtestu - Při výpočtu spreadu se hodnotí, kolik denně obchodů robot provedl. Pokud provedl méně, než je zadaná hodnota, příslušný test se vyřadí (obdrží nízké skoré) a použije se jiný výsledek. Výchozí hodnota je **8**
 
 **spread_calc_max_trades** = (volitelné) Maximální počet obchodů na den při backtestu - Při výpočtu spreadu se hodnotí, kolik denně obchodů robot provedl. Pokud provedl více, než je zadaná hodnota, příslušný test se vyřadí (obdrží nízké skoré) a použije se jiný výsledek. Výchozí hodnota je **24**
 
 
-**buy_mult** = (volitelné) Nákupní multiplikátor. Upravuje spočítané množství pro nákup tím, že ho vynásobí zadaným číslem. Výchozí hodnota je **1**
 
-**sell_mult** = (volitelné) Prodejní multiplikátor. Upravuje spočítané množství pro prodej tím, že ho vynásobí zadaným číslem. Výchozí hodnota je **1**
+
+#### starší a obsolete
+
+**buy_mult** = _není dále podporován_
+**sell_mult** = _není dále podporován_
 
 **buy_step_mult** = (volitelné) Nákupní multiplikátor kroku. Upravuje krok spreadu tím, že ho vynásobí zadaným číslem. Nákupní příkaz tak bude umístěn dále (>1) nebo blíže (<1) středu. Adekvátně bude upraveno i množství dle výpočtu: Výchozí hodnota je **1**
 

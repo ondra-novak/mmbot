@@ -11,10 +11,12 @@
 #include <imtjson/object.h>
 #include <imtjson/array.h>
 #include <chrono>
+#include <numeric>
 
 #include "../shared/linear_map.h"
 #include "../shared/logOutput.h"
 #include "../shared/range.h"
+#include "../shared/stdLogOutput.h"
 #include "sgn.h"
 
 using ondra_shared::logError;
@@ -33,6 +35,8 @@ void Report::genReport() {
 	st.set("time", std::chrono::duration_cast<std::chrono::milliseconds>(
 					std::chrono::system_clock::now().time_since_epoch()
 				   ).count());
+	st.set("log", logLines);
+	while (logLines.size()>30) logLines.erase(0);
 	report->store(st);
 }
 
@@ -65,7 +69,8 @@ void Report::setOrders(StrViewA symb, const std::optional<IStockApi::Order> &buy
 
 }
 
-void Report::setTrades(StrViewA symb, double current_balance, StringView<IStockApi::Trade> trades) {
+
+void Report::setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> trades) {
 
 	using ondra_shared::range;
 
@@ -75,42 +80,68 @@ void Report::setTrades(StrViewA symb, double current_balance, StringView<IStockA
 
 	if (!trades.empty()) {
 
-		auto trange = range(trades.begin()+1, trades.end());
-
-		double delta_assets = 0;
-		for (const IStockApi::Trade &t : trange) delta_assets+= t.eff_size;
-		double init_assets = current_balance - delta_assets;
-
-
 		std::size_t last = trades[trades.length-1].time;
 		std::size_t first = last - interval_in_ms;
 
 
-		double last_price = trades[0].eff_price;
-		double pl = 0;
-		double assets = 0;
-		double volsum = 0;
-		double init_price = trades[0].eff_price;
-		double init_fiat = init_price * init_assets;
-//		double init_val = init_fiat + init_price*init_assets;
+		auto tend = trades.end();
+		auto iter = trades.begin();
+		auto &&t = *iter;
+
+		//guess initial balance by substracting size
+		double init_balance = (t.balance-t.eff_size);
+/*		auto invest = std::accumulate(trades.begin()+1, trades.end(), std::make_pair(0.0,0.0),
+				[](auto &&a, auto &&b){
+					double assdiff = b.balance - a.first;
+					double robot_trade = b.manual_trade?0:b.eff_size;
+					double netto_diff = assdiff - robot_trade;
+					double cost = netto_diff * b.eff_price;
+					return std::make_pair(b.balance, a.second+cost);
+		}).second;*/
+		std::size_t invest_beg_time = t.time;
+
+		//so the first trade doesn't change the value of portfolio
+//		double init_value = init_balance*t.eff_price+init_fiat;
+		//
+		double init_price = t.eff_price;
 
 
-		for (const IStockApi::Trade &t : trange) {
+		double prev_balance = init_balance;
+		double prev_price = init_price;
+		double ass_sum = 0;
+		double cur_sum = 0;
+		double cur_fromPos = 0;
+		double norm_sum_ass = 0;
+		double norm_sum_cur = 0;
 
-			double volume = t.eff_price*t.eff_size ;
-			double gain = (t.eff_price - last_price)*assets ;
-//			double prev_assets = assets;
 
-			pl += gain;
-			last_price = t.eff_price;
-			assets += t.eff_size;
-			volsum -= volume;
+		while (iter != tend) {
 
-			double vbal = 2*init_assets*sqrt(init_price * t.eff_price);
-			double vcur = (init_assets + assets) * t.eff_price + init_fiat + volsum;
-			double norm = vcur - vbal;
+			auto &&t = *iter;
 
-			double rel = assets * t.eff_price + volsum;
+			double gain = (t.eff_price - prev_price)*ass_sum ;
+			double earn = -t.eff_price * t.eff_size;
+
+
+			double calcbal = prev_balance * sqrt(prev_price/t.eff_price);
+			double asschg = calcbal - prev_balance;
+			double curchg = calcbal * t.eff_price -  prev_balance * prev_price;
+			if (iter != trades.begin() && !iter->manual_trade) {
+				cur_fromPos += gain;
+				ass_sum += t.eff_size;
+				cur_sum += earn;
+
+				norm_sum_ass += t.eff_size - asschg;
+				norm_sum_cur += earn - curchg;
+			}
+			double norm = norm_sum_ass * t.eff_price + norm_sum_cur;
+
+			prev_balance = t.balance;
+			prev_price = t.eff_price;
+
+			double invest_time = t.time - invest_beg_time;
+			double app = ((norm/invest_time)*(365.0*24.0*60.0*60.0*1000.0)*100.0)/(t.balance*t.eff_price);
+			if (!std::isfinite(app)) app = 0;
 
 			if (t.time >= first) {
 				records.push_back(Object
@@ -119,17 +150,19 @@ void Report::setTrades(StrViewA symb, double current_balance, StringView<IStockA
 						("achg", t.eff_size)
 						("gain", gain)
 						("norm", norm)
-						("rel", rel)
-						("pos", assets)
-						("pl", pl)
+						("nacum", norm_sum_ass)
+						("pos", ass_sum)
+						("pl", cur_fromPos)
 						("price", t.price)
+						("app", app)
 						("volume", -t.eff_price*t.eff_size)
+						("man",t.manual_trade)
 				);
 			}
 
+
+			++iter;
 		}
-
-
 
 	}
 	tradeMap[symb] = records;
@@ -188,4 +221,36 @@ void Report::exportPrices(json::Object &&out) {
 	for (auto &&rec: priceMap) {
 			out.set(rec.first, rec.second);
 		}
+}
+
+void Report::addLogLine(StrViewA ln) {
+	logLines.push_back(ln);
+}
+
+using namespace ondra_shared;
+
+class CaptureLog: public ondra_shared::StdLogProviderFactory {
+public:
+	CaptureLog(Report &rpt, ondra_shared::PStdLogProviderFactory target):rpt(rpt),target(target) {}
+
+	virtual void writeToLog(const StrViewA &line, const std::time_t &, LogLevel level) override;
+	virtual bool isLogLevelEnabled(ondra_shared::LogLevel lev) const override;
+
+
+protected:
+	Report &rpt;
+	ondra_shared::PStdLogProviderFactory target;
+};
+
+inline void CaptureLog::writeToLog(const StrViewA& line, const std::time_t&tm, LogLevel level) {
+	if (level >= LogLevel::info) rpt.addLogLine(line);
+	target->sendToLog(line, tm, level);
+}
+
+inline bool CaptureLog::isLogLevelEnabled(ondra_shared::LogLevel lev) const {
+	return target->isLogLevelEnabled(lev);
+}
+
+ondra_shared::PStdLogProviderFactory Report::captureLog(ondra_shared::PStdLogProviderFactory target) {
+	return new CaptureLog(*this, target);
 }

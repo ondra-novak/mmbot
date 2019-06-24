@@ -27,7 +27,14 @@ body {
 .marker.sell {
 	fill: #F44;
 }
-
+line.marker.buy {
+	stroke:#4f4;
+	stroke-width:3px;
+}
+line.marker.sell {
+	stroke:#F44;
+	stroke-width:3px;
+}
 .majoraxe {
 	stroke: #FFF;	
 }
@@ -91,6 +98,33 @@ body {
 	padding: 0.2cm 1cm 0.2cm 1cm;
 	text-align: center;
 	z-index: 10;
+}
+
+#logfile {
+	width: 100%;
+	background-color: black;
+	color: #CCC;
+	border: 0;
+	font-size: 0.3cm;
+	overflow: hidden;
+	white-space: pre-wrap;
+	margin: 0;
+}
+#logfilearea{
+	position:relative;
+}
+#logfileactivate {
+	text-align: center;
+	position: absolute;
+	right: 0;
+	top: -2em;
+	margin: auto 0 auto auto;
+	font-size: 0.3cm;
+	background-color: #555;
+	padding: 0.1cm;
+	width: 2em;
+	z-index: 100;
+	
 }
 
 select {
@@ -222,6 +256,10 @@ x-tr.sell x-td {
 }
 x-tr.buy x-td {
 	color: #8F8;
+}
+
+x-tr.manual x-td {
+	opacity: 0.5;	
 }
 
 x-tr.sell x-td:nth-child(7) {color: #8F8;}

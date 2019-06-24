@@ -231,6 +231,12 @@ json::Value AbstractExtern::readJSON(FD& fd) {
 }
 
 
+void AbstractExtern::preload() {
+	if (chldid == -1) {
+		spawn();
+	}
+}
+
 json::Value AbstractExtern::jsonExchange(json::Value request) {
 	if (chldid == -1) {
 		spawn();

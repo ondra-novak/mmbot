@@ -19,6 +19,7 @@ public:
 	AbstractExtern (const std::string_view & workingDir, const std::string_view & name, const std::string_view & cmdline);
 	~AbstractExtern ();
 
+	void preload();
 protected:
 
 	static const int invval = -1;

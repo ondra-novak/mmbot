@@ -31,6 +31,7 @@ function app_start(){
 	var selector = document.getElementById("selchart");
 	var outage = document.getElementById("outage");
 	var home = document.getElementById("home");
+	var opencloselog = document.getElementById("logfileactivate");
 	var options = [];
 	var lastEvents = document.getElementById("lastevents")
 	var selMode = 0;
@@ -75,22 +76,24 @@ function app_start(){
 		var info = curchart.querySelector("[data-name=info]");
 		if (ranges) {
 			info.hidden = false;
+			var pricet = adjNum((ranges.last && ranges.last[0])||0).replace(/[0-9]/g,"–");
+			var post = adjNum((ranges.pos && ranges.pos[0])||0).replace(/[0-9]/g,"–");
 			while (info.firstChild) info.removeChild(info.firstChild);
 			["buy","last","sell", "pos"].forEach(function(n) {
-				if (ranges[n]) {
-					var r = ranges[n];
-					var elem = document.createElement("div");
-					elem.classList.add(n);
-					info.appendChild(elem);					
-					var e = document.createElement("div")
-					e.classList.add("price");
-					e.innerText = adjNum(r[0]);
-					elem.appendChild(e);
-					e = document.createElement("div")
-					e.classList.add("size");
-					e.innerText = adjNum(r[1]);
-					elem.appendChild(e);
-				}
+				var r = ranges[n];
+				var l1 = r?adjNum(r[0]):pricet;
+				var l2 = r?adjNum(r[1]):post;
+				var elem = document.createElement("div");
+				elem.classList.add(n);
+				info.appendChild(elem);					
+				var e = document.createElement("div")
+				e.classList.add("price");
+				e.innerText = l1;
+				elem.appendChild(e);
+				e = document.createElement("div")
+				e.classList.add("size");
+				e.innerText = l2;
+				elem.appendChild(e);				
 			});
 		} else {
 			info.hidden = true;
@@ -289,6 +292,7 @@ function app_start(){
 			]
 			tr.classList.toggle("sell", r.achg<0);
 			tr.classList.toggle("buy", r.achg>0);
+			tr.classList.toggle("manual", r.man);
 			data.forEach(function(z) {
 				var td = document.createElement("x-td");
 				if (typeof z == "number") {
@@ -421,8 +425,11 @@ function app_start(){
 			
 			var orders = {};
 			var ranges = {};
+			
 
 			infoMap = stats["info"];
+			
+			document.getElementById("logfile").innerText = " > "+ stats["log"].join("\r\n > ");
 
 			
 			var charts = stats["charts"];
@@ -433,7 +440,7 @@ function app_start(){
 				updateOptions(n, infoMap[n].title);
 			}
 			
-			stats.orders.forEach(function(o) {
+			(stats.orders || []).forEach(function(o) {
 				var s = orders[o.symb];
 				var sz = o.size;
 				var ch =  charts[o.symb];
@@ -464,7 +471,7 @@ function app_start(){
 				var ch =  charts[sm];
 				var last;
 				if (!ch || !ch.length) {
-					last = {pl:0,price:stats.prices[sm],pos:0};
+					last = {pl:0,price:stats.prices[sm],pos:0,app:0,norm:0,nacum:0};
 				} else {
 					 last = ch[ch.length-1];
 				}
@@ -473,6 +480,9 @@ function app_start(){
 					price: stats.prices[sm],
 					pl: last.pl + (stats.prices[sm]- last.price)* last.pos,
 					label: "",
+					norm:last.norm,
+					nacum:last.nacum,
+					app:last.app,
 					class: "last",
 				})
 				ranges[sm]["last"] = [stats.prices[sm],""];
@@ -648,8 +658,15 @@ function app_start(){
 		}
 		for (var i = 0; i <cnt; i++) if (chart[i].achg) {
 			var x1 = map_x(chart[i].time/base_interval-tmstart);
-			var y1 = map_y(chart[i][fld]);		
-			new_svg_el("circle",{cx:x1,cy:y1,r:4,class:"marker "+(chart[i].achg<0?"sell":"buy")},svg);
+			var y1 = map_y(chart[i][fld]);
+			var man = chart[i].man;
+			var marker = "marker "+(chart[i].achg<0?"sell":"buy") 
+			if (man) {
+				new_svg_el("line",{x1:x1-5,y1:y1-5,x2:x1+5,y2:y1+5,class:marker},svg);
+				new_svg_el("line",{x1:x1+5,y1:y1-5,x2:x1-5,y2:y1+5,class:marker},svg);
+			} else {				
+				new_svg_el("circle",{cx:x1,cy:y1,r:4,class:marker},svg);
+			}
 		}
 		
 		if (Array.isArray(lines)) {
@@ -694,6 +711,11 @@ function app_start(){
 		logo.hidden = false;
 		setTimeout(removeLogo, 3000);
 	}
+	
+	opencloselog.addEventListener("click",function() {
+		var v = document.getElementById("logfile");
+		v.hidden = !v.hidden;
+	})
 }
 
 

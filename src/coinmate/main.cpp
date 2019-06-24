@@ -25,15 +25,20 @@ public:
 	Interface(Proxy &cm):cm(cm) {}
 
 
-	virtual double getBalance(const std::string_view & symb);
-	virtual TradeHistory getTrades(json::Value lastId, std::uintptr_t fromTime, const std::string_view & pair);
-	virtual Orders getOpenOrders(const std::string_view & par);
-	virtual Ticker getTicker(const std::string_view & piar);
-	virtual json::Value placeOrder(const std::string_view & pair, const Order &order);
-	virtual bool reset() ;
-	virtual MarketInfo getMarketInfo(const std::string_view & pair) ;
-	virtual double getFees(const std::string_view &pair) ;
-	virtual std::vector<std::string> getAllPairs() ;
+	virtual double getBalance(const std::string_view & symb) override;
+	virtual TradeHistory getTrades(json::Value lastId, std::uintptr_t fromTime, const std::string_view & pair) override;
+	virtual Orders getOpenOrders(const std::string_view & par) override;
+	virtual Ticker getTicker(const std::string_view & piar) override;
+	virtual json::Value placeOrder(const std::string_view & pair,
+			double size,
+			double price,
+			json::Value clientId,
+			json::Value replaceId,
+			double replaceSize) override;
+	virtual bool reset() override ;
+	virtual MarketInfo getMarketInfo(const std::string_view & pair) override ;
+	virtual double getFees(const std::string_view &pair) override ;
+	virtual std::vector<std::string> getAllPairs() override ;
 
 
 	Value balanceCache;
@@ -188,34 +193,48 @@ Interface::TradeHistory Interface::getTrades(json::Value lastId, std::uintptr_t 
 }
 
 static const char *place[] = {"sellLimit","buyLimit"};
-static const char *replace[] = {"replaceBySellLimit","replaceByBuyLimit"};
+//static const char *replace[] = {"replaceBySellLimit","replaceByBuyLimit"};
 
 
-json::Value Interface::placeOrder(const std::string_view & pair, const Order &order) {
+json::Value Interface::placeOrder(const std::string_view & pair,
+		double size,
+		double price,
+		json::Value clientId,
+		json::Value replaceId,
+		double replaceSize) {
+
+	if (replaceId.defined()) {
+		Value res = cm.request(Proxy::POST, "cancelOrderWithInfo",Object("orderId", replaceId));
+		if (replaceSize && (
+				res["success"].getBool() != true
+				|| res["remainingAmount"].getNumber()<std::fabs(replaceSize)*0.999999)) {
+				return null;
+		}
+	}
 
 	const char *cmd = nullptr;
 
 	double amount;
-	const char **cmdset = order.id.defined()?replace:place;
-	if (order.size<0) {
+	const char **cmdset = place;
+	if (size<0) {
 		cmd = cmdset[0];
-		amount = -order.size;
-	} else {
+		amount = -size;
+	} else if (size > 0){
 		cmd = cmdset[1];
-		amount = +order.size;
+		amount = +size;
+	} else {
+		return null;
 	}
 
 	json::Value args(json::object,{
 		json::Value("amount", amount),
-		json::Value("price", order.price),
+		json::Value("price", price),
 		json::Value("currencyPair", pair),
-		json::Value("clientOrderId",order.client_id),
-		json::Value("orderIdToBeReplaced",order.id)
+		json::Value("clientOrderId",clientId)
 	});
 
 	auto resp = cm.request(Proxy::POST, cmd, args);
-	if (order.id.defined()) return resp["createdOrderId"];
-	else return resp;
+	return resp;
 }
 
 bool Interface::reset() {
@@ -283,10 +302,7 @@ int main(int argc, char **argv) {
 
 		ondra_shared::IniConfig ini;
 
-
-		if (!ini.load(argv[1],[](const auto &itm){
-			throw std::runtime_error(std::string("Unable to process: ")+itm.key.data + " " + itm.value.data);
-		})) throw std::runtime_error(std::string("Unable to open: ")+argv[1]);
+		ini.load(argv[1]);
 
 		Config cfg = load(ini["api"]);
 		Proxy coinmate(cfg);

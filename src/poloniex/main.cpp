@@ -15,46 +15,42 @@
 #include <cmath>
 #include <ctime>
 
+#include "../brokers/api.h"
 #include "../imtjson/src/imtjson/stringValue.h"
 #include "../shared/linear_map.h"
 #include "orderdatadb.h"
 
 using namespace json;
 
-class Interface {
+class Interface: public AbstractBrokerAPI {
 public:
-	Proxy &cm;
+	Proxy &px;
 
-	Interface(Proxy &cm, std::string dbpath):cm(cm),orderdb(dbpath) {}
-
-	using Call = Value (Interface::*)(Value args);
-
-	using MethodMap = std::unordered_map<std::string_view, Call> ;
+	Interface(Proxy &cm, std::string dbpath):px(cm),orderdb(dbpath) {}
 
 
-	Value getBalance(Value req);
-	Value getTrades(Value req);
-	Value getOpenOrders(Value req);
-	Value getTicker(Value req);
-	Value placeOrder(Value req);
-	Value reset(Value req);
-	Value getBalanceSymbols(Value req);
-	Value getAllPairs(Value req);
-	Value getInfo(Value req);
-	Value getFees(Value req);
-	Value call(Value req);
+	virtual double getBalance(const std::string_view & symb) override;
+	virtual TradeHistory getTrades(json::Value lastId, std::uintptr_t fromTime, const std::string_view & pair) override;
+	virtual Orders getOpenOrders(const std::string_view & par)override;
+	virtual Ticker getTicker(const std::string_view & piar)override;
+	virtual json::Value placeOrder(const std::string_view & pair,
+			double size,
+			double price,
+			json::Value clientId,
+			json::Value replaceId,
+			double replaceSize)override;
+	virtual bool reset()override;
+	virtual MarketInfo getMarketInfo(const std::string_view & pair)override;
+	virtual double getFees(const std::string_view &pair)override;
+	virtual std::vector<std::string> getAllPairs()override;
 
-
-	Value callMethod(std::string_view name, Value args);
-
-	static MethodMap methodMap;
 
 	Value balanceCache;
 	Value tickerCache;
 	Value orderCache;
 	Value feeInfo;
 	std::chrono::system_clock::time_point feeInfoExpiration;
-	using TradeMap = ondra_shared::linear_map<std::string, std::vector<Value> > ;
+	using TradeMap = ondra_shared::linear_map<std::string, std::vector<Trade> > ;
 
 
 	TradeMap tradeMap;
@@ -63,9 +59,9 @@ public:
 
 	void syncTrades(std::size_t fromTime);
 	bool syncTradesCycle(std::size_t fromTime);
-	bool syncTradeCheckTime(const std::vector<Value> &cont, std::size_t time, Value tradeID);
+	bool syncTradeCheckTime(const std::vector<Trade> &cont, std::size_t time, Value tradeID);
 
-	static bool tradeOrder(const Value &a, const Value &b);
+	static bool tradeOrder(const Trade &a, const Trade &b);
 
 
 	OrderDataDB orderdb;
@@ -74,37 +70,15 @@ public:
 
 
 
-Interface::MethodMap Interface::methodMap = {
-			{"getBalance",&Interface::getBalance},
-			{"getTrades",&Interface::getTrades},
-			{"getOpenOrders",&Interface::getOpenOrders},
-			{"getTicker",&Interface::getTicker},
-			{"placeOrder",&Interface::placeOrder},
-			{"reset",&Interface::reset},
-			{"getBalanceSymbols",&Interface::getBalanceSymbols},
-			{"getAllPairs",&Interface::getAllPairs},
-			{"getInfo",&Interface::getInfo},
-			{"getFees",&Interface::getFees},
-			{"call",&Interface::call}
-	};
-
- Value Interface::getBalance(Value req) {
+ double Interface::getBalance(const std::string_view & symb) {
 	 if (!balanceCache.defined()) {
-		 balanceCache = cm.private_request("returnCompleteBalances",json::Value());
+		 balanceCache = px.private_request("returnCompleteBalances",json::Value());
 	 }
-	 Value v =balanceCache[req.getString()];
-	 if (v.defined()) return v["available"].getNumber();
+	 Value v =balanceCache[symb];
+	 if (v.defined()) return v["available"].getNumber()+v["onOrders"].getNumber();
 	 else throw std::runtime_error("No such symbol");
 }
 
- Value Interface::getBalanceSymbols(Value) {
-	 if (!balanceCache.defined()) {
-		 balanceCache = cm.private_request("returnCompleteBalances",json::Value());
-	 }
-	 Array res;
-	 for (Value v: balanceCache) res.push_back(v.getKey());
-	 return res;
-}
 
  static std::size_t parseTime(json::String date) {
 	 int y,M,d,h,m;
@@ -124,10 +98,7 @@ Interface::MethodMap Interface::methodMap = {
 
  }
 
- Value Interface::getTrades(Value req) {
-		auto lastId = req["lastId"];
-		auto fromTime = req["fromTime"].getUInt();
-		auto pair = req["pair"];
+ Interface::TradeHistory Interface::getTrades(json::Value lastId, std::uintptr_t fromTime, const std::string_view & pair) {
 
 		if (fromTime < lastFromTime) {
 			tradeMap.clear();
@@ -140,28 +111,26 @@ Interface::MethodMap Interface::methodMap = {
 			needSyncTrades = false;
 		}
 
-		auto trs = tradeMap[pair.getString()];
+		auto trs = tradeMap[pair];
 
 		auto iter = trs.begin();
 		auto end = trs.end();
 		if (lastId.defined()) {
-			iter = std::find_if(iter, end, [&](const Value &x){
-				return x["id"] == lastId;
+			iter = std::find_if(iter, end, [&](const Trade &x){
+				return x.id == lastId;
 			});
 			if (iter != end) ++iter;
 		}
 
-		Array res;
-		res.reserve(std::distance(iter,end));
-		while (iter != end) {res.push_back(*iter);++iter;}
-		return res;
+
+		return TradeHistory(iter, end);
 }
 
 
- Value Interface::getOpenOrders(Value req) {
+Interface::Orders Interface::getOpenOrders(const std::string_view & pair) {
 
 	 if (!orderCache.defined()) {
-		 orderCache = cm.private_request("returnOpenOrders", Object
+		 orderCache = px.private_request("returnOpenOrders", Object
 				 ("currencyPair","all")
 		 );
 
@@ -176,73 +145,83 @@ Interface::MethodMap Interface::methodMap = {
 	 }
 
 
-	 Value ords = orderCache[req.getString()];
-	 return ords.map([&](Value order) {
-		 return Object
-				 ("id", order["orderNumber"])
-				 ("time", parseTime(order["date"].toString()))
-				 ("clientOrderId", orderdb.getOrderData(order["orderNumber"]))
-				 ("size", (order["type"].getString() == "sell"?-1.0:1.0)
-						 	 * order["amount"].getNumber())
-				 ("price",order["rate"].getNumber());
-	 });
-
+	 Value ords = orderCache[pair];
+	 return mapJSON(ords, [&](Value order){
+		 return Order {
+			 order["orderNumber"],
+			 orderdb.getOrderData(order["orderNumber"]),
+			 (order["type"].getString() == "sell"?-1.0:1.0)
+			 						 	 * order["amount"].getNumber(),
+			 order["rate"].getNumber()
+		 };
+	 }, Orders());
 }
 
- Value Interface::getTicker(Value req) {
+static std::uintptr_t now() {
+	return std::chrono::duration_cast<std::chrono::milliseconds>(
+						 std::chrono::system_clock::now().time_since_epoch()
+						 ).count();
+}
+
+Interface::Ticker Interface::getTicker(const std::string_view &pair) {
 	 if (!tickerCache.defined()) {
-		 tickerCache = cm.getTicker();
+		 tickerCache = px.getTicker();
 	 }
-	 Value v =tickerCache[req.getString()];
-	 if (v.defined()) return Object
-			 ("bid",v["highestBid"])
-			 ("ask",v["lowestAsk"])
-			 ("last",v["last"])
-			 ("timestamp",std::chrono::duration_cast<std::chrono::milliseconds>(
-					 std::chrono::system_clock::now().time_since_epoch()
-					 ).count());
+	 Value v =tickerCache[pair];
+	 if (v.defined()) return Ticker {
+			 v["highestBid"].getNumber(),
+			 v["lowestAsk"].getNumber(),
+			 v["last"].getNumber(),
+			 now()
+	 	 };
 	 else throw std::runtime_error("No such pair");
 }
 
- Value Interface::getAllPairs(Value) {
+std::vector<std::string> Interface::getAllPairs() {
  	 if (!tickerCache.defined()) {
- 		 tickerCache = cm.getTicker();
+ 		 tickerCache = px.getTicker();
  	 }
-	 Array res;
+ 	 std::vector<std::string> res;
 	 for (Value v: tickerCache) res.push_back(v.getKey());
 	 return res;
  }
 
 
 
- Value Interface::placeOrder(Value req) {
+json::Value Interface::placeOrder(const std::string_view & pair,
+		double size,
+		double price,
+		json::Value clientId,
+		json::Value replaceId,
+		double replaceSize) {
 
-	std::string pair = req["pair"].getString();
-	auto size = req["size"].getNumber();
-	auto price = req["price"].getNumber();
-	json::Value clientOrderId = req["clientOrderId"];
-	json::Value replaceId = req["replaceOrderId"];
+	//just inicialize order_db
+	getOpenOrders(pair);
 
 
 	if (replaceId.defined()) {
-		Value z = cm.private_request("cancelOrder", Object
+		Value z = px.private_request("cancelOrder", Object
 				("currencyPair", pair)
 				("orderNumber",  replaceId)
 		);
 		StrViewA msg = z["message"].getString();
-		if (z["success"].getUInt() != 1) throw std::runtime_error(
-				std::string("Place order failed on cancel (replace): ").append(msg.data, msg.length));
+		if (z["success"].getUInt() != 1  ||
+				z["amount"].getNumber()<std::fabs(replaceSize)*0.999999)
+				throw std::runtime_error(
+						std::string("Place order failed on cancel (replace): ").append(msg.data, msg.length));
 	}
 
 	StrViewA fn;
 	if (size < 0) {
 		fn = "sell";
 		size = -size;
-	} else {
+	} else if (size > 0){
 		fn = "buy";
+	} else {
+		return nullptr;
 	}
 
-	json::Value res = cm.private_request(fn, Object
+	json::Value res = px.private_request(fn, Object
 			("currencyPair", pair)
 			("rate", price)
 			("amount", size)
@@ -251,78 +230,56 @@ Interface::MethodMap Interface::methodMap = {
 
 	Value onum = res["orderNumber"];
 	if (!onum.defined()) throw std::runtime_error("Order was not placed (missing orderNUmber)");
-	if (clientOrderId.defined())
-		orderdb.storeOrderData(onum, clientOrderId);
+	if (clientId.defined())
+		orderdb.storeOrderData(onum, clientId);
 
 	return res["orderNumber"];
 
 }
 
-Value Interface::reset(Value req) {
+bool Interface::reset() {
 	balanceCache = Value();
 	tickerCache = Value();
 	orderCache = Value();
 	needSyncTrades = true;
-	return Value();
+	return true;
 }
 
-inline Value Interface::getInfo(Value req) {
+inline Interface::MarketInfo Interface::getMarketInfo(const std::string_view &pair) {
 
-	StrViewA pair = req.getString();
-	auto splt = pair.split("_",2);
+	auto splt = StrViewA(pair).split("_",2);
 	StrViewA cur = splt();
 	StrViewA asst = splt();
 
-	auto currencies = cm.public_request("returnCurrencies", Value());
+	auto currencies = px.public_request("returnCurrencies", Value());
 	if (!currencies[cur].defined() ||
 			!currencies[asst].defined())
 				throw std::runtime_error("Unknown trading pair symbol");
 
 
-	return Object
-			("asset_step", 0.00000001)
-			("currency_step", 0.00000001)
-			("asset_symbol", asst)
-			("currency_symbol", cur)
-			("min_size", 0.00000001)
-			("min_volume",0.0001)
-			("fees", getFees(req))
-			("feeScheme","income");
-
+	return MarketInfo {
+		asst,
+		cur,
+		0.00000001,
+		0.00000001,
+		0.00000001,
+		0.0001,
+		getFees(pair),
+		income
+	};
 }
 
-inline Value Interface::getFees(Value ) {
-	if (cm.hasKey) {
+inline double Interface::getFees(const std::string_view &pair) {
+	if (px.hasKey) {
 		auto now = std::chrono::system_clock::now();
 		if (!feeInfo.defined() || feeInfoExpiration < now) {
-			feeInfo = cm.private_request("returnFeeInfo", Value());
+			feeInfo = px.private_request("returnFeeInfo", Value());
 			feeInfoExpiration = now + std::chrono::hours(1);
 		}
-		return PreciseNumberValue<double>::create(feeInfo["makerFee"].getString());
+		return feeInfo["makerFee"].getNumber();
 	} else {
 		return 0.0015;
 	}
-
-}
-
-Value Interface::callMethod(std::string_view name, Value args) {
-	try {
-		auto iter = methodMap.find(name);
-		if (iter == methodMap.end()) throw std::runtime_error("Method not implemented");
-		return {true, (this->*(iter->second))(args)};
-	} catch (Value &e) {
-		return {false, e};
-	} catch (std::exception &e) {
-		return {false, e.what()};
-	}
-}
-
-Value Interface::call(Value args) {
-	Value fn = args[0];
-	Value a = args[1];
-	if (fn.getString().empty()) throw std::runtime_error("Required [\"funcion\",<args>]");
-
-	return cm.private_request(fn.getString(),a);
 
 }
 
@@ -335,8 +292,8 @@ void Interface::syncTrades(std::size_t fromTime) {
 		startTime--;
 		for (auto &&k : tradeMap) {
 			if (!k.second.empty()) {
-				Value v = k.second.back();
-				startTime = std::min(startTime, v["time"].getUInt()-1);
+				const auto &v = k.second.back();
+				startTime = std::min(startTime, v.time-1);
 			}
 		}
 		++startTime;
@@ -346,7 +303,7 @@ void Interface::syncTrades(std::size_t fromTime) {
 
 bool Interface::syncTradesCycle(std::size_t fromTime) {
 
-	Value trs = cm.private_request("returnTradeHistory", Object
+	Value trs = px.private_request("returnTradeHistory", Object
 			("start", fromTime/1000)
 			("currencyPair","all")
 			("limit", 10000));
@@ -355,7 +312,7 @@ bool Interface::syncTradesCycle(std::size_t fromTime) {
 	for (Value p: trs) {
 		std::string pair = p.getKey();
 		auto && lst = tradeMap[pair];
-		std::vector<Value> loaded;
+		std::vector<Trade> loaded;
 		for (Value t: p) {
 			auto time = parseTime(String(t["date"]));
 			auto id = t["tradeID"];
@@ -366,14 +323,14 @@ bool Interface::syncTradesCycle(std::size_t fromTime) {
 				if (t["type"].getString() == "sell") size = -size;
 				double eff_size = size >= 0? size*(1-fee):size;
 				double eff_price = size < 0? price*(1-fee):price;
-				loaded.push_back(Object
-					("time",time)
-					("id",id)
-					("price", price)
-					("size", size)
-					("eff_price", eff_price)
-					("eff_size", eff_size)
-				);
+				loaded.push_back(Trade {
+					id,
+					time,
+					size,
+					price,
+					eff_size,
+					eff_price,
+				});
 			}
 		}
 		std::sort(loaded.begin(),loaded.end(), tradeOrder);
@@ -387,23 +344,23 @@ bool Interface::syncTradesCycle(std::size_t fromTime) {
 
 
 
-inline bool Interface::syncTradeCheckTime(const std::vector<Value> &cont,
+inline bool Interface::syncTradeCheckTime(const std::vector<Trade> &cont,
 		std::size_t time, Value tradeID) {
 
 	if (cont.empty()) return true;
-	const Value &b = cont.back();
-	if (b["time"].getUInt() < time) return true;
-	if (b["time"].getUInt() == time && Value::compare(b["id"], tradeID) < 0) return true;
+	const Trade &b = cont.back();
+	if (b.time < time) return true;
+	if (b.time == time && Value::compare(b.id, tradeID) < 0) return true;
 	return false;
 }
 
 
-bool Interface::tradeOrder(const Value &a, const Value &b) {
-	std::size_t ta = a["time"].getUInt();
-	std::size_t tb = b["time"].getUInt();
+bool Interface::tradeOrder(const Trade &a, const Trade &b) {
+	std::size_t ta = a.time;
+	std::size_t tb = b.time;
 	if (ta < tb) return true;
 	if (ta > tb) return false;
-	return Value::compare(a["id"],b["id"]) < 0;
+	return Value::compare(a.id,b.id) < 0;
 }
 
 
@@ -419,28 +376,18 @@ int main(int argc, char **argv) {
 
 		ondra_shared::IniConfig ini;
 
-
-		if (!ini.load(argv[1],[](const auto &itm){
-			throw std::runtime_error(std::string("Unable to process: ")+itm.key.data + " " + itm.value.data);
-		})) throw std::runtime_error(std::string("Unable to open: ")+argv[1]);
+		ini.load(argv[1]);
 
 		Config cfg = load(ini["api"]);
-		Proxy coinmate(cfg);
+		Proxy proxy(cfg);
 
 		std::string dbpath = ini["order_db"].mandatory["path"].getPath();
 
-		Interface ifc(coinmate, dbpath);
+		Interface ifc(proxy, dbpath);
 
 
+		ifc.dispatch();
 
-		while (true) {
-			int i = std::cin.get();
-			if (i == EOF) break;
-			std::cin.putback(i);
-			Value v = Value::fromStream(std::cin);
-			ifc.callMethod(v[0].getString(), v[1]).toStream(std::cout);
-			std::cout << std::endl;
-		}
 
 	} catch (std::exception &e) {
 		std::cerr << "Error: " << e.what() << std::endl;

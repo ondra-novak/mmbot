@@ -91,4 +91,28 @@ To retrieve <trade-id> click and hold on trade line in the web browser.
 
 The function doesn't work in dry_run mode. It cannot perform the resync after erase.
 
-  
+### reset <_trader_>
+
+Erases all trades expect the last one. It useful to reset statistics and start over again
+
+### achieve <_trader_> <_price_> <_amount_>
+
+Enters to an `achieve` mode. In this mode, the robot tries to achieve
+specified state on the account.
+ 
+The `achieve` mode is finished once the state of the account is achieved.
+
+This function can be used to buy initial coins to initalize the trader. The
+price and the amount both specify initial settings of internal calculatir. If the
+price is different than current price on the stockmarket, the final amount
+will be adjusted to achieve correct calculations. 
+
+Once the `achive mode` is enabled, the robot starts to generete orders to achieve
+the required state quickly as possible, but it still generates LIMIT (maker) orders.
+During `achieve mode`, the accumulation settings are ignored. Any changes in
+balance or manual orders can cause generation of reverting order. All trades
+created during `achieve mode` are marked as manual (even if `detect_manual_trades` is disabled).  
+
+To cancel `achieve mode` simply call this command again and specify current price and current balance on the stockmarket account. It causes, that internal state
+becomes immediatelly achieved.
+

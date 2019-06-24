@@ -21,7 +21,6 @@
 #include "report.h"
 #include "spread_calc.h"
 #include "ext_stockapi.h"
-#include "notrade.h"
 
 
 using ondra_shared::StdLogFile;
@@ -42,17 +41,19 @@ using ondra_shared::schedulerGetWorker;
 
 class StatsSvc: public IStatSvc {
 public:
-	StatsSvc(std::string name, Report &rpt, int interval, int cnt ):rpt(rpt),name(name),interval(interval),cnt(cnt) {}
+	StatsSvc(Worker wrk, std::string name, Report &rpt, int interval, int cnt ):wrk(wrk),rpt(rpt),name(name),interval(interval),cnt(cnt)
+		,spread(std::make_shared<double>(0)) {}
 
 	virtual void reportOrders(const std::optional<IStockApi::Order> &buy,
 							  const std::optional<IStockApi::Order> &sell) override {
 		rpt.setOrders(name, buy, sell);
 	}
-	virtual void reportTrades(double cur_balance, ondra_shared::StringView<IStockApi::Trade> trades) {
-		rpt.setTrades(name,cur_balance, trades);
+	virtual void reportTrades(ondra_shared::StringView<IStockApi::TradeWithBalance> trades) {
+		rpt.setTrades(name,trades);
 	}
 
 	virtual void setInfo(StrViewA title,StrViewA asst,StrViewA curc, bool emulated) {
+		if (title.empty()) title = name;
 		rpt.setInfo(name, title, asst, curc, emulated);
 	}
 	virtual void reportPrice(double price) {
@@ -64,20 +65,34 @@ public:
 			double balance,
 			double prev_value) const {
 
-		if (cnt) {
+		if (*spread == 0) *spread = prev_value;
+
+		if (cnt && *spread != 0) {
 			--cnt;
-			return prev_value;
+			return *spread;
 		} else {
-			cnt = interval;
-			return  glob_calcSpread(chart, cfg, minfo, balance, prev_value);
+			cnt += interval;
+			wrk >> [chart = std::vector<ChartItem>(chart.begin(),chart.end()),
+					cfg = MTrader_Config(cfg),
+					minfo = IStockApi::MarketInfo(minfo),
+					balance,
+					spread = this->spread,
+					name = this->name] {
+				LogObject logObj(name);
+				LogObject::Swap swap(logObj);
+				*spread = glob_calcSpread(chart, cfg, minfo, balance, *spread);
+			};
+			return *spread;
 		}
 
 	}
 
+	Worker wrk;
 	Report &rpt;
 	std::string name;
 	int interval;
 	mutable int cnt = 0;
+	std::shared_ptr<double> spread;
 
 
 };
@@ -117,9 +132,8 @@ public:
 			ondra_shared::StrViewA name = def.first;
 			ondra_shared::StrViewA cmdline = def.second.getString();
 			ondra_shared::StrViewA workDir = def.second.getCurPath();
-			data.push_back(StockMarketMap::value_type(name,std::make_unique<ExtStockApi>(workDir, name, cmdline, test)));
+			data.push_back(StockMarketMap::value_type(name,std::make_unique<ExtStockApi>(workDir, name, cmdline)));
 		}
-		data.push_back(StockMarketMap::value_type("notrade",std::make_unique<NoTrade>()));
 		StockMarketMap map(std::move(data));
 		stock_markets.swap(map);
 	}
@@ -146,7 +160,8 @@ static StockSelector stockSelector;
 
 
 void loadTraders(const ondra_shared::IniConfig &ini,
-		ondra_shared::StrViewA names, StorageFactory &sf, Report &rpt, bool force_dry_run) {
+		ondra_shared::StrViewA names, StorageFactory &sf,
+		Worker wrk, Report &rpt, bool force_dry_run) {
 	traders.clear();
 	std::vector<StrViewA> nv;
 
@@ -162,7 +177,7 @@ void loadTraders(const ondra_shared::IniConfig &ini,
 		MTrader::Config mcfg = MTrader::load(ini[n], force_dry_run);
 		logProgress("Started trader $1 (for $2)", n, mcfg.pairsymb);
 		traders.emplace_back(stockSelector, sf.create(n),
-				std::make_unique<StatsSvc>(n, rpt, nv.size(), ++p),
+				std::make_unique<StatsSvc>(wrk, n, rpt, nv.size(), ++p),
 				mcfg, n);
 	}
 }
@@ -180,6 +195,27 @@ bool runTraders() {
 	return hit;
 }
 
+
+template<typename Fn>
+auto run_in_worker(Worker wrk, Fn &&fn) -> decltype(fn()) {
+	using Ret = decltype(fn());
+	ondra_shared::Countdown c(1);
+	std::exception_ptr exp;
+	std::optional<Ret> ret;
+	wrk >> [&] {
+		try {
+			ret = fn();
+		} catch (...) {
+			exp = std::current_exception();
+		}
+		c.dec();
+	};
+	c.wait();
+	if (exp != nullptr) {
+		std::rethrow_exception(exp);
+	}
+	return *ret;
+}
 
 class AuthMapper {
 public:
@@ -236,21 +272,79 @@ static int eraseTradeHandler(Worker &wrk, simpleServer::ArgList args, simpleServ
 			return 2;
 		} else {
 			NamedMTrader  &trader = *iter;
-			ondra_shared::Countdown wt(1);
-			bool res;
-			wrk >> [&] {
-				res = trader.eraseTrade(args[1],trunc);
-				wt.dec();
-			};
-			wt.wait();
-			if (!res) {
-				stream << "Trade not found: " << args[1] << "\n";
-				return 2;
-			} else {
-				stream << "OK\n";
-				return 0;
+			try {
+				bool res = run_in_worker(wrk, [&] {
+					return trader.eraseTrade(args[1],trunc);
+				});
+				if (!res) {
+					stream << "Trade not found: " << args[1] << "\n";
+					return 2;
+				} else {
+					stream << "OK\n";
+					return 0;
+				}
+			} catch (std::exception &e) {
+				stream << e.what() << "\n";
+				return 3;
 			}
 		}
+	}
+}
+
+static int cmd_reset(Worker &wrk, simpleServer::ArgList args, simpleServer::Stream stream, bool trunc) {
+	if (args.empty()) {
+		stream << "Need argument: <trader_ident>\n"; return 1;
+	}
+	StrViewA trader = args[0];
+	auto iter = std::find_if(traders.begin(), traders.end(), [&](const NamedMTrader &dr){
+		return StrViewA(dr.ident) == trader;
+	});
+	if (iter == traders.end()) {
+		stream << "Trader idenitification is invalid: " << trader << "\n";
+		return 1;
+	}
+	try {
+		NamedMTrader &t = *iter;
+		run_in_worker(wrk, [&]{
+			t.reset();return true;
+		});
+		stream << "OK\n";
+		return 0;
+	} catch (std::exception &e) {
+		stream << e.what() << "\n";
+		return 3;
+	}
+}
+
+static int cmd_achieve(Worker &wrk, simpleServer::ArgList args, simpleServer::Stream stream, bool trunc) {
+	if (args.length != 3) {
+		stream << "Need arguments: <trader_ident> <price> <balance>\n"; return 1;
+	}
+
+	double price = strtod(args[1].data,nullptr);
+	double balance = strtod(args[2].data,nullptr);
+	if (price<=0 || balance<=0) {
+		stream << "second or third argument must be positive real numbers. Use dot (.) as decimal point\n";return 1;
+	}
+
+	StrViewA trader = args[0];
+	auto iter = std::find_if(traders.begin(), traders.end(), [&](const NamedMTrader &dr){
+		return StrViewA(dr.ident) == trader;
+	});
+	if (iter == traders.end()) {
+		stream << "Trader idenitification is invalid: " << trader << "\n";
+		return 1;
+	}
+	try {
+		NamedMTrader &t = *iter;
+		run_in_worker(wrk, [&]{
+			t.achieve_balance(price,balance);return true;
+		});
+		stream << "OK\n";
+		return 0;
+	} catch (std::exception &e) {
+		stream << e.what() << "\n";
+		return 3;
 	}
 }
 
@@ -273,7 +367,7 @@ int main(int argc, char **argv) {
 		case 'h': std::cout << "Usage: " << std::endl << "\t" << argv[0]
 					<< " [-vdt] -f <cfgname>  <cmd>" << std::endl << "\t" << argv[0]
 					<< " -h" << std::endl << std::endl
-					<< "-f\tspecift config pathname" << std::endl
+					<< "-f\tspecify config pathname" << std::endl
 					<< "-h\tthis help" << std::endl
 					<< "-v\tverbose - redirect log to stderr (only for 'run' command)" << std::endl
 					<< "-d\tdebug - force debug level of logging" << std::endl
@@ -289,6 +383,9 @@ int main(int argc, char **argv) {
 					<< "\t\tlogrotate    - close and reopen logfile"<< std::endl
 					<< "\t\tcalc_range   - calculate and print trading range for each pair"<< std::endl
 					<< "\t\tget_all_pairs- print all tradable pairs - need broker name as argument"<< std::endl
+					<< "\t\terase_trade  - erases trade. Need id of trader and id of trade"<< std::endl
+					<< "\t\treset        - erases all trades expect the last one"<< std::endl
+					<< "\t\tachieve      - achieve an internal state (achieve mode)"<< std::endl
 					<< std::endl;
 					return 1;
 		case 'v': verbose = true;break;
@@ -319,10 +416,11 @@ int main(int argc, char **argv) {
 						return 100;
 					}
 
-					cntr.enableRestart();
 					if (!user.empty()) {
 						cntr.changeUser(user);
 					}
+
+					cntr.enableRestart();
 
 					{
 						auto logcfg = ini["log"];
@@ -371,7 +469,7 @@ int main(int argc, char **argv) {
 					Worker wrk = schedulerGetWorker(sch);
 
 
-					loadTraders(ini, names, sf, rpt, test);
+					loadTraders(ini, names, sf,wrk, rpt, test);
 
 					logNote("---- Starting service ----");
 
@@ -391,10 +489,10 @@ int main(int argc, char **argv) {
 											<< "\tAssets value:\t\t" << result.value << " " << curs << std::endl
 											<< "\tAvailable assets:\t" << result.avail_assets << " " << ass << std::endl
 											<< "\tAvailable money:\t" << result.avail_money << " " << curs << std::endl
-											<< "\tMin price:\t\t" << result.min_price << " " << curs << std::endl
-											<< "\t- Money left:\t\t" << result.money_left << " " << curs << std::endl
-											<< "\tMax price:\t\t" << result.max_price << " " << curs << std::endl
-											<< "\t- Assets left:\t\t" << result.assets_left<< " " << ass << std::endl;
+											<< "\tMin price:\t\t" << result.min_price << " " << curs << std::endl;
+									if (result.min_price == 0)
+									   buff << "\t - money left:\t\t" << (result.avail_money-result.value) << " " << curs << std::endl;
+									buff << "\tMax price:\t\t" << result.max_price << " " << curs << std::endl;
 									out << buff.str();
 									out.flush();
 
@@ -436,10 +534,27 @@ int main(int argc, char **argv) {
 					cntr.addCommand("resync_trades_from", [&](simpleServer::ArgList args, simpleServer::Stream stream){
 						return eraseTradeHandler(wrk, args,stream,true);
 					});
+					cntr.addCommand("reset", [&](simpleServer::ArgList args, simpleServer::Stream stream){
+						return cmd_reset(wrk, args,stream,true);
+					});
+					cntr.addCommand("achieve", [&](simpleServer::ArgList args, simpleServer::Stream stream){
+						return cmd_achieve(wrk, args,stream,true);
+					});
 					std::size_t id = 0;
 					cntr.addCommand("run",[&](simpleServer::ArgList, simpleServer::Stream) {
 
+						ondra_shared::PStdLogProviderFactory current =
+								&dynamic_cast<ondra_shared::StdLogProviderFactory &>(*ondra_shared::AbstractLogProviderFactory::getInstance());
+						ondra_shared::PStdLogProviderFactory logcap = rpt.captureLog(current);
+
+						sch.immediate() >> [logcap]{
+							ondra_shared::AbstractLogProvider::getInstance() = logcap->create();
+						};
+
+
 						auto main_cycle = [&] {
+
+
 							try {
 								runTraders();
 								rpt.genReport();
@@ -466,7 +581,7 @@ int main(int argc, char **argv) {
 					return 0;
 
 				}, simpleServer::ArgList(argList.data(), argList.size()),
-				cmd == "calc_range" || cmd == "get_all_pairs");
+				cmd == "calc_range" || cmd == "get_all_pairs" || cmd == "achieve" || cmd == "reset");
 		} catch (std::exception &e) {
 			std::cerr << "Error: " << e.what() << std::endl;
 			return 2;

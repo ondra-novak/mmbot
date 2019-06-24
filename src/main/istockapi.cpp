@@ -61,11 +61,11 @@ json::NamedEnum<IStockApi::FeeScheme> IStockApi::strFeeScheme ({
 	{IStockApi::income, "income"},
 	{IStockApi::outcome, "outcome"}
 });
-
+/*
 static double awayZero(double v) {
 	if (v < 0) return floor(v);
 	else return ceil(v);
-}
+}*/
 
 void IStockApi::MarketInfo::addFees(double &assets, double &price) const {
 	switch (feeScheme) {
@@ -83,31 +83,58 @@ void IStockApi::MarketInfo::addFees(double &assets, double &price) const {
 					if (assets<0 ) assets = assets*(1-fees);
 					else price = price*(1-fees);
 	}
-	price = adjValue(price, currency_step, round);
 
-	if (assets < min_size && assets > -min_size)
-		assets = sgn(assets)*min_size;
-	double vol = assets * price;
-	if (vol < min_volume && vol > -min_volume)
-		assets = sgn(assets)*(min_volume/price);
+	//round price to lower value on buy and higher value on sell
+	price = adjValue(price, currency_step, floor);
 
-	assets = adjValue(assets, asset_step, awayZero);
+	//use floor to always accumulate small amount coins
+	assets = adjValue(assets, asset_step, floor);
 }
 
 void IStockApi::MarketInfo::removeFees(double &assets, double &price) const {
 	switch (feeScheme) {
 	case IStockApi::currency:
-				   price = price*(1+ sgn(assets)*fees);
+				   price = price/(1- sgn(assets)*fees);
 				   break;
 	case IStockApi::assets:
-					assets = assets*(1-fees);
+					assets = assets/(1+fees);
 					break;
 	case IStockApi::income:
-					if (assets>0 ) assets = assets*(1-fees);
-					else price = price*(1-fees);
+					if (assets>0 ) assets = assets/(1+fees);
+					else price = price/(1+fees);
 					break;
 	case IStockApi::outcome:
-					if (assets<0 ) assets = assets*(1+fees);
-					else price = price*(1+fees);
+					if (assets<0 ) assets = assets/(1+fees);
+					else price = price/(1+fees);
 	}
+}
+
+IStockApi::TradeWithBalance IStockApi::TradeWithBalance::fromJSON(json::Value v) {
+	json::Value jbal = v["bal"];
+	json::Value jman = v["man"];
+	double bal = jbal.defined()?jbal.getNumber():no_balance;
+	TradeWithBalance ret(Trade::fromJSON(v),bal,jman.getBool());
+	return ret;
+}
+
+json::Value IStockApi::TradeWithBalance::toJSON() const {
+	json::Value v = Trade::toJSON();
+	return json::Object(v)("bal", balance)("man", manual_trade);
+}
+
+IStockApi::Order IStockApi::Order::fromJSON(json::Value v) {
+	return IStockApi::Order {
+		v["id"],
+		v["client_id"],
+		v["size"].getNumber(),
+		v["price"].getNumber()
+	};
+}
+
+json::Value IStockApi::Order::toJSON() const {
+	return json::Object
+			("id",id)
+			("client_id",client_id)
+			("size",size)
+			("price",price);
 }

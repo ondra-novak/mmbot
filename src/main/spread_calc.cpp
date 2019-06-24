@@ -23,8 +23,11 @@ public:
 	virtual TradeHistory getTrades(json::Value lastId, std::uintptr_t fromTime, const std::string_view & pair) override;
 	virtual Orders getOpenOrders(const std::string_view & par) override;
 	virtual Ticker getTicker(const std::string_view & piar) override;
-	virtual json::Value placeOrder(const std::string_view & pair, const Order &order) override;
+	virtual json::Value placeOrder(const std::string_view & pair,
+			double size, double price,json::Value clientId,
+			json::Value replaceId,double replaceSize) override;
 	virtual bool reset() ;
+	virtual void testBroker() override {}
 	virtual double getBalance(const std::string_view &) override;
 	virtual bool isTest() const override {return false;}
 	virtual MarketInfo getMarketInfo(const std::string_view &) {
@@ -36,7 +39,7 @@ public:
 	virtual std::vector<std::string> getAllPairs() override {return {};}
 
 	double getScore() const {
-		return currency+sqrt(chart[0].bid*chart[0].ask)*(balance-initial_balance);
+		return currency+sqrt(chart[0].bid*chart[0].ask)*balance;
 	}
 	unsigned int getTradeCount() const {
 		return std::min(buys,sells);
@@ -68,7 +71,7 @@ class EmulStatSvc: public IStatSvc {
 public:
 	EmulStatSvc(double spread):spread(spread) {}
 
-	virtual void reportTrades(double, ondra_shared::StringView<IStockApi::Trade> trades) {}
+	virtual void reportTrades(ondra_shared::StringView<IStockApi::TradeWithBalance> trades) {}
 	virtual void reportOrders(const std::optional<IStockApi::Order> &,
 							  const std::optional<IStockApi::Order> &) {}
 	virtual void reportPrice(double ) {}
@@ -95,8 +98,8 @@ static double emulateMarket(ondra_shared::StringView<IStatSvc::ChartItem> chart,
 
 	MTrader_Config cfg(config);
 	cfg.dry_run = false;
-	cfg.asset_base = 0;
 	cfg.spread_calc_mins=1;
+	cfg.internal_balance = false;
 
 	class Selector: public IStockSelector {
 	public:
@@ -108,19 +111,28 @@ static double emulateMarket(ondra_shared::StringView<IStatSvc::ChartItem> chart,
 		IStockApi &emul;
 	};
 
-	Selector selector(emul);
-	MTrader trader(selector, nullptr,std::make_unique<EmulStatSvc>(spread),cfg);
 
-	trader.perform();
+	Selector selector(emul);
 	std::size_t counter = 1;
-	while (emul.reset()) {
+	{
+		ondra_shared::PLogProvider nullprovider (std::make_unique<ondra_shared::NullLogProvider>());
+		ondra_shared::LogObject nullLog(*nullprovider,"");
+		ondra_shared::LogObject::Swap swp(nullLog);
+
+		MTrader trader(selector, nullptr,std::make_unique<EmulStatSvc>(spread),cfg);
+
 		trader.perform();
-		counter++;
+		while (emul.reset()) {
+			trader.perform();
+			counter++;
+		}
+
 	}
 
 	double score = emul.getScore();
 	std::intptr_t tcount = emul.getTradeCount();
-	std::intptr_t min_count = counter*cfg.spread_calc_min_trades/1440;
+	if (tcount == 0) return -1001;
+	std::intptr_t min_count = std::max<std::intptr_t>(counter*cfg.spread_calc_min_trades/1440,1);
 	std::intptr_t max_count = (counter*cfg.spread_calc_max_trades+1439)/1440;
 	if (tcount < min_count) score = tcount-min_count;
 	else if (tcount > max_count) score = max_count-tcount;
@@ -136,30 +148,29 @@ double glob_calcSpread(ondra_shared::StringView<IStatSvc::ChartItem> chart,
 		const IStockApi::MarketInfo &minfo,
 		double balance,
 		double prev_val) {
+	if (prev_val == 0) prev_val = 0.01;
 	if (chart.empty() || balance == 0) return prev_val;
-	double min_spread = chart[0].ask - chart[0].bid;
-	double init_spread = prev_val && prev_val > min_spread?prev_val:min_spread;
-	if (init_spread > chart[0].bid/2) init_spread = chart[0].bid/2;
+	double curprice = sqrt(chart[chart.length-1].ask*chart[chart.length-1].bid);
 
 
 	using ResultItem = std::pair<double,double>;
 	ResultItem bestResults[]={
-			{-9e98,init_spread},
-			{-9e98,init_spread},
-			{-9e98,init_spread},
-			{-9e98,init_spread}
+			{-1000,prev_val},
+			{-1000,prev_val},
+			{-1000,prev_val},
+			{-1000,prev_val}
 	};
 
-	double low_spread = init_spread*0.2;
+	double low_spread = curprice*(std::exp(prev_val)-1)/10;
 	const int steps = 200;
-	double hi_spread = std::min(init_spread*2,chart[0].bid/2);
+	double hi_spread = curprice*(std::exp(prev_val)-1)*10;
 	auto resend = std::end(bestResults);
 	auto resbeg = std::begin(bestResults);
 	auto resiter = resbeg;
 
 	for (int i = 0; i < steps; i++) {
 
-		double curSpread = low_spread+(hi_spread-low_spread)*i/(steps-1.0);
+		double curSpread = std::log(((low_spread+(hi_spread-low_spread)*i/(steps-1.0))+curprice)/curprice);
 		double profit= emulateMarket(chart, config, minfo, balance, curSpread);
 		ResultItem resitem(profit,curSpread);
 		if (resiter->first < resitem.first) {
@@ -172,7 +183,7 @@ double glob_calcSpread(ondra_shared::StringView<IStatSvc::ChartItem> chart,
 			std::end(bestResults), ResultItem(1,1),
 			[](const ResultItem &a, const ResultItem &b) {
 				return ResultItem(0,a.second * b.second);}).second,1.0/std::distance(resbeg, resend));
-	ondra_shared::logInfo("Spread calculated: $1", sugg_spread);
+	ondra_shared::logInfo("Spread calculated: $1 (log=$2)", curprice*exp(sugg_spread)-curprice, sugg_spread);
 	return sugg_spread;
 }
 
@@ -206,13 +217,16 @@ inline StockEmulator::Ticker StockEmulator::getTicker(const std::string_view & p
 	};
 }
 
-inline json::Value StockEmulator::placeOrder(const std::string_view & , const Order &order) {
+inline json::Value StockEmulator::placeOrder(const std::string_view & ,
+		double size, double price,json::Value clientId,
+		json::Value ,double ) {
 
-	if (order.size < 0) {
-		sell = order;
+	Order ord{0,clientId, size, price};
+	if (size < 0) {
+		sell = ord;
 		sell_ex = false;
 	} else {
-		buy = order;
+		buy = ord;
 		buy_ex = false;
 	}
 

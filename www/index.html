@@ -16,9 +16,11 @@
 <option disabled value=""></option>
 <option value="pl">P/L from positions</option>
 <option value="norm">Normalized profit</option>
+<option value="nacum">Normalized accumulated assets</option>
 <option value="achg">Trades</option>
 <option value="pos">Position</option>
 <option value="price">Price</option>
+<option value="app">Annual percentage profit (experimental)</option>
 <option disabled value=""></option>
 <option value="+pl">Total P/L from positions</option>
 <option value="+norm">Total normalized profit</option>
@@ -57,6 +59,7 @@
 </template>
 
 <div id="chartarea"></div>
+
 <div id="lastevents">
 <template id="lastevents_hdr">
 <x-trbgr  class="hdr">
@@ -72,6 +75,11 @@
 </x-tr>
 </x-trbgr>
 </template>
+</div>
+<div id="logfilearea">
+<div id="logfileactivate">LOG</div>
+<pre  id="logfile" hidden>
+</pre>
 </div>
 <div id="logo" hidden>
 <img src="logo.png">

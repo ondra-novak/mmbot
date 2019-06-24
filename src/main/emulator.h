@@ -24,12 +24,15 @@ public:
 	virtual TradeHistory getTrades(json::Value lastId, std::uintptr_t fromTime, const std::string_view & pair);
 	virtual Orders getOpenOrders(const std::string_view & par);
 	virtual Ticker getTicker(const std::string_view & piar);
-	virtual json::Value placeOrder(const std::string_view & pair, const Order &order) ;
+	virtual json::Value placeOrder(const std::string_view & pair,
+			double size, double price,json::Value clientId,
+			json::Value replaceId,double replaceSize) ;
 	virtual bool reset() ;
 	virtual bool isTest() const ;
 	virtual MarketInfo getMarketInfo(const std::string_view & pair);
 	virtual double getFees(const std::string_view &pair);
 	virtual std::vector<std::string> getAllPairs() override;
+	virtual void testBroker() override {datasrc.testBroker();}
 
 protected:
 	IStockApi &datasrc;

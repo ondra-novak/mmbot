@@ -16,7 +16,7 @@
 class ExtStockApi: public AbstractExtern, public IStockApi {
 public:
 
-	ExtStockApi(const std::string_view & workingDir, const std::string_view & name, const std::string_view & cmdline, bool test);
+	ExtStockApi(const std::string_view & workingDir, const std::string_view & name, const std::string_view & cmdline);
 
 
 
@@ -24,14 +24,15 @@ public:
 	virtual TradeHistory getTrades(json::Value lastId, std::uintptr_t fromTime, const std::string_view & pair) override;
 	virtual Orders getOpenOrders(const std::string_view & par) override;
 	virtual Ticker getTicker(const std::string_view & piar) override;
-	virtual json::Value placeOrder(const std::string_view & pair, const Order &req) override;
+	virtual json::Value placeOrder(const std::string_view & pair,
+			double size, double price,json::Value clientId,
+			json::Value replaceId,double replaceSize) override;
 	virtual bool reset() override;
-	virtual bool isTest() const override {return test;}
+	virtual bool isTest() const override {return false;}
 	virtual MarketInfo getMarketInfo(const std::string_view & pair);
 	virtual double getFees(const std::string_view & pair);
 	virtual std::vector<std::string> getAllPairs() override;
-
-	bool test;
+	virtual void testBroker() override {preload();}
 
 };
 
