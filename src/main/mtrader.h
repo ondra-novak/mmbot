@@ -54,6 +54,7 @@ public:
 	using Config = MTrader_Config;
 
 
+
 	static Config load(const ondra_shared::IniConfig::Section &ini, bool force_dry_run);
 
 
@@ -78,6 +79,7 @@ public:
 			StoragePtr &&storage,
 			PStatSvc &&statsvc,
 			Config config);
+
 
 	///Returns true, if trade was detected, or false, if not
 	int perform();

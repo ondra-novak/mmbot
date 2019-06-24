@@ -41,10 +41,12 @@ void Proxy::buildParams(const json::Value& params, std::ostream& data) {
 	for (json::Value field : params) {
 		data << "&" << field.getKey() << "=";
 		json::String s = field.toString();
-		char* esc = curl_easy_escape(curl_handle.getHandle(), s.c_str(),
-				s.length());
-		data << esc;
-		curl_free(esc);
+		if (!s.empty()) {
+			char* esc = curl_easy_escape(curl_handle.getHandle(), s.c_str(),
+					s.length());
+			data << esc;
+			curl_free(esc);
+		}
 	}
 }
 

@@ -15,7 +15,7 @@
 class OrderDataDB {
 public:
 	OrderDataDB(std::string path);
-
+	~OrderDataDB();
 
 	void storeOrderData(json::Value orderId, json::Value data);
 	void commit();
@@ -25,6 +25,8 @@ public:
 
 protected:
 	std::string path;
+	std::string lock_path;
+	int lockfile;
 	std::ofstream nextRev;
 	std::unordered_map<json::Value, json::Value> curMap;
 

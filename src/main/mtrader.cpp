@@ -22,13 +22,11 @@ MTrader::MTrader(IStockSelector &stock_selector,
 		Config config)
 :stock(selectStock(stock_selector,config,ownedStock))
 ,cfg(std::move(config))
-,minfo(stock.getMarketInfo(cfg.pairsymb))
 ,storage(std::move(storage))
 ,statsvc(std::move(statsvc))
 {
-	this->statsvc->setInfo(cfg.title, minfo.asset_symbol, minfo.currency_symbol, stock.isTest());
-
-
+	//probe that broker is valid configured
+	stock.testBroker();
 }
 
 
@@ -370,6 +368,8 @@ MTrader::Order MTrader::calculateOrder(double step, double curPrice, double bala
 
 
 void MTrader::loadState() {
+	minfo = stock.getMarketInfo(cfg.pairsymb);
+	this->statsvc->setInfo(cfg.title, minfo.asset_symbol, minfo.currency_symbol, stock.isTest());
 	if (storage == nullptr) return;
 	auto st = storage->load();
 	need_load = false;

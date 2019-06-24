@@ -302,10 +302,7 @@ int main(int argc, char **argv) {
 
 		ondra_shared::IniConfig ini;
 
-
-		if (!ini.load(argv[1],[](const auto &itm){
-			throw std::runtime_error(std::string("Unable to process: ")+itm.key.data + " " + itm.value.data);
-		})) throw std::runtime_error(std::string("Unable to open: ")+argv[1]);
+		ini.load(argv[1]);
 
 		Config cfg = load(ini["api"]);
 		Proxy coinmate(cfg);

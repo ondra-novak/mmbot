@@ -8,15 +8,24 @@
 #include "orderdatadb.h"
 
 #include <unistd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/file.h>
 #include <csignal>
 using namespace json;
 
-OrderDataDB::OrderDataDB(std::string path):path(path) {
-	bool exists = load();
-	nextRev.open(path, std::ios::out|std::ios::app);
-	if (!exists) {
-		nextRev << getpid() << std::endl;
+OrderDataDB::OrderDataDB(std::string path):path(path),lock_path(path+".lock") {
+	lockfile = ::open(lock_path.c_str(),O_TRUNC|O_CREAT|O_RDWR, 0666);
+	int r = ::flock(lockfile, LOCK_EX|LOCK_NB);
+	if (r == -1) {
+		close(lockfile);
+		throw std::runtime_error("Unable to lock: " + lock_path + " - The database file is locked");
 	}
+}
+
+OrderDataDB::~OrderDataDB() {
+	close(lockfile);
+	remove(lock_path.c_str());
 }
 
 void OrderDataDB::storeOrderData(json::Value orderId, json::Value data) {
@@ -29,7 +38,6 @@ void OrderDataDB::commit() {
 		nextRev.close();
 		load();
 		nextRev.open(path, std::ios::out|std::ios::trunc);
-		nextRev << getpid() << std::endl;
 }
 
 json::Value OrderDataDB::getOrderData(const json::Value& orderId) {
@@ -53,16 +61,6 @@ bool OrderDataDB::load() {
 	std::ifstream f(path, std::ios::in);
 	if (!f) return false;
 
-	pid_t lkpid = 0;
-	f >> lkpid;
-	if (lkpid && lkpid != getpid()) {
-		int k = kill(lkpid,0);
-		int e;
-		if (k) e = errno;
-		if (k == 0 || e != ESRCH) throw std::runtime_error("The database file is locked");
-	}
-
-
 	while (eatWhite(f)) {
 		Value pr = Value::fromStream(f);
 		Value key = pr[0];
@@ -73,3 +71,4 @@ bool OrderDataDB::load() {
 	return true;
 
 }
+

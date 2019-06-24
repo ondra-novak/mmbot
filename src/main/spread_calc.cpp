@@ -27,6 +27,7 @@ public:
 			double size, double price,json::Value clientId,
 			json::Value replaceId,double replaceSize) override;
 	virtual bool reset() ;
+	virtual void testBroker() override {}
 	virtual double getBalance(const std::string_view &) override;
 	virtual bool isTest() const override {return false;}
 	virtual MarketInfo getMarketInfo(const std::string_view &) {
