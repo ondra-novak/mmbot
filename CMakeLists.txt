@@ -11,6 +11,7 @@ add_subdirectory (src/server/src/simpleServer EXCLUDE_FROM_ALL)
 add_subdirectory (src/main)
 add_subdirectory (src/coinmate)
 add_subdirectory (src/poloniex)
+add_subdirectory (src/binance)
 
 
 install(DIRECTORY conf DESTINATION ".") 
