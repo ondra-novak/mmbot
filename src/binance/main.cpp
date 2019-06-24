@@ -18,6 +18,7 @@
 #include "../brokers/api.h"
 #include "../imtjson/src/imtjson/stringValue.h"
 #include "../shared/linear_map.h"
+#include "../shared/iterator_stream.h"
 #include "../brokers/orderdatadb.h"
 
 using namespace json;
@@ -26,7 +27,7 @@ class Interface: public AbstractBrokerAPI {
 public:
 	Proxy &px;
 
-	Interface(Proxy &cm, std::string dbpath):px(cm),orderdb(dbpath) {}
+	Interface(Proxy &cm):px(cm) {}
 
 
 	virtual double getBalance(const std::string_view & symb) override;
@@ -44,12 +45,15 @@ public:
 	virtual double getFees(const std::string_view &pair)override;
 	virtual std::vector<std::string> getAllPairs()override;
 
+	using Symbols = ondra_shared::linear_map<std::string, MarketInfo, std::less<std::string_view> > ;
+	using Tickers = ondra_shared::linear_map<std::string, Ticker,  std::less<std::string_view> >;
 
 	Value balanceCache;
-	Value tickerCache;
+	Tickers tickerCache;
 	Value orderCache;
 	Value feeInfo;
 	std::chrono::system_clock::time_point feeInfoExpiration;
+	Symbols symbols;
 	using TradeMap = ondra_shared::linear_map<std::string, std::vector<Trade> > ;
 
 
@@ -63,8 +67,11 @@ public:
 
 	static bool tradeOrder(const Trade &a, const Trade &b);
 
+	void init();
 
-	OrderDataDB orderdb;
+	std::intptr_t time_diff;
+
+
 };
 
 
@@ -72,10 +79,11 @@ public:
 
  double Interface::getBalance(const std::string_view & symb) {
 	 if (!balanceCache.defined()) {
-		 balanceCache = px.private_request("returnCompleteBalances",json::Value());
+		 balanceCache = px.private_request("/api/v3/account",json::object);
+		 feeInfo = balanceCache["makerCommission"].getNumber()/10000.0;
 	 }
-	 Value v =balanceCache[symb];
-	 if (v.defined()) return v["available"].getNumber()+v["onOrders"].getNumber();
+	 Value v =balanceCache["balances"][symb];
+	 if (v.defined()) return v["free"].getNumber()+v["locked"].getNumber();
 	 else throw std::runtime_error("No such symbol");
 }
 
@@ -128,33 +136,7 @@ public:
 
 
 Interface::Orders Interface::getOpenOrders(const std::string_view & pair) {
-
-	 if (!orderCache.defined()) {
-		 orderCache = px.private_request("returnOpenOrders", Object
-				 ("currencyPair","all")
-		 );
-
-		 orderdb.commit();
-		 for (Value p: orderCache) {
-			 for (Value o: p) {
-				 Value onum = o["orderNumber"];
-				 Value data = orderdb.getOrderData(onum);
-				 orderdb.storeOrderData(onum, data);
-			 }
-		 }
-	 }
-
-
-	 Value ords = orderCache[pair];
-	 return mapJSON(ords, [&](Value order){
-		 return Order {
-			 order["orderNumber"],
-			 orderdb.getOrderData(order["orderNumber"]),
-			 (order["type"].getString() == "sell"?-1.0:1.0)
-			 						 	 * order["amount"].getNumber(),
-			 order["rate"].getNumber()
-		 };
-	 }, Orders());
+	return {};
 }
 
 static std::uintptr_t now() {
@@ -163,26 +145,48 @@ static std::uintptr_t now() {
 						 ).count();
 }
 
+static Value indexBySymbol(Value data) {
+	Object bld;
+	for (Value d:data) bld.set(d["symbol"].getString(), d);
+	return bld;
+}
+
 Interface::Ticker Interface::getTicker(const std::string_view &pair) {
-	 if (!tickerCache.defined()) {
-		 tickerCache = px.getTicker();
+	 if (tickerCache.empty()) {
+		 Value book = indexBySymbol(px.public_request("/api/v3/ticker/bookTicker", Value()));
+		 Value price = indexBySymbol(px.public_request("/api/v3/ticker/price", Value()));
+		 auto bs = ondra_shared::iterator_stream(book);
+		 auto ps = ondra_shared::iterator_stream(price);
+		 std::vector<Tickers::value_type> tk;
+		 while (!!bs && !!ps) {
+			 Value b = *bs;
+			 Value p = *ps;
+			 if (b.getKey() < p.getKey()) bs();
+			 else if (b.getKey() > p.getKey()) ps();
+			 else {
+				 tk.push_back(Tickers::value_type(
+						 p.getKey(),
+						 {
+								 b["bidPrice"].getNumber(),
+								 b["askPrice"].getNumber(),
+								 p["price"].getNumber(),
+								 now(),
+						 }));
+				 bs();
+				 ps();
+			 }
+		 }
+		 tickerCache = Tickers(std::move(tk));
 	 }
-	 Value v =tickerCache[pair];
-	 if (v.defined()) return Ticker {
-			 v["highestBid"].getNumber(),
-			 v["lowestAsk"].getNumber(),
-			 v["last"].getNumber(),
-			 now()
-	 	 };
+
+	 auto iter=tickerCache.find(pair);
+	 if (iter != tickerCache.end()) return iter->second;
 	 else throw std::runtime_error("No such pair");
 }
 
 std::vector<std::string> Interface::getAllPairs() {
- 	 if (!tickerCache.defined()) {
- 		 tickerCache = px.getTicker();
- 	 }
  	 std::vector<std::string> res;
-	 for (Value v: tickerCache) res.push_back(v.getKey());
+	 for (auto &&v: symbols) res.push_back(v.first);
 	 return res;
  }
 
@@ -194,91 +198,72 @@ json::Value Interface::placeOrder(const std::string_view & pair,
 		json::Value clientId,
 		json::Value replaceId,
 		double replaceSize) {
-
-	//just inicialize order_db
-	getOpenOrders(pair);
-
-
-	if (replaceId.defined()) {
-		Value z = px.private_request("cancelOrder", Object
-				("currencyPair", pair)
-				("orderNumber",  replaceId)
-		);
-		StrViewA msg = z["message"].getString();
-		if (z["success"].getUInt() != 1  ||
-				z["amount"].getNumber()<std::fabs(replaceSize)*0.999999)
-				throw std::runtime_error(
-						std::string("Place order failed on cancel (replace): ").append(msg.data, msg.length));
-	}
-
-	StrViewA fn;
-	if (size < 0) {
-		fn = "sell";
-		size = -size;
-	} else if (size > 0){
-		fn = "buy";
-	} else {
-		return nullptr;
-	}
-
-	json::Value res = px.private_request(fn, Object
-			("currencyPair", pair)
-			("rate", price)
-			("amount", size)
-			("postOnly", 1)
-	);
-
-	Value onum = res["orderNumber"];
-	if (!onum.defined()) throw std::runtime_error("Order was not placed (missing orderNUmber)");
-	if (clientId.defined())
-		orderdb.storeOrderData(onum, clientId);
-
-	return res["orderNumber"];
-
+return nullptr;
 }
 
 bool Interface::reset() {
 	balanceCache = Value();
-	tickerCache = Value();
+	tickerCache.clear();
 	orderCache = Value();
 	needSyncTrades = true;
 	return true;
 }
 
+void Interface::init() {
+	Value res = px.public_request("/api/v1/exchangeInfo",Value());
+
+	std::uintptr_t srvtm = res["serverTime"].getUInt();
+	std::uintptr_t localtm = now();
+	time_diff = srvtm - localtm;
+
+	using VT = Symbols::value_type;
+	std::vector<VT> bld;
+	for (Value smb: res["symbols"]) {
+		MarketInfo nfo;
+		nfo.asset_symbol = smb["baseAsset"].getString();
+		nfo.currency_symbol = smb["quoteAsset"].getString();
+		nfo.currency_step = std::pow(10,-smb["quotePrecision"].getNumber());
+		nfo.asset_step = std::pow(10,-smb["baseAssetPrecision"].getNumber());
+		nfo.feeScheme = income;
+		nfo.min_size = 0;
+		nfo.min_volume = 0;
+		nfo.fees = 0;
+		for (Value f: smb["filters"]) {
+			auto ft = f["filterType"].getString();
+			if (ft == "LOT_SIZE") {
+				nfo.min_size = f["minQty"].getNumber();
+				nfo.asset_step = f["stepSize"].getNumber();
+			} else if (ft == "PRICE_FILTER") {
+				nfo.currency_step = f["tickSize"].getNumber();
+			} else if (ft == "MIN_NOTIONAL") {
+				nfo.min_volume = f["minNotional"].getNumber();
+			}
+		}
+		std::string symbol = smb["symbol"].getString();
+		bld.push_back(VT(symbol, nfo));
+	}
+	symbols = Symbols(std::move(bld));
+
+}
+
 inline Interface::MarketInfo Interface::getMarketInfo(const std::string_view &pair) {
 
-	auto splt = StrViewA(pair).split("_",2);
-	StrViewA cur = splt();
-	StrViewA asst = splt();
-
-	auto currencies = px.public_request("returnCurrencies", Value());
-	if (!currencies[cur].defined() ||
-			!currencies[asst].defined())
-				throw std::runtime_error("Unknown trading pair symbol");
-
-
-	return MarketInfo {
-		asst,
-		cur,
-		0.00000001,
-		0.00000001,
-		0.00000001,
-		0.0001,
-		getFees(pair),
-		income
-	};
+	auto iter = symbols.find(pair);
+	if (iter == symbols.end())
+		throw std::runtime_error("Unknown trading pair symbol");
+	MarketInfo res = iter->second;
+	return res;
 }
 
 inline double Interface::getFees(const std::string_view &pair) {
 	if (px.hasKey) {
-		auto now = std::chrono::system_clock::now();
-		if (!feeInfo.defined() || feeInfoExpiration < now) {
-			feeInfo = px.private_request("returnFeeInfo", Value());
-			feeInfoExpiration = now + std::chrono::hours(1);
-		}
-		return feeInfo["makerFee"].getNumber();
+		 if (!feeInfo.defined()) {
+			 balanceCache = px.private_request("/api/v3/account",json::object);
+			 feeInfo = balanceCache["makerCommission"].getNumber()/10000.0;
+		 }
+		 return feeInfo.getUInt();
 	} else {
-		return 0.0015;
+		return 0.001;
 	}
 
 }
@@ -381,10 +366,10 @@ int main(int argc, char **argv) {
 		Config cfg = load(ini["api"]);
 		Proxy proxy(cfg);
 
-		std::string dbpath = ini["order_db"].mandatory["path"].getPath();
 
-		Interface ifc(proxy, dbpath);
+		Interface ifc(proxy);
 
+		ifc.init();
 
 		ifc.dispatch();
 

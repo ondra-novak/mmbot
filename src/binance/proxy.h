@@ -22,15 +22,15 @@ public:
 
 	std::uint64_t nonce;
 
-	json::Value getTicker();
-
-
 	json::Value public_request(std::string method, json::Value data);
 	json::Value private_request(std::string method, json::Value data);
 
 	bool hasKey;
+	void setTimeDiff(std::intptr_t t);
+	static std::uintptr_t now();
 
 private:
+	std::intptr_t time_diff = 0;
 	void buildParams(const json::Value& params, std::ostream& data);
 };
 

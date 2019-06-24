@@ -31,10 +31,15 @@ Proxy::Proxy(Config config):config(config) {
 
 }
 
+void Proxy::setTimeDiff(std::intptr_t t) {
+	this->time_diff = t;
+}
 
-json::Value Proxy::getTicker() {
+std::uintptr_t Proxy::now() {
+	return std::chrono::duration_cast<std::chrono::milliseconds>(
+						 std::chrono::system_clock::now().time_since_epoch()
+						 ).count();
 
-	return public_request("returnTicker", json::Value());
 }
 
 void Proxy::buildParams(const json::Value& params, std::ostream& data) {
@@ -52,7 +57,7 @@ void Proxy::buildParams(const json::Value& params, std::ostream& data) {
 
 json::Value Proxy::public_request(std::string method, json::Value data) {
 	std::ostringstream urlbuilder;
-	urlbuilder << config.apiUrl << "?command=" << method;
+	urlbuilder << config.apiUrl <<  method;
 	buildParams(data, urlbuilder);
 	std::ostringstream response;
 	curl_handle.reset();
@@ -69,13 +74,13 @@ json::Value Proxy::public_request(std::string method, json::Value data) {
 static std::string signData(std::string_view key, std::string_view data) {
 	unsigned char dbuff[100];
 	unsigned int dbuff_size = sizeof(dbuff);
-	HMAC(EVP_sha512(), key.data(), key.size(),
+	HMAC(EVP_sha256(), key.data(), key.size(),
 			reinterpret_cast<const unsigned char *>(data.data()),
 			data.size(), dbuff, &dbuff_size);
 	std::ostringstream digest;
 	for (unsigned int i = 0; i < dbuff_size; i++) {
 		digest << std::hex << std::setw(2) << std::setfill('0')
-				<< std::uppercase << static_cast<unsigned int>(dbuff[i]);
+				 << static_cast<unsigned int>(dbuff[i]);
 	}
 	return digest.str();
 }
@@ -84,11 +89,21 @@ json::Value Proxy::private_request(std::string method, json::Value data) {
 	if (!hasKey)
 		throw std::runtime_error("Function requires valid API keys");
 
+	data = data.replace("timestamp", now()+time_diff);
+
+	std::ostringstream urlbuilder;
+	urlbuilder << config.apiUrl <<  method;
+
 	std::ostringstream databld;
-	buildParams({json::Value("command", method), json::Value("nonce", ++nonce)}, databld);
 	buildParams(data, databld);
 
 	std::string request = databld.str().substr(1);
+	std::string sign = signData(config.privKey,request);
+	std::string url = urlbuilder.str();
+	request.append("&signature=").append(sign);
+
+	std::cerr << url << " " << request << std::endl;
+
 	std::ostringstream response;
 	std::istringstream src(request);
 	curl_handle.reset();
@@ -98,17 +113,15 @@ json::Value Proxy::private_request(std::string method, json::Value data) {
 	curl_handle.setOpt(new cURLpp::Options::PostFieldSize(request.length()));
 
 	std::list<std::string> headers;
-	headers.push_back("Key: "+config.pubKey);
-	headers.push_back("Sign: "+signData(config.privKey, request));;
+	headers.push_back("X-MBX-APIKEY: "+config.pubKey);
 
 	curl_handle.setOpt(new cURLpp::Options::HttpHeader(headers));
 
-	curl_handle.setOpt(new cURLpp::Options::Url(config.apiUrl));
+	curl_handle.setOpt(new cURLpp::Options::Url(url));
 	curl_handle.setOpt(new cURLpp::Options::WriteStream(&response));
 	curl_handle.perform();
 
 	json::Value v =  json::Value::fromString(response.str());
-	if (v["error"].defined()) throw std::runtime_error(v["error"].toString().c_str());
 	return v;
 }
 
