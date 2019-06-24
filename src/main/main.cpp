@@ -416,10 +416,11 @@ int main(int argc, char **argv) {
 						return 100;
 					}
 
-					cntr.enableRestart();
 					if (!user.empty()) {
 						cntr.changeUser(user);
 					}
+
+					cntr.enableRestart();
 
 					{
 						auto logcfg = ini["log"];

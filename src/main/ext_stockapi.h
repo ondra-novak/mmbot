@@ -32,6 +32,7 @@ public:
 	virtual MarketInfo getMarketInfo(const std::string_view & pair);
 	virtual double getFees(const std::string_view & pair);
 	virtual std::vector<std::string> getAllPairs() override;
+	virtual void testBroker() override {preload();}
 
 };
 

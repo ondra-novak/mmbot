@@ -22,17 +22,27 @@ public:
 
 
 	template<typename T, typename Fn>
-	T mapJSON(json::Value cont, Fn &&fn) {
-		T tmp;
+	T mapJSON(json::Value cont, Fn &&fn, T &&tmp = T()) {
 		for (json::Value x: cont) {
 			tmp.push_back(fn(x));
 		}
-		return tmp;
+		return T(std::move(tmp));
+	}
+
+	template<typename Iter, typename T, typename Fn>
+	T map(Iter itr, Iter end, Fn &&fn, T &&tmp = T()) {
+		while (itr != end) {
+			tmp.push_back(fn(*itr));
+			++itr;
+		}
+		return T(std::move(tmp));
+
 	}
 
 	virtual bool isTest() const override {
 		return false;
 	}
+	virtual void testBroker() override {}
 
 
 };
