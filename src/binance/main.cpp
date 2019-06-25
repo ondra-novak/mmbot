@@ -5,10 +5,12 @@
  *      Author: ondra
  */
 #include <iostream>
+#include <sstream>
 #include <unordered_map>
 
 #include <rpc/rpcServer.h>
-#include "../imtjson/src/imtjson/operations.h"
+#include <imtjson/operations.h>
+#include "shared/toString.h"
 #include "config.h"
 #include "proxy.h"
 #include "../main/istockapi.h"
@@ -16,10 +18,14 @@
 #include <ctime>
 
 #include "../brokers/api.h"
-#include "../imtjson/src/imtjson/stringValue.h"
+#include <imtjson/stringValue.h>
 #include "../shared/linear_map.h"
 #include "../shared/iterator_stream.h"
 #include "../brokers/orderdatadb.h"
+#include <imtjson/binary.h>
+#include <imtjson/streams.h>
+#include <imtjson/binjson.tcc>
+#include "../main/sgn.h"
 
 using namespace json;
 
@@ -66,27 +72,36 @@ public:
 	bool syncTradeCheckTime(const std::vector<Trade> &cont, std::size_t time, Value tradeID);
 
 	static bool tradeOrder(const Trade &a, const Trade &b);
-
+	void updateBalCache();
 	void init();
+	Value generateOrderId(Value clientId);
 
 	std::intptr_t time_diff;
+	std::uintptr_t idsrc;
 
 
 };
 
 
-
+void Interface::updateBalCache() {
+	 if (!balanceCache.defined()) {
+		 balanceCache = px.private_request(Proxy::GET,"/api/v3/account",json::object);
+		 feeInfo = balanceCache["makerCommission"].getNumber()/10000.0;
+		 Object r;
+		 for (Value x : balanceCache["balances"]) {
+			 r.set(x["asset"].getString(), x);
+		 }
+		 balanceCache = balanceCache.replace("balances", r);
+	 }
+}
 
  double Interface::getBalance(const std::string_view & symb) {
-	 if (!balanceCache.defined()) {
-		 balanceCache = px.private_request("/api/v3/account",json::object);
-		 feeInfo = balanceCache["makerCommission"].getNumber()/10000.0;
-	 }
+	 updateBalCache();
 	 Value v =balanceCache["balances"][symb];
 	 if (v.defined()) return v["free"].getNumber()+v["locked"].getNumber();
 	 else throw std::runtime_error("No such symbol");
 }
-
+/*
 
  static std::size_t parseTime(json::String date) {
 	 int y,M,d,h,m;
@@ -105,38 +120,88 @@ public:
 	 return res;
 
  }
-
+*/
  Interface::TradeHistory Interface::getTrades(json::Value lastId, std::uintptr_t fromTime, const std::string_view & pair) {
+	 auto iter = symbols.find(pair);
+	 if (iter == symbols.end())
+		 throw std::runtime_error("No such symbol");
 
-		if (fromTime < lastFromTime) {
-			tradeMap.clear();
-			needSyncTrades = true;
-			lastFromTime = fromTime;
-		}
-
-		if (needSyncTrades) {
-			syncTrades(fromTime);
-			needSyncTrades = false;
-		}
-
-		auto trs = tradeMap[pair];
-
-		auto iter = trs.begin();
-		auto end = trs.end();
-		if (lastId.defined()) {
-			iter = std::find_if(iter, end, [&](const Trade &x){
-				return x.id == lastId;
-			});
-			if (iter != end) ++iter;
-		}
+	 const MarketInfo &minfo = iter->second;
 
 
-		return TradeHistory(iter, end);
+	 Value r = px.private_request(Proxy::GET,"/api/v3/myTrades", Object
+			 ("fromId", lastId)
+			 ("startTime", fromTime)
+			 ("symbol", pair)
+			 );
+
+	 r = r.map([&](Value x) ->Value{
+		if (x["id"] == lastId) return json::undefined;
+		else return x;
+	  });
+
+	 TradeHistory h(mapJSON(r,[&](Value x){
+		 double size = x["qty"].getNumber();
+		 double price = x["price"].getNumber();
+		 StrViewA comass = x["commissionAsset"].getString();
+		 if (!x["isBuyer"].getBool()) size = -size;
+		 double comms = x["commission"].getNumber();
+		 double eff_size = size;
+		 double eff_price = price;
+		 if (comass == StrViewA(minfo.asset_symbol)) {
+			 eff_size -= comms;
+		 } else if (comass == StrViewA(minfo.currency_symbol)) {
+			 eff_price += comms/size;
+		 }
+
+		 return Trade {
+			 x["id"],
+			 x["time"].getUInt(),
+			 size,
+			 price,
+			 eff_size,
+			 eff_price
+		 };
+	 }, TradeHistory()));
+
+	 std::sort(h.begin(), h.end(),[&](const Trade &a, const Trade &b) {
+		 return Value::compare(a.id,b.id) < 0;
+	 });
+	 return h;
 }
 
 
+static Value extractOrderID(StrViewA id) {
+	if (id.begins("mmbot")) {
+		Value bin = base64url->decodeBinaryValue(id.substr(5));
+		try {
+			auto stream = json::fromBinary(bin.getBinary(base64url));
+			return Value::parseBinary([&]{
+					int c = stream();
+					if (c == -1) throw 0;
+					return c;
+			},json::base64url)[1];
+		} catch (...) {
+			return Value();
+		}
+	} else {
+		return Value();
+	}
+
+}
+
 Interface::Orders Interface::getOpenOrders(const std::string_view & pair) {
-	return {};
+	Value resp = px.private_request(Proxy::GET,"/api/v3/openOrders", Value("symbol",pair));
+	return mapJSON(resp, [&](Value x) {
+		Value id = x["clientOrderId"];
+		Value eoid = extractOrderID(id.getString());
+		return Order {
+			x["orderId"],
+			eoid,
+			(x["side"].getString() == "SELL"?-1:1)*(x["origQty"].getNumber() - x["executedQty"].getNumber()),
+			x["price"].getNumber()
+		};
+	}, Orders());
 }
 
 static std::uintptr_t now() {
@@ -190,6 +255,17 @@ std::vector<std::string> Interface::getAllPairs() {
 	 return res;
  }
 
+static Value number_to_decimal(double v) {
+	std::ostringstream buff;
+	buff.precision(8);
+	buff << std::fixed << "*" << v;
+	std::string s = buff.str();
+	StrViewA ss(s);
+	ss = ss.trim([](char c){return isspace(c) || c == '0';}).substr(1);
+	if (ss.ends("."))
+		ss = ss.substr(0,ss.length-1);
+	return ss;
+}
 
 
 json::Value Interface::placeOrder(const std::string_view & pair,
@@ -198,7 +274,29 @@ json::Value Interface::placeOrder(const std::string_view & pair,
 		json::Value clientId,
 		json::Value replaceId,
 		double replaceSize) {
-return nullptr;
+
+	if (replaceId.defined()) {
+		Value r = px.private_request(Proxy::DELETE,"/api/v3/order",Object
+				("symbol", pair)
+				("orderId", replaceId));
+		double remain = r["origQty"].getNumber() - r["executedQty"].getNumber();
+		if (r["status"].getString() != "CANCELED"
+				|| remain < std::fabs(replaceSize)*0.9999) return nullptr;
+	}
+
+	if (size == 0) return nullptr;
+
+	Value orderId = generateOrderId(clientId);
+	px.private_request(Proxy::POST,"/api/v3/order",Object
+			("symbol", pair)
+			("side", size<0?"SELL":"BUY")
+			("type","LIMIT_MAKER")
+			("newClientOrderId",orderId)
+			("quantity", number_to_decimal(std::fabs(size)))
+			("price", number_to_decimal(std::fabs(price)))
+			("newOrderRespType","ACK"));
+
+	return orderId;
 }
 
 bool Interface::reset() {
@@ -243,6 +341,7 @@ void Interface::init() {
 		bld.push_back(VT(symbol, nfo));
 	}
 	symbols = Symbols(std::move(bld));
+	idsrc = now();
 
 }
 
@@ -258,10 +357,9 @@ inline Interface::MarketInfo Interface::getMarketInfo(const std::string_view &pa
 inline double Interface::getFees(const std::string_view &pair) {
 	if (px.hasKey) {
 		 if (!feeInfo.defined()) {
-			 balanceCache = px.private_request("/api/v3/account",json::object);
-			 feeInfo = balanceCache["makerCommission"].getNumber()/10000.0;
+			 updateBalCache();
 		 }
-		 return feeInfo.getUInt();
+		 return feeInfo.getNumber();
 	} else {
 		return 0.001;
 	}
@@ -287,43 +385,7 @@ void Interface::syncTrades(std::size_t fromTime) {
 
 
 bool Interface::syncTradesCycle(std::size_t fromTime) {
-
-	Value trs = px.private_request("returnTradeHistory", Object
-			("start", fromTime/1000)
-			("currencyPair","all")
-			("limit", 10000));
-
-	bool succ = false;
-	for (Value p: trs) {
-		std::string pair = p.getKey();
-		auto && lst = tradeMap[pair];
-		std::vector<Trade> loaded;
-		for (Value t: p) {
-			auto time = parseTime(String(t["date"]));
-			auto id = t["tradeID"];
-			if (syncTradeCheckTime(lst, time, id)) {
-				auto size = t["amount"].getNumber();
-				auto price = t["rate"].getNumber();
-				auto fee = t["fee"].getNumber();
-				if (t["type"].getString() == "sell") size = -size;
-				double eff_size = size >= 0? size*(1-fee):size;
-				double eff_price = size < 0? price*(1-fee):price;
-				loaded.push_back(Trade {
-					id,
-					time,
-					size,
-					price,
-					eff_size,
-					eff_price,
-				});
-			}
-		}
-		std::sort(loaded.begin(),loaded.end(), tradeOrder);
-		lst.insert(lst.end(), loaded.begin(), loaded.end());
-		succ = succ || !loaded.empty();
-	}
-
-	return succ;
+	return true;
 }
 
 
@@ -346,6 +408,18 @@ bool Interface::tradeOrder(const Trade &a, const Trade &b) {
 	if (ta < tb) return true;
 	if (ta > tb) return false;
 	return Value::compare(a.id,b.id) < 0;
+}
+
+inline Value Interface::generateOrderId(Value clientId) {
+	std::ostringstream stream;
+	Value(json::array,{idsrc++, clientId.stripKey()},false).serializeBinary([&](char c){
+		stream.put(c);
+	});
+	std::string s = stream.str();
+	BinaryView bs((StrViewA(s)));
+	return Value((String({
+		"mmbot",base64url->encodeBinaryValue(bs).getString()
+	})));
 }
 
 
@@ -379,3 +453,4 @@ int main(int argc, char **argv) {
 		return 2;
 	}
 }
+

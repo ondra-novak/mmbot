@@ -139,6 +139,7 @@ int MTrader::perform() {
 					//when balance changes, we need to update calculator
 					ondra_shared::logWarning("Detected balance change: $1 => $2", status.internalBalance, status.assetBalance);
 					calcadj = calculator.update(lastTradePrice, status.assetBalance, true);
+					internal_balance=status.assetBalance - cfg.external_assets;
 				}
 
 				//calculate buy order

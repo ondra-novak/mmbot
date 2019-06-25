@@ -15,6 +15,7 @@
 
 #include <sstream>
 #include <curlpp/Options.hpp>
+#include <curlpp/Infos.hpp>
 #include <chrono>
 
 #include <imtjson/string.h>
@@ -85,14 +86,14 @@ static std::string signData(std::string_view key, std::string_view data) {
 	return digest.str();
 }
 
-json::Value Proxy::private_request(std::string method, json::Value data) {
+json::Value Proxy::private_request(Method method, std::string command, json::Value data) {
 	if (!hasKey)
 		throw std::runtime_error("Function requires valid API keys");
 
 	data = data.replace("timestamp", now()+time_diff);
 
 	std::ostringstream urlbuilder;
-	urlbuilder << config.apiUrl <<  method;
+	urlbuilder << config.apiUrl <<  command;
 
 	std::ostringstream databld;
 	buildParams(data, databld);
@@ -102,15 +103,24 @@ json::Value Proxy::private_request(std::string method, json::Value data) {
 	std::string url = urlbuilder.str();
 	request.append("&signature=").append(sign);
 
-	std::cerr << url << " " << request << std::endl;
-
 	std::ostringstream response;
 	std::istringstream src(request);
 	curl_handle.reset();
 
-	curl_handle.setOpt(new cURLpp::Options::Post(true));
-	curl_handle.setOpt(new cURLpp::Options::ReadStream(&src));
-	curl_handle.setOpt(new cURLpp::Options::PostFieldSize(request.length()));
+	if (method == GET) {
+		url = url + "?" + request;
+	} else if (method == DELETE) {
+		url = url + "?" + request;
+		curl_handle.setOpt(new cURLpp::Options::CustomRequest("DELETE"));
+	} else {
+		if (method == POST) {
+			curl_handle.setOpt(new cURLpp::Options::Post(true));
+		} else {
+			curl_handle.setOpt(new cURLpp::Options::Put(true));
+		}
+		curl_handle.setOpt(new cURLpp::Options::ReadStream(&src));
+		curl_handle.setOpt(new cURLpp::Options::PostFieldSize(request.length()));
+	}
 
 	std::list<std::string> headers;
 	headers.push_back("X-MBX-APIKEY: "+config.pubKey);
@@ -121,7 +131,13 @@ json::Value Proxy::private_request(std::string method, json::Value data) {
 	curl_handle.setOpt(new cURLpp::Options::WriteStream(&response));
 	curl_handle.perform();
 
-	json::Value v =  json::Value::fromString(response.str());
+	std::string rsp = response.str();
+	auto resp_code = curlpp::infos::ResponseCode::get(curl_handle);
+//	std::cerr << rsp << std::endl;
+
+	if (resp_code/100 != 2) throw std::runtime_error(rsp);
+
+	json::Value v =  json::Value::fromString(rsp);
 	return v;
 }
 

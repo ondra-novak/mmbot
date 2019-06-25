@@ -22,8 +22,15 @@ public:
 
 	std::uint64_t nonce;
 
+	enum Method {
+		GET,
+		POST,
+		PUT,
+		DELETE
+	};
+
 	json::Value public_request(std::string method, json::Value data);
-	json::Value private_request(std::string method, json::Value data);
+	json::Value private_request(Method method, std::string command, json::Value data);
 
 	bool hasKey;
 	void setTimeDiff(std::intptr_t t);
