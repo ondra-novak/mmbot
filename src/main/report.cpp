@@ -80,25 +80,17 @@ void Report::setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> tr
 
 	if (!trades.empty()) {
 
-		std::size_t last = trades[trades.length-1].time;
-		std::size_t first = last - interval_in_ms;
+		const auto &last = trades[trades.length-1];
+		std::size_t last_time = last.time;
+		std::size_t first = last_time - interval_in_ms;
 
 
 		auto tend = trades.end();
 		auto iter = trades.begin();
 		auto &&t = *iter;
 
-		//guess initial balance by substracting size
-		double init_balance = (t.balance-t.eff_size);
-/*		auto invest = std::accumulate(trades.begin()+1, trades.end(), std::make_pair(0.0,0.0),
-				[](auto &&a, auto &&b){
-					double assdiff = b.balance - a.first;
-					double robot_trade = b.manual_trade?0:b.eff_size;
-					double netto_diff = assdiff - robot_trade;
-					double cost = netto_diff * b.eff_price;
-					return std::make_pair(b.balance, a.second+cost);
-		}).second;*/
 		std::size_t invest_beg_time = t.time;
+		double invst_value = t.eff_price*t.balance;
 
 		//so the first trade doesn't change the value of portfolio
 //		double init_value = init_balance*t.eff_price+init_fiat;
@@ -106,7 +98,7 @@ void Report::setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> tr
 		double init_price = t.eff_price;
 
 
-		double prev_balance = init_balance;
+		double prev_balance = t.balance-t.eff_size;
 		double prev_price = init_price;
 		double ass_sum = 0;
 		double cur_sum = 0;
@@ -115,12 +107,15 @@ void Report::setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> tr
 		double norm_sum_cur = 0;
 
 
+
 		while (iter != tend) {
 
 			auto &&t = *iter;
 
 			double gain = (t.eff_price - prev_price)*ass_sum ;
 			double earn = -t.eff_price * t.eff_size;
+			double bal_chng = (t.balance - prev_balance) - t.eff_size;
+			invst_value += bal_chng * t.eff_price;
 
 
 			double calcbal = prev_balance * sqrt(prev_price/t.eff_price);
@@ -134,14 +129,19 @@ void Report::setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> tr
 				norm_sum_ass += t.eff_size - asschg;
 				norm_sum_cur += earn - curchg;
 			}
+			if (iter->manual_trade) {
+				invst_value += earn;
+			}
 			double norm = norm_sum_ass * t.eff_price + norm_sum_cur;
 
 			prev_balance = t.balance;
 			prev_price = t.eff_price;
 
-			double invest_time = t.time - invest_beg_time;
-			double app = ((norm/invest_time)*(365.0*24.0*60.0*60.0*1000.0)*100.0)/(t.balance*t.eff_price);
-			if (!std::isfinite(app)) app = 0;
+			double invst_time = t.time - invest_beg_time;
+			double invst_n = norm/invst_time;
+			if (!std::isfinite(invst_n)) invst_n = 0;
+//			double app = ((norm/invest_time)*(365.0*24.0*60.0*60.0*1000.0)*100.0)/(t.balance*t.eff_price);
+//			if (!std::isfinite(app)) app = 0;
 
 			if (t.time >= first) {
 				records.push_back(Object
@@ -154,7 +154,8 @@ void Report::setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> tr
 						("pos", ass_sum)
 						("pl", cur_fromPos)
 						("price", t.price)
-						("app", app)
+						("invst_v", invst_value)
+						("invst_n", invst_n)
 						("volume", -t.eff_price*t.eff_size)
 						("man",t.manual_trade)
 				);
