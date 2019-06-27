@@ -619,9 +619,10 @@ function app_start(){
 				
 		elem.innerText = "";
 		
-		var step = 2;
 		var daystep = 24*3600000/base_interval;
+		var step = 2*864000000/chart_interval;
 		var activewidth=step*chart_interval/base_interval;
+		var dattextstep = Math.ceil(120/(daystep*step));
 		var activeheight = (activewidth/3)|0;
 		var minmax = chart.concat(lines?lines:[]).reduce(function(c,x) {
 			if (c.min > x[fld]) c.min = x[fld];
@@ -669,8 +670,9 @@ function app_start(){
 		while (xtmpos > 0) {
 			var xtm = map_x(xtmpos);
 			new_svg_el("text",{x:xtm,y:activeheight,class:"textaxisx"},svg).appendChild(document.createTextNode(bday.toLocaleDateString()));
-			bday.setDate(bday.getDate()-2);
-			xtmpos-=daystep*2;
+			bday.setDate(bday.getDate()-dattextstep);
+			new_svg_el("line",{x1:xtm,y1:activeheight-5,x2:xtm,y2:activeheight,class:"majoraxe"},svg);
+			xtmpos-=daystep*dattextstep;
 		}
 		var tmstart=(now/base_interval-activewidth/step)
 		for (var i = 0; i <cnt-1; i++) {
