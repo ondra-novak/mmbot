@@ -119,20 +119,20 @@ void Report::setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> tr
 
 
 			double calcbal = prev_balance * sqrt(prev_price/t.eff_price);
-			double asschg = calcbal - prev_balance;
-			double curchg = calcbal * t.eff_price -  prev_balance * prev_price;
+			double asschg = (prev_balance+t.eff_size) - calcbal ;
+			double curchg = -(calcbal * t.eff_price -  prev_balance * prev_price - earn);
 			if (iter != trades.begin() && !iter->manual_trade) {
 				cur_fromPos += gain;
 				ass_sum += t.eff_size;
 				cur_sum += earn;
 
-				norm_sum_ass += t.eff_size - asschg;
-				norm_sum_cur += earn - curchg;
+				norm_sum_ass += asschg;
+				norm_sum_cur += curchg;
 			}
 			if (iter->manual_trade) {
 				invst_value += earn;
 			}
-			double norm = norm_sum_ass * t.eff_price + norm_sum_cur;
+			double norm = (a2np?norm_sum_ass * t.eff_price:0) + norm_sum_cur;
 
 			prev_balance = t.balance;
 			prev_price = t.eff_price;

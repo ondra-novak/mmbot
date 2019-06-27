@@ -18,15 +18,10 @@ public:
 	Calculator();
 	Calculator(double price, double balance, bool achieve);
 
-	///add trade to calculate internal state
-	/**
-	 * @param new_price new price of the last prder
-	 * @param abs_balance absolute balance
-	 * @param order_size order size
-	 * @retval true calculator adjusted
-	 * @retval false calculator not adjusted
-	 */
-	bool update(double new_price, double abs_balance, bool manual_trade);
+
+	void update(double new_price, double abs_balance);
+
+	void update_after_trade(double new_price, double old_balance, double acum);
 
 	double balance2price(double balance) const;
 

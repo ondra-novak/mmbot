@@ -443,6 +443,7 @@ int main(int argc, char **argv) {
 					auto rptsect = ini["report"];
 					auto rptpath = rptsect.mandatory["path"].getPath();
 					auto rptinterval = rptsect["interval"].getUInt(864000000);
+					auto a2np = rptsect["a2np"].getBool(true);
 
 					stockSelector.loadStockMarkets(ini["brokers"], test);
 
@@ -461,7 +462,7 @@ int main(int argc, char **argv) {
 					StorageFactory sf(storagePath);
 					StorageFactory rptf(rptpath,2,Storage::json);
 
-					Report rpt(rptf.create("report.json"), rptinterval);
+					Report rpt(rptf.create("report.json"), rptinterval, a2np);
 
 
 

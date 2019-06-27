@@ -10,30 +10,28 @@
 
 #include "sgn.h"
 #include "calculator.h"
+#include "../shared/logOutput.h"
 
-bool Calculator::update(double new_price, double abs_balance, bool manual_trade) {
+using ondra_shared::logDebug;
+
+void Calculator::update(double new_price, double abs_balance) {
 
 
-	double eb = price2balance(new_price);
-	double bdiff = abs_balance - eb;
-
-	if (achieve_mode) {
-		if (std::fabs(bdiff) < balance*0.001) {
-			achieve_mode = false;
-		} else {
-			return false;
-		}
-	}
-
-	//if balance is less then expected, and not is manual trade, then don't update calculator
-	if (bdiff <= 0 && !manual_trade) return false;
 
 	//we will adjust the balance
 	price = new_price;
 	balance = abs_balance;
-	return true;
 }
 
+void Calculator::update_after_trade(double new_price, double old_balance, double acum) {
+
+	if (acum == 0) return;
+	double prev_price = balance2price(old_balance);
+	double extra = calcExtra(prev_price, new_price);
+	double fin_balance = price2balance(new_price)+ extra*acum;
+	update(new_price, fin_balance);
+
+}
 double Calculator::price2balance(double new_price) const {
 
 	//basic formula to map price to balance

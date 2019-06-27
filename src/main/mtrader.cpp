@@ -101,6 +101,7 @@ int MTrader::perform() {
 		need_load = false;
 	}
 
+	double begbal = internal_balance + cfg.external_assets;
 
 	//Get opened orders
 	auto orders = getOrders();
@@ -124,7 +125,8 @@ int MTrader::perform() {
 
 		//if calculator is not valid, update it using current price and assets
 		if (!calculator.isValid()) {
-			calcadj = calculator.update(lastTradePrice, status.assetBalance, true);
+			calculator.update(lastTradePrice, status.assetBalance);
+			calcadj = true;
 		}
 		if (!calculator.isValid()) {
 			ondra_shared::logError("No asset balance is available. Buy some assets, use 'external_assets=' or use command achieve to invoke automatic initial trade");
@@ -138,7 +140,8 @@ int MTrader::perform() {
 				if ( !similar(status.internalBalance ,status.assetBalance,1e-5)) {
 					//when balance changes, we need to update calculator
 					ondra_shared::logWarning("Detected balance change: $1 => $2", status.internalBalance, status.assetBalance);
-					calcadj = calculator.update(lastTradePrice, status.assetBalance, true);
+					calculator.update(lastTradePrice, status.assetBalance);
+					calcadj = true;
 					internal_balance=status.assetBalance - cfg.external_assets;
 				}
 
@@ -157,8 +160,13 @@ int MTrader::perform() {
 				lastOrders[0] = orders;
 
 			} else {
+				const auto &lastTrade = trades.back();
 				//update after trade
-				calcadj = calculator.update(lastTradePrice, status.assetBalance, ptres.manual_trades);
+				if (!ptres.manual_trades) {
+					calculator.update_after_trade(lastTrade.eff_price,
+							begbal, lastTrade.eff_size<0?cfg.acm_factor_sell:cfg.acm_factor_buy);
+					calcadj = true;
+				}
 			}
 
 			if (calcadj) {

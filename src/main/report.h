@@ -25,8 +25,8 @@ namespace json {
 class Report {
 public:
 	using StoragePtr = PStorage;
-	Report(StoragePtr &&report, std::size_t interval_in_ms )
-		:report(std::move(report)),interval_in_ms(interval_in_ms) {}
+	Report(StoragePtr &&report, std::size_t interval_in_ms, bool a2np )
+		:report(std::move(report)),interval_in_ms(interval_in_ms),a2np(a2np) {}
 
 
 	void genReport();
@@ -84,6 +84,7 @@ protected:
 	void exportTitles(json::Object &&out);
 	void exportPrices(json::Object &&out);
 	std::size_t interval_in_ms;
+	bool a2np;
 };
 
 
