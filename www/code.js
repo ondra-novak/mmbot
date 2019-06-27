@@ -350,12 +350,21 @@ function app_start(){
 		updateLastEvents(sumchart.slice(-20),"summary");
 	}
 	
-	function adjChartData(data, ident) {
+	function calcApp(itm) {
+		var t = 365.0*24.0*60.0*60.0*1000.0*100.0;
+		var v = itm.invst_n*t/itm.invst_v;
+		if (isNaN(v) || !isFinite(v)) return 0;
+		else return v;
+	}
+	
+	function adjChartData(data, ident) {		
 		var lastNorm = 0;
 		var lastPL = 0;
 		var lastPos = 0;
 		var lastPrice = 0;
 		var lastRel = 0;
+		var lastInvstV = 0;
+		var lastInvstN = 0;
 		data.forEach(function(r) {
 			r.ident = ident;
 			r.normDiff = r.norm - lastNorm;
@@ -363,11 +372,16 @@ function app_start(){
 			r.priceDiff = r.price - lastPrice;
 			r.vol = Math.abs(r.achg*r.price);
 			r.relDiff = r.rel - lastRel;
+			r.app = calcApp(r);
+			r.invst_v_diff = r.invst_v - lastInvstV;
+			r.invst_n_diff = r.invst_n - lastInvstN;
 			lastNorm = r.norm;
 			lastPL = r.pl;
 			lastPos = r.pos;
 			lastPrice = r.price;
 			lastRel = r.rel;
+			lastInvstV = r.invst_v;
+			lastInvstN = r.invst_n;
 		});
 	}
 	
@@ -386,6 +400,10 @@ function app_start(){
 			sums[k] = sums[k].reduce(function(s,r){
 				var vol = Math.abs(r.achg * r.price);
 				if (s.length) {
+					var x = {
+							invst_n: s[s.length-1].invst_n+r.invst_n_diff,
+							invst_v: s[s.length-1].invst_v+r.invst_v_diff,							
+					}
 					s.push({
 						time:r.time,
 						pl:s[s.length-1].pl+r.plDiff,
@@ -394,7 +412,10 @@ function app_start(){
 						plDiff:r.plDiff,
 						vol: vol,
 						rel: s[s.length-1].rel+ r.relDiff,
-						relDiff: r.relDiff
+						relDiff: r.relDiff,
+						invst_n:x.invst_n,
+						invst_v:x.invst_v,
+						app: calcApp(x)
 					});
 				} else {
 					s.push({
@@ -405,9 +426,12 @@ function app_start(){
 						normDiff:r.normDiff,
 						vol: vol,
 						rel: r.relDiff,
-						relDiff: r.relDiff
+						relDiff: r.relDiff,
+						invst_n: r.invst_n,
+						invst_v: r.invst_v,
+						app: calcApp(r)
 					})
-				}
+				}				
 				return s;
 			},[]);
 		}
@@ -557,8 +581,9 @@ function app_start(){
 			}
 			outage.classList.toggle("detected",df > 100000); 
 
-		},function() {
+		},function(e) {
 			indicator.classList.remove("fetching");
+			console.error(e);
 		});
 	}
 	
@@ -594,9 +619,10 @@ function app_start(){
 				
 		elem.innerText = "";
 		
-		var step = 2;
 		var daystep = 24*3600000/base_interval;
+		var step = 2*864000000/chart_interval;
 		var activewidth=step*chart_interval/base_interval;
+		var dattextstep = Math.ceil(120/(daystep*step));
 		var activeheight = (activewidth/3)|0;
 		var minmax = chart.concat(lines?lines:[]).reduce(function(c,x) {
 			if (c.min > x[fld]) c.min = x[fld];
@@ -644,8 +670,9 @@ function app_start(){
 		while (xtmpos > 0) {
 			var xtm = map_x(xtmpos);
 			new_svg_el("text",{x:xtm,y:activeheight,class:"textaxisx"},svg).appendChild(document.createTextNode(bday.toLocaleDateString()));
-			bday.setDate(bday.getDate()-2);
-			xtmpos-=daystep*2;
+			bday.setDate(bday.getDate()-dattextstep);
+			new_svg_el("line",{x1:xtm,y1:activeheight-5,x2:xtm,y2:activeheight,class:"majoraxe"},svg);
+			xtmpos-=daystep*dattextstep;
 		}
 		var tmstart=(now/base_interval-activewidth/step)
 		for (var i = 0; i <cnt-1; i++) {
