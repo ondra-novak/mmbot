@@ -23,13 +23,21 @@ void Calculator::update(double new_price, double abs_balance) {
 	balance = abs_balance;
 }
 
-void Calculator::update_after_trade(double new_price, double old_balance, double acum) {
+void Calculator::update_after_trade(double new_price, double new_balance, double old_balance, double acum) {
 
-	if (acum == 0) return;
-	double prev_price = balance2price(old_balance);
-	double extra = calcExtra(prev_price, new_price);
-	double fin_balance = price2balance(new_price)+ extra*acum;
-	update(new_price, fin_balance);
+	if (achieve_mode) {
+		double expected = price2balance(new_price);
+		double diff = std::fabs(expected - new_balance);
+		if (diff < expected*0.001) {
+			achieve_mode = false;
+		}
+	} else {
+		if (acum == 0) return;
+		double prev_price = balance2price(old_balance);
+		double extra = calcExtra(prev_price, new_price);
+		double fin_balance = price2balance(new_price)+ extra*acum;
+		update(new_price, fin_balance);
+	}
 
 }
 double Calculator::price2balance(double new_price) const {

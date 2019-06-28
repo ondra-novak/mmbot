@@ -50,8 +50,8 @@ MTrader::Config MTrader::load(const ondra_shared::IniConfig::Section& ini, bool 
 	cfg.sell_step_mult = ini["sell_step_mult"].getNumber(1.0);
 	cfg.external_assets = ini["external_assets"].getNumber(0);
 
-	cfg.acm_factor_buy = ini["acum_factor_buy"].getNumber(1);
-	cfg.acm_factor_sell = ini["acum_factor_sell"].getNumber(0);
+	cfg.acm_factor_buy = ini["acum_factor_buy"].getNumber(0.5);
+	cfg.acm_factor_sell = ini["acum_factor_sell"].getNumber(0.5);
 
 	cfg.dry_run = force_dry_run?true:ini["dry_run"].getBool(false);
 	cfg.internal_balance = cfg.dry_run?true:ini["internal_balance"].getBool(false);
@@ -163,7 +163,7 @@ int MTrader::perform() {
 				const auto &lastTrade = trades.back();
 				//update after trade
 				if (!ptres.manual_trades) {
-					calculator.update_after_trade(lastTrade.eff_price,
+					calculator.update_after_trade(lastTrade.eff_price,  status.assetBalance,
 							begbal, lastTrade.eff_size<0?cfg.acm_factor_sell:cfg.acm_factor_buy);
 					calcadj = true;
 				}
@@ -174,6 +174,7 @@ int MTrader::perform() {
 				ondra_shared::logNote("Calculator adjusted: $1 at $2, ref_price=$3 ($4)", calculator.getBalance(), calculator.getPrice(), c, c - prev_calc_ref);
 				prev_calc_ref = c;
 			}
+
 		}
 	}
 
@@ -183,6 +184,8 @@ int MTrader::perform() {
 	statsvc->reportTrades(trades);
 	//report price to UI
 	statsvc->reportPrice(status.curPrice);
+	//report misc
+	statsvc->reportMisc(status.new_trades.empty()?0:sgn(status.new_trades.back().size), calculator.isAchieveMode());
 
 	//store current price (to build chart)
 	chart.push_back(status.chartItem);

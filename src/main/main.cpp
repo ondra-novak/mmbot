@@ -51,6 +51,9 @@ public:
 	virtual void reportTrades(ondra_shared::StringView<IStockApi::TradeWithBalance> trades) {
 		rpt.setTrades(name,trades);
 	}
+	virtual void reportMisc(int trade_dir, bool achieve) {
+		rpt.setMisc(name, trade_dir, achieve);
+	}
 
 	virtual void setInfo(StrViewA title,StrViewA asst,StrViewA curc, bool emulated) {
 		if (title.empty()) title = name;
@@ -443,7 +446,7 @@ int main(int argc, char **argv) {
 					auto rptsect = ini["report"];
 					auto rptpath = rptsect.mandatory["path"].getPath();
 					auto rptinterval = rptsect["interval"].getUInt(864000000);
-					auto a2np = rptsect["a2np"].getBool(true);
+					auto a2np = rptsect["a2np"].getBool(false);
 
 					stockSelector.loadStockMarkets(ini["brokers"], test);
 

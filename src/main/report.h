@@ -42,6 +42,8 @@ public:
 			StrViewA assetSymb,
 			StrViewA currencySymb,
 			bool emulated);
+	void setMisc(StrViewA symb, int trade_dir, bool achieve);
+
 	void setPrice(StrViewA symb, double price);
 	void addLogLine(StrViewA ln);
 
@@ -68,12 +70,14 @@ protected:
 	using OrderMap = ondra_shared::linear_map<OKey,OValue, OKeyCmp>;
 	using TradeMap = ondra_shared::linear_map<StrViewA, json::Value>;
 	using TitleMap = ondra_shared::linear_map<StrViewA, json::Value>;
+	using MiscMap = ondra_shared::linear_map<StrViewA, json::Value>;
 	using PriceMap = ondra_shared::linear_map<StrViewA, double>;
 
 	OrderMap orderMap;
 	TradeMap tradeMap;
 	TitleMap titleMap;
 	PriceMap priceMap;
+	MiscMap miscMap;
 	json::Array logLines;
 
 	StoragePtr report;
@@ -83,6 +87,7 @@ protected:
 	void exportOrders(json::Array &&out);
 	void exportTitles(json::Object &&out);
 	void exportPrices(json::Object &&out);
+	void exportMisc(json::Object &&out);
 	std::size_t interval_in_ms;
 	bool a2np;
 };

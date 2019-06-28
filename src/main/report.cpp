@@ -31,6 +31,7 @@ void Report::genReport() {
 	exportOrders(st.array("orders"));
 	exportTitles(st.object("info"));
 	exportPrices(st.object("prices"));
+	exportMisc(st.object("misc"));
 	st.set("interval", interval_in_ms);
 	st.set("time", std::chrono::duration_cast<std::chrono::milliseconds>(
 					std::chrono::system_clock::now().time_since_epoch()
@@ -215,13 +216,19 @@ void Report::exportOrders(json::Array &&out) {
 void Report::exportTitles(json::Object&& out) {
 	for (auto &&rec: titleMap) {
 			out.set(rec.first, rec.second);
-		}
+	}
 }
 
 void Report::exportPrices(json::Object &&out) {
 	for (auto &&rec: priceMap) {
 			out.set(rec.first, rec.second);
-		}
+	}
+}
+
+void Report::exportMisc(json::Object &&out) {
+	for (auto &&rec: miscMap) {
+			out.set(rec.first, rec.second);
+	}
 }
 
 void Report::addLogLine(StrViewA ln) {
@@ -254,4 +261,11 @@ inline bool CaptureLog::isLogLevelEnabled(ondra_shared::LogLevel lev) const {
 
 ondra_shared::PStdLogProviderFactory Report::captureLog(ondra_shared::PStdLogProviderFactory target) {
 	return new CaptureLog(*this, target);
+}
+
+
+void Report::setMisc(StrViewA symb, int trade_dir, bool achieve) {
+	miscMap[symb] = Object
+			("t",trade_dir)
+			("a", achieve);
 }

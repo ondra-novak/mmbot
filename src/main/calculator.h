@@ -21,7 +21,7 @@ public:
 
 	void update(double new_price, double abs_balance);
 
-	void update_after_trade(double new_price, double old_balance, double acum);
+	void update_after_trade(double new_price, double new_balance, double old_balance, double acum);
 
 	double balance2price(double balance) const;
 

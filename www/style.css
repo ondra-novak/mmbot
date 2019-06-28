@@ -244,7 +244,7 @@ x-td {
 	padding: 0.1cm 0;
 	text-align:right;
 	font-size: 3.1vw;
-	max-width: 17%;
+	max-width: 15%;
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
@@ -269,17 +269,17 @@ x-tr x-td:nth-child(8).pos::before {content:"+";}
 x-tr x-td:nth-child(8).neg {color: #F88;}
 
 
-x-tr x-td:nth-child(1) {text-align: right;max-width: 10%;font-size: 1.9vw;margin: 0.4em;position: relative;}
-x-tr x-td:nth-child(2) {text-align: left ; max-width: 13%;}
-x-tr x-td:nth-child(3) {text-align: center; max-width: 10%; font-size: 1.9vw; margin: 0.4em; }
+x-tr x-td:nth-child(1) {text-align: right;max-width: 6%;font-size: 1.9vw;margin: 0.4em;position: relative;}
+x-tr x-td:nth-child(2) {text-align: center;max-width: 13%;}
+x-tr x-td:nth-child(3) {text-align: center;max-width: 18%;font-size: 3.1vw;margin: 0 0.4em;}
 x-tr x-td:nth-child(4) {max-width: 3%;text-align: center}
-x-tr x-td:nth-child(8) {text-align: right; max-width: 8%; font-size: 1.9vw; margin: 0.4em; text-overflow: clip; }
+x-tr x-td:nth-child(8) {text-align: right;max-width: 9%;font-size: 1.9vw;margin: 0.4em;text-overflow: clip;}
 
 @media (min-width: 20cm) {
-x-td {
+x-td, x-tr x-td:nth-child(3) {
 		font-size: 0.62cm;
 }
-x-tr x-td:nth-child(1),x-tr x-td:nth-child(3),x-tr x-td:nth-child(8) {
+x-tr x-td:nth-child(1),x-tr x-td:nth-child(8) {
 		font-size: 0.38cm;
 }
 }
@@ -342,6 +342,14 @@ x-trbgr.hdr {
 
 .info > div.buy {
 	color: #8F8;
+}
+
+.trade_buy .info > div.buy, .trade_sell .info > div.sell {
+	animation: 1s blink infinite;
+}
+
+.achieve  .title {
+	animation: 1s blink infinite;
 }
 
 .info > div > .size {
@@ -605,4 +613,15 @@ x-tr.hdr [data-name=export_csv] {
 
 }
 
+@keyframes blink {
+	0% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.2;
+	}
+	100% {
+		opacity: 1;
+	}
+}
 

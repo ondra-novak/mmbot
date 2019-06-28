@@ -69,9 +69,14 @@ function app_start(){
 		})
 	}
 	
-	function fillInfo(curchart, title, link, ranges, emulated) {
+	function fillInfo(curchart, title, link, ranges, emulated, misc) {
 		var elem_title = curchart.querySelector("[data-name=title]");
 		elem_title.classList.toggle("emulated",!!emulated);
+		if (misc) {
+			curchart.classList.toggle("achieve", !!misc.a);
+			curchart.classList.toggle("trade_buy", !!misc.t && misc.t > 0);
+			curchart.classList.toggle("trade_sell", !!misc.t && misc.t < 0);
+		}
 		elem_title.innerText = title;
 		var info = curchart.querySelector("[data-name=info]");
 		if (ranges) {
@@ -146,7 +151,7 @@ function app_start(){
 		return curchart;
 	}
 	
-	function appendChart(id,  info, data, fld,  orders, ranges) {
+	function appendChart(id,  info, data, fld,  orders, ranges, misc) {
 		try {
 			var curchart = createChart(id, "chart");
 			var elem_chart = curchart.querySelector("[data-name=chart]");
@@ -155,10 +160,10 @@ function app_start(){
 		} catch (e) {}
 	}
 	
-	function appendSummary(id, info, data, ranges) {
+	function appendSummary(id, info, data, ranges, misc) {
 	//	try {
 			var curchart = createChart(id, "summary");
-			fillInfo(curchart,  info.title,id, ranges, info.emulated);
+			fillInfo(curchart,  info.title,id, ranges, info.emulated, misc);
 			var start = Date.now() - 24*60*60*1000;
 			var sum = data.reduce(function(a,b,idx) {
 				if (b.time >= start) {
@@ -227,7 +232,9 @@ function app_start(){
 				 a.setAttribute("href", downloadUrl);
 				 a.setAttribute("download",ident+".csv");
 				 a.setAttribute("target","_blank");
+				 document.body.appendChild(a);
 				 a.click();
+				 document.body.removeChild(a);
 				 URL.revokeObjectURL(downloadUrl);
 			})
 		}
@@ -281,14 +288,14 @@ function app_start(){
 			
 			
 			var data = [
-				dr.toLocaleDateString(),
-				dr.toLocaleTimeString(),
+				dr.toLocaleString("default",{"day":"numeric","month":"2-digit"}),
+				dr.toLocaleString("default",{"hour":"2-digit","minute":"2-digit","second":"2-digit"}),
 				r.ident?infoMap[r.ident].title:"",
 				r.achg < 0?"↘":"↗",
 				Math.abs(r.achg),
 				r.price,
 				r.volume,
-				r.normDiff
+				r.normDiff+r.price*r.nacumDiff
 			]
 			tr.classList.toggle("sell", r.achg<0);
 			tr.classList.toggle("buy", r.achg>0);
@@ -363,11 +370,13 @@ function app_start(){
 		var lastPos = 0;
 		var lastPrice = 0;
 		var lastRel = 0;
+		var lastNacum = 0;
 		var lastInvstV = 0;
 		var lastInvstN = 0;
 		data.forEach(function(r) {
 			r.ident = ident;
 			r.normDiff = r.norm - lastNorm;
+			r.nacumDiff = r.nacum - lastNacum;
 			r.plDiff = r.pl - lastPL;
 			r.priceDiff = r.price - lastPrice;
 			r.vol = Math.abs(r.achg*r.price);
@@ -382,6 +391,7 @@ function app_start(){
 			lastRel = r.rel;
 			lastInvstV = r.invst_v;
 			lastInvstN = r.invst_n;
+			lastNacum = r.nacum;
 		});
 	}
 	
@@ -450,8 +460,7 @@ function app_start(){
 			var orders = {};
 			var ranges = {};
 			
-
-			infoMap = stats["info"];
+			infoMap = stats["info"];			
 			
 			document.getElementById("logfile").innerText = " > "+ stats["log"].join("\r\n > ");
 
@@ -529,7 +538,7 @@ function app_start(){
 				if (fld == "+summary") {
 					setMode(4);
 					for (var k in charts) {
-						appendSummary("_"+k,infoMap[k], charts[k], ranges[k]);
+						appendSummary("_"+k,infoMap[k], charts[k], ranges[k], stats.misc[k]);
 					}
 					for (var k in sums) {
 						appendSummary("_"+k,{"title":k,"asset":"","currency":k}, sums[k]);
@@ -539,7 +548,7 @@ function app_start(){
 					setMode(1);
 					var pair = fld.substr(1);
 					for (var k in cats) {
-						appendChart("!"+k, {title:cats[k]}, charts[pair], k, orders[pair]);
+						appendChart("!"+k, {title:cats[k]}, charts[pair], k, orders[pair], stats.misc[k]);
 					}
 					updateLastEvents(charts[pair],pair);
 					
@@ -553,7 +562,7 @@ function app_start(){
 				} else {
 					setMode(3);
 					for (var k in charts) {
-						appendChart(k,infoMap[k], charts[k], fld,  orders[k],ranges[k]);
+						appendChart(k,infoMap[k], charts[k], fld,  orders[k],ranges[k], stats.misc[k]);
 					}
 					updateLastEventsAll(charts);
 				}
