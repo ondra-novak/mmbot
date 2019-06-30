@@ -615,9 +615,9 @@ function app_start(){
 		else if (an > 1) return n.toFixed(2);
 		else if (an > 0.0001) return n.toFixed(6);
 		else {
-			var s = n.toFixed(8);
-			if (s == "0.00000000") return "0.00";
-			return s;
+			var s = (n*1000000).toFixed(3);
+			if (s == "0.000") return s;
+			return s+"µ";
 		}
 	}
 

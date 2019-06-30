@@ -115,9 +115,10 @@ inline Interface::TradeHistory Interface::getTrades(json::Value lastId,
 	}
 
 	return mapJSON(resp, [&](Value itm){
-		double amount = -itm["amount"].getNumber();
+		double amount = itm["amount"].getNumber();
 		double price = 1.0/itm["price"].getNumber();
-		if (itm["direction"].getString() == "buy") amount = -amount;
+		auto dir = itm["direction"].getString();
+		if (dir == "buy") amount = -amount;
 		double fee = itm["fee"].getNumber();
 		double eff_price = price;
 		if (fee > 0) {
@@ -257,5 +258,17 @@ inline double Interface::getFees(const std::string_view &pair) {
 }
 
 inline std::vector<std::string> Interface::getAllPairs() {
-	return {};
+	std::vector<std::string>  resp;
+	auto currencies = px.request("public/get_currencies", Object(),false);
+	for (Value c: currencies) {
+		Value sign = c["currency"];
+		auto instrs = px.request("public/get_instruments", Object
+				("currency",sign)
+				("kind","future")
+				("expired",false),false);
+		for (Value i: instrs) {
+			resp.push_back(i["instrument_name"].getString());
+		}
+	}
+	return resp;
 }
