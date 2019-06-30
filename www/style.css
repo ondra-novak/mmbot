@@ -332,14 +332,6 @@ x-trbgr.hdr {
 	visibility: hidden;
 }
 
-.info::before {
-	/* content:"("; */
-}
-
-.info::after {
-	/* content:")"; */
-}
-
 .info > div.buy {
 	color: #8F8;
 }

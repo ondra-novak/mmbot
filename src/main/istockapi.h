@@ -136,6 +136,7 @@ public:
 
 		template<typename Fn>
 		double adjValue(double value, double step, Fn &&fn) const {
+			if (step == 0) return value;
 			return fn(value/step) * step;
 		}
 	};
