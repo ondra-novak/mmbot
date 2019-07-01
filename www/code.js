@@ -160,7 +160,7 @@ function app_start(){
 		} catch (e) {}
 	}
 	
-	function appendSummary(id, info, data, ranges, misc) {
+	function appendSummary(id, info, data, ranges, misc, extra) {
 	//	try {
 			var curchart = createChart(id, "summary");
 			fillInfo(curchart,  info.title,id, ranges, info.emulated, misc);
@@ -189,6 +189,19 @@ function app_start(){
 						neg:sum[n]<0
 					});
 			}
+			if (misc) {
+				var last_norm = data.length?data[data.length-1].norm:0;
+				misc.pnorm = last_norm;
+				misc.pnormp = 100*last_norm/misc.mv;
+				misc.avgt = last_norm/misc.mt;
+				for (var n in misc)
+					setField(curchart, n, adjNum(misc[n]), {
+						pos:misc[n]>0,
+						neg:misc[n]<0
+					});
+			}
+			var ext =curchart.getElementsByClassName("extended")[0];
+			ext.hidden = !extra;
 			
 			
 		//} catch (e) {}
@@ -547,6 +560,7 @@ function app_start(){
 				} else if (fld.startsWith("!")) {
 					setMode(1);
 					var pair = fld.substr(1);
+					appendSummary("_"+k,infoMap[pair], charts[pair], ranges[pair], stats.misc[pair],true);
 					for (var k in cats) {
 						appendChart("!"+k, {title:cats[k]}, charts[pair], k, orders[pair], stats.misc[k]);
 					}
@@ -612,7 +626,7 @@ function app_start(){
 		if (typeof n != "number") return n;		
 		var an = Math.abs(n);
 		if (an > 9999) return n.toFixed(0);
-		else if (an > 1) return n.toFixed(2);
+		else if (an >= 1) return n.toFixed(2);
 		else if (an > 0.0001) return n.toFixed(6);
 		else {
 			var s = (n*1000000).toFixed(3);

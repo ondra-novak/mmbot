@@ -160,8 +160,6 @@ select > option[disabled] {
 }
 
 
-}
-
 #lastevents table {
 		width: 100%;
 		font-size: 2.5vw;
@@ -417,7 +415,7 @@ x-trbgr.hdr {
 
 .summary .daystats > div{
 	display: inline-block;
-	font-size: 0.5em;'
+	font-size: 0.5em;
 }
 .summary .daystats > div > span{
 	font-size: 1.5em;
@@ -557,7 +555,6 @@ x-tr.hdr [data-name=export_csv] {
 #logo .line1 {
 	font-size: 100px;
 	font-weight: bolder;
-	font
 }
 
 @keyframes slide {
@@ -616,4 +613,18 @@ x-tr.hdr [data-name=export_csv] {
 		opacity: 1;
 	}
 }
+
+table.extended {font-size: 0.8em;min-width: 40%;border-collapse: collapse;margin-top: 1em;margin-left: 1em;}
+table.extended th {
+    text-align: left;
+    font-weight: normal;
+    vertical-align: top;
+}
+table  tr > * {
+	padding: 2px 1em;
+	border-top: 1px solid #222222;
+	background-color: #1b1b1b;
+}
+table.extended td {text-align: right;}
+table.extended td span:nth-child(odd) {font-weight:bold;}
 

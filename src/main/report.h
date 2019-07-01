@@ -15,6 +15,7 @@
 #include "../shared/linear_map.h"
 #include "../shared/stdLogOutput.h"
 #include "../shared/stringview.h"
+#include "istatsvc.h"
 
 namespace json {
 	class Array;
@@ -25,6 +26,7 @@ namespace json {
 class Report {
 public:
 	using StoragePtr = PStorage;
+	using MiscData = IStatSvc::MiscData;
 	Report(StoragePtr &&report, std::size_t interval_in_ms, bool a2np )
 		:report(std::move(report)),interval_in_ms(interval_in_ms),a2np(a2np) {}
 
@@ -42,7 +44,7 @@ public:
 			StrViewA assetSymb,
 			StrViewA currencySymb,
 			bool emulated);
-	void setMisc(StrViewA symb, int trade_dir, bool achieve);
+	void setMisc(StrViewA symb, const MiscData &miscData);
 
 	void setPrice(StrViewA symb, double price);
 	void addLogLine(StrViewA ln);

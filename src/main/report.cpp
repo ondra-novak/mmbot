@@ -24,6 +24,13 @@ using std::chrono::_V2::system_clock;
 
 using namespace json;
 
+
+Value fixNum(double val) {
+	if (isfinite(val)) return val;
+	else return "∞";
+}
+
+
 void Report::genReport() {
 
 	Object st;
@@ -263,9 +270,16 @@ ondra_shared::PStdLogProviderFactory Report::captureLog(ondra_shared::PStdLogPro
 	return new CaptureLog(*this, target);
 }
 
-
-void Report::setMisc(StrViewA symb, int trade_dir, bool achieve) {
+void Report::setMisc(StrViewA symb, const MiscData &miscData) {
 	miscMap[symb] = Object
-			("t",trade_dir)
-			("a", achieve);
+			("t",miscData.trade_dir)
+			("a", miscData.achieve)
+			("mv", fixNum(miscData.value))
+			("ms", fixNum(miscData.spread))
+			("mdmb", fixNum(miscData.dynmult_buy))
+			("mdms", fixNum(miscData.dynmult_sell))
+			("mb",fixNum(miscData.boost))
+			("ml",fixNum(miscData.lowest_price))
+			("mh",fixNum(miscData.highest_price))
+			("mt",miscData.total_trades);
 }

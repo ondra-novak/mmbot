@@ -167,6 +167,7 @@ int MTrader::perform() {
 							begbal, lastTrade.eff_size<0?cfg.acm_factor_sell:cfg.acm_factor_buy);
 					calcadj = true;
 				}
+				currency_balance_cache = -1;
 			}
 
 			if (calcadj) {
@@ -185,7 +186,30 @@ int MTrader::perform() {
 	//report price to UI
 	statsvc->reportPrice(status.curPrice);
 	//report misc
-	statsvc->reportMisc(status.new_trades.empty()?0:sgn(status.new_trades.back().size), calculator.isAchieveMode());
+	{
+		if (currency_balance_cache ==-1) currency_balance_cache = stock.getBalance(minfo.currency_symbol);
+		double value = status.assetBalance * status.curPrice;
+		double max_price = pow2((status.assetBalance * sqrt(status.curPrice))/cfg.external_assets);
+		double S = value - currency_balance_cache;
+		double min_price = S<=0?0:pow2(S/(status.assetBalance*sqrt(status.curPrice)));
+		double b1 = isfinite(max_price)?calculator.price2balance(sqrt(max_price*min_price)):1;
+		double boost = b1/(b1-cfg.external_assets);
+
+
+		statsvc->reportMisc(IStatSvc::MiscData{
+			status.new_trades.empty()?0:sgn(status.new_trades.back().size),
+			calculator.isAchieveMode(),
+			status.curPrice * (exp(status.curStep) - 1),
+			buy_dynmult,
+			sell_dynmult,
+			2 * value,
+			boost,
+			min_price,
+			max_price,
+			trades.size()
+		});
+
+	}
 
 	//store current price (to build chart)
 	chart.push_back(status.chartItem);

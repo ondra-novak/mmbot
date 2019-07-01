@@ -23,6 +23,18 @@ public:
 		double bid;
 	};
 
+	struct MiscData {
+		int trade_dir;
+		bool achieve;
+		double spread;
+		double dynmult_buy;
+		double dynmult_sell;
+		double value;
+		double boost;
+		double lowest_price;
+		double highest_price;
+		std::size_t total_trades;
+	};
 
 	virtual void reportOrders(const std::optional<IStockApi::Order> &buy,
 							  const std::optional<IStockApi::Order> &sell) = 0;
@@ -32,7 +44,7 @@ public:
 			ondra_shared::StrViewA assetSymb,
 			ondra_shared::StrViewA currencySymb,
 			bool emulated) = 0;
-	virtual void reportMisc(int trade_dir, bool achieve) = 0;
+	virtual void reportMisc(const MiscData &miscData) = 0;
 	virtual double calcSpread(ondra_shared::StringView<ChartItem> chart,
 			const MTrader_Config &config,
 			const IStockApi::MarketInfo &minfo,

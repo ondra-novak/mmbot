@@ -51,8 +51,8 @@ public:
 	virtual void reportTrades(ondra_shared::StringView<IStockApi::TradeWithBalance> trades) {
 		rpt.setTrades(name,trades);
 	}
-	virtual void reportMisc(int trade_dir, bool achieve) {
-		rpt.setMisc(name, trade_dir, achieve);
+	virtual void reportMisc(const MiscData &miscData) {
+		rpt.setMisc(name, miscData);
 	}
 
 	virtual void setInfo(StrViewA title,StrViewA asst,StrViewA curc, bool emulated) {

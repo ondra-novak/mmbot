@@ -160,6 +160,7 @@ protected:
 	double internal_balance = 0;
 	mutable double prev_spread=0;
 	double prev_calc_ref = 0;
+	double currency_balance_cache = -1;
 
 
 	void loadState();
