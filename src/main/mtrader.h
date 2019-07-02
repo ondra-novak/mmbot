@@ -135,6 +135,7 @@ public:
 
 	bool eraseTrade(std::string_view id, bool trunc);
 	void reset();
+	void repair();
 	void achieve_balance(double price, double balance);
 
 protected:

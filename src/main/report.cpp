@@ -274,6 +274,7 @@ void Report::setMisc(StrViewA symb, const MiscData &miscData) {
 	miscMap[symb] = Object
 			("t",miscData.trade_dir)
 			("a", miscData.achieve)
+			("mcp", fixNum(miscData.calc_price))
 			("mv", fixNum(miscData.value))
 			("ms", fixNum(miscData.spread))
 			("mdmb", fixNum(miscData.dynmult_buy))

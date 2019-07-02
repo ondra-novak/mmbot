@@ -64,6 +64,19 @@ MTrader::Config MTrader::load(const ondra_shared::IniConfig::Section& ini, bool 
 
 
 	cfg.start_time = ini["start_time"].getUInt(0);
+
+	if (cfg.spread_calc_mins > 1000000) throw std::runtime_error("spread_calc_hours is too big");
+	if (cfg.spread_calc_min_trades > cfg.spread_calc_max_trades) throw std::runtime_error("'spread_calc_min_trades' must bee less then 'spread_calc_max_trades'");
+	if (cfg.spread_calc_max_trades > 24*60) throw std::runtime_error("'spread_calc_max_trades' is too big");
+	if (cfg.acm_factor_buy > 2) throw std::runtime_error("'acum_factor_buy' is too big");
+	if (cfg.acm_factor_buy < -2) throw std::runtime_error("'acum_factor_buy' is too small");
+	if (cfg.acm_factor_sell > 2) throw std::runtime_error("'acum_factor_sell' is too big");
+	if (cfg.acm_factor_sell < -2) throw std::runtime_error("'acum_factor_sell' is too small");
+	if (cfg.dynmult_raise > 1e6) throw std::runtime_error("'dynmult_raise' is too big");
+	if (cfg.dynmult_raise < 1) throw std::runtime_error("'dynmult_raise' is too small");
+	if (cfg.dynmult_fall > 100) throw std::runtime_error("'dynmult_fall' must be below 100");
+	if (cfg.dynmult_fall <= 0) throw std::runtime_error("'dynmult_fall' must not be negative or zero");
+
 	return cfg;
 }
 
@@ -199,6 +212,7 @@ int MTrader::perform() {
 		statsvc->reportMisc(IStatSvc::MiscData{
 			status.new_trades.empty()?0:sgn(status.new_trades.back().size),
 			calculator.isAchieveMode(),
+			calculator.balance2price(status.assetBalance),
 			status.curPrice * (exp(status.curStep) - 1),
 			buy_dynmult,
 			sell_dynmult,
@@ -673,3 +687,20 @@ void MTrader::achieve_balance(double price, double balance) {
 	calculator.achieve(price, balance);
 	saveState();
 }
+
+void MTrader::repair() {
+	if (need_load) loadState();
+	buy_dynmult = 1;
+	sell_dynmult = 1;
+	if (cfg.internal_balance) {
+		if (!trades.empty())
+			internal_balance = trades.back().balance- cfg.external_assets;
+	} else {
+		internal_balance = 0;
+	}
+	prev_spread = 0;
+	currency_balance_cache = -1;
+	prev_calc_ref = 0;
+	saveState();
+}
+

@@ -30,6 +30,7 @@ using ondra_shared::logNote;
 using ondra_shared::logInfo;
 using ondra_shared::logProgress;
 using ondra_shared::logError;
+using ondra_shared::logFatal;
 using ondra_shared::logDebug;
 using ondra_shared::LogObject;
 using ondra_shared::shared_function;
@@ -176,12 +177,19 @@ void loadTraders(const ondra_shared::IniConfig &ini,
 
 	int p = 0;
 	for (auto n: nv) {
-		if (n[0] == '_') throw std::runtime_error(std::string(n).append(": The trader's name can't begins with underscore '_'"));
-		MTrader::Config mcfg = MTrader::load(ini[n], force_dry_run);
-		logProgress("Started trader $1 (for $2)", n, mcfg.pairsymb);
-		traders.emplace_back(stockSelector, sf.create(n),
-				std::make_unique<StatsSvc>(wrk, n, rpt, nv.size(), ++p),
-				mcfg, n);
+		LogObject lg(n);
+		LogObject::Swap swp(lg);
+		try {
+			if (n[0] == '_') throw std::runtime_error(std::string(n).append(": The trader's name can't begins with underscore '_'"));
+			MTrader::Config mcfg = MTrader::load(ini[n], force_dry_run);
+			logProgress("Started trader $1 (for $2)", n, mcfg.pairsymb);
+			traders.emplace_back(stockSelector, sf.create(n),
+					std::make_unique<StatsSvc>(wrk, n, rpt, nv.size(), ++p),
+					mcfg, n);
+		} catch (const std::exception &e) {
+			logFatal("Error: $1", e.what());
+			throw std::runtime_error(std::string("Unable to initialize trader: ").append(n).append(" - ").append(e.what()));
+		}
 	}
 }
 
@@ -294,7 +302,7 @@ static int eraseTradeHandler(Worker &wrk, simpleServer::ArgList args, simpleServ
 	}
 }
 
-static int cmd_reset(Worker &wrk, simpleServer::ArgList args, simpleServer::Stream stream, bool trunc) {
+static int cmd_singlecmd(Worker &wrk, simpleServer::ArgList args, simpleServer::Stream stream, void (MTrader::*fn)()) {
 	if (args.empty()) {
 		stream << "Need argument: <trader_ident>\n"; return 1;
 	}
@@ -307,9 +315,9 @@ static int cmd_reset(Worker &wrk, simpleServer::ArgList args, simpleServer::Stre
 		return 1;
 	}
 	try {
-		NamedMTrader &t = *iter;
+		MTrader &t = *iter;
 		run_in_worker(wrk, [&]{
-			t.reset();return true;
+			(t.*fn)();return true;
 		});
 		stream << "OK\n";
 		return 0;
@@ -319,7 +327,9 @@ static int cmd_reset(Worker &wrk, simpleServer::ArgList args, simpleServer::Stre
 	}
 }
 
-static int cmd_achieve(Worker &wrk, simpleServer::ArgList args, simpleServer::Stream stream, bool trunc) {
+
+
+static int cmd_achieve(Worker &wrk, simpleServer::ArgList args, simpleServer::Stream stream) {
 	if (args.length != 3) {
 		stream << "Need arguments: <trader_ident> <price> <balance>\n"; return 1;
 	}
@@ -539,10 +549,13 @@ int main(int argc, char **argv) {
 						return eraseTradeHandler(wrk, args,stream,true);
 					});
 					cntr.addCommand("reset", [&](simpleServer::ArgList args, simpleServer::Stream stream){
-						return cmd_reset(wrk, args,stream,true);
+						return cmd_singlecmd(wrk, args,stream,&MTrader::reset);
 					});
 					cntr.addCommand("achieve", [&](simpleServer::ArgList args, simpleServer::Stream stream){
-						return cmd_achieve(wrk, args,stream,true);
+						return cmd_achieve(wrk, args,stream);
+					});
+					cntr.addCommand("repair", [&](simpleServer::ArgList args, simpleServer::Stream stream){
+						return cmd_singlecmd(wrk, args,stream,&MTrader::repair);
 					});
 					std::size_t id = 0;
 					cntr.addCommand("run",[&](simpleServer::ArgList, simpleServer::Stream) {
@@ -585,7 +598,7 @@ int main(int argc, char **argv) {
 					return 0;
 
 				}, simpleServer::ArgList(argList.data(), argList.size()),
-				cmd == "calc_range" || cmd == "get_all_pairs" || cmd == "achieve" || cmd == "reset");
+				cmd == "calc_range" || cmd == "get_all_pairs" || cmd == "achieve" || cmd == "reset" || cmd=="repair");
 		} catch (std::exception &e) {
 			std::cerr << "Error: " << e.what() << std::endl;
 			return 2;

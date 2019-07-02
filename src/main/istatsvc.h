@@ -26,6 +26,7 @@ public:
 	struct MiscData {
 		int trade_dir;
 		bool achieve;
+		double calc_price;
 		double spread;
 		double dynmult_buy;
 		double dynmult_sell;
