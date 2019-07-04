@@ -8,7 +8,7 @@ Díky páce lze navýšit pozici a vydělat víc, než na exchange. Ale má to r
 
 ## Použijte external_assets
 
-Na marginových burzách neexistují assety ve fyzické podobě, ale pouze pozice. Ta je spočátku nulová. Vzorec, který robot používá však s nulou nepracuje. Je třeba nastavit nějaký výchozí bod - nějaké výchozí assety, ze kterých se bude počítat. 
+Na marginových burzách neexistují assety ve fyzické podobě, ale pouze pozice. Ta je zpočátku nulová. Vzorec, který robot používá však s nulou nepracuje. Je třeba nastavit nějaký výchozí bod - nějaké výchozí assety, ze kterých se bude počítat. 
 
 Nastavením této položky též definujeme páku se kterou bude robot pracovat. Množství assetů volíme podle zůstatku kolaterálu. Čím větší poměr assetů vůči kolaterálu, tím větší pákou bude robot obchodovat
 
