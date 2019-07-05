@@ -59,6 +59,7 @@ MTrader::Config MTrader::load(const ondra_shared::IniConfig::Section& ini, bool 
 
 	cfg.dynmult_raise = ini["dynmult_raise"].getNumber(200);
 	cfg.dynmult_fall = ini["dynmult_fall"].getNumber(1);
+	cfg.emulated_currency = ini["emulated_currency"].getNumber(0);
 
 	cfg.title = ini["title"].getString();
 
@@ -89,7 +90,7 @@ IStockApi &MTrader::selectStock(IStockSelector &stock_selector, const Config &co
 	IStockApi *s = stock_selector.getStock(conf.broker);
 	if (s == nullptr) throw std::runtime_error(std::string("Unknown stock market name: ")+std::string(conf.broker));
 	if (conf.dry_run) {
-		ownedStock = std::make_unique<EmulatorAPI>(*s);
+		ownedStock = std::make_unique<EmulatorAPI>(*s, conf.emulated_currency);
 		return *ownedStock;
 	} else {
 		return *s;
@@ -104,6 +105,12 @@ double MTrader::raise_fall(double v, bool raise) const {
 		double ff = (1.0-cfg.dynmult_fall/100.0);
 		return std::max(1.0,v * ff);
 	}
+}
+
+static auto calc_margin_range(double A, double D, double P) {
+	double x1 = (A*P - 2*sqrt(A*D*P) + D)/A;
+	double x2 = (A*P + 2*sqrt(A*D*P) + D)/A;
+	return std::make_pair(x1,x2);
 }
 
 int MTrader::perform() {
@@ -208,6 +215,15 @@ int MTrader::perform() {
 		double b1 = isfinite(max_price)?calculator.price2balance(sqrt(max_price*min_price)):1;
 		double boost = b1/(b1-cfg.external_assets);
 
+		if (minfo.leverage && cfg.external_assets > 0) {
+			double start_price = calculator.balance2price(cfg.external_assets);
+			double cur_price = calculator.balance2price(status.assetBalance);
+			double colateral = (internal_balance * (sqrt(start_price * cur_price) + cur_price)+currency_balance_cache) * (1 - 1 / minfo.leverage);
+			auto range = calc_margin_range(cfg.external_assets, colateral, start_price);
+			max_price = range.second;
+			min_price = range.first;
+			boost = cfg.external_assets*start_price / colateral;
+		}
 
 		statsvc->reportMisc(IStatSvc::MiscData{
 			status.new_trades.empty()?0:sgn(status.new_trades.back().size),
@@ -684,8 +700,15 @@ void MTrader::reset() {
 
 void MTrader::achieve_balance(double price, double balance) {
 	if (need_load) loadState();
-	calculator.achieve(price, balance);
-	saveState();
+	if (minfo.leverage>0) {
+		balance += cfg.external_assets;
+	}
+	if (balance > 0) {
+		calculator.achieve(price, balance);
+		saveState();
+	} else {
+		throw std::runtime_error("can't set negative balance");
+	}
 }
 
 void MTrader::repair() {

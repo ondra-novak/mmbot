@@ -247,7 +247,9 @@ inline Interface::MarketInfo Interface::getMarketInfo(const std::string_view &pa
 		0,
 		csize["contract_size"].getNumber(),
 		0,
-		0
+		0,
+		IStockApi::currency,
+		100
 	};
 
 

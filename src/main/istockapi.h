@@ -129,7 +129,7 @@ public:
 		 * @note when leverage is set, command 'achieve' expects position,
 		 * not total assets
 		 */
-		double leverage;
+		double leverage = 0;
 
 
 		///Adds fees to values

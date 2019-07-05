@@ -34,6 +34,8 @@ struct MTrader_Config {
 	double acm_factor_buy;
 	double acm_factor_sell;
 
+	double emulated_currency;
+
 	unsigned int spread_calc_mins;
 	unsigned int spread_calc_min_trades;
 	unsigned int spread_calc_max_trades;
@@ -43,6 +45,9 @@ struct MTrader_Config {
 	bool detect_manual_trades;
 
 	std::size_t start_time;
+
+
+
 
 };
 

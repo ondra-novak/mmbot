@@ -17,7 +17,7 @@
 class EmulatorAPI: public IStockApi {
 public:
 
-	EmulatorAPI(IStockApi &datasrc);
+	EmulatorAPI(IStockApi &datasrc, double initial_currency);
 
 
 	virtual double getBalance(const std::string_view & symb);
@@ -44,8 +44,17 @@ protected:
 	TradeHistory trades;
 
 	std::string balance_symb;
+	std::string currency_symb;
 	std::string pair;
 	double balance;
+	double currency;
+	double initial_currency;
+	double margin_currency = 0;
+	bool initial_read_balance = true;
+	bool initial_read_currency = true;
+	bool margin = false;
+
+	double readBalance(const std::string_view &symb, double defval);
 
 	MarketInfo minfo;
 
