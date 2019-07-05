@@ -95,6 +95,7 @@ ExtStockApi::MarketInfo ExtStockApi::getMarketInfo(const std::string_view & pair
 	res.min_volume= v["min_volume"].getNumber();
 	res.fees = v["fees"].getNumber();
 	res.feeScheme = strFeeScheme[v["feeScheme"].getString()];
+	res.leverage= v["leverage"].getNumber();
 	return res;
 
 }
