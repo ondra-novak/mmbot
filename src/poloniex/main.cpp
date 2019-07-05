@@ -43,7 +43,7 @@ public:
 	virtual MarketInfo getMarketInfo(const std::string_view & pair)override;
 	virtual double getFees(const std::string_view &pair)override;
 	virtual std::vector<std::string> getAllPairs()override;
-
+	virtual void enable_debug(bool enable) override {px.debug = enable;}
 
 	Value balanceCache;
 	Value tickerCache;
@@ -362,6 +362,8 @@ bool Interface::tradeOrder(const Trade &a, const Trade &b) {
 	if (ta > tb) return false;
 	return Value::compare(a.id,b.id) < 0;
 }
+
+
 
 
 int main(int argc, char **argv) {

@@ -88,12 +88,21 @@ json::Value Proxy::request(Method method, std::string path, json::Value data) {
 		break;
 	}
 
+	if (debug) {
+		std::cerr << "Send: " << m << " " << url << " " << d << std::endl;
+	}
+
 	logDebug("Request: $1 $2 $3", m, url, d);
 
 
 	curl_handle.setOpt(cURLpp::Options::Url(url));
 	curl_handle.setOpt(cURLpp::Options::WriteStream(&response));
 	curl_handle.perform();
+
+	if (debug) {
+		std::cerr << "Recv: " << response.str() << std::endl;
+	}
+
 
 	json::Value v = json::Value::fromString(response.str());
 	if (v["error"].getBool()) throw std::runtime_error(v["errorMessage"].toString().c_str());

@@ -14,6 +14,15 @@
 class AbstractBrokerAPI: public IStockApi {
 public:
 
+	///Called when mmbot is started with debug mode enabled
+	/**
+	 * @param enable if set to true, debug mode is enabled. The broker should send more debug informations
+	 * to the stderr.
+	 *
+	 * Default implementaion only sets debug_mode flag to true, so any function can easyli check this status
+	 */
+	virtual void enable_debug(bool enable) {debug_mode = enable;}
+
 
 	static void dispatch(std::istream &input, std::ostream &output, IStockApi &handler);
 
@@ -43,6 +52,11 @@ public:
 		return false;
 	}
 	virtual void testBroker() override {}
+
+
+
+protected:
+	bool debug_mode = false;
 
 
 };

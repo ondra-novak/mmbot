@@ -50,9 +50,12 @@ public:
 	virtual MarketInfo getMarketInfo(const std::string_view & pair)override;
 	virtual double getFees(const std::string_view &pair)override;
 	virtual std::vector<std::string> getAllPairs()override;
+	virtual void enable_debug(bool enable) override;
 
 
 	ondra_shared::linear_map<std::string, double, std::less<std::string_view> > tick_cache;
+
+	ondra_shared::linear_map<std::string, json::Value, std::less<std::string_view> > openOrdersCache;
 
 };
 
@@ -136,9 +139,12 @@ inline Interface::TradeHistory Interface::getTrades(json::Value lastId,
 
 }
 
-inline Interface::Orders Interface::getOpenOrders(const std::string_view &par) {
-	auto resp = px.request("private/get_open_orders_by_instrument",Object
-			("instrument_name", par), true);
+inline Interface::Orders Interface::getOpenOrders(const std::string_view &pair) {
+	Value &resp = openOrdersCache[pair];
+	if (!resp.defined()) {
+		resp = px.request("private/get_open_orders_by_instrument",Object
+			("instrument_name", pair), true);
+	}
 
 	return mapJSON(resp, [&](Value v){
 
@@ -179,16 +185,6 @@ inline json::Value Interface::placeOrder(const std::string_view &pair,
 		double size, double price, json::Value clientId, json::Value replaceId,
 		double replaceSize) {
 
-	if (replaceId.defined()) {
-		auto response = px.request("private/cancel",Object
-				("order_id",replaceId),true);
-		double remain = (response["amount"].getNumber() - response["filled_amount"].getNumber())*1.00001;
-		if (replaceSize > remain) return nullptr;
-	}
-	if (size == 0) return nullptr;
-
-	std::string_view method  = size>0?"private/sell":"private/buy";
-	double amount = std::fabs(size);
 	double tick_size;
 	{
 		auto tick_iter = tick_cache.find(pair);
@@ -198,8 +194,28 @@ inline json::Value Interface::placeOrder(const std::string_view &pair,
 		}
 		tick_size = tick_iter->second;
 	}
+
 	double adj_price = 1.0/price;
 	adj_price = std::round(adj_price / tick_size) * tick_size;
+
+	if (replaceId.defined()) {
+
+		Orders ords = getOpenOrders(pair);
+		auto iter = std::find_if(ords.begin(), ords.end(), [&](const Order &o) {
+			return o.id == replaceId && o.client_id == clientId && std::fabs(o.size - size) < 1e-20
+					&& std::fabs(adj_price - 1.0/o.price) < 1e-20;
+		});
+		if (iter != ords.end()) return iter->id;
+
+		auto response = px.request("private/cancel",Object
+				("order_id",replaceId),true);
+		double remain = (response["amount"].getNumber() - response["filled_amount"].getNumber())*1.00001;
+		if (replaceSize > remain) return nullptr;
+	}
+	if (size == 0) return nullptr;
+
+	std::string_view method  = size>0?"private/sell":"private/buy";
+	double amount = std::fabs(size);
 
 	auto resp = px.request(method,Object
 			("instrument_name", pair)
@@ -213,6 +229,7 @@ inline json::Value Interface::placeOrder(const std::string_view &pair,
 }
 
 inline bool Interface::reset() {
+	openOrdersCache.clear();
 	return true;
 }
 
@@ -257,6 +274,10 @@ inline Interface::MarketInfo Interface::getMarketInfo(const std::string_view &pa
 
 inline double Interface::getFees(const std::string_view &pair) {
 	return 0;
+}
+
+void Interface::enable_debug(bool enable) {
+	px.debug = enable;
 }
 
 inline std::vector<std::string> Interface::getAllPairs() {

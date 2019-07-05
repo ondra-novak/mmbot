@@ -248,7 +248,6 @@ public:
 	///Retrieve all available pairs
 	virtual std::vector<std::string> getAllPairs() = 0;
 
-
 	///used to probe broker - no broker implementation can be empty
 	virtual void testBroker() = 0;
 
@@ -257,6 +256,7 @@ public:
 		using std::runtime_error::runtime_error;
 	};
 
+	virtual ~IStockApi() {}
 
 	static json::NamedEnum<IStockApi::FeeScheme> strFeeScheme;
 };

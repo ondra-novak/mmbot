@@ -113,3 +113,14 @@ std::vector<std::string> ExtStockApi::getAllPairs() {
 	for (json::Value x: v) res.push_back(x.toString().str());
 	return res;
 }
+
+void ExtStockApi::onConnect() {
+	ondra_shared::LogObject lg("");
+	if (lg.isLogLevelEnabled(ondra_shared::LogLevel::debug)) {
+		try {
+			jsonRequestExchange("enableDebug","true");
+		} catch (...) {
+
+		}
+	}
+}

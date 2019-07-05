@@ -73,6 +73,15 @@ static Value placeOrder(IStockApi &handler, const Value &req) {
 			req["replaceOrderSize"].getNumber());
 }
 
+static Value enableDebug(IStockApi &handler, const Value &req) {
+	AbstractBrokerAPI *h = dynamic_cast<AbstractBrokerAPI *>(&handler);
+	if (h) {
+		h->enable_debug(req.getBool());
+	}
+	return Value();
+}
+
+
 static Value reset(IStockApi &handler, const Value &req) {
 	handler.reset();
 	return Value();
@@ -119,7 +128,8 @@ static MethodMap methodMap ({
 			{"reset",&reset},
 			{"getAllPairs",&getAllPairs},
 			{"getFees",&getFees},
-			{"getInfo",&getInfo}
+			{"getInfo",&getInfo},
+			{"enableDebug",&enableDebug}
 	});
 
 
