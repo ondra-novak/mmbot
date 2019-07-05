@@ -119,6 +119,17 @@ public:
 		double fees;
 		///How fees are handled
 		FeeScheme feeScheme = currency;
+		///Leverage if margin trading is involved
+		/** Default value is 0, which means no margin is available
+		 * When this field is set, this changes several calculations
+		 * in report. It doesn't affect trading. By setting leverage also
+		 * enables short trades. However you still need to set external_assets
+		 * to specify starting point
+		 *
+		 * @note when leverage is set, command 'achieve' expects position,
+		 * not total assets
+		 */
+		double leverage;
 
 
 		///Adds fees to values
