@@ -480,10 +480,14 @@ function app_start(){
 			
 			var charts = stats["charts"];
 			for (var n in charts) {
+				var ch = charts[n];				
 				orders[n] = [];
 				ranges[n] = {};
 				adjChartData(charts[n], n);
 				updateOptions(n, infoMap[n].title);
+				if (ch.length) {
+					stats.misc[n]["avgh"] = ch[ch.length-1].invst_n*(1000*3600);
+				}
 			}
 			
 			(stats.orders || []).forEach(function(o) {

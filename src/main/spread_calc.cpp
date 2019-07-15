@@ -14,6 +14,9 @@
 #include "../shared/logOutput.h"
 #include "mtrader.h"
 
+using ondra_shared::logInfo;
+using ondra_shared::logDebug;
+
 class StockEmulator: public IStockApi {
 public:
 
@@ -88,7 +91,12 @@ protected:
 };
 
 
-static double emulateMarket(ondra_shared::StringView<IStatSvc::ChartItem> chart,
+struct EmulResult {
+	double score;
+	int trades;
+};
+
+static EmulResult emulateMarket(ondra_shared::StringView<IStatSvc::ChartItem> chart,
 		const MTrader_Config &config,
 		const IStockApi::MarketInfo &minfo,
 		double balance,
@@ -101,6 +109,12 @@ static double emulateMarket(ondra_shared::StringView<IStatSvc::ChartItem> chart,
 	cfg.dry_run = false;
 	cfg.spread_calc_mins=1;
 	cfg.internal_balance = false;
+	cfg.dynmult_fall = 100;
+	cfg.dynmult_raise = 0;
+	cfg.sell_step_mult = 1;
+	cfg.buy_step_mult = 1;
+	cfg.acm_factor_buy = 0;
+	cfg.acm_factor_sell = 0;
 
 	class Selector: public IStockSelector {
 	public:
@@ -132,25 +146,24 @@ static double emulateMarket(ondra_shared::StringView<IStatSvc::ChartItem> chart,
 
 	double score = emul.getScore();
 	std::intptr_t tcount = emul.getTradeCount();
-	if (tcount == 0) return -1001;
+	if (tcount == 0) return EmulResult{-1001,0};
 	std::intptr_t min_count = std::max<std::intptr_t>(counter*cfg.spread_calc_min_trades/1440,1);
 	std::intptr_t max_count = (counter*cfg.spread_calc_max_trades+1439)/1440;
 	if (tcount < min_count) score = tcount-min_count;
 	else if (tcount > max_count) score = max_count-tcount;
-	ondra_shared::logDebug("Try spread= $1, score=$2, trades=$3 ($4 - $5)", spread, score, tcount, min_count, max_count);
-	return score;
+	return EmulResult {
+		score,
+		static_cast<int>(tcount)
+	};
 }
 
 
 
-
-double glob_calcSpread(ondra_shared::StringView<IStatSvc::ChartItem> chart,
+double glob_calcSpread2(ondra_shared::StringView<IStatSvc::ChartItem> chart,
 		const MTrader_Config &config,
 		const IStockApi::MarketInfo &minfo,
 		double balance,
 		double prev_val) {
-	if (prev_val == 0) prev_val = 0.01;
-	if (chart.empty() || balance == 0) return prev_val;
 	double curprice = sqrt(chart[chart.length-1].ask*chart[chart.length-1].bid);
 
 
@@ -172,11 +185,13 @@ double glob_calcSpread(ondra_shared::StringView<IStatSvc::ChartItem> chart,
 	for (int i = 0; i < steps; i++) {
 
 		double curSpread = std::log(((low_spread+(hi_spread-low_spread)*i/(steps-1.0))+curprice)/curprice);
-		double profit= emulateMarket(chart, config, minfo, balance, curSpread);
+		auto res = emulateMarket(chart, config, minfo, balance, curSpread);
+		auto profit = res.score;
 		ResultItem resitem(profit,curSpread);
 		if (resiter->first < resitem.first) {
 			*resiter = resitem;
 			resiter = std::min_element(resbeg, resend);
+			ondra_shared::logDebug("Found better spread= $1 (log=$2), score=$3, trades=$4", curprice*exp(curSpread)-curprice, curSpread, profit, res.trades);
 		}
 	}
 	double sugg_spread = pow(std::accumulate(
@@ -184,9 +199,33 @@ double glob_calcSpread(ondra_shared::StringView<IStatSvc::ChartItem> chart,
 			std::end(bestResults), ResultItem(1,1),
 			[](const ResultItem &a, const ResultItem &b) {
 				return ResultItem(0,a.second * b.second);}).second,1.0/std::distance(resbeg, resend));
-	ondra_shared::logInfo("Spread calculated: $1 (log=$2)", curprice*exp(sugg_spread)-curprice, sugg_spread);
 	return sugg_spread;
 }
+
+double glob_calcSpread(ondra_shared::StringView<IStatSvc::ChartItem> chart,
+		const MTrader_Config &config,
+		const IStockApi::MarketInfo &minfo,
+		double balance,
+		double prev_val) {
+	if (prev_val < 1e-10) prev_val = 0.01;
+	if (chart.empty() || balance == 0) return prev_val;
+	double curprice = sqrt(chart[chart.length-1].ask*chart[chart.length-1].bid);
+	double sp1 = glob_calcSpread2(chart, config, minfo, balance, prev_val);
+	double sp2 = sp1;
+	if (chart.length > 1000) {
+		 sp2 = glob_calcSpread2(chart.substr(chart.length-1000), config, minfo, balance, prev_val);
+	}
+	double sp3 = (sp1 + sp2)/2.0;
+	logInfo("Spread calculated: long=$1, short=$2, final=$3",curprice*(exp(sp1)-1),
+														     curprice*(exp(sp2)-1),
+															 curprice*(exp(sp3)-1));
+	return sp3;
+
+
+}
+
+
+
 
 inline StockEmulator::StockEmulator(ondra_shared::StringView<IStatSvc::ChartItem> chart,
 		const MarketInfo &minfo, double balance)
