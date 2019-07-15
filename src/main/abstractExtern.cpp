@@ -16,11 +16,13 @@
 #include <fcntl.h>
 #include <imtjson/parser.h>
 #include <poll.h>
+#include <sys/types.h>
 #include <sys/wait.h>
 #include <experimental/filesystem>
 
 #include <cstring>
 #include <sstream>
+#include <thread>
 
 #include <imtjson/binjson.tcc>
 
@@ -33,6 +35,7 @@ AbstractExtern::AbstractExtern(const std::string_view & workingDir, const std::s
 
 template<typename Fn>
 void parseArguments(std::string_view args, Fn &&result) {
+
 	std::string buffer;
 	bool escaped = false;
 	bool quoted = false;
@@ -100,6 +103,12 @@ AbstractExtern::Pipe AbstractExtern::makePipe() {
 void AbstractExtern::spawn() {
 	using ondra_shared::Handle;
 
+	int status;
+	//collect any zombie
+	waitpid(-1,&status,WNOHANG);
+
+
+
 	log.progress("Connecting to market: cmdline='$1', workdir='$2'", cmdline, workingDir);
 
 	Pipe proc_input (makePipe());
@@ -160,11 +169,24 @@ void AbstractExtern::handleClose(int fd) {
 	::close(fd);
 }
 
+
+static int termThenKill(int id) {
+	int status = 0;
+	for (int i = 1; i < 40; i++) {
+		int r = ::waitpid(id,&status,WNOHANG);
+		if (r == id) return status;
+		::kill(id, SIGTERM);
+		std::this_thread::sleep_for(std::chrono::milliseconds(200));
+	}
+	::kill(id, SIGKILL);
+	return -1;
+
+}
+
 void AbstractExtern::kill() {
 	if (chldid != -1) {
 		::kill(chldid,SIGTERM);
-		int status;
-		waitpid(chldid,&status,0);
+		int status = termThenKill(chldid);
 		log.note("terminated with status: $1", status);
 		chldid = -1;
 	}
