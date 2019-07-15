@@ -95,6 +95,7 @@ ExtStockApi::MarketInfo ExtStockApi::getMarketInfo(const std::string_view & pair
 	res.min_volume= v["min_volume"].getNumber();
 	res.fees = v["fees"].getNumber();
 	res.feeScheme = strFeeScheme[v["feeScheme"].getString()];
+	res.leverage= v["leverage"].getNumber();
 	return res;
 
 }
@@ -111,4 +112,15 @@ std::vector<std::string> ExtStockApi::getAllPairs() {
 	res.reserve(v.size());
 	for (json::Value x: v) res.push_back(x.toString().str());
 	return res;
+}
+
+void ExtStockApi::onConnect() {
+	ondra_shared::LogObject lg("");
+	if (lg.isLogLevelEnabled(ondra_shared::LogLevel::debug)) {
+		try {
+			jsonRequestExchange("enableDebug","true");
+		} catch (...) {
+
+		}
+	}
 }

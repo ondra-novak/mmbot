@@ -11,27 +11,42 @@
 #include <chrono>
 
 #include "../shared/logOutput.h"
-EmulatorAPI::EmulatorAPI(IStockApi &datasrc):datasrc(datasrc)
+EmulatorAPI::EmulatorAPI(IStockApi &datasrc, double initial_currency):datasrc(datasrc)
 	,prevId(std::chrono::duration_cast<std::chrono::milliseconds>(
 				std::chrono::system_clock::now().time_since_epoch()
-				).count()),log("emulator")
+				).count())
+	,initial_currency(initial_currency)
+	,log("emulator")
 {
+
+}
+
+double EmulatorAPI::readBalance(const std::string_view &symb, double defval) {
+	try {
+		return datasrc.getBalance(symb);
+	} catch (std::exception &e) {
+		log.warning("Balance for $1 is not available, setting to $2 - ", symb, defval, e.what());
+		return defval;
+	}
 
 }
 
 double EmulatorAPI::getBalance(const std::string_view & symb) {
 
-	if (symb != balance_symb) {
-		try {
-			balance = datasrc.getBalance(symb);
-		} catch (std::exception &e) {
-			log.warning("Balance is not available, setting to 0 - ", e.what());
-			balance = 0;
+	if (balance_symb == symb) {
+		if (initial_read_balance) {
+			initial_read_balance = false;
+			balance = readBalance(symb, 0);
 		}
-		balance_symb = symb;
 		return balance;
+	} else if (currency_symb == symb) {
+		if (initial_read_currency) {
+			initial_read_currency = false;
+			currency = readBalance(symb, initial_currency);
+		}
+		return currency;
 	} else {
-		return balance;
+		return 0;
 	}
 }
 
@@ -77,6 +92,9 @@ json::Value EmulatorAPI::placeOrder(const std::string_view & pair,
 
 EmulatorAPI::MarketInfo EmulatorAPI::getMarketInfo(const std::string_view & pair) {
 	minfo = datasrc.getMarketInfo(pair);
+	balance_symb = minfo.asset_symbol;
+	currency_symb = minfo.currency_symbol;
+	margin = minfo.leverage > 0;
 	return minfo;
 }
 
@@ -115,7 +133,17 @@ void EmulatorAPI::simulation(const Ticker &tk) {
 			minfo.removeFees(tr.eff_size, tr.eff_price);
 			trades.push_back(tr);
 			ondra_shared::logInfo("Emulator Trade: $1 on $2", o.size, o.price);
-			balance +=o.size;
+			if (minfo.leverage > 0) {
+				if (balance) {
+					double open_price = margin_currency / balance;
+					double price_diff = o.price - open_price;
+					currency += balance * price_diff;
+				}
+				margin_currency += margin_currency - tr.size * tr.price;
+			} else {
+				currency -= tr.size * tr.eff_price;
+			}
+			balance +=tr.eff_size;
 		}
 
 	}

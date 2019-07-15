@@ -29,6 +29,7 @@ public:
 	};
 
 	bool hasKey;
+	bool debug = false;
 
 	json::Value request(Method method, std::string path, json::Value data);
 	std::string createQuery(json::Value data);

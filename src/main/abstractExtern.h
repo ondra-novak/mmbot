@@ -20,6 +20,7 @@ public:
 	~AbstractExtern ();
 
 	void preload();
+	virtual void onConnect() {}
 protected:
 
 	static const int invval = -1;

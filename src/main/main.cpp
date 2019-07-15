@@ -336,8 +336,8 @@ static int cmd_achieve(Worker &wrk, simpleServer::ArgList args, simpleServer::St
 
 	double price = strtod(args[1].data,nullptr);
 	double balance = strtod(args[2].data,nullptr);
-	if (price<=0 || balance<=0) {
-		stream << "second or third argument must be positive real numbers. Use dot (.) as decimal point\n";return 1;
+	if (price<=0) {
+		stream << "second argument must be positive real numbers. Use dot (.) as decimal point\n";return 1;
 	}
 
 	StrViewA trader = args[0];

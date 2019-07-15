@@ -151,6 +151,8 @@ void AbstractExtern::spawn() {
 		}
 	});
 
+	onConnect();
+
 
 }
 

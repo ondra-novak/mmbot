@@ -33,9 +33,12 @@ public:
 	const std::string &getAccessToken();
 
 	bool hasKey;
+	bool debug = false;
 
 	void setTimeDiff(std::intptr_t t);
 	static std::uintptr_t now();
+
+
 
 private:
 	std::intptr_t time_diff = 0;

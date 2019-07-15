@@ -49,7 +49,9 @@ json::Value Proxy::request(std::string_view method, json::Value params, bool aut
 	std::istringstream req_strm(req_str);
 	std::ostringstream response;
 
-//	std::cerr << req_str << std::endl;
+	if (debug) {
+			std::cerr << "SEND: " << req_str << std::endl;
+	}
 
 	curl_handle.reset();
 	curl_handle.setOpt(new cURLpp::Options::Post(true));
@@ -70,9 +72,13 @@ json::Value Proxy::request(std::string_view method, json::Value params, bool aut
 	std::string rsp = response.str();
 	auto resp_code = curlpp::infos::ResponseCode::get(curl_handle);
 
+	if (debug) {
+		std::cerr << "Status: " << resp_code << std::endl;
+		std::cerr << "RECV: " << rsp << std::endl;
+	}
+
 	if (resp_code/100 != 2) throw std::runtime_error(rsp);
 
-//	std::cerr << rsp << std::endl;
 
 	json::Value resp =  json::Value::fromString(rsp);
 	json::Value success = resp["result"];

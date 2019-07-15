@@ -55,12 +55,23 @@ json::Value Proxy::public_request(std::string method, json::Value data) {
 	urlbuilder << config.apiPublicUrl << "?command=" << method;
 	buildParams(data, urlbuilder);
 	std::ostringstream response;
+
+	if (debug) {
+		std::cerr << "Send: " << urlbuilder.str() << std::endl;
+	}
+
+
 	curl_handle.reset();
 
 
 	curl_handle.setOpt(cURLpp::Options::Url(urlbuilder.str()));
 	curl_handle.setOpt(cURLpp::Options::WriteStream(&response));
 	curl_handle.perform();
+
+	if (debug) {
+		std::cerr << "Recv: " << response.str() << std::endl;
+	}
+
 
 	return json::Value::fromString(response.str());
 
@@ -91,6 +102,13 @@ json::Value Proxy::private_request(std::string method, json::Value data) {
 	std::string request = databld.str().substr(1);
 	std::ostringstream response;
 	std::istringstream src(request);
+
+
+	if (debug) {
+		std::cerr << "Send: " << request << std::endl;
+	}
+
+
 	curl_handle.reset();
 
 	curl_handle.setOpt(new cURLpp::Options::Post(true));
@@ -106,6 +124,10 @@ json::Value Proxy::private_request(std::string method, json::Value data) {
 	curl_handle.setOpt(new cURLpp::Options::Url(config.apiPrivUrl));
 	curl_handle.setOpt(new cURLpp::Options::WriteStream(&response));
 	curl_handle.perform();
+
+	if (debug) {
+		std::cerr << "Recv: " << response.str() << std::endl;
+	}
 
 	json::Value v =  json::Value::fromString(response.str());
 	if (v["error"].defined()) throw std::runtime_error(v["error"].toString().c_str());

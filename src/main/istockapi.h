@@ -119,6 +119,17 @@ public:
 		double fees;
 		///How fees are handled
 		FeeScheme feeScheme = currency;
+		///Leverage if margin trading is involved
+		/** Default value is 0, which means no margin is available
+		 * When this field is set, this changes several calculations
+		 * in report. It doesn't affect trading. By setting leverage also
+		 * enables short trades. However you still need to set external_assets
+		 * to specify starting point
+		 *
+		 * @note when leverage is set, command 'achieve' expects position,
+		 * not total assets
+		 */
+		double leverage = 0;
 
 
 		///Adds fees to values
@@ -237,7 +248,6 @@ public:
 	///Retrieve all available pairs
 	virtual std::vector<std::string> getAllPairs() = 0;
 
-
 	///used to probe broker - no broker implementation can be empty
 	virtual void testBroker() = 0;
 
@@ -246,6 +256,7 @@ public:
 		using std::runtime_error::runtime_error;
 	};
 
+	virtual ~IStockApi() {}
 
 	static json::NamedEnum<IStockApi::FeeScheme> strFeeScheme;
 };
