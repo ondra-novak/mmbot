@@ -15,6 +15,13 @@ function fetch_json(file) {
 
 function app_start(){
 	
+	if (navigator.serviceWorker) {
+		navigator.serviceWorker.register('sw.js', {	
+			scope: '.'
+		});
+	}
+	
+	
 	"use strict";
 	try {
 		var lastField = localStorage["markettrader_lastfield"];

@@ -2,10 +2,18 @@
   "short_name": "MM Bot",
   "name": "MM Bot",
   "start_url": "index.html",
-  "background_color": "#CCCCCC",
+  "background_color": "#202020",
+  "theme_color":"#202020",
   "display": "standalone",
   "orientation": "portrait-primary",
-  "scope": "."
+  "scope": ".",
+  "icons":[
+      {
+      "src": "logo.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }]
+  
 }
 
 
