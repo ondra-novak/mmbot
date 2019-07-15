@@ -218,7 +218,7 @@ int MTrader::perform() {
 		if (minfo.leverage && cfg.external_assets > 0) {
 			double start_price = calculator.balance2price(cfg.external_assets);
 			double cur_price = calculator.balance2price(status.assetBalance);
-			double colateral = (internal_balance * (sqrt(start_price * cur_price) + cur_price)+currency_balance_cache) * (1 - 1 / minfo.leverage);
+			double colateral = (currency_balance_cache+(start_price-sqrt(start_price*cur_price))*internal_balance )* (1 - 1 / minfo.leverage);
 			auto range = calc_margin_range(cfg.external_assets, colateral, start_price);
 			max_price = range.second;
 			min_price = range.first;
