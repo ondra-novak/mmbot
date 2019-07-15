@@ -79,7 +79,11 @@ json::Value  ExtStockApi::placeOrder(const std::string_view & pair,
 
 
 bool ExtStockApi::reset() {
-	if (chldid != -1) jsonRequestExchange("reset",json::Value());
+	if (chldid != -1) try {
+		jsonRequestExchange("reset",json::Value());
+	} catch (...) {
+		jsonRequestExchange("reset",json::Value());
+	}
 	return true;
 }
 

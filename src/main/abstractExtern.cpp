@@ -174,6 +174,18 @@ AbstractExtern::~AbstractExtern() {
 	kill();
 }
 
+static void waitForRead(int fd) {
+	struct pollfd fds = {fd, POLLIN|POLLHUP,0};
+	int r = poll(&fds, 1, 30000);
+	if (r != 1) throw std::runtime_error("Broker read timeout");
+}
+static void waitForWrite(int fd) {
+	struct pollfd fds = {fd, POLLOUT,0};
+	int r = poll(&fds, 1, 30000);
+	if (r != 1) throw std::runtime_error("Broker write timeout");
+}
+
+
 class AbstractExtern::Reader {
 public:
 	Reader (FD &fd):fd(fd) {}
@@ -205,6 +217,7 @@ protected:
 	FD &fd;
 
 	std::string_view readBuff() {
+		waitForRead(fd);
 		int i = ::read(fd, data, sizeof(data));
 		if (i < 1) return std::string_view();
 		else return std::string_view(data, i);
@@ -217,6 +230,7 @@ bool AbstractExtern::writeJSON(json::Value v, FD& fd) {
 	s = s + "\n";
 	std::string_view ss(s.c_str(),s.length());
 	while (!ss.empty()) {
+		waitForWrite(fd);
 		int i = write(fd, ss.data(), ss.length());
 		if (i < 1) {
 			return false;
@@ -249,48 +263,51 @@ json::Value AbstractExtern::jsonExchange(json::Value request) {
 		kill();
 	}
 	do {
-		struct pollfd fds[2];
-		fds[0].fd = extout;
-		fds[0].events = POLLIN;
-		fds[0].revents = 0;
-		fds[1].fd = exterr;
-		fds[1].events = POLLIN;
-		fds[1].revents = 0;
-		if (poll(fds,2,-1)<0) report_error("poll");
-
-		if (fds[1].revents) {
-			Reader errrd(exterr);
-			bool rep;
-			std::string z;
-			do {
-				z.clear();
+		try {
+			struct pollfd fds[2];
+			fds[0].fd = extout;
+			fds[0].events = POLLIN;
+			fds[0].revents = 0;
+			fds[1].fd = exterr;
+			fds[1].events = POLLIN;
+			fds[1].revents = 0;
+			int r = poll(fds,2,30000);
+			if (r == 0) report_error("timeout");
+			if (r < 0) report_error("poll");
+			if (fds[1].revents) {
+				Reader errrd(exterr);
+				bool rep;
+				std::string z;
 				do {
-					auto buff = errrd.read();
-					if (buff.empty()) {
-						kill();
-						throw std::runtime_error("Connection to API lost");
-					}
-					auto pos = buff.find('\n');
-					if (pos == buff.npos) z.append(buff);
-					else {
-						z.append(buff.substr(0,pos));
-						errrd.putback(buff.substr(pos+1));
-						rep = pos+1 < buff.length();
-						log.note("stderr: $1",  z);
-						break;
-					}
-				} while (true);
-			}while (rep);
-		}
-		if (fds[0].revents) {
-			try {
-				auto ret = readJSON(extout);
-				if (verbose) log.debug("RECV: $1", ret.toString());
-				return ret;
-
-			} catch (...) {
-				kill();
+					z.clear();
+					do {
+						auto buff = errrd.read();
+						if (buff.empty()) {
+							throw std::runtime_error(json::String({
+								"Connection to API lost: ",
+								request.toString()}).c_str());
+						}
+						auto pos = buff.find('\n');
+						if (pos == buff.npos) z.append(buff);
+						else {
+							z.append(buff.substr(0,pos));
+							errrd.putback(buff.substr(pos+1));
+							rep = pos+1 < buff.length();
+							log.note("stderr: $1",  z);
+							break;
+						}
+					} while (true);
+				}while (rep);
 			}
+			if (fds[0].revents) {
+					auto ret = readJSON(extout);
+					if (verbose) log.debug("RECV: $1", ret.toString());
+					return ret;
+
+			}
+		} catch (...) {
+			kill();
+			throw;
 		}
 	}
 	while (true);
