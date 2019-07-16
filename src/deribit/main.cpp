@@ -256,17 +256,23 @@ inline Interface::MarketInfo Interface::getMarketInfo(const std::string_view &pa
 	if (!instrument.defined())
 		throw std::runtime_error("No such symbol");
 
+	auto bcur = instrument["base_currency"].getString();
+	double leverage;
+	if (bcur == "BTC") leverage=100.0;
+	else if (bcur == "ETH") leverage=50.0;
+	else leverage = 0;
+
 	tick_cache[pair] = instrument["tick_size"].getNumber();
 	return {
 		std::string("$").append(pair),
-		instrument["base_currency"].getString(),
+		bcur,
 		csize["contract_size"].getNumber(),
 		0,
 		csize["contract_size"].getNumber(),
 		0,
 		0,
 		IStockApi::currency,
-		100
+		leverage
 	};
 
 
