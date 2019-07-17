@@ -8,7 +8,7 @@
   <link rel="manifest" href="manifest.json"  crossOrigin='use-credentials'>
 </head>
 <body onload="app_start();">
-<div class="selchart"><div id="indicator"></div>
+<div class="selchart"><div id="calculator_icon"></div><div id="indicator"></div>
 <div id="home">⌂</div>
 <select id="selchart">
 <option value="+summary">Summary</option>
@@ -94,6 +94,72 @@
 </div>
 <div id="logo" hidden>
 <img src="logo.png">
+</div>
+<div id="calculator" hidden class="fade">
+<menu>
+<li data-name="form_order" class="selected">Order size</li>
+<li data-name="form_range_exchange">Range</li>
+<li data-name="form_range_margin">Range (margin)</li>
+<li data-name="form_range_futures">Range (futures)</li>
+</menu>
+<div class="content">
+<form id="form_order">
+<label><span>Assets</span><input type="text" name="a" size="10"></label>
+<label><span>Equilibrium</span><input type="text" name="p" size="10"></label>
+<label><span>Order price</span><input type="text" name="n" size="10"></label>
+<hr>
+<table>
+<tr><th>Order type</th><td class="order_type"><span class="buy">BUY</span><span class="sell">SELL</span></td></tr>
+<tr><th>Size 0% accumulation</th><td class="order_size acc0"></td></tr>
+<tr><th>Size 100% accumulation</th><td class="order_size acc100"></td></tr>
+<tr><th>Cash flow</th><td class="cash_flow"></td></tr>
+<tr><th>Normalized profit</th><td class="norm_profit"></td></tr>
+</table>
+<div class="note">NOTE: Fees aren't included.</div>
+</form>
+<form id="form_range_exchange" hidden>
+<label><span>Available assets</span><input type="text" name="aa" size="10"></label>
+<label><span>External assets</span><input type="text" name="ea" size="10"></label>
+<label><span>Available money</span><input type="text" name="am" size="10"></label>
+<label><span>Equilibrium</span><input type="text" name="p" size="10"></label>
+<hr>
+<table>
+<tr><th>Highest tradable price</th><td class="range_max"></td></tr>
+<tr><th>Lowest tradable price</th><td class="range_min"></td></tr>
+<tr><th>Boost</th><td class="boost"></td></tr>
+</table>
+</form>
+<form id="form_range_margin" hidden>
+<label><span>Position</span><input type="text" name="aa" size="10" value="0"></label>
+<label><span>Power (ext.ast.)</span><input type="text" name="ea" size="10"></label>
+<label><span>Collateral</span><input type="text" name="am" size="10"></label>
+<label><span>Equilibrium</span><input type="text" name="p" size="10"></label>
+<label><span>Max leverage (x)</span><input type="text" name="l" size="10"></label>
+<hr>
+<table>
+<tr><th>Highest tradable price</th><td class="range_max"></td></tr>
+<tr><th>Lowest tradable price</th><td class="range_min"></td></tr>
+<tr><th>Boost</th><td class="boost"></td></tr>
+</table>
+</form>
+<form id="form_range_futures" hidden>
+<label><span>Position (contracts)</span><input type="text" name="aa" size="10" value="0"></label>
+<label><span>Power (ext.ast.)</span><input type="text" name="ea" size="10"></label>
+<label><span>Collateral</span><input type="text" name="am" size="10"></label>
+<label><span>Equilibrium</span><input type="text" name="p" size="10"></label>
+<label><span>Max leverage (x)</span><input type="text" name="l" size="10"></label>
+<div class="note">NOTE: For futures like BitMex or Deribit, where contracts are quoted in dolars, not assets. Otherwise, use "margin".</div>
+<hr>
+<table>
+<tr><th>Highest tradable price</th><td class="range_max"></td></tr>
+<tr><th>Lowest tradable price</th><td class="range_min"></td></tr>
+<tr><th>Boost</th><td class="boost"></td></tr>
+</table>
+</form>
+<button class="close_butt">Close</button>
+</div>
+
+
 </div>
 <script src="code.js" type="text/javascript"></script>
 

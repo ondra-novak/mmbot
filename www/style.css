@@ -95,7 +95,7 @@ line.marker.sell {
 	top: 0;
 	left: 0;
 	background-color: #222;
-	padding: 0.2cm 1cm 0.2cm 1cm;
+	padding: 0.2cm 1.8cm 0.2cm 1cm;
 	text-align: center;
 	z-index: 10;
 }
@@ -555,6 +555,150 @@ x-tr.hdr [data-name=export_csv] {
 #logo .line1 {
 	font-size: 100px;
 	font-weight: bolder;
+}
+
+
+#calculator {
+	position:fixed;
+	left:0;
+	right:0;
+	top:1cm;
+	z-index:10;
+	max-width: 13cm;
+	margin:auto;
+	max-height: 100vh;
+}
+
+menu li {
+	display:block;
+	padding: 0.2cm;
+	background-color:#444;
+	border-radius: 10px 10px 0 0;
+	z-index:3;
+	box-shadow: 0 -2px 5px black;
+	white-space: nowrap;
+	cursor: default;
+}
+
+menu li:hover {
+	background-color: #555;
+}
+
+menu li.selected {
+	background-color:#888;
+	color: white;
+	font-weight:bold;
+	text-shadow: 0 0 10px black;
+	transform: scale(1.05,1.05	);
+	z-index:5
+}
+
+menu {
+	margin:0;
+	padding:0;
+	display: flex;
+	overflow-x: auto;
+	overflow-y: hidden;
+	-ms-overflow-style: none;
+	scrollbar-width: none;
+}
+
+
+#calculator .content {
+	border: 1px solid #765;
+	background-color:#333;
+	padding: 0.2cm;
+	box-shadow: 0 0 10px black;
+	z-index:4;
+}
+
+form label {
+	display: flex;
+	justify-content: space-between;
+}
+
+form label > *  {
+	display: block;
+}
+
+form label > input {
+	width: 50%; 
+	font-size: 0.98rem;
+	box-sizing: border-box;
+}
+#calculator input {
+	text-align:right;
+	padding-right: 5%;
+}
+
+#calculator table {
+	width: 100%;
+
+}
+
+#calculator table th {
+	text-align:left;
+}
+
+#calculator .note {
+	font-size: 0.8em;
+	padding: 1em;
+	background-color:#200;
+}
+
+#calculator .order_type > * {
+	display:none;
+	font-weight: bold;
+}
+#calculator .order_type > .buy {
+	color: #8c8;
+}
+
+
+#calculator .order_type > .sell {
+	color: #f88888;
+}
+
+#calculator .order_type.buy > .buy,#calculator .order_type.sell > .sell {
+	display:inline;
+}
+#calculator  .norm_profit {
+	color: #8c8;
+}
+#calculator  .norm_profit::before {
+	content: '+';
+}
+#calculator table td {
+	text-align:right;
+}
+
+#calculator .close_butt {
+	display: block;
+	margin: 0.2cm auto;
+	bordeR:  0;
+	padding: 0.2cm;
+	width: 4cm;
+}
+
+form button {
+	display: block;
+	width: 30%;
+	margin-left:auto;
+	margin-right:auto;
+	margin-top: 0.5cm;
+}
+
+#calculator_icon {width: 0.5cm;height:  0.5cm;position: absolute;right: 0.9cm;top: 0.3cm;background-image: url(calculator.svg);background-size: cover;}
+
+#calculator {
+	transition: all 0.3s;
+	opacity: 1;
+	transform: translate(0,0);
+}
+
+#calculator.fade {
+	opacity: 0;
+	transform: translate(0,-100px);
 }
 
 @keyframes slide {

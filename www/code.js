@@ -13,6 +13,24 @@ function fetch_json(file) {
 }
 
 
+function adjNum(n) {
+	"use strict";
+	if (typeof n != "number") return n;
+	if (!isFinite(n)) { 
+		if (s < 0) return "-∞";
+		else return "∞";
+	}
+	var an = Math.abs(n);
+	if (an > 9999) return n.toFixed(0);
+	else if (an >= 1) return n.toFixed(2);
+	else if (an > 0.0001) return n.toFixed(6);
+	else {
+		var s = (n*1000000).toFixed(3);
+		if (s == "0.000") return s;
+		return s+"µ";
+	}
+}
+
 function app_start(){
 	
 	if (navigator.serviceWorker) {
@@ -633,18 +651,6 @@ function app_start(){
 	}
 
 	
-	function adjNum(n) {
-		if (typeof n != "number") return n;		
-		var an = Math.abs(n);
-		if (an > 9999) return n.toFixed(0);
-		else if (an >= 1) return n.toFixed(2);
-		else if (an > 0.0001) return n.toFixed(6);
-		else {
-			var s = (n*1000000).toFixed(3);
-			if (s == "0.000") return s;
-			return s+"µ";
-		}
-	}
 
 	function drawChart(elem, chart, fld, lines) {
 		var now = new Date();
@@ -777,6 +783,8 @@ function app_start(){
 		var v = document.getElementById("logfile");
 		v.hidden = !v.hidden;
 	})
+	
+	init_calculator();
 }
 
 
@@ -810,4 +818,135 @@ function createCSV(chart, infoMap) {
 			"asset",
 		]));
 	return rows.join("\r\n");
+}
+
+function pow2(x) {
+	return x*x;
+}
+
+function init_calculator() {
+	"use strict";
+	
+	
+	var calc = document.getElementById("calculator");
+	var menu = calc.querySelector("menu");
+	var menu_items = menu.querySelectorAll("li");
+	var menu_fn = function() {
+		Array.prototype.forEach.call(menu_items, function(x) {
+			x.classList.remove("selected");
+			document.getElementById(x.dataset.name).hidden = true;
+		});
+		this.classList.add("selected");
+		document.getElementById(this.dataset.name).hidden = false;
+	}
+	Array.prototype.forEach.call(menu_items, function(x) {
+		x.addEventListener("click",menu_fn);
+	});
+	
+	function update_ranges(f,min,max,boost) {
+		f.querySelector(".range_max").innerText = adjNum(max);
+		f.querySelector(".range_min").innerText = adjNum(min);
+		f.querySelector(".boost").innerText = adjNum(boost);				
+	}
+	
+	var order_form = document.getElementById("form_order");
+	var order_form_calc = function() {
+		var p = parseFloat(order_form.p.value);
+		var a = parseFloat(order_form.a.value);
+		var n = parseFloat(order_form.n.value);
+		
+		var sz = a*(Math.sqrt(p/n) - 1);
+		var calcvol = a*(Math.sqrt(p*n)-p);
+		var actvol = -sz * n;
+		var extra = actvol - calcvol;
+		var accumsz = sz + extra/n;
+		
+		var otype = order_form.querySelector(".order_type");
+		otype.classList.toggle("buy", sz > 0);
+		otype.classList.toggle("sell", sz < 0);
+		
+		order_form.querySelector(".order_size.acc0").innerText = adjNum(Math.abs(sz));
+		order_form.querySelector(".order_size.acc100").innerText = adjNum(Math.abs(accumsz));
+		order_form.querySelector(".norm_profit").innerText = adjNum(extra);
+		order_form.querySelector(".cash_flow").innerText = adjNum(actvol);
+	}
+	Array.prototype.forEach.call(order_form.elements,function(x){
+		x.addEventListener("input", order_form_calc);
+	});
+	
+	var range_form = document.getElementById("form_range_exchange");
+	var range_form_calc = function() {
+		var aa = parseFloat(this.aa.value);
+		var ea = parseFloat(this.ea.value);
+		var am = parseFloat(this.am.value);
+		var p = parseFloat(this.p.value);
+		var ab = aa+ea;
+		var value = ab * p;
+		var max_price = pow2((ab * Math.sqrt(p))/ea);
+		var S = value - am;
+		var min_price = S<=0?0:pow2(S/(ab*Math.sqrt(p)));
+		var boost = ab/aa;
+		
+		update_ranges(this, min_price, max_price, boost)
+	}.bind(range_form);
+	Array.prototype.forEach.call(range_form.elements,function(x){
+		x.addEventListener("input", range_form_calc);
+	});
+
+	var range_form_margin = document.getElementById("form_range_margin");
+	var range_form_margin_calc = function() {
+		var aa = parseFloat(this.aa.value);
+		var ea = parseFloat(this.ea.value);
+		var am = parseFloat(this.am.value);
+		var p = parseFloat(this.p.value);
+		var l = parseFloat(this.l.value);
+		var ab = aa+ea;
+		var colateral = am* (1 - 1 / l);
+		var min_price = (ab*p - 2*Math.sqrt(ab*colateral*p) + colateral)/ab;
+		var max_price = (ab*p + 2*Math.sqrt(ab*colateral*p) + colateral)/ab;
+		var boost = ab * p / colateral;
+		
+		update_ranges(this, min_price, max_price, boost)
+	}.bind(range_form_margin);
+	
+	Array.prototype.forEach.call(range_form_margin.elements,function(x){
+		x.addEventListener("input", range_form_margin_calc);
+	});
+
+	var form_range_futures = document.getElementById("form_range_futures");
+	var form_range_futures_calc = function() {
+		var aa = parseFloat(this.aa.value);
+		var ea = parseFloat(this.ea.value);
+		var am = parseFloat(this.am.value);
+		var p = 1.0/parseFloat(this.p.value);
+		var l = parseFloat(this.l.value);
+		var ab = aa+ea;
+		var colateral = am* (1 - 1 / l);
+		var max_price = 1.0/((ab*p - 2*Math.sqrt(ab*colateral*p) + colateral)/ab);
+		var min_price = 1.0/((ab*p + 2*Math.sqrt(ab*colateral*p) + colateral)/ab);
+		var boost = ab * p / colateral;
+		
+		update_ranges(this, min_price, max_price, boost)
+	}.bind(form_range_futures);
+	
+	Array.prototype.forEach.call(form_range_futures.elements,function(x){
+		x.addEventListener("input", form_range_futures_calc);
+	});
+	
+	calc.querySelector(".close_butt").addEventListener("click",function() {
+		calc.classList.toggle("fade",true);
+		setTimeout(function(){
+			calc.hidden = true;			
+		},500);		
+	});
+	
+	document.getElementById("calculator_icon").addEventListener("click",function(){
+		calc.classList.toggle("fade",true);
+		setTimeout(function(){
+			calc.hidden = false;			
+		},5);
+		setTimeout(function(){
+			calc.classList.toggle("fade",false);			
+		},10);
+	})
 }

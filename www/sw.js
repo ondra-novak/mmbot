@@ -8,6 +8,7 @@ self.addEventListener('install', function(evt) {
 		      './index.html',
 		      './style.css',
 		      './code.js',
+		      './calculator.svg',
 		      'https://fonts.googleapis.com/css?family=Ruda&display=swap',
 		      'https://fonts.gstatic.com/s/ruda/v10/k3kfo8YQJOpFqnYdaObJ.woff2'
 		    ]);
