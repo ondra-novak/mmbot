@@ -1,0 +1,104 @@
+button,input,select {
+    font-size: 1rem;
+    background-color:black;
+    border: 1px solid #777;
+    color: white;
+    padding: 0.2em 0;
+    text-align: center;
+}
+
+button {
+    padding: 0.5em 0;
+    background-color:#444;
+    box-shadow: 2px 2px 10px 0px black;
+}
+
+button:hover {
+    padding: 0.5em 0;
+    background-color:#555;
+}
+button:active {
+    transform: translate(2px,2px);
+    box-shadow: 0 0 0 0 black;
+}
+
+
+.general {
+    max-width: 14cm;
+    margin:auto;
+    padding:  1em;
+}
+
+.buttons {
+    text-align: right;
+}
+
+.buttons button {
+    display: inline-block;
+    margin-left: 1em;
+}
+
+input {
+   	background-color:black;	
+
+}
+
+label.inline {
+    display: inline;
+    float: right;
+    white-space: nowrap;
+    margin-left: 1em;
+    min-width: 4em;
+}
+
+label.inline input {
+    display: inline-block;
+    vertical-align: middle;
+}
+
+.markets {
+    padding: 0em;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.market {
+    min-width: 8cm;
+    margin: 0.2em;
+    padding: 0.4em;
+    border: 1px solid #888
+
+}
+
+span.range {
+    display:block;
+    width:  50%;
+    box-sizing: border-box;
+    padding-left: 3em;
+    position: relative;
+}
+
+span.range input {
+    width: 100%;
+    display:block;
+    box-sizing: border-box;
+}
+
+span.range .number {
+    display:block;
+    position:absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    height: 80%;
+    margin:auto;
+    width: 2.8em;
+    /* border: 1px solid; */
+    text-align: center;
+
+}
+
+#command_bar {
+    margin: 1em;
+}

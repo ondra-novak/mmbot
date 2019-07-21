@@ -7,6 +7,7 @@
 #include "../server/src/simpleServer/abstractStream.h"
 #include "../server/src/simpleServer/address.h"
 #include "../server/src/simpleServer/http_filemapper.h"
+#include "../server/src/simpleServer/http_pathmapper.h"
 #include "../server/src/simpleServer/http_server.h"
 
 #include "shared/ini_config.h"
@@ -14,6 +15,7 @@
 #include "shared/cmdline.h"
 #include "shared/future.h"
 #include "../shared/sch2wrk.h"
+#include "abstractExtern.h"
 #include "istockapi.h"
 #include "istatsvc.h"
 #include "ordergen.h"
@@ -21,7 +23,9 @@
 #include "report.h"
 #include "spread_calc.h"
 #include "ext_stockapi.h"
-
+#include "authmapper.h"
+#include "webcfg.h"
+#include "spawn.h"
 
 using ondra_shared::StdLogFile;
 using ondra_shared::StrViewA;
@@ -155,6 +159,9 @@ public:
 			fn(x.first, *x.second);
 		}
 	}
+	void clear() {
+		stock_markets.clear();
+	}
 };
 
 
@@ -227,48 +234,6 @@ auto run_in_worker(Worker wrk, Fn &&fn) -> decltype(fn()) {
 	}
 	return *ret;
 }
-
-class AuthMapper {
-public:
-
-	AuthMapper(	std::string users, std::string realm):users(users),realm(realm) {}
-	AuthMapper &operator >>= (simpleServer::HTTPHandler &&hndl) {
-		handler = std::move(hndl);
-		return *this;
-	}
-
-	void operator()(simpleServer::HTTPRequest req) const {
-		if (!users.empty()) {
-			auto hdr = req["Authorization"];
-			auto hdr_splt = hdr.split(" ");
-			StrViewA type = hdr_splt();
-			StrViewA cred = hdr_splt();
-			if (type != "Basic") return genError(req);
-			auto u_splt = StrViewA(users).split(" ");
-			bool found = false;
-			while (!!u_splt && !found) {
-				StrViewA u = u_splt();
-				found = u == cred;
-			}
-			if (!found) return genError(req);
-		}
-		handler(req);
-	}
-
-	void genError(simpleServer::HTTPRequest req) const {
-		req.sendResponse(simpleServer::HTTPResponse(401)
-			.contentType("text/html")
-			("WWW-Authenticate","Basic realm=\""+realm+"\""),
-			"<html><body><h1>401 Unauthorized</h1></body></html>"
-			);
-	}
-
-protected:
-	AuthMapper(	std::string users, std::string realm, simpleServer::HTTPHandler &&handler):users(users), handler(std::move(handler)) {}
-	std::string users;
-	std::string realm;
-	simpleServer::HTTPHandler handler;
-};
 
 static int eraseTradeHandler(Worker &wrk, simpleServer::ArgList args, simpleServer::Stream stream, bool trunc) {
 	if (args.length<2) {
@@ -467,8 +432,41 @@ int main(int argc, char **argv) {
 					if (web_bind.defined()) {
 						simpleServer::NetAddr addr = simpleServer::NetAddr::create(web_bind.getString(),11223);
 						srv = std::make_unique<simpleServer::MiniHttpServer>(addr, 1, 1);
-						(*srv)  >>= AuthMapper(rptsect["http_auth"].getString(),name)
-								>>= simpleServer::HttpFileMapper(std::string(rptpath), "index.html");
+
+						std::vector<simpleServer::HttpStaticPathMapper::MapRecord> paths;
+						paths.push_back(simpleServer::HttpStaticPathMapper::MapRecord{
+							"/",AuthMapper(rptsect["http_auth"].getString(),name)
+										>>= simpleServer::HttpFileMapper(std::string(rptpath), "index.html")
+						});
+
+						auto webcfgsect = ini["webcfg"];
+						auto webcfg_enabled = webcfgsect["enabled"];
+						if (webcfg_enabled.getBool(false)) {
+							std::string path = webcfg_enabled.getCurPath();
+							path.append(ini.pathSeparator.data, ini.pathSeparator.length)
+								.append("webcfg.conf");
+							std::string auth = webcfgsect["auth"].getString();
+							auto restartFn = [=]{
+								std::string switches;
+								switches.push_back('-');
+								if (test) switches.push_back('t');
+								if (debug) switches.push_back('d');
+								switches.push_back('f');
+								const char *args[] = {
+										app_path.c_str(),
+										switches.c_str(),
+										cfgpath.c_str(),
+										"restart",
+										nullptr
+								};
+								spawn(app_path.c_str(), args);
+							};
+							paths.push_back({
+								"/admin",WebCfg(auth,name,path,webcfgsect["serial"].getUInt(0),stockSelector,restartFn)
+							});
+						}
+
+						(*srv)  >>=  simpleServer::HttpStaticPathMapperHandler(paths);
 					}
 
 
@@ -592,6 +590,9 @@ int main(int argc, char **argv) {
 
 					sch.remove(id);
 					sch.sync();
+
+					traders.clear();
+					stockSelector.clear();
 
 					logNote("---- Exit ----");
 

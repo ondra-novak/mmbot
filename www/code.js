@@ -941,12 +941,9 @@ function init_calculator() {
 	});
 	
 	document.getElementById("calculator_icon").addEventListener("click",function(){
-		calc.classList.toggle("fade",true);
-		setTimeout(function(){
-			calc.hidden = false;			
-		},5);
+		calc.hidden = false;			
 		setTimeout(function(){
 			calc.classList.toggle("fade",false);			
-		},10);
+		},100);
 	})
 }

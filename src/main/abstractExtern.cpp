@@ -185,7 +185,8 @@ static int termThenKill(int id) {
 
 void AbstractExtern::kill() {
 	if (chldid != -1) {
-		::kill(chldid,SIGTERM);
+		extin.close();
+//		::kill(chldid,SIGTERM);
 		int status = termThenKill(chldid);
 		log.note("terminated with status: $1", status);
 		chldid = -1;

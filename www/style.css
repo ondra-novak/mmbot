@@ -621,22 +621,26 @@ form label > *  {
 	display: block;
 }
 
-form label > input {
-	width: 50%; 
-	font-size: 0.98rem;
+form label > input, form label > select {
+	font-size: 1rem;
 	box-sizing: border-box;
+	width:50%;
+}
+form label > input[type=checkbox] {
+	width: 1.2rem;
+	height: 1.2rem;
 }
 #calculator input {
 	text-align:right;
 	padding-right: 5%;
 }
 
-#calculator table {
+table.infotable {
 	width: 100%;
 
 }
 
-#calculator table th {
+table.infotable th {
 	text-align:left;
 }
 
@@ -668,7 +672,7 @@ form label > input {
 #calculator  .norm_profit::before {
 	content: '+';
 }
-#calculator table td {
+table.infotable td {
 	text-align:right;
 }
 

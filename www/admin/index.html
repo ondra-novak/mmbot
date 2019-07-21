@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>MM Bot</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="../style.css">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+</head>
+<body onload="app_start();">
+<h1>MMBot web admin</h1>
+<hr>
+<div class="general">
+<form name="general">
+<label><span>Web admin is enabled</span><input type="checkbox" name="enabled"></label>
+<label><span>Credentials</span><select name="credentials" ><option value="">-- n/a ---</option></select></label>
+<div class="buttons"><button name="remove" type="button">Remove</button><button name="add" type="button">Add</button></div>
+</form>
+</div>
+<hr>
+<div class="markets" id="market_list">
+<template id="market_template">
+<div class="market">
+<form>
+<div class="head">
+	<div class="title" data-name="title">Title</div>
+	<div class="info" data-name="info">
+				<label class="inline"><input type="checkbox" name="enabled"> Enabled</label>
+	</div>
+</div>
+<table class="infotable">
+<tr><th>Broker</th><td data-name="broker"></td></tr>
+<tr><th>Symbol</th><td data-name="pair_symbol"></td></tr>
+<tr><th>Current price</th><td data-name="info_price"></td></tr>
+<tr><th>Asset balance</th><td data-name="info_asset"></td></tr>
+<tr><th>Currency balance</th><td data-name="info_currency"></td></tr>
+<tr><th>Fees [%]</th><td data-name="info_fees"></td></tr>
+<tr><th>Leverage [x]</th><td data-name="info_leverage"></td></tr>
+</table>
+<label><span>Title</span><input type="text" name="title"></label>
+<br>
+<label><span>External assets</span><input type="text" name="external_assets"></label>
+<br>
+<label><span>Spread calc hours</span><span class="range"><input type="range" min="1" max="720" name="spread_calc_hours"></span></label>
+<label><span>Spread calc min trades</span><span class="range"><input type="range" min="1" max="500" name="spread_calc_min_trades"></span></label>
+<label><span>Spread calc max trades</span><span class="range"><input type="range" min="1" max="500" name="spread_calc_max_trades"></span></label>
+<br>
+<label><span>Accumulation when buy</span><span class="range"><input type="range" min="0" max="100" name="acum_factor_buy"></span></label>
+<label><span>Accumulation when sell</span><span class="range"><input type="range" min="0" max="100" name="acum_factor_sell"></span></label>
+<br>
+<label><span>Dynamic multiplicator raise</span><span class="range"><input type="range" min="0" max="500" name="dynmult_raise"></span></label>
+<label><span>Dynamic multiplicator fall</span><span class="range"><input type="range" min="1" max="100" name="dynmult_fall"></span></label>
+<br>
+<label ><span>Dry run</span><input type="checkbox" name="dryrun"> </label>
+<label ><span>Internal balance</span><input type="checkbox" name="ibal"> </label>
+<label ><span>Detect manual trades</span><input type="checkbox" name="mantrade"> </label>
+<br>
+
+<label><span>Operation:</span><select name="op">
+<option value="">--Select operation--</option>
+<option value="cancel_orders">Cancel all orders</option>
+<option value="repair">Repair</option>
+<option value="reset">Reset</option>
+<option value="erase">Remove</option>
+</select></label>
+<div class="buttons"><button name="exec" type="button">Execute operation</button></div>
+</form>
+</div>
+</template>
+<div class="market" id="create_new">
+<form>
+<label><span>Select symbol:</span><select name="symbol"></select></label>
+<div class="buttons"><button name="create" type="button">Add market</button></div>
+</form>
+</div>
+</div>
+<hr>
+<form id="command_bar"><div class="buttons"><button name="save" type="button">Save</button><button name="restart" type="button">Restart</button></div></form>
+
+
+<script src="code.js" type="text/javascript"></script>
+
+
+</body>
+</html>
