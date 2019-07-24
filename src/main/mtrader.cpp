@@ -41,10 +41,8 @@ MTrader::Config MTrader::load(const ondra_shared::IniConfig::Section& ini, bool 
 	cfg.spread_calc_max_trades = ini["spread_calc_max_trades"].getUInt(24);
 	cfg.pairsymb = ini.mandatory["pair_symbol"].getString();
 
-	if (ini["buy_mult"].getNumber(1.0) != 1.0)
-		ondra_shared::logWarning("Am option 'buy_mult' is no longer supported. If you need to 'boost' orders, use 'external_assets'");
-	if (ini["sell_mult"].getNumber(1.0) != 1.0)
-		ondra_shared::logWarning("An option 'sell_mult' is no longer supported. If you need to 'boost' orders, use 'external_assets'");
+	cfg.buy_mult = ini["buy_mult"].getNumber(1.0);
+	cfg.sell_mult = ini["sell_mult"].getNumber(1.0);
 
 	cfg.buy_step_mult = ini["buy_step_mult"].getNumber(1.0);
 	cfg.sell_step_mult = ini["sell_step_mult"].getNumber(1.0);
@@ -69,14 +67,15 @@ MTrader::Config MTrader::load(const ondra_shared::IniConfig::Section& ini, bool 
 	if (cfg.spread_calc_mins > 1000000) throw std::runtime_error("spread_calc_hours is too big");
 	if (cfg.spread_calc_min_trades > cfg.spread_calc_max_trades) throw std::runtime_error("'spread_calc_min_trades' must bee less then 'spread_calc_max_trades'");
 	if (cfg.spread_calc_max_trades > 24*60) throw std::runtime_error("'spread_calc_max_trades' is too big");
-	if (cfg.acm_factor_buy > 2) throw std::runtime_error("'acum_factor_buy' is too big");
-	if (cfg.acm_factor_buy < -2) throw std::runtime_error("'acum_factor_buy' is too small");
-	if (cfg.acm_factor_sell > 2) throw std::runtime_error("'acum_factor_sell' is too big");
-	if (cfg.acm_factor_sell < -2) throw std::runtime_error("'acum_factor_sell' is too small");
+	if (cfg.acm_factor_buy > 20) throw std::runtime_error("'acum_factor_buy' is too big");
+	if (cfg.acm_factor_buy < -20) throw std::runtime_error("'acum_factor_buy' is too small");
+	if (cfg.acm_factor_sell > 20) throw std::runtime_error("'acum_factor_sell' is too big");
+	if (cfg.acm_factor_sell < -20) throw std::runtime_error("'acum_factor_sell' is too small");
 	if (cfg.dynmult_raise > 1e6) throw std::runtime_error("'dynmult_raise' is too big");
 	if (cfg.dynmult_raise < 1) throw std::runtime_error("'dynmult_raise' is too small");
 	if (cfg.dynmult_fall > 100) throw std::runtime_error("'dynmult_fall' must be below 100");
 	if (cfg.dynmult_fall <= 0) throw std::runtime_error("'dynmult_fall' must not be negative or zero");
+
 
 	return cfg;
 }
@@ -378,18 +377,21 @@ MTrader::Order MTrader::calculateOrderFeeLess(double step, double curPrice, doub
 	double prevPrice = calculator.balance2price(balance);
 	double newPrice = prevPrice * exp(step);
 	double fact;
+	double mult;
 
 	if (step < 0) {
 		//if price is lower than old, check whether current price is above
 		//otherwise lower the price more
 		if (newPrice > curPrice) newPrice = curPrice;
 		fact = cfg.acm_factor_buy;
+		mult = cfg.buy_mult;
 	} else {
 		//if price is higher then old, check whether current price is below
 		//otherwise highter the newPrice more
 
 		if (newPrice < curPrice) newPrice = curPrice;
 		fact = cfg.acm_factor_sell;
+		mult = cfg.sell_mult;
 	}
 
 
@@ -403,7 +405,7 @@ MTrader::Order MTrader::calculateOrderFeeLess(double step, double curPrice, doub
 
 	if (size * step > 0) size = 0;
 	//fill order
-	order.size = size;
+	order.size = size * mult;
 	order.price = newPrice;
 
 

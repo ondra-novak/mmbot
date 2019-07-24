@@ -24,6 +24,8 @@ struct MTrader_Config {
 	std::string broker;
 	std::string title;
 
+	double buy_mult;
+	double sell_mult;
 	double buy_step_mult;
 	double sell_step_mult;
 	double external_assets;
