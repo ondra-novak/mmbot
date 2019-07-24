@@ -113,8 +113,6 @@ static EmulResult emulateMarket(ondra_shared::StringView<IStatSvc::ChartItem> ch
 	cfg.dynmult_raise = 0;
 	cfg.sell_step_mult = 1;
 	cfg.buy_step_mult = 1;
-	cfg.sell_mult = 1;
-	cfg.buy_mult = 1;
 	cfg.acm_factor_buy = 0;
 	cfg.acm_factor_sell = 0;
 
