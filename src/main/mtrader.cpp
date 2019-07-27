@@ -55,6 +55,9 @@ MTrader::Config MTrader::load(const ondra_shared::IniConfig::Section& ini, bool 
 	cfg.internal_balance = cfg.dry_run?true:ini["internal_balance"].getBool(false);
 	cfg.detect_manual_trades = ini["detect_manual_trades"].getBool(true);
 
+	cfg.wrkpt_move_pct = ini["wrkpt_move_pct"].getNumber(0);
+	cfg.wrkpt_aref = ini["wrkpt_aref"].getNumber(cfg.external_assets);
+
 	cfg.dynmult_raise = ini["dynmult_raise"].getNumber(200);
 	cfg.dynmult_fall = ini["dynmult_fall"].getNumber(1);
 	cfg.emulated_currency = ini["emulated_currency"].getNumber(0);
@@ -188,6 +191,19 @@ int MTrader::perform() {
 				}
 				currency_balance_cache = -1;
 			}
+
+			if (cfg.wrkpt_move_pct && cfg.wrkpt_aref) {
+				double refprice = calculator.balance2price(cfg.wrkpt_aref);
+				double diff = (refprice - status.curPrice)/status.curPrice * 100.0;
+				if (diff < -cfg.wrkpt_move_pct) {
+					refprice = refprice * (1+cfg.wrkpt_move_pct*0.01);
+				} else if (diff > cfg.wrkpt_move_pct) {
+					refprice = refprice * (1-cfg.wrkpt_move_pct*0.01);
+				}
+				calculator.update(refprice, cfg.wrkpt_aref);
+				calcadj = true;
+			}
+
 
 			if (calcadj) {
 				double c = calculator.balance2price(1.0);

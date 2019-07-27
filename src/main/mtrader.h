@@ -36,11 +36,18 @@ struct MTrader_Config {
 	double acm_factor_buy;
 	double acm_factor_sell;
 
+	double wrkpt_move_pct;
+	double wrkpt_aref;
+
 	double emulated_currency;
+
+
 
 	unsigned int spread_calc_mins;
 	unsigned int spread_calc_min_trades;
 	unsigned int spread_calc_max_trades;
+
+
 
 	bool dry_run;
 	bool internal_balance;
