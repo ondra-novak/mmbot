@@ -78,7 +78,7 @@ void Report::setOrders(StrViewA symb, const std::optional<IStockApi::Order> &buy
 }
 
 
-void Report::setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> trades) {
+void Report::setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> trades, bool margin) {
 
 	using ondra_shared::range;
 
@@ -140,7 +140,7 @@ void Report::setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> tr
 			if (iter->manual_trade) {
 				invst_value += earn;
 			}
-			double norm = (a2np?norm_sum_ass * t.eff_price:0) + norm_sum_cur;
+			double norm = (margin?norm_sum_ass * t.eff_price:0) + norm_sum_cur;
 
 			prev_balance = t.balance;
 			prev_price = t.eff_price;
@@ -158,7 +158,7 @@ void Report::setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> tr
 						("achg", t.eff_size)
 						("gain", gain)
 						("norm", norm)
-						("nacum", norm_sum_ass)
+						("nacum", margin?0:norm_sum_ass)
 						("pos", ass_sum)
 						("pl", cur_fromPos)
 						("price", t.price)

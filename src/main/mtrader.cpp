@@ -124,6 +124,7 @@ int MTrader::perform() {
 	}
 
 	double begbal = internal_balance + cfg.external_assets;
+	bool sliding_pos = cfg.wrkpt_move_pct && cfg.wrkpt_aref;
 
 	//Get opened orders
 	auto orders = getOrders();
@@ -192,16 +193,14 @@ int MTrader::perform() {
 				currency_balance_cache = -1;
 			}
 
-			if (cfg.wrkpt_move_pct && cfg.wrkpt_aref) {
+			if (sliding_pos) {
 				double refprice = calculator.balance2price(cfg.wrkpt_aref);
-				double diff = (refprice - status.curPrice)/status.curPrice * 100.0;
-				if (diff < -cfg.wrkpt_move_pct) {
-					refprice = refprice * (1+cfg.wrkpt_move_pct*0.01);
-				} else if (diff > cfg.wrkpt_move_pct) {
-					refprice = refprice * (1-cfg.wrkpt_move_pct*0.01);
-				}
-				calculator.update(refprice, cfg.wrkpt_aref);
-				calcadj = true;
+				double diff = status.curPrice - refprice;
+				double change = diff * cfg.wrkpt_move_pct * 0.01;
+				double newref = refprice+change;
+				calculator.update(newref, cfg.wrkpt_aref);
+				calcadj = false;
+				ondra_shared::logNote("Sliding neutral position to: $1 (1/$2)", newref, 1.0/newref);
 			}
 
 
@@ -217,7 +216,7 @@ int MTrader::perform() {
 	//report orders to UI
 	statsvc->reportOrders(orders.buy,orders.sell);
 	//report trades to UI
-	statsvc->reportTrades(trades);
+	statsvc->reportTrades(trades, sliding_pos);
 	//report price to UI
 	statsvc->reportPrice(status.curPrice);
 	//report misc
