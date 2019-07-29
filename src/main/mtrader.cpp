@@ -55,8 +55,8 @@ MTrader::Config MTrader::load(const ondra_shared::IniConfig::Section& ini, bool 
 	cfg.internal_balance = cfg.dry_run?true:ini["internal_balance"].getBool(false);
 	cfg.detect_manual_trades = ini["detect_manual_trades"].getBool(true);
 
-	cfg.wrkpt_move_pct = ini["wrkpt_move_pct"].getNumber(0);
-	cfg.wrkpt_aref = ini["wrkpt_aref"].getNumber(cfg.external_assets);
+	cfg.sliding_pos_pct = ini["sliding_pos.change"].getNumber(0);
+	cfg.sliding_neutral_pos = ini["sliding_pos.assets"].getNumber(0)+cfg.external_assets;
 
 	cfg.dynmult_raise = ini["dynmult_raise"].getNumber(200);
 	cfg.dynmult_fall = ini["dynmult_fall"].getNumber(1);
@@ -124,12 +124,15 @@ int MTrader::perform() {
 	}
 
 	double begbal = internal_balance + cfg.external_assets;
-	bool sliding_pos = cfg.wrkpt_move_pct && cfg.wrkpt_aref;
+	bool sliding_pos = cfg.sliding_pos_pct && cfg.sliding_neutral_pos;
 
 	//Get opened orders
 	auto orders = getOrders();
 	//get current status
 	auto status = getMarketStatus();
+
+	double prevTradedPrice = trades.empty()?status.curPrice:trades.back().eff_price;
+
 
 	if (status.curStep == 0) {
 		ondra_shared::logWarning("No spread is calculated yet. Skipping");
@@ -190,18 +193,20 @@ int MTrader::perform() {
 							begbal, lastTrade.eff_size<0?cfg.acm_factor_sell:cfg.acm_factor_buy);
 					calcadj = true;
 				}
+
+				if (sliding_pos) {
+					double refprice = calculator.balance2price(cfg.sliding_neutral_pos);
+					double diff = prevTradedPrice - refprice;
+					double change = diff * cfg.sliding_pos_pct * 0.01;
+					double newref = refprice+change;
+					calculator.update(newref, cfg.sliding_neutral_pos);
+					calcadj = false;
+					ondra_shared::logNote("Sliding neutral position to: $1 (1/$2)", newref, 1.0/newref);
+				}
+
 				currency_balance_cache = -1;
 			}
 
-			if (sliding_pos) {
-				double refprice = calculator.balance2price(cfg.wrkpt_aref);
-				double diff = status.curPrice - refprice;
-				double change = diff * cfg.wrkpt_move_pct * 0.01;
-				double newref = refprice+change;
-				calculator.update(newref, cfg.wrkpt_aref);
-				calcadj = false;
-				ondra_shared::logNote("Sliding neutral position to: $1 (1/$2)", newref, 1.0/newref);
-			}
 
 
 			if (calcadj) {

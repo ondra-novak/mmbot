@@ -36,8 +36,8 @@ struct MTrader_Config {
 	double acm_factor_buy;
 	double acm_factor_sell;
 
-	double wrkpt_move_pct;
-	double wrkpt_aref;
+	double sliding_pos_pct;
+	double sliding_neutral_pos;
 
 	double emulated_currency;
 
