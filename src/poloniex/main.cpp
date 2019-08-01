@@ -256,6 +256,11 @@ inline Interface::MarketInfo Interface::getMarketInfo(const std::string_view &pa
 			!currencies[asst].defined())
 				throw std::runtime_error("Unknown trading pair symbol");
 
+	double minvol;
+	if (cur == "BTC") minvol = 0.0001;
+	else if (cur == "ETH") minvol = 0.01;
+	else minvol = 1;
+
 
 	return MarketInfo {
 		asst,
@@ -263,7 +268,7 @@ inline Interface::MarketInfo Interface::getMarketInfo(const std::string_view &pa
 		0.00000001,
 		0.00000001,
 		0.00000001,
-		0.0001,
+		minvol,
 		getFees(pair),
 		income
 	};
