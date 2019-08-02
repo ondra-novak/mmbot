@@ -27,6 +27,10 @@ public:
 
 	double price2balance(double price) const;
 
+	double price2currency(double price) const;
+
+	double currency2price(double balance) const;
+
 	double calcExtra(double prev_price, double new_price) const;
 
 	json::Value toJSON() const;

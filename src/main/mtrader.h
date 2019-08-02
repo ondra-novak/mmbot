@@ -36,9 +36,11 @@ struct MTrader_Config {
 	double acm_factor_buy;
 	double acm_factor_sell;
 
-	double sliding_pos_pct;
-	double sliding_neutral_pos;
+	double sliding_pos_change;
+	double sliding_pos_assets;
+	double sliding_pos_currency;
 
+	double force_spread;
 	double emulated_currency;
 
 
@@ -173,7 +175,7 @@ protected:
 	double buy_dynmult=1.0;
 	double sell_dynmult=1.0;
 	double internal_balance = 0;
-	mutable double prev_spread=0;
+	mutable double prev_spread=0.01;
 	double prev_calc_ref = 0;
 	double currency_balance_cache = -1;
 
