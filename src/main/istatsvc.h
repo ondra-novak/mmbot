@@ -46,6 +46,7 @@ public:
 			ondra_shared::StrViewA currencySymb,
 			bool emulated) = 0;
 	virtual void reportMisc(const MiscData &miscData) = 0;
+	virtual void reportError(const char *what) = 0;
 	virtual double calcSpread(ondra_shared::StringView<ChartItem> chart,
 			const MTrader_Config &config,
 			const IStockApi::MarketInfo &minfo,

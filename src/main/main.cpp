@@ -56,6 +56,9 @@ public:
 	virtual void reportMisc(const MiscData &miscData) {
 		rpt.setMisc(name, miscData);
 	}
+	virtual void reportError(const char *what) {
+		rpt.setError(name, what);
+	}
 
 	virtual void setInfo(StrViewA title,StrViewA asst,StrViewA curc, bool emulated) {
 		if (title.empty()) title = name;
@@ -410,7 +413,7 @@ int main(int argc, char **argv) {
 
 	try {
 		bool test = false;
-		auto refdir = std::experimental::filesystem::current_path();
+//		auto refdir = std::experimental::filesystem::current_path();
 
 
 		App app({
@@ -438,6 +441,7 @@ int main(int argc, char **argv) {
 					[&](simpleServer::ServiceControl cntr, ondra_shared::StrViewA name, simpleServer::ArgList arglist) {
 
 						if (app.verbose && cntr.isDaemon()) {
+
 							std::cerr << "Verbose is not avaiable in daemon mode" << std::endl;
 							return 100;
 						}

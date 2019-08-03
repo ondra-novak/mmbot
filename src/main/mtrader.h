@@ -29,6 +29,7 @@ struct MTrader_Config {
 	double buy_step_mult;
 	double sell_step_mult;
 	double external_assets;
+	double min_size;
 
 	double dynmult_raise;
 	double dynmult_fall;

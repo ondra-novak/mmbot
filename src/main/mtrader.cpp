@@ -47,6 +47,7 @@ MTrader::Config MTrader::load(const ondra_shared::IniConfig::Section& ini, bool 
 	cfg.buy_step_mult = ini["buy_step_mult"].getNumber(1.0);
 	cfg.sell_step_mult = ini["sell_step_mult"].getNumber(1.0);
 	cfg.external_assets = ini["external_assets"].getNumber(0);
+	cfg.min_size = ini["min_size"].getNumber(0);
 
 
 	cfg.dry_run = force_dry_run?true:ini["dry_run"].getBool(false);
@@ -122,6 +123,8 @@ static auto calc_margin_range(double A, double D, double P) {
 }
 
 int MTrader::perform() {
+
+	try {
 
 	//Load state on first run (if the state is not loaded)
 	if (need_load) {
@@ -308,6 +311,10 @@ int MTrader::perform() {
 	saveState();
 
 	return 0;
+	} catch (std::exception &e) {
+		statsvc->reportError(e.what());
+		throw;
+	}
 }
 
 static std::uintptr_t magic = 0xFEEDBABE;
@@ -473,12 +480,16 @@ MTrader::Order MTrader::calculateOrder(double step, double curPrice, double bala
 	//apply fees
 	minfo.addFees(order.size, order.price);
 
-	if (order.size < minfo.min_size && order.size > -minfo.min_size) {
-		order.size = 0;
-	} else if (minfo.min_volume) {
-		double vol = order.size * order.price;
-		if (vol < minfo.min_volume && vol > -minfo.min_volume) {
-			order.size = 0;
+	if (std::fabs(order.size) < cfg.min_size) {
+		order.size = cfg.min_size*sgn(order.size);
+	}
+	if (std::fabs(order.size) < minfo.min_size) {
+		order.size = minfo.min_size*sgn(order.size);
+	}
+	if (minfo.min_volume) {
+		double vol = std::fabs(order.size * order.price);
+		if (vol < minfo.min_volume) {
+			order.size = minfo.min_volume/order.price*sgn(order.size);
 		}
 	}
 	//order here

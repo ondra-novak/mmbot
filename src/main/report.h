@@ -49,6 +49,8 @@ public:
 	void setPrice(StrViewA symb, double price);
 	void addLogLine(StrViewA ln);
 
+	virtual void setError(StrViewA symb, const char *what);
+
 	ondra_shared::PStdLogProviderFactory captureLog(ondra_shared::PStdLogProviderFactory target);
 
 protected:

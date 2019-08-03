@@ -12,6 +12,7 @@
 #include <stack>
 
 #include <imtjson/binjson.tcc>
+#include "../shared/logOutput.h"
 
 using namespace std::experimental::filesystem;
 
@@ -21,7 +22,9 @@ Storage::Storage(std::string file, int versions, Format format):file(file),versi
 void Storage::store(json::Value data) {
 	std::string tmpname = file+".tmp";
 	std::ofstream f(tmpname, std::ios::out|std::ios::trunc);
-	if (!f) throw std::runtime_error("Can't open the storage: "+file);
+	if (!f) {
+		throw std::runtime_error("Can't open the storage: "+file);
+	}
 	switch(format) {
 	case binjson:
 		data.serializeBinary([&](char c) {f.put(c);},json::compressKeys);
