@@ -1,6 +1,7 @@
 #include <shared/scheduler.h>
 #include <simpleServer/abstractService.h>
 #include <shared/stdLogFile.h>
+#include <shared/default_app.h>
 #include <algorithm>
 #include <iostream>
 
@@ -361,251 +362,258 @@ static int cmd_achieve(Worker &wrk, simpleServer::ArgList args, simpleServer::St
 	}
 }
 
+class App: public ondra_shared::DefaultApp {
+public:
+
+	using ondra_shared::DefaultApp::DefaultApp;
+
+
+	virtual void showHelp(const std::initializer_list<Switch> &defsw) {
+		const char *commands[] = {
+				"",
+				"Commands",
+				"",
+				"start        - start service on background",
+			    "stop         - stop service ",
+				"restart      - restart service ",
+			    "run          - start service at foreground",
+				"status       - print status",
+				"pidof        - print pid",
+				"wait         - wait until service exits",
+				"logrotate    - close and reopen logfile",
+				"calc_range   - calculate and print trading range for each pair",
+				"get_all_pairs- print all tradable pairs - need broker name as argument",
+				"erase_trade  - erases trade. Need id of trader and id of trade",
+				"reset        - erases all trades expect the last one",
+				"achieve      - achieve an internal state (achieve mode)",
+				"repair       - repair pair"
+		};
+
+		const char *intro[] = {
+				"Copyright (c) 2019 Ondrej Novak. All rights reserved.",
+				"",
+				"This work is licensed under the terms of the MIT license.",
+				"For a copy, see <https://opensource.org/licenses/MIT>",
+				"",
+				"Usage: mmbot [...switches...] <cmd> [<args...>]",
+				""
+		};
+
+		for (const char *c : intro) wordwrap(c);
+		ondra_shared::DefaultApp::showHelp(defsw);
+		for (const char *c : commands) wordwrap(c);
+	}
+
+};
+
 int main(int argc, char **argv) {
 
-	auto refdir = std::experimental::filesystem::current_path();
-	bool verbose = false;
-	bool debug = false;
-	bool test = false;
-
-	auto cmdln = parseCmdLine(argc, argv);
-	auto app_path = cmdln.getProgramFullPath();
-	auto cfgname = (app_path.parent_path().parent_path() / "conf" / (app_path.filename().string() +".conf"));
+	try {
+		bool test = false;
+		auto refdir = std::experimental::filesystem::current_path();
 
 
-	while (!!cmdln) {
-		char z = cmdln.getOpt();
-		switch (z) {
-		case 'f': cfgname = cmdln.getNext();break;
-		case 'h': std::cout << "Usage: " << std::endl << "\t" << argv[0]
-					<< " [-vdt] -f <cfgname>  <cmd>" << std::endl << "\t" << argv[0]
-					<< " -h" << std::endl << std::endl
-					<< "-f\tspecify config pathname" << std::endl
-					<< "-h\tthis help" << std::endl
-					<< "-v\tverbose - redirect log to stderr (only for 'run' command)" << std::endl
-					<< "-d\tdebug - force debug level of logging" << std::endl
-					<< "-t\tdry run (test) - do not execute orders" << std::endl
-					<< "<cmd>\tcommand to control service" << std::endl
-					<< "\t\tstart        - start service on background"<< std::endl
-					<< "\t\tstop         - stop service "<< std::endl
-					<< "\t\trestart      - restart service "<< std::endl
-					<< "\t\trun          - start service at foreground"<< std::endl
-					<< "\t\tstatus       - print status"<< std::endl
-					<< "\t\tpidof        - print pid"<< std::endl
-					<< "\t\twait         - wait until service exits"<< std::endl
-					<< "\t\tlogrotate    - close and reopen logfile"<< std::endl
-					<< "\t\tcalc_range   - calculate and print trading range for each pair"<< std::endl
-					<< "\t\tget_all_pairs- print all tradable pairs - need broker name as argument"<< std::endl
-					<< "\t\terase_trade  - erases trade. Need id of trader and id of trade"<< std::endl
-					<< "\t\treset        - erases all trades expect the last one"<< std::endl
-					<< "\t\tachieve      - achieve an internal state (achieve mode)"<< std::endl
-					<< std::endl;
-					return 1;
-		case 'v': verbose = true;break;
-		case 't': test = true;break;
-		case 'd': debug = true;break;
-		default: std::cerr << "Unknown option -" << z << std::endl;
-					return 1;
-		case 0: try {
-			StrViewA cmd = cmdln.getNext();
+		App app({
+			App::Switch{'t',"dry_run",[&](auto &&){test = true;},"dry run"},
+		},std::cout);
 
-			ondra_shared::IniConfig ini;
-			auto cfgpath = std::experimental::filesystem::absolute(cfgname, refdir);
-			ini.load(cfgpath);
+		if (!app.init(argc, argv)) {
+			std::cerr << "Invalid parameters at:" << app.args->getNext() << std::endl;
+			return 1;
+		}
 
-			auto servicesection = ini["service"];
-			auto pidfile = servicesection.mandatory["inst_file"].getPath();
-			auto name = servicesection["name"].getString("mmbot");
-			auto user = servicesection["user"].getString();
+		if (!!*app.args) {
+			try {
+				StrViewA cmd = app.args->getNext();
 
-			std::vector<StrViewA> argList;
-			while (!!cmdln) argList.push_back(cmdln.getNext());
+				auto servicesection = app.config["service"];
+				auto pidfile = servicesection.mandatory["inst_file"].getPath();
+				auto name = servicesection["name"].getString("mmbot");
+				auto user = servicesection["user"].getString();
 
-			return simpleServer::ServiceControl::create(name, pidfile, cmd,
-				[&](simpleServer::ServiceControl cntr, ondra_shared::StrViewA name, simpleServer::ArgList arglist) {
+				std::vector<StrViewA> argList;
+				while (!!*app.args) argList.push_back(app.args->getNext());
 
-					if (verbose && cntr.isDaemon()) {
-						std::cerr << "Verbose is not avaiable in daemon mode" << std::endl;
-						return 100;
-					}
+				return simpleServer::ServiceControl::create(name, pidfile, cmd,
+					[&](simpleServer::ServiceControl cntr, ondra_shared::StrViewA name, simpleServer::ArgList arglist) {
 
-					if (!user.empty()) {
-						cntr.changeUser(user);
-					}
+						if (app.verbose && cntr.isDaemon()) {
+							std::cerr << "Verbose is not avaiable in daemon mode" << std::endl;
+							return 100;
+						}
 
-					cntr.enableRestart();
+						if (!user.empty()) {
+							cntr.changeUser(user);
+						}
 
-					{
-						auto logcfg = ini["log"];
-						auto log = StdLogFile::create(
-										verbose?std::string(""):logcfg["file"].getPath(""),
-										debug?StrViewA(""):logcfg["level"].getString(""),
-										LogLevel::debug);
-						log->setDefault();
+						cntr.enableRestart();
+
 						cntr.addCommand("logrotate",[=](const simpleServer::ArgList &, simpleServer::Stream ) {
 							ondra_shared::logRotate();
 							return 0;
 						});
 
-					}
 
 
-					auto lstsect = ini["traders"];
-					auto names = lstsect.mandatory["list"].getString();
-					auto storagePath = lstsect.mandatory["storage_path"].getPath();
-					auto rptsect = ini["report"];
-					auto rptpath = rptsect.mandatory["path"].getPath();
-					auto rptinterval = rptsect["interval"].getUInt(864000000);
-					auto a2np = rptsect["a2np"].getBool(false);
+						auto lstsect = app.config["traders"];
+						auto names = lstsect.mandatory["list"].getString();
+						auto storagePath = lstsect.mandatory["storage_path"].getPath();
+						auto rptsect = app.config["report"];
+						auto rptpath = rptsect.mandatory["path"].getPath();
+						auto rptinterval = rptsect["interval"].getUInt(864000000);
+						auto a2np = rptsect["a2np"].getBool(false);
 
-					stockSelector.loadStockMarkets(ini["brokers"], test);
+						stockSelector.loadStockMarkets(app.config["brokers"], test);
 
-					auto web_bind = rptsect["http_bind"];
+						auto web_bind = rptsect["http_bind"];
 
-					std::unique_ptr<simpleServer::MiniHttpServer> srv;
+						std::unique_ptr<simpleServer::MiniHttpServer> srv;
 
-					if (web_bind.defined()) {
-						simpleServer::NetAddr addr = simpleServer::NetAddr::create(web_bind.getString(),11223);
-						srv = std::make_unique<simpleServer::MiniHttpServer>(addr, 1, 1);
-						(*srv)  >>= AuthMapper(rptsect["http_auth"].getString(),name)
-								>>= simpleServer::HttpFileMapper(std::string(rptpath), "index.html");
-					}
-
-
-					StorageFactory sf(storagePath);
-					StorageFactory rptf(rptpath,2,Storage::json);
-
-					Report rpt(rptf.create("report.json"), rptinterval, a2np);
-
-
-
-					Scheduler sch = ondra_shared::Scheduler::create();
-					Worker wrk = schedulerGetWorker(sch);
-
-
-					loadTraders(ini, names, sf,wrk, rpt, test);
-
-					logNote("---- Starting service ----");
-
-					cntr.addCommand("calc_range",[&](const simpleServer::ArgList &args, simpleServer::Stream out){
-
-						ondra_shared::Countdown cnt(1);
-						wrk >> [&] {
-							try {
-								for(auto &&t:traders) {							;
-									std::ostringstream buff;
-									auto result = t.calc_min_max_range();
-									auto ass = t.getMarketInfo().asset_symbol;
-									auto curs = t.getMarketInfo().currency_symbol;
-									buff << "Trader " << t.getConfig().title
-											<< ":" << std::endl
-											<< "\tAssets:\t\t\t" << result.assets << " " << ass << std::endl
-											<< "\tAssets value:\t\t" << result.value << " " << curs << std::endl
-											<< "\tAvailable assets:\t" << result.avail_assets << " " << ass << std::endl
-											<< "\tAvailable money:\t" << result.avail_money << " " << curs << std::endl
-											<< "\tMin price:\t\t" << result.min_price << " " << curs << std::endl;
-									if (result.min_price == 0)
-									   buff << "\t - money left:\t\t" << (result.avail_money-result.value) << " " << curs << std::endl;
-									buff << "\tMax price:\t\t" << result.max_price << " " << curs << std::endl;
-									out << buff.str();
-									out.flush();
-
-								}
-							} catch (std::exception &e) {
-								out << e.what();
-							}
-							cnt.dec();
-						};
-						cnt.wait();
-
-						return 0;
-					});
-
-					cntr.addCommand("get_all_pairs",[&](simpleServer::ArgList args, simpleServer::Stream stream){
-						if (args.length < 1) {
-							stream << "Append argument: <broker>\n";
-							return 1;
-						} else {
-							StockSelector ss;
-							ss.loadStockMarkets(ini["brokers"], true);
-							IStockApi *stock = ss.getStock(args[0]);
-							if (stock) {
-								for (auto &&k : stock->getAllPairs()) {
-									stream << k << "\n";
-								}
-								return 0;
-							} else {
-								stream << "Stock is not defined\n";
-								return 2;
-							}
+						if (web_bind.defined()) {
+							simpleServer::NetAddr addr = simpleServer::NetAddr::create(web_bind.getString(),11223);
+							srv = std::make_unique<simpleServer::MiniHttpServer>(addr, 1, 1);
+							(*srv)  >>= AuthMapper(rptsect["http_auth"].getString(),name)
+									>>= simpleServer::HttpFileMapper(std::string(rptpath), "index.html");
 						}
 
-					});
 
-					cntr.addCommand("erase_trade", [&](simpleServer::ArgList args, simpleServer::Stream stream){
-						return eraseTradeHandler(wrk, args,stream,false);
-					});
-					cntr.addCommand("resync_trades_from", [&](simpleServer::ArgList args, simpleServer::Stream stream){
-						return eraseTradeHandler(wrk, args,stream,true);
-					});
-					cntr.addCommand("reset", [&](simpleServer::ArgList args, simpleServer::Stream stream){
-						return cmd_singlecmd(wrk, args,stream,&MTrader::reset);
-					});
-					cntr.addCommand("achieve", [&](simpleServer::ArgList args, simpleServer::Stream stream){
-						return cmd_achieve(wrk, args,stream);
-					});
-					cntr.addCommand("repair", [&](simpleServer::ArgList args, simpleServer::Stream stream){
-						return cmd_singlecmd(wrk, args,stream,&MTrader::repair);
-					});
-					std::size_t id = 0;
-					cntr.addCommand("run",[&](simpleServer::ArgList, simpleServer::Stream) {
+						StorageFactory sf(storagePath);
+						StorageFactory rptf(rptpath,2,Storage::json);
 
-						ondra_shared::PStdLogProviderFactory current =
-								&dynamic_cast<ondra_shared::StdLogProviderFactory &>(*ondra_shared::AbstractLogProviderFactory::getInstance());
-						ondra_shared::PStdLogProviderFactory logcap = rpt.captureLog(current);
-
-						sch.immediate() >> [logcap]{
-							ondra_shared::AbstractLogProvider::getInstance() = logcap->create();
-						};
+						Report rpt(rptf.create("report.json"), rptinterval, a2np);
 
 
-						auto main_cycle = [&] {
+
+						Scheduler sch = ondra_shared::Scheduler::create();
+						Worker wrk = schedulerGetWorker(sch);
 
 
-							try {
-								runTraders();
-								rpt.genReport();
-							} catch (std::exception &e) {
-								logError("Scheduler exception: $1", e.what());
+						loadTraders(app.config, names, sf,wrk, rpt, test);
+
+						logNote("---- Starting service ----");
+
+						cntr.addCommand("calc_range",[&](const simpleServer::ArgList &args, simpleServer::Stream out){
+
+							ondra_shared::Countdown cnt(1);
+							wrk >> [&] {
+								try {
+									for(auto &&t:traders) {							;
+										std::ostringstream buff;
+										auto result = t.calc_min_max_range();
+										auto ass = t.getMarketInfo().asset_symbol;
+										auto curs = t.getMarketInfo().currency_symbol;
+										buff << "Trader " << t.getConfig().title
+												<< ":" << std::endl
+												<< "\tAssets:\t\t\t" << result.assets << " " << ass << std::endl
+												<< "\tAssets value:\t\t" << result.value << " " << curs << std::endl
+												<< "\tAvailable assets:\t" << result.avail_assets << " " << ass << std::endl
+												<< "\tAvailable money:\t" << result.avail_money << " " << curs << std::endl
+												<< "\tMin price:\t\t" << result.min_price << " " << curs << std::endl;
+										if (result.min_price == 0)
+										   buff << "\t - money left:\t\t" << (result.avail_money-result.value) << " " << curs << std::endl;
+										buff << "\tMax price:\t\t" << result.max_price << " " << curs << std::endl;
+										out << buff.str();
+										out.flush();
+
+									}
+								} catch (std::exception &e) {
+									out << e.what();
+								}
+								cnt.dec();
+							};
+							cnt.wait();
+
+							return 0;
+						});
+
+						cntr.addCommand("get_all_pairs",[&](simpleServer::ArgList args, simpleServer::Stream stream){
+							if (args.length < 1) {
+								stream << "Append argument: <broker>\n";
+								return 1;
+							} else {
+								StockSelector ss;
+								ss.loadStockMarkets(app.config["brokers"], true);
+								IStockApi *stock = ss.getStock(args[0]);
+								if (stock) {
+									for (auto &&k : stock->getAllPairs()) {
+										stream << k << "\n";
+									}
+									return 0;
+								} else {
+									stream << "Stock is not defined\n";
+									return 2;
+								}
 							}
-						};
 
-						sch.after(std::chrono::seconds(1)) >> main_cycle;
+						});
 
-						id = sch.each(std::chrono::minutes(1)) >> main_cycle;
+						cntr.addCommand("erase_trade", [&](simpleServer::ArgList args, simpleServer::Stream stream){
+							return eraseTradeHandler(wrk, args,stream,false);
+						});
+						cntr.addCommand("resync_trades_from", [&](simpleServer::ArgList args, simpleServer::Stream stream){
+							return eraseTradeHandler(wrk, args,stream,true);
+						});
+						cntr.addCommand("reset", [&](simpleServer::ArgList args, simpleServer::Stream stream){
+							return cmd_singlecmd(wrk, args,stream,&MTrader::reset);
+						});
+						cntr.addCommand("achieve", [&](simpleServer::ArgList args, simpleServer::Stream stream){
+							return cmd_achieve(wrk, args,stream);
+						});
+						cntr.addCommand("repair", [&](simpleServer::ArgList args, simpleServer::Stream stream){
+							return cmd_singlecmd(wrk, args,stream,&MTrader::repair);
+						});
+						std::size_t id = 0;
+						cntr.addCommand("run",[&](simpleServer::ArgList, simpleServer::Stream) {
 
+							ondra_shared::PStdLogProviderFactory current =
+									&dynamic_cast<ondra_shared::StdLogProviderFactory &>(*ondra_shared::AbstractLogProviderFactory::getInstance());
+							ondra_shared::PStdLogProviderFactory logcap = rpt.captureLog(current);
+
+							sch.immediate() >> [logcap]{
+								ondra_shared::AbstractLogProvider::getInstance() = logcap->create();
+							};
+
+
+							auto main_cycle = [&] {
+
+
+								try {
+									runTraders();
+									rpt.genReport();
+								} catch (std::exception &e) {
+									logError("Scheduler exception: $1", e.what());
+								}
+							};
+
+							sch.after(std::chrono::seconds(1)) >> main_cycle;
+
+							id = sch.each(std::chrono::minutes(1)) >> main_cycle;
+
+
+							return 0;
+						});
+
+						cntr.dispatch();
+
+						sch.remove(id);
+						sch.sync();
+
+						logNote("---- Exit ----");
 
 						return 0;
-					});
 
-					cntr.dispatch();
-
-					sch.remove(id);
-					sch.sync();
-
-					logNote("---- Exit ----");
-
-					return 0;
-
-				}, simpleServer::ArgList(argList.data(), argList.size()),
-				cmd == "calc_range" || cmd == "get_all_pairs" || cmd == "achieve" || cmd == "reset" || cmd=="repair");
-		} catch (std::exception &e) {
-			std::cerr << "Error: " << e.what() << std::endl;
-			return 2;
-		};break;
+					}, simpleServer::ArgList(argList.data(), argList.size()),
+					cmd == "calc_range" || cmd == "get_all_pairs" || cmd == "achieve" || cmd == "reset" || cmd=="repair");
+			} catch (std::exception &e) {
+				std::cerr << "Error: " << e.what() << std::endl;
+				return 2;
+			}
+		} else {
+			std::cerr << "Missing arguments. Use -h to show help" << std::endl;
+			return 1;
 		}
-
+	} catch (std::exception &e) {
+		std::cerr << "Error:" << e.what() << std::endl;
+		return 1;
 	}
-	std::cerr << "Missing arguments. Use -h to show help" << std::endl;
-	return 1;
 }
