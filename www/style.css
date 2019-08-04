@@ -80,6 +80,9 @@ line.marker.sell {
 	stroke: #AAF;
 }
 
+.orderline.current{
+	stroke: #f4ff88;
+}
 
 .textorderline {
 	font-size: 27px;
@@ -88,6 +91,11 @@ line.marker.sell {
 	font-style: italic;
 	text-shadow: 0 0 10px black;
 	font-weight: bold;
+}
+
+.textorderline.current {
+	fill: #f4ff88;
+	font-size: 20px;
 }
 
 .selchart {

@@ -130,6 +130,8 @@ int MTrader::perform() {
 	if (need_load) {
 		loadState();
 		need_load = false;
+		currency_balance_cache = stock.getBalance(minfo.currency_symbol);
+
 	}
 
 	double begbal = internal_balance + cfg.external_assets;
@@ -789,7 +791,7 @@ void MTrader::repair() {
 		internal_balance = 0;
 	}
 	prev_spread = 0;
-	currency_balance_cache = -1;
+	currency_balance_cache =0;
 	prev_calc_ref = 0;
 	saveState();
 }

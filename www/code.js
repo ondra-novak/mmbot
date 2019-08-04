@@ -103,14 +103,16 @@ function app_start(){
 			curchart.classList.toggle("trade_sell", !!misc.t && misc.t < 0);
 		}
 		var error_element = curchart.querySelector("[data-name=erroricon]");
-		if (misc && misc.error) {			
-			error_element.classList.add("error");
-			error_element.innerText = "";
-			var desc = document.createElement("div");
-			desc.innerText = misc.error;
-			error_element.appendChild(desc);
-		} else {
-			error_element.classList.remove("error");
+		if (error_element) {
+			if (misc && misc.error) {			
+				error_element.classList.add("error");
+				error_element.innerText = "";
+				var desc = document.createElement("div");
+				desc.innerText = misc.error;
+				error_element.appendChild(desc);
+			} else {
+				error_element.classList.remove("error");
+			}
 		}
 		elem_title.innerText = title;
 		var info = curchart.querySelector("[data-name=info]");
@@ -343,7 +345,7 @@ function app_start(){
 				Math.abs(r.achg),
 				r.price,
 				r.volume,
-				r.normDiff+r.price*r.nacumDiff
+				r.normch,
 			]
 			tr.classList.toggle("sell", r.achg<0);
 			tr.classList.toggle("buy", r.achg>0);
@@ -398,8 +400,8 @@ function app_start(){
 		else return v;
 	}
 	
-	function adjChartData(data, ident) {		
-		var lastNorm = 0;
+	function adjChartData(data, ident) {	
+		var lastNorm = 0;	
 		var lastPL = 0;
 		var lastPos = 0;
 		var lastPrice = 0;
@@ -551,9 +553,6 @@ function app_start(){
 					price: stats.prices[sm],
 					pl: last.pl + (stats.prices[sm]- last.price)* last.pos,
 					label: "",
-					norm:last.norm,
-					nacum:last.nacum,
-					app:last.app,
 					class: "last",
 				})
 				ranges[sm]["last"] = [stats.prices[sm],""];
@@ -731,6 +730,15 @@ function app_start(){
 				new_svg_el("circle",{cx:x1,cy:y1,r:4,class:marker},svg);
 			}
 		}
+		
+		if (lines === undefined) {
+			lines=[];
+		}
+		var l = {};
+		l[fld] = chart[chart.length-1][fld];
+		lines.unshift(l);
+		l.label="";
+		l.class="current"
 		
 		if (Array.isArray(lines)) {
 			lines.forEach(function(x) {
