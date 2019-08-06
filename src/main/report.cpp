@@ -142,7 +142,7 @@ void Report::setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> tr
 			if (iter->manual_trade) {
 				invst_value += earn;
 			}
-			double norm = norm_sum_cur;
+			double norm = norm_sum_cur+(margin?norm_sum_ass:0)*t.eff_price;
 
 			prev_balance = t.balance;
 			prev_price = t.eff_price;
