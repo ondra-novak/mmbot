@@ -179,10 +179,12 @@ int MTrader::perform() {
 			}
 
 			//calculate buy order
-			auto buyorder = calculateOrder(-status.curStep*buy_dynmult*cfg.buy_step_mult,
+			auto buyorder = calculateOrder(lastTradePrice,
+										  -status.curStep*buy_dynmult*cfg.buy_step_mult,
 										   status.curPrice, status.assetBalance);
 			//calculate sell order
-			auto sellorder = calculateOrder(status.curStep*sell_dynmult*cfg.sell_step_mult,
+			auto sellorder = calculateOrder(lastTradePrice,
+					                       status.curStep*sell_dynmult*cfg.sell_step_mult,
 										   status.curPrice, status.assetBalance);
 			//replace order on stockmarket
 			replaceIfNotSame(orders.buy, buyorder);
@@ -434,10 +436,9 @@ MTrader::Status MTrader::getMarketStatus() const {
 }
 
 
-MTrader::Order MTrader::calculateOrderFeeLess(double step, double curPrice, double balance) const {
+MTrader::Order MTrader::calculateOrderFeeLess(double prevPrice, double step, double curPrice, double balance) const {
 	Order order;
 
-	double prevPrice = calculator.balance2price(balance);
 	double newPrice = prevPrice * exp(step);
 	double fact;
 	double mult;
@@ -476,9 +477,9 @@ MTrader::Order MTrader::calculateOrderFeeLess(double step, double curPrice, doub
 
 }
 
-MTrader::Order MTrader::calculateOrder(double step, double curPrice, double balance) const {
+MTrader::Order MTrader::calculateOrder(double lastTradePrice, double step, double curPrice, double balance) const {
 
-	Order order(calculateOrderFeeLess(step,curPrice,balance));
+	Order order(calculateOrderFeeLess(lastTradePrice, step,curPrice,balance));
 	//apply fees
 	minfo.addFees(order.size, order.price);
 

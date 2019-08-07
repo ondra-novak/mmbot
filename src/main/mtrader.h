@@ -130,8 +130,8 @@ public:
 	 * @param balance current balance (including external)
 	 * @return order
 	 */
-	Order calculateOrder(double step, double curPrice, double balance) const;
-	Order calculateOrderFeeLess(double step,double curPrice, double balance) const;
+	Order calculateOrder(double lastTradePrice, double step, double curPrice, double balance) const;
+	Order calculateOrderFeeLess(double lastTradePrice, double step,double curPrice, double balance) const;
 
 	const Config &getConfig() {return cfg;}
 
