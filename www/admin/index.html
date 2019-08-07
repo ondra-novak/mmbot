@@ -18,6 +18,16 @@
 </form>
 </div>
 <hr>
+<div class="main_panel">
+<div id="selector_list" class="selector_list">
+<template id="selector_template">
+<div data-name="item">
+<div data-name="title"></div>
+<div data-name="broker"></div>
+<div data-name="pair_symbol"></div>
+</div>
+</template>
+</div>
 <div class="markets" id="market_list">
 <template id="market_template">
 <div class="market">
@@ -41,15 +51,15 @@
 <br>
 <label><span>External assets</span><input type="text" name="external_assets"></label>
 <br>
-<label><span>Spread calc hours</span><span class="range"><input type="range" min="1" max="720" name="spread_calc_hours"></span></label>
-<label><span>Spread calc min trades</span><span class="range"><input type="range" min="1" max="500" name="spread_calc_min_trades"></span></label>
-<label><span>Spread calc max trades</span><span class="range"><input type="range" min="1" max="500" name="spread_calc_max_trades"></span></label>
+<label><span>Spread calc hours</span><span class="range"><input type="text" min="1" max="720" name="spread_calc_hours"></span></label>
+<label><span>Spread calc min trades</span><span class="range"><input type="text" min="1" max="500" name="spread_calc_min_trades"></span></label>
+<label><span>Spread calc max trades</span><span class="range"><input type="text" min="1" max="500" name="spread_calc_max_trades"></span></label>
 <br>
-<label><span>Accumulation when buy</span><span class="range"><input type="range" min="0" max="100" name="acum_factor_buy"></span></label>
-<label><span>Accumulation when sell</span><span class="range"><input type="range" min="0" max="100" name="acum_factor_sell"></span></label>
+<label><span>Accumulation when buy</span><span class="range"><input type="text" min="0" max="100" name="acum_factor_buy"></span></label>
+<label><span>Accumulation when sell</span><span class="range"><input type="text" min="0" max="100" name="acum_factor_sell"></span></label>
 <br>
-<label><span>Dynamic multiplicator raise</span><span class="range"><input type="range" min="0" max="500" name="dynmult_raise"></span></label>
-<label><span>Dynamic multiplicator fall</span><span class="range"><input type="range" min="1" max="100" name="dynmult_fall"></span></label>
+<label><span>Dynamic multiplicator raise</span><span class="range"><input type="text" min="0" max="500" name="dynmult_raise"></span></label>
+<label><span>Dynamic multiplicator fall</span><span class="range"><input type="text" min="1" max="100" name="dynmult_fall"></span></label>
 <br>
 <label ><span>Dry run</span><input type="checkbox" name="dryrun"> </label>
 <label ><span>Internal balance</span><input type="checkbox" name="ibal"> </label>
@@ -67,11 +77,12 @@
 </form>
 </div>
 </template>
-<div class="market" id="create_new">
+<div class="market" id="create_new" data-title="<create new>">
 <form>
 <label><span>Select symbol:</span><select name="symbol"></select></label>
 <div class="buttons"><button name="create" type="button">Add market</button></div>
 </form>
+</div>
 </div>
 </div>
 <hr>

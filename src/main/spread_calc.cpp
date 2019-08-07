@@ -74,10 +74,11 @@ class EmulStatSvc: public IStatSvc {
 public:
 	EmulStatSvc(double spread):spread(spread) {}
 
-	virtual void reportTrades(ondra_shared::StringView<IStockApi::TradeWithBalance> trades) {}
+	virtual void reportTrades(ondra_shared::StringView<IStockApi::TradeWithBalance> trades, bool) {}
 	virtual void reportOrders(const std::optional<IStockApi::Order> &,
 							  const std::optional<IStockApi::Order> &) {}
 	virtual void reportPrice(double ) {}
+	virtual void reportError(const char *) {}
 	virtual void reportMisc(const MiscData &) {}
 	virtual void setInfo(ondra_shared::StrViewA,ondra_shared::StrViewA,ondra_shared::StrViewA,bool ) {}
 	virtual double calcSpread(ondra_shared::StringView<ChartItem> ,
@@ -115,6 +116,7 @@ static EmulResult emulateMarket(ondra_shared::StringView<IStatSvc::ChartItem> ch
 	cfg.buy_step_mult = 1;
 	cfg.acm_factor_buy = 0;
 	cfg.acm_factor_sell = 0;
+	cfg.sliding_pos_change = 0;
 
 	class Selector: public IStockSelector {
 	public:

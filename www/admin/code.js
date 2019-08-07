@@ -25,6 +25,8 @@ function app_start() {
 	
 	var rangeDb= new WeakMap();
 	var markets = {};
+	var selectors = {};
+	var marketInfo = new WeakMap();
 	
 	function fetchJSON(url) {
 		return fetch(url).then(function(resp) {
@@ -42,12 +44,12 @@ function app_start() {
 				var n = rangeDb.get(p);
 				if (!n) {
 					n = document.createElement("input");
-					n.setAttribute("type","text");
-					n.classList.add("number");
+					n.setAttribute("type","range");
+					n.classList.add("range");
 					n.addEventListener("input", function() {
 						nd.value = this.value;
 					});
-					p.insertBefore(n,nd);
+					p.appendChild(n);
 					rangeDb.set(p,n);
 				}
 				n.value = nd.value;
@@ -59,8 +61,10 @@ function app_start() {
 	}
 
 	var mtemp = document.getElementById("market_template");
+	var stemp = document.getElementById("selector_template");
 	var mstop = document.getElementById("create_new");
 	var mlist = document.getElementById("market_list");
+	var selector = document.getElementById("selector_list");
 	var symbols = fetchJSON("all_pairs");
 	
 	function loadSymbols(element, broker, symb) {
@@ -154,33 +158,70 @@ function app_start() {
 			setStaticFields(nw, {"title":this.value});
 		});
 		
-		mlist.insertBefore(nw, mstop);
 		initRanges(nw);
+		marketInfo.set(nw, {
+			id: name,
+			config: config,
+			mode: enabled?"enabled":"disabled"
+			})
+		
 		return nw;
 	}
 	
+	
+	function update_selector(id, config, mode) {
+		var row = selectors[id];
+		if (config !== undefined) 
+			setStaticFields(row, config);
+		if (mode !== undefined) { 
+			row.classList.toggle("disabled",mode == "disabled");
+			row.classList.toggle("deleted",mode == "deleted");
+		}
+		
+	}
+	
+	function create_selectors(lst) {
+		selector_list.innertText = "";
+		lst.forEach(function(el) {
+			var info = marketInfo.get(el);
+			var row = document.importNode(stemp.content,true).firstElementChild;
+			selector_list.appendChild(row);
+			selectors[info.id] = row;
+			update_selector(info.id, info.config, info.mode);
+		})
+	}
 	
 	function loadConfig() {
 		fetch("config").then(function(resp) {return resp.json();})
 					   .then(function(data){
 						   
+						   var mlist = [];
+						   
 						   var lst = data.traders.list.split(" ");
 						   lst.forEach(function(name) {
-							   createMarket(name, data[name], true);
+							   mlist.push(createMarket(name, data[name], true));
 						   });
 						   var disable_list = data.traders.disabled;
 						   if (disable_list) {
 							   var lst = disable_list.split(" ");
 							   lst.forEach(function(name) {
-								   createMarket(name, data[name], false);
+								   mlist.push(createMarket(name, data[name], false));
 							   });
 							   
 						   }
+						   
+						   mlist.push(mstop);
+						   
+						   create_selectors(mlist);
 					   });
 	}
 
+	marketInfo.set(mstop, {"title":mstop.dataset.title});
+	mstop.parentElement.removeChild(mstop);
+
 	
 	loadConfig();
+	
 	var cform = mstop.querySelector("form");
 	loadSymbols(cform.symbol);
 	cform.create.addEventListener("click", function() {

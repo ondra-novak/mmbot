@@ -58,17 +58,13 @@ label.inline input {
 
 .markets {
     padding: 0em;
-    display: flex;
+    /* display: flex; */
     flex-wrap: wrap;
     justify-content: center;
 }
 
 .market {
     min-width: 8cm;
-    margin: 0.2em;
-    padding: 0.4em;
-    border: 1px solid #888
-
 }
 
 span.range {
@@ -79,13 +75,13 @@ span.range {
     position: relative;
 }
 
-span.range input {
+span.range input[type=range] {
     width: 100%;
     display:block;
     box-sizing: border-box;
 }
 
-span.range .number {
+span.range input[type=text] {
     display:block;
     position:absolute;
     left: 0;
@@ -101,4 +97,34 @@ span.range .number {
 
 #command_bar {
     margin: 1em;
+}
+
+.main_panel {
+    display:flex;    
+    flex-wrap:nowrap;
+}
+
+.main_panel > * {
+    flex-grow: 1;
+    margin: 10px;
+}
+
+.selector_list {display: table;}
+
+.selector_list > div {
+    display: table-row;
+    cursor:pointer;
+}
+.selector_list > div:hover {
+    background-color: #888;
+}
+.selector_list > div > div {
+    display: table-cell;
+    font-size: 0.7em;
+    text-align: right;
+}
+
+.selector_list > div > div:first-child {
+    font-size: 1rem;
+    text-align: left;
 }

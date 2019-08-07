@@ -5,12 +5,13 @@ linux process and comunnicates using pipes.
 
 The Robot starts this broker once it is needed and keeps it running, until the robot is stopped. The connection is made using three pipes connected to **stdin**, **stdout** and **stderr**. So the broker reads its **stdin**, and replies to **stdout**. It can also log its actions to **stderr**, which is routed to the robot's logfile 
 
-The communication is synchronous: request-reply style. The broker must only send one response to each request. The broker can also use stderr only if the response is expected (note: the whole line need to be written to the stderr, including "\n", otherwise, the communication can deadlock)
+The communication is synchronous: request-reply style. The broker must only send one response to each request. The broker can also use stderr only if the response is expected (note: the whole line need to be written to the stderr, including "\n", otherwise, the communication can deadlock and eventually timeour)
 
 Every request is send on single line terminated by a new line character '\n'
 The response should be send as a single line too.
 
-There is no timeout. Every request must have response. The robot waits for response for infinite time.
+There is hardcoded timeout 30 seconds while The Robot is willing to wait for any character from the pipe. If the broker needs a more time, it should send single `space` (ASCII 32) character at least once per 30 seconds. When timeout occures, The Robot terminates the broker (SIGTERM or SIGKILL) and acts as if there would be an error response
+
 
 Both request and response are valid JSONs (stderr can handle any arbitrary text)
 
@@ -32,7 +33,7 @@ There can be zero or one argument - multiple arguments are passes as a JSON obje
 [ true, <return_value> ]\n
 ```
 
-The function can return zero or one result. Multiple results are returnes as a JSON object
+The function can return zero or one result. Multiple results are returned as a JSON object
 
 ### Error response
 
@@ -40,7 +41,7 @@ The function can return zero or one result. Multiple results are returnes as a J
 [ false, "<error message>" ]\n
 ```
 
-Errors are carried as exception through the robot's code and it depends on the situation how it is handled. In most cases, the robot skips the cycle and tries the to repeat the operation after a while.
+Errors are carried as exception through the robot's code. It depends on the situation how it is handled. In most cases, the robot skips the cycle and tries the to repeat the operation after a while.
 If "placeOrder" fails, the order is considered as "not placed".
 
 ## Functions
@@ -58,12 +59,33 @@ or perform garbage collecting. The function is called at the begining of every c
 [ true ]
 ```
 
+### enableDebug
+```
+["enableDebug",true/false]
+```
+Enables or disables debug mode. This is optional feature. When debug mode is on, the broker
+should send debug informations to the standard error. When debug mode is off, the broker
+should stay quiet.   
+
+#### Response when supported
+
+```
+[true]
+```
+#### Response when not supported
+
+```
+[false]
+```
+
+
+
 ### getBalance
 
 ```
 ["getBalance", <symbol>]
 ```
-Return wallet's balance for given <symbol>. Note that complete balance is required 
+Return wallet's balance for given `symbol`. Note that complete balance is required 
 (blocked money for orders must not be substracted). Result is sent as single number
 
 ```
@@ -207,6 +229,11 @@ search the balance. Example: "XBT"
     - **assets** - fees are substracted from assets
     - **income** - fees are substracted from currency when sell, or assets when buy  
     - **outcome** - fees are substracted from currency when buy, or assets when sell
+- **leverage** - (optional) when pair can use leverage. This value should be greater or
+  equal to zero. If zero is specified (default), there is no leverage. Otherwise 
+  leverage is available (for example 100 means leverage 100x) and it also enables
+  `shorts`.
+    
 
 ### getFees
 ```
@@ -214,6 +241,7 @@ search the balance. Example: "XBT"
 ```
 
 Returns current fees for the pair. The method is called more often than getInfo, so this is the reason, why it exists separatedly. It is possible to cache this value. On some stockmarkets, there is possible fee discount on large volume, so robot can get always updated fees before it starts to trade on next cycle.
+
 
 ```
 [ true, <number> ]
@@ -232,6 +260,17 @@ Returns all available tradable pairs on stockmarket
 ```
 [ true, [<string>,<string>,<string>,...] ]
 ```
+
+### When function is not implemented
+
+This protocol can be extended anytime in future. All new functions that arn't implemented
+by the broker should reply by the response:
+
+```
+[ false ]
+```
+
+
 
 ## Debugging
 

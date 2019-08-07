@@ -243,6 +243,16 @@ Informaci o tom, kdy lze očekávat vyčerpání assetů nebo currency poskytne 
 
 **internal_balance** - způsobí, že robot nebude sledovat balanci na burze, ale bude ji počítat z načtených obchodů. Tím přestane být výpočet ovlivňován změnami balance na burze, což může být přínosné zejména pro pár BTC/USD, pokud se zároveň obchoduje XXX/BTC (kdy BTC funguje jako currency). Tuto funkci zapněte později, až když nejaké trady byly na páru zaznamenány a uloženy, robot pak použije poslední uložený stav za výchozí. Je-li tato funkce zapnuta pro pár od začátku, pak je výchozí balancí 0 a výpočet funguje správně pouze pokud je zároveň nastavena položka `external_assets`
 
+**sliding_pos.change**, **sliding_pos.assets** - dvojice nastavení přepne robota do režimu 
+kdy se snaží postupně v čase nakupovat a prodávat assety tak, aby docílil zadaného počtu 
+assetů drženého na burze. **sliding_pos.change** definuje změnu ceny neutrální pozice (cena
+která odpovídá množství držených assets) oproti ceně posledního obchodu v procentech z rozdílu. Například pokud neutrální pozice vychází na cenu 1000 USD a poslední obchod je za
+2000 USD, a toto nastavení je 5, pak se neutrální pozice přepočítá na cenu 1005. Dalšími
+obchody lze eventuálně cenu neutrální pozice "dotáhnout" k aktuální ceně. Doporučená hodnota je v rozsahu `0-10`. Přepočet probíhá vždy při provedení obchodu. Proměnná **sliding_pos.assets** definuje, kolik assetů na burze je považováno za neutrální pozici. Výchozí hodnota je `0`. K této hodnotě je během výpočtu přičtena ještě hodnota `external_assets`, proto tato hodnota představuje množství assetů na burze bez započtení externích assetů.  Výchozí hodnota je přizpůsobena pro pákové burzy typu Deribit, kde neutrální pozící je zpravidla myšlena
+ nulová pozice. 
+ 
+ **POZNÁMKA:** - Pokud je proměnná **sliding_pos.change** nenulová, robot počítá některé statistiky jinak. Například se nezobrazují statistiky o množství akumulovaných assetů a všechny zisky ať již z akumulace nebo z normalizovaného profitu jsou sloučeny. V tomto režimu také přesnější informace poskytne statistika `P/L from position`.  
+
 **detect_manual_trades** - `(experimentální)` Robot se pokouší označit načtené obchody které neprovedl on jako manuální obchody (provedené uživatelem ručně na burze). Tyto obchody se pak nezapočítávají do statistik a přehledů. Pokud je zároveň zapnuta `internal_balance`, pak se tyto trady nezapočítávají ani do balance. Funkce je v režimu experimentální, protože zaznamenává nemalé procento false positive (robot někdy nepozná svůj obchod)
 
 **start_time** = (volitelné) specifikuje počáteční čas obchodování od začátku epochy v milisekundách (linux timestamp * 1000). Výchozí hodnota je 0. Nastavení na jinou hodnotu způsobí, že robot bude ignorovat starší obchody než je zadaný čas a nebude je zobrazovat v reportech ani z nich počítat statistiky a dalších informace

@@ -102,6 +102,18 @@ function app_start(){
 			curchart.classList.toggle("trade_buy", !!misc.t && misc.t > 0);
 			curchart.classList.toggle("trade_sell", !!misc.t && misc.t < 0);
 		}
+		var error_element = curchart.querySelector("[data-name=erroricon]");
+		if (error_element) {
+			if (misc && misc.error) {			
+				error_element.classList.add("error");
+				error_element.innerText = "";
+				var desc = document.createElement("div");
+				desc.innerText = misc.error;
+				error_element.appendChild(desc);
+			} else {
+				error_element.classList.remove("error");
+			}
+		}
 		elem_title.innerText = title;
 		var info = curchart.querySelector("[data-name=info]");
 		if (ranges) {
@@ -325,7 +337,7 @@ function app_start(){
 			var dr = new Date(r.time);
 			
 			
-			var data = [
+			var data = [				
 				dr.toLocaleString("default",{"day":"numeric","month":"2-digit"}),
 				dr.toLocaleString("default",{"hour":"2-digit","minute":"2-digit","second":"2-digit"}),
 				r.ident?infoMap[r.ident].title:"",
@@ -333,7 +345,7 @@ function app_start(){
 				Math.abs(r.achg),
 				r.price,
 				r.volume,
-				r.normDiff+r.price*r.nacumDiff
+				r.normch,
 			]
 			tr.classList.toggle("sell", r.achg<0);
 			tr.classList.toggle("buy", r.achg>0);
@@ -349,31 +361,17 @@ function app_start(){
 				tr.appendChild(td);
 			});
 			
-			var hold_tm = null;
 			
-			function hold_handler() {
-				if (!hold_tm) {
-					hold_tm = setTimeout(function() {
-						hold_tm = null;
-						window.prompt("Please copy trade-id", r.ident + " " + r.id);						
-					},2000);							
-				}
-			}
-			tr.addEventListener("mousedown", hold_handler);
-			tr.addEventListener("touchstart", hold_handler);
-			tr.addEventListener("touchend", function() {
-				if (hold_tm) {
-					clearTimeout(hold_tm);
-					hold_tm = null;
-				}				
-			})
-			tr.addEventListener("click", function() {
-				if (hold_tm) {
-					clearTimeout(hold_tm);
-					hold_tm = null;
-				}
+			var ident_element = tr.querySelector("x-td:nth-child(3)");
+			var first_element = tr.querySelector("x-td:first-child");
+			
+			ident_element.addEventListener("click", function() {
 				location.hash = "!"+encodeURIComponent(r.ident);
 			});
+			
+			var trade_id_elem = document.createElement("div");
+			trade_id_elem.innerText =  r.ident + " " + r.id;
+			first_element.appendChild(trade_id_elem);
 			
 			
 		})		
@@ -402,8 +400,8 @@ function app_start(){
 		else return v;
 	}
 	
-	function adjChartData(data, ident) {		
-		var lastNorm = 0;
+	function adjChartData(data, ident) {	
+		var lastNorm = 0;	
 		var lastPL = 0;
 		var lastPos = 0;
 		var lastPrice = 0;
@@ -555,9 +553,6 @@ function app_start(){
 					price: stats.prices[sm],
 					pl: last.pl + (stats.prices[sm]- last.price)* last.pos,
 					label: "",
-					norm:last.norm,
-					nacum:last.nacum,
-					app:last.app,
 					class: "last",
 				})
 				ranges[sm]["last"] = [stats.prices[sm],""];
@@ -735,6 +730,15 @@ function app_start(){
 				new_svg_el("circle",{cx:x1,cy:y1,r:4,class:marker},svg);
 			}
 		}
+		
+		if (lines === undefined) {
+			lines=[];
+		}
+		var l = {};
+		l[fld] = chart[chart.length-1][fld];
+		lines.unshift(l);
+		l.label="";
+		l.class="current"
 		
 		if (Array.isArray(lines)) {
 			lines.forEach(function(x) {

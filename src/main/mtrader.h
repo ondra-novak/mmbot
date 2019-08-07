@@ -24,9 +24,12 @@ struct MTrader_Config {
 	std::string broker;
 	std::string title;
 
+	double buy_mult;
+	double sell_mult;
 	double buy_step_mult;
 	double sell_step_mult;
 	double external_assets;
+	double min_size;
 
 	double dynmult_raise;
 	double dynmult_fall;
@@ -34,11 +37,20 @@ struct MTrader_Config {
 	double acm_factor_buy;
 	double acm_factor_sell;
 
+	double sliding_pos_change;
+	double sliding_pos_assets;
+	double sliding_pos_currency;
+
+	double force_spread;
 	double emulated_currency;
+
+
 
 	unsigned int spread_calc_mins;
 	unsigned int spread_calc_min_trades;
 	unsigned int spread_calc_max_trades;
+
+
 
 	bool dry_run;
 	bool internal_balance;
@@ -164,9 +176,9 @@ protected:
 	double buy_dynmult=1.0;
 	double sell_dynmult=1.0;
 	double internal_balance = 0;
-	mutable double prev_spread=0;
+	mutable double prev_spread=0.01;
 	double prev_calc_ref = 0;
-	double currency_balance_cache = -1;
+	double currency_balance_cache = 0;
 
 
 	void loadState();

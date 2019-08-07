@@ -91,6 +91,18 @@ json::Value Calculator::toJSON() const {
 	});
 }
 
+double Calculator::price2currency(double new_price) const {
+	return balance *sqrt(price * new_price);
+}
+
+double Calculator::currency2price(double currency) const {
+	/*
+	 * c = b * sqrt(p * n)
+	 * pow2(c) = pow2(b) * p * n
+	 * pow2(c/b)/p = n
+	 */
+	return  pow2(currency/balance) / price;
+}
 
 void Calculator::achieve(double new_price, double new_balance) {
 	achieve_mode = true;
