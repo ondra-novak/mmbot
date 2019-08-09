@@ -233,11 +233,12 @@ int MTrader::perform() {
 				//use temporary calculator to calculate expected price for new setup
 				double expectedPrice = c2.balance2price(status.assetBalance);
 				//calculate price differnce
-				double diff = expectedPrice - oldref;
+				double major = std::max(expectedPrice,oldref);
+				double diff = (expectedPrice - oldref)/major;
 				//calculate change
 				double change = diff * cfg.sliding_pos_change * 0.01;
 				//set new reference price (for current balance)
-				double newref = oldref+change;
+				double newref = oldref+change*change*change*major;
 				//update calculator
 				calculator.update(newref, status.assetBalance);
 				calcadj = false;
