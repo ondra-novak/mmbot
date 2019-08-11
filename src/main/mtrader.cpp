@@ -55,6 +55,7 @@ MTrader::Config MTrader::load(const ondra_shared::IniConfig::Section& ini, bool 
 	cfg.detect_manual_trades = ini["detect_manual_trades"].getBool(true);
 
 	cfg.sliding_pos_change = ini["sliding_pos.change"].getNumber(0);
+	cfg.sliding_pos_acm = ini["sliding_pos.acum"].getBool(false);
 	cfg.sliding_pos_assets = ini["sliding_pos.assets"].getNumber(0)+cfg.external_assets;
 	cfg.sliding_pos_currency = ini["sliding_pos.currency"].getNumber(0);
 
@@ -86,6 +87,7 @@ MTrader::Config MTrader::load(const ondra_shared::IniConfig::Section& ini, bool 
 	if (cfg.dynmult_fall <= 0) throw std::runtime_error("'dynmult_fall' must not be negative or zero");
 	if (cfg.sliding_pos_change>0 && (cfg.acm_factor_buy !=0 || cfg.acm_factor_sell!=0))
 		throw std::runtime_error("cannot combine 'sliding' with 'acm_factor'");
+
 
 	return cfg;
 }
@@ -120,6 +122,30 @@ static auto calc_margin_range(double A, double D, double P) {
 	double x1 = (A*P - 2*sqrt(A*D*P) + D)/A;
 	double x2 = (A*P + 2*sqrt(A*D*P) + D)/A;
 	return std::make_pair(x1,x2);
+}
+
+Calculator MTrader::initSlidingCalc(double refprice, double cur, double bal) {
+	double assets;
+	if (cfg.sliding_pos_currency) {
+		//get extra money (or missing money)
+		double diff = cur - cfg.sliding_pos_currency;
+		//calculate how many assest can be bought on current price
+		//that is new position
+		assets = bal + diff / refprice;
+		//if its negative, then set to zero
+		if (assets < 0) assets = 0;
+
+		ondra_shared::logDebug("Sliding: balance=$1, diff=$2, assets=$3",
+				currency_balance_cache,diff,assets
+		);
+
+	} else {
+		//assets has been configured
+		assets = cfg.sliding_pos_assets;
+	}
+	//create temporary calculator
+	return Calculator (refprice, assets, false);
+
 }
 
 int MTrader::perform() {
@@ -178,14 +204,26 @@ int MTrader::perform() {
 				internal_balance=status.assetBalance - cfg.external_assets;
 			}
 
+			double acm_buy, acm_sell;
+			if (cfg.sliding_pos_acm) {
+				double f;
+				auto calc = initSlidingCalc(lastTradePrice, currency_balance_cache, status.assetBalance);
+				double expectedPrice = calc.balance2price(status.assetBalance);
+				if (expectedPrice > lastTradePrice) f = 1; else f = -1;
+				acm_buy = cfg.acm_factor_buy * f;
+				acm_sell = cfg.acm_factor_sell * f;
+			} else {
+				acm_buy = cfg.acm_factor_buy;
+				acm_sell = cfg.acm_factor_sell;
+			}
 			//calculate buy order
 			auto buyorder = calculateOrder(lastTradePrice,
 										  -status.curStep*buy_dynmult*cfg.buy_step_mult,
-										   status.curPrice, status.assetBalance);
+										   status.curPrice, status.assetBalance, acm_buy);
 			//calculate sell order
 			auto sellorder = calculateOrder(lastTradePrice,
 					                       status.curStep*sell_dynmult*cfg.sell_step_mult,
-										   status.curPrice, status.assetBalance);
+										   status.curPrice, status.assetBalance, acm_sell);
 			//replace order on stockmarket
 			replaceIfNotSame(orders.buy, buyorder);
 			//replace order on stockmarket
@@ -211,25 +249,7 @@ int MTrader::perform() {
 				double assets;
 				double oldref = calculator.balance2price(status.assetBalance);
 
-				if (cfg.sliding_pos_currency) {
-					//get extra money (or missing money)
-					double diff = currency_balance_cache - cfg.sliding_pos_currency;
-					//calculate how many assest can be bought on current price
-					//that is new position
-					assets = status.assetBalance + diff / refprice;
-					//if its negative, then set to zero
-					if (assets < 0) assets = 0;
-
-					ondra_shared::logDebug("Sliding: balance=$1, diff=$2, assets=$3",
-							currency_balance_cache,diff,assets
-					);
-
-				} else {
-					//assets has been configured
-					assets = cfg.sliding_pos_assets;
-				}
-				//create temporary calculator
-				Calculator c2(refprice, assets, false);
+				auto c2 = initSlidingCalc(lastTradePrice, currency_balance_cache, status.assetBalance);
 				//use temporary calculator to calculate expected price for new setup
 				double expectedPrice = c2.balance2price(status.assetBalance);
 				//calculate price differnce
@@ -437,25 +457,28 @@ MTrader::Status MTrader::getMarketStatus() const {
 }
 
 
-MTrader::Order MTrader::calculateOrderFeeLess(double prevPrice, double step, double curPrice, double balance) const {
+MTrader::Order MTrader::calculateOrderFeeLess(
+		double prevPrice,
+		double step,
+		double curPrice,
+		double balance,
+		double acm) const {
 	Order order;
 
 	double newPrice = prevPrice * exp(step);
-	double fact;
+	double fact = acm;
 	double mult;
 
 	if (step < 0) {
 		//if price is lower than old, check whether current price is above
 		//otherwise lower the price more
 		if (newPrice > curPrice) newPrice = curPrice;
-		fact = cfg.acm_factor_buy;
 		mult = cfg.buy_mult;
 	} else {
 		//if price is higher then old, check whether current price is below
 		//otherwise highter the newPrice more
 
 		if (newPrice < curPrice) newPrice = curPrice;
-		fact = cfg.acm_factor_sell;
 		mult = cfg.sell_mult;
 	}
 
@@ -478,9 +501,14 @@ MTrader::Order MTrader::calculateOrderFeeLess(double prevPrice, double step, dou
 
 }
 
-MTrader::Order MTrader::calculateOrder(double lastTradePrice, double step, double curPrice, double balance) const {
+MTrader::Order MTrader::calculateOrder(
+		double lastTradePrice,
+		double step,
+		double curPrice,
+		double balance,
+		double acm) const {
 
-	Order order(calculateOrderFeeLess(lastTradePrice, step,curPrice,balance));
+	Order order(calculateOrderFeeLess(lastTradePrice, step,curPrice,balance,acm));
 	//apply fees
 	minfo.addFees(order.size, order.price);
 

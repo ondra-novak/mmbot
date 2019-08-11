@@ -88,8 +88,15 @@ Nastavuje logování
 
 **file** = jméno souboru, do kterého program loguje svou činnost
 
-**level** = level: **debug**,**info**,**progress**,**note**,**warning**,**error**,**fatal**,
+**level** = level: **debug**,**info**,**progress**,**note**,**warning**,**error**,**fatal**, Každá úroveň zahrnuje výpisy z vyšší úrovně
 
+ - **debug** - všechny výpisy včetně ladících
+ - **info** - vše kromě ladících výpisů
+ - **progress** - představuje výpisy informující o průběhu operace
+ - **note** - výpisy obsahující zásadní informaci
+ - **warning** - výpisy obsahující varování, které za určitých situacích mohou být považovány za chybu
+ - **error** - výpisy představující chyby, které znamenají, že se nějaká operace neprovedla, ale jinak nemají vliv na běh robota
+ - **fatal** - zásadní chyba, která představuje ukončení činnosti robota 
 
 ### [report]
 
@@ -243,15 +250,21 @@ Informaci o tom, kdy lze očekávat vyčerpání assetů nebo currency poskytne 
 
 **internal_balance** - způsobí, že robot nebude sledovat balanci na burze, ale bude ji počítat z načtených obchodů. Tím přestane být výpočet ovlivňován změnami balance na burze, což může být přínosné zejména pro pár BTC/USD, pokud se zároveň obchoduje XXX/BTC (kdy BTC funguje jako currency). Tuto funkci zapněte později, až když nejaké trady byly na páru zaznamenány a uloženy, robot pak použije poslední uložený stav za výchozí. Je-li tato funkce zapnuta pro pár od začátku, pak je výchozí balancí 0 a výpočet funguje správně pouze pokud je zároveň nastavena položka `external_assets`
 
-**sliding_pos.change**, **sliding_pos.assets** - dvojice nastavení přepne robota do režimu 
-kdy se snaží postupně v čase nakupovat a prodávat assety tak, aby docílil zadaného počtu 
-assetů drženého na burze. **sliding_pos.change** definuje změnu ceny neutrální pozice (cena
-která odpovídá množství držených assets) oproti ceně posledního obchodu v procentech z rozdílu. Například pokud neutrální pozice vychází na cenu 1000 USD a poslední obchod je za
-2000 USD, a toto nastavení je 5, pak se neutrální pozice přepočítá na cenu 1005. Dalšími
-obchody lze eventuálně cenu neutrální pozice "dotáhnout" k aktuální ceně. Doporučená hodnota je v rozsahu `0-10`. Přepočet probíhá vždy při provedení obchodu. Proměnná **sliding_pos.assets** definuje, kolik assetů na burze je považováno za neutrální pozici. Výchozí hodnota je `0`. K této hodnotě je během výpočtu přičtena ještě hodnota `external_assets`, proto tato hodnota představuje množství assetů na burze bez započtení externích assetů.  Výchozí hodnota je přizpůsobena pro pákové burzy typu Deribit, kde neutrální pozící je zpravidla myšlena
- nulová pozice. 
- 
- **POZNÁMKA:** - Pokud je proměnná **sliding_pos.change** nenulová, robot počítá některé statistiky jinak. Například se nezobrazují statistiky o množství akumulovaných assetů a všechny zisky ať již z akumulace nebo z normalizovaného profitu jsou sloučeny. V tomto režimu také přesnější informace poskytne statistika `P/L from position`.  
+**sliding_pos (obecné informace)** - následující konfigurační volby popisují funkci **sliding position**. 
+Úkolem této funkce je přepočítávat pokyny tak, aby se neutrální pozice (typicky nulová pozice na margin trzích) neustále přibližovala k aktuální ceně. Typické použití funkce je v kombinaci s volbou `external_assets` v případě, že se tato volba používá k zesílení pokynů pro dosažení většího zisku. Při použití `external_assets` dochází k vymezení obcgodovatelného rozsahu, který vymezují skutečně dostupné assety a peníze na obchodním účtu. Aby bylo možné obchodovat i v mírně trendujícím trhu, kdy hrozí, že trh postupně doputuje k hraniční ceně, lze toutu funkci docílit posun tohoto rozsahu "za cenou". Aktuální střed rozsahu je vždy definován jako cena, při které se cena dostupných assetů rovná množství peněz na obchodním účtu. 
+
+**sliding_pos.acum** - volba nabývá hodnot `on` nebo `off` (výchozí). Pokud je volba zapnuta (`on`), pak se předpokladná kladná čísla u voleb `acum_factor_buy` a `acum_factor_sell` (stačí jedna z nich, ideálně obě, nenastavujte záporné hodnoty). Tato volba pak upravuje tyto dva parametry do kladných čísel, pokud je aktuální pozice záporná a tím dochází k akumulaci, respektivě do záporných čísel, pokud je aktuální pozice kladná a tedy dochází ke zpeněžení pozice. Výše hodnoty `acum_factor_sell` a `acum_factory_buy` určuje sílu, s jakou dochází k uvedenému efektu, přičemž hodnoty větší než 1 mohou za určitých okolností způsobit částečnou ztrátu na normalizovaném zisku v důsledku toho, že dochází k akumulaci nebo zpeněžení více, než vychází ze vzorce normalizovaného zisku. 
+
+Volba nesmí být kombinována s volbou `sliding_pos.change`
+
+**sliding_pos.change** - tato volba představuje sílu, s jakou dochází k úpravě rovnováhy vůči aktuální ceně. Pokud je cena vyšší, než střed rozsahu, dochází k úpravě rovnováhy směrem nahoru a tím se méně prodává a více nakupuje. Pokud je cena nižší, než střed rozsahu, dochází k úpravě rovnováhy směrem dolu a tím se méně nakupuje a více prodává. Všechny tyto úpravy mohou generovat ztrátu v závislosti na nastavené síle. Hodnota uvádí sílu v procentech z procentního poměru mezi vyšší a nižší cenou u výporčtu. Procentní rozdíl se k tomu mocní na třetí. Čím větší je rozdíl, tím k větší úpravě dochází. Testovaná hodnota **70** generovala posun který nevedl ke ztrátám. Pokud se však robot blíží k obchodovatelného rozsahu, je třeba sílu zvýšit.
+
+Volba nesmí být kombinována s volbou `sliding_pos.acum`
+
+  
+**sliding_pos.assets** - Výchozí hodnota je 0, jinak specifikuje, kolik assetů je považováno za neutrální pozici. Na margin trzích spravidla necháváme 0, tedy za neutrální pozici se povaužije situace kdy obchodní účet je bez pozice. Na nepákových burzách by tato hodnota znamenal eventuální vyprodání všech assetů, proto je možné nastavit jinou hodnotu jako neutrální pozici. Hodnota nezapočítává `external_assets` uvádíme množství skutečných assetů na obchodní účtu
+
+**sliding_pos.currency** - Výchozí hodnota je 0 a to znamená, že volba je vypnuta. Pokud je volba zapnuta, určuje optimální zůstatek peněz na účtu a tento zůstatek je považován za neutrální pozici. Volba má přednost před `sliding_pos.assets`. Použití volby je vhodné na nepákových burzách, kde obchodujeme více assetů vůči jedné měně a našim cílem je spíš akumulovat assety, přesto potřebujeme mít jistotu, že na obchodním účtu zůstanou nějaké peníze pro další nákup.
 
 **detect_manual_trades** - `(experimentální)` Robot se pokouší označit načtené obchody které neprovedl on jako manuální obchody (provedené uživatelem ručně na burze). Tyto obchody se pak nezapočítávají do statistik a přehledů. Pokud je zároveň zapnuta `internal_balance`, pak se tyto trady nezapočítávají ani do balance. Funkce je v režimu experimentální, protože zaznamenává nemalé procento false positive (robot někdy nepozná svůj obchod)
 
@@ -268,8 +281,9 @@ obchody lze eventuálně cenu neutrální pozice "dotáhnout" k aktuální ceně
 
 #### starší a obsolete
 
-**buy_mult** = _není dále podporován_
-**sell_mult** = _není dále podporován_
+**buy_mult** = násobí velikost nákupního pokynu číslem. Výsledný výpočet nemění spočtenou rovnováhu. Pokud je číslo menší než 1, pak při exekuci tohoto příkazu dojde ke zvýšení velikosti pokynu na nižšá ceně. Pokud je číslo větší než 1, pak naopak příští pokyn může být menší na vyšší ceně. Pri velkých hodnotách může dojít k totálnímu chaosu ve výpočtu, proto se nedoporučuje volbu používat, případně jen hodně blízko k jedničce 
+
+**sell_mult** = násobí velikost prodejního pokynu číslem. Výsledný výpočet nemění spočtenou rovnováhu. Pokud je číslo menší než 1, pak při exekuci tohoto příkazu dojde ke zvýšení velikosti pokynu na vyšší ceně. Pokud je číslo větší než 1, pak naopak příští pokyn může být menší na nižší ceně. Pri velkých hodnotách může dojít k totálnímu chaosu ve výpočtu, proto se nedoporučuje volbu používat, případně jen hodně blízko k jedničce
 
 **buy_step_mult** = (volitelné) Nákupní multiplikátor kroku. Upravuje krok spreadu tím, že ho vynásobí zadaným číslem. Nákupní příkaz tak bude umístěn dále (>1) nebo blíže (<1) středu. Adekvátně bude upraveno i množství dle výpočtu: Výchozí hodnota je **1**
 

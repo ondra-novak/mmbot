@@ -40,6 +40,7 @@ struct MTrader_Config {
 	double sliding_pos_change;
 	double sliding_pos_assets;
 	double sliding_pos_currency;
+	bool sliding_pos_acm;
 
 	double force_spread;
 	double emulated_currency;
@@ -130,8 +131,17 @@ public:
 	 * @param balance current balance (including external)
 	 * @return order
 	 */
-	Order calculateOrder(double lastTradePrice, double step, double curPrice, double balance) const;
-	Order calculateOrderFeeLess(double lastTradePrice, double step,double curPrice, double balance) const;
+	Order calculateOrder(double lastTradePrice,
+			double step,
+			double curPrice,
+			double balance,
+			double acm) const;
+	Order calculateOrderFeeLess(
+			double lastTradePrice,
+			double step,
+			double curPrice,
+			double balance,
+			double acm) const;
 
 	const Config &getConfig() {return cfg;}
 
@@ -201,6 +211,7 @@ protected:
 
 	void mergeTrades(std::size_t fromPos);
 
+	Calculator initSlidingCalc(double refprice, double cur, double assets);
 
 
 };

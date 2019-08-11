@@ -117,6 +117,7 @@ static EmulResult emulateMarket(ondra_shared::StringView<IStatSvc::ChartItem> ch
 	cfg.acm_factor_buy = 0;
 	cfg.acm_factor_sell = 0;
 	cfg.sliding_pos_change = 0;
+	cfg.sliding_pos_acm = false;
 
 	class Selector: public IStockSelector {
 	public:
