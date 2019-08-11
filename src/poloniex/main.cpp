@@ -298,7 +298,7 @@ void Interface::syncTrades(std::size_t fromTime) {
 		for (auto &&k : tradeMap) {
 			if (!k.second.empty()) {
 				const auto &v = k.second.back();
-				startTime = std::min(startTime, v.time-1);
+				startTime = std::min<std::size_t>(startTime, v.time-1);
 			}
 		}
 		++startTime;

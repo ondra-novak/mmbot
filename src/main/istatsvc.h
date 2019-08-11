@@ -53,6 +53,7 @@ public:
 			double balance,
 			double prev_value) const = 0;
 
+	virtual ~IStatSvc() {}
 };
 
 

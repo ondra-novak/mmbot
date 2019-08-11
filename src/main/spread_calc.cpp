@@ -29,14 +29,14 @@ public:
 	virtual json::Value placeOrder(const std::string_view & pair,
 			double size, double price,json::Value clientId,
 			json::Value replaceId,double replaceSize) override;
-	virtual bool reset() ;
+	virtual bool reset() override ;
 	virtual void testBroker() override {}
 	virtual double getBalance(const std::string_view &) override;
 	virtual bool isTest() const override {return false;}
-	virtual MarketInfo getMarketInfo(const std::string_view &) {
+	virtual MarketInfo getMarketInfo(const std::string_view &) override{
 		return minfo;
 	}
-	virtual double getFees(const std::string_view &) {
+	virtual double getFees(const std::string_view &) override{
 		return minfo.fees;
 	}
 	virtual std::vector<std::string> getAllPairs() override {return {};}

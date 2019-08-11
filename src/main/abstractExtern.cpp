@@ -28,6 +28,8 @@
 
 #include "istockapi.h"
 
+const int AbstractExtern::invval = -1;
+
 AbstractExtern::AbstractExtern(const std::string_view & workingDir, const std::string_view & name, const std::string_view & cmdline)
 :name(name), cmdline(cmdline),workingDir(workingDir),log(name) {
 }

@@ -23,7 +23,7 @@ public:
 	virtual void onConnect() {}
 protected:
 
-	static const int invval = -1;
+	static const int invval;
 	static void handleClose(int fd);
 
 	using FD = ondra_shared::Handle<int, void(*)(int), &handleClose, &invval>;

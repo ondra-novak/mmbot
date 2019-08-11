@@ -25,7 +25,6 @@
 
 using ondra_shared::logDebug;
 
-static constexpr std::uint64_t start_time = 1557858896532;
 Proxy::Proxy(Config config):config(config) {
 	hasKey = !config.privKey.empty() && !config.pubKey.empty();
 }
