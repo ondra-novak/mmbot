@@ -12,12 +12,23 @@
 #include <type_traits>
 
 #include <shared/ini_config.h>
+#include <imtjson/namedEnum.h>
 #include "calculator.h"
 #include "istatsvc.h"
 #include "storage.h"
 #include "report.h"
 
 class IStockApi;
+
+enum class Dynmult_mode {
+	independent,
+	together,
+	alternate,
+	half_alternate,
+};
+
+
+extern json::NamedEnum<Dynmult_mode> strDynmult_mode;
 
 struct MTrader_Config {
 	std::string pairsymb;
@@ -33,6 +44,7 @@ struct MTrader_Config {
 
 	double dynmult_raise;
 	double dynmult_fall;
+	Dynmult_mode dynmult_mode;
 
 	double acm_factor_buy;
 	double acm_factor_sell;

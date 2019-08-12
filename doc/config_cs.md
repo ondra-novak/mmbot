@@ -244,6 +244,13 @@ Informaci o tom, kdy lze očekávat vyčerpání assetů nebo currency poskytne 
 
 **dynmult_fall** = (volitelné) definuje snížení dynamického multiplikátoru. Dynamický multiplikátor má stejný význam jako **buy_step_mult**/**sell_step_mult**, pouze se po čas obchodování dynamicky mění. Pokaždé, když je realizován obchod dojde k jeho zvýšení. Když se neobchoduje, časem se snižuje až na 1. Existují dva nezávislé multiplikátory, jeden pro nákup a druhý pro prodej. Tato hodnota definuje o kolik procent klesne dynamicky multiplikátor, když se v daném kole neobchoduje. Výchozí hodnota je 2.5%. V praxi to znamená, že multiplikátor zvýšený o 200% v době obchodu klesne po cca 27 minutách na hodnotu 1.5x a na normální hodnotu se dostane po cca 44 minutách.
 
+**dynmult_mode** = nabývá hodnot `independent`, `together`, `alternate`, `half_alternate`, výchozí hodnota je  `independent`. Řídí chování multiplikátorů dynmult.
+ - `independent` - dynamické multiplikátory jsou nezávisle na sobě zvyšovány a snižovány na základě toho, jaký pokyn se exekuoval
+ - `together` - dynamické multiplikátory se zvyšují společně pokud byl exekuován libovolný pokyn a snižují se, v období klidu. Vhodné pro zachycení největší amplitudy rozkmitu ceny na vysoce volatilním trhu
+ - `alternate` - exekuce pokynu jedním směrem zvýší příslušný multiplikátor, avšak multiplikátor pro opačný směr nastaví zpět na 1. Vhodné pro zachycení rychlých pollbacků při pumpách a dumpách.
+ - `half_alternate`  - exekuce pokynu jedním směrem zvýší příslušný multiplikátor, avšak multiplikátor pro opačný směr se sníží na polovic. Vhodné pro zachycení rychlých pollbacků při pumpách a rychlých trendech avšak není tak dravý jako `alternate`
+ 
+
 **acum_factor_buy** - akumulační faktor při nákupu. Určuje, zda má robot spíš akumulovat assety nebo peníze. Pokud je zadáno 0, pak veškerý profit je připsán do peněz. Pokud je zadáno 1, pak profit je použit na nákup většího množství assetů. To může ve výsledku zvýšit budoucí profity, ale zároveň způsobí, že celkový normalizovaný profit bude závislý na aktuální ceně assetů. Výchozí hodnota je 0.5, tedy 50% normalizovaného profitu jde do assetů 
 
 **acum_factor_sell** - akumulační faktor při prodeji. Určuje, zda má robot spíš akumulovat assety nebo peníze. Pokud je zadáno 0, pak veškerý profit je připsán do peněz. Pokud je zadáno 1, pak je profit ponechán v assetech (je prodáno o trochu méně). To může ve výsledku zvýšit budoucí profity, ale zároveň způsobí, že celkový normalizovaný profit bude závislý na aktuální ceně assetů. Výchozí hodnota je 0.5, tedy 50% normalizovaného profitu jde do assetů 

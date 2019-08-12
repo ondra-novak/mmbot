@@ -61,11 +61,11 @@ json::NamedEnum<IStockApi::FeeScheme> IStockApi::strFeeScheme ({
 	{IStockApi::income, "income"},
 	{IStockApi::outcome, "outcome"}
 });
-/*
+
 static double awayZero(double v) {
 	if (v < 0) return floor(v);
 	else return ceil(v);
-}*/
+}
 
 void IStockApi::MarketInfo::addFees(double &assets, double &price) const {
 	switch (feeScheme) {
@@ -84,11 +84,8 @@ void IStockApi::MarketInfo::addFees(double &assets, double &price) const {
 					else price = price*(1-fees);
 	}
 
-	//round price to lower value on buy and higher value on sell
-	price = adjValue(price, currency_step, floor);
-
-	//use floor to always accumulate small amount coins
-	assets = adjValue(assets, asset_step, floor);
+	price = adjValue(price, currency_step, awayZero);
+	assets = adjValue(assets, asset_step, awayZero);
 }
 
 void IStockApi::MarketInfo::removeFees(double &assets, double &price) const {

@@ -15,6 +15,12 @@
 
 using ondra_shared::logNote;
 
+json::NamedEnum<Dynmult_mode> strDynmult_mode  ({
+	{Dynmult_mode::independent, "independent"},
+	{Dynmult_mode::together, "together"},
+	{Dynmult_mode::alternate, "alternate"},
+	{Dynmult_mode::half_alternate, "half_alternate"}
+});
 
 MTrader::MTrader(IStockSelector &stock_selector,
 		StoragePtr &&storage,
@@ -66,6 +72,7 @@ MTrader::Config MTrader::load(const ondra_shared::IniConfig::Section& ini, bool 
 
 	cfg.dynmult_raise = ini["dynmult_raise"].getNumber(200);
 	cfg.dynmult_fall = ini["dynmult_fall"].getNumber(1);
+	cfg.dynmult_mode = strDynmult_mode[ini["dynmult_mode"].getString(strDynmult_mode[Dynmult_mode::independent])];
 	cfg.emulated_currency = ini["emulated_currency"].getNumber(0);
 	cfg.force_spread = ini["force_spread"].getNumber(0);
 
@@ -207,11 +214,14 @@ int MTrader::perform() {
 			double acm_buy, acm_sell;
 			if (cfg.sliding_pos_acm) {
 				double f;
-				auto calc = initSlidingCalc(lastTradePrice, currency_balance_cache, status.assetBalance);
-				double expectedPrice = calc.balance2price(status.assetBalance);
-				if (expectedPrice > lastTradePrice) f = 1; else f = -1;
+				if (cfg.sliding_pos_currency) {
+					f = sgn(currency_balance_cache - cfg.sliding_pos_currency);
+				} else {
+					f = sgn(cfg.sliding_pos_assets - status.assetBalance);
+				}
 				acm_buy = cfg.acm_factor_buy * f;
 				acm_sell = cfg.acm_factor_sell * f;
+				ondra_shared::logDebug("Sliding pos: acum_factor_buy=$1, acum_factor_sell=$2", acm_buy, acm_sell);
 			} else {
 				acm_buy = cfg.acm_factor_buy;
 				acm_sell = cfg.acm_factor_sell;
@@ -509,8 +519,6 @@ MTrader::Order MTrader::calculateOrder(
 		double acm) const {
 
 	Order order(calculateOrderFeeLess(lastTradePrice, step,curPrice,balance,acm));
-	//apply fees
-	minfo.addFees(order.size, order.price);
 
 	if (std::fabs(order.size) < cfg.min_size) {
 		order.size = cfg.min_size*sgn(order.size);
@@ -524,6 +532,9 @@ MTrader::Order MTrader::calculateOrder(
 			order.size = minfo.min_volume/order.price*sgn(order.size);
 		}
 	}
+	//apply fees
+	minfo.addFees(order.size, order.price);
+
 	//order here
 	return order;
 
@@ -747,16 +758,14 @@ MTrader::PTResult MTrader::processTrades(Status &st,bool first_trade) {
 		Order fkord(t.size, t.price);
 		for (auto &lo : lastOrders) {
 			if (t.eff_size < 0) {
-				if (lo.sell.has_value() && t.eff_size > lo.sell->size*1.001) {
-					manual = false; lo.sell->size -= t.eff_size;
+				if (lo.sell.has_value() && t.eff_size > lo.sell->size*1.1) {
+					manual = false;
 				}
-				else {lo.sell.reset();}
 			}
 			if (t.eff_size > 0) {
-				if (lo.buy.has_value() && t.eff_size < lo.buy->size*1.001) {
-					manual = false;lo.buy->size -= t.eff_size;
+				if (lo.buy.has_value() && t.eff_size < lo.buy->size*1.1) {
+					manual = false;
 				}
-				else {lo.buy.reset();}
 			}
 			if (!manual) break;
 		}
@@ -782,8 +791,26 @@ MTrader::PTResult MTrader::processTrades(Status &st,bool first_trade) {
 
 		trades.push_back(TWBItem(t, st.assetBalance, manual || calculator.isAchieveMode()));
 	}
+	switch (cfg.dynmult_mode) {
+	case Dynmult_mode::independent:
+		break;
+	case Dynmult_mode::together:
+		buy_trade = buy_trade || sell_trade;
+		sell_trade = buy_trade;
+		break;
+	case Dynmult_mode::alternate:
+		if (buy_trade) this->sell_dynmult = 0;
+		else if (sell_trade) this->buy_dynmult = 0;
+		break;
+	case Dynmult_mode::half_alternate:
+		if (buy_trade) this->sell_dynmult *=0.5;
+		else if (sell_trade) this->buy_dynmult *= 0.4;
+		break;
+	}
 	this->buy_dynmult= raise_fall(this->buy_dynmult, buy_trade);
 	this->sell_dynmult= raise_fall(this->sell_dynmult, sell_trade);
+
+
 	st.internalBalance = internal_balance + cfg.external_assets;
 	prev_calc_ref = calculator.balance2price(1);
 	return {was_manual};
