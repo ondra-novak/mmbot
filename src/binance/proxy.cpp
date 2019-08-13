@@ -63,10 +63,19 @@ json::Value Proxy::public_request(std::string method, json::Value data) {
 	std::ostringstream response;
 	curl_handle.reset();
 
+	if (debug) {
+			std::cerr << "SEND: " << urlbuilder.str() << std::endl;
+	}
+
 
 	curl_handle.setOpt(cURLpp::Options::Url(urlbuilder.str()));
 	curl_handle.setOpt(cURLpp::Options::WriteStream(&response));
 	curl_handle.perform();
+
+	if (debug) {
+			std::cerr << "RECV: " << response.str() << std::endl;
+	}
+
 
 	return json::Value::fromString(response.str());
 
@@ -103,19 +112,25 @@ json::Value Proxy::private_request(Method method, std::string command, json::Val
 	std::string url = urlbuilder.str();
 	request.append("&signature=").append(sign);
 
+
+
 	std::ostringstream response;
 	std::istringstream src(request);
 	curl_handle.reset();
 
 	if (method == GET) {
 		url = url + "?" + request;
+		if (debug) std::cerr << "SEND: GET " << url << std::endl;
 	} else if (method == DELETE) {
 		url = url + "?" + request;
+		if (debug) std::cerr << "SEND: DELETE " << url << std::endl;
 		curl_handle.setOpt(new cURLpp::Options::CustomRequest("DELETE"));
 	} else {
 		if (method == POST) {
+			if (debug) std::cerr << "SEND: POST " << url << "( " << request << " )" << std::endl;
 			curl_handle.setOpt(new cURLpp::Options::Post(true));
 		} else {
+			if (debug) std::cerr << "SEND: PUT " << url << "( " << request << " )" << std::endl;
 			curl_handle.setOpt(new cURLpp::Options::Put(true));
 		}
 		curl_handle.setOpt(new cURLpp::Options::ReadStream(&src));
@@ -133,7 +148,10 @@ json::Value Proxy::private_request(Method method, std::string command, json::Val
 
 	std::string rsp = response.str();
 	auto resp_code = curlpp::infos::ResponseCode::get(curl_handle);
-//	std::cerr << rsp << std::endl;
+
+	if (debug) std::cerr << "RECV: " << resp_code << " " << rsp << std::endl;
+
+	//	std::cerr << rsp << std::endl;
 
 	if (resp_code/100 != 2) throw std::runtime_error(rsp);
 

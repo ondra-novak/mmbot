@@ -50,6 +50,7 @@ public:
 	virtual MarketInfo getMarketInfo(const std::string_view & pair)override;
 	virtual double getFees(const std::string_view &pair)override;
 	virtual std::vector<std::string> getAllPairs()override;
+	virtual void enable_debug(bool enable) override;
 
 	using Symbols = ondra_shared::linear_map<std::string, MarketInfo, std::less<std::string_view> > ;
 	using Tickers = ondra_shared::linear_map<std::string, Ticker,  std::less<std::string_view> >;
@@ -191,7 +192,7 @@ static Value extractOrderID(StrViewA id) {
 }
 
 Interface::Orders Interface::getOpenOrders(const std::string_view & pair) {
-	Value resp = px.private_request(Proxy::GET,"/api/v3/openOrders", Value("symbol",pair));
+	Value resp = px.private_request(Proxy::GET,"/api/v3/openOrders", Object("symbol",pair));
 	return mapJSON(resp, [&](Value x) {
 		Value id = x["clientOrderId"];
 		Value eoid = extractOrderID(id.getString());
@@ -422,6 +423,9 @@ inline Value Interface::generateOrderId(Value clientId) {
 	})));
 }
 
+void Interface::enable_debug(bool enable) {
+	px.debug = enable;
+}
 
 int main(int argc, char **argv) {
 	using namespace json;
