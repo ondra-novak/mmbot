@@ -198,6 +198,22 @@ int MTrader::perform() {
 		ondra_shared::logError("No asset balance is available. Buy some assets, use 'external_assets=' or use command achieve to invoke automatic initial trade");
 	} else {
 
+		double acm_buy, acm_sell;
+		if (cfg.sliding_pos_acm) {
+			double f;
+			if (cfg.sliding_pos_currency) {
+				f = sgn(currency_balance_cache - cfg.sliding_pos_currency);
+			} else {
+				f = sgn(cfg.sliding_pos_assets - status.assetBalance);
+			}
+			acm_buy = cfg.acm_factor_buy * f;
+			acm_sell = cfg.acm_factor_sell * f;
+			ondra_shared::logDebug("Sliding pos: acum_factor_buy=$1, acum_factor_sell=$2", acm_buy, acm_sell);
+		} else {
+			acm_buy = cfg.acm_factor_buy;
+			acm_sell = cfg.acm_factor_sell;
+		}
+
 
 		//only create orders, if there are no trades from previous run
 		if (status.new_trades.empty()) {
@@ -211,21 +227,6 @@ int MTrader::perform() {
 				internal_balance=status.assetBalance - cfg.external_assets;
 			}
 
-			double acm_buy, acm_sell;
-			if (cfg.sliding_pos_acm) {
-				double f;
-				if (cfg.sliding_pos_currency) {
-					f = sgn(currency_balance_cache - cfg.sliding_pos_currency);
-				} else {
-					f = sgn(cfg.sliding_pos_assets - status.assetBalance);
-				}
-				acm_buy = cfg.acm_factor_buy * f;
-				acm_sell = cfg.acm_factor_sell * f;
-				ondra_shared::logDebug("Sliding pos: acum_factor_buy=$1, acum_factor_sell=$2", acm_buy, acm_sell);
-			} else {
-				acm_buy = cfg.acm_factor_buy;
-				acm_sell = cfg.acm_factor_sell;
-			}
 			//calculate buy order
 			auto buyorder = calculateOrder(lastTradePrice,
 										  -status.curStep*buy_dynmult*cfg.buy_step_mult,
@@ -247,7 +248,7 @@ int MTrader::perform() {
 			//update after trade
 			if (!ptres.manual_trades) {
 				calculator.update_after_trade(lastTrade.eff_price,  status.assetBalance,
-						begbal, lastTrade.eff_size<0?cfg.acm_factor_sell:cfg.acm_factor_buy);
+						begbal, lastTrade.eff_size<0?acm_sell:acm_buy);
 				calcadj = true;
 			}
 
