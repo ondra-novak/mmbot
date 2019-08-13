@@ -224,7 +224,7 @@ protected:
 	void mergeTrades(std::size_t fromPos);
 
 	Calculator initSlidingCalc(double refprice, double cur, double assets);
-
+	void update_dynmult(bool buy_trade,bool sell_trade);
 
 };
 

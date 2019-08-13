@@ -243,6 +243,8 @@ int MTrader::perform() {
 			std::swap(lastOrders[0],lastOrders[1]);
 			lastOrders[0] = orders;
 
+			update_dynmult(false,false);
+
 		} else {
 			const auto &lastTrade = trades.back();
 			//update after trade
@@ -280,7 +282,10 @@ int MTrader::perform() {
 						newref, 1.0/newref, oldref, 1.0/oldref, newref - oldref);
 			}
 
+			update_dynmult(!orders.buy.has_value() && lastTrade.size > 0,
+						   !orders.sell.has_value() && lastTrade.size < 0);
 		}
+
 
 
 
@@ -792,6 +797,15 @@ MTrader::PTResult MTrader::processTrades(Status &st,bool first_trade) {
 
 		trades.push_back(TWBItem(t, st.assetBalance, manual || calculator.isAchieveMode()));
 	}
+
+
+	st.internalBalance = internal_balance + cfg.external_assets;
+	prev_calc_ref = calculator.balance2price(1);
+	return {was_manual};
+}
+
+void MTrader::update_dynmult(bool buy_trade,bool sell_trade) {
+
 	switch (cfg.dynmult_mode) {
 	case Dynmult_mode::independent:
 		break;
@@ -804,17 +818,12 @@ MTrader::PTResult MTrader::processTrades(Status &st,bool first_trade) {
 		else if (sell_trade) this->buy_dynmult = 0;
 		break;
 	case Dynmult_mode::half_alternate:
-		if (buy_trade) this->sell_dynmult *=0.5;
-		else if (sell_trade) this->buy_dynmult *= 0.4;
+		if (buy_trade) this->sell_dynmult = ((this->sell_dynmult-1) * 0.5) + 1;
+		else if (sell_trade) this->buy_dynmult = ((this->buy_dynmult-1) * 0.5) + 1;
 		break;
 	}
 	this->buy_dynmult= raise_fall(this->buy_dynmult, buy_trade);
 	this->sell_dynmult= raise_fall(this->sell_dynmult, sell_trade);
-
-
-	st.internalBalance = internal_balance + cfg.external_assets;
-	prev_calc_ref = calculator.balance2price(1);
-	return {was_manual};
 }
 
 void MTrader::reset() {

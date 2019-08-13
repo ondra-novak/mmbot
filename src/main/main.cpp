@@ -159,6 +159,9 @@ public:
 			fn(x.first, *x.second);
 		}
 	}
+	void clear() {
+		stock_markets.clear();
+	}
 };
 
 
@@ -440,6 +443,7 @@ int main(int argc, char **argv) {
 				return simpleServer::ServiceControl::create(name, pidfile, cmd,
 					[&](simpleServer::ServiceControl cntr, ondra_shared::StrViewA name, simpleServer::ArgList arglist) {
 
+					{
 						if (app.verbose && cntr.isDaemon()) {
 
 							std::cerr << "Verbose is not avaiable in daemon mode" << std::endl;
@@ -601,8 +605,11 @@ int main(int argc, char **argv) {
 
 						sch.remove(id);
 						sch.sync();
+						traders.clear();
+						stockSelector.clear();
 
-						logNote("---- Exit ----");
+					}
+					logNote("---- Exit ----");
 
 						return 0;
 

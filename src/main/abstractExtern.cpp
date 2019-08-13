@@ -174,8 +174,9 @@ void AbstractExtern::handleClose(int fd) {
 
 static int termThenKill(int id) {
 	int status = 0;
-	for (int i = 1; i < 40; i++) {
+	for (int i = 1; i < 20; i++) {
 		int r = ::waitpid(id,&status,WNOHANG);
+		if (r == -1) return -1;
 		if (r == id) return status;
 		::kill(id, SIGTERM);
 		std::this_thread::sleep_for(std::chrono::milliseconds(200));
