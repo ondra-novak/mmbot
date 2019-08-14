@@ -235,13 +235,19 @@ void Report::exportPrices(json::Object &&out) {
 	}
 }
 
-void Report::setError(StrViewA symb, const char *what) {
-	miscMap[symb] = Object("error", what);
+void Report::setError(StrViewA symb, const ErrorObj &errorObj) {
+	Object obj;
+	if (!errorObj.genError.empty()) obj.set("gen", errorObj.genError);
+	if (!errorObj.buyError.empty()) obj.set("buy", errorObj.buyError);
+	if (!errorObj.sellError.empty()) obj.set("sell", errorObj.sellError);
+	errorMap[symb] = obj;
 }
 
 void Report::exportMisc(json::Object &&out) {
 	for (auto &&rec: miscMap) {
-			out.set(rec.first, rec.second);
+			auto erritr = errorMap.find(rec.first);
+			Value err = erritr == errorMap.end()?Value():erritr->second;
+			out.set(rec.first, rec.second.replace("error", err));
 	}
 }
 
@@ -289,6 +295,5 @@ void Report::setMisc(StrViewA symb, const MiscData &miscData) {
 			("mb",fixNum(miscData.boost))
 			("ml",fixNum(miscData.lowest_price))
 			("mh",fixNum(miscData.highest_price))
-			("mt",miscData.total_trades)
-			("error",nullptr);
+			("mt",miscData.total_trades);
 }

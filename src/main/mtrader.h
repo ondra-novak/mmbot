@@ -85,6 +85,8 @@ public:
 
 
 
+
+
 	static Config load(const ondra_shared::IniConfig::Section &ini, bool force_dry_run);
 
 
@@ -116,7 +118,7 @@ public:
 
 
 	OrderPair getOrders();
-	bool replaceIfNotSame(std::optional<Order> &orig, Order neworder);
+	void setOrder(std::optional<Order> &orig, Order neworder);
 
 
 	using ChartItem = IStatSvc::ChartItem;
@@ -201,7 +203,7 @@ protected:
 	mutable double prev_spread=0.01;
 	double prev_calc_ref = 0;
 	double currency_balance_cache = 0;
-
+	size_t magic = 0;
 
 	void loadState();
 	void saveState();

@@ -104,11 +104,11 @@ function app_start(){
 		}
 		var error_element = curchart.querySelector("[data-name=erroricon]");
 		if (error_element) {
-			if (misc && misc.error) {			
+			if (misc && misc.error && misc.error.gen) {			
 				error_element.classList.add("error");
 				error_element.innerText = "";
 				var desc = document.createElement("div");
-				desc.innerText = misc.error;
+				desc.innerText = misc.error.gen;
 				error_element.appendChild(desc);
 			} else {
 				error_element.classList.remove("error");
@@ -120,11 +120,23 @@ function app_start(){
 			info.hidden = false;
 			var pricet = adjNum((ranges.last && ranges.last[0])||0).replace(/[0-9]/g,"–");
 			var post = adjNum((ranges.pos && ranges.pos[0])||0).replace(/[0-9]/g,"–");
+			var pricee = adjNum((ranges.last && ranges.last[0])||0).replace(/[0-9]/g,"×");
 			while (info.firstChild) info.removeChild(info.firstChild);
 			["buy","last","sell", "pos"].forEach(function(n) {
 				var r = ranges[n];
-				var l1 = r?adjNum(r[0]):pricet;
-				var l2 = r?adjNum(r[1]):post;
+				var l1, l2, er;
+				if (!r) {
+					if (misc && misc.error && misc.error[n]) {
+						l1 = pricee;
+						er = misc.error[n];
+					} else {
+						l1 = pricet;
+					}
+					l2 = post;
+				} else {
+					l1 = adjNum(r[0]);
+					l2 = adjNum(r[1]);
+				}
 				var elem = document.createElement("div");
 				elem.classList.add(n);
 				info.appendChild(elem);					
@@ -136,6 +148,12 @@ function app_start(){
 				e.classList.add("size");
 				e.innerText = l2;
 				elem.appendChild(e);				
+				if (er) {
+					var popup = document.createElement("div")
+					popup.innerText = er;
+					popup.classList.add("error_popup");
+					elem.appendChild(popup);
+				}
 			});
 		} else {
 			info.hidden = true;

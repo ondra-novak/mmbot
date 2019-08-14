@@ -33,6 +33,7 @@ MTrader::MTrader(IStockSelector &stock_selector,
 {
 	//probe that broker is valid configured
 	stock.testBroker();
+	magic = this->statsvc->getHash() & 0xFFFFFFFF;
 }
 
 
@@ -175,6 +176,9 @@ int MTrader::perform() {
 	//get current status
 	auto status = getMarketStatus();
 
+	std::string buy_order_error;
+	std::string sell_order_error;
+
 	double prevTradedPrice = trades.empty()?status.curPrice:trades.back().eff_price;
 
 
@@ -235,10 +239,19 @@ int MTrader::perform() {
 			auto sellorder = calculateOrder(lastTradePrice,
 					                       status.curStep*sell_dynmult*cfg.sell_step_mult,
 										   status.curPrice, status.assetBalance, acm_sell);
+
+			try {
+				setOrder(orders.buy, buyorder);
+			} catch (std::exception &e) {
+				buy_order_error = e.what();
+			}
+
+			try {
+				setOrder(orders.sell, sellorder);
+			} catch (std::exception &e) {
+				sell_order_error = e.what();
+			}
 			//replace order on stockmarket
-			replaceIfNotSame(orders.buy, buyorder);
-			//replace order on stockmarket
-			replaceIfNotSame(orders.sell, sellorder);
 			//remember the orders (keep previous orders as well)
 			std::swap(lastOrders[0],lastOrders[1]);
 			lastOrders[0] = orders;
@@ -299,6 +312,8 @@ int MTrader::perform() {
 
 	//report orders to UI
 	statsvc->reportOrders(orders.buy,orders.sell);
+	//report order errors to UI
+	statsvc->reportError(IStatSvc::ErrorObj(buy_order_error, sell_order_error));
 	//report trades to UI
 	statsvc->reportTrades(trades, sliding_pos);
 	//report price to UI
@@ -353,12 +368,11 @@ int MTrader::perform() {
 
 	return 0;
 	} catch (std::exception &e) {
-		statsvc->reportError(e.what());
+		statsvc->reportError(IStatSvc::ErrorObj(e.what()));
 		throw;
 	}
 }
 
-static std::uintptr_t magic = 0xFEEDBABE;
 
 MTrader::OrderPair MTrader::getOrders() {
 	OrderPair ret;
@@ -390,40 +404,35 @@ MTrader::OrderPair MTrader::getOrders() {
 	return ret;
 }
 
-bool MTrader::replaceIfNotSame(std::optional<Order>& orig, Order neworder) {
-
+void MTrader::setOrder(std::optional<Order> &orig, Order neworder) {
 	try {
-		if (neworder.price < 0)
-			throw std::runtime_error("Negative price - rejected");
-		if (neworder.size == 0)
-			return false;
-
+		if (neworder.price < 0 || neworder.size == 0) return;
 		neworder.client_id = magic;
-		json::Value placeid;
-		if (!orig.has_value()) {
-			placeid = stock.placeOrder(cfg.pairsymb, neworder.size, neworder.price,
-					neworder.client_id);
-		} else if (!orig->isSimilarTo(neworder, minfo.currency_step)) {
-			placeid = stock.placeOrder(cfg.pairsymb, neworder.size, neworder.price,
-					neworder.client_id, orig->id, std::fabs(orig->size));
-			if (placeid == orig->id) return false;
-		} else {
-			return false;
+		json::Value replaceid;
+		double replaceSize = 0;
+		if (orig.has_value()) {
+			if (orig->isSimilarTo(neworder, minfo.currency_step)) return;
+			replaceid = orig->id;
+			replaceSize = std::fabs(orig->size);
 		}
+		json::Value placeid = stock.placeOrder(
+					cfg.pairsymb,
+					neworder.size,
+					neworder.price,
+					neworder.client_id,
+					replaceid,
+					replaceSize);
 		if (placeid.isNull() || !placeid.defined()) {
 			orig.reset();
-			return false;
-		} else {
+		} else if (placeid != replaceid) {
 			orig = neworder;
-			return true;
 		}
-	} catch (const std::exception &e) {
-		logNote("Order was not placed: ($1 at $2) -  $3", neworder.size, neworder.price, e.what());
+	} catch (...) {
 		orig.reset();
-		return false;
+		throw;
 	}
-
 }
+
 
 
 

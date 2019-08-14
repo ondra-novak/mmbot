@@ -56,8 +56,8 @@ public:
 	virtual void reportMisc(const MiscData &miscData) override{
 		rpt.setMisc(name, miscData);
 	}
-	virtual void reportError(const char *what) override{
-		rpt.setError(name, what);
+	virtual void reportError(const ErrorObj &errorObj) override{
+		rpt.setError(name, errorObj);
 	}
 
 	virtual void setInfo(StrViewA title,StrViewA asst,StrViewA curc, bool emulated) override{
@@ -93,6 +93,10 @@ public:
 			return *spread;
 		}
 
+	}
+	virtual std::size_t getHash() const override {
+		std::hash<std::string> h;
+		return h(name);
 	}
 
 	Worker wrk;

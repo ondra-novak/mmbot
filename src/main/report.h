@@ -27,6 +27,8 @@ class Report {
 public:
 	using StoragePtr = PStorage;
 	using MiscData = IStatSvc::MiscData;
+	using ErrorObj = IStatSvc::ErrorObj;
+
 	Report(StoragePtr &&report, std::size_t interval_in_ms, bool a2np )
 		:report(std::move(report)),interval_in_ms(interval_in_ms),a2np(a2np) {}
 
@@ -49,7 +51,7 @@ public:
 	void setPrice(StrViewA symb, double price);
 	void addLogLine(StrViewA ln);
 
-	virtual void setError(StrViewA symb, const char *what);
+	virtual void setError(StrViewA symb, const ErrorObj &errorObj);
 
 	ondra_shared::PStdLogProviderFactory captureLog(ondra_shared::PStdLogProviderFactory target);
 
@@ -82,6 +84,7 @@ protected:
 	TitleMap titleMap;
 	PriceMap priceMap;
 	MiscMap miscMap;
+	MiscMap errorMap;
 	json::Array logLines;
 
 	StoragePtr report;

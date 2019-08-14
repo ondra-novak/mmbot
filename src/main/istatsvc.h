@@ -37,6 +37,17 @@ public:
 		std::size_t total_trades;
 	};
 
+
+	struct ErrorObj {
+		std::string_view genError;
+		std::string_view buyError;
+		std::string_view sellError;
+		explicit ErrorObj(const char *what): genError(what) {}
+		ErrorObj(const std::string_view &buy_error,const std::string_view &sell_error)
+			: buyError(buy_error),sellError(sell_error) {}
+
+	};
+
 	virtual void reportOrders(const std::optional<IStockApi::Order> &buy,
 							  const std::optional<IStockApi::Order> &sell) = 0;
 	virtual void reportTrades(ondra_shared::StringView<IStockApi::TradeWithBalance> trades, bool margin) = 0;
@@ -46,12 +57,13 @@ public:
 			ondra_shared::StrViewA currencySymb,
 			bool emulated) = 0;
 	virtual void reportMisc(const MiscData &miscData) = 0;
-	virtual void reportError(const char *what) = 0;
+	virtual void reportError(const ErrorObj &errorObj) = 0;
 	virtual double calcSpread(ondra_shared::StringView<ChartItem> chart,
 			const MTrader_Config &config,
 			const IStockApi::MarketInfo &minfo,
 			double balance,
 			double prev_value) const = 0;
+	virtual std::size_t getHash() const = 0;
 
 	virtual ~IStatSvc() {}
 };
