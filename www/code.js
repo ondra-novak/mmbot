@@ -2,7 +2,7 @@ function beginOfDay(dt) {
 	return new Date(dt.getFullYear(), dt.getMonth(), dt.getDate());
 }
 
-
+ 
 function fetch_json(file) {
 	"use strict";
 
@@ -124,14 +124,10 @@ function app_start(){
 			while (info.firstChild) info.removeChild(info.firstChild);
 			["buy","last","sell", "pos"].forEach(function(n) {
 				var r = ranges[n];
+				var er = misc && misc.error && misc.error[n];
 				var l1, l2, er;
 				if (!r) {
-					if (misc && misc.error && misc.error[n]) {
-						l1 = pricee;
-						er = misc.error[n];
-					} else {
-						l1 = pricet;
-					}
+					l1 = pricet;
 					l2 = post;
 				} else {
 					l1 = adjNum(r[0]);
@@ -139,6 +135,7 @@ function app_start(){
 				}
 				var elem = document.createElement("div");
 				elem.classList.add(n);
+				if (er) elem.classList.add("error");
 				info.appendChild(elem);					
 				var e = document.createElement("div")
 				e.classList.add("price");

@@ -358,11 +358,29 @@ x-trbgr.hdr {
 	vertical-align: top;
 	margin: 0 0.2em;
 	position: relative;
+	text-align: center;
 	}
+
+.info > div.error > div{
+	color: #CCC
+}
+.info > div.error::before {
+	content: "!";
+    color: yellow;
+    display: block;
+    position: absolute;
+    right: -0.25em;
+    top: 0;
+    font-size: 0.8em;
+    transform: scale(2,1);
+}
+.info > div.error > div:first-child::before,.info > div.error > div:nth-child(2)::before{content: "("; padding: 0.1em;}
+.info > div.error > div:first-child::after,.info > div.error > div:nth-child(2)::after{content: ")"; padding: 0.1em;}
+
 
 .info >div >  div.error_popup {
 	position: absolute;
-	left: -5em;
+	left: -3em;
 	top: 0;
 	background-color: #444;
 	border: 1px solid;
@@ -377,6 +395,7 @@ x-trbgr.hdr {
 .info >div:hover >  div.error_popup {
 	display: block;
 	z-index:1000;
+	text-align: left;
 }
 
 .info[hidden] {

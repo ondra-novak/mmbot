@@ -244,12 +244,14 @@ int MTrader::perform() {
 				setOrder(orders.buy, buyorder);
 			} catch (std::exception &e) {
 				buy_order_error = e.what();
+				orders.buy = buyorder;
 			}
 
 			try {
 				setOrder(orders.sell, sellorder);
 			} catch (std::exception &e) {
 				sell_order_error = e.what();
+				orders.sell = sellorder;
 			}
 			//replace order on stockmarket
 			//remember the orders (keep previous orders as well)
