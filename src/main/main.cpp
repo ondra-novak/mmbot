@@ -9,6 +9,7 @@
 #include "../server/src/simpleServer/address.h"
 #include "../server/src/simpleServer/http_filemapper.h"
 #include "../server/src/simpleServer/http_server.h"
+#include "../shared/linux_crash_handler.h"
 
 #include "shared/ini_config.h"
 #include "shared/shared_function.h"
@@ -372,6 +373,11 @@ static int cmd_achieve(Worker &wrk, simpleServer::ArgList args, simpleServer::St
 	}
 }
 
+static ondra_shared::CrashHandler report_crash([](const char *line) {
+	ondra_shared::logFatal("CrashReport: $1", line);
+});
+
+
 class App: public ondra_shared::DefaultApp {
 public:
 
@@ -443,6 +449,9 @@ int main(int argc, char **argv) {
 
 				std::vector<StrViewA> argList;
 				while (!!*app.args) argList.push_back(app.args->getNext());
+
+				report_crash.install();
+
 
 				return simpleServer::ServiceControl::create(name, pidfile, cmd,
 					[&](simpleServer::ServiceControl cntr, ondra_shared::StrViewA name, simpleServer::ArgList arglist) {
