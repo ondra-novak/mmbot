@@ -28,6 +28,7 @@ public:
 	using StoragePtr = PStorage;
 	using MiscData = IStatSvc::MiscData;
 	using ErrorObj = IStatSvc::ErrorObj;
+	using InfoObj = IStatSvc::Info;
 
 	Report(StoragePtr &&report, std::size_t interval_in_ms, bool a2np )
 		:report(std::move(report)),interval_in_ms(interval_in_ms),a2np(a2np) {}
@@ -39,13 +40,8 @@ public:
 	template<typename T> using StringView = ondra_shared::StringView<T>;
 	void setOrders(StrViewA symb, const std::optional<IStockApi::Order> &buy,
 			  	  	  	  	  	  const std::optional<IStockApi::Order> &sell);
-	void setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> trades, bool margin);
-	void setInfo(
-			StrViewA symb,
-			StrViewA title,
-			StrViewA assetSymb,
-			StrViewA currencySymb,
-			bool emulated);
+	void setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> trades);
+	void setInfo(StrViewA symb, const InfoObj &info);
 	void setMisc(StrViewA symb, const MiscData &miscData);
 
 	void setPrice(StrViewA symb, double price);
@@ -75,13 +71,13 @@ protected:
 
 	using OrderMap = ondra_shared::linear_map<OKey,OValue, OKeyCmp>;
 	using TradeMap = ondra_shared::linear_map<StrViewA, json::Value>;
-	using TitleMap = ondra_shared::linear_map<StrViewA, json::Value>;
+	using InfoMap = ondra_shared::linear_map<StrViewA, json::Value>;
 	using MiscMap = ondra_shared::linear_map<StrViewA, json::Value>;
 	using PriceMap = ondra_shared::linear_map<StrViewA, double>;
 
 	OrderMap orderMap;
 	TradeMap tradeMap;
-	TitleMap titleMap;
+	InfoMap infoMap;
 	PriceMap priceMap;
 	MiscMap miscMap;
 	MiscMap errorMap;

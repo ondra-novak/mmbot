@@ -38,6 +38,16 @@ public:
 	};
 
 
+	struct Info {
+		std::string_view title;
+		std::string_view assetSymb;
+		std::string_view currencySymb;
+		std::string_view priceSymb;
+		bool inverted;
+		bool margin;
+		bool emulated;
+	};
+
 	struct ErrorObj {
 		std::string_view genError;
 		std::string_view buyError;
@@ -50,12 +60,9 @@ public:
 
 	virtual void reportOrders(const std::optional<IStockApi::Order> &buy,
 							  const std::optional<IStockApi::Order> &sell) = 0;
-	virtual void reportTrades(ondra_shared::StringView<IStockApi::TradeWithBalance> trades, bool margin) = 0;
+	virtual void reportTrades(ondra_shared::StringView<IStockApi::TradeWithBalance> trades) = 0;
 	virtual void reportPrice(double price) = 0;
-	virtual void setInfo(ondra_shared::StrViewA title,
-			ondra_shared::StrViewA assetSymb,
-			ondra_shared::StrViewA currencySymb,
-			bool emulated) = 0;
+	virtual void setInfo(const Info &info) = 0;
 	virtual void reportMisc(const MiscData &miscData) = 0;
 	virtual void reportError(const ErrorObj &errorObj) = 0;
 	virtual double calcSpread(ondra_shared::StringView<ChartItem> chart,

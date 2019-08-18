@@ -231,6 +231,7 @@ function app_start(){
 			},{trades:0,price:0, pos:0,norm:0,pl:0,vol:0, bal:0});
 			setField(curchart,"assets", info.asset);
 			setField(curchart,"curc", info.currency);
+			setField(curchart,"pric", info.price_symb);
 			sum.avg = sum.bal / sum.pos;
 			for (var n in sum) {
 				if (isNaN(sum[n]))
@@ -430,7 +431,7 @@ function app_start(){
 			r.nacumDiff = r.nacum - lastNacum;
 			r.plDiff = r.pl - lastPL;
 			r.priceDiff = r.price - lastPrice;
-			r.vol = Math.abs(r.achg*r.price);
+			r.vol = r.volume;
 			r.relDiff = r.rel - lastRel;
 			r.app = calcApp(r);
 			r.invst_v_diff = r.invst_v - lastInvstV;
@@ -458,8 +459,7 @@ function app_start(){
 			sums[k].sort(function(a,b){
 				return a.time - b.time; 
 			})
-			sums[k] = sums[k].reduce(function(s,r){
-				var vol = Math.abs(r.achg * r.price);
+			sums[k] = sums[k].reduce(function(s,r){				
 				if (s.length) {
 					var x = {
 							invst_n: s[s.length-1].invst_n+r.invst_n_diff,
@@ -471,7 +471,7 @@ function app_start(){
 						norm:s[s.length-1].norm+r.normDiff,
 						normDiff:r.normDiff,
 						plDiff:r.plDiff,
-						vol: vol,
+						vol: r.volume,
 						rel: s[s.length-1].rel+ r.relDiff,
 						relDiff: r.relDiff,
 						invst_n:x.invst_n,
@@ -485,7 +485,7 @@ function app_start(){
 						plDiff:r.plDiff,
 						norm:r.normDiff,
 						normDiff:r.normDiff,
-						vol: vol,
+						vol: r.volume,
 						rel: r.relDiff,
 						relDiff: r.relDiff,
 						invst_n: r.invst_n,
@@ -511,7 +511,7 @@ function app_start(){
 			var orders = {};
 			var ranges = {};
 			
-			infoMap = stats["info"];			
+			infoMap = stats.info;			
 			
 			document.getElementById("logfile").innerText = " > "+ stats["log"].join("\r\n > ");
 
@@ -532,6 +532,7 @@ function app_start(){
 				var s = orders[o.symb];
 				var sz = o.size;
 				var ch =  charts[o.symb];
+				var inv = infoMap[o.symb].inverted;
 				var last;
 				if (!ch || !ch.length) {
 					last = {pl:0,price:o.price,pos:0};
@@ -539,7 +540,8 @@ function app_start(){
 					 last = ch[ch.length-1];
 				}
 				var dir = o.dir < 0?"sell":"buy";
-				var newpl = last.pl + (o.price - last.price)* last.pos;
+				var gain = ((inv?1.0/o.price:o.price) - (inv?1.0/last.price:last.price))* (inv?-1:1)*last.pos;
+				var newpl = last.pl + gain;
 				var newpos = last.pos + sz;
 				s.push({
 					price: o.price,
@@ -547,7 +549,7 @@ function app_start(){
 					pl: newpl,
 					pos: newpos,
 					label: "",
-					gain:(o.price - last.price)* last.pos,
+					gain:gain,
 					class: dir,
 				})
 				ranges[o.symb][dir] = [o.price,o.size];
@@ -557,6 +559,7 @@ function app_start(){
 			for (var sm in stats.prices) {
 				var s = orders[sm];
 				var ch =  charts[sm];
+				var inv = infoMap[sm].inverted;
 				var last;
 				if (!ch || !ch.length) {
 					last = {pl:0,price:stats.prices[sm],pos:0,app:0,norm:0,nacum:0};
@@ -564,9 +567,10 @@ function app_start(){
 					 last = ch[ch.length-1];
 				}
 				if (!s) orders[o.symb] = s = [];				
+				var gain = ((inv?1.0/stats.prices[sm]:stats.prices[sm])- (inv?1.0/last.price:last.price))* (inv?-1:1)*last.pos;
 				s.push({
 					price: stats.prices[sm],
-					pl: last.pl + (stats.prices[sm]- last.price)* last.pos,
+					pl: last.pl + gain,
 					label: "",
 					class: "last",
 				})

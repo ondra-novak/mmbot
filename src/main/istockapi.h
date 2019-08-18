@@ -131,6 +131,18 @@ public:
 		 */
 		double leverage = 0;
 
+		///The broker inverts price when currency is quoted instead assets
+		/** Currently 'deribit' broker inverts price because the position is quoted
+		 * in currency. This result, that price is returned as 1/x.
+		 *
+		 * By setting this field to true, all prices will be inverted back
+		 * when they are put to the report. The broker should also report
+		 * correct symbol of inverted price
+		 */
+		bool invert_price = false;
+
+		///When invert_price is true, the broker should also supply symbol name of inverted price
+		std::string inverted_symbol;
 
 		///Adds fees to values
 		/**

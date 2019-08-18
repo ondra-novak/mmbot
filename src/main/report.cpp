@@ -59,17 +59,22 @@ struct ChartData {
 
 void Report::setOrders(StrViewA symb, const std::optional<IStockApi::Order> &buy,
 	  	  	  	  	  	  	  	     const std::optional<IStockApi::Order> &sell) {
-	OKey buyKey {symb, 1};
-	OKey sellKey {symb, -1};
+	const json::Value &info = infoMap[symb];
+	bool inverted = info["inverted"].getBool();
+
+	int buyid = inverted?-1:1;
+
+	OKey buyKey {symb, buyid};
+	OKey sellKey {symb, -buyid};
 
 	if (buy.has_value()) {
-		orderMap[buyKey] = {buy->price, buy->size};
+		orderMap[buyKey] = {inverted?1.0/buy->price:buy->price, buy->size};
 	} else{
 		orderMap[buyKey] = {0, 0};
 	}
 
 	if (sell.has_value()) {
-		orderMap[sellKey] = {sell->price, sell->size};
+		orderMap[sellKey] = {inverted?1.0/sell->price:sell->price, sell->size};
 	} else {
 		orderMap[sellKey] = {0, 0};
 	}
@@ -78,11 +83,15 @@ void Report::setOrders(StrViewA symb, const std::optional<IStockApi::Order> &buy
 }
 
 
-void Report::setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> trades, bool margin) {
+void Report::setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> trades) {
 
 	using ondra_shared::range;
 
 	json::Array records;
+
+	const json::Value &info = infoMap[symb];
+	bool inverted = info["inverted"].getBool();
+	bool margin = false; //TODO TBD
 
 
 
@@ -157,17 +166,17 @@ void Report::setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> tr
 				records.push_back(Object
 						("id", t.id)
 						("time", t.time)
-						("achg", t.eff_size)
+						("achg", (inverted?-1:1)*t.eff_size)
 						("gain", gain)
 						("norm", norm)
 						("normch", norm_chng)
-						("nacum", norm_sum_ass)
-						("pos", ass_sum)
+						("nacum", (inverted?-1:1)*norm_sum_ass)
+						("pos", (inverted?-1:1)*ass_sum)
 						("pl", cur_fromPos)
-						("price", t.price)
+						("price", (inverted?1.0/t.price:t.price))
 						("invst_v", invst_value)
 						("invst_n", invst_n)
-						("volume", -t.eff_price*t.eff_size)
+						("volume", (inverted?1:-1)*t.eff_price*t.eff_size)
 						("man",t.manual_trade)
 				);
 			}
@@ -197,20 +206,27 @@ bool Report::OKeyCmp::operator ()(const OKey& a, const OKey& b) const {
 	}
 }
 
-void Report::setInfo(StrViewA symb,StrViewA title, StrViewA assetSymb, StrViewA currencySymb, bool emulated) {
-	titleMap[symb] = Object
-			("title",title)
-			("currency", currencySymb)
-			("asset", assetSymb)
-			("emulated",emulated);
+void Report::setInfo(StrViewA symb, const InfoObj &infoObj) {
+	infoMap[symb] = Object
+			("title",infoObj.title)
+			("currency", infoObj.currencySymb)
+			("asset", infoObj.assetSymb)
+			("price_symb", infoObj.priceSymb)
+			("inverted", infoObj.inverted)
+			("emulated",infoObj.emulated);
 }
 
 void Report::setPrice(StrViewA symb, double price) {
-	priceMap[symb] = price;
+
+	const json::Value &info = infoMap[symb];
+	bool inverted = info["inverted"].getBool();
+
+	priceMap[symb] = inverted?1.0/price:price;;
 }
 
 
 void Report::exportOrders(json::Array &&out) {
+
 	for (auto &&ord : orderMap) {
 		if (ord.second.size) {
 			out.push_back(Object
@@ -224,7 +240,7 @@ void Report::exportOrders(json::Array &&out) {
 }
 
 void Report::exportTitles(json::Object&& out) {
-	for (auto &&rec: titleMap) {
+	for (auto &&rec: infoMap) {
 			out.set(rec.first, rec.second);
 	}
 }
@@ -284,16 +300,28 @@ ondra_shared::PStdLogProviderFactory Report::captureLog(ondra_shared::PStdLogPro
 }
 
 void Report::setMisc(StrViewA symb, const MiscData &miscData) {
+
+	const json::Value &info = infoMap[symb];
+	bool inverted = info["inverted"].getBool();
+
+	double spread;
+	if (inverted) {
+		spread = 1.0/miscData.calc_price - 1.0/(miscData.spread+miscData.calc_price) ;
+	} else {
+		spread = miscData.spread;
+	}
+
+
 	miscMap[symb] = Object
-			("t",miscData.trade_dir)
+			("t",(inverted?-1:1)*miscData.trade_dir)
 			("a", miscData.achieve)
-			("mcp", fixNum(miscData.calc_price))
+			("mcp", fixNum(inverted?1.0/miscData.calc_price:miscData.calc_price))
 			("mv", fixNum(miscData.value))
-			("ms", fixNum(miscData.spread))
+			("ms", fixNum(spread))
 			("mdmb", fixNum(miscData.dynmult_buy))
 			("mdms", fixNum(miscData.dynmult_sell))
 			("mb",fixNum(miscData.boost))
-			("ml",fixNum(miscData.lowest_price))
-			("mh",fixNum(miscData.highest_price))
+			("ml",fixNum(inverted?1.0/miscData.highest_price:miscData.lowest_price))
+			("mh",fixNum(inverted?1.0/miscData.lowest_price:miscData.highest_price))
 			("mt",miscData.total_trades);
 }

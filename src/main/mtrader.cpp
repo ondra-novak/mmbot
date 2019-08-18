@@ -317,7 +317,7 @@ int MTrader::perform() {
 	//report order errors to UI
 	statsvc->reportError(IStatSvc::ErrorObj(buy_order_error, sell_order_error));
 	//report trades to UI
-	statsvc->reportTrades(trades, sliding_pos);
+	statsvc->reportTrades(trades);
 	//report price to UI
 	statsvc->reportPrice(status.curPrice);
 	//report misc
@@ -562,7 +562,16 @@ MTrader::Order MTrader::calculateOrder(
 
 void MTrader::loadState() {
 	minfo = stock.getMarketInfo(cfg.pairsymb);
-	this->statsvc->setInfo(cfg.title, minfo.asset_symbol, minfo.currency_symbol, stock.isTest());
+	this->statsvc->setInfo(
+			IStatSvc::Info {
+				cfg.title,
+				minfo.asset_symbol,
+				minfo.currency_symbol,
+				minfo.invert_price?minfo.inverted_symbol:minfo.currency_symbol,
+				minfo.invert_price,
+				cfg.sliding_pos_change != 0,
+				stock.isTest()
+			});
 	if (storage == nullptr) return;
 	auto st = storage->load();
 	need_load = false;

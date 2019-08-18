@@ -74,18 +74,18 @@ class EmulStatSvc: public IStatSvc {
 public:
 	EmulStatSvc(double spread):spread(spread) {}
 
-	virtual void reportTrades(ondra_shared::StringView<IStockApi::TradeWithBalance> trades, bool) {}
+	virtual void reportTrades(ondra_shared::StringView<IStockApi::TradeWithBalance> trades) override {}
 	virtual void reportOrders(const std::optional<IStockApi::Order> &,
-							  const std::optional<IStockApi::Order> &) {}
-	virtual void reportPrice(double ) {}
-	virtual void reportError(const ErrorObj &) {}
-	virtual void reportMisc(const MiscData &) {}
-	virtual void setInfo(ondra_shared::StrViewA,ondra_shared::StrViewA,ondra_shared::StrViewA,bool ) {}
+							  const std::optional<IStockApi::Order> &)override  {}
+	virtual void reportPrice(double ) override {}
+	virtual void reportError(const ErrorObj &) override {}
+	virtual void reportMisc(const MiscData &) override {}
+	virtual void setInfo(const Info &) override {}
 	virtual double calcSpread(ondra_shared::StringView<ChartItem> ,
 			const MTrader_Config &,
 			const IStockApi::MarketInfo &,
 			double,
-			double ) const {return spread;}
+			double ) const override {return spread;}
 	virtual std::size_t getHash() const override {
 		return 0xABCDEF;
 	}
