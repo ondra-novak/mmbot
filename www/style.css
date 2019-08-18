@@ -831,20 +831,21 @@ form button {
 	}
 }
 
-table.extended {font-size: 0.8em;min-width: 40%;border-collapse: collapse;margin-top: 1em;margin-left: 1em;}
+table.extended {font-size: 0.8em;max-width: 35em;border-collapse: collapse;margin-top: 1em;margin-left: 0.5em;width: 100%;}
 table.extended th {
     text-align: left;
     font-weight: normal;
     vertical-align: top;
 }
 table  tr > * {
-	padding: 2px 1em;
+	padding: 2px 0.5em;
 	border-top: 1px solid #222222;
 	background-color: #1b1b1b;
+	white-space: nowrap;
 }
 table.extended td:nth-child(2) {text-align: right;padding-right:0.1em;}
 table.extended td:nth-child(2) span:nth-child(odd) {font-weight:bold;}
-table.extended td:nth-child(3) {padding-left:0.1em;}
+table.extended td:nth-child(3) {padding: 0.1em;overflow: hidden;}
 table.extended td span.neg {color: #C66;}
 
 
