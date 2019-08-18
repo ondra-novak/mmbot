@@ -12,6 +12,7 @@ function fetch_json(file) {
 	
 }
 
+var changeinterval=null;
 
 function adjNum(n) {
 	"use strict";
@@ -63,6 +64,13 @@ function app_start(){
 	var chart_interval=1000;
 	var curExport = null;
 	var cats = {}
+	var interval = 0;
+	var intervals = [
+		["h",3600],
+		["d",3600*24],
+		["m",30*3600*24],
+		["y",365*3600*24]
+	];
 	var timediff = null;
 	function fillCats() {
 		var c = selector.firstElementChild;
@@ -232,6 +240,7 @@ function app_start(){
 			setField(curchart,"assets", info.asset);
 			setField(curchart,"curc", info.currency);
 			setField(curchart,"pric", info.price_symb);
+			setField(curchart,"interval",intervals[interval][0]);
 			sum.avg = sum.bal / sum.pos;
 			for (var n in sum) {
 				if (isNaN(sum[n]))
@@ -244,6 +253,7 @@ function app_start(){
 			}
 			if (misc) {
 				var last_norm = data.length?data[data.length-1].norm:0;
+				var last_nacum = data.length?data[data.length-1].nacum:0;
 				misc.pnorm = last_norm;
 				misc.pnormp = 100*last_norm/misc.mv;
 				misc.avgt = last_norm/misc.mt;
@@ -524,7 +534,11 @@ function app_start(){
 				adjChartData(charts[n], n);
 				updateOptions(n, infoMap[n].title);
 				if (ch.length) {
-					stats.misc[n]["avgh"] = ch[ch.length-1].invst_n*(1000*3600);
+					var it = intervals[interval][1]*1000;
+					var lt = ch[ch.length-1];
+					stats.misc[n]["avgh"] = lt.invst_n*it;
+					stats.misc[n]["avgha"] = lt.invst_n*it*lt.nacum/lt.norm;
+					stats.misc[n]["avghpl"] = lt.invst_n*it*lt.pl/lt.norm;
 				}
 			}
 			
@@ -808,6 +822,11 @@ function app_start(){
 	})
 	
 	init_calculator();
+
+	changeinterval = function() {
+		interval = (interval+1)%intervals.length;
+		update();
+	}
 }
 
 
@@ -971,5 +990,5 @@ function init_calculator() {
 		setTimeout(function(){
 			calc.classList.toggle("fade",false);			
 		},10);
-	})
+	});
 }

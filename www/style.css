@@ -842,8 +842,10 @@ table  tr > * {
 	border-top: 1px solid #222222;
 	background-color: #1b1b1b;
 }
-table.extended td {text-align: right;}
-table.extended td span:nth-child(odd) {font-weight:bold;}
+table.extended td:nth-child(2) {text-align: right;padding-right:0.1em;}
+table.extended td:nth-child(2) span:nth-child(odd) {font-weight:bold;}
+table.extended td:nth-child(3) {padding-left:0.1em;}
+table.extended td span.neg {color: #C66;}
 
 
 .head > .error_icon {

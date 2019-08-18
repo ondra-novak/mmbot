@@ -65,8 +65,10 @@ MTrader::Config MTrader::load(const ondra_shared::IniConfig::Section& ini, bool 
 	cfg.sliding_pos_acm = ini["sliding_pos.acum"].getBool(false);
 	cfg.sliding_pos_assets = ini["sliding_pos.assets"].getNumber(0)+cfg.external_assets;
 	cfg.sliding_pos_currency = ini["sliding_pos.currency"].getNumber(0);
+	cfg.sliding_pos_center = ini["sliding_pos.center"].getUInt(0);
 
 	double default_accum = cfg.sliding_pos_change!=0?0:0.5;
+	default_accum = ini["acum_factor"].getNumber(default_accum);
 	cfg.acm_factor_buy = ini["acum_factor_buy"].getNumber(default_accum);
 	cfg.acm_factor_sell = ini["acum_factor_sell"].getNumber(default_accum);
 
@@ -134,7 +136,10 @@ static auto calc_margin_range(double A, double D, double P) {
 
 Calculator MTrader::initSlidingCalc(double refprice, double cur, double bal) {
 	double assets;
-	if (cfg.sliding_pos_currency) {
+	if (cfg.sliding_pos_center) {
+		double a = 1.0/(cfg.sliding_pos_center+1.0);
+		assets = ((bal-cfg.external_assets) * refprice + cur)*a/refprice+cfg.external_assets;
+	} else if (cfg.sliding_pos_currency) {
 		//get extra money (or missing money)
 		double diff = cur - cfg.sliding_pos_currency;
 		//calculate how many assest can be bought on current price
@@ -205,7 +210,11 @@ int MTrader::perform() {
 		double acm_buy, acm_sell;
 		if (cfg.sliding_pos_acm) {
 			double f;
-			if (cfg.sliding_pos_currency) {
+			if (cfg.sliding_pos_center) {
+				double a = 1.0/(cfg.sliding_pos_center+1.0);
+				double ass = ((status.assetBalance-cfg.external_assets) * status.curPrice + currency_balance_cache)*a/status.curPrice+cfg.external_assets;
+				f = sgn(ass - status.assetBalance);
+			} else if (cfg.sliding_pos_currency) {
 				f = sgn(currency_balance_cache - cfg.sliding_pos_currency);
 			} else {
 				f = sgn(cfg.sliding_pos_assets - status.assetBalance);

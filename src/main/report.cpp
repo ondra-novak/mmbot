@@ -153,14 +153,14 @@ void Report::setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> tr
 			}
 			double norm = norm_sum_cur+(margin?norm_sum_ass:0)*t.eff_price;
 
+
 			prev_balance = t.balance;
 			prev_price = t.eff_price;
 
 			double invst_time = t.time - invest_beg_time;
 			double invst_n = norm/invst_time;
 			if (!std::isfinite(invst_n)) invst_n = 0;
-//			double app = ((norm/invest_time)*(365.0*24.0*60.0*60.0*1000.0)*100.0)/(t.balance*t.eff_price);
-//			if (!std::isfinite(app)) app = 0;
+
 
 			if (t.time >= first) {
 				records.push_back(Object

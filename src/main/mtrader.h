@@ -52,6 +52,7 @@ struct MTrader_Config {
 	double sliding_pos_change;
 	double sliding_pos_assets;
 	double sliding_pos_currency;
+	unsigned int sliding_pos_center;
 	bool sliding_pos_acm;
 
 	double force_spread;
