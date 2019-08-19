@@ -312,16 +312,32 @@ void Report::setMisc(StrViewA symb, const MiscData &miscData) {
 	}
 
 
-	miscMap[symb] = Object
-			("t",(inverted?-1:1)*miscData.trade_dir)
-			("a", miscData.achieve)
-			("mcp", fixNum(inverted?1.0/miscData.calc_price:miscData.calc_price))
-			("mv", fixNum(miscData.value))
-			("ms", fixNum(spread))
-			("mdmb", fixNum(miscData.dynmult_buy))
-			("mdms", fixNum(miscData.dynmult_sell))
-			("mb",fixNum(miscData.boost))
-			("ml",fixNum(inverted?1.0/miscData.highest_price:miscData.lowest_price))
-			("mh",fixNum(inverted?1.0/miscData.lowest_price:miscData.highest_price))
-			("mt",miscData.total_trades);
+	if (inverted) {
+
+		miscMap[symb] = Object
+				("t",-miscData.trade_dir)
+				("a", miscData.achieve)
+				("mcp", fixNum(1.0/miscData.calc_price))
+				("mv", fixNum(miscData.value))
+				("ms", fixNum(spread))
+				("mdmb", fixNum(miscData.dynmult_sell))
+				("mdms", fixNum(miscData.dynmult_buy))
+				("mb",fixNum(miscData.boost))
+				("ml",fixNum(1.0/miscData.highest_price))
+				("mh",fixNum(1.0/miscData.lowest_price))
+				("mt",miscData.total_trades);
+	} else {
+		miscMap[symb] = Object
+				("t",miscData.trade_dir)
+				("a", miscData.achieve)
+				("mcp", fixNum(miscData.calc_price))
+				("mv", fixNum(miscData.value))
+				("ms", fixNum(spread))
+				("mdmb", fixNum(miscData.dynmult_buy))
+				("mdms", fixNum(miscData.dynmult_sell))
+				("mb",fixNum(miscData.boost))
+				("ml",fixNum(miscData.lowest_price))
+				("mh",fixNum(miscData.highest_price))
+				("mt",miscData.total_trades);
+	}
 }
