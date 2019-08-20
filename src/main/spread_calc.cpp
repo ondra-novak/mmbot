@@ -165,7 +165,7 @@ static EmulResult emulateMarket(ondra_shared::StringView<IStatSvc::ChartItem> ch
 
 
 
-double glob_calcSpread2(ondra_shared::StringView<IStatSvc::ChartItem> chart,
+std::pair<double,double> glob_calcSpread2(ondra_shared::StringView<IStatSvc::ChartItem> chart,
 		const MTrader_Config &config,
 		const IStockApi::MarketInfo &minfo,
 		double balance,
@@ -184,6 +184,7 @@ double glob_calcSpread2(ondra_shared::StringView<IStatSvc::ChartItem> chart,
 	double low_spread = curprice*(std::exp(prev_val)-1)/10;
 	const int steps = 200;
 	double hi_spread = curprice*(std::exp(prev_val)-1)*10;
+	double best_profit = 0;
 	auto resend = std::end(bestResults);
 	auto resbeg = std::begin(bestResults);
 	auto resiter = resbeg;
@@ -198,6 +199,7 @@ double glob_calcSpread2(ondra_shared::StringView<IStatSvc::ChartItem> chart,
 			*resiter = resitem;
 			resiter = std::min_element(resbeg, resend);
 			ondra_shared::logDebug("Found better spread= $1 (log=$2), score=$3, trades=$4", curprice*exp(curSpread)-curprice, curSpread, profit, res.trades);
+			best_profit = profit;
 		}
 	}
 	double sugg_spread = pow(std::accumulate(
@@ -205,7 +207,7 @@ double glob_calcSpread2(ondra_shared::StringView<IStatSvc::ChartItem> chart,
 			std::end(bestResults), ResultItem(1,1),
 			[](const ResultItem &a, const ResultItem &b) {
 				return ResultItem(0,a.second * b.second);}).second,1.0/std::distance(resbeg, resend));
-	return sugg_spread;
+	return {sugg_spread,best_profit};
 }
 
 double glob_calcSpread(ondra_shared::StringView<IStatSvc::ChartItem> chart,
@@ -216,14 +218,16 @@ double glob_calcSpread(ondra_shared::StringView<IStatSvc::ChartItem> chart,
 	if (prev_val < 1e-10) prev_val = 0.01;
 	if (chart.empty() || balance == 0) return prev_val;
 	double curprice = sqrt(chart[chart.length-1].ask*chart[chart.length-1].bid);
-	double sp1 = glob_calcSpread2(chart, config, minfo, balance, prev_val);
-	double sp2 = sp1;
+	auto sp1 = glob_calcSpread2(chart, config, minfo, balance, prev_val);
+	auto sp2 = sp1;
 	if (chart.length > 1000) {
 		 sp2 = glob_calcSpread2(chart.substr(chart.length-1000), config, minfo, balance, prev_val);
 	}
-	double sp3 = (sp1 + sp2)/2.0;
-	logInfo("Spread calculated: long=$1, short=$2, final=$3",curprice*(exp(sp1)-1),
-														     curprice*(exp(sp2)-1),
+	double sp3 = (sp1.first + sp2.first)/2.0;
+	logInfo("Spread calculated: long=$1 (score=$2), short=$3 (score=$4), final=$5",curprice*(exp(sp1.first)-1),
+															sp1.second,
+														     curprice*(exp(sp2.first)-1),
+															 sp2.second,
 															 curprice*(exp(sp3)-1));
 	return sp3;
 
