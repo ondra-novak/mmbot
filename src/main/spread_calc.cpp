@@ -132,6 +132,7 @@ static EmulResult emulateMarket(ondra_shared::StringView<IStatSvc::ChartItem> ch
 		IStockApi &emul;
 	};
 
+	double initScore = emul.getScore();
 
 	Selector selector(emul);
 	std::size_t counter = 1;
@@ -150,7 +151,7 @@ static EmulResult emulateMarket(ondra_shared::StringView<IStatSvc::ChartItem> ch
 
 	}
 
-	double score = emul.getScore();
+	double score = emul.getScore()-initScore;
 	std::intptr_t tcount = emul.getTradeCount();
 	if (tcount == 0) return EmulResult{-1001,0};
 	std::intptr_t min_count = std::max<std::intptr_t>(counter*cfg.spread_calc_min_trades/1440,1);

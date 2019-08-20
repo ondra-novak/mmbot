@@ -39,13 +39,27 @@ using ondra_shared::shared_function;
 using ondra_shared::parseCmdLine;
 using ondra_shared::Scheduler;
 using ondra_shared::Worker;
+using ondra_shared::Dispatcher;
+using ondra_shared::RefCntObj;
+using ondra_shared::RefCntPtr;
 using ondra_shared::schedulerGetWorker;
 
 
+using CalcSpreadFn = std::function<void()>;
+using CalcSpreadQueue = std::function<void(CalcSpreadFn &&) >;
+
 class StatsSvc: public IStatSvc {
 public:
-	StatsSvc(Worker wrk, std::string name, Report &rpt, int interval, int cnt ):wrk(wrk),rpt(rpt),name(name),interval(interval),cnt(cnt)
-		,spread(std::make_shared<double>(0)) {}
+
+	struct SpreadInfo {
+		double spread = 0;
+		bool pending = false;
+	};
+
+	StatsSvc(CalcSpreadQueue q, std::string name, Report &rpt, int interval):q(q),rpt(rpt),name(name),interval(interval)
+		,spread(std::make_shared<SpreadInfo>()) {}
+
+
 
 	virtual void reportOrders(const std::optional<IStockApi::Order> &buy,
 							  const std::optional<IStockApi::Order> &sell) override {
@@ -73,38 +87,38 @@ public:
 			double balance,
 			double prev_value) const override{
 
-		if (*spread == 0) *spread = prev_value;
-
-		if (cnt && *spread != 0) {
-			--cnt;
-			return *spread;
-		} else {
+		if (cnt == 0) {
+			if (spread->pending) return spread->spread;
 			cnt += interval;
-			wrk >> [chart = std::vector<ChartItem>(chart.begin(),chart.end()),
-					cfg = MTrader_Config(cfg),
-					minfo = IStockApi::MarketInfo(minfo),
-					balance,
-					spread = this->spread,
-					name = this->name] {
-				LogObject logObj(name);
-				LogObject::Swap swap(logObj);
-				*spread = glob_calcSpread(chart, cfg, minfo, balance, *spread);
-			};
-			return *spread;
+			spread->pending = true;
+			q([chart = std::vector<ChartItem>(chart.begin(),chart.end()),
+				cfg = MTrader_Config(cfg),
+				minfo = IStockApi::MarketInfo(minfo),
+				balance,
+				spread = this->spread,
+				name = this->name] {
+			LogObject logObj(name);
+			LogObject::Swap swap(logObj);
+			spread->spread = glob_calcSpread(chart, cfg, minfo, balance, spread->spread);
+			spread->pending = false;
+			});
+			return spread->spread;
+		} else {
+			--cnt;
+			return spread->spread;
 		}
-
 	}
 	virtual std::size_t getHash() const override {
 		std::hash<std::string> h;
 		return h(name);
 	}
 
-	Worker wrk;
+	CalcSpreadQueue q;
 	Report &rpt;
 	std::string name;
 	int interval;
 	mutable int cnt = 0;
-	std::shared_ptr<double> spread;
+	std::shared_ptr<SpreadInfo> spread;
 
 
 };
@@ -173,12 +187,43 @@ public:
 static std::vector<NamedMTrader> traders;
 static StockSelector stockSelector;
 
+class ActionQueue: public RefCntObj {
+public:
+	ActionQueue(const Scheduler &sch):sch(sch) {}
+
+	template<typename Fn>
+	void push(Fn &&fn) {
+		bool e = dsp.empty();
+		std::move(fn) >> dsp;
+		if (e) goon();
+	}
+
+	void exec() {
+		if (!dsp.empty()) {
+			dsp.pump();
+			goon();
+		}
+	}
+
+	void goon() {
+		sch.after(std::chrono::seconds(1)) >> [me = RefCntPtr<ActionQueue>(this)]{
+				me->exec();
+		};
+	}
+
+protected:
+	Dispatcher dsp;
+	Scheduler sch;
+};
+
 
 void loadTraders(const ondra_shared::IniConfig &ini,
 		ondra_shared::StrViewA names, StorageFactory &sf,
-		Worker wrk, Report &rpt, bool force_dry_run) {
+		Scheduler sch, Report &rpt, bool force_dry_run) {
 	traders.clear();
 	std::vector<StrViewA> nv;
+
+	RefCntPtr<ActionQueue> aq ( new ActionQueue(sch) );
 
 	auto nspl = names.split(" ");
 	while (!!nspl) {
@@ -186,7 +231,6 @@ void loadTraders(const ondra_shared::IniConfig &ini,
 		if (!x.empty()) nv.push_back(x);
 	}
 
-	int p = 0;
 	for (auto n: nv) {
 		LogObject lg(n);
 		LogObject::Swap swp(lg);
@@ -195,7 +239,9 @@ void loadTraders(const ondra_shared::IniConfig &ini,
 			MTrader::Config mcfg = MTrader::load(ini[n], force_dry_run);
 			logProgress("Started trader $1 (for $2)", n, mcfg.pairsymb);
 			traders.emplace_back(stockSelector, sf.create(n),
-					std::make_unique<StatsSvc>(wrk, n, rpt, nv.size(), ++p),
+					std::make_unique<StatsSvc>([aq](auto &&fn) {
+							aq->push(std::move(fn));
+					}, n, rpt, 10),
 					mcfg, n);
 		} catch (const std::exception &e) {
 			logFatal("Error: $1", e.what());
@@ -508,7 +554,7 @@ int main(int argc, char **argv) {
 						Worker wrk = schedulerGetWorker(sch);
 
 
-						loadTraders(app.config, names, sf,wrk, rpt, test);
+						loadTraders(app.config, names, sf,sch, rpt, test);
 
 						logNote("---- Starting service ----");
 

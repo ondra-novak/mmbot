@@ -68,13 +68,13 @@ void Report::setOrders(StrViewA symb, const std::optional<IStockApi::Order> &buy
 	OKey sellKey {symb, -buyid};
 
 	if (buy.has_value()) {
-		orderMap[buyKey] = {inverted?1.0/buy->price:buy->price, buy->size};
+		orderMap[buyKey] = {inverted?1.0/buy->price:buy->price, buy->size*buyid};
 	} else{
 		orderMap[buyKey] = {0, 0};
 	}
 
 	if (sell.has_value()) {
-		orderMap[sellKey] = {inverted?1.0/sell->price:sell->price, sell->size};
+		orderMap[sellKey] = {inverted?1.0/sell->price:sell->price, sell->size*buyid};
 	} else {
 		orderMap[sellKey] = {0, 0};
 	}
