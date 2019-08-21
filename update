@@ -1,0 +1,10 @@
+#!/bin/bash
+
+git commit -a -m update 
+
+set -e
+
+git pull
+git submodule update --init
+cmake -DCMAKE_BUILD_TYPE=RELWITHDEBINFO .
+make all -j `nproc`
