@@ -53,7 +53,7 @@ function app_start(){
 	} catch (e) {
 
 	}
-	if (next_donate_time < Date.now()) {
+	if (isNaN(next_donate_time) || next_donate_time < Date.now()) {
 		next_donate_time = Date.now() + donation_repeat;
 		localStorage["next_donate_time"] = next_donate_time; 	
 	}
