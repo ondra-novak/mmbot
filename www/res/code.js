@@ -270,7 +270,15 @@ function app_start(){
 				var last_nacum = data.length?data[data.length-1].nacum:0;
 				misc.pnorm = last_norm;
 				misc.pnormp = 100*last_norm/misc.mv;
-				misc.avgt = last_norm/misc.mt;
+				if (data.length) {
+					var it = intervals[interval][1]*1000;
+					var lt = data[data.length-1];
+					misc.avgt = last_norm/misc.mt;
+					misc.avgh = lt.invst_n*it;
+					misc.avgha = lt.invst_n*it*lt.nacum/lt.norm;
+					misc.avghpl = lt.invst_n*it*lt.pl/lt.norm;
+				}
+
 				for (var n in misc)
 					setField(curchart, n, adjNum(misc[n]), {
 						pos:misc[n]>0,
@@ -558,13 +566,6 @@ function app_start(){
 				ranges[n] = {};
 				adjChartData(charts[n], n);
 				updateOptions(n, infoMap[n].title);
-				if (ch.length) {
-					var it = intervals[interval][1]*1000;
-					var lt = ch[ch.length-1];
-					stats.misc[n]["avgh"] = lt.invst_n*it;
-					stats.misc[n]["avgha"] = lt.invst_n*it*lt.nacum/lt.norm;
-					stats.misc[n]["avghpl"] = lt.invst_n*it*lt.pl/lt.norm;
-				}
 			}
 			
 			(stats.orders || []).forEach(function(o) {
