@@ -3,12 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <title>MM Bot</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="res/style.css">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <link rel="manifest" href="manifest.json"  crossOrigin='use-credentials'>
 </head>
 <body onload="app_start();">
-<div class="selchart"><div id="calculator_icon"></div><div id="indicator"></div>
+<div class="selchart">
+<div id="donate_icon" onclick="donate();"></div>
+<div id="calculator_icon"></div>
+<div id="indicator"></div>
 <div id="home">⌂</div>
 <select id="selchart">
 <option value="+summary">Summary</option>
@@ -95,7 +98,7 @@
 </pre>
 </div>
 <div id="logo" hidden>
-<img src="logo.png">
+<img src="res/logo.png">
 </div>
 <div id="calculator" hidden class="fade">
 <menu>
@@ -177,8 +180,8 @@
 <p>Thank you!</p>
 </div>
 
-<script src="code.js" type="text/javascript"></script>
-<template id="donation_item"><div class="donate">Please support further development! <img src='donate.svg' onclick="donate()"></div></template>
+<script src="res/code.js" type="text/javascript"></script>
+<template id="donation_item"><div class="donate">Please support further development! <img src='res/donate.svg' onclick="donate()"></div></template>
 
 
 </body>

@@ -1,5 +1,5 @@
 var CACHE = 'cache-update-and-refresh';
-//serial 112312311
+//serial 112312315
 
 self.addEventListener('install', function(evt) {
 	  console.log('The service worker is being installed.');
@@ -8,16 +8,19 @@ self.addEventListener('install', function(evt) {
 		    cache.addAll([
 		      './',
 		      './index.html',
-		      './style.css',
-		      './code.js',
-		      './calculator.svg',
-		      './donate.svg',
+		      './res/style.css',
+		      './res/code.js',
+		      './res/calculator.svg',
+		      './res/donate.svg',
+		      './res/donate_sml.svg',
+		      './res/logo.png',
 		      'https://fonts.googleapis.com/css?family=Ruda&display=swap',
 		      'https://fonts.gstatic.com/s/ruda/v10/k3kfo8YQJOpFqnYdaObJ.woff2'
 		    ].map(function(url){
 			return new Request(url, {credentials: 'same-origin'});
 			}));
 		  }));
+	  self.skipWaiting();
 });
 
 

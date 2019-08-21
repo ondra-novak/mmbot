@@ -22,7 +22,7 @@ function adjNum(n) {
 		else return "∞";
 	}
 	var an = Math.abs(n);
-	if (an > 9999) return n.toFixed(0);
+	if (an >= 100000) return n.toFixed(0);
 	else if (an >= 1) return n.toFixed(2);
 	else if (an > 0.0001) return n.toFixed(6);
 	else {
@@ -850,7 +850,7 @@ function app_start(){
 
 	changeinterval = function() {
 		interval = (interval+1)%intervals.length;
-		update();
+		redraw();
 	}
 }
 
