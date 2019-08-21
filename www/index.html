@@ -161,9 +161,24 @@
 <button class="close_butt">Close</button>
 </div>
 
-
 </div>
+
+<div id="donate_window">
+<button onclick="close_donate();">X</button>
+<h2>Please support futher development</h2>
+<table>
+<tr><th rowspan="2">BTC</th><td data-link="bitcoin">bc1q0ljtlv9krpt3xe28wsytag5y4pj8e52dzdmngr</td></tr>
+<tr><td data-link="bitcoin">3DPcHzpACsjmqTjUMABHjegY2mGfUjFMB6</td></tr>
+<tr><th rowspan="2">LTC</th><td  data-link="litecoin">ltc1q9fdkxertp4smq7l9mgtne2g5v0slrmd4g4x242</td></tr>
+<tr><td data-link="litecoin">LT4EMTLhXT94TH4u27KryA3rf96bv38SZo</td></tr>
+<tr><th>ETH</th><td data-link="ethereum">0xbb80Ec0aBCE86300d0326b870f615F2a874EaC80</td></tr>
+<tr><th>XRP</th><td data-link="ripple">rnSye1bNuC2aP1GqzLYaAmpPyRDkmQr6Un</td></tr>
+</table>
+<p>Thank you!</p>
+</div>
+
 <script src="code.js" type="text/javascript"></script>
+<template id="donation_item"><div class="donate">Please support further development! <img src='donate.svg' onclick="donate()"></div></template>
 
 
 </body>

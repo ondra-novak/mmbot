@@ -9,6 +9,9 @@ body {
 	font-size: 0.5cm;
 }
 
+a {
+	color: #AAF;
+}
 
 .stdline {
 	stroke: #FF8;
@@ -245,7 +248,7 @@ x-tr.anim {
 	animation-fill-mode:forwards;
 }
 
-x-td {
+x-td, .donate {
 	display:block;
 	flex-grow:1;
 	padding: 0.1cm 0;
@@ -257,6 +260,12 @@ x-td {
 	text-overflow: ellipsis;
 	vertical-align: middle;
 }
+
+.donate {
+	max-width: none;
+	text-align:center;
+}
+
 
 x-tr.sell x-td {
 	color: #F88;
@@ -301,12 +310,19 @@ x-tr x-td:nth-child(4) {max-width: 3%;text-align: center}
 x-tr x-td:nth-child(8) {text-align: right;max-width: 9%;font-size: 1.9vw;margin: 0.4em;text-overflow: clip;}
 
 @media (min-width: 20cm) {
-x-td, x-tr x-td:nth-child(3) {
+x-td, x-tr x-td:nth-child(3), .donate {
 		font-size: 0.62cm;
 }
 x-tr x-td:nth-child(1),x-tr x-td:nth-child(8) {
 		font-size: 0.38cm;
 }
+}
+
+.donate img {
+	height: 2em;
+	vertical-align: middle;
+	border-radius: 106px;
+	animation: 10s shadow_expand infinite;
 }
 
 x-trbgr.hdr {
@@ -831,6 +847,18 @@ form button {
 	}
 }
 
+@keyframes shadow_expand {
+	0% {
+		box-shadow: 0 0 1px white;
+	}
+	50% {
+		box-shadow: 0 0 100px white;
+	}
+	100% {
+		box-shadow: 0 0 200px #FFF0;
+	}
+}
+
 table.extended {font-size: 0.8em;max-width: 35em;border-collapse: collapse;margin-top: 1em;margin-left: 0.5em;width: 100%;}
 table.extended th {
     text-align: left;
@@ -877,8 +905,59 @@ table.extended td span.neg {color: #C66;}
 	left:0;
 	top: 0;
 	font-size: 0.7em;
-	/* width: 50vw; */
+	z-index: 1000;
 }
 .head > .error_icon:hover > div {
 	display:block;
+}
+
+#donate_window {
+	position: fixed;
+	left:  0;
+	top: 100%;
+	right: 0;
+	width: 30em;
+	background: black;
+	z-index: 1000;
+	margin: auto;
+	border: 1px solid #888;
+	box-shadow: 0 0 5px black;
+	font-size: 3vw;
+	transition: all 0.3s;
+	opacity: 0; 
+}
+
+@media (min-width: 16cm) {
+	#donate_window {
+	font-size: 0.5cm;
+	/* height: 15em; */
+}
+}
+
+#donate_window.shown {
+	top: 20%;
+	opacity: 0.999;
+}
+
+#donate_window table {
+	width: 98%;
+	margin: 1%;
+	box-sizing: border-box;
+}
+#donate_window table td {
+	text-align:center;
+}
+#donate_window h2, #donate_window p{
+	text-align:center;
+	margin: 0.4em;
+
+}
+#donate_window button {
+	position: absolute;
+	right:0;
+	top:0;
+	background-color:transparent;
+	border: 0;
+	color:#ccc;
+	font-size:150%;
 }

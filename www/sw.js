@@ -11,6 +11,7 @@ self.addEventListener('install', function(evt) {
 		      './style.css',
 		      './code.js',
 		      './calculator.svg',
+		      './donate.svg',
 		      'https://fonts.googleapis.com/css?family=Ruda&display=swap',
 		      'https://fonts.gstatic.com/s/ruda/v10/k3kfo8YQJOpFqnYdaObJ.woff2'
 		    ].map(function(url){

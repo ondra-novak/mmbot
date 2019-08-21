@@ -225,7 +225,7 @@ double glob_calcSpread(ondra_shared::StringView<IStatSvc::ChartItem> chart,
 		 sp2 = glob_calcSpread2(chart.substr(chart.length-1000), config, minfo, balance, prev_val);
 	}
 	double sp3 = (sp1.first + sp2.first)/2.0;
-	logInfo("Spread calculated: long=$1 (score=$2), short=$3 (score=$4), final=$5",curprice*(exp(sp1.first)-1),
+	logInfo("Spread calculated: long=$1 (profit=$2), short=$3 (profit=$4), final=$5",curprice*(exp(sp1.first)-1),
 															sp1.second,
 														     curprice*(exp(sp2.first)-1),
 															 sp2.second,

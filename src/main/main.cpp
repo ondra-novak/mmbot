@@ -87,7 +87,9 @@ public:
 			double balance,
 			double prev_value) const override{
 
-		if (cnt == 0) {
+		if (spread->spread == 0) spread->spread = prev_value;
+
+		if (cnt <= 0) {
 			if (spread->pending) return spread->spread;
 			cnt += interval;
 			spread->pending = true;
@@ -219,7 +221,7 @@ protected:
 
 void loadTraders(const ondra_shared::IniConfig &ini,
 		ondra_shared::StrViewA names, StorageFactory &sf,
-		Scheduler sch, Report &rpt, bool force_dry_run) {
+		Scheduler sch, Report &rpt, bool force_dry_run, int spread_calc_interval) {
 	traders.clear();
 	std::vector<StrViewA> nv;
 
@@ -241,7 +243,7 @@ void loadTraders(const ondra_shared::IniConfig &ini,
 			traders.emplace_back(stockSelector, sf.create(n),
 					std::make_unique<StatsSvc>([aq](auto &&fn) {
 							aq->push(std::move(fn));
-					}, n, rpt, 10),
+					}, n, rpt, spread_calc_interval),
 					mcfg, n);
 		} catch (const std::exception &e) {
 			logFatal("Error: $1", e.what());
@@ -524,6 +526,7 @@ int main(int argc, char **argv) {
 						auto lstsect = app.config["traders"];
 						auto names = lstsect.mandatory["list"].getString();
 						auto storagePath = lstsect.mandatory["storage_path"].getPath();
+						auto spreadCalcInterval = lstsect["spread_calc_interval"].getUInt(10);
 						auto rptsect = app.config["report"];
 						auto rptpath = rptsect.mandatory["path"].getPath();
 						auto rptinterval = rptsect["interval"].getUInt(864000000);
@@ -554,7 +557,7 @@ int main(int argc, char **argv) {
 						Worker wrk = schedulerGetWorker(sch);
 
 
-						loadTraders(app.config, names, sf,sch, rpt, test);
+						loadTraders(app.config, names, sf,sch, rpt, test,spreadCalcInterval);
 
 						logNote("---- Starting service ----");
 

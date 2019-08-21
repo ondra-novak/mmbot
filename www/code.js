@@ -33,6 +33,9 @@ function adjNum(n) {
 }
 
 function app_start(){
+
+	"use strict";
+
 	
 	if (navigator.serviceWorker) {
 		navigator.serviceWorker.register('sw.js', {	
@@ -40,13 +43,24 @@ function app_start(){
 		});
 	}
 	
+	var lastField="";
+	var next_donate_time = 0;
+	var donation_repeat = (10*24*60*60*1000);
 	
-	"use strict";
 	try {
-		var lastField = localStorage["markettrader_lastfield"];
+		lastField = localStorage["markettrader_lastfield"];
+		next_donate_time = parseInt(localStorage["next_donate_time"]);
 	} catch (e) {
 
 	}
+	if (next_donate_time < Date.now()) {
+		next_donate_time = Date.now() + donation_repeat;
+		localStorage["next_donate_time"] = next_donate_time; 	
+	}
+	
+	var donate_time = next_donate_time - donation_repeat;
+	
+	
 
 	var chartlist = {};
 	var indicator = document.getElementById("indicator");
@@ -362,42 +376,47 @@ function app_start(){
 			table_rows.set(trbgr, {ident:r.ident, time:r.time});
 			var dr = new Date(r.time);
 			
+			if (r.donation) {
+				var don = document.getElementById("donation_item").content;
+				don = document.importNode(don,true);
+				tr.appendChild(don);
+			} else {
+				var data = [				
+					dr.toLocaleString("default",{"day":"numeric","month":"2-digit"}),
+					dr.toLocaleString("default",{"hour":"2-digit","minute":"2-digit","second":"2-digit"}),
+					r.ident?infoMap[r.ident].title:"",
+					r.achg < 0?"↘":"↗",
+					Math.abs(r.achg),
+					r.price,
+					r.volume,
+					r.normch,
+				]
+				tr.classList.toggle("sell", r.achg<0);
+				tr.classList.toggle("buy", r.achg>0);
+				tr.classList.toggle("manual", r.man);
+				data.forEach(function(z) {
+					var td = document.createElement("x-td");
+					if (typeof z == "number") {
+						td.innerText = adjNum(z);
+						td.classList.add(z<0?"neg":"pos");
+					} else {
+						td.innerText = z;
+					}
+					tr.appendChild(td);
+				});
 			
-			var data = [				
-				dr.toLocaleString("default",{"day":"numeric","month":"2-digit"}),
-				dr.toLocaleString("default",{"hour":"2-digit","minute":"2-digit","second":"2-digit"}),
-				r.ident?infoMap[r.ident].title:"",
-				r.achg < 0?"↘":"↗",
-				Math.abs(r.achg),
-				r.price,
-				r.volume,
-				r.normch,
-			]
-			tr.classList.toggle("sell", r.achg<0);
-			tr.classList.toggle("buy", r.achg>0);
-			tr.classList.toggle("manual", r.man);
-			data.forEach(function(z) {
-				var td = document.createElement("x-td");
-				if (typeof z == "number") {
-					td.innerText = adjNum(z);
-					td.classList.add(z<0?"neg":"pos");
-				} else {
-					td.innerText = z;
-				}
-				tr.appendChild(td);
-			});
 			
-			
-			var ident_element = tr.querySelector("x-td:nth-child(3)");
-			var first_element = tr.querySelector("x-td:first-child");
-			
-			ident_element.addEventListener("click", function() {
-				location.hash = "!"+encodeURIComponent(r.ident);
-			});
-			
-			var trade_id_elem = document.createElement("div");
-			trade_id_elem.innerText =  r.ident + " " + r.id;
-			first_element.appendChild(trade_id_elem);
+				var ident_element = tr.querySelector("x-td:nth-child(3)");
+				var first_element = tr.querySelector("x-td:first-child");
+				
+				ident_element.addEventListener("click", function() {
+					location.hash = "!"+encodeURIComponent(r.ident);
+				});
+				
+				var trade_id_elem = document.createElement("div");
+				trade_id_elem.innerText =  r.ident + " " + r.id;
+				first_element.appendChild(trade_id_elem);
+			}
 			
 			
 		})		
@@ -412,6 +431,12 @@ function app_start(){
 		var sumchart = [];
 		for (var z in chart) {
 			sumchart = sumchart.concat(chart[z].slice(-20));			
+		}
+		if (donate_time) {
+			sumchart.push({
+				time: donate_time,
+				donation: true
+			});
 		}
 		sumchart.sort(function(a,b){
 			return a.time - b.time; 
@@ -991,4 +1016,22 @@ function init_calculator() {
 			calc.classList.toggle("fade",false);			
 		},10);
 	});
+}
+
+
+function donate() {
+	var w = document.getElementById("donate_window");
+	w.classList.toggle("shown");
+	if (!donate.inited) {
+		donate.inited = true;
+		var col = w.querySelectorAll("[data-link]");
+		Array.prototype.forEach.call(col,function(x) {
+			var content = x.innerText;
+			x.innerHTML="<a href=\""+x.dataset.link+":"+content+"\">"+content+"</a>";
+		});
+	}
+}
+function close_donate() {
+	var w = document.getElementById("donate_window");
+	w.classList.remove("shown");
 }
