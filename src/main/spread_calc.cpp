@@ -13,55 +13,12 @@
 
 #include "../shared/logOutput.h"
 #include "mtrader.h"
+#include "backtest_broker.h"
 
 using ondra_shared::logInfo;
 using ondra_shared::logDebug;
 
-class StockEmulator: public IStockApi {
-public:
-
-	StockEmulator(ondra_shared::StringView<IStatSvc::ChartItem> chart,
-			const MarketInfo &minfo,
-			double balance);
-	virtual TradeHistory getTrades(json::Value lastId, std::uintptr_t fromTime, const std::string_view & pair) override;
-	virtual Orders getOpenOrders(const std::string_view & par) override;
-	virtual Ticker getTicker(const std::string_view & piar) override;
-	virtual json::Value placeOrder(const std::string_view & pair,
-			double size, double price,json::Value clientId,
-			json::Value replaceId,double replaceSize) override;
-	virtual bool reset() override ;
-	virtual void testBroker() override {}
-	virtual double getBalance(const std::string_view &) override;
-	virtual bool isTest() const override {return false;}
-	virtual MarketInfo getMarketInfo(const std::string_view &) override{
-		return minfo;
-	}
-	virtual double getFees(const std::string_view &) override{
-		return minfo.fees;
-	}
-	virtual std::vector<std::string> getAllPairs() override {return {};}
-
-	double getScore() const {
-		return currency+sqrt(chart[0].bid*chart[0].ask)*balance;
-	}
-	unsigned int getTradeCount() const {
-		return std::min(buys,sells);
-	}
-
-protected:
-	double currency=0;
-	ondra_shared::StringView<IStatSvc::ChartItem> chart;
-	TradeHistory trades;
-	Order buy, sell;
-	bool buy_ex = true, sell_ex = true;
-	std::size_t pos = 0;
-	bool back = false;
-	MarketInfo minfo;
-	double balance;
-	double initial_balance;
-	unsigned int buys=0, sells=0;
-
-};
+using StockEmulator = BacktestBroker;
 
 class EmptyStorage: public IStorage {
 public:
@@ -237,105 +194,3 @@ double glob_calcSpread(ondra_shared::StringView<IStatSvc::ChartItem> chart,
 
 
 
-
-inline StockEmulator::StockEmulator(ondra_shared::StringView<IStatSvc::ChartItem> chart,
-		const MarketInfo &minfo, double balance)
-	:chart(chart),minfo(minfo),balance(balance),initial_balance(balance) {
-}
-
-inline StockEmulator::TradeHistory StockEmulator::getTrades(json::Value lastId, std::uintptr_t fromTime, const std::string_view & pair) {
-	return TradeHistory(trades.begin()+lastId.getUInt(), trades.end());
-}
-
-
-inline StockEmulator::Orders StockEmulator::getOpenOrders(const std::string_view & par) {
-	Orders ret;
-	if (!buy_ex) {
-		ret.push_back(buy);
-	}
-	if (!sell_ex) {
-		ret.push_back(sell);
-	}
-	return ret;
-}
-
-inline StockEmulator::Ticker StockEmulator::getTicker(const std::string_view & piar) {
-	return Ticker {
-		chart[pos].bid,
-		chart[pos].ask,
-		std::sqrt(chart[pos].bid*chart[pos].ask),
-		chart[pos].time
-	};
-}
-
-inline json::Value StockEmulator::placeOrder(const std::string_view & ,
-		double size, double price,json::Value clientId,
-		json::Value ,double ) {
-
-	Order ord{0,clientId, size, price};
-	if (size < 0) {
-		sell = ord;
-		sell_ex = false;
-	} else {
-		buy = ord;
-		buy_ex = false;
-	}
-
-	return 1;
-}
-
-
-
-inline bool StockEmulator::reset() {
-	auto nx = pos+(back?-1:1);
-	if (chart.length <= nx) {
-		if (back)
-			return false;
-		else {
-			back = true;
-			return reset();
-		}
-	}
-	pos = nx;
-	const IStatSvc::ChartItem &p = chart[pos];
-
-	auto txid = trades.size()+1;
-
-	if (p.bid > sell.price && !sell_ex) {
-		Trade tr;
-		tr.eff_price = sell.price;
-		tr.eff_size = sell.size;
-		tr.id = txid;
-		tr.price = sell.price;
-		tr.size = sell.size;
-		tr.time = 0;
-		minfo.removeFees(tr.eff_size, tr.eff_price);
-		sell_ex = true;
-		trades.push_back(tr);
-		balance += tr.eff_size;
-		currency -= tr.eff_size*tr.eff_price;
-		sells++;
-	}
-	if (p.ask < buy.price && !buy_ex) {
-		Trade tr;
-		tr.eff_price = buy.price;
-		tr.eff_size = buy.size;
-		tr.id = txid;
-		tr.price = buy.price;
-		tr.size = buy.size;
-		tr.time = 0;
-		minfo.removeFees(tr.eff_size, tr.eff_price);
-		buy_ex = true;
-		trades.push_back(tr);
-		balance += tr.eff_size;
-		currency -= tr.eff_size*tr.eff_price;
-		buys++;
-	}
-
-	return true;
-
-}
-
-double StockEmulator::getBalance(const std::string_view & x) {
-	return balance;
-}

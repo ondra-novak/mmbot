@@ -13,6 +13,8 @@ add_executable (mmbot
 	emulator.cpp
 	main.cpp
 	report.cpp
+	backtest_broker.cpp
+	backtest.cpp
 	)
 target_link_libraries (mmbot LINK_PUBLIC simpleServer imtjson curlpp ssl crypto curl stdc++fs pthread)
 install(TARGETS mmbot DESTINATION "bin") 

@@ -23,6 +23,8 @@
 #include "report.h"
 #include "spread_calc.h"
 #include "ext_stockapi.h"
+#include "stats2report.h"
+#include "backtest.h"
 
 
 using ondra_shared::StdLogFile;
@@ -45,86 +47,7 @@ using ondra_shared::RefCntPtr;
 using ondra_shared::schedulerGetWorker;
 
 
-using CalcSpreadFn = std::function<void()>;
-using CalcSpreadQueue = std::function<void(CalcSpreadFn &&) >;
-
-class StatsSvc: public IStatSvc {
-public:
-
-	struct SpreadInfo {
-		double spread = 0;
-		bool pending = false;
-	};
-
-	StatsSvc(CalcSpreadQueue q, std::string name, Report &rpt, int interval):q(q),rpt(rpt),name(name),interval(interval)
-		,spread(std::make_shared<SpreadInfo>()) {}
-
-
-
-	virtual void reportOrders(const std::optional<IStockApi::Order> &buy,
-							  const std::optional<IStockApi::Order> &sell) override {
-		rpt.setOrders(name, buy, sell);
-	}
-	virtual void reportTrades(ondra_shared::StringView<IStockApi::TradeWithBalance> trades) override {
-		rpt.setTrades(name,trades);
-	}
-	virtual void reportMisc(const MiscData &miscData) override{
-		rpt.setMisc(name, miscData);
-	}
-	virtual void reportError(const ErrorObj &errorObj) override{
-		rpt.setError(name, errorObj);
-	}
-
-	virtual void setInfo(const Info &info) override{
-		rpt.setInfo(name, info);
-	}
-	virtual void reportPrice(double price) override{
-		rpt.setPrice(name, price);
-	}
-	virtual double calcSpread(ondra_shared::StringView<ChartItem> chart,
-			const MTrader_Config &cfg,
-			const IStockApi::MarketInfo &minfo,
-			double balance,
-			double prev_value) const override{
-
-		if (spread->spread == 0) spread->spread = prev_value;
-
-		if (cnt <= 0) {
-			if (spread->pending) return spread->spread;
-			cnt += interval;
-			spread->pending = true;
-			q([chart = std::vector<ChartItem>(chart.begin(),chart.end()),
-				cfg = MTrader_Config(cfg),
-				minfo = IStockApi::MarketInfo(minfo),
-				balance,
-				spread = this->spread,
-				name = this->name] {
-			LogObject logObj(name);
-			LogObject::Swap swap(logObj);
-			spread->spread = glob_calcSpread(chart, cfg, minfo, balance, spread->spread);
-			spread->pending = false;
-			});
-			return spread->spread;
-		} else {
-			--cnt;
-			return spread->spread;
-		}
-	}
-	virtual std::size_t getHash() const override {
-		std::hash<std::string> h;
-		return h(name);
-	}
-
-	CalcSpreadQueue q;
-	Report &rpt;
-	std::string name;
-	int interval;
-	mutable int cnt = 0;
-	std::shared_ptr<SpreadInfo> spread;
-
-
-};
-
+using StatsSvc = Stats2Report;
 
 class NamedMTrader: public MTrader {
 public:
@@ -420,6 +343,64 @@ static int cmd_achieve(Worker &wrk, simpleServer::ArgList args, simpleServer::St
 	}
 }
 
+static int cmd_backtest(Worker &wrk, simpleServer::ArgList args, simpleServer::Stream stream, const std::string &cfgfname, IStockSelector &stockSel, Report &rpt) {
+	if (args.length < 1) {
+		stream << "Need arguments: <trader_ident> [option=value ...]\n"; return 1;
+	}
+	StrViewA trader = args[0];
+	auto iter = std::find_if(traders.begin(), traders.end(), [&](const NamedMTrader &dr){
+		return StrViewA(dr.ident) == trader;
+	});
+	if (iter == traders.end()) {
+		stream << "Trader idenitification is invalid: " << trader << "\n";
+		return 1;
+	}
+
+	NamedMTrader &t = *iter;
+	try {
+		std::vector<ondra_shared::IniItem> options;
+		for (std::size_t i = 1; i < args.length; i++) {
+			auto arg = args[i];
+			auto splt = arg.split("=",2);
+			StrViewA key = splt();
+			StrViewA value = splt();
+			key = key.trim(isspace);
+			value = value.trim(isspace);
+			options.emplace_back(ondra_shared::IniItem::data, trader, key, value);
+		}
+
+		auto cfg = BacktestControl::loadConfig(cfgfname, trader, options);
+
+		run_in_worker(wrk, [&] {
+			t.init();
+			int mdv = 0;
+			BacktestControl backtest(stockSel, rpt, cfg, t.getChart(), t.getLastSpread(), t.getInternalBalance());
+			auto tc = std::chrono::system_clock::now();
+			while (backtest.step()) {
+				auto tn = std::chrono::system_clock::now();
+				if (std::chrono::duration_cast<std::chrono::seconds>(tn-tc).count()>15) {
+					rpt.genReport();
+					tc = tn;
+				}
+				mdv++;
+				if (mdv >= 60) {
+					stream('.');
+					if (!stream.flush()) break;
+ 					mdv = 0;
+				}
+			}
+			return true;
+		});
+		rpt.genReport();
+		stream << "OK\n";
+		return 0;
+	} catch (std::exception &e) {
+		stream << e.what() << "\n";
+		return 2;
+	}
+
+}
+
 static ondra_shared::CrashHandler report_crash([](const char *line) {
 	ondra_shared::logFatal("CrashReport: $1", line);
 });
@@ -631,6 +612,9 @@ int main(int argc, char **argv) {
 						cntr.addCommand("repair", [&](simpleServer::ArgList args, simpleServer::Stream stream){
 							return cmd_singlecmd(wrk, args,stream,&MTrader::repair);
 						});
+						cntr.addCommand("backtest", [&](simpleServer::ArgList args, simpleServer::Stream stream){
+							return cmd_backtest(wrk, args, stream, app.configPath.string(), stockSelector, rpt);
+						});
 						std::size_t id = 0;
 						cntr.addCommand("run",[&](simpleServer::ArgList, simpleServer::Stream) {
 
@@ -675,7 +659,7 @@ int main(int argc, char **argv) {
 						return 0;
 
 					}, simpleServer::ArgList(argList.data(), argList.size()),
-					cmd == "calc_range" || cmd == "get_all_pairs" || cmd == "achieve" || cmd == "reset" || cmd=="repair");
+					cmd == "calc_range" || cmd == "get_all_pairs" || cmd == "achieve" || cmd == "reset" || cmd=="repair" || cmd == "backtest");
 			} catch (std::exception &e) {
 				std::cerr << "Error: " << e.what() << std::endl;
 				return 2;

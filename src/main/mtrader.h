@@ -117,6 +117,7 @@ public:
 	///Returns true, if trade was detected, or false, if not
 	int perform();
 
+	void init();
 
 	OrderPair getOrders();
 	void setOrder(std::optional<Order> &orig, Order neworder);
@@ -179,6 +180,10 @@ public:
 	void reset();
 	void repair();
 	void achieve_balance(double price, double balance);
+	ondra_shared::StringView<IStatSvc::ChartItem> getChart() const;
+	double getLastSpread() const;
+	double getInternalBalance() const;
+	void setInternalBalance(double v);
 
 protected:
 	std::unique_ptr<IStockApi> ownedStock;

@@ -56,7 +56,7 @@ protected:
 
 
 	struct OKey {
-		StrViewA symb;
+		std::string symb;
 		int dir;
 	};
 
@@ -70,10 +70,10 @@ protected:
 	};
 
 	using OrderMap = ondra_shared::linear_map<OKey,OValue, OKeyCmp>;
-	using TradeMap = ondra_shared::linear_map<StrViewA, json::Value>;
-	using InfoMap = ondra_shared::linear_map<StrViewA, json::Value>;
-	using MiscMap = ondra_shared::linear_map<StrViewA, json::Value>;
-	using PriceMap = ondra_shared::linear_map<StrViewA, double>;
+	using TradeMap = ondra_shared::linear_map<std::string, json::Value>;
+	using InfoMap = ondra_shared::linear_map<std::string, json::Value>;
+	using MiscMap = ondra_shared::linear_map<std::string, json::Value>;
+	using PriceMap = ondra_shared::linear_map<std::string, double>;
 
 	OrderMap orderMap;
 	TradeMap tradeMap;

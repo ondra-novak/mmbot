@@ -161,17 +161,17 @@ Calculator MTrader::initSlidingCalc(double refprice, double cur, double bal) {
 
 }
 
+void MTrader::init() {
+	if (need_load){
+		loadState();
+		need_load = false;
+	}
+}
 int MTrader::perform() {
 
 	try {
 
-	//Load state on first run (if the state is not loaded)
-	if (need_load) {
-		loadState();
-		need_load = false;
-		currency_balance_cache = stock.getBalance(minfo.currency_symbol);
-
-	}
+		init();
 
 	double begbal = internal_balance + cfg.external_assets;
 	bool sliding_pos = cfg.sliding_pos_change && (cfg.sliding_pos_assets||cfg.sliding_pos_currency);
@@ -488,6 +488,7 @@ MTrader::Status MTrader::getMarketStatus() const {
 	res.chartItem.time = ticker.time;
 	res.chartItem.bid = ticker.bid;
 	res.chartItem.ask = ticker.ask;
+	res.chartItem.last = ticker.last;
 
 	return res;
 }
@@ -581,6 +582,8 @@ void MTrader::loadState() {
 				cfg.sliding_pos_change != 0,
 				stock.isTest()
 			});
+	currency_balance_cache = stock.getBalance(minfo.currency_symbol);
+
 	if (storage == nullptr) return;
 	auto st = storage->load();
 	need_load = false;
@@ -615,10 +618,13 @@ void MTrader::loadState() {
 		if (chartSect.defined()) {
 			chart.clear();
 			for (json::Value v: chartSect) {
+				double ask = v["ask"].getNumber();
+				double bid = v["bid"].getNumber();
+				json::Value vlast = v["last"];
+				double last = vlast.defined()?vlast.getNumber():sqrt(ask*bid);
+
 				chart.push_back({
-					v["time"].getUInt(),
-					v["ask"].getNumber(),
-					v["bid"].getNumber()
+					v["time"].getUInt(),ask,bid,last
 				});
 			}
 		}
@@ -687,7 +693,8 @@ void MTrader::saveState() {
 		for (auto &&itm: chart) {
 			ch.push_back(json::Object("time", itm.time)
 				  ("ask",itm.ask)
-				  ("bid",itm.bid));
+				  ("bid",itm.bid)
+				  ("last",itm.last));
 		}
 	}
 	{
@@ -890,5 +897,20 @@ void MTrader::repair() {
 	currency_balance_cache =0;
 	prev_calc_ref = 0;
 	saveState();
+}
+
+ondra_shared::StringView<IStatSvc::ChartItem> MTrader::getChart() const {
+	return chart;
+}
+
+double MTrader::getLastSpread() const {
+	return prev_spread;
+}
+
+double MTrader::getInternalBalance() const {
+	return internal_balance;
+}
+void MTrader::setInternalBalance(double v) {
+	internal_balance = v;
 }
 

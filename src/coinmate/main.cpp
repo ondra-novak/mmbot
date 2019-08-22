@@ -152,7 +152,7 @@ Interface::TradeHistory Interface::getTrades(json::Value lastId, std::uintptr_t 
 			double eff_price = price + fee/size;
 			return Trade {
 				x["transactionId"],
-				x["createdTimestamp"].getUInt(),
+				x["createdTimestamp"].getUInt()*1000,
 				size,
 				price,
 				size,

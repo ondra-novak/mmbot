@@ -21,6 +21,7 @@ public:
 		std::uintptr_t time;
 		double ask;
 		double bid;
+		double last;
 	};
 
 	struct MiscData {

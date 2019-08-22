@@ -119,9 +119,7 @@ void EmulatorAPI::simulation(const Ticker &tk) {
 		if (sm > 0) {
 			left_orders.push_back(std::move(o));
 		} else {
-			auto tm = std::chrono::duration_cast<std::chrono::milliseconds>(
-					std::chrono::system_clock::now().time_since_epoch()
-					).count();
+			auto tm = tk.time;
 			IStockApi::Trade tr {
 				genID(),
 				static_cast<std::size_t>(tm),
