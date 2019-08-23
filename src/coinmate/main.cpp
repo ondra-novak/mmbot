@@ -152,7 +152,7 @@ Interface::TradeHistory Interface::getTrades(json::Value lastId, std::uintptr_t 
 			double eff_price = price + fee/size;
 			return Trade {
 				x["transactionId"],
-				x["createdTimestamp"].getUInt()*1000,
+				x["createdTimestamp"].getUInt(),
 				size,
 				price,
 				size,
@@ -189,7 +189,7 @@ Interface::TradeHistory Interface::getTrades(json::Value lastId, std::uintptr_t 
 		 r["bid"].getNumber(),
 		 r["ask"].getNumber(),
 		 r["last"].getNumber(),
-		 r["timestamp"].getUInt()
+		 r["timestamp"].getUInt()*1000 //HACK - time is not in milliseconds
 	 };
 }
 
