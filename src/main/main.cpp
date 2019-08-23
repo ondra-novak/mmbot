@@ -507,6 +507,7 @@ int main(int argc, char **argv) {
 						auto lstsect = app.config["traders"];
 						auto names = lstsect.mandatory["list"].getString();
 						auto storagePath = lstsect.mandatory["storage_path"].getPath();
+						auto storageBinary = lstsect["storage_binary"].getBool(true);
 						auto spreadCalcInterval = lstsect["spread_calc_interval"].getUInt(10);
 						auto rptsect = app.config["report"];
 						auto rptpath = rptsect.mandatory["path"].getPath();
@@ -527,7 +528,7 @@ int main(int argc, char **argv) {
 						}
 
 
-						StorageFactory sf(storagePath);
+						StorageFactory sf(storagePath,5,storageBinary?Storage::binjson:Storage::json);
 						StorageFactory rptf(rptpath,2,Storage::json);
 
 						Report rpt(rptf.create("report.json"), rptinterval, a2np);
