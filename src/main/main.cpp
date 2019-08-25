@@ -356,6 +356,8 @@ static int cmd_backtest(Worker &wrk, simpleServer::ArgList args, simpleServer::S
 		return 1;
 	}
 
+	stream << "Preparing chart\n";
+	stream.flush();
 	NamedMTrader &t = *iter;
 	try {
 		std::vector<ondra_shared::IniItem> options;
@@ -369,30 +371,68 @@ static int cmd_backtest(Worker &wrk, simpleServer::ArgList args, simpleServer::S
 			options.emplace_back(ondra_shared::IniItem::data, trader, key, value);
 		}
 
-		auto cfg = BacktestControl::loadConfig(cfgfname, trader, options);
-
+		std::optional<BacktestControl> backtest;
+		BacktestControl::BtReport *btrpt_cntr;
 		run_in_worker(wrk, [&] {
+			auto cfg = BacktestControl::loadConfig(cfgfname, trader, options,t.getLastSpread());
+			auto btrpt = std::make_unique<BacktestControl::BtReport>(
+					std::make_unique<Stats2Report>(
+							[=](CalcSpreadFn &&fn) {fn();},
+							"backtest",
+							rpt,
+							cfg.calc_spread_minutes));
+			btrpt_cntr = btrpt.get();
 			t.init();
-			int mdv = 0;
-			BacktestControl backtest(stockSel, rpt, cfg, t.getChart(), t.getLastSpread(), t.getInternalBalance());
-			auto tc = std::chrono::system_clock::now();
-			while (backtest.step()) {
-				auto tn = std::chrono::system_clock::now();
-				if (std::chrono::duration_cast<std::chrono::seconds>(tn-tc).count()>15) {
-					rpt.genReport();
-					tc = tn;
-				}
-				mdv++;
-				if (mdv >= 60) {
-					stream('.');
-					if (!stream.flush()) break;
- 					mdv = 0;
-				}
-			}
+			backtest.emplace(stockSel, std::move(btrpt), cfg, t.getChart(),  t.getInternalBalance());
 			return true;
 		});
-		rpt.genReport();
-		stream << "OK\n";
+
+		stream << "Running ('.' - per hour, '+' - report)\n";
+
+		std::mutex wrlock;
+		auto wrout = [&](StrViewA x) {
+			std::lock_guard<std::mutex> _(wrlock);
+			stream << x;
+			return stream.flush();
+		};
+
+		Scheduler sch = Scheduler::create();
+		sch.each(std::chrono::seconds(1)) >> [p = 0,&wrout]() mutable {
+			char c[2];
+			p = (p + 1) % 4;
+			c[1] = '\b';
+			c[0] = "\\|/-"[p];
+			wrout(StrViewA(c,2));
+		};
+
+		int mdv = 0;
+		auto tc = std::chrono::system_clock::now();
+		while (backtest->step()) {
+			auto tn = std::chrono::system_clock::now();
+			mdv++;
+			if (mdv >= 60) {
+				if (!wrout(".")) break;
+				mdv = 0;
+			}
+			if (std::chrono::duration_cast<std::chrono::seconds>(tn-tc).count()>50) {
+				run_in_worker(wrk,[&] {
+					btrpt_cntr->flush();
+					rpt.genReport();
+					wrout("+");
+					return true;
+				});
+				tc = tn;
+			}
+		}
+		sch.clear();
+		stream << "\nGenerating report\n";
+		stream.flush();
+		run_in_worker(wrk,[&] {
+			btrpt_cntr->flush();
+			rpt.genReport();
+			return true;
+		});
+		stream << "Done\n";
 		return 0;
 	} catch (std::exception &e) {
 		stream << e.what() << "\n";

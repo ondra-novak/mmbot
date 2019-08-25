@@ -708,7 +708,7 @@ function app_start(){
 	
 
 	function drawChart(elem, chart, fld, lines) {
-		var now = new Date();
+		var now = new Date(chart[chart.length-1].time);
 		var bday = beginOfDay(now);		
 		var skiphours = Math.floor((now - bday)/(base_interval));
 				

@@ -10,10 +10,10 @@
 
 
 BacktestBroker::BacktestBroker(ondra_shared::StringView<IStatSvc::ChartItem> chart,
-		const MarketInfo &minfo, double balance)
+		const MarketInfo &minfo, double balance, bool mirror)
 	:chart(chart),minfo(minfo),balance(balance),initial_balance(balance) {
-	pos = chart.length;
-	back = true;
+	pos = mirror?chart.length:0;
+	back = mirror;
 }
 
 BacktestBroker::TradeHistory BacktestBroker::getTrades(json::Value lastId, std::uintptr_t fromTime, const std::string_view & pair) {
@@ -82,7 +82,7 @@ bool BacktestBroker::reset() {
 		tm = 2*chart[0].time-tm;
 	}
 
-	if (p.bid > sell.price && !sell_ex) {
+	if (p.last > sell.price && !sell_ex) {
 		Trade tr;
 		tr.eff_price = sell.price;
 		tr.eff_size = sell.size;
@@ -97,7 +97,7 @@ bool BacktestBroker::reset() {
 		currency -= tr.eff_size*tr.eff_price;
 		sells++;
 	}
-	if (p.ask < buy.price && !buy_ex) {
+	if (p.last < buy.price && !buy_ex) {
 		Trade tr;
 		tr.eff_price = buy.price;
 		tr.eff_size = buy.size;

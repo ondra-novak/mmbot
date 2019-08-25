@@ -12,6 +12,7 @@
 #include <numeric>
 
 #include "../shared/logOutput.h"
+#include "../shared/worker.h"
 #include "mtrader.h"
 #include "backtest_broker.h"
 
@@ -64,7 +65,7 @@ static EmulResult emulateMarket(ondra_shared::StringView<IStatSvc::ChartItem> ch
 		double spread) {
 
 
-	StockEmulator emul(chart, minfo, balance);
+	StockEmulator emul(chart, minfo, balance, true);
 
 	MTrader_Config cfg(config);
 	cfg.dry_run = false;
@@ -147,19 +148,32 @@ std::pair<double,double> glob_calcSpread2(ondra_shared::StringView<IStatSvc::Cha
 	auto resbeg = std::begin(bestResults);
 	auto resiter = resbeg;
 
+	using namespace ondra_shared;
+	Worker wrk = Worker::create(std::thread::hardware_concurrency());
+	std::mutex lock;
+	MTCounter cnt;
+
 	for (int i = 0; i < steps; i++) {
 
+		cnt++;
 		double curSpread = std::log(((low_spread+(hi_spread-low_spread)*i/(steps-1.0))+curprice)/curprice);
-		auto res = emulateMarket(chart, config, minfo, balance, curSpread);
-		auto profit = res.score;
-		ResultItem resitem(profit,curSpread);
-		if (resiter->first < resitem.first) {
-			*resiter = resitem;
-			resiter = std::min_element(resbeg, resend);
-			ondra_shared::logDebug("Found better spread= $1 (log=$2), score=$3, trades=$4", curprice*exp(curSpread)-curprice, curSpread, profit, res.trades);
-			best_profit = profit;
-		}
+		wrk >> [&, curSpread] {
+			auto res = emulateMarket(chart, config, minfo, balance, curSpread);
+			std::unique_lock<std::mutex> _(lock);
+			auto profit = res.score;
+			ResultItem resitem(profit,curSpread);
+			if (resiter->first < resitem.first) {
+				*resiter = resitem;
+				resiter = std::min_element(resbeg, resend);
+				ondra_shared::logDebug("Found better spread= $1 (log=$2), score=$3, trades=$4", curprice*exp(curSpread)-curprice, curSpread, profit, res.trades);
+				best_profit = profit;
+			}
+			cnt--;
+		};
 	}
+
+	cnt.wait();
+
 	double sugg_spread = pow(std::accumulate(
 			std::begin(bestResults),
 			std::end(bestResults), ResultItem(1,1),

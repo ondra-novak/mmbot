@@ -10,7 +10,7 @@ public:
 
 	BacktestBroker(ondra_shared::StringView<IStatSvc::ChartItem> chart,
 			const MarketInfo &minfo,
-			double balance);
+			double balance, bool mirror);
 	virtual TradeHistory getTrades(json::Value lastId, std::uintptr_t fromTime, const std::string_view & pair) override;
 	virtual Orders getOpenOrders(const std::string_view & par) override;
 	virtual Ticker getTicker(const std::string_view & piar) override;

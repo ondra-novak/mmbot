@@ -7,24 +7,27 @@
 
 
 #include "backtest.h"
+
+#include <random>
+#include <chrono>
+
 #include "stats2report.h"
 
 BacktestControl::BacktestControl(IStockSelector &stockSel,
-		Report &rpt, Config config,
+		std::unique_ptr<BtReport> &&rpt, const Config &config,
 		ondra_shared::StringView<IStatSvc::ChartItem> chart,
-		double spread, double balance) {
+		double balance) {
+
+	prepareChart(config,chart);
 
 
-	IStockApi *orig_broker = stockSel.getStock(config.mtrader_cfg.broker);
+	IStockApi *orig_broker = stockSel.getStock(config.broker);
 	if (orig_broker == nullptr)
-		throw std::runtime_error(std::string("Unknown stock market name: ")+std::string(config.mtrader_cfg.broker));
+		throw std::runtime_error(std::string("Unknown stock market name: ")+std::string(config.broker));
 
-	auto minfo = orig_broker->getMarketInfo(config.mtrader_cfg.pairsymb);
-	if (config.calc_spread_minutes == 0 && config.mtrader_cfg.force_spread == 0) {
-		config.mtrader_cfg.force_spread = spread;
-	}
+	auto minfo = orig_broker->getMarketInfo(config.pairsymb);
 
-	PStatSvc statsvc ( new Stats2Report([=](CalcSpreadFn &&fn) {fn();}, "backtest", rpt, config.calc_spread_minutes));
+//	PStatSvc statsvc ( new Stats2Report([=](CalcSpreadFn &&fn) {fn();}, "backtest", rpt, config.calc_spread_minutes));
 
 	class FakeStockSelector: public IStockSelector {
 	public:
@@ -42,10 +45,9 @@ BacktestControl::BacktestControl(IStockSelector &stockSel,
 	};
 
 
-	config.mtrader_cfg.title="BT:"+config.mtrader_cfg.title;
-	broker.emplace(chart, minfo, 0);
+	broker.emplace(this->chart, minfo, 0, config.mirror);
 	FakeStockSelector fakeStockSell(&(*broker));
-	trader.emplace(fakeStockSell, nullptr, std::move(statsvc), config.mtrader_cfg);
+	trader.emplace(fakeStockSell, nullptr, std::move(rpt), config);
 	trader->setInternalBalance(balance);
 }
 
@@ -59,15 +61,140 @@ bool BacktestControl::step() {
 
 BacktestControl::Config BacktestControl::loadConfig(const std::string &fname,
 		const std::string &section,
-		const std::vector<ondra_shared::IniItem> &custom_options) {
+		const std::vector<ondra_shared::IniItem> &custom_options, double spread) {
 
 	ondra_shared::IniConfig cfg;
 	cfg.load(fname);
 	for (auto &&x: custom_options) {
 		cfg.load(x);
 	}
-	Config c;
-	c.mtrader_cfg = MTrader::load(cfg[section],true);
-	c.calc_spread_minutes = cfg[section]["spread_calc_interval"].getUInt(0);
+	Config c(MTrader::load(cfg[section],true));
+	auto sect = cfg[section];
+	c.calc_spread_minutes = sect["spread_calc_interval"].getUInt(0);
+	c.mirror = sect["mirror"].getBool(true);
+	c.repeat = sect["repeat"].getUInt(0);
+	c.trend = sect["trend"].getNumber(0);
+	c.random_mins = sect["random"].getNumber(0);
+	if (c.random_mins) {
+		c.random_seed = sect.mandatory["seed"].getUInt();
+		ondra_shared::StrViewA randoms = sect.mandatory["stddev"].getString();
+		auto splt = randoms.split("/");
+		while (!!splt) {
+			ondra_shared::StrViewA r = splt();
+			double rn = strtod(r.data,nullptr);
+			c.randoms.push_back(rn);
+		}
+	}
+	c.title="BT:"+c.title;
+	if (c.calc_spread_minutes == 0 && c.force_spread == 0) {
+		c.force_spread = spread;
+	}
 	return c;
+}
+
+BacktestControl::BtReport::BtReport(PStatSvc &&rpt):rpt(std::move(rpt)) {
+}
+
+void BacktestControl::BtReport::reportOrders(
+		const std::optional<IStockApi::Order> &buy,
+		const std::optional<IStockApi::Order> &sell) {
+	this->buy = buy;
+	this->sell = sell;
+}
+
+void BacktestControl::BtReport::reportTrades(
+		ondra_shared::StringView<IStockApi::TradeWithBalance> trades) {
+	this->trades = trades;
+}
+
+void BacktestControl::BtReport::reportPrice(double price) {
+	this->price = price;
+}
+
+void BacktestControl::BtReport::setInfo(const Info &info) {
+	this->info = info;
+}
+
+void BacktestControl::BtReport::reportMisc(const MiscData &miscData) {
+	this->miscData = miscData;
+}
+
+void BacktestControl::BtReport::reportError(const ErrorObj &) {
+	//empty
+}
+
+double BacktestControl::BtReport::calcSpread(
+		ondra_shared::StringView<ChartItem> chart, const MTrader_Config &config,
+		const IStockApi::MarketInfo &minfo, double balance,
+		double prev_value) const {
+	return rpt->calcSpread(chart,config,minfo,balance,prev_value);
+}
+
+std::size_t BacktestControl::BtReport::getHash() const {
+	return 1;
+}
+
+void BacktestControl::BtReport::flush() {
+	rpt->reportMisc(miscData);
+	rpt->reportOrders(buy,sell);
+	rpt->reportPrice(price);
+	rpt->reportTrades(trades);
+	rpt->setInfo(info);
+}
+
+void BacktestControl::prepareChart(const Config &config,
+		ondra_shared::StringView<ChartItem> chart) {
+
+	double init_price = 1;
+	if (!chart.empty()) init_price = chart[0].last;
+	std::vector<double> relchart;
+	double beg = init_price;
+	double t = exp(config.trend/100.0);
+	std::vector<double> diffs(config.randoms.size(),1.0);
+	if (config.random_mins) {
+		std::default_random_engine rnd(config.random_seed);
+		std::vector<std::lognormal_distribution<> > norms;
+		for (auto &&c : config.randoms) {
+			norms.emplace_back(0.0, c*0.01);
+		}
+		for (std::size_t i = 0; i < config.random_mins; i++) {
+			double diff = 1.0;
+			for (std::size_t j = 0; j < norms.size(); j++) {
+				bool recalc = (relchart.size() % (1 << j) == 0);
+				if (recalc) diffs[j] = norms[j](rnd);
+				diff *= diffs[j];
+			}
+			relchart.push_back(diff*t);
+		}
+	} else {
+		for (const auto &x : chart) {
+			double diff = x.last/beg;
+			relchart.push_back(diff*t);
+			beg = x.last;
+		}
+	}
+
+	std::size_t cnt = relchart.size();
+	for (std::size_t i = 0; i < config.repeat; i++) {
+		for (std::size_t j = 0; j < cnt; j++) {
+			relchart.push_back(relchart[j]);
+		}
+	}
+
+	cnt = relchart.size();
+	std::size_t begtime = std::chrono::duration_cast<std::chrono::milliseconds>(
+		std::chrono::system_clock::now().time_since_epoch()).count();
+	constexpr std::size_t minute = 60000;
+	begtime -= cnt * minute;
+	this->chart.clear();
+	beg = init_price;
+	for (auto &&x: relchart) {
+		double p = beg * x;
+		beg = p;
+		this->chart.push_back(ChartItem {
+			begtime, p,p,p
+		});
+		begtime+=minute;
+	}
+
 }
