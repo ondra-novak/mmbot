@@ -54,6 +54,8 @@ struct MTrader_Config {
 	double sliding_pos_currency;
 	unsigned int sliding_pos_center;
 	bool sliding_pos_acm;
+	double sliding_pos_max_pos;
+	unsigned int accept_loss;
 
 	double force_spread;
 	double emulated_currency;
@@ -69,6 +71,7 @@ struct MTrader_Config {
 	bool dry_run;
 	bool internal_balance;
 	bool detect_manual_trades;
+	bool enabled;
 
 	std::size_t start_time;
 
@@ -121,6 +124,7 @@ public:
 
 	OrderPair getOrders();
 	void setOrder(std::optional<Order> &orig, Order neworder);
+	void setOrderCheckMaxPos(std::optional<Order> &orig, Order neworder, double balance, double neutral);
 
 
 	using ChartItem = IStatSvc::ChartItem;
@@ -209,6 +213,7 @@ protected:
 	mutable double prev_spread=0.01;
 	double prev_calc_ref = 0;
 	double currency_balance_cache = 0;
+	double acceptLossPrice=0;
 	size_t magic = 0;
 
 	void loadState();
@@ -234,6 +239,7 @@ protected:
 	Calculator initSlidingCalc(double refprice, double cur, double assets);
 	void update_dynmult(bool buy_trade,bool sell_trade);
 
+	void acceptLoss(const Order &order, double lastTradePrice, const Status &st);
 };
 
 

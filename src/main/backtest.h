@@ -31,6 +31,8 @@ public:
 		std::vector<double> randoms;
 		double trend;
 		bool mirror;
+		bool random_merge;
+		std::string dump_chart;
 
 	};
 
@@ -61,6 +63,8 @@ public:
 		std::optional<IStockApi::Order> buy;
 		std::optional<IStockApi::Order> sell;
 		ondra_shared::StringView<IStockApi::TradeWithBalance> trades;
+		std::string buyError;
+		std::string sellError;
 		double price;
 		MiscData miscData;
 		Info info;

@@ -252,10 +252,14 @@ void Report::exportPrices(json::Object &&out) {
 }
 
 void Report::setError(StrViewA symb, const ErrorObj &errorObj) {
+
+	const json::Value &info = infoMap[symb];
+	bool inverted = info["inverted"].getBool();
+
 	Object obj;
 	if (!errorObj.genError.empty()) obj.set("gen", errorObj.genError);
-	if (!errorObj.buyError.empty()) obj.set("buy", errorObj.buyError);
-	if (!errorObj.sellError.empty()) obj.set("sell", errorObj.sellError);
+	if (!errorObj.buyError.empty()) obj.set(inverted?"sell":"buy", errorObj.buyError);
+	if (!errorObj.sellError.empty()) obj.set(inverted?"buy":"sell", errorObj.sellError);
 	errorMap[symb] = obj;
 }
 

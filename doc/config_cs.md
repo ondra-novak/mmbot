@@ -195,6 +195,9 @@ Soubor **traders.conf** je vložen do hlavního konfiguračního suboru přes **
 list=ltcczk btcczk ethczk xrpczk bchczk dashczk grinusdc
 ```
 
+**spread_calc_interval** = (volitelné) Interval v minutách jak často se přepočítává spread. Výchozí hodnota je 10
+
+
 ### Konfigurace obchodníků
 
 
@@ -273,6 +276,14 @@ Volba nesmí být kombinována s volbou `sliding_pos.acum`
 
 **sliding_pos.currency** - Výchozí hodnota je 0 a to znamená, že volba je vypnuta. Pokud je volba zapnuta, určuje optimální zůstatek peněz na účtu a tento zůstatek je považován za neutrální pozici. Volba má přednost před `sliding_pos.assets`. Použití volby je vhodné na nepákových burzách, kde obchodujeme více assetů vůči jedné měně a našim cílem je spíš akumulovat assety, přesto potřebujeme mít jistotu, že na obchodním účtu zůstanou nějaké peníze pro další nákup.
 
+**sliding_pos.center** - Výchozí hodnota je 0 a to znamená, že volba je vypnuta. Pokud je volba zapnuta, určuje neutrální pozici jako poměr mezi assety a currency. Pro volbu 1 je to 50:50. Pro volbu 2 je to 33:66. Pro volbu 3 je to 25:75 - dále pokračuje podle vzorce 1/(n+1), kde n je zadaná hodnota
+
+**sliding_pos.max_pos** - Povoluje maximální pozici (long i short). Pokud robot má zvýšit pozici nad tento limit, odmítne vydat pokyn na burzu. Vhodné kombinovat s **accept_loss**
+
+**accept_loss** - pokud je nenulová, definuje počet hodin od posledního trade, po kterou musí mít robot zablokované vydání pokynu v jednom směru, aby se aktivovala funkce `accept_loss`. Zároveň musí být splněno, že dynamické multiplikátory jsou rovné 1. Pokud je tedy toto splněno, robot posune equlibrium na cenu zablokovaného pokynu a tím akceptuje ztrátu vzniklou tím, že se pokyn nebude realizovat. Pokyn může být zablokován v důsledku `sliding_pos.max_pos`, ale v důsledku toho, že nejsou prostředky na burze. Je třeba si ovšem dát pozor, aby pokyn nebyl zablokován například v důsledku dlouhotrvající maintenance na burze (robot momentálně nerozpozná důvod zablokování). Proto je dobré nastavit hodnotu na řádově několik hodin, například 12 (nejdelší maintenance míval Bitfinex = 7 hodin)
+
+**enabled** - ve výchozím stavu je nastaveno na `true` a umožňuje běh robota na zadaném páru. Pokud je nastaveno na `false`, robot zruší všechny své pokyny a přestane obchodovat. Pokyny jsou zablokované (ale nereaguje ani funkce `accept_loss`). V tomto stavu také neprobíhá výpočet spreadu. Nicméně probíhá sběr dat pro výpočet spreadu.   
+
 **detect_manual_trades** - `(experimentální)` Robot se pokouší označit načtené obchody které neprovedl on jako manuální obchody (provedené uživatelem ručně na burze). Tyto obchody se pak nezapočítávají do statistik a přehledů. Pokud je zároveň zapnuta `internal_balance`, pak se tyto trady nezapočítávají ani do balance. Funkce je v režimu experimentální, protože zaznamenává nemalé procento false positive (robot někdy nepozná svůj obchod)
 
 **start_time** = (volitelné) specifikuje počáteční čas obchodování od začátku epochy v milisekundách (linux timestamp * 1000). Výchozí hodnota je 0. Nastavení na jinou hodnotu způsobí, že robot bude ignorovat starší obchody než je zadaný čas a nebude je zobrazovat v reportech ani z nich počítat statistiky a dalších informace
@@ -283,7 +294,9 @@ Volba nesmí být kombinována s volbou `sliding_pos.acum`
 
 **spread_calc_max_trades** = (volitelné) Maximální počet obchodů na den při backtestu - Při výpočtu spreadu se hodnotí, kolik denně obchodů robot provedl. Pokud provedl více, než je zadaná hodnota, příslušný test se vyřadí (obdrží nízké skoré) a použije se jiný výsledek. Výchozí hodnota je **24**
 
+**force_spread** = (volitelné) Vynutí si konkrétní spread. Hodnota je zadána jako logaritmus o základu e. Hodnota 0.01 odpovídá 1%. Výpočet log(x/100+1), kde x je spread v procentech. Pokud je vynucen spread, pak se výpočet spreadu nespouští
 
+**min_size** = (volitelné) specifikuje minimální velikost pokynu. Vhodné, pokud burza tvrdošině blokuje příliš malé pokyny.
 
 
 #### starší a obsolete
@@ -295,4 +308,34 @@ Volba nesmí být kombinována s volbou `sliding_pos.acum`
 **buy_step_mult** = (volitelné) Nákupní multiplikátor kroku. Upravuje krok spreadu tím, že ho vynásobí zadaným číslem. Nákupní příkaz tak bude umístěn dále (>1) nebo blíže (<1) středu. Adekvátně bude upraveno i množství dle výpočtu: Výchozí hodnota je **1**
 
 **sell_step_mult** = (volitelné) Prodejní multiplikátor kroku. Upravuje krok spreadu tím, že ho vynásobí zadaným číslem. Prodejní příkaz tak bude umístěn dále (>1) nebo blíže (<1) středu. Adekvátně bude upraveno i množství dle výpočtu: Výchozí hodnota je **1**
+
+
+#### volby pro backtest
+
+Pro backtest lze použít všechny volby z konfigurace obchodníka a k tomu tyto navíc. 
+
+Volby pro backtest se většinou zadávájí na příkazovém řádku, avšak mají stejný formát jako volby configu. Mohou být uvedeny i v nastavení páru, ale mimo backtest se ignorují
+
+**spread_calc_interval** = specifikuje interval jak často se přepočítává spread během backtestu. Hodnota je v minutách (bere se čas grafu). Vychozí hodnota je 0 a tím se přepočet spreadu vypíná. Jako výchozí spread se použije spread na zdrojovém páru v době spuštění backtestu. Spread je možné změnit pomocí `force_spread` a nebo zapnutím této volby. Ale pozor. výpočet spreadu je velice pomalá operace, proto se doporučuje nastavovat interval kolem 1000 a víc, nebo si nechat spread první průchodem spočítat a pro další průchody použít `force_spread`
+
+
+##### Generování grafu
+
+* Není-li určeno jinak, tak se backtest provádí nad daty určenými pro výpočet spreadu. Tam je zpravidla k dispozici cca 5 dní minutových dat (přesněji `spread_calc_hours` ovšem nad původním párem) 
+
+**mirror** = prochází vygenerovaný graf tam a zpět. Díky tomu se eliminuje trend. Vychozí je zapnuto
+
+**repeat** = vytvoří graf tím že zopakuje již vytvoření graf víckrát. Pokud není jinak uvedeno, zopakuje se graf vytvořený  zdat určených pro výpočet spreadu
+
+**trend** = přidává trend. Pozor hodnota určuje posun v procentech za 1 minutu. Bývá to hodně malé číslo: např 0.0001. Kládná čísla představují rostoucí trend, záporná klesající. Je-li aktivní `mirror`, pak je výsledkem stříška nebo V. U inverzních futures je význam znaménka otočen
+
+**random** = generuje n8hodný graf. Parametr určuje počet minut.
+
+**seed** = (povinné pokud s `random`) libovolné číslo fungující jako seed. Změnou čísla se vygeneruje jiný graf
+
+**stddev** = několik hodnot oddělených lomítkem:  Například 0.04/0.02/0.01 - počet hodnot není omezen, ale většinou bývají 1-4. První hodnota uvádí směrodatnou odchylku náhodného trendu, který se mění každou minutu. Druhá hodnota určuje tento trend pro 2 minuty, třetí hodnota pro 4 minuty atd. Výsledná změna ceny je dána jako kombinace všech náhodných změn. Jiný příklad: ////0.01 - definuje že pouze každých 16 minut se změní směr grafu.
+
+**merge** = on/off sloučí data určená pro výpočet spreadu s náhodným grafem. Výsledkem je graf, který může mít vlostnosti které se blíží skutečnému trhu. Výchozí je off
+
+**dump_chart** = cesta. Specifikuje cestu na soubor. kam se uloží vygenerovaný graf pro kontrolu. Cesta musí být absolutní. Pokud použijete příponu `.csv`, lze soubor otevřít v Excelu/LibreOffice
 

@@ -77,6 +77,8 @@ static EmulResult emulateMarket(ondra_shared::StringView<IStatSvc::ChartItem> ch
 	cfg.buy_step_mult = 1;
 	cfg.acm_factor_buy = 0;
 	cfg.acm_factor_sell = 0;
+	cfg.accept_loss = 0;
+	cfg.sliding_pos_max_pos = 0;
 	cfg.sliding_pos_change = 0;
 	cfg.sliding_pos_acm = false;
 
@@ -188,7 +190,7 @@ double glob_calcSpread(ondra_shared::StringView<IStatSvc::ChartItem> chart,
 		double balance,
 		double prev_val) {
 	if (prev_val < 1e-10) prev_val = 0.01;
-	if (chart.empty() || balance == 0) return prev_val;
+	if (chart.empty() || balance == 0 || !config.enabled) return prev_val;
 	double curprice = sqrt(chart[chart.length-1].ask*chart[chart.length-1].bid);
 	auto sp1 = glob_calcSpread2(chart, config, minfo, balance, prev_val);
 	auto sp2 = sp1;

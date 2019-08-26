@@ -10,6 +10,7 @@
 
 #include <random>
 #include <chrono>
+#include <iomanip>
 
 #include "stats2report.h"
 
@@ -69,11 +70,13 @@ BacktestControl::Config BacktestControl::loadConfig(const std::string &fname,
 		cfg.load(x);
 	}
 	Config c(MTrader::load(cfg[section],true));
+	c.enabled = true;
 	auto sect = cfg[section];
 	c.calc_spread_minutes = sect["spread_calc_interval"].getUInt(0);
 	c.mirror = sect["mirror"].getBool(true);
 	c.repeat = sect["repeat"].getUInt(0);
 	c.trend = sect["trend"].getNumber(0);
+	c.random_merge = sect["merge"].getBool(false);
 	c.random_mins = sect["random"].getNumber(0);
 	if (c.random_mins) {
 		c.random_seed = sect.mandatory["seed"].getUInt();
@@ -85,6 +88,7 @@ BacktestControl::Config BacktestControl::loadConfig(const std::string &fname,
 			c.randoms.push_back(rn);
 		}
 	}
+	c.dump_chart = sect["dump_chart"].getPath();
 	c.title="BT:"+c.title;
 	if (c.calc_spread_minutes == 0 && c.force_spread == 0) {
 		c.force_spread = spread;
@@ -119,8 +123,10 @@ void BacktestControl::BtReport::reportMisc(const MiscData &miscData) {
 	this->miscData = miscData;
 }
 
-void BacktestControl::BtReport::reportError(const ErrorObj &) {
-	//empty
+void BacktestControl::BtReport::reportError(const ErrorObj &e) {
+	this->buyError =e.buyError;
+	this->sellError = e.sellError;
+
 }
 
 double BacktestControl::BtReport::calcSpread(
@@ -135,11 +141,12 @@ std::size_t BacktestControl::BtReport::getHash() const {
 }
 
 void BacktestControl::BtReport::flush() {
+	rpt->setInfo(info);
 	rpt->reportMisc(miscData);
 	rpt->reportOrders(buy,sell);
 	rpt->reportPrice(price);
 	rpt->reportTrades(trades);
-	rpt->setInfo(info);
+	rpt->reportError(ErrorObj (buyError,sellError));
 }
 
 void BacktestControl::prepareChart(const Config &config,
@@ -159,11 +166,18 @@ void BacktestControl::prepareChart(const Config &config,
 		}
 		for (std::size_t i = 0; i < config.random_mins; i++) {
 			double diff = 1.0;
+			double mdiff = 1.0;
+			if (!chart.empty() && config.random_merge) {
+				auto &&x = chart[i & chart.length];
+				mdiff = x.last/beg;
+				beg = x.last;
+			}
 			for (std::size_t j = 0; j < norms.size(); j++) {
 				bool recalc = (relchart.size() % (1 << j) == 0);
 				if (recalc) diffs[j] = norms[j](rnd);
 				diff *= diffs[j];
 			}
+			diff *= mdiff;
 			relchart.push_back(diff*t);
 		}
 	} else {
@@ -195,6 +209,15 @@ void BacktestControl::prepareChart(const Config &config,
 			begtime, p,p,p
 		});
 		begtime+=minute;
+	}
+
+	if (!config.dump_chart.empty()) {
+		std::ofstream f(config.dump_chart, std::ios::out|std::ios::trunc);
+		if (!f) throw std::runtime_error("Can't open: "+ config.dump_chart);
+		for (auto &&x : this->chart) {
+			time_t t = x.time/1000;
+			f << std::put_time(gmtime(&t), "%FT%TZ") << "," << x.last << std::endl;
+		}
 	}
 
 }
