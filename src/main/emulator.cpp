@@ -8,7 +8,10 @@
 
 #include "emulator.h"
 
+#include <imtjson/string.h>
 #include <chrono>
+
+std::string_view EmulatorAPI::prefix = "$emulator_";
 
 #include "../shared/logOutput.h"
 EmulatorAPI::EmulatorAPI(IStockApi &datasrc, double initial_currency):datasrc(datasrc)
@@ -120,8 +123,9 @@ void EmulatorAPI::simulation(const Ticker &tk) {
 			left_orders.push_back(std::move(o));
 		} else {
 			auto tm = tk.time;
+
 			IStockApi::Trade tr {
-				genID(),
+				json::Value(json::String({prefix,std::to_string(genID())})),
 				static_cast<std::size_t>(tm),
 				o.size,
 				o.price,

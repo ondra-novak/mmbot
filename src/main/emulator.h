@@ -34,6 +34,8 @@ public:
 	virtual std::vector<std::string> getAllPairs() override;
 	virtual void testBroker() override {datasrc.testBroker();}
 
+	static std::string_view prefix;
+
 protected:
 	IStockApi &datasrc;
 	std::size_t prevId = 0;

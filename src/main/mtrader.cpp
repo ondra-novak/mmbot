@@ -22,6 +22,8 @@ json::NamedEnum<Dynmult_mode> strDynmult_mode  ({
 	{Dynmult_mode::half_alternate, "half_alternate"}
 });
 
+std::string_view MTrader::acceptLossPrefix = "$accept_loss_";
+
 MTrader::MTrader(IStockSelector &stock_selector,
 		StoragePtr &&storage,
 		PStatSvc &&statsvc,
@@ -199,7 +201,7 @@ int MTrader::perform() {
 	//merge trades on same price
 	mergeTrades(trades.size() - status.new_trades.size());
 
-	double lastTradePrice = acceptLossPrice?acceptLossPrice:trades.empty()?status.curPrice:trades.back().eff_price;
+	double lastTradePrice = trades.empty()?status.curPrice:trades.back().eff_price;
 
 	bool calcadj = false;
 
@@ -944,7 +946,6 @@ void MTrader::setInternalBalance(double v) {
 
 void MTrader::acceptLoss(const Order &order, double lastTradePrice,  const Status &st) {
 
-	acceptLossPrice = 0;
 	if (cfg.accept_loss && cfg.enabled && !trades.empty()) {
 		std::size_t ttm = trades.back().time;
 
@@ -953,10 +954,18 @@ void MTrader::acceptLoss(const Order &order, double lastTradePrice,  const Statu
 			auto reford = calculateOrder(lastTradePrice, 2 * st.curStep * sgn(-order.size),lastTradePrice, st.assetBalance, 0);
 			double df = (st.curPrice - reford.price)* sgn(-order.size);
 			if (df > 0) {
-				calculator.update(st.curPrice, st.assetBalance);
 				ondra_shared::logWarning("Accept loss in effect: price=$1, balance=$2", st.curPrice, st.assetBalance);
-				acceptLossPrice = st.curPrice;
+				trades.push_back(IStockApi::TradeWithBalance (
+						IStockApi::Trade {
+							json::Value(json::String({acceptLossPrefix, std::to_string(st.chartItem.time)})),
+							st.chartItem.time,
+							0,
+							reford.price,
+							0,
+							reford.price,
+						}, st.assetBalance, false));
 				update_dynmult(order.size>0, order.size<0);
+				calculator.update(reford.price, st.assetBalance);
 			}
 		}
 	}
