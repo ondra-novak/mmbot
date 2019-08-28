@@ -143,8 +143,13 @@ protected:
 
 
 void loadTraders(const ondra_shared::IniConfig &ini,
-		ondra_shared::StrViewA names, StorageFactory &sf,
-		Scheduler sch, Report &rpt, bool force_dry_run, int spread_calc_interval) {
+		ondra_shared::StrViewA names,
+		StorageFactory &sf,
+		Scheduler sch,
+		Report &rpt,
+		bool force_dry_run,
+		int spread_calc_interval,
+		Stats2Report::SharedPool pool) {
 	traders.clear();
 	std::vector<StrViewA> nv;
 
@@ -166,7 +171,7 @@ void loadTraders(const ondra_shared::IniConfig &ini,
 			traders.emplace_back(stockSelector, sf.create(n),
 					std::make_unique<StatsSvc>([aq](auto &&fn) {
 							aq->push(std::move(fn));
-					}, n, rpt, spread_calc_interval),
+					}, n, rpt, spread_calc_interval, pool),
 					mcfg, n);
 		} catch (const std::exception &e) {
 			logFatal("Error: $1", e.what());
@@ -343,7 +348,7 @@ static int cmd_achieve(Worker &wrk, simpleServer::ArgList args, simpleServer::St
 	}
 }
 
-static int cmd_backtest(Worker &wrk, simpleServer::ArgList args, simpleServer::Stream stream, const std::string &cfgfname, IStockSelector &stockSel, Report &rpt) {
+static int cmd_backtest(Worker &wrk, simpleServer::ArgList args, simpleServer::Stream stream, const std::string &cfgfname, IStockSelector &stockSel, Report &rpt, Stats2Report::SharedPool pool) {
 	if (args.length < 1) {
 		stream << "Need arguments: <trader_ident> [option=value ...]\n"; return 1;
 	}
@@ -380,7 +385,7 @@ static int cmd_backtest(Worker &wrk, simpleServer::ArgList args, simpleServer::S
 							[=](CalcSpreadFn &&fn) {fn();},
 							"backtest",
 							rpt,
-							cfg.calc_spread_minutes));
+							cfg.calc_spread_minutes,pool));
 			btrpt_cntr = btrpt.get();
 			t.init();
 			backtest.emplace(stockSel, std::move(btrpt), cfg, t.getChart(),  t.getInternalBalance());
@@ -514,6 +519,7 @@ int main(int argc, char **argv) {
 				auto pidfile = servicesection.mandatory["inst_file"].getPath();
 				auto name = servicesection["name"].getString("mmbot");
 				auto user = servicesection["user"].getString();
+				auto wrkcnt = servicesection["workers"].getUInt(std::thread::hardware_concurrency());
 
 				std::vector<StrViewA> argList;
 				while (!!*app.args) argList.push_back(app.args->getNext());
@@ -577,9 +583,10 @@ int main(int argc, char **argv) {
 
 						Scheduler sch = ondra_shared::Scheduler::create();
 						Worker wrk = schedulerGetWorker(sch);
+						Stats2Report::SharedPool pool(wrkcnt);
 
 
-						loadTraders(app.config, names, sf,sch, rpt, test,spreadCalcInterval);
+						loadTraders(app.config, names, sf,sch, rpt, test,spreadCalcInterval, pool);
 
 						logNote("---- Starting service ----");
 
@@ -654,7 +661,7 @@ int main(int argc, char **argv) {
 							return cmd_singlecmd(wrk, args,stream,&MTrader::repair);
 						});
 						cntr.addCommand("backtest", [&](simpleServer::ArgList args, simpleServer::Stream stream){
-							return cmd_backtest(wrk, args, stream, app.configPath.string(), stockSelector, rpt);
+							return cmd_backtest(wrk, args, stream, app.configPath.string(), stockSelector, rpt, pool);
 						});
 						std::size_t id = 0;
 						cntr.addCommand("run",[&](simpleServer::ArgList, simpleServer::Stream) {

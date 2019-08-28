@@ -235,10 +235,22 @@ function app_start(){
 			fillInfo(curchart, info.title,id,  ranges, info.emulated);
 		} catch (e) {}
 	}
+
+	function appendList(id, info, ranges, misc) {
+		var curchart = createChart(id, "summary");
+		fillInfo(curchart,  info.title,id, ranges, info.emulated, misc);
+		var ext =curchart.getElementsByClassName("extended")[0];
+		ext.hidden = true;
+		var ext =curchart.getElementsByClassName("daystats")[0];
+		ext.hidden = true;
+	}
+
 	
 	function appendSummary(id, info, data, ranges, misc, extra) {
 	//	try {
 			var curchart = createChart(id, "summary");
+			var ext =curchart.getElementsByClassName("daystats")[0];
+			ext.hidden = false;
 			fillInfo(curchart,  info.title,id, ranges, info.emulated, misc);
 			var start = Date.now() - 24*60*60*1000;
 			var sum = data.reduce(function(a,b,idx) {
@@ -561,19 +573,28 @@ function app_start(){
   					});
   			 	});
   			 }
+			  var text = trades.reduce(function(txt, itm){
+				var ln = (itm.size>0?"↗↗↗":itm.size<0?"↘↘↘":"!!!")
+						+" "+adjNum(Math.abs(itm.size))+" "+itm.asymb
+						+" @ "+adjNum(itm.price)+ " " + itm.csymb;
+				txt = txt + ln + "\n";
+				return txt;
+			  },"");
   			 ntp.then(function(r) {
   			 	if (r) {
-					  var text = trades.reduce(function(txt, itm){
-						var ln = (itm.size>0?"↗↗↗":itm.size<0?"↘↘↘":"!!!")
-								+" "+adjNum(Math.abs(itm.size))+" "+itm.asymb
-								+" @ "+adjNum(itm.price)+ " " + itm.csymb;
-						txt = txt + ln + "\n";
-						return txt;
-					  },"")
-  					  var notification = new Notification("MMBot",{body:text});
+  					  var notification = new Notification("MMBot",{
+  						  body:text,
+  						  icon: "res/icon64.png"
+  					  });
   					  setTimeout(notification.close.bind(notification), 15000);		  					  	 	
   			 	}
   			 });  
+  			 var ntf = document.getElementById("notify");
+  			 ntf.classList.add("shown");
+  			 ntf.innerHTML =  text.replace("\n","<br>");
+  			 setTimeout(function()  {
+  			 	ntf.classList.remove("shown");
+  			 },10000);
 		 }
 	}
 
@@ -689,6 +710,13 @@ function app_start(){
 					}
 					for (var k in sums) {
 						appendSummary("_"+k,{"title":k,"asset":"","currency":k}, sums[k]);
+					}
+					updateLastEventsAll(charts);
+					
+				} else if (fld == "+list") {
+					setMode(5);
+					for (var k in charts) {
+						appendList("_"+k,infoMap[k], ranges[k], stats.misc[k]);
 					}
 					updateLastEventsAll(charts);
 				} else if (fld.startsWith("!")) {

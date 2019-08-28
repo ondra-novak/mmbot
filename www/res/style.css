@@ -164,7 +164,7 @@ select > option[disabled] {
 
 #chartarea > div {
 	width: 16cm;
-	margin: 0.2cm;
+	margin: 0.2cm 0.2cm 0 0.2cm;
 	flex-shrink: 1;
 	flex-grow: 1;
 	min-width: 40%;
@@ -964,3 +964,24 @@ table.extended td span.neg {color: #C66;}
 	color:#ccc;
 	font-size:150%;
 }
+
+#notify {
+	position: fixed;
+	left: 10px;
+	bottom: 10px;
+	/* width: 30%; */
+	border:  1px solid;
+	background-color: #DDA;
+	color: black;
+	padding: 5px;
+	transition: 1s all;
+	left: -1000px;
+	opacity: 0;
+}
+
+#notify.shown {
+	left: 10px;
+	bottom: 10px;
+	opacity: 1;
+		
+} 
