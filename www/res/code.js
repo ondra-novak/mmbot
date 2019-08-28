@@ -46,6 +46,7 @@ function app_start(){
 	var lastField="";
 	var next_donate_time = 0;
 	var donation_repeat = (10*24*60*60*1000);
+	var last_ntf_time=Date.now();
 	
 	try {
 		lastField = localStorage["markettrader_lastfield"];
@@ -545,6 +546,37 @@ function app_start(){
 	
 	}
 	
+	function notifyTrades(trades) {
+		console.log("Notify trades:", trades);
+		last_ntf_time = Date.now();
+
+		 if ("Notification" in window && Notification.permission !== "denied") {
+		 	 var ntp = null;			
+  			 if (Notification.permission === "granted") {
+  			 	ntp = Promise.resolve(true);
+  			 } else {
+  			 	ntp = new Promise(function(ok) {
+  					Notification.requestPermission(function (permission) {
+  						ok (permission === "granted");
+  					});
+  			 	});
+  			 }
+  			 ntp.then(function(r) {
+  			 	if (r) {
+					  var text = trades.reduce(function(txt, itm){
+						var ln = (itm.size>0?"↗↗↗":itm.size<0?"↘↘↘":"!!!")
+								+" "+adjNum(Math.abs(itm.size))+" "+itm.asymb
+								+" @ "+adjNum(itm.price)+ " " + itm.csymb;
+						txt = txt + ln + "\n";
+						return txt;
+					  },"")
+  					  var notification = new Notification("MMBot",{body:text});
+  					  setTimeout(notification.close.bind(notification), 15000);		  					  	 	
+  			 	}
+  			 });  
+		 }
+	}
+
 	function update() {
 		
 		indicator.classList.remove("online");
@@ -561,13 +593,31 @@ function app_start(){
 
 			
 			var charts = stats["charts"];
+			var newTrades = [];
 			for (var n in charts) {
 				var ch = charts[n];				
 				orders[n] = [];
 				ranges[n] = {};
 				adjChartData(charts[n], n);
 				updateOptions(n, infoMap[n].title);
+				var nt = ch.reduce(function(nt, x) {
+					if (x.time >= last_ntf_time) {
+						nt.push({
+							price:x.price,
+							size:x.achg,
+							asymb:infoMap[n].asset,
+							csymb:infoMap[n].currency,
+						});
+					}
+					return nt;
+				},[]);
+				Array.prototype.push.apply(newTrades,nt);
 			}
+
+			if (newTrades.length > 0) {
+				notifyTrades(newTrades);
+			}
+
 			
 			(stats.orders || []).forEach(function(o) {
 				var s = orders[o.symb];
@@ -708,7 +758,7 @@ function app_start(){
 	
 
 	function drawChart(elem, chart, fld, lines) {
-		var now = new Date(chart[chart.length-1].time);
+		var now = new Date();
 		var bday = beginOfDay(now);		
 		var skiphours = Math.floor((now - bday)/(base_interval));
 				
