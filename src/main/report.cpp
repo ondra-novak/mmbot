@@ -25,10 +25,6 @@ using std::chrono::_V2::system_clock;
 using namespace json;
 
 
-Value fixNum(double val) {
-	if (isfinite(val)) return val;
-	else return "∞";
-}
 
 
 void Report::genReport() {
@@ -321,27 +317,27 @@ void Report::setMisc(StrViewA symb, const MiscData &miscData) {
 		miscMap[symb] = Object
 				("t",-miscData.trade_dir)
 				("a", miscData.achieve)
-				("mcp", fixNum(1.0/miscData.calc_price))
-				("mv", fixNum(miscData.value))
-				("ms", fixNum(spread))
-				("mdmb", fixNum(miscData.dynmult_sell))
-				("mdms", fixNum(miscData.dynmult_buy))
-				("mb",fixNum(miscData.boost))
-				("ml",fixNum(1.0/miscData.highest_price))
-				("mh",fixNum(1.0/miscData.lowest_price))
+				("mcp", 1.0/miscData.calc_price)
+				("mv", miscData.value)
+				("ms", spread)
+				("mdmb", miscData.dynmult_sell)
+				("mdms", miscData.dynmult_buy)
+				("mb",miscData.boost)
+				("ml",1.0/miscData.highest_price)
+				("mh",1.0/miscData.lowest_price)
 				("mt",miscData.total_trades);
 	} else {
 		miscMap[symb] = Object
 				("t",miscData.trade_dir)
 				("a", miscData.achieve)
-				("mcp", fixNum(miscData.calc_price))
-				("mv", fixNum(miscData.value))
-				("ms", fixNum(spread))
-				("mdmb", fixNum(miscData.dynmult_buy))
-				("mdms", fixNum(miscData.dynmult_sell))
-				("mb",fixNum(miscData.boost))
-				("ml",fixNum(miscData.lowest_price))
-				("mh",fixNum(miscData.highest_price))
+				("mcp", miscData.calc_price)
+				("mv", miscData.value)
+				("ms", spread)
+				("mdmb", miscData.dynmult_buy)
+				("mdms", miscData.dynmult_sell)
+				("mb",miscData.boost)
+				("ml",miscData.lowest_price)
+				("mh",miscData.highest_price)
 				("mt",miscData.total_trades);
 	}
 }

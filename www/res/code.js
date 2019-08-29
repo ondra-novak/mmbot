@@ -46,6 +46,7 @@ function app_start(){
 	var lastField="";
 	var next_donate_time = 0;
 	var donation_repeat = (10*24*60*60*1000);
+	var last_ntf_time=Date.now();
 	
 	try {
 		lastField = localStorage["markettrader_lastfield"];
@@ -234,10 +235,22 @@ function app_start(){
 			fillInfo(curchart, info.title,id,  ranges, info.emulated);
 		} catch (e) {}
 	}
+
+	function appendList(id, info, ranges, misc) {
+		var curchart = createChart(id, "summary");
+		fillInfo(curchart,  info.title,id, ranges, info.emulated, misc);
+		var ext =curchart.getElementsByClassName("extended")[0];
+		ext.hidden = true;
+		var ext =curchart.getElementsByClassName("daystats")[0];
+		ext.hidden = true;
+	}
+
 	
 	function appendSummary(id, info, data, ranges, misc, extra) {
 	//	try {
 			var curchart = createChart(id, "summary");
+			var ext =curchart.getElementsByClassName("daystats")[0];
+			ext.hidden = false;
 			fillInfo(curchart,  info.title,id, ranges, info.emulated, misc);
 			var start = Date.now() - 24*60*60*1000;
 			var sum = data.reduce(function(a,b,idx) {
@@ -545,6 +558,46 @@ function app_start(){
 	
 	}
 	
+	function notifyTrades(trades) {
+		console.log("Notify trades:", trades);
+		last_ntf_time = Date.now();
+
+		 if ("Notification" in window && Notification.permission !== "denied") {
+		 	 var ntp = null;			
+  			 if (Notification.permission === "granted") {
+  			 	ntp = Promise.resolve(true);
+  			 } else {
+  			 	ntp = new Promise(function(ok) {
+  					Notification.requestPermission(function (permission) {
+  						ok (permission === "granted");
+  					});
+  			 	});
+  			 }
+			  var text = trades.reduce(function(txt, itm){
+				var ln = (itm.size>0?"↗↗↗":itm.size<0?"↘↘↘":"!!!")
+						+" "+adjNum(Math.abs(itm.size))+" "+itm.asymb
+						+" @ "+adjNum(itm.price)+ " " + itm.csymb;
+				txt = txt + ln + "\n";
+				return txt;
+			  },"");
+  			 ntp.then(function(r) {
+  			 	if (r) {
+  					  var notification = new Notification("MMBot",{
+  						  body:text,
+  						  icon: "res/icon64.png"
+  					  });
+  					  setTimeout(notification.close.bind(notification), 15000);		  					  	 	
+  			 	}
+  			 });  
+  			 var ntf = document.getElementById("notify");
+  			 ntf.classList.add("shown");
+  			 ntf.innerHTML =  text.replace("\n","<br>");
+  			 setTimeout(function()  {
+  			 	ntf.classList.remove("shown");
+  			 },10000);
+		 }
+	}
+
 	function update() {
 		
 		indicator.classList.remove("online");
@@ -561,13 +614,31 @@ function app_start(){
 
 			
 			var charts = stats["charts"];
+			var newTrades = [];
 			for (var n in charts) {
 				var ch = charts[n];				
 				orders[n] = [];
 				ranges[n] = {};
 				adjChartData(charts[n], n);
 				updateOptions(n, infoMap[n].title);
+				var nt = ch.reduce(function(nt, x) {
+					if (x.time >= last_ntf_time) {
+						nt.push({
+							price:x.price,
+							size:x.achg,
+							asymb:infoMap[n].asset,
+							csymb:infoMap[n].currency,
+						});
+					}
+					return nt;
+				},[]);
+				Array.prototype.push.apply(newTrades,nt);
 			}
+
+			if (newTrades.length > 0) {
+				notifyTrades(newTrades);
+			}
+
 			
 			(stats.orders || []).forEach(function(o) {
 				var s = orders[o.symb];
@@ -641,6 +712,13 @@ function app_start(){
 						appendSummary("_"+k,{"title":k,"asset":"","currency":k}, sums[k]);
 					}
 					updateLastEventsAll(charts);
+					
+				} else if (fld == "+list") {
+					setMode(5);
+					for (var k in charts) {
+						appendList("_"+k,infoMap[k], ranges[k], stats.misc[k]);
+					}
+					updateLastEventsAll(charts);
 				} else if (fld.startsWith("!")) {
 					setMode(1);
 					var pair = fld.substr(1);
@@ -708,7 +786,7 @@ function app_start(){
 	
 
 	function drawChart(elem, chart, fld, lines) {
-		var now = new Date(chart[chart.length-1].time);
+		var now = new Date();
 		var bday = beginOfDay(now);		
 		var skiphours = Math.floor((now - bday)/(base_interval));
 				

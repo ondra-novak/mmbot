@@ -126,7 +126,8 @@ static EmulResult emulateMarket(ondra_shared::StringView<IStatSvc::ChartItem> ch
 
 
 
-std::pair<double,double> glob_calcSpread2(ondra_shared::StringView<IStatSvc::ChartItem> chart,
+std::pair<double,double> glob_calcSpread2(ondra_shared::Worker wrk,
+		ondra_shared::StringView<IStatSvc::ChartItem> chart,
 		const MTrader_Config &config,
 		const IStockApi::MarketInfo &minfo,
 		double balance,
@@ -151,7 +152,6 @@ std::pair<double,double> glob_calcSpread2(ondra_shared::StringView<IStatSvc::Cha
 	auto resiter = resbeg;
 
 	using namespace ondra_shared;
-	Worker wrk = Worker::create(std::thread::hardware_concurrency());
 	std::mutex lock;
 	MTCounter cnt;
 
@@ -160,15 +160,17 @@ std::pair<double,double> glob_calcSpread2(ondra_shared::StringView<IStatSvc::Cha
 		cnt++;
 		double curSpread = std::log(((low_spread+(hi_spread-low_spread)*i/(steps-1.0))+curprice)/curprice);
 		wrk >> [&, curSpread] {
-			auto res = emulateMarket(chart, config, minfo, balance, curSpread);
-			std::unique_lock<std::mutex> _(lock);
-			auto profit = res.score;
-			ResultItem resitem(profit,curSpread);
-			if (resiter->first < resitem.first) {
-				*resiter = resitem;
-				resiter = std::min_element(resbeg, resend);
-				ondra_shared::logDebug("Found better spread= $1 (log=$2), score=$3, trades=$4", curprice*exp(curSpread)-curprice, curSpread, profit, res.trades);
-				best_profit = profit;
+			{
+				auto res = emulateMarket(chart, config, minfo, balance, curSpread);
+				std::unique_lock<std::mutex> _(lock);
+				auto profit = res.score;
+				ResultItem resitem(profit,curSpread);
+				if (resiter->first < resitem.first) {
+					*resiter = resitem;
+					resiter = std::min_element(resbeg, resend);
+					ondra_shared::logDebug("Found better spread= $1 (log=$2), score=$3, trades=$4", curprice*exp(curSpread)-curprice, curSpread, profit, res.trades);
+					best_profit = profit;
+				}
 			}
 			cnt--;
 		};
@@ -184,7 +186,8 @@ std::pair<double,double> glob_calcSpread2(ondra_shared::StringView<IStatSvc::Cha
 	return {sugg_spread,best_profit};
 }
 
-double glob_calcSpread(ondra_shared::StringView<IStatSvc::ChartItem> chart,
+double glob_calcSpread(ondra_shared::Worker wrk,
+		ondra_shared::StringView<IStatSvc::ChartItem> chart,
 		const MTrader_Config &config,
 		const IStockApi::MarketInfo &minfo,
 		double balance,
@@ -192,10 +195,10 @@ double glob_calcSpread(ondra_shared::StringView<IStatSvc::ChartItem> chart,
 	if (prev_val < 1e-10) prev_val = 0.01;
 	if (chart.empty() || balance == 0 || !config.enabled) return prev_val;
 	double curprice = sqrt(chart[chart.length-1].ask*chart[chart.length-1].bid);
-	auto sp1 = glob_calcSpread2(chart, config, minfo, balance, prev_val);
+	auto sp1 = glob_calcSpread2(wrk,chart, config, minfo, balance, prev_val);
 	auto sp2 = sp1;
 	if (chart.length > 1000) {
-		 sp2 = glob_calcSpread2(chart.substr(chart.length-1000), config, minfo, balance, prev_val);
+		 sp2 = glob_calcSpread2(wrk,chart.substr(chart.length-1000), config, minfo, balance, prev_val);
 	}
 	double sp3 = (sp1.first + sp2.first)/2.0;
 	logInfo("Spread calculated: long=$1 (profit=$2), short=$3 (profit=$4), final=$5",curprice*(exp(sp1.first)-1),
