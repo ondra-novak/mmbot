@@ -107,8 +107,9 @@ void BacktestControl::BtReport::reportOrders(
 }
 
 void BacktestControl::BtReport::reportTrades(
-		ondra_shared::StringView<IStockApi::TradeWithBalance> trades) {
+		ondra_shared::StringView<IStockApi::TradeWithBalance> trades,  double neutral_pos) {
 	this->trades = trades;
+	this->neutral_pos = neutral_pos;
 }
 
 void BacktestControl::BtReport::reportPrice(double price) {
@@ -145,7 +146,7 @@ void BacktestControl::BtReport::flush() {
 	rpt->reportMisc(miscData);
 	rpt->reportOrders(buy,sell);
 	rpt->reportPrice(price);
-	rpt->reportTrades(trades);
+	rpt->reportTrades(trades,neutral_pos);
 	rpt->reportError(ErrorObj (buyError,sellError));
 }
 

@@ -53,8 +53,8 @@ public:
 							  const std::optional<IStockApi::Order> &sell) override {
 		rpt.setOrders(name, buy, sell);
 	}
-	virtual void reportTrades(ondra_shared::StringView<IStockApi::TradeWithBalance> trades) override {
-		rpt.setTrades(name,trades);
+	virtual void reportTrades(ondra_shared::StringView<IStockApi::TradeWithBalance> trades, double neutral_pos) override {
+		rpt.setTrades(name,trades,neutral_pos);
 	}
 	virtual void reportMisc(const MiscData &miscData) override{
 		rpt.setMisc(name, miscData);

@@ -50,11 +50,7 @@ struct MTrader_Config {
 	double acm_factor_sell;
 
 	double sliding_pos_change;
-	double sliding_pos_assets;
-	double sliding_pos_currency;
-	unsigned int sliding_pos_center;
 	bool sliding_pos_acm;
-	double sliding_pos_max_pos;
 	unsigned int accept_loss;
 
 	double force_spread;
@@ -67,6 +63,17 @@ struct MTrader_Config {
 	unsigned int spread_calc_max_trades;
 
 
+	enum NeutralPosType {
+		disabled,
+		assets,
+		currency,
+		center
+	};
+
+	NeutralPosType neutralPosType;
+	double neutral_pos;
+	double max_pos;
+
 
 	bool dry_run;
 	bool internal_balance;
@@ -76,7 +83,7 @@ struct MTrader_Config {
 	std::size_t start_time;
 
 
-
+	void parse_neutral_pos(ondra_shared::StrViewA txt);
 
 };
 
@@ -237,7 +244,6 @@ protected:
 
 	void mergeTrades(std::size_t fromPos);
 
-	Calculator initSlidingCalc(double refprice, double cur, double assets);
 	void update_dynmult(bool buy_trade,bool sell_trade);
 
 	void acceptLoss(const Order &order, double lastTradePrice, const Status &st);

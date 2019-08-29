@@ -61,7 +61,7 @@ public:
 
 	virtual void reportOrders(const std::optional<IStockApi::Order> &buy,
 							  const std::optional<IStockApi::Order> &sell) = 0;
-	virtual void reportTrades(ondra_shared::StringView<IStockApi::TradeWithBalance> trades) = 0;
+	virtual void reportTrades(ondra_shared::StringView<IStockApi::TradeWithBalance> trades, double neutral_pos) = 0;
 	virtual void reportPrice(double price) = 0;
 	virtual void setInfo(const Info &info) = 0;
 	virtual void reportMisc(const MiscData &miscData) = 0;

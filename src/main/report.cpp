@@ -79,7 +79,7 @@ void Report::setOrders(StrViewA symb, const std::optional<IStockApi::Order> &buy
 }
 
 
-void Report::setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> trades) {
+void Report::setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> trades, double neutral_pos) {
 
 	using ondra_shared::range;
 
@@ -87,7 +87,7 @@ void Report::setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> tr
 
 	const json::Value &info = infoMap[symb];
 	bool inverted = info["inverted"].getBool();
-	bool margin = false; //TODO TBD
+//	bool margin = false; //TODO TBD
 
 
 
@@ -118,12 +118,23 @@ void Report::setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> tr
 		double cur_fromPos = 0;
 		double norm_sum_ass = 0;
 		double norm_sum_cur = 0;
+		double prev_pos_norm = 0;
+
+		if (neutral_pos) {
+			double cur_pos = last.balance - neutral_pos;
+			ass_sum = cur_pos - std::accumulate(trades.begin(), trades.end(), 0,[&](auto &&l, auto &&r) {
+				return l + r.eff_size;
+			});
+			ass_sum += trades[0].eff_size;
+		}
 
 
 
 		while (iter != tend) {
 
 			auto &&t = *iter;
+
+//			if (neutral_pos) ass_sum = t.balance - neutral_pos;
 
 			double gain = (t.eff_price - prev_price)*ass_sum ;
 			double earn = -t.eff_price * t.eff_size;
@@ -140,14 +151,31 @@ void Report::setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> tr
 				ass_sum += t.eff_size;
 				cur_sum += earn;
 
-				norm_sum_ass += asschg;
-				norm_sum_cur += curchg;
-				norm_chng = curchg+asschg * t.eff_price;
+				if (neutral_pos){
+					double np = t.balance-ass_sum;
+					double neutral_price = t.eff_price * pow2(t.balance/np);
+					norm_sum_cur = cur_fromPos + ass_sum*(neutral_price-sqrt(t.eff_price*neutral_price));
+					norm_sum_ass += asschg;
+					norm_chng = norm_sum_cur - prev_pos_norm;
+					prev_pos_norm = norm_sum_cur;
+				} else {
+					norm_sum_ass += asschg;
+					norm_sum_cur += curchg;
+					norm_chng = curchg+asschg * t.eff_price;
+				}
+
 			}
 			if (iter->manual_trade) {
 				invst_value += earn;
 			}
-			double norm = norm_sum_cur+(margin?norm_sum_ass:0)*t.eff_price;
+			double norm;
+			if (neutral_pos){
+				double np = t.balance-ass_sum;
+				double neutral_price = t.eff_price * pow2(t.balance/np);
+				norm = cur_fromPos + ass_sum*(neutral_price-sqrt(t.eff_price*neutral_price));
+			} else {
+				norm = norm_sum_cur;
+			}
 
 
 			prev_balance = t.balance;

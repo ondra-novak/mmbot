@@ -40,7 +40,7 @@ public:
 	template<typename T> using StringView = ondra_shared::StringView<T>;
 	void setOrders(StrViewA symb, const std::optional<IStockApi::Order> &buy,
 			  	  	  	  	  	  const std::optional<IStockApi::Order> &sell);
-	void setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> trades);
+	void setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> trades, double neutral_pos);
 	void setInfo(StrViewA symb, const InfoObj &info);
 	void setMisc(StrViewA symb, const MiscData &miscData);
 

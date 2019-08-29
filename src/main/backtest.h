@@ -42,7 +42,7 @@ public:
 
 		virtual void reportOrders(const std::optional<IStockApi::Order> &buy,
 								  const std::optional<IStockApi::Order> &sell) override;
-		virtual void reportTrades(ondra_shared::StringView<IStockApi::TradeWithBalance> trades) override;
+		virtual void reportTrades(ondra_shared::StringView<IStockApi::TradeWithBalance> trades, double neutral_pos) override;
 		virtual void reportPrice(double price) override;
 		virtual void setInfo(const Info &info) override;
 		virtual void reportMisc(const MiscData &miscData) override;
@@ -66,6 +66,7 @@ public:
 		std::string buyError;
 		std::string sellError;
 		double price;
+		double neutral_pos;
 		MiscData miscData;
 		Info info;
 
