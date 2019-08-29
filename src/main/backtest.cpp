@@ -49,7 +49,7 @@ BacktestControl::BacktestControl(IStockSelector &stockSel,
 	broker.emplace(this->chart, minfo, 0, config.mirror);
 	FakeStockSelector fakeStockSell(&(*broker));
 	trader.emplace(fakeStockSell, nullptr, std::move(rpt), config);
-	trader->setInternalBalance(balance);
+	trader->setInternalBalance(config.initial_balance!=-1e99?config.initial_balance:balance);
 }
 
 
@@ -93,6 +93,7 @@ BacktestControl::Config BacktestControl::loadConfig(const std::string &fname,
 	if (c.calc_spread_minutes == 0 && c.force_spread == 0) {
 		c.force_spread = spread;
 	}
+	c.initial_balance = sect["init_balance"].getNumber(-1e99);
 	return c;
 }
 

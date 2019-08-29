@@ -33,6 +33,7 @@ public:
 		bool mirror;
 		bool random_merge;
 		std::string dump_chart;
+		double initial_balance;
 
 	};
 
