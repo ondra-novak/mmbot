@@ -160,15 +160,17 @@ std::pair<double,double> glob_calcSpread2(ondra_shared::Worker wrk,
 		cnt++;
 		double curSpread = std::log(((low_spread+(hi_spread-low_spread)*i/(steps-1.0))+curprice)/curprice);
 		wrk >> [&, curSpread] {
-			auto res = emulateMarket(chart, config, minfo, balance, curSpread);
-			std::unique_lock<std::mutex> _(lock);
-			auto profit = res.score;
-			ResultItem resitem(profit,curSpread);
-			if (resiter->first < resitem.first) {
-				*resiter = resitem;
-				resiter = std::min_element(resbeg, resend);
-				ondra_shared::logDebug("Found better spread= $1 (log=$2), score=$3, trades=$4", curprice*exp(curSpread)-curprice, curSpread, profit, res.trades);
-				best_profit = profit;
+			{
+				auto res = emulateMarket(chart, config, minfo, balance, curSpread);
+				std::unique_lock<std::mutex> _(lock);
+				auto profit = res.score;
+				ResultItem resitem(profit,curSpread);
+				if (resiter->first < resitem.first) {
+					*resiter = resitem;
+					resiter = std::min_element(resbeg, resend);
+					ondra_shared::logDebug("Found better spread= $1 (log=$2), score=$3, trades=$4", curprice*exp(curSpread)-curprice, curSpread, profit, res.trades);
+					best_profit = profit;
+				}
 			}
 			cnt--;
 		};
