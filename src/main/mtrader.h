@@ -189,7 +189,7 @@ public:
 	double getInternalBalance() const;
 	void setInternalBalance(double v);
 
-	static std::string_view acceptLossPrefix;
+	static std::string_view vtradePrefix;
 
 protected:
 	std::unique_ptr<IStockApi> ownedStock;
@@ -241,6 +241,7 @@ protected:
 	void update_dynmult(bool buy_trade,bool sell_trade);
 
 	void acceptLoss(const Order &order, double lastTradePrice, const Status &st);
+	json::Value getTradeLastId() const;
 };
 
 

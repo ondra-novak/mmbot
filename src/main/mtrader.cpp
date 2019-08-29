@@ -22,7 +22,7 @@ json::NamedEnum<Dynmult_mode> strDynmult_mode  ({
 	{Dynmult_mode::half_alternate, "half_alternate"}
 });
 
-std::string_view MTrader::acceptLossPrefix = "$accept_loss_";
+std::string_view MTrader::vtradePrefix = "__vt__";
 
 MTrader::MTrader(IStockSelector &stock_selector,
 		StoragePtr &&storage,
@@ -476,6 +476,16 @@ void MTrader::setOrder(std::optional<Order> &orig, Order neworder) {
 
 
 
+json::Value MTrader::getTradeLastId() const{
+	json::Value res;
+	if (!trades.empty()) {
+		auto i = std::find_if_not(trades.rbegin(), trades.rend(), [&](auto &&x) {
+			return json::StrViewA(x.id.toString()).begins(vtradePrefix);
+		});
+		if (i != trades.rend()) res = i->id;
+	}
+	return res;
+}
 
 MTrader::Status MTrader::getMarketStatus() const {
 
@@ -487,7 +497,7 @@ MTrader::Status MTrader::getMarketStatus() const {
 
 	json::Value lastId;
 
-	if (!trades.empty()) lastId = trades.back().id;
+	if (!trades.empty()) lastId = getTradeLastId();
 	res.new_trades = stock.getTrades(lastId, cfg.start_time, cfg.pairsymb);
 
 	{
@@ -957,7 +967,7 @@ void MTrader::acceptLoss(const Order &order, double lastTradePrice,  const Statu
 				ondra_shared::logWarning("Accept loss in effect: price=$1, balance=$2", st.curPrice, st.assetBalance);
 				trades.push_back(IStockApi::TradeWithBalance (
 						IStockApi::Trade {
-							json::Value(json::String({acceptLossPrefix, std::to_string(st.chartItem.time)})),
+							json::Value(json::String({vtradePrefix,"loss_", std::to_string(st.chartItem.time)})),
 							st.chartItem.time,
 							0,
 							reford.price,
