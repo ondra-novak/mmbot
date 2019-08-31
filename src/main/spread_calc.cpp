@@ -32,7 +32,7 @@ class EmulStatSvc: public IStatSvc {
 public:
 	EmulStatSvc(double spread):spread(spread) {}
 
-	virtual void reportTrades(ondra_shared::StringView<IStockApi::TradeWithBalance> , double) override {}
+	virtual void reportTrades(ondra_shared::StringView<IStockApi::TradeWithBalance> , bool) override {}
 	virtual void reportOrders(const std::optional<IStockApi::Order> &,
 							  const std::optional<IStockApi::Order> &)override  {}
 	virtual void reportPrice(double ) override {}
@@ -79,9 +79,8 @@ static EmulResult emulateMarket(ondra_shared::StringView<IStatSvc::ChartItem> ch
 	cfg.acm_factor_sell = 0;
 	cfg.accept_loss = 0;
 	cfg.max_pos = 0;
-	cfg.sliding_pos_change = 0;
-	cfg.sliding_pos_acm = false;
 	cfg.neutralPosType = MTrader_Config::disabled;
+	cfg.sliding_pos_giveup=0;
 
 	class Selector: public IStockSelector {
 	public:

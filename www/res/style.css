@@ -18,6 +18,12 @@ a {
 	stroke-width: 2px;
 }
 
+.stdline2 {
+	stroke: #ff88ae40;
+	stroke-width: 7px;
+}
+
+
 .minoraxe {
 	stroke: #888;
 	stroke-opacity: 0.5;
@@ -653,9 +659,10 @@ x-tr.hdr [data-name=export_csv] {
 	right:0;
 	top:1cm;
 	z-index:10;
-	max-width: 13cm;
+	max-width: 16cm;
 	margin:auto;
-	max-height: 100vh;
+	max-height: 89vh;
+	overflow: auto;
 }
 
 menu li {
@@ -699,6 +706,7 @@ menu {
 	padding: 0.2cm;
 	box-shadow: 0 0 10px black;
 	z-index:4;
+	/* height: 100%; */
 }
 
 form label {
@@ -710,14 +718,16 @@ form label > *  {
 	display: block;
 }
 
-form label > input {
+form label > input, form label > select {
 	width: 50%; 
 	font-size: 0.98rem;
 	box-sizing: border-box;
 }
-#calculator input {
+#calculator input, #calculator select {
 	text-align:right;
 	padding-right: 5%;
+	background-color: white;
+	color: black;
 }
 
 #calculator table {
@@ -784,6 +794,11 @@ form button {
 	transition: all 0.3s;
 	opacity: 1;
 	transform: translate(0,0);
+}
+
+#calculator  form {
+	max-height: 87vh;
+	
 }
 
 #calculator.fade {
@@ -985,3 +1000,7 @@ table.extended td span.neg {color: #C66;}
 	opacity: 1;
 		
 } 
+
+#form_sliding_pos .second {
+	color: #a96379;
+}

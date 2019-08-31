@@ -79,7 +79,7 @@ void Report::setOrders(StrViewA symb, const std::optional<IStockApi::Order> &buy
 }
 
 
-void Report::setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> trades, double neutral_pos) {
+void Report::setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> trades, bool margin) {
 
 	using ondra_shared::range;
 
@@ -87,7 +87,6 @@ void Report::setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> tr
 
 	const json::Value &info = infoMap[symb];
 	bool inverted = info["inverted"].getBool();
-//	bool margin = false; //TODO TBD
 
 
 
@@ -118,15 +117,8 @@ void Report::setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> tr
 		double cur_fromPos = 0;
 		double norm_sum_ass = 0;
 		double norm_sum_cur = 0;
-		double prev_pos_norm = 0;
-
-		if (neutral_pos) {
-			double cur_pos = last.balance - neutral_pos;
-			ass_sum = cur_pos - std::accumulate(trades.begin(), trades.end(), 0,[&](auto &&l, auto &&r) {
-				return l + r.eff_size;
-			});
-			ass_sum += trades[0].eff_size;
-		}
+		double potentialpl = 0;
+		double neutral_price = 0;
 
 
 
@@ -146,36 +138,27 @@ void Report::setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> tr
 			double asschg = (prev_balance+t.eff_size) - calcbal ;
 			double curchg = -(calcbal * t.eff_price -  prev_balance * prev_price - earn);
 			double norm_chng = 0;
+
 			if (iter != trades.begin() && !iter->manual_trade) {
 				cur_fromPos += gain;
 				ass_sum += t.eff_size;
 				cur_sum += earn;
 
-				if (neutral_pos){
-					double np = t.balance-ass_sum;
-					double neutral_price = t.eff_price * pow2(t.balance/np);
-					norm_sum_cur = cur_fromPos + ass_sum*(neutral_price-sqrt(t.eff_price*neutral_price));
-					norm_sum_ass += asschg;
-					norm_chng = norm_sum_cur - prev_pos_norm;
-					prev_pos_norm = norm_sum_cur;
-				} else {
-					norm_sum_ass += asschg;
-					norm_sum_cur += curchg;
-					norm_chng = curchg+asschg * t.eff_price;
-				}
+				norm_sum_ass += asschg;
+				norm_sum_cur += curchg;
+				norm_chng = curchg+asschg * t.eff_price;
+
+
+				double np = t.balance-ass_sum;
+				neutral_price = t.eff_price * pow2(t.balance/np);
+				potentialpl = cur_fromPos + ass_sum*(neutral_price-sqrt(t.eff_price*neutral_price));
 
 			}
 			if (iter->manual_trade) {
 				invst_value += earn;
 			}
 			double norm;
-			if (neutral_pos){
-				double np = t.balance-ass_sum;
-				double neutral_price = t.eff_price * pow2(t.balance/np);
-				norm = cur_fromPos + ass_sum*(neutral_price-sqrt(t.eff_price*neutral_price));
-			} else {
-				norm = norm_sum_cur;
-			}
+			norm = norm_sum_cur;
 
 
 			prev_balance = t.balance;
@@ -192,16 +175,18 @@ void Report::setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> tr
 						("time", t.time)
 						("achg", (inverted?-1:1)*t.eff_size)
 						("gain", gain)
-						("norm", norm)
+						("norm", margin?Value():Value(norm))
 						("normch", norm_chng)
-						("nacum", (inverted?-1:1)*norm_sum_ass)
+						("nacum", margin?Value():Value((inverted?-1:1)*norm_sum_ass))
 						("pos", (inverted?-1:1)*ass_sum)
 						("pl", cur_fromPos)
+						("pln", potentialpl)
 						("price", (inverted?1.0/t.price:t.price))
 						("invst_v", invst_value)
 						("invst_n", invst_n)
 						("volume", (inverted?1:-1)*t.eff_price*t.eff_size)
 						("man",t.manual_trade)
+						("np",(inverted?1.0/neutral_price:neutral_price))
 				);
 			}
 
@@ -353,7 +338,8 @@ void Report::setMisc(StrViewA symb, const MiscData &miscData) {
 				("mb",miscData.boost)
 				("ml",1.0/miscData.highest_price)
 				("mh",1.0/miscData.lowest_price)
-				("mt",miscData.total_trades);
+				("mt",miscData.total_trades)
+				("tt",miscData.total_time);
 	} else {
 		miscMap[symb] = Object
 				("t",miscData.trade_dir)
@@ -366,6 +352,7 @@ void Report::setMisc(StrViewA symb, const MiscData &miscData) {
 				("mb",miscData.boost)
 				("ml",miscData.lowest_price)
 				("mh",miscData.highest_price)
-				("mt",miscData.total_trades);
+				("mt",miscData.total_trades)
+				("tt",miscData.total_time);
 	}
 }

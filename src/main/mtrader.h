@@ -49,9 +49,10 @@ struct MTrader_Config {
 	double acm_factor_buy;
 	double acm_factor_sell;
 
-	double sliding_pos_change;
-	bool sliding_pos_acm;
 	unsigned int accept_loss;
+
+	double sliding_pos_giveup;
+	double sliding_pos_feedback;
 
 	double force_spread;
 	double emulated_currency;
@@ -79,6 +80,7 @@ struct MTrader_Config {
 	bool internal_balance;
 	bool detect_manual_trades;
 	bool enabled;
+	bool force_margin;
 
 	std::size_t start_time;
 

@@ -17,17 +17,15 @@
 <option value="+summary">Summary</option>
 <option value="+list">List (condensed)</option>
 <option disabled value=""></option>
-<option value="pl">P/L from positions</option>
+<option value="price">Price</option>
+<option value="pl">P/L from position</option>
 <option value="norm">Normalized profit</option>
 <option value="nacum">Normalized accumulated assets</option>
 <option value="achg">Trades</option>
 <option value="pos">Position</option>
-<option value="price">Price</option>
-<option value="app">Annual percentage profit (experimental)</option>
 <option disabled value=""></option>
 <option value="+pl">Total P/L from positions</option>
 <option value="+norm">Total normalized profit</option>
-<option value="+app">Total annual percentage profit</option>
 <option disabled value=""></option>
 </select>
 <div id="outage">
@@ -107,6 +105,7 @@
 <li data-name="form_range_exchange">Range</li>
 <li data-name="form_range_margin">Range (margin)</li>
 <li data-name="form_range_futures">Range (futures)</li>
+<li data-name="form_sliding_pos">Sliding pos</li>
 </menu>
 <div class="content">
 <form id="form_order">
@@ -161,6 +160,26 @@
 <tr><th>Lowest tradable price</th><td class="range_min"></td></tr>
 <tr><th>Boost</th><td class="boost"></td></tr>
 </table>
+</form>
+<form id="form_sliding_pos" hidden>
+<label><span>Source</span><select name="data" size="1"></select></label>
+<label><span>External assets</span><input type="text" name="ea" size="10" value="1"></label>
+<label><span>Profit give up [%]</span><input type="number" name="ga" size="10" value="1"></label>
+<label><span>Recoil [%]</span><input type="number" name="fb" size="10" value="50"></label>
+<div class="note">Sliding position backtest. It recalculates size of trades and expressed various results</div>
+<hr>
+<table>
+<tr><th>P/L</th><td class="pl"></td></tr>
+<tr><th>Normalized P/L</th><td class="pln"></td></tr>
+<tr><th>Position</th><td class="pos"></td></tr>
+<tr><th>Max downdraw</th><td class="order_size mdd"></td></tr>
+<tr><th>Max position</th><td class="maxpos"></td></tr>
+<tr><th>Equilibrium</th><td class="eq"></td></tr>
+</table>
+<div>Price (<span class="second">Equilibrium</span>)</div>
+<div class="chart1"></div>
+<div>P/L (<span class="second">Normalized P/L</span>)</div>
+<div class="chart2"></div>
 </form>
 <button class="close_butt">Close</button>
 </div>
