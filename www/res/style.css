@@ -661,8 +661,6 @@ x-tr.hdr [data-name=export_csv] {
 	z-index:10;
 	max-width: 16cm;
 	margin:auto;
-	max-height: 89vh;
-	overflow: auto;
 }
 
 menu li {
@@ -797,8 +795,8 @@ form button {
 }
 
 #calculator  form {
-	max-height: 87vh;
-	
+	max-height: 75vh;
+	overflow: auto;
 }
 
 #calculator.fade {
