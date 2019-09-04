@@ -199,6 +199,8 @@ function app_start(){
 		price:"np",
 		pl:"pln"
 	};
+	var show_donate = !localStorage["donation_hidden"]
+	
 	
 
 	var chartlist = {};
@@ -598,7 +600,7 @@ function app_start(){
 		for (var z in chart) {
 			sumchart = sumchart.concat(chart[z].slice(-20));			
 		}
-		if (donate_time) {
+		if (donate_time &&  show_donate) {
 			sumchart.push({
 				time: donate_time,
 				donation: true
@@ -1202,6 +1204,11 @@ function donate() {
 			var content = x.innerText;
 			x.innerHTML="<a href=\""+x.dataset.link+":"+content+"\">"+content+"</a>";
 		});
+		var hd = document.getElementById("hide_donation");
+		hd.addEventListener("change", function() {
+			localStorage["donation_hidden"] = hd.checked?hd.value:"";
+		});
+		hd.checked = localStorage["donation_hidden"] === hd.value;
 	}
 }
 function close_donate() {
