@@ -199,8 +199,6 @@ function app_start(){
 		price:"np",
 		pl:"pln"
 	};
-	var show_donate = !localStorage["donation_hidden"];
-	
 	
 
 	var chartlist = {};
@@ -600,7 +598,7 @@ function app_start(){
 		for (var z in chart) {
 			sumchart = sumchart.concat(chart[z].slice(-20));			
 		}
-		if (donate_time &&  show_donate) {
+		if (donate_time) {
 			sumchart.push({
 				time: donate_time,
 				donation: true
@@ -1129,18 +1127,28 @@ function init_calculator() {
 		var pos = 0;
 		var norm = 0;
 		var newchart = [];
+		var tframe = ga*3600000;
+		var tm = data[0].time;
+		var eaa = ea;		
 		data.forEach(function(x) {
 			var p = inv?1/x.price:x.price;
 			var pldiff = pos * (p - pp);
+			var tmdiff = x.time - tm;
+			tm = x.time;
 			pl = pl+pldiff;
 			norm = pl+pos*(eq-Math.sqrt(p*eq));
-			var plga = pldiff>0?(pldiff/(1+ga*0.01)):(pldiff/(1+(ga-2*ga*fb*0.01)*0.01));
-			var neq = p == pp?eq:(pp * pow2(ea* pp - ea *p - plga))/pow2(ea* (pp - p));
+			//var plga = pldiff>0?(pldiff/(1+ga*0.01)):(pldiff/(1+(ga-2*ga*fb*0.01)*0.01));
+			var neq = pldiff*Math.sign(tframe)>0?eq + (p - eq) * (tmdiff/Math.abs(tframe)):eq;
 			if (pl < mdd) mdd = pl;
 			if (Math.abs(pos) > mpos) mpos = Math.abs(pos);			
 			pp = p;
 			eq = neq;
-			pos = ea*Math.sqrt(eq/p)-ea;
+			var nxpos = ea*Math.sqrt(eq/p)-ea;
+			var dpos = nxpos - pos ;
+			var maxpos = ea * fb * 0.01;
+			var mult = (maxpos - Math.abs(nxpos))/maxpos;
+			if (mult < 0.000001) mult = 0.000001
+			pos = pos + dpos * mult;
 			newchart.push({
 				price:x.price,
 				pl:pl,
@@ -1204,11 +1212,6 @@ function donate() {
 			var content = x.innerText;
 			x.innerHTML="<a href=\""+x.dataset.link+":"+content+"\">"+content+"</a>";
 		});
-		var hd = document.getElementById("hide_donation");
-		hd.addEventListener("change", function() {
-			localStorage["donation_hidden"] = hd.checked?hd.value:"";
-		});
-		hd.checked = localStorage["donation_hidden"] === hd.value;
 	}
 }
 function close_donate() {
