@@ -199,7 +199,7 @@ function app_start(){
 		price:"np",
 		pl:"pln"
 	};
-	var show_donate = !localStorage["donation_hidden"]
+	var show_donate = !localStorage["donation_hidden"];
 	
 	
 

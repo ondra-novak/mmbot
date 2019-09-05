@@ -110,7 +110,9 @@ MTrader::Config MTrader::load(const ondra_shared::IniConfig::Section& ini, bool 
 			"sliding_pos.assets",
 			"sliding_pos.currency",
 			"sliding_pos.center",
-			"sliding_pos.max_pos"
+			"sliding_pos.max_pos",
+			"sliding_pos.giveup",
+			"sliding_pos.recoil",
 	}, "Check manual for new sliding_pos options");
 
 
@@ -133,8 +135,8 @@ MTrader::Config MTrader::load(const ondra_shared::IniConfig::Section& ini, bool 
 	cfg.accept_loss = ini["accept_loss"].getUInt(0);
 	cfg.max_pos = ini["max_pos"].getNumber(0);
 
-	cfg.sliding_pos_giveup = ini["sliding_pos.giveup"].getNumber(0);
-	cfg.sliding_pos_feedback = ini["sliding_pos.recoil"].getNumber(0);
+	cfg.sliding_pos_hours = ini["sliding_pos.hours"].getNumber(0);
+	cfg.sliding_pos_weaken = ini["sliding_pos.weaken"].getNumber(0);
 
 	cfg.title = ini["title"].getString();
 
@@ -153,7 +155,7 @@ MTrader::Config MTrader::load(const ondra_shared::IniConfig::Section& ini, bool 
 	if (cfg.dynmult_fall > 100) throw std::runtime_error("'dynmult_fall' must be below 100");
 	if (cfg.dynmult_fall <= 0) throw std::runtime_error("'dynmult_fall' must not be negative or zero");
 	if (cfg.max_pos <0) throw std::runtime_error("'max_pos' must not be negative");
-	if ((cfg.max_pos || cfg.sliding_pos_giveup) && cfg.neutralPosType == Config::disabled) {
+	if ((cfg.max_pos || cfg.sliding_pos_hours) && cfg.neutralPosType == Config::disabled) {
 		throw std::runtime_error("Some option needs to define neutral_pos");
 	}
 
@@ -281,27 +283,19 @@ int MTrader::perform() {
 				internal_balance=status.assetBalance - cfg.external_assets;
 			}
 
-			if (cfg.sliding_pos_giveup && trades.size()>1) {
-				double pp = trades[trades.size()-2].eff_price;
-				double p = trades[trades.size()-1].eff_price;
-				if (pp != p) {
-					double pos =(status.assetBalance - trades.back().eff_size) - neutral_pos;
-					double pldiff = pos*(p-pp);
-					double plga = pldiff>0?(pldiff/(1+cfg.sliding_pos_giveup*0.01)):(pldiff/(1+(cfg.sliding_pos_giveup-2*cfg.sliding_pos_giveup*cfg.sliding_pos_feedback*0.01)*0.01));
-					double neq = (pp * pow2(neutral_pos* pp - neutral_pos *p - plga))/pow2(neutral_pos* (pp - p));
-					calculator = Calculator(neq, neutral_pos, false);
-				}
-			}
+
 
 
 			//calculate buy order
 			auto buyorder = calculateOrder(lastTradePrice,
 										  -status.curStep*buy_dynmult*cfg.buy_step_mult,
-										   status.curPrice, status.assetBalance, acm_buy);
+										   status.curPrice, status.assetBalance, acm_buy,
+										   neutral_pos);
 			//calculate sell order
 			auto sellorder = calculateOrder(lastTradePrice,
 					                       status.curStep*sell_dynmult*cfg.sell_step_mult,
-										   status.curPrice, status.assetBalance, acm_sell);
+										   status.curPrice, status.assetBalance, acm_sell,
+										   neutral_pos);
 
 			try {
 				setOrderCheckMaxPos(orders.buy, buyorder,status.assetBalance, neutral_pos);
@@ -335,6 +329,24 @@ int MTrader::perform() {
 			}
 
 			currency_balance_cache = stock.getBalance(minfo.currency_symbol);
+
+
+			if (cfg.sliding_pos_hours && trades.size()>1) {
+				const auto & pt = trades[trades.size()-2];
+				const auto & ct = lastTrade;
+				double tdf = ct.time - pt.time;
+				if (tdf > 0) {
+					double tot = cfg.sliding_pos_hours * 3600 * 1000;
+					double pos = ct.balance - neutral_pos;
+					double pldiff = pos * (ct.eff_price - pt.eff_price);
+					double eq = calculator.balance2price(neutral_pos);
+					double neq = pldiff*sgn(tot)>0? eq + (ct.price - eq) * (tdf/fabs(tot)):eq;
+					calculator = Calculator(neq, neutral_pos, false);
+					ondra_shared::logDebug("sliding_pos.hours: tdf=$1 pos=$2 pldiff=$3 eq=$4 neq=$5",
+							tdf, pos, pldiff, eq, neq);
+
+				}
+			}
 
 
 
@@ -605,9 +617,23 @@ MTrader::Order MTrader::calculateOrder(
 		double step,
 		double curPrice,
 		double balance,
-		double acm) const {
+		double acm,
+		double neutral_pos) const {
 
 	Order order(calculateOrderFeeLess(lastTradePrice, step,curPrice,balance,acm));
+
+	if (cfg.neutralPosType != Config::disabled && cfg.sliding_pos_weaken ) {
+		double maxpos = cfg.external_assets* cfg.sliding_pos_weaken * 0.01;
+		double curpos = balance - neutral_pos;
+		double mult = (maxpos - fabs(curpos))/maxpos;
+		if (mult < 1e-10) mult = 1e-10;
+		order.size *= mult;
+
+		ondra_shared::logDebug("sliding_pos.weaken: maxpos=$1 curpos=$2 mult=$3",
+				maxpos, curpos, mult);
+
+	}
+
 
 	if (std::fabs(order.size) < cfg.min_size) {
 		order.size = cfg.min_size*sgn(order.size);
@@ -983,7 +1009,7 @@ void MTrader::acceptLoss(const Order &order, double lastTradePrice,  const Statu
 
 		std::size_t e = st.chartItem.time>ttm?(st.chartItem.time-ttm)/(3600000):0;
 		if (e > cfg.accept_loss && buy_dynmult <= 1.0 && sell_dynmult <= 1.0) {
-			auto reford = calculateOrder(lastTradePrice, 2 * st.curStep * sgn(-order.size),lastTradePrice, st.assetBalance, 0);
+			auto reford = calculateOrder(lastTradePrice, 2 * st.curStep * sgn(-order.size),lastTradePrice, st.assetBalance, 0, st.assetBalance);
 			double df = (st.curPrice - reford.price)* sgn(-order.size);
 			if (df > 0) {
 				ondra_shared::logWarning("Accept loss in effect: price=$1, balance=$2", st.curPrice, st.assetBalance);

@@ -51,8 +51,8 @@ struct MTrader_Config {
 
 	unsigned int accept_loss;
 
-	double sliding_pos_giveup;
-	double sliding_pos_feedback;
+	double sliding_pos_hours;
+	double sliding_pos_weaken;
 
 	double force_spread;
 	double emulated_currency;
@@ -164,7 +164,8 @@ public:
 			double step,
 			double curPrice,
 			double balance,
-			double acm) const;
+			double acm,
+			double neutral_pos) const;
 	Order calculateOrderFeeLess(
 			double lastTradePrice,
 			double step,
