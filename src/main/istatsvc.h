@@ -45,6 +45,7 @@ public:
 		std::string_view assetSymb;
 		std::string_view currencySymb;
 		std::string_view priceSymb;
+		double position_offset;
 		bool inverted;
 		bool margin;
 		bool emulated;

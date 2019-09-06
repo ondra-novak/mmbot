@@ -56,7 +56,7 @@ struct MTrader_Config {
 
 	double force_spread;
 	double emulated_currency;
-
+	double report_position_offset;
 
 
 	unsigned int spread_calc_mins;

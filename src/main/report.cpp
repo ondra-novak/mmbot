@@ -87,6 +87,7 @@ void Report::setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> tr
 
 	const json::Value &info = infoMap[symb];
 	bool inverted = info["inverted"].getBool();
+	double pos = info["po"].getNumber();
 
 
 
@@ -112,14 +113,12 @@ void Report::setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> tr
 
 		double prev_balance = t.balance-t.eff_size;
 		double prev_price = init_price;
-		double ass_sum = 0;
 		double cur_sum = 0;
 		double cur_fromPos = 0;
 		double norm_sum_ass = 0;
 		double norm_sum_cur = 0;
 		double potentialpl = 0;
 		double neutral_price = 0;
-		double pos = 0;
 
 
 		while (iter != tend) {
@@ -140,13 +139,12 @@ void Report::setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> tr
 			if (iter != trades.begin() && !iter->manual_trade) {
 				cur_fromPos += gain;
 				cur_sum += earn;
-				ass_sum += t.eff_size;
 
 				norm_sum_ass += asschg;
 				norm_sum_cur += curchg;
 				norm_chng = curchg+asschg * t.eff_price;
 
-				pos = std::fabs(t.position - t.balance)<t.balance*0.0001?ass_sum:t.position;
+				pos += t.eff_size;
 
 
 				double np = t.balance-pos;
@@ -223,7 +221,8 @@ void Report::setInfo(StrViewA symb, const InfoObj &infoObj) {
 			("asset", infoObj.assetSymb)
 			("price_symb", infoObj.priceSymb)
 			("inverted", infoObj.inverted)
-			("emulated",infoObj.emulated);
+			("emulated",infoObj.emulated)
+			("po", infoObj.position_offset);
 }
 
 void Report::setPrice(StrViewA symb, double price) {
