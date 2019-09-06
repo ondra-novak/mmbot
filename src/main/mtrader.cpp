@@ -682,6 +682,7 @@ void MTrader::loadState() {
 	bool drop_calc = false;
 
 	bool recalc_trades = false;
+	bool recalc_position = true;
 
 	if (st.defined()) {
 		json::Value tst = st["testStartTime"];
@@ -727,6 +728,7 @@ void MTrader::loadState() {
 					} else {
 						trades.push_back(itm);
 						recalc_trades = recalc_trades || itm.balance == TWBItem::no_balance;
+						recalc_position = recalc_position || itm.position == TWBItem::no_balance;
 					}
 				}
 			}
@@ -752,6 +754,17 @@ void MTrader::loadState() {
 		for (auto &&t:trades) {
 			if (t.balance < 0) t.balance = begBal+t.eff_size;
 			begBal = t.balance;
+		}
+	}
+	if (recalc_position) {
+		double endPos = trades.back().balance - cfg.external_assets;
+		double chng = std::accumulate(trades.begin(), trades.end(),0.0,[](auto &&a, auto &&b) {
+			return a + b.eff_size;
+		});
+		double begPos = endPos-chng;
+		for (auto &&t:trades) {
+			t.position = begPos+t.eff_size;
+			begPos = t.position;
 		}
 	}
 	if (internal_balance == 0) {
@@ -919,7 +932,9 @@ MTrader::PTResult MTrader::processTrades(Status &st,bool first_trade) {
 		buy_trade = buy_trade || t.eff_size > 0;
 		sell_trade = sell_trade || t.eff_size < 0;
 
-		trades.push_back(TWBItem(t, st.assetBalance, manual || calculator.isAchieveMode()));
+		trades.push_back(TWBItem(t, st.assetBalance,
+				st.assetBalance - cfg.external_assets,
+				manual || calculator.isAchieveMode()));
 	}
 
 
@@ -1021,7 +1036,7 @@ void MTrader::acceptLoss(const Order &order, double lastTradePrice,  const Statu
 							reford.price,
 							0,
 							reford.price,
-						}, st.assetBalance, false));
+						}, st.assetBalance, st.assetBalance - cfg.external_assets,false));
 				update_dynmult(order.size>0, order.size<0);
 				calculator.update(reford.price, st.assetBalance);
 			}

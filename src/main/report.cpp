@@ -119,20 +119,19 @@ void Report::setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> tr
 		double norm_sum_cur = 0;
 		double potentialpl = 0;
 		double neutral_price = 0;
-
+		double prev_position = 0;
 
 
 		while (iter != tend) {
 
 			auto &&t = *iter;
 
-//			if (neutral_pos) ass_sum = t.balance - neutral_pos;
-
-			double gain = (t.eff_price - prev_price)*ass_sum ;
+			double gain = (t.eff_price - prev_price)*prev_position ;
 			double earn = -t.eff_price * t.eff_size;
 			double bal_chng = (t.balance - prev_balance) - t.eff_size;
 			invst_value += bal_chng * t.eff_price;
 
+			prev_position = t.position;
 
 			double calcbal = prev_balance * sqrt(prev_price/t.eff_price);
 			double asschg = (prev_balance+t.eff_size) - calcbal ;
@@ -149,7 +148,7 @@ void Report::setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> tr
 				norm_chng = curchg+asschg * t.eff_price;
 
 
-				double np = t.balance-ass_sum;
+				double np = t.balance-t.position;
 				neutral_price = t.eff_price * pow2(t.balance/np);
 				potentialpl = cur_fromPos + ass_sum*(neutral_price-sqrt(t.eff_price*neutral_price));
 
@@ -178,7 +177,7 @@ void Report::setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> tr
 						("norm", margin?Value():Value(norm))
 						("normch", norm_chng)
 						("nacum", margin?Value():Value((inverted?-1:1)*norm_sum_ass))
-						("pos", (inverted?-1:1)*ass_sum)
+						("pos", (inverted?-1:1)*t.position)
 						("pl", cur_fromPos)
 						("pln", potentialpl)
 						("price", (inverted?1.0/t.price:t.price))

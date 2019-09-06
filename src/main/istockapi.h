@@ -49,11 +49,19 @@ public:
 		//total balance (including external assets) after the trade
 		double balance;
 		static constexpr double no_balance = -9e99;
+
+		double position;
 		//true if the trade was detected as manual trade
 		bool manual_trade;
 
 		TradeWithBalance() {}
-		TradeWithBalance(const Trade &t, double balance,bool manual):Trade(t),balance(balance),manual_trade(manual) {}
+		TradeWithBalance(const Trade &t,
+				double balance,
+				double position,
+				bool manual):Trade(t)
+					,balance(balance)
+					,position(position)
+					,manual_trade(manual) {}
 
 	    static TradeWithBalance fromJSON(json::Value v);
 	    json::Value toJSON() const;
