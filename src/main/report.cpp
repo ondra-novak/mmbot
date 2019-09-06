@@ -112,26 +112,25 @@ void Report::setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> tr
 
 		double prev_balance = t.balance-t.eff_size;
 		double prev_price = init_price;
-//		double ass_sum = 0;
+		double ass_sum = 0;
 		double cur_sum = 0;
 		double cur_fromPos = 0;
 		double norm_sum_ass = 0;
 		double norm_sum_cur = 0;
 		double potentialpl = 0;
 		double neutral_price = 0;
-		double prev_position = 0;
+		double pos = 0;
 
 
 		while (iter != tend) {
 
 			auto &&t = *iter;
 
-			double gain = (t.eff_price - prev_price)*prev_position ;
+			double gain = (t.eff_price - prev_price)*pos ;
 			double earn = -t.eff_price * t.eff_size;
 			double bal_chng = (t.balance - prev_balance) - t.eff_size;
 			invst_value += bal_chng * t.eff_price;
 
-			prev_position = t.position;
 
 			double calcbal = prev_balance * sqrt(prev_price/t.eff_price);
 			double asschg = (prev_balance+t.eff_size) - calcbal ;
@@ -140,17 +139,20 @@ void Report::setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> tr
 
 			if (iter != trades.begin() && !iter->manual_trade) {
 				cur_fromPos += gain;
-//				ass_sum += t.eff_size;
 				cur_sum += earn;
+				ass_sum += t.eff_size;
 
 				norm_sum_ass += asschg;
 				norm_sum_cur += curchg;
 				norm_chng = curchg+asschg * t.eff_price;
 
+				pos = std::fabs(t.position - t.balance)<t.balance*0.0001?ass_sum:t.position;
 
-				double np = t.balance-t.position;
+
+				double np = t.balance-pos;
 				neutral_price = t.eff_price * pow2(t.balance/np);
-				potentialpl = cur_fromPos + t.position*(neutral_price-sqrt(t.eff_price*neutral_price));
+				potentialpl = cur_fromPos + pos*(neutral_price-sqrt(t.eff_price*neutral_price));
+
 
 			}
 			if (iter->manual_trade) {
@@ -177,7 +179,7 @@ void Report::setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> tr
 						("norm", margin?Value():Value(norm))
 						("normch", norm_chng)
 						("nacum", margin?Value():Value((inverted?-1:1)*norm_sum_ass))
-						("pos", (inverted?-1:1)*t.position)
+						("pos", (inverted?-1:1)*pos)
 						("pl", cur_fromPos)
 						("pln", potentialpl)
 						("price", (inverted?1.0/t.price:t.price))
