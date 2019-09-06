@@ -112,7 +112,7 @@ void Report::setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> tr
 
 		double prev_balance = t.balance-t.eff_size;
 		double prev_price = init_price;
-		double ass_sum = 0;
+//		double ass_sum = 0;
 		double cur_sum = 0;
 		double cur_fromPos = 0;
 		double norm_sum_ass = 0;
@@ -140,7 +140,7 @@ void Report::setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> tr
 
 			if (iter != trades.begin() && !iter->manual_trade) {
 				cur_fromPos += gain;
-				ass_sum += t.eff_size;
+//				ass_sum += t.eff_size;
 				cur_sum += earn;
 
 				norm_sum_ass += asschg;
@@ -150,7 +150,7 @@ void Report::setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> tr
 
 				double np = t.balance-t.position;
 				neutral_price = t.eff_price * pow2(t.balance/np);
-				potentialpl = cur_fromPos + ass_sum*(neutral_price-sqrt(t.eff_price*neutral_price));
+				potentialpl = cur_fromPos + t.position*(neutral_price-sqrt(t.eff_price*neutral_price));
 
 			}
 			if (iter->manual_trade) {
