@@ -1135,23 +1135,24 @@ function init_calculator() {
 		var eaa = ea;		
 		data.forEach(function(x) {
 			var p = inv?1/x.price:x.price;
-                        var dr = p - pp
+            var dr = p - pp
 			var pldiff = pos * (p - pp);
 			var tmdiff = x.time - tm;
-			tm = x.time;
-			pl = pl+pldiff;
-			norm = pl+pos*(eq-Math.sqrt(p*eq));
 			var neq = pldiff*Math.sign(tframe)>0?eq + (p - eq) * (tmdiff/Math.abs(tframe)):eq;
-			if (pl < mdd) mdd = pl;
 			if (Math.abs(pos) > mpos) mpos = Math.abs(pos);			
-			pp = p;
-			eq = neq;
 			var nxpos = ea*Math.sqrt(eq/p)-ea;
 			var dpos = nxpos - pos ;
 			var maxpos = ea * fb * 0.01;
 			var mult = (maxpos - Math.abs(nxpos))/maxpos*mlt;
 			if (mult < 0.000001) mult = 0.000001
-			if (dpos * dr < 0) pos = pos + dpos * mult;
+			if (dpos * dr > 0) return;
+			pos = pos + dpos * mult;
+			pp = p;
+			eq = neq;
+			tm = x.time;
+			pl = pl+pldiff;
+			norm = pl+pos*(eq-Math.sqrt(p*eq));
+			if (pl < mdd) mdd = pl;
 			newchart.push({
 				price:x.price,
 				pl:pl,
@@ -1172,6 +1173,7 @@ function init_calculator() {
 		form_sliding.querySelector(".eq").innerText = adjNum(eq);
 		drawChart(form_sliding.querySelector(".chart1"),newchart,"price",[],"np");
 		drawChart(form_sliding.querySelector(".chart2"),newchart,"pl",[],"pln");
+		drawChart(form_sliding.querySelector(".chart3"),newchart,"achg",[]);
 	};
 
 	Array.prototype.forEach.call(form_sliding.elements,function(x){
