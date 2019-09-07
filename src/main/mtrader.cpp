@@ -97,6 +97,7 @@ MTrader::Config MTrader::load(const ondra_shared::IniConfig::Section& ini, bool 
 	cfg.sell_step_mult = ini["sell_step_mult"].getNumber(1.0);
 	cfg.external_assets = ini["external_assets"].getNumber(0);
 	cfg.min_size = ini["min_size"].getNumber(0);
+	cfg.report_position_offset = ini["report_position_offset"].getNumber(0);
 
 
 	cfg.dry_run = force_dry_run?true:ini["dry_run"].getBool(false);
@@ -217,6 +218,26 @@ int MTrader::perform() {
 	std::string buy_order_error;
 	std::string sell_order_error;
 
+	double neutral_pos=0;
+
+
+	switch (cfg.neutralPosType) {
+	case Config::center: {
+		double a = 1.0/(cfg.neutral_pos+1.0);
+		neutral_pos = ((status.assetBalance-cfg.external_assets) * status.curPrice + currency_balance_cache)*a/status.curPrice+cfg.external_assets;
+	}break;
+	case Config::currency:
+		neutral_pos = (currency_balance_cache-cfg.neutral_pos)/status.curPrice+status.assetBalance;
+		break;
+	case Config::assets:
+		neutral_pos = cfg.neutral_pos + cfg.external_assets;
+		break;
+	default:
+		neutral_pos = 0;
+		break;
+	}
+	ondra_shared::logDebug("Neutral pos: $1", neutral_pos);
+
 
 	//update market fees
 	minfo.fees = status.new_fees;
@@ -228,7 +249,6 @@ int MTrader::perform() {
 	double lastTradePrice = trades.empty()?status.curPrice:trades.back().eff_price;
 
 	bool calcadj = false;
-	double neutral_pos=0;
 
 	//if calculator is not valid, update it using current price and assets
 	if (!calculator.isValid()) {
@@ -238,23 +258,6 @@ int MTrader::perform() {
 	if (!calculator.isValid()) {
 		ondra_shared::logError("No asset balance is available. Buy some assets, use 'external_assets=' or use command achieve to invoke automatic initial trade");
 	} else {
-
-		switch (cfg.neutralPosType) {
-		case Config::center: {
-			double a = 1.0/(cfg.neutral_pos+1.0);
-			neutral_pos = ((status.assetBalance-cfg.external_assets) * status.curPrice + currency_balance_cache)*a/status.curPrice+cfg.external_assets;
-		}break;
-		case Config::currency:
-			neutral_pos = (currency_balance_cache-cfg.neutral_pos)/status.curPrice+status.assetBalance;
-			break;
-		case Config::assets:
-			neutral_pos = cfg.neutral_pos + cfg.external_assets;
-			break;
-		default:
-			neutral_pos = 0;
-			break;
-		}
-		ondra_shared::logDebug("Neutral pos: $1", neutral_pos);
 
 
 
@@ -337,10 +340,10 @@ int MTrader::perform() {
 				double tdf = ct.time - pt.time;
 				if (tdf > 0) {
 					double tot = cfg.sliding_pos_hours * 3600 * 1000;
-					double pos = ct.balance - neutral_pos;
+					double pos = pt.balance - neutral_pos;
 					double pldiff = pos * (ct.eff_price - pt.eff_price);
 					double eq = calculator.balance2price(neutral_pos);
-					double neq = pldiff*sgn(tot)>0? eq + (ct.price - eq) * (tdf/fabs(tot)):eq;
+					double neq = (pldiff*tot)>0? eq + (ct.price - eq) * (tdf/fabs(tot)):eq;
 					calculator = Calculator(neq, neutral_pos, false);
 					ondra_shared::logDebug("sliding_pos.hours: tdf=$1 pos=$2 pldiff=$3 eq=$4 neq=$5",
 							tdf, pos, pldiff, eq, neq);
@@ -666,6 +669,7 @@ void MTrader::loadState() {
 				minfo.asset_symbol,
 				minfo.currency_symbol,
 				minfo.invert_price?minfo.inverted_symbol:minfo.currency_symbol,
+				cfg.report_position_offset,
 				minfo.invert_price,
 				minfo.leverage || cfg.force_margin,
 				stock.isTest()
@@ -726,7 +730,7 @@ void MTrader::loadState() {
 						continue;
 					} else {
 						trades.push_back(itm);
-						recalc_trades = recalc_trades || itm.balance == TWBItem::no_balance;
+						recalc_trades = recalc_trades || std::isnan(itm.balance);
 					}
 				}
 			}
@@ -919,7 +923,8 @@ MTrader::PTResult MTrader::processTrades(Status &st,bool first_trade) {
 		buy_trade = buy_trade || t.eff_size > 0;
 		sell_trade = sell_trade || t.eff_size < 0;
 
-		trades.push_back(TWBItem(t, st.assetBalance, manual || calculator.isAchieveMode()));
+		trades.push_back(TWBItem(t, st.assetBalance,
+				manual || calculator.isAchieveMode()));
 	}
 
 

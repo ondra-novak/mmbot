@@ -87,6 +87,7 @@ void Report::setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> tr
 
 	const json::Value &info = infoMap[symb];
 	bool inverted = info["inverted"].getBool();
+	double pos = info["po"].getNumber();
 
 
 
@@ -112,7 +113,6 @@ void Report::setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> tr
 
 		double prev_balance = t.balance-t.eff_size;
 		double prev_price = init_price;
-		double ass_sum = 0;
 		double cur_sum = 0;
 		double cur_fromPos = 0;
 		double norm_sum_ass = 0;
@@ -121,14 +121,11 @@ void Report::setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> tr
 		double neutral_price = 0;
 
 
-
 		while (iter != tend) {
 
 			auto &&t = *iter;
 
-//			if (neutral_pos) ass_sum = t.balance - neutral_pos;
-
-			double gain = (t.eff_price - prev_price)*ass_sum ;
+			double gain = (t.eff_price - prev_price)*pos ;
 			double earn = -t.eff_price * t.eff_size;
 			double bal_chng = (t.balance - prev_balance) - t.eff_size;
 			invst_value += bal_chng * t.eff_price;
@@ -141,17 +138,19 @@ void Report::setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> tr
 
 			if (iter != trades.begin() && !iter->manual_trade) {
 				cur_fromPos += gain;
-				ass_sum += t.eff_size;
 				cur_sum += earn;
 
 				norm_sum_ass += asschg;
 				norm_sum_cur += curchg;
 				norm_chng = curchg+asschg * t.eff_price;
 
+				pos += t.eff_size;
 
-				double np = t.balance-ass_sum;
+
+				double np = t.balance-pos;
 				neutral_price = t.eff_price * pow2(t.balance/np);
-				potentialpl = cur_fromPos + ass_sum*(neutral_price-sqrt(t.eff_price*neutral_price));
+				potentialpl = cur_fromPos + pos*(neutral_price-sqrt(t.eff_price*neutral_price));
+
 
 			}
 			if (iter->manual_trade) {
@@ -178,7 +177,7 @@ void Report::setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> tr
 						("norm", margin?Value():Value(norm))
 						("normch", norm_chng)
 						("nacum", margin?Value():Value((inverted?-1:1)*norm_sum_ass))
-						("pos", (inverted?-1:1)*ass_sum)
+						("pos", (inverted?-1:1)*pos)
 						("pl", cur_fromPos)
 						("pln", potentialpl)
 						("price", (inverted?1.0/t.price:t.price))
@@ -222,7 +221,8 @@ void Report::setInfo(StrViewA symb, const InfoObj &infoObj) {
 			("asset", infoObj.assetSymb)
 			("price_symb", infoObj.priceSymb)
 			("inverted", infoObj.inverted)
-			("emulated",infoObj.emulated);
+			("emulated",infoObj.emulated)
+			("po", infoObj.position_offset);
 }
 
 void Report::setPrice(StrViewA symb, double price) {
