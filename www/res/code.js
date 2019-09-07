@@ -1117,6 +1117,7 @@ function init_calculator() {
 		var ea = parseFloat(form_sliding.ea.value);
 		var ga = parseFloat(form_sliding.ga.value);
 		var fb = parseFloat(form_sliding.fb.value);
+		var mlt = parseFloat(form_sliding.mlt.value)*0.01+1;
 		var inv = source_data.info[data_id].inverted;
 		if (inv) eq = 1/eq;
 		var pp = inv?1/data[0].price:data[0].price;
@@ -1132,6 +1133,7 @@ function init_calculator() {
 		var eaa = ea;		
 		data.forEach(function(x) {
 			var p = inv?1/x.price:x.price;
+                        var dr = p - pp
 			var pldiff = pos * (p - pp);
 			var tmdiff = x.time - tm;
 			tm = x.time;
@@ -1146,15 +1148,16 @@ function init_calculator() {
 			var nxpos = ea*Math.sqrt(eq/p)-ea;
 			var dpos = nxpos - pos ;
 			var maxpos = ea * fb * 0.01;
-			var mult = (maxpos - Math.abs(nxpos))/maxpos;
+			var mult = (maxpos - Math.abs(nxpos))/maxpos*mlt;
 			if (mult < 0.000001) mult = 0.000001
-			pos = pos + dpos * mult;
+			if (dpos * dr < 0) pos = pos + dpos * mult;
 			newchart.push({
 				price:x.price,
 				pl:pl,
 				pln:norm,
 				np:inv?1/eq:eq,
-				time:x.time
+				time:x.time,
+ achg:dpos
 			});
 		});
 		if (inv) eq = 1/eq;
