@@ -701,7 +701,7 @@ menu {
 #calculator .content {
 	border: 1px solid #765;
 	background-color:#333;
-	padding: 0.2cm;
+	/* padding: 0.2cm; */
 	box-shadow: 0 0 10px black;
 	z-index:4;
 	/* height: 100%; */
@@ -797,6 +797,8 @@ form button {
 #calculator  form {
 	max-height: 75vh;
 	overflow: auto;
+	box-sizing: border-box;
+	padding: 6px;
 }
 
 #calculator.fade {
@@ -886,9 +888,10 @@ table  tr > * {
 	white-space: nowrap;
 }
 table.extended td:nth-child(2) {text-align: right;padding-right:0.1em;}
-table.extended td:nth-child(2) span:nth-child(odd) {font-weight:bold;}
 table.extended td:nth-child(3) {padding: 0.1em;overflow: hidden;}
-table.extended td span.neg {color: #C66;}
+table.extended td .color.neg {color: #C66;}
+table.extended td .color.pos {color: #6C6;}
+table.extended td .color.pos::before {content: "+";}
 [onclick] {
 	cursor: pointer
 }
@@ -1000,5 +1003,5 @@ table.extended td span.neg {color: #C66;}
 } 
 
 #form_sliding_pos .second {
-	color: #a96379;
+	color: #afdeff;
 }

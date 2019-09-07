@@ -19,10 +19,10 @@
 <option disabled value=""></option>
 <option value="price">Price</option>
 <option value="pl">P/L from position</option>
+<option value="pos">Position</option>
 <option value="norm">Normalized profit</option>
 <option value="nacum">Normalized accumulated assets</option>
 <option value="achg">Trades</option>
-<option value="pos">Position</option>
 <option disabled value=""></option>
 <option value="+pl">Total P/L from positions</option>
 <option value="+norm">Total normalized profit</option>
@@ -52,7 +52,7 @@
 <div class="daystats">
 <div>24h: </div>
 <div><span data-name="price" class="plusminus"></span><span data-name="curc"></span></div>
-<div>t: <span data-name="trades"></span></div>
+<div>t: <span data-name="trades" data-decimals="0"></span></div>
 <div>vol: <span data-name="vol"></span><span data-name="curc"></span></div>
 <div>pos: <span data-name="pos" class="plusminus"></span><span data-name="assets"></span></div>
 <div>avg: <span data-name="avg"></span><span data-name="pric"></span></div>
@@ -60,15 +60,16 @@
 <div>norm: <span data-name="norm" class="plusminus"></span><span data-name="curc"></span></div>
 </div>
 <table class="extended">
-<tr><th>Equilibrium</th><td><span data-name="mcp"></span></td><td><span data-name="pric"></span></td></tr>
-<tr><th>Spread</th><td><span data-name="ms"></span></td><td><span data-name="pric"></span></td></tr>
-<tr><th>Buy/Sell multiplicator </th><td><span data-name="mdmb"></span><span>x / </span><span data-name="mdms"></span>x</td><td>&nbsp;</td></tr>
-<tr><th>Base value</th><td><span data-name="mv"></span></td><td><span data-name="curc"></span></td></tr>
-<tr onclick="changeinterval();"><th>Avg. income PL.</th><td><span data-name="avghpl"></span></td><td><span data-name="curc"></span>/<span data-name="interval"></span></td></tr>
-<tr onclick="changeinterval();"><th>Avg. income norm.</th><td><span data-name="avgh"></span><br><span data-name="avgha"></span></td><td><span data-name="curc"></span>/<span data-name="interval"></span><br><span data-name="assets"></span>/<span data-name="interval"></span></td></tr>
-<tr><th>Lowest tradable price</th><td><span data-name="ml"></span></td><td><span data-name="pric"></span></td></tr>
-<tr><th>Highest tradable price</th><td><span data-name="mh"></span></td><td><span data-name="pric"></span></td></tr>
-<tr><th>Boost / Leverage</th><td><span data-name="mb"></span></td><td>x</td></tr>
+<tr><th>Equilibrium</th><td><b data-name="mcp"></b></td><td><span data-name="pric"></span></td></tr>
+<tr><th>Spread</th><td><b data-name="ms"></b></td><td><span data-name="pric"></span></td></tr>
+<tr><th>Spread multiplicator </th><td><b data-name="mdmb" data-decimals="2"></b>x</td><td>/ <b data-name="mdms" data-decimals="2"></b>x</td></tr>
+<tr><th>Size multiplicator </th><td><b data-name="sm" data-decimals="2"></b>x</td><td>&nbsp;</td></tr>
+<tr><th>Base value</th><td><b data-name="mv"></b></td><td><span data-name="curc"></span></td></tr>
+<tr onclick="changeinterval();"><th>Avg. income PL.</th><td><b data-name="avghpl" class="color"></b></td><td><span data-name="curc"></span>/<span data-name="interval"></span></td></tr>
+<tr onclick="changeinterval();"><th>Avg. income norm.</th><td><b data-name="avgh" class="color"></b><br><b data-name="avgha" class="color"></b></td><td><span data-name="curc"></span>/<span data-name="interval"></span><br><span data-name="assets"></span>/<span data-name="interval"></span></td></tr>
+<tr><th>Lowest tradable price</th><td><b data-name="ml"></b></td><td><span data-name="pric"></span></td></tr>
+<tr><th>Highest tradable price</th><td><b data-name="mh"></b></td><td><span data-name="pric"></span></td></tr>
+<tr><th>Boost / Leverage</th><td><b data-name="mb"></b></td><td>x</td></tr>
 </table>
 </div>
 </template>
@@ -93,7 +94,7 @@
 </div>
 <div id="logfilearea">
 <div id="logfileactivate">LOG</div>
-<pre  id="logfile" hidden>
+<pre id="logfile" hidden>
 </pre>
 </div>
 <div id="logo" hidden>

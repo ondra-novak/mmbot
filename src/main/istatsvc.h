@@ -31,6 +31,7 @@ public:
 		double spread;
 		double dynmult_buy;
 		double dynmult_sell;
+		double size_mult;
 		double value;
 		double boost;
 		double lowest_price;

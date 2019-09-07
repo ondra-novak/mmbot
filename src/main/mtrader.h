@@ -165,13 +165,14 @@ public:
 			double curPrice,
 			double balance,
 			double acm,
-			double neutral_pos) const;
+			double mult) const;
 	Order calculateOrderFeeLess(
 			double lastTradePrice,
 			double step,
 			double curPrice,
 			double balance,
-			double acm) const;
+			double acm,
+			double mult) const;
 
 	const Config &getConfig() {return cfg;}
 
@@ -251,6 +252,9 @@ protected:
 
 	void acceptLoss(const Order &order, double lastTradePrice, const Status &st);
 	json::Value getTradeLastId() const;
+
+
+	double calcWeakenMult(double neutral_pos, double balance);
 };
 
 

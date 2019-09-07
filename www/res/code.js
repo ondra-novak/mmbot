@@ -15,7 +15,7 @@ function fetch_json(file) {
 var changeinterval=null;
 var source_data=null;
 
-function adjNum(n) {
+function adjNum(n, decimals) {
 	"use strict";
 	if (typeof n != "number") return n;	
 	if (isNaN(n)) return "---";
@@ -23,6 +23,7 @@ function adjNum(n) {
 		if (s < 0) return "-∞";
 		else return "∞";
 	}
+	if (decimals !== undefined) return n.toFixed(decimals);
 	var an = Math.abs(n);
 	if (an >= 100000) return n.toFixed(0);
 	else if (an >= 1) return n.toFixed(2);
@@ -241,6 +242,7 @@ function app_start(){
 	function setField(root, name, value, classes) {
 		var info = root.querySelectorAll("[data-name="+name+"]");
 		Array.prototype.forEach.call(info,function(x) {
+			if (typeof value == "number") value = adjNum(value, x.dataset.decimals);
 			x.innerText = value;
 			if (classes) for (var k in classes) {
 				x.classList.toggle(k, classes[k]);
@@ -418,7 +420,7 @@ function app_start(){
 				if (isNaN(sum[n]))
 					removeFieldBlock(curchart,n);
 				else
-					setField(curchart, n, n=="trades"?sum[n]:adjNum(sum[n]), {
+					setField(curchart, n, sum[n], {
 						pos:sum[n]>0,
 						neg:sum[n]<0
 					});
@@ -438,7 +440,7 @@ function app_start(){
 				}
 
 				for (var n in misc)
-					setField(curchart, n, adjNum(misc[n]), {
+					setField(curchart, n, misc[n], {
 						pos:misc[n]>0,
 						neg:misc[n]<0
 					});
@@ -1139,7 +1141,6 @@ function init_calculator() {
 			tm = x.time;
 			pl = pl+pldiff;
 			norm = pl+pos*(eq-Math.sqrt(p*eq));
-			//var plga = pldiff>0?(pldiff/(1+ga*0.01)):(pldiff/(1+(ga-2*ga*fb*0.01)*0.01));
 			var neq = pldiff*Math.sign(tframe)>0?eq + (p - eq) * (tmdiff/Math.abs(tframe)):eq;
 			if (pl < mdd) mdd = pl;
 			if (Math.abs(pos) > mpos) mpos = Math.abs(pos);			
@@ -1157,7 +1158,7 @@ function init_calculator() {
 				pln:norm,
 				np:inv?1/eq:eq,
 				time:x.time,
- achg:dpos
+				achg:(inv?-1:1)*dpos
 			});
 		});
 		if (inv) eq = 1/eq;
@@ -1165,7 +1166,7 @@ function init_calculator() {
 
 		form_sliding.querySelector(".pl").innerText = adjNum(pl);
 		form_sliding.querySelector(".pln").innerText = adjNum(norm);
-		form_sliding.querySelector(".pos").innerText = adjNum(pos);
+		form_sliding.querySelector(".pos").innerText = adjNum((inv?-1:1)*pos);
 		form_sliding.querySelector(".mdd").innerText = adjNum(mdd);
 		form_sliding.querySelector(".maxpos").innerText = adjNum(mpos);
 		form_sliding.querySelector(".eq").innerText = adjNum(eq);

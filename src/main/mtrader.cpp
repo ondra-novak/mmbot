@@ -202,6 +202,20 @@ void MTrader::init() {
 		need_load = false;
 	}
 }
+
+double MTrader::calcWeakenMult(double neutral_pos, double balance) {
+
+	if (neutral_pos && cfg.sliding_pos_weaken ) {
+		double maxpos = cfg.external_assets* cfg.sliding_pos_weaken * 0.01;
+		double curpos = balance - neutral_pos;
+		double mult = (maxpos - fabs(curpos))/maxpos;
+		if (mult < 1e-10) mult = 1e-10;
+		return mult;
+	} else {
+		return 1.0;
+	}
+}
+
 int MTrader::perform() {
 
 	try {
@@ -249,6 +263,7 @@ int MTrader::perform() {
 	double lastTradePrice = trades.empty()?status.curPrice:trades.back().eff_price;
 
 	bool calcadj = false;
+	double weakenMult = calcWeakenMult(neutral_pos, status.assetBalance);
 
 	//if calculator is not valid, update it using current price and assets
 	if (!calculator.isValid()) {
@@ -293,12 +308,12 @@ int MTrader::perform() {
 			auto buyorder = calculateOrder(lastTradePrice,
 										  -status.curStep*buy_dynmult*cfg.buy_step_mult,
 										   status.curPrice, status.assetBalance, acm_buy,
-										   neutral_pos);
+										   cfg.buy_mult * weakenMult);
 			//calculate sell order
 			auto sellorder = calculateOrder(lastTradePrice,
 					                       status.curStep*sell_dynmult*cfg.sell_step_mult,
 										   status.curPrice, status.assetBalance, acm_sell,
-										   neutral_pos);
+										   cfg.sell_mult * weakenMult);
 
 			try {
 				setOrderCheckMaxPos(orders.buy, buyorder,status.assetBalance, neutral_pos);
@@ -402,6 +417,7 @@ int MTrader::perform() {
 			status.curPrice * (exp(status.curStep) - 1),
 			buy_dynmult,
 			sell_dynmult,
+			weakenMult,
 			2 * value,
 			boost,
 			min_price,
@@ -576,24 +592,22 @@ MTrader::Order MTrader::calculateOrderFeeLess(
 		double step,
 		double curPrice,
 		double balance,
-		double acm) const {
+		double acm,
+		double mult) const {
 	Order order;
 
 	double newPrice = prevPrice * exp(step);
 	double fact = acm;
-	double mult;
 
 	if (step < 0) {
 		//if price is lower than old, check whether current price is above
 		//otherwise lower the price more
 		if (newPrice > curPrice) newPrice = curPrice;
-		mult = cfg.buy_mult;
 	} else {
 		//if price is higher then old, check whether current price is below
 		//otherwise highter the newPrice more
 
 		if (newPrice < curPrice) newPrice = curPrice;
-		mult = cfg.sell_mult;
 	}
 
 
@@ -621,21 +635,9 @@ MTrader::Order MTrader::calculateOrder(
 		double curPrice,
 		double balance,
 		double acm,
-		double neutral_pos) const {
+		double mult) const {
 
-	Order order(calculateOrderFeeLess(lastTradePrice, step,curPrice,balance,acm));
-
-	if (cfg.neutralPosType != Config::disabled && cfg.sliding_pos_weaken ) {
-		double maxpos = cfg.external_assets* cfg.sliding_pos_weaken * 0.01;
-		double curpos = balance - neutral_pos;
-		double mult = (maxpos - fabs(curpos))/maxpos;
-		if (mult < 1e-10) mult = 1e-10;
-		order.size *= mult;
-
-		ondra_shared::logDebug("sliding_pos.weaken: maxpos=$1 curpos=$2 mult=$3",
-				maxpos, curpos, mult);
-
-	}
+	Order order(calculateOrderFeeLess(lastTradePrice, step,curPrice,balance,acm,mult));
 
 
 	if (std::fabs(order.size) < cfg.min_size) {
