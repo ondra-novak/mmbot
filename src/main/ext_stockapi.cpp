@@ -122,11 +122,10 @@ std::vector<std::string> ExtStockApi::getAllPairs() {
 
 void ExtStockApi::onConnect() {
 	ondra_shared::LogObject lg("");
-	if (lg.isLogLevelEnabled(ondra_shared::LogLevel::debug)) {
-		try {
-			jsonRequestExchange("enableDebug","true");
-		} catch (IStockApi::Exception &) {
+	bool debug= lg.isLogLevelEnabled(ondra_shared::LogLevel::debug);
+	try {
+		jsonRequestExchange("enableDebug",debug);
+	} catch (IStockApi::Exception &) {
 
-		}
 	}
 }
