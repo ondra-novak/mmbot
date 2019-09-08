@@ -86,7 +86,7 @@ MTrader::Config MTrader::load(const ondra_shared::IniConfig::Section& ini, bool 
 
 	cfg.broker = ini.mandatory["broker"].getString();
 	cfg.spread_calc_mins = ini["spread_calc_hours"].getUInt(24*5)*60;
-	cfg.spread_calc_min_trades = ini["spread_calc_min_trades"].getUInt(8);
+	cfg.spread_calc_min_trades = ini["spread_calc_min_trades"].getUInt(4);
 	cfg.spread_calc_max_trades = ini["spread_calc_max_trades"].getUInt(24);
 	cfg.pairsymb = ini.mandatory["pair_symbol"].getString();
 
@@ -121,17 +121,18 @@ MTrader::Config MTrader::load(const ondra_shared::IniConfig::Section& ini, bool 
 	cfg.parse_neutral_pos(neutral_pos_str);
 
 
-	double default_accum = ini["acum_factor"].getNumber(0.5);
+	double default_accum = ini["acum_factor"].getNumber(0);
 	cfg.acm_factor_buy = ini["acum_factor_buy"].getNumber(default_accum);
 	cfg.acm_factor_sell = ini["acum_factor_sell"].getNumber(default_accum);
 
 
-	cfg.dynmult_raise = ini["dynmult_raise"].getNumber(200);
-	cfg.dynmult_fall = ini["dynmult_fall"].getNumber(1);
-	cfg.dynmult_mode = strDynmult_mode[ini["dynmult_mode"].getString(strDynmult_mode[Dynmult_mode::independent])];
+	cfg.dynmult_raise = ini["dynmult_raise"].getNumber(250);
+	cfg.dynmult_fall = ini["dynmult_fall"].getNumber(0.5);
+	cfg.dynmult_mode = strDynmult_mode[ini["dynmult_mode"].getString(strDynmult_mode[Dynmult_mode::half_alternate])];
 	cfg.emulated_currency = ini["emulated_currency"].getNumber(0);
 	cfg.force_spread = ini["force_spread"].getNumber(0);
 	cfg.force_margin = ini["force_margin"].getBool();
+	cfg.dust_orders = ini["dust_orders"].getBool(true);
 
 	cfg.accept_loss = ini["accept_loss"].getUInt(0);
 	cfg.max_pos = ini["max_pos"].getNumber(0);
@@ -619,7 +620,13 @@ MTrader::Order MTrader::calculateOrderFeeLess(
 
 	ondra_shared::logDebug("Set order: step=$1, base_price=$6, price=$2, base=$3, extra=$4, total=$5",step, newPrice, base, extra, size, prevPrice);
 
-	if (size * step > 0) size = 0;
+	if (size * step > 0) {
+		if (cfg.dust_orders) {
+			size = -sgn(step)*minfo.min_size;
+		} else {
+			size = 0;
+		}
+	}
 	//fill order
 	order.size = size * mult;
 	order.price = newPrice;

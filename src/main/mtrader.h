@@ -81,6 +81,7 @@ struct MTrader_Config {
 	bool detect_manual_trades;
 	bool enabled;
 	bool force_margin;
+	bool dust_orders;
 
 	std::size_t start_time;
 

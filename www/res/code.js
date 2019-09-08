@@ -1120,6 +1120,7 @@ function init_calculator() {
 		var ga = parseFloat(form_sliding.ga.value);
 		var fb = parseFloat(form_sliding.fb.value);
 		var mlt = parseFloat(form_sliding.mlt.value)*0.01+1;
+		var mos = parseFloat(form_sliding.mos.value);
 		var inv = source_data.info[data_id].inverted;
 		if (inv) eq = 1/eq;
 		var pp = inv?1/data[0].price:data[0].price;
@@ -1135,7 +1136,7 @@ function init_calculator() {
 		var eaa = ea;		
 		data.forEach(function(x) {
 			var p = inv?1/x.price:x.price;
-            var dr = p - pp
+            var dr = Math.sign(p - pp);
 			var pldiff = pos * (p - pp);
 			var tmdiff = x.time - tm;
 			var neq = pldiff*Math.sign(tframe)>0?eq + (p - eq) * (tmdiff/Math.abs(tframe)):eq;
@@ -1145,7 +1146,10 @@ function init_calculator() {
 			var maxpos = ea * fb * 0.01;
 			var mult = (maxpos - Math.abs(nxpos))/maxpos*mlt;
 			if (mult < 0.000001) mult = 0.000001
-			if (dpos * dr > 0) return;
+			if (dpos * dr >= -mos) {
+				if (mos <= 0) return;
+				dpos = -mos * dr
+			}
 			pos = pos + dpos * mult;
 			pp = p;
 			eq = neq;
