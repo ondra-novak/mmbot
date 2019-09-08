@@ -185,10 +185,12 @@ Ostatní volby jsou stejné jako v **Cíl 5**
 
 1. **Pokyny na nekonečných cenách a nekonečných objemech** - zkontrolujte hodnotu spreadu a multiplikátorů. 
 2. **Spread je příliš úzký** - zpočátku obchodování nemusí mít robot dost údajů na výpočet spreadu. Můžete spread nastavit na fixní hodnotu `force_spread=0.01`. Hodnota je logaritmická. Nižší čísla tvoří nižší spread. Vyšší čísla naopak vyšší spread. Po čase doporučuji funkci vypnout. **Pokud je spread dále spočítán jako příliš úzký**, zkuste poštelovat volbu **spread_calc_min_trades** - zadjete niší číslo (např 4, 3, 2, 1).   
-3. **Multiplikátory jsou moc vysoké** - Vysoké multiplikátory mohou být důsledkem úzkeho spreadu. Pokud tomu není tak, pak zkontrolujte **dynmult_raise** a **dynmult_fall**. Pokud si nevíte rady, zuste před volby dát # a tím je deaktivovat
-4. Obecně platí, že kdykoliv začne robot dělat něco nevhodného, hledejte chybu v nastavení. Ideálně je vypnutí všech volitelných voleb uvedením # před volby
+3. **Multiplikátory jsou moc vysoké** - Vysoké multiplikátory mohou být důsledkem úzkeho spreadu. Pokud tomu není tak, pak zkontrolujte **dynmult_raise** a **dynmult_fall**. Pokud si nevíte rady, zkuste před volbu dát # a tím je deaktivovat
+4. Obecně platí, že kdykoliv začne robot dělat něco nevhodného, hledejte chybu v nastavení. Ideální je vypnutí všech volitelných voleb uvedením # před volbu
 5. Interni stav robota lze vynulovat pomocí `bin/mmbot repair <trader>`
 6. Statistiky lze smazat pomocí `bin/mmbot reset <trader>`
+7. Vypsat config pro daného tradera `bin/mmbot show_config <trader>`
+7. Vypsat výchozí hodnoty configu `bin/mmbot show_config default`
 
 
 
