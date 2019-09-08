@@ -242,6 +242,15 @@ Poloniex: BTC_ETH
 
 Informaci o tom, kdy lze očekávat vyčerpání assetů nebo currency poskytne příkaz **calc_ranges**
 
+**neutral_pos** = (volitelné) specifikuje neutrální pozici. Lze ji zadat jako čislo, pak 
+určuje, kolik fyzicky držených assetů na burze má robot považovat za neutrální pozici (ted bez zápočtu `external_assets`). Alternativně lze zadat před číslo klíčové slovo
+  * **assets** /číslo/ - stejné jako samotné číslo
+  * **currency** /číslo/ - neutrální pozice je odvozena od zůstatku currency na účtu
+  * **center** /číslo/ - hodnota určuje číslo jako poměr mezi assets a currency. Hodnota 1 představuje 50:50. Hodnota 2 pak 33:66, atd.
+
+Nastavení neutrální pozice umožňuje řídit obchodování k maximalizaci zisku z pozice. Bez určení neutrální pozice se maximalizuje normalizovaný profit. Samotná specifikace neutrální pozice způsobí, že graf normalizovaného zisku je přepočítán na potenciální zisk z držené pozice. Některé další volby vyžadují nastavenou neutrální pozici, jinak nefungují. Nastavení **neutral_pos=0** je vhodné pro pákové burzy, kde pozice se přímo mapuje na pozici na burze.
+  
+**max_pos** = (volitelné) zakazuje robotovi vzít pozici větší, než zadané číslo (včetně pozice záporné, tedy shortu). 
 
 **dynmult_raise** = (volitelné) definuje zvýšení dynamického multiplikátoru. Dynamický multiplikátor má stejný význam jako **buy_step_mult**/**sell_step_mult**, pouze se po čas obchodování dynamicky mění. Pokaždé, když je realizován obchod dojde k jeho zvýšení. Když se neobchoduje, časem se snižuje až na 1. Existují dva nezávislé multiplikátory, jeden pro nákup a druhý pro prodej. Tato hodnota definuje o kolik procent se zvedne dynamický multiplikátor při realizaci obchodu. Výchozí hodnota je 200 (Tedy 200 procent). Každý další obchod může multiplikátor zvýšit ještě víc podle jeho aktuální hodnoty 
 
@@ -260,25 +269,9 @@ Informaci o tom, kdy lze očekávat vyčerpání assetů nebo currency poskytne 
 
 **internal_balance** - způsobí, že robot nebude sledovat balanci na burze, ale bude ji počítat z načtených obchodů. Tím přestane být výpočet ovlivňován změnami balance na burze, což může být přínosné zejména pro pár BTC/USD, pokud se zároveň obchoduje XXX/BTC (kdy BTC funguje jako currency). Tuto funkci zapněte později, až když nejaké trady byly na páru zaznamenány a uloženy, robot pak použije poslední uložený stav za výchozí. Je-li tato funkce zapnuta pro pár od začátku, pak je výchozí balancí 0 a výpočet funguje správně pouze pokud je zároveň nastavena položka `external_assets`
 
-**sliding_pos (obecné informace)** - následující konfigurační volby popisují funkci **sliding position**. 
-Úkolem této funkce je přepočítávat pokyny tak, aby se neutrální pozice (typicky nulová pozice na margin trzích) neustále přibližovala k aktuální ceně. Typické použití funkce je v kombinaci s volbou `external_assets` v případě, že se tato volba používá k zesílení pokynů pro dosažení většího zisku. Při použití `external_assets` dochází k vymezení obcgodovatelného rozsahu, který vymezují skutečně dostupné assety a peníze na obchodním účtu. Aby bylo možné obchodovat i v mírně trendujícím trhu, kdy hrozí, že trh postupně doputuje k hraniční ceně, lze toutu funkci docílit posun tohoto rozsahu "za cenou". Aktuální střed rozsahu je vždy definován jako cena, při které se cena dostupných assetů rovná množství peněz na obchodním účtu. 
+**sliding_pos.hours** - Specifikuje s jakou rychlostí se posouvá cena neutrální pozice. Tato volba musí být v kombinaci s `neutral_pos`. Hodnota je hodinách. Je v celku obtížné ji dobře nastavit. Příliš malé hodnoty mohou ve výsledku generovat ztrátu. Příliš velké hodnoty zase nezajistí posun tak rychle, aby se obchodování nedostalo mimo rozsah. Výpočet nejvíc sedí na EMA v hodinovém grafu. Optimální hodnota cca 240 (deset dní)
 
-**sliding_pos.acum** - volba nabývá hodnot `on` nebo `off` (výchozí). Pokud je volba zapnuta (`on`), pak se předpokladná kladná čísla u voleb `acum_factor_buy` a `acum_factor_sell` (stačí jedna z nich, ideálně obě, nenastavujte záporné hodnoty). Tato volba pak upravuje tyto dva parametry do kladných čísel, pokud je aktuální pozice záporná a tím dochází k akumulaci, respektivě do záporných čísel, pokud je aktuální pozice kladná a tedy dochází ke zpeněžení pozice. Výše hodnoty `acum_factor_sell` a `acum_factory_buy` určuje sílu, s jakou dochází k uvedenému efektu, přičemž hodnoty větší než 1 mohou za určitých okolností způsobit částečnou ztrátu na normalizovaném zisku v důsledku toho, že dochází k akumulaci nebo zpeněžení více, než vychází ze vzorce normalizovaného zisku. 
-
-Volba nesmí být kombinována s volbou `sliding_pos.change`
-
-**sliding_pos.change** - tato volba představuje sílu, s jakou dochází k úpravě rovnováhy vůči aktuální ceně. Pokud je cena vyšší, než střed rozsahu, dochází k úpravě rovnováhy směrem nahoru a tím se méně prodává a více nakupuje. Pokud je cena nižší, než střed rozsahu, dochází k úpravě rovnováhy směrem dolu a tím se méně nakupuje a více prodává. Všechny tyto úpravy mohou generovat ztrátu v závislosti na nastavené síle. Hodnota uvádí sílu v procentech z procentního poměru mezi vyšší a nižší cenou u výporčtu. Procentní rozdíl se k tomu mocní na třetí. Čím větší je rozdíl, tím k větší úpravě dochází. Testovaná hodnota **70** generovala posun který nevedl ke ztrátám. Pokud se však robot blíží k obchodovatelného rozsahu, je třeba sílu zvýšit.
-
-Volba nesmí být kombinována s volbou `sliding_pos.acum`
-
-  
-**sliding_pos.assets** - Výchozí hodnota je 0, jinak specifikuje, kolik assetů je považováno za neutrální pozici. Na margin trzích spravidla necháváme 0, tedy za neutrální pozici se povaužije situace kdy obchodní účet je bez pozice. Na nepákových burzách by tato hodnota znamenal eventuální vyprodání všech assetů, proto je možné nastavit jinou hodnotu jako neutrální pozici. Hodnota nezapočítává `external_assets` uvádíme množství skutečných assetů na obchodní účtu
-
-**sliding_pos.currency** - Výchozí hodnota je 0 a to znamená, že volba je vypnuta. Pokud je volba zapnuta, určuje optimální zůstatek peněz na účtu a tento zůstatek je považován za neutrální pozici. Volba má přednost před `sliding_pos.assets`. Použití volby je vhodné na nepákových burzách, kde obchodujeme více assetů vůči jedné měně a našim cílem je spíš akumulovat assety, přesto potřebujeme mít jistotu, že na obchodním účtu zůstanou nějaké peníze pro další nákup.
-
-**sliding_pos.center** - Výchozí hodnota je 0 a to znamená, že volba je vypnuta. Pokud je volba zapnuta, určuje neutrální pozici jako poměr mezi assety a currency. Pro volbu 1 je to 50:50. Pro volbu 2 je to 33:66. Pro volbu 3 je to 25:75 - dále pokračuje podle vzorce 1/(n+1), kde n je zadaná hodnota
-
-**sliding_pos.max_pos** - Povoluje maximální pozici (long i short). Pokud robot má zvýšit pozici nad tento limit, odmítne vydat pokyn na burzu. Vhodné kombinovat s **accept_loss**
+**sliding_pos.weaken** - Specifikuje zeslabování obchodní síly se zvyšování pozice. Hodnota definuje maximální pozici (při téhle pozici bude obchodování víceméně minimální) Hodnota se zadává jako procento z `external_assets`+`neutral_pos`. Pomocí backtestů byla zjištěna optimální hodnota 10-11. Vyšší hodnoty dovolí vyšší pozici. Volbu je dobré kombinovat se sliding_pos.hours. Pokud se obchodování přesune rychle na jinou cenu, vlivem snižování obchodní síly nebude nabraná taková ztráta. Časem dojde ke srovnání neutrální ceny a aktuální ceny. Nicméně zeslabení obchodní síly snižuje potenciální zisk 
 
 **accept_loss** - pokud je nenulová, definuje počet hodin od posledního trade, po kterou musí mít robot zablokované vydání pokynu v jednom směru, aby se aktivovala funkce `accept_loss`. Zároveň musí být splněno, že dynamické multiplikátory jsou rovné 1. Pokud je tedy toto splněno, robot posune equlibrium na cenu zablokovaného pokynu a tím akceptuje ztrátu vzniklou tím, že se pokyn nebude realizovat. Pokyn může být zablokován v důsledku `sliding_pos.max_pos`, ale v důsledku toho, že nejsou prostředky na burze. Je třeba si ovšem dát pozor, aby pokyn nebyl zablokován například v důsledku dlouhotrvající maintenance na burze (robot momentálně nerozpozná důvod zablokování). Proto je dobré nastavit hodnotu na řádově několik hodin, například 12 (nejdelší maintenance míval Bitfinex = 7 hodin)
 
@@ -298,12 +291,11 @@ Volba nesmí být kombinována s volbou `sliding_pos.acum`
 
 **min_size** = (volitelné) specifikuje minimální velikost pokynu. Vhodné, pokud burza tvrdošině blokuje příliš malé pokyny.
 
+**dust_orders** = (volitelné) umožňuje robotovi vytvářet pokyny s minimální velikostí na cenách na kterých by order vycházel podle výpočtu záporný. Toto opatření umožní robotovi rychleji srovnat equilibrium - záporné velikosti jsou totiž důsledkem nesouladu mezi cenou posledního trade a spočítanou rovnováhou. Důvodem mohou být malé multiplikátory velikosti a sliding_pos. Přepočet probíhá vždy po exekuci a tak exekucie minimálního pokynu pomáhá přepočtu a zároveň díky minimální velikosti pokynu nemá velký dopad na narušení rovnováhy. Tato volba je ve výchozím stavu zapnuta. Pokud však vytváření pokynů s minimální velikostí způsobuje problémy, lze tuto funkci vypnout nastavením na `off`
 
-#### starší a obsolete
+**buy_mult** = násobí velikost nákupního pokynu číslem. Výsledný výpočet nemění spočtenou rovnováhu. Pokud je číslo menší než 1, pak při exekuci tohoto příkazu dojde ke zvýšení velikosti pokynu na nižšá ceně. Pokud je číslo větší než 1, pak naopak příští pokyn může být menší na vyšší ceně. Multiplikátor může pomoci funkci sliding_pos snížením ztráty při velkému posunu ceny od středu. Celkem rozumným nastavením je hodnota 0.7. Multiplikátor lze testovat ve webovém prostředí v kalkulačce `Sliding pos`. Tam se udává v procentech. Přepočet na multiplikátor je jednoduchý: Podělte 100x a přičtetě jedničku (-30 = 0.7, 50 = 1.5). Výchozí hodnota je **1**
 
-**buy_mult** = násobí velikost nákupního pokynu číslem. Výsledný výpočet nemění spočtenou rovnováhu. Pokud je číslo menší než 1, pak při exekuci tohoto příkazu dojde ke zvýšení velikosti pokynu na nižšá ceně. Pokud je číslo větší než 1, pak naopak příští pokyn může být menší na vyšší ceně. Pri velkých hodnotách může dojít k totálnímu chaosu ve výpočtu, proto se nedoporučuje volbu používat, případně jen hodně blízko k jedničce 
-
-**sell_mult** = násobí velikost prodejního pokynu číslem. Výsledný výpočet nemění spočtenou rovnováhu. Pokud je číslo menší než 1, pak při exekuci tohoto příkazu dojde ke zvýšení velikosti pokynu na vyšší ceně. Pokud je číslo větší než 1, pak naopak příští pokyn může být menší na nižší ceně. Pri velkých hodnotách může dojít k totálnímu chaosu ve výpočtu, proto se nedoporučuje volbu používat, případně jen hodně blízko k jedničce
+**sell_mult** = násobí velikost prodejního pokynu číslem. Výsledný výpočet nemění spočtenou rovnováhu. Pokud je číslo menší než 1, pak při exekuci tohoto příkazu dojde ke zvýšení velikosti pokynu na vyšší ceně. Pokud je číslo větší než 1, pak naopak příští pokyn může být menší na nižší ceně. Multiplikátor může pomoci funkci sliding_pos snížením ztráty při velkému posunu ceny od středu. Celkem rozumným nastavením je hodnota 0.7. Multiplikátor lze testovat ve webovém prostředí v kalkulačce `Sliding pos`. Tam se udává v procentech. Přepočet na multiplikátor je jednoduchý: Podělte 100x a přičtetě jedničku (-30 = 0.7, 50 = 1.5). Výchozí hodnota je **1**
 
 **buy_step_mult** = (volitelné) Nákupní multiplikátor kroku. Upravuje krok spreadu tím, že ho vynásobí zadaným číslem. Nákupní příkaz tak bude umístěn dále (>1) nebo blíže (<1) středu. Adekvátně bude upraveno i množství dle výpočtu: Výchozí hodnota je **1**
 

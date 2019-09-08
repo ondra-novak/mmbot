@@ -49,7 +49,7 @@ BacktestControl::BacktestControl(IStockSelector &stockSel,
 	broker.emplace(this->chart, minfo, 0, config.mirror);
 	FakeStockSelector fakeStockSell(&(*broker));
 	trader.emplace(fakeStockSell, nullptr, std::move(rpt), config);
-	trader->setInternalBalance(balance);
+	trader->setInternalBalance(config.initial_balance!=-1e99?config.initial_balance:balance);
 }
 
 
@@ -93,6 +93,7 @@ BacktestControl::Config BacktestControl::loadConfig(const std::string &fname,
 	if (c.calc_spread_minutes == 0 && c.force_spread == 0) {
 		c.force_spread = spread;
 	}
+	c.initial_balance = sect["init_balance"].getNumber(-1e99);
 	return c;
 }
 
@@ -107,8 +108,9 @@ void BacktestControl::BtReport::reportOrders(
 }
 
 void BacktestControl::BtReport::reportTrades(
-		ondra_shared::StringView<IStockApi::TradeWithBalance> trades) {
+		ondra_shared::StringView<IStockApi::TradeWithBalance> trades,  bool margin) {
 	this->trades = trades;
+	this->margin = margin;
 }
 
 void BacktestControl::BtReport::reportPrice(double price) {
@@ -145,7 +147,7 @@ void BacktestControl::BtReport::flush() {
 	rpt->reportMisc(miscData);
 	rpt->reportOrders(buy,sell);
 	rpt->reportPrice(price);
-	rpt->reportTrades(trades);
+	rpt->reportTrades(trades,margin);
 	rpt->reportError(ErrorObj (buyError,sellError));
 }
 

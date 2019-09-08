@@ -79,7 +79,7 @@ void Report::setOrders(StrViewA symb, const std::optional<IStockApi::Order> &buy
 }
 
 
-void Report::setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> trades) {
+void Report::setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> trades, bool margin) {
 
 	using ondra_shared::range;
 
@@ -87,7 +87,7 @@ void Report::setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> tr
 
 	const json::Value &info = infoMap[symb];
 	bool inverted = info["inverted"].getBool();
-	bool margin = false; //TODO TBD
+	double pos = info["po"].getNumber();
 
 
 
@@ -113,19 +113,19 @@ void Report::setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> tr
 
 		double prev_balance = t.balance-t.eff_size;
 		double prev_price = init_price;
-		double ass_sum = 0;
 		double cur_sum = 0;
 		double cur_fromPos = 0;
 		double norm_sum_ass = 0;
 		double norm_sum_cur = 0;
-
+		double potentialpl = 0;
+		double neutral_price = 0;
 
 
 		while (iter != tend) {
 
 			auto &&t = *iter;
 
-			double gain = (t.eff_price - prev_price)*ass_sum ;
+			double gain = (t.eff_price - prev_price)*pos ;
 			double earn = -t.eff_price * t.eff_size;
 			double bal_chng = (t.balance - prev_balance) - t.eff_size;
 			invst_value += bal_chng * t.eff_price;
@@ -135,19 +135,29 @@ void Report::setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> tr
 			double asschg = (prev_balance+t.eff_size) - calcbal ;
 			double curchg = -(calcbal * t.eff_price -  prev_balance * prev_price - earn);
 			double norm_chng = 0;
+
 			if (iter != trades.begin() && !iter->manual_trade) {
 				cur_fromPos += gain;
-				ass_sum += t.eff_size;
 				cur_sum += earn;
 
 				norm_sum_ass += asschg;
 				norm_sum_cur += curchg;
 				norm_chng = curchg+asschg * t.eff_price;
+
+				pos += t.eff_size;
+
+
+				double np = t.balance-pos;
+				neutral_price = t.eff_price * pow2(t.balance/np);
+				potentialpl = cur_fromPos + pos*(neutral_price-sqrt(t.eff_price*neutral_price));
+
+
 			}
 			if (iter->manual_trade) {
 				invst_value += earn;
 			}
-			double norm = norm_sum_cur+(margin?norm_sum_ass:0)*t.eff_price;
+			double norm;
+			norm = norm_sum_cur;
 
 
 			prev_balance = t.balance;
@@ -164,16 +174,18 @@ void Report::setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> tr
 						("time", t.time)
 						("achg", (inverted?-1:1)*t.eff_size)
 						("gain", gain)
-						("norm", norm)
+						("norm", margin?Value():Value(norm))
 						("normch", norm_chng)
-						("nacum", (inverted?-1:1)*norm_sum_ass)
-						("pos", (inverted?-1:1)*ass_sum)
+						("nacum", margin?Value():Value((inverted?-1:1)*norm_sum_ass))
+						("pos", (inverted?-1:1)*pos)
 						("pl", cur_fromPos)
+						("pln", potentialpl)
 						("price", (inverted?1.0/t.price:t.price))
 						("invst_v", invst_value)
 						("invst_n", invst_n)
 						("volume", (inverted?1:-1)*t.eff_price*t.eff_size)
 						("man",t.manual_trade)
+						("np",(inverted?1.0/neutral_price:neutral_price))
 				);
 			}
 
@@ -209,7 +221,8 @@ void Report::setInfo(StrViewA symb, const InfoObj &infoObj) {
 			("asset", infoObj.assetSymb)
 			("price_symb", infoObj.priceSymb)
 			("inverted", infoObj.inverted)
-			("emulated",infoObj.emulated);
+			("emulated",infoObj.emulated)
+			("po", infoObj.position_offset);
 }
 
 void Report::setPrice(StrViewA symb, double price) {
@@ -322,10 +335,12 @@ void Report::setMisc(StrViewA symb, const MiscData &miscData) {
 				("ms", spread)
 				("mdmb", miscData.dynmult_sell)
 				("mdms", miscData.dynmult_buy)
+				("sm", miscData.size_mult)
 				("mb",miscData.boost)
 				("ml",1.0/miscData.highest_price)
 				("mh",1.0/miscData.lowest_price)
-				("mt",miscData.total_trades);
+				("mt",miscData.total_trades)
+				("tt",miscData.total_time);
 	} else {
 		miscMap[symb] = Object
 				("t",miscData.trade_dir)
@@ -335,9 +350,11 @@ void Report::setMisc(StrViewA symb, const MiscData &miscData) {
 				("ms", spread)
 				("mdmb", miscData.dynmult_buy)
 				("mdms", miscData.dynmult_sell)
+				("sm", miscData.size_mult)
 				("mb",miscData.boost)
 				("ml",miscData.lowest_price)
 				("mh",miscData.highest_price)
-				("mt",miscData.total_trades);
+				("mt",miscData.total_trades)
+				("tt",miscData.total_time);
 	}
 }

@@ -14,6 +14,7 @@
 #include "sgn.h"
 
 using ondra_shared::logNote;
+using ondra_shared::StrViewA;
 
 json::NamedEnum<Dynmult_mode> strDynmult_mode  ({
 	{Dynmult_mode::independent, "independent"},
@@ -21,6 +22,14 @@ json::NamedEnum<Dynmult_mode> strDynmult_mode  ({
 	{Dynmult_mode::alternate, "alternate"},
 	{Dynmult_mode::half_alternate, "half_alternate"}
 });
+
+json::NamedEnum<MTrader::Config::NeutralPosType> strNeutralPosType ({
+	{MTrader::Config::assets, "assets"},
+	{MTrader::Config::currency, "currency"},
+	{MTrader::Config::center, "center"},
+	{MTrader::Config::disabled, "disabled"}
+});
+
 
 std::string_view MTrader::vtradePrefix = "__vt__";
 
@@ -39,14 +48,47 @@ MTrader::MTrader(IStockSelector &stock_selector,
 }
 
 
+void MTrader::Config::parse_neutral_pos(StrViewA txt) {
+	if (txt.empty()) {
+		neutral_pos = 0;
+		neutralPosType = disabled;
+	} else {
+		auto splt = txt.split(" ",2);
+		StrViewA type = splt();
+		StrViewA value = splt();
 
-MTrader::Config MTrader::load(const ondra_shared::IniConfig::Section& ini, bool force_dry_run) {
-	Config cfg;
+		if (value.empty()) {
+			neutralPosType = assets;
+			neutral_pos = strtod(type.data,nullptr);
+		} else {
+			neutralPosType = strNeutralPosType[type];
+			neutral_pos =strtod(value.data,nullptr);
+		}
+	}
+
+}
+
+template<typename Ini>
+void unsupported(Ini ini,
+		const std::initializer_list<std::string_view> &options,
+		std::string_view desc) {
+
+	for (auto &&x: options) {
+		if (ini[x].defined()) {
+			throw std::runtime_error(std::string(x).append(" - option is no longer supported. ").append(desc));
+		}
+	}
+
+}
+template<typename Ini>
+MTrader::Config load_internal(Ini ini, bool force_dry_run) {
+
+	MTrader::Config cfg;
 
 
 	cfg.broker = ini.mandatory["broker"].getString();
 	cfg.spread_calc_mins = ini["spread_calc_hours"].getUInt(24*5)*60;
-	cfg.spread_calc_min_trades = ini["spread_calc_min_trades"].getUInt(8);
+	cfg.spread_calc_min_trades = ini["spread_calc_min_trades"].getUInt(4);
 	cfg.spread_calc_max_trades = ini["spread_calc_max_trades"].getUInt(24);
 	cfg.pairsymb = ini.mandatory["pair_symbol"].getString();
 
@@ -57,6 +99,7 @@ MTrader::Config MTrader::load(const ondra_shared::IniConfig::Section& ini, bool 
 	cfg.sell_step_mult = ini["sell_step_mult"].getNumber(1.0);
 	cfg.external_assets = ini["external_assets"].getNumber(0);
 	cfg.min_size = ini["min_size"].getNumber(0);
+	cfg.report_position_offset = ini["report_position_offset"].getNumber(0);
 
 
 	cfg.dry_run = force_dry_run?true:ini["dry_run"].getBool(false);
@@ -64,27 +107,40 @@ MTrader::Config MTrader::load(const ondra_shared::IniConfig::Section& ini, bool 
 	cfg.detect_manual_trades = ini["detect_manual_trades"].getBool(true);
 	cfg.enabled = ini["enable"].getBool(true);
 
-	cfg.sliding_pos_change = ini["sliding_pos.change"].getNumber(0);
-	cfg.sliding_pos_acm = ini["sliding_pos.acum"].getBool(false);
-	cfg.sliding_pos_assets = ini["sliding_pos.assets"].getNumber(0)+cfg.external_assets;
-	cfg.sliding_pos_currency = ini["sliding_pos.currency"].getNumber(0);
-	cfg.sliding_pos_center = ini["sliding_pos.center"].getUInt(0);
-	cfg.sliding_pos_max_pos = ini["sliding_pos.max_pos"].getNumber(0);
+	unsupported<Ini>(ini, {
+			"sliding_pos.change",
+			"sliding_pos.acum",
+			"sliding_pos.assets",
+			"sliding_pos.currency",
+			"sliding_pos.center",
+			"sliding_pos.max_pos",
+			"sliding_pos.giveup",
+			"sliding_pos.recoil",
+	}, "Check manual for new sliding_pos options");
 
-	double default_accum = cfg.sliding_pos_change!=0?0:0.5;
-	default_accum = ini["acum_factor"].getNumber(default_accum);
+
+	StrViewA neutral_pos_str = ini["neutral_pos"].getString("");
+	cfg.parse_neutral_pos(neutral_pos_str);
+
+
+	double default_accum = ini["acum_factor"].getNumber(0);
 	cfg.acm_factor_buy = ini["acum_factor_buy"].getNumber(default_accum);
 	cfg.acm_factor_sell = ini["acum_factor_sell"].getNumber(default_accum);
 
 
-	cfg.dynmult_raise = ini["dynmult_raise"].getNumber(200);
-	cfg.dynmult_fall = ini["dynmult_fall"].getNumber(1);
-	cfg.dynmult_mode = strDynmult_mode[ini["dynmult_mode"].getString(strDynmult_mode[Dynmult_mode::independent])];
+	cfg.dynmult_raise = ini["dynmult_raise"].getNumber(250);
+	cfg.dynmult_fall = ini["dynmult_fall"].getNumber(0.5);
+	cfg.dynmult_mode = strDynmult_mode[ini["dynmult_mode"].getString(strDynmult_mode[Dynmult_mode::half_alternate])];
 	cfg.emulated_currency = ini["emulated_currency"].getNumber(0);
 	cfg.force_spread = ini["force_spread"].getNumber(0);
+	cfg.force_margin = ini["force_margin"].getBool();
+	cfg.dust_orders = ini["dust_orders"].getBool(true);
 
 	cfg.accept_loss = ini["accept_loss"].getUInt(0);
+	cfg.max_pos = ini["max_pos"].getNumber(0);
 
+	cfg.sliding_pos_hours = ini["sliding_pos.hours"].getNumber(0);
+	cfg.sliding_pos_weaken = ini["sliding_pos.weaken"].getNumber(0);
 
 	cfg.title = ini["title"].getString();
 
@@ -102,12 +158,19 @@ MTrader::Config MTrader::load(const ondra_shared::IniConfig::Section& ini, bool 
 	if (cfg.dynmult_raise < 0) throw std::runtime_error("'dynmult_raise' is too small");
 	if (cfg.dynmult_fall > 100) throw std::runtime_error("'dynmult_fall' must be below 100");
 	if (cfg.dynmult_fall <= 0) throw std::runtime_error("'dynmult_fall' must not be negative or zero");
-	if (cfg.sliding_pos_change>0 && (cfg.acm_factor_buy !=0 || cfg.acm_factor_sell!=0))
-		throw std::runtime_error("cannot combine 'sliding' with 'acm_factor'");
-	if (cfg.sliding_pos_max_pos <0) throw std::runtime_error("'sliding_pos.max_pos' must not be negative");
+	if (cfg.max_pos <0) throw std::runtime_error("'max_pos' must not be negative");
+	if ((cfg.max_pos || cfg.sliding_pos_hours) && cfg.neutralPosType == MTrader::Config::disabled) {
+		throw std::runtime_error("Some option needs to define neutral_pos");
+	}
 
 	return cfg;
 }
+
+
+MTrader::Config MTrader::load(const ondra_shared::IniConfig::Section& ini, bool force_dry_run) {
+	return load_internal<const ondra_shared::IniConfig::Section&>(ini, force_dry_run);
+}
+
 
 bool MTrader::Order::isSimilarTo(const Order& other, double step) {
 	return std::fabs(price - other.price) < step && size * other.size > 0;
@@ -141,32 +204,6 @@ static auto calc_margin_range(double A, double D, double P) {
 	return std::make_pair(x1,x2);
 }
 
-Calculator MTrader::initSlidingCalc(double refprice, double cur, double bal) {
-	double assets;
-	if (cfg.sliding_pos_center) {
-		double a = 1.0/(cfg.sliding_pos_center+1.0);
-		assets = ((bal-cfg.external_assets) * refprice + cur)*a/refprice+cfg.external_assets;
-	} else if (cfg.sliding_pos_currency) {
-		//get extra money (or missing money)
-		double diff = cur - cfg.sliding_pos_currency;
-		//calculate how many assest can be bought on current price
-		//that is new position
-		assets = bal + diff / refprice;
-		//if its negative, then set to zero
-		if (assets < 0) assets = 0;
-
-		ondra_shared::logDebug("Sliding: balance=$1, diff=$2, assets=$3",
-				currency_balance_cache,diff,assets
-		);
-
-	} else {
-		//assets has been configured
-		assets = cfg.sliding_pos_assets;
-	}
-	//create temporary calculator
-	return Calculator (refprice, assets, false);
-
-}
 
 void MTrader::init() {
 	if (need_load){
@@ -174,6 +211,20 @@ void MTrader::init() {
 		need_load = false;
 	}
 }
+
+double MTrader::calcWeakenMult(double neutral_pos, double balance) {
+
+	if (neutral_pos && cfg.sliding_pos_weaken ) {
+		double maxpos = cfg.external_assets* cfg.sliding_pos_weaken * 0.01;
+		double curpos = balance - neutral_pos;
+		double mult = (maxpos - fabs(curpos))/maxpos;
+		if (mult < 1e-10) mult = 1e-10;
+		return mult;
+	} else {
+		return 1.0;
+	}
+}
+
 int MTrader::perform() {
 
 	try {
@@ -181,7 +232,6 @@ int MTrader::perform() {
 		init();
 
 	double begbal = internal_balance + cfg.external_assets;
-	bool sliding_pos = cfg.sliding_pos_change && (cfg.sliding_pos_assets||cfg.sliding_pos_currency);
 
 	//Get opened orders
 	auto orders = getOrders();
@@ -191,7 +241,25 @@ int MTrader::perform() {
 	std::string buy_order_error;
 	std::string sell_order_error;
 
-	double prevTradedPrice = trades.empty()?status.curPrice:trades.back().eff_price;
+	double neutral_pos=0;
+
+
+	switch (cfg.neutralPosType) {
+	case Config::center: {
+		double a = 1.0/(cfg.neutral_pos+1.0);
+		neutral_pos = ((status.assetBalance-cfg.external_assets) * status.curPrice + currency_balance_cache)*a/status.curPrice+cfg.external_assets;
+	}break;
+	case Config::currency:
+		neutral_pos = (currency_balance_cache-cfg.neutral_pos)/status.curPrice+status.assetBalance;
+		break;
+	case Config::assets:
+		neutral_pos = cfg.neutral_pos + cfg.external_assets;
+		break;
+	default:
+		neutral_pos = 0;
+		break;
+	}
+	ondra_shared::logDebug("Neutral pos: $1", neutral_pos);
 
 
 	//update market fees
@@ -204,6 +272,7 @@ int MTrader::perform() {
 	double lastTradePrice = trades.empty()?status.curPrice:trades.back().eff_price;
 
 	bool calcadj = false;
+	double weakenMult = calcWeakenMult(neutral_pos, status.assetBalance);
 
 	//if calculator is not valid, update it using current price and assets
 	if (!calculator.isValid()) {
@@ -214,27 +283,18 @@ int MTrader::perform() {
 		ondra_shared::logError("No asset balance is available. Buy some assets, use 'external_assets=' or use command achieve to invoke automatic initial trade");
 	} else {
 
-		double neutral_pos=-1;
-		if (cfg.sliding_pos_center) {
-			double a = 1.0/(cfg.sliding_pos_center+1.0);
-			neutral_pos = ((status.assetBalance-cfg.external_assets) * status.curPrice + currency_balance_cache)*a/status.curPrice+cfg.external_assets;
-		} else if (cfg.sliding_pos_currency) {
-			neutral_pos = (currency_balance_cache-cfg.sliding_pos_currency)/status.curPrice+status.assetBalance;
-		} else {
-			neutral_pos = cfg.sliding_pos_assets;
-		}
-		ondra_shared::logDebug("Neutral pos: $1", neutral_pos);
+
 
 		double acm_buy, acm_sell;
-		if (cfg.sliding_pos_acm) {
+/*		if (cfg.sliding_pos_acm) {
 			double f = sgn(neutral_pos-status.assetBalance);
 			acm_buy = cfg.acm_factor_buy * f;
 			acm_sell = cfg.acm_factor_sell * f;
 			ondra_shared::logDebug("Sliding pos: acum_factor_buy=$1, acum_factor_sell=$2", acm_buy, acm_sell);
-		} else {
+		} else {*/
 			acm_buy = cfg.acm_factor_buy;
 			acm_sell = cfg.acm_factor_sell;
-		}
+		/*}*/
 
 
 		//only create orders, if there are no trades from previous run
@@ -250,14 +310,19 @@ int MTrader::perform() {
 				internal_balance=status.assetBalance - cfg.external_assets;
 			}
 
+
+
+
 			//calculate buy order
 			auto buyorder = calculateOrder(lastTradePrice,
 										  -status.curStep*buy_dynmult*cfg.buy_step_mult,
-										   status.curPrice, status.assetBalance, acm_buy);
+										   status.curPrice, status.assetBalance, acm_buy,
+										   cfg.buy_mult * weakenMult);
 			//calculate sell order
 			auto sellorder = calculateOrder(lastTradePrice,
 					                       status.curStep*sell_dynmult*cfg.sell_step_mult,
-										   status.curPrice, status.assetBalance, acm_sell);
+										   status.curPrice, status.assetBalance, acm_sell,
+										   cfg.sell_mult * weakenMult);
 
 			try {
 				setOrderCheckMaxPos(orders.buy, buyorder,status.assetBalance, neutral_pos);
@@ -293,29 +358,24 @@ int MTrader::perform() {
 			currency_balance_cache = stock.getBalance(minfo.currency_symbol);
 
 
-			if (sliding_pos) {
-				double refprice = prevTradedPrice;
-				double assets;
-				double oldref = calculator.balance2price(status.assetBalance);
-				Calculator c2(refprice, neutral_pos, false);
-				//use temporary calculator to calculate expected price for new setup
-				double expectedPrice = c2.balance2price(status.assetBalance);
-				//calculate price differnce
-				double major = std::max(expectedPrice,oldref);
-				double diff = (expectedPrice - oldref)/major;
-				//calculate change
-				double change = diff * cfg.sliding_pos_change * 0.01;
-				//set new reference price (for current balance)
-				double newref = oldref+change*change*change*major;
-				//update calculator
-				calculator.update(newref, status.assetBalance);
-				calcadj = false;
-				//report it
-				ondra_shared::logDebug("Sliding: expectedPrice=$1 (1/$2), refprice=$3 (1/$4), assets=$5",
-							expectedPrice, 1/expectedPrice, refprice, 1/refprice, assets);
-				ondra_shared::logNote("Sliding equilibrium to: $1 (1/$2) - was: $3 (1/$4) , change: $5",
-						newref, 1.0/newref, oldref, 1.0/oldref, newref - oldref);
+			if (cfg.sliding_pos_hours && trades.size()>1) {
+				const auto & pt = trades[trades.size()-2];
+				const auto & ct = lastTrade;
+				double tdf = ct.time - pt.time;
+				if (tdf > 0) {
+					double tot = cfg.sliding_pos_hours * 3600 * 1000;
+					double pos = pt.balance - neutral_pos;
+					double pldiff = pos * (ct.eff_price - pt.eff_price);
+					double eq = calculator.balance2price(neutral_pos);
+					double neq = (pldiff*tot)>0? eq + (ct.price - eq) * (tdf/fabs(tot)):eq;
+					calculator = Calculator(neq, neutral_pos, false);
+					ondra_shared::logDebug("sliding_pos.hours: tdf=$1 pos=$2 pldiff=$3 eq=$4 neq=$5",
+							tdf, pos, pldiff, eq, neq);
+
+				}
 			}
+
+
 
 			update_dynmult(!orders.buy.has_value() && lastTrade.size > 0,
 						   !orders.sell.has_value() && lastTrade.size < 0);
@@ -337,7 +397,7 @@ int MTrader::perform() {
 	//report order errors to UI
 	statsvc->reportError(IStatSvc::ErrorObj(buy_order_error, sell_order_error));
 	//report trades to UI
-	statsvc->reportTrades(trades);
+	statsvc->reportTrades(trades, minfo.leverage || cfg.force_margin);
 	//report price to UI
 	statsvc->reportPrice(status.curPrice);
 	//report misc
@@ -366,11 +426,13 @@ int MTrader::perform() {
 			status.curPrice * (exp(status.curStep) - 1),
 			buy_dynmult,
 			sell_dynmult,
+			weakenMult,
 			2 * value,
 			boost,
 			min_price,
 			max_price,
-			trades.size()
+			trades.size(),
+			trades.empty()?0:(trades.back().time-trades[0].time)
 		});
 
 	}
@@ -427,11 +489,11 @@ MTrader::OrderPair MTrader::getOrders() {
 }
 
 void MTrader::setOrderCheckMaxPos(std::optional<Order> &orig, Order neworder, double balance, double neutral_pos) {
-	if (cfg.sliding_pos_max_pos) {
+	if (cfg.max_pos) {
 		double final_pos = balance + neworder.size;
-		if (final_pos > neutral_pos + cfg.sliding_pos_max_pos)
+		if (final_pos > neutral_pos + cfg.max_pos)
 			throw std::runtime_error("Max position reached");
-		if (final_pos < neutral_pos - cfg.sliding_pos_max_pos)
+		if (final_pos < neutral_pos - cfg.max_pos)
 			throw std::runtime_error("Min position reached");
 	}
 	if (cfg.enabled) {
@@ -539,24 +601,22 @@ MTrader::Order MTrader::calculateOrderFeeLess(
 		double step,
 		double curPrice,
 		double balance,
-		double acm) const {
+		double acm,
+		double mult) const {
 	Order order;
 
 	double newPrice = prevPrice * exp(step);
 	double fact = acm;
-	double mult;
 
 	if (step < 0) {
 		//if price is lower than old, check whether current price is above
 		//otherwise lower the price more
 		if (newPrice > curPrice) newPrice = curPrice;
-		mult = cfg.buy_mult;
 	} else {
 		//if price is higher then old, check whether current price is below
 		//otherwise highter the newPrice more
 
 		if (newPrice < curPrice) newPrice = curPrice;
-		mult = cfg.sell_mult;
 	}
 
 
@@ -568,7 +628,13 @@ MTrader::Order MTrader::calculateOrderFeeLess(
 
 	ondra_shared::logDebug("Set order: step=$1, base_price=$6, price=$2, base=$3, extra=$4, total=$5",step, newPrice, base, extra, size, prevPrice);
 
-	if (size * step > 0) size = 0;
+	if (size * step > 0) {
+		if (cfg.dust_orders) {
+			size = -sgn(step)*minfo.min_size;
+		} else {
+			size = 0;
+		}
+	}
 	//fill order
 	order.size = size * mult;
 	order.price = newPrice;
@@ -583,9 +649,11 @@ MTrader::Order MTrader::calculateOrder(
 		double step,
 		double curPrice,
 		double balance,
-		double acm) const {
+		double acm,
+		double mult) const {
 
-	Order order(calculateOrderFeeLess(lastTradePrice, step,curPrice,balance,acm));
+	Order order(calculateOrderFeeLess(lastTradePrice, step,curPrice,balance,acm,mult));
+
 
 	if (std::fabs(order.size) < cfg.min_size) {
 		order.size = cfg.min_size*sgn(order.size);
@@ -618,8 +686,9 @@ void MTrader::loadState() {
 				minfo.asset_symbol,
 				minfo.currency_symbol,
 				minfo.invert_price?minfo.inverted_symbol:minfo.currency_symbol,
+				cfg.report_position_offset,
 				minfo.invert_price,
-				cfg.sliding_pos_change != 0,
+				minfo.leverage || cfg.force_margin,
 				stock.isTest()
 			});
 	currency_balance_cache = stock.getBalance(minfo.currency_symbol);
@@ -678,7 +747,7 @@ void MTrader::loadState() {
 						continue;
 					} else {
 						trades.push_back(itm);
-						recalc_trades = recalc_trades || itm.balance == TWBItem::no_balance;
+						recalc_trades = recalc_trades || std::isnan(itm.balance);
 					}
 				}
 			}
@@ -871,7 +940,8 @@ MTrader::PTResult MTrader::processTrades(Status &st,bool first_trade) {
 		buy_trade = buy_trade || t.eff_size > 0;
 		sell_trade = sell_trade || t.eff_size < 0;
 
-		trades.push_back(TWBItem(t, st.assetBalance, manual || calculator.isAchieveMode()));
+		trades.push_back(TWBItem(t, st.assetBalance,
+				manual || calculator.isAchieveMode()));
 	}
 
 
@@ -961,7 +1031,7 @@ void MTrader::acceptLoss(const Order &order, double lastTradePrice,  const Statu
 
 		std::size_t e = st.chartItem.time>ttm?(st.chartItem.time-ttm)/(3600000):0;
 		if (e > cfg.accept_loss && buy_dynmult <= 1.0 && sell_dynmult <= 1.0) {
-			auto reford = calculateOrder(lastTradePrice, 2 * st.curStep * sgn(-order.size),lastTradePrice, st.assetBalance, 0);
+			auto reford = calculateOrder(lastTradePrice, 2 * st.curStep * sgn(-order.size),lastTradePrice, st.assetBalance, 0, st.assetBalance);
 			double df = (st.curPrice - reford.price)* sgn(-order.size);
 			if (df > 0) {
 				ondra_shared::logWarning("Accept loss in effect: price=$1, balance=$2", st.curPrice, st.assetBalance);
@@ -982,3 +1052,85 @@ void MTrader::acceptLoss(const Order &order, double lastTradePrice,  const Statu
 
 }
 
+class ConfigOuput {
+public:
+
+
+	class Mandatory:public ondra_shared::VirtualMember<ConfigOuput> {
+	public:
+		using ondra_shared::VirtualMember<ConfigOuput>::VirtualMember;
+		auto operator[](StrViewA name) const {
+			return getMaster()->getMandatory(name);
+		}
+	};
+
+	Mandatory mandatory;
+
+	class Item {
+	public:
+
+		Item(StrViewA name, const ondra_shared::IniConfig::Value &value, std::ostream &out, bool mandatory):
+			name(name), value(value), out(out), mandatory(mandatory) {}
+
+		template<typename ... Args>
+		auto getString(Args && ... args) const {
+			auto res = value.getString(std::forward<Args>(args)...);
+			out << name << "=" << res ;trailer();
+			return res;
+		}
+
+		template<typename ... Args>
+		auto getUInt(Args && ... args) const {
+			auto res = value.getUInt(std::forward<Args>(args)...);
+			out << name << "=" << res;trailer();
+			return res;
+		}
+		template<typename ... Args>
+		auto getNumber(Args && ... args) const {
+			auto res = value.getNumber(std::forward<Args>(args)...);
+			out << name << "=" << res;trailer();
+			return res;
+		}
+		template<typename ... Args>
+		auto getBool(Args && ... args) const {
+			auto res = value.getBool(std::forward<Args>(args)...);
+			out << name << "=" << (res?"on":"off");trailer();
+			return res;
+		}
+		bool defined() const {
+			return value.defined();
+		}
+
+		void trailer() const {
+			if (mandatory) out << " (mandatory)";
+			out << std::endl;
+		}
+
+	protected:
+		StrViewA name;
+		const ondra_shared::IniConfig::Value &value;
+		std::ostream &out;
+		bool mandatory;
+	};
+
+	Item operator[](ondra_shared::StrViewA name) const {
+		return Item(name, ini[name], out, false);
+	}
+	Item getMandatory(ondra_shared::StrViewA name) const {
+		return Item(name, ini[name], out, true);
+	}
+
+	ConfigOuput(const ondra_shared::IniConfig::Section &ini, std::ostream &out)
+	:mandatory(this),ini(ini),out(out) {}
+
+protected:
+	const ondra_shared::IniConfig::Section &ini;
+	std::ostream &out;
+};
+
+void MTrader::showConfig(const ondra_shared::IniConfig::Section &ini, bool force_dry_run, std::ostream &out) {
+
+	ConfigOuput cfg(ini, out);
+	load_internal<ConfigOuput &>(cfg, force_dry_run);
+
+}

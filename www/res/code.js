@@ -13,14 +13,17 @@ function fetch_json(file) {
 }
 
 var changeinterval=null;
+var source_data=null;
 
-function adjNum(n) {
+function adjNum(n, decimals) {
 	"use strict";
-	if (typeof n != "number") return n;
+	if (typeof n != "number") return n;	
+	if (isNaN(n)) return "---";
 	if (!isFinite(n)) { 
 		if (s < 0) return "-∞";
 		else return "∞";
 	}
+	if (decimals !== undefined) return n.toFixed(decimals);
 	var an = Math.abs(n);
 	if (an >= 100000) return n.toFixed(0);
 	else if (an >= 1) return n.toFixed(2);
@@ -30,6 +33,139 @@ function adjNum(n) {
 		if (s == "0.000") return s;
 		return s+"µ";
 	}
+}
+
+var base_interval=1200000;
+	var chart_interval=1000;
+
+
+function new_svg_el(name, attrs, childOf) {
+	"use strict";
+		var elem = document.createElementNS("http://www.w3.org/2000/svg", name);
+		if (attrs) {for (var i in attrs) {
+			elem.setAttributeNS(null,i, attrs[i]);
+		}}
+		if (childOf) childOf.appendChild(elem);
+		return elem;
+	}
+
+	
+function drawChart(elem, chart, fld, lines, fld2) {
+	"use strict";
+	
+	var now = new Date(chart[chart.length-1].time);
+	var bday = beginOfDay(now);		
+	var skiphours = Math.floor((now - bday)/(base_interval));
+			
+	elem.innerText = "";
+	
+	var daystep = 24*3600000/base_interval;
+	var step = 2*864000000/chart_interval;
+	var activewidth=step*chart_interval/base_interval;
+	var dattextstep = Math.ceil(120/(daystep*step));
+	var activeheight = (activewidth/3)|0;
+	var minmax = chart.concat(lines?lines:[]).reduce(function(c,x) {
+		if (c.min > x[fld]) c.min = x[fld];
+		if (c.max < x[fld]) c.max = x[fld];
+		return c;
+	},{min:chart[0][fld],max:chart[0][fld]});
+	minmax.sz = minmax.max - minmax.min;
+	minmax.min =  minmax.min - minmax.sz*0.05;
+	minmax.max =  minmax.max + minmax.sz*0.05;
+	var priceStep = activeheight/(minmax.max-minmax.min);
+	var axis = 2;
+	var label = 20;
+	var rowstep = Math.pow(10,Math.floor(Math.log10((minmax.max-minmax.min)/3)));
+	var rowbeg= Math.floor(minmax.min/rowstep);
+	var rowend= Math.floor(minmax.max/rowstep);	
+
+	var svg = new_svg_el("svg",{viewBox:"0 0 "+(activewidth+axis)+" "+(activeheight+axis+label)},elem);
+	new_svg_el("line",{x1:axis, y1:0,x2:axis,y2:activeheight+axis,class:"lineaxis"},svg);
+	new_svg_el("line",{x1:0, y1:activeheight+1,x2:activewidth+axis,y2:activeheight+1,class:"lineaxis"},svg);
+	var cnt = chart.length;
+	function map_y(p) {
+		return activeheight-(p-minmax.min)*priceStep;
+	}
+	function map_x(x) {
+		return x*step+axis;
+	}
+
+	if (!isFinite(rowbeg) || !isFinite(rowend)) return;
+	
+	for (var i = rowbeg; i <=rowend; i++) {
+		var v = i*rowstep;
+		var maj = Math.abs(v)<rowstep/2;
+		var y = map_y(v);
+		new_svg_el("line",{x1:0,y1:y,x2:activewidth+axis,y2:y,class:maj?"majoraxe":"minoraxe"},svg);
+		new_svg_el("text",{x:axis+2,y:y,class:"textaxis"},svg).appendChild(document.createTextNode(adjNum(i*rowstep)));
+	}
+	
+	var xtmpos = activewidth/step-skiphours;
+	while (xtmpos > 0) {
+		var xtm = map_x(xtmpos);
+		new_svg_el("line",{x1:xtm,y1:0,x2:xtm,y2:activeheight,class:"minoraxe"},svg);
+		xtmpos-=daystep;
+	}
+	xtmpos = activewidth/step-skiphours;
+	while (xtmpos > 0) {
+		var xtm = map_x(xtmpos);
+		new_svg_el("text",{x:xtm,y:activeheight,class:"textaxisx"},svg).appendChild(document.createTextNode(bday.toLocaleDateString()));
+		bday.setDate(bday.getDate()-dattextstep);
+		new_svg_el("line",{x1:xtm,y1:activeheight-5,x2:xtm,y2:activeheight,class:"majoraxe"},svg);
+		xtmpos-=daystep*dattextstep;
+	}
+	var tmstart=(now/base_interval-activewidth/step)
+	for (var i = 0; i <cnt-1; i++) {
+		var pos = "stdline";
+		var x1 = map_x(chart[i].time/base_interval-tmstart);
+		var x2 = map_x(chart[i+1].time/base_interval-tmstart);
+		var y1 = map_y(chart[i][fld]);
+		var y2 = map_y(chart[i+1][fld]);
+		new_svg_el("line",{x1:x1,y1:y1,x2:x2,y2:y2,class:pos},svg);
+	}
+	if (fld2) {
+		for (var i = 0; i <cnt-1; i++) {
+			var pos = "stdline2";
+			var x1 = map_x(chart[i].time/base_interval-tmstart);
+			var x2 = map_x(chart[i+1].time/base_interval-tmstart);
+			var y1 = map_y(chart[i][fld2]);
+			var y2 = map_y(chart[i+1][fld2]);
+			new_svg_el("line",{x1:x1,y1:y1,x2:x2,y2:y2,class:pos},svg);
+		}
+	}
+	for (var i = 0; i <cnt; i++) if (chart[i].achg) {
+		var x1 = map_x(chart[i].time/base_interval-tmstart);
+		var y1 = map_y(chart[i][fld]);
+		var man = chart[i].man;
+		var marker = "marker "+(chart[i].achg<0?"sell":"buy") 
+		if (man) {
+			new_svg_el("line",{x1:x1-5,y1:y1-5,x2:x1+5,y2:y1+5,class:marker},svg);
+			new_svg_el("line",{x1:x1+5,y1:y1-5,x2:x1-5,y2:y1+5,class:marker},svg);
+		} else {				
+			new_svg_el("circle",{cx:x1,cy:y1,r:4,class:marker},svg);
+		}
+	}
+	
+	if (lines === undefined) {
+		lines=[];
+	}
+	var l = {};
+	l[fld] = chart[chart.length-1][fld];
+	lines.unshift(l);
+	l.label="";
+	l.class="current"
+	
+	if (Array.isArray(lines)) {
+		lines.forEach(function(x) {
+			var v = x[fld];
+			if (v) {
+				var y = map_y(v);
+				new_svg_el("line",{x1:0,y1:y,x2:activewidth+axis,y2:y,class:"orderline "+x.class},svg);
+				new_svg_el("text",{x:axis,y:y,class:"textorderline "+x.class},svg).appendChild(document.createTextNode(x.label + " "+adjNum(v)));
+			}
+		});
+	}
+	
 }
 
 function app_start(){
@@ -60,8 +196,10 @@ function app_start(){
 	}
 	
 	var donate_time = next_donate_time - donation_repeat;
-	var show_donate = !localStorage["donation_hidden"]
-	
+	var secondary_charts = {
+		price:"np",
+		pl:"pln"
+	};
 	
 
 	var chartlist = {};
@@ -77,7 +215,6 @@ function app_start(){
 	var options = [];
 	var lastEvents = document.getElementById("lastevents")
 	var selMode = 0;
-	var chart_interval=1000;
 	var curExport = null;
 	var cats = {}
 	var interval = 0;
@@ -105,6 +242,7 @@ function app_start(){
 	function setField(root, name, value, classes) {
 		var info = root.querySelectorAll("[data-name="+name+"]");
 		Array.prototype.forEach.call(info,function(x) {
+			if (typeof value == "number") value = adjNum(value, x.dataset.decimals);
 			x.innerText = value;
 			if (classes) for (var k in classes) {
 				x.classList.toggle(k, classes[k]);
@@ -223,18 +361,25 @@ function app_start(){
 			chartlist[id] = curchart;
 		}
 		if (!curchart.isConnected) {
-			document.getElementById("chartarea").appendChild(curchart);			
+			document.getElementById("chartarea").appendChild(curchart);						
 		}				
+		curchart.hidden = false;
 		return curchart;
 	}
 	
 	function appendChart(id,  info, data, fld,  orders, ranges, misc) {
+		var curchart = createChart(id, "chart");
 		try {
-			var curchart = createChart(id, "chart");
+			if (!hasChart(data,fld)) {
+				curchart.hidden = true;
+				return;
+			}			
 			var elem_chart = curchart.querySelector("[data-name=chart]");
-			drawChart(elem_chart, data, fld, orders);
+			drawChart(elem_chart, data, fld, orders,  secondary_charts[fld]);
 			fillInfo(curchart, info.title,id,  ranges, info.emulated);
-		} catch (e) {}
+		} catch (e) {
+			curchart.hidden = true;
+		}
 	}
 
 	function appendList(id, info, ranges, misc) {
@@ -275,7 +420,7 @@ function app_start(){
 				if (isNaN(sum[n]))
 					removeFieldBlock(curchart,n);
 				else
-					setField(curchart, n, n=="trades"?sum[n]:adjNum(sum[n]), {
+					setField(curchart, n, sum[n], {
 						pos:sum[n]>0,
 						neg:sum[n]<0
 					});
@@ -288,14 +433,14 @@ function app_start(){
 				if (data.length) {
 					var it = intervals[interval][1]*1000;
 					var lt = data[data.length-1];
-					misc.avgt = last_norm/misc.mt;
-					misc.avgh = lt.invst_n*it;
-					misc.avgha = lt.invst_n*it*lt.nacum/lt.norm;
-					misc.avghpl = lt.invst_n*it*lt.pl/lt.norm;
+//					misc.avgt = last_norm/misc.mt;
+					misc.avgh = lt.norm/misc.tt*it;
+					misc.avgha = lt.nacum*it/misc.tt;
+					misc.avghpl = it*lt.pln/misc.tt;
 				}
 
 				for (var n in misc)
-					setField(curchart, n, adjNum(misc[n]), {
+					setField(curchart, n, misc[n], {
 						pos:misc[n]>0,
 						neg:misc[n]<0
 					});
@@ -455,7 +600,7 @@ function app_start(){
 		for (var z in chart) {
 			sumchart = sumchart.concat(chart[z].slice(-20));			
 		}
-		if (donate_time &&  show_donate) {
+		if (donate_time) {
 			sumchart.push({
 				time: donate_time,
 				donation: true
@@ -474,34 +619,32 @@ function app_start(){
 		else return v;
 	}
 	
+	function safediff(a,b) {
+		if (a === undefined) return b;
+		if (b === undefined) return a;
+		return a-b;
+	}
+
 	function adjChartData(data, ident) {	
 		var lastNorm = 0;	
 		var lastPL = 0;
-		var lastPos = 0;
 		var lastPrice = 0;
-		var lastRel = 0;
 		var lastNacum = 0;
-		var lastInvstV = 0;
-		var lastInvstN = 0;
+		var lastPLn = 0;
 		data.forEach(function(r) {
 			r.ident = ident;
-			r.normDiff = r.norm - lastNorm;
-			r.nacumDiff = r.nacum - lastNacum;
-			r.plDiff = r.pl - lastPL;
-			r.priceDiff = r.price - lastPrice;
+			r.normDiff = safediff(r.norm , lastNorm);
+			r.nacumDiff = safediff(r.nacum , lastNacum)
+			r.plDiff = safediff(r.pl , lastPL);
+			r.priceDiff = safediff(r.price , lastPrice);
+			r.plnDiff = safediff(r.pln , lastPLn)
 			r.vol = r.volume;
-			r.relDiff = r.rel - lastRel;
 			r.app = calcApp(r);
-			r.invst_v_diff = r.invst_v - lastInvstV;
-			r.invst_n_diff = r.invst_n - lastInvstN;
-			lastNorm = r.norm;
-			lastPL = r.pl;
-			lastPos = r.pos;
-			lastPrice = r.price;
-			lastRel = r.rel;
-			lastInvstV = r.invst_v;
-			lastInvstN = r.invst_n;
-			lastNacum = r.nacum;
+			lastNorm += r.normDiff;
+			lastPL += r.plDiff;
+			lastPrice += r.priceDiff;
+			lastNacum += r.nacumDiff;
+			lastPLn += r.plnDiff;
 		});
 	}
 	
@@ -527,27 +670,26 @@ function app_start(){
 						time:r.time,
 						pl:s[s.length-1].pl+r.plDiff,
 						norm:s[s.length-1].norm+r.normDiff,
+						pln:s[s.length-1].pln+r.plnDiff,
 						normDiff:r.normDiff,
 						plDiff:r.plDiff,
+						plnDiff:r.plnDiff,
 						vol: r.volume,
 						rel: s[s.length-1].rel+ r.relDiff,
 						relDiff: r.relDiff,
-						invst_n:x.invst_n,
-						invst_v:x.invst_v,
 						app: calcApp(x)
 					});
 				} else {
 					s.push({
 						time:r.time,
 						pl:r.plDiff,
+						pln:r.plnDiff,
 						plDiff:r.plDiff,
 						norm:r.normDiff,
 						normDiff:r.normDiff,
 						vol: r.volume,
 						rel: r.relDiff,
 						relDiff: r.relDiff,
-						invst_n: r.invst_n,
-						invst_v: r.invst_v,
 						app: calcApp(r)
 					})
 				}				
@@ -599,13 +741,17 @@ function app_start(){
 		 }
 	}
 
+	function hasChart(chart, item) {
+		return (chart.length != 0) && chart[0][item] !== undefined;
+	}
+
 	function update() {
 		
 		indicator.classList.remove("online");
 		indicator.classList.add("fetching");
 		return fetch_json("report.json?r="+Date.now()).then((stats)=>{
 
-			
+			source_data = stats;
 			var orders = {};
 			var ranges = {};
 			
@@ -724,8 +870,9 @@ function app_start(){
 					setMode(1);
 					var pair = fld.substr(1);
 					appendSummary("_"+k,infoMap[pair], charts[pair], ranges[pair], stats.misc[pair],true);
-					for (var k in cats) {
+					for (var k in cats) {						
 						appendChart("!"+k, {title:cats[k]}, charts[pair], k, orders[pair], stats.misc[k]);
+						
 					}
 					updateLastEvents(charts[pair],pair);
 					
@@ -773,124 +920,8 @@ function app_start(){
 		});
 	}
 	
-	var base_interval=1200000;
 
-	function new_svg_el(name, attrs, childOf) {
-		var elem = document.createElementNS("http://www.w3.org/2000/svg", name);
-		if (attrs) {for (var i in attrs) {
-			elem.setAttributeNS(null,i, attrs[i]);
-		}}
-		if (childOf) childOf.appendChild(elem);
-		return elem;
-	}
 
-	
-
-	function drawChart(elem, chart, fld, lines) {
-		var now = new Date();
-		var bday = beginOfDay(now);		
-		var skiphours = Math.floor((now - bday)/(base_interval));
-				
-		elem.innerText = "";
-		
-		var daystep = 24*3600000/base_interval;
-		var step = 2*864000000/chart_interval;
-		var activewidth=step*chart_interval/base_interval;
-		var dattextstep = Math.ceil(120/(daystep*step));
-		var activeheight = (activewidth/3)|0;
-		var minmax = chart.concat(lines?lines:[]).reduce(function(c,x) {
-			if (c.min > x[fld]) c.min = x[fld];
-			if (c.max < x[fld]) c.max = x[fld];
-			return c;
-		},{min:chart[0][fld],max:chart[0][fld]});
-		minmax.sz = minmax.max - minmax.min;
-		minmax.min =  minmax.min - minmax.sz*0.05;
-		minmax.max =  minmax.max + minmax.sz*0.05;
-		var priceStep = activeheight/(minmax.max-minmax.min);
-		var axis = 2;
-		var label = 20;
-		var rowstep = Math.pow(10,Math.floor(Math.log10((minmax.max-minmax.min)/3)));
-		var rowbeg= Math.floor(minmax.min/rowstep);
-		var rowend= Math.floor(minmax.max/rowstep);
-
-		var svg = new_svg_el("svg",{viewBox:"0 0 "+(activewidth+axis)+" "+(activeheight+axis+label)},elem);
-		new_svg_el("line",{x1:axis, y1:0,x2:axis,y2:activeheight+axis,class:"lineaxis"},svg);
-		new_svg_el("line",{x1:0, y1:activeheight+1,x2:activewidth+axis,y2:activeheight+1,class:"lineaxis"},svg);
-		var cnt = chart.length;
-		function map_y(p) {
-			return activeheight-(p-minmax.min)*priceStep;
-		}
-		function map_x(x) {
-			return x*step+axis;
-		}
-
-		if (!isFinite(rowbeg) || !isFinite(rowend)) return;
-		
-		for (var i = rowbeg; i <=rowend; i++) {
-			var v = i*rowstep;
-			var maj = Math.abs(v)<rowstep/2;
-			var y = map_y(v);
-			new_svg_el("line",{x1:0,y1:y,x2:activewidth+axis,y2:y,class:maj?"majoraxe":"minoraxe"},svg);
-			new_svg_el("text",{x:axis+2,y:y,class:"textaxis"},svg).appendChild(document.createTextNode(adjNum(i*rowstep)));
-		}
-		
-		var xtmpos = activewidth/step-skiphours;
-		while (xtmpos > 0) {
-			var xtm = map_x(xtmpos);
-			new_svg_el("line",{x1:xtm,y1:0,x2:xtm,y2:activeheight,class:"minoraxe"},svg);
-			xtmpos-=daystep;
-		}
-		xtmpos = activewidth/step-skiphours;
-		while (xtmpos > 0) {
-			var xtm = map_x(xtmpos);
-			new_svg_el("text",{x:xtm,y:activeheight,class:"textaxisx"},svg).appendChild(document.createTextNode(bday.toLocaleDateString()));
-			bday.setDate(bday.getDate()-dattextstep);
-			new_svg_el("line",{x1:xtm,y1:activeheight-5,x2:xtm,y2:activeheight,class:"majoraxe"},svg);
-			xtmpos-=daystep*dattextstep;
-		}
-		var tmstart=(now/base_interval-activewidth/step)
-		for (var i = 0; i <cnt-1; i++) {
-			var pos = "stdline";
-			var x1 = map_x(chart[i].time/base_interval-tmstart);
-			var x2 = map_x(chart[i+1].time/base_interval-tmstart);
-			var y1 = map_y(chart[i][fld]);
-			var y2 = map_y(chart[i+1][fld]);
-			new_svg_el("line",{x1:x1,y1:y1,x2:x2,y2:y2,class:pos},svg);
-		}
-		for (var i = 0; i <cnt; i++) if (chart[i].achg) {
-			var x1 = map_x(chart[i].time/base_interval-tmstart);
-			var y1 = map_y(chart[i][fld]);
-			var man = chart[i].man;
-			var marker = "marker "+(chart[i].achg<0?"sell":"buy") 
-			if (man) {
-				new_svg_el("line",{x1:x1-5,y1:y1-5,x2:x1+5,y2:y1+5,class:marker},svg);
-				new_svg_el("line",{x1:x1+5,y1:y1-5,x2:x1-5,y2:y1+5,class:marker},svg);
-			} else {				
-				new_svg_el("circle",{cx:x1,cy:y1,r:4,class:marker},svg);
-			}
-		}
-		
-		if (lines === undefined) {
-			lines=[];
-		}
-		var l = {};
-		l[fld] = chart[chart.length-1][fld];
-		lines.unshift(l);
-		l.label="";
-		l.class="current"
-		
-		if (Array.isArray(lines)) {
-			lines.forEach(function(x) {
-				var v = x[fld];
-				if (v) {
-					var y = map_y(v);
-					new_svg_el("line",{x1:0,y1:y,x2:activewidth+axis,y2:y,class:"orderline "+x.class},svg);
-					new_svg_el("text",{x:axis,y:y,class:"textorderline "+x.class},svg).appendChild(document.createTextNode(x.label + " "+adjNum(v)));
-				}
-			});
-		}
-		
-	}
 	
 	
 	window.addEventListener("hashchange", function() {
@@ -1080,6 +1111,79 @@ function init_calculator() {
 	Array.prototype.forEach.call(form_range_futures.elements,function(x){
 		x.addEventListener("input", form_range_futures_calc);
 	});
+
+	var form_sliding = document.getElementById("form_sliding_pos");
+	var form_sliding_calc = function() {
+		var data_id = form_sliding.data.value;
+		var data = source_data.charts[data_id];
+		var ea = parseFloat(form_sliding.ea.value);
+		var ga = parseFloat(form_sliding.ga.value);
+		var fb = parseFloat(form_sliding.fb.value);
+		var mlt = parseFloat(form_sliding.mlt.value)*0.01+1;
+		var mos = parseFloat(form_sliding.mos.value);
+		var inv = source_data.info[data_id].inverted;
+		if (inv) eq = 1/eq;
+		var pp = inv?1/data[0].price:data[0].price;
+		var eq = pp;
+		var pl = 0;
+		var mdd = 0;
+		var mpos = 0;
+		var pos = 0;
+		var norm = 0;
+		var newchart = [];
+		var tframe = ga*3600000;
+		var tm = data[0].time;
+		var eaa = ea;		
+		data.forEach(function(x) {
+			var p = inv?1/x.price:x.price;
+            var dr = Math.sign(p - pp);
+			var pldiff = pos * (p - pp);
+			var tmdiff = x.time - tm;
+			var neq = pldiff*Math.sign(tframe)>0?eq + (p - eq) * (tmdiff/Math.abs(tframe)):eq;
+			if (Math.abs(pos) > mpos) mpos = Math.abs(pos);			
+			var nxpos = ea*Math.sqrt(eq/p)-ea;
+			var dpos = nxpos - pos ;
+			var maxpos = ea * fb * 0.01;
+			var mult = (maxpos - Math.abs(nxpos))/maxpos*mlt;
+			if (mult < 0.000001) mult = 0.000001
+			if (dpos * dr >= -mos) {
+				if (mos <= 0) return;
+				dpos = -mos * dr
+			}
+			pos = pos + dpos * mult;
+			pp = p;
+			eq = neq;
+			tm = x.time;
+			pl = pl+pldiff;
+			norm = pl+pos*(eq-Math.sqrt(p*eq));
+			if (pl < mdd) mdd = pl;
+			newchart.push({
+				price:x.price,
+				pl:pl,
+				pln:norm,
+				np:inv?1/eq:eq,
+				time:x.time,
+				achg:(inv?-1:1)*dpos
+			});
+		});
+		if (inv) eq = 1/eq;
+		
+
+		form_sliding.querySelector(".pl").innerText = adjNum(pl);
+		form_sliding.querySelector(".pln").innerText = adjNum(norm);
+		form_sliding.querySelector(".pos").innerText = adjNum((inv?-1:1)*pos);
+		form_sliding.querySelector(".mdd").innerText = adjNum(mdd);
+		form_sliding.querySelector(".maxpos").innerText = adjNum(mpos);
+		form_sliding.querySelector(".eq").innerText = adjNum(eq);
+		drawChart(form_sliding.querySelector(".chart1"),newchart,"price",[],"np");
+		drawChart(form_sliding.querySelector(".chart2"),newchart,"pl",[],"pln");
+		drawChart(form_sliding.querySelector(".chart3"),newchart,"achg",[]);
+	};
+
+	Array.prototype.forEach.call(form_sliding.elements,function(x){
+		x.addEventListener("input", form_sliding_calc);
+	});
+
 	
 	calc.querySelector(".close_butt").addEventListener("click",function() {
 		calc.classList.toggle("fade",true);
@@ -1087,6 +1191,7 @@ function init_calculator() {
 			calc.hidden = true;			
 		},500);		
 	});
+	
 	
 	document.getElementById("calculator_icon").addEventListener("click",function(){
 		calc.classList.toggle("fade",true);
@@ -1096,6 +1201,13 @@ function init_calculator() {
 		setTimeout(function(){
 			calc.classList.toggle("fade",false);			
 		},10);
+		form_sliding.data.innerText = "";
+		for (var i in source_data.info) {
+			var opt = document.createElement("option");
+			opt.innerText = source_data.info[i].title;
+			opt.value = i;
+			form_sliding.data.appendChild(opt);	
+		}
 	});
 }
 
@@ -1110,11 +1222,6 @@ function donate() {
 			var content = x.innerText;
 			x.innerHTML="<a href=\""+x.dataset.link+":"+content+"\">"+content+"</a>";
 		});
-		var hd = document.getElementById("hide_donation");
-		hd.addEventListener("change", function() {
-			localStorage["donation_hidden"] = hd.checked?hd.value:"";
-		});
-		hd.checked = localStorage["donation_hidden"] === hd.value;
 	}
 }
 function close_donate() {

@@ -446,6 +446,24 @@ static int cmd_backtest(Worker &wrk, simpleServer::ArgList args, simpleServer::S
 
 }
 
+static int cmd_config(Worker &wrk, simpleServer::ArgList args, simpleServer::Stream stream, const ondra_shared::IniConfig &cfg) {
+	if (args.length < 1) {
+		stream << "Need argument: <trader_ident>\n"; return 1;
+	}
+	auto sect = cfg[args[0]];
+	std::stringstream buff;
+	MTrader::showConfig(sect, false, buff);
+	std::vector<std::string> list;
+	buff.seekp(0);
+	std::string line;
+	while (std::getline(buff,line)) list.push_back(line);
+	std::sort(list.begin(),list.end());
+	for (auto &&k : list)
+		stream << k << "\n";
+	return 0;
+}
+
+
 static ondra_shared::CrashHandler report_crash([](const char *line) {
 	ondra_shared::logFatal("CrashReport: $1", line);
 });
@@ -475,7 +493,9 @@ public:
 				"erase_trade  - erases trade. Need id of trader and id of trade",
 				"reset        - erases all trades expect the last one",
 				"achieve      - achieve an internal state (achieve mode)",
-				"repair       - repair pair"
+				"repair       - repair pair",
+				"backtest     - backtest",
+				"show_config  - shows trader's complete configuration"
 		};
 
 		const char *intro[] = {
@@ -663,6 +683,9 @@ int main(int argc, char **argv) {
 						cntr.addCommand("backtest", [&](simpleServer::ArgList args, simpleServer::Stream stream){
 							return cmd_backtest(wrk, args, stream, app.configPath.string(), stockSelector, rpt, pool);
 						});
+						cntr.addCommand("show_config", [&](simpleServer::ArgList args, simpleServer::Stream stream){
+							return cmd_config(wrk, args, stream, app.config);
+						});
 						std::size_t id = 0;
 						cntr.addCommand("run",[&](simpleServer::ArgList, simpleServer::Stream) {
 
@@ -707,7 +730,7 @@ int main(int argc, char **argv) {
 						return 0;
 
 					}, simpleServer::ArgList(argList.data(), argList.size()),
-					cmd == "calc_range" || cmd == "get_all_pairs" || cmd == "achieve" || cmd == "reset" || cmd=="repair" || cmd == "backtest");
+					cmd == "calc_range" || cmd == "get_all_pairs" || cmd == "achieve" || cmd == "reset" || cmd=="repair" || cmd == "backtest" || cmd == "show_config");
 			} catch (std::exception &e) {
 				std::cerr << "Error: " << e.what() << std::endl;
 				return 2;

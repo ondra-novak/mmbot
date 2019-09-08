@@ -11,11 +11,16 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/file.h>
+#include <cerrno>
 #include <csignal>
+#include <cstring>
 using namespace json;
 
 OrderDataDB::OrderDataDB(std::string path):path(path),lock_path(path+".lock") {
 	lockfile = ::open(lock_path.c_str(),O_TRUNC|O_CREAT|O_RDWR, 0666);
+	if (lockfile == -1) {
+		throw std::runtime_error("Unable to open: " + lock_path + " - " + strerror(errno));
+	}
 	int r = ::flock(lockfile, LOCK_EX|LOCK_NB);
 	if (r == -1) {
 		close(lockfile);
@@ -32,12 +37,14 @@ void OrderDataDB::storeOrderData(json::Value orderId, json::Value data) {
 	Value({orderId, data}).toStream(nextRev);
 	nextRev << std::endl;
 	nextRev.flush();
+	if (!nextRev) throw std::runtime_error(std::string("Database store failure"));
 }
 
 void OrderDataDB::commit() {
 		nextRev.close();
 		load();
 		nextRev.open(path, std::ios::out|std::ios::trunc);
+		if (!nextRev) throw std::runtime_error(std::string("Database open failure"));
 }
 
 json::Value OrderDataDB::getOrderData(const json::Value& orderId) {

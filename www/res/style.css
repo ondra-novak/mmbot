@@ -18,6 +18,12 @@ a {
 	stroke-width: 2px;
 }
 
+.stdline2 {
+	stroke: #afdeff;
+	stroke-width: 2px;
+}
+
+
 .minoraxe {
 	stroke: #888;
 	stroke-opacity: 0.5;
@@ -653,9 +659,8 @@ x-tr.hdr [data-name=export_csv] {
 	right:0;
 	top:1cm;
 	z-index:10;
-	max-width: 13cm;
+	max-width: 16cm;
 	margin:auto;
-	max-height: 100vh;
 }
 
 menu li {
@@ -696,9 +701,10 @@ menu {
 #calculator .content {
 	border: 1px solid #765;
 	background-color:#333;
-	padding: 0.2cm;
+	/* padding: 0.2cm; */
 	box-shadow: 0 0 10px black;
 	z-index:4;
+	/* height: 100%; */
 }
 
 form label {
@@ -710,14 +716,16 @@ form label > *  {
 	display: block;
 }
 
-form label > input {
+form label > input, form label > select {
 	width: 50%; 
 	font-size: 0.98rem;
 	box-sizing: border-box;
 }
-#calculator input {
+#calculator input, #calculator select {
 	text-align:right;
 	padding-right: 5%;
+	background-color: white;
+	color: black;
 }
 
 #calculator table {
@@ -784,6 +792,13 @@ form button {
 	transition: all 0.3s;
 	opacity: 1;
 	transform: translate(0,0);
+}
+
+#calculator  form {
+	max-height: 75vh;
+	overflow: auto;
+	box-sizing: border-box;
+	padding: 6px;
 }
 
 #calculator.fade {
@@ -873,9 +888,10 @@ table  tr > * {
 	white-space: nowrap;
 }
 table.extended td:nth-child(2) {text-align: right;padding-right:0.1em;}
-table.extended td:nth-child(2) span:nth-child(odd) {font-weight:bold;}
 table.extended td:nth-child(3) {padding: 0.1em;overflow: hidden;}
-table.extended td span.neg {color: #C66;}
+table.extended td .color.neg {color: #C66;}
+table.extended td .color.pos {color: #6C6;}
+table.extended td .color.pos::before {content: "+";}
 [onclick] {
 	cursor: pointer
 }
@@ -985,3 +1001,7 @@ table.extended td span.neg {color: #C66;}
 	opacity: 1;
 		
 } 
+
+#form_sliding_pos .second {
+	color: #afdeff;
+}
