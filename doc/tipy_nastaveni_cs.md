@@ -25,6 +25,8 @@ To je celé. Zároveň je třeba obchodní účet rozdělit půl na půl - crypt
 
 **Na co si dát pozor?** - často chci obchodování pouze vyzkoušet s malým množstvím a "časem se ukáže". Avšak ve výsledku to znamená, že robot je nucen vytvářet velice malé pokyny, menší, než je dovolené minimum na exchange. V takovém případě běží robot velice neefektivně, nebo neběží vůbec (chybové hlášení z exchange o příliš malých pokynech). Je prostě nutné obchodovat s větším objemem. Protože ale nechci držet veškeré crypto na exchange, mohu použít řešení nastíněné v **Cíl 2**
 
+**Kolik mohu vydělat?** - je to skoro bez rizika, takže nečekejte závratné zisky. Ty se mohou pohybovat kolem 10% ročně. U více volatilních coinů to může být víc.
+
 ## Cíl 2: Navýšení objemů - obchodování s minimem
 
 I přes velké množství crypto na exchange robot vytváří pokyny s malým množstvím. Je to dáno tím, že ve vzorci figuruje geometrický průměr aktuální ceny a počáteční ceny vůči počáteční ceně. Tedy nejen že jde o rozdíl cen, ale ještě k tomu rozdíl průměrné ceny vůči počáteční. A to je často velice malé číslo. Existuje jediný způsob jak to zvýšit a to zvýšit množství assetů (cryptomincí), které se účastní výpočtu.
