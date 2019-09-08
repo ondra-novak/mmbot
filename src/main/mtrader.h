@@ -102,6 +102,7 @@ public:
 
 
 	static Config load(const ondra_shared::IniConfig::Section &ini, bool force_dry_run);
+	static void showConfig(const ondra_shared::IniConfig::Section &ini, bool force_dry_run, std::ostream &out);
 
 
 	struct Order: public IStockApi::Order {

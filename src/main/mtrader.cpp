@@ -68,7 +68,8 @@ void MTrader::Config::parse_neutral_pos(StrViewA txt) {
 
 }
 
-void unsupported(const ondra_shared::IniConfig::Section& ini,
+template<typename Ini>
+void unsupported(Ini ini,
 		const std::initializer_list<std::string_view> &options,
 		std::string_view desc) {
 
@@ -79,9 +80,10 @@ void unsupported(const ondra_shared::IniConfig::Section& ini,
 	}
 
 }
+template<typename Ini>
+MTrader::Config load_internal(Ini ini, bool force_dry_run) {
 
-MTrader::Config MTrader::load(const ondra_shared::IniConfig::Section& ini, bool force_dry_run) {
-	Config cfg;
+	MTrader::Config cfg;
 
 
 	cfg.broker = ini.mandatory["broker"].getString();
@@ -105,7 +107,7 @@ MTrader::Config MTrader::load(const ondra_shared::IniConfig::Section& ini, bool 
 	cfg.detect_manual_trades = ini["detect_manual_trades"].getBool(true);
 	cfg.enabled = ini["enable"].getBool(true);
 
-	unsupported(ini, {
+	unsupported<Ini>(ini, {
 			"sliding_pos.change",
 			"sliding_pos.acum",
 			"sliding_pos.assets",
@@ -157,12 +159,18 @@ MTrader::Config MTrader::load(const ondra_shared::IniConfig::Section& ini, bool 
 	if (cfg.dynmult_fall > 100) throw std::runtime_error("'dynmult_fall' must be below 100");
 	if (cfg.dynmult_fall <= 0) throw std::runtime_error("'dynmult_fall' must not be negative or zero");
 	if (cfg.max_pos <0) throw std::runtime_error("'max_pos' must not be negative");
-	if ((cfg.max_pos || cfg.sliding_pos_hours) && cfg.neutralPosType == Config::disabled) {
+	if ((cfg.max_pos || cfg.sliding_pos_hours) && cfg.neutralPosType == MTrader::Config::disabled) {
 		throw std::runtime_error("Some option needs to define neutral_pos");
 	}
 
 	return cfg;
 }
+
+
+MTrader::Config MTrader::load(const ondra_shared::IniConfig::Section& ini, bool force_dry_run) {
+	return load_internal<const ondra_shared::IniConfig::Section&>(ini, force_dry_run);
+}
+
 
 bool MTrader::Order::isSimilarTo(const Order& other, double step) {
 	return std::fabs(price - other.price) < step && size * other.size > 0;
@@ -1044,3 +1052,85 @@ void MTrader::acceptLoss(const Order &order, double lastTradePrice,  const Statu
 
 }
 
+class ConfigOuput {
+public:
+
+
+	class Mandatory:public ondra_shared::VirtualMember<ConfigOuput> {
+	public:
+		using ondra_shared::VirtualMember<ConfigOuput>::VirtualMember;
+		auto operator[](StrViewA name) const {
+			return getMaster()->getMandatory(name);
+		}
+	};
+
+	Mandatory mandatory;
+
+	class Item {
+	public:
+
+		Item(StrViewA name, const ondra_shared::IniConfig::Value &value, std::ostream &out, bool mandatory):
+			name(name), value(value), out(out), mandatory(mandatory) {}
+
+		template<typename ... Args>
+		auto getString(Args && ... args) const {
+			auto res = value.getString(std::forward<Args>(args)...);
+			out << name << "=" << res ;trailer();
+			return res;
+		}
+
+		template<typename ... Args>
+		auto getUInt(Args && ... args) const {
+			auto res = value.getUInt(std::forward<Args>(args)...);
+			out << name << "=" << res;trailer();
+			return res;
+		}
+		template<typename ... Args>
+		auto getNumber(Args && ... args) const {
+			auto res = value.getNumber(std::forward<Args>(args)...);
+			out << name << "=" << res;trailer();
+			return res;
+		}
+		template<typename ... Args>
+		auto getBool(Args && ... args) const {
+			auto res = value.getBool(std::forward<Args>(args)...);
+			out << name << "=" << (res?"on":"off");trailer();
+			return res;
+		}
+		bool defined() const {
+			return value.defined();
+		}
+
+		void trailer() const {
+			if (mandatory) out << " (mandatory)";
+			out << std::endl;
+		}
+
+	protected:
+		StrViewA name;
+		const ondra_shared::IniConfig::Value &value;
+		std::ostream &out;
+		bool mandatory;
+	};
+
+	Item operator[](ondra_shared::StrViewA name) const {
+		return Item(name, ini[name], out, false);
+	}
+	Item getMandatory(ondra_shared::StrViewA name) const {
+		return Item(name, ini[name], out, true);
+	}
+
+	ConfigOuput(const ondra_shared::IniConfig::Section &ini, std::ostream &out)
+	:mandatory(this),ini(ini),out(out) {}
+
+protected:
+	const ondra_shared::IniConfig::Section &ini;
+	std::ostream &out;
+};
+
+void MTrader::showConfig(const ondra_shared::IniConfig::Section &ini, bool force_dry_run, std::ostream &out) {
+
+	ConfigOuput cfg(ini, out);
+	load_internal<ConfigOuput &>(cfg, force_dry_run);
+
+}
