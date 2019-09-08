@@ -125,7 +125,7 @@ void ExtStockApi::onConnect() {
 	if (lg.isLogLevelEnabled(ondra_shared::LogLevel::debug)) {
 		try {
 			jsonRequestExchange("enableDebug","true");
-		} catch (...) {
+		} catch (IStockApi::Exception &) {
 
 		}
 	}
