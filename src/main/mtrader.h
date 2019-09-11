@@ -252,7 +252,7 @@ protected:
 
 	void update_dynmult(bool buy_trade,bool sell_trade);
 
-	void acceptLoss(const Order &order, double lastTradePrice, const Status &st);
+	bool acceptLoss(std::optional<Order> &orig, const Order &order, const Status &st, double neutral_pos);
 	json::Value getTradeLastId() const;
 
 

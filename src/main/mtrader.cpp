@@ -328,16 +328,18 @@ int MTrader::perform() {
 				setOrderCheckMaxPos(orders.buy, buyorder,status.assetBalance, neutral_pos);
 			} catch (std::exception &e) {
 				buy_order_error = e.what();
-				orders.buy = buyorder;
-				acceptLoss(buyorder, lastTradePrice, status);
+				if (!acceptLoss(orders.buy, buyorder, status, neutral_pos)) {
+					orders.buy = buyorder;
+				}
 			}
 
 			try {
 				setOrderCheckMaxPos(orders.sell, sellorder, status.assetBalance, neutral_pos);
 			} catch (std::exception &e) {
 				sell_order_error = e.what();
-				orders.sell = sellorder;
-				acceptLoss(sellorder, lastTradePrice, status);
+				if (!acceptLoss(orders.sell, sellorder, status, neutral_pos)) {
+					orders.sell = sellorder;
+				}
 			}
 			//replace order on stockmarket
 			//remember the orders (keep previous orders as well)
@@ -1024,32 +1026,45 @@ void MTrader::setInternalBalance(double v) {
 	internal_balance = v;
 }
 
-void MTrader::acceptLoss(const Order &order, double lastTradePrice,  const Status &st) {
+bool MTrader::acceptLoss(std::optional<Order> &orig, const Order &order, const Status &st, double neutral_pos) {
 
 	if (cfg.accept_loss && cfg.enabled && !trades.empty()) {
 		std::size_t ttm = trades.back().time;
 
-		std::size_t e = st.chartItem.time>ttm?(st.chartItem.time-ttm)/(3600000):0;
-		if (e > cfg.accept_loss && buy_dynmult <= 1.0 && sell_dynmult <= 1.0) {
-			auto reford = calculateOrder(lastTradePrice, 2 * st.curStep * sgn(-order.size),lastTradePrice, st.assetBalance, 0, st.assetBalance);
-			double df = (st.curPrice - reford.price)* sgn(-order.size);
-			if (df > 0) {
-				ondra_shared::logWarning("Accept loss in effect: price=$1, balance=$2", st.curPrice, st.assetBalance);
-				trades.push_back(IStockApi::TradeWithBalance (
-						IStockApi::Trade {
-							json::Value(json::String({vtradePrefix,"loss_", std::to_string(st.chartItem.time)})),
-							st.chartItem.time,
-							0,
-							reford.price,
-							0,
-							reford.price,
-						}, st.assetBalance, false));
-				update_dynmult(order.size>0, order.size<0);
-				calculator.update(reford.price, st.assetBalance);
+		if (buy_dynmult <= 1.0 && sell_dynmult <= 1.0) {
+			if (cfg.dust_orders) {
+				Order cpy (order);
+				cpy.size = minfo.min_size;
+				try {
+					setOrderCheckMaxPos(orig,cpy,st.assetBalance, neutral_pos);
+					return true;
+				} catch (...) {
+
+				}
+			}
+			std::size_t e = st.chartItem.time>ttm?(st.chartItem.time-ttm)/(3600000):0;
+			double lastTradePrice = trades.back().eff_price;
+			if (e > cfg.accept_loss) {
+				auto reford = calculateOrder(lastTradePrice, 2 * st.curStep * sgn(-order.size),lastTradePrice, st.assetBalance, 0, st.assetBalance);
+				double df = (st.curPrice - reford.price)* sgn(-order.size);
+				if (df > 0) {
+					ondra_shared::logWarning("Accept loss in effect: price=$1, balance=$2", st.curPrice, st.assetBalance);
+					trades.push_back(IStockApi::TradeWithBalance (
+							IStockApi::Trade {
+								json::Value(json::String({vtradePrefix,"loss_", std::to_string(st.chartItem.time)})),
+								st.chartItem.time,
+								0,
+								reford.price,
+								0,
+								reford.price,
+							}, st.assetBalance, false));
+					update_dynmult(order.size>0, order.size<0);
+					calculator.update(reford.price, st.assetBalance);
+				}
 			}
 		}
 	}
-
+	return false;
 }
 
 class ConfigOuput {
