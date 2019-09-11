@@ -9,10 +9,13 @@
 #define SRC_MAIN_SPREAD_CALC_H_
 
 #include "../shared/stringview.h"
+#include "../shared/worker.h"
 #include "istatsvc.h"
 #include "istockapi.h"
 
-double glob_calcSpread(ondra_shared::StringView<IStatSvc::ChartItem> chart,
+
+double glob_calcSpread(ondra_shared::Worker wrk,
+		ondra_shared::StringView<IStatSvc::ChartItem> chart,
 		const MTrader_Config &config,
 		const IStockApi::MarketInfo &minfo,
 		double balance,

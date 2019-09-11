@@ -1,0 +1,11 @@
+#!/bin/bash
+git submodule foreach git reset --hard
+git submodule update --init
+git -c user.name="Update" -c user.email="update@localhost.localdomain"  commit -a -m "" --allow-empty-message 
+set -e
+git pull --no-commit
+git submodule update --init
+mkdir -p ./data
+mkdir -p ./log
+cmake -DCMAKE_BUILD_TYPE=RELWITHDEBINFO .
+make all -j `nproc`

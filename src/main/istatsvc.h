@@ -21,6 +21,7 @@ public:
 		std::uintptr_t time;
 		double ask;
 		double bid;
+		double last;
 	};
 
 	struct MiscData {
@@ -30,29 +31,52 @@ public:
 		double spread;
 		double dynmult_buy;
 		double dynmult_sell;
+		double size_mult;
 		double value;
 		double boost;
 		double lowest_price;
 		double highest_price;
 		std::size_t total_trades;
+		std::size_t total_time;
+	};
+
+
+	struct Info {
+		std::string_view title;
+		std::string_view assetSymb;
+		std::string_view currencySymb;
+		std::string_view priceSymb;
+		double position_offset;
+		bool inverted;
+		bool margin;
+		bool emulated;
+	};
+
+	struct ErrorObj {
+		std::string_view genError;
+		std::string_view buyError;
+		std::string_view sellError;
+		explicit ErrorObj(const char *what): genError(what) {}
+		ErrorObj(const std::string_view &buy_error,const std::string_view &sell_error)
+			: buyError(buy_error),sellError(sell_error) {}
+
 	};
 
 	virtual void reportOrders(const std::optional<IStockApi::Order> &buy,
 							  const std::optional<IStockApi::Order> &sell) = 0;
 	virtual void reportTrades(ondra_shared::StringView<IStockApi::TradeWithBalance> trades, bool margin) = 0;
 	virtual void reportPrice(double price) = 0;
-	virtual void setInfo(ondra_shared::StrViewA title,
-			ondra_shared::StrViewA assetSymb,
-			ondra_shared::StrViewA currencySymb,
-			bool emulated) = 0;
+	virtual void setInfo(const Info &info) = 0;
 	virtual void reportMisc(const MiscData &miscData) = 0;
-	virtual void reportError(const char *what) = 0;
+	virtual void reportError(const ErrorObj &errorObj) = 0;
 	virtual double calcSpread(ondra_shared::StringView<ChartItem> chart,
 			const MTrader_Config &config,
 			const IStockApi::MarketInfo &minfo,
 			double balance,
 			double prev_value) const = 0;
+	virtual std::size_t getHash() const = 0;
 
+	virtual ~IStatSvc() {}
 };
 
 

@@ -3,27 +3,29 @@
 <head>
 <meta charset="UTF-8">
 <title>MM Bot</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="res/style.css">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <link rel="manifest" href="manifest.json"  crossOrigin='use-credentials'>
 </head>
 <body onload="app_start();">
-<div class="selchart"><div id="calculator_icon"></div><div id="indicator"></div>
+<div class="selchart">
+<div id="donate_icon" onclick="donate();"></div>
+<div id="calculator_icon"></div>
+<div id="indicator"></div>
 <div id="home">⌂</div>
 <select id="selchart">
 <option value="+summary">Summary</option>
+<option value="+list">List (condensed)</option>
 <option disabled value=""></option>
-<option value="pl">P/L from positions</option>
+<option value="price">Price</option>
+<option value="pl">P/L from position</option>
+<option value="pos">Position</option>
 <option value="norm">Normalized profit</option>
 <option value="nacum">Normalized accumulated assets</option>
 <option value="achg">Trades</option>
-<option value="pos">Position</option>
-<option value="price">Price</option>
-<option value="app">Annual percentage profit (experimental)</option>
 <option disabled value=""></option>
 <option value="+pl">Total P/L from positions</option>
 <option value="+norm">Total normalized profit</option>
-<option value="+app">Total annual percentage profit</option>
 <option disabled value=""></option>
 </select>
 <div id="outage">
@@ -50,23 +52,24 @@
 <div class="daystats">
 <div>24h: </div>
 <div><span data-name="price" class="plusminus"></span><span data-name="curc"></span></div>
-<div>t: <span data-name="trades"></span></div>
+<div>t: <span data-name="trades" data-decimals="0"></span></div>
 <div>vol: <span data-name="vol"></span><span data-name="curc"></span></div>
 <div>pos: <span data-name="pos" class="plusminus"></span><span data-name="assets"></span></div>
-<div>avg: <span data-name="avg"></span><span data-name="curc"></span></div>
+<div>avg: <span data-name="avg"></span><span data-name="pric"></span></div>
 <div>p/l: <span data-name="pl" class="plusminus"></span><span data-name="curc"></span></div>
 <div>norm: <span data-name="norm" class="plusminus"></span><span data-name="curc"></span></div>
 </div>
 <table class="extended">
-<tr><th>Equilibrium</th><td><span data-name="mcp"></span> <span data-name="curc"></span></td></tr>
-<tr><th>Spread</th><td><span data-name="ms"></span> <span data-name="curc"></span></td></tr>
-<tr><th>Buy/Sell multiplicator </th><td><span data-name="mdmb"></span> <span>x / </span><span data-name="mdms"></span> x</td></tr>
-<tr><th>Base value</th><td><span data-name="mv"></span> <span data-name="curc"></span></td></tr>
-<tr><th>Avg. income hourly</th><td><span data-name="avgh"></span> <span data-name="curc"></span></td></tr>
-<tr><th>Lowest tradable price</th><td><span data-name="ml"></span> <span data-name="curc"></span></td></tr>
-<tr><th>Highest tradable price</th><td><span data-name="mh"></span> <span data-name="curc"></span></td></tr>
-<tr><th>Generated extra</th><td><span data-name="pnorm"></span> <span data-name="curc"></span><br>(<span data-name="pnormp"></span> %)</td></tr>
-<tr><th>Boost / Leverage</th><td><span data-name="mb"></span> x</td></tr>
+<tr><th>Equilibrium</th><td><b data-name="mcp"></b></td><td><span data-name="pric"></span></td></tr>
+<tr><th>Spread</th><td><b data-name="ms"></b></td><td><span data-name="pric"></span></td></tr>
+<tr><th>Spread multiplicator </th><td><b data-name="mdmb" data-decimals="2"></b>x</td><td>/ <b data-name="mdms" data-decimals="2"></b>x</td></tr>
+<tr><th>Size multiplicator </th><td><b data-name="sm" data-decimals="2"></b>x</td><td>&nbsp;</td></tr>
+<tr><th>Base value</th><td><b data-name="mv"></b></td><td><span data-name="curc"></span></td></tr>
+<tr onclick="changeinterval();"><th>Avg. income PL.</th><td><b data-name="avghpl" class="color"></b></td><td><span data-name="curc"></span>/<span data-name="interval"></span></td></tr>
+<tr onclick="changeinterval();"><th>Avg. income norm.</th><td><b data-name="avgh" class="color"></b><br><b data-name="avgha" class="color"></b></td><td><span data-name="curc"></span>/<span data-name="interval"></span><br><span data-name="assets"></span>/<span data-name="interval"></span></td></tr>
+<tr><th>Lowest tradable price</th><td><b data-name="ml"></b></td><td><span data-name="pric"></span></td></tr>
+<tr><th>Highest tradable price</th><td><b data-name="mh"></b></td><td><span data-name="pric"></span></td></tr>
+<tr><th>Boost / Leverage</th><td><b data-name="mb"></b></td><td>x</td></tr>
 </table>
 </div>
 </template>
@@ -91,11 +94,11 @@
 </div>
 <div id="logfilearea">
 <div id="logfileactivate">LOG</div>
-<pre  id="logfile" hidden>
+<pre id="logfile" hidden>
 </pre>
 </div>
 <div id="logo" hidden>
-<img src="logo.png">
+<img src="res/logo.png">
 </div>
 <div id="calculator" hidden class="fade">
 <menu>
@@ -103,6 +106,7 @@
 <li data-name="form_range_exchange">Range</li>
 <li data-name="form_range_margin">Range (margin)</li>
 <li data-name="form_range_futures">Range (futures)</li>
+<li data-name="form_sliding_pos">Sliding pos</li>
 </menu>
 <div class="content">
 <form id="form_order">
@@ -158,13 +162,56 @@
 <tr><th>Boost</th><td class="boost"></td></tr>
 </table>
 </form>
+<form id="form_sliding_pos" hidden>
+<label><span>Source</span><select name="data" size="1"></select></label>
+<label><span>External assets</span><input type="text" name="ea" size="10" value="100"></label>
+<label><span>Sliding speed [h]</span><input type="number" name="ga" size="10" value="240"></label>
+<label><span>Weaken [%]</span><input type="number" name="fb" size="10" value="11"></label>
+<label><span>Mult [%]</span><input type="number" name="mlt" size="10" value="0"></label>
+<label><span>Min order size (dust)</span><input type="number" name="mos" size="10" value="0"></label>
+<div class="note">Sliding position backtest. It recalculates size of trades and expressed various results</div>
+<hr>
+<table>
+<tr><th>P/L</th><td class="pl"></td></tr>
+<tr><th>Normalized P/L</th><td class="pln"></td></tr>
+<tr><th>Position</th><td class="pos"></td></tr>
+<tr><th>Max downdraw</th><td class="order_size mdd"></td></tr>
+<tr><th>Max position</th><td class="maxpos"></td></tr>
+<tr><th>Equilibrium</th><td class="eq"></td></tr>
+</table>
+<div>Price (<span class="second">Equilibrium</span>)</div>
+<div class="chart1"></div>
+<div>P/L (<span class="second">Normalized P/L</span>)</div>
+<div class="chart2"></div>
+<div>Trades</div>
+<div class="chart3"></div>
+</form>
 <button class="close_butt">Close</button>
 </div>
 
-
 </div>
-<script src="code.js" type="text/javascript"></script>
 
+<div id="donate_window">
+<button onclick="close_donate();">X</button>
+<h2>Please support further development</h2>
+<table>
+<tr><th rowspan="2">BTC</th><td data-link="bitcoin">bc1q0ljtlv9krpt3xe28wsytag5y4pj8e52dzdmngr</td></tr>
+<tr><td data-link="bitcoin">3DPcHzpACsjmqTjUMABHjegY2mGfUjFMB6</td></tr>
+<tr><th rowspan="2">LTC</th><td  data-link="litecoin">ltc1q9fdkxertp4smq7l9mgtne2g5v0slrmd4g4x242</td></tr>
+<tr><td data-link="litecoin">LT4EMTLhXT94TH4u27KryA3rf96bv38SZo</td></tr>
+<tr><th>ETH</th><td data-link="ethereum">0xbb80Ec0aBCE86300d0326b870f615F2a874EaC80</td></tr>
+<tr><th>XRP</th><td data-link="ripple">rnSye1bNuC2aP1GqzLYaAmpPyRDkmQr6Un</td></tr>
+</table>
+<p>Thank you!</p>
+<p style="font-size: smaller;"><label><input type="checkbox"  value="yes" id="hide_donation"> Hide large donation button (needs refresh)</label></p>
+</div>
+
+<script src="res/code.js" type="text/javascript"></script>
+<template id="donation_item"><div class="donate">Please support further development! <img src='res/donate.svg' onclick="donate()"></div></template>
+
+<div id="notify">
+Notify window
+</div>
 
 </body>
 </html>

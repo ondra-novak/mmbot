@@ -189,7 +189,7 @@ Interface::TradeHistory Interface::getTrades(json::Value lastId, std::uintptr_t 
 		 r["bid"].getNumber(),
 		 r["ask"].getNumber(),
 		 r["last"].getNumber(),
-		 r["timestamp"].getUInt()
+		 r["timestamp"].getUInt()*1000 //HACK - time is not in milliseconds
 	 };
 }
 

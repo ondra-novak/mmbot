@@ -28,6 +28,8 @@
 
 #include "istockapi.h"
 
+const int AbstractExtern::invval = -1;
+
 AbstractExtern::AbstractExtern(const std::string_view & workingDir, const std::string_view & name, const std::string_view & cmdline)
 :name(name), cmdline(cmdline),workingDir(workingDir),log(name) {
 }
@@ -107,58 +109,59 @@ void AbstractExtern::spawn() {
 	//collect any zombie
 	waitpid(-1,&status,WNOHANG);
 
+	{
 
+		log.progress("Connecting to market: cmdline='$1', workdir='$2'", cmdline, workingDir);
 
-	log.progress("Connecting to market: cmdline='$1', workdir='$2'", cmdline, workingDir);
+		Pipe proc_input (makePipe());
+		Pipe proc_output (makePipe());
+		Pipe proc_error (makePipe());
+		Pipe proc_control (makePipe());
 
-	Pipe proc_input (makePipe());
-	Pipe proc_output (makePipe());
-	Pipe proc_error (makePipe());
-	Pipe proc_control (makePipe());
+		parseArgumentList(cmdline, [&](char * const arglist[]) {
 
-	parseArgumentList(cmdline, [&](char * const arglist[]) {
-
-		pid_t frk = fork();
-		if (frk == -1) {
-			int err = errno;
-			throw std::runtime_error(strerror(err));
-		}
-		if (frk == 0) {
-
-			try {
-				std::experimental::filesystem::current_path(workingDir);
-				if (dup2(proc_input.read, 0)<0) report_error("dup->stdin");
-				if (dup2(proc_output.write, 1)<0) report_error("dup->stdout");
-				if (dup2(proc_error.write, 2)<0) report_error("dup->stderr");
-				execvp(arglist[0], arglist);
-				report_error("execlp");
-
-			} catch (std::exception &e) {
-
-				const char *w = e.what();
-				if (write(proc_control.write, w, strlen(w))<0) exit(0);
+			pid_t frk = fork();
+			if (frk == -1) {
+				int err = errno;
+				throw std::runtime_error(strerror(err));
 			}
-			exit(0);
+			if (frk == 0) {
 
-		} else {
+				try {
+					std::experimental::filesystem::current_path(workingDir);
+					if (dup2(proc_input.read, 0)<0) report_error("dup->stdin");
+					if (dup2(proc_output.write, 1)<0) report_error("dup->stdout");
+					if (dup2(proc_error.write, 2)<0) report_error("dup->stderr");
+					execvp(arglist[0], arglist);
+					report_error("execlp");
 
-			proc_control.write.close();
-			std::string errmsg;
-			{
-				char buff[256];
-				auto r = read(proc_control.read, buff, sizeof(buff));
-				while (r > 0) {
-					errmsg.append(buff,r);
-					r = read(proc_control.read, buff, sizeof(buff));
+				} catch (std::exception &e) {
+
+					const char *w = e.what();
+					if (write(proc_control.write, w, strlen(w))<0) exit(0);
 				}
+				exit(0);
+
+			} else {
+
+				proc_control.write.close();
+				std::string errmsg;
+				{
+					char buff[256];
+					auto r = read(proc_control.read, buff, sizeof(buff));
+					while (r > 0) {
+						errmsg.append(buff,r);
+						r = read(proc_control.read, buff, sizeof(buff));
+					}
+				}
+				if (!errmsg.empty()) throw std::runtime_error(errmsg);
+				extout = std::move(proc_output.read);
+				exterr = std::move(proc_error.read);
+				extin = std::move(proc_input.write);
+				chldid = frk;
 			}
-			if (!errmsg.empty()) throw std::runtime_error(errmsg);
-			extout = std::move(proc_output.read);
-			exterr = std::move(proc_error.read);
-			extin = std::move(proc_input.write);
-			chldid = frk;
-		}
-	});
+		});
+	}
 
 	onConnect();
 
@@ -172,8 +175,9 @@ void AbstractExtern::handleClose(int fd) {
 
 static int termThenKill(int id) {
 	int status = 0;
-	for (int i = 1; i < 40; i++) {
+	for (int i = 1; i < 20; i++) {
 		int r = ::waitpid(id,&status,WNOHANG);
+		if (r == -1) return -1;
 		if (r == id) return status;
 		::kill(id, SIGTERM);
 		std::this_thread::sleep_for(std::chrono::milliseconds(200));
@@ -277,6 +281,10 @@ void AbstractExtern::preload() {
 }
 
 json::Value AbstractExtern::jsonExchange(json::Value request) {
+
+	std::string z;
+	std::string lastStdErr;
+
 	if (chldid == -1) {
 		spawn();
 	}
@@ -300,15 +308,15 @@ json::Value AbstractExtern::jsonExchange(json::Value request) {
 			if (fds[1].revents) {
 				Reader errrd(exterr);
 				bool rep;
-				std::string z;
 				do {
-					z.clear();
+					lastStdErr = std::move(z);
 					do {
 						auto buff = errrd.read();
 						if (buff.empty()) {
 							throw std::runtime_error(json::String({
 								"Connection to API lost: ",
-								request.toString()}).c_str());
+								request.toString()," - err: ",
+									lastStdErr.empty()?"N/A": lastStdErr.c_str()}).c_str());
 						}
 						auto pos = buff.find('\n');
 						if (pos == buff.npos) z.append(buff);

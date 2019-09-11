@@ -10,6 +10,7 @@
 #include "../server/src/simpleServer/http_filemapper.h"
 #include "../server/src/simpleServer/http_pathmapper.h"
 #include "../server/src/simpleServer/http_server.h"
+#include "../shared/linux_crash_handler.h"
 
 #include "shared/ini_config.h"
 #include "shared/shared_function.h"
@@ -27,6 +28,8 @@
 #include "authmapper.h"
 #include "webcfg.h"
 #include "spawn.h"
+#include "stats2report.h"
+#include "backtest.h"
 
 using ondra_shared::StdLogFile;
 using ondra_shared::StrViewA;
@@ -42,73 +45,13 @@ using ondra_shared::shared_function;
 using ondra_shared::parseCmdLine;
 using ondra_shared::Scheduler;
 using ondra_shared::Worker;
+using ondra_shared::Dispatcher;
+using ondra_shared::RefCntObj;
+using ondra_shared::RefCntPtr;
 using ondra_shared::schedulerGetWorker;
 
 
-class StatsSvc: public IStatSvc {
-public:
-	StatsSvc(Worker wrk, std::string name, Report &rpt, int interval, int cnt ):wrk(wrk),rpt(rpt),name(name),interval(interval),cnt(cnt)
-		,spread(std::make_shared<double>(0)) {}
-
-	virtual void reportOrders(const std::optional<IStockApi::Order> &buy,
-							  const std::optional<IStockApi::Order> &sell) override {
-		rpt.setOrders(name, buy, sell);
-	}
-	virtual void reportTrades(ondra_shared::StringView<IStockApi::TradeWithBalance> trades, bool margin) {
-		rpt.setTrades(name,trades,margin);
-	}
-	virtual void reportMisc(const MiscData &miscData) {
-		rpt.setMisc(name, miscData);
-	}
-	virtual void reportError(const char *what) {
-		rpt.setError(name, what);
-	}
-
-	virtual void setInfo(StrViewA title,StrViewA asst,StrViewA curc, bool emulated) {
-		if (title.empty()) title = name;
-		rpt.setInfo(name, title, asst, curc, emulated);
-	}
-	virtual void reportPrice(double price) {
-		rpt.setPrice(name, price);
-	}
-	virtual double calcSpread(ondra_shared::StringView<ChartItem> chart,
-			const MTrader_Config &cfg,
-			const IStockApi::MarketInfo &minfo,
-			double balance,
-			double prev_value) const {
-
-		if (*spread == 0) *spread = prev_value;
-
-		if (cnt && *spread != 0) {
-			--cnt;
-			return *spread;
-		} else {
-			cnt += interval;
-			wrk >> [chart = std::vector<ChartItem>(chart.begin(),chart.end()),
-					cfg = MTrader_Config(cfg),
-					minfo = IStockApi::MarketInfo(minfo),
-					balance,
-					spread = this->spread,
-					name = this->name] {
-				LogObject logObj(name);
-				LogObject::Swap swap(logObj);
-				*spread = glob_calcSpread(chart, cfg, minfo, balance, *spread);
-			};
-			return *spread;
-		}
-
-	}
-
-	Worker wrk;
-	Report &rpt;
-	std::string name;
-	int interval;
-	mutable int cnt = 0;
-	std::shared_ptr<double> spread;
-
-
-};
-
+using StatsSvc = Stats2Report;
 
 class NamedMTrader: public MTrader {
 public:
@@ -173,12 +116,48 @@ public:
 static std::vector<NamedMTrader> traders;
 static StockSelector stockSelector;
 
+class ActionQueue: public RefCntObj {
+public:
+	ActionQueue(const Scheduler &sch):sch(sch) {}
+
+	template<typename Fn>
+	void push(Fn &&fn) {
+		bool e = dsp.empty();
+		std::move(fn) >> dsp;
+		if (e) goon();
+	}
+
+	void exec() {
+		if (!dsp.empty()) {
+			dsp.pump();
+			goon();
+		}
+	}
+
+	void goon() {
+		sch.after(std::chrono::seconds(1)) >> [me = RefCntPtr<ActionQueue>(this)]{
+				me->exec();
+		};
+	}
+
+protected:
+	Dispatcher dsp;
+	Scheduler sch;
+};
+
 
 void loadTraders(const ondra_shared::IniConfig &ini,
-		ondra_shared::StrViewA names, StorageFactory &sf,
-		Worker wrk, Report &rpt, bool force_dry_run) {
+		ondra_shared::StrViewA names,
+		StorageFactory &sf,
+		Scheduler sch,
+		Report &rpt,
+		bool force_dry_run,
+		int spread_calc_interval,
+		Stats2Report::SharedPool pool) {
 	traders.clear();
 	std::vector<StrViewA> nv;
+
+	RefCntPtr<ActionQueue> aq ( new ActionQueue(sch) );
 
 	auto nspl = names.split(" ");
 	while (!!nspl) {
@@ -186,7 +165,6 @@ void loadTraders(const ondra_shared::IniConfig &ini,
 		if (!x.empty()) nv.push_back(x);
 	}
 
-	int p = 0;
 	for (auto n: nv) {
 		LogObject lg(n);
 		LogObject::Swap swp(lg);
@@ -195,7 +173,9 @@ void loadTraders(const ondra_shared::IniConfig &ini,
 			MTrader::Config mcfg = MTrader::load(ini[n], force_dry_run);
 			logProgress("Started trader $1 (for $2)", n, mcfg.pairsymb);
 			traders.emplace_back(stockSelector, sf.create(n),
-					std::make_unique<StatsSvc>(wrk, n, rpt, nv.size(), ++p),
+					std::make_unique<StatsSvc>([aq](auto &&fn) {
+							aq->push(std::move(fn));
+					}, n, rpt, spread_calc_interval, pool),
 					mcfg, n);
 		} catch (const std::exception &e) {
 			logFatal("Error: $1", e.what());
@@ -330,6 +310,127 @@ static int cmd_achieve(Worker &wrk, simpleServer::ArgList args, simpleServer::St
 	}
 }
 
+static int cmd_backtest(Worker &wrk, simpleServer::ArgList args, simpleServer::Stream stream, const std::string &cfgfname, IStockSelector &stockSel, Report &rpt, Stats2Report::SharedPool pool) {
+	if (args.length < 1) {
+		stream << "Need arguments: <trader_ident> [option=value ...]\n"; return 1;
+	}
+	StrViewA trader = args[0];
+	auto iter = std::find_if(traders.begin(), traders.end(), [&](const NamedMTrader &dr){
+		return StrViewA(dr.ident) == trader;
+	});
+	if (iter == traders.end()) {
+		stream << "Trader idenitification is invalid: " << trader << "\n";
+		return 1;
+	}
+
+	stream << "Preparing chart\n";
+	stream.flush();
+	NamedMTrader &t = *iter;
+	try {
+		std::vector<ondra_shared::IniItem> options;
+		for (std::size_t i = 1; i < args.length; i++) {
+			auto arg = args[i];
+			auto splt = arg.split("=",2);
+			StrViewA key = splt();
+			StrViewA value = splt();
+			key = key.trim(isspace);
+			value = value.trim(isspace);
+			options.emplace_back(ondra_shared::IniItem::data, trader, key, value);
+		}
+
+		std::optional<BacktestControl> backtest;
+		BacktestControl::BtReport *btrpt_cntr;
+		run_in_worker(wrk, [&] {
+			auto cfg = BacktestControl::loadConfig(cfgfname, trader, options,t.getLastSpread());
+			auto btrpt = std::make_unique<BacktestControl::BtReport>(
+					std::make_unique<Stats2Report>(
+							[=](CalcSpreadFn &&fn) {fn();},
+							"backtest",
+							rpt,
+							cfg.calc_spread_minutes,pool));
+			btrpt_cntr = btrpt.get();
+			t.init();
+			backtest.emplace(stockSel, std::move(btrpt), cfg, t.getChart(),  t.getInternalBalance());
+			return true;
+		});
+
+		stream << "Running ('.' - per hour, '+' - report)\n";
+
+		std::mutex wrlock;
+		auto wrout = [&](StrViewA x) {
+			std::lock_guard<std::mutex> _(wrlock);
+			stream << x;
+			return stream.flush();
+		};
+
+		Scheduler sch = Scheduler::create();
+		sch.each(std::chrono::seconds(1)) >> [p = 0,&wrout]() mutable {
+			char c[2];
+			p = (p + 1) % 4;
+			c[1] = '\b';
+			c[0] = "\\|/-"[p];
+			wrout(StrViewA(c,2));
+		};
+
+		int mdv = 0;
+		auto tc = std::chrono::system_clock::now();
+		while (backtest->step()) {
+			auto tn = std::chrono::system_clock::now();
+			mdv++;
+			if (mdv >= 60) {
+				if (!wrout(".")) break;
+				mdv = 0;
+			}
+			if (std::chrono::duration_cast<std::chrono::seconds>(tn-tc).count()>50) {
+				run_in_worker(wrk,[&] {
+					btrpt_cntr->flush();
+					rpt.genReport();
+					wrout("+");
+					return true;
+				});
+				tc = tn;
+			}
+		}
+		sch.clear();
+		stream << "\nGenerating report\n";
+		stream.flush();
+		run_in_worker(wrk,[&] {
+			btrpt_cntr->flush();
+			rpt.genReport();
+			return true;
+		});
+		stream << "Done\n";
+		return 0;
+	} catch (std::exception &e) {
+		stream << e.what() << "\n";
+		return 2;
+	}
+
+}
+
+static int cmd_config(Worker &wrk, simpleServer::ArgList args, simpleServer::Stream stream, const ondra_shared::IniConfig &cfg) {
+	if (args.length < 1) {
+		stream << "Need argument: <trader_ident>\n"; return 1;
+	}
+	auto sect = cfg[args[0]];
+	std::stringstream buff;
+	MTrader::showConfig(sect, false, buff);
+	std::vector<std::string> list;
+	buff.seekp(0);
+	std::string line;
+	while (std::getline(buff,line)) list.push_back(line);
+	std::sort(list.begin(),list.end());
+	for (auto &&k : list)
+		stream << k << "\n";
+	return 0;
+}
+
+
+static ondra_shared::CrashHandler report_crash([](const char *line) {
+	ondra_shared::logFatal("CrashReport: $1", line);
+});
+
+
 class App: public ondra_shared::DefaultApp {
 public:
 
@@ -354,7 +455,9 @@ public:
 				"erase_trade  - erases trade. Need id of trader and id of trade",
 				"reset        - erases all trades expect the last one",
 				"achieve      - achieve an internal state (achieve mode)",
-				"repair       - repair pair"
+				"repair       - repair pair",
+				"backtest     - backtest",
+				"show_config  - shows trader's complete configuration"
 		};
 
 		const char *intro[] = {
@@ -398,13 +501,18 @@ int main(int argc, char **argv) {
 				auto pidfile = servicesection.mandatory["inst_file"].getPath();
 				auto name = servicesection["name"].getString("mmbot");
 				auto user = servicesection["user"].getString();
+				auto wrkcnt = servicesection["workers"].getUInt(std::thread::hardware_concurrency());
 
 				std::vector<StrViewA> argList;
 				while (!!*app.args) argList.push_back(app.args->getNext());
 
+				report_crash.install();
+
+
 				return simpleServer::ServiceControl::create(name, pidfile, cmd,
 					[&](simpleServer::ServiceControl cntr, ondra_shared::StrViewA name, simpleServer::ArgList arglist) {
 
+					{
 						if (app.verbose && cntr.isDaemon()) {
 
 							std::cerr << "Verbose is not avaiable in daemon mode" << std::endl;
@@ -427,6 +535,8 @@ int main(int argc, char **argv) {
 						auto lstsect = app.config["traders"];
 						auto names = lstsect.mandatory["list"].getString();
 						auto storagePath = lstsect.mandatory["storage_path"].getPath();
+						auto storageBinary = lstsect["storage_binary"].getBool(true);
+						auto spreadCalcInterval = lstsect["spread_calc_interval"].getUInt(10);
 						auto rptsect = app.config["report"];
 						auto rptpath = rptsect.mandatory["path"].getPath();
 						auto rptinterval = rptsect["interval"].getUInt(864000000);
@@ -484,7 +594,7 @@ int main(int argc, char **argv) {
 
 
 
-						StorageFactory sf(storagePath);
+						StorageFactory sf(storagePath,5,storageBinary?Storage::binjson:Storage::json);
 						StorageFactory rptf(rptpath,2,Storage::json);
 
 						Report rpt(rptf.create("report.json"), rptinterval, a2np);
@@ -493,9 +603,10 @@ int main(int argc, char **argv) {
 
 						Scheduler sch = ondra_shared::Scheduler::create();
 						Worker wrk = schedulerGetWorker(sch);
+						Stats2Report::SharedPool pool(wrkcnt);
 
 
-						loadTraders(app.config, names, sf,wrk, rpt, test);
+						loadTraders(app.config, names, sf,sch, rpt, test,spreadCalcInterval, pool);
 
 						logNote("---- Starting service ----");
 
@@ -569,6 +680,12 @@ int main(int argc, char **argv) {
 						cntr.addCommand("repair", [&](simpleServer::ArgList args, simpleServer::Stream stream){
 							return cmd_singlecmd(wrk, args,stream,&MTrader::repair);
 						});
+						cntr.addCommand("backtest", [&](simpleServer::ArgList args, simpleServer::Stream stream){
+							return cmd_backtest(wrk, args, stream, app.configPath.string(), stockSelector, rpt, pool);
+						});
+						cntr.addCommand("show_config", [&](simpleServer::ArgList args, simpleServer::Stream stream){
+							return cmd_config(wrk, args, stream, app.config);
+						});
 						std::size_t id = 0;
 						cntr.addCommand("run",[&](simpleServer::ArgList, simpleServer::Stream) {
 
@@ -602,19 +719,18 @@ int main(int argc, char **argv) {
 
 						cntr.dispatch();
 
-
-					sch.remove(id);
-					sch.sync();
-
-					traders.clear();
-					stockSelector.clear();
-
+						sch.remove(id);
+						sch.sync();
+						traders.clear();
+						stockSelector.clear();
+					}
 					logNote("---- Exit ----");
+
 
 					return 0;
 
 					}, simpleServer::ArgList(argList.data(), argList.size()),
-					cmd == "calc_range" || cmd == "get_all_pairs" || cmd == "achieve" || cmd == "reset" || cmd=="repair");
+					cmd == "calc_range" || cmd == "get_all_pairs" || cmd == "achieve" || cmd == "reset" || cmd=="repair" || cmd == "backtest" || cmd == "show_config");
 			} catch (std::exception &e) {
 				std::cerr << "Error: " << e.what() << std::endl;
 				return 2;

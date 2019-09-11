@@ -88,8 +88,15 @@ Nastavuje logování
 
 **file** = jméno souboru, do kterého program loguje svou činnost
 
-**level** = level: **debug**,**info**,**progress**,**note**,**warning**,**error**,**fatal**,
+**level** = level: **debug**,**info**,**progress**,**note**,**warning**,**error**,**fatal**, Každá úroveň zahrnuje výpisy z vyšší úrovně
 
+ - **debug** - všechny výpisy včetně ladících
+ - **info** - vše kromě ladících výpisů
+ - **progress** - představuje výpisy informující o průběhu operace
+ - **note** - výpisy obsahující zásadní informaci
+ - **warning** - výpisy obsahující varování, které za určitých situacích mohou být považovány za chybu
+ - **error** - výpisy představující chyby, které znamenají, že se nějaká operace neprovedla, ale jinak nemají vliv na běh robota
+ - **fatal** - zásadní chyba, která představuje ukončení činnosti robota 
 
 ### [report]
 
@@ -188,6 +195,9 @@ Soubor **traders.conf** je vložen do hlavního konfiguračního suboru přes **
 list=ltcczk btcczk ethczk xrpczk bchczk dashczk grinusdc
 ```
 
+**spread_calc_interval** = (volitelné) Interval v minutách jak často se přepočítává spread. Výchozí hodnota je 10
+
+
 ### Konfigurace obchodníků
 
 
@@ -232,10 +242,26 @@ Poloniex: BTC_ETH
 
 Informaci o tom, kdy lze očekávat vyčerpání assetů nebo currency poskytne příkaz **calc_ranges**
 
+**neutral_pos** = (volitelné) specifikuje neutrální pozici. Lze ji zadat jako čislo, pak 
+určuje, kolik fyzicky držených assetů na burze má robot považovat za neutrální pozici (ted bez zápočtu `external_assets`). Alternativně lze zadat před číslo klíčové slovo
+  * **assets** /číslo/ - stejné jako samotné číslo
+  * **currency** /číslo/ - neutrální pozice je odvozena od zůstatku currency na účtu
+  * **center** /číslo/ - hodnota určuje číslo jako poměr mezi assets a currency. Hodnota 1 představuje 50:50. Hodnota 2 pak 33:66, atd.
+
+Nastavení neutrální pozice umožňuje řídit obchodování k maximalizaci zisku z pozice. Bez určení neutrální pozice se maximalizuje normalizovaný profit. Samotná specifikace neutrální pozice způsobí, že graf normalizovaného zisku je přepočítán na potenciální zisk z držené pozice. Některé další volby vyžadují nastavenou neutrální pozici, jinak nefungují. Nastavení **neutral_pos=0** je vhodné pro pákové burzy, kde pozice se přímo mapuje na pozici na burze.
+  
+**max_pos** = (volitelné) zakazuje robotovi vzít pozici větší, než zadané číslo (včetně pozice záporné, tedy shortu). 
 
 **dynmult_raise** = (volitelné) definuje zvýšení dynamického multiplikátoru. Dynamický multiplikátor má stejný význam jako **buy_step_mult**/**sell_step_mult**, pouze se po čas obchodování dynamicky mění. Pokaždé, když je realizován obchod dojde k jeho zvýšení. Když se neobchoduje, časem se snižuje až na 1. Existují dva nezávislé multiplikátory, jeden pro nákup a druhý pro prodej. Tato hodnota definuje o kolik procent se zvedne dynamický multiplikátor při realizaci obchodu. Výchozí hodnota je 200 (Tedy 200 procent). Každý další obchod může multiplikátor zvýšit ještě víc podle jeho aktuální hodnoty 
 
 **dynmult_fall** = (volitelné) definuje snížení dynamického multiplikátoru. Dynamický multiplikátor má stejný význam jako **buy_step_mult**/**sell_step_mult**, pouze se po čas obchodování dynamicky mění. Pokaždé, když je realizován obchod dojde k jeho zvýšení. Když se neobchoduje, časem se snižuje až na 1. Existují dva nezávislé multiplikátory, jeden pro nákup a druhý pro prodej. Tato hodnota definuje o kolik procent klesne dynamicky multiplikátor, když se v daném kole neobchoduje. Výchozí hodnota je 2.5%. V praxi to znamená, že multiplikátor zvýšený o 200% v době obchodu klesne po cca 27 minutách na hodnotu 1.5x a na normální hodnotu se dostane po cca 44 minutách.
+
+**dynmult_mode** = nabývá hodnot `independent`, `together`, `alternate`, `half_alternate`, výchozí hodnota je  `independent`. Řídí chování multiplikátorů dynmult.
+ - `independent` - dynamické multiplikátory jsou nezávisle na sobě zvyšovány a snižovány na základě toho, jaký pokyn se exekuoval
+ - `together` - dynamické multiplikátory se zvyšují společně pokud byl exekuován libovolný pokyn a snižují se, v období klidu. Vhodné pro zachycení největší amplitudy rozkmitu ceny na vysoce volatilním trhu
+ - `alternate` - exekuce pokynu jedním směrem zvýší příslušný multiplikátor, avšak multiplikátor pro opačný směr nastaví zpět na 1. Vhodné pro zachycení rychlých pollbacků při pumpách a dumpách.
+ - `half_alternate`  - exekuce pokynu jedním směrem zvýší příslušný multiplikátor, avšak multiplikátor pro opačný směr se sníží na polovic. Vhodné pro zachycení rychlých pollbacků při pumpách a rychlých trendech avšak není tak dravý jako `alternate`
+ 
 
 **acum_factor_buy** - akumulační faktor při nákupu. Určuje, zda má robot spíš akumulovat assety nebo peníze. Pokud je zadáno 0, pak veškerý profit je připsán do peněz. Pokud je zadáno 1, pak profit je použit na nákup většího množství assetů. To může ve výsledku zvýšit budoucí profity, ale zároveň způsobí, že celkový normalizovaný profit bude závislý na aktuální ceně assetů. Výchozí hodnota je 0.5, tedy 50% normalizovaného profitu jde do assetů 
 
@@ -243,15 +269,13 @@ Informaci o tom, kdy lze očekávat vyčerpání assetů nebo currency poskytne 
 
 **internal_balance** - způsobí, že robot nebude sledovat balanci na burze, ale bude ji počítat z načtených obchodů. Tím přestane být výpočet ovlivňován změnami balance na burze, což může být přínosné zejména pro pár BTC/USD, pokud se zároveň obchoduje XXX/BTC (kdy BTC funguje jako currency). Tuto funkci zapněte později, až když nejaké trady byly na páru zaznamenány a uloženy, robot pak použije poslední uložený stav za výchozí. Je-li tato funkce zapnuta pro pár od začátku, pak je výchozí balancí 0 a výpočet funguje správně pouze pokud je zároveň nastavena položka `external_assets`
 
-**sliding_pos.change**, **sliding_pos.assets** - dvojice nastavení přepne robota do režimu 
-kdy se snaží postupně v čase nakupovat a prodávat assety tak, aby docílil zadaného počtu 
-assetů drženého na burze. **sliding_pos.change** definuje změnu ceny neutrální pozice (cena
-která odpovídá množství držených assets) oproti ceně posledního obchodu v procentech z rozdílu. Například pokud neutrální pozice vychází na cenu 1000 USD a poslední obchod je za
-2000 USD, a toto nastavení je 5, pak se neutrální pozice přepočítá na cenu 1005. Dalšími
-obchody lze eventuálně cenu neutrální pozice "dotáhnout" k aktuální ceně. Doporučená hodnota je v rozsahu `0-10`. Přepočet probíhá vždy při provedení obchodu. Proměnná **sliding_pos.assets** definuje, kolik assetů na burze je považováno za neutrální pozici. Výchozí hodnota je `0`. K této hodnotě je během výpočtu přičtena ještě hodnota `external_assets`, proto tato hodnota představuje množství assetů na burze bez započtení externích assetů.  Výchozí hodnota je přizpůsobena pro pákové burzy typu Deribit, kde neutrální pozící je zpravidla myšlena
- nulová pozice. 
- 
- **POZNÁMKA:** - Pokud je proměnná **sliding_pos.change** nenulová, robot počítá některé statistiky jinak. Například se nezobrazují statistiky o množství akumulovaných assetů a všechny zisky ať již z akumulace nebo z normalizovaného profitu jsou sloučeny. V tomto režimu také přesnější informace poskytne statistika `P/L from position`.  
+**sliding_pos.hours** - Specifikuje s jakou rychlostí se posouvá cena neutrální pozice. Tato volba musí být v kombinaci s `neutral_pos`. Hodnota je hodinách. Je v celku obtížné ji dobře nastavit. Příliš malé hodnoty mohou ve výsledku generovat ztrátu. Příliš velké hodnoty zase nezajistí posun tak rychle, aby se obchodování nedostalo mimo rozsah. Výpočet nejvíc sedí na EMA v hodinovém grafu. Optimální hodnota cca 240 (deset dní)
+
+**sliding_pos.weaken** - Specifikuje zeslabování obchodní síly se zvyšování pozice. Hodnota definuje maximální pozici (při téhle pozici bude obchodování víceméně minimální) Hodnota se zadává jako procento z `external_assets`+`neutral_pos`. Pomocí backtestů byla zjištěna optimální hodnota 10-11. Vyšší hodnoty dovolí vyšší pozici. Volbu je dobré kombinovat se sliding_pos.hours. Pokud se obchodování přesune rychle na jinou cenu, vlivem snižování obchodní síly nebude nabraná taková ztráta. Časem dojde ke srovnání neutrální ceny a aktuální ceny. Nicméně zeslabení obchodní síly snižuje potenciální zisk 
+
+**accept_loss** - pokud je nenulová, definuje počet hodin od posledního trade, po kterou musí mít robot zablokované vydání pokynu v jednom směru, aby se aktivovala funkce `accept_loss`. Zároveň musí být splněno, že dynamické multiplikátory jsou rovné 1. Pokud je tedy toto splněno, robot posune equlibrium na cenu zablokovaného pokynu a tím akceptuje ztrátu vzniklou tím, že se pokyn nebude realizovat. Pokyn může být zablokován v důsledku `sliding_pos.max_pos`, ale v důsledku toho, že nejsou prostředky na burze. Je třeba si ovšem dát pozor, aby pokyn nebyl zablokován například v důsledku dlouhotrvající maintenance na burze (robot momentálně nerozpozná důvod zablokování). Proto je dobré nastavit hodnotu na řádově několik hodin, například 12 (nejdelší maintenance míval Bitfinex = 7 hodin)
+
+**enabled** - ve výchozím stavu je nastaveno na `true` a umožňuje běh robota na zadaném páru. Pokud je nastaveno na `false`, robot zruší všechny své pokyny a přestane obchodovat. Pokyny jsou zablokované (ale nereaguje ani funkce `accept_loss`). V tomto stavu také neprobíhá výpočet spreadu. Nicméně probíhá sběr dat pro výpočet spreadu.   
 
 **detect_manual_trades** - `(experimentální)` Robot se pokouší označit načtené obchody které neprovedl on jako manuální obchody (provedené uživatelem ručně na burze). Tyto obchody se pak nezapočítávají do statistik a přehledů. Pokud je zároveň zapnuta `internal_balance`, pak se tyto trady nezapočítávají ani do balance. Funkce je v režimu experimentální, protože zaznamenává nemalé procento false positive (robot někdy nepozná svůj obchod)
 
@@ -263,15 +287,47 @@ obchody lze eventuálně cenu neutrální pozice "dotáhnout" k aktuální ceně
 
 **spread_calc_max_trades** = (volitelné) Maximální počet obchodů na den při backtestu - Při výpočtu spreadu se hodnotí, kolik denně obchodů robot provedl. Pokud provedl více, než je zadaná hodnota, příslušný test se vyřadí (obdrží nízké skoré) a použije se jiný výsledek. Výchozí hodnota je **24**
 
+**force_spread** = (volitelné) Vynutí si konkrétní spread. Hodnota je zadána jako logaritmus o základu e. Hodnota 0.01 odpovídá 1%. Výpočet log(x/100+1), kde x je spread v procentech. Pokud je vynucen spread, pak se výpočet spreadu nespouští
 
+**min_size** = (volitelné) specifikuje minimální velikost pokynu. Vhodné, pokud burza tvrdošině blokuje příliš malé pokyny.
 
+**dust_orders** = (volitelné) umožňuje robotovi vytvářet pokyny s minimální velikostí na cenách na kterých by order vycházel podle výpočtu záporný. Toto opatření umožní robotovi rychleji srovnat equilibrium - záporné velikosti jsou totiž důsledkem nesouladu mezi cenou posledního trade a spočítanou rovnováhou. Důvodem mohou být malé multiplikátory velikosti a sliding_pos. Přepočet probíhá vždy po exekuci a tak exekucie minimálního pokynu pomáhá přepočtu a zároveň díky minimální velikosti pokynu nemá velký dopad na narušení rovnováhy. Tato volba je ve výchozím stavu zapnuta. Pokud však vytváření pokynů s minimální velikostí způsobuje problémy, lze tuto funkci vypnout nastavením na `off`
 
-#### starší a obsolete
+**buy_mult** = násobí velikost nákupního pokynu číslem. Výsledný výpočet nemění spočtenou rovnováhu. Pokud je číslo menší než 1, pak při exekuci tohoto příkazu dojde ke zvýšení velikosti pokynu na nižšá ceně. Pokud je číslo větší než 1, pak naopak příští pokyn může být menší na vyšší ceně. Multiplikátor může pomoci funkci sliding_pos snížením ztráty při velkému posunu ceny od středu. Celkem rozumným nastavením je hodnota 0.7. Multiplikátor lze testovat ve webovém prostředí v kalkulačce `Sliding pos`. Tam se udává v procentech. Přepočet na multiplikátor je jednoduchý: Podělte 100x a přičtetě jedničku (-30 = 0.7, 50 = 1.5). Výchozí hodnota je **1**
 
-**buy_mult** = _není dále podporován_
-**sell_mult** = _není dále podporován_
+**sell_mult** = násobí velikost prodejního pokynu číslem. Výsledný výpočet nemění spočtenou rovnováhu. Pokud je číslo menší než 1, pak při exekuci tohoto příkazu dojde ke zvýšení velikosti pokynu na vyšší ceně. Pokud je číslo větší než 1, pak naopak příští pokyn může být menší na nižší ceně. Multiplikátor může pomoci funkci sliding_pos snížením ztráty při velkému posunu ceny od středu. Celkem rozumným nastavením je hodnota 0.7. Multiplikátor lze testovat ve webovém prostředí v kalkulačce `Sliding pos`. Tam se udává v procentech. Přepočet na multiplikátor je jednoduchý: Podělte 100x a přičtetě jedničku (-30 = 0.7, 50 = 1.5). Výchozí hodnota je **1**
 
 **buy_step_mult** = (volitelné) Nákupní multiplikátor kroku. Upravuje krok spreadu tím, že ho vynásobí zadaným číslem. Nákupní příkaz tak bude umístěn dále (>1) nebo blíže (<1) středu. Adekvátně bude upraveno i množství dle výpočtu: Výchozí hodnota je **1**
 
 **sell_step_mult** = (volitelné) Prodejní multiplikátor kroku. Upravuje krok spreadu tím, že ho vynásobí zadaným číslem. Prodejní příkaz tak bude umístěn dále (>1) nebo blíže (<1) středu. Adekvátně bude upraveno i množství dle výpočtu: Výchozí hodnota je **1**
+
+
+#### volby pro backtest
+
+Pro backtest lze použít všechny volby z konfigurace obchodníka a k tomu tyto navíc. 
+
+Volby pro backtest se většinou zadávájí na příkazovém řádku, avšak mají stejný formát jako volby configu. Mohou být uvedeny i v nastavení páru, ale mimo backtest se ignorují
+
+**spread_calc_interval** = specifikuje interval jak často se přepočítává spread během backtestu. Hodnota je v minutách (bere se čas grafu). Vychozí hodnota je 0 a tím se přepočet spreadu vypíná. Jako výchozí spread se použije spread na zdrojovém páru v době spuštění backtestu. Spread je možné změnit pomocí `force_spread` a nebo zapnutím této volby. Ale pozor. výpočet spreadu je velice pomalá operace, proto se doporučuje nastavovat interval kolem 1000 a víc, nebo si nechat spread první průchodem spočítat a pro další průchody použít `force_spread`
+
+
+##### Generování grafu
+
+* Není-li určeno jinak, tak se backtest provádí nad daty určenými pro výpočet spreadu. Tam je zpravidla k dispozici cca 5 dní minutových dat (přesněji `spread_calc_hours` ovšem nad původním párem) 
+
+**mirror** = prochází vygenerovaný graf tam a zpět. Díky tomu se eliminuje trend. Vychozí je zapnuto
+
+**repeat** = vytvoří graf tím že zopakuje již vytvoření graf víckrát. Pokud není jinak uvedeno, zopakuje se graf vytvořený  zdat určených pro výpočet spreadu
+
+**trend** = přidává trend. Pozor hodnota určuje posun v procentech za 1 minutu. Bývá to hodně malé číslo: např 0.0001. Kládná čísla představují rostoucí trend, záporná klesající. Je-li aktivní `mirror`, pak je výsledkem stříška nebo V. U inverzních futures je význam znaménka otočen
+
+**random** = generuje n8hodný graf. Parametr určuje počet minut.
+
+**seed** = (povinné pokud s `random`) libovolné číslo fungující jako seed. Změnou čísla se vygeneruje jiný graf
+
+**stddev** = několik hodnot oddělených lomítkem:  Například 0.04/0.02/0.01 - počet hodnot není omezen, ale většinou bývají 1-4. První hodnota uvádí směrodatnou odchylku náhodného trendu, který se mění každou minutu. Druhá hodnota určuje tento trend pro 2 minuty, třetí hodnota pro 4 minuty atd. Výsledná změna ceny je dána jako kombinace všech náhodných změn. Jiný příklad: ////0.01 - definuje že pouze každých 16 minut se změní směr grafu.
+
+**merge** = on/off sloučí data určená pro výpočet spreadu s náhodným grafem. Výsledkem je graf, který může mít vlostnosti které se blíží skutečnému trhu. Výchozí je off
+
+**dump_chart** = cesta. Specifikuje cestu na soubor. kam se uloží vygenerovaný graf pro kontrolu. Cesta musí být absolutní. Pokud použijete příponu `.csv`, lze soubor otevřít v Excelu/LibreOffice
 

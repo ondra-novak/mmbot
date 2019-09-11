@@ -25,10 +25,6 @@ using std::chrono::_V2::system_clock;
 using namespace json;
 
 
-Value fixNum(double val) {
-	if (isfinite(val)) return val;
-	else return "∞";
-}
 
 
 void Report::genReport() {
@@ -59,17 +55,22 @@ struct ChartData {
 
 void Report::setOrders(StrViewA symb, const std::optional<IStockApi::Order> &buy,
 	  	  	  	  	  	  	  	     const std::optional<IStockApi::Order> &sell) {
-	OKey buyKey {symb, 1};
-	OKey sellKey {symb, -1};
+	const json::Value &info = infoMap[symb];
+	bool inverted = info["inverted"].getBool();
+
+	int buyid = inverted?-1:1;
+
+	OKey buyKey {symb, buyid};
+	OKey sellKey {symb, -buyid};
 
 	if (buy.has_value()) {
-		orderMap[buyKey] = {buy->price, buy->size};
+		orderMap[buyKey] = {inverted?1.0/buy->price:buy->price, buy->size*buyid};
 	} else{
 		orderMap[buyKey] = {0, 0};
 	}
 
 	if (sell.has_value()) {
-		orderMap[sellKey] = {sell->price, sell->size};
+		orderMap[sellKey] = {inverted?1.0/sell->price:sell->price, sell->size*buyid};
 	} else {
 		orderMap[sellKey] = {0, 0};
 	}
@@ -83,6 +84,10 @@ void Report::setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> tr
 	using ondra_shared::range;
 
 	json::Array records;
+
+	const json::Value &info = infoMap[symb];
+	bool inverted = info["inverted"].getBool();
+	double pos = info["po"].getNumber();
 
 
 
@@ -108,19 +113,19 @@ void Report::setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> tr
 
 		double prev_balance = t.balance-t.eff_size;
 		double prev_price = init_price;
-		double ass_sum = 0;
 		double cur_sum = 0;
 		double cur_fromPos = 0;
 		double norm_sum_ass = 0;
 		double norm_sum_cur = 0;
-
+		double potentialpl = 0;
+		double neutral_price = 0;
 
 
 		while (iter != tend) {
 
 			auto &&t = *iter;
 
-			double gain = (t.eff_price - prev_price)*ass_sum ;
+			double gain = (t.eff_price - prev_price)*pos ;
 			double earn = -t.eff_price * t.eff_size;
 			double bal_chng = (t.balance - prev_balance) - t.eff_size;
 			invst_value += bal_chng * t.eff_price;
@@ -130,19 +135,30 @@ void Report::setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> tr
 			double asschg = (prev_balance+t.eff_size) - calcbal ;
 			double curchg = -(calcbal * t.eff_price -  prev_balance * prev_price - earn);
 			double norm_chng = 0;
+
 			if (iter != trades.begin() && !iter->manual_trade) {
 				cur_fromPos += gain;
-				ass_sum += t.eff_size;
 				cur_sum += earn;
 
 				norm_sum_ass += asschg;
 				norm_sum_cur += curchg;
 				norm_chng = curchg+asschg * t.eff_price;
+
+				pos += t.eff_size;
+
+
+				double np = t.balance-pos;
+				neutral_price = t.eff_price * pow2(t.balance/np);
+				potentialpl = cur_fromPos + pos*(neutral_price-sqrt(t.eff_price*neutral_price));
+
+
 			}
 			if (iter->manual_trade) {
 				invst_value += earn;
 			}
-			double norm = norm_sum_cur;
+			double norm;
+			norm = norm_sum_cur;
+
 
 			prev_balance = t.balance;
 			prev_price = t.eff_price;
@@ -150,25 +166,26 @@ void Report::setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> tr
 			double invst_time = t.time - invest_beg_time;
 			double invst_n = norm/invst_time;
 			if (!std::isfinite(invst_n)) invst_n = 0;
-//			double app = ((norm/invest_time)*(365.0*24.0*60.0*60.0*1000.0)*100.0)/(t.balance*t.eff_price);
-//			if (!std::isfinite(app)) app = 0;
+
 
 			if (t.time >= first) {
 				records.push_back(Object
 						("id", t.id)
 						("time", t.time)
-						("achg", t.eff_size)
+						("achg", (inverted?-1:1)*t.eff_size)
 						("gain", gain)
-						("norm", norm)
+						("norm", margin?Value():Value(norm))
 						("normch", norm_chng)
-						("nacum", norm_sum_ass)
-						("pos", ass_sum)
+						("nacum", margin?Value():Value((inverted?-1:1)*norm_sum_ass))
+						("pos", (inverted?-1:1)*pos)
 						("pl", cur_fromPos)
-						("price", t.price)
+						("pln", potentialpl)
+						("price", (inverted?1.0/t.price:t.price))
 						("invst_v", invst_value)
 						("invst_n", invst_n)
-						("volume", -t.eff_price*t.eff_size)
+						("volume", (inverted?1:-1)*t.eff_price*t.eff_size)
 						("man",t.manual_trade)
+						("np",(inverted?1.0/neutral_price:neutral_price))
 				);
 			}
 
@@ -197,20 +214,28 @@ bool Report::OKeyCmp::operator ()(const OKey& a, const OKey& b) const {
 	}
 }
 
-void Report::setInfo(StrViewA symb,StrViewA title, StrViewA assetSymb, StrViewA currencySymb, bool emulated) {
-	titleMap[symb] = Object
-			("title",title)
-			("currency", currencySymb)
-			("asset", assetSymb)
-			("emulated",emulated);
+void Report::setInfo(StrViewA symb, const InfoObj &infoObj) {
+	infoMap[symb] = Object
+			("title",infoObj.title)
+			("currency", infoObj.currencySymb)
+			("asset", infoObj.assetSymb)
+			("price_symb", infoObj.priceSymb)
+			("inverted", infoObj.inverted)
+			("emulated",infoObj.emulated)
+			("po", infoObj.position_offset);
 }
 
 void Report::setPrice(StrViewA symb, double price) {
-	priceMap[symb] = price;
+
+	const json::Value &info = infoMap[symb];
+	bool inverted = info["inverted"].getBool();
+
+	priceMap[symb] = inverted?1.0/price:price;;
 }
 
 
 void Report::exportOrders(json::Array &&out) {
+
 	for (auto &&ord : orderMap) {
 		if (ord.second.size) {
 			out.push_back(Object
@@ -224,7 +249,7 @@ void Report::exportOrders(json::Array &&out) {
 }
 
 void Report::exportTitles(json::Object&& out) {
-	for (auto &&rec: titleMap) {
+	for (auto &&rec: infoMap) {
 			out.set(rec.first, rec.second);
 	}
 }
@@ -235,13 +260,23 @@ void Report::exportPrices(json::Object &&out) {
 	}
 }
 
-void Report::setError(StrViewA symb, const char *what) {
-	miscMap[symb] = Object("error", what);
+void Report::setError(StrViewA symb, const ErrorObj &errorObj) {
+
+	const json::Value &info = infoMap[symb];
+	bool inverted = info["inverted"].getBool();
+
+	Object obj;
+	if (!errorObj.genError.empty()) obj.set("gen", errorObj.genError);
+	if (!errorObj.buyError.empty()) obj.set(inverted?"sell":"buy", errorObj.buyError);
+	if (!errorObj.sellError.empty()) obj.set(inverted?"buy":"sell", errorObj.sellError);
+	errorMap[symb] = obj;
 }
 
 void Report::exportMisc(json::Object &&out) {
 	for (auto &&rec: miscMap) {
-			out.set(rec.first, rec.second);
+			auto erritr = errorMap.find(rec.first);
+			Value err = erritr == errorMap.end()?Value():erritr->second;
+			out.set(rec.first, rec.second.replace("error", err));
 	}
 }
 
@@ -278,17 +313,48 @@ ondra_shared::PStdLogProviderFactory Report::captureLog(ondra_shared::PStdLogPro
 }
 
 void Report::setMisc(StrViewA symb, const MiscData &miscData) {
-	miscMap[symb] = Object
-			("t",miscData.trade_dir)
-			("a", miscData.achieve)
-			("mcp", fixNum(miscData.calc_price))
-			("mv", fixNum(miscData.value))
-			("ms", fixNum(miscData.spread))
-			("mdmb", fixNum(miscData.dynmult_buy))
-			("mdms", fixNum(miscData.dynmult_sell))
-			("mb",fixNum(miscData.boost))
-			("ml",fixNum(miscData.lowest_price))
-			("mh",fixNum(miscData.highest_price))
-			("mt",miscData.total_trades)
-			("error",nullptr);
+
+	const json::Value &info = infoMap[symb];
+	bool inverted = info["inverted"].getBool();
+
+	double spread;
+	if (inverted) {
+		spread = 1.0/miscData.calc_price - 1.0/(miscData.spread+miscData.calc_price) ;
+	} else {
+		spread = miscData.spread;
+	}
+
+
+	if (inverted) {
+
+		miscMap[symb] = Object
+				("t",-miscData.trade_dir)
+				("a", miscData.achieve)
+				("mcp", 1.0/miscData.calc_price)
+				("mv", miscData.value)
+				("ms", spread)
+				("mdmb", miscData.dynmult_sell)
+				("mdms", miscData.dynmult_buy)
+				("sm", miscData.size_mult)
+				("mb",miscData.boost)
+				("ml",1.0/miscData.highest_price)
+				("mh",1.0/miscData.lowest_price)
+				("mt",miscData.total_trades)
+				("tt",miscData.total_time);
+	} else {
+		miscMap[symb] = Object
+				("t",miscData.trade_dir)
+				("a", miscData.achieve)
+				("mcp", miscData.calc_price)
+				("mv", miscData.value)
+				("ms", spread)
+				("mdmb", miscData.dynmult_buy)
+				("mdms", miscData.dynmult_sell)
+				("sm", miscData.size_mult)
+				("mb",miscData.boost)
+				("ml",miscData.lowest_price)
+				("mh",miscData.highest_price)
+				("mt",miscData.total_trades)
+				("tt",miscData.total_time);
+	}
 }

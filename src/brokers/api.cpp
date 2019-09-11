@@ -111,7 +111,9 @@ static Value getInfo(IStockApi &handler, const Value &req) {
 			("min_volume", nfo.min_volume)
 			("fees", nfo.fees)
 			("feeScheme",IStockApi::strFeeScheme[nfo.feeScheme])
-			("leverage", nfo.leverage);
+			("leverage", nfo.leverage)
+			("invert_price", nfo.invert_price)
+			("inverted_symbol", nfo.inverted_symbol);
 }
 
 

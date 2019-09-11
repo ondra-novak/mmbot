@@ -17,6 +17,7 @@ public:
 
 	virtual void store(json::Value data) = 0;
 	virtual json::Value load() = 0;
+	virtual ~IStorage() {}
 
 
 };

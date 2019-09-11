@@ -2,7 +2,7 @@ function beginOfDay(dt) {
 	return new Date(dt.getFullYear(), dt.getMonth(), dt.getDate());
 }
 
-
+ 
 function fetch_json(file) {
 	"use strict";
 
@@ -12,16 +12,20 @@ function fetch_json(file) {
 	
 }
 
+var changeinterval=null;
+var source_data=null;
 
-function adjNum(n) {
+function adjNum(n, decimals) {
 	"use strict";
-	if (typeof n != "number") return n;
+	if (typeof n != "number") return n;	
+	if (isNaN(n)) return "---";
 	if (!isFinite(n)) { 
 		if (s < 0) return "-∞";
 		else return "∞";
 	}
+	if (decimals !== undefined) return n.toFixed(decimals);
 	var an = Math.abs(n);
-	if (an > 9999) return n.toFixed(0);
+	if (an >= 100000) return n.toFixed(0);
 	else if (an >= 1) return n.toFixed(2);
 	else if (an > 0.0001) return n.toFixed(6);
 	else {
@@ -31,7 +35,143 @@ function adjNum(n) {
 	}
 }
 
+var base_interval=1200000;
+	var chart_interval=1000;
+
+
+function new_svg_el(name, attrs, childOf) {
+	"use strict";
+		var elem = document.createElementNS("http://www.w3.org/2000/svg", name);
+		if (attrs) {for (var i in attrs) {
+			elem.setAttributeNS(null,i, attrs[i]);
+		}}
+		if (childOf) childOf.appendChild(elem);
+		return elem;
+	}
+
+	
+function drawChart(elem, chart, fld, lines, fld2) {
+	"use strict";
+	
+	var now = new Date(chart[chart.length-1].time);
+	var bday = beginOfDay(now);		
+	var skiphours = Math.floor((now - bday)/(base_interval));
+			
+	elem.innerText = "";
+	
+	var daystep = 24*3600000/base_interval;
+	var step = 2*864000000/chart_interval;
+	var activewidth=step*chart_interval/base_interval;
+	var dattextstep = Math.ceil(120/(daystep*step));
+	var activeheight = (activewidth/3)|0;
+	var minmax = chart.concat(lines?lines:[]).reduce(function(c,x) {
+		if (c.min > x[fld]) c.min = x[fld];
+		if (c.max < x[fld]) c.max = x[fld];
+		return c;
+	},{min:chart[0][fld],max:chart[0][fld]});
+	minmax.sz = minmax.max - minmax.min;
+	minmax.min =  minmax.min - minmax.sz*0.05;
+	minmax.max =  minmax.max + minmax.sz*0.05;
+	var priceStep = activeheight/(minmax.max-minmax.min);
+	var axis = 2;
+	var label = 20;
+	var rowstep = Math.pow(10,Math.floor(Math.log10((minmax.max-minmax.min)/3)));
+	var rowbeg= Math.floor(minmax.min/rowstep);
+	var rowend= Math.floor(minmax.max/rowstep);	
+
+	var svg = new_svg_el("svg",{viewBox:"0 0 "+(activewidth+axis)+" "+(activeheight+axis+label)},elem);
+	new_svg_el("line",{x1:axis, y1:0,x2:axis,y2:activeheight+axis,class:"lineaxis"},svg);
+	new_svg_el("line",{x1:0, y1:activeheight+1,x2:activewidth+axis,y2:activeheight+1,class:"lineaxis"},svg);
+	var cnt = chart.length;
+	function map_y(p) {
+		return activeheight-(p-minmax.min)*priceStep;
+	}
+	function map_x(x) {
+		return x*step+axis;
+	}
+
+	if (!isFinite(rowbeg) || !isFinite(rowend)) return;
+	
+	for (var i = rowbeg; i <=rowend; i++) {
+		var v = i*rowstep;
+		var maj = Math.abs(v)<rowstep/2;
+		var y = map_y(v);
+		new_svg_el("line",{x1:0,y1:y,x2:activewidth+axis,y2:y,class:maj?"majoraxe":"minoraxe"},svg);
+		new_svg_el("text",{x:axis+2,y:y,class:"textaxis"},svg).appendChild(document.createTextNode(adjNum(i*rowstep)));
+	}
+	
+	var xtmpos = activewidth/step-skiphours;
+	while (xtmpos > 0) {
+		var xtm = map_x(xtmpos);
+		new_svg_el("line",{x1:xtm,y1:0,x2:xtm,y2:activeheight,class:"minoraxe"},svg);
+		xtmpos-=daystep;
+	}
+	xtmpos = activewidth/step-skiphours;
+	while (xtmpos > 0) {
+		var xtm = map_x(xtmpos);
+		new_svg_el("text",{x:xtm,y:activeheight,class:"textaxisx"},svg).appendChild(document.createTextNode(bday.toLocaleDateString()));
+		bday.setDate(bday.getDate()-dattextstep);
+		new_svg_el("line",{x1:xtm,y1:activeheight-5,x2:xtm,y2:activeheight,class:"majoraxe"},svg);
+		xtmpos-=daystep*dattextstep;
+	}
+	var tmstart=(now/base_interval-activewidth/step)
+	for (var i = 0; i <cnt-1; i++) {
+		var pos = "stdline";
+		var x1 = map_x(chart[i].time/base_interval-tmstart);
+		var x2 = map_x(chart[i+1].time/base_interval-tmstart);
+		var y1 = map_y(chart[i][fld]);
+		var y2 = map_y(chart[i+1][fld]);
+		new_svg_el("line",{x1:x1,y1:y1,x2:x2,y2:y2,class:pos},svg);
+	}
+	if (fld2) {
+		for (var i = 0; i <cnt-1; i++) {
+			var pos = "stdline2";
+			var x1 = map_x(chart[i].time/base_interval-tmstart);
+			var x2 = map_x(chart[i+1].time/base_interval-tmstart);
+			var y1 = map_y(chart[i][fld2]);
+			var y2 = map_y(chart[i+1][fld2]);
+			new_svg_el("line",{x1:x1,y1:y1,x2:x2,y2:y2,class:pos},svg);
+		}
+	}
+	for (var i = 0; i <cnt; i++) if (chart[i].achg) {
+		var x1 = map_x(chart[i].time/base_interval-tmstart);
+		var y1 = map_y(chart[i][fld]);
+		var man = chart[i].man;
+		var marker = "marker "+(chart[i].achg<0?"sell":"buy") 
+		if (man) {
+			new_svg_el("line",{x1:x1-5,y1:y1-5,x2:x1+5,y2:y1+5,class:marker},svg);
+			new_svg_el("line",{x1:x1+5,y1:y1-5,x2:x1-5,y2:y1+5,class:marker},svg);
+		} else {				
+			new_svg_el("circle",{cx:x1,cy:y1,r:4,class:marker},svg);
+		}
+	}
+	
+	if (lines === undefined) {
+		lines=[];
+	}
+	var l = {};
+	l[fld] = chart[chart.length-1][fld];
+	lines.unshift(l);
+	l.label="";
+	l.class="current"
+	
+	if (Array.isArray(lines)) {
+		lines.forEach(function(x) {
+			var v = x[fld];
+			if (v) {
+				var y = map_y(v);
+				new_svg_el("line",{x1:0,y1:y,x2:activewidth+axis,y2:y,class:"orderline "+x.class},svg);
+				new_svg_el("text",{x:axis,y:y,class:"textorderline "+x.class},svg).appendChild(document.createTextNode(x.label + " "+adjNum(v)));
+			}
+		});
+	}
+	
+}
+
 function app_start(){
+
+	"use strict";
+
 	
 	if (navigator.serviceWorker) {
 		navigator.serviceWorker.register('sw.js', {	
@@ -39,13 +179,30 @@ function app_start(){
 		});
 	}
 	
+	var lastField="";
+	var next_donate_time = 0;
+	var donation_repeat = (10*24*60*60*1000);
+	var last_ntf_time=Date.now();
 	
-	"use strict";
 	try {
-		var lastField = localStorage["markettrader_lastfield"];
+		lastField = localStorage["markettrader_lastfield"];
+		next_donate_time = parseInt(localStorage["next_donate_time"]);
 	} catch (e) {
 
 	}
+	if (isNaN(next_donate_time) || next_donate_time < Date.now()) {
+		next_donate_time = Date.now() + donation_repeat;
+		localStorage["next_donate_time"] = next_donate_time; 	
+	}
+	
+	var donate_time = next_donate_time - donation_repeat;
+	var secondary_charts = {
+		price:"np",
+		pl:"pln"
+	};
+	var show_donate = !localStorage["donation_hidden"]
+	
+	
 
 	var chartlist = {};
 	var indicator = document.getElementById("indicator");
@@ -60,9 +217,16 @@ function app_start(){
 	var options = [];
 	var lastEvents = document.getElementById("lastevents")
 	var selMode = 0;
-	var chart_interval=1000;
 	var curExport = null;
 	var cats = {}
+	var interval = 0;
+	var intervals = [
+		["h",3600],
+		["d",3600*24],
+		["w",3600*24*7],
+		["m",30*3600*24],
+		["y",365*3600*24]
+	];
 	var timediff = null;
 	function fillCats() {
 		var c = selector.firstElementChild;
@@ -80,6 +244,7 @@ function app_start(){
 	function setField(root, name, value, classes) {
 		var info = root.querySelectorAll("[data-name="+name+"]");
 		Array.prototype.forEach.call(info,function(x) {
+			if (typeof value == "number") value = adjNum(value, x.dataset.decimals);
 			x.innerText = value;
 			if (classes) for (var k in classes) {
 				x.classList.toggle(k, classes[k]);
@@ -104,11 +269,11 @@ function app_start(){
 		}
 		var error_element = curchart.querySelector("[data-name=erroricon]");
 		if (error_element) {
-			if (misc && misc.error) {			
+			if (misc && misc.error && misc.error.gen) {			
 				error_element.classList.add("error");
 				error_element.innerText = "";
 				var desc = document.createElement("div");
-				desc.innerText = misc.error;
+				desc.innerText = misc.error.gen;
 				error_element.appendChild(desc);
 			} else {
 				error_element.classList.remove("error");
@@ -120,13 +285,22 @@ function app_start(){
 			info.hidden = false;
 			var pricet = adjNum((ranges.last && ranges.last[0])||0).replace(/[0-9]/g,"–");
 			var post = adjNum((ranges.pos && ranges.pos[0])||0).replace(/[0-9]/g,"–");
+			var pricee = adjNum((ranges.last && ranges.last[0])||0).replace(/[0-9]/g,"×");
 			while (info.firstChild) info.removeChild(info.firstChild);
 			["buy","last","sell", "pos"].forEach(function(n) {
 				var r = ranges[n];
-				var l1 = r?adjNum(r[0]):pricet;
-				var l2 = r?adjNum(r[1]):post;
+				var er = misc && misc.error && misc.error[n];
+				var l1, l2, er;
+				if (!r) {
+					l1 = pricet;
+					l2 = post;
+				} else {
+					l1 = adjNum(r[0]);
+					l2 = adjNum(r[1]);
+				}
 				var elem = document.createElement("div");
 				elem.classList.add(n);
+				if (er) elem.classList.add("error");
 				info.appendChild(elem);					
 				var e = document.createElement("div")
 				e.classList.add("price");
@@ -136,6 +310,12 @@ function app_start(){
 				e.classList.add("size");
 				e.innerText = l2;
 				elem.appendChild(e);				
+				if (er) {
+					var popup = document.createElement("div")
+					popup.innerText = er;
+					popup.classList.add("error_popup");
+					elem.appendChild(popup);
+				}
 			});
 		} else {
 			info.hidden = true;
@@ -183,23 +363,42 @@ function app_start(){
 			chartlist[id] = curchart;
 		}
 		if (!curchart.isConnected) {
-			document.getElementById("chartarea").appendChild(curchart);			
+			document.getElementById("chartarea").appendChild(curchart);						
 		}				
+		curchart.hidden = false;
 		return curchart;
 	}
 	
 	function appendChart(id,  info, data, fld,  orders, ranges, misc) {
+		var curchart = createChart(id, "chart");
 		try {
-			var curchart = createChart(id, "chart");
+			if (!hasChart(data,fld)) {
+				curchart.hidden = true;
+				return;
+			}			
 			var elem_chart = curchart.querySelector("[data-name=chart]");
-			drawChart(elem_chart, data, fld, orders);
+			drawChart(elem_chart, data, fld, orders,  secondary_charts[fld]);
 			fillInfo(curchart, info.title,id,  ranges, info.emulated);
-		} catch (e) {}
+		} catch (e) {
+			curchart.hidden = true;
+		}
 	}
+
+	function appendList(id, info, ranges, misc) {
+		var curchart = createChart(id, "summary");
+		fillInfo(curchart,  info.title,id, ranges, info.emulated, misc);
+		var ext =curchart.getElementsByClassName("extended")[0];
+		ext.hidden = true;
+		var ext =curchart.getElementsByClassName("daystats")[0];
+		ext.hidden = true;
+	}
+
 	
 	function appendSummary(id, info, data, ranges, misc, extra) {
 	//	try {
 			var curchart = createChart(id, "summary");
+			var ext =curchart.getElementsByClassName("daystats")[0];
+			ext.hidden = false;
 			fillInfo(curchart,  info.title,id, ranges, info.emulated, misc);
 			var start = Date.now() - 24*60*60*1000;
 			var sum = data.reduce(function(a,b,idx) {
@@ -216,23 +415,34 @@ function app_start(){
 			},{trades:0,price:0, pos:0,norm:0,pl:0,vol:0, bal:0});
 			setField(curchart,"assets", info.asset);
 			setField(curchart,"curc", info.currency);
+			setField(curchart,"pric", info.price_symb);
+			setField(curchart,"interval",intervals[interval][0]);
 			sum.avg = sum.bal / sum.pos;
 			for (var n in sum) {
 				if (isNaN(sum[n]))
 					removeFieldBlock(curchart,n);
 				else
-					setField(curchart, n, n=="trades"?sum[n]:adjNum(sum[n]), {
+					setField(curchart, n, sum[n], {
 						pos:sum[n]>0,
 						neg:sum[n]<0
 					});
 			}
 			if (misc) {
 				var last_norm = data.length?data[data.length-1].norm:0;
+				var last_nacum = data.length?data[data.length-1].nacum:0;
 				misc.pnorm = last_norm;
 				misc.pnormp = 100*last_norm/misc.mv;
-				misc.avgt = last_norm/misc.mt;
+				if (data.length) {
+					var it = intervals[interval][1]*1000;
+					var lt = data[data.length-1];
+//					misc.avgt = last_norm/misc.mt;
+					misc.avgh = lt.norm/misc.tt*it;
+					misc.avgha = lt.nacum*it/misc.tt;
+					misc.avghpl = it*lt.pln/misc.tt;
+				}
+
 				for (var n in misc)
-					setField(curchart, n, adjNum(misc[n]), {
+					setField(curchart, n, misc[n], {
 						pos:misc[n]>0,
 						neg:misc[n]<0
 					});
@@ -336,42 +546,47 @@ function app_start(){
 			table_rows.set(trbgr, {ident:r.ident, time:r.time});
 			var dr = new Date(r.time);
 			
+			if (r.donation) {
+				var don = document.getElementById("donation_item").content;
+				don = document.importNode(don,true);
+				tr.appendChild(don);
+			} else {
+				var data = [				
+					dr.toLocaleString("default",{"day":"numeric","month":"2-digit"}),
+					dr.toLocaleString("default",{"hour":"2-digit","minute":"2-digit","second":"2-digit"}),
+					r.ident?infoMap[r.ident].title:"",
+					r.achg < 0?"↘":"↗",
+					Math.abs(r.achg),
+					r.price,
+					r.volume,
+					r.normch,
+				]
+				tr.classList.toggle("sell", r.achg<0);
+				tr.classList.toggle("buy", r.achg>0);
+				tr.classList.toggle("manual", r.man);
+				data.forEach(function(z) {
+					var td = document.createElement("x-td");
+					if (typeof z == "number") {
+						td.innerText = adjNum(z);
+						td.classList.add(z<0?"neg":"pos");
+					} else {
+						td.innerText = z;
+					}
+					tr.appendChild(td);
+				});
 			
-			var data = [				
-				dr.toLocaleString("default",{"day":"numeric","month":"2-digit"}),
-				dr.toLocaleString("default",{"hour":"2-digit","minute":"2-digit","second":"2-digit"}),
-				r.ident?infoMap[r.ident].title:"",
-				r.achg < 0?"↘":"↗",
-				Math.abs(r.achg),
-				r.price,
-				r.volume,
-				r.normch,
-			]
-			tr.classList.toggle("sell", r.achg<0);
-			tr.classList.toggle("buy", r.achg>0);
-			tr.classList.toggle("manual", r.man);
-			data.forEach(function(z) {
-				var td = document.createElement("x-td");
-				if (typeof z == "number") {
-					td.innerText = adjNum(z);
-					td.classList.add(z<0?"neg":"pos");
-				} else {
-					td.innerText = z;
-				}
-				tr.appendChild(td);
-			});
 			
-			
-			var ident_element = tr.querySelector("x-td:nth-child(3)");
-			var first_element = tr.querySelector("x-td:first-child");
-			
-			ident_element.addEventListener("click", function() {
-				location.hash = "!"+encodeURIComponent(r.ident);
-			});
-			
-			var trade_id_elem = document.createElement("div");
-			trade_id_elem.innerText =  r.ident + " " + r.id;
-			first_element.appendChild(trade_id_elem);
+				var ident_element = tr.querySelector("x-td:nth-child(3)");
+				var first_element = tr.querySelector("x-td:first-child");
+				
+				ident_element.addEventListener("click", function() {
+					location.hash = "!"+encodeURIComponent(r.ident);
+				});
+				
+				var trade_id_elem = document.createElement("div");
+				trade_id_elem.innerText =  r.ident + " " + r.id;
+				first_element.appendChild(trade_id_elem);
+			}
 			
 			
 		})		
@@ -387,6 +602,12 @@ function app_start(){
 		for (var z in chart) {
 			sumchart = sumchart.concat(chart[z].slice(-20));			
 		}
+		if (donate_time &&  show_donate) {
+			sumchart.push({
+				time: donate_time,
+				donation: true
+			});
+		}
 		sumchart.sort(function(a,b){
 			return a.time - b.time; 
 		});
@@ -400,34 +621,32 @@ function app_start(){
 		else return v;
 	}
 	
+	function safediff(a,b) {
+		if (a === undefined) return b;
+		if (b === undefined) return a;
+		return a-b;
+	}
+
 	function adjChartData(data, ident) {	
 		var lastNorm = 0;	
 		var lastPL = 0;
-		var lastPos = 0;
 		var lastPrice = 0;
-		var lastRel = 0;
 		var lastNacum = 0;
-		var lastInvstV = 0;
-		var lastInvstN = 0;
+		var lastPLn = 0;
 		data.forEach(function(r) {
 			r.ident = ident;
-			r.normDiff = r.norm - lastNorm;
-			r.nacumDiff = r.nacum - lastNacum;
-			r.plDiff = r.pl - lastPL;
-			r.priceDiff = r.price - lastPrice;
-			r.vol = Math.abs(r.achg*r.price);
-			r.relDiff = r.rel - lastRel;
+			r.normDiff = safediff(r.norm , lastNorm);
+			r.nacumDiff = safediff(r.nacum , lastNacum)
+			r.plDiff = safediff(r.pl , lastPL);
+			r.priceDiff = safediff(r.price , lastPrice);
+			r.plnDiff = safediff(r.pln , lastPLn)
+			r.vol = r.volume;
 			r.app = calcApp(r);
-			r.invst_v_diff = r.invst_v - lastInvstV;
-			r.invst_n_diff = r.invst_n - lastInvstN;
-			lastNorm = r.norm;
-			lastPL = r.pl;
-			lastPos = r.pos;
-			lastPrice = r.price;
-			lastRel = r.rel;
-			lastInvstV = r.invst_v;
-			lastInvstN = r.invst_n;
-			lastNacum = r.nacum;
+			lastNorm += r.normDiff;
+			lastPL += r.plDiff;
+			lastPrice += r.priceDiff;
+			lastNacum += r.nacumDiff;
+			lastPLn += r.plnDiff;
 		});
 	}
 	
@@ -443,8 +662,7 @@ function app_start(){
 			sums[k].sort(function(a,b){
 				return a.time - b.time; 
 			})
-			sums[k] = sums[k].reduce(function(s,r){
-				var vol = Math.abs(r.achg * r.price);
+			sums[k] = sums[k].reduce(function(s,r){				
 				if (s.length) {
 					var x = {
 							invst_n: s[s.length-1].invst_n+r.invst_n_diff,
@@ -454,27 +672,26 @@ function app_start(){
 						time:r.time,
 						pl:s[s.length-1].pl+r.plDiff,
 						norm:s[s.length-1].norm+r.normDiff,
+						pln:s[s.length-1].pln+r.plnDiff,
 						normDiff:r.normDiff,
 						plDiff:r.plDiff,
-						vol: vol,
+						plnDiff:r.plnDiff,
+						vol: r.volume,
 						rel: s[s.length-1].rel+ r.relDiff,
 						relDiff: r.relDiff,
-						invst_n:x.invst_n,
-						invst_v:x.invst_v,
 						app: calcApp(x)
 					});
 				} else {
 					s.push({
 						time:r.time,
 						pl:r.plDiff,
+						pln:r.plnDiff,
 						plDiff:r.plDiff,
 						norm:r.normDiff,
 						normDiff:r.normDiff,
-						vol: vol,
+						vol: r.volume,
 						rel: r.relDiff,
 						relDiff: r.relDiff,
-						invst_n: r.invst_n,
-						invst_v: r.invst_v,
 						app: calcApp(r)
 					})
 				}				
@@ -486,37 +703,97 @@ function app_start(){
 	
 	}
 	
+	function notifyTrades(trades) {
+		console.log("Notify trades:", trades);
+		last_ntf_time = Date.now();
+
+		 if ("Notification" in window && Notification.permission !== "denied") {
+		 	 var ntp = null;			
+  			 if (Notification.permission === "granted") {
+  			 	ntp = Promise.resolve(true);
+  			 } else {
+  			 	ntp = new Promise(function(ok) {
+  					Notification.requestPermission(function (permission) {
+  						ok (permission === "granted");
+  					});
+  			 	});
+  			 }
+			  var text = trades.reduce(function(txt, itm){
+				var ln = (itm.size>0?"↗↗↗":itm.size<0?"↘↘↘":"!!!")
+						+" "+adjNum(Math.abs(itm.size))+" "+itm.asymb
+						+" @ "+adjNum(itm.price)+ " " + itm.csymb;
+				txt = txt + ln + "\n";
+				return txt;
+			  },"");
+  			 ntp.then(function(r) {
+  			 	if (r) {
+  					  var notification = new Notification("MMBot",{
+  						  body:text,
+  						  icon: "res/icon64.png"
+  					  });
+  					  setTimeout(notification.close.bind(notification), 15000);		  					  	 	
+  			 	}
+  			 });  
+  			 var ntf = document.getElementById("notify");
+  			 ntf.classList.add("shown");
+  			 ntf.innerHTML =  text.replace("\n","<br>");
+  			 setTimeout(function()  {
+  			 	ntf.classList.remove("shown");
+  			 },10000);
+		 }
+	}
+
+	function hasChart(chart, item) {
+		return (chart.length != 0) && chart[0][item] !== undefined;
+	}
+
 	function update() {
 		
 		indicator.classList.remove("online");
 		indicator.classList.add("fetching");
 		return fetch_json("report.json?r="+Date.now()).then((stats)=>{
 
-			
+			source_data = stats;
 			var orders = {};
 			var ranges = {};
 			
-			infoMap = stats["info"];			
+			infoMap = stats.info;			
 			
 			document.getElementById("logfile").innerText = " > "+ stats["log"].join("\r\n > ");
 
 			
 			var charts = stats["charts"];
+			var newTrades = [];
 			for (var n in charts) {
 				var ch = charts[n];				
 				orders[n] = [];
 				ranges[n] = {};
 				adjChartData(charts[n], n);
 				updateOptions(n, infoMap[n].title);
-				if (ch.length) {
-					stats.misc[n]["avgh"] = ch[ch.length-1].invst_n*(1000*3600);
-				}
+				var nt = ch.reduce(function(nt, x) {
+					if (x.time >= last_ntf_time) {
+						nt.push({
+							price:x.price,
+							size:x.achg,
+							asymb:infoMap[n].asset,
+							csymb:infoMap[n].currency,
+						});
+					}
+					return nt;
+				},[]);
+				Array.prototype.push.apply(newTrades,nt);
 			}
+
+			if (newTrades.length > 0) {
+				notifyTrades(newTrades);
+			}
+
 			
 			(stats.orders || []).forEach(function(o) {
 				var s = orders[o.symb];
 				var sz = o.size;
 				var ch =  charts[o.symb];
+				var inv = infoMap[o.symb].inverted;
 				var last;
 				if (!ch || !ch.length) {
 					last = {pl:0,price:o.price,pos:0};
@@ -524,7 +801,8 @@ function app_start(){
 					 last = ch[ch.length-1];
 				}
 				var dir = o.dir < 0?"sell":"buy";
-				var newpl = last.pl + (o.price - last.price)* last.pos;
+				var gain = ((inv?1.0/o.price:o.price) - (inv?1.0/last.price:last.price))* (inv?-1:1)*last.pos;
+				var newpl = last.pl + gain;
 				var newpos = last.pos + sz;
 				s.push({
 					price: o.price,
@@ -532,7 +810,7 @@ function app_start(){
 					pl: newpl,
 					pos: newpos,
 					label: "",
-					gain:(o.price - last.price)* last.pos,
+					gain:gain,
 					class: dir,
 				})
 				ranges[o.symb][dir] = [o.price,o.size];
@@ -542,6 +820,7 @@ function app_start(){
 			for (var sm in stats.prices) {
 				var s = orders[sm];
 				var ch =  charts[sm];
+				var inv = infoMap[sm].inverted;
 				var last;
 				if (!ch || !ch.length) {
 					last = {pl:0,price:stats.prices[sm],pos:0,app:0,norm:0,nacum:0};
@@ -549,9 +828,10 @@ function app_start(){
 					 last = ch[ch.length-1];
 				}
 				if (!s) orders[o.symb] = s = [];				
+				var gain = ((inv?1.0/stats.prices[sm]:stats.prices[sm])- (inv?1.0/last.price:last.price))* (inv?-1:1)*last.pos;
 				s.push({
 					price: stats.prices[sm],
-					pl: last.pl + (stats.prices[sm]- last.price)* last.pos,
+					pl: last.pl + gain,
 					label: "",
 					class: "last",
 				})
@@ -581,12 +861,20 @@ function app_start(){
 						appendSummary("_"+k,{"title":k,"asset":"","currency":k}, sums[k]);
 					}
 					updateLastEventsAll(charts);
+					
+				} else if (fld == "+list") {
+					setMode(5);
+					for (var k in charts) {
+						appendList("_"+k,infoMap[k], ranges[k], stats.misc[k]);
+					}
+					updateLastEventsAll(charts);
 				} else if (fld.startsWith("!")) {
 					setMode(1);
 					var pair = fld.substr(1);
 					appendSummary("_"+k,infoMap[pair], charts[pair], ranges[pair], stats.misc[pair],true);
-					for (var k in cats) {
+					for (var k in cats) {						
 						appendChart("!"+k, {title:cats[k]}, charts[pair], k, orders[pair], stats.misc[k]);
+						
 					}
 					updateLastEvents(charts[pair],pair);
 					
@@ -634,124 +922,8 @@ function app_start(){
 		});
 	}
 	
-	var base_interval=1200000;
 
-	function new_svg_el(name, attrs, childOf) {
-		var elem = document.createElementNS("http://www.w3.org/2000/svg", name);
-		if (attrs) {for (var i in attrs) {
-			elem.setAttributeNS(null,i, attrs[i]);
-		}}
-		if (childOf) childOf.appendChild(elem);
-		return elem;
-	}
 
-	
-
-	function drawChart(elem, chart, fld, lines) {
-		var now = new Date();
-		var bday = beginOfDay(now);		
-		var skiphours = Math.floor((now - bday)/(base_interval));
-				
-		elem.innerText = "";
-		
-		var daystep = 24*3600000/base_interval;
-		var step = 2*864000000/chart_interval;
-		var activewidth=step*chart_interval/base_interval;
-		var dattextstep = Math.ceil(120/(daystep*step));
-		var activeheight = (activewidth/3)|0;
-		var minmax = chart.concat(lines?lines:[]).reduce(function(c,x) {
-			if (c.min > x[fld]) c.min = x[fld];
-			if (c.max < x[fld]) c.max = x[fld];
-			return c;
-		},{min:chart[0][fld],max:chart[0][fld]});
-		minmax.sz = minmax.max - minmax.min;
-		minmax.min =  minmax.min - minmax.sz*0.05;
-		minmax.max =  minmax.max + minmax.sz*0.05;
-		var priceStep = activeheight/(minmax.max-minmax.min);
-		var axis = 2;
-		var label = 20;
-		var rowstep = Math.pow(10,Math.floor(Math.log10((minmax.max-minmax.min)/3)));
-		var rowbeg= Math.floor(minmax.min/rowstep);
-		var rowend= Math.floor(minmax.max/rowstep);
-
-		var svg = new_svg_el("svg",{viewBox:"0 0 "+(activewidth+axis)+" "+(activeheight+axis+label)},elem);
-		new_svg_el("line",{x1:axis, y1:0,x2:axis,y2:activeheight+axis,class:"lineaxis"},svg);
-		new_svg_el("line",{x1:0, y1:activeheight+1,x2:activewidth+axis,y2:activeheight+1,class:"lineaxis"},svg);
-		var cnt = chart.length;
-		function map_y(p) {
-			return activeheight-(p-minmax.min)*priceStep;
-		}
-		function map_x(x) {
-			return x*step+axis;
-		}
-
-		if (!isFinite(rowbeg) || !isFinite(rowend)) return;
-		
-		for (var i = rowbeg; i <=rowend; i++) {
-			var v = i*rowstep;
-			var maj = Math.abs(v)<rowstep/2;
-			var y = map_y(v);
-			new_svg_el("line",{x1:0,y1:y,x2:activewidth+axis,y2:y,class:maj?"majoraxe":"minoraxe"},svg);
-			new_svg_el("text",{x:axis+2,y:y,class:"textaxis"},svg).appendChild(document.createTextNode(adjNum(i*rowstep)));
-		}
-		
-		var xtmpos = activewidth/step-skiphours;
-		while (xtmpos > 0) {
-			var xtm = map_x(xtmpos);
-			new_svg_el("line",{x1:xtm,y1:0,x2:xtm,y2:activeheight,class:"minoraxe"},svg);
-			xtmpos-=daystep;
-		}
-		xtmpos = activewidth/step-skiphours;
-		while (xtmpos > 0) {
-			var xtm = map_x(xtmpos);
-			new_svg_el("text",{x:xtm,y:activeheight,class:"textaxisx"},svg).appendChild(document.createTextNode(bday.toLocaleDateString()));
-			bday.setDate(bday.getDate()-dattextstep);
-			new_svg_el("line",{x1:xtm,y1:activeheight-5,x2:xtm,y2:activeheight,class:"majoraxe"},svg);
-			xtmpos-=daystep*dattextstep;
-		}
-		var tmstart=(now/base_interval-activewidth/step)
-		for (var i = 0; i <cnt-1; i++) {
-			var pos = "stdline";
-			var x1 = map_x(chart[i].time/base_interval-tmstart);
-			var x2 = map_x(chart[i+1].time/base_interval-tmstart);
-			var y1 = map_y(chart[i][fld]);
-			var y2 = map_y(chart[i+1][fld]);
-			new_svg_el("line",{x1:x1,y1:y1,x2:x2,y2:y2,class:pos},svg);
-		}
-		for (var i = 0; i <cnt; i++) if (chart[i].achg) {
-			var x1 = map_x(chart[i].time/base_interval-tmstart);
-			var y1 = map_y(chart[i][fld]);
-			var man = chart[i].man;
-			var marker = "marker "+(chart[i].achg<0?"sell":"buy") 
-			if (man) {
-				new_svg_el("line",{x1:x1-5,y1:y1-5,x2:x1+5,y2:y1+5,class:marker},svg);
-				new_svg_el("line",{x1:x1+5,y1:y1-5,x2:x1-5,y2:y1+5,class:marker},svg);
-			} else {				
-				new_svg_el("circle",{cx:x1,cy:y1,r:4,class:marker},svg);
-			}
-		}
-		
-		if (lines === undefined) {
-			lines=[];
-		}
-		var l = {};
-		l[fld] = chart[chart.length-1][fld];
-		lines.unshift(l);
-		l.label="";
-		l.class="current"
-		
-		if (Array.isArray(lines)) {
-			lines.forEach(function(x) {
-				var v = x[fld];
-				if (v) {
-					var y = map_y(v);
-					new_svg_el("line",{x1:0,y1:y,x2:activewidth+axis,y2:y,class:"orderline "+x.class},svg);
-					new_svg_el("text",{x:axis,y:y,class:"textorderline "+x.class},svg).appendChild(document.createTextNode(x.label + " "+adjNum(v)));
-				}
-			});
-		}
-		
-	}
 	
 	
 	window.addEventListener("hashchange", function() {
@@ -789,6 +961,11 @@ function app_start(){
 	})
 	
 	init_calculator();
+
+	changeinterval = function() {
+		interval = (interval+1)%intervals.length;
+		redraw();
+	}
 }
 
 
@@ -936,6 +1113,79 @@ function init_calculator() {
 	Array.prototype.forEach.call(form_range_futures.elements,function(x){
 		x.addEventListener("input", form_range_futures_calc);
 	});
+
+	var form_sliding = document.getElementById("form_sliding_pos");
+	var form_sliding_calc = function() {
+		var data_id = form_sliding.data.value;
+		var data = source_data.charts[data_id];
+		var ea = parseFloat(form_sliding.ea.value);
+		var ga = parseFloat(form_sliding.ga.value);
+		var fb = parseFloat(form_sliding.fb.value);
+		var mlt = parseFloat(form_sliding.mlt.value)*0.01+1;
+		var mos = parseFloat(form_sliding.mos.value);
+		var inv = source_data.info[data_id].inverted;
+		if (inv) eq = 1/eq;
+		var pp = inv?1/data[0].price:data[0].price;
+		var eq = pp;
+		var pl = 0;
+		var mdd = 0;
+		var mpos = 0;
+		var pos = 0;
+		var norm = 0;
+		var newchart = [];
+		var tframe = ga*3600000;
+		var tm = data[0].time;
+		var eaa = ea;		
+		data.forEach(function(x) {
+			var p = inv?1/x.price:x.price;
+            var dr = Math.sign(p - pp);
+			var pldiff = pos * (p - pp);
+			var tmdiff = x.time - tm;
+			var neq = pldiff*Math.sign(tframe)>0?eq + (p - eq) * (tmdiff/Math.abs(tframe)):eq;
+			if (Math.abs(pos) > mpos) mpos = Math.abs(pos);			
+			var nxpos = ea*Math.sqrt(eq/p)-ea;
+			var dpos = nxpos - pos ;
+			var maxpos = ea * fb * 0.01;
+			var mult = (maxpos - Math.abs(nxpos))/maxpos*mlt;
+			if (mult < 0.000001) mult = 0.000001
+			if (dpos * dr >= -mos) {
+				if (mos <= 0) return;
+				dpos = -mos * dr
+			}
+			pos = pos + dpos * mult;
+			pp = p;
+			eq = neq;
+			tm = x.time;
+			pl = pl+pldiff;
+			norm = pl+pos*(eq-Math.sqrt(p*eq));
+			if (pl < mdd) mdd = pl;
+			newchart.push({
+				price:x.price,
+				pl:pl,
+				pln:norm,
+				np:inv?1/eq:eq,
+				time:x.time,
+				achg:(inv?-1:1)*dpos
+			});
+		});
+		if (inv) eq = 1/eq;
+		
+
+		form_sliding.querySelector(".pl").innerText = adjNum(pl);
+		form_sliding.querySelector(".pln").innerText = adjNum(norm);
+		form_sliding.querySelector(".pos").innerText = adjNum((inv?-1:1)*pos);
+		form_sliding.querySelector(".mdd").innerText = adjNum(mdd);
+		form_sliding.querySelector(".maxpos").innerText = adjNum(mpos);
+		form_sliding.querySelector(".eq").innerText = adjNum(eq);
+		drawChart(form_sliding.querySelector(".chart1"),newchart,"price",[],"np");
+		drawChart(form_sliding.querySelector(".chart2"),newchart,"pl",[],"pln");
+		drawChart(form_sliding.querySelector(".chart3"),newchart,"achg",[]);
+	};
+
+	Array.prototype.forEach.call(form_sliding.elements,function(x){
+		x.addEventListener("input", form_sliding_calc);
+	});
+
 	
 	calc.querySelector(".close_butt").addEventListener("click",function() {
 		calc.classList.toggle("fade",true);
@@ -944,10 +1194,44 @@ function init_calculator() {
 		},500);		
 	});
 	
+	
 	document.getElementById("calculator_icon").addEventListener("click",function(){
-		calc.hidden = false;			
+		calc.classList.toggle("fade",true);
+		setTimeout(function(){
+			calc.hidden = false;			
+		},5);
 		setTimeout(function(){
 			calc.classList.toggle("fade",false);			
-		},100);
-	})
+		},10);
+		form_sliding.data.innerText = "";
+		for (var i in source_data.info) {
+			var opt = document.createElement("option");
+			opt.innerText = source_data.info[i].title;
+			opt.value = i;
+			form_sliding.data.appendChild(opt);	
+		}
+	});
+}
+
+
+function donate() {
+	var w = document.getElementById("donate_window");
+	w.classList.toggle("shown");
+	if (!donate.inited) {
+		donate.inited = true;
+		var col = w.querySelectorAll("[data-link]");
+		Array.prototype.forEach.call(col,function(x) {
+			var content = x.innerText;
+			x.innerHTML="<a href=\""+x.dataset.link+":"+content+"\">"+content+"</a>";
+		});
+		var hd = document.getElementById("hide_donation");
+		hd.addEventListener("change", function() {
+			localStorage["donation_hidden"] = hd.checked?hd.value:"";
+		});
+		hd.checked = localStorage["donation_hidden"] === hd.value;
+	}
+}
+function close_donate() {
+	var w = document.getElementById("donate_window");
+	w.classList.remove("shown");
 }

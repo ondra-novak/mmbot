@@ -36,6 +36,9 @@ public:
 	void setTimeDiff(std::intptr_t t);
 	static std::uintptr_t now();
 
+	bool debug = false;
+
+
 private:
 	std::intptr_t time_diff = 0;
 	void buildParams(const json::Value& params, std::ostream& data);

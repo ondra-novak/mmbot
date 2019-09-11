@@ -100,6 +100,8 @@ ExtStockApi::MarketInfo ExtStockApi::getMarketInfo(const std::string_view & pair
 	res.fees = v["fees"].getNumber();
 	res.feeScheme = strFeeScheme[v["feeScheme"].getString()];
 	res.leverage= v["leverage"].getNumber();
+	res.invert_price= v["invert_price"].getBool();
+	res.inverted_symbol= v["inverted_symbol"].getString();
 	return res;
 
 }
@@ -120,11 +122,10 @@ std::vector<std::string> ExtStockApi::getAllPairs() {
 
 void ExtStockApi::onConnect() {
 	ondra_shared::LogObject lg("");
-	if (lg.isLogLevelEnabled(ondra_shared::LogLevel::debug)) {
-		try {
-			jsonRequestExchange("enableDebug","true");
-		} catch (...) {
+	bool debug= lg.isLogLevelEnabled(ondra_shared::LogLevel::debug);
+	try {
+		jsonRequestExchange("enableDebug",debug);
+	} catch (IStockApi::Exception &) {
 
-		}
 	}
 }

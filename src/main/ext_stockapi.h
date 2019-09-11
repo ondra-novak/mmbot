@@ -29,8 +29,8 @@ public:
 			json::Value replaceId,double replaceSize) override;
 	virtual bool reset() override;
 	virtual bool isTest() const override {return false;}
-	virtual MarketInfo getMarketInfo(const std::string_view & pair);
-	virtual double getFees(const std::string_view & pair);
+	virtual MarketInfo getMarketInfo(const std::string_view & pair) override;
+	virtual double getFees(const std::string_view & pair) override;
 	virtual std::vector<std::string> getAllPairs() override;
 	virtual void testBroker() override {preload();}
 	virtual void onConnect() override;

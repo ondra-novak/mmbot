@@ -12,12 +12,23 @@
 #include <type_traits>
 
 #include <shared/ini_config.h>
+#include <imtjson/namedEnum.h>
 #include "calculator.h"
 #include "istatsvc.h"
 #include "storage.h"
 #include "report.h"
 
 class IStockApi;
+
+enum class Dynmult_mode {
+	independent,
+	together,
+	alternate,
+	half_alternate,
+};
+
+
+extern json::NamedEnum<Dynmult_mode> strDynmult_mode;
 
 struct MTrader_Config {
 	std::string pairsymb;
@@ -33,17 +44,19 @@ struct MTrader_Config {
 
 	double dynmult_raise;
 	double dynmult_fall;
+	Dynmult_mode dynmult_mode;
 
 	double acm_factor_buy;
 	double acm_factor_sell;
 
-	double sliding_pos_change;
-	double sliding_pos_assets;
-	double sliding_pos_currency;
+	unsigned int accept_loss;
+
+	double sliding_pos_hours;
+	double sliding_pos_weaken;
 
 	double force_spread;
 	double emulated_currency;
-
+	double report_position_offset;
 
 
 	unsigned int spread_calc_mins;
@@ -51,15 +64,29 @@ struct MTrader_Config {
 	unsigned int spread_calc_max_trades;
 
 
+	enum NeutralPosType {
+		disabled,
+		assets,
+		currency,
+		center
+	};
+
+	NeutralPosType neutralPosType;
+	double neutral_pos;
+	double max_pos;
+
 
 	bool dry_run;
 	bool internal_balance;
 	bool detect_manual_trades;
+	bool enabled;
+	bool force_margin;
+	bool dust_orders;
 
 	std::size_t start_time;
 
 
-
+	void parse_neutral_pos(ondra_shared::StrViewA txt);
 
 };
 
@@ -72,7 +99,10 @@ public:
 
 
 
+
+
 	static Config load(const ondra_shared::IniConfig::Section &ini, bool force_dry_run);
+	static void showConfig(const ondra_shared::IniConfig::Section &ini, bool force_dry_run, std::ostream &out);
 
 
 	struct Order: public IStockApi::Order {
@@ -101,9 +131,11 @@ public:
 	///Returns true, if trade was detected, or false, if not
 	int perform();
 
+	void init();
 
 	OrderPair getOrders();
-	bool replaceIfNotSame(std::optional<Order> &orig, Order neworder);
+	void setOrder(std::optional<Order> &orig, Order neworder);
+	void setOrderCheckMaxPos(std::optional<Order> &orig, Order neworder, double balance, double neutral);
 
 
 	using ChartItem = IStatSvc::ChartItem;
@@ -130,8 +162,19 @@ public:
 	 * @param balance current balance (including external)
 	 * @return order
 	 */
-	Order calculateOrder(double step, double curPrice, double balance) const;
-	Order calculateOrderFeeLess(double step,double curPrice, double balance) const;
+	Order calculateOrder(double lastTradePrice,
+			double step,
+			double curPrice,
+			double balance,
+			double acm,
+			double mult) const;
+	Order calculateOrderFeeLess(
+			double lastTradePrice,
+			double step,
+			double curPrice,
+			double balance,
+			double acm,
+			double mult) const;
 
 	const Config &getConfig() {return cfg;}
 
@@ -154,6 +197,12 @@ public:
 	void reset();
 	void repair();
 	void achieve_balance(double price, double balance);
+	ondra_shared::StringView<IStatSvc::ChartItem> getChart() const;
+	double getLastSpread() const;
+	double getInternalBalance() const;
+	void setInternalBalance(double v);
+
+	static std::string_view vtradePrefix;
 
 protected:
 	std::unique_ptr<IStockApi> ownedStock;
@@ -179,7 +228,7 @@ protected:
 	mutable double prev_spread=0.01;
 	double prev_calc_ref = 0;
 	double currency_balance_cache = 0;
-
+	size_t magic = 0;
 
 	void loadState();
 	void saveState();
@@ -201,8 +250,13 @@ protected:
 
 	void mergeTrades(std::size_t fromPos);
 
+	void update_dynmult(bool buy_trade,bool sell_trade);
+
+	bool acceptLoss(std::optional<Order> &orig, const Order &order, const Status &st, double neutral_pos);
+	json::Value getTradeLastId() const;
 
 
+	double calcWeakenMult(double neutral_pos, double balance);
 };
 
 

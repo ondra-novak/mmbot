@@ -9,11 +9,20 @@ body {
 	font-size: 0.5cm;
 }
 
+a {
+	color: #AAF;
+}
 
 .stdline {
 	stroke: #FF8;
 	stroke-width: 2px;
 }
+
+.stdline2 {
+	stroke: #afdeff;
+	stroke-width: 2px;
+}
+
 
 .minoraxe {
 	stroke: #888;
@@ -103,7 +112,7 @@ line.marker.sell {
 	top: 0;
 	left: 0;
 	background-color: #222;
-	padding: 0.2cm 1.8cm 0.2cm 1cm;
+	padding: 0.2cm 2.7cm 0.2cm 1cm;
 	text-align: center;
 	z-index: 10;
 }
@@ -161,7 +170,7 @@ select > option[disabled] {
 
 #chartarea > div {
 	width: 16cm;
-	margin: 0.2cm;
+	margin: 0.2cm 0.2cm 0 0.2cm;
 	flex-shrink: 1;
 	flex-grow: 1;
 	min-width: 40%;
@@ -245,7 +254,7 @@ x-tr.anim {
 	animation-fill-mode:forwards;
 }
 
-x-td {
+x-td, .donate {
 	display:block;
 	flex-grow:1;
 	padding: 0.1cm 0;
@@ -257,6 +266,12 @@ x-td {
 	text-overflow: ellipsis;
 	vertical-align: middle;
 }
+
+.donate {
+	max-width: none;
+	text-align:center;
+}
+
 
 x-tr.sell x-td {
 	color: #F88;
@@ -301,12 +316,19 @@ x-tr x-td:nth-child(4) {max-width: 3%;text-align: center}
 x-tr x-td:nth-child(8) {text-align: right;max-width: 9%;font-size: 1.9vw;margin: 0.4em;text-overflow: clip;}
 
 @media (min-width: 20cm) {
-x-td, x-tr x-td:nth-child(3) {
+x-td, x-tr x-td:nth-child(3), .donate {
 		font-size: 0.62cm;
 }
 x-tr x-td:nth-child(1),x-tr x-td:nth-child(8) {
 		font-size: 0.38cm;
 }
+}
+
+.donate img {
+	height: 2em;
+	vertical-align: middle;
+	border-radius: 106px;
+	animation: 10s shadow_expand infinite;
 }
 
 x-trbgr.hdr {
@@ -357,7 +379,46 @@ x-trbgr.hdr {
 	display:inline-block;
 	vertical-align: top;
 	margin: 0 0.2em;
+	position: relative;
+	text-align: center;
 	}
+
+.info > div.error > div{
+	color: #CCC
+}
+.info > div.error::before {
+	content: "!";
+    color: yellow;
+    display: block;
+    position: absolute;
+    right: -0.25em;
+    top: 0;
+    font-size: 0.8em;
+    transform: scale(2,1);
+}
+.info > div.error > div:first-child::before,.info > div.error > div:nth-child(2)::before{content: "("; padding: 0.1em;}
+.info > div.error > div:first-child::after,.info > div.error > div:nth-child(2)::after{content: ")"; padding: 0.1em;}
+
+
+.info >div >  div.error_popup {
+	position: absolute;
+	left: -3em;
+	top: 0;
+	background-color: #444;
+	border: 1px solid;
+	color: #DBA;	
+	font-size: 0.8em;
+	font-style: normal;
+	display: none;
+	padding: 0.5em;
+	width: 30em;
+}
+
+.info >div:hover >  div.error_popup {
+	display: block;
+	z-index:1000;
+	text-align: left;
+}
 
 .info[hidden] {
 	visibility: hidden;
@@ -598,9 +659,8 @@ x-tr.hdr [data-name=export_csv] {
 	right:0;
 	top:1cm;
 	z-index:10;
-	max-width: 13cm;
+	max-width: 16cm;
 	margin:auto;
-	max-height: 100vh;
 }
 
 menu li {
@@ -641,9 +701,10 @@ menu {
 #calculator .content {
 	border: 1px solid #765;
 	background-color:#333;
-	padding: 0.2cm;
+	/* padding: 0.2cm; */
 	box-shadow: 0 0 10px black;
 	z-index:4;
+	/* height: 100%; */
 }
 
 form label {
@@ -656,25 +717,23 @@ form label > *  {
 }
 
 form label > input, form label > select {
-	font-size: 1rem;
+	width: 50%; 
+	font-size: 0.98rem;
 	box-sizing: border-box;
-	width:50%;
 }
-form label > input[type=checkbox] {
-	width: 1.2rem;
-	height: 1.2rem;
-}
-#calculator input {
+#calculator input, #calculator select {
 	text-align:right;
 	padding-right: 5%;
+	background-color: white;
+	color: black;
 }
 
-table.infotable {
+#calculator table {
 	width: 100%;
 
 }
 
-table.infotable th {
+#calculator table th {
 	text-align:left;
 }
 
@@ -706,7 +765,7 @@ table.infotable th {
 #calculator  .norm_profit::before {
 	content: '+';
 }
-table.infotable td {
+#calculator table td {
 	text-align:right;
 }
 
@@ -726,12 +785,20 @@ form button {
 	margin-top: 0.5cm;
 }
 
-#calculator_icon {width: 0.5cm;height:  0.5cm;position: absolute;right: 0.9cm;top: 0.3cm;background-image: url(calculator.svg);background-size: cover;}
+#calculator_icon {width: 0.5cm;height:  0.5cm;position: absolute;right: 0.95cm;top: 0.3cm;background-image: url(calculator.svg);background-size: cover;cursor:  p;}
+#donate_icon {width: 0.8cm;height: 0.8cm;position: absolute;right: 1.6cm;top: 0.15cm;background-image: url(donate_sml.svg);background-size: cover;}
 
 #calculator {
 	transition: all 0.3s;
 	opacity: 1;
 	transform: translate(0,0);
+}
+
+#calculator  form {
+	max-height: 75vh;
+	overflow: auto;
+	box-sizing: border-box;
+	padding: 6px;
 }
 
 #calculator.fade {
@@ -796,20 +863,38 @@ form button {
 	}
 }
 
-table.extended {font-size: 0.8em;min-width: 40%;border-collapse: collapse;margin-top: 1em;margin-left: 1em;}
+@keyframes shadow_expand {
+	0% {
+		box-shadow: 0 0 1px white;
+	}
+	50% {
+		box-shadow: 0 0 100px white;
+	}
+	100% {
+		box-shadow: 0 0 200px #FFF0;
+	}
+}
+
+table.extended {font-size: 0.8em;max-width: 35em;border-collapse: collapse;margin-top: 1em;margin-left: 0.5em;width: 100%;}
 table.extended th {
     text-align: left;
     font-weight: normal;
     vertical-align: top;
 }
 table  tr > * {
-	padding: 2px 1em;
+	padding: 2px 0.5em;
 	border-top: 1px solid #222222;
 	background-color: #1b1b1b;
+	white-space: nowrap;
 }
-table.extended td {text-align: right;}
-table.extended td span:nth-child(odd) {font-weight:bold;}
-
+table.extended td:nth-child(2) {text-align: right;padding-right:0.1em;}
+table.extended td:nth-child(3) {padding: 0.1em;overflow: hidden;}
+table.extended td .color.neg {color: #C66;}
+table.extended td .color.pos {color: #6C6;}
+table.extended td .color.pos::before {content: "+";}
+[onclick] {
+	cursor: pointer
+}
 
 .head > .error_icon {
 	width: 20px;
@@ -839,8 +924,84 @@ table.extended td span:nth-child(odd) {font-weight:bold;}
 	left:0;
 	top: 0;
 	font-size: 0.7em;
-	/* width: 50vw; */
+	z-index: 1000;
 }
 .head > .error_icon:hover > div {
 	display:block;
+}
+
+#donate_window {
+	position: fixed;
+	left:  0;
+	top: 100%;
+	right: 0;
+	width: 30em;
+	background: black;
+	z-index: 1000;
+	margin: auto;
+	border: 1px solid #888;
+	box-shadow: 0 0 5px black;
+	font-size: 3vw;
+	transition: all 0.3s;
+	opacity: 0; 
+}
+
+@media (min-width: 16cm) {
+	#donate_window {
+	font-size: 0.5cm;
+	/* height: 15em; */
+}
+}
+
+#donate_window.shown {
+	top: 20%;
+	opacity: 0.999;
+}
+
+#donate_window table {
+	width: 98%;
+	margin: 1%;
+	box-sizing: border-box;
+}
+#donate_window table td {
+	text-align:center;
+}
+#donate_window h2, #donate_window p{
+	text-align:center;
+	margin: 0.4em;
+
+}
+#donate_window button {
+	position: absolute;
+	right:0;
+	top:0;
+	background-color:transparent;
+	border: 0;
+	color:#ccc;
+	font-size:150%;
+}
+
+#notify {
+	position: fixed;
+	left: 10px;
+	bottom: 10px;
+	/* width: 30%; */
+	border:  1px solid;
+	background-color: #DDA;
+	color: black;
+	padding: 5px;
+	transition: 1s all;
+	left: -1000px;
+	opacity: 0;
+}
+
+#notify.shown {
+	left: 10px;
+	bottom: 10px;
+	opacity: 1;
+		
+} 
+
+#form_sliding_pos .second {
+	color: #afdeff;
 }

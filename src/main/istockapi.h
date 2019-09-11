@@ -48,12 +48,18 @@ public:
 	public:
 		//total balance (including external assets) after the trade
 		double balance;
-		static constexpr double no_balance = -9e99;
 		//true if the trade was detected as manual trade
 		bool manual_trade;
+		static constexpr double NaN = std::numeric_limits<double>::quiet_NaN();
+
+
 
 		TradeWithBalance() {}
-		TradeWithBalance(const Trade &t, double balance,bool manual):Trade(t),balance(balance),manual_trade(manual) {}
+		TradeWithBalance(const Trade &t,
+				double balance,
+				bool manual):Trade(t)
+					,balance(balance)
+					,manual_trade(manual) {}
 
 	    static TradeWithBalance fromJSON(json::Value v);
 	    json::Value toJSON() const;
@@ -131,6 +137,18 @@ public:
 		 */
 		double leverage = 0;
 
+		///The broker inverts price when currency is quoted instead assets
+		/** Currently 'deribit' broker inverts price because the position is quoted
+		 * in currency. This result, that price is returned as 1/x.
+		 *
+		 * By setting this field to true, all prices will be inverted back
+		 * when they are put to the report. The broker should also report
+		 * correct symbol of inverted price
+		 */
+		bool invert_price = false;
+
+		///When invert_price is true, the broker should also supply symbol name of inverted price
+		std::string inverted_symbol;
 
 		///Adds fees to values
 		/**
