@@ -1034,7 +1034,7 @@ bool MTrader::acceptLoss(std::optional<Order> &orig, const Order &order, const S
 		if (buy_dynmult <= 1.0 && sell_dynmult <= 1.0) {
 			if (cfg.dust_orders) {
 				Order cpy (order);
-				cpy.size = minfo.min_size;
+				cpy.size = sgn(cpy.size)*minfo.min_size;
 				try {
 					setOrderCheckMaxPos(orig,cpy,st.assetBalance, neutral_pos);
 					return true;
