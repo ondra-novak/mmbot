@@ -40,7 +40,7 @@ public:
 	virtual double getFees(const std::string_view &pair) override ;
 	virtual std::vector<std::string> getAllPairs() override ;
 	virtual void enable_debug(bool enable) override {cm.debug = enable;}
-
+	virtual BrokerInfo getBrokerInfo() override;
 
 	Value balanceCache;
 	Value orderCache;
@@ -291,6 +291,53 @@ Interface::MarketInfo Interface::getMarketInfo(const std::string_view &pair) {
 			getFees(pair)
 	};
 }
+
+Interface::BrokerInfo Interface::getBrokerInfo() {
+	return BrokerInfo{
+		"coinmate",
+		"Coinmate",
+		"https://www.coinmate.io/",
+		"1.0",
+		R"mit(Copyright (c) 2019 Ondřej Novák
+
+Permission is hereby granted, free of charge, to any person
+obtaining a copy of this software and associated documentation
+files (the "Software"), to deal in the Software without
+restriction, including without limitation the rights to use,
+copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the
+Software is furnished to do so, subject to the following
+conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+OTHER DEALINGS IN THE SOFTWARE.)mit",
+"iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAMAAAD04JH5AAAAD1BMVEUAAAAsYnlHi6FfqcNXwdo8"
+"rDwaAAAAAXRSTlMAQObYZgAAAqpJREFUeAHtmle2IyEQQ5+uvP8tT+ozNQF3OYBeRP9Gt0LjOsDL"
+"1gfW1tbW1hZCEm9gDNi2Lz9k2wZeiUOCw3iQAYXtr7uXbEcR1LiXcgzicqcSCBLuXbMI1+z9t0YC"
+"ov42SKr0AHYwCfK/5tIdLWovJMAn7i2D0WqC0b5HYGERfO8uA07kgMa+2zG8jEB6tGKHzMtbSPQ5"
+"yEv4axH0jUCQQAC6SRAN0+4Jsp8Cv9Zv/kTSbeB2ecnhFIg+PpElEL4xfohYESRs/zOhtG2AwhOy"
+"jdQQWDH7HqGKQNC+ZJRPQTuh2zrdj4j4D1O5yaZA/tuLX26A3RDURLnU33CSGJNLgZq/WHE6ALBq"
+"OxTt3xs+6UStakPc51I++Rh//25RAaw+RWggX9IEumMZ2VWe5d+B7llFXMVjQRPUInr+t16RAM38"
+"eD4BJkrfSEwtMd+F8tRgM78VMbcCiwCsDwIQ+A79xgB6cwA2wIcECHyGvB2A8zth8jv0PMBcDQp/"
+"ugmsiQJa6ZHwFsCKmdCK9mAj+empVJ4HuG+6l1aVr1mmWQdb09VrhNurGOGLTaQCFUlDUKeGylSg"
+"CAphsD9khSpQNsPtqQT2cDoQSEARFMQhd+dkono3c0rWnxQGDgrx7Yv7+FHpqX97rrNO4Ltfb7jY"
+"Yof17b06Dl4Y4HKv4GP3Bc3yrtg7f+Uvrbq9W9FrO93cuXmbe0OWNIBaANum958sAD29ijBzcyue"
+"zZ+W+R8EM/5aMIbqTf37VVr7yQ+geRKU828I9LC9WTWId6s116po8Us6uD/6xBTaV0Iw0K6Q5OE1"
+"I/oHQxrfNJrkg1KbX5L4Jbu/xA4/Ku2H4whBL6O3etZcs3FG3GRwyL4kcGNP0r0EtseuT7oPkgB8"
+"qPaF15YOTVtvbW1tbW1tbX0HniAh/KR9ZWcAAAAASUVORK5CYII="
+	};
+}
+
+
 int main(int argc, char **argv) {
 	using namespace json;
 

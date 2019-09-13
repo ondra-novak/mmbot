@@ -170,6 +170,21 @@ public:
 		}
 	};
 
+	struct BrokerInfo {
+		///Name of the broker
+		std::string name;
+		///Name of the exchange
+		std::string exchangeName;
+		///url to homepage of the exchange
+		std::string exchangeUrl;
+		///version identifier
+		std::string version;
+		///licence text
+		std::string licence;
+		///favicon binary image/png
+		std::string favicon;
+	};
+
 
 	using Orders = std::vector<Order>;
 
@@ -273,6 +288,8 @@ public:
 	public:
 		using std::runtime_error::runtime_error;
 	};
+
+	virtual BrokerInfo getBrokerInfo()  = 0;
 
 	virtual ~IStockApi() {}
 

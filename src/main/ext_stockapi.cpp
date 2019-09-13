@@ -11,6 +11,7 @@
 #include "ext_stockapi.h"
 
 #include <imtjson/object.h>
+#include <imtjson/binary.h>
 
 using namespace ondra_shared;
 
@@ -128,4 +129,27 @@ void ExtStockApi::onConnect() {
 	} catch (IStockApi::Exception &) {
 
 	}
+}
+
+ExtStockApi::BrokerInfo ExtStockApi::getBrokerInfo()  {
+
+	try {
+		auto resp = jsonRequestExchange("getBrokerInfo", json::Value());
+		return BrokerInfo {
+			this->name,
+			resp["name"].getString(),
+			resp["url"].getString(),
+			resp["version"].getString(),
+			resp["licence"].getString(),
+			StrViewA(resp["favicon"].getBinary()),
+		};
+	} catch (IStockApi::Exception &) {
+		return BrokerInfo {
+			this->name,
+			this->name
+		};
+	}
+
+
+
 }

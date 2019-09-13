@@ -34,6 +34,7 @@ public:
 	virtual std::vector<std::string> getAllPairs() override;
 	virtual void testBroker() override {preload();}
 	virtual void onConnect() override;
+	virtual BrokerInfo getBrokerInfo()  override;
 
 };
 

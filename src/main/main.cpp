@@ -434,8 +434,11 @@ static ondra_shared::CrashHandler report_crash([](const char *line) {
 class App: public ondra_shared::DefaultApp {
 public:
 
-	using ondra_shared::DefaultApp::DefaultApp;
+	App(): ondra_shared::DefaultApp({
+		App::Switch{'t',"dry_run",[this](auto &&){this->test = true;},"dry run"},
+	},std::cout) {}
 
+	bool test = false;
 
 	virtual void showHelp(const std::initializer_list<Switch> &defsw) {
 		const char *commands[] = {
@@ -475,18 +478,34 @@ public:
 		for (const char *c : commands) wordwrap(c);
 	}
 
+	auto createRestartFn() {
+		return [this] {
+			std::string switches;
+			switches.push_back('-');
+			if (test) switches.push_back('t');
+			if (debug) switches.push_back('d');
+			switches.push_back('f');
+			std::string appPath = this->appPath.string();
+			std::string configPath = this->configPath.string();
+			const char *args[] = {
+					appPath.c_str(),
+					switches.c_str(),
+					configPath.c_str(),
+					"restart",
+					nullptr
+			};
+			spawn(appPath.c_str(), args);
+		};
+	}
 };
+
+
 
 int main(int argc, char **argv) {
 
 	try {
-		bool test = false;
-//		auto refdir = std::experimental::filesystem::current_path();
 
-
-		App app({
-			App::Switch{'t',"dry_run",[&](auto &&){test = true;},"dry run"},
-		},std::cout);
+		App app;
 
 		if (!app.init(argc, argv)) {
 			std::cerr << "Invalid parameters at:" << app.args->getNext() << std::endl;
@@ -542,7 +561,7 @@ int main(int argc, char **argv) {
 						auto rptinterval = rptsect["interval"].getUInt(864000000);
 						auto a2np = rptsect["a2np"].getBool(false);
 
-						stockSelector.loadStockMarkets(app.config["brokers"], test);
+						stockSelector.loadStockMarkets(app.config["brokers"], app.test);
 
 						auto web_bind = rptsect["http_bind"];
 
@@ -565,26 +584,8 @@ int main(int argc, char **argv) {
 							std::string path = webcfg_enabled.getCurPath();
 							path.append(app.config.pathSeparator.data, app.config.pathSeparator.length)
 								.append("webcfg.conf");
-							std::string auth = webcfgsect["auth"].getString();
-							auto restartFn = [=]{
-								std::string switches;
-								switches.push_back('-');
-								if (test) switches.push_back('t');
-								if (app.debug) switches.push_back('d');
-								switches.push_back('f');
-								std::string appPath = app.appPath.string();
-								std::string configPath = app.configPath.string();
-								const char *args[] = {
-										appPath.c_str(),
-										switches.c_str(),
-										configPath.c_str(),
-										"restart",
-										nullptr
-								};
-								spawn(appPath.c_str(), args);
-							};
 							paths.push_back({
-								"/admin",WebCfg(auth,name,path,webcfgsect["serial"].getUInt(0),stockSelector,restartFn)
+								"/admin",WebCfg(webcfgsect,name,stockSelector,app.createRestartFn())
 							});
 						}
 
@@ -606,7 +607,7 @@ int main(int argc, char **argv) {
 						Stats2Report::SharedPool pool(wrkcnt);
 
 
-						loadTraders(app.config, names, sf,sch, rpt, test,spreadCalcInterval, pool);
+						loadTraders(app.config, names, sf,sch, rpt, app.test,spreadCalcInterval, pool);
 
 						logNote("---- Starting service ----");
 

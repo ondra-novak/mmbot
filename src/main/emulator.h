@@ -33,6 +33,7 @@ public:
 	virtual double getFees(const std::string_view &pair) override;
 	virtual std::vector<std::string> getAllPairs() override;
 	virtual void testBroker() override {datasrc.testBroker();}
+	virtual BrokerInfo getBrokerInfo() override;
 
 	static std::string_view prefix;
 

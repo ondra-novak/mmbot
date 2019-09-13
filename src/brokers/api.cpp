@@ -82,6 +82,15 @@ static Value enableDebug(IStockApi &handler, const Value &req) {
 }
 
 
+static Value getBrokerInfo(IStockApi &handler, const Value &req) {
+	IStockApi::BrokerInfo nfo = handler.getBrokerInfo();
+	return Object("name",nfo.exchangeName)
+				 ("url",nfo.exchangeUrl)
+				 ("version",nfo.version)
+				 ("licence",nfo.licence)
+				 ("favicon",Value(BinaryView(StrViewA(nfo.favicon)),base64));
+}
+
 static Value reset(IStockApi &handler, const Value &req) {
 	handler.reset();
 	return Value();
@@ -131,7 +140,8 @@ static MethodMap methodMap ({
 			{"getAllPairs",&getAllPairs},
 			{"getFees",&getFees},
 			{"getInfo",&getInfo},
-			{"enableDebug",&enableDebug}
+			{"enableDebug",&enableDebug},
+			{"getBrokerInfo",&getBrokerInfo}
 	});
 
 

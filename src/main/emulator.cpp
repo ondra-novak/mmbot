@@ -111,6 +111,10 @@ std::vector<std::string> EmulatorAPI::getAllPairs() {
 	return datasrc.getAllPairs();
 }
 
+EmulatorAPI::BrokerInfo EmulatorAPI::getBrokerInfo() {
+	return datasrc.getBrokerInfo();
+}
+
 void EmulatorAPI::simulation(const Ticker &tk) {
 
 	double cur = tk.last;

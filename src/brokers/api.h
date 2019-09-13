@@ -23,6 +23,8 @@ public:
 	 */
 	virtual void enable_debug(bool enable) {debug_mode = enable;}
 
+	virtual BrokerInfo getBrokerInfo()  override {throw std::runtime_error("unsupported");}
+
 
 	static void dispatch(std::istream &input, std::ostream &output, IStockApi &handler);
 

@@ -44,6 +44,7 @@ public:
 	virtual double getFees(const std::string_view &pair)override;
 	virtual std::vector<std::string> getAllPairs()override;
 	virtual void enable_debug(bool enable) override {px.debug = enable;}
+	virtual BrokerInfo getBrokerInfo() override;
 
 	Value balanceCache;
 	Value tickerCache;
@@ -368,6 +369,59 @@ bool Interface::tradeOrder(const Trade &a, const Trade &b) {
 	return Value::compare(a.id,b.id) < 0;
 }
 
+
+Interface::BrokerInfo Interface::getBrokerInfo() {
+	return BrokerInfo{
+		"poloniex",
+		"Poloniex",
+		"https://www.poloniex.com/",
+		"1.0",
+		R"mit(Copyright (c) 2019 Ondřej Novák
+
+Permission is hereby granted, free of charge, to any person
+obtaining a copy of this software and associated documentation
+files (the "Software"), to deal in the Software without
+restriction, including without limitation the rights to use,
+copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the
+Software is furnished to do so, subject to the following
+conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+OTHER DEALINGS IN THE SOFTWARE.)mit",
+"iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAMAAAD04JH5AAABwlBMVEUAAAAqNTsqNjwrNjwsNz0t"
+"Nz0uOD4vOT8wOkAxO0ExPEEyPEIzPUM0PkQ1PkQ0P0Q1P0U2P0U2QEY3QEY3QUc4QUc4Qkg5QkgA"
+"UlwAU1w6Q0kBU10BVF0BVF47REoCVV47RUsCVV88RUsCVl47RksCVl8DVl88Rkw9RkwDV18DV2A9"
+"R00+R00EWGAEWWFASU8FWmFASlAFW2JBSlAGW2IGW2NBS1EGXGNCS1FCTFIHXWMHXWRDTFIHXmRD"
+"TVNDTlMIX2QIX2VETlQIYGUJYGUJYGZFT1VGT1UJYWYJYWdGUFZHUFYJYmcJYmgJY2gJY2lIUVcJ"
+"ZGkJZGpIUlhJUlgJZWoJZWtKU1kJZmsJZmxKVFpLVFoJZ20KZ21MVVpMVVsKaG4KaG8KaW8KaXAK"
+"anAKanEKa3EKa3IJbHMKbHIKbHMKbXMKbXQLbXQMbnUMb3YNb3YOb3YPcHcQcHcRcXgScngTcnkU"
+"c3kUc3oVc3oWdHsXdHsXdXwYdXwZdnwZdn0adn0bdn4cd34deH8eeH8feYAgeYAheoEieoEie4Ij"
+"e4Ije4MkfIMlfIMlfYQmfYQnfYQofYUofoUpfoUpf4Yqf4Zvf8klAAAAAXRSTlMAQObYZgAAApVJ"
+"REFUeAHt0YOaHUEUReEd27bHsW3btm3bdvK8sfpO37Oqu6qi6f8F9vrOUaFQKBR+9R7I0U4Qu2AH"
+"7RsB72xyssW2VYa3tjdi2ghkemN7LbR2nU22V0BkFZFfwUuBpUDope2FTAuX2MSePbfJsoDIpcD2"
+"VIY5tply8sT2WGXNAHLzCMC+QY4eAv8DkAcg9r7uA/8HkHtAKSZPsymTuyBlHyibO4T3KQDcvmXz"
+"PwC5CWLv68Z12zUlhA/QVZAlQLlcAe4FyucycS5QTpdsF5UwqSzldgG4FSi/8+eAEiakk4ezwCVA"
+"XgFnABfIz2mCBfJ0CpyEAHk7AWQWyN9xcNQsUADHiH41NkFBHAFKgH3vAC4Y/ZP+cIFCOQT7h9MD"
+"FM5hcDC1QAEdJCkFCip7gMI6QOoVKLD9RAkjFRwGxLaPqCjYq8j2EsW2h/z/BbuJYttF4geQBn+C"
+"7YprO1Fc2+LvQwBQZJtJsf9/B2wiimsDUWTZ9uvqFNh6W2lAbeiCNaRk/zOFlGO/9s8doOobBbMa"
+"JPdVFbpgNSndDx2wEpTuhy5YkT+gKsg+MfbjB8B+iILlQAlDq0pUytPiZbbFSqisT36WAdyv/J37"
+"g1PJw2L/AK+CRQT2owfwvl/BfMD7fgXz5oLYAbMB7/sVTJ9l432/gqnTgRIGguwFU4FK9AfKaOIU"
+"mxS3YCIQB3gVjBlnG68UQQNs46S4BaOAyugN5GhEzn31sHV3DgAqq5utq5wMBzJ0sXUWU00N7Fs6"
+"2Tp2EKs21dTI1L6dTagCCLQFAkOG2YTa2FrLNGiATaxNK5tMA4CYWgIZ+vazyUkLYOwDuWkOVFYf"
+"IEfNmjazNFUZvWx95KwJUKqetl7KoHEjk/4ihUKhUPgI3TlJWgiZwUMAAAAASUVORK5CYII="
+
+	};
+}
 
 
 

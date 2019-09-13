@@ -35,6 +35,9 @@ public:
 	unsigned int getTradeCount() const {
 		return std::min(buys,sells);
 	}
+	virtual BrokerInfo getBrokerInfo() {
+		return BrokerInfo {};
+	}
 
 protected:
 	double currency=0;

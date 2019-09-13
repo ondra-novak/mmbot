@@ -51,6 +51,7 @@ public:
 	virtual double getFees(const std::string_view &pair)override;
 	virtual std::vector<std::string> getAllPairs()override;
 	virtual void enable_debug(bool enable) override;
+	virtual BrokerInfo getBrokerInfo() override;
 
 
 	ondra_shared::linear_map<std::string, double, std::less<std::string_view> > tick_cache;
@@ -286,6 +287,43 @@ inline double Interface::getFees(const std::string_view &pair) {
 
 void Interface::enable_debug(bool enable) {
 	px.debug = enable;
+}
+
+Interface::BrokerInfo Interface::getBrokerInfo() {
+	return BrokerInfo{
+		"deribit",
+		"Deribit",
+		"https://www.deribit.com/",
+		"1.0",
+		R"mit(Copyright (c) 2019 Ondřej Novák
+
+Permission is hereby granted, free of charge, to any person
+obtaining a copy of this software and associated documentation
+files (the "Software"), to deal in the Software without
+restriction, including without limitation the rights to use,
+copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the
+Software is furnished to do so, subject to the following
+conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+OTHER DEALINGS IN THE SOFTWARE.)mit",
+"iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAMAAAD04JH5AAAABlBMVEUAAAAtrpq1rIdBAAAAAXRS"
+"TlMAQObYZgAAANRJREFUeAHt2jcSwzAMBVHs/S9t18r5cwa7rYNeJYkkysxWYt7BrwkQIECAAAEC"
+"BAh47fpw/Gsn47XiAIA4AIgDIA6AOADiAOIA4gCIA4gDiAOIA4gDiAMQQBzAYIB33jbZ7APAvzhg"
+"i/ARoCoOWBV8Bqg4YE3wHaDigBoTwIeAigNKQBiwIhAgQIAAAT6MOgHoDui+LiAKyK8NWanL/gBZ"
+"ACQBbOVGZe+9Yrfru58ZdT837H523Hx+oPcMSe85oqogIDlL5kCjAAECBAgQIECAmR3sB12WHA4r"
+"Mg73AAAAAElFTkSuQmCC"
+	};
 }
 
 inline std::vector<std::string> Interface::getAllPairs() {

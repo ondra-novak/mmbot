@@ -51,6 +51,7 @@ public:
 	virtual double getFees(const std::string_view &pair)override;
 	virtual std::vector<std::string> getAllPairs()override;
 	virtual void enable_debug(bool enable) override;
+	virtual BrokerInfo getBrokerInfo() override;
 
 	using Symbols = ondra_shared::linear_map<std::string, MarketInfo, std::less<std::string_view> > ;
 	using Tickers = ondra_shared::linear_map<std::string, Ticker,  std::less<std::string_view> >;
@@ -425,6 +426,48 @@ inline Value Interface::generateOrderId(Value clientId) {
 
 void Interface::enable_debug(bool enable) {
 	px.debug = enable;
+}
+
+Interface::BrokerInfo Interface::getBrokerInfo() {
+	return BrokerInfo{
+		"binance",
+		"Binance",
+		"https://www.binance.com/",
+		"1.0",
+		R"mit(Copyright (c) 2019 Ondřej Novák
+
+Permission is hereby granted, free of charge, to any person
+obtaining a copy of this software and associated documentation
+files (the "Software"), to deal in the Software without
+restriction, including without limitation the rights to use,
+copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the
+Software is furnished to do so, subject to the following
+conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+OTHER DEALINGS IN THE SOFTWARE.)mit",
+"iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAMAAAD04JH5AAAABlBMVEX31lXzui274TLJAAAAAXRS"
+"TlMAQObYZgAAAYlJREFUeNrt20FuwzAQQ9Hw/pfuku0iNQxCfQ1gLgMin4ltSR6NXo8efboSzU80"
+"P9H8RPMTxa8Uv1L8SvErxa8Uv1L8SvErxa8Uv1L8SvErHiCKXyl+pfiV4leKXyl+pfiV4lean7/h"
+"r5Pzzt8S7Pwtwc5fE+z88wnyVjdch/hbgp2/JNj5m3cPsJn3BJt5T7CZ9wSbeU8wmvcEd8ygGnR8"
+"OrxjNhXBmllNdOa/H2h/9Vbv+Dd+wIlPX7cu4fi/XJiHq33h3c23bvcD5lsP/AFzvguMj/mpgzPE"
+"PpVlMu+TeUbzupzJbN4WdMluXpa0mcz1+gD+Evib0D+GfiDSQ7GfjPx07Bckfkm2L0on86kF+MUX"
+"qxcT8GpmX07967kvUPgSjS9S+TKdL1TyUi0vVvNyvd6w0Fs2etNKb9vpjUu9das3r/X2vW9gwAl8"
+"E4tN8F8amVQC38xmE+h+Qt1R6ZtabQLf2GwT+OZ2m8AfcLAJ/CEXm8AfdLIJ/GE3m8AfeLQJ+KHX"
+"R48+XF9VnRBZ1a2+VQAAAABJRU5ErkJggg=="
+
+
+	};
 }
 
 int main(int argc, char **argv) {

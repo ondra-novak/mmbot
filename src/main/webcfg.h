@@ -11,6 +11,7 @@
 #include <shared/stringview.h>
 #include <simpleServer/http_parser.h>
 #include <imtjson/namedEnum.h>
+#include <shared/ini_config.h>
 #include "istockapi.h"
 #include "authmapper.h"
 
@@ -20,10 +21,8 @@ public:
 
 
 
-	WebCfg(const std::string &auth,
+	WebCfg(const ondra_shared::IniConfig::Section &cfg,
 			const std::string &realm,
-			const std::string &config_path,
-			unsigned int serial,
 			IStockSelector &stockSelector,
 			std::function<void()> &&restart_fn);
 
@@ -36,7 +35,8 @@ public:
 		config,
 		restart,
 		serialnr,
-		info
+		info,
+		brokers
 	};
 
 	AuthMapper auth;
@@ -53,6 +53,7 @@ protected:
 	bool reqRestart(simpleServer::HTTPRequest req) const;
 	bool reqSerial(simpleServer::HTTPRequest req) const;
 	bool reqInfo(simpleServer::HTTPRequest req, ondra_shared::StrViewA broker, ondra_shared::StrViewA symbol) const;
+	bool reqBrokers(simpleServer::HTTPRequest req, ondra_shared::StrViewA rest) const;
 
 
 };
