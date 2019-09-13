@@ -3,7 +3,7 @@ git submodule foreach git reset --hard
 git submodule update --init
 git -c user.name="Update" -c user.email="update@localhost.localdomain"  commit -a -m "" --allow-empty-message 
 set -e
-git pull --no-commit
+git  -c user.name="Update" -c user.email="update@localhost.localdomain" pull --no-commit
 git submodule update --init
 mkdir -p ./data
 mkdir -p ./log
