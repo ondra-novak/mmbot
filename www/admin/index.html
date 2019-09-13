@@ -4,93 +4,73 @@
 <meta charset="UTF-8">
 <title>MM Bot</title>
   <link rel="stylesheet" href="style.css">
-  <link rel="stylesheet" href="../res/style.css">
   <meta name="viewport" content="width=device-width,initial-scale=1">
 </head>
 <body onload="app_start();">
-<h1>MMBot web admin</h1>
-<hr>
-<div class="general">
-<form name="general">
-<label><span>Web admin is enabled</span><input type="checkbox" name="enabled"></label>
-<label><span>Credentials</span><select name="credentials" ><option value="">-- n/a ---</option></select></label>
-<div class="buttons"><button name="remove" type="button">Remove</button><button name="add" type="button">Add</button></div>
-</form>
-</div>
-<hr>
-<div class="main_panel">
-<div id="selector_list" class="selector_list">
-<template id="selector_template">
-<div data-name="item">
-<div data-name="title"></div>
-<div data-name="broker"></div>
-<div data-name="pair_symbol"></div>
-</div>
-</template>
-</div>
-<div class="markets" id="market_list">
-<template id="market_template">
-<div class="market">
-<form>
-<div class="head">
-	<div class="title" data-name="title">Title</div>
-	<div class="info" data-name="info">
-				<label class="inline"><input type="checkbox" name="enabled"> Enabled</label>
-	</div>
-</div>
-<table class="infotable">
-<tr><th>Broker</th><td data-name="broker"></td></tr>
-<tr><th>Symbol</th><td data-name="pair_symbol"></td></tr>
-<tr><th>Current price</th><td data-name="info_price"></td></tr>
-<tr><th>Asset balance</th><td data-name="info_asset"></td></tr>
-<tr><th>Currency balance</th><td data-name="info_currency"></td></tr>
-<tr><th>Fees [%]</th><td data-name="info_fees"></td></tr>
-<tr><th>Leverage [x]</th><td data-name="info_leverage"></td></tr>
-</table>
-<label><span>Title</span><input type="text" name="title"></label>
-<br>
-<label><span>External assets</span><input type="text" name="external_assets"></label>
-<br>
-<label><span>Spread calc hours</span><span class="range"><input type="text" min="1" max="720" name="spread_calc_hours"></span></label>
-<label><span>Spread calc min trades</span><span class="range"><input type="text" min="1" max="500" name="spread_calc_min_trades"></span></label>
-<label><span>Spread calc max trades</span><span class="range"><input type="text" min="1" max="500" name="spread_calc_max_trades"></span></label>
-<br>
-<label><span>Accumulation when buy</span><span class="range"><input type="text" min="0" max="100" name="acum_factor_buy"></span></label>
-<label><span>Accumulation when sell</span><span class="range"><input type="text" min="0" max="100" name="acum_factor_sell"></span></label>
-<br>
-<label><span>Dynamic multiplicator raise</span><span class="range"><input type="text" min="0" max="500" name="dynmult_raise"></span></label>
-<label><span>Dynamic multiplicator fall</span><span class="range"><input type="text" min="1" max="100" name="dynmult_fall"></span></label>
-<br>
-<label ><span>Dry run</span><input type="checkbox" name="dryrun"> </label>
-<label ><span>Internal balance</span><input type="checkbox" name="ibal"> </label>
-<label ><span>Detect manual trades</span><input type="checkbox" name="mantrade"> </label>
-<br>
 
-<label><span>Operation:</span><select name="op">
-<option value="">--Select operation--</option>
-<option value="cancel_orders">Cancel all orders</option>
-<option value="repair">Repair</option>
-<option value="reset">Reset</option>
-<option value="erase">Remove</option>
+<x-form class="pair">
+<x-section><x-section-caption>General</x-section-caption>
+<label><span>Title</span><input type="text" data-name="title"></label>
+<label><span>Broker</span><input type="text" data-name="broker" readonly="readonly"></label>
+<label><span>Symbol</span><input type="text" data-name="symbol" readonly="readonly"></label>
+<label><span>Goal</span><select data-name="goal">
+<option value="norm">Normalized profit</option>
+<option value="pl">Profit from position</option>
 </select></label>
-<div class="buttons"><button name="exec" type="button">Execute operation</button></div>
-</form>
+<div class="label"><span>Options</span><div>
+<label><input type="checkbox" checked="checked"> Enabled </label>
+<label><input type="checkbox" > Dry run </label>
+<label><input type="checkbox"> Internal balance </label>
+<label><input type="checkbox" checked="checked"> Dust orders </label>
+<label><input type="checkbox" > Detect manual orders </label>
 </div>
-</template>
-<div class="market" id="create_new" data-title="<create new>">
-<form>
-<label><span>Select symbol:</span><select name="symbol"></select></label>
-<div class="buttons"><button name="create" type="button">Add market</button></div>
-</form>
+
 </div>
-</div>
-</div>
-<hr>
-<form id="command_bar"><div class="buttons"><button name="save" type="button">Save</button><button name="restart" type="button">Restart</button></div></form>
+</x-section>
+<x-section><x-section-caption>Normalized profit</x-section-caption>
+<label><span>External assets</span><input type="number" data-name="external_assets"></label>
+<label><span>Accumulation</span><x-slider data-name="acum_factor" min="0" max="100" mult="1"></x-slider></label>
+<label><span>Accept loss after hours (0=disabled)</span><x-slider data-name="accept_loss" min="0" max="100" mult="1"></x-slider></label>
+</x-section>
+<x-section><x-section-caption>Profit from position</x-section-caption>
+<label><span>Power (external assets)</span><input type="number" data-name="power"></label>
+<label><span>Neutral position type</span><select data-name="neutral_pos_type">
+<option name="assets">Assets</option>
+<option name="currency">Currency</option>
+<option name="center">Center</option>
+</select>
+</label>
+<label><span>Neutral position value</span><input type="number" data-name="neutral_pos_val"></label>
+<label><span>Max position (0=disabled)</span><input type="number" data-name="max_pos"></label>
+<label><span>Accept loss after hours (0=disabled)</span><x-slider data-name="accept_loss_pln" min="0" max="100" mult="1"></x-slider></label>
+<label><span>Sliding position hours (0=disabled)</span><x-slider data-name="sliding_pos_hours" min="0" max="1000" mult="10"></x-slider></label>
+<label><span>Sliding position weaken (0=disabled)</span><x-slider data-name="sliding_pos_weaken" min="0" max="100" mult="1"></x-slider></label>
+</x-section>
+<x-section><x-section-caption>Spread</x-section-caption>
+<label><span>Spread calc. hours </span><x-slider data-name="spread_calc_hours" min="24" max="2400" mult="1"></x-slider></label>
+<label><span>Spread calc. min trades (per day) </span><x-slider data-name="spread_calc_min_trades" min="1" max="24" mult="1"></x-slider></label>
+<label><span>Dynamic spread mult. raise</span><x-slider data-name="dynmult_raise" min="1" max="1000" mult="1"></x-slider></label>
+<label><span>Dynamic spread mult. fall</span><x-slider data-name="dynmult_fall" min="0.1" max="100" mult="0.1"></x-slider></label>
+<label><span>Dynamic spread behaviour</span><select data-name="dynmult_mode">
+<option value="independent">Independent (original)</option>
+<option value="together">Together</option>
+<option value="alternate">Alternate</option>
+<option value="half_alternate" selected="selected">Half alternate (recommended)</option>
+</select></label>
+</x-section>
+<x-section><x-section-caption>Orders</x-section-caption>
+<label><span>Order size multiplicator [%]</span><x-slider data-name="order_mult" min="1" max="199" mult="1"></x-slider></label>
+<label><span>Min size [assets] (0=disabled)</span><input type="number" data-name="min_size"></label>
+
+</x-section>
+
+</x-form>
 
 
+
+
+<script src="../res/template.js" type="text/javascript"></script>
+<script src="../res/common.js" type="text/javascript"></script>
 <script src="code.js" type="text/javascript"></script>
-
-
 </body>
 </html>

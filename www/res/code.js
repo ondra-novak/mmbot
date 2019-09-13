@@ -1,53 +1,10 @@
-function beginOfDay(dt) {
-	return new Date(dt.getFullYear(), dt.getMonth(), dt.getDate());
-}
-
- 
-function fetch_json(file) {
-	"use strict";
-
-	return fetch(file).then(function(req) {
-		return req.json();
-	});
-	
-}
+"use strict";
 
 var changeinterval=null;
 var source_data=null;
 
-function adjNum(n, decimals) {
-	"use strict";
-	if (typeof n != "number") return n;	
-	if (isNaN(n)) return "---";
-	if (!isFinite(n)) { 
-		if (s < 0) return "-∞";
-		else return "∞";
-	}
-	if (decimals !== undefined) return n.toFixed(decimals);
-	var an = Math.abs(n);
-	if (an >= 100000) return n.toFixed(0);
-	else if (an >= 1) return n.toFixed(2);
-	else if (an > 0.0001) return n.toFixed(6);
-	else {
-		var s = (n*1000000).toFixed(3);
-		if (s == "0.000") return s;
-		return s+"µ";
-	}
-}
-
 var base_interval=1200000;
-	var chart_interval=1000;
-
-
-function new_svg_el(name, attrs, childOf) {
-	"use strict";
-		var elem = document.createElementNS("http://www.w3.org/2000/svg", name);
-		if (attrs) {for (var i in attrs) {
-			elem.setAttributeNS(null,i, attrs[i]);
-		}}
-		if (childOf) childOf.appendChild(elem);
-		return elem;
-	}
+var chart_interval=1000;
 
 	
 function drawChart(elem, chart, fld, lines, fld2) {
