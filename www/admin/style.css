@@ -1,4 +1,4 @@
-
+[hidden] { display: none !important;}
 
 x-slider {
 	display: inline-block;
@@ -33,18 +33,34 @@ x-form  label, x-form  div.label {
 x-form  label > *, x-form  div.label > * {
 	display:block;
 	width: 50%;
+	box-sizing: border-box;
 }
+
 x-form div.label label > *{
 	width: unset;
 }
 
+x-form img.inline_img {
+	height: 2em;
+	vertical-align: middle;
+}
 x-section {
 	display:block;
 	border: 1px solid;
 	padding: 1em 0.5em;
 	position: relative;
 	margin: 1em 0;
+	box-sizing: border-box;
 }
+x-section.goal {
+	opacity: 1;
+	transition: 0.7s all ease-in-out;
+	top: 0;
+	max-height: 15em;
+	transform: rotateX(0);
+	margin: 1.1em 0;
+}
+x-section.goal.hidden {opacity: 0;padding-top: 0;padding-bottom: 0;max-height: 0;margin-top: -1em;margin-bottom: 0;/* top: -15em; */z-index: -10;transform: rotateX(90deg);}
 x-section-caption {
 	background-color: white;
 	/* border: 1px solid; */

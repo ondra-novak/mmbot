@@ -1405,7 +1405,8 @@ var TemplateJS = function(){
 		"removeElement":removeElement,
 		"addElement":addElement,
 		"waitForRender":waitForRender,
-		"waitForRemove":waitForRemove
+		"waitForRemove":waitForRemove,
+		"waitForDOMUpdate":waitForDOMUpdate
 	};
 	
 }();

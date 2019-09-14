@@ -7,32 +7,38 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
 </head>
 <body onload="app_start();">
-
+<template id="trader_form">
 <x-form class="pair">
+<x-section><x-section-caption>Info</x-section-caption>
+<label><span>ID</span><span data-name="id" ></span></label>
+<label><span>Broker</span><span><img src="" data-name="broker_img" class="inline_img">
+	<span data-name="broker"></span> (<span data-name="broker_id"></span> <span data-name="broker_ver"></span>)</span></label>
+<label><span>Symbol</span><span data-name="symbol" ></span></label>
+<div class="label"><span>Balance:</span><div><span data-name="balance_asset"></span> <span data-name="asset" ></span><br>
+                                             <span data-name="balance_currency"></span> <span data-name="currency" ></span>
+                                             </div></div>
+<div class="label"><span>Price</span><span data-name="price"></span></div>
+<div class="label"><span>Leverage</span><span data-name="leverage"></span></div>
+</x-section>
 <x-section><x-section-caption>General</x-section-caption>
 <label><span>Title</span><input type="text" data-name="title"></label>
-<label><span>Broker</span><input type="text" data-name="broker" readonly="readonly"></label>
-<label><span>Symbol</span><input type="text" data-name="symbol" readonly="readonly"></label>
 <label><span>Goal</span><select data-name="goal">
 <option value="norm">Normalized profit</option>
 <option value="pl">Profit from position</option>
 </select></label>
 <div class="label"><span>Options</span><div>
-<label><input type="checkbox" checked="checked"> Enabled </label>
-<label><input type="checkbox" > Dry run </label>
-<label><input type="checkbox"> Internal balance </label>
-<label><input type="checkbox" checked="checked"> Dust orders </label>
-<label><input type="checkbox" > Detect manual orders </label>
+<label><input type="checkbox" checked="checked" data-name="enabled"> Enabled </label>
+<label><input type="checkbox" data-name="dry_run"> Dry run </label>
 </div>
 
 </div>
 </x-section>
-<x-section><x-section-caption>Normalized profit</x-section-caption>
+<x-section data-name="goal_norm" class="goal hidden" hidden="hidden"><x-section-caption>Normalized profit</x-section-caption>
 <label><span>External assets</span><input type="number" data-name="external_assets"></label>
-<label><span>Accumulation</span><x-slider data-name="acum_factor" min="0" max="100" mult="1"></x-slider></label>
-<label><span>Accept loss after hours (0=disabled)</span><x-slider data-name="accept_loss" min="0" max="100" mult="1"></x-slider></label>
+<label><span>Accumulation</span><x-slider data-name="acum_factor" data-min="0" data-max="100" data-mult="1"></x-slider></label>
+<label><span>Accept loss after hours (0=disabled)</span><x-slider data-name="accept_loss" data-min="0" data-max="100" data-mult="1"></x-slider></label>
 </x-section>
-<x-section><x-section-caption>Profit from position</x-section-caption>
+<x-section data-name="goal_pl" class="goal hidden" hidden="hidden"><x-section-caption>Profit from position</x-section-caption>
 <label><span>Power (external assets)</span><input type="number" data-name="power"></label>
 <label><span>Neutral position type</span><select data-name="neutral_pos_type">
 <option name="assets">Assets</option>
@@ -42,15 +48,15 @@
 </label>
 <label><span>Neutral position value</span><input type="number" data-name="neutral_pos_val"></label>
 <label><span>Max position (0=disabled)</span><input type="number" data-name="max_pos"></label>
-<label><span>Accept loss after hours (0=disabled)</span><x-slider data-name="accept_loss_pln" min="0" max="100" mult="1"></x-slider></label>
-<label><span>Sliding position hours (0=disabled)</span><x-slider data-name="sliding_pos_hours" min="0" max="1000" mult="10"></x-slider></label>
-<label><span>Sliding position weaken (0=disabled)</span><x-slider data-name="sliding_pos_weaken" min="0" max="100" mult="1"></x-slider></label>
+<label><span>Accept loss after hours (0=disabled)</span><x-slider data-name="accept_loss" data-min="0" data-max="100" data-mult="1"></x-slider></label>
+<label><span>Sliding position hours (0=disabled)</span><x-slider data-name="sliding_pos_hours" data-min="0" data-max="1000" data-mult="10"></x-slider></label>
+<label><span>Sliding position weaken (0=disabled)</span><x-slider data-name="sliding_pos_weaken" data-min="0" data-max="100" data-mult="1"></x-slider></label>
 </x-section>
 <x-section><x-section-caption>Spread</x-section-caption>
-<label><span>Spread calc. hours </span><x-slider data-name="spread_calc_hours" min="24" max="2400" mult="1"></x-slider></label>
-<label><span>Spread calc. min trades (per day) </span><x-slider data-name="spread_calc_min_trades" min="1" max="24" mult="1"></x-slider></label>
-<label><span>Dynamic spread mult. raise</span><x-slider data-name="dynmult_raise" min="1" max="1000" mult="1"></x-slider></label>
-<label><span>Dynamic spread mult. fall</span><x-slider data-name="dynmult_fall" min="0.1" max="100" mult="0.1"></x-slider></label>
+<label><span>Spread calc. hours </span><x-slider data-name="spread_calc_hours" data-min="24" data-max="2400" data-mult="1"></x-slider></label>
+<label><span>Spread calc. min trades (per day) </span><x-slider data-name="spread_calc_min_trades" data-min="1" data-max="24" data-mult="1"></x-slider></label>
+<label><span>Dynamic spread mult. raise</span><x-slider data-name="dynmult_raise" data-min="1" data-max="1000" data-mult="1"></x-slider></label>
+<label><span>Dynamic spread mult. fall</span><x-slider data-name="dynmult_fall" data-min="0.1" data-max="10" data-mult="0.1" data-fixed="1"></x-slider></label>
 <label><span>Dynamic spread behaviour</span><select data-name="dynmult_mode">
 <option value="independent">Independent (original)</option>
 <option value="together">Together</option>
@@ -59,13 +65,30 @@
 </select></label>
 </x-section>
 <x-section><x-section-caption>Orders</x-section-caption>
-<label><span>Order size multiplicator [%]</span><x-slider data-name="order_mult" min="1" max="199" mult="1"></x-slider></label>
+<label><span>Order size multiplicator [%]</span><x-slider data-name="order_mult" data-min="1" data-max="199" data-mult="1"></x-slider></label>
 <label><span>Min size [assets] (0=disabled)</span><input type="number" data-name="min_size"></label>
-
 </x-section>
-
+<x-section><x-section-caption>Misc</x-section-caption>
+<div class="label"><span>Options</span><div>
+<label><input type="checkbox" data-name="internal_balance"> Internal balance </label>
+<label><input type="checkbox" checked="checked" data-name="dust_orders"> Dust orders (recomended) </label>
+<label><input type="checkbox" data-name="detect_manual_trades"> Detect manual trades </label>
+</div>
+</div>
+<label><span>Report - position offset</span><input type="number" data-name="report_position_offset"></label>
+<label><span>Force spread (0=disabled)</span><input type="number" data-name="force_spread"></label>
+</x-section>
 </x-form>
+</template>
 
+<template id="trader_list">
+<div class="list">
+<div class="item" data-name="item[]">
+<img src="" data-name="image">
+<div data-name="caption"></div>
+</div>
+</div>
+</template>
 
 
 
