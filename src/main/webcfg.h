@@ -19,40 +19,40 @@
 class WebCfg {
 public:
 
+	using Action = std::function<void()>;
+	using Dispatch = std::function<void(Action &&)>;
 
 
 	WebCfg(const ondra_shared::IniConfig::Section &cfg,
 			const std::string &realm,
 			IStockSelector &stockSelector,
-			std::function<void()> &&restart_fn);
+			Action &&restart_fn,
+			Dispatch &&dispatch);
 
 
 	bool operator()(const simpleServer::HTTPRequest &req,  const ondra_shared::StrViewA &vpath) const;
 
 
 	enum Command {
-		all_pairs,
 		config,
 		restart,
 		serialnr,
-		info,
 		brokers
 	};
 
 	AuthMapper auth;
 	std::string config_path;
 	IStockSelector &stockSelector;
-	std::function<void()> restart_fn;
+	Action restart_fn;
+	Dispatch dispatch;
 	unsigned int serial;
 
 	static json::NamedEnum<Command> strCommand;
 
 protected:
-	bool reqAllPairs(simpleServer::HTTPRequest req) const;
 	bool reqConfig(simpleServer::HTTPRequest req) const;
 	bool reqRestart(simpleServer::HTTPRequest req) const;
 	bool reqSerial(simpleServer::HTTPRequest req) const;
-	bool reqInfo(simpleServer::HTTPRequest req, ondra_shared::StrViewA broker, ondra_shared::StrViewA symbol) const;
 	bool reqBrokers(simpleServer::HTTPRequest req, ondra_shared::StrViewA rest) const;
 
 

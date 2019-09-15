@@ -1,12 +1,15 @@
 "use strict";
 
 function app_start() {
-	window.app = new App();	
+	window.app = new App();
+	window.app.init();
 }
 
 
 function App() {	
-	
+	this.traders={};
+	this.config={};
+	this.curForm = null;
 }
 
 TemplateJS.View.prototype.showWithAnim = function(item, state) {	
@@ -36,19 +39,78 @@ App.prototype.createTraderForm = function() {
 	var norm=form.findElements("goal_norm")[0];
 	var pl = form.findElements("goal_pl")[0];
 	form.dlgRules = function() {
-		var state = this.readData(["goal"]);
+		var state = this.readData(["goal","advanced"]);
 		this.showWithAnim("goal_norm",state.goal == "norm");
 		this.showWithAnim("goal_pl",state.goal == "pl");
+		form.getRoot().classList.toggle("no_adv", !state["advanced"]);
+		
 	};
-	form.setItemEvent("goal","change", form.dlgRules.bind(form));	
+	form.setItemEvent("goal","change", form.dlgRules.bind(form));
+	form.setItemEvent("advanced","change", form.dlgRules.bind(form));
 	return form;
 }
 
 App.prototype.createTraderList = function() {
 	var form = TemplateJS.View.fromTemplate("trader_list");
-	form.loadTraders = function(config) {
+	var items = Object.keys(this.traders).map(function(x) {
+		return {
+			image:this.brokerImgURL(this.traders[x].broker),
+			caption: this.traders[x].title,
+			broker: this.traders[x].broker,
+			id: this.traders[x].id,			
+		};
+	},this);
+	items.sort(function(a,b) {
+		return a.broker.localeCompare(b.broker);
+	});
+	items.push({
+		"image":"../res/add_icon.png",
+		"caption":"",				
+		"id":"+"
+	});
+	items.forEach(function(x) {
+		x[""] = {"!click":function(id) {
+			form.select(id);
+		}.bind(null,x.id)}
+	});
+	form.setData({"item": items});
+	form.select = function(id) {
+		var update = items.map(function(x) {
+			return {"":{"classList":{"selected": x.id == id}}};
+		});
+		form.setData({"item": update});
 		
-	}
+		var nf;
+		if (id != "+") {
+			nf = this.openTraderForm(id);			
+			var f = this.curForm;
+			this.curForm = nf; 
+			var p;
+		
+			if (f) p = f.close(); else p = Promise.resolve();
+			p.then(function() {
+				this.desktop.setItemValue("content", nf);
+			}.bind(this));
+		} else {
+			this.brokerSelect().then(this.pairSelect.bind(this)).then(function(res) {
+				var broker = res[0];
+				var pair = res[1];
+				var name = res[2];				
+				if (!this.traders[name]) this.traders[name] = {};
+				var t = this.traders[name];
+				t.broker = broker;
+				t.pair_symbol = pair;
+				t.id = name;
+				if (!t.title) t.title = pair;
+				t.fillForm = this.fillForm.bind(this, t);
+				var f2 = this.createTraderList();
+				form.replace(f2);
+				f2.select(name);
+			}.bind(this))
+		}
+	}.bind(this);
+	
+	return form;
 }
 
 App.prototype.loadConfig = function() {
@@ -196,5 +258,83 @@ TemplateJS.View.regCustomElement("X-SLIDER", new TemplateJS.CustomElement(
 		}
 ));
 
+App.prototype.init = function() {
+	return this.loadConfig().then(function() {
+		this.desktop = TemplateJS.View.fromTemplate("desktop");
+		var menu = this.createTraderList();
+		this.desktop.setItemValue("menu", menu);
+		this.desktop.open();
+	}.bind(this));
+}
 
+App.prototype.brokerSelect = function() {
+	var _this = this;
+	return new Promise(function(ok, cancel) {
+		
+		var form = TemplateJS.View.fromTemplate("broker_select");
+		form.openModal();
+		fetch_json("api/brokers").then(function(x) {
+			var lst = x["entries"].map(function(itm) {
+				var broker = fetch_json(_this.brokerURL(itm));
+				return {
+					image:_this.brokerImgURL(itm),
+					caption: broker.then(function(b){return b.exchangeName;}),
+					"":{
+						"!click": function() {
+							form.close();
+							ok(itm);
+						}
+					}
+				};
+			});
+			form.setItemValue("item",lst);
+		});
+		form.setCancelAction(function() {
+			form.close();
+			cancel();
+		},"cancel");
+	
+	});
+}
 
+App.prototype.pairSelect = function(broker) {
+	var _this = this;
+	return new Promise(function(ok, cancel) {
+		var form = TemplateJS.View.fromTemplate("broker_pair");
+		form.openModal();
+		form.setCancelAction(function() {
+			form.close();
+			cancel();
+		},"cancel");
+		form.setDefaultAction(function() {
+			form.close();
+			var d = form.readData();
+			if (!d.pair || !d.name) return;
+			var name = d.name.replace(/[^-a-zA-Z0-9_.~]/g,"_");
+			ok([broker, d.pair, name]);
+		},"ok");
+		fetch_json(_this.pairURL(broker,"")).then(function(data) {
+			var pairs = [{"":{"value":"----",".value":""}}].concat(data["entries"].map(function(x) {
+				return {"":{"value":x,".value":x}};
+			}));			
+			form.setItemValue("item",pairs);
+			dlgRules();
+		});
+		form.setItemValue("image", _this.brokerImgURL(broker));
+		var last_gen_name="";
+		function dlgRules() {
+			var d = form.readData(["pair","name"]);
+			if (d.name == last_gen_name) {
+				d.name = last_gen_name = broker+"_"+d.pair;
+				form.setItemValue("name", last_gen_name);
+			}
+			form.enableItem("ok", d.pair != "" && d.name != "");
+		};
+		
+		
+		form.setItemEvent("pair","change",dlgRules);
+		form.setItemEvent("name","change",dlgRules);
+		dlgRules();
+	});
+	
+}

@@ -544,6 +544,8 @@ int main(int argc, char **argv) {
 
 						cntr.enableRestart();
 
+						Scheduler sch = ondra_shared::Scheduler::create();
+
 						cntr.addCommand("logrotate",[=](const simpleServer::ArgList &, simpleServer::Stream ) {
 							ondra_shared::logRotate();
 							return 0;
@@ -585,7 +587,12 @@ int main(int argc, char **argv) {
 							path.append(app.config.pathSeparator.data, app.config.pathSeparator.length)
 								.append("webcfg.conf");
 							paths.push_back({
-								"/admin",WebCfg(webcfgsect,name,stockSelector,app.createRestartFn())
+								"/admin",WebCfg(
+										webcfgsect,
+										name,
+										stockSelector,
+										app.createRestartFn(),
+										[=](WebCfg::Action &&a) mutable {sch.immediate() >> std::move(a);})
 							});
 						}
 
@@ -602,7 +609,6 @@ int main(int argc, char **argv) {
 
 
 
-						Scheduler sch = ondra_shared::Scheduler::create();
 						Worker wrk = schedulerGetWorker(sch);
 						Stats2Report::SharedPool pool(wrkcnt);
 

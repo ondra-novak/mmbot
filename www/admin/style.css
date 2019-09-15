@@ -1,4 +1,42 @@
+@charset "UTF-8";
+
+@import url(https://fonts.googleapis.com/css?family=Ruda&display=swap);
+body {
+	background-color:#222;
+	color:#CDCDCD;
+	font-family: Ruda;
+	margin:0;
+	font-size: 0.5cm;
+}
+
 [hidden] { display: none !important;}
+input,select,button {
+	background-color: black;
+	border: 1px solid #888;
+	padding: 0.1cm;
+	color: white;
+	font-family: Ruda;
+	font-size: 0.5cm;
+}
+input[disabled],select[disabled],button[disabled],button[disabled]:hover {
+	background-color: #444;
+	color: #888;
+	
+}
+
+button {
+	background-color: #444;
+	box-shadow: 2px 2px 5px black;
+	min-width: 5em;
+}
+
+button:hover {
+	color: yellow;
+}
+button:active {
+	box-shadow: 0px 0px 0px black;
+	transform: translate(2px,2px);
+}
 
 x-slider {
 	display: inline-block;
@@ -44,6 +82,9 @@ x-form img.inline_img {
 	height: 2em;
 	vertical-align: middle;
 }
+x-form input[type=number] {
+	text-align:center;
+}
 x-section {
 	display:block;
 	border: 1px solid;
@@ -62,11 +103,86 @@ x-section.goal {
 }
 x-section.goal.hidden {opacity: 0;padding-top: 0;padding-bottom: 0;max-height: 0;margin-top: -1em;margin-bottom: 0;/* top: -15em; */z-index: -10;transform: rotateX(90deg);}
 x-section-caption {
-	background-color: white;
+	background-color: #222;
 	/* border: 1px solid; */
 	display: block;
 	position: absolute;
 	left: 1em;
 	top: -0.7em;
 	padding: 0 0.3em;
+}
+
+x-form.no_adv .adv {
+	display:none;
+}
+
+div.trader.list .selected {
+	background-color: #333;
+}
+
+div.trader.list {
+	display: flex;
+	justify-content:center;
+	flex-wrap: wrap;
+}
+div.trader.list > * {
+	cursor: pointer;
+}
+div.trader.list > *:hover {
+	background-color:#223;
+}
+
+div.trader.list > * {
+	margin: 0.5cm;
+	text-align:center;
+}
+
+div.trader.list img {
+	width: 64px;
+	height: 64px;
+}
+
+div.dialog > div {
+	margin:auto;
+	text-align: center;
+	background-color: black;
+	border: 1px solid #888;
+	display: inline-block;
+	vertical-align: middle;
+	padding: 0 0 1% 0;
+	min-width: 8cm;
+	width: 90%;
+	max-width: 20cm;
+}
+
+div.broker.select .grid {
+	display: flex;
+	justify-content: center;
+	text-align: center;
+	margin: 2em;
+	flex-wrap: wrap;
+}
+
+div.dialog {
+	position: absolute;
+	top: 0;
+	right: 0;
+	left: 0;
+	bottom: 0;
+	text-align: center;
+}
+
+div.dialog::before {
+	content: "";
+	display: inline-block;
+	height: 100vh;
+	vertical-align: middle;
+}
+
+div.broker.pair .form {
+	margin: 1em;
+}
+x-form.pair {
+	max-width: 20cm;
+	margin: 0 auto;
 }
