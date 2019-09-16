@@ -580,12 +580,10 @@ int main(int argc, char **argv) {
 										>>= simpleServer::HttpFileMapper(std::string(rptpath), "index.html")
 						});
 
-						auto webcfgsect = app.config["webcfg"];
+						auto webcfgsect = app.config["web_admin"];
 						auto webcfg_enabled = webcfgsect["enabled"];
 						if (webcfg_enabled.getBool(false)) {
 							std::string path = webcfg_enabled.getCurPath();
-							path.append(app.config.pathSeparator.data, app.config.pathSeparator.length)
-								.append("webcfg.conf");
 							paths.push_back({
 								"/admin",WebCfg(
 										webcfgsect,

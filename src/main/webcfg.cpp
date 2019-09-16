@@ -42,7 +42,7 @@ WebCfg::WebCfg(const ondra_shared::IniConfig::Section &cfg,
 	,dispatch(std::move(dispatch))
 	,serial(cfg["serial"].getUInt())
 {
-	config_path.append(IniConfig::pathSeparator.data).append("webcfg.conf");
+	config_path.append(IniConfig::pathSeparator.data).append("web_admin.conf");
 }
 
 bool WebCfg::operator ()(const simpleServer::HTTPRequest &req,

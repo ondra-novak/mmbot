@@ -186,3 +186,11 @@ x-form.pair {
 	max-width: 20cm;
 	margin: 0 auto;
 }
+
+
+.control_row {display: flex;}
+.control_row > * {flex-grow: 1;margin: 0 0.1em;}
+.control_row > *:first-child {margin-left: 0;}
+.control_row > *:last-child {margin-right: 0;}
+
+

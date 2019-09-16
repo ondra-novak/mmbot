@@ -41,13 +41,12 @@
 </x-section>
 <x-section data-name="goal_pl" class="goal hidden" hidden="hidden"><x-section-caption>Profit from position</x-section-caption>
 <label><span>Power (external assets)</span><input type="number" data-name="power"></label>
-<label class="adv"><span>Neutral position type</span><select data-name="neutral_pos_type">
-<option name="assets">Assets</option>
-<option name="currency">Currency</option>
-<option name="center">Center</option>
-</select>
+<label><span>Neutral position</span><span class="control_row"><input type="number" data-name="neutral_pos_val"><select data-name="neutral_pos_type">
+<option value="assets" name="asset">Assets</option>
+<option value="currency" name="currency">Currency</option>
+<option value="center">Center</option>
+</select></span>
 </label>
-<label><span>Neutral position value</span><input type="number" data-name="neutral_pos_val"></label>
 <label class="adv"><span>Max position (0=disabled)</span><input type="number" data-name="max_pos"></label>
 <label class="adv"><span>Accept loss after hours (0=disabled)</span><x-slider data-name="accept_loss" data-min="0" data-max="100" data-mult="1"></x-slider></label>
 <label><span>Sliding position hours (0=disabled)</span><x-slider data-name="sliding_pos_hours" data-min="0" data-max="1000" data-mult="10"></x-slider></label>
