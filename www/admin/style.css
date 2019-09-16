@@ -7,6 +7,7 @@ body {
 	font-family: Ruda;
 	margin:0;
 	font-size: 0.5cm;
+	padding: 0;
 }
 
 [hidden] { display: none !important;}
@@ -132,6 +133,11 @@ div.trader.list > *:hover {
 	background-color:#223;
 }
 
+div.trader.list > *:active {
+	background-color:#484b52;
+}
+
+
 div.trader.list > * {
 	margin: 0.5cm;
 	text-align:center;
@@ -153,6 +159,7 @@ div.dialog > div {
 	min-width: 8cm;
 	width: 90%;
 	max-width: 20cm;
+	box-shadow: 10px 6px 20px black;
 }
 
 div.broker.select .grid {
@@ -189,8 +196,101 @@ x-form.pair {
 
 
 .control_row {display: flex;}
-.control_row > * {flex-grow: 1;margin: 0 0.1em;}
+.control_row > * {flex-grow: 1;margin: 0 0.1em;min-width: 0;}
 .control_row > *:first-child {margin-left: 0;}
 .control_row > *:last-child {margin-right: 0;}
 
+.flexpanel {
+	display: flex;
+	justify-content: space-between;
+	border-bottom: 2px solid #884;
+	background-color: #332;
+}
 
+.flexpanel > * {
+	height: 1.5cm;
+	line-height: 1.5cm;
+}
+
+.fonticon {
+	display: inline-block;
+	font-size: 1cm;
+	vertical-align: middle;
+	width: 1.1cm;
+	height: 1.1cm;
+	overflow: hidden;
+	text-align: center;
+	font-weight: bold;
+	cursor: default;
+	box-sizing: content-box;
+	padding: 0.2cm;
+	border:  0;
+	margin: 0 0.2em;
+	line-height: 1.1cm;
+}
+
+
+
+.backicon {
+	color: #CC8;
+}
+
+a {
+	margin: 0;
+}
+
+.desktop {
+	margin: 0;
+	padding: 0;
+}
+
+.lightbox {
+	background-color: #5f5f5fb0;
+	opacity: 1;
+	display:  block;
+	position:  fixed;
+	top: 0;
+	bottom:  0;
+	left:  0;
+	right: 0;
+}
+
+.main_form_wait x-section {
+	height: 13em;
+    position: relative;
+}
+
+.main_form_wait x-section div {
+	position: absolute;
+	left: 0;
+	top: 0;
+	right: 0;
+	bottom: 0;
+	width: 1cm;
+	height: 1cm;
+	border-left: 10px solid #ffffffbf;
+	border-top: 10px solid #929292;
+	border-right: 10px solid #777777b8;
+	border-bottom: 10px solid #4040409e;
+	margin: auto;
+	border-radius: 1cm;
+	animation: rot 3s infinite cubic-bezier(0.39, -0.01, 0.52, 1.01);
+}
+
+
+@keyframes rot {
+	0% {
+	transform: rotate(0);
+	opacity: 0;
+	}
+	40%{
+		opacity:1;
+	}
+	60% {
+		opacity:1;
+	}
+	100% {
+	transform: rotate(960deg);;
+	opacity:0;
+	}
+}

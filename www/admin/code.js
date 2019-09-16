@@ -1,8 +1,10 @@
 "use strict";
 
 function app_start() {
+	TemplateJS.View.lightbox_class = "lightbox";
 	window.app = new App();
 	window.app.init();
+	
 }
 
 
@@ -50,8 +52,8 @@ App.prototype.createTraderForm = function() {
 	return form;
 }
 
-App.prototype.createTraderList = function() {
-	var form = TemplateJS.View.fromTemplate("trader_list");
+App.prototype.createTraderList = function(form) {
+	if (!form) form = TemplateJS.View.fromTemplate("trader_list");
 	var items = Object.keys(this.traders).map(function(x) {
 		return {
 			image:this.brokerImgURL(this.traders[x].broker),
@@ -83,12 +85,12 @@ App.prototype.createTraderList = function() {
 		var nf;
 		if (id != "+") {
 			nf = this.openTraderForm(id);			
-			var f = this.curForm;
-			this.curForm = nf; 
 			var p;
 		
-			if (f) p = f.close(); else p = Promise.resolve();
-			p.then(function() {
+			this.desktop.setItemValue("content", TemplateJS.View.fromTemplate("main_form_wait"));
+			
+			
+			nf.then(function (nf) {
 				this.desktop.setItemValue("content", nf);
 			}.bind(this));
 		} else {
@@ -102,10 +104,7 @@ App.prototype.createTraderList = function() {
 				t.pair_symbol = pair;
 				t.id = name;
 				if (!t.title) t.title = pair;
-				t.fillForm = this.fillForm.bind(this, t);
-				var f2 = this.createTraderList();
-				form.replace(f2);
-				f2.select(name);
+				this.updateTopMenu(name);
 			}.bind(this))
 		}
 	}.bind(this);
@@ -120,7 +119,6 @@ App.prototype.loadConfig = function() {
 		this.traders = lst.reduce(function(a, n) {
 			var t = x[n];
 			if (t) {
-				t.fillForm = this.fillForm.bind(this, t);
 				t.id = n
 				a[n] = x[n];
 			}
@@ -166,6 +164,7 @@ App.prototype.fillForm = function (src, trg) {
 	data.price= pair.then(function(x) {return adjNum(x.price);})
 	data.leverage=pair.then(function(x) {return x.leverage?x.leverage+"x":"n/a";});
 	data.broker_img = this.brokerImgURL(src.broker);
+	data.advanced = src.advenced == "on";
 	data.goal = pair.then(function(x) {
 		var pl = x.leverage || src.force_margin || src.neutral_pos;
 		var dissw = !!x.leverage;
@@ -178,14 +177,14 @@ App.prototype.fillForm = function (src, trg) {
 	data.dry_run = src.dry_run == "on"
 	data.external_assets = defval(src.external_assets,0);
 	data.acum_factor =defval(src.acum_factor,0);
-	data.accept_loss = defval(src.accept_loss,0);
+	data.accept_loss = data.accept_loss_pl = defval(src.accept_loss,0);
 	data.power = src.external_assets;
 	var neutral_pos = src.neutral_pos?src.neutral_pos.split(" "):[];
 	data.neutral_pos_type = neutral_pos.length == 1?"assets":neutral_pos[0];
 	data.neutral_pos_val = src.neutral_pos?(neutral_pos.length == 1?neutral_pos[0]:neutral_pos[1]):0;
 	data.max_pos = defval(src.max_pos,0);
-	data.sliding_pos_hours = defval(src.sliding_pos_hours,240);
-	data.sliding_pos_weaken = defval(src.sliding_pos_weaken,11);
+	data.sliding_pos_hours = defval(src["sliding_pos.hours"],240);
+	data.sliding_pos_weaken = defval(src["sliding_pos.weaken"],11);
 	data.spread_calc_hours = defval(src.spread_calc_hours,5*24);
 	data.spread_calc_min_trades = defval(src.spread_calc_min_trades,1);
 	data.dynmult_raise = defval(src.dynmult_raise,250);
@@ -197,7 +196,7 @@ App.prototype.fillForm = function (src, trg) {
 	data.dust_orders = src.internal_balance != "off";
 	data.detect_manual_trades = src.detect_manual_trades== "on";
 	data.report_position_offset = defval(src.report_position_offset,0);
-	data.force_spread = (Math.exp(defval(src.force_spread,0))-1)*100;
+	data.force_spread = adjNum((Math.exp(defval(src.force_spread,0))-1)*100);
 	
 	Promise.all([pair,data.goal]).then(function(pp) {
 		var p = pp[0];
@@ -216,13 +215,87 @@ App.prototype.fillForm = function (src, trg) {
 		trg.setData(data);
 	})	
 	
-	trg.setData(data).then(trg.dlgRules.bind(trg));
+	data.execute = {
+		"!click": function() {
+			var d = trg.readData(["oper"]);
+			switch (d.oper) {
+			case "delete":
+				trg.close();
+				this.deleteTrader(src.id);
+				break;
+			case "repair":
+				this.repairTrader(src.id);
+				break;
+			case "reset":
+				this.resetTrader(src.id);
+				break;
+			case "cancelAll":
+				this.cancelAllOrders(src.id);
+				break;
+			break;
+			}
+		}.bind(this)
+	};
+	
+	return trg.setData(data).then(trg.dlgRules.bind(trg));
+}
+
+function onoff2bool(x) {
+	return x == "on";
+}
+function bool2onoff(x) {
+	return x?"on":"off"
+}
+
+App.prototype.saveForm = function(form, src) {
+	var data = form.readData();
+	var trader = {}
+	var goal = data.goal;
+	var gidx = valIdx(goal);
+	trader.id = src.id;
+	trader.broker =src.broker;
+	trader.pair_symbol = src.pair_symbol;
+	trader.title = data.title;
+	trader.enabled = bool2onoff(data.enabled);
+	trader.dry_run = bool2onoff(data.dry_run);
+	trader.advenced = bool2onoff(data.advanced);
+	if (goal == "norm") {
+		trader.external_assets = data.external_assets;
+		trader.acum_factor = data.acum_factor;
+		trader.accept_loss = data.accept_loss;		
+	} else {
+		trader.external_assets = data.power;
+		trader.neutral_pos = data.neutral_pos_type+" "+data.neutral_pos_val;
+		trader.max_pos = data.max_pos;
+		trader.accept_loss = data.accept_loss_pl;		
+		trader["sliding_pos.hours"] = data.sliding_pos_hours;
+		trader["sliding_pos.weaken"] = data.sliding_pos_weaken;
+	}
+	trader.spread_calc_hours =data.spread_calc_hours;
+	trader.spread_calc_min_trades = data.spread_calc_min_trades;
+	trader.dynmult_raise = data.dynmult_raise;
+	trader.dynmult_fall = data.dynmult_fall;
+	trader.dynmult_mode = data.dynmult_mode;
+	trader.buy_mult = data.order_mult;
+	trader.sell_mult = data.order_mult;
+	trader.min_size = data.min_size;
+	trader.internal_balance = bool2onoff(data.internal_balance);
+	trader.dust_orders = bool2onoff(data.dust_orders);
+	trader.detect_manual_trades = bool2onoff(data.detect_manual_trades);
+	trader.report_position_offset = data.report_position_offset;
+	trader.force_spread = Math.log(data.force_spread/100+1);	
+	return trader;
+	
 }
 
 App.prototype.openTraderForm = function(trader) {
 	var form = this.createTraderForm();
-	this.traders[trader].fillForm(form);
-	return form;
+	var p = this.fillForm(this.traders[trader], form);	
+	form.getRoot().addEventListener("remove", function() {
+		this.traders[trader] = this.saveForm(form,this.traders[trader]);
+		this.createTraderList(this.menu);
+	}.bind(this))
+	return p.then(function() {return form;});
 }
 
 TemplateJS.View.regCustomElement("X-SLIDER", new TemplateJS.CustomElement(
@@ -281,10 +354,13 @@ TemplateJS.View.regCustomElement("X-SLIDER", new TemplateJS.CustomElement(
 
 App.prototype.init = function() {
 	return this.loadConfig().then(function() {
-		this.desktop = TemplateJS.View.fromTemplate("desktop");
+		this.desktop = TemplateJS.View.createPageRoot(true);
+		this.desktop.loadTemplate("desktop");
+		var top_panel = TemplateJS.View.fromTemplate("top_panel");
 		var menu = this.createTraderList();
+		this.menu =  menu;
 		this.desktop.setItemValue("menu", menu);
-		this.desktop.open();
+		this.desktop.setItemValue("top_panel", top_panel);
 	}.bind(this));
 }
 
@@ -357,4 +433,26 @@ App.prototype.pairSelect = function(broker) {
 		dlgRules();
 	});
 	
+}
+
+App.prototype.updateTopMenu = function(select) {
+	this.createTraderList(this.menu);
+	if (select) f2.select(name);
+}
+
+App.prototype.deleteTrader = function(id) {
+	delete this.traders[id];
+	this.updateTopMenu();
+}
+
+App.prototype.resetTrader = function(id) {
+	alert("Reset Trader not implemented: "+id);
+}
+
+App.prototype.repairTrader = function(id) {
+	alert("Repair Trader not implemented: "+id);
+}
+
+App.prototype.cancelAllOrders = function(id) {
+	alert("CancelAllOrders not implemented: "+id);
 }

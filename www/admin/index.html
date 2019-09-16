@@ -12,7 +12,7 @@
 <x-section><x-section-caption>Info</x-section-caption>
 <label><span>ID</span><span data-name="id" ></span></label>
 <label><span>Broker</span><span><img src="" data-name="broker_img" class="inline_img">
-	<span data-name="broker"></span> (<span data-name="broker_id"></span> <span data-name="broker_ver"></span>)</span></label>
+	<span data-name="broker_id"></span> (<span data-name="broker"></span> <span data-name="broker_ver"></span>)</span></label>
 <label><span>Symbol</span><span data-name="symbol" ></span></label>
 <div class="label"><span>Balance:</span><div><span data-name="balance_asset"></span> <span data-name="asset" ></span><br>
                                              <span data-name="balance_currency"></span> <span data-name="currency" ></span>
@@ -48,7 +48,7 @@
 </select></span>
 </label>
 <label class="adv"><span>Max position (0=disabled)</span><input type="number" data-name="max_pos"></label>
-<label class="adv"><span>Accept loss after hours (0=disabled)</span><x-slider data-name="accept_loss" data-min="0" data-max="100" data-mult="1"></x-slider></label>
+<label class="adv"><span>Accept loss after hours (0=disabled)</span><x-slider data-name="accept_loss_pl" data-min="0" data-max="100" data-mult="1"></x-slider></label>
 <label><span>Sliding position hours (0=disabled)</span><x-slider data-name="sliding_pos_hours" data-min="0" data-max="1000" data-mult="10"></x-slider></label>
 <label><span>Sliding position weaken (0=disabled)</span><x-slider data-name="sliding_pos_weaken" data-min="0" data-max="100" data-mult="1"></x-slider></label>
 </x-section>
@@ -78,6 +78,16 @@
 <label><span>Report - position offset</span><input type="number" data-name="report_position_offset"></label>
 <label><span>Force spread (0=disabled)</span><input type="number" data-name="force_spread"></label>
 </x-section>
+<x-section><x-section-caption>Operation</x-section-caption>
+<label><span>Select operation</span><select data-name="oper">
+<option value="">-------</option>
+<option value="cancelAll">Cancel all orders</option>
+<option value="repair">Repair</option>
+<option value="reset">Reset stats</option>
+<option value="delete">Delete</option>
+</select></label>
+<div class="label"><div></div><button data-name="execute">Execute</button></div>
+</x-section>
 </x-form>
 </template>
 
@@ -90,9 +100,11 @@
 </div>
 </template>
 
-<template id="desktop">
+<template id="desktop"><div class="desktop">
+<div class="top_panel" data-name="top_panel"></div>
 <div class="menu" data-name="menu"></div>
 <div class="content" data-name="content"></div>
+</div>
 </template>
 
 <template id="broker_select">
@@ -124,6 +136,28 @@
 <button data-name="cancel">Cancel</button>
 </div>
 </div>
+</template>
+
+<template id="top_panel">
+<div class="flexpanel">
+<div><a href="../"><span class="fonticon backicon">&lt;</span></a> MMBot administration</div>
+<div>
+<img 
+  src="../res/save_icon.png" class="fonticon" data-name="save"><img
+  src="../res/restart_active.png" class="fonticon" data-name="restart">
+</div>
+</div>
+</template>
+
+<template id="main_form_wait">
+<div class="main_form_wait">
+<x-form class="pair">
+<x-section><x-section-caption>Info</x-section-caption>
+<div></div>
+</x-section>
+</x-form>
+</div>
+
 </template>
 
 <script src="../res/template.js" type="text/javascript"></script>
