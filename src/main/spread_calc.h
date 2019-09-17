@@ -14,7 +14,7 @@
 #include "istockapi.h"
 
 
-double glob_calcSpread(ondra_shared::Worker wrk,
+double glob_calcSpread(
 		ondra_shared::StringView<IStatSvc::ChartItem> chart,
 		const MTrader_Config &config,
 		const IStockApi::MarketInfo &minfo,

@@ -51,8 +51,7 @@ using ondra_shared::RefCntObj;
 using ondra_shared::RefCntPtr;
 using ondra_shared::schedulerGetWorker;
 
-
-static Traders traders;
+std::unique_ptr<Traders> traders;
 
 template<typename Fn>
 auto run_in_worker(Worker wrk, Fn &&fn) -> decltype(fn()) {
@@ -80,7 +79,7 @@ static int eraseTradeHandler(Worker &wrk, simpleServer::ArgList args, simpleServ
 		stream << "Needsd arguments: <trader_ident> <trade_id>\n";
 		return 1;
 	} else {
-		NamedMTrader *trader = traders.find(args[0]);
+		NamedMTrader *trader = traders->find(args[0]);
 		if (trader == nullptr) {
 			stream << "Trader idenitification is invalid: " << args[0] << "\n";
 			return 2;
@@ -108,7 +107,7 @@ static int cmd_singlecmd(Worker &wrk, simpleServer::ArgList args, simpleServer::
 	if (args.empty()) {
 		stream << "Need argument: <trader_ident>\n"; return 1;
 	}
-	NamedMTrader *trader = traders.find(args[0]);
+	NamedMTrader *trader = traders->find(args[0]);
 	if (trader == nullptr) {
 		stream << "Trader idenitification is invalid: " << args[0] << "\n";
 		return 1;
@@ -138,7 +137,7 @@ static int cmd_achieve(Worker &wrk, simpleServer::ArgList args, simpleServer::St
 		stream << "second argument must be positive real numbers. Use dot (.) as decimal point\n";return 1;
 	}
 
-	NamedMTrader *trader = traders.find(args[0]);
+	NamedMTrader *trader = traders->find(args[0]);
 	if (trader == nullptr) {
 		stream << "Trader idenitification is invalid: " << args[0] << "\n";
 		return 1;
@@ -155,11 +154,11 @@ static int cmd_achieve(Worker &wrk, simpleServer::ArgList args, simpleServer::St
 	}
 }
 
-static int cmd_backtest(Worker &wrk, simpleServer::ArgList args, simpleServer::Stream stream, const std::string &cfgfname, IStockSelector &stockSel, Report &rpt, Stats2Report::SharedPool pool) {
+static int cmd_backtest(Worker &wrk, simpleServer::ArgList args, simpleServer::Stream stream, const std::string &cfgfname, IStockSelector &stockSel, Report &rpt) {
 	if (args.length < 1) {
 		stream << "Need arguments: <trader_ident> [option=value ...]\n"; return 1;
 	}
-	NamedMTrader *trader = traders.find(args[0]);
+	NamedMTrader *trader = traders->find(args[0]);
 	if (trader == nullptr) {
 		stream << "Trader idenitification is invalid: " << args[0] << "\n";
 		return 1;
@@ -189,7 +188,7 @@ static int cmd_backtest(Worker &wrk, simpleServer::ArgList args, simpleServer::S
 							[=](CalcSpreadFn &&fn) {fn();},
 							"backtest",
 							rpt,
-							cfg.calc_spread_minutes,pool));
+							cfg.calc_spread_minutes));
 			btrpt_cntr = btrpt.get();
 			t.init();
 			backtest.emplace(stockSel, std::move(btrpt), cfg, t.getChart(),  t.getInternalBalance());
@@ -362,7 +361,6 @@ int main(int argc, char **argv) {
 				auto pidfile = servicesection.mandatory["inst_file"].getPath();
 				auto name = servicesection["name"].getString("mmbot");
 				auto user = servicesection["user"].getString();
-				auto wrkcnt = servicesection["workers"].getUInt(std::thread::hardware_concurrency());
 
 				std::vector<StrViewA> argList;
 				while (!!*app.args) argList.push_back(app.args->getNext());
@@ -414,11 +412,26 @@ int main(int argc, char **argv) {
 
 
 						Worker wrk = schedulerGetWorker(sch);
-						Stats2Report::SharedPool pool(wrkcnt);
 
-						traders.init(sch,app.config["brokers"], app.test);
-						traders.loadTraders(app.config, names, sf, rpt, app.test,spreadCalcInterval, pool);
+						traders = std::make_unique<Traders>(
+								sch,app.config["brokers"], app.test,spreadCalcInterval,sf,rpt
+						);
 
+						RefCntPtr<AuthUserList> aul;
+
+						traders->loadTraders(app.config, names);
+
+						auto webadminsect = app.config["web_admin"];
+						bool webadmin_enabled = webadminsect["enabled"].getBool(false);
+						RefCntPtr<WebCfg::State> webcfgstate;
+						if (webadmin_enabled) {
+							webcfgstate = new WebCfg::State(sf.create("web_admin_conf.json"),new AuthUserList, new AuthUserList);
+							webcfgstate->applyConfig(*traders);
+							aul = webcfgstate->users;
+						} else {
+							aul = new AuthUserList;
+							aul->setUsers(aul->decodeMultipleBasicAuth(rptsect["http_auth"].getString()));
+						}
 
 						auto web_bind = rptsect["http_bind"];
 
@@ -429,22 +442,17 @@ int main(int argc, char **argv) {
 						simpleServer::NetAddr addr = simpleServer::NetAddr::create(web_bind.getString(),11223);
 						srv = std::make_unique<simpleServer::MiniHttpServer>(addr, 1, 1);
 
+
 						std::vector<simpleServer::HttpStaticPathMapper::MapRecord> paths;
 						paths.push_back(simpleServer::HttpStaticPathMapper::MapRecord{
-							"/",AuthMapper(rptsect["http_auth"].getString(),name)
-										>>= simpleServer::HttpFileMapper(std::string(rptpath), "index.html")
+							"/",AuthMapper(name,aul) >>= simpleServer::HttpFileMapper(std::string(rptpath), "index.html")
 						});
 
-						auto webcfgsect = app.config["web_admin"];
-						auto webcfg_enabled = webcfgsect["enabled"];
-						if (webcfg_enabled.getBool(false)) {
-							std::string path = webcfg_enabled.getCurPath();
+						if (webadmin_enabled) {
 							paths.push_back({
-								"/admin",WebCfg(
-										webcfgsect,
+								"/admin",WebCfg(webcfgstate,
 										name,
-										traders.stockSelector,
-										app.createRestartFn(),
+										*traders,
 										[=](WebCfg::Action &&a) mutable {sch.immediate() >> std::move(a);})
 							});
 						}
@@ -457,10 +465,9 @@ int main(int argc, char **argv) {
 
 						cntr.addCommand("calc_range",[&](const simpleServer::ArgList &args, simpleServer::Stream out){
 
-							ondra_shared::Countdown cnt(1);
-							wrk >> [&] {
+							run_in_worker(wrk,[&] {
 								try {
-									for(auto &&t:traders.traders) {							;
+									for(auto &&t:traders->traders) {							;
 										std::ostringstream buff;
 										auto result = t.second->calc_min_max_range();
 										auto ass = t.second->getMarketInfo().asset_symbol;
@@ -482,9 +489,8 @@ int main(int argc, char **argv) {
 								} catch (std::exception &e) {
 									out << e.what();
 								}
-								cnt.dec();
-							};
-							cnt.wait();
+								return true;
+							});
 
 							return 0;
 						});
@@ -526,7 +532,7 @@ int main(int argc, char **argv) {
 							return cmd_singlecmd(wrk, args,stream,&MTrader::repair);
 						});
 						cntr.addCommand("backtest", [&](simpleServer::ArgList args, simpleServer::Stream stream){
-							return cmd_backtest(wrk, args, stream, app.configPath.string(), traders.stockSelector, rpt, pool);
+							return cmd_backtest(wrk, args, stream, app.configPath.string(), traders->stockSelector, rpt);
 						});
 						cntr.addCommand("show_config", [&](simpleServer::ArgList args, simpleServer::Stream stream){
 							return cmd_config(wrk, args, stream, app.config);
@@ -547,7 +553,7 @@ int main(int argc, char **argv) {
 
 
 								try {
-									traders.runTraders();
+									traders->runTraders();
 									rpt.genReport();
 								} catch (std::exception &e) {
 									logError("Scheduler exception: $1", e.what());
@@ -566,7 +572,7 @@ int main(int argc, char **argv) {
 
 						sch.remove(id);
 						sch.sync();
-						traders.clear();
+						traders->clear();
 					}
 					logNote("---- Exit ----");
 

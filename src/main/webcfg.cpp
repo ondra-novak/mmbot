@@ -14,6 +14,7 @@
 #include "../imtjson/src/imtjson/binary.h"
 #include "../imtjson/src/imtjson/ivalue.h"
 #include "../imtjson/src/imtjson/parser.h"
+#include "../imtjson/src/imtjson/operations.h"
 #include "../server/src/simpleServer/query_parser.h"
 #include "../server/src/simpleServer/urlencode.h"
 #include "../shared/ini_config.h"
@@ -30,20 +31,17 @@ NamedEnum<WebCfg::Command> WebCfg::strCommand({
 	{WebCfg::brokers, "brokers"}
 });
 
-WebCfg::WebCfg(const ondra_shared::IniConfig::Section &cfg,
+WebCfg::WebCfg(
+		ondra_shared::RefCntPtr<State> state,
 		const std::string &realm,
-		IStockSelector &stockSelector,
-		Action &&restart_fn,
+		Traders &traders,
 		Dispatch &&dispatch)
-	:auth(cfg["http_auth"].getString(), realm)
-	,stockSelector(stockSelector)
-	,restart_fn(std::move(restart_fn))
+	:auth(realm, state->admins)
+	,traders(traders)
 	,dispatch(std::move(dispatch))
-	,serial(cfg["serial"].getUInt())
+	,state(state)
 {
-	std::string cfgpath = cfg["enabled"].getCurPath();
-	cfgpath.append(IniConfig::pathSeparator.data).append("web_admin.conf");
-	state = new State(serial, cfgpath);
+
 }
 
 WebCfg::~WebCfg() {
@@ -75,67 +73,65 @@ bool WebCfg::operator ()(const simpleServer::HTTPRequest &req,
 	return false;
 }
 
+static Value hashPswds(Value data, StrViewA section) {
+	Value list = data[section];
+	Object o;
+	for (Value v: list) {
+		if (v.type() ==json::array) {
+			o.set(v.getKey(), AuthUserList::hashPwd(v.getKey(),v[0].getString()));
+		} else {
+			o.set(v);
+		}
+	}
+	return list.replace(section, o);
+}
 
 bool WebCfg::reqConfig(simpleServer::HTTPRequest req) const {
+
 	if (!req.allowMethods({"GET","PUT"})) return true;
 	if (req.getMethod() == "GET") {
 
-		IniConfig cfg;
-		cfg.load(state->config_path);
-		Object sections;
-		for (auto &&k: cfg) {
-			Object values;
-			for (auto &&v: k.second) {
-				values.set(v.first, v.second.getString());
-			}
-			sections.set(k.first, values);
-		}
-		req.sendResponse("application/json",Value(sections).stringify());
+		Sync _(state->lock);
+		json::Value data = state->config->load();
+		if (!data.defined()) data = Object("revision",0);
+		req.sendResponse("application/json",data.stringify());
 
 	} else {
 
 		state->lock.lock();
-		req.readBodyAsync(1024*1024, [state = this->state](simpleServer::HTTPRequest req) {
+		Traders &traders = this->traders;
+		RefCntPtr<State> state = this->state;
+		req.readBodyAsync(1024*1024, [state,&traders](simpleServer::HTTPRequest req) mutable {
 			Sync _(state->lock);
 			state->lock.unlock();
 
 			Value data = Value::fromString(StrViewA(BinaryView(req.getUserBuffer())));
-			unsigned int serial = data["serial"].getUInt();
+			unsigned int serial = data["revision"].getUInt();
 			if (serial != state->write_serial) {
 				req.sendErrorPage(409);
 				return ;
 			}
-			Value cfg = data["config"];
-			unsigned int newSerial = cfg["serial"].getUInt();
-			if (newSerial <= serial) {
-				req.sendErrorPage(406,"","new serial must above current");
-				return ;
-			}
-			std::string cfg_path_wr = state->config_path+".part";
-			std::ofstream out(cfg_path_wr, std::ios::out| std::ios::trunc);
-			for (Value sect : cfg) {
-				out << "[" << sect.getKey() << "]" << std::endl;;
-				for (Value z : sect) {
-					out << z.getKey() << "=" << z.toString() << std::endl;
-				}
-				out << std::endl;
-			}
-			if (!out) {
-				req.sendErrorPage(500);
-			} else {
-
-				out.close();
+			data = hashPswds(data, "users");
+			data = hashPswds(data, "admins");
+			Value trs = data["traders"];
+			for (Value v: trs) {
+				StrViewA name = v.getKey();
 				try {
-					testConfig(cfg_path_wr);
-					std::rename(cfg_path_wr.c_str(), state->config_path.c_str());
-					state->write_serial = newSerial;
-
-
-					req.sendErrorPage(202);
+					MTrader::load(v,false);
 				} catch (std::exception &e) {
-					req.sendErrorPage(406, StrViewA(), e.what());
+					std::string msg(name.data,name.length);
+					msg.append(" - ");
+					msg.append(e.what());
+					req.sendErrorPage(406, StrViewA(), msg);
+					return;
 				}
 			}
+			data = data.replace("revision", state->write_serial+1);
+			state->config->store(data);
+			state->write_serial = serial+1;;
+			req.sendErrorPage(202);
+			state->applyConfig(traders);
+
 		});
 
 
@@ -145,11 +141,8 @@ bool WebCfg::reqConfig(simpleServer::HTTPRequest req) const {
 
 }
 
-bool WebCfg::reqRestart(simpleServer::HTTPRequest req) const {
-	if (!req.allowMethods({"POST"})) return true;
-	restart_fn();
-	req.sendErrorPage(201);
-	return true;
+bool WebCfg::reqRestart(simpleServer::HTTPRequest ) const {
+	return false;
 }
 
 bool WebCfg::reqSerial(simpleServer::HTTPRequest req) const {
@@ -172,7 +165,7 @@ bool WebCfg::reqBrokers(simpleServer::HTTPRequest req, ondra_shared::StrViewA re
 	if (rest.empty()) {
 		if (!req.allowMethods({"GET"})) return true;
 		Array brokers;
-		stockSelector.forEachStock([&](const std::string_view &name,IStockApi &){
+		traders.stockSelector.forEachStock([&](const std::string_view &name,IStockApi &){
 			brokers.push_back(name);
 		});
 		Object obj("entries", brokers);
@@ -182,7 +175,7 @@ bool WebCfg::reqBrokers(simpleServer::HTTPRequest req, ondra_shared::StrViewA re
 		auto splt = StrViewA(vpath).split("/");
 		StrViewA urlbroker = splt();
 		std::string broker = urlDecode(urlbroker);
-		IStockApi *api = stockSelector.getStock(broker);
+		IStockApi *api = traders.stockSelector.getStock(broker);
 		if (api == nullptr) {
 			req.sendErrorPage(404);
 			return true;
@@ -310,3 +303,44 @@ bool WebCfg::reqBrokers(simpleServer::HTTPRequest req, ondra_shared::StrViewA re
 	return true;
 
 }
+
+static void AULFromJSON(json::Value js, AuthUserList &aul) {
+	using UserVector = std::vector<AuthUserList::LoginPwd>;
+	using LoginPwd = AuthUserList::LoginPwd;
+
+	UserVector ulist = js.reduce([&](
+			UserVector &curVal, Value r){
+
+		curVal.push_back(LoginPwd(r.getKey(), r.getString()));
+		return curVal;
+	},UserVector());
+
+	aul.setUsers(std::move(ulist));
+}
+
+
+void WebCfg::State::init(json::Value data) {
+	if (data.defined()) {
+		this->write_serial = data["revision"].getUInt();
+		AULFromJSON(data["users"],*users);
+		AULFromJSON(data["admins"],*admins);
+	}
+
+}
+void WebCfg::State::applyConfig(Traders &t) {
+	auto data = config->load();
+	init(data);
+	for (auto &&n :traderNames) {
+		t.removeTrader(n);
+	}
+
+	for (Value v: data["traders"]) {
+		t.addTrader(MTrader::load(v, t.test),v.getKey());
+		traderNames.push_back(v.getKey());
+	}
+}
+
+void WebCfg::State::init() {
+	init(config->load());
+}
+

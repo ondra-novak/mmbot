@@ -17,6 +17,7 @@
 #include <shared/ini_config.h>
 #include "istockapi.h"
 #include "authmapper.h"
+#include "traders.h"
 
 
 class WebCfg {
@@ -26,10 +27,35 @@ public:
 	using Dispatch = std::function<void(Action &&)>;
 
 
-	WebCfg(const ondra_shared::IniConfig::Section &cfg,
+	class State : public ondra_shared::RefCntObj{
+	public:
+		std::recursive_mutex lock;
+		unsigned int write_serial = 0;
+		PStorage config;
+		ondra_shared::RefCntPtr<AuthUserList> users, admins;
+		std::vector<std::string> traderNames;
+
+		State( PStorage &&config,
+			  ondra_shared::RefCntPtr<AuthUserList> users,
+			  ondra_shared::RefCntPtr<AuthUserList> admins):
+				  config(std::move(config)),
+				  users(users),
+				  admins(admins) {}
+
+		~State() {
+			lock.lock();
+			lock.unlock();
+		}
+
+		void init();
+		void init(json::Value v);
+		void applyConfig(Traders &t);
+	};
+
+
+	WebCfg( ondra_shared::RefCntPtr<State> state,
 			const std::string &realm,
-			IStockSelector &stockSelector,
-			Action &&restart_fn,
+			Traders &traders,
 			Dispatch &&dispatch);
 
 	~WebCfg();
@@ -45,8 +71,7 @@ public:
 	};
 
 	AuthMapper auth;
-	IStockSelector &stockSelector;
-	Action restart_fn;
+	Traders &traders;
 	Dispatch dispatch;
 	unsigned int serial;
 
@@ -61,22 +86,10 @@ protected:
 
 	using Sync = std::unique_lock<std::recursive_mutex>;
 
-	class State : public ondra_shared::RefCntObj{
-	public:
-		std::recursive_mutex lock;
-		unsigned int write_serial;
-		std::string config_path;
-		State(unsigned int write_serial,
-			  std::string config_path):
-				  write_serial(write_serial),
-				  config_path(config_path) {}
 
-		~State() {
-			lock.lock();
-			lock.unlock();
-		}
-	};
 
+	static void testConfig(const std::string &str);
+	static void applyConfig(Traders &t, json::Value config);
 	ondra_shared::RefCntPtr<State> state;
 };
 

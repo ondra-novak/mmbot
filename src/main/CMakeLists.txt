@@ -18,6 +18,7 @@ add_executable (mmbot
 	spawn.cpp
 	backtest_broker.cpp
 	backtest.cpp
+	traders.cpp
 	)
 target_link_libraries (mmbot LINK_PUBLIC simpleServer imtjson curlpp ssl crypto curl stdc++fs pthread)
 install(TARGETS mmbot DESTINATION "bin") 

@@ -19,78 +19,34 @@
 class AuthUserList: public ondra_shared::RefCntObj {
 public:
 	using Sync = std::unique_lock<std::recursive_mutex>;
+	using UserMap = ondra_shared::linear_map<std::string, std::string>;
+	using LoginPwd = UserMap::value_type;
 
-	bool findUser(const std::string &user, const std::string &pwdhash) const {
-		Sync _(lock);
-		auto iter = users.find(user);
-		return  iter != users.end() && pwdhash == iter->second;
-	}
+	bool findUser(const std::string &user, const std::string &pwdhash) const;
 
 	static std::string hashPwd(const std::string &user, const std::string &pwd);
-	static std::pair<std::string,std::string> decodeBasicAuth(const json::StrViewA auth);
-	static std::vector<std::pair<std::string,std::string> > decodeMultipleBasicAuth(const json::StrViewA auth);
+	static LoginPwd decodeBasicAuth(const json::StrViewA auth);
+	static std::vector<LoginPwd> decodeMultipleBasicAuth(const json::StrViewA auth);
 
-	void setUsers(std::vector<std::pair<std::string, std::string> > &users) {
-		Sync _(lock);
-		users.swap(users);
-	}
-
-	bool empty() const {
-		Sync _(lock);
-		return users.empty();
-	}
+	void setUsers(std::vector<std::pair<std::string, std::string> > &&users);
+	bool empty() const;
 
 protected:
 	mutable std::recursive_mutex lock;
-	ondra_shared::linear_map<std::string, std::string> users;
+	UserMap users;
 };
 
 
 class AuthMapper {
 public:
 
-	AuthMapper(	std::string realm, ondra_shared::RefCntPtr<AuthUserList> users):users(users),realm(realm) {}
-	AuthMapper &operator >>= (simpleServer::HTTPHandler &&hndl) {
-		handler = std::move(hndl);
-		return *this;
-	}
-
-	bool checkAuth(const simpleServer::HTTPRequest &req) const {
-		using namespace ondra_shared;
-		if (!users->empty()) {
-			auto hdr = req["Authorization"];
-			auto hdr_splt = hdr.split(" ");
-			StrViewA type = hdr_splt();
-			StrViewA cred = hdr_splt();
-			if (type != "Basic") {
-				genError(req);
-				return false;
-			}
-			auto credobj = AuthUserList::decodeBasicAuth(cred);
-			if (!users->findUser(credobj.first, credobj.second)) {
-				genError(req);
-				return false;
-			}
-		}
-		return true;
-	}
-
-
-	void operator()(const simpleServer::HTTPRequest &req) const {
-		if (checkAuth(req)) handler(req);
-	}
-	bool operator()(const simpleServer::HTTPRequest &req, const ondra_shared::StrViewA &) const {
-		if (checkAuth(req)) handler(req);
-		return true;
-	}
-
-	void genError(simpleServer::HTTPRequest req) const {
-		req.sendResponse(simpleServer::HTTPResponse(401)
-			.contentType("text/html")
-			("WWW-Authenticate","Basic realm=\""+realm+"\""),
-			"<html><body><h1>401 Unauthorized</h1></body></html>"
-			);
-	}
+	AuthMapper(	std::string realm, ondra_shared::RefCntPtr<AuthUserList> users);
+	AuthMapper &operator >>= (simpleServer::HTTPHandler &&hndl);
+	bool checkAuth(const simpleServer::HTTPRequest &req) const;
+	void operator()(const simpleServer::HTTPRequest &req) const;
+	bool operator()(const simpleServer::HTTPRequest &req, const ondra_shared::StrViewA &) const;
+	void genError(simpleServer::HTTPRequest req) const;
+	ondra_shared::RefCntPtr<AuthUserList> getUsers() const {return users;}
 
 protected:
 //	AuthMapper(	std::string users, std::string realm, simpleServer::HTTPHandler &&handler):users(users), handler(std::move(handler)) {}
