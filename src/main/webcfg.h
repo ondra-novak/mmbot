@@ -11,6 +11,9 @@
 #include <shared/stringview.h>
 #include <simpleServer/http_parser.h>
 #include <imtjson/namedEnum.h>
+#include <imtjson/shared/refcnt.h>
+#include <mutex>
+
 #include <shared/ini_config.h>
 #include "istockapi.h"
 #include "authmapper.h"
@@ -29,6 +32,7 @@ public:
 			Action &&restart_fn,
 			Dispatch &&dispatch);
 
+	~WebCfg();
 
 	bool operator()(const simpleServer::HTTPRequest &req,  const ondra_shared::StrViewA &vpath) const;
 
@@ -41,7 +45,6 @@ public:
 	};
 
 	AuthMapper auth;
-	std::string config_path;
 	IStockSelector &stockSelector;
 	Action restart_fn;
 	Dispatch dispatch;
@@ -49,13 +52,32 @@ public:
 
 	static json::NamedEnum<Command> strCommand;
 
+
 protected:
 	bool reqConfig(simpleServer::HTTPRequest req) const;
 	bool reqRestart(simpleServer::HTTPRequest req) const;
 	bool reqSerial(simpleServer::HTTPRequest req) const;
 	bool reqBrokers(simpleServer::HTTPRequest req, ondra_shared::StrViewA rest) const;
 
+	using Sync = std::unique_lock<std::recursive_mutex>;
 
+	class State : public ondra_shared::RefCntObj{
+	public:
+		std::recursive_mutex lock;
+		unsigned int write_serial;
+		std::string config_path;
+		State(unsigned int write_serial,
+			  std::string config_path):
+				  write_serial(write_serial),
+				  config_path(config_path) {}
+
+		~State() {
+			lock.lock();
+			lock.unlock();
+		}
+	};
+
+	ondra_shared::RefCntPtr<State> state;
 };
 
 

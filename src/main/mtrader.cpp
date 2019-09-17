@@ -1149,3 +1149,53 @@ void MTrader::showConfig(const ondra_shared::IniConfig::Section &ini, bool force
 	load_internal<ConfigOuput &>(cfg, force_dry_run);
 
 }
+
+class ConfigFromJSON {
+public:
+
+	class Mandatory:public ondra_shared::VirtualMember<ConfigFromJSON> {
+	public:
+		using ondra_shared::VirtualMember<ConfigFromJSON>::VirtualMember;
+		auto operator[](StrViewA name) const {
+			return getMaster()->getMandatory(name);
+		}
+	};
+
+	class Item {
+	public:
+
+		json::Value v;
+
+		Item(json::Value v):v(v) {}
+
+		auto getString() const {return v.getString();}
+		auto getString(json::StrViewA d) const {return v.defined()?v.getString():d;}
+		auto getUInt() const {return v.getUInt();}
+		auto getUInt(std::size_t d) const {return v.defined()?v.getUInt():d;}
+		auto getNumber() const {return v.getNumber();}
+		auto getNumber(double d) const {return v.defined()?v.getNumber():d;}
+		auto getBool() const {return v.getBool();}
+		auto getBool(bool d) const {return v.defined()?v.getBool():d;}
+		bool defined() const {return v.defined();}
+
+	};
+
+	Item operator[](ondra_shared::StrViewA name) const {
+		return Item(config[name]);
+	}
+	Item getMandatory(ondra_shared::StrViewA name) const {
+		json::Value v = config[name];
+		if (v.defined()) return Item(v);
+		else throw std::runtime_error(std::string(name).append(" is mandatory"));
+	}
+
+	Mandatory mandatory;
+
+	ConfigFromJSON(json::Value config):mandatory(this),config(config) {}
+protected:
+	json::Value config;
+};
+
+MTrader::Config MTrader::load(const json::Value object, bool force_dry_run) {
+	return load_internal<const ConfigFromJSON &>(ConfigFromJSON(object),force_dry_run);
+}

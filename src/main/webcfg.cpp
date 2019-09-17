@@ -36,13 +36,17 @@ WebCfg::WebCfg(const ondra_shared::IniConfig::Section &cfg,
 		Action &&restart_fn,
 		Dispatch &&dispatch)
 	:auth(cfg["http_auth"].getString(), realm)
-	,config_path(cfg["enabled"].getCurPath())
 	,stockSelector(stockSelector)
 	,restart_fn(std::move(restart_fn))
 	,dispatch(std::move(dispatch))
 	,serial(cfg["serial"].getUInt())
 {
-	config_path.append(IniConfig::pathSeparator.data).append("web_admin.conf");
+	std::string cfgpath = cfg["enabled"].getCurPath();
+	cfgpath.append(IniConfig::pathSeparator.data).append("web_admin.conf");
+	state = new State(serial, cfgpath);
+}
+
+WebCfg::~WebCfg() {
 }
 
 bool WebCfg::operator ()(const simpleServer::HTTPRequest &req,
@@ -77,7 +81,7 @@ bool WebCfg::reqConfig(simpleServer::HTTPRequest req) const {
 	if (req.getMethod() == "GET") {
 
 		IniConfig cfg;
-		cfg.load(config_path);
+		cfg.load(state->config_path);
 		Object sections;
 		for (auto &&k: cfg) {
 			Object values;
@@ -90,10 +94,26 @@ bool WebCfg::reqConfig(simpleServer::HTTPRequest req) const {
 
 	} else {
 
-		req.readBodyAsync(1024*1024, [config_path=this->config_path](simpleServer::HTTPRequest req) {
+		state->lock.lock();
+		req.readBodyAsync(1024*1024, [state = this->state](simpleServer::HTTPRequest req) {
+			Sync _(state->lock);
+			state->lock.unlock();
+
 			Value data = Value::fromString(StrViewA(BinaryView(req.getUserBuffer())));
-			std::ofstream out(config_path, std::ios::out| std::ios::trunc);
-			for (Value sect : data) {
+			unsigned int serial = data["serial"].getUInt();
+			if (serial != state->write_serial) {
+				req.sendErrorPage(409);
+				return ;
+			}
+			Value cfg = data["config"];
+			unsigned int newSerial = cfg["serial"].getUInt();
+			if (newSerial <= serial) {
+				req.sendErrorPage(406,"","new serial must above current");
+				return ;
+			}
+			std::string cfg_path_wr = state->config_path+".part";
+			std::ofstream out(cfg_path_wr, std::ios::out| std::ios::trunc);
+			for (Value sect : cfg) {
 				out << "[" << sect.getKey() << "]" << std::endl;;
 				for (Value z : sect) {
 					out << z.getKey() << "=" << z.toString() << std::endl;
@@ -103,7 +123,18 @@ bool WebCfg::reqConfig(simpleServer::HTTPRequest req) const {
 			if (!out) {
 				req.sendErrorPage(500);
 			} else {
-				req.sendErrorPage(202);
+
+				out.close();
+				try {
+					testConfig(cfg_path_wr);
+					std::rename(cfg_path_wr.c_str(), state->config_path.c_str());
+					state->write_serial = newSerial;
+
+
+					req.sendErrorPage(202);
+				} catch (std::exception &e) {
+					req.sendErrorPage(406, StrViewA(), e.what());
+				}
 			}
 		});
 

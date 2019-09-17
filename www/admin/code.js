@@ -84,14 +84,21 @@ App.prototype.createTraderList = function(form) {
 		
 		var nf;
 		if (id != "+") {
+			if (this.curForm) {
+				this.traders[this.curTrader.id] = this.saveForm(this.curForm, this.curTrader);
+				this.updateTopMenu();
+				this.curForm = null;
+			}
+
 			nf = this.openTraderForm(id);			
-			var p;
-		
+
 			this.desktop.setItemValue("content", TemplateJS.View.fromTemplate("main_form_wait"));
 			
 			
 			nf.then(function (nf) {
 				this.desktop.setItemValue("content", nf);
+				this.curForm = nf;
+				this.curTrader = this.traders[id];
 			}.bind(this));
 		} else {
 			this.brokerSelect().then(this.pairSelect.bind(this)).then(function(res) {
@@ -291,10 +298,6 @@ App.prototype.saveForm = function(form, src) {
 App.prototype.openTraderForm = function(trader) {
 	var form = this.createTraderForm();
 	var p = this.fillForm(this.traders[trader], form);	
-	form.getRoot().addEventListener("remove", function() {
-		this.traders[trader] = this.saveForm(form,this.traders[trader]);
-		this.createTraderList(this.menu);
-	}.bind(this))
 	return p.then(function() {return form;});
 }
 
@@ -437,7 +440,7 @@ App.prototype.pairSelect = function(broker) {
 
 App.prototype.updateTopMenu = function(select) {
 	this.createTraderList(this.menu);
-	if (select) f2.select(name);
+	if (select) this.menu.select(select);
 }
 
 App.prototype.deleteTrader = function(id) {

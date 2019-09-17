@@ -7,13 +7,49 @@
 
 #ifndef SRC_MAIN_AUTHMAPPER_H_
 #define SRC_MAIN_AUTHMAPPER_H_
+#include <shared/refcnt.h>
+#include <imtjson/stringview.h>
+#include <mutex>
+#include <string>
+#include <vector>
 
+#include "../server/src/simpleServer/http_parser.h"
+#include "../shared/linear_map.h"
+
+class AuthUserList: public ondra_shared::RefCntObj {
+public:
+	using Sync = std::unique_lock<std::recursive_mutex>;
+
+	bool findUser(const std::string &user, const std::string &pwdhash) const {
+		Sync _(lock);
+		auto iter = users.find(user);
+		return  iter != users.end() && pwdhash == iter->second;
+	}
+
+	static std::string hashPwd(const std::string &user, const std::string &pwd);
+	static std::pair<std::string,std::string> decodeBasicAuth(const json::StrViewA auth);
+	static std::vector<std::pair<std::string,std::string> > decodeMultipleBasicAuth(const json::StrViewA auth);
+
+	void setUsers(std::vector<std::pair<std::string, std::string> > &users) {
+		Sync _(lock);
+		users.swap(users);
+	}
+
+	bool empty() const {
+		Sync _(lock);
+		return users.empty();
+	}
+
+protected:
+	mutable std::recursive_mutex lock;
+	ondra_shared::linear_map<std::string, std::string> users;
+};
 
 
 class AuthMapper {
 public:
 
-	AuthMapper(	std::string users, std::string realm):users(users),realm(realm) {}
+	AuthMapper(	std::string realm, ondra_shared::RefCntPtr<AuthUserList> users):users(users),realm(realm) {}
 	AuthMapper &operator >>= (simpleServer::HTTPHandler &&hndl) {
 		handler = std::move(hndl);
 		return *this;
@@ -21,7 +57,7 @@ public:
 
 	bool checkAuth(const simpleServer::HTTPRequest &req) const {
 		using namespace ondra_shared;
-		if (!users.empty()) {
+		if (!users->empty()) {
 			auto hdr = req["Authorization"];
 			auto hdr_splt = hdr.split(" ");
 			StrViewA type = hdr_splt();
@@ -30,13 +66,8 @@ public:
 				genError(req);
 				return false;
 			}
-			auto u_splt = StrViewA(users).split(" ");
-			bool found = false;
-			while (!!u_splt && !found) {
-				StrViewA u = u_splt();
-				found = u == cred;
-			}
-			if (!found) {
+			auto credobj = AuthUserList::decodeBasicAuth(cred);
+			if (!users->findUser(credobj.first, credobj.second)) {
 				genError(req);
 				return false;
 			}
@@ -62,8 +93,8 @@ public:
 	}
 
 protected:
-	AuthMapper(	std::string users, std::string realm, simpleServer::HTTPHandler &&handler):users(users), handler(std::move(handler)) {}
-	std::string users;
+//	AuthMapper(	std::string users, std::string realm, simpleServer::HTTPHandler &&handler):users(users), handler(std::move(handler)) {}
+	ondra_shared::RefCntPtr<AuthUserList> users;
 	std::string realm;
 	simpleServer::HTTPHandler handler;
 };

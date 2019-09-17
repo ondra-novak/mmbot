@@ -30,6 +30,7 @@
 #include "spawn.h"
 #include "stats2report.h"
 #include "backtest.h"
+#include "traders.h"
 
 using ondra_shared::StdLogFile;
 using ondra_shared::StrViewA;
@@ -51,152 +52,7 @@ using ondra_shared::RefCntPtr;
 using ondra_shared::schedulerGetWorker;
 
 
-using StatsSvc = Stats2Report;
-
-class NamedMTrader: public MTrader {
-public:
-	NamedMTrader(IStockSelector &sel, StoragePtr &&storage, PStatSvc statsvc, Config cfg, std::string &&name)
-			:MTrader(sel, std::move(storage), std::move(statsvc), cfg), ident(std::move(name)) {
-	}
-
-	bool perform() {
-		LogObject lg(ident);
-		LogObject::Swap swap(lg);
-		try {
-			return MTrader::perform();
-		} catch (std::exception &e) {
-			logError("$1", e.what());
-			return false;
-		}
-	}
-
-	std::string ident;
-
-};
-
-class StockSelector: public IStockSelector{
-public:
-	using PStockApi = std::unique_ptr<IStockApi>;
-	using StockMarketMap =  ondra_shared::linear_map<std::string, PStockApi, std::less<>>;
-
-	StockMarketMap stock_markets;
-
-	void loadStockMarkets(const ondra_shared::IniConfig::Section &ini, bool test) {
-		std::vector<StockMarketMap::value_type> data;
-		for (auto &&def: ini) {
-			ondra_shared::StrViewA name = def.first;
-			ondra_shared::StrViewA cmdline = def.second.getString();
-			ondra_shared::StrViewA workDir = def.second.getCurPath();
-			data.push_back(StockMarketMap::value_type(name,std::make_unique<ExtStockApi>(workDir, name, cmdline)));
-		}
-		StockMarketMap map(std::move(data));
-		stock_markets.swap(map);
-	}
-	virtual IStockApi *getStock(const std::string_view &stockName) const {
-		auto f = stock_markets.find(stockName);
-		if (f == stock_markets.cend()) return nullptr;
-		return f->second.get();
-	}
-	void addStockMarket(ondra_shared::StrViewA name, PStockApi &&market) {
-		stock_markets.insert(std::pair(name,std::move(market)));
-	}
-
-	virtual void forEachStock(EnumFn fn)  const {
-		for(auto &&x: stock_markets) {
-			fn(x.first, *x.second);
-		}
-	}
-	void clear() {
-		stock_markets.clear();
-	}
-};
-
-
-
-static std::vector<NamedMTrader> traders;
-static StockSelector stockSelector;
-
-class ActionQueue: public RefCntObj {
-public:
-	ActionQueue(const Scheduler &sch):sch(sch) {}
-
-	template<typename Fn>
-	void push(Fn &&fn) {
-		bool e = dsp.empty();
-		std::move(fn) >> dsp;
-		if (e) goon();
-	}
-
-	void exec() {
-		if (!dsp.empty()) {
-			dsp.pump();
-			goon();
-		}
-	}
-
-	void goon() {
-		sch.after(std::chrono::seconds(1)) >> [me = RefCntPtr<ActionQueue>(this)]{
-				me->exec();
-		};
-	}
-
-protected:
-	Dispatcher dsp;
-	Scheduler sch;
-};
-
-
-void loadTraders(const ondra_shared::IniConfig &ini,
-		ondra_shared::StrViewA names,
-		StorageFactory &sf,
-		Scheduler sch,
-		Report &rpt,
-		bool force_dry_run,
-		int spread_calc_interval,
-		Stats2Report::SharedPool pool) {
-	traders.clear();
-	std::vector<StrViewA> nv;
-
-	RefCntPtr<ActionQueue> aq ( new ActionQueue(sch) );
-
-	auto nspl = names.split(" ");
-	while (!!nspl) {
-		StrViewA x = nspl();
-		if (!x.empty()) nv.push_back(x);
-	}
-
-	for (auto n: nv) {
-		LogObject lg(n);
-		LogObject::Swap swp(lg);
-		try {
-			if (n[0] == '_') throw std::runtime_error(std::string(n).append(": The trader's name can't begins with underscore '_'"));
-			MTrader::Config mcfg = MTrader::load(ini[n], force_dry_run);
-			logProgress("Started trader $1 (for $2)", n, mcfg.pairsymb);
-			traders.emplace_back(stockSelector, sf.create(n),
-					std::make_unique<StatsSvc>([aq](auto &&fn) {
-							aq->push(std::move(fn));
-					}, n, rpt, spread_calc_interval, pool),
-					mcfg, n);
-		} catch (const std::exception &e) {
-			logFatal("Error: $1", e.what());
-			throw std::runtime_error(std::string("Unable to initialize trader: ").append(n).append(" - ").append(e.what()));
-		}
-	}
-}
-
-bool runTraders() {
-	stockSelector.forEachStock([](json::StrViewA, IStockApi&api) {
-		api.reset();
-	});
-
-	bool hit = false;
-	for (auto &&t : traders) {
-		bool h = t.perform();
-		hit |= h;
-	}
-	return hit;
-}
-
+static Traders traders;
 
 template<typename Fn>
 auto run_in_worker(Worker wrk, Fn &&fn) -> decltype(fn()) {
@@ -224,17 +80,14 @@ static int eraseTradeHandler(Worker &wrk, simpleServer::ArgList args, simpleServ
 		stream << "Needsd arguments: <trader_ident> <trade_id>\n";
 		return 1;
 	} else {
-		auto iter = std::find_if(traders.begin(), traders.end(),[&](const NamedMTrader &tr) {
-			return StrViewA(tr.ident) == args[0];
-		});
-		if (iter == traders.end()) {
+		NamedMTrader *trader = traders.find(args[0]);
+		if (trader == nullptr) {
 			stream << "Trader idenitification is invalid: " << args[0] << "\n";
 			return 2;
 		} else {
-			NamedMTrader  &trader = *iter;
 			try {
 				bool res = run_in_worker(wrk, [&] {
-					return trader.eraseTrade(args[1],trunc);
+					return trader->eraseTrade(args[1],trunc);
 				});
 				if (!res) {
 					stream << "Trade not found: " << args[1] << "\n";
@@ -255,18 +108,14 @@ static int cmd_singlecmd(Worker &wrk, simpleServer::ArgList args, simpleServer::
 	if (args.empty()) {
 		stream << "Need argument: <trader_ident>\n"; return 1;
 	}
-	StrViewA trader = args[0];
-	auto iter = std::find_if(traders.begin(), traders.end(), [&](const NamedMTrader &dr){
-		return StrViewA(dr.ident) == trader;
-	});
-	if (iter == traders.end()) {
-		stream << "Trader idenitification is invalid: " << trader << "\n";
+	NamedMTrader *trader = traders.find(args[0]);
+	if (trader == nullptr) {
+		stream << "Trader idenitification is invalid: " << args[0] << "\n";
 		return 1;
 	}
 	try {
-		MTrader &t = *iter;
 		run_in_worker(wrk, [&]{
-			(t.*fn)();return true;
+			(trader->*fn)();return true;
 		});
 		stream << "OK\n";
 		return 0;
@@ -289,18 +138,14 @@ static int cmd_achieve(Worker &wrk, simpleServer::ArgList args, simpleServer::St
 		stream << "second argument must be positive real numbers. Use dot (.) as decimal point\n";return 1;
 	}
 
-	StrViewA trader = args[0];
-	auto iter = std::find_if(traders.begin(), traders.end(), [&](const NamedMTrader &dr){
-		return StrViewA(dr.ident) == trader;
-	});
-	if (iter == traders.end()) {
-		stream << "Trader idenitification is invalid: " << trader << "\n";
+	NamedMTrader *trader = traders.find(args[0]);
+	if (trader == nullptr) {
+		stream << "Trader idenitification is invalid: " << args[0] << "\n";
 		return 1;
 	}
 	try {
-		NamedMTrader &t = *iter;
 		run_in_worker(wrk, [&]{
-			t.achieve_balance(price,balance);return true;
+			trader->achieve_balance(price,balance);return true;
 		});
 		stream << "OK\n";
 		return 0;
@@ -314,18 +159,15 @@ static int cmd_backtest(Worker &wrk, simpleServer::ArgList args, simpleServer::S
 	if (args.length < 1) {
 		stream << "Need arguments: <trader_ident> [option=value ...]\n"; return 1;
 	}
-	StrViewA trader = args[0];
-	auto iter = std::find_if(traders.begin(), traders.end(), [&](const NamedMTrader &dr){
-		return StrViewA(dr.ident) == trader;
-	});
-	if (iter == traders.end()) {
-		stream << "Trader idenitification is invalid: " << trader << "\n";
+	NamedMTrader *trader = traders.find(args[0]);
+	if (trader == nullptr) {
+		stream << "Trader idenitification is invalid: " << args[0] << "\n";
 		return 1;
 	}
 
 	stream << "Preparing chart\n";
 	stream.flush();
-	NamedMTrader &t = *iter;
+	NamedMTrader &t = *trader;
 	try {
 		std::vector<ondra_shared::IniItem> options;
 		for (std::size_t i = 1; i < args.length; i++) {
@@ -335,13 +177,13 @@ static int cmd_backtest(Worker &wrk, simpleServer::ArgList args, simpleServer::S
 			StrViewA value = splt();
 			key = key.trim(isspace);
 			value = value.trim(isspace);
-			options.emplace_back(ondra_shared::IniItem::data, trader, key, value);
+			options.emplace_back(ondra_shared::IniItem::data, args[0], key, value);
 		}
 
 		std::optional<BacktestControl> backtest;
 		BacktestControl::BtReport *btrpt_cntr;
 		run_in_worker(wrk, [&] {
-			auto cfg = BacktestControl::loadConfig(cfgfname, trader, options,t.getLastSpread());
+			auto cfg = BacktestControl::loadConfig(cfgfname, args[0], options,t.getLastSpread());
 			auto btrpt = std::make_unique<BacktestControl::BtReport>(
 					std::make_unique<Stats2Report>(
 							[=](CalcSpreadFn &&fn) {fn();},
@@ -561,9 +403,22 @@ int main(int argc, char **argv) {
 						auto rptsect = app.config["report"];
 						auto rptpath = rptsect.mandatory["path"].getPath();
 						auto rptinterval = rptsect["interval"].getUInt(864000000);
-						auto a2np = rptsect["a2np"].getBool(false);
 
-						stockSelector.loadStockMarkets(app.config["brokers"], app.test);
+
+
+						StorageFactory sf(storagePath,5,storageBinary?Storage::binjson:Storage::json);
+						StorageFactory rptf(rptpath,2,Storage::json);
+
+						Report rpt(rptf.create("report.json"), rptinterval, false);
+
+
+
+						Worker wrk = schedulerGetWorker(sch);
+						Stats2Report::SharedPool pool(wrkcnt);
+
+						traders.init(sch,app.config["brokers"], app.test);
+						traders.loadTraders(app.config, names, sf, rpt, app.test,spreadCalcInterval, pool);
+
 
 						auto web_bind = rptsect["http_bind"];
 
@@ -588,7 +443,7 @@ int main(int argc, char **argv) {
 								"/admin",WebCfg(
 										webcfgsect,
 										name,
-										stockSelector,
+										traders.stockSelector,
 										app.createRestartFn(),
 										[=](WebCfg::Action &&a) mutable {sch.immediate() >> std::move(a);})
 							});
@@ -598,21 +453,6 @@ int main(int argc, char **argv) {
 					}
 
 
-
-
-						StorageFactory sf(storagePath,5,storageBinary?Storage::binjson:Storage::json);
-						StorageFactory rptf(rptpath,2,Storage::json);
-
-						Report rpt(rptf.create("report.json"), rptinterval, a2np);
-
-
-
-						Worker wrk = schedulerGetWorker(sch);
-						Stats2Report::SharedPool pool(wrkcnt);
-
-
-						loadTraders(app.config, names, sf,sch, rpt, app.test,spreadCalcInterval, pool);
-
 						logNote("---- Starting service ----");
 
 						cntr.addCommand("calc_range",[&](const simpleServer::ArgList &args, simpleServer::Stream out){
@@ -620,12 +460,12 @@ int main(int argc, char **argv) {
 							ondra_shared::Countdown cnt(1);
 							wrk >> [&] {
 								try {
-									for(auto &&t:traders) {							;
+									for(auto &&t:traders.traders) {							;
 										std::ostringstream buff;
-										auto result = t.calc_min_max_range();
-										auto ass = t.getMarketInfo().asset_symbol;
-										auto curs = t.getMarketInfo().currency_symbol;
-										buff << "Trader " << t.getConfig().title
+										auto result = t.second->calc_min_max_range();
+										auto ass = t.second->getMarketInfo().asset_symbol;
+										auto curs = t.second->getMarketInfo().currency_symbol;
+										buff << "Trader " << t.second->getConfig().title
 												<< ":" << std::endl
 												<< "\tAssets:\t\t\t" << result.assets << " " << ass << std::endl
 												<< "\tAssets value:\t\t" << result.value << " " << curs << std::endl
@@ -686,7 +526,7 @@ int main(int argc, char **argv) {
 							return cmd_singlecmd(wrk, args,stream,&MTrader::repair);
 						});
 						cntr.addCommand("backtest", [&](simpleServer::ArgList args, simpleServer::Stream stream){
-							return cmd_backtest(wrk, args, stream, app.configPath.string(), stockSelector, rpt, pool);
+							return cmd_backtest(wrk, args, stream, app.configPath.string(), traders.stockSelector, rpt, pool);
 						});
 						cntr.addCommand("show_config", [&](simpleServer::ArgList args, simpleServer::Stream stream){
 							return cmd_config(wrk, args, stream, app.config);
@@ -707,7 +547,7 @@ int main(int argc, char **argv) {
 
 
 								try {
-									runTraders();
+									traders.runTraders();
 									rpt.genReport();
 								} catch (std::exception &e) {
 									logError("Scheduler exception: $1", e.what());
@@ -727,7 +567,6 @@ int main(int argc, char **argv) {
 						sch.remove(id);
 						sch.sync();
 						traders.clear();
-						stockSelector.clear();
 					}
 					logNote("---- Exit ----");
 
