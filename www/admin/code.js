@@ -65,6 +65,12 @@ App.prototype.createTraderList = function(form) {
 	items.sort(function(a,b) {
 		return a.broker.localeCompare(b.broker);
 	});
+	items.unshift({
+		"image":"../res/security.png",
+		"caption":"Users and security",				
+		"id":"!"
+		
+	})
 	items.push({
 		"image":"../res/add_icon.png",
 		"caption":"",				
@@ -83,24 +89,17 @@ App.prototype.createTraderList = function(form) {
 		form.setData({"item": update});
 		
 		var nf;
-		if (id != "+") {
+		if (id == "!") {
 			if (this.curForm) {
-				this.traders[this.curTrader.id] = this.saveForm(this.curForm, this.curTrader);
-				this.updateTopMenu();
+				this.curForm.save();				
 				this.curForm = null;
 			}
+			nf = this.securityForm();
+			this.desktop.setItemValue("content", nf);
+			nf.save = function() {};
 
-			nf = this.openTraderForm(id);			
-
-			this.desktop.setItemValue("content", TemplateJS.View.fromTemplate("main_form_wait"));
 			
-			
-			nf.then(function (nf) {
-				this.desktop.setItemValue("content", nf);
-				this.curForm = nf;
-				this.curTrader = this.traders[id];
-			}.bind(this));
-		} else {
+		} else if (id == "+") {
 			this.brokerSelect().then(this.pairSelect.bind(this)).then(function(res) {
 				var broker = res[0];
 				var pair = res[1];
@@ -113,6 +112,25 @@ App.prototype.createTraderList = function(form) {
 				if (!t.title) t.title = pair;
 				this.updateTopMenu(name);
 			}.bind(this))
+		} else {
+			if (this.curForm) {
+				this.curForm.save();				
+				this.curForm = null;
+			}
+
+			nf = this.openTraderForm(id);			
+
+			this.desktop.setItemValue("content", TemplateJS.View.fromTemplate("main_form_wait"));
+			
+			nf.then(function (nf) {
+				this.desktop.setItemValue("content", nf);
+				this.curForm = nf;
+				this.curForm.save = function() {
+					this.traders[id] = this.saveForm(nf, this.traders[id]);
+					this.updateTopMenu();
+				}.bind(this);
+				this.curTrader = this.traders[id];
+			}.bind(this));
 		}
 	}.bind(this);
 	
@@ -122,8 +140,8 @@ App.prototype.createTraderList = function(form) {
 App.prototype.loadConfig = function() {
 	return fetch_json("api/config").then(function(x) {
 		this.config = x;
-		this.users = x["users"];
-		this.traders = x["traders"];
+		this.users = x["users"] || [];
+		this.traders = x["traders"] || {}
 		for (var id in this.traders) this.traders[id].id = id;
 		return x;
 	}.bind(this))
@@ -156,6 +174,7 @@ App.prototype.fillForm = function (src, trg) {
 	data.title = src.title;
 	data.symbol = src.pair_symbol;
 	data.broker = broker.then(function(x) {return x.exchangeName;});
+	data.no_api_key = broker.then(function(x) {return {".hidden": x.trading_enabled};});
 	data.broker_id = broker.then(function(x) {return x.name;});
 	data.broker_ver = broker.then(function(x) {return x.version;});
 	data.asset = pair.then(function(x) {return x.asset_symbol;})
@@ -344,15 +363,24 @@ TemplateJS.View.regCustomElement("X-SLIDER", new TemplateJS.CustomElement(
 ));
 
 App.prototype.init = function() {
+	this.desktop = TemplateJS.View.createPageRoot(true);
+	this.desktop.loadTemplate("desktop");
+	var top_panel = TemplateJS.View.fromTemplate("top_panel");
+	this.desktop.setItemValue("top_panel", top_panel);
+	
+	top_panel.setItemEvent("save","click", function() {
+		this.save();
+	}.bind(this));
+	
 	return this.loadConfig().then(function() {
-		this.desktop = TemplateJS.View.createPageRoot(true);
-		this.desktop.loadTemplate("desktop");
-		var top_panel = TemplateJS.View.fromTemplate("top_panel");
 		var menu = this.createTraderList();
 		this.menu =  menu;
 		this.desktop.setItemValue("menu", menu);
-		this.desktop.setItemValue("top_panel", top_panel);
 	}.bind(this));
+}
+
+App.prototype.save = function() {
+	
 }
 
 App.prototype.brokerSelect = function() {
@@ -362,8 +390,17 @@ App.prototype.brokerSelect = function() {
 		var form = TemplateJS.View.fromTemplate("broker_select");
 		form.openModal();
 		fetch_json("api/brokers").then(function(x) {
+			var excl_info = [];
 			var lst = x["entries"].map(function(itm) {
+				var z = fetch_json(_this.brokerURL(itm))
+					.then(function(z) {
+						return {
+								".hidden":z.trading_enabled
+								};
+					});
+				excl_info.push(z);
 				return {
+					excl_info: z,
 					image:_this.brokerImgURL(itm),
 					caption: itm,
 					"":{
@@ -374,7 +411,17 @@ App.prototype.brokerSelect = function() {
 					}
 				};
 			});
-			form.setItemValue("item",lst);
+			excl_info = Promise.all(excl_info)
+				.then(function(lst) {
+					return {
+						".hidden": lst.reduce(function(a,b) {
+						return a && b[".hidden"];
+						},false)};				
+				});
+			form.setData({
+				"item":lst,
+				"excl_info": excl_info
+			});
 		});
 		form.setCancelAction(function() {
 			form.close();
@@ -434,6 +481,7 @@ App.prototype.updateTopMenu = function(select) {
 App.prototype.deleteTrader = function(id) {
 	delete this.traders[id];
 	this.updateTopMenu();
+	this.curForm = null;
 }
 
 App.prototype.resetTrader = function(id) {
@@ -446,4 +494,102 @@ App.prototype.repairTrader = function(id) {
 
 App.prototype.cancelAllOrders = function(id) {
 	alert("CancelAllOrders not implemented: "+id);
+}
+
+App.prototype.addUser = function() {
+	return new Promise(function(ok,cancel) {
+		var dlg = TemplateJS.View.fromTemplate("add_user_dlg");
+		dlg.openModal();
+		dlg.setCancelAction(function(){
+			dlg.close();
+			cancel();
+		},"cancel");
+		dlg.setDefaultAction(function(){
+			var data = dlg.readData();
+			dlg.unmark();
+			if (data.pwd  != data.pwd2) {
+				dlg.mark("errpwd");
+			} else {
+				dlg.close();
+				ok({
+					username:data.username,
+					password:data.pwd,
+					comment:data.comment
+				});
+			}
+			
+		},"ok");
+	});
+}
+
+
+App.prototype.securityForm = function() {
+	var form = TemplateJS.View.fromTemplate("security_form");
+	
+	function dropUser(user, text){		
+		this.dlgbox({"text": text+user}, "confirm").then(function() {
+			this.users = this.users.filter(function(z) {
+				return z.username != user;
+			});
+			update.call(this);
+		}.bind(this));
+	}
+	
+	
+	function update() {
+		
+		var rows = this.users.map(function(x) {
+			var that = this;
+			return {
+				user:x.username,
+				role:{
+					"value":x.admin?"admin":"viewer",
+					"!change": function() {
+						x.admin = this.value == "admin"
+					}
+				},
+				comment:x.comment,
+				drop:{"!click":function() {
+					dropUser.call(that, x.username, this.dataset.question);
+				}}
+			}
+		},this)
+		
+		var data = {
+			rows:rows,
+			add:{
+				"!click":function() {
+					
+					this.addUser().then(function(u) {
+						var itm = this.users.find(function(z) {
+							return z.username == u.username;
+						});
+						if (itm) itm.password = u.password;
+						else this.users.push(u);
+						update.call(this);
+					}.bind(this));					
+				}.bind(this)
+			}
+		};
+		
+		form.setData(data);
+		
+	}
+	update.call(this);
+	
+	return form;
+}
+
+App.prototype.dlgbox = function(data, template) {
+	return new Promise(function(ok, cancel) {
+		var dlg = TemplateJS.View.fromTemplate(template);
+		dlg.openModal();
+		dlg.setData(data);
+		dlg.setCancelAction(function() {
+			dlg.close();cancel();
+		},"cancel");
+		dlg.setDefaultAction(function() {
+			dlg.close();ok();
+		},"ok");
+	});		
 }

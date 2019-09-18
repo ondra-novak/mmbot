@@ -372,6 +372,7 @@ bool Interface::tradeOrder(const Trade &a, const Trade &b) {
 
 Interface::BrokerInfo Interface::getBrokerInfo() {
 	return BrokerInfo{
+		px.hasKey,
 		"poloniex",
 		"Poloniex",
 		"https://www.poloniex.com/",

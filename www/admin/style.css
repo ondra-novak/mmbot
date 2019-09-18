@@ -11,13 +11,14 @@ body {
 }
 
 [hidden] { display: none !important;}
-input,select,button {
+input,select,button,textarea {
 	background-color: black;
 	border: 1px solid #888;
 	padding: 0.1cm;
 	color: white;
 	font-family: Ruda;
 	font-size: 0.5cm;
+	box-sizing:border-box;
 }
 input[disabled],select[disabled],button[disabled],button[disabled]:hover {
 	background-color: #444;
@@ -141,11 +142,15 @@ div.trader.list > *:active {
 div.trader.list > * {
 	margin: 0.5cm;
 	text-align:center;
+	position: relative;
 }
 
+div.trader.list .exclamation {position: absolute;right: 0;top: -5px;font-size: 0.7cm;/* font-weight: bold; */color: #F44;text-shadow: 0 0 10px black, 0 0 5px black, 0 0 2px black;}
+.no_api_key {color: #F44;}
+
 div.trader.list img {
-	width: 64px;
-	height: 64px;
+	width: 2cm;
+	height: 2cm;
 }
 
 div.dialog > div {
@@ -163,13 +168,6 @@ div.dialog > div {
 	box-shadow: 10px 6px 20px black;
 }
 
-div.broker.select .grid {
-	display: flex;
-	justify-content: center;
-	text-align: center;
-	margin: 2em;
-	flex-wrap: wrap;
-}
 
 div.dialog {
 	position: absolute;
@@ -228,7 +226,7 @@ x-form.pair {
 	box-sizing: content-box;
 	padding: 0.2cm;
 	border:  0;
-	margin: 0 0.2em;
+	/* margin: 0 0.2em; */
 	line-height: 1.1cm;
 }
 
@@ -263,7 +261,7 @@ a {
     position: relative;
 }
 
-.main_form_wait x-section div {
+.main_form_wait x-section div, .waitdlg div {
 	position: absolute;
 	left: 0;
 	top: 0;
@@ -296,4 +294,45 @@ a {
 	transform: rotate(960deg);;
 	opacity:0;
 	}
+}
+
+.error {
+	color: red;
+	font-size: 0.9em;
+	display: none;
+}
+.error.mark {
+	display: block;	
+}
+
+.security_form table {
+	width: 100%;
+	background-color: #444;
+	padding: 0.2cm;
+}
+.security_form table td,.security_form table th {
+	text-align: center;
+	padding: 0.2cm;
+	border-bottom: 1px solid #222;
+}
+.security_form table td:first-child {
+	text-align:left;
+}
+
+.security_form button.add {
+	display:block;
+	width: 9em;
+	margin: 1em 1em 0 auto;
+}
+.panelbutton {
+	padding-right: 1em;
+}
+
+.panelbutton:hover {
+	background-color: #443;
+}
+
+.waitdlg {
+	width: 3cm !important;
+	height: 6cm;
 }

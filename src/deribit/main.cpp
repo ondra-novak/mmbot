@@ -291,6 +291,7 @@ void Interface::enable_debug(bool enable) {
 
 Interface::BrokerInfo Interface::getBrokerInfo() {
 	return BrokerInfo{
+		px.hasKey,
 		"deribit",
 		"Deribit",
 		"https://www.deribit.com/",

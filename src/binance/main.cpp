@@ -430,6 +430,7 @@ void Interface::enable_debug(bool enable) {
 
 Interface::BrokerInfo Interface::getBrokerInfo() {
 	return BrokerInfo{
+		px.hasKey,
 		"binance",
 		"Binance",
 		"https://www.binance.com/",

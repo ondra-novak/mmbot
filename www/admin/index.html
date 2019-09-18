@@ -12,7 +12,11 @@
 <x-section><x-section-caption>Info</x-section-caption>
 <label><span>ID</span><span data-name="id" ></span></label>
 <label><span>Broker</span><span><img src="" data-name="broker_img" class="inline_img">
-	<span data-name="broker_id"></span> (<span data-name="broker"></span> <span data-name="broker_ver"></span>)</span></label>
+	<span data-name="broker_id"></span> (<span data-name="broker"></span> <span data-name="broker_ver"></span>)<br/>
+	<span class="no_api_key" data-name="no_api_key" hidden>⚠️ - no API keys are set</span></span>
+	</label>
+
+
 <label><span>Symbol</span><span data-name="symbol" ></span></label>
 <div class="label"><span>Balance:</span><div><span data-name="balance_asset"></span> <span data-name="asset" ></span><br>
                                              <span data-name="balance_currency"></span> <span data-name="currency" ></span>
@@ -113,10 +117,12 @@
 <h2>Select broker</h2>
 <div class="trader list">
 <div class="item" data-name="item[]">
+<div class="exclamation" data-name="excl_info" hidden>⚠️</div>
 <img src="" data-name="image">
 <div data-name="caption"></div>
 </div>
 </div>
+<div class="no_api_key" data-name="excl_info" hidden>⚠️ - no API keys are set</div>
 <button data-name="cancel">Cancel</button>
 </div>
 </div>
@@ -142,9 +148,7 @@
 <div class="flexpanel">
 <div><a href="../"><span class="fonticon backicon">&lt;</span></a> MMBot administration</div>
 <div>
-<img 
-  src="../res/save_icon.png" class="fonticon" data-name="save"><img
-  src="../res/restart_active.png" class="fonticon" data-name="restart">
+<div data-name="save" class="panelbutton"><img src="../res/save_icon.png" class="fonticon"> Save</div>
 </div>
 </div>
 </template>
@@ -160,8 +164,70 @@
 
 </template>
 
+<template id="security_form">
+<x-form  class="pair security_form">
+<x-section><x-section-caption>Users</x-section-caption>
+<table>
+<tr><th>User</th><th>Role</th><th>Comment</th><th>Action</th></tr>
+<tr data-name="rows[]">
+<td data-name="user"></td>
+<td><select data-name="role">
+<option value="admin">Administrator</option>
+<option value="viewer">Viewer</option>
+</select></td>
+<td data-name="comment"></td>
+<td><button data-name="drop" data-question="Confirm drop user: ">Drop</button></td>
+</tr>
+</table>
+<button class="add" data-name="add">Add user</button>
+</x-section>
+</x-form>
+</template>
+
+<template id="add_user_dlg">
+<div class="dialog">
+<div class="add user">
+<x-form>
+<label><span>Username:</span><input type="text" data-name="username"></label>
+<label><span>Password:</span><input type="password" data-name="pwd"></label>
+<label><span>Repeat password:</span><input type="password" data-name="pwd2"></label>
+<label><span>Comment:</span><textarea data-name="comment" rows="3" cols="40"></textarea></label>
+<div class="error" data-name="errpwd">Passwords are not same</div>
+<button data-name="ok">OK</button>
+<button data-name="cancel">Cancel</button>
+</x-form>
+</div>
+</div>
+</template>
+
+<template id="confirm">
+<div class="dialog">
+<div class="confirm">
+<p data-name="text"></p>
+<button data-name="ok">OK</button>
+<button data-name="cancel">Cancel</button>
+</div>
+</div>
+</template>
+
+<template id="waitdlg">
+<div class="dialog">
+<div class="waitdlg">
+<p data-name="text"></p>
+
+<div></div>
+
+</div>
+</div>
+
+</template>
+
+
 <script src="../res/template.js" type="text/javascript"></script>
 <script src="../res/common.js" type="text/javascript"></script>
 <script src="code.js" type="text/javascript"></script>
 </body>
 </html>
+	
+	
+	

@@ -425,7 +425,7 @@ int main(int argc, char **argv) {
 						bool webadmin_enabled = webadminsect["enabled"].getBool(false);
 						RefCntPtr<WebCfg::State> webcfgstate;
 						if (webadmin_enabled) {
-							webcfgstate = new WebCfg::State(sf.create("web_admin_conf.json"),new AuthUserList, new AuthUserList);
+							webcfgstate = new WebCfg::State(sf.create("web_admin_conf"),new AuthUserList, new AuthUserList);
 							webcfgstate->applyConfig(*traders);
 							aul = webcfgstate->users;
 						} else {

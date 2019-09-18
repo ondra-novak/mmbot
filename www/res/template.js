@@ -1041,7 +1041,7 @@ var TemplateJS = function(){
 							var eltype = elem.tagName;
 							if (elem.dataset && elem.dataset.type) eltype = elem.dataset.type;			
 							var customEl = eltype && View.customElements[eltype.toUpperCase()];							
-							if (typeof val == "object") {
+							if (typeof val == "object" && val !== null) {
 								if (checkSpecialValue(val,elem)) {
 									return							
 								} else if (!Array.isArray(val)) {									

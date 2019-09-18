@@ -171,6 +171,8 @@ public:
 	};
 
 	struct BrokerInfo {
+		///must contain true to enlist broker in the web interface.
+		bool trading_enabled;
 		///Name of the broker
 		std::string name;
 		///Name of the exchange

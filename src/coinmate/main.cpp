@@ -294,6 +294,7 @@ Interface::MarketInfo Interface::getMarketInfo(const std::string_view &pair) {
 
 Interface::BrokerInfo Interface::getBrokerInfo() {
 	return BrokerInfo{
+		cm.hasKey,
 		"coinmate",
 		"Coinmate",
 		"https://www.coinmate.io/",

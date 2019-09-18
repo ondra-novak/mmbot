@@ -88,6 +88,7 @@ static Value getBrokerInfo(IStockApi &handler, const Value &req) {
 				 ("url",nfo.exchangeUrl)
 				 ("version",nfo.version)
 				 ("licence",nfo.licence)
+				 ("trading_enabled", nfo.trading_enabled)
 				 ("favicon",Value(BinaryView(StrViewA(nfo.favicon)),base64));
 }
 

@@ -136,17 +136,19 @@ ExtStockApi::BrokerInfo ExtStockApi::getBrokerInfo()  {
 	try {
 		auto resp = jsonRequestExchange("getBrokerInfo", json::Value());
 		return BrokerInfo {
+			resp["trading_enabled"].getBool(),
 			this->name,
 			resp["name"].getString(),
 			resp["url"].getString(),
 			resp["version"].getString(),
 			resp["licence"].getString(),
-			StrViewA(resp["favicon"].getBinary()),
+			StrViewA(resp["favicon"].getBinary())
 		};
 	} catch (IStockApi::Exception &) {
 		return BrokerInfo {
+			true,
 			this->name,
-			this->name
+			this->name,
 		};
 	}
 

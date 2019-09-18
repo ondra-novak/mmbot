@@ -185,7 +185,11 @@ bool WebCfg::reqBrokers(simpleServer::HTTPRequest req, ondra_shared::StrViewA re
 			return true;
 		}
 
+
 		dispatch([vpath,req, this, api]() mutable {
+			HTTPResponse hdr(200);
+			hdr.cacheFor(30);
+			hdr.contentType("application/json");
 
 			try {
 				auto splt = StrViewA(vpath).split("/");
@@ -200,12 +204,15 @@ bool WebCfg::reqBrokers(simpleServer::HTTPRequest req, ondra_shared::StrViewA re
 					if (!req.allowMethods({"GET"})) return true;
 					auto binfo  = api->getBrokerInfo();
 					Value res = Object("name", binfo.name)
+									("trading_enabled", binfo.trading_enabled)
 									("exchangeName", binfo.exchangeName)
 									("exchangeUrl", binfo.exchangeUrl)
 									("version", binfo.version)
 									("licence", binfo.licence)
 									("entries", {"icon.png","pairs"});
-					req.sendResponse("application/json",res.stringify());
+					req.sendResponse(HTTPResponse(200)
+									.contentType("application/json")
+									.cacheFor(30),res.stringify());
 					return true;
 				} else if (entry == "icon.png") {
 					if (!req.allowMethods({"GET"})) return true;
@@ -222,7 +229,7 @@ bool WebCfg::reqBrokers(simpleServer::HTTPRequest req, ondra_shared::StrViewA re
 						auto pairs = api->getAllPairs();
 						for (auto &&k: pairs) p.push_back(k);
 						Object obj("entries", p);
-						req.sendResponse("application/json",Value(obj).stringify());
+						req.sendResponse(std::move(hdr),Value(obj).stringify());
 						return true;
 					} else {
 						std::string p = urlDecode(pair);
@@ -243,7 +250,7 @@ bool WebCfg::reqBrokers(simpleServer::HTTPRequest req, ondra_shared::StrViewA re
 											("currency_balance", cb)
 											("price", api->getTicker(pair).last)
 											("entries", {"orders","ticker"});
-								req.sendResponse("application/json",resp.stringify());
+								req.sendResponse(std::move(hdr),resp.stringify());
 								return true;
 							} else if (orders == "ticker") {
 								if (!req.allowMethods({"GET"})) return true;
@@ -253,7 +260,7 @@ bool WebCfg::reqBrokers(simpleServer::HTTPRequest req, ondra_shared::StrViewA re
 										("bid", t.bid)
 										("last", t.last)
 										("time", t.time);
-								req.sendResponse("application/json",ticker.stringify());
+								req.sendResponse(std::move(hdr),ticker.stringify());
 								return true;
 							} else if (orders == "orders") {
 								if (!req.allowMethods({"GET","POST"})) return true;
@@ -266,7 +273,7 @@ bool WebCfg::reqBrokers(simpleServer::HTTPRequest req, ondra_shared::StrViewA re
 												("clientId",ord.client_id)
 												("id",ord.id);
 									});
-									req.sendResponse("application/json",orders.stringify());
+									req.sendResponse(std::move(hdr),orders.stringify());
 									return true;
 								} else {
 									Stream s = req.getBodyStream();
@@ -277,7 +284,7 @@ bool WebCfg::reqBrokers(simpleServer::HTTPRequest req, ondra_shared::StrViewA re
 											parsed["clientId"],
 											parsed["replaceId"],
 											parsed["replaceSize"].getNumber());
-									req.sendResponse("application/json",res.stringify());
+									req.sendResponse(std::move(hdr),res.stringify());
 									return true;
 								}
 
