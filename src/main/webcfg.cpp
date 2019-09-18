@@ -73,17 +73,22 @@ bool WebCfg::operator ()(const simpleServer::HTTPRequest &req,
 	return false;
 }
 
-static Value hashPswds(Value data, StrViewA section) {
-	Value list = data[section];
-	Object o;
+static Value hashPswds(Value data) {
+	Value list = data["users"];
+	Array o;
 	for (Value v: list) {
-		if (v.type() ==json::array) {
-			o.set(v.getKey(), AuthUserList::hashPwd(v.getKey(),v[0].getString()));
-		} else {
-			o.set(v);
+		Value p = v["password"];
+		if (p.defined()) {
+			Value u = v["username"];
+			Value pwdhash = AuthUserList::hashPwd(u.toString().str(),p.toString().str());
+			v = v.merge(Value(json::object,{
+					Value(p.getKey(), json::undefined),
+					Value("pwdhash", pwdhash)
+			},false));
 		}
+		o.push_back(v);
 	}
-	return list.replace(section, o);
+	return data.replace("users", o);
 }
 
 bool WebCfg::reqConfig(simpleServer::HTTPRequest req) const {
@@ -111,8 +116,7 @@ bool WebCfg::reqConfig(simpleServer::HTTPRequest req) const {
 				req.sendErrorPage(409);
 				return ;
 			}
-			data = hashPswds(data, "users");
-			data = hashPswds(data, "admins");
+			data = hashPswds(data);
 			Value trs = data["traders"];
 			for (Value v: trs) {
 				StrViewA name = v.getKey();
@@ -304,14 +308,19 @@ bool WebCfg::reqBrokers(simpleServer::HTTPRequest req, ondra_shared::StrViewA re
 
 }
 
-static void AULFromJSON(json::Value js, AuthUserList &aul) {
+static void AULFromJSON(json::Value js, AuthUserList &aul, bool admin) {
 	using UserVector = std::vector<AuthUserList::LoginPwd>;
 	using LoginPwd = AuthUserList::LoginPwd;
 
 	UserVector ulist = js.reduce([&](
 			UserVector &curVal, Value r){
+		Value username = r["username"];
+		Value password = r["pwdhash"];
+		Value isadmin = r["admin"];
 
-		curVal.push_back(LoginPwd(r.getKey(), r.getString()));
+		if (!admin || isadmin.getBool()) {
+			curVal.push_back(LoginPwd(username.toString().str(), password.toString().str()));
+		}
 		return curVal;
 	},UserVector());
 
@@ -322,8 +331,8 @@ static void AULFromJSON(json::Value js, AuthUserList &aul) {
 void WebCfg::State::init(json::Value data) {
 	if (data.defined()) {
 		this->write_serial = data["revision"].getUInt();
-		AULFromJSON(data["users"],*users);
-		AULFromJSON(data["admins"],*admins);
+		AULFromJSON(data["users"],*users, false);
+		AULFromJSON(data["users"],*admins, true);
 	}
 
 }

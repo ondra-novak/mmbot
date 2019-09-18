@@ -122,15 +122,9 @@ App.prototype.createTraderList = function(form) {
 App.prototype.loadConfig = function() {
 	return fetch_json("api/config").then(function(x) {
 		this.config = x;
-		var lst = x.traders.list.split(" ");		
-		this.traders = lst.reduce(function(a, n) {
-			var t = x[n];
-			if (t) {
-				t.id = n
-				a[n] = x[n];
-			}
-			return a;
-		}.bind(this),{});		
+		this.users = x["users"];
+		this.traders = x["traders"];
+		for (var id in this.traders) this.traders[id].id = id;
 		return x;
 	}.bind(this))
 }
@@ -171,7 +165,7 @@ App.prototype.fillForm = function (src, trg) {
 	data.price= pair.then(function(x) {return adjNum(x.price);})
 	data.leverage=pair.then(function(x) {return x.leverage?x.leverage+"x":"n/a";});
 	data.broker_img = this.brokerImgURL(src.broker);
-	data.advanced = src.advenced == "on";
+	data.advanced = src.advenced;
 	data.goal = pair.then(function(x) {
 		var pl = x.leverage || src.force_margin || src.neutral_pos;
 		var dissw = !!x.leverage;
@@ -180,8 +174,8 @@ App.prototype.fillForm = function (src, trg) {
 			".disabled": dissw 
 		};
 	})
-	data.enabled = src.enabled != "off"
-	data.dry_run = src.dry_run == "on"
+	data.enabled = src.enabled;
+	data.dry_run = src.dry_run;
 	data.external_assets = defval(src.external_assets,0);
 	data.acum_factor =defval(src.acum_factor,0);
 	data.accept_loss = data.accept_loss_pl = defval(src.accept_loss,0);
@@ -199,9 +193,9 @@ App.prototype.fillForm = function (src, trg) {
 	data.dynmult_mode = src.dynmult_mode || "half_alternate";
 	data.order_mult = defval(src.buy_mult,1);
 	data.min_size = defval(src.min_size,0);
-	data.internal_balance = src.internal_balance == "on";
-	data.dust_orders = src.internal_balance != "off";
-	data.detect_manual_trades = src.detect_manual_trades== "on";
+	data.internal_balance = src.internal_balance;
+	data.dust_orders = src.internal_balance;
+	data.detect_manual_trades = src.detect_manual_trades;
 	data.report_position_offset = defval(src.report_position_offset,0);
 	data.force_spread = adjNum((Math.exp(defval(src.force_spread,0))-1)*100);
 	
@@ -247,12 +241,6 @@ App.prototype.fillForm = function (src, trg) {
 	return trg.setData(data).then(trg.dlgRules.bind(trg));
 }
 
-function onoff2bool(x) {
-	return x == "on";
-}
-function bool2onoff(x) {
-	return x?"on":"off"
-}
 
 App.prototype.saveForm = function(form, src) {
 	var data = form.readData();
@@ -263,9 +251,9 @@ App.prototype.saveForm = function(form, src) {
 	trader.broker =src.broker;
 	trader.pair_symbol = src.pair_symbol;
 	trader.title = data.title;
-	trader.enabled = bool2onoff(data.enabled);
-	trader.dry_run = bool2onoff(data.dry_run);
-	trader.advenced = bool2onoff(data.advanced);
+	trader.enabled = data.enabled;
+	trader.dry_run = data.dry_run;
+	trader.advenced = data.advanced;
 	if (goal == "norm") {
 		trader.external_assets = data.external_assets;
 		trader.acum_factor = data.acum_factor;
@@ -286,9 +274,9 @@ App.prototype.saveForm = function(form, src) {
 	trader.buy_mult = data.order_mult;
 	trader.sell_mult = data.order_mult;
 	trader.min_size = data.min_size;
-	trader.internal_balance = bool2onoff(data.internal_balance);
-	trader.dust_orders = bool2onoff(data.dust_orders);
-	trader.detect_manual_trades = bool2onoff(data.detect_manual_trades);
+	trader.internal_balance = data.internal_balance;
+	trader.dust_orders = data.dust_orders;
+	trader.detect_manual_trades = data.detect_manual_trades;
 	trader.report_position_offset = data.report_position_offset;
 	trader.force_spread = Math.log(data.force_spread/100+1);	
 	return trader;

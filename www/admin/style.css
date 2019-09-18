@@ -159,6 +159,7 @@ div.dialog > div {
 	min-width: 8cm;
 	width: 90%;
 	max-width: 20cm;
+	white-space: normal;
 	box-shadow: 10px 6px 20px black;
 }
 
@@ -177,6 +178,7 @@ div.dialog {
 	left: 0;
 	bottom: 0;
 	text-align: center;
+	white-space: nowrap;
 }
 
 div.dialog::before {
@@ -210,6 +212,7 @@ x-form.pair {
 .flexpanel > * {
 	height: 1.5cm;
 	line-height: 1.5cm;
+	white-space: nowrap;
 }
 
 .fonticon {

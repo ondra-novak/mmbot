@@ -20,7 +20,7 @@ bool AuthUserList::findUser(const std::string &user, const std::string &pwdhash)
 
 void AuthUserList::setUsers(std::vector<std::pair<std::string, std::string> > &&users) {
 	Sync _(lock);
-	users.swap(users);
+	this->users.swap(users);
 }
 
 bool AuthUserList::empty() const {
@@ -33,11 +33,11 @@ std::string AuthUserList::hashPwd(const std::string& user,
 
 	unsigned char result[256];
 	unsigned int result_len;
-	HMAC(EVP_sha3_224(),user.data(),user.length(),
-			reinterpret_cast<const unsigned char *>(pwd.data()), pwd.length(),
+	HMAC(EVP_sha3_224(),pwd.data(),pwd.length(),
+			reinterpret_cast<const unsigned char *>(user.data()), user.length(),
 			result,&result_len);
 	std::string out;
-	json::base64->encodeBinaryValue(json::BinaryView(result,result_len),[&](json::StrViewA x){
+	json::base64url->encodeBinaryValue(json::BinaryView(result,result_len),[&](json::StrViewA x){
 		out.append(x.data,x.length);
 	});
 	return out;
