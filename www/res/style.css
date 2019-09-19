@@ -274,18 +274,18 @@ x-td, .donate {
 
 
 x-tr.sell x-td {
-	color: #F88;
+	color: #eaaaaa;
 }
 x-tr.buy x-td {
-	color: #8F8;
+	color: #aaeaaa;
 }
 
 x-tr.manual x-td {
 	opacity: 0.5;	
 }
 
-x-tr.sell x-td:nth-child(7) {color: #8F8;}
-x-tr.buy x-td:nth-child(7) {color: #F88;}
+x-tr x-td.pos:nth-child(7) {color: #8fffd3;}
+x-tr x-td.neg:nth-child(7) {color: #ff80a0;}
 x-tr x-td:nth-child(8).pos {color: #8F8;}
 x-tr x-td:nth-child(8).pos::before {content:"+";}
 x-tr x-td:nth-child(8).neg {color: #F88;}

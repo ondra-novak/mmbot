@@ -160,11 +160,15 @@ inline Interface::Orders Interface::getOpenOrders(const std::string_view &pair) 
 		double size = v["amount"].getNumber() - v["filled_amount"].getNumber();
 		if (v["direction"].getString() == "buy") size = -size;
 
+		double price = -1;
+		Value vprice = v["price"];
+		if (vprice.type() == json::number) price = 1.0/vprice.getNumber();
+
 		return Order {
 			v["order_id"],
 			client_id,
 			size,
-			1.0/v["price"].getNumber()
+			price
 		};
 
 	}, Orders());

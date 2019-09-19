@@ -515,7 +515,7 @@ function app_start(){
 					r.achg < 0?"↘":"↗",
 					Math.abs(r.achg),
 					r.price,
-					r.volume,
+					r.plDiff,
 					r.normch,
 				]
 				tr.classList.toggle("sell", r.achg<0);
