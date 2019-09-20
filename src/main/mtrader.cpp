@@ -1150,6 +1150,10 @@ void MTrader::showConfig(const ondra_shared::IniConfig::Section &ini, bool force
 
 }
 
+void MTrader::dropState() {
+	storage->erase();
+}
+
 class ConfigFromJSON {
 public:
 

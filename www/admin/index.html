@@ -23,6 +23,10 @@
                                              </div></div>
 <div class="label"><span>Price</span><span data-name="price"></span></div>
 <div class="label"><span>Leverage</span><span data-name="leverage"></span></div>
+<div data-name="open_orders_sect" hidden="hidden"><table class="orders"><caption>Open orders</caption>
+<tr><th>ID</th><th>Direction</th><th>Price</th><th>Size</th></tr>
+<tr data-name="orders[]"><td data-name="id">123456</td><td data-name="dir">buy</td><td data-name="price">123456</td><td data-name="size">123456</td><td data-name="action"></td></tr>
+</table></div>
 </x-section>
 <x-section><x-section-caption>General</x-section-caption>
 <label><span>Title</span><input type="text" data-name="title"></label>
@@ -44,7 +48,8 @@
 <label><span>Accept loss after hours (0=disabled)</span><x-slider data-name="accept_loss" data-min="0" data-max="100" data-mult="1"></x-slider></label>
 </x-section>
 <x-section data-name="goal_pl" class="goal hidden" hidden="hidden"><x-section-caption>Profit from position</x-section-caption>
-<label><span>Power (external assets)</span><input type="number" data-name="power"></label>
+<label><span>Power / Risk level:</span><x-slider data-name="power" data-min="1" data-max="100" data-mult="1" data-fixed="0"></x-slider></label>
+<div class="rightinfo"><span data-name="external_volume"></span>&nbsp;<span data-name="currency"></span></div>
 <label><span>Neutral position</span><span class="control_row"><input type="number" data-name="neutral_pos_val"><select data-name="neutral_pos_type">
 <option value="assets" name="asset">Assets</option>
 <option value="currency" name="currency">Currency</option>
@@ -134,7 +139,7 @@
 <div class="form">
 <img src="" data-name="image">
 <h2>Select pair</h2>
-<select data-name="pair"><option data-name="item[]"></option></select>
+<select data-name="pair"><option data-name="item[]"></option></select> <div data-name="spinner" class="spinner fast"></div>
 <h2>Enter trader's UID</h2>
 <input type="text" data-name="name">
 </div>
@@ -148,7 +153,9 @@
 <div class="flexpanel">
 <div><a href="../"><span class="fonticon backicon">&lt;</span></a> MMBot administration</div>
 <div>
-<div data-name="save" class="panelbutton"><img src="../res/save_icon.png" class="fonticon"> Save</div>
+<div data-name="save" class="panelbutton">
+	<img src="../res/save_icon.png" class="fonticon"> Save <div data-name="saveok"  class="save hide ok" hidden>✓</div>
+	<div data-name="saveprogress" class="save spinner fast" hidden></div></div>
 </div>
 </div>
 </template>
@@ -157,7 +164,7 @@
 <div class="main_form_wait">
 <x-form class="pair">
 <x-section><x-section-caption>Info</x-section-caption>
-<div></div>
+<div class="spinner"></div>
 </x-section>
 </x-form>
 </div>
@@ -169,6 +176,7 @@
 <x-section><x-section-caption>Users</x-section-caption>
 <table>
 <tr><th>User</th><th>Role</th><th>Comment</th><th>Action</th></tr>
+
 <tr data-name="rows[]">
 <td data-name="user"></td>
 <td><select data-name="role">
@@ -177,6 +185,11 @@
 </select></td>
 <td data-name="comment"></td>
 <td><button data-name="drop" data-question="Confirm drop user: ">Drop</button></td>
+</tr>
+<tr><td>&lt;guest&gt;</td><td><select data-name="guest_role">
+<option value="none">No access</option>
+<option value="viewer">Viewer</option></select></td>
+<td>All unauthentificated visitors</td>
 </tr>
 </table>
 <button class="add" data-name="add">Add user</button>
@@ -188,17 +201,29 @@
 <div class="dialog">
 <div class="add user">
 <x-form>
+<h2>Add user</h2>
 <label><span>Username:</span><input type="text" data-name="username"></label>
-<label><span>Password:</span><input type="password" data-name="pwd"></label>
-<label><span>Repeat password:</span><input type="password" data-name="pwd2"></label>
 <label><span>Comment:</span><textarea data-name="comment" rows="3" cols="40"></textarea></label>
+<button data-name="ok">Add</button>
+<button data-name="cancel">Cancel</button>
+</div>
+</div>
+</template>
+
+<template id="password_dlg">
+<div class="dialog"><div class="add user">
+<x-form>
+<h2>Please new enter password:</h2>
+<label><span>Username:</span><input type="text" data-name="username" readonly="readonly" tabindex="-1"></label>
+<label><span>Password:</span><input type="password" data-name="pwd"></label>
+<label><span>Retype password:</span><input type="password" data-name="pwd2"></label>
 <div class="error" data-name="errpwd">Passwords are not same</div>
 <button data-name="ok">OK</button>
 <button data-name="cancel">Cancel</button>
 </x-form>
-</div>
-</div>
+</div></div>
 </template>
+
 
 <template id="confirm">
 <div class="dialog">
@@ -210,11 +235,22 @@
 </div>
 </template>
 
+<template id="network_error">
+<div class="dialog">
+<div class="confirm">
+<p>Unable to fetch data from the server</p>
+<p data-name="text"></p>
+<p data-name="desc"></p>
+<button data-name="ok">OK</button>
+</div>
+</div>
+</template>
+
+
 <template id="waitdlg">
 <div class="dialog">
 <div class="waitdlg">
-<p data-name="text"></p>
-
+<div class="spinner"></div>
 <div></div>
 
 </div>

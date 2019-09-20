@@ -261,6 +261,37 @@ a {
     position: relative;
 }
 
+.spinner {
+	border-left: 10px solid #ffd202;
+	border-top: 10px solid #ffd20287;
+	border-right: 10px solid #ffd202;
+	border-bottom: 10px solid #ffd20287;
+	border-radius: 1cm;
+	animation: rot 3s infinite cubic-bezier(0.39, -0.01, 0.52, 1.01);
+}
+
+.save.spinner  {
+	width: 0.7cm;
+	height: 0.7cm;
+	display: inline-block;
+	vertical-align: middle;
+	box-sizing: border-box;
+}
+
+.save.hide {
+	display: inline-block;
+	animation: savehide 3s;
+	animation-fill-mode: forwards;
+	vertical-align:middle;
+	font-size: 2em;
+	width: 0.7cm;
+	color: lime;
+	box-sizing: border-box;
+	/* font-weight: bold; */
+	text-shadow: 0 0 10px white;
+	overflow: hidden;
+}
+
 .main_form_wait x-section div, .waitdlg div {
 	position: absolute;
 	left: 0;
@@ -269,15 +300,20 @@ a {
 	bottom: 0;
 	width: 1cm;
 	height: 1cm;
-	border-left: 10px solid #ffffffbf;
-	border-top: 10px solid #929292;
-	border-right: 10px solid #777777b8;
-	border-bottom: 10px solid #4040409e;
 	margin: auto;
-	border-radius: 1cm;
-	animation: rot 3s infinite cubic-bezier(0.39, -0.01, 0.52, 1.01);
 }
 
+.broker.pair .spinner {
+	width: 0.4em;
+	height: 0.4em;
+	display: inline-block;
+	vertical-align: text-bottom;
+	margin-left: 1em;
+}
+
+.spinner.fast {
+	animation: rot_fast 0.5s infinite linear;
+}
 
 @keyframes rot {
 	0% {
@@ -296,6 +332,30 @@ a {
 	}
 }
 
+@keyframes rot_fast {
+	0% {
+	transform: rotate(0);
+	}
+	100% {
+	transform: rotate(360deg);
+	}
+}
+
+@keyframes savehide {
+	0% {
+		width: 0.7cm;
+		opacity: 1;
+	}
+	50% {
+		width: 0.7cm;
+		opacity: 0;
+	}
+	100% {
+		width: 0;
+		opacity: 0;		
+	}
+}
+
 .error {
 	color: red;
 	font-size: 0.9em;
@@ -307,7 +367,7 @@ a {
 
 .security_form table {
 	width: 100%;
-	background-color: #444;
+	background-color: #3e4130;
 	padding: 0.2cm;
 }
 .security_form table td,.security_form table th {
@@ -326,6 +386,7 @@ a {
 }
 .panelbutton {
 	padding-right: 1em;
+	cursor: pointer;
 }
 
 .panelbutton:hover {
@@ -335,4 +396,32 @@ a {
 .waitdlg {
 	width: 3cm !important;
 	height: 6cm;
+}
+
+.rightinfo {
+	text-align: right;
+	font-style: italic;
+	font-size: 0.8em;
+}
+
+x-form.pair table.orders {margin:  auto;border-collapse: collapse;width: 100%;font-size: 0.8em;background-color: #3e4130;}
+x-form.pair table.orders td,x-form.pair table th {
+    text-align: center;
+    padding: 5px;
+    position:relative;
+}
+
+x-form.pair table.orders td:nth-child(4) {
+	width: 5em;
+}
+
+x-form.pair table.orders td button {
+	display:  block;
+	left:0;
+	top:0;
+	right:0;
+	bottom: 5px;
+	min-width: unset;
+	width: 2em;
+	position: absolute;
 }

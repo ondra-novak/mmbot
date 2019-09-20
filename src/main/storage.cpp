@@ -12,11 +12,24 @@
 #include <stack>
 
 #include <imtjson/binjson.tcc>
+#include <unistd.h>
+
 #include "../shared/logOutput.h"
 
 using namespace std::experimental::filesystem;
 
 Storage::Storage(std::string file, int versions, Format format):file(file),versions(versions),format(format) {
+}
+
+std::stack<std::string> Storage::generateNames() {
+	std::stack<std::string> names;
+	names.push(file);
+	for (int i = 1; i < versions; i++) {
+		std::ostringstream buff;
+		buff << file << "~" << i;
+		names.push(buff.str());
+	}
+	return names;
 }
 
 void Storage::store(json::Value data) {
@@ -42,15 +55,7 @@ void Storage::store(json::Value data) {
 
 	f.close();
 
-	std::stack<std::string> names;
-	names.push(file);
-
-	for (int i = 1; i < versions; i++) {
-		std::ostringstream buff;
-		buff << file << "~" << i;
-		names.push(buff.str());
-	}
-
+	std::stack<std::string> names = generateNames();
 	std::string to = names.top();
 	names.pop();
 	while (!names.empty()) {
@@ -97,3 +102,10 @@ PStorage StorageFactory::create(std::string name) const {
 	return std::make_unique<Storage>(path+"/"+ name, versions, format);
 }
 
+void Storage::erase() {
+	auto stack = generateNames();
+	while (!stack.empty()) {
+		std::remove(stack.top().c_str());
+		stack.pop();
+	}
+}

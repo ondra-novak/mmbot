@@ -90,7 +90,7 @@ public:
 
 
 	void addTrader(const MTrader::Config &mcfg, ondra_shared::StrViewA n);
-	void removeTrader(ondra_shared::StrViewA n);
+	void removeTrader(ondra_shared::StrViewA n, bool including_state);
 
 	void loadTraders(const ondra_shared::IniConfig &ini, ondra_shared::StrViewA names);
 

@@ -6,8 +6,9 @@ function beginOfDay(dt) {
 }
 
  
-function fetch_json(file) {
-	return fetch(file).then(function(req) {
+function fetch_json(file, opt) {
+	return fetch(file, opt).then(function(req) {
+		if (req.status>299 || req.status < 200) throw req;
 		return req.json();
 	});
 }

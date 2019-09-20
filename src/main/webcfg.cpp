@@ -133,7 +133,7 @@ bool WebCfg::reqConfig(simpleServer::HTTPRequest req) const {
 			data = data.replace("revision", state->write_serial+1);
 			state->config->store(data);
 			state->write_serial = serial+1;;
-			req.sendErrorPage(202);
+			req.sendResponse(HTTPResponse(202).contentType("application/json"),data.stringify());
 			state->applyConfig(traders);
 
 		});
@@ -338,7 +338,11 @@ static void AULFromJSON(json::Value js, AuthUserList &aul, bool admin) {
 void WebCfg::State::init(json::Value data) {
 	if (data.defined()) {
 		this->write_serial = data["revision"].getUInt();
-		AULFromJSON(data["users"],*users, false);
+		if (data["guest"].getBool() == false) {
+				AULFromJSON(data["users"],*users, false);
+		}else {
+			users->setUsers({});
+		}
 		AULFromJSON(data["users"],*admins, true);
 	}
 
@@ -347,8 +351,10 @@ void WebCfg::State::applyConfig(Traders &t) {
 	auto data = config->load();
 	init(data);
 	for (auto &&n :traderNames) {
-		t.removeTrader(n);
+		t.removeTrader(n, !data["traders"][n].defined());
 	}
+
+	traderNames.clear();
 
 	for (Value v: data["traders"]) {
 		t.addTrader(MTrader::load(v, t.test),v.getKey());

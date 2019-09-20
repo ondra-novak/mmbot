@@ -93,7 +93,7 @@ void Traders::addTrader(const MTrader::Config &mcfg ,ondra_shared::StrViewA n) {
 						aq->push(std::move(fn));
 				}, n, rpt, spread_calc_interval),
 				mcfg, n);
-		traders.insert(std::pair(t->ident, std::move(t)));
+		traders.insert(std::pair(StrViewA(t->ident), std::move(t)));
 	} catch (const std::exception &e) {
 		logFatal("Error: $1", e.what());
 		throw std::runtime_error(std::string("Unable to initialize trader: ").append(n).append(" - ").append(e.what()));
@@ -115,8 +115,12 @@ void Traders::loadTraders(const ondra_shared::IniConfig &ini, ondra_shared::StrV
 	}
 }
 
-void Traders::removeTrader(ondra_shared::StrViewA n) {
-	traders.erase(n);
+void Traders::removeTrader(ondra_shared::StrViewA n, bool including_state) {
+	NamedMTrader *t = find(n);
+	if (t) {
+		if (including_state) t->dropState();
+		traders.erase(n);
+	}
 }
 
 bool Traders::runTraders() {

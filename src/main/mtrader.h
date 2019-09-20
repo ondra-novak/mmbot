@@ -202,6 +202,7 @@ public:
 	double getLastSpread() const;
 	double getInternalBalance() const;
 	void setInternalBalance(double v);
+	void dropState();
 
 	static std::string_view vtradePrefix;
 

@@ -7,6 +7,38 @@ function app_start() {
 	
 }
 
+function fetch_error(e) {
+	if (!fetch_error.shown) {
+		fetch_error.shown = true;
+		var txt;
+		if (e.headers) {
+			var ct = e.headers.get("Content-Type");
+			if (ct == "text/html" || ct == "application/xhtml+xml") {
+				txt = e.text().then(function(text) {
+				 	var parser = new DOMParser();
+					var htmlDocument = parser.parseFromString(text, ct);
+					var el = htmlDocument.body.querySelector("p");
+					if (!el) el = body;
+					return el.innerText;
+				});
+			} else {
+				txt = e.text();
+			}
+		} else {
+			txt = Promise.resolve(e.toString());
+		}
+		txt.then(function(t) {
+			app.dlgbox({text:e.status+" "+e.statusText, desc:t},"network_error").then(function() {
+				fetch_error.shown = false;
+			});
+		});
+	}
+	throw e;	
+}
+
+function fetch_with_error(url, opt) {
+	return fetch_json(url, opt).catch(fetch_error);
+}
 
 function App() {	
 	this.traders={};
@@ -137,14 +169,16 @@ App.prototype.createTraderList = function(form) {
 	return form;
 }
 
+App.prototype.processConfig = function(x) {	
+	this.config = x;
+	this.users = x["users"] || [];
+	this.traders = x["traders"] || {}
+	for (var id in this.traders) this.traders[id].id = id;
+	return x;	
+}
+
 App.prototype.loadConfig = function() {
-	return fetch_json("api/config").then(function(x) {
-		this.config = x;
-		this.users = x["users"] || [];
-		this.traders = x["traders"] || {}
-		for (var id in this.traders) this.traders[id].id = id;
-		return x;
-	}.bind(this))
+	return fetch_with_error("api/config").then(this.processConfig.bind(this));
 }
 
 App.prototype.brokerURL = function(broker) {
@@ -166,10 +200,22 @@ function valIdx(goal) {
 	return goal == "norm"?0:1;
 }
 
+function powerToEA(power, pair) {
+		var total; 
+		if (pair.leverage) {
+			total = pair.currency_balance / pair.price;
+			return power * total;
+		} else {
+			total = pair.currency_balance / pair.price + pair.asset_balance;
+			return power * total;
+		}
+}
+
 App.prototype.fillForm = function (src, trg) {
 	var data = {};	
-	var broker = fetch_json(this.brokerURL(src.broker));
-	var pair = fetch_json(this.pairURL(src.broker, src.pair_symbol));
+	var broker = fetch_with_error(this.brokerURL(src.broker));
+	var pair = fetch_with_error(this.pairURL(src.broker, src.pair_symbol));
+	var orders = fetch_json(this.pairURL(src.broker, src.pair_symbol)+"/orders");
 	data.id = src.id;
 	data.title = src.title;
 	data.symbol = src.pair_symbol;
@@ -185,6 +231,7 @@ App.prototype.fillForm = function (src, trg) {
 	data.leverage=pair.then(function(x) {return x.leverage?x.leverage+"x":"n/a";});
 	data.broker_img = this.brokerImgURL(src.broker);
 	data.advanced = src.advenced;
+	
 	data.goal = pair.then(function(x) {
 		var pl = x.leverage || src.force_margin || src.neutral_pos;
 		var dissw = !!x.leverage;
@@ -198,7 +245,7 @@ App.prototype.fillForm = function (src, trg) {
 	data.external_assets = defval(src.external_assets,0);
 	data.acum_factor =defval(src.acum_factor,0);
 	data.accept_loss = data.accept_loss_pl = defval(src.accept_loss,0);
-	data.power = src.external_assets;
+	data.power = src.power;
 	var neutral_pos = src.neutral_pos?src.neutral_pos.split(" "):[];
 	data.neutral_pos_type = neutral_pos.length == 1?"assets":neutral_pos[0];
 	data.neutral_pos_val = src.neutral_pos?(neutral_pos.length == 1?neutral_pos[0]:neutral_pos[1]):0;
@@ -217,22 +264,60 @@ App.prototype.fillForm = function (src, trg) {
 	data.detect_manual_trades = src.detect_manual_trades;
 	data.report_position_offset = defval(src.report_position_offset,0);
 	data.force_spread = adjNum((Math.exp(defval(src.force_spread,0))-1)*100);
+	data.open_orders_sect = orders.then(function(x) {return {".hidden":!x.length};},function() {return{".hidden":true};});
+	data.orders = orders.then(function(x) {
+		var mp = x.map(function(z) {
+			return {
+				id: z.id,
+				dir: z.size>0?"BUY":"SELL",
+				price:adjNum(z.price),
+				size: adjNum(Math.abs(z.size))
+			};});
+		if (mp.length) {
+			var butt = document.createElement("button");
+			butt.innerText="X";
+			mp[0].action = {
+					"rowspan":mp.length,
+					"value": butt
+			};
+			butt.addEventListener("click", this.cancelAllOrders.bind(this, src.id));
+		}
+		return mp;
+	}.bind(this),function(){});
+
+	function updateEA() {
+		var d = trg.readData(["power"]);
+		pair.then(function(p) {
+			d.external_assets = adjNum(powerToEA(d.power, p));
+			d.external_volume = adjNum(d.external_assets * p.price);
+			trg.setData(d);
+		});
+	}
+	
+	data.power ={"!change": updateEA};		
 	
 	Promise.all([pair,data.goal]).then(function(pp) {
 		var p = pp[0];
 		var goal = pp[1].value;
 		var data = {};
 		var l = p.leverage || 1;
-		if (!src.external_assets && goal == "pl") {
-			data.power = adjNum(p.currency_balance/p.price*l/5);
-			data.neutral_pos_val = 0;
-			data.neutral_pos_type = "assets";
-		} else if (goal == "norm") {
-			data.power = adjNum((p.currency_balance/p.price + p.asset_balance)*5);
-			data.neutral_pos_val = 1;
-			data.neutral_pos_type = "center";
+		if (!src.power) {
+			if (src.external_assets) {
+				var part = powerToEA(1,p);
+				data.power = src.external_assets/part; 
+			} else if (goal == "pl") {
+				data.power = 20;
+				data.neutral_pos_val = 0;
+				data.neutral_pos_type = "assets";
+			} else if (goal == "norm") {
+				data.power = 1;
+				data.neutral_pos_val = 1;
+				data.neutral_pos_type = "center";
+			}
 		}
 		trg.setData(data);
+		trg.p = p;
+		updateEA();
 	})	
 	
 	data.execute = {
@@ -262,6 +347,7 @@ App.prototype.fillForm = function (src, trg) {
 
 
 App.prototype.saveForm = function(form, src) {
+
 	var data = form.readData();
 	var trader = {}
 	var goal = data.goal;
@@ -274,17 +360,17 @@ App.prototype.saveForm = function(form, src) {
 	trader.dry_run = data.dry_run;
 	trader.advenced = data.advanced;
 	if (goal == "norm") {
-		trader.external_assets = data.external_assets;
 		trader.acum_factor = data.acum_factor;
 		trader.accept_loss = data.accept_loss;		
 	} else {
-		trader.external_assets = data.power;
+		trader.external_assets = adjNum(powerToEA(trader.power, form.p));
 		trader.neutral_pos = data.neutral_pos_type+" "+data.neutral_pos_val;
 		trader.max_pos = data.max_pos;
 		trader.accept_loss = data.accept_loss_pl;		
 		trader["sliding_pos.hours"] = data.sliding_pos_hours;
 		trader["sliding_pos.weaken"] = data.sliding_pos_weaken;
 	}
+	trader.external_assets = data.external_assets;
 	trader.spread_calc_hours =data.spread_calc_hours;
 	trader.spread_calc_min_trades = data.spread_calc_min_trades;
 	trader.dynmult_raise = data.dynmult_raise;
@@ -335,11 +421,13 @@ TemplateJS.View.regCustomElement("X-SLIDER", new TemplateJS.CustomElement(
 					var v = parseInt(this.value);
 					var val = v * mult;
 					number.value = toFixed(val);
+					elem.dispatchEvent(new Event("change"));
 				});
 				number.addEventListener("change", function() {
 					var v = parseFloat(this.value);
 					var val = v / mult;
 					range.value = val;
+					elem.dispatchEvent(new Event("change"));
 				});				
 				env1.appendChild(range);
 				env2.appendChild(number);
@@ -366,6 +454,7 @@ App.prototype.init = function() {
 	this.desktop = TemplateJS.View.createPageRoot(true);
 	this.desktop.loadTemplate("desktop");
 	var top_panel = TemplateJS.View.fromTemplate("top_panel");
+	this.top_panel = top_panel;
 	this.desktop.setItemValue("top_panel", top_panel);
 	
 	top_panel.setItemEvent("save","click", function() {
@@ -376,10 +465,10 @@ App.prototype.init = function() {
 		var menu = this.createTraderList();
 		this.menu =  menu;
 		this.desktop.setItemValue("menu", menu);
+		
+		top_panel.setItemEvent("save", this.save.bind(this));
+		
 	}.bind(this));
-}
-
-App.prototype.save = function() {
 	
 }
 
@@ -389,10 +478,10 @@ App.prototype.brokerSelect = function() {
 		
 		var form = TemplateJS.View.fromTemplate("broker_select");
 		form.openModal();
-		fetch_json("api/brokers").then(function(x) {
+		fetch_with_error("api/brokers").then(function(x) {
 			var excl_info = [];
 			var lst = x["entries"].map(function(itm) {
-				var z = fetch_json(_this.brokerURL(itm))
+				var z = fetch_with_error(_this.brokerURL(itm))
 					.then(function(z) {
 						return {
 								".hidden":z.trading_enabled
@@ -447,13 +536,14 @@ App.prototype.pairSelect = function(broker) {
 			var name = d.name.replace(/[^-a-zA-Z0-9_.~]/g,"_");
 			ok([broker, d.pair, name]);
 		},"ok");
-		fetch_json(_this.pairURL(broker,"")).then(function(data) {
+		fetch_with_error(_this.pairURL(broker,"")).then(function(data) {
 			var pairs = [{"":{"value":"----",".value":""}}].concat(data["entries"].map(function(x) {
 				return {"":{"value":x,".value":x}};
 			}));			
 			form.setItemValue("item",pairs);
+			form.showItem("spinner",false);
 			dlgRules();
-		});
+		},function() {form.close();cancel();});
 		form.setItemValue("image", _this.brokerImgURL(broker));
 		var last_gen_name="";
 		function dlgRules() {
@@ -462,7 +552,7 @@ App.prototype.pairSelect = function(broker) {
 				d.name = last_gen_name = broker+"_"+d.pair;
 				form.setItemValue("name", last_gen_name);
 			}
-			form.enableItem("ok", d.pair != "" && d.name != "");
+			form.enableItem("ok", d.pair != "" && d.name != "");			
 		};
 		
 		
@@ -505,19 +595,34 @@ App.prototype.addUser = function() {
 			cancel();
 		},"cancel");
 		dlg.setDefaultAction(function(){
+			dlg.close();
 			var data = dlg.readData();
-			dlg.unmark();
-			if (data.pwd  != data.pwd2) {
-				dlg.mark("errpwd");
-			} else {
-				dlg.close();
-				ok({
-					username:data.username,
-					password:data.pwd,
-					comment:data.comment
-				});
-			}
-			
+			var dlg2 = TemplateJS.View.fromTemplate("password_dlg");
+			dlg2.openModal();
+			dlg2.setData(data);
+			dlg2.setCancelAction(function() {
+				dlg2.close();
+				cancel();
+			},"cancel");
+			dlg2.setDefaultAction(function() {
+				dlg2.unmark();
+				var data2 = dlg2.readData();
+				if (data2.pwd == "" ) return
+				if (data2.pwd2 == "" ) {
+					dlg2.findElements("pwd2")[0].focus();
+					return;
+				}
+				if (data2.pwd  != data2.pwd2) {
+					dlg2.mark("errpwd");
+				} else {
+					ok({
+						username:data.username,
+						password:data2.pwd,
+						comment:data.comment
+					});
+					dlg2.close();
+				}				
+			},"ok");
 		},"ok");
 	});
 }
@@ -569,6 +674,12 @@ App.prototype.securityForm = function() {
 						update.call(this);
 					}.bind(this));					
 				}.bind(this)
+			},
+			guest_role:{
+				"!change":function() {
+					this.config.guest = form.readData(["guest_role"]).guest_role == "viewer";
+				}.bind(this),
+				"value": !this.config.guest?"none":"viewer"
 			}
 		};
 		
@@ -592,4 +703,30 @@ App.prototype.dlgbox = function(data, template) {
 			dlg.close();ok();
 		},"ok");
 	});		
+}
+
+App.prototype.save = function() {
+	if (this.curForm) {
+		this.curForm.save();
+	}
+	var top = this.top_panel;
+	top.showItem("saveprogress",true);
+	top.showItem("saveok",false);
+	this.config.users = this.users;
+	this.config.traders = this.traders;
+	fetch_json("api/config",{
+		method: "PUT",
+		headers: {
+			"Content-Type":"application/json",
+		},
+		body:JSON.stringify(this.config)
+	}).then(function(x) {
+		top.showItem("saveprogress",false);
+		top.showItem("saveok",true);
+		this.processConfig(x);
+		this.updateTopMenu
+	}.bind(this),function(e){
+		top.showItem("saveprogress",false);
+		fetch_error(e);
+	});
 }
