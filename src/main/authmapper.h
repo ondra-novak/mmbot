@@ -29,11 +29,15 @@ public:
 	static std::vector<LoginPwd> decodeMultipleBasicAuth(const json::StrViewA auth);
 
 	void setUsers(std::vector<std::pair<std::string, std::string> > &&users);
+	void setCfgUsers(std::vector<std::pair<std::string, std::string> > &&users);
 	bool empty() const;
 
 protected:
 	mutable std::recursive_mutex lock;
+	//standard user table
 	UserMap users;
+	//user table from config
+	UserMap cfgusers;
 };
 
 

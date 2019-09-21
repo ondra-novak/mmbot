@@ -28,7 +28,8 @@ NamedEnum<WebCfg::Command> WebCfg::strCommand({
 	{WebCfg::config, "config"},
 	{WebCfg::serialnr, "serial"},
 	{WebCfg::brokers, "brokers"},
-	{WebCfg::traders, "traders"}
+	{WebCfg::traders, "traders"},
+	{WebCfg::logout, "logout"}
 });
 
 WebCfg::WebCfg(
@@ -68,6 +69,7 @@ bool WebCfg::operator ()(const simpleServer::HTTPRequest &req,
 		case serialnr: return reqSerial(req);
 		case brokers: return reqBrokers(req, rest);
 		case traders: return reqTraders(req, rest);
+		case logout: return reqLogout(req);
 		}
 	}
 	return false;
@@ -459,7 +461,18 @@ void WebCfg::State::applyConfig(Traders &t) {
 	}
 }
 
+void WebCfg::State::setAdminAuth(StrViewA auth) {
+	auto ulist = AuthUserList::decodeMultipleBasicAuth(auth);
+	auto ulist2 = ulist;
+	users->setCfgUsers(std::move(ulist));
+	admins->setCfgUsers(std::move(ulist2));
+}
+
 void WebCfg::State::init() {
 	init(config->load());
 }
 
+bool WebCfg::reqLogout(simpleServer::HTTPRequest req) const {
+	auth.genError(req);
+	return true;
+}

@@ -20,6 +20,10 @@ input,select,button,textarea {
 	font-size: 0.5cm;
 	box-sizing:border-box;
 }
+input[readonly] {
+	border: 0;
+	cursor: default;
+}
 input[disabled],select[disabled],button[disabled],button[disabled]:hover {
 	background-color: #444;
 	color: #888;
@@ -166,11 +170,13 @@ div.dialog > div {
 	max-width: 20cm;
 	white-space: normal;
 	box-shadow: 10px 6px 20px black;
+	box-sizing: border-box;
+	padding: 5px;
 }
 
 
 div.dialog {
-	position: absolute;
+	position: fixed;
 	top: 0;
 	right: 0;
 	left: 0;
@@ -345,10 +351,17 @@ a {
 	0% {
 		width: 0.7cm;
 		opacity: 1;
+		text-shadow: 0 0 0px white;
 	}
 	50% {
 		width: 0.7cm;
+		opacity: 1;
+		text-shadow: 0 0 20px white;
+	}
+	75% {
+		width: 0.7cm;
 		opacity: 0;
+		text-shadow: 0 0 100px white;
 	}
 	100% {
 		width: 0;
@@ -418,7 +431,7 @@ x-form.pair table.orders td:nth-child(4) {
 x-form.pair table.orders td button {
 	display:  block;
 	left:0;
-	top:0;
+	top: -6px;
 	right:0;
 	bottom: 5px;
 	min-width: unset;

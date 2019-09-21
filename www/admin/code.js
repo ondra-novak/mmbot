@@ -256,11 +256,11 @@ App.prototype.fillForm = function (src, trg) {
 	data.sliding_pos_hours = defval(src["sliding_pos.hours"],240);
 	data.sliding_pos_weaken = defval(src["sliding_pos.weaken"],11);
 	data.spread_calc_hours = defval(src.spread_calc_hours,5*24);
-	data.spread_calc_min_trades = defval(src.spread_calc_min_trades,1);
+	data.spread_calc_min_trades = defval(src.spread_calc_min_trades,4);
 	data.dynmult_raise = defval(src.dynmult_raise,250);
 	data.dynmult_fall = defval(src.dynmult_fall, 0.5);
 	data.dynmult_mode = src.dynmult_mode || "half_alternate";
-	data.order_mult = defval(src.buy_mult,1);
+	data.order_mult = defval(src.buy_mult*100,100);
 	data.min_size = defval(src.min_size,0);
 	data.internal_balance = src.internal_balance;
 	data.dust_orders = src.internal_balance;
@@ -328,7 +328,6 @@ App.prototype.fillForm = function (src, trg) {
 			var d = trg.readData(["oper"]);
 			switch (d.oper) {
 			case "delete":
-				trg.close();
 				this.deleteTrader(src.id);
 				break;
 			case "repair":
@@ -366,7 +365,6 @@ App.prototype.saveForm = function(form, src) {
 		trader.acum_factor = data.acum_factor;
 		trader.accept_loss = data.accept_loss;		
 	} else {
-		trader.external_assets = adjNum(powerToEA(trader.power, form.p));
 		trader.neutral_pos = data.neutral_pos_type+" "+data.neutral_pos_val;
 		trader.max_pos = data.max_pos;
 		trader.accept_loss = data.accept_loss_pl;		
@@ -379,8 +377,8 @@ App.prototype.saveForm = function(form, src) {
 	trader.dynmult_raise = data.dynmult_raise;
 	trader.dynmult_fall = data.dynmult_fall;
 	trader.dynmult_mode = data.dynmult_mode;
-	trader.buy_mult = data.order_mult;
-	trader.sell_mult = data.order_mult;
+	trader.buy_mult = data.order_mult/100;
+	trader.sell_mult = data.order_mult/100;
 	trader.min_size = data.min_size;
 	trader.internal_balance = data.internal_balance;
 	trader.dust_orders = data.dust_orders;
@@ -572,24 +570,17 @@ App.prototype.updateTopMenu = function(select) {
 	if (select) this.menu.select(select);
 }
 
-App.prototype.deleteTrader = function(id) {
-	delete this.traders[id];
-	this.updateTopMenu();
-	this.curForm = null;
+App.prototype.waitScreen = function(promise) {	
+	var d = TemplateJS.View.fromTemplate('waitdlg');
+	d.openModal();
+	return promise.then(function(x) {
+		d.close();return d;
+	}, function(e) {
+		d.close();throw e;
+	});
 }
 
-App.prototype.resetTrader = function(id) {
-	alert("Reset Trader not implemented: "+id);
-}
-
-App.prototype.repairTrader = function(id) {
-	alert("Repair Trader not implemented: "+id);
-}
-
-App.prototype.cancelAllOrders = function(id) {
-	this.dlgbox({"text":this.strtable.askcancel,
-		"ok":this.strtable.yes,
-		"cancel":this.strtable.no},"confirm").then(function(){
+App.prototype.cancelAllOrdersNoDlg = function(id) { 	
 
 		var tr = this.traders[id];
 		var cr = fetch_with_error(
@@ -597,21 +588,64 @@ App.prototype.cancelAllOrders = function(id) {
 			{method:"DELETE"});
 		var dr = fetch_json(
 			this.traderURL(tr.id)+"/stop",
-			{method:"POST"});
+			{method:"POST"}).catch(function() {});
 
 
-		this.desktop.setItemValue("content", TemplateJS.View.fromTemplate("main_form_wait"));		
-		Promise.all(cr,dr)
+		return this.waitScreen(Promise.all([cr,dr]))
 			.catch(function(){})
 			.then(function() {
-				fetch_with_error(this.pairURL(tr.broker, tr.pair_symbol), {cache: 'reload'}).then(
-					function() {
-						this.updateTopMenu(tr.id);
-					}.bind(this));
+				return fetch_with_error(this.pairURL(tr.broker, tr.pair_symbol), {cache: 'reload'});
 			}.bind(this));
 
-												
+													
+}
+
+App.prototype.deleteTrader = function(id) {
+	return this.dlgbox({"text":this.strtable.askdelete},"confirm").then(function(){
+		return this.cancelAllOrdersNoDlg(id).then(function() {
+			this.curForm.close();
+			delete this.traders[id];
+			this.updateTopMenu();
+			this.curForm = null;
+		}.bind(this));
 	}.bind(this));
+}
+
+App.prototype.resetTrader = function(id) {
+	this.dlgbox({"text":this.strtable.askreset,
+		"ok":this.strtable.yes,
+		"cancel":this.strtable.no},"confirm").then(function(){
+
+		var tr = this.traders[id];
+		this.waitScreen(fetch_with_error(
+			this.traderURL(tr.id)+"/reset",
+			{method:"POST"})).then(function() {				
+						this.updateTopMenu(tr.id);				
+			}.bind(this));
+	}.bind(this));
+}
+
+App.prototype.repairTrader = function(id) {
+		this.dlgbox({"text":this.strtable.askrepair,
+		"ok":this.strtable.yes,
+		"cancel":this.strtable.no},"confirm").then(function(){
+
+		var tr = this.traders[id];
+		this.waitScreen(fetch_with_error(
+			this.traderURL(tr.id)+"/repair",
+			{method:"POST"})).then(function() {
+						this.updateTopMenu(tr.id);				
+			}.bind(this));
+	}.bind(this));
+}
+
+App.prototype.cancelAllOrders = function(id) {
+	return this.dlgbox({"text":this.strtable.askcancel,
+		"ok":this.strtable.yes,
+		"cancel":this.strtable.no},"confirm").then(this.cancelAllOrdersNoDlg.bind(this,id))
+			.then(function() {
+						this.updateTopMenu(id);
+					}.bind(this));
 
 }
 

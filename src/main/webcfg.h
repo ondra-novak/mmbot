@@ -50,6 +50,7 @@ public:
 		void init();
 		void init(json::Value v);
 		void applyConfig(Traders &t);
+		void setAdminAuth(json::StrViewA auth);
 	};
 
 
@@ -67,7 +68,8 @@ public:
 		config,
 		serialnr,
 		brokers,
-		traders
+		traders,
+		logout
 	};
 
 	AuthMapper auth;
@@ -83,6 +85,7 @@ protected:
 	bool reqSerial(simpleServer::HTTPRequest req) const;
 	bool reqBrokers(simpleServer::HTTPRequest req, ondra_shared::StrViewA rest) const;
 	bool reqTraders(simpleServer::HTTPRequest req, ondra_shared::StrViewA rest) const;
+	bool reqLogout(simpleServer::HTTPRequest req) const;
 
 	using Sync = std::unique_lock<std::recursive_mutex>;
 

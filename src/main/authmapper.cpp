@@ -20,7 +20,17 @@ bool AuthUserList::findUser(const std::string &user, const std::string &pwdhash)
 
 void AuthUserList::setUsers(std::vector<std::pair<std::string, std::string> > &&users) {
 	Sync _(lock);
+	if (!users.empty()) {
+		users.insert(users.end(), cfgusers.begin(), cfgusers.end());
+
+	}
 	this->users.swap(users);
+
+}
+
+void AuthUserList::setCfgUsers(std::vector<std::pair<std::string, std::string> > &&users) {
+	Sync _(lock);
+	this->cfgusers.swap(users);
 }
 
 bool AuthUserList::empty() const {
