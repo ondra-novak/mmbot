@@ -88,6 +88,9 @@ public:
 		std::hash<std::string> h;
 		return h(name);
 	}
+	virtual void clear() override {
+		rpt.clear(name);
+	}
 
 	CalcSpreadQueue q;
 	Report &rpt;

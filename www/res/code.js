@@ -958,9 +958,6 @@ function createCSV(chart, infoMap) {
 	return rows.join("\r\n");
 }
 
-function pow2(x) {
-	return x*x;
-}
 
 function init_calculator() {
 	"use strict";
@@ -1187,6 +1184,9 @@ function donate() {
 		});
 		hd.checked = localStorage["donation_hidden"] === hd.value;
 	}
+}
+function setup() {
+	location.href="admin/index.html";
 }
 function close_donate() {
 	var w = document.getElementById("donate_window");

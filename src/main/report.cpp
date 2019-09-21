@@ -358,3 +358,13 @@ void Report::setMisc(StrViewA symb, const MiscData &miscData) {
 				("tt",miscData.total_time);
 	}
 }
+
+void Report::clear(StrViewA symb) {
+	tradeMap.erase(symb);
+	infoMap.erase(symb);
+	priceMap.erase(symb);
+	miscMap.erase(symb);
+	errorMap.erase(symb);
+	orderMap.clear();
+}
+

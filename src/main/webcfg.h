@@ -9,6 +9,7 @@
 #define SRC_MAIN_WEBCFG_H_
 
 #include <shared/stringview.h>
+#include <shared/shared_function.h>
 #include <simpleServer/http_parser.h>
 #include <imtjson/namedEnum.h>
 #include <imtjson/shared/refcnt.h>
@@ -24,7 +25,7 @@ class WebCfg {
 public:
 
 	using Action = std::function<void()>;
-	using Dispatch = std::function<void(Action &&)>;
+	using Dispatch = ondra_shared::shared_function<void(Action &&)>;
 
 
 	class State : public ondra_shared::RefCntObj{

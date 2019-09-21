@@ -112,7 +112,7 @@ line.marker.sell {
 	top: 0;
 	left: 0;
 	background-color: #222;
-	padding: 0.2cm 2.7cm 0.2cm 1cm;
+	padding: 0.2cm 3.3cm 0.2cm 1cm;
 	text-align: center;
 	z-index: 10;
 }
@@ -785,8 +785,9 @@ form button {
 	margin-top: 0.5cm;
 }
 
-#calculator_icon {width: 0.5cm;height:  0.5cm;position: absolute;right: 0.95cm;top: 0.3cm;background-image: url(calculator.svg);background-size: cover;cursor:  p;}
-#donate_icon {width: 0.8cm;height: 0.8cm;position: absolute;right: 1.6cm;top: 0.15cm;background-image: url(donate_sml.svg);background-size: cover;}
+#calculator_icon {width: 0.5cm;height:  0.5cm;position: absolute;right: 1.72cm;top: 0.3cm;background-image: url(calculator.svg);background-size: cover;cursor: pointer;}
+#setup_icon {width: 0.5cm;height:  0.5cm;position: absolute;right: 0.95cm;top: 0.3cm;background-image: url(setup.png);background-size: cover;cursor: pointer;}
+#donate_icon {width: 0.8cm;height: 0.8cm;position: absolute;right: 2.4cm;top: 0.15cm;background-image: url(donate_sml.svg);background-size: cover;cursor: pointer;}
 
 #calculator {
 	transition: all 0.3s;

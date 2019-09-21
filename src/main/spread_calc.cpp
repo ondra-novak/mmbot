@@ -47,6 +47,7 @@ public:
 	virtual std::size_t getHash() const override {
 		return 0xABCDEF;
 	}
+	virtual void clear() override {}
 
 protected:
 	double spread;

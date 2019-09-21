@@ -10,6 +10,11 @@
 <template id="trader_form">
 <x-form class="pair no_adv">
 <x-section><x-section-caption>Info</x-section-caption>
+<div class="rightinfo pairactions">Actions: 
+	<img src="../res/undo.png" title="Undo changes" data-name="icon_undo"> 
+	<img src="../res/reset_stats.png" title="Reset statistics" data-name="icon_reset"> 
+	<img src="../res/repair.png" title="Repair" data-name="icon_repair"> 
+	<img src="../res/delete.png" title="Delete" data-name="icon_delete"></div>
 <label><span>ID</span><span data-name="id" ></span></label>
 <label><span>Broker</span><span><img src="" data-name="broker_img" class="inline_img">
 	<span data-name="broker_id"></span> (<span data-name="broker"></span> <span data-name="broker_ver"></span>)<br/>
@@ -44,6 +49,9 @@
 </x-section>
 <x-section data-name="goal_norm" class="goal hidden adv" hidden="hidden"><x-section-caption>Normalized profit</x-section-caption>
 <label><span>External assets</span><input type="number" data-name="external_assets"></label>
+<div class="rightinfo">Min price: <span data-name="range_min_price"></span>&nbsp;<span data-name="currency"></span>
+- Max price: <span data-name="range_max_price"></span>&nbsp;<span data-name="currency"></span>
+</div>
 <label><span>Accumulation</span><x-slider data-name="acum_factor" data-min="0" data-max="100" data-mult="1"></x-slider></label>
 <label><span>Accept loss after hours (0=disabled)</span><x-slider data-name="accept_loss" data-min="0" data-max="100" data-mult="1"></x-slider></label>
 </x-section>
@@ -87,16 +95,7 @@
 <label><span>Report - position offset</span><input type="number" data-name="report_position_offset"></label>
 <label><span>Force spread (0=disabled)</span><input type="number" data-name="force_spread"></label>
 </x-section>
-<x-section><x-section-caption>Operation</x-section-caption>
-<label><span>Select operation</span><select data-name="oper">
-<option value="">-------</option>
-<option value="cancelAll">Cancel all orders</option>
-<option value="repair">Repair</option>
-<option value="reset">Reset stats</option>
-<option value="delete">Delete</option>
-</select></label>
-<div class="label"><div></div><button data-name="execute">Execute</button></div>
-</x-section>
+<div></div>
 </x-form>
 </template>
 
@@ -109,7 +108,7 @@
 </div>
 </template>
 
-<template id="desktop"><div class="desktop">
+<template id="desktop"><div class="desktop vertical">
 <div class="top_panel" data-name="top_panel"></div>
 <div class="menu" data-name="menu"></div>
 <div class="content" data-name="content"></div>
@@ -154,8 +153,11 @@
 <div><a href="../"><span class="fonticon backicon">&lt;</span></a> MMBot administration</div>
 <div>
 <div data-name="save" class="panelbutton">
-	<img src="../res/save_icon.png" class="fonticon"> Save <div data-name="saveok"  class="save hide ok" hidden>✓</div>
-	<div data-name="saveprogress" class="save spinner fast" hidden></div></div>
+	<img src="../res/save_icon.png" class="fonticon"> Save <div data-name="saveok"  class="save hide ok" hidden="hidden">✓</div>
+	<div data-name="saveprogress" class="save spinner fast" hidden="hidden"></div></div>
+<div data-name="logout" class="panelbutton">
+	<img src="../res/logout.png" class="fonticon"> Logout 
+</div>
 </div>
 </div>
 </template>
@@ -246,6 +248,16 @@
 </div>
 </template>
 
+<template id="validation_error">
+<div class="dialog">
+<div class="confirm">
+<h2>Can't apply the new settings</h2>
+<p data-name="text"></p>
+<button data-name="ok">OK</button>
+</div>
+</div>
+</template>
+
 
 <template id="waitdlg">
 <div class="dialog">
@@ -260,10 +272,11 @@
 <span id="strtable"
     data-askcancel="This cancels all orders for the selected pair and also temporaly disables any futher trading for selected trader unless the configuration is saved. Do you wish to continue?"
     data-askreset="This resets statistics, clear charts and removes all trades except the recent one which is used as an anchor. Do you wish to continue?"
-    data-askrepair="This resets the internal state of the trader. Use this only if the trader generates unacceptable orders and reports strange numbers. Note that operation can slightly affect the profit, because the internal state can contain important informations to achieve the optimal pefromance"
+    data-askrepair="This resets the internal state of the trader. Use only if the trader generates unacceptable orders and reports strange numbers. Note that operation can slightly affect the profit, because the internal state can contain important informations to achieve the optimal pefromance"
     data-askdelete="Confirm trader deletion. This also cancels all orders."
     data-yes="Yes"
     data-no="No"
+    data-need_admin="You need to define at least one user with the administration role"
     ></span>
 
 

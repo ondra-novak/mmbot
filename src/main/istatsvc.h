@@ -75,6 +75,7 @@ public:
 			double balance,
 			double prev_value) const = 0;
 	virtual std::size_t getHash() const = 0;
+	virtual void clear() = 0;
 
 	virtual ~IStatSvc() {}
 };

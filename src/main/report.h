@@ -46,6 +46,7 @@ public:
 
 	void setPrice(StrViewA symb, double price);
 	void addLogLine(StrViewA ln);
+	void clear(StrViewA symb);
 
 	virtual void setError(StrViewA symb, const ErrorObj &errorObj);
 

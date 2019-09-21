@@ -36,6 +36,7 @@ self.addEventListener('fetch', function(evt) {
 	  if (evt.request.method != 'GET') return;
 
 	  if (evt.request.url.indexOf("report.json") != -1) return;
+	  if (evt.request.url.indexOf("/admin/") != -1) return;
 
 	  var p = fromCache(evt.request);
 	  var q = p.then(function(x) {return x;}, function() {

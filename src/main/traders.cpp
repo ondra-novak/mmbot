@@ -118,7 +118,15 @@ void Traders::loadTraders(const ondra_shared::IniConfig &ini, ondra_shared::StrV
 void Traders::removeTrader(ondra_shared::StrViewA n, bool including_state) {
 	NamedMTrader *t = find(n);
 	if (t) {
-		if (including_state) t->dropState();
+		if (including_state) {
+			//stop trader
+			t->stop();
+			//perform while stop cancels all orders
+			t->perform();
+			//drop state
+			t->dropState();
+			//now we can erase
+		}
 		traders.erase(n);
 	}
 }

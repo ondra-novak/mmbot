@@ -40,3 +40,8 @@ function new_svg_el(name, attrs, childOf) {
 	if (childOf) childOf.appendChild(elem);
 	return elem;
 }
+
+function pow2(x) {
+	return x*x;
+}
+ 

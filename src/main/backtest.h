@@ -54,6 +54,7 @@ public:
 				double balance,
 				double prev_value) const override;
 		virtual std::size_t getHash() const override;
+		virtual void clear() override {}
 
 		///Interacts with report object - call in worker - report object is not MT safe
 		void flush();

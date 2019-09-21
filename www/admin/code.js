@@ -199,9 +199,6 @@ function defval(v,w) {
 	else return v;
 }
 
-function valIdx(goal) {
-	return goal == "norm"?0:1;
-}
 
 function powerToEA(power, pair) {
 		var total; 
@@ -212,6 +209,22 @@ function powerToEA(power, pair) {
 			total = pair.currency_balance / pair.price + pair.asset_balance;
 			return power * total;
 		}
+}
+
+
+function calc_range(a, ea, c, p) {
+	a = a+ea;
+	var value = a * p;
+	var max_price = pow2((a * Math.sqrt(p))/ea);
+	var S = value - c
+	var min_price = S<=0?0:pow2(S/(a*Math.sqrt(p)));
+	if (!isFinite(max_price)) max_price = "∞";
+	return {
+		range_min_price: adjNum(min_price),
+		range_max_price: adjNum(max_price)
+	}
+
+	
 }
 
 App.prototype.fillForm = function (src, trg) {
@@ -245,7 +258,10 @@ App.prototype.fillForm = function (src, trg) {
 	})
 	data.enabled = src.enabled;
 	data.dry_run = src.dry_run;
-	data.external_assets = defval(src.external_assets,0);
+	data.external_assets = {
+			value:defval(src.external_assets,0),
+			"!input": updateRange
+	}
 	data.acum_factor =defval(src.acum_factor,0);
 	data.accept_loss = data.accept_loss_pl = defval(src.accept_loss,0);
 	data.power = src.power;
@@ -260,10 +276,10 @@ App.prototype.fillForm = function (src, trg) {
 	data.dynmult_raise = defval(src.dynmult_raise,250);
 	data.dynmult_fall = defval(src.dynmult_fall, 0.5);
 	data.dynmult_mode = src.dynmult_mode || "half_alternate";
-	data.order_mult = defval(src.buy_mult*100,100);
+	data.order_mult = defval(src.buy_mult,1)*100;
 	data.min_size = defval(src.min_size,0);
 	data.internal_balance = src.internal_balance;
-	data.dust_orders = src.internal_balance;
+	data.dust_orders = defval(src.dust_orders,true);
 	data.detect_manual_trades = src.detect_manual_trades;
 	data.report_position_offset = defval(src.report_position_offset,0);
 	data.force_spread = adjNum((Math.exp(defval(src.force_spread,0))-1)*100);
@@ -294,9 +310,18 @@ App.prototype.fillForm = function (src, trg) {
 			d.external_assets = adjNum(powerToEA(d.power, p));
 			d.external_volume = adjNum(d.external_assets * p.price);
 			trg.setData(d);
+			updateRange();
 		});
 	}
 	
+	function updateRange() {
+		pair.then(function(p) {
+			var d = trg.readData(["external_assets"]);
+			var r = calc_range(p.asset_balance, parseFloat(d.external_assets), p.currency_balance, p.price);
+			trg.setData(r);
+		});
+		
+	}
 	data.power ={"!change": updateEA};		
 	
 	Promise.all([pair,data.goal]).then(function(pp) {
@@ -323,26 +348,10 @@ App.prototype.fillForm = function (src, trg) {
 		updateEA();
 	})	
 	
-	data.execute = {
-		"!click": function() {
-			var d = trg.readData(["oper"]);
-			switch (d.oper) {
-			case "delete":
-				this.deleteTrader(src.id);
-				break;
-			case "repair":
-				this.repairTrader(src.id);
-				break;
-			case "reset":
-				this.resetTrader(src.id);
-				break;
-			case "cancelAll":
-				this.cancelAllOrders(src.id);
-				break;
-			break;
-			}
-		}.bind(this)
-	};
+	data.icon_repair={"!click": this.repairTrader.bind(this, src.id)};
+	data.icon_reset={"!click": this.resetTrader.bind(this, src.id)};
+	data.icon_delete={"!click": this.deleteTrader.bind(this, src.id)};
+	data.icon_undo={"!click": this.undoTrader.bind(this, src.id)};
 	
 	return trg.setData(data).then(trg.dlgRules.bind(trg));
 }
@@ -353,7 +362,6 @@ App.prototype.saveForm = function(form, src) {
 	var data = form.readData();
 	var trader = {}
 	var goal = data.goal;
-	var gidx = valIdx(goal);
 	trader.id = src.id;
 	trader.broker =src.broker;
 	trader.pair_symbol = src.pair_symbol;
@@ -459,9 +467,8 @@ App.prototype.init = function() {
 	this.top_panel = top_panel;
 	this.desktop.setItemValue("top_panel", top_panel);
 	
-	top_panel.setItemEvent("save","click", function() {
-		this.save();
-	}.bind(this));
+	top_panel.setItemEvent("save","click", this.save.bind(this));
+	top_panel.setItemEvent("logout","click", this.logout.bind(this));
 	
 	return this.loadConfig().then(function() {
 		var menu = this.createTraderList();
@@ -602,13 +609,17 @@ App.prototype.cancelAllOrdersNoDlg = function(id) {
 
 App.prototype.deleteTrader = function(id) {
 	return this.dlgbox({"text":this.strtable.askdelete},"confirm").then(function(){
-		return this.cancelAllOrdersNoDlg(id).then(function() {
 			this.curForm.close();
 			delete this.traders[id];
 			this.updateTopMenu();
 			this.curForm = null;
-		}.bind(this));
 	}.bind(this));
+}
+
+App.prototype.undoTrader = function(id) {
+	this.curForm.close();
+	this.curForm = null;
+	this.updateTopMenu(id);
 }
 
 App.prototype.resetTrader = function(id) {
@@ -777,19 +788,45 @@ App.prototype.save = function() {
 	top.showItem("saveok",false);
 	this.config.users = this.users;
 	this.config.traders = this.traders;
-	fetch_json("api/config",{
-		method: "PUT",
-		headers: {
-			"Content-Type":"application/json",
-		},
-		body:JSON.stringify(this.config)
-	}).then(function(x) {
+	this.validate(this.config).then(function(config) {
+		fetch_json("api/config",{
+			method: "PUT",
+			headers: {
+				"Content-Type":"application/json",
+			},
+			body:JSON.stringify(config)
+		}).then(function(x) {
+			top.showItem("saveprogress",false);
+			top.showItem("saveok",true);
+			this.processConfig(x);
+			this.updateTopMenu
+		}.bind(this),function(e){
+			top.showItem("saveprogress",false);
+			fetch_error(e);
+		});
+	}.bind(this), function(e) {
 		top.showItem("saveprogress",false);
-		top.showItem("saveok",true);
-		this.processConfig(x);
-		this.updateTopMenu
-	}.bind(this),function(e){
-		top.showItem("saveprogress",false);
-		fetch_error(e);
-	});
+		if (e.trader)   
+			this.menu.select(e.trader);		
+		this.dlgbox({text:e.message},"validation_error");
+	}.bind(this));
+}
+
+App.prototype.logout = function() {
+	fetch("api/logout");
+	location.reload();
+}
+
+App.prototype.validate = function(cfg) {
+	return new Promise(function(ok, error) {
+		var admin = cfg.users.find(function(x) {
+			return x.admin;
+		})
+		if (!admin) return error({
+				"trader":"!",
+				"message":this.strtable.need_admin
+			});	
+		ok(cfg);
+
+	}.bind(this));
 }

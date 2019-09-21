@@ -104,41 +104,52 @@ bool WebCfg::reqConfig(simpleServer::HTTPRequest req) const {
 		req.sendResponse("application/json",data.stringify());
 
 	} else {
-
-		state->lock.lock();
 		Traders &traders = this->trlist;
 		RefCntPtr<State> state = this->state;
-		req.readBodyAsync(1024*1024, [state,&traders](simpleServer::HTTPRequest req) mutable {
-			Sync _(state->lock);
-			state->lock.unlock();
 
-			Value data = Value::fromString(StrViewA(BinaryView(req.getUserBuffer())));
-			unsigned int serial = data["revision"].getUInt();
-			if (serial != state->write_serial) {
-				req.sendErrorPage(409);
-				return ;
-			}
-			data = hashPswds(data);
-			Value trs = data["traders"];
-			for (Value v: trs) {
-				StrViewA name = v.getKey();
+
+			state->lock.lock();
+			req.readBodyAsync(1024*1024, [state,&traders,dispatch = this->dispatch](simpleServer::HTTPRequest req) mutable {
 				try {
-					MTrader::load(v,false);
-				} catch (std::exception &e) {
-					std::string msg(name.data,name.length);
-					msg.append(" - ");
-					msg.append(e.what());
-					req.sendErrorPage(406, StrViewA(), msg);
-					return;
-				}
-			}
-			data = data.replace("revision", state->write_serial+1);
-			state->config->store(data);
-			state->write_serial = serial+1;;
-			req.sendResponse(HTTPResponse(202).contentType("application/json"),data.stringify());
-			state->applyConfig(traders);
+					Sync _(state->lock);
+					state->lock.unlock();
 
-		});
+					Value data = Value::fromString(StrViewA(BinaryView(req.getUserBuffer())));
+					unsigned int serial = data["revision"].getUInt();
+					if (serial != state->write_serial) {
+						req.sendErrorPage(409);
+						return ;
+					}
+					data = hashPswds(data);
+					Value trs = data["traders"];
+					for (Value v: trs) {
+						StrViewA name = v.getKey();
+						try {
+							MTrader::load(v,false);
+						} catch (std::exception &e) {
+							std::string msg(name.data,name.length);
+							msg.append(" - ");
+							msg.append(e.what());
+							req.sendErrorPage(406, StrViewA(), msg);
+							return;
+						}
+					}
+					data = data.replace("revision", state->write_serial+1);
+					state->config->store(data);
+					state->write_serial = serial+1;;
+					dispatch([&traders, state, req, data] {
+						try {
+							state->applyConfig(traders);
+							req.sendResponse(HTTPResponse(202).contentType("application/json"),data.stringify());
+						} catch (std::exception &e) {
+							req.sendErrorPage(500,StrViewA(),e.what());
+						}
+					});
+				} catch (std::exception &e) {
+					req.sendErrorPage(500,StrViewA(),e.what());
+				}
+
+			});
 
 
 	}
