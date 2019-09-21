@@ -136,6 +136,14 @@ bool Traders::runTraders() {
 	return hit;
 }
 
+Traders::TMap::const_iterator Traders::begin() const {
+	return traders.begin();
+}
+
+Traders::TMap::const_iterator Traders::end() const {
+	return traders.end();
+}
+
 NamedMTrader *Traders::find(json::StrViewA id) const {
 	auto iter = traders.find(id);
 	if (iter == traders.end()) return nullptr;

@@ -190,6 +190,9 @@ App.prototype.pairURL = function(broker, pair) {
 App.prototype.brokerImgURL = function(broker) {
 	return this.brokerURL(broker) + "/icon.png";	
 }
+App.prototype.traderURL = function(trader) {
+	return "api/traders/"+encodeURIComponent(trader);
+}
 
 function defval(v,w) {
 	if (v === undefined) return w;
@@ -451,6 +454,7 @@ TemplateJS.View.regCustomElement("X-SLIDER", new TemplateJS.CustomElement(
 ));
 
 App.prototype.init = function() {
+	this.strtable = document.getElementById("strtable").dataset;
 	this.desktop = TemplateJS.View.createPageRoot(true);
 	this.desktop.loadTemplate("desktop");
 	var top_panel = TemplateJS.View.fromTemplate("top_panel");
@@ -583,7 +587,32 @@ App.prototype.repairTrader = function(id) {
 }
 
 App.prototype.cancelAllOrders = function(id) {
-	alert("CancelAllOrders not implemented: "+id);
+	this.dlgbox({"text":this.strtable.askcancel,
+		"ok":this.strtable.yes,
+		"cancel":this.strtable.no},"confirm").then(function(){
+
+		var tr = this.traders[id];
+		var cr = fetch_with_error(
+			this.pairURL(tr.broker, tr.pair_symbol)+"/orders",
+			{method:"DELETE"});
+		var dr = fetch_json(
+			this.traderURL(tr.id)+"/stop",
+			{method:"POST"});
+
+
+		this.desktop.setItemValue("content", TemplateJS.View.fromTemplate("main_form_wait"));		
+		Promise.all(cr,dr)
+			.catch(function(){})
+			.then(function() {
+				fetch_with_error(this.pairURL(tr.broker, tr.pair_symbol), {cache: 'reload'}).then(
+					function() {
+						this.updateTopMenu(tr.id);
+					}.bind(this));
+			}.bind(this));
+
+												
+	}.bind(this));
+
 }
 
 App.prototype.addUser = function() {

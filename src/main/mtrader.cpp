@@ -212,6 +212,10 @@ void MTrader::init() {
 	}
 }
 
+const IStockApi::TWBHistory& MTrader::getTrades() const {
+	return trades;
+}
+
 double MTrader::calcWeakenMult(double neutral_pos, double balance) {
 
 	if (neutral_pos && cfg.sliding_pos_weaken ) {
@@ -223,6 +227,31 @@ double MTrader::calcWeakenMult(double neutral_pos, double balance) {
 	} else {
 		return 1.0;
 	}
+}
+
+double MTrader::calcNeutralPos(const MTrader::Status &status) {
+	double neutral_pos = 0;
+	switch (cfg.neutralPosType) {
+	case Config::center: {
+		double a = 1.0 / (cfg.neutral_pos + 1.0);
+		neutral_pos = ((status.assetBalance - cfg.external_assets)
+				* status.curPrice + currency_balance_cache) * a
+				/ status.curPrice + cfg.external_assets;
+	}
+		break;
+	case Config::currency:
+		neutral_pos = (currency_balance_cache - cfg.neutral_pos)
+				/ status.curPrice + status.assetBalance;
+		break;
+	case Config::assets:
+		neutral_pos = cfg.neutral_pos + cfg.external_assets;
+		break;
+	default:
+		neutral_pos = 0;
+		break;
+	}
+	ondra_shared::logDebug("Neutral pos: $1", neutral_pos);
+	return neutral_pos;
 }
 
 int MTrader::perform() {
@@ -241,27 +270,7 @@ int MTrader::perform() {
 	std::string buy_order_error;
 	std::string sell_order_error;
 
-	double neutral_pos=0;
-
-
-	switch (cfg.neutralPosType) {
-	case Config::center: {
-		double a = 1.0/(cfg.neutral_pos+1.0);
-		neutral_pos = ((status.assetBalance-cfg.external_assets) * status.curPrice + currency_balance_cache)*a/status.curPrice+cfg.external_assets;
-	}break;
-	case Config::currency:
-		neutral_pos = (currency_balance_cache-cfg.neutral_pos)/status.curPrice+status.assetBalance;
-		break;
-	case Config::assets:
-		neutral_pos = cfg.neutral_pos + cfg.external_assets;
-		break;
-	default:
-		neutral_pos = 0;
-		break;
-	}
-	ondra_shared::logDebug("Neutral pos: $1", neutral_pos);
-
-
+	double neutral_pos = calcNeutralPos(status);
 	//update market fees
 	minfo.fees = status.new_fees;
 	//process all new trades
@@ -981,6 +990,11 @@ void MTrader::reset() {
 	}
 	saveState();
 }
+
+void MTrader::stop() {
+	cfg.enabled = false;
+}
+
 
 void MTrader::achieve_balance(double price, double balance) {
 	if (need_load) loadState();

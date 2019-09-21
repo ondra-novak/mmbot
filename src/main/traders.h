@@ -70,7 +70,8 @@ ondra_shared::Scheduler sch;
 class Traders {
 public:
 
-    ondra_shared::linear_map<json::StrViewA,std::unique_ptr<NamedMTrader> > traders;
+	using TMap = ondra_shared::linear_map<json::StrViewA,std::unique_ptr<NamedMTrader> >;
+	TMap traders;
     StockSelector stockSelector;
 	ondra_shared::RefCntPtr<ActionQueue> aq;
 	bool test;
@@ -86,6 +87,9 @@ public:
 			Report &rpt);
 	Traders(const Traders &&other) = delete;
 	void clear();
+
+	TMap::const_iterator begin() const;
+	TMap::const_iterator end() const;
 
 
 

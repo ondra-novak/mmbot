@@ -26,9 +26,9 @@ using namespace simpleServer;
 
 NamedEnum<WebCfg::Command> WebCfg::strCommand({
 	{WebCfg::config, "config"},
-	{WebCfg::restart, "restart"},
 	{WebCfg::serialnr, "serial"},
-	{WebCfg::brokers, "brokers"}
+	{WebCfg::brokers, "brokers"},
+	{WebCfg::traders, "traders"}
 });
 
 WebCfg::WebCfg(
@@ -37,7 +37,7 @@ WebCfg::WebCfg(
 		Traders &traders,
 		Dispatch &&dispatch)
 	:auth(realm, state->admins)
-	,traders(traders)
+	,trlist(traders)
 	,dispatch(std::move(dispatch))
 	,state(state)
 {
@@ -65,9 +65,9 @@ bool WebCfg::operator ()(const simpleServer::HTTPRequest &req,
 		if (!auth.checkAuth(req)) return true;
 		switch (*cmd) {
 		case config: return reqConfig(req);
-		case restart: return reqRestart(req);
 		case serialnr: return reqSerial(req);
 		case brokers: return reqBrokers(req, rest);
+		case traders: return reqTraders(req, rest);
 		}
 	}
 	return false;
@@ -104,7 +104,7 @@ bool WebCfg::reqConfig(simpleServer::HTTPRequest req) const {
 	} else {
 
 		state->lock.lock();
-		Traders &traders = this->traders;
+		Traders &traders = this->trlist;
 		RefCntPtr<State> state = this->state;
 		req.readBodyAsync(1024*1024, [state,&traders](simpleServer::HTTPRequest req) mutable {
 			Sync _(state->lock);
@@ -145,9 +145,6 @@ bool WebCfg::reqConfig(simpleServer::HTTPRequest req) const {
 
 }
 
-bool WebCfg::reqRestart(simpleServer::HTTPRequest ) const {
-	return false;
-}
 
 bool WebCfg::reqSerial(simpleServer::HTTPRequest req) const {
 	if (!req.allowMethods({"GET"})) return true;
@@ -169,7 +166,7 @@ bool WebCfg::reqBrokers(simpleServer::HTTPRequest req, ondra_shared::StrViewA re
 	if (rest.empty()) {
 		if (!req.allowMethods({"GET"})) return true;
 		Array brokers;
-		traders.stockSelector.forEachStock([&](const std::string_view &name,IStockApi &){
+		trlist.stockSelector.forEachStock([&](const std::string_view &name,IStockApi &){
 			brokers.push_back(name);
 		});
 		Object obj("entries", brokers);
@@ -179,7 +176,7 @@ bool WebCfg::reqBrokers(simpleServer::HTTPRequest req, ondra_shared::StrViewA re
 		auto splt = StrViewA(vpath).split("/");
 		StrViewA urlbroker = splt();
 		std::string broker = urlDecode(urlbroker);
-		IStockApi *api = traders.stockSelector.getStock(broker);
+		IStockApi *api = trlist.stockSelector.getStock(broker);
 		if (api == nullptr) {
 			req.sendErrorPage(404);
 			return true;
@@ -263,7 +260,7 @@ bool WebCfg::reqBrokers(simpleServer::HTTPRequest req, ondra_shared::StrViewA re
 								req.sendResponse(std::move(hdr),ticker.stringify());
 								return true;
 							} else if (orders == "orders") {
-								if (!req.allowMethods({"GET","POST"})) return true;
+								if (!req.allowMethods({"GET","POST","DELETE"})) return true;
 								if (req.getMethod() == "GET") {
 									auto ords = api->getOpenOrders(p);
 									Value orders = Value(json::array,ords.begin(), ords.end(), [&](const IStockApi::Order &ord) {
@@ -274,6 +271,13 @@ bool WebCfg::reqBrokers(simpleServer::HTTPRequest req, ondra_shared::StrViewA re
 												("id",ord.id);
 									});
 									req.sendResponse(std::move(hdr),orders.stringify());
+									return true;
+								} else if (req.getMethod() == "DELETE") {
+									auto ords = api->getOpenOrders(p);
+									for (auto &&x : ords) {
+										api->placeOrder(p,0,0,Value(),x.id, 0);
+									}
+									req.sendResponse(std::move(hdr),"true");
 									return true;
 								} else {
 									Stream s = req.getBodyStream();
@@ -314,6 +318,99 @@ bool WebCfg::reqBrokers(simpleServer::HTTPRequest req, ondra_shared::StrViewA re
 	return true;
 
 }
+
+bool WebCfg::reqTraders(simpleServer::HTTPRequest req, ondra_shared::StrViewA vpath) const {
+	std::string path = vpath;
+	dispatch([path,req, this]() mutable {
+		HTTPResponse hdr(200);
+
+		try {
+			if (path.empty()) {
+				if (!req.allowMethods({"GET"})) return ;
+				Value res (json::array, trlist.begin(), trlist.end(), [&](auto &&x) {
+					return x.first;
+				});
+				req.sendResponse(std::move(hdr), res.stringify());
+			} else {
+				auto splt = StrViewA(path).split("/");
+				std::string trid = urlDecode(StrViewA(splt()));
+				auto tr = trlist.find(trid);
+				if (tr == nullptr) {
+					req.sendErrorPage(404);
+				} else if (!splt) {
+					if (!req.allowMethods({"GET","DELETE"})) return ;
+					if (req.getMethod() == "DELETE") {
+						trlist.removeTrader(trid, false);
+						req.sendResponse(std::move(hdr), "true");
+					} else {
+						req.sendResponse(std::move(hdr),
+							Value({"stop","reset","repair","trades","calculator"}).stringify());
+					}
+				} else {
+					auto cmd = urlDecode(StrViewA(splt()));
+					if (cmd == "reset") {
+						if (!req.allowMethods({"POST"})) return ;
+						tr->reset();
+						req.sendResponse(std::move(hdr), "true");
+					} else if (cmd == "stop") {
+						if (!req.allowMethods({"POST"})) return ;
+						tr->stop();
+						req.sendResponse(std::move(hdr), "true");
+					} else if (cmd == "repair") {
+						if (!req.allowMethods({"POST"})) return ;
+						tr->repair();
+						req.sendResponse(std::move(hdr), "true");
+					} else if (cmd == "trades") {
+						if (!splt) {
+							if (!req.allowMethods({"GET"})) return ;
+							auto trades = tr->getTrades();
+							req.sendResponse(std::move(hdr),
+									Value(json::array, trades.begin(), trades.end(),
+										[&](auto &&t) {
+											return t.toJSON();
+										}).stringify());
+						} else {
+							if (!req.allowMethods({"DELETE"})) return ;
+							auto id = urlDecode(StrViewA(splt()));
+							if (!tr->eraseTrade(id, false)) {
+								req.sendErrorPage(404);
+							} else {
+								req.sendResponse(std::move(hdr), "true");
+							}
+
+						}
+					} else if (cmd == "calculator") {
+						if (!req.allowMethods({"GET","PUT"})) return ;
+						if (req.getMethod() == "GET") {
+							auto &calc = tr->getCalculator();
+							req.sendResponse(std::move(hdr), Value(json::object,
+									{Value("P", calc.getPrice()),
+									Value("A", calc.getBalance())}).toString());
+						} else {
+							req.readBodyAsync(10000, [=](HTTPRequest req) {
+								try {
+									Value v = Value::fromString(StrViewA(BinaryView(req.getUserBuffer())));
+									auto &calc = tr->getCalculator();
+									calc = Calculator(v["P"].getNumber(), v["A"].getNumber(),false);
+
+								} catch (std::exception &e) {
+									req.sendErrorPage(400,StrViewA(),e.what());
+								}
+							});
+						}
+					}
+				}
+			}
+		} catch (std::exception &e) {
+			req.sendErrorPage(500, StrViewA(), e.what());
+		}
+
+
+	});
+	return true;
+}
+
+
 
 static void AULFromJSON(json::Value js, AuthUserList &aul, bool admin) {
 	using UserVector = std::vector<AuthUserList::LoginPwd>;

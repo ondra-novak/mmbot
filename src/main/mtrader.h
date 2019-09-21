@@ -203,6 +203,10 @@ public:
 	double getInternalBalance() const;
 	void setInternalBalance(double v);
 	void dropState();
+	void stop();
+	Calculator &getCalculator() {return calculator;}
+
+	const IStockApi::TWBHistory &getTrades() const;
 
 	static std::string_view vtradePrefix;
 
@@ -259,6 +263,9 @@ protected:
 
 
 	double calcWeakenMult(double neutral_pos, double balance);
+
+private:
+	double calcNeutralPos(const MTrader::Status &status);
 };
 
 

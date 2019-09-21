@@ -65,13 +65,13 @@ public:
 
 	enum Command {
 		config,
-		restart,
 		serialnr,
-		brokers
+		brokers,
+		traders
 	};
 
 	AuthMapper auth;
-	Traders &traders;
+	Traders &trlist;
 	Dispatch dispatch;
 	unsigned int serial;
 
@@ -80,9 +80,9 @@ public:
 
 protected:
 	bool reqConfig(simpleServer::HTTPRequest req) const;
-	bool reqRestart(simpleServer::HTTPRequest req) const;
 	bool reqSerial(simpleServer::HTTPRequest req) const;
 	bool reqBrokers(simpleServer::HTTPRequest req, ondra_shared::StrViewA rest) const;
+	bool reqTraders(simpleServer::HTTPRequest req, ondra_shared::StrViewA rest) const;
 
 	using Sync = std::unique_lock<std::recursive_mutex>;
 
