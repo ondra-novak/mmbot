@@ -43,7 +43,7 @@ std::string AuthUserList::hashPwd(const std::string& user,
 
 	unsigned char result[256];
 	unsigned int result_len;
-	HMAC(EVP_sha3_224(),pwd.data(),pwd.length(),
+	HMAC(EVP_sha384(),pwd.data(),pwd.length(),
 			reinterpret_cast<const unsigned char *>(user.data()), user.length(),
 			result,&result_len);
 	std::string out;

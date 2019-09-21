@@ -46,7 +46,7 @@ button:active {
 
 x-slider {
 	display: inline-block;
-	padding-left: 6em;
+	padding-left: 5.2em;
 	position:  relative;
 }
 x-slider > div {
@@ -63,7 +63,7 @@ x-slider > div:nth-child(2) {
 	position:absolute;
 	left: 0;
 	top:0;
-	width:6em;
+	width: 5em;
 	bottom:0;
 }
 x-form {
@@ -144,7 +144,7 @@ div.trader.list > *:active {
 
 
 div.trader.list > * {
-	margin: 0.4cm 0.1cm;
+	margin: 0.2cm 0.1cm;
 	text-align:center;
 	position: relative;
 	font-size: 0.7em;
@@ -154,8 +154,8 @@ div.trader.list .exclamation {position: absolute;right: 0;top: -5px;font-size: 0
 .no_api_key {color: #F44;}
 
 div.trader.list img {
-	width: 2cm;
-	height: 2cm;
+	width: 1.2cm;
+	height: 1.2cm;
 }
 
 div.dialog > div {
@@ -221,7 +221,7 @@ x-form.pair {
 
 .flexpanel > *:first-child {
 	white-space: nowrap;
-	flex-shring: 1;
+	flex-shrink: 1;
 	overflow: hidden;
 	text-overflow: ellipsis;
 }
@@ -239,7 +239,7 @@ x-form.pair {
 	box-sizing: content-box;
 	padding: 0.2cm;
 	border:  0;
-	/* margin: 0 0.2em; */
+	margin: 0 0.2em;
 	line-height: 1.1cm;
 }
 
@@ -466,6 +466,43 @@ x-form.pair table.orders td button {
 	padding-right: 0.2cm;
 	
 
+}
+
+@media all and (max-width: 15cm) { 
+body{
+	font-size: 0.4cm;
+}
+
+.fonticon {
+	width: 0.5cm;
+	height: 0.5cm;
+	font-size: 1em;
+	line-height: 0.55cm;
+	padding: 0.1cm;
+	margin: 0;
+}
+.flexpanel > * {
+	line-height: 0.5cm;
+	font-size: 0.8em;
+}
+input,select,button,textarea {
+	font-size: 0.4cm;
+	padding:0.05cm;
+}
+.security_form table tr {
+	display: flex;
+	flex-wrap:wrap;
+	border-bottom: 1px solid #000;	
+}
+.security_form table th {
+	display:none;
+}
+.security_form table td {
+	border-bottom: 0;
+	flex-grow:1;
+	width: 40%;
+
+}
 }
 
 @media all and (min-width: 25cm) { 

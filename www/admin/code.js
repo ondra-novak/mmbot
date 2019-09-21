@@ -304,14 +304,20 @@ App.prototype.fillForm = function (src, trg) {
 		return mp;
 	}.bind(this),function(){});
 
-	function updateEA() {
-		var d = trg.readData(["power"]);
-		pair.then(function(p) {
-			d.external_assets = adjNum(powerToEA(d.power, p));
-			d.external_volume = adjNum(d.external_assets * p.price);
+	function updateEA() {	
+		var d = trg.readData(["power","goal","advanced"]);
+		if (d.goal == "pl") {
+			pair.then(function(p) {
+				d.external_assets = adjNum(powerToEA(d.power, p));
+				d.external_volume = adjNum(d.external_assets * p.price);
+				trg.setData(d);
+				updateRange();
+			});
+		} else if (!d.advanced) {
+			d.external_assets = 0;
 			trg.setData(d);
 			updateRange();
-		});
+		}
 	}
 	
 	function updateRange() {
@@ -371,13 +377,15 @@ App.prototype.saveForm = function(form, src) {
 	trader.advenced = data.advanced;
 	if (goal == "norm") {
 		trader.acum_factor = data.acum_factor;
-		trader.accept_loss = data.accept_loss;		
+		trader.accept_loss = data.accept_loss;
+		trader.force_margin=false;
 	} else {
 		trader.neutral_pos = data.neutral_pos_type+" "+data.neutral_pos_val;
 		trader.max_pos = data.max_pos;
 		trader.accept_loss = data.accept_loss_pl;		
 		trader["sliding_pos.hours"] = data.sliding_pos_hours;
 		trader["sliding_pos.weaken"] = data.sliding_pos_weaken;
+		trader.force_margin=true;
 	}
 	trader.external_assets = data.external_assets;
 	trader.spread_calc_hours =data.spread_calc_hours;
