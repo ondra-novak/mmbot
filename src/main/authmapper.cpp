@@ -10,6 +10,7 @@
 #include <imtjson/binary.h>
 #include <openssl/evp.h>
 #include <openssl/hmac.h>
+#include <thread>
 
 bool AuthUserList::findUser(const std::string &user, const std::string &pwdhash) const {
 	Sync _(lock);
@@ -97,6 +98,7 @@ bool AuthMapper::checkAuth(const simpleServer::HTTPRequest &req) const {
 		}
 		auto credobj = AuthUserList::decodeBasicAuth(cred);
 		if (!users->findUser(credobj.first, credobj.second)) {
+			std::this_thread::sleep_for(std::chrono::seconds(1));
 			genError(req);
 			return false;
 		}

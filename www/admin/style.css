@@ -217,6 +217,7 @@ x-form.pair {
 
 .flexpanel > * {
 	line-height: 1.5cm;
+	white-space: nowrap;
 }
 
 .flexpanel > *:first-child {
@@ -399,11 +400,6 @@ a {
 	text-align:left;
 }
 
-.security_form button.add {
-	display:block;
-	width: 9em;
-	margin: 1em 1em 0 auto;
-}
 .panelbutton {
 	padding-right: 1em;
 	cursor: pointer;
@@ -468,23 +464,24 @@ x-form.pair table.orders td button {
 
 }
 
+.security_form .buttons {
+	display: flex;
+	justify-content: space-between;
+	flex-wrap:wrap;
+	margin: 1em 1em 0 1em;
+}
+
+button > img {
+	height: 1em;
+	vertical-align: middle;
+}
+
 @media all and (max-width: 15cm) { 
 body{
 	font-size: 0.4cm;
 }
 
-.fonticon {
-	width: 0.5cm;
-	height: 0.5cm;
-	font-size: 1em;
-	line-height: 0.55cm;
-	padding: 0.1cm;
-	margin: 0;
-}
-.flexpanel > * {
-	line-height: 0.5cm;
-	font-size: 0.8em;
-}
+
 input,select,button,textarea {
 	font-size: 0.4cm;
 	padding:0.05cm;
@@ -504,6 +501,7 @@ input,select,button,textarea {
 
 }
 }
+
 
 @media all and (min-width: 25cm) { 
 
@@ -549,5 +547,6 @@ input,select,button,textarea {
 	width: 14cm;
 	margin-right: 1em;
 }
+
 
 }

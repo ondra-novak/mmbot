@@ -155,9 +155,6 @@
 <div data-name="save" class="panelbutton">
 	<img src="../res/save_icon.png" class="fonticon"> Save <div data-name="saveok"  class="save hide ok" hidden="hidden">✓</div>
 	<div data-name="saveprogress" class="save spinner fast" hidden="hidden"></div></div>
-<div data-name="logout" class="panelbutton">
-	<img src="../res/logout.png" class="fonticon"> Logout 
-</div>
 </div>
 </div>
 </template>
@@ -194,7 +191,10 @@
 <td>All unauthentificated visitors</td><td>&nbsp;</td>
 </tr>
 </table>
-<button class="add" data-name="add">Add user</button>
+<div class="buttons">
+<button class="logout" data-name="logout"><img src="../res/logout.png">&nbsp;Logout</button>
+<button class="add" data-name="add"><img src="../res/adduser.png">&nbsp;Add&nbsp;user</button>
+</div>
 </x-section>
 </x-form>
 </template>
@@ -270,7 +270,7 @@
 </template>
 
 <span id="strtable"
-    data-askcancel="This cancels all orders for the selected pair and also temporaly disables any futher trading for selected trader unless the configuration is saved. Do you wish to continue?"
+    data-askcancel="This cancels all orders for the selected pair and also temporaly disables any futher trading for selected trader until the configuration is saved. Do you wish to continue?"
     data-askreset="This resets statistics, clear charts and removes all trades except the recent one which is used as an anchor. Do you wish to continue?"
     data-askrepair="This resets the internal state of the trader. Use only if the trader generates unacceptable orders and reports strange numbers. Note that operation can slightly affect the profit, because the internal state can contain important informations to achieve the optimal pefromance"
     data-askdelete="Confirm trader deletion. This also cancels all orders."

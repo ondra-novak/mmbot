@@ -476,7 +476,6 @@ App.prototype.init = function() {
 	this.desktop.setItemValue("top_panel", top_panel);
 	
 	top_panel.setItemEvent("save","click", this.save.bind(this));
-	top_panel.setItemEvent("logout","click", this.logout.bind(this));
 	
 	return this.loadConfig().then(function() {
 		var menu = this.createTraderList();
@@ -756,7 +755,9 @@ App.prototype.securityForm = function() {
 						update.call(this);
 					}.bind(this));					
 				}.bind(this)
+				
 			},
+			"logout":{"!click": this.logout.bind(this)},
 			guest_role:{
 				"!change":function() {
 					this.config.guest = form.readData(["guest_role"]).guest_role == "viewer";
@@ -821,8 +822,14 @@ App.prototype.save = function() {
 }
 
 App.prototype.logout = function() {
-	fetch("api/logout");
-	location.reload();
+	var d = TemplateJS.View.fromTemplate("waitdlg");
+	d.openModal();
+	var f = document.createElement("iframe");
+	f.src = "api/logout";
+	document.body.appendChild(f);
+	setTimeout(function() {		
+		location.href = "../index.html";
+	},2000);
 }
 
 App.prototype.validate = function(cfg) {

@@ -712,6 +712,7 @@ void MTrader::loadState() {
 
 	auto curtest = stock.isTest();
 	bool drop_calc = false;
+	double ext_diff = 0;
 
 	bool recalc_trades = false;
 
@@ -731,8 +732,7 @@ void MTrader::loadState() {
 			prev_spread = state["lnspread"].getNumber();
 			internal_balance = state["internal_balance"].getNumber();
 			double ext_ass = state["external_assets"].getNumber();
-			if (ext_ass != cfg.external_assets) drop_calc = true;
-
+			ext_diff = cfg.external_assets - ext_ass;
 		}
 		auto chartSect = st["chart"];
 		if (chartSect.defined()) {
@@ -789,6 +789,7 @@ void MTrader::loadState() {
 	if (internal_balance == 0) {
 		if (!trades.empty()) internal_balance = trades.back().balance- cfg.external_assets;
 	}
+	calculator.update(calculator.getPrice(), calculator.getBalance()+ext_diff);
 }
 
 void MTrader::saveState() {
@@ -1022,6 +1023,7 @@ void MTrader::repair() {
 	prev_spread = 0;
 	currency_balance_cache =0;
 	prev_calc_ref = 0;
+	calculator.update(0,0);
 	saveState();
 }
 
