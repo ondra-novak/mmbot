@@ -376,14 +376,13 @@ App.prototype.saveForm = function(form, src) {
 	trader.enabled = data.enabled;
 	trader.dry_run = data.dry_run;
 	trader.advenced = data.advanced;
+	trader.accept_loss = data.accept_loss;
 	if (goal == "norm") {
 		trader.acum_factor = data.acum_factor;
-		trader.accept_loss = data.accept_loss;
 		trader.force_margin=false;
 	} else {
 		trader.neutral_pos = data.neutral_pos_type+" "+data.neutral_pos_val;
 		trader.max_pos = data.max_pos;
-		trader.accept_loss = data.accept_loss_pl;		
 		trader["sliding_pos.hours"] = data.sliding_pos_hours;
 		trader["sliding_pos.weaken"] = data.sliding_pos_weaken;
 		trader.force_margin=true;
@@ -522,7 +521,7 @@ App.prototype.brokerSelect = function() {
 					return {
 						".hidden": lst.reduce(function(a,b) {
 						return a && b[".hidden"];
-						},false)};				
+						},true)};				
 				});
 			form.setData({
 				"item":lst,
@@ -842,8 +841,7 @@ App.prototype.validate = function(cfg) {
 				"trader":"!",
 				"message":this.strtable.need_admin
 			});	
-		ok(cfg);
-
+		ok(cfg); 
 	}.bind(this));
 }
 
@@ -873,14 +871,12 @@ App.prototype.init_backtest = function(form, id, pair) {
 			"order_mult","min_size","dust_orders"];
 
 		var interval = trades[trades.length-1].time - trades[0].time;
-		var drawChart = initChart(interval,15000000000/interval);
+		var drawChart = initChart(interval,5,700000);
 		var chart1 = bt.findElements('chart1')[0];
 		var chart2 = bt.findElements('chart2')[0];
 		
 		var tm;
-		var w = (interval/3600000);
-		chart1.style.width =w+"px";
-		chart2.style.width =w+"px";
+				
 		
 		function recalc() {
 			if (tm) clearTimeout(tm);

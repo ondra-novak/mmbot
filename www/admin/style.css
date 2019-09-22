@@ -158,6 +158,10 @@ div.trader.list img {
 	height: 1.2cm;
 }
 
+div.broker.pair img {
+	width: 2cm;
+}
+
 div.dialog > div {
 	margin:auto;
 	text-align: center;
@@ -485,6 +489,10 @@ x-form.pair table.orders td button {
 button > img {
 	height: 1em;
 	vertical-align: middle;
+}
+
+.textorderline.current {
+	font-size: 1cm;
 }
 
 @media all and (max-width: 15cm) { 

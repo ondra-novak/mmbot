@@ -54,7 +54,6 @@
 - Max price: <span data-name="range_max_price"></span>&nbsp;<span data-name="currency"></span>
 </div>
 <label><span>Accumulation</span><x-slider data-name="acum_factor" data-min="0" data-max="100" data-mult="1"></x-slider></label>
-<label><span>Accept loss after hours (0=disabled)</span><x-slider data-name="accept_loss" data-min="0" data-max="100" data-mult="1"></x-slider></label>
 </x-section>
 <x-section data-name="goal_pl" class="goal hidden" hidden="hidden"><x-section-caption>Profit from position</x-section-caption>
 <label><span>Power / Risk level:</span><x-slider data-name="power" data-min="1" data-max="100" data-mult="1" data-fixed="0"></x-slider></label>
@@ -66,14 +65,14 @@
 </select></span>
 </label>
 <label class="adv"><span>Max position (0=disabled)</span><input type="number" data-name="max_pos"></label>
-<label class="adv"><span>Accept loss after hours (0=disabled)</span><x-slider data-name="accept_loss_pl" data-min="0" data-max="100" data-mult="1"></x-slider></label>
 <label><span>Sliding position hours (0=disabled)</span><x-slider data-name="sliding_pos_hours" data-min="0" data-max="1000" data-mult="10"></x-slider></label>
 <label><span>Sliding position weaken (0=disabled)</span><x-slider data-name="sliding_pos_weaken" data-min="0" data-max="100" data-mult="1"></x-slider></label>
 <div class="rightinfo"><button data-name="init_backtest">Backtest</button></div>
 </x-section>
 <x-section class="adv" data-name="backtest_anchor"><x-section-caption>Orders</x-section-caption>
+<label><span>Min size (0=disabled)</span><input type="number" data-name="min_size"></label>
 <label><span>Order size multiplicator [%]</span><x-slider data-name="order_mult" data-min="1" data-max="199" data-mult="1"></x-slider></label>
-<label><span>Min size [assets] (0=disabled)</span><input type="number" data-name="min_size"></label>
+<label><span>Accept loss after hours (0=disabled)</span><x-slider data-name="accept_loss" data-min="0" data-max="100" data-mult="1"></x-slider></label>
 </x-section>
 <x-section class="adv"><x-section-caption>Spread</x-section-caption>
 <label><span>Spread calc. hours </span><x-slider data-name="spread_calc_hours" data-min="24" data-max="2400" data-mult="1"></x-slider></label>

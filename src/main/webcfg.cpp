@@ -208,7 +208,6 @@ bool WebCfg::reqBrokers(simpleServer::HTTPRequest req, ondra_shared::StrViewA re
 				StrViewA pair = splt();
 				StrViewA orders = splt();
 
-				api->reset();
 
 				if (entry.empty()) {
 					if (!req.allowMethods({"GET"})) return true;
