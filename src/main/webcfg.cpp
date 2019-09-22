@@ -258,6 +258,7 @@ bool WebCfg::reqBrokers(simpleServer::HTTPRequest req, ondra_shared::StrViewA re
 											("invert_price", nfo.invert_price)
 											("asset_balance", ab)
 											("currency_balance", cb)
+											("min_size", nfo.min_size)
 											("price", api->getTicker(pair).last)
 											("entries", {"orders","ticker"});
 								req.sendResponse(std::move(hdr),resp.stringify());
@@ -360,6 +361,7 @@ bool WebCfg::reqTraders(simpleServer::HTTPRequest req, ondra_shared::StrViewA vp
 							Value({"stop","reset","repair","trades","calculator"}).stringify());
 					}
 				} else {
+					tr->init();
 					auto cmd = urlDecode(StrViewA(splt()));
 					if (cmd == "reset") {
 						if (!req.allowMethods({"POST"})) return ;

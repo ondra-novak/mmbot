@@ -185,6 +185,7 @@ div.dialog {
 	text-align: center;
 	white-space: nowrap;
 	overflow: auto;
+	z-index: 2;
 }
 
 div.dialog::before {
@@ -268,6 +269,7 @@ a {
 	bottom:  0;
 	left:  0;
 	right: 0;
+	z-index: 2;
 }
 
 .main_form_wait x-section {
@@ -327,6 +329,14 @@ a {
 
 .spinner.fast {
 	animation: rot_fast 0.5s infinite linear;
+}
+
+.backtest .charts {
+	overflow: auto;
+}
+
+.backtest {
+	width: 101% !important;
 }
 
 @keyframes rot {
@@ -441,6 +451,7 @@ x-form.pair table.orders td button {
 	min-width: unset;
 	width: 2em;
 	position: absolute;
+	z-index: 1;
 }
 
 .pairactions img {

@@ -282,8 +282,9 @@ App.prototype.fillForm = function (src, trg) {
 	data.dust_orders = defval(src.dust_orders,true);
 	data.detect_manual_trades = src.detect_manual_trades;
 	data.report_position_offset = defval(src.report_position_offset,0);
+	data.init_backtest = {"!click":this.init_backtest.bind(this,trg,src.id, pair)};
 	data.force_spread = adjNum((Math.exp(defval(src.force_spread,0))-1)*100);
-	data.open_orders_sect = orders.then(function(x) {return {".hidden":!x.length};},function() {return{".hidden":true};});
+	data.open_orders_sect = orders.then(function(x) {return {".hidden":!x.length};},function() {return{".hidden":true};});	
 	data.orders = orders.then(function(x) {
 		var mp = x.map(function(z) {
 			return {
@@ -588,7 +589,7 @@ App.prototype.waitScreen = function(promise) {
 	var d = TemplateJS.View.fromTemplate('waitdlg');
 	d.openModal();
 	return promise.then(function(x) {
-		d.close();return d;
+		d.close();return x;
 	}, function(e) {
 		d.close();throw e;
 	});
@@ -843,5 +844,78 @@ App.prototype.validate = function(cfg) {
 			});	
 		ok(cfg);
 
+	}.bind(this));
+}
+
+
+
+
+App.prototype.init_backtest = function(form, id, pair) {
+	var url = this.traderURL(id)+"/trades";
+	this.waitScreen(Promise.all([fetch_with_error(url),pair])).then(function(v) {
+		var trades=v[0];
+		var pair = v[1];
+		if (trades.length == 0) {
+			this.dlgbox({text:this.strtable.backtest_nodata,cancel:{hidden:"hidden"}},"confirm");
+			return;
+		}
+		if (trades.length < 100) {
+			this.dlgbox({text:this.strtable.backtest_lesstrades,cancel:{hidden:"hidden"}},"confirm");
+		}
+		var el = form.findElements("backtest_anchor")[0];
+		var bt = TemplateJS.View.fromTemplate("backtest_res");
+		el.parentNode.insertBefore(bt.getRoot(),el.nextSibling);
+		form.enableItem("init_backtest",false);		
+		bt.getRoot().scrollIntoView(false);
+		
+		var elems = ["external_assets","power", 
+			"sliding_pos_hours", "sliding_pos_weaken",
+			"order_mult","min_size","dust_orders"];
+
+		var interval = trades[trades.length-1].time - trades[0].time;
+		var drawChart = initChart(interval,15000000000/interval);
+		var chart1 = bt.findElements('chart1')[0];
+		var chart2 = bt.findElements('chart2')[0];
+		
+		var tm;
+		var w = (interval/3600000);
+		chart1.style.width =w+"px";
+		chart2.style.width =w+"px";
+		
+		function recalc() {
+			if (tm) clearTimeout(tm);
+			tm = setTimeout(function() {
+				var data = form.readData(elems);
+
+				var min_size = parseFloat(data.min_size);
+				if (pair.min_size > data.min_size) min_size = pair.min_size;
+				if (data.dust_orders == false) min_size = 0;
+
+				
+				var res = calculateBacktest(trades, 
+						parseFloat(data.external_assets),
+						parseFloat(data.sliding_pos_hours),
+						parseFloat(data.sliding_pos_weaken),
+						parseFloat(data.order_mult)*0.01,
+						min_size,false);
+
+				bt.setData({
+					bt_pl: adjNum(res.pl),
+					bt_pln: adjNum(res.pln),
+					bt_dd: adjNum(res.mdd),
+					bt_mp: adjNum(res.maxpos),
+				})
+
+				drawChart(chart1,res.chart,"pl",[],"pln");
+				drawChart(chart2,res.chart,"price",[],"np");
+			}, 1);
+		}
+		
+		recalc();
+		elems.forEach(function(x) {
+			var el = form.findElements(x)[0];
+			el.addEventListener("input", recalc);
+		});		
+		
 	}.bind(this));
 }

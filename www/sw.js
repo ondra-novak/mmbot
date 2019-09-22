@@ -15,6 +15,8 @@ self.addEventListener('install', function(evt) {
 		      './res/donate.svg',
 		      './res/donate_sml.svg',
 		      './res/logo.png',
+		      './res/setup.png',
+		      './res/chart.css',
 		      './res/icon64.png',
 		      'https://fonts.googleapis.com/css?family=Ruda&display=swap',
 		      'https://fonts.gstatic.com/s/ruda/v10/k3kfo8YQJOpFqnYdaObJ.woff2'

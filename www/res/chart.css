@@ -1,0 +1,93 @@
+.stdline {
+	stroke: #FF8;
+	stroke-width: 2px;
+}
+
+.stdline2 {
+	stroke: #afdeff;
+	stroke-width: 2px;
+}
+
+
+.minoraxe {
+	stroke: #888;
+	stroke-opacity: 0.5;
+}
+
+.marker.buy {
+	fill: #4F4;
+}
+
+.marker.sell {
+	fill: #F44;
+}
+line.marker.buy {
+	stroke:#4f4;
+	stroke-width:3px;
+}
+line.marker.sell {
+	stroke:#F44;
+	stroke-width:3px;
+}
+.majoraxe {
+	stroke: #FFF;	
+}
+
+
+.lineaxis {
+	stroke: #888;
+	stroke-width: 1px;
+}
+
+.textaxis {
+	vertical-align: center;
+	text-anchor: begin;
+	alignment-baseline: after-edge;
+	font-size: 20px;
+	fill: #888;
+}
+
+.textaxisx {
+	text-anchor: middle;
+	alignment-baseline: before-edge;
+	font-size: 20px;
+	fill: #888;
+}
+
+.textaxis.bottom {
+	alignment-baseline: after-edge;
+}
+.orderline {
+	stroke: #FAA;
+	stroke-width:2;
+	stroke-dasharray:4;	
+}
+
+.orderline.buy{
+	stroke: #AFA;
+}
+
+.orderline.sell{
+	stroke: #FAA;
+}
+.orderline.last{
+	stroke: #AAF;
+}
+
+.orderline.current{
+	stroke: #f4ff88;
+}
+
+.textorderline {
+	font-size: 27px;
+	fill: #FFF;
+	alignment-baseline: after-edge;
+	font-style: italic;
+	text-shadow: 0 0 10px black;
+	font-weight: bold;
+}
+
+.textorderline.current {
+	fill: #f4ff88;
+	font-size: 20px;
+}
