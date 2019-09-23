@@ -82,6 +82,7 @@ static EmulResult emulateMarket(ondra_shared::StringView<IStatSvc::ChartItem> ch
 	cfg.neutralPosType = MTrader_Config::disabled;
 	cfg.sliding_pos_hours=0;
 	cfg.sliding_pos_weaken=0;
+	cfg.expected_trend = 0;
 
 	class Selector: public IStockSelector {
 	public:
@@ -138,10 +139,10 @@ std::pair<double,double> glob_calcSpread2(ondra_shared::Worker wrk,
 
 	using ResultItem = std::pair<double,double>;
 	ResultItem bestResults[]={
-			{-1000,prev_val},
-			{-1000,prev_val},
-			{-1000,prev_val},
-			{-1000,prev_val}
+			{-10,prev_val},
+			{-10,prev_val},
+			{-10,prev_val},
+			{-10,prev_val}
 	};
 
 	double low_spread = curprice*(std::exp(prev_val)-1)/10;

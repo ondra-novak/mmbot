@@ -74,6 +74,7 @@ struct MTrader_Config {
 	NeutralPosType neutralPosType;
 	double neutral_pos;
 	double max_pos;
+	double expected_trend;
 
 
 	bool dry_run;
