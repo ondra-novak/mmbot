@@ -452,10 +452,10 @@ int main(int argc, char **argv) {
 
 						if (webadmin_enabled) {
 							paths.push_back({
-								"/admin",WebCfg(webcfgstate,
+								"/admin",ondra_shared::shared_function<bool(simpleServer::HTTPRequest, ondra_shared::StrViewA)>(WebCfg(webcfgstate,
 										name,
 										*traders,
-										[=](WebCfg::Action &&a) mutable {sch.immediate() >> std::move(a);})
+										[=](WebCfg::Action &&a) mutable {sch.immediate() >> std::move(a);}))
 							});
 						}
 

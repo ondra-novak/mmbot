@@ -241,9 +241,9 @@ App.prototype.fillForm = function (src, trg) {
 	data.broker_ver = broker.then(function(x) {return x.version;});
 	data.asset = pair.then(function(x) {return x.asset_symbol;})
 	data.currency = pair.then(function(x) {return x.currency_symbol;})
-	data.balance_asset= pair.then(function(x) {return adjNum(x.asset_balance);})
+	data.balance_asset= pair.then(function(x) {return adjNum(invSize(x.asset_balance,x.invert_price));})
 	data.balance_currency = pair.then(function(x) {return adjNum(x.currency_balance);})
-	data.price= pair.then(function(x) {return adjNum(x.price);})
+	data.price= pair.then(function(x) {return adjNum(invPrice(x.price,x.invert_price));})
 	data.leverage=pair.then(function(x) {return x.leverage?x.leverage+"x":"n/a";});
 	data.broker_img = this.brokerImgURL(src.broker);
 	data.advanced = src.advenced;
@@ -284,13 +284,16 @@ App.prototype.fillForm = function (src, trg) {
 	data.report_position_offset = defval(src.report_position_offset,0);
 	data.init_backtest = {"!click":this.init_backtest.bind(this,trg,src.id, pair)};
 	data.force_spread = adjNum((Math.exp(defval(src.force_spread,0))-1)*100);
+	data.expected_trend=defval(src.expected_trend,0);
 	data.open_orders_sect = orders.then(function(x) {return {".hidden":!x.length};},function() {return{".hidden":true};});	
-	data.orders = orders.then(function(x) {
-		var mp = x.map(function(z) {
+	data.orders = Promise.all([orders,pair]).then(function(x) {
+		var orders = x[0];
+		var pair = x[1];
+		var mp = orders.map(function(z) {
 			return {
 				id: z.id,
-				dir: z.size>0?"BUY":"SELL",
-				price:adjNum(z.price),
+				dir: invSize(z.size,pair.invert_price)>0?"BUY":"SELL",
+				price:adjNum(invPrice(z.price, pair.invert_price)),
 				size: adjNum(Math.abs(z.size))
 			};});
 		if (mp.length) {
@@ -401,6 +404,7 @@ App.prototype.saveForm = function(form, src) {
 	trader.detect_manual_trades = data.detect_manual_trades;
 	trader.report_position_offset = data.report_position_offset;
 	trader.force_spread = Math.log(data.force_spread/100+1);	
+	trader.expected_trend = data.expected_trend;
 	return trader;
 	
 }
@@ -850,30 +854,32 @@ App.prototype.validate = function(cfg) {
 
 App.prototype.init_backtest = function(form, id, pair) {
 	var url = this.traderURL(id)+"/trades";
-	this.waitScreen(Promise.all([fetch_with_error(url),pair])).then(function(v) {
+	var el = form.findElements("backtest_anchor")[0];
+	var bt = TemplateJS.View.fromTemplate("backtest_res");
+	el.parentNode.insertBefore(bt.getRoot(),el.nextSibling);
+	form.enableItem("init_backtest",false);		
+	bt.getRoot().scrollIntoView(false);
+	Promise.all([fetch_with_error(url),pair]).then(function(v) {
 		var trades=v[0];
 		var pair = v[1];
 		if (trades.length == 0) {
+			bt.close();
 			this.dlgbox({text:this.strtable.backtest_nodata,cancel:{hidden:"hidden"}},"confirm");
 			return;
 		}
 		if (trades.length < 100) {
 			this.dlgbox({text:this.strtable.backtest_lesstrades,cancel:{hidden:"hidden"}},"confirm");
 		}
-		var el = form.findElements("backtest_anchor")[0];
-		var bt = TemplateJS.View.fromTemplate("backtest_res");
-		el.parentNode.insertBefore(bt.getRoot(),el.nextSibling);
-		form.enableItem("init_backtest",false);		
-		bt.getRoot().scrollIntoView(false);
 		
 		var elems = ["external_assets","power", 
 			"sliding_pos_hours", "sliding_pos_weaken",
-			"order_mult","min_size","dust_orders"];
+			"order_mult","min_size","dust_orders","expected_trend","goal"];
 
 		var interval = trades[trades.length-1].time - trades[0].time;
 		var drawChart = initChart(interval,5,700000);
 		var chart1 = bt.findElements('chart1')[0];
 		var chart2 = bt.findElements('chart2')[0];
+		//var chart3 = bt.findElements('chart3')[0];
 		
 		var tm;
 				
@@ -887,14 +893,35 @@ App.prototype.init_backtest = function(form, id, pair) {
 				if (pair.min_size > data.min_size) min_size = pair.min_size;
 				if (data.dust_orders == false) min_size = 0;
 
+				var h =  parseFloat(data.sliding_pos_hours);
+				var w =  parseFloat(data.sliding_pos_weaken);
+				var g = data.goal;
+				if (g == "norm") {
+					w = 0;
+					h = 0;
+				}
+				var et =  parseFloat(data.expected_trend)*0.01;
+				if (pair.invert_price) {
+					et = -et;
+				}
+
 				
 				var res = calculateBacktest(trades, 
 						parseFloat(data.external_assets),
-						parseFloat(data.sliding_pos_hours),
-						parseFloat(data.sliding_pos_weaken),
+						h,
+						w,
 						parseFloat(data.order_mult)*0.01,
-						min_size,false);
+						min_size,false,et
+						);
 
+				if (pair.invert_price) {
+					res.chart.forEach(function(x){
+						x.price = 1/x.price;
+						x.np = 1/x.np;
+						x.achg = -x.achg;
+					});
+				}
+			
 				bt.setData({
 					bt_pl: adjNum(res.pl),
 					bt_pln: adjNum(res.pln),
@@ -904,6 +931,7 @@ App.prototype.init_backtest = function(form, id, pair) {
 
 				drawChart(chart1,res.chart,"pl",[],"pln");
 				drawChart(chart2,res.chart,"price",[],"np");
+		//		drawChart(chart3,res.chart,"achg",[]);
 			}, 1);
 		}
 		
@@ -913,5 +941,7 @@ App.prototype.init_backtest = function(form, id, pair) {
 			el.addEventListener("input", recalc);
 		});		
 		
-	}.bind(this));
+	}.bind(this),function() {
+			bt.close();
+	});
 }

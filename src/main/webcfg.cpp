@@ -196,7 +196,6 @@ bool WebCfg::reqBrokers(simpleServer::HTTPRequest req, ondra_shared::StrViewA re
 		}
 
 
-		dispatch([vpath,req, this, api]() mutable {
 			HTTPResponse hdr(200);
 			hdr.cacheFor(30);
 			hdr.contentType("application/json");
@@ -326,7 +325,6 @@ bool WebCfg::reqBrokers(simpleServer::HTTPRequest req, ondra_shared::StrViewA re
 				req.sendErrorPage(500, StrViewA(), e.what());
 				return true;
 			}
-		});
 	}
 	return true;
 

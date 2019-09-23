@@ -13,6 +13,13 @@ function fetch_json(file, opt) {
 	});
 }
 
+function invPrice(v, inv) {
+	return inv?1/v:v;
+}
+function invSize(v, inv) {
+	return (inv?-1:1)*v;
+}
+
 function adjNum(n, decimals) {
 	if (typeof n != "number") return n;	
 	if (isNaN(n)) return "---";
@@ -45,7 +52,7 @@ function pow2(x) {
 	return x*x;
 }
 
-function calculateBacktest(data, ea, ga, fb, mlt, mos, inv) {
+function calculateBacktest(data, ea, ga, fb, mlt, mos, inv, et) {
 var pp = inv?1/data[0].price:data[0].price;
 var eq = pp;
 var pl = 0;
@@ -65,10 +72,11 @@ data.forEach(function(x) {
 	if (tmdiff > Math.abs(tframe)) tmdiff = Math.abs(tframe);
 	var neq = pldiff*Math.sign(tframe)>0?eq + (p - eq) * (tmdiff/Math.abs(tframe)):eq;
 	if (Math.abs(pos) > mpos) mpos = Math.abs(pos);			
-	var nxpos = ea*Math.sqrt(eq/p)-ea;
+	var aeq = eq*pow2(ea/(ea+pos)) + et*p;
+	var nxpos = (ea+pos)*Math.sqrt(aeq/p)-ea;
 	var dpos = nxpos - pos ;
 	var maxpos = ea * fb * 0.01;
-	var mult = (maxpos - Math.abs(nxpos))/maxpos*mlt;
+	var mult = (fb?(maxpos - Math.abs(nxpos))/maxpos:1)*mlt;
 	if (mult < 0.000001) mult = 0.000001
 	if (dpos * dr >= -mos) {
 		if (mos <= 0) return;

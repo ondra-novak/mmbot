@@ -48,12 +48,13 @@
 
 </div>
 </x-section>
-<x-section data-name="goal_norm" class="goal hidden adv" hidden="hidden"><x-section-caption>Normalized profit</x-section-caption>
+<x-section data-name="goal_norm" class="goal hidden" hidden="hidden"><x-section-caption>Normalized profit</x-section-caption>
 <label><span>External assets</span><input type="number" data-name="external_assets"></label>
 <div class="rightinfo">Min price: <span data-name="range_min_price"></span>&nbsp;<span data-name="currency"></span>
 - Max price: <span data-name="range_max_price"></span>&nbsp;<span data-name="currency"></span>
 </div>
 <label><span>Accumulation</span><x-slider data-name="acum_factor" data-min="0" data-max="100" data-mult="1"></x-slider></label>
+<div class="rightinfo"><button data-name="init_backtest">Backtest</button></div>
 </x-section>
 <x-section data-name="goal_pl" class="goal hidden" hidden="hidden"><x-section-caption>Profit from position</x-section-caption>
 <label><span>Power / Risk level:</span><x-slider data-name="power" data-min="1" data-max="100" data-mult="1" data-fixed="0"></x-slider></label>
@@ -69,10 +70,11 @@
 <label><span>Sliding position weaken (0=disabled)</span><x-slider data-name="sliding_pos_weaken" data-min="0" data-max="100" data-mult="1"></x-slider></label>
 <div class="rightinfo"><button data-name="init_backtest">Backtest</button></div>
 </x-section>
-<x-section class="adv" data-name="backtest_anchor"><x-section-caption>Orders</x-section-caption>
-<label><span>Min size (0=disabled)</span><input type="number" data-name="min_size"></label>
-<label><span>Order size multiplicator [%]</span><x-slider data-name="order_mult" data-min="1" data-max="199" data-mult="1"></x-slider></label>
-<label><span>Accept loss after hours (0=disabled)</span><x-slider data-name="accept_loss" data-min="0" data-max="100" data-mult="1"></x-slider></label>
+<x-section class="" data-name="backtest_anchor"><x-section-caption>Common</x-section-caption>
+<label><span>Order minimal size (0&nbsp;=&nbsp;disabled)</span><input type="number" data-name="min_size" step="any"></label>
+<label><span>Order size modifier [%]</span><x-slider data-name="order_mult" data-min="1" data-max="199" data-mult="1"></x-slider></label>
+<label class="adv"><span>Accept loss after hours (0&nbsp;=&nbsp;disabled)</span><x-slider data-name="accept_loss" data-min="0" data-max="100" data-mult="1"></x-slider></label>
+<label><span>Expected trend</span><x-slider data-name="expected_trend" data-min="-10" data-max="10" data-mult="0.1" data-fixed="1"></x-slider></label>
 </x-section>
 <x-section class="adv"><x-section-caption>Spread</x-section-caption>
 <label><span>Spread calc. hours </span><x-slider data-name="spread_calc_hours" data-min="24" data-max="2400" data-mult="1"></x-slider></label>
@@ -277,8 +279,9 @@
 <div class="label"><span>Max downdraw</span><input data-name="bt_dd" readonly="readonly"></div>
 <div class="label"><span>Max position</span><input data-name="bt_mp" readonly="readonly"></div>
 <div class="charts">
-<div data-name="chart1"></div>
+<div data-name="chart1"><div><em>Loading data, please wait...</em><div class="spinner fast save"></div></div></div>
 <div data-name="chart2"></div>
+<div data-name="chart3"></div>
 </div>
 </x-section>
 </template>

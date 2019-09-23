@@ -103,6 +103,7 @@ AbstractExtern::Pipe AbstractExtern::makePipe() {
 
 
 void AbstractExtern::spawn() {
+	Sync _(lock);
 	using ondra_shared::Handle;
 
 	int status;
@@ -188,6 +189,7 @@ static int termThenKill(int id) {
 }
 
 void AbstractExtern::kill() {
+	Sync _(lock);
 	if (chldid != -1) {
 		extin.close();
 //		::kill(chldid,SIGTERM);
@@ -275,12 +277,14 @@ json::Value AbstractExtern::readJSON(FD& fd) {
 
 
 void AbstractExtern::preload() {
+	Sync _(lock);
 	if (chldid == -1) {
 		spawn();
 	}
 }
 
 json::Value AbstractExtern::jsonExchange(json::Value request) {
+	Sync _(lock);
 
 	std::string z;
 	std::string lastStdErr;
@@ -345,6 +349,7 @@ json::Value AbstractExtern::jsonExchange(json::Value request) {
 }
 
 json::Value AbstractExtern::jsonRequestExchange(json::String name, json::Value args) {
+	Sync _(lock);
 	auto resp = jsonExchange({name, args});
 	if (resp[0].getBool() == true) {
 		auto result = resp[1];
