@@ -34,6 +34,7 @@ public:
 		:report(std::move(report)),interval_in_ms(interval_in_ms),a2np(a2np) {}
 
 
+	void setInterval(std::size_t interval);
 	void genReport();
 
 	using StrViewA = ondra_shared::StrViewA;

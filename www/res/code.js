@@ -788,7 +788,7 @@ function app_start(){
 		removeLogo();
 	}  else {
 		logo.hidden = false;
-		setTimeout(removeLogo, 3000);
+		setTimeout(removeLogo, 2000);
 	}
 	
 	opencloselog.addEventListener("click",function() {

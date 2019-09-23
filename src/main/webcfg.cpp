@@ -469,6 +469,10 @@ void WebCfg::State::applyConfig(Traders &t) {
 		t.addTrader(MTrader::load(v, t.test),v.getKey());
 		traderNames.push_back(v.getKey());
 	}
+	Value newInterval = data["report_interval"];
+	if (newInterval.defined()) {
+		t.rpt.setInterval(newInterval.getUInt());
+	}
 }
 
 void WebCfg::State::setAdminAuth(StrViewA auth) {

@@ -98,6 +98,12 @@ App.prototype.createTraderList = function(form) {
 		return a.broker.localeCompare(b.broker);
 	});
 	items.unshift({
+		"image":"../res/options.png",
+		"caption":"Options",				
+		"id":"$"
+		
+	})
+	items.unshift({
 		"image":"../res/security.png",
 		"caption":"Users and security",				
 		"id":"!"
@@ -130,6 +136,14 @@ App.prototype.createTraderList = function(form) {
 			this.desktop.setItemValue("content", nf);
 			nf.save = function() {};
 
+		} else if (id == '$') {
+			if (this.curForm) {
+				this.curForm.save();				
+				this.curForm = null;
+			}
+			nf = this.optionsForm();
+			this.desktop.setItemValue("content", nf);
+			this.curForm = nf;
 			
 		} else if (id == "+") {
 			this.brokerSelect().then(this.pairSelect.bind(this)).then(function(res) {
@@ -944,4 +958,18 @@ App.prototype.init_backtest = function(form, id, pair) {
 	}.bind(this),function() {
 			bt.close();
 	});
+}
+
+App.prototype.optionsForm = function() {
+	var form = TemplateJS.View.fromTemplate("options_form");
+	var data = {
+			report_interval: defval(this.config.report_interval,864000000)/86400000
+	};
+	form.setData(data);
+	form.save = function() {
+		var data = form.readData();
+		this.config.report_interval = data.report_interval*86400000;
+	}.bind(this);
+	return form;
+	
 }

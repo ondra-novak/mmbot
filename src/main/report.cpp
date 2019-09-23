@@ -24,7 +24,9 @@ using std::chrono::_V2::system_clock;
 
 using namespace json;
 
-
+void Report::setInterval(std::size_t interval) {
+	this->interval_in_ms = interval;
+}
 
 
 void Report::genReport() {

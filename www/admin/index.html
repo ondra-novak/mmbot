@@ -19,7 +19,7 @@
 <label><span>ID</span><span data-name="id" ></span></label>
 <label><span>Broker</span><span><img src="" data-name="broker_img" class="inline_img">
 	<span data-name="broker_id"></span> (<span data-name="broker"></span> <span data-name="broker_ver"></span>)<br/>
-	<span class="no_api_key" data-name="no_api_key" hidden>⚠️ - no API keys are set</span></span>
+	<span class="no_api_key" data-name="no_api_key" hidden="hidden">⚠️ - no API keys are set</span></span>
 	</label>
 
 
@@ -306,4 +306,12 @@
 </html>
 	
 	
+<template id="options_form">
+<x-form  class="pair options_form">
+<x-section><x-section-caption>Options</x-section-caption>
+<label><span>Range of charts [days]: </span><x-slider data-min="1" data-max="30" data-mult="1" data-name="report_interval"></x-slider></label>
+</x-section>
+</x-form>
+</template>
+
 	
