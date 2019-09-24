@@ -29,6 +29,7 @@ NamedEnum<WebCfg::Command> WebCfg::strCommand({
 	{WebCfg::serialnr, "serial"},
 	{WebCfg::brokers, "brokers"},
 	{WebCfg::traders, "traders"},
+	{WebCfg::stop, "stop"},
 	{WebCfg::logout, "logout"}
 });
 
@@ -68,6 +69,7 @@ bool WebCfg::operator ()(const simpleServer::HTTPRequest &req,
 		case config: return reqConfig(req);
 		case serialnr: return reqSerial(req);
 		case brokers: return reqBrokers(req, rest);
+		case stop: return reqStop(req);
 		case traders: return reqTraders(req, rest);
 		case logout: return reqLogout(req);
 		}
@@ -285,6 +287,7 @@ bool WebCfg::reqBrokers(simpleServer::HTTPRequest req, ondra_shared::StrViewA re
 									req.sendResponse(std::move(hdr),orders.stringify());
 									return true;
 								} else if (req.getMethod() == "DELETE") {
+									api->reset();
 									auto ords = api->getOpenOrders(p);
 									for (auto &&x : ords) {
 										api->placeOrder(p,0,0,Value(),x.id, 0);
@@ -334,6 +337,7 @@ bool WebCfg::reqTraders(simpleServer::HTTPRequest req, ondra_shared::StrViewA vp
 	std::string path = vpath;
 	dispatch([path,req, this]() mutable {
 		HTTPResponse hdr(200);
+		hdr.contentType("application/json");
 
 		try {
 			if (path.empty()) {
@@ -488,5 +492,25 @@ void WebCfg::State::init() {
 
 bool WebCfg::reqLogout(simpleServer::HTTPRequest req) const {
 	auth.genError(req);
+	return true;
+}
+
+bool WebCfg::reqStop(simpleServer::HTTPRequest req) const {
+	if (!req.allowMethods({"POST"})) return true;
+
+	dispatch([=]{
+
+		HTTPResponse hdr(200);
+		hdr.contentType("application/json");
+
+		for (auto &&x: trlist) {
+			x.second->stop();
+		};
+		trlist.runTraders();
+		trlist.resetBrokers();
+		req.sendResponse(std::move(hdr), "true");
+
+	});
+
 	return true;
 }

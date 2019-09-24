@@ -175,7 +175,7 @@
 
 <template id="security_form">
 <x-form  class="pair security_form">
-<x-section><x-section-caption>Users</x-section-caption>
+<x-section><x-section-caption>Access control</x-section-caption>
 <table>
 <tr><th>User</th><th>Role</th><th>Comment</th><th>Action</th></tr>
 
@@ -296,6 +296,9 @@
     data-need_admin="You need to define at least one user with the administration role"
     data-backtest_lesstrades="There are less than 100 trades. Results can be inaccurate"
     data-backtest_nodata="Backtest is not available yet (no data). Run trader with minimal power to collect some trades. At least 100 trades is needed."
+    data-access_control="Access control"
+    data-options="Options"
+    data-global_stop_confirm="This temporaly stops trading for the all configured traders and cancels all orders. To reenable trading, you need to hit the 'Save' button"
     ></span>
 
 
@@ -311,6 +314,8 @@
 <x-section><x-section-caption>Options</x-section-caption>
 <label><span>Range of charts [days]: </span><x-slider data-min="1" data-max="30" data-mult="1" data-name="report_interval"></x-slider></label>
 </x-section>
+<x-section><x-section-caption>Actions</x-section-caption>
+<div class="rightinfo"><button data-name="stop">Global stop</button></div>
 </x-form>
 </template>
 

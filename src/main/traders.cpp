@@ -131,10 +131,14 @@ void Traders::removeTrader(ondra_shared::StrViewA n, bool including_state) {
 	}
 }
 
-bool Traders::runTraders() {
+void Traders::resetBrokers() {
 	stockSelector.forEachStock([](json::StrViewA, IStockApi&api) {
 		api.reset();
 	});
+}
+
+bool Traders::runTraders() {
+	resetBrokers();
 
 	bool hit = false;
 	for (auto &&t : traders) {

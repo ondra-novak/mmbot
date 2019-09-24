@@ -99,13 +99,13 @@ App.prototype.createTraderList = function(form) {
 	});
 	items.unshift({
 		"image":"../res/options.png",
-		"caption":"Options",				
+		"caption":this.strtable.options,				
 		"id":"$"
 		
 	})
 	items.unshift({
 		"image":"../res/security.png",
-		"caption":"Users and security",				
+		"caption":this.strtable.access_control,				
 		"id":"!"
 		
 	})
@@ -332,7 +332,6 @@ App.prototype.fillForm = function (src, trg) {
 				updateRange();
 			});
 		} else if (!d.advanced) {
-			d.external_assets = 0;
 			trg.setData(d);
 			updateRange();
 		}
@@ -963,7 +962,13 @@ App.prototype.init_backtest = function(form, id, pair) {
 App.prototype.optionsForm = function() {
 	var form = TemplateJS.View.fromTemplate("options_form");
 	var data = {
-			report_interval: defval(this.config.report_interval,864000000)/86400000
+			report_interval: defval(this.config.report_interval,864000000)/86400000,
+			stop:{"!click": function() {
+				this.dlgbox({text:this.strtable.global_stop_confirm},"confirm")
+					.then(function(){
+						this.waitScreen(fetch_with_error("api/stop",{"method":"POST"}));
+					}.bind(this))
+			}.bind(this)}
 	};
 	form.setData(data);
 	form.save = function() {

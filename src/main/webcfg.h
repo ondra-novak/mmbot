@@ -70,6 +70,7 @@ public:
 		serialnr,
 		brokers,
 		traders,
+		stop,
 		logout
 	};
 
@@ -87,13 +88,12 @@ protected:
 	bool reqBrokers(simpleServer::HTTPRequest req, ondra_shared::StrViewA rest) const;
 	bool reqTraders(simpleServer::HTTPRequest req, ondra_shared::StrViewA rest) const;
 	bool reqLogout(simpleServer::HTTPRequest req) const;
+	bool reqStop(simpleServer::HTTPRequest req) const;
 
 	using Sync = std::unique_lock<std::recursive_mutex>;
 
 
 
-	static void testConfig(const std::string &str);
-	static void applyConfig(Traders &t, json::Value config);
 	ondra_shared::RefCntPtr<State> state;
 };
 

@@ -99,6 +99,7 @@ public:
 	void loadTraders(const ondra_shared::IniConfig &ini, ondra_shared::StrViewA names);
 
 	bool runTraders();
+	void resetBrokers();
 	NamedMTrader *find(json::StrViewA id) const;
 };
 
