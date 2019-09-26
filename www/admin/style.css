@@ -20,6 +20,12 @@ input,select,button,textarea {
 	font-size: 0.5cm;
 	box-sizing:border-box;
 }
+input[type="date"] {
+	padding: 0;
+	width: 49%;
+	text-align: center;
+	font-size: 0.8em;
+}
 input[readonly] {
 	border: 0;
 	cursor: default;
@@ -121,6 +127,14 @@ x-section-caption {
 x-form.no_adv .adv {
 	display:none;
 }
+
+x-form.no_adv .adv.unhide {
+	display:block;
+}
+x-form.no_adv label.adv.unhide, x-form.no_adv div.label.adv.unhide {
+	display: flex;
+}
+
 
 div.trader.list .selected {
 	background-color: #333;

@@ -1025,7 +1025,11 @@ var TemplateJS = function(){
 				View.clearContent(elem)
 				elem.appendChild(val.getRoot());
 				return true;
-			}			
+			} else if (val instanceof Date && elem.type == "date") {
+				elem.valueAsDate = val;
+				return true;
+			}
+
 		}
 		
 		function isPromise(v) {
@@ -1167,6 +1171,8 @@ var TemplateJS = function(){
 			} else if (typeof (val) == "string") {
 				elem.checked = elem.value == val;
 			} 
+		} else if (type == "date" && typeof val == "object" && val instanceof Date) {
+			elem.valueAsDate = val;
 		} else {
 			elem.value = val;
 		}
@@ -1266,6 +1272,8 @@ var TemplateJS = function(){
 		} else if (type == "radio") {
 			if (elem.checked) return elem.value;
 			else return curVal;
+		} else if (type == "date") {
+			return	elem.valueAsDate;
 		} else {
 			return elem.value;
 		}

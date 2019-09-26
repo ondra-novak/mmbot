@@ -213,6 +213,20 @@ function defval(v,w) {
 	else return v;
 }
 
+function filledval(v,w) {
+	if (v === undefined) return w;
+	else if (v == w) return v;
+	else {
+		return {
+			"value":v,
+			"classList":{
+				"changed":true
+			}
+		}
+	}
+}
+
+
 
 function powerToEA(power, pair) {
 		var total; 
@@ -260,7 +274,8 @@ App.prototype.fillForm = function (src, trg) {
 	data.price= pair.then(function(x) {return adjNum(invPrice(x.price,x.invert_price));})
 	data.leverage=pair.then(function(x) {return x.leverage?x.leverage+"x":"n/a";});
 	data.broker_img = this.brokerImgURL(src.broker);
-	data.advanced = src.advenced;
+	data.advanced = src.advanced;
+
 	
 	data.goal = pair.then(function(x) {
 		var pl = x.leverage || src.force_margin || src.neutral_pos;
@@ -272,33 +287,31 @@ App.prototype.fillForm = function (src, trg) {
 	})
 	data.enabled = src.enabled;
 	data.dry_run = src.dry_run;
-	data.external_assets = {
-			value:defval(src.external_assets,0),
-			"!input": updateRange
-	}
-	data.acum_factor =defval(src.acum_factor,0);
-	data.accept_loss = data.accept_loss_pl = defval(src.accept_loss,0);
+	data.external_assets = defval(src.external_assets,0);
+	trg.setItemEvent("external_assets","!input",updateRange);
+	data.acum_factor =filledval(src.acum_factor,0);
+	data.accept_loss = filledval(src.accept_loss,0);
 	data.power = src.power;
 	var neutral_pos = src.neutral_pos?src.neutral_pos.split(" "):[];
-	data.neutral_pos_type = neutral_pos.length == 1?"assets":neutral_pos[0];
-	data.neutral_pos_val = src.neutral_pos?(neutral_pos.length == 1?neutral_pos[0]:neutral_pos[1]):0;
-	data.max_pos = defval(src.max_pos,0);
-	data.sliding_pos_hours = defval(src["sliding_pos.hours"],240);
-	data.sliding_pos_weaken = defval(src["sliding_pos.weaken"],11);
-	data.spread_calc_hours = defval(src.spread_calc_hours,5*24);
-	data.spread_calc_min_trades = defval(src.spread_calc_min_trades,4);
-	data.dynmult_raise = defval(src.dynmult_raise,250);
-	data.dynmult_fall = defval(src.dynmult_fall, 0.5);
-	data.dynmult_mode = src.dynmult_mode || "half_alternate";
-	data.order_mult = defval(src.buy_mult,1)*100;
-	data.min_size = defval(src.min_size,0);
-	data.internal_balance = src.internal_balance;
-	data.dust_orders = defval(src.dust_orders,true);
-	data.detect_manual_trades = src.detect_manual_trades;
-	data.report_position_offset = defval(src.report_position_offset,0);
+	data.neutral_pos_type = filledval(neutral_pos.length == 1?"assets":neutral_pos[0],"assets");
+	data.neutral_pos_val = filledval(src.neutral_pos?(neutral_pos.length == 1?neutral_pos[0]:neutral_pos[1]):0,1)
+	data.max_pos = filledval(src.max_pos,0);
+	data.sliding_pos_hours = filledval(src["sliding_pos.hours"],240);
+	data.sliding_pos_weaken = filledval(src["sliding_pos.weaken"],11);
+	data.spread_calc_hours = filledval(src.spread_calc_hours,5*24);
+	data.spread_calc_min_trades = filledval(src.spread_calc_min_trades,4);
+	data.dynmult_raise = filledval(src.dynmult_raise,250);
+	data.dynmult_fall = filledval(src.dynmult_fall, 0.5);
+	data.dynmult_mode = filledval(src.dynmult_mode, "half_alternate");
+	data.order_mult = filledval(defval(src.buy_mult,1)*100,100);
+	data.min_size = filledval(src.min_size,0);
+	data.internal_balance = filledval(src.internal_balance,0);
+	data.dust_orders = filledval(src.dust_orders,true);
+	data.detect_manual_trades = filledval(src.detect_manual_trades,false);
+	data.report_position_offset = filledval(src.report_position_offset,0);
 	data.init_backtest = {"!click":this.init_backtest.bind(this,trg,src.id, pair)};
-	data.force_spread = adjNum((Math.exp(defval(src.force_spread,0))-1)*100);
-	data.expected_trend=defval(src.expected_trend,0);
+	data.force_spread = filledval(adjNum((Math.exp(defval(src.force_spread,0))-1)*100),"0.000");
+	data.expected_trend=filledval(src.expected_trend,"");
 	data.open_orders_sect = orders.then(function(x) {return {".hidden":!x.length};},function() {return{".hidden":true};});	
 	data.orders = Promise.all([orders,pair]).then(function(x) {
 		var orders = x[0];
@@ -376,7 +389,21 @@ App.prototype.fillForm = function (src, trg) {
 	data.icon_delete={"!click": this.deleteTrader.bind(this, src.id)};
 	data.icon_undo={"!click": this.undoTrader.bind(this, src.id)};
 	
-	return trg.setData(data).then(trg.dlgRules.bind(trg));
+	function unhide_changed(x) {
+
+		var root = trg.getRoot();
+		var items = root.getElementsByClassName("changed");
+		Array.prototype.forEach.call(items,function(x) {
+			while (x && x != root) {
+				x.classList.add("unhide");
+				x = x.parentNode;
+			}
+		});
+
+		return x;
+	}
+
+	return trg.setData(data).then(unhide_changed).then(trg.dlgRules.bind(trg));
 }
 
 
@@ -391,7 +418,7 @@ App.prototype.saveForm = function(form, src) {
 	trader.title = data.title;
 	trader.enabled = data.enabled;
 	trader.dry_run = data.dry_run;
-	trader.advenced = data.advanced;
+	trader.advanced = data.advanced;
 	trader.accept_loss = data.accept_loss;
 	if (goal == "norm") {
 		trader.acum_factor = data.acum_factor;
@@ -888,19 +915,40 @@ App.prototype.init_backtest = function(form, id, pair) {
 			"sliding_pos_hours", "sliding_pos_weaken",
 			"order_mult","min_size","dust_orders","expected_trend","goal"];
 
-		var interval = trades[trades.length-1].time - trades[0].time;
-		var drawChart = initChart(interval,5,700000);
 		var chart1 = bt.findElements('chart1')[0];
 		var chart2 = bt.findElements('chart2')[0];
+		//var chart3 = bt.findElements('chart3')[0];
+		var xdata = {
+			"date_from":{
+				"value":new Date(trades[0].time),
+				"!change":recalc
+			},
+			"date_to":{
+				"value":new Date(trades[trades.length-1].time+86400000),
+				"!change":recalc
+			},
+			"apply_from":{
+				"value":new Date(trades[0].time),
+				"!change":recalc
+			},
+			"start_pos":{
+					"value":0,
+					"!input":recalc
+			}
+		};
+		bt.setData(xdata);
 		//var chart3 = bt.findElements('chart3')[0];
 		
 		var tm;
 				
+		var prevChart;
 		
 		function recalc() {
 			if (tm) clearTimeout(tm);
 			tm = setTimeout(function() {
 				var data = form.readData(elems);
+				var xdata = bt.readData();
+			
 
 				var min_size = parseFloat(data.min_size);
 				if (pair.min_size > data.min_size) min_size = pair.min_size;
@@ -917,15 +965,23 @@ App.prototype.init_backtest = function(form, id, pair) {
 				if (pair.invert_price) {
 					et = -et;
 				}
-
 				
-				var res = calculateBacktest(trades, 
-						parseFloat(data.external_assets),
-						h,
-						w,
-						parseFloat(data.order_mult)*0.01,
-						min_size,false,et
-						);
+				var trades2 = trades.filter(function(x) {
+					var d = new Date(x.time);
+					return d>=xdata.apply_from;
+				});
+				
+				var res = calculateBacktest({
+						data:trades2,
+						external_assets:parseFloat(data.external_assets),
+						sliding_pos:h,
+						weaknes:w,
+						multiplicator:parseFloat(data.order_mult)*0.01,
+						min_order_size:min_size,
+						invert:false,
+						expected_trend:et,
+						start_pos:parseFloat(xdata.start_pos),
+						});				
 
 				if (pair.invert_price) {
 					res.chart.forEach(function(x){
@@ -934,6 +990,14 @@ App.prototype.init_backtest = function(form, id, pair) {
 						x.achg = -x.achg;
 					});
 				}
+
+				var chartData = res.chart.filter(function(x){
+					var d = new Date(x.time);
+					return d >=xdata.date_from && d<=xdata.date_to;
+				});
+				var interval = chartData.length?chartData[chartData.length-1].time - chartData[0].time:1;
+				var drawChart = initChart(interval,5,700000);
+
 			
 				bt.setData({
 					bt_pl: adjNum(res.pl),
@@ -942,9 +1006,9 @@ App.prototype.init_backtest = function(form, id, pair) {
 					bt_mp: adjNum(res.maxpos),
 				})
 
-				drawChart(chart1,res.chart,"pl",[],"pln");
-				drawChart(chart2,res.chart,"price",[],"np");
-		//		drawChart(chart3,res.chart,"achg",[]);
+				drawChart(chart1,chartData,"pl",[],"pln");
+				drawChart(chart2,chartData,"price",[],"np");
+		//		drawChart(chart3,chartData,"achg",[]);
 			}, 1);
 		}
 		
@@ -953,6 +1017,8 @@ App.prototype.init_backtest = function(form, id, pair) {
 			var el = form.findElements(x)[0];
 			el.addEventListener("input", recalc);
 		});		
+
+
 		
 	}.bind(this),function() {
 			bt.close();

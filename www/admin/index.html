@@ -53,13 +53,13 @@
 <div class="rightinfo">Min price: <span data-name="range_min_price"></span>&nbsp;<span data-name="currency"></span>
 - Max price: <span data-name="range_max_price"></span>&nbsp;<span data-name="currency"></span>
 </div>
-<label><span>Accumulation</span><x-slider data-name="acum_factor" data-min="0" data-max="100" data-mult="1"></x-slider></label>
+<label  class="adv"><span>Accumulation</span><x-slider data-name="acum_factor" data-min="0" data-max="100" data-mult="1"></x-slider></label>
 <div class="rightinfo"><button data-name="init_backtest">Backtest</button></div>
 </x-section>
 <x-section data-name="goal_pl" class="goal hidden" hidden="hidden"><x-section-caption>Profit from position</x-section-caption>
 <label><span>Power / Risk level:</span><x-slider data-name="power" data-min="1" data-max="100" data-mult="1" data-fixed="0"></x-slider></label>
 <div class="rightinfo"><span data-name="external_volume"></span>&nbsp;<span data-name="currency"></span></div>
-<label><span>Neutral position</span><span class="control_row"><input type="number" data-name="neutral_pos_val"><select data-name="neutral_pos_type">
+<label  class="adv"><span>Neutral position</span><span class="control_row"><input type="number" data-name="neutral_pos_val"><select data-name="neutral_pos_type">
 <option value="assets" name="asset">Assets</option>
 <option value="currency" name="currency">Currency</option>
 <option value="center">Center</option>
@@ -70,18 +70,18 @@
 <label><span>Sliding position weaken (0=disabled)</span><x-slider data-name="sliding_pos_weaken" data-min="0" data-max="100" data-mult="1"></x-slider></label>
 <div class="rightinfo"><button data-name="init_backtest">Backtest</button></div>
 </x-section>
-<x-section class="" data-name="backtest_anchor"><x-section-caption>Common</x-section-caption>
-<label><span>Order minimal size (0&nbsp;=&nbsp;disabled)</span><input type="number" data-name="min_size" step="any"></label>
-<label><span>Order size modifier [%]</span><x-slider data-name="order_mult" data-min="1" data-max="199" data-mult="1"></x-slider></label>
+<x-section class="adv" data-name="backtest_anchor"><x-section-caption>Common</x-section-caption>
+<label  class="adv"><span>Order minimal size (0&nbsp;=&nbsp;disabled)</span><input type="number" data-name="min_size" step="any"></label>
+<label  class="adv"><span>Order size modifier [%]</span><x-slider data-name="order_mult" data-min="1" data-max="199" data-mult="1"></x-slider></label>
 <label class="adv"><span>Accept loss after hours (0&nbsp;=&nbsp;disabled)</span><x-slider data-name="accept_loss" data-min="0" data-max="100" data-mult="1"></x-slider></label>
-<label><span>Expected trend</span><x-slider data-name="expected_trend" data-min="-10" data-max="10" data-mult="0.1" data-fixed="1"></x-slider></label>
+<label  class="adv"><span>Expected trend</span><x-slider data-name="expected_trend" data-min="-10" data-max="10" data-mult="0.1" data-fixed="1"></x-slider></label>
 </x-section>
 <x-section class="adv"><x-section-caption>Spread</x-section-caption>
-<label><span>Spread calc. hours </span><x-slider data-name="spread_calc_hours" data-min="24" data-max="2400" data-mult="1"></x-slider></label>
-<label><span>Spread calc. min trades (per day) </span><x-slider data-name="spread_calc_min_trades" data-min="1" data-max="24" data-mult="1"></x-slider></label>
-<label><span>Dynamic spread mult. raise</span><x-slider data-name="dynmult_raise" data-min="1" data-max="1000" data-mult="1"></x-slider></label>
-<label><span>Dynamic spread mult. fall</span><x-slider data-name="dynmult_fall" data-min="0.1" data-max="10" data-mult="0.1" data-fixed="1"></x-slider></label>
-<label><span>Dynamic spread behaviour</span><select data-name="dynmult_mode">
+<label  class="adv"><span>Spread calc. hours </span><x-slider data-name="spread_calc_hours" data-min="24" data-max="2400" data-mult="1"></x-slider></label>
+<label  class="adv"><span>Spread calc. min trades (per day) </span><x-slider data-name="spread_calc_min_trades" data-min="1" data-max="24" data-mult="1"></x-slider></label>
+<label class="adv"><span>Dynamic spread mult. raise</span><x-slider data-name="dynmult_raise" data-min="1" data-max="1000" data-mult="1"></x-slider></label>
+<label class="adv"><span>Dynamic spread mult. fall</span><x-slider data-name="dynmult_fall" data-min="0.1" data-max="10" data-mult="0.1" data-fixed="1"></x-slider></label>
+<label class="adv"><span>Dynamic spread behaviour</span><select data-name="dynmult_mode">
 <option value="independent">Independent (original)</option>
 <option value="together">Together</option>
 <option value="alternate">Alternate</option>
@@ -89,14 +89,14 @@
 </select></label>
 </x-section>
 <x-section class="adv"><x-section-caption>Misc</x-section-caption>
-<div class="label"><span>Options</span><div>
-<label><input type="checkbox" data-name="internal_balance"> Internal balance </label>
-<label><input type="checkbox" checked="checked" data-name="dust_orders"> Dust orders (recomended) </label>
-<label><input type="checkbox" data-name="detect_manual_trades"> Detect manual trades </label>
+<div class="label adv"><span>Options</span><div>
+<label class="adv"><input type="checkbox" data-name="internal_balance"> Internal balance </label>
+<label class="adv"><input type="checkbox" checked="checked" data-name="dust_orders"> Dust orders (recomended) </label>
+<label class="adv"><input type="checkbox" data-name="detect_manual_trades"> Detect manual trades </label>
 </div>
 </div>
-<label><span>Report - position offset</span><input type="number" data-name="report_position_offset"></label>
-<label><span>Force spread (0=disabled)</span><input type="number" data-name="force_spread"></label>
+<label class="adv"><span>Report - position offset</span><input type="number" data-name="report_position_offset"></label>
+<label class="adv"><span>Force spread (0=disabled)</span><input type="number" data-name="force_spread"></label>
 </x-section>
 <div></div>
 </x-form>
@@ -282,7 +282,11 @@
 <div data-name="chart1"><div><em>Loading data, please wait...</em><div class="spinner fast save"></div></div></div>
 <div data-name="chart2"></div>
 <div data-name="chart3"></div>
+<div class="label"><span>Range</span><div><input data-name="date_from" type="date">
+											<input data-name="date_to" type="date"></div>
 </div>
+<div class="label"><span>Apply from</span><div><input data-name="apply_from" type="date"></div></div>
+<div class="label"><span>Starting position</span><input data-name="start_pos" type="number" step="any">
 </x-section>
 </template>
 

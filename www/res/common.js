@@ -52,18 +52,38 @@ function pow2(x) {
 	return x*x;
 }
 
-function calculateBacktest(data, ea, ga, fb, mlt, mos, inv, et) {
+function calculateBacktest(params) {
+
+var data = params.data;
+var ea = params.external_assets;
+var ga = params.sliding_pos;
+var fb = params.weaknes;
+var mlt = params.multiplicator || 1;
+var mos = params.min_order_size || 0;
+var inv = params.invert || false;
+var et = params.expected_trend || 0;
+var pos = (inv?-1:1)*params.start_pos || 0;
+
+
+if (data.length == 0) return {
+	pl:0,
+	pln: 0,
+	pos: 0,
+	mdd:0,
+	maxpos:0,
+	eq:0,
+	chart:[]
+};
 var pp = inv?1/data[0].price:data[0].price;
-var eq = pp;
+var eq = pp*pow2((ea+pos)/ea);
 var pl = 0;
 var mdd = 0;
 var mpos = 0;
-var pos = 0;
 var norm = 0;
-var newchart = [];
 var tframe = ga*3600000;
 var tm = data[0].time;
-var eaa = ea;		
+var newchart = [];
+
 data.forEach(function(x) {
 	var p = inv?1/x.price:x.price;
     var dr = Math.sign(p - pp);
@@ -72,8 +92,7 @@ data.forEach(function(x) {
 	if (tmdiff > Math.abs(tframe)) tmdiff = Math.abs(tframe);
 	var neq = pldiff*Math.sign(tframe)>0?eq + (p - eq) * (tmdiff/Math.abs(tframe)):eq;
 	if (Math.abs(pos) > mpos) mpos = Math.abs(pos);			
-	var aeq = eq*pow2(ea/(ea+pos)) + et*p;
-	var nxpos = (ea+pos)*Math.sqrt(aeq/p)-ea;
+	var nxpos = ea*Math.sqrt(eq*(1+et)/p)-ea;
 	var dpos = nxpos - pos ;
 	var maxpos = ea * fb * 0.01;
 	var mult = (fb?(maxpos - Math.abs(nxpos))/maxpos:1)*mlt;
