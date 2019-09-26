@@ -191,11 +191,11 @@ IStockApi &MTrader::selectStock(IStockSelector &stock_selector, const Config &co
 
 double MTrader::raise_fall(double v, bool raise) const {
 	if (raise) {
-		double rr = (1.0+cfg.dynmult_raise/100.0);
-		return v * rr;
+		double rr = cfg.dynmult_raise/100.0;
+		return v + rr;
 	} else {
-		double ff = (1.0-cfg.dynmult_fall/100.0);
-		return std::max(1.0,v * ff);
+		double ff = cfg.dynmult_fall/100.0;
+		return std::max(1.0,v - ff);
 	}
 }
 
