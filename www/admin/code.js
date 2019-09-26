@@ -311,8 +311,8 @@ App.prototype.fillForm = function (src, trg) {
 	data.sliding_pos_fade = filledval(src["sliding_pos.fade"],0);
 	data.spread_calc_hours = filledval(src.spread_calc_hours,5*24);
 	data.spread_calc_min_trades = filledval(src.spread_calc_min_trades,4);
-	data.dynmult_raise = filledval(src.dynmult_raise,250);
-	data.dynmult_fall = filledval(src.dynmult_fall, 0.5);
+	data.dynmult_raise = filledval(src.dynmult_raise,200);
+	data.dynmult_fall = filledval(src.dynmult_fall, 5);
 	data.dynmult_mode = filledval(src.dynmult_mode, "half_alternate");
 	data.order_mult = filledval(defval(src.buy_mult,1)*100,100);
 	data.min_size = filledval(src.min_size,0);
@@ -937,7 +937,7 @@ App.prototype.init_backtest = function(form, id, pair) {
 		}
 		
 		var elems = ["external_assets","power", 
-			"sliding_pos_hours", "sliding_pos_weaken",
+			"sliding_pos_hours", "sliding_pos_fade",
 			"order_mult","min_size","dust_orders","expected_trend","goal"];
 
 		var chart1 = bt.findElements('chart1')[0];
@@ -962,7 +962,7 @@ App.prototype.init_backtest = function(form, id, pair) {
 			}
 		};
 		bt.setData(xdata);
-		//var chart3 = bt.findElements('chart3')[0];
+		var chart3 = bt.findElements('chart3')[0];
 		
 		var tm;
 				
@@ -980,7 +980,7 @@ App.prototype.init_backtest = function(form, id, pair) {
 				if (data.dust_orders == false) min_size = 0;
 
 				var h =  parseFloat(data.sliding_pos_hours);
-				var w =  parseFloat(data.sliding_pos_weaken);
+				var w =  parseFloat(data.sliding_pos_fade);
 				var g = data.goal;
 				if (g == "norm") {
 					w = 0;
@@ -1000,7 +1000,7 @@ App.prototype.init_backtest = function(form, id, pair) {
 						data:trades2,
 						external_assets:parseFloat(data.external_assets),
 						sliding_pos:h,
-						weaknes:w,
+						fade:w,
 						multiplicator:parseFloat(data.order_mult)*0.01,
 						min_order_size:min_size,
 						invert:false,
@@ -1033,7 +1033,7 @@ App.prototype.init_backtest = function(form, id, pair) {
 
 				drawChart(chart1,chartData,"pl",[],"pln");
 				drawChart(chart2,chartData,"price",[],"np");
-		//		drawChart(chart3,chartData,"achg",[]);
+				drawChart(chart3,chartData,"pos",[]);
 			}, 1);
 		}
 		

@@ -20,7 +20,6 @@
 #include "abstractExtern.h"
 #include "istockapi.h"
 #include "istatsvc.h"
-#include "ordergen.h"
 #include "mtrader.h"
 #include "report.h"
 #include "spread_calc.h"
@@ -319,25 +318,7 @@ public:
 		for (const char *c : commands) wordwrap(c);
 	}
 
-	auto createRestartFn() {
-		return [this] {
-			std::string switches;
-			switches.push_back('-');
-			if (test) switches.push_back('t');
-			if (debug) switches.push_back('d');
-			switches.push_back('f');
-			std::string appPath = this->appPath.string();
-			std::string configPath = this->configPath.string();
-			const char *args[] = {
-					appPath.c_str(),
-					switches.c_str(),
-					configPath.c_str(),
-					"restart",
-					nullptr
-			};
-			spawn(appPath.c_str(), args);
-		};
-	}
+
 };
 
 

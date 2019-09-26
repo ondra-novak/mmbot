@@ -57,7 +57,7 @@ function calculateBacktest(params) {
 var data = params.data;
 var ea = params.external_assets;
 var ga = params.sliding_pos;
-var fb = params.weaknes;
+var fb = params.fade;
 var mlt = params.multiplicator || 1;
 var mos = params.min_order_size || 0;
 var inv = params.invert || false;
@@ -94,9 +94,11 @@ data.forEach(function(x) {
 	if (Math.abs(pos) > mpos) mpos = Math.abs(pos);			
 	var nxpos = ea*Math.sqrt(eq*(1+et)/p)-ea;
 	var dpos = nxpos - pos ;
-	var maxpos = ea * fb * 0.01;
-	var mult = (fb?(maxpos - Math.abs(nxpos))/maxpos:1)*mlt;
+	var mult = (fb?(fb - Math.abs(nxpos))/fb:1)*mlt;
 	if (mult < 0.000001) mult = 0.000001
+	if (pos * dr < 0) {
+		mult = (mult * 3+1)/4;
+	}
 	if (dpos * dr >= -mos) {
 		if (mos <= 0) return;
 		dpos = -mos * dr
@@ -111,6 +113,7 @@ data.forEach(function(x) {
 	newchart.push({
 		price:x.price,
 		pl:pl,
+		pos:pos,
 		pln:norm,
 		np:inv?1/eq:eq,
 		time:x.time,

@@ -9,13 +9,11 @@ add_executable (mmbot
 	spread_calc.cpp
 	calculator.cpp
 	istockapi.cpp
-	ordergen.cpp
 	storage.cpp
 	emulator.cpp
 	main.cpp
 	report.cpp
-	webcfg.cpp
-	spawn.cpp
+	webcfg.cpp	
 	backtest_broker.cpp
 	backtest.cpp
 	traders.cpp
