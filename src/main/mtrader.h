@@ -53,6 +53,7 @@ struct MTrader_Config {
 
 	double sliding_pos_hours;
 	double sliding_pos_weaken;
+	double sliding_pos_fade;
 
 	double force_spread;
 	double emulated_currency;
@@ -263,7 +264,10 @@ protected:
 	json::Value getTradeLastId() const;
 
 
-	double calcWeakenMult(double neutral_pos, double balance);
+	struct WeakenRes{
+		double buy, sell;
+	};
+	WeakenRes calcWeakenMult(double neutral_pos, double balance);
 
 private:
 	double calcNeutralPos(const MTrader::Status &status);

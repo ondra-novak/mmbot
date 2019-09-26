@@ -36,7 +36,11 @@
 </x-section>
 <x-section><x-section-caption>General</x-section-caption>
 <label><span>Title</span><input type="text" data-name="title"></label>
-<label><span>Goal</span><select data-name="goal">
+<label><span>Goal<span class="tooltip">
+<strong>Normalized profit</strong> - focus on profit from small differences, conservative strategy, not available 
+for margin and futures. Expected profit about 10% per year<br><br>
+<strong>Profit from position</strong> - focus on profit on opening and closing position. More profit but more risk as well
+</span></span><select data-name="goal">
 <option value="norm">Normalized profit</option>
 <option value="pl">Profit from position</option>
 </select></label>
@@ -49,38 +53,78 @@
 </div>
 </x-section>
 <x-section data-name="goal_norm" class="goal hidden" hidden="hidden"><x-section-caption>Normalized profit</x-section-caption>
-<label><span>External assets</span><input type="number" data-name="external_assets"></label>
+<label><span>External assets <span class="tooltip">Amount of assets held outside of exchange. They are included into calculations.</span></span><input type="number" step="any" data-name="external_assets"></label>
 <div class="rightinfo">Min price: <span data-name="range_min_price"></span>&nbsp;<span data-name="currency"></span>
 - Max price: <span data-name="range_max_price"></span>&nbsp;<span data-name="currency"></span>
 </div>
-<label  class="adv"><span>Accumulation</span><x-slider data-name="acum_factor" data-min="0" data-max="100" data-mult="1"></x-slider></label>
+<label  class="adv"><span>Accumulation <span class="tooltip">Amount of the profit used to buy extra assets</span></span><x-slider data-name="acum_factor" data-min="0" data-max="100" data-mult="1"></x-slider></label>
 <div class="rightinfo"><button data-name="init_backtest">Backtest</button></div>
 </x-section>
 <x-section data-name="goal_pl" class="goal hidden" hidden="hidden"><x-section-caption>Profit from position</x-section-caption>
-<label><span>Power / Risk level:</span><x-slider data-name="power" data-min="1" data-max="100" data-mult="1" data-fixed="0"></x-slider></label>
-<div class="rightinfo"><span data-name="external_volume"></span>&nbsp;<span data-name="currency"></span></div>
-<label  class="adv"><span>Neutral position</span><span class="control_row"><input type="number" data-name="neutral_pos_val"><select data-name="neutral_pos_type">
+<label><span>Power / Risk level: <span class="tooltip"
+>Specifies volume of trading as multiplication of initial investment. 
+Higher values can result to higher profit but also higher risk. 
+Always consult the 'save range' when you choose an optimal value</span></span><x-slider data-name="power" data-min="1" data-max="100" data-mult="1" data-fixed="0"></x-slider></label>
+<div class="rightinfo">Safe range: <span data-name="range_min_price"></span>
+-  <span data-name="range_max_price"></span></div>
+<div class="rightinfo">Overall position: <span data-name="external_assets"></span>, Volume; <span data-name="external_volume"></span></div>
+<label  class="adv"><span>Neutral position <span class="tooltip"
+>Specify which state of your account is neutral position.<br><br> 
+At the <strong>furtues and at the margin exchanges</strong>, there should be probably the zero assets to achieve
+the same state as at the exchenge. <br><br>
+For <strong> the non-margin exchanges</strong> you can simulate position by specifying
+how much assets or currency is considered as a neutral (zero) position. If you specify "center", 
+then the value specifies how many pairs share the one currency balance. You can specify 1 to achieve 50:50 value
+for the neutral position</span></span><span class="control_row"><input type="number" step="any" data-name="neutral_pos_val"><select data-name="neutral_pos_type">
 <option value="assets" name="asset">Assets</option>
 <option value="currency" name="currency">Currency</option>
 <option value="center">Center</option>
 </select></span>
 </label>
-<label class="adv"><span>Max position (0=disabled)</span><input type="number" data-name="max_pos"></label>
-<label><span>Sliding position hours (0=disabled)</span><x-slider data-name="sliding_pos_hours" data-min="0" data-max="1000" data-mult="10"></x-slider></label>
-<label><span>Sliding position weaken (0=disabled)</span><x-slider data-name="sliding_pos_weaken" data-min="0" data-max="100" data-mult="1"></x-slider></label>
+<label><span>Sliding speed [hours] (0&nbsp;=&nbsp;disabled)<span class="tooltip">
+Specifies after how much time (in hours) the position is returned to the neutral state regardless on
+whether it deliveres profit or loss. The amount time is recalculated after each trade, so
+it can be much longer if there is trading activity while the current position is changes very often. 
+</span></span><x-slider data-name="sliding_pos_hours" data-min="0" data-max="1000" data-mult="10"></x-slider></label>
+<label><span>Fade max position (0&nbsp;=&nbsp;disabled) <span class="tooltip"
+>When large position is opened, the volume of each trade is lowered until the 'fade max position'
+is reached. Beyond this limit, only dust orders are traded until the position is returned
+back below the limit (Sliding speed). This protects you against a liquidation when large
+position is held</span></span><input data-name="sliding_pos_fade" type="number" step="any"></x-slider></label>
+<label class="adv"><span>Hard max position (0&nbsp;=&nbsp;disabled)<span class="tooltip"
+>Prevents to open a position of the total amount above the specified limit (short or long). However this can
+cause to stop the trading alltoghether without a chance to return (The 'accept loss' can handle this situation)</span></span><input type="number" step="any" data-name="max_pos"></label>
 <div class="rightinfo"><button data-name="init_backtest">Backtest</button></div>
 </x-section>
 <x-section class="adv" data-name="backtest_anchor"><x-section-caption>Common</x-section-caption>
-<label  class="adv"><span>Order minimal size (0&nbsp;=&nbsp;disabled)</span><input type="number" data-name="min_size" step="any"></label>
-<label  class="adv"><span>Order size modifier [%]</span><x-slider data-name="order_mult" data-min="1" data-max="199" data-mult="1"></x-slider></label>
-<label class="adv"><span>Accept loss after hours (0&nbsp;=&nbsp;disabled)</span><x-slider data-name="accept_loss" data-min="0" data-max="100" data-mult="1"></x-slider></label>
-<label  class="adv"><span>Expected trend</span><x-slider data-name="expected_trend" data-min="-10" data-max="10" data-mult="0.1" data-fixed="1"></x-slider></label>
+<label  class="adv"><span>Order minimal size (0&nbsp;=&nbsp;disabled)<span class="tooltip">
+Specifies minimal order size. If disabled, minimal size is defined by the exchange. This also
+specifies size of the "dust order"
+</span></span><input type="number" data-name="min_size" step="any"></label>
+<label  class="adv"><span>Order size modifier [%]<span class="tooltip">It is recomended to set values below
+100. This makes orders smaller but also causes that order will be split into smaller orders. For
+example if you specify value 50, the order 24 may be split to orders 12, 6, 3, 2, 1 = 24. This can
+help to push the "average open price" near to the current price
+</span></span><x-slider data-name="order_mult" data-min="1" data-max="199" data-mult="1"></x-slider></label>
+<label class="adv"><span>Accept loss after hours (0&nbsp;=&nbsp;disabled)<span class="tooltip">
+Enable to the Bot accept partial loss, when trading is not possible due insufficient balance or when
+"Hard max position" is reached. The value specified amount of hours after last trade, when
+extra "virtual" trade with zero size is generated to shift the center of the spread. This can
+reenable trading, but it also finally costs some profit
+</span></span><x-slider data-name="accept_loss" data-min="0" data-max="100" data-mult="1"></x-slider></label>
+<label  class="adv"><span>Expected trend<span class="tooltip">Prefers specified trend. 
+Positive value means uptrend, negative value means downtrend. 
+The value represents a slope of the trend with no exact representation. </span></span><x-slider data-name="expected_trend" data-min="-10" data-max="10" data-mult="0.1" data-fixed="1"></x-slider></label>
 </x-section>
 <x-section class="adv"><x-section-caption>Spread</x-section-caption>
-<label  class="adv"><span>Spread calc. hours </span><x-slider data-name="spread_calc_hours" data-min="24" data-max="2400" data-mult="1"></x-slider></label>
-<label  class="adv"><span>Spread calc. min trades (per day) </span><x-slider data-name="spread_calc_min_trades" data-min="1" data-max="24" data-mult="1"></x-slider></label>
-<label class="adv"><span>Dynamic spread mult. raise</span><x-slider data-name="dynmult_raise" data-min="1" data-max="1000" data-mult="1"></x-slider></label>
-<label class="adv"><span>Dynamic spread mult. fall</span><x-slider data-name="dynmult_fall" data-min="0.1" data-max="10" data-mult="0.1" data-fixed="1"></x-slider></label>
+<label  class="adv"><span>Spread calc. hours <span class="tooltip"
+>Specifies how many samples are used to calculate spread (in hours)</span></span><x-slider data-name="spread_calc_hours" data-min="24" data-max="2400" data-mult="1"></x-slider></label>
+<label  class="adv"><span>Spread calc. min trades (per day) <span class="tooltip"
+>Specifies minimum requirement for count of trade-pairs (buy+sell) per day </span></span><x-slider data-name="spread_calc_min_trades" data-min="1" data-max="24" data-mult="1"></x-slider></label>
+<label class="adv"><span>Dynamic spread mult. raise<span class="tooltip"
+>Specifies [in %] how much is dynamic multiplicator raised after trade.</span></span><x-slider data-name="dynmult_raise" data-min="1" data-max="1000" data-mult="1"></x-slider></label>
+<label class="adv"><span>Dynamic spread mult. fall<span class="tooltip"
+>Specifies [in %] how much is dynamic multiplicator falls every minute without trade.</span></span><x-slider data-name="dynmult_fall" data-min="0.1" data-max="10" data-mult="0.1" data-fixed="1"></x-slider></label>
 <label class="adv"><span>Dynamic spread behaviour</span><select data-name="dynmult_mode">
 <option value="independent">Independent (original)</option>
 <option value="together">Together</option>
@@ -89,14 +133,19 @@
 </select></label>
 </x-section>
 <x-section class="adv"><x-section-caption>Misc</x-section-caption>
-<div class="label adv"><span>Options</span><div>
+<div class="label adv"><span>Options<span class="tooltip"
+><strong>Internal balance</strong> - track balance by trades - do not use balance on exchange<br><br>
+<strong>Dust orders</strong> Enable to use smallest orders when otherwise trading would be impossible (they act as alert)<br><br>
+<strong>Detect manual trades</strong> Try to detect and ignore trades made by the user manually (it is not recomended to trade along with the Bot. Please use a subaccount instead</span></span><div>
 <label class="adv"><input type="checkbox" data-name="internal_balance"> Internal balance </label>
 <label class="adv"><input type="checkbox" checked="checked" data-name="dust_orders"> Dust orders (recomended) </label>
 <label class="adv"><input type="checkbox" data-name="detect_manual_trades"> Detect manual trades </label>
 </div>
 </div>
-<label class="adv"><span>Report - position offset</span><input type="number" data-name="report_position_offset"></label>
-<label class="adv"><span>Force spread (0=disabled)</span><input type="number" data-name="force_spread"></label>
+<label class="adv"><span>Report - position offset<span class="tooltip">Allows to sync the position on the report page with the actual state on the echange.<br<br>
+The position is not generally in the sync due to various issues. You need to specify a difference between the calculated position presented on the report page and the actual position on the exchhange
+</span></span><input type="number" step="any" data-name="report_position_offset"></label>
+<label class="adv"><span>Force spread (0=disabled)<span class="tooltip">Specifies exact spread width and disables the internal spread detection</span></span><input type="number" step="any" data-name="force_spread"></label>
 </x-section>
 <div></div>
 </x-form>

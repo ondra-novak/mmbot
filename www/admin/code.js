@@ -240,13 +240,24 @@ function powerToEA(power, pair) {
 }
 
 
-function calc_range(a, ea, c, p) {
+function calc_range(a, ea, c, p, inv, leverage) {
 	a = a+ea;
 	var value = a * p;
 	var max_price = pow2((a * Math.sqrt(p))/ea);
 	var S = value - c
 	var min_price = S<=0?0:pow2(S/(a*Math.sqrt(p)));
+	if (leverage) {
+		var colateral = c* (1 - 1 / leverage); 
+		min_price = (ea*p - 2*Math.sqrt(ea*colateral*p) + colateral)/ea;
+		max_price = (ea*p + 2*Math.sqrt(ea*colateral*p) + colateral)/ea;
+
+	}
 	if (!isFinite(max_price)) max_price = "∞";
+	if (inv) {
+		var k = 1/min_price;
+		min_price = 1/max_price;
+		max_price =k;
+	}
 	return {
 		range_min_price: adjNum(min_price),
 		range_max_price: adjNum(max_price)
@@ -297,7 +308,7 @@ App.prototype.fillForm = function (src, trg) {
 	data.neutral_pos_val = filledval(src.neutral_pos?(neutral_pos.length == 1?neutral_pos[0]:neutral_pos[1]):0,1)
 	data.max_pos = filledval(src.max_pos,0);
 	data.sliding_pos_hours = filledval(src["sliding_pos.hours"],240);
-	data.sliding_pos_weaken = filledval(src["sliding_pos.weaken"],11);
+	data.sliding_pos_fade = filledval(src["sliding_pos.fade"],0);
 	data.spread_calc_hours = filledval(src.spread_calc_hours,5*24);
 	data.spread_calc_min_trades = filledval(src.spread_calc_min_trades,4);
 	data.dynmult_raise = filledval(src.dynmult_raise,250);
@@ -353,7 +364,7 @@ App.prototype.fillForm = function (src, trg) {
 	function updateRange() {
 		pair.then(function(p) {
 			var d = trg.readData(["external_assets"]);
-			var r = calc_range(p.asset_balance, parseFloat(d.external_assets), p.currency_balance, p.price);
+			var r = calc_range(p.asset_balance, parseFloat(d.external_assets), p.currency_balance, p.price, p.invert_price, p.leverage);
 			trg.setData(r);
 		});
 		
@@ -400,10 +411,23 @@ App.prototype.fillForm = function (src, trg) {
 			}
 		});
 
+		var inputs = trg.getRoot().querySelectorAll("input,select");
+		Array.prototype.forEach.call(inputs, function(x) {
+			function markModified() {
+				var n = this;
+				while (n && n != trg.getRoot())  {
+					n.classList.add("modified");
+					n = n.parentNode;
+				}
+			}
+			x.addEventListener("change", markModified );
+		});
+
 		return x;
 	}
 
-	return trg.setData(data).then(unhide_changed).then(trg.dlgRules.bind(trg));
+
+	return trg.setData(data).catch(function(){}).then(unhide_changed).then(trg.dlgRules.bind(trg));
 }
 
 
@@ -427,7 +451,7 @@ App.prototype.saveForm = function(form, src) {
 		trader.neutral_pos = data.neutral_pos_type+" "+data.neutral_pos_val;
 		trader.max_pos = data.max_pos;
 		trader["sliding_pos.hours"] = data.sliding_pos_hours;
-		trader["sliding_pos.weaken"] = data.sliding_pos_weaken;
+		trader["sliding_pos.fade"] = data.sliding_pos_fade;
 		trader.force_margin=true;
 	}
 	trader.external_assets = data.external_assets;
@@ -470,6 +494,7 @@ TemplateJS.View.regCustomElement("X-SLIDER", new TemplateJS.CustomElement(
 				range.setAttribute("type","range");
 				number = document.createElement("input");
 				number.setAttribute("type","number");
+				number.setAttribute("step",mult);
 				var env1 = document.createElement("div");
 				var env2 = document.createElement("div");
 				var min = parseFloat(elem.dataset.min);
@@ -502,7 +527,7 @@ TemplateJS.View.regCustomElement("X-SLIDER", new TemplateJS.CustomElement(
 		},
 		function(elem) {
 			var number = elem.querySelector("input[type=number]");
-			if (number) return parseFloat(number.value);
+			if (number) return parseFloat(number.valueAsNumber);
 			else return 0;
 			
 		},

@@ -129,8 +129,8 @@ MTrader::Config load_internal(Ini ini, bool force_dry_run) {
 	cfg.acm_factor_sell = ini["acum_factor_sell"].getNumber(default_accum);
 
 
-	cfg.dynmult_raise = ini["dynmult_raise"].getNumber(250);
-	cfg.dynmult_fall = ini["dynmult_fall"].getNumber(0.5);
+	cfg.dynmult_raise = ini["dynmult_raise"].getNumber(200);
+	cfg.dynmult_fall = ini["dynmult_fall"].getNumber(5);
 	cfg.dynmult_mode = strDynmult_mode[ini["dynmult_mode"].getString(strDynmult_mode[Dynmult_mode::half_alternate])];
 	cfg.emulated_currency = ini["emulated_currency"].getNumber(0);
 	cfg.force_spread = ini["force_spread"].getNumber(0);
@@ -142,6 +142,7 @@ MTrader::Config load_internal(Ini ini, bool force_dry_run) {
 
 	cfg.sliding_pos_hours = ini["sliding_pos.hours"].getNumber(0);
 	cfg.sliding_pos_weaken = ini["sliding_pos.weaken"].getNumber(0);
+	cfg.sliding_pos_fade = ini["sliding_pos.fade"].getNumber(0);
 
 	cfg.title = ini["title"].getString();
 
@@ -217,17 +218,27 @@ const IStockApi::TWBHistory& MTrader::getTrades() const {
 	return trades;
 }
 
-double MTrader::calcWeakenMult(double neutral_pos, double balance) {
+MTrader::WeakenRes MTrader::calcWeakenMult(double neutral_pos, double balance) {
 
-	if (neutral_pos && cfg.sliding_pos_weaken ) {
-		double maxpos = cfg.external_assets* cfg.sliding_pos_weaken * 0.01;
-		double curpos = balance - neutral_pos;
-		double mult = (maxpos - fabs(curpos))/maxpos;
+	double mult;
+	double curpos = balance - neutral_pos;
+	if (neutral_pos && cfg.sliding_pos_fade ) {
+		mult = (cfg.sliding_pos_fade - fabs(curpos))/cfg.sliding_pos_fade;
 		if (mult < 1e-10) mult = 1e-10;
-		return mult;
+	} else if (neutral_pos && cfg.sliding_pos_weaken ) {
+		double maxpos = cfg.external_assets* cfg.sliding_pos_weaken * 0.01;
+		mult = (maxpos - fabs(curpos))/maxpos;
+		if (mult < 1e-10) mult = 1e-10;
 	} else {
-		return 1.0;
+		return {1.0,1.0};
 	}
+
+	if (curpos < 0) {
+		return {(mult*3+1)/4, mult};
+	} else {
+		return {mult, (mult*3+1)/4};
+	}
+
 }
 
 double MTrader::calcNeutralPos(const MTrader::Status &status) {
@@ -282,7 +293,7 @@ int MTrader::perform() {
 	double lastTradePrice = trades.empty()?status.curPrice:trades.back().eff_price;
 
 	bool calcadj = false;
-	double weakenMult = calcWeakenMult(neutral_pos, status.assetBalance);
+	auto weakenMult = calcWeakenMult(neutral_pos, status.assetBalance);
 
 	//if calculator is not valid, update it using current price and assets
 	if (!calculator.isValid()) {
@@ -327,12 +338,12 @@ int MTrader::perform() {
 			auto buyorder = calculateOrder(lastTradePrice,
 										  -status.curStep*buy_dynmult*cfg.buy_step_mult,
 										   status.curPrice, status.assetBalance, acm_buy,
-										   cfg.buy_mult * weakenMult);
+										   cfg.buy_mult * weakenMult.buy);
 			//calculate sell order
 			auto sellorder = calculateOrder(lastTradePrice,
 					                       status.curStep*sell_dynmult*cfg.sell_step_mult,
 										   status.curPrice, status.assetBalance, acm_sell,
-										   cfg.sell_mult * weakenMult);
+										   cfg.sell_mult * weakenMult.sell);
 
 			try {
 				setOrderCheckMaxPos(orders.buy, buyorder,status.assetBalance, neutral_pos);
@@ -438,7 +449,7 @@ int MTrader::perform() {
 			status.curPrice * (exp(status.curStep) - 1),
 			buy_dynmult,
 			sell_dynmult,
-			weakenMult,
+			std::min(weakenMult.buy, weakenMult.sell),
 			2 * value,
 			boost,
 			min_price,

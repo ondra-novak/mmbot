@@ -79,6 +79,7 @@ x-form  label, x-form  div.label {
 	display:flex;
 	align-items: center;
 	margin: 0.2em 0;
+	position: relative;
 }
 x-form  label > *, x-form  div.label > * {
 	display:block;
@@ -106,14 +107,12 @@ x-section {
 	box-sizing: border-box;
 }
 x-section.goal {
-	opacity: 1;
-	/*	transition: 0.7s all ease-in-out;*/
 	top: 0;
-	/* max-height: 15em; */
-	transform: rotateX(0);
 	margin: 1.1em 0;
 }
-x-section.goal.hidden {opacity: 0;padding-top: 0;padding-bottom: 0;max-height: 0;margin-top: -1em;margin-bottom: 0;/* top: -15em; */z-index: -10;transform: rotateX(90deg);}
+x-section.goal.hidden {
+	display:none
+}
 x-section-caption {
 	background-color: #222;
 	/* border: 1px solid; */
@@ -122,6 +121,7 @@ x-section-caption {
 	left: 1em;
 	top: -0.7em;
 	padding: 0 0.3em;
+	/* z-index:1; */
 }
 
 x-form.no_adv .adv {
@@ -134,7 +134,9 @@ x-form.no_adv .adv.unhide {
 x-form.no_adv label.adv.unhide, x-form.no_adv div.label.adv.unhide {
 	display: flex;
 }
-
+x-form label.modified, x-form div.label.modified {
+	color:yellow;	
+}
 
 div.trader.list .selected {
 	background-color: #333;
@@ -509,6 +511,29 @@ button > img {
 	font-size: 1cm;
 }
 
+span.tooltip {
+	position: absolute;
+	display: block;
+	width:  40%;
+	background: black;
+	z-index: 5000;
+	padding:  5px;
+	border: 1px solid #888;
+	top: 0;
+	left: 2em;
+	color:  white;
+	font-size: smaller;
+	pointer-events: none;
+	opacity: 0;
+	transition: 1s all cubic-bezier(1, -2.49, 1, 0.97);
+}
+
+label span:hover span.tooltip, div.label span:hover span.tooltip {
+	display: block;	
+	opacity:1;
+	
+}
+
 @media all and (max-width: 15cm) { 
 body{
 	font-size: 0.4cm;
@@ -581,5 +606,5 @@ input,select,button,textarea {
 	margin-right: 1em;
 }
 
-
 }
+

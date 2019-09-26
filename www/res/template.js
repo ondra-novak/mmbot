@@ -1272,6 +1272,8 @@ var TemplateJS = function(){
 		} else if (type == "radio") {
 			if (elem.checked) return elem.value;
 			else return curVal;
+		} else if (type == "number") {
+			return elem.valueAsNumber;		
 		} else if (type == "date") {
 			return	elem.valueAsDate;
 		} else {
