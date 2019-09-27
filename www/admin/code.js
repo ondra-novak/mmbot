@@ -268,22 +268,51 @@ function calc_range(a, ea, c, p, inv, leverage) {
 
 App.prototype.fillForm = function (src, trg) {
 	var data = {};	
-	var broker = fetch_with_error(this.brokerURL(src.broker));
-	var pair = fetch_with_error(this.pairURL(src.broker, src.pair_symbol));
-	var orders = fetch_json(this.pairURL(src.broker, src.pair_symbol)+"/orders");
 	data.id = src.id;
 	data.title = src.title;
 	data.symbol = src.pair_symbol;
-	data.broker = broker.then(function(x) {return x.exchangeName;});
-	data.no_api_key = broker.then(function(x) {return {".hidden": x.trading_enabled};});
-	data.broker_id = broker.then(function(x) {return x.name;});
-	data.broker_ver = broker.then(function(x) {return x.version;});
-	data.asset = pair.then(function(x) {return x.asset_symbol;})
-	data.currency = pair.then(function(x) {return x.currency_symbol;})
-	data.balance_asset= pair.then(function(x) {return adjNum(invSize(x.asset_balance,x.invert_price));})
-	data.balance_currency = pair.then(function(x) {return adjNum(x.currency_balance);})
-	data.price= pair.then(function(x) {return adjNum(invPrice(x.price,x.invert_price));})
-	data.leverage=pair.then(function(x) {return x.leverage?x.leverage+"x":"n/a";});
+	var broker;
+	var pair;
+	var orders;
+
+	var updateHdr = function(data) {
+		broker = fetch_with_error(this.brokerURL(src.broker));
+		pair = fetch_with_error(this.pairURL(src.broker, src.pair_symbol));
+		orders = fetch_json(this.pairURL(src.broker, src.pair_symbol)+"/orders");
+
+		data.broker = broker.then(function(x) {return x.exchangeName;});
+		data.no_api_key = broker.then(function(x) {return {".hidden": x.trading_enabled};});
+		data.broker_id = broker.then(function(x) {return x.name;});
+		data.broker_ver = broker.then(function(x) {return x.version;});
+		data.asset = pair.then(function(x) {return x.asset_symbol;})
+		data.currency = pair.then(function(x) {return x.currency_symbol;})
+		data.balance_asset= pair.then(function(x) {return adjNum(invSize(x.asset_balance,x.invert_price));})
+		data.balance_currency = pair.then(function(x) {return adjNum(x.currency_balance);})
+		data.price= pair.then(function(x) {return adjNum(invPrice(x.price,x.invert_price));})
+		data.leverage=pair.then(function(x) {return x.leverage?x.leverage+"x":"n/a";});
+		data.orders = Promise.all([orders,pair]).then(function(x) {
+			var orders = x[0];
+			var pair = x[1];
+			var mp = orders.map(function(z) {
+				return {
+					id: z.id,
+					dir: invSize(z.size,pair.invert_price)>0?"BUY":"SELL",
+					price:adjNum(invPrice(z.price, pair.invert_price)),
+					size: adjNum(Math.abs(z.size))
+				};});
+			if (mp.length) {
+				var butt = document.createElement("button");
+				butt.innerText="X";
+				mp[0].action = {
+						"rowspan":mp.length,
+						"value": butt
+				};
+				butt.addEventListener("click", this.cancelAllOrders.bind(this, src.id));
+			}
+			return mp;
+		}.bind(this),function(){});
+	}.bind(this);
+	updateHdr(data);
 	data.broker_img = this.brokerImgURL(src.broker);
 	data.advanced = src.advanced;
 
@@ -295,7 +324,7 @@ App.prototype.fillForm = function (src, trg) {
 			"value":pl?"pl":"norm",
 			".disabled": dissw 
 		};
-	})
+	})	
 	data.enabled = src.enabled;
 	data.dry_run = src.dry_run;
 	data.external_assets = defval(src.external_assets,0);
@@ -324,27 +353,6 @@ App.prototype.fillForm = function (src, trg) {
 	data.force_spread = filledval(adjNum((Math.exp(defval(src.force_spread,0))-1)*100),"0.000");
 	data.expected_trend=filledval(src.expected_trend,"");
 	data.open_orders_sect = orders.then(function(x) {return {".hidden":!x.length};},function() {return{".hidden":true};});	
-	data.orders = Promise.all([orders,pair]).then(function(x) {
-		var orders = x[0];
-		var pair = x[1];
-		var mp = orders.map(function(z) {
-			return {
-				id: z.id,
-				dir: invSize(z.size,pair.invert_price)>0?"BUY":"SELL",
-				price:adjNum(invPrice(z.price, pair.invert_price)),
-				size: adjNum(Math.abs(z.size))
-			};});
-		if (mp.length) {
-			var butt = document.createElement("button");
-			butt.innerText="X";
-			mp[0].action = {
-					"rowspan":mp.length,
-					"value": butt
-			};
-			butt.addEventListener("click", this.cancelAllOrders.bind(this, src.id));
-		}
-		return mp;
-	}.bind(this),function(){});
 
 	function updateEA() {	
 		var d = trg.readData(["power","goal","advanced"]);
@@ -400,6 +408,15 @@ App.prototype.fillForm = function (src, trg) {
 	data.icon_delete={"!click": this.deleteTrader.bind(this, src.id)};
 	data.icon_undo={"!click": this.undoTrader.bind(this, src.id)};
 	
+	function refresh_hdr() {
+		if (trg.getRoot().isConnected) {
+			var data = {};
+			updateHdr(data);
+			trg.setData(data);
+			setTimeout(refresh_hdr,60000);
+		}
+	}
+
 	function unhide_changed(x) {
 
 		var root = trg.getRoot();
@@ -421,7 +438,9 @@ App.prototype.fillForm = function (src, trg) {
 				}
 			}
 			x.addEventListener("change", markModified );
-		});
+		});	
+
+		setTimeout(refresh_hdr,60000);
 
 		return x;
 	}
@@ -1033,7 +1052,7 @@ App.prototype.init_backtest = function(form, id, pair) {
 
 				drawChart(chart1,chartData,"pl",[],"pln");
 				drawChart(chart2,chartData,"price",[],"np");
-				drawChart(chart3,chartData,"pos",[]);
+				drawChart(chart3,chartData,"achg",[]);
 			}, 1);
 		}
 		

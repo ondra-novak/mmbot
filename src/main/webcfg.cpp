@@ -292,6 +292,7 @@ bool WebCfg::reqBrokers(simpleServer::HTTPRequest req, ondra_shared::StrViewA re
 									for (auto &&x : ords) {
 										api->placeOrder(p,0,0,Value(),x.id, 0);
 									}
+									api->reset();
 									req.sendResponse(std::move(hdr),"true");
 									return true;
 								} else {
@@ -506,6 +507,7 @@ bool WebCfg::reqStop(simpleServer::HTTPRequest req) const {
 		for (auto &&x: trlist) {
 			x.second->stop();
 		};
+		trlist.resetBrokers();
 		trlist.runTraders();
 		trlist.resetBrokers();
 		req.sendResponse(std::move(hdr), "true");

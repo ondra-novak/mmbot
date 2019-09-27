@@ -83,6 +83,7 @@ var norm = 0;
 var tframe = ga*3600000;
 var tm = data[0].time;
 var newchart = [];
+var curet = 0;
 
 data.forEach(function(x) {
 	var p = inv?1/x.price:x.price;
@@ -92,7 +93,7 @@ data.forEach(function(x) {
 	if (tmdiff > Math.abs(tframe)) tmdiff = Math.abs(tframe);
 	var neq = pldiff*Math.sign(tframe)>0?eq + (p - eq) * (tmdiff/Math.abs(tframe)):eq;
 	if (Math.abs(pos) > mpos) mpos = Math.abs(pos);			
-	var nxpos = ea*Math.sqrt(eq*(1+et)/p)-ea;
+	var nxpos = ea*Math.sqrt(eq*(1+curet)/p)-ea;
 	var dpos = nxpos - pos ;
 	var mult = (fb?(fb - Math.abs(nxpos))/fb:1)*mlt;
 	if (mult < 0.000001) mult = 0.000001
@@ -103,7 +104,9 @@ data.forEach(function(x) {
 		if (mos <= 0) return;
 		dpos = -mos * dr
 	}
-	pos = pos + dpos * mult;
+	curet = curet + (et - curet)*0.05;
+	dpos = dpos * mult;
+	pos = pos + dpos;
 	pp = p;
 	eq = neq;
 	tm = x.time;
