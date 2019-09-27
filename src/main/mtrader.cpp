@@ -379,6 +379,8 @@ int MTrader::perform() {
 			}
 
 			currency_balance_cache = stock.getBalance(minfo.currency_symbol);
+			//we need change trend_adv slower to avoid shocks
+			cur_trend_adv = cur_trend_adv + (cfg.expected_trend - cur_trend_adv)*0.05;
 
 
 			if (cfg.sliding_pos_hours && trades.size()>1) {
@@ -642,7 +644,7 @@ MTrader::Order MTrader::calculateOrderFeeLess(
 		if (newPrice < curPrice) newPrice = curPrice;
 	}
 
-	Calculator ccalc (calculator.getPrice() * (1+ cfg.expected_trend * 0.01 * (minfo.invert_price?-1:1)),
+	Calculator ccalc (calculator.getPrice() * (1+ cur_trend_adv * 0.01 * (minfo.invert_price?-1:1)),
 					  calculator.getBalance(),false);
 
 	double newBalance = ccalc.price2balance(newPrice);
@@ -745,6 +747,7 @@ void MTrader::loadState() {
 			prev_spread = state["lnspread"].getNumber();
 			internal_balance = state["internal_balance"].getNumber();
 			double ext_ass = state["external_assets"].getNumber();
+			cur_trend_adv = state["trend"].getNumber();
 			ext_diff = cfg.external_assets - ext_ass;
 		}
 		auto chartSect = st["chart"];
@@ -821,6 +824,7 @@ void MTrader::saveState() {
 		st.set("lnspread", prev_spread);
 		st.set("internal_balance", internal_balance);
 		st.set("external_assets", cfg.external_assets);
+		st.set("trend",cur_trend_adv);
 	}
 	{
 		auto ch = obj.array("chart");
