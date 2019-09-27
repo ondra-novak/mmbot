@@ -230,6 +230,7 @@ protected:
 	double prev_calc_ref = 0;
 	double currency_balance_cache = 0;
 	size_t magic = 0;
+	double cur_trend_adv = 0;
 
 	void loadState();
 	void saveState();
