@@ -726,8 +726,8 @@ void MTrader::loadState() {
 			prev_spread = state["lnspread"].getNumber();
 			internal_balance = state["internal_balance"].getNumber();
 			double ext_ass = state["external_assets"].getNumber();
+			if (ext_ass != cfg.external_assets) drop_calc = true;
 			cur_trend_adv = state["trend"].getNumber();
-			ext_diff = cfg.external_assets - ext_ass;
 		}
 		auto chartSect = st["chart"];
 		if (chartSect.defined()) {
