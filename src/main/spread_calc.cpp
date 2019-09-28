@@ -83,7 +83,10 @@ static EmulResult emulateMarket(ondra_shared::StringView<IStatSvc::ChartItem> ch
 	cfg.neutralPosType = MTrader_Config::disabled;
 	cfg.sliding_pos_hours=0;
 	cfg.sliding_pos_weaken=0;
+	cfg.sliding_pos_fade=0;
 	cfg.expected_trend = 0;
+	cfg.buy_mult = 1;
+	cfg.sell_mult = 1;
 
 	class Selector: public IStockSelector {
 	public:
