@@ -99,6 +99,7 @@ MTrader::Config load_internal(Ini ini, bool force_dry_run) {
 	cfg.sell_step_mult = ini["sell_step_mult"].getNumber(1.0);
 	cfg.external_assets = ini["external_assets"].getNumber(0);
 	cfg.min_size = ini["min_size"].getNumber(0);
+	cfg.expected_trend = ini["expected_trend"].getNumber(0);
 	cfg.report_position_offset = ini["report_position_offset"].getNumber(0);
 
 
@@ -358,6 +359,8 @@ int MTrader::perform() {
 			}
 
 			currency_balance_cache = stock.getBalance(minfo.currency_symbol);
+			//we need change trend_adv slower to avoid shocks
+			cur_trend_adv = cur_trend_adv + (cfg.expected_trend - cur_trend_adv)*0.05;
 
 
 			if (cfg.sliding_pos_hours && trades.size()>1) {
@@ -621,11 +624,12 @@ MTrader::Order MTrader::calculateOrderFeeLess(
 		if (newPrice < curPrice) newPrice = curPrice;
 	}
 
+	Calculator ccalc (calculator.getPrice() * (1+ cur_trend_adv * 0.01 * (minfo.invert_price?-1:1)),
+					  calculator.getBalance(),false);
 
-
-	double newBalance = calculator.price2balance(newPrice);
+	double newBalance = ccalc.price2balance(newPrice);
 	double base = (newBalance - balance);
-	double extra = calculator.calcExtra(prevPrice, newPrice);
+	double extra = ccalc.calcExtra(prevPrice, newPrice);
 	double size = base +extra*fact;
 
 	ondra_shared::logDebug("Set order: step=$1, base_price=$6, price=$2, base=$3, extra=$4, total=$5",step, newPrice, base, extra, size, prevPrice);
@@ -723,7 +727,7 @@ void MTrader::loadState() {
 			internal_balance = state["internal_balance"].getNumber();
 			double ext_ass = state["external_assets"].getNumber();
 			if (ext_ass != cfg.external_assets) drop_calc = true;
-
+			cur_trend_adv = state["trend"].getNumber();
 		}
 		auto chartSect = st["chart"];
 		if (chartSect.defined()) {
@@ -798,6 +802,7 @@ void MTrader::saveState() {
 		st.set("lnspread", prev_spread);
 		st.set("internal_balance", internal_balance);
 		st.set("external_assets", cfg.external_assets);
+		st.set("trend",cur_trend_adv);
 	}
 	{
 		auto ch = obj.array("chart");
