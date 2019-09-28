@@ -234,9 +234,9 @@ MTrader::WeakenRes MTrader::calcWeakenMult(double neutral_pos, double balance) {
 	}
 
 	if (curpos < 0) {
-		return {(mult*3+1)/4, mult};
+		return {1.0, mult};
 	} else {
-		return {mult, (mult*3+1)/4};
+		return {mult, 1.0};
 	}
 
 }
@@ -1040,6 +1040,7 @@ void MTrader::repair() {
 	prev_spread = 0;
 	currency_balance_cache =0;
 	prev_calc_ref = 0;
+	cur_trend_adv = 0;
 	calculator.update(0,0);
 	saveState();
 }

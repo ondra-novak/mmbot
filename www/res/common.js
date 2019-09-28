@@ -95,17 +95,17 @@ data.forEach(function(x) {
 	if (Math.abs(pos) > mpos) mpos = Math.abs(pos);			
 	var nxpos = ea*Math.sqrt(eq*(1+curet)/p)-ea;
 	var dpos = nxpos - pos ;
-	var mult = (fb?(fb - Math.abs(nxpos))/fb:1)*mlt;
+	var mult = (fb?(fb - Math.abs(nxpos))/fb:1);
 	if (mult < 0.000001) mult = 0.000001
-	if (pos * dr < 0) {
-		mult = (mult * 3+1)/4;
+	if (pos * dpos < 0) {
+		mult = 1;
 	}
 	if (dpos * dr >= -mos) {
 		if (mos <= 0) return;
 		dpos = -mos * dr
 	}
 	curet = curet + (et - curet)*0.05;
-	dpos = dpos * mult;
+	dpos = dpos * mult * mlt;
 	pos = pos + dpos;
 	pp = p;
 	eq = neq;
