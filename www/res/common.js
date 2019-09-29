@@ -63,6 +63,7 @@ var mos = params.min_order_size || 0;
 var inv = params.invert || false;
 var et = params.expected_trend || 0;
 var pos = (inv?-1:1)*params.start_pos || 0;
+var mxs = params.max_order_size;
 
 
 if (data.length == 0) return {
@@ -100,12 +101,15 @@ data.forEach(function(x) {
 	if (pos * dpos < 0) {
 		mult = 1;
 	}
+	curet = curet + (et - curet)*0.05;
+	dpos = dpos * mult * mlt;
+	if (mxs && dpos * dr  < -mxs) {
+		dpos = -mxs * dr
+	} 
 	if (dpos * dr >= -mos) {
 		if (mos <= 0) return;
 		dpos = -mos * dr
 	}
-	curet = curet + (et - curet)*0.05;
-	dpos = dpos * mult * mlt;
 	pos = pos + dpos;
 	pp = p;
 	eq = neq;

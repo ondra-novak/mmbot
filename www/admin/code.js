@@ -345,6 +345,7 @@ App.prototype.fillForm = function (src, trg) {
 	data.dynmult_mode = filledval(src.dynmult_mode, "half_alternate");
 	data.order_mult = filledval(defval(src.buy_mult,1)*100,100);
 	data.min_size = filledval(src.min_size,0);
+	data.max_size = filledval(src.max_size,0);
 	data.internal_balance = filledval(src.internal_balance,0);
 	data.dust_orders = filledval(src.dust_orders,true);
 	data.detect_manual_trades = filledval(src.detect_manual_trades,false);
@@ -482,6 +483,7 @@ App.prototype.saveForm = function(form, src) {
 	trader.buy_mult = data.order_mult/100;
 	trader.sell_mult = data.order_mult/100;
 	trader.min_size = data.min_size;
+	trader.max_size = data.max_size;
 	trader.internal_balance = data.internal_balance;
 	trader.dust_orders = data.dust_orders;
 	trader.detect_manual_trades = data.detect_manual_trades;
@@ -957,7 +959,7 @@ App.prototype.init_backtest = function(form, id, pair) {
 		
 		var elems = ["external_assets","power", 
 			"sliding_pos_hours", "sliding_pos_fade",
-			"order_mult","min_size","dust_orders","expected_trend","goal"];
+			"order_mult","min_size","max_size","dust_orders","expected_trend","goal"];
 
 		var chart1 = bt.findElements('chart1')[0];
 		var chart2 = bt.findElements('chart2')[0];
@@ -1025,6 +1027,7 @@ App.prototype.init_backtest = function(form, id, pair) {
 						invert:false,
 						expected_trend:et,
 						start_pos:parseFloat(xdata.start_pos),
+						max_order_size:parseFloat(data.max_size),
 						});				
 
 				if (pair.invert_price) {
