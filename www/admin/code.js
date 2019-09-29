@@ -271,13 +271,13 @@ App.prototype.fillForm = function (src, trg) {
 	data.id = src.id;
 	data.title = src.title;
 	data.symbol = src.pair_symbol;
-	var broker;
+	var broker = fetch_with_error(this.brokerURL(src.broker));
 	var pair;
 	var orders;
 
 	var updateHdr = function(data) {
-		broker = fetch_with_error(this.brokerURL(src.broker));
-		pair = fetch_with_error(this.pairURL(src.broker, src.pair_symbol));
+		
+		pair = fetch_json(this.pairURL(src.broker, src.pair_symbol));
 		orders = fetch_json(this.pairURL(src.broker, src.pair_symbol)+"/orders");
 
 		data.broker = broker.then(function(x) {return x.exchangeName;});
