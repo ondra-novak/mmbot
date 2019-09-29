@@ -99,6 +99,7 @@ MTrader::Config load_internal(Ini ini, bool force_dry_run) {
 	cfg.sell_step_mult = ini["sell_step_mult"].getNumber(1.0);
 	cfg.external_assets = ini["external_assets"].getNumber(0);
 	cfg.min_size = ini["min_size"].getNumber(0);
+	cfg.max_size = ini["max_size"].getNumber(0);
 	cfg.expected_trend = ini["expected_trend"].getNumber(0);
 	cfg.report_position_offset = ini["report_position_offset"].getNumber(0);
 
@@ -681,6 +682,9 @@ MTrader::Order MTrader::calculateOrder(
 	Order order(calculateOrderFeeLess(lastTradePrice, step,curPrice,balance,acm,mult));
 
 
+	if (cfg.max_size && std::fabs(order.size) > cfg.max_size) {
+		order.size = cfg.max_size*sgn(order.size);
+	}
 	if (std::fabs(order.size) < cfg.min_size) {
 		order.size = cfg.min_size*sgn(order.size);
 	}
