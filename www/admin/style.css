@@ -75,6 +75,9 @@ x-slider > div:nth-child(2) {
 x-form {
 	display:block;
 }
+x-form.sections {
+	margin: 0px 2%;
+}
 x-form  label, x-form  div.label {
 	display:flex;
 	align-items: center;
@@ -218,10 +221,7 @@ div.dialog::before {
 div.broker.pair .form {
 	margin: 1em;
 }
-x-form.pair {
-	max-width: 20cm;
-	margin: 0 auto;
-}
+
 
 
 .control_row {display: flex;}
@@ -534,6 +534,27 @@ label span:hover span.tooltip, div.label span:hover span.tooltip {
 	
 }
 
+x-form.trading .buttons {text-align: center;}
+x-form.trading .buttons button {width: 40%}
+x-form.trading button.buy {background-color:#024e02;}
+x-form.trading button.sell {background-color:#5f0101;}
+x-form.trading table.orders  {width: 100%;border-collapse:collapse}
+x-form.trading table.orders td  {text-align:center;padding: 3px;border-top: 1px solid #333}
+x-form.trading table.orders tr { background-color:black;}
+x-form.trading table.orders td button {
+    min-width: 2em;
+    background-color: transparent;
+    border: 0;
+    box-shadow: 0 0 0;
+}
+x-form.trading table.orders td .spinner {display: inline-block;}
+x-form.trading .chart .spinner {
+	display:  block;
+	height:  1cm;
+	width: 1cm;
+	margin: 3cm auto;
+}
+
 @media all and (max-width: 15cm) { 
 body{
 	font-size: 0.4cm;
@@ -595,15 +616,27 @@ input,select,button,textarea {
 .vertical div.trader.list .item div {
 	display: inline-block;
 }
-.vertical .content x-form.pair {
+.vertical .content x-form.sections {
 	display:flex;
 	flex-wrap:wrap;
 	max-width: none;
+	justify-content: center;
+	margin: 0;
 }
-.vertical .content x-form.pair > * {
+.vertical .content x-form.sections > * {
 	flex-grow:1;
-	width: 14cm;
+	width: 15cm;
 	margin-right: 1em;
+}
+
+.vertical .content x-section.small_box {
+	width: 40%;
+	flex-grow: 2;
+}
+
+.vertical .content x-section.center_box {
+	flex-grow:0;
+	width: 11cm;
 }
 
 }

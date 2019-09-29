@@ -82,6 +82,7 @@ static EmulResult emulateMarket(ondra_shared::StringView<IStatSvc::ChartItem> ch
 	cfg.max_pos = 0;
 	cfg.neutralPosType = MTrader_Config::disabled;
 	cfg.sliding_pos_hours=0;
+	cfg.sliding_pos_fade=0;
 	cfg.sliding_pos_weaken=0;
 	cfg.expected_trend = 0;
 
@@ -156,12 +157,16 @@ std::pair<double,double> glob_calcSpread2(
 
 	using namespace ondra_shared;
 
-	for (int i = 0; i < steps; i++) {
+	bool cont = true;
+
+	for (int i = 0; i < steps || cont; i++) {
 
 		double curSpread = std::log(((low_spread+(hi_spread-low_spread)*i/(steps-1.0))+curprice)/curprice);
 			{
 				auto res = emulateMarket(chart, config, minfo, balance, curSpread);
 				auto profit = res.score;
+				if (profit > -10 || i>100*steps)
+					cont = false;
 				ResultItem resitem(profit,curSpread);
 				if (resiter->first < resitem.first) {
 					*resiter = resitem;

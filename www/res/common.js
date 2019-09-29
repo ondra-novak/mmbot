@@ -39,6 +39,25 @@ function adjNum(n, decimals) {
 	}
 }
 
+function adjNumN(n) {
+	if (typeof n != "number") return n;
+	var an = Math.abs(n);
+	if (an >= 100000) return n.toFixed(0);
+	else if (an >= 1) return n.toFixed(2);
+	else if (an > 0.0001) return n.toFixed(6);
+	else {
+		if (an === 0) return an;
+		else {
+			var s = n.toFixed(10);	
+			while (s[s.length-1] == '0') {
+				s = s.substr(0,s.length-1);
+			}
+			return s;
+		}
+	}
+	
+}
+
 function new_svg_el(name, attrs, childOf) {
 	var elem = document.createElementNS("http://www.w3.org/2000/svg", name);
 	if (attrs) {for (var i in attrs) {
@@ -268,4 +287,47 @@ function initChart(chart_interval, ratio, base_interval) {
 	}
 	
 };
+}
+function mergeArrays(array1, array2, cmp, fn) {
+	var pos1 = 0;
+	var pos2 = 0;
+	var cnt1 = array1.length;
+	var cnt2 = array2.length;
+	var last1 = null;
+	var last2 = null;
+	var res = [];
+	while (pos1 < cnt1 && pos2 < cnt2) {
+		var c = cmp(array1[pos1], array2[pos2]);
+		if (c < 0) {
+			last1 = array1[pos1];
+			res.push(fn(0,last1, last2, array2[pos2]));			
+			pos1++;
+		} else if (c>0) {
+			last2 = array2[pos2];
+			res.push(fn(1,last2, last1, array1[pos1]));
+			pos2++;
+		} else {
+			last1 = array1[pos1];
+			last2 = array2[pos2];
+			res.push(fn(0,last1, last2, last2));
+			pos1++;
+			pos2++;			
+		}
+	}
+	while (pos1 < cnt1) {
+		last1 = array1[pos1];
+		res.push(fn(0,last1, last2, null));
+		pos1++;
+	}
+	while (pos2 < cnt2) {
+		last2 = array2[pos2];
+		res.push(fn(1,last2, last1, null));
+		pos2++;
+	}
+	return res;
+}
+
+function interpolate(beg, end, cur, a, b) {
+	var n = (cur - beg)/(end - beg);
+	return a+(b-a)*n;
 }
