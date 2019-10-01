@@ -80,7 +80,7 @@ select > option[disabled] {
 	margin: 0.2cm 0.2cm 0 0.2cm;
 	flex-shrink: 1;
 	flex-grow: 1;
-	min-width: 40%;
+	/* min-width: 40%; */
 	overflow: auto;
 }
 

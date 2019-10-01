@@ -19,6 +19,7 @@ function app_start(){
 	var next_donate_time = 0;
 	var donation_repeat = (10*24*60*60*1000);
 	var last_ntf_time=Date.now();
+	var chart_padding = document.createElement("div");
 	
 	try {
 		lastField = localStorage["markettrader_lastfield"];
@@ -733,6 +734,9 @@ function app_start(){
 					lastField = null;
 					redraw();
 				}
+				
+				document.getElementById("chartarea")
+					.appendChild(chart_padding);
 				
 			}
 			
