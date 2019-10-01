@@ -1150,15 +1150,15 @@ App.prototype.tradingForm = function(id) {
 	dialogRules();
 	
 	var pair = fetch_with_error(this.pairURL(cfg.broker,cfg.pair_symbol));
-	var limit = 4*60;
+	var limit = 8*60;
 	function update() {		
 		var traderURL = _this.traderURL(id);
 		var pairURL = _this.pairURL(cfg.broker,cfg.pair_symbol);
 		Promise.all([pair,
 			fetch_with_error(traderURL+"/chart?limit="+limit),
 			fetch_with_error(traderURL+"/trades"),
-			fetch_json(pairURL+"/orders?reset=1"),
-			fetch_json(pairURL+"/ticker?reset=1")],{cache: 'reload'})
+			fetch_json(pairURL+"/orders?reset=1",{cache: 'reload'}),
+			fetch_json(pairURL+"/ticker?reset=1",{cache: 'reload'})])
 			.then(function(rs) {
 				var pair = rs[0];
 				var chartData = rs[1];

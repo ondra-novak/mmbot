@@ -6,7 +6,7 @@ body {
 	color:#CDCDCD;
 	font-family: Ruda;
 	margin:0;
-	font-size: 0.5cm;
+	font-size: 0.4cm;
 	padding: 0;
 }
 
@@ -17,7 +17,7 @@ input,select,button,textarea {
 	padding: 0.1cm;
 	color: white;
 	font-family: Ruda;
-	font-size: 0.5cm;
+	font-size: 0.4cm;
 	box-sizing:border-box;
 }
 input[type="date"] {
@@ -166,7 +166,6 @@ div.trader.list > * {
 	margin: 0.2cm 0.1cm;
 	text-align:center;
 	position: relative;
-	font-size: 0.7em;
 }
 
 div.trader.list .exclamation {position: absolute;right: 0;top: -5px;font-size: 0.7cm;/* font-weight: bold; */color: #F44;text-shadow: 0 0 10px black, 0 0 5px black, 0 0 2px black;}
@@ -356,7 +355,7 @@ a {
 }
 
 .backtest {
-	width: 101% !important;
+	width: 100% !important;
 }
 
 @keyframes rot {
@@ -556,9 +555,6 @@ x-form.trading .chart .spinner {
 }
 
 @media all and (max-width: 15cm) { 
-body{
-	font-size: 0.4cm;
-}
 
 
 input,select,button,textarea {
