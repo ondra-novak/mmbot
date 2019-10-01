@@ -12,7 +12,6 @@
 #include <shared/shared_function.h>
 #include <simpleServer/http_parser.h>
 #include <imtjson/namedEnum.h>
-#include <imtjson/shared/refcnt.h>
 #include <mutex>
 
 #include <shared/ini_config.h>
