@@ -57,6 +57,8 @@ protected:
 struct EmulResult {
 	double score;
 	int trades;
+	bool mincount;
+	bool maxcount;
 };
 
 static EmulResult emulateMarket(ondra_shared::StringView<IStatSvc::ChartItem> chart,
@@ -120,11 +122,15 @@ static EmulResult emulateMarket(ondra_shared::StringView<IStatSvc::ChartItem> ch
 	if (tcount == 0) return EmulResult{-1001,0};
 	std::intptr_t min_count = std::max<std::intptr_t>(counter*cfg.spread_calc_min_trades/1440,1);
 	std::intptr_t max_count = (counter*cfg.spread_calc_max_trades+1439)/1440;
-	if (tcount < min_count) score = tcount-min_count;
-	else if (tcount > max_count) score = max_count-tcount;
+	bool minr = tcount < min_count;
+	bool maxr = tcount > max_count;
+	if (minr) score = tcount-min_count;
+	else if (maxr) score = max_count-tcount;
 	return EmulResult {
 		score,
-		static_cast<int>(tcount)
+		static_cast<int>(tcount),
+		minr,
+		maxr
 	};
 }
 
@@ -155,19 +161,21 @@ std::pair<double,double> glob_calcSpread2(
 	auto resbeg = std::begin(bestResults);
 	auto resiter = resbeg;
 
+	bool mincount = true;
+	bool maxcount = true;
+
 	using namespace ondra_shared;
 
-	bool cont = true;
-
-	for (int i = 0; i < steps || cont; i++) {
+	for (int i = 0; i < steps ; i++) {
 
 		double curSpread = std::log(((low_spread+(hi_spread-low_spread)*i/(steps-1.0))+curprice)/curprice);
 			{
 				auto res = emulateMarket(chart, config, minfo, balance, curSpread);
 				auto profit = res.score;
-				if (profit > -10 || i>100*steps)
-					cont = false;
+				mincount = mincount && res.mincount;
+				maxcount = maxcount && res.maxcount;
 				ResultItem resitem(profit,curSpread);
+
 				if (resiter->first < resitem.first) {
 					*resiter = resitem;
 					resiter = std::min_element(resbeg, resend);
@@ -177,6 +185,10 @@ std::pair<double,double> glob_calcSpread2(
 			}
 	}
 
+	if (best_profit<=0) {
+		if (mincount) return {prev_val/2, 0};
+		if (maxcount) return {prev_val*2, 0};
+	}
 
 	double sugg_spread = pow(std::accumulate(
 			std::begin(bestResults),

@@ -1046,6 +1046,19 @@ void MTrader::repair() {
 	prev_calc_ref = 0;
 	cur_trend_adv = 0;
 	calculator.update(0,0);
+
+	if (!trades.empty()) {
+		auto st = getMarketStatus();
+		auto tm = trades.back().time;
+		stock.reset();
+		IStockApi::TradeHistory cur_trades = stock.getTrades(json::Value(),cfg.start_time,cfg.pairsymb);
+		for (auto &&k: cur_trades) {
+			if (k.time > tm) {
+				st.new_trades.push_back(k);
+			}
+		}
+		processTrades(st, true);
+	}
 	saveState();
 }
 
