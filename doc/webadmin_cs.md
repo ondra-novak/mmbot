@@ -1,4 +1,4 @@
-## Web Admin - instalace a přecho
+## Web Admin - instalace a přechod
 
 ### Co se mění přechodem na "webadmin" verzi
 
@@ -12,7 +12,7 @@ S přidáním konfigurace prostřednictvím webového rozhraní ale přichází 
 
 - **konfigurace je jednodušší** - konfigurační soubory jsou teď mnohem kratší, spousta nastavení se děje přímo v prohlížeči. Po instalaci lze robota hned spustit a webové prostředí je bez dalšího nastavení ihned k dispozici
 
-- **nastavení API klíčů se děje přes konfigurační soubory** - tato část se nezměnila. Ve webovém prostředí není možné nastavovat API klíče. K tomu je třeba upravit patřičnou sekci v konfiguračním souboru brokera. Je to záměr i kvůli bezpečnosti, aby neexistovala žádná možnost najít způsob jak přes webové rozhranní ukrást tyto klíče.
+- **nastavení API klíčů se děje přes konfigurační soubory** - tato část se nezměnila. Ve webovém prostředí není možné nastavovat API klíče. K tomu je třeba upravit patřičnou sekci v konfiguračním souboru brokera. Je to záměr i kvůli bezpečnosti, aby neexistovala žádná možnost najít způsob jak přes webové rozhraní ukrást tyto klíče.
 
 ### Instalace 
 
@@ -34,7 +34,7 @@ Webové rozhraní je přístupné v prohlížeči na adrese [http://localhost:11
 
 Pokud instalujete robota vzdáleně přes `ssh`, pak se doporučuje aktivovat ssh tunel pomocí přepínače `-L11223:localhost:11223`. Tím lze prostředí pomocí stejného odkazu otevřít lokálně a bude fungovat tak dlouho, dokud je `ssh` aktivní
 
-Než však můžete přidávat páry z různých směnáren, je třeba do konfiguračních souborů nastavít API klíče. Webové rozhraní sice umožní vytvořit nastavení pro směnárnu, ke které nemáte API klíč, ale bude na tuto skutečnost upozorňovat pomocí červeného vykřičníku a některé funkce nebudou pracovat správně
+Než však můžete přidávat páry z různých směnáren, je třeba do konfiguračních souborů nastavit API klíče. Webové rozhraní sice umožní vytvořit nastavení pro směnárnu, ke které nemáte API klíč, ale bude na tuto skutečnost upozorňovat pomocí červeného vykřičníku a některé funkce nebudou pracovat správně
 
 Konfigurační soubory klíčů najdete v `conf/brokers/`
 
@@ -75,7 +75,7 @@ Zároveň lze zvolit, jestli report stránka bude veřejná, nebo chráněná he
 
 #### když zapomenu heslo?
 
-Existuje způsob, jak se dostat do nastavení i v případě ztráty hesla. Ten způsob vede přes `web_admin.conf` v sekci `[web_admin]`. V této sekci lze nastavit pevný login administrátora v položce `auth`. Způsob nastavení je uveden přímo v configu v komentářové části. Je potřeba tento klíč povolit smazáním # a správně nastavit. Po restartu robota lze nově zvolený login použít pro příhlášení a změnit nastavení zabezpečení
+Existuje způsob, jak se dostat do nastavení i v případě ztráty hesla. Ten způsob vede přes `web_admin.conf` v sekci `[web_admin]`. V této sekci lze nastavit pevný login administrátora v položce `auth`. Způsob nastavení je uveden přímo v configu v komentářové části. Je potřeba tento klíč povolit smazáním # a správně nastavit. Po restartu robota lze nově zvolený login použít pro přihlášení a změnit nastavení zabezpečení
 
 ### Jak pracovat s nastavením
 
@@ -98,7 +98,7 @@ V okamžiku zakládání tradera, kterého přenášíte z `traders.conf` jednod
 
 Webové prostředí není optimalizováno na rychlou odezvu. Proto pomalá odezva prostředí je běžnou věcí a není třeba se tím trápit. Co je příčinou pomalé odezvy?
 
- 1. Webové prostředí beží pouze v jednom vláknu. Nepředpokládá se, že by prostředí používaly stovky uživatelů. a zpravidla se předpokládá, že celý robot pracuje na malé a  výkonově slabé VPS. Proto se větší část CPU nechává pro výpočty robota a webové prostředí má nižší prioritu
+ 1. Webové prostředí běží pouze v jednom vláknu. Nepředpokládá se, že by prostředí používaly stovky uživatelů. a zpravidla se předpokládá, že celý robot pracuje na malé a  výkonově slabé VPS. Proto se větší část CPU nechává pro výpočty robota a webové prostředí má nižší prioritu
  
  2. V některých situacích webové rozhraní přímo zasahuje do výpočtů robota, i v takovém případě mají výpočty přednost a webové rozhraní musí počkat, až se vše bez narušení spočítá
  
