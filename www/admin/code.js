@@ -232,11 +232,12 @@ function filledval(v,w) {
 
 function powerToEA(power, pair) {
 		var total; 
+		var bal = pair.currency_balance || (pair.price*100);
 		if (pair.leverage) {
-			total = pair.currency_balance / pair.price;
+			total = bal / pair.price;
 			return power * total;
 		} else {
-			total = pair.currency_balance / pair.price + pair.asset_balance;
+			total = bal / pair.price + pair.asset_balance;
 			return power * total;
 		}
 }
