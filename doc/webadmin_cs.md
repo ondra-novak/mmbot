@@ -22,7 +22,7 @@ Verzi `webadmin` lze instalovat pouze z větve `webadmin`. Doporučuje se instal
 `cmake make g++ git libcurl4-openssl-dev libssl-dev libcurlpp-dev`, Doporučuje se také pro robota vytvořit odděleného uživatele)
 
 ```
-$ git clone -b webadmnin https://github.com/ondra-novak/mmbot.git mmbot_webadmin
+$ git clone -b webadmin https://github.com/ondra-novak/mmbot.git mmbot_webadmin
 $ cd mmbot_webadmin
 $ ./update
 $ bin/mmbot start
