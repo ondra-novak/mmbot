@@ -8,6 +8,7 @@
 
 #include "webcfg.h"
 
+#include <random>
 #include <imtjson/array.h>
 #include <imtjson/object.h>
 #include <imtjson/string.h>
@@ -15,6 +16,7 @@
 #include "../imtjson/src/imtjson/ivalue.h"
 #include "../imtjson/src/imtjson/parser.h"
 #include "../imtjson/src/imtjson/operations.h"
+#include "../imtjson/src/imtjson/serializer.h"
 #include "../server/src/simpleServer/query_parser.h"
 #include "../server/src/simpleServer/urlencode.h"
 #include "../shared/ini_config.h"
@@ -30,7 +32,8 @@ NamedEnum<WebCfg::Command> WebCfg::strCommand({
 	{WebCfg::brokers, "brokers"},
 	{WebCfg::traders, "traders"},
 	{WebCfg::stop, "stop"},
-	{WebCfg::logout, "logout"}
+	{WebCfg::logout, "logout"},
+	{WebCfg::logout_commit, "logout_commit"}
 });
 
 WebCfg::WebCfg(
@@ -71,7 +74,8 @@ bool WebCfg::operator ()(const simpleServer::HTTPRequest &req,
 		case brokers: return reqBrokers(req, rest);
 		case stop: return reqStop(req);
 		case traders: return reqTraders(req, rest);
-		case logout: return reqLogout(req);
+		case logout: return reqLogout(req,false);
+		case logout_commit: return reqLogout(req,true);
 		}
 	}
 	return false;
@@ -209,6 +213,9 @@ bool WebCfg::reqBrokers(simpleServer::HTTPRequest req, ondra_shared::StrViewA re
 				StrViewA pair = splt();
 				StrViewA orders = splt();
 
+				if (req.getPath().indexOf("reset=1") != StrViewA::npos) {
+					api->reset();
+				}
 
 				if (entry.empty()) {
 					if (!req.allowMethods({"GET"})) return true;
@@ -296,11 +303,22 @@ bool WebCfg::reqBrokers(simpleServer::HTTPRequest req, ondra_shared::StrViewA re
 									req.sendResponse(std::move(hdr),"true");
 									return true;
 								} else {
+									api->reset();
 									Stream s = req.getBodyStream();
 									Value parsed = Value::parse(s);
+									Value price = parsed["price"];
+									if (price.type() == json::string) {
+										auto ticker = api->getTicker(pair);
+										if (price.getString() == "ask") price = ticker.ask;
+										else if (price.getString() == "bid") price = ticker.bid;
+										else {
+											req.sendErrorPage(400,"","Invalid price");
+											return true;
+										}
+									}
 									Value res = api->placeOrder(pair,
 											parsed["size"].getNumber(),
-											parsed["price"].getNumber(),
+											price.getNumber(),
 											parsed["clientId"],
 											parsed["replaceId"],
 											parsed["replaceSize"].getNumber());
@@ -360,7 +378,7 @@ bool WebCfg::reqTraders(simpleServer::HTTPRequest req, ondra_shared::StrViewA vp
 						req.sendResponse(std::move(hdr), "true");
 					} else {
 						req.sendResponse(std::move(hdr),
-							Value({"stop","reset","repair","trades","calculator"}).stringify());
+							Value({"stop","reset","repair","trades","calculator","chart"}).stringify());
 					}
 				} else {
 					tr->init();
@@ -381,6 +399,7 @@ bool WebCfg::reqTraders(simpleServer::HTTPRequest req, ondra_shared::StrViewA vp
 						if (!splt) {
 							if (!req.allowMethods({"GET"})) return ;
 							auto trades = tr->getTrades();
+							hdr.cacheFor(50);
 							req.sendResponse(std::move(hdr),
 									Value(json::array, trades.begin(), trades.end(),
 										[&](auto &&t) {
@@ -396,6 +415,26 @@ bool WebCfg::reqTraders(simpleServer::HTTPRequest req, ondra_shared::StrViewA vp
 							}
 
 						}
+					} else if (cmd == "chart") {
+						simpleServer::QueryParser qp(req.getPath());
+						auto strlimit = qp["limit"];
+						unsigned int limit = 120;
+						if (strlimit.defined()) {
+							limit = strtoul(strlimit.data,0,10);
+						};
+						auto chart = tr->getChart();
+						if (limit > chart.length) limit = chart.length;
+						auto subchart = chart.substr(chart.length - limit);
+						Value jsondata(json::array, subchart.begin(), subchart.end(),[&](auto &&item) {
+							return Object
+									("last", item.last)
+									("ask", item.ask)
+									("bid", item.bid)
+									("time", item.time);
+						});
+						hdr.cacheFor(50);
+						auto s = req.sendResponse(std::move(hdr));
+						jsondata.serialize(s);
 					} else if (cmd == "calculator") {
 						if (!req.allowMethods({"GET","PUT"})) return ;
 						if (req.getMethod() == "GET") {
@@ -491,8 +530,27 @@ void WebCfg::State::init() {
 	init(config->load());
 }
 
-bool WebCfg::reqLogout(simpleServer::HTTPRequest req) const {
-	auth.genError(req);
+bool WebCfg::reqLogout(simpleServer::HTTPRequest req, bool commit) const {
+
+	auto hdr = req["Authorization"];
+	auto hdr_splt = hdr.split(" ");
+	hdr_splt();
+	StrViewA cred = hdr_splt();
+	auto credobj = AuthUserList::decodeBasicAuth(cred);
+	if (commit) {
+		if (state->logout_commit(std::move(credobj.first)))
+			auth.genError(req);
+		else
+			req.sendResponse("text/plain","");
+	} else {
+		state->logout_user(std::move(credobj.first));
+		std::string rndstr;
+		std::time_t t = std::time(nullptr);
+		rndstr = "?";
+		ondra_shared::unsignedToString(t,[&](char c){rndstr.push_back(c);},16,8);
+		req.redirect(strCommand[logout_commit].data+rndstr,Redirect::temporary_GET);
+	}
+
 	return true;
 }
 
@@ -515,4 +573,19 @@ bool WebCfg::reqStop(simpleServer::HTTPRequest req) const {
 	});
 
 	return true;
+}
+
+void WebCfg::State::logout_user(std::string &&user) {
+	Sync _(lock);
+	logout_users.insert(std::move(user));
+}
+
+bool WebCfg::State::logout_commit(std::string &&user) {
+	Sync _(lock);
+	if (logout_users.find(user) == logout_users.end()) {
+		return false;
+	} else {
+		logout_users.erase(user);
+		return true;
+	}
 }

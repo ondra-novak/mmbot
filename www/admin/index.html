@@ -9,10 +9,11 @@
 </head>
 <body onload="app_start();">
 <template id="trader_form">
-<x-form class="pair no_adv">
+<x-form class="pair no_adv sections">
 <x-section><x-section-caption>Info</x-section-caption>
 <div class="rightinfo pairactions">Actions: 
 	<img src="../res/undo.png" title="Undo changes" data-name="icon_undo"> 
+	<img src="../res/trading.png" title="Trading UI" data-name="icon_trading">
 	<img src="../res/reset_stats.png" title="Reset statistics" data-name="icon_reset"> 
 	<img src="../res/repair.png" title="Repair" data-name="icon_repair"> 
 	<img src="../res/delete.png" title="Delete" data-name="icon_delete"></div>
@@ -101,6 +102,9 @@ cause to stop the trading alltoghether without a chance to return (The 'accept l
 Specifies minimal order size. If disabled, minimal size is defined by the exchange. This also
 specifies size of the "dust order"
 </span></span><input type="number" data-name="min_size" step="any"></label>
+<label  class="adv"><span>Order maximal size (0&nbsp;=&nbsp;disabled)<span class="tooltip">
+Specifies maximal order size. 
+</span></span><input type="number" data-name="max_size" step="any"></label>
 <label  class="adv"><span>Order size modifier [%]<span class="tooltip">It is recomended to set values below
 100. This makes orders smaller but also causes that order will be split into smaller orders. For
 example if you specify value 50, the order 24 may be split to orders 12, 6, 3, 2, 1 = 24. This can
@@ -142,7 +146,7 @@ The value represents a slope of the trend with no exact representation. </span><
 <label class="adv"><input type="checkbox" data-name="detect_manual_trades"> Detect manual trades </label>
 </div>
 </div>
-<label class="adv"><span>Report - position offset<span class="tooltip">Allows to sync the position on the report page with the actual state on the echange.<br<br>
+<label class="adv"><span>Report - position offset<span class="tooltip">Allows to sync the position on the report page with the actual state on the echange.<br>
 The position is not generally in the sync due to various issues. You need to specify a difference between the calculated position presented on the report page and the actual position on the exchhange
 </span></span><input type="number" step="any" data-name="report_position_offset"></label>
 <label class="adv"><span>Force spread (0=disabled)<span class="tooltip">Specifies exact spread width and disables the internal spread detection</span></span><input type="number" step="any" data-name="force_spread"></label>
@@ -204,7 +208,10 @@ The position is not generally in the sync due to various issues. You need to spe
 <div class="flexpanel">
 <div><a href="../"><span class="fonticon backicon">&lt;</span></a> MMBot administration</div>
 <div>
-<div data-name="save" class="panelbutton">
+<div data-name="login" class="panelbutton">
+	<img src="../res/security.png" class="fonticon"> Login 
+</div>
+<div data-name="save" class="panelbutton" hidden="hidden">
 	<img src="../res/save_icon.png" class="fonticon"> Save <div data-name="saveok"  class="save hide ok" hidden="hidden">✓</div>
 	<div data-name="saveprogress" class="save spinner fast" hidden="hidden"></div></div>
 </div>
@@ -213,7 +220,7 @@ The position is not generally in the sync due to various issues. You need to spe
 
 <template id="main_form_wait">
 <div class="main_form_wait">
-<x-form class="pair">
+<x-form class="pair sections">
 <x-section><x-section-caption>Info</x-section-caption>
 <div class="spinner"></div>
 </x-section>
@@ -282,6 +289,7 @@ The position is not generally in the sync due to various issues. You need to spe
 <template id="confirm">
 <div class="dialog">
 <div class="confirm">
+<h2 data-name="hdr"></h2>
 <p data-name="text"></p>
 <button data-name="ok">OK</button>
 <button data-name="cancel">Cancel</button>
@@ -331,11 +339,12 @@ The position is not generally in the sync due to various issues. You need to spe
 <div data-name="chart1"><div><em>Loading data, please wait...</em><div class="spinner fast save"></div></div></div>
 <div data-name="chart2"></div>
 <div data-name="chart3"></div>
+</div>
 <div class="label"><span>Range</span><div><input data-name="date_from" type="date">
 											<input data-name="date_to" type="date"></div>
 </div>
 <div class="label"><span>Apply from</span><div><input data-name="apply_from" type="date"></div></div>
-<div class="label"><span>Starting position</span><input data-name="start_pos" type="number" step="any">
+<div class="label"><span>Starting position</span><input data-name="start_pos" type="number" step="any"></div>
 </x-section>
 </template>
 
@@ -346,12 +355,18 @@ The position is not generally in the sync due to various issues. You need to spe
     data-askdelete="Confirm trader deletion. This also cancels all orders."
     data-yes="Yes"
     data-no="No"
+    data-reload="↻ Reload"
     data-need_admin="You need to define at least one user with the administration role"
     data-backtest_lesstrades="There are less than 100 trades. Results can be inaccurate"
     data-backtest_nodata="Backtest is not available yet (no data). Run trader with minimal power to collect some trades. At least 100 trades is needed."
     data-access_control="Access control"
     data-options="Options"
     data-global_stop_confirm="This temporaly stops trading for the all configured traders and cancels all orders. To reenable trading, you need to hit the 'Save' button"
+    data-conflict1="Configuration has been modified externally and cannot be overwritten."
+    data-conflict2="Do you want to reload the configuration?"
+    data-buy="BUY"
+    data-sell="SELL"
+    data-trade_ask_stop="This trader is currently in the automatic trading mode. Do you wish to stop the automatic trading to allow a manual trading?"
     ></span>
 
 
@@ -363,7 +378,7 @@ The position is not generally in the sync due to various issues. You need to spe
 	
 	
 <template id="options_form">
-<x-form  class="pair options_form">
+<x-form  class="pair options_form sections">
 <x-section><x-section-caption>Options</x-section-caption>
 <label><span>Range of charts [days]: </span><x-slider data-min="1" data-max="30" data-mult="1" data-name="report_interval"></x-slider></label>
 </x-section>
@@ -373,3 +388,38 @@ The position is not generally in the sync due to various issues. You need to spe
 </template>
 
 	
+<template id="trading_form">
+<x-form class="trading sections">
+<x-section class="wide backtest"><x-section-caption>Chart</x-section-caption>
+<div class="chart" data-name="chart"><div class="spinner"></div></div>
+</x-section>
+<x-section class="small_box"><x-section-caption>Ticker</x-section-caption>
+<label><span>Ask</span><input type="text" data-name="ask_price" readonly="readonly"></label>
+<label><span>Last</span><input type="text" data-name="last_price" readonly="readonly"></label>
+<label><span>Bid</span><input type="text" data-name="bid_price" readonly="readonly"></label>
+<label><span>Balance assets</span><input type="text" data-name="bal_assets" readonly="readonly"></label>
+<label><span>Balance currency</span><input type="text" data-name="bal_currency" readonly="readonly"></label>
+</x-section>
+<x-section  class="small_box"><x-section-caption>Open orders</x-section-caption>
+<table class="orders">
+<tr><th>Direction</th><th>Price</th><th>Size</th><th></th></tr>
+<tr data-name="orders[]">
+<td data-name="dir">buy</td>
+<td data-name="price">123456</td>
+<td data-name="size">123456</td>
+<td><button data-name="cancel">X</button><div class="spinner fast" hidden="hidden" data-name="spinner"></div></td></tr>
+</table>
+</x-section>
+<x-section class="center_box"><x-section-caption>New order</x-section-caption>
+<label><span>Edit order</span><select name="edit_order"><option value="">-- new order --</option><option name="edit_orders[]" value=""></option></select></label>
+<label><span>Order size</span><input type="number" step="any" data-name="order_size"></label>
+<label><span>Price</span><input type="number" step="any" data-name="order_price"></label>
+<div class="buttons">
+<button data-name="button_buy" class="buy">BUY</button>
+<button data-name="button_sell" class="sell">SELL</button>
+<button data-name="button_buybid" class="buy">BUY at bid</button>
+<button data-name="button_sellask" class="sell">SELL at ask</button>
+</div>
+</x-section>
+</x-form>
+</template>

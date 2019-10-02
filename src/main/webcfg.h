@@ -12,7 +12,6 @@
 #include <shared/shared_function.h>
 #include <simpleServer/http_parser.h>
 #include <imtjson/namedEnum.h>
-#include <imtjson/shared/refcnt.h>
 #include <mutex>
 
 #include <shared/ini_config.h>
@@ -52,6 +51,10 @@ public:
 		void init(json::Value v);
 		void applyConfig(Traders &t);
 		void setAdminAuth(json::StrViewA auth);
+		ondra_shared::linear_set<std::string> logout_users;
+
+		void logout_user(std::string &&user);
+		bool logout_commit(std::string &&user);
 	};
 
 
@@ -71,7 +74,8 @@ public:
 		brokers,
 		traders,
 		stop,
-		logout
+		logout,
+		logout_commit
 	};
 
 	AuthMapper auth;
@@ -87,7 +91,7 @@ protected:
 	bool reqSerial(simpleServer::HTTPRequest req) const;
 	bool reqBrokers(simpleServer::HTTPRequest req, ondra_shared::StrViewA rest) const;
 	bool reqTraders(simpleServer::HTTPRequest req, ondra_shared::StrViewA rest) const;
-	bool reqLogout(simpleServer::HTTPRequest req) const;
+	bool reqLogout(simpleServer::HTTPRequest req, bool commit) const;
 	bool reqStop(simpleServer::HTTPRequest req) const;
 
 	using Sync = std::unique_lock<std::recursive_mutex>;
