@@ -13,6 +13,8 @@
 #include "emulator.h"
 #include "sgn.h"
 
+using ondra_shared::logDebug;
+using ondra_shared::logInfo;
 using ondra_shared::logNote;
 using ondra_shared::StrViewA;
 
@@ -145,6 +147,8 @@ MTrader::Config load_internal(Ini ini, bool force_dry_run) {
 	cfg.sliding_pos_weaken = ini["sliding_pos.weaken"].getNumber(0);
 	cfg.sliding_pos_fade = ini["sliding_pos.fade"].getNumber(0);
 
+	cfg.auto_max = ini["auto_max_size"].getBool(true);
+
 	cfg.title = ini["title"].getString();
 
 
@@ -219,7 +223,7 @@ const IStockApi::TWBHistory& MTrader::getTrades() const {
 	return trades;
 }
 
-MTrader::WeakenRes MTrader::calcWeakenMult(double neutral_pos, double balance) {
+MTrader::WeakenRes MTrader::calcWeakenMult(double neutral_pos, double balance) const {
 
 	double mult;
 	double curpos = balance - neutral_pos;
@@ -238,6 +242,103 @@ MTrader::WeakenRes MTrader::calcWeakenMult(double neutral_pos, double balance) {
 		return {1.0, mult};
 	} else {
 		return {mult, 1.0};
+	}
+
+}
+
+MTrader::SCBResult MTrader::sizeControlBacktest(double max_size, double min_size, double neutral_pos) const {
+
+	if (trades.empty()) return SCBResult {false};
+	double pos = 0;
+	double pl = 0;
+	Calculator calc(trades[0].price, neutral_pos, false);
+	double pp = trades[0].eff_price;
+	double tm = trades[0].time;
+	double p = 1;
+	double pssmax = 0;
+
+	for (auto &&t: trades) {
+		p = t.eff_price;
+		double tm2 = t.time;
+		double pldiff = pos * (p - pp);
+
+		pl+=pldiff;
+
+		double z = calc.price2balance(p);
+		auto weak = calcWeakenMult(neutral_pos, neutral_pos+pos);
+		double chg = z - (neutral_pos+pos);
+		if (p > pp) {
+			chg = chg * cfg.buy_mult * weak.buy;
+		} else {
+			chg = chg * cfg.sell_mult * weak.sell;
+		}
+		pssmax = std::max(std::fabs(chg),pssmax);
+		if (std::fabs(chg) < min_size) chg = sgn(chg)*min_size;
+		if (std::fabs(chg) > max_size) chg = sgn(chg)*max_size;
+		pos = pos + chg;
+		if (cfg.max_pos && std::fabs(pos) > cfg.max_pos) pos = sgn(pos) * cfg.max_pos;
+
+		if (cfg.sliding_pos_hours) {
+			double tdf = tm2-tm;
+			if (tdf > 0) {
+				double tot = cfg.sliding_pos_hours * 3600 * 1000;
+				double eq = calc.balance2price(neutral_pos);
+				double neq = (pldiff*tot)>0? eq + (p - eq) * (tdf/fabs(tot)):eq;
+				calc = Calculator(neq, neutral_pos, false);
+			}
+		}
+		pp = p;
+		tm = tm2;
+	}
+	double eq = calc.balance2price(neutral_pos);
+	double pln = pl + pos*(eq-std::sqrt(p*eq));
+	return SCBResult{true, pln, pssmax};
+}
+
+template<typename T, typename Q,  typename Fn>
+T findMax(Q min, T low, T high, unsigned int steps, unsigned int levels, Fn &&fn) {
+	if (levels <=0) return (low+high)/2;
+
+	T step = (high - low)/steps;
+	Q max = min;
+	unsigned int best = 0;
+	for(unsigned int i = 0; i< steps; i++) {
+		T l = low + i * step;
+		Q v = fn(l);
+		if (v > max) {
+			max = v;
+			best = i;
+		}
+	}
+
+	T l = low + best * step;
+	T h = low + (best+1) * step;
+	levels--;
+	if (levels) {
+		return findMax(min, l, h, steps, levels, std::move(fn));
+	} else {
+		return (l+h)/2;
+	}
+}
+
+double MTrader::findMaxSize(double neutral_pos) const {
+	double min_size = std::max(minfo.min_size, cfg.min_size);
+	auto r1 = sizeControlBacktest(neutral_pos,min_size,neutral_pos);
+	if (r1.valid) {
+		double max_size = r1.possible_max;
+		double pln = -9e99;
+		double best_max = findMax(-1e90, min_size, max_size, 20, 5, [&](double sz) {
+			auto r = sizeControlBacktest(sz, min_size, neutral_pos);
+			if (r.pln > pln) {
+				pln = r.pln;
+				logDebug("Max order size search: $1 (pln = $2)", sz, pln);
+			}
+			return r.pln;
+		});
+		logInfo("Max order size found: $1 (pln = $2)", best_max, pln);
+		return best_max;
+	} else {
+		return 0;
 	}
 
 }
@@ -295,6 +396,9 @@ int MTrader::perform() {
 
 	bool calcadj = false;
 	auto weakenMult = calcWeakenMult(neutral_pos, status.assetBalance);
+	if (neutral_pos && max_order_size == 0 && cfg.auto_max && cfg.sliding_pos_hours) {
+		max_order_size = findMaxSize(neutral_pos);
+	}
 
 	//if calculator is not valid, update it using current price and assets
 	if (!calculator.isValid()) {
@@ -405,6 +509,10 @@ int MTrader::perform() {
 
 			update_dynmult(!orders.buy.has_value() && lastTrade.size > 0,
 						   !orders.sell.has_value() && lastTrade.size < 0);
+
+			if (neutral_pos && cfg.auto_max && cfg.sliding_pos_hours) {
+				max_order_size = findMaxSize(neutral_pos);
+			}
 		}
 
 
@@ -681,7 +789,9 @@ MTrader::Order MTrader::calculateOrder(
 
 	Order order(calculateOrderFeeLess(lastTradePrice, step,curPrice,balance,acm,mult));
 
-
+	if (max_order_size && std::fabs(order.size) > max_order_size) {
+		order.size = max_order_size*sgn(order.size);
+	}
 	if (cfg.max_size && std::fabs(order.size) > cfg.max_size) {
 		order.size = cfg.max_size*sgn(order.size);
 	}

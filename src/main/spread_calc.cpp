@@ -90,6 +90,7 @@ static EmulResult emulateMarket(ondra_shared::StringView<IStatSvc::ChartItem> ch
 	cfg.expected_trend = 0;
 	cfg.buy_mult = 1;
 	cfg.sell_mult = 1;
+	cfg.auto_max = false;
 
 	class Selector: public IStockSelector {
 	public:

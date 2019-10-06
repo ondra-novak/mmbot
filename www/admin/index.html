@@ -95,6 +95,9 @@ position is held</span></span><input data-name="sliding_pos_fade" type="number" 
 <label class="adv"><span>Hard max position (0&nbsp;=&nbsp;disabled)<span class="tooltip"
 >Prevents to open a position of the total amount above the specified limit (short or long). However this can
 cause to stop the trading alltoghether without a chance to return (The 'accept loss' can handle this situation)</span></span><input type="number" step="any" data-name="max_pos"></label>
+<label class="adv"><span>Backtest for max order size<span class="tooltip"
+>Automatically finds optimal higher limit of the order size by running backtest after each trade</span>
+</span><input type="checkbox" data-name="auto_max_size"></label>
 <div class="rightinfo"><button data-name="init_backtest">Backtest</button></div>
 </x-section>
 <x-section class="adv" data-name="backtest_anchor"><x-section-caption>Common</x-section-caption>
@@ -105,6 +108,7 @@ specifies size of the "dust order"
 <label  class="adv"><span>Order maximal size (0&nbsp;=&nbsp;disabled)<span class="tooltip">
 Specifies maximal order size. 
 </span></span><input type="number" data-name="max_size" step="any"></label>
+<div class="rightinfo"><span data-name="spinner">&nbsp;</span>Optimal value: <span data-name="optimal_max">run the backtest</span>, pl: <span data-name="optimal_pl"></span>, potential: <span data-name="optimal_pln"></span></div>
 <label  class="adv"><span>Order size modifier [%]<span class="tooltip">It is recomended to set values below
 100. This makes orders smaller but also causes that order will be split into smaller orders. For
 example if you specify value 50, the order 24 may be split to orders 12, 6, 3, 2, 1 = 24. This can

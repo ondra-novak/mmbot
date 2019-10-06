@@ -85,6 +85,7 @@ struct MTrader_Config {
 	bool enabled;
 	bool force_margin;
 	bool dust_orders;
+	bool auto_max;
 
 	std::size_t start_time;
 
@@ -239,13 +240,12 @@ protected:
 	double currency_balance_cache = 0;
 	size_t magic = 0;
 	double cur_trend_adv = 0;
+	double max_order_size = 0;
 
 	void loadState();
 	void saveState();
 
 
-	double range_max_price(Status st, double &avail_assets);
-	double range_min_price(Status st, double &avail_money);
 
 	double raise_fall(double v, bool raise) const;
 
@@ -269,7 +269,15 @@ protected:
 	struct WeakenRes{
 		double buy, sell;
 	};
-	WeakenRes calcWeakenMult(double neutral_pos, double balance);
+	WeakenRes calcWeakenMult(double neutral_pos, double balance) const;
+
+	struct SCBResult {
+		bool valid;
+		double pln = 0;
+		double possible_max=0;
+	};
+	SCBResult sizeControlBacktest(double max_size, double min_size, double neutral_pos) const;
+	double findMaxSize(double neutral_pos) const;
 
 private:
 	double calcNeutralPos(const MTrader::Status &status);

@@ -327,6 +327,11 @@ a {
 	overflow: hidden;
 }
 
+.spinner.inline {
+	display: inline-block;
+	vertical-align: middle;
+}
+
 .main_form_wait x-section div, .waitdlg div {
 	position: absolute;
 	left: 0;
