@@ -10,12 +10,14 @@
 #include <imtjson/array.h>
 #include <numeric>
 
+#include "../shared/stringview.h"
 #include "emulator.h"
 #include "sgn.h"
 
 using ondra_shared::logDebug;
 using ondra_shared::logInfo;
 using ondra_shared::logNote;
+using ondra_shared::StringView;
 using ondra_shared::StrViewA;
 
 json::NamedEnum<Dynmult_mode> strDynmult_mode  ({
@@ -147,12 +149,12 @@ MTrader::Config load_internal(Ini ini, bool force_dry_run) {
 	cfg.sliding_pos_weaken = ini["sliding_pos.weaken"].getNumber(0);
 	cfg.sliding_pos_fade = ini["sliding_pos.fade"].getNumber(0);
 
-	cfg.auto_max = ini["auto_max_size"].getBool(true);
 
 	cfg.title = ini["title"].getString();
 
 
 	cfg.start_time = ini["start_time"].getUInt(0);
+	cfg.auto_max_backtest_time = ini["auto_max_backtest_time"].getUInt(720)*3600000;
 
 	if (cfg.spread_calc_mins > 1000000) throw std::runtime_error("spread_calc_hours is too big");
 	if (cfg.spread_calc_min_trades > cfg.spread_calc_max_trades) throw std::runtime_error("'spread_calc_min_trades' must bee less then 'spread_calc_max_trades'");
@@ -246,18 +248,30 @@ MTrader::WeakenRes MTrader::calcWeakenMult(double neutral_pos, double balance) c
 
 }
 
-MTrader::SCBResult MTrader::sizeControlBacktest(double max_size, double min_size, double neutral_pos) const {
+MTrader::SCBResult MTrader::sizeControlBacktest(double max_size, double min_size, double neutral_pos, size_t interval) const {
 
 	if (trades.empty()) return SCBResult {false};
 	double pos = 0;
 	double pl = 0;
-	Calculator calc(trades[0].price, neutral_pos, false);
-	double pp = trades[0].eff_price;
-	double tm = trades[0].time;
+	std::size_t start = interval>trades.back().time ?0:trades.back().time - interval;
+
+	StringView<IStockApi::TradeWithBalance> mytrades (trades.data(), trades.size());
+	{
+		auto iter = std::find_if(mytrades.begin(), mytrades.end(), [&](const IStockApi::TradeWithBalance &x) {
+			return x.time >= start;
+		});
+		mytrades = StringView<IStockApi::TradeWithBalance>(&(*iter), std::distance(iter, mytrades.end()));
+	}
+
+	if (mytrades.empty()) return SCBResult{false};
+
+	Calculator calc(mytrades[0].price, neutral_pos, false);
+	double pp = mytrades[0].eff_price;
+	double tm = mytrades[0].time;
 	double p = 1;
 	double pssmax = 0;
 
-	for (auto &&t: trades) {
+	for (auto &&t: mytrades) {
 		p = t.eff_price;
 		double tm2 = t.time;
 		double pldiff = pos * (p - pp);
@@ -321,17 +335,17 @@ T findMax(Q min, T low, T high, unsigned int steps, unsigned int levels, Fn &&fn
 	}
 }
 
-double MTrader::findMaxSize(double neutral_pos) const {
+double MTrader::findMaxSize(double neutral_pos, size_t interval) const {
 	double min_size = std::max(minfo.min_size, cfg.min_size);
-	auto r1 = sizeControlBacktest(neutral_pos,min_size,neutral_pos);
+	auto r1 = sizeControlBacktest(neutral_pos,min_size,neutral_pos, interval);
 	if (r1.valid) {
 		double max_size = r1.possible_max;
 		double pln = -9e99;
 		double best_max = findMax(-1e90, min_size, max_size, 20, 5, [&](double sz) {
-			auto r = sizeControlBacktest(sz, min_size, neutral_pos);
+			auto r = sizeControlBacktest(sz, min_size, neutral_pos, interval);
+			logDebug("Max order size search: $1 (pln = $2)", sz, r.pln);
 			if (r.pln > pln) {
 				pln = r.pln;
-				logDebug("Max order size search: $1 (pln = $2)", sz, pln);
 			}
 			return r.pln;
 		});
@@ -384,7 +398,7 @@ int MTrader::perform() {
 	std::string buy_order_error;
 	std::string sell_order_error;
 
-	double neutral_pos = calcNeutralPos(status);
+	neutral_pos = calcNeutralPos(status);
 	//update market fees
 	minfo.fees = status.new_fees;
 	//process all new trades
@@ -396,8 +410,8 @@ int MTrader::perform() {
 
 	bool calcadj = false;
 	auto weakenMult = calcWeakenMult(neutral_pos, status.assetBalance);
-	if (neutral_pos && max_order_size == 0 && cfg.auto_max && cfg.sliding_pos_hours) {
-		max_order_size = findMaxSize(neutral_pos);
+	if (neutral_pos && max_order_size == 0 && cfg.auto_max_backtest_time && cfg.sliding_pos_hours) {
+		max_order_size = findMaxSize(neutral_pos, cfg.auto_max_backtest_time);
 	}
 
 	//if calculator is not valid, update it using current price and assets
@@ -510,8 +524,8 @@ int MTrader::perform() {
 			update_dynmult(!orders.buy.has_value() && lastTrade.size > 0,
 						   !orders.sell.has_value() && lastTrade.size < 0);
 
-			if (neutral_pos && cfg.auto_max && cfg.sliding_pos_hours) {
-				max_order_size = findMaxSize(neutral_pos);
+			if (neutral_pos && cfg.auto_max_backtest_time && cfg.sliding_pos_hours) {
+				max_order_size = findMaxSize(neutral_pos, cfg.auto_max_backtest_time);
 			}
 		}
 
@@ -565,6 +579,7 @@ int MTrader::perform() {
 			boost,
 			min_price,
 			max_price,
+			max_order_size?max_order_size:std::numeric_limits<double>::infinity(),
 			trades.size(),
 			trades.empty()?0:(trades.back().time-trades[0].time)
 		});

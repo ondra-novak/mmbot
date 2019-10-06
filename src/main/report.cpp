@@ -341,6 +341,7 @@ void Report::setMisc(StrViewA symb, const MiscData &miscData) {
 				("mb",miscData.boost)
 				("ml",1.0/miscData.highest_price)
 				("mh",1.0/miscData.lowest_price)
+				("osl", miscData.order_size_limit)
 				("mt",miscData.total_trades)
 				("tt",miscData.total_time);
 	} else {
@@ -356,6 +357,7 @@ void Report::setMisc(StrViewA symb, const MiscData &miscData) {
 				("mb",miscData.boost)
 				("ml",miscData.lowest_price)
 				("mh",miscData.highest_price)
+				("osl", miscData.order_size_limit)
 				("mt",miscData.total_trades)
 				("tt",miscData.total_time);
 	}

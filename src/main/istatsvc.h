@@ -36,6 +36,7 @@ public:
 		double boost;
 		double lowest_price;
 		double highest_price;
+		double order_size_limit;
 		std::size_t total_trades;
 		std::size_t total_time;
 	};

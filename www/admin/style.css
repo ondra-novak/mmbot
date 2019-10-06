@@ -559,6 +559,24 @@ x-form.trading .chart .spinner {
 	margin: 3cm auto;
 }
 
+[data-name=auto_max_backtest_result] {
+	font-weight:bold;
+}
+
+[data-name=auto_max_backtest_result].wait::before {
+	content:"";
+	display:inline-block;
+	animation: rot_fast 0.5s infinite linear;
+	border-top: 2px solid;
+	border-bottom: 2px solid;
+	width: 1em;
+	height: 1em;
+	border-radius: 1em;
+	vertical-align: middle;
+	margin: 0.2em;
+	box-sizing: border-box;
+}
+
 @media all and (max-width: 15cm) { 
 
 

@@ -85,9 +85,9 @@ struct MTrader_Config {
 	bool enabled;
 	bool force_margin;
 	bool dust_orders;
-	bool auto_max;
 
 	std::size_t start_time;
+	std::size_t auto_max_backtest_time;
 
 
 	void parse_neutral_pos(ondra_shared::StrViewA txt);
@@ -214,6 +214,11 @@ public:
 
 	static std::string_view vtradePrefix;
 
+	double findMaxSize(double neutral_pos, size_t interval) const;
+	double calcNeutralPos(const MTrader::Status &status);
+
+	double getLastNeutralPos() const {return neutral_pos;}
+
 protected:
 	std::unique_ptr<IStockApi> ownedStock;
 	IStockApi &stock;
@@ -241,6 +246,7 @@ protected:
 	size_t magic = 0;
 	double cur_trend_adv = 0;
 	double max_order_size = 0;
+	double neutral_pos;
 
 	void loadState();
 	void saveState();
@@ -276,11 +282,9 @@ protected:
 		double pln = 0;
 		double possible_max=0;
 	};
-	SCBResult sizeControlBacktest(double max_size, double min_size, double neutral_pos) const;
-	double findMaxSize(double neutral_pos) const;
+	SCBResult sizeControlBacktest(double max_size, double min_size, double neutral_pos, size_t interval) const;
 
 private:
-	double calcNeutralPos(const MTrader::Status &status);
 };
 
 

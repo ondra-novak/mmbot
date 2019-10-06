@@ -216,8 +216,8 @@ function defval(v,w) {
 }
 
 function filledval(v,w) {
-	if (v === undefined) return w;
-	else if (v == w) return v;
+	if (v === undefined) return {value:w};
+	else if (v == w) return {value:v};
 	else {
 		return {
 			"value":v,
@@ -330,8 +330,8 @@ App.prototype.fillForm = function (src, trg) {
 	data.enabled = src.enable;
 	data.dry_run = src.dry_run;
 	data.external_assets = defval(src.external_assets,0);
-	trg.setItemEvent("external_assets","!input",updateRange);
-	data.acum_factor =filledval(src.acum_factor,0);
+	trg.setItemEvent("external_assets","input",updateRange);
+	data.acum_factor =filledval(defval(src.acum_factor,0)*100,0);
 	data.accept_loss = filledval(src.accept_loss,0);
 	data.power = src.power;
 	var neutral_pos = src.neutral_pos?src.neutral_pos.split(" "):[];
@@ -355,8 +355,9 @@ App.prototype.fillForm = function (src, trg) {
 	data.init_backtest = {"!click":this.init_backtest.bind(this,trg,src.id, pair)};
 	data.force_spread = filledval(adjNum((Math.exp(defval(src.force_spread,0))-1)*100),"0.000");
 	data.expected_trend=filledval(src.expected_trend,"");
-	data.auto_max_size=filledval(src.auto_max_size,true);
-	data.open_orders_sect = orders.then(function(x) {return {".hidden":!x.length};},function() {return{".hidden":true};});	
+	data.auto_max_backtest_time=filledval(src.auto_max_backtest_time,1000);
+	data.open_orders_sect = orders.then(function(x) {return {".hidden":!x.length};},function() {return{".hidden":true};});
+	data.auto_max_backtest_result = fetchSizeBacktest.call(this,data.auto_max_backtest_time.value); 
 
 	function updateEA() {	
 		var d = trg.readData(["power","goal","advanced"]);
@@ -371,6 +372,12 @@ App.prototype.fillForm = function (src, trg) {
 			trg.setData(d);
 			updateRange();
 		}
+	}
+	
+	function fetchSizeBacktest(t) {
+		return t?fetch_json(this.traderURL(data.id)+"/auto_max_backtest",{
+			method:"POST",body:JSON.stringify(t)
+		}).then(adjNum):Promise.resolve("disabled");
 	}
 	
 	function updateRange() {
@@ -424,6 +431,9 @@ App.prototype.fillForm = function (src, trg) {
 
 	function unhide_changed(x) {
 
+		updateRange();
+
+		
 		var root = trg.getRoot();
 		var items = root.getElementsByClassName("changed");
 		Array.prototype.forEach.call(items,function(x) {
@@ -447,11 +457,27 @@ App.prototype.fillForm = function (src, trg) {
 
 		setTimeout(refresh_hdr,60000);
 
+		var ambt = null; 
+		trg.setItemEvent("auto_max_backtest_time","input",function() {
+			if (ambt) clearTimeout(ambt);
+			ambt=setTimeout(function() {
+				trg.setData({auto_max_backtest_result:{classList:{wait:true}}}); 
+				trg.setData({auto_max_backtest_result: 
+					fetchSizeBacktest.call(this,trg.readData(["auto_max_backtest_time"]).auto_max_backtest_time)
+					.then(function(x) {
+						return {
+							value:x,classList:{wait:false}
+						}})});
+			}.bind(this),250);
+				
+		}.bind(this));
+		
+		
 		return x;
 	}
 
 
-	return trg.setData(data).catch(function(){}).then(unhide_changed).then(trg.dlgRules.bind(trg));
+	return trg.setData(data).catch(function(){}).then(unhide_changed.bind(this)).then(trg.dlgRules.bind(trg));
 }
 
 
@@ -469,7 +495,7 @@ App.prototype.saveForm = function(form, src) {
 	trader.advanced = data.advanced;
 	trader.accept_loss = data.accept_loss;
 	if (goal == "norm") {
-		trader.acum_factor = data.acum_factor;
+		trader.acum_factor = data.acum_factor/100;
 		trader.force_margin=false;
 	} else {
 		trader.neutral_pos = data.neutral_pos_type+" "+data.neutral_pos_val;
@@ -494,7 +520,7 @@ App.prototype.saveForm = function(form, src) {
 	trader.report_position_offset = data.report_position_offset;
 	trader.force_spread = Math.log(data.force_spread/100+1);	
 	trader.expected_trend = data.expected_trend;
-	trader.auto_max_size = data.auto_max_size;
+	trader.auto_max_backtest_time = data.auto_max_backtest_time;
 	return trader;
 	
 }
@@ -1085,61 +1111,6 @@ App.prototype.init_backtest = function(form, id, pair) {
 				drawChart(chart1,chartData,"pl",[],"pln");
 				drawChart(chart2,chartData,"price",[],"np");
 				drawChart(chart3,chartData,"achg",[]);
-				tm = setTimeout(function() {
-					form.setItemValue("spinner", TemplateJS.View.fromTemplate({"tag":"div","attrs":{"class":"spinner inline fast"}}));			
-					btdata.max_order_size = 0;
-					var res = calculateBacktest(btdata);
-					var max_size = res.chart.reduce(function(a,b) {
-						var sz = Math.abs(b.achg);
-						return a < sz?sz:a;
-					},0);
-					
-					var actions = [];
-					var vmin = pair.min_size;
-					var vmax = max_size;
-					var best = -1e90;
-					var level = 10;
-
-					function createActions(f, t) {
-						for (var i = 0; i < 50; i++) {
-							var st = (t - f)/20;
-							var z = f + i * st;
-							actions.push(function(z) {
-								btdata.max_order_size = z;
-								var r = calculateBacktest(btdata);
-								if (r.pln > best) {
-									best = r.pln;
-									vmin = z;
-									vmax = z+st;
-								}							
-							}.bind(null,z));
-						}
-						actions.push(function() {
-							if (level) {
-								level--;
-								best = -1e90;
-								createActions(vmin,vmax);
-							} else {
-								btdata.max_order_size = (vmin+vmax)/2;
-								res = calculateBacktest(btdata);
-								form.setItemValue("optimal_max", adjNumN(btdata.max_order_size));			
-								form.setItemValue("optimal_pl", adjNumN(res.pl));
-								form.setItemValue("optimal_pln", adjNumN(res.pln));
-								form.setItemValue("spinner","");
-							}
-						})
-					}
-
-					createActions(vmin,vmax);
-					function cycle() {
-						if (actions.length) {
-							var f = actions.shift();
-							f();
-							tm = setTimeout(cycle,1);
-						}
-					}
-					tm = setTimeout(cycle,1);
-				}.bind(this),1)
 			}.bind(this), 1);
 		}
 		

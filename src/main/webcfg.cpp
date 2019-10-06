@@ -454,6 +454,17 @@ bool WebCfg::reqTraders(simpleServer::HTTPRequest req, ondra_shared::StrViewA vp
 								}
 							});
 						}
+					} else if (cmd == "auto_max_backtest") {
+						if (!req.allowMethods({"POST"})) return ;
+						req.readBodyAsync(10000, [=](HTTPRequest req) {
+							try {
+								json::Value v = Value::fromString(StrViewA(BinaryView(req.getUserBuffer())));
+								auto found = tr->findMaxSize(tr->getLastNeutralPos(), v.getUInt()*3600000);
+								req.sendResponse(std::move(hdr), Value(found).toString());
+							} catch (std::exception &e) {
+								req.sendErrorPage(400,StrViewA(),e.what());
+							}
+						});
 					}
 				}
 			}
