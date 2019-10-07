@@ -120,9 +120,7 @@ data.forEach(function(x) {
 	if (pos * dpos < 0) {
 		mult = 1;
 	}
-	curet = curet + dr*et;
-	if (Math.abs(curet) > 0.1) 
-		curet = Math.sign(curet)*0.1
+	curet = curet + (et - curet)*0.05;
 	dpos = dpos * mult * mlt;
 	if (mxs && dpos * dr  < -mxs) {
 		dpos = -mxs * dr

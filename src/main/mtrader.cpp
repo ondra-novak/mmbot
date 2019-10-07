@@ -154,7 +154,7 @@ MTrader::Config load_internal(Ini ini, bool force_dry_run) {
 
 
 	cfg.start_time = ini["start_time"].getUInt(0);
-	cfg.auto_max_backtest_time = ini["auto_max_backtest_time"].getUInt(720)*3600000;
+	cfg.auto_max_backtest_time = ini["auto_max_backtest_time"].getUInt(0)*3600000;
 
 	if (cfg.spread_calc_mins > 1000000) throw std::runtime_error("spread_calc_hours is too big");
 	if (cfg.spread_calc_min_trades > cfg.spread_calc_max_trades) throw std::runtime_error("'spread_calc_min_trades' must bee less then 'spread_calc_max_trades'");

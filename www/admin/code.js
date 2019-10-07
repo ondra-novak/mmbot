@@ -355,7 +355,7 @@ App.prototype.fillForm = function (src, trg) {
 	data.init_backtest = {"!click":this.init_backtest.bind(this,trg,src.id, pair)};
 	data.force_spread = filledval(adjNum((Math.exp(defval(src.force_spread,0))-1)*100),"0.000");
 	data.expected_trend=filledval(src.expected_trend,"");
-	data.auto_max_backtest_time=filledval(src.auto_max_backtest_time,1000);
+	data.auto_max_backtest_time=filledval(src.auto_max_backtest_time,0);
 	data.open_orders_sect = orders.then(function(x) {return {".hidden":!x.length};},function() {return{".hidden":true};});
 	data.auto_max_backtest_result = fetchSizeBacktest.call(this,data.auto_max_backtest_time.value); 
 
