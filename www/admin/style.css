@@ -131,7 +131,13 @@ x-form.no_adv .adv {
 	display:none;
 }
 
-x-form.no_adv .adv.unhide {
+x-form.no_experimental .experimental {
+	display:none;
+}
+
+
+
+x-form.no_adv .adv.unhide,x-form.no_experimental .experimental.unhide {
 	display:block;
 }
 x-form.no_adv label.adv.unhide, x-form.no_adv div.label.adv.unhide {

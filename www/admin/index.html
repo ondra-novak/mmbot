@@ -86,15 +86,15 @@ Specifies after how much time (in hours) the position is returned to the neutral
 whether it deliveres profit or loss. The amount time is recalculated after each trade, so
 it can be much longer if there is trading activity while the current position is changes very often. 
 </span></span><x-slider data-name="sliding_pos_hours" data-min="0" data-max="1000" data-mult="10"></x-slider></label>
-<label><span>Fade max position (0&nbsp;=&nbsp;disabled) <span class="tooltip"
+<label class="adv"><span>Fade max position (0&nbsp;=&nbsp;disabled) <span class="tooltip"
 >When large position is opened, the volume of each trade is lowered until the 'fade max position'
 is reached. Beyond this limit, only dust orders are traded until the position is returned
 back below the limit (Sliding speed). This protects you against a liquidation when large
 position is held</span></span><input data-name="sliding_pos_fade" type="number" step="any"></x-slider></label>
-<label class="adv"><span>Hard max position (0&nbsp;=&nbsp;disabled)<span class="tooltip"
+<label><span>Max position (0&nbsp;=&nbsp;disabled)<span class="tooltip"
 >Prevents to open a position of the total amount above the specified limit (short or long). However this can
 cause to stop the trading alltoghether without a chance to return (The 'accept loss' can handle this situation)</span></span><input type="number" step="any" data-name="max_pos"></label>
-<div class="adv"><label class="adv"><span>Backtest for max order size [hours], (0&nbsp;=&nbsp;disabled)<span class="tooltip"
+<div class="experimental"><label><span>Backtest for max order size [hours], (0&nbsp;=&nbsp;disabled)<span class="tooltip"
 >Automatically finds optimal higher limit of the order size by running backtest after each trade</span>
 </span><input type="number" data-name="auto_max_backtest_time" step="any"></label>
 <div class="rightinfo">Calculated limit: <span data-name="auto_max_backtest_result">n/a</span></div>
@@ -154,6 +154,9 @@ The value represents a slope of the trend with no exact representation. </span><
 The position is not generally in the sync due to various issues. You need to specify a difference between the calculated position presented on the report page and the actual position on the exchhange
 </span></span><input type="number" step="any" data-name="report_position_offset"></label>
 <label class="adv"><span>Force spread (0=disabled)<span class="tooltip">Specifies exact spread width and disables the internal spread detection</span></span><input type="number" step="any" data-name="force_spread"></label>
+</x-section>
+<x-section class="adv">
+<label class="adv"><span>Experimental and unsupported settings</span><input type="checkbox" data-name="check_unsupp"></label>
 </x-section>
 <div></div>
 </x-form>
@@ -384,10 +387,11 @@ The position is not generally in the sync due to various issues. You need to spe
 <template id="options_form">
 <x-form  class="pair options_form sections">
 <x-section><x-section-caption>Options</x-section-caption>
-<label><span>Range of charts [days]: </span><x-slider data-min="1" data-max="30" data-mult="1" data-name="report_interval"></x-slider></label>
+<label><span>Size of charts [days]: </span><x-slider data-min="1" data-max="60" data-mult="1" data-name="report_interval"></x-slider></label>
+<label><span>Size of backtest [days]: </span><x-slider data-min="1" data-max="60" data-mult="1" data-name="backtest_interval"></x-slider></label>
 </x-section>
 <x-section><x-section-caption>Actions</x-section-caption>
-<div class="rightinfo"><button data-name="stop">Global stop</button></div>
+<div class="rightinfo"><button data-name="stop">Global Stop</button></div>
 </x-form>
 </template>
 

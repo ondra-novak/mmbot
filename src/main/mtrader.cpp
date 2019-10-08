@@ -643,7 +643,7 @@ void MTrader::setOrderCheckMaxPos(std::optional<Order> &orig, Order neworder, do
 		if (final_pos > neutral_pos + cfg.max_pos)
 			throw std::runtime_error("Max position reached");
 		if (final_pos < neutral_pos - cfg.max_pos)
-			throw std::runtime_error("Min position reached");
+			throw std::runtime_error("Max position reached");
 	}
 	if (cfg.enabled) {
 		setOrder(orig, neworder);

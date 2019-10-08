@@ -82,8 +82,8 @@ var mos = params.min_order_size || 0;
 var inv = params.invert || false;
 var et = params.expected_trend || 0;
 var pos = (inv?-1:1)*params.start_pos || 0;
-var mxs = params.max_order_size;
-
+var mxs = params.max_order_size || 0;
+var max_pos = params.max_pos || 0;
 
 if (data.length == 0) return {
 	pl:0,
@@ -131,6 +131,10 @@ data.forEach(function(x) {
 	}
 	if (params.step) dpos = Math.floor(dpos / params.step)*params.step;
 	pos = pos + dpos;
+	if (max_pos && Math.abs(pos) > max_pos) {
+		pos = max_pos * Math.sign(pos);
+		neq = p*pow2(ea/(ea+pos)); 
+	}
 	pp = p;
 	eq = neq;
 	tm = x.time;

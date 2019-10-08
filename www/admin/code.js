@@ -75,14 +75,16 @@ App.prototype.createTraderForm = function() {
 	var norm=form.findElements("goal_norm")[0];
 	var pl = form.findElements("goal_pl")[0];
 	form.dlgRules = function() {
-		var state = this.readData(["goal","advanced"]);
+		var state = this.readData(["goal","advanced","check_unsupp"]);
 		this.showWithAnim("goal_norm",state.goal == "norm");
 		this.showWithAnim("goal_pl",state.goal == "pl");
 		form.getRoot().classList.toggle("no_adv", !state["advanced"]);
+		form.getRoot().classList.toggle("no_experimental", !state["check_unsupp"]);
 		
 	};
 	form.setItemEvent("goal","change", form.dlgRules.bind(form));
 	form.setItemEvent("advanced","change", form.dlgRules.bind(form));
+	form.setItemEvent("check_unsupp","change", form.dlgRules.bind(form));
 	return form;
 }
 
@@ -332,17 +334,17 @@ App.prototype.fillForm = function (src, trg) {
 	data.external_assets = defval(src.external_assets,0);
 	trg.setItemEvent("external_assets","input",updateRange);
 	data.acum_factor =filledval(defval(src.acum_factor,0)*100,0);
-	data.accept_loss = filledval(src.accept_loss,0);
+	data.accept_loss = filledval(src.accept_loss,1);
 	data.power = src.power;
 	var neutral_pos = src.neutral_pos?src.neutral_pos.split(" "):[];
 	data.neutral_pos_type = filledval(neutral_pos.length == 1?"assets":neutral_pos[0],"assets");
-	data.neutral_pos_val = filledval(src.neutral_pos?(neutral_pos.length == 1?neutral_pos[0]:neutral_pos[1]):0,1)
+	data.neutral_pos_val = filledval(src.neutral_pos?(neutral_pos.length == 1?neutral_pos[0]:neutral_pos[1]):0,0)
 	data.max_pos = filledval(src.max_pos,0);
 	data.sliding_pos_hours = filledval(src["sliding_pos.hours"],240);
 	data.sliding_pos_fade = filledval(src["sliding_pos.fade"],0);
 	data.spread_calc_hours = filledval(src.spread_calc_hours,5*24);
 	data.spread_calc_min_trades = filledval(src.spread_calc_min_trades,4);
-	data.dynmult_raise = filledval(src.dynmult_raise,200);
+	data.dynmult_raise = filledval(src.dynmult_raise,250);
 	data.dynmult_fall = filledval(src.dynmult_fall, 5);
 	data.dynmult_mode = filledval(src.dynmult_mode, "half_alternate");
 	data.order_mult = filledval(defval(src.buy_mult,1)*100,100);
@@ -354,7 +356,7 @@ App.prototype.fillForm = function (src, trg) {
 	data.report_position_offset = filledval(src.report_position_offset,0);
 	data.init_backtest = {"!click":this.init_backtest.bind(this,trg,src.id, pair)};
 	data.force_spread = filledval(adjNum((Math.exp(defval(src.force_spread,0))-1)*100),"0.000");
-	data.expected_trend=filledval(src.expected_trend,"");
+	data.expected_trend=filledval(src.expected_trend,0);
 	data.auto_max_backtest_time=filledval(src.auto_max_backtest_time,0);
 	data.open_orders_sect = orders.then(function(x) {return {".hidden":!x.length};},function() {return{".hidden":true};});
 	data.auto_max_backtest_result = fetchSizeBacktest.call(this,data.auto_max_backtest_time.value); 
@@ -368,7 +370,7 @@ App.prototype.fillForm = function (src, trg) {
 				trg.setData(d);
 				updateRange();
 			});
-		} else if (!d.advanced) {
+		} else  {
 			trg.setData(d);
 			updateRange();
 		}
@@ -401,6 +403,7 @@ App.prototype.fillForm = function (src, trg) {
 				data.power = src.external_assets/part; 
 			} else if (goal == "pl") {
 				data.power = 20;
+				data.max_pos = adjNumN(powerToEA(20,p)/10);
 				data.neutral_pos_val = 0;
 				data.neutral_pos_type = "assets";
 			} else if (goal == "norm") {
@@ -1009,7 +1012,10 @@ App.prototype.init_backtest = function(form, id, pair) {
 			this.dlgbox({text:this.strtable.backtest_lesstrades,cancel:{hidden:"hidden"}},"confirm");
 		}
 		
-		var elems = ["external_assets","power", 
+		var lastTime = trades[trades.length-1].time;
+		var firstTime = this.config.backtest_interval?(lastTime - this.config.backtest_interval):trades[0].time;
+		
+		var elems = ["external_assets","power", "max_pos",
 			"sliding_pos_hours", "sliding_pos_fade",
 			"order_mult","min_size","max_size","dust_orders","expected_trend","goal"];
 
@@ -1018,15 +1024,15 @@ App.prototype.init_backtest = function(form, id, pair) {
 		//var chart3 = bt.findElements('chart3')[0];
 		var xdata = {
 			"date_from":{
-				"value":new Date(trades[0].time),
+				"value":new Date(firstTime),
 				"!change":recalc
 			},
 			"date_to":{
-				"value":new Date(trades[trades.length-1].time+86400000),
+				"value":new Date(lastTime+86400000),
 				"!change":recalc
 			},
 			"apply_from":{
-				"value":new Date(trades[0].time),
+				"value":new Date(firstTime),
 				"!change":recalc
 			},
 			"start_pos":{
@@ -1080,7 +1086,8 @@ App.prototype.init_backtest = function(form, id, pair) {
 						expected_trend:et,
 						start_pos:parseFloat(xdata.start_pos),
 						max_order_size:parseFloat(data.max_size),
-						step: pair.min_size
+						step: pair.min_size,
+						max_pos:parseFloat(data.max_pos)
 						};
 				
 				var res = calculateBacktest(btdata);				
@@ -1131,6 +1138,7 @@ App.prototype.optionsForm = function() {
 	var form = TemplateJS.View.fromTemplate("options_form");
 	var data = {
 			report_interval: defval(this.config.report_interval,864000000)/86400000,
+			backtest_interval: defval(this.config.backtest_interval,864000000)/86400000,
 			stop:{"!click": function() {
 				this.dlgbox({text:this.strtable.global_stop_confirm},"confirm")
 					.then(function(){
@@ -1143,6 +1151,7 @@ App.prototype.optionsForm = function() {
 	form.save = function() {
 		var data = form.readData();
 		this.config.report_interval = data.report_interval*86400000;
+		this.config.backtest_interval = data.backtest_interval*86400000;
 	}.bind(this);
 	return form;
 	
