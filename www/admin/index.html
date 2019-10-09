@@ -94,6 +94,9 @@ position is held</span></span><input data-name="sliding_pos_fade" type="number" 
 <label><span>Max position (0&nbsp;=&nbsp;disabled)<span class="tooltip"
 >Prevents to open a position of the total amount above the specified limit (short or long). However this can
 cause to stop the trading alltoghether without a chance to return (The 'accept loss' can handle this situation)</span></span><input type="number" step="any" data-name="max_pos"></label>
+<label><span>Expected trend<span class="tooltip">Prefers specified trend. 
+Positive value means uptrend, negative value means downtrend. 
+The value represents a slope of the trend with no exact representation. </span></span><x-slider data-name="expected_trend" data-min="-10" data-max="10" data-mult="0.1" data-fixed="1"></x-slider></label>
 <div class="experimental"><label><span>Backtest for max order size [hours], (0&nbsp;=&nbsp;disabled)<span class="tooltip"
 >Automatically finds optimal higher limit of the order size by running backtest after each trade</span>
 </span><input type="number" data-name="auto_max_backtest_time" step="any"></label>
@@ -119,9 +122,6 @@ Enable to the Bot accept partial loss, when trading is not possible due insuffic
 extra "virtual" trade with zero size is generated to shift the center of the spread. This can
 reenable trading, but it also finally costs some profit
 </span></span><x-slider data-name="accept_loss" data-min="0" data-max="100" data-mult="1"></x-slider></label>
-<label  class="adv"><span>Expected trend<span class="tooltip">Prefers specified trend. 
-Positive value means uptrend, negative value means downtrend. 
-The value represents a slope of the trend with no exact representation. </span></span><x-slider data-name="expected_trend" data-min="-10" data-max="10" data-mult="0.1" data-fixed="1"></x-slider></label>
 <div class="rightinfo"><button data-name="init_backtest">Backtest</button></div>
 </x-section>
 <x-section class="adv"><x-section-caption>Spread</x-section-caption>

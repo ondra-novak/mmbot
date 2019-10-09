@@ -133,7 +133,7 @@ data.forEach(function(x) {
 	pos = pos + dpos;
 	if (max_pos && Math.abs(pos) > max_pos) {
 		pos = max_pos * Math.sign(pos);
-		neq = p*pow2(ea/(ea+pos)); 
+		neq = p*pow2((ea+pos)/ea); 
 	}
 	pp = p;
 	eq = neq;
