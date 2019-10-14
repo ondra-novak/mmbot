@@ -6,6 +6,7 @@ set -e
 git  -c user.name="Update" -c user.email="update@localhost.localdomain" pull --no-commit
 git submodule update --init
 mkdir -p ./data
+mkdir -p ./secure_data
 mkdir -p ./log
 cmake -DCMAKE_BUILD_TYPE=RELWITHDEBINFO .
 make all -j `nproc`

@@ -16,9 +16,12 @@
 class Proxy {
 public:
 
-	Proxy(Config config);
+	Proxy();
 
-	Config config;
+	std::string apiUrl;
+	std::string privKey;
+	std::string pubKey;
+	std::string scopes;
 	cURLpp::Easy curl_handle;
 
 	///Send request
@@ -32,12 +35,13 @@ public:
 	json::Value request(std::string_view method, json::Value params, bool auth);
 	const std::string &getAccessToken();
 
-	bool hasKey;
+	bool hasKey() const;
 	bool debug = false;
 
 	void setTimeDiff(std::intptr_t t);
 	static std::uintptr_t now();
 
+	void setTestnet(bool testnet);
 
 
 private:

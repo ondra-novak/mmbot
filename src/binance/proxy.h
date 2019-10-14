@@ -10,14 +10,16 @@
 #include <curlpp/Easy.hpp>
 
 #include <imtjson/value.h>
-#include "config.h"
 
 class Proxy {
 public:
 
-	Proxy(Config config);
+	Proxy();
 
-	Config config;
+	std::string apiUrl;
+	std::string privKey;
+	std::string pubKey;
+
 	cURLpp::Easy curl_handle;
 
 	std::uint64_t nonce;
@@ -32,7 +34,7 @@ public:
 	json::Value public_request(std::string method, json::Value data);
 	json::Value private_request(Method method, std::string command, json::Value data);
 
-	bool hasKey;
+	bool hasKey() const;
 	void setTimeDiff(std::intptr_t t);
 	static std::uintptr_t now();
 

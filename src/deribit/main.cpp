@@ -31,9 +31,31 @@ using namespace json;
 
 class Interface: public AbstractBrokerAPI {
 public:
-	Proxy &px;
+	Proxy px;
 
-	Interface(Proxy &cm):px(cm) {}
+	Interface(const std::string &path):AbstractBrokerAPI(path, {
+			Object
+				("name","key")
+				("label","Key")
+				("type","string"),
+			Object
+				("name","secret")
+				("label","Secret")
+				("type","string"),
+			Object
+				("name","scopes")
+				("label","Scopes")
+				("type","string")
+				("default","session:apiconsole"),
+			Object
+				("name","server")
+				("label","Server")
+				("type","enum")
+				("options",Object
+						("main","www.deribit.com")
+						("test","test.deribit.com"))
+				("default","main")})
+	{}
 
 
 	virtual double getBalance(const std::string_view & symb) override;
@@ -52,6 +74,8 @@ public:
 	virtual std::vector<std::string> getAllPairs()override;
 	virtual void enable_debug(bool enable) override;
 	virtual BrokerInfo getBrokerInfo() override;
+	virtual void onLoadApiKey(json::Value keyData) override;
+	virtual void onInit() override;
 
 
 	ondra_shared::linear_map<std::string, double, std::less<std::string_view> > tick_cache;
@@ -67,29 +91,13 @@ int main(int argc, char **argv) {
 	using namespace json;
 
 	if (argc < 2) {
-		std::cerr << "No config given, terminated" << std::endl;
+		std::cerr << "Requires a signle parametr" << std::endl;
 		return 1;
 	}
 
-	try {
+	Interface ifc(argv[1]);
+	ifc.dispatch();
 
-		ondra_shared::IniConfig ini;
-
-		ini.load(argv[1]);
-
-		Config cfg = load(ini["api"]);
-		Proxy proxy(cfg);
-
-
-		Interface ifc(proxy);
-
-		ifc.dispatch();
-
-
-	} catch (std::exception &e) {
-		std::cerr << "Error: " << e.what() << std::endl;
-		return 2;
-	}
 }
 
 inline double Interface::getBalance(const std::string_view &symb) {
@@ -295,7 +303,7 @@ void Interface::enable_debug(bool enable) {
 
 Interface::BrokerInfo Interface::getBrokerInfo() {
 	return BrokerInfo{
-		px.hasKey,
+		px.hasKey(),
 		"deribit",
 		"Deribit",
 		"https://www.deribit.com/",
@@ -345,4 +353,15 @@ inline std::vector<std::string> Interface::getAllPairs() {
 		}
 	}
 	return resp;
+}
+
+inline void Interface::onLoadApiKey(json::Value keyData) {
+	px.setTestnet(keyData["server"].getString() == "test");
+	px.privKey = keyData["secret"].getString();
+	px.pubKey = keyData["key"].getString();
+	px.scopes = keyData["scopes"].getString();
+}
+
+inline void Interface::onInit() {
+	//empty
 }

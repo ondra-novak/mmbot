@@ -9,7 +9,6 @@
 
 #include <rpc/rpcServer.h>
 #include "../imtjson/src/imtjson/operations.h"
-#include "config.h"
 #include "proxy.h"
 #include "../main/istockapi.h"
 #include "../shared/linear_map.h"
@@ -20,9 +19,22 @@ using namespace json;
 
 class Interface: public AbstractBrokerAPI {
 public:
-	Proxy &cm;
+	Proxy cm;
 
-	Interface(Proxy &cm):cm(cm) {}
+	Interface(const std::string &path)
+		:AbstractBrokerAPI(path,{Object
+				("name","pubKey")
+				("label","Public key")
+				("type", "string"),
+			Object
+				("name","privKey")
+				("label","Private key")
+				("type", "string"),
+			Object
+				("name","clientId")
+				("label","Client ID")
+				("type", "string")
+		}) {}
 
 
 	virtual double getBalance(const std::string_view & symb) override;
@@ -41,6 +53,8 @@ public:
 	virtual std::vector<std::string> getAllPairs() override ;
 	virtual void enable_debug(bool enable) override {cm.debug = enable;}
 	virtual BrokerInfo getBrokerInfo() override;
+	virtual void onLoadApiKey(json::Value keyData);
+	virtual void onInit() {}
 
 	Value balanceCache;
 	Value orderCache;
@@ -68,6 +82,12 @@ public:
 		 	balanceCache = cm.request(Proxy::POST, "balances", Value());
 	 }
 	 return balanceCache[symb]["balance"].getNumber();
+}
+
+inline void Interface::onLoadApiKey(json::Value keyData) {
+	cm.privKey = keyData["privKey"].getString();
+	cm.pubKey = keyData["pubKey"].getString();
+	cm.clientid = keyData["clientId"].getString();
 }
 
  Value Interface::readTradesPerPartes(Value lastId, Value fromTime) {
@@ -255,7 +275,7 @@ std::vector<std::string> Interface::getAllPairs() {
 }
 
 double Interface::getFees(const std::string_view &pair) {
-	if (cm.hasKey) {
+	if (cm.hasKey()) {
 		auto now = std::chrono::system_clock::now();
 		auto iter = feeMap.find(StrViewA(pair));
 		if (iter == feeMap.end() || iter->second.expiration < now) {
@@ -294,7 +314,7 @@ Interface::MarketInfo Interface::getMarketInfo(const std::string_view &pair) {
 
 Interface::BrokerInfo Interface::getBrokerInfo() {
 	return BrokerInfo{
-		cm.hasKey,
+		cm.hasKey(),
 		"coinmate",
 		"Coinmate",
 		"https://www.coinmate.io/",
@@ -343,25 +363,11 @@ int main(int argc, char **argv) {
 	using namespace json;
 
 	if (argc < 2) {
-		std::cerr << "No config given, terminated" << std::endl;
+		std::cerr << "Required one argument" << std::endl;
 		return 1;
 	}
 
-	try {
-
-		ondra_shared::IniConfig ini;
-
-		ini.load(argv[1]);
-
-		Config cfg = load(ini["api"]);
-		Proxy coinmate(cfg);
-		Interface ifc(coinmate);
-
-		ifc.dispatch();
-
-	} catch (std::exception &e) {
-		std::cerr << "Error: " << e.what() << std::endl;
-		return 2;
-	}
+	Interface ifc(argv[1]);
+	ifc.dispatch();
 }
 

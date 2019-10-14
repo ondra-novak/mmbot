@@ -11,7 +11,6 @@
 #include <rpc/rpcServer.h>
 #include <imtjson/operations.h>
 #include "shared/toString.h"
-#include "config.h"
 #include "proxy.h"
 #include "../main/istockapi.h"
 #include <cmath>
@@ -21,7 +20,6 @@
 #include <imtjson/stringValue.h>
 #include "../shared/linear_map.h"
 #include "../shared/iterator_stream.h"
-#include "../brokers/orderdatadb.h"
 #include <imtjson/binary.h>
 #include <imtjson/streams.h>
 #include <imtjson/binjson.tcc>
@@ -29,11 +27,21 @@
 
 using namespace json;
 
+static Value keyFormat = {Object
+							("name","pubKey")
+							("type","string")
+							("label","Public key"),
+						 Object
+							("name","privKey")
+							("type","string")
+							("label","Private key")};
+
 class Interface: public AbstractBrokerAPI {
 public:
-	Proxy &px;
+	Proxy px;
 
-	Interface(Proxy &cm):px(cm) {}
+
+	Interface(const std::string &path):AbstractBrokerAPI(path, keyFormat) {}
 
 
 	virtual double getBalance(const std::string_view & symb) override;
@@ -52,6 +60,8 @@ public:
 	virtual std::vector<std::string> getAllPairs()override;
 	virtual void enable_debug(bool enable) override;
 	virtual BrokerInfo getBrokerInfo() override;
+	virtual void onLoadApiKey(json::Value keyData) override;
+	virtual void onInit() override;
 
 	using Symbols = ondra_shared::linear_map<std::string, MarketInfo, std::less<std::string_view> > ;
 	using Tickers = ondra_shared::linear_map<std::string, Ticker,  std::less<std::string_view> >;
@@ -75,7 +85,6 @@ public:
 
 	static bool tradeOrder(const Trade &a, const Trade &b);
 	void updateBalCache();
-	void init();
 	Value generateOrderId(Value clientId);
 
 	std::intptr_t time_diff;
@@ -309,7 +318,7 @@ bool Interface::reset() {
 	return true;
 }
 
-void Interface::init() {
+void Interface::onInit() {
 	Value res = px.public_request("/api/v1/exchangeInfo",Value());
 
 	std::uintptr_t srvtm = res["serverTime"].getUInt();
@@ -357,7 +366,7 @@ inline Interface::MarketInfo Interface::getMarketInfo(const std::string_view &pa
 }
 
 inline double Interface::getFees(const std::string_view &pair) {
-	if (px.hasKey) {
+	if (px.hasKey()) {
 		 if (!feeInfo.defined()) {
 			 updateBalCache();
 		 }
@@ -365,7 +374,6 @@ inline double Interface::getFees(const std::string_view &pair) {
 	} else {
 		return 0.001;
 	}
-
 }
 
 
@@ -412,6 +420,11 @@ bool Interface::tradeOrder(const Trade &a, const Trade &b) {
 	return Value::compare(a.id,b.id) < 0;
 }
 
+inline void Interface::onLoadApiKey(json::Value keyData) {
+	px.privKey = keyData["privKey"].getString();
+	px.pubKey = keyData["pubKey"].getString();
+}
+
 inline Value Interface::generateOrderId(Value clientId) {
 	std::ostringstream stream;
 	Value(json::array,{idsrc++, clientId.stripKey()},false).serializeBinary([&](char c){
@@ -430,7 +443,7 @@ void Interface::enable_debug(bool enable) {
 
 Interface::BrokerInfo Interface::getBrokerInfo() {
 	return BrokerInfo{
-		px.hasKey,
+		px.hasKey(),
 		"binance",
 		"Binance",
 		"https://www.binance.com/",
@@ -475,24 +488,13 @@ int main(int argc, char **argv) {
 	using namespace json;
 
 	if (argc < 2) {
-		std::cerr << "No config given, terminated" << std::endl;
+		std::cerr << "Required storage path" << std::endl;
 		return 1;
 	}
 
 	try {
 
-		ondra_shared::IniConfig ini;
-
-		ini.load(argv[1]);
-
-		Config cfg = load(ini["api"]);
-		Proxy proxy(cfg);
-
-
-		Interface ifc(proxy);
-
-		ifc.init();
-
+		Interface ifc(argv[1]);
 		ifc.dispatch();
 
 

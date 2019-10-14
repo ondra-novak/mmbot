@@ -25,8 +25,8 @@
 
 using ondra_shared::logDebug;
 
-Proxy::Proxy(Config config):config(config) {
-	hasKey = !config.privKey.empty() && !config.pubKey.empty();
+Proxy::Proxy() {
+	setTestnet(false);
 }
 
 void Proxy::setTimeDiff(std::intptr_t t) {
@@ -64,7 +64,7 @@ json::Value Proxy::request(std::string_view method, json::Value params, bool aut
 		curl_handle.setOpt(new cURLpp::Options::HttpHeader(headers));
 	}
 
-	curl_handle.setOpt(new cURLpp::Options::Url(config.apiUrl));
+	curl_handle.setOpt(new cURLpp::Options::Url(apiUrl));
 	curl_handle.setOpt(new cURLpp::Options::WriteStream(&response));
 	curl_handle.perform();
 
@@ -128,9 +128,9 @@ const std::string &Proxy::getAccessToken() {
 
 	auto resp = request("public/auth",json::Object
 			("grant_type","client_credentials") /* Don't know, but client_signature doesn't work for me*/
-			("client_id",config.pubKey)
-			("client_secret",config.privKey)
-			("scope",config.scopes)
+			("client_id",pubKey)
+			("client_secret",privKey)
+			("scope",scopes)
 /*			("timestamp",time)
 			("signature",signature)
 			("nonce",nonce)*/, false);

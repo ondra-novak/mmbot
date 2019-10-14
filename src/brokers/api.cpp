@@ -5,14 +5,17 @@
  *      Author: ondra
  */
 
-#include <iostream>
+#include <fstream>
 #include "api.h"
 
+#include <sys/stat.h>
 #include <unordered_map>
 #include <imtjson/string.h>
 #include <imtjson/array.h>
 #include <imtjson/object.h>
 #include <shared/linear_map.h>
+#include <imtjson/binjson.tcc>
+#include <imtjson/binary.h>
 
 #include "../main/istockapi.cpp"
 using namespace json;
@@ -20,12 +23,12 @@ using namespace json;
 
 
 
-static Value getBalance(IStockApi &handler, const Value &request) {
+static Value getBalance(AbstractBrokerAPI &handler, const Value &request) {
 	return handler.getBalance(request.getString());
 }
 
-static Value getTrades(IStockApi &handler, const Value &request) {
-	IStockApi::TradeHistory hst(
+static Value getTrades(AbstractBrokerAPI &handler, const Value &request) {
+	AbstractBrokerAPI::TradeHistory hst(
 			handler.getTrades(
 					request["lastId"],
 					request["fromTime"].getUInt(),
@@ -38,8 +41,8 @@ static Value getTrades(IStockApi &handler, const Value &request) {
 	return response;
 }
 
-static Value getOpenOrders(IStockApi &handler, const Value &request) {
-	IStockApi::Orders ords(handler.getOpenOrders(request.getString()));
+static Value getOpenOrders(AbstractBrokerAPI &handler, const Value &request) {
+	AbstractBrokerAPI::Orders ords(handler.getOpenOrders(request.getString()));
 
 	Array response;
 	response.reserve(ords.size());
@@ -53,8 +56,8 @@ static Value getOpenOrders(IStockApi &handler, const Value &request) {
 	return response;
 }
 
-static Value getTicker(IStockApi &handler, const Value &req) {
-	IStockApi::Ticker tk(handler.getTicker(req.getString()));
+static Value getTicker(AbstractBrokerAPI &handler, const Value &req) {
+	AbstractBrokerAPI::Ticker tk(handler.getTicker(req.getString()));
 
 	return Object
 			("bid", tk.bid)
@@ -64,7 +67,7 @@ static Value getTicker(IStockApi &handler, const Value &req) {
 }
 
 
-static Value placeOrder(IStockApi &handler, const Value &req) {
+static Value placeOrder(AbstractBrokerAPI &handler, const Value &req) {
 	return handler.placeOrder(req["pair"].getString(),
 			req["size"].getNumber(),
 			req["price"].getNumber(),
@@ -73,7 +76,7 @@ static Value placeOrder(IStockApi &handler, const Value &req) {
 			req["replaceOrderSize"].getNumber());
 }
 
-static Value enableDebug(IStockApi &handler, const Value &req) {
+static Value enableDebug(AbstractBrokerAPI &handler, const Value &req) {
 	AbstractBrokerAPI *h = dynamic_cast<AbstractBrokerAPI *>(&handler);
 	if (h) {
 		h->enable_debug(req.getBool());
@@ -82,8 +85,8 @@ static Value enableDebug(IStockApi &handler, const Value &req) {
 }
 
 
-static Value getBrokerInfo(IStockApi &handler, const Value &req) {
-	IStockApi::BrokerInfo nfo = handler.getBrokerInfo();
+static Value getBrokerInfo(AbstractBrokerAPI &handler, const Value &req) {
+	AbstractBrokerAPI::BrokerInfo nfo = handler.getBrokerInfo();
 	return Object("name",nfo.exchangeName)
 				 ("url",nfo.exchangeUrl)
 				 ("version",nfo.version)
@@ -92,12 +95,12 @@ static Value getBrokerInfo(IStockApi &handler, const Value &req) {
 				 ("favicon",Value(BinaryView(StrViewA(nfo.favicon)),base64));
 }
 
-static Value reset(IStockApi &handler, const Value &req) {
+static Value reset(AbstractBrokerAPI &handler, const Value &req) {
 	handler.reset();
 	return Value();
 }
 
-static Value getAllPairs(IStockApi &handler, const Value &req) {
+static Value getAllPairs(AbstractBrokerAPI &handler, const Value &req) {
 	auto r = handler.getAllPairs();
 	Array response;
 	response.reserve(r.size());
@@ -105,13 +108,13 @@ static Value getAllPairs(IStockApi &handler, const Value &req) {
 	return response;
 }
 
-static Value getFees(IStockApi &handler, const Value &req) {
+static Value getFees(AbstractBrokerAPI &handler, const Value &req) {
 	return  handler.getFees(req.getString());
 }
 
 
-static Value getInfo(IStockApi &handler, const Value &req) {
-	IStockApi::MarketInfo nfo ( handler.getMarketInfo(req.getString()) );
+static Value getInfo(AbstractBrokerAPI &handler, const Value &req) {
+	AbstractBrokerAPI::MarketInfo nfo ( handler.getMarketInfo(req.getString()) );
 	return Object
 			("asset_step",nfo.asset_step)
 			("currency_step", nfo.currency_step)
@@ -120,16 +123,25 @@ static Value getInfo(IStockApi &handler, const Value &req) {
 			("min_size", nfo.min_size)
 			("min_volume", nfo.min_volume)
 			("fees", nfo.fees)
-			("feeScheme",IStockApi::strFeeScheme[nfo.feeScheme])
+			("feeScheme",AbstractBrokerAPI::strFeeScheme[nfo.feeScheme])
 			("leverage", nfo.leverage)
 			("invert_price", nfo.invert_price)
 			("inverted_symbol", nfo.inverted_symbol);
 }
 
+static Value setApiKey(AbstractBrokerAPI &handler, const Value &req) {
+	handler.setApiKey(req);
+	return Value();
+}
+
+static Value getApiKeyFields(AbstractBrokerAPI &handler, const Value &req) {
+	return handler.getApiKeyFields();
+}
+
 
 ///Handler function
-using HandlerFn = Value (*)(IStockApi &handler, const Value &request);
-using MethodMap = ondra_shared::linear_map<std::string_view, decltype(&getBalance)> ;
+using HandlerFn = Value (*)(AbstractBrokerAPI &handler, const Value &request);
+using MethodMap = ondra_shared::linear_map<std::string_view, HandlerFn> ;
 
 static MethodMap methodMap ({
 			{"getBalance",&getBalance},
@@ -142,11 +154,13 @@ static MethodMap methodMap ({
 			{"getFees",&getFees},
 			{"getInfo",&getInfo},
 			{"enableDebug",&enableDebug},
-			{"getBrokerInfo",&getBrokerInfo}
+			{"getBrokerInfo",&getBrokerInfo},
+			{"setApiKey",&setApiKey},
+			{"getApiKeyFields",&getApiKeyFields}
 	});
 
 
-Value callMethod(IStockApi &api, std::string_view name, Value args) {
+Value callMethod(AbstractBrokerAPI &api, std::string_view name, Value args) {
 	try {
 		auto iter = methodMap.find(name);
 		if (iter == methodMap.end()) throw std::runtime_error("Method not implemented");
@@ -159,21 +173,62 @@ Value callMethod(IStockApi &api, std::string_view name, Value args) {
 }
 
 
-void AbstractBrokerAPI::dispatch(std::istream& input, std::ostream& output, IStockApi &handler) {
+void AbstractBrokerAPI::dispatch(std::istream& input, std::ostream& output, AbstractBrokerAPI &handler) {
 
-
-
-	while (true) {
-		int i = input.get();
-		if (i == EOF) return;
-		input.putback(i);
+	try {
 		Value v = Value::fromStream(input);
-		callMethod(handler, v[0].getString(), v[1]).toStream(output);
+		handler.loadKeys();
+		handler.onInit();
+		while (true) {
+			callMethod(handler, v[0].getString(), v[1]).toStream(output);
+			output << std::endl;
+			int i = input.get();
+			while (i != EOF && isspace(i)) i = input.get();
+			if (i == EOF) break;
+			input.putback(i);
+			v = Value::fromStream(input);
+		}
+	} catch (std::exception &e) {
+		Value({false, e.what()}).toStream(output);
 		output << std::endl;
 	}
+}
 
+AbstractBrokerAPI::AbstractBrokerAPI(const std::string &secure_storage_path,
+		const Value &apiKeyFormat)
+:secure_storage_path(secure_storage_path),apiKeyFormat(apiKeyFormat) {
+
+}
+
+
+void AbstractBrokerAPI::loadKeys() {
+	try {
+		std::ifstream f(secure_storage_path);
+		if (!f) return;
+		Value key = json::Value::parseBinary([&] {
+			return f.get();
+		}, base64);
+		onLoadApiKey(key);
+	} catch (std::exception &e) {
+		std::cerr << e.what();
+	}
 }
 
 void AbstractBrokerAPI::dispatch() {
 	dispatch(std::cin, std::cout, *this);
+}
+
+void AbstractBrokerAPI::setApiKey(json::Value keyData) {
+
+	onLoadApiKey(keyData);
+
+	umask( S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
+	std::ofstream f(secure_storage_path);
+	if (!f) throw std::runtime_error("Failed to store API key");
+	keyData.serializeBinary([&](char c){f.put(c);}, compressKeys);
+	if (!f) throw std::runtime_error("Failed to store API key");
+}
+
+json::Value AbstractBrokerAPI::getApiKeyFields() const {
+	return apiKeyFormat;
 }
