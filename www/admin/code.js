@@ -70,6 +70,7 @@ TemplateJS.View.prototype.showWithAnim = function(item, state) {
 	}
 }
 
+
 App.prototype.createTraderForm = function() {
 	var form = TemplateJS.View.fromTemplate("trader_form");
 	var norm=form.findElements("goal_norm")[0];
@@ -278,6 +279,7 @@ App.prototype.fillForm = function (src, trg) {
 	var broker = fetch_with_error(this.brokerURL(src.broker));
 	var pair;
 	var orders;
+	var apikey = this.config.apikeys && this.config.apikeys[src.broker];
 
 	var updateHdr = function(data) {
 		
@@ -285,7 +287,10 @@ App.prototype.fillForm = function (src, trg) {
 		orders = fetch_json(this.pairURL(src.broker, src.pair_symbol)+"/orders");
 
 		data.broker = broker.then(function(x) {return x.exchangeName;});
-		data.no_api_key = broker.then(function(x) {return {".hidden": x.trading_enabled};});
+		data.no_api_key = broker.then(function(x) {
+			return {".hidden": !!(apikey === undefined?x.trading_enabled:apikey)};});
+		data.api_key_not_saved = broker.then(function(x) {
+			return {".hidden": apikey === undefined || !(!x.trading_enabled && apikey)};});
 		data.broker_id = broker.then(function(x) {return x.name;});
 		data.broker_ver = broker.then(function(x) {return x.version;});
 		data.asset = pair.then(function(x) {return x.asset_symbol;})
@@ -627,11 +632,13 @@ App.prototype.brokerSelect = function() {
 			var excl_info = [];
 			var lst = x["entries"].map(function(itm) {
 				var z = fetch_with_error(_this.brokerURL(itm))
-					.then(function(z) {
+					.then(function(n,z) {					
+						var e = _this.config.apikeys && _this.config.apikeys[itm];
+						if (e === undefined) e = z.trading_enabled;
 						return {
-								".hidden":z.trading_enabled
+								".hidden":e
 								};
-					});
+					}.bind(_this,itm));
 				excl_info.push(z);
 				return {
 					excl_info: z,
@@ -871,9 +878,8 @@ App.prototype.securityForm = function() {
 			}
 		},this)
 		
-		function setKey(flag, broker, binfo) {
-			if (flag == binfo.trading_enabled) return;
-			
+		function setKey(flag, broker, binfo, cfg) {
+	
 			if (flag) {
 				fetch_with_error(this.brokerURL(broker)+"/apikey")
 				.then(function(form){
@@ -911,8 +917,17 @@ App.prototype.securityForm = function() {
 						}
 					});
 					var w = TemplateJS.View.fromTemplate({tag:"x-form",content:items});
-					this.dlgbox({text:w},"confirm");
+					w.setData(cfg);
+					this.dlgbox({text:w},"confirm").then(function() {
+						if (!this.config.apikeys) this.config.apikeys = {};
+						this.config.apikeys[broker] = w.readData();
+						update.call(this);
+					}.bind(this));
 				}.bind(this));
+			} else {
+				if (!this.config.apikeys) this.config.apikeys = {};
+				this.config.apikeys[broker] = null;				
+				update.call(this);
 			}
 			
 		}
@@ -920,6 +935,7 @@ App.prototype.securityForm = function() {
 		var brokers = fetch_with_error(this.brokerURL("")).
 			then(function(x) {
 				return x.entries.map(function(z) {
+					var cfg = this.config.apikeys && this.config.apikeys[z]
 					var binfo = fetch_with_error(this.brokerURL(z));
 					return {
 						img:this.brokerImgURL(z),
@@ -931,21 +947,22 @@ App.prototype.securityForm = function() {
 							}
 						}),
 						state: binfo.then(function(b) {
+							var e = cfg === undefined?b.trading_enabled:cfg;
 							return {
-								value: b.trading_enabled?"✓":"∅",
-								classList:{set:b.trading_enabled, notset:!b.trading_enabled}
+								value: e?"✓":"∅",
+								classList:{set:e, notset:!e}
 							}
 						}),
 						bset: binfo.then(function(b) {
 							return {
-								".disabled":b.trading_enabled,
-								"!click": setKey.bind(this, true, z, b)
+								".disabled": b.trading_enabled && cfg === undefined,
+								"!click": setKey.bind(this, true, z, b, cfg)
 							}
 						}.bind(this)),
 						berase: binfo.then(function(b) {
 							return {
-								".disabled":!b.trading_enabled,
-								"!click": setKey.bind(this, false, z, b)
+								".disabled":!b.trading_enabled && !cfg,
+								"!click": setKey.bind(this, false, z, b, cfg)
 							}
 						}.bind(this)),
 					}

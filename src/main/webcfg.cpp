@@ -142,16 +142,29 @@ bool WebCfg::reqConfig(simpleServer::HTTPRequest req) const {
 						}
 					}
 					data = data.replace("revision", state->write_serial+1);
-					state->config->store(data);
+					Value apikeys = data["apikeys"];
+					state->config->store(data.replace("apikeys", Value()));
 					state->write_serial = serial+1;;
-					dispatch([&traders, state, req, data] {
+					dispatch([&traders, state, req, data, apikeys] {
 						try {
 							state->applyConfig(traders);
+							if (apikeys.type() == json::object) {
+								for (Value v: apikeys) {
+									StrViewA broker = v.getKey();
+									IStockApi *b = traders.stockSelector.getStock(broker);
+									if (b) {
+										IApiKey *apik = dynamic_cast<IApiKey *>(b);
+										apik->setApiKey(v);
+									}
+								}
+							}
 							req.sendResponse(HTTPResponse(202).contentType("application/json"),data.stringify());
 						} catch (std::exception &e) {
 							req.sendErrorPage(500,StrViewA(),e.what());
 						}
 					});
+
+
 				} catch (std::exception &e) {
 					req.sendErrorPage(500,StrViewA(),e.what());
 				}
@@ -230,7 +243,7 @@ bool WebCfg::reqBrokers(simpleServer::HTTPRequest req, ondra_shared::StrViewA re
 									("entries", {"icon.png","pairs","apikey"});
 					req.sendResponse(HTTPResponse(200)
 									.contentType("application/json")
-									.cacheFor(30),res.stringify());
+									,res.stringify());
 					return true;
 				} else if (entry == "icon.png") {
 					if (!req.allowMethods({"GET"})) return true;

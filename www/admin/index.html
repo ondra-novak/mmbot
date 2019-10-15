@@ -20,7 +20,8 @@
 <label><span>ID</span><span data-name="id" ></span></label>
 <label><span>Broker</span><span><img src="" data-name="broker_img" class="inline_img">
 	<span data-name="broker_id"></span> (<span data-name="broker"></span> <span data-name="broker_ver"></span>)<br/>
-	<span class="no_api_key" data-name="no_api_key" hidden="hidden">⚠️ - no API keys are set</span></span>
+	<span class="no_api_key" data-name="no_api_key" hidden="hidden">⚠️ - API key isn't set</span>
+	<span class="no_api_key" data-name="api_key_not_saved" hidden="hidden">⚠️ - API key is not active. Please save the configuration to activate the API key</span></span>
 	</label>
 
 
@@ -271,6 +272,7 @@ The position is not generally in the sync due to various issues. You need to spe
 <td data-name="state"></td>
 <td><button data-name="bset">Set</button><button data-name="berase">Erase</button></td>
 </table>
+<span class="no_api_key" data-name="need_save" >⚠️ - Note that the configuration must be <b><u>saved</u></b> to apply changes to the API keys settings</span></span>
 </x-section>
 </x-form>
 </template>
