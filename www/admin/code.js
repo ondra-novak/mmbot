@@ -882,8 +882,8 @@ App.prototype.securityForm = function() {
 	
 			if (flag) {
 				fetch_with_error(this.brokerURL(broker)+"/apikey")
-				.then(function(form){
-					var items = form.map(function(itm) {
+				.then(function(ff){
+					var items = ff.map(function(itm) {
 						var el;
 						var lb = {
 					        	tag:"span",
@@ -921,13 +921,16 @@ App.prototype.securityForm = function() {
 					this.dlgbox({text:w},"confirm").then(function() {
 						if (!this.config.apikeys) this.config.apikeys = {};
 						this.config.apikeys[broker] = w.readData();
+						form.showItem("need_save",true);
 						update.call(this);
 					}.bind(this));
 				}.bind(this));
 			} else {
 				if (!this.config.apikeys) this.config.apikeys = {};
-				this.config.apikeys[broker] = null;				
+				this.config.apikeys[broker] = null;
+				form.showItem("need_save",true);
 				update.call(this);
+				
 			}
 			
 		}

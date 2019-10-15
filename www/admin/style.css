@@ -43,6 +43,7 @@ button {
 	background-color: #444;
 	box-shadow: 2px 2px 5px black;
 	min-width: 5em;
+	margin: 0 0.4em;
 }
 
 button:hover {

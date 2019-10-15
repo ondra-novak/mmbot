@@ -33,6 +33,7 @@ NamedEnum<WebCfg::Command> WebCfg::strCommand({
 	{WebCfg::brokers, "brokers"},
 	{WebCfg::traders, "traders"},
 	{WebCfg::stop, "stop"},
+	{WebCfg::reload_brokers, "reload_brokers"},
 	{WebCfg::logout, "logout"},
 	{WebCfg::logout_commit, "logout_commit"}
 });

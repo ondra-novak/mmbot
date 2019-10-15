@@ -272,7 +272,7 @@ The position is not generally in the sync due to various issues. You need to spe
 <td data-name="state"></td>
 <td><button data-name="bset">Set</button><button data-name="berase">Erase</button></td>
 </table>
-<span class="no_api_key" data-name="need_save" >⚠️ - Note that the configuration must be <b><u>saved</u></b> to apply changes to the API keys settings</span></span>
+<span class="no_api_key" data-name="need_save" hidden="hidden">⚠️ - Note that the configuration must be <b><u>saved</u></b> to apply changes to the API keys settings</span></span>
 </x-section>
 </x-form>
 </template>
@@ -403,7 +403,7 @@ The position is not generally in the sync due to various issues. You need to spe
 <label><span>Size of backtest [days]: </span><x-slider data-min="1" data-max="60" data-mult="1" data-name="backtest_interval"></x-slider></label>
 </x-section>
 <x-section><x-section-caption>Actions</x-section-caption>
-<div class="rightinfo"><button data-name="stop">Global Stop</button></div>
+<div class="rightinfo"><button data-name="reload_brokers">Reload brokers</button> <button data-name="stop">Global Stop</button></div>
 </x-form>
 </template>
 
