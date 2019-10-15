@@ -20,6 +20,7 @@
 #include "../server/src/simpleServer/query_parser.h"
 #include "../server/src/simpleServer/urlencode.h"
 #include "../shared/ini_config.h"
+#include "apikeys.h"
 
 using namespace json;
 using ondra_shared::StrViewA;
@@ -226,7 +227,7 @@ bool WebCfg::reqBrokers(simpleServer::HTTPRequest req, ondra_shared::StrViewA re
 									("exchangeUrl", binfo.exchangeUrl)
 									("version", binfo.version)
 									("licence", binfo.licence)
-									("entries", {"icon.png","pairs"});
+									("entries", {"icon.png","pairs","apikey"});
 					req.sendResponse(HTTPResponse(200)
 									.contentType("application/json")
 									.cacheFor(30),res.stringify());
@@ -239,6 +240,28 @@ bool WebCfg::reqBrokers(simpleServer::HTTPRequest req, ondra_shared::StrViewA re
 					req.sendResponse(HTTPResponse(200).contentType("image/png").cacheFor(600),
 							StrViewA(b));
 					return true;
+				} else if (entry == "apikey") {
+					IApiKey *kk = dynamic_cast<IApiKey *>(api);
+					if (kk == nullptr) {
+						req.sendErrorPage(403);
+						return true;
+					}
+					if (!req.allowMethods({"GET","PUT","DELETE"})) return true;
+					if (req.getMethod() == "GET") {
+						req.sendResponse(std::move(hdr),
+								kk->getApiKeyFields().toString().str());
+						return true;
+					} else if (req.getMethod() == "PUT") {
+						req.readBodyAsync(10000, [=](HTTPRequest req){
+							Value v = Value::fromString(StrViewA(BinaryView(req.getUserBuffer())));
+							kk->setApiKey(v);
+							req.sendResponse("application/json","true",202);
+						});
+						return true;
+					} else {
+						kk->setApiKey(nullptr);
+						req.sendResponse("application/json","true",202);
+					}
 				} else if (entry == "pairs"){
 					if (pair.empty()) {
 						if (!req.allowMethods({"GET"})) return true;

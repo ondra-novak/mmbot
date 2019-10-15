@@ -9,7 +9,6 @@
 
 #include <rpc/rpcServer.h>
 #include "../imtjson/src/imtjson/operations.h"
-#include "config.h"
 #include "proxy.h"
 #include "../main/istockapi.h"
 #include <cmath>
@@ -24,9 +23,14 @@ using namespace json;
 
 class Interface: public AbstractBrokerAPI {
 public:
-	Proxy &px;
+	Proxy px;
 
-	Interface(Proxy &cm, std::string dbpath):px(cm),orderdb(dbpath) {}
+	Interface(const std::string &path):AbstractBrokerAPI(
+			path,
+			{
+					Object("name","key")("type","string")("label","Key"),
+					Object("name","secret")("type","string")("label","Secret")
+			}),orderdb(path+".db") {}
 
 
 	virtual double getBalance(const std::string_view & symb) override;
@@ -45,6 +49,8 @@ public:
 	virtual std::vector<std::string> getAllPairs()override;
 	virtual void enable_debug(bool enable) override {px.debug = enable;}
 	virtual BrokerInfo getBrokerInfo() override;
+	virtual void onLoadApiKey(json::Value keyData) override;
+	virtual void onInit() override;
 
 	Value balanceCache;
 	Value tickerCache;
@@ -276,7 +282,7 @@ inline Interface::MarketInfo Interface::getMarketInfo(const std::string_view &pa
 }
 
 inline double Interface::getFees(const std::string_view &pair) {
-	if (px.hasKey) {
+	if (px.hasKey()) {
 		auto now = std::chrono::system_clock::now();
 		if (!feeInfo.defined() || feeInfoExpiration < now) {
 			feeInfo = px.private_request("returnFeeInfo", Value());
@@ -360,6 +366,14 @@ inline bool Interface::syncTradeCheckTime(const std::vector<Trade> &cont,
 	return false;
 }
 
+inline void Interface::onLoadApiKey(json::Value keyData) {
+	px.privKey = keyData["secret"].getString();
+	px.pubKey = keyData["key"].getString();
+}
+
+inline void Interface::onInit() {
+	//empty
+}
 
 bool Interface::tradeOrder(const Trade &a, const Trade &b) {
 	std::size_t ta = a.time;
@@ -372,7 +386,7 @@ bool Interface::tradeOrder(const Trade &a, const Trade &b) {
 
 Interface::BrokerInfo Interface::getBrokerInfo() {
 	return BrokerInfo{
-		px.hasKey,
+		px.hasKey(),
 		"poloniex",
 		"Poloniex",
 		"https://www.poloniex.com/",
@@ -430,29 +444,11 @@ int main(int argc, char **argv) {
 	using namespace json;
 
 	if (argc < 2) {
-		std::cerr << "No config given, terminated" << std::endl;
+		std::cerr << "Argument needed" << std::endl;
 		return 1;
 	}
 
-	try {
+	Interface ifc(argv[1]);
+	ifc.dispatch();
 
-		ondra_shared::IniConfig ini;
-
-		ini.load(argv[1]);
-
-		Config cfg = load(ini["api"]);
-		Proxy proxy(cfg);
-
-		std::string dbpath = ini["order_db"].mandatory["path"].getPath();
-
-		Interface ifc(proxy, dbpath);
-
-
-		ifc.dispatch();
-
-
-	} catch (std::exception &e) {
-		std::cerr << "Error: " << e.what() << std::endl;
-		return 2;
-	}
 }

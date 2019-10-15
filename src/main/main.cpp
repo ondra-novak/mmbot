@@ -152,7 +152,7 @@ static int cmd_achieve(Worker &wrk, simpleServer::ArgList args, simpleServer::St
 		return 3;
 	}
 }
-
+#if 0 //temporarily deactivated
 static int cmd_backtest(Worker &wrk, simpleServer::ArgList args, simpleServer::Stream stream, const std::string &cfgfname, IStockSelector &stockSel, Report &rpt) {
 	if (args.length < 1) {
 		stream << "Need arguments: <trader_ident> [option=value ...]\n"; return 1;
@@ -247,6 +247,7 @@ static int cmd_backtest(Worker &wrk, simpleServer::ArgList args, simpleServer::S
 	}
 
 }
+#endif
 
 static int cmd_config(Worker &wrk, simpleServer::ArgList args, simpleServer::Stream stream, const ondra_shared::IniConfig &cfg) {
 	if (args.length < 1) {
@@ -299,7 +300,7 @@ public:
 				"reset        - erases all trades expect the last one",
 				"achieve      - achieve an internal state (achieve mode)",
 				"repair       - repair pair",
-				"backtest     - backtest",
+//				"backtest     - backtest",
 				"show_config  - shows trader's complete configuration"
 		};
 
@@ -514,9 +515,9 @@ int main(int argc, char **argv) {
 						cntr.addCommand("repair", [&](simpleServer::ArgList args, simpleServer::Stream stream){
 							return cmd_singlecmd(wrk, args,stream,&MTrader::repair);
 						});
-						cntr.addCommand("backtest", [&](simpleServer::ArgList args, simpleServer::Stream stream){
-							return cmd_backtest(wrk, args, stream, app.configPath.string(), traders->stockSelector, rpt);
-						});
+//						cntr.addCommand("backtest", [&](simpleServer::ArgList args, simpleServer::Stream stream){
+//							return cmd_backtest(wrk, args, stream, app.configPath.string(), traders->stockSelector, rpt);
+//						});
 						cntr.addCommand("show_config", [&](simpleServer::ArgList args, simpleServer::Stream stream){
 							return cmd_config(wrk, args, stream, app.config);
 						});

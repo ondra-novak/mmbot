@@ -10,10 +10,11 @@
 
 #include "istockapi.h"
 #include "abstractExtern.h"
+#include "apikeys.h"
 
 
 
-class ExtStockApi: public AbstractExtern, public IStockApi {
+class ExtStockApi: public AbstractExtern, public IStockApi, public IApiKey {
 public:
 
 	ExtStockApi(const std::string_view & workingDir, const std::string_view & name, const std::string_view & cmdline);
@@ -35,6 +36,8 @@ public:
 	virtual void testBroker() override {preload();}
 	virtual void onConnect() override;
 	virtual BrokerInfo getBrokerInfo()  override;
+	virtual void setApiKey(json::Value keyData) override;
+	virtual json::Value getApiKeyFields() const override;
 
 };
 

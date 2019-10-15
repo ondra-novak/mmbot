@@ -262,6 +262,16 @@ The position is not generally in the sync due to various issues. You need to spe
 <button class="add" data-name="add"><img src="../res/adduser.png">&nbsp;Add&nbsp;user</button>
 </div>
 </x-section>
+<x-section class="apikeys"><x-section-caption>API Keys</x-section-caption>
+<table>
+<tr><th>Broker</th><th>Exchange</th><th>State</th><th>Action</th></tr>
+<tr data-name="brokers[]">
+<td><img src="" data-name="img"><span data-name="broker"></span></td>
+<td><a href="" data-name="exchange" target="_blank"></a></td>
+<td data-name="state"></td>
+<td><button data-name="bset">Set</button><button data-name="berase">Erase</button></td>
+</table>
+</x-section>
 </x-form>
 </template>
 

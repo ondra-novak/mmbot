@@ -10,6 +10,9 @@ body {
 	padding: 0;
 }
 
+a {color: yellow;}
+a:visited {color: #ffa800;}
+
 [hidden] { display: none !important;}
 input,select,button,textarea {
 	background-color: black;
@@ -337,6 +340,21 @@ a {
 	display: inline-block;
 	vertical-align: middle;
 }
+
+.security_form .apikeys img {
+	width: 32px;
+	vertical-align: inherit;
+	margin-right: 1em;
+}
+.security_form .apikeys td.set {
+	font-size: 2em;
+	color: green;
+}
+.security_form .apikeys td.notset {
+	font-size: 2em;
+	color: red;
+}
+
 
 .main_form_wait x-section div, .waitdlg div {
 	position: absolute;

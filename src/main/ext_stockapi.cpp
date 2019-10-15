@@ -152,6 +152,12 @@ ExtStockApi::BrokerInfo ExtStockApi::getBrokerInfo()  {
 		};
 	}
 
+}
 
+void ExtStockApi::setApiKey(json::Value keyData) {
+	jsonRequestExchange("setApiKey",keyData);
+}
 
+json::Value ExtStockApi::getApiKeyFields() const {
+	return const_cast<ExtStockApi *>(this)->jsonRequestExchange("getApiKeyFields",json::Value());
 }

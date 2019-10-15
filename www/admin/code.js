@@ -871,8 +871,91 @@ App.prototype.securityForm = function() {
 			}
 		},this)
 		
+		function setKey(flag, broker, binfo) {
+			if (flag == binfo.trading_enabled) return;
+			
+			if (flag) {
+				fetch_with_error(this.brokerURL(broker)+"/apikey")
+				.then(function(form){
+					var items = form.map(function(itm) {
+						var el;
+						var lb = {
+					        	tag:"span",
+					        	text: itm.label
+					        };
+						
+						switch (itm.type) {
+						case "string": el ={tag:"input",
+											attrs: {
+												type:"text",
+												value:itm.default || ""
+											}};break;
+						case "enum": el = {tag:"select",
+										   attrs: {value:itm.default || ""},
+										   content: Object.keys(itm.options).map(function(k){
+											   return {tag:"option",
+												   attrs: {value: k},
+												   text: itm.options[k]
+											   }
+										   })};
+										   break;
+										   
+						default:
+							el = {tag:"span",text:"unknown: "+itm.type};
+							break;
+						}
+						if (el.attrs && itm.name) el.attrs["data-name"]=itm.name;
+						return {
+							tag:"label",
+							content:[lb, el]
+						}
+					});
+					var w = TemplateJS.View.fromTemplate({tag:"x-form",content:items});
+					this.dlgbox({text:w},"confirm");
+				}.bind(this));
+			}
+			
+		}
+		
+		var brokers = fetch_with_error(this.brokerURL("")).
+			then(function(x) {
+				return x.entries.map(function(z) {
+					var binfo = fetch_with_error(this.brokerURL(z));
+					return {
+						img:this.brokerImgURL(z),
+						broker: z,
+						exchange: binfo.then(function(b) {
+							return {
+								value:b.exchangeName,
+								href:b.exchangeUrl
+							}
+						}),
+						state: binfo.then(function(b) {
+							return {
+								value: b.trading_enabled?"✓":"∅",
+								classList:{set:b.trading_enabled, notset:!b.trading_enabled}
+							}
+						}),
+						bset: binfo.then(function(b) {
+							return {
+								".disabled":b.trading_enabled,
+								"!click": setKey.bind(this, true, z, b)
+							}
+						}.bind(this)),
+						berase: binfo.then(function(b) {
+							return {
+								".disabled":!b.trading_enabled,
+								"!click": setKey.bind(this, false, z, b)
+							}
+						}.bind(this)),
+					}
+				}.bind(this));
+			}.bind(this));
+			
+		
 		var data = {
 			rows:rows,
+			brokers:brokers,
 			add:{
 				"!click":function() {
 					

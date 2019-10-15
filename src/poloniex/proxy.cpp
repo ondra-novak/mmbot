@@ -23,12 +23,18 @@
 using ondra_shared::logDebug;
 
 static constexpr std::uint64_t start_time = 1557858896532;
-Proxy::Proxy(Config config):config(config) {
+Proxy::Proxy() {
+
+	apiPrivUrl="https://poloniex.com/tradingApi";
+	apiPublicUrl="https://poloniex.com/public";
+
 	auto now = std::chrono::system_clock::now();
 	std::size_t init_time = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count() - start_time;
 	nonce = init_time * 100;
-	hasKey = !config.privKey.empty() && !config.pubKey.empty();
+}
 
+bool Proxy::hasKey() const {
+	return !privKey.empty() && !pubKey.empty();
 }
 
 
@@ -52,7 +58,7 @@ void Proxy::buildParams(const json::Value& params, std::ostream& data) {
 
 json::Value Proxy::public_request(std::string method, json::Value data) {
 	std::ostringstream urlbuilder;
-	urlbuilder << config.apiPublicUrl << "?command=" << method;
+	urlbuilder << apiPublicUrl << "?command=" << method;
 	buildParams(data, urlbuilder);
 	std::ostringstream response;
 
@@ -92,7 +98,7 @@ static std::string signData(std::string_view key, std::string_view data) {
 }
 
 json::Value Proxy::private_request(std::string method, json::Value data) {
-	if (!hasKey)
+	if (!hasKey())
 		throw std::runtime_error("Function requires valid API keys");
 
 	std::ostringstream databld;
@@ -116,12 +122,12 @@ json::Value Proxy::private_request(std::string method, json::Value data) {
 	curl_handle.setOpt(new cURLpp::Options::PostFieldSize(request.length()));
 
 	std::list<std::string> headers;
-	headers.push_back("Key: "+config.pubKey);
-	headers.push_back("Sign: "+signData(config.privKey, request));;
+	headers.push_back("Key: "+pubKey);
+	headers.push_back("Sign: "+signData(privKey, request));;
 
 	curl_handle.setOpt(new cURLpp::Options::HttpHeader(headers));
 
-	curl_handle.setOpt(new cURLpp::Options::Url(config.apiPrivUrl));
+	curl_handle.setOpt(new cURLpp::Options::Url(apiPrivUrl));
 	curl_handle.setOpt(new cURLpp::Options::WriteStream(&response));
 	curl_handle.perform();
 
