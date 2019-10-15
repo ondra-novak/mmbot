@@ -35,7 +35,7 @@ public:
 	unsigned int getTradeCount() const {
 		return std::min(buys,sells);
 	}
-	virtual BrokerInfo getBrokerInfo() {
+	virtual BrokerInfo getBrokerInfo() override {
 		return BrokerInfo {};
 	}
 

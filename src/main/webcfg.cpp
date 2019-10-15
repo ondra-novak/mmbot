@@ -246,22 +246,10 @@ bool WebCfg::reqBrokers(simpleServer::HTTPRequest req, ondra_shared::StrViewA re
 						req.sendErrorPage(403);
 						return true;
 					}
-					if (!req.allowMethods({"GET","PUT","DELETE"})) return true;
-					if (req.getMethod() == "GET") {
-						req.sendResponse(std::move(hdr),
+					if (!req.allowMethods({"GET"})) return true;
+					req.sendResponse(std::move(hdr),
 								kk->getApiKeyFields().toString().str());
-						return true;
-					} else if (req.getMethod() == "PUT") {
-						req.readBodyAsync(10000, [=](HTTPRequest req){
-							Value v = Value::fromString(StrViewA(BinaryView(req.getUserBuffer())));
-							kk->setApiKey(v);
-							req.sendResponse("application/json","true",202);
-						});
-						return true;
-					} else {
-						kk->setApiKey(nullptr);
-						req.sendResponse("application/json","true",202);
-					}
+					return true;
 				} else if (entry == "pairs"){
 					if (pair.empty()) {
 						if (!req.allowMethods({"GET"})) return true;
