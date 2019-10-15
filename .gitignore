@@ -2,9 +2,10 @@ CMakeCache.txt
 CMakeFiles
 cmake_install.cmake
 Makefile
-bin
+/bin
 /log
 /build/
-data
-www/report*
-local.conf
+/data
+/www/report*
+/local.conf
+/secure_data
