@@ -11,7 +11,6 @@
 #include <rpc/rpcServer.h>
 #include <imtjson/operations.h>
 #include "shared/toString.h"
-#include "config.h"
 #include "proxy.h"
 #include "../main/istockapi.h"
 #include <cmath>

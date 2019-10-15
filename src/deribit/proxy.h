@@ -11,7 +11,6 @@
 #include <chrono>
 
 #include <imtjson/value.h>
-#include "config.h"
 
 class Proxy {
 public:

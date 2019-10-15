@@ -33,6 +33,10 @@ void Proxy::setTimeDiff(std::intptr_t t) {
 	this->time_diff = t;
 }
 
+bool Proxy::hasKey() const {
+	return !privKey.empty() && !pubKey.empty() && !scopes.empty();
+}
+
 json::Value Proxy::request(std::string_view method, json::Value params, bool auth) {
 
 	const std::string *tk(auth?&getAccessToken():nullptr);
@@ -148,5 +152,6 @@ std::uintptr_t Proxy::now() {
 
 }
 
-
-
+void Proxy::setTestnet(bool testnet) {
+	apiUrl = testnet?"https://test.deribit.com/api/v2":"https://www.deribit.com/api/v2";
+}
