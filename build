@@ -1,0 +1,8 @@
+#!/bin/bash
+	
+mkdir -p ./data
+mkdir -p ./secure_data
+mkdir -p ./log
+mkdir -p ./run
+cmake -DCMAKE_BUILD_TYPE=RELWITHDEBINFO .
+make all -j `nproc`
