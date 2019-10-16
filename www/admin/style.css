@@ -388,6 +388,33 @@ a {
 	width: 100% !important;
 }
 
+.trouble_sect {
+	display:flex;
+	flex-wrap: wrap;	
+}
+
+.trouble_sect > * {
+	flex-grow: 1;
+	width: 7cm;
+	text-align: justify;
+	margin: 1em;
+	/* height: 100%; */
+	position: relative;
+	padding-bottom: 4em;
+}
+.trouble_sect > * > div {
+	text-align: center;
+	position: absolute;
+	bottom: 0;
+	left: 0;
+	right: 0;
+}
+.trouble_sect > * > div > button {
+	width: 50%;
+	height: 3em;
+}
+
+
 @keyframes rot {
 	0% {
 	transform: rotate(0);

@@ -26,6 +26,7 @@
 
 #include <imtjson/binjson.tcc>
 
+#include "../shared/linux_waitpid.h"
 #include "istockapi.h"
 
 const int AbstractExtern::invval = -1;
@@ -88,6 +89,13 @@ static void report_error(const char *desc) {
 	std::ostringstream buff;
 	buff << "System exception: " << e << " " << strerror(e) << " while '" << desc << '"';
 	throw std::runtime_error(buff.str());
+}
+
+static void report_timeout(const char *desc) {
+	std::ostringstream buff;
+	buff << "TIMEOUT while '" << desc << '"';
+	throw std::runtime_error(buff.str());
+
 }
 
 
@@ -174,27 +182,27 @@ void AbstractExtern::handleClose(int fd) {
 }
 
 
-static int termThenKill(int id) {
-	int status = 0;
-	for (int i = 1; i < 20; i++) {
-		int r = ::waitpid(id,&status,WNOHANG);
-		if (r == -1) return -1;
-		if (r == id) return status;
-		::kill(id, SIGTERM);
-		std::this_thread::sleep_for(std::chrono::milliseconds(200));
-	}
-	::kill(id, SIGKILL);
-	return -1;
-
-}
-
 void AbstractExtern::kill() {
 	Sync _(lock);
 	if (chldid != -1) {
+
+		ondra_shared::WaitPid wpid(chldid);
 		extin.close();
-//		::kill(chldid,SIGTERM);
-		int status = termThenKill(chldid);
-		log.note("terminated with status: $1", status);
+		if (!wpid.wait_for(std::chrono::seconds(3))) {
+			::kill(chldid, SIGTERM);
+			if (!wpid.wait_for(std::chrono::seconds(10))) {
+				::kill(chldid, SIGKILL);
+				if (!wpid.wait_for(std::chrono::seconds(10))) {
+					log.error("Unable to terminate broker! (TIMEOUT waiting on SIGKILL)");
+				}
+			}
+		}
+		int status = wpid.getExitCode();
+		if (WIFSIGNALED(status)) {
+			log.note("Broker process disconnected because signal: $1", WTERMSIG(status));
+		} else {
+			log.note("Broker process disconnected. Exit code : $1", WEXITSTATUS(status));
+		}
 		chldid = -1;
 	}
 }
@@ -283,6 +291,10 @@ void AbstractExtern::preload() {
 	}
 }
 
+void AbstractExtern::stop() {
+	kill();
+}
+
 json::Value AbstractExtern::jsonExchange(json::Value request) {
 	Sync _(lock);
 
@@ -307,7 +319,7 @@ json::Value AbstractExtern::jsonExchange(json::Value request) {
 			fds[1].events = POLLIN;
 			fds[1].revents = 0;
 			int r = poll(fds,2,30000);
-			if (r == 0) report_error("timeout");
+			if (r == 0) report_timeout("poll");
 			if (r < 0) report_error("poll");
 			if (fds[1].revents) {
 				Reader errrd(exterr);

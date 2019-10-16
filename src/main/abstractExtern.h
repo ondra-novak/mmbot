@@ -23,6 +23,7 @@ public:
 
 	void preload();
 	virtual void onConnect() {}
+	void stop();
 protected:
 
 	static const int invval;

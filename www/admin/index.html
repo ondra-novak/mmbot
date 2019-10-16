@@ -269,8 +269,8 @@ The position is not generally in the sync due to various issues. You need to spe
 <tr data-name="brokers[]">
 <td><img src="" data-name="img"><span data-name="broker"></span></td>
 <td><a href="" data-name="exchange" target="_blank"></a></td>
-<td data-name="state"></td>
-<td><button data-name="bset">Set</button><button data-name="berase">Erase</button></td>
+<td data-name="state"><div class="spinner fast inline"></div></td>
+<td><button data-name="bset" disabled="disabled">Set</button><button data-name="berase" disabled="disabled">Erase</button></td>
 </table>
 <span class="no_api_key" data-name="need_save" hidden="hidden">⚠️ - Note that the configuration must be <b><u>saved</u></b> to apply changes to the API keys settings</span></span>
 </x-section>
@@ -402,8 +402,10 @@ The position is not generally in the sync due to various issues. You need to spe
 <label><span>Size of charts [days]: </span><x-slider data-min="1" data-max="60" data-mult="1" data-name="report_interval"></x-slider></label>
 <label><span>Size of backtest [days]: </span><x-slider data-min="1" data-max="60" data-mult="1" data-name="backtest_interval"></x-slider></label>
 </x-section>
-<x-section><x-section-caption>Actions</x-section-caption>
-<div class="rightinfo"><button data-name="reload_brokers">Reload brokers</button> <button data-name="stop">Global Stop</button></div>
+<x-section><x-section-caption>Troubleshoting</x-section-caption>
+<div class="trouble_sect"><div>Cancel all orders and temporarily stop the automatic trading for the all traders. To reenable trading, you need to hit "Save" button<div><button data-name="stop">Global Stop</button></div></div>
+<div>Reloads all brokers. This can fix some problems with certain brokers<div><button data-name="reload_brokers">Reload brokers</button></div></div>
+</div>
 </x-form>
 </template>
 

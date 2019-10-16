@@ -21,6 +21,7 @@
 #include "../server/src/simpleServer/urlencode.h"
 #include "../shared/ini_config.h"
 #include "apikeys.h"
+#include "ext_stockapi.h"
 
 using namespace json;
 using ondra_shared::StrViewA;
@@ -33,7 +34,6 @@ NamedEnum<WebCfg::Command> WebCfg::strCommand({
 	{WebCfg::brokers, "brokers"},
 	{WebCfg::traders, "traders"},
 	{WebCfg::stop, "stop"},
-	{WebCfg::reload_brokers, "reload_brokers"},
 	{WebCfg::logout, "logout"},
 	{WebCfg::logout_commit, "logout_commit"}
 });
@@ -209,6 +209,17 @@ bool WebCfg::reqBrokers(simpleServer::HTTPRequest req, ondra_shared::StrViewA re
 		json::String vpath = rest;
 		auto splt = StrViewA(vpath).split("/");
 		StrViewA urlbroker = splt();
+		if (urlbroker == "_reload") {
+			if (!req.allowMethods({"POST"})) return true;
+			dispatch([=] {
+				trlist.stockSelector.forEachStock([&](const std::string_view &,IStockApi &x){
+					ExtStockApi *ex = dynamic_cast<ExtStockApi *>(&x);
+					ex->stop();
+				});
+				req.sendResponse("application/json","true");
+			});
+			return true;
+		}
 		std::string broker = urlDecode(urlbroker);
 		IStockApi *api = trlist.stockSelector.getStock(broker);
 		if (api == nullptr) {

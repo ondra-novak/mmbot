@@ -1243,12 +1243,13 @@ App.prototype.optionsForm = function() {
 			report_interval: defval(this.config.report_interval,864000000)/86400000,
 			backtest_interval: defval(this.config.backtest_interval,864000000)/86400000,
 			stop:{"!click": function() {
-				this.dlgbox({text:this.strtable.global_stop_confirm},"confirm")
-					.then(function(){
-						this.waitScreen(fetch_with_error("api/stop",{"method":"POST"}));
-						for (var x in this.traders) this.stopped[x] = true;
-					}.bind(this))
+					this.waitScreen(fetch_with_error("api/stop",{"method":"POST"}));
+					for (var x in this.traders) this.stopped[x] = true;
+			}.bind(this)},
+			reload_brokers:{"!click":function() {
+				this.waitScreen(fetch_with_error("api/brokers/_reload",{"method":"POST"}));
 			}.bind(this)}
+			
 	};
 	form.setData(data);
 	form.save = function() {
