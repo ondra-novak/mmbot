@@ -9,3 +9,4 @@ Makefile
 /www/report*
 /local.conf
 /secure_data
+/run/

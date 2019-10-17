@@ -277,9 +277,17 @@ public:
 
 	App(): ondra_shared::DefaultApp({
 		App::Switch{'t',"dry_run",[this](auto &&){this->test = true;},"dry run"},
+		App::Switch{'p',"port",[this](auto &&cmd){
+			auto p = cmd.getUInt();
+			if (p.has_value())
+				this->port = *p;
+			else
+				throw std::runtime_error("Need port number after -p");
+			},"<number> Temporarily opens TCP port"},
 	},std::cout) {}
 
 	bool test = false;
+	int port = -1;
 
 	virtual void showHelp(const std::initializer_list<Switch> &defsw) {
 		const char *commands[] = {
@@ -368,18 +376,12 @@ int main(int argc, char **argv) {
 
 						Scheduler sch = ondra_shared::Scheduler::create();
 
-						cntr.addCommand("logrotate",[=](const simpleServer::ArgList &, simpleServer::Stream ) {
-							ondra_shared::logRotate();
-							return 0;
-						});
 
-
-
-						auto lstsect = app.config["traders"];
-						auto names = lstsect.mandatory["list"].getString();
-						auto storagePath = lstsect.mandatory["storage_path"].getPath();
-						auto storageBinary = lstsect["storage_binary"].getBool(true);
-						auto spreadCalcInterval = lstsect["spread_calc_interval"].getUInt(10);
+						auto storagePath = servicesection.mandatory["storage_path"].getPath();
+						auto storageBinary = servicesection["storage_binary"].getBool(true);
+						auto spreadCalcInterval = servicesection["spread_calc_interval"].getUInt(10);
+						auto listen = servicesection["listen"].getString();
+						auto socket = servicesection["socket"].getPath();
 						auto rptsect = app.config["report"];
 						auto rptpath = rptsect.mandatory["path"].getPath();
 						auto rptinterval = rptsect["interval"].getUInt(864000000);
@@ -401,48 +403,49 @@ int main(int argc, char **argv) {
 
 						RefCntPtr<AuthUserList> aul;
 
-						traders->loadTraders(app.config, names);
-
-						auto webadminsect = app.config["web_admin"];
-						bool webadmin_enabled = webadminsect["enabled"].getBool(false);
 						RefCntPtr<WebCfg::State> webcfgstate;
-						if (webadmin_enabled) {
-							StrViewA webadmin_auth = webadminsect["auth"].getString();
-							webcfgstate = new WebCfg::State(sf.create("web_admin_conf"),new AuthUserList, new AuthUserList);
-							webcfgstate->setAdminAuth(webadmin_auth);
-							webcfgstate->applyConfig(*traders);
-							aul = webcfgstate->users;
-						} else {
-							aul = new AuthUserList;
-							aul->setUsers(aul->decodeMultipleBasicAuth(rptsect["http_auth"].getString()));
-						}
-
-						auto web_bind = rptsect["http_bind"];
+						StrViewA webadmin_auth = servicesection["admin"].getString();
+						webcfgstate = new WebCfg::State(sf.create("web_admin_conf"),new AuthUserList, new AuthUserList);
+						webcfgstate->setAdminAuth(webadmin_auth);
+						webcfgstate->applyConfig(*traders);
+						aul = webcfgstate->users;
 
 						std::unique_ptr<simpleServer::MiniHttpServer> srv;
 
+						simpleServer::NetAddr addr(nullptr);
+						if (!socket.empty()) {
+							addr = simpleServer::NetAddr::create(std::string("unix:")+socket,11223);
+						}
+						if (!listen.empty()) {
+							simpleServer::NetAddr baddr = simpleServer::NetAddr::create(listen,11223);
+							if (addr.getHandle() == nullptr) addr = baddr;
+							else addr = addr + baddr;
+						}
 
-					if (web_bind.defined()) {
-						simpleServer::NetAddr addr = simpleServer::NetAddr::create(web_bind.getString(),11223);
-						srv = std::make_unique<simpleServer::MiniHttpServer>(addr, 1, 1);
+						if (app.port>0) {
+							simpleServer::NetAddr baddr =  simpleServer::NetAddr::create("0",app.port);
+							if (addr.getHandle() == nullptr) addr = baddr;
+							else addr = addr + baddr;
+						}
+
+						if (addr.getHandle() != nullptr) {
+							srv = std::make_unique<simpleServer::MiniHttpServer>(addr, 1, 1);
 
 
-						std::vector<simpleServer::HttpStaticPathMapper::MapRecord> paths;
-						paths.push_back(simpleServer::HttpStaticPathMapper::MapRecord{
-							"/",AuthMapper(name,aul) >>= simpleServer::HttpFileMapper(std::string(rptpath), "index.html")
-						});
+							std::vector<simpleServer::HttpStaticPathMapper::MapRecord> paths;
+							paths.push_back(simpleServer::HttpStaticPathMapper::MapRecord{
+								"/",AuthMapper(name,aul) >>= simpleServer::HttpFileMapper(std::string(rptpath), "index.html")
+							});
 
-						if (webadmin_enabled) {
 							paths.push_back({
 								"/admin",ondra_shared::shared_function<bool(simpleServer::HTTPRequest, ondra_shared::StrViewA)>(WebCfg(webcfgstate,
 										name,
 										*traders,
 										[=](WebCfg::Action &&a) mutable {sch.immediate() >> std::move(a);}))
 							});
+							(*srv)  >>=  simpleServer::HttpStaticPathMapperHandler(paths);
 						}
 
-						(*srv)  >>=  simpleServer::HttpStaticPathMapperHandler(paths);
-					}
 
 
 						logNote("---- Starting service ----");
@@ -569,6 +572,8 @@ int main(int argc, char **argv) {
 				std::cerr << "Error: " << e.what() << std::endl;
 				return 2;
 			}
+		} else {
+			std::cout << "use -h for help" << std::endl;
 		}
 	} catch (std::exception &e) {
 		std::cerr << "Error:" << e.what() << std::endl;
