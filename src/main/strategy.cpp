@@ -19,6 +19,7 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 		Strategy_PLFromPos::Config cfg;
 		cfg.accum = config["accum"].getNumber();
 		cfg.step = config["step"].getNumber();
+		cfg.neutral_pos = config["neutral_pos"].getNumber();
 		return Strategy(new Strategy_PLFromPos(cfg));
 	} else if (id == Strategy_HalfHalf::id) {
 		double ea = config["ea"].getNumber();

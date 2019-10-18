@@ -20,12 +20,14 @@
 #include "../server/src/simpleServer/query_parser.h"
 #include "../server/src/simpleServer/urlencode.h"
 #include "../shared/ini_config.h"
+#include "../shared/logOutput.h"
 #include "apikeys.h"
 #include "ext_stockapi.h"
 
 using namespace json;
 using ondra_shared::StrViewA;
 using ondra_shared::IniConfig;
+using ondra_shared::logError;
 using namespace simpleServer;
 
 NamedEnum<WebCfg::Command> WebCfg::strCommand({
@@ -544,10 +546,14 @@ void WebCfg::State::applyConfig(Traders &t) {
 	traderNames.clear();
 
 	for (Value v: data["traders"]) {
-		MTrader_Config cfg;
-		cfg.loadConfig(v, t.test);
-		t.addTrader(cfg,v.getKey());
-		traderNames.push_back(v.getKey());
+		try {
+			MTrader_Config cfg;
+			cfg.loadConfig(v, t.test);
+			t.addTrader(cfg,v.getKey());
+			traderNames.push_back(v.getKey());
+		} catch (std::exception &e) {
+			logError("Failed to initialized trader $1 - $2", v.getKey(), e.what());
+		}
 	}
 	Value newInterval = data["report_interval"];
 	if (newInterval.defined()) {

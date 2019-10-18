@@ -55,7 +55,7 @@ static bool default_value(json::Value data, bool defval) {
 
 
 void MTrader_Config::loadConfig(json::Value data, bool force_dry_run) {
-	pairsymb = data["symbol"].getString();
+	pairsymb = data["pair_symbol"].getString();
 	broker = data["broker"].getString();
 	title = data["title"].getString();
 
@@ -177,7 +177,7 @@ int MTrader::perform() {
 		mergeTrades(trades.size() - status.new_trades.size());
 
 		double lastTradePrice = trades.empty()?status.curPrice:trades.back().eff_price;
-		double lastTradeSize = trades.empty()?0:trades.back().eff_price;
+		double lastTradeSize = trades.empty()?0:trades.back().eff_size;
 
 		if (!strategy.isValid()) {
 			strategy.init(status.curPrice, status.assetBalance, status.currencyBalance);
@@ -524,11 +524,10 @@ void MTrader::loadState() {
 
 		auto state = st["state"];
 		if (state.defined()) {
-			if (!curtest) {
-				buy_dynmult = state["buy_dynmult"].getNumber();
-				sell_dynmult = state["sell_dynmult"].getNumber();
-			}
+			buy_dynmult = state["buy_dynmult"].getNumber();
+			sell_dynmult = state["sell_dynmult"].getNumber();
 			internal_balance = state["internal_balance"].getNumber();
+			recalc = state["recalc"].getBool();
 		}
 		auto chartSect = st["chart"];
 		if (chartSect.defined()) {
@@ -572,6 +571,7 @@ void MTrader::saveState() {
 		st.set("buy_dynmult", buy_dynmult);
 		st.set("sell_dynmult", sell_dynmult);
 		st.set("internal_balance", *internal_balance);
+		st.set("recalc",recalc);
 	}
 	{
 		auto ch = obj.array("chart");
@@ -923,7 +923,7 @@ double MTrader::calcSpread() const {
 	})/std::distance(iter, end));
 
 
-	return std::log(stdev);
+	return std::log((stdev+sma.back())/sma.back());
 
 
 }

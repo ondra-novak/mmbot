@@ -38,13 +38,9 @@
 </x-section>
 <x-section><x-section-caption>General</x-section-caption>
 <label><span>Title</span><input type="text" data-name="title"></label>
-<label><span>Goal<span class="tooltip">
-<strong>Normalized profit</strong> - focus on profit from small differences, conservative strategy, not available 
-for margin and futures. Expected profit about 10% per year<br><br>
-<strong>Profit from position</strong> - focus on profit on opening and closing position. More profit but more risk as well
-</span></span><select data-name="goal">
-<option value="norm">Normalized profit</option>
-<option value="pl">Profit from position</option>
+<label><span>Strategy</span><select data-name="strategy">
+<option value="plfrompos">Profit from position</option>
+<option value="halfhalf">Half-Half</option>
 </select></label>
 <div class="label"><span>Options</span><div>
 <label><input type="checkbox" checked="checked" data-name="enabled"> Enabled </label>
@@ -54,55 +50,21 @@ for margin and futures. Expected profit about 10% per year<br><br>
 
 </div>
 </x-section>
-<x-section data-name="goal_norm" class="goal hidden" hidden="hidden"><x-section-caption>Normalized profit</x-section-caption>
+<x-section data-name="strategy_halfhalf" class="goal hidden" hidden="hidden"><x-section-caption>Normalized profit</x-section-caption>
 <label><span>External assets <span class="tooltip">Amount of assets held outside of exchange. They are included into calculations.</span></span><input type="number" step="any" data-name="external_assets"></label>
 <div class="rightinfo">Min price: <span data-name="range_min_price"></span>&nbsp;<span data-name="currency"></span>
 - Max price: <span data-name="range_max_price"></span>&nbsp;<span data-name="currency"></span>
 </div>
 <label  class="adv"><span>Accumulation <span class="tooltip">Amount of the profit used to buy extra assets</span></span><x-slider data-name="acum_factor" data-min="0" data-max="100" data-mult="1"></x-slider></label>
 </x-section>
-<x-section data-name="goal_pl" class="goal hidden" hidden="hidden"><x-section-caption>Profit from position</x-section-caption>
-<label><span>Power / Risk level: <span class="tooltip"
->Specifies volume of trading as multiplication of initial investment. 
-Higher values can result to higher profit but also higher risk. 
-Always consult the 'save range' when you choose an optimal value</span></span><x-slider data-name="power" data-min="1" data-max="100" data-mult="1" data-fixed="0"></x-slider></label>
-<div class="rightinfo">Safe range: <span data-name="range_min_price"></span>
--  <span data-name="range_max_price"></span></div>
-<div class="rightinfo">Overall position: <span data-name="external_assets"></span>, Volume; <span data-name="external_volume"></span></div>
-<label  class="adv"><span>Neutral position <span class="tooltip"
->Specify which state of your account is neutral position.<br><br> 
-At the <strong>furtues and at the margin exchanges</strong>, there should be probably the zero assets to achieve
-the same state as at the exchenge. <br><br>
-For <strong> the non-margin exchanges</strong> you can simulate position by specifying
-how much assets or currency is considered as a neutral (zero) position. If you specify "center", 
-then the value specifies how many pairs share the one currency balance. You can specify 1 to achieve 50:50 value
-for the neutral position</span></span><span class="control_row"><input type="number" step="any" data-name="neutral_pos_val"><select data-name="neutral_pos_type">
-<option value="assets" name="asset">Assets</option>
-<option value="currency" name="currency">Currency</option>
-<option value="center">Center</option>
-</select></span>
+<x-section data-name="strategy_pl" class="goal hidden" hidden="hidden"><x-section-caption>Profit from position</x-section-caption>
+<label><span>Position step per %1: <span class="tooltip"
+>Specifies how much position changes per %1 of price change</span></span><input data-name="step" type="number" step="any"></label>
+<label><span>Neutral position <span class="tooltip"
+>How much assets are considered as neutral position</span></span><input data-name="neutral_pos" type="number" step="any">
 </label>
-<label><span>Sliding speed [hours] (0&nbsp;=&nbsp;disabled)<span class="tooltip">
-Specifies after how much time (in hours) the position is returned to the neutral state regardless on
-whether it deliveres profit or loss. The amount time is recalculated after each trade, so
-it can be much longer if there is trading activity while the current position is changes very often. 
-</span></span><x-slider data-name="sliding_pos_hours" data-min="0" data-max="1000" data-mult="10"></x-slider></label>
-<label class="adv"><span>Fade max position (0&nbsp;=&nbsp;disabled) <span class="tooltip"
->When large position is opened, the volume of each trade is lowered until the 'fade max position'
-is reached. Beyond this limit, only dust orders are traded until the position is returned
-back below the limit (Sliding speed). This protects you against a liquidation when large
-position is held</span></span><input data-name="sliding_pos_fade" type="number" step="any"></x-slider></label>
-<label><span>Max position (0&nbsp;=&nbsp;disabled)<span class="tooltip"
->Prevents to open a position of the total amount above the specified limit (short or long). However this can
-cause to stop the trading alltoghether without a chance to return (The 'accept loss' can handle this situation)</span></span><input type="number" step="any" data-name="max_pos"></label>
-<label><span>Expected trend<span class="tooltip">Prefers specified trend. 
-Positive value means uptrend, negative value means downtrend. 
-The value represents a slope of the trend with no exact representation. </span></span><x-slider data-name="expected_trend" data-min="-10" data-max="10" data-mult="0.1" data-fixed="1"></x-slider></label>
-<div class="experimental"><label><span>Backtest for max order size [hours], (0&nbsp;=&nbsp;disabled)<span class="tooltip"
->Automatically finds optimal higher limit of the order size by running backtest after each trade</span>
-</span><input type="number" data-name="auto_max_backtest_time" step="any"></label>
-<div class="rightinfo">Calculated limit: <span data-name="auto_max_backtest_result">n/a</span></div>
-</div>
+<label class="adv"><span>Accumulation <span class="tooltip">Amount of the profit used to buy extra assets</span></span><x-slider data-name="pl_acum" data-min="0" data-max="100" data-mult="1"></x-slider></label>
+
 </x-section>
 <x-section class="adv" data-name="backtest_anchor"><x-section-caption>Common</x-section-caption>
 <label  class="adv"><span>Order minimal size (0&nbsp;=&nbsp;disabled)<span class="tooltip">

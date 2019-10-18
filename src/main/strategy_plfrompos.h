@@ -15,6 +15,7 @@ public:
 	struct Config {
 		double step;
 		double accum;
+		double neutral_pos;
 	};
 
 	Strategy_PLFromPos(const Config &cfg, double p = 0, double a = 0, double pos = 0, double err = 0);
