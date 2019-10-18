@@ -11,7 +11,6 @@
 #include <memory>
 #include "istatsvc.h"
 #include "report.h"
-#include "spread_calc.h"
 
 using CalcSpreadFn = std::function<void()>;
 using CalcSpreadQueue = std::function<void(CalcSpreadFn &&) >;
@@ -54,35 +53,6 @@ public:
 	}
 	virtual void reportPrice(double price) override{
 		rpt.setPrice(name, price);
-	}
-	virtual double calcSpread(ondra_shared::StringView<ChartItem> chart,
-			const MTrader_Config &cfg,
-			const IStockApi::MarketInfo &minfo,
-			double balance,
-			double prev_value) const override{
-
-		if (spread->spread == 0) spread->spread = prev_value;
-
-		if (cnt <= 0) {
-			if (spread->pending) return spread->spread;
-			cnt += interval;
-			spread->pending = true;
-			q([chart = std::vector<ChartItem>(chart.begin(),chart.end()),
-				cfg = MTrader_Config(cfg),
-				minfo = IStockApi::MarketInfo(minfo),
-				balance,
-				spread = this->spread,
-				name = this->name] () mutable {
-			ondra_shared::LogObject logObj(name);
-			ondra_shared::LogObject::Swap swap(logObj);
-			spread->spread = glob_calcSpread( chart, cfg, minfo, balance, spread->spread);
-			spread->pending = false;
-			});
-			return spread->spread;
-		} else {
-			--cnt;
-			return spread->spread;
-		}
 	}
 	virtual std::size_t getHash() const override {
 		std::hash<std::string> h;

@@ -331,33 +331,23 @@ void Report::setMisc(StrViewA symb, const MiscData &miscData) {
 
 		miscMap[symb] = Object
 				("t",-miscData.trade_dir)
-				("a", miscData.achieve)
 				("mcp", 1.0/miscData.calc_price)
-				("mv", miscData.value)
 				("ms", spread)
 				("mdmb", miscData.dynmult_sell)
 				("mdms", miscData.dynmult_buy)
-				("sm", miscData.size_mult)
-				("mb",miscData.boost)
 				("ml",1.0/miscData.highest_price)
 				("mh",1.0/miscData.lowest_price)
-				("osl", miscData.order_size_limit)
 				("mt",miscData.total_trades)
 				("tt",miscData.total_time);
 	} else {
 		miscMap[symb] = Object
 				("t",miscData.trade_dir)
-				("a", miscData.achieve)
 				("mcp", miscData.calc_price)
-				("mv", miscData.value)
 				("ms", spread)
 				("mdmb", miscData.dynmult_buy)
 				("mdms", miscData.dynmult_sell)
-				("sm", miscData.size_mult)
-				("mb",miscData.boost)
 				("ml",miscData.lowest_price)
 				("mh",miscData.highest_price)
-				("osl", miscData.order_size_limit)
 				("mt",miscData.total_trades)
 				("tt",miscData.total_time);
 	}

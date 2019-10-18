@@ -26,17 +26,12 @@ public:
 
 	struct MiscData {
 		int trade_dir;
-		bool achieve;
 		double calc_price;
 		double spread;
 		double dynmult_buy;
 		double dynmult_sell;
-		double size_mult;
-		double value;
-		double boost;
 		double lowest_price;
 		double highest_price;
-		double order_size_limit;
 		std::size_t total_trades;
 		std::size_t total_time;
 	};
@@ -70,11 +65,6 @@ public:
 	virtual void setInfo(const Info &info) = 0;
 	virtual void reportMisc(const MiscData &miscData) = 0;
 	virtual void reportError(const ErrorObj &errorObj) = 0;
-	virtual double calcSpread(ondra_shared::StringView<ChartItem> chart,
-			const MTrader_Config &config,
-			const IStockApi::MarketInfo &minfo,
-			double balance,
-			double prev_value) const = 0;
 	virtual std::size_t getHash() const = 0;
 	virtual void clear() = 0;
 

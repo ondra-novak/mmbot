@@ -6,16 +6,14 @@ add_executable (mmbot
 	authmapper.cpp
 	ext_stockapi.cpp
 	mtrader.cpp
-	spread_calc.cpp
-	calculator.cpp
 	istockapi.cpp
 	storage.cpp
 	emulator.cpp
 	main.cpp
 	report.cpp
 	webcfg.cpp	
-	backtest_broker.cpp
 	traders.cpp
+	strategy.cpp
 	strategy_halfhalf.cpp
 	strategy_plfrompos.cpp
 	)

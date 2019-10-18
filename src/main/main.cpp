@@ -22,13 +22,11 @@
 #include "istatsvc.h"
 #include "mtrader.h"
 #include "report.h"
-#include "spread_calc.h"
 #include "ext_stockapi.h"
 #include "authmapper.h"
 #include "webcfg.h"
 #include "spawn.h"
 #include "stats2report.h"
-#include "backtest.h"
 #include "traders.h"
 
 using ondra_shared::StdLogFile;
@@ -124,147 +122,6 @@ static int cmd_singlecmd(Worker &wrk, simpleServer::ArgList args, simpleServer::
 }
 
 
-
-static int cmd_achieve(Worker &wrk, simpleServer::ArgList args, simpleServer::Stream stream) {
-	if (args.length != 3) {
-		stream << "Need arguments: <trader_ident> <price> <balance>\n"; return 1;
-	}
-
-	double price = strtod(args[1].data,nullptr);
-	double balance = strtod(args[2].data,nullptr);
-	if (price<=0) {
-		stream << "second argument must be positive real numbers. Use dot (.) as decimal point\n";return 1;
-	}
-
-	NamedMTrader *trader = traders->find(args[0]);
-	if (trader == nullptr) {
-		stream << "Trader idenitification is invalid: " << args[0] << "\n";
-		return 1;
-	}
-	try {
-		run_in_worker(wrk, [&]{
-			trader->achieve_balance(price,balance);return true;
-		});
-		stream << "OK\n";
-		return 0;
-	} catch (std::exception &e) {
-		stream << e.what() << "\n";
-		return 3;
-	}
-}
-#if 0 //temporarily deactivated
-static int cmd_backtest(Worker &wrk, simpleServer::ArgList args, simpleServer::Stream stream, const std::string &cfgfname, IStockSelector &stockSel, Report &rpt) {
-	if (args.length < 1) {
-		stream << "Need arguments: <trader_ident> [option=value ...]\n"; return 1;
-	}
-	NamedMTrader *trader = traders->find(args[0]);
-	if (trader == nullptr) {
-		stream << "Trader idenitification is invalid: " << args[0] << "\n";
-		return 1;
-	}
-
-	stream << "Preparing chart\n";
-	stream.flush();
-	NamedMTrader &t = *trader;
-	try {
-		std::vector<ondra_shared::IniItem> options;
-		for (std::size_t i = 1; i < args.length; i++) {
-			auto arg = args[i];
-			auto splt = arg.split("=",2);
-			StrViewA key = splt();
-			StrViewA value = splt();
-			key = key.trim(isspace);
-			value = value.trim(isspace);
-			options.emplace_back(ondra_shared::IniItem::data, args[0], key, value);
-		}
-
-		std::optional<BacktestControl> backtest;
-		BacktestControl::BtReport *btrpt_cntr;
-		run_in_worker(wrk, [&] {
-			auto cfg = BacktestControl::loadConfig(cfgfname, args[0], options,t.getLastSpread());
-			auto btrpt = std::make_unique<BacktestControl::BtReport>(
-					std::make_unique<Stats2Report>(
-							[=](CalcSpreadFn &&fn) {fn();},
-							"backtest",
-							rpt,
-							cfg.calc_spread_minutes));
-			btrpt_cntr = btrpt.get();
-			t.init();
-			backtest.emplace(stockSel, std::move(btrpt), cfg, t.getChart(),  t.getInternalBalance());
-			return true;
-		});
-
-		stream << "Running ('.' - per hour, '+' - report)\n";
-
-		std::mutex wrlock;
-		auto wrout = [&](StrViewA x) {
-			std::lock_guard<std::mutex> _(wrlock);
-			stream << x;
-			return stream.flush();
-		};
-
-		Scheduler sch = Scheduler::create();
-		sch.each(std::chrono::seconds(1)) >> [p = 0,&wrout]() mutable {
-			char c[2];
-			p = (p + 1) % 4;
-			c[1] = '\b';
-			c[0] = "\\|/-"[p];
-			wrout(StrViewA(c,2));
-		};
-
-		int mdv = 0;
-		auto tc = std::chrono::system_clock::now();
-		while (backtest->step()) {
-			auto tn = std::chrono::system_clock::now();
-			mdv++;
-			if (mdv >= 60) {
-				if (!wrout(".")) break;
-				mdv = 0;
-			}
-			if (std::chrono::duration_cast<std::chrono::seconds>(tn-tc).count()>50) {
-				run_in_worker(wrk,[&] {
-					btrpt_cntr->flush();
-					rpt.genReport();
-					wrout("+");
-					return true;
-				});
-				tc = tn;
-			}
-		}
-		sch.clear();
-		stream << "\nGenerating report\n";
-		stream.flush();
-		run_in_worker(wrk,[&] {
-			btrpt_cntr->flush();
-			rpt.genReport();
-			return true;
-		});
-		stream << "Done\n";
-		return 0;
-	} catch (std::exception &e) {
-		stream << e.what() << "\n";
-		return 2;
-	}
-
-}
-#endif
-
-static int cmd_config(Worker &wrk, simpleServer::ArgList args, simpleServer::Stream stream, const ondra_shared::IniConfig &cfg) {
-	if (args.length < 1) {
-		stream << "Need argument: <trader_ident>\n"; return 1;
-	}
-	auto sect = cfg[args[0]];
-	std::stringstream buff;
-	MTrader::showConfig(sect, false, buff);
-	std::vector<std::string> list;
-	buff.seekp(0);
-	std::string line;
-	while (std::getline(buff,line)) list.push_back(line);
-	std::sort(list.begin(),list.end());
-	for (auto &&k : list)
-		stream << k << "\n";
-	return 0;
-}
 
 
 static ondra_shared::CrashHandler report_crash([](const char *line) {

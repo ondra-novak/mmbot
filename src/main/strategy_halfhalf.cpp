@@ -27,17 +27,23 @@ IStrategy* Strategy_HalfHalf::init(double curPrice, double assets,
 }
 
 std::pair<Strategy_HalfHalf::OnTradeResult, IStrategy*> Strategy_HalfHalf::onTrade(
-		double tradePrice, double , double ,
-		double ) const {
+		double tradePrice, double size , double assetsLeft, double currencyLeft ) const {
 
-	double n = tradePrice;
-	double v = a * p + a * n - 2 * a * sqrt(p *  n);
-	double ap = (v / n) * accu;
-	double np = v * (1-accu);
-	return std::make_pair(
-			OnTradeResult {np, ap},
-			new Strategy_HalfHalf(ea,accu,n,a+ap)
-	);
+	if (size == 0) {
+		return std::make_pair(
+				OnTradeResult{0,0},
+				new Strategy_HalfHalf(ea, accu, tradePrice, assetsLeft));
+	} else {
+
+		double n = tradePrice;
+		double v = a * p + a * n - 2 * a * sqrt(p *  n);
+		double ap = (v / n) * accu;
+		double np = v * (1-accu);
+		return std::make_pair(
+				OnTradeResult {np, ap},
+				new Strategy_HalfHalf(ea,accu,n,a+ap)
+		);
+	}
 }
 
 json::Value Strategy_HalfHalf::exportState() const {
@@ -65,3 +71,6 @@ Strategy_HalfHalf::MinMax Strategy_HalfHalf::calcSafeRange(double assets, double
 	return r;
 }
 
+double Strategy_HalfHalf::getEquilibrium() const {
+	return p;
+}

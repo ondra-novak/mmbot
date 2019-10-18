@@ -28,14 +28,15 @@ std::pair<Strategy_PLFromPos::OnTradeResult, IStrategy*> Strategy_PLFromPos::onT
 		double tradePrice, double tradeSize, double assetsLeft,
 		double currencyLeft) const {
 
+
 	double chg = calcOrderSize(tradePrice, assetsLeft - tradeSize);
-	double new_err = chg - tradeSize;
+	double new_err = tradeSize?(chg - tradeSize):0;
 	double new_pos = pos + chg;
 	double new_a_diff = tradeSize>0?std::sqrt(tradeSize):0 * cfg.accum;
 	double new_a = a + new_a_diff;
 	OnTradeResult res{
-		(tradeSize * (tradePrice - p) - new_a_diff*tradeSize),
-		(new_a_diff)
+		(pos * chg < 0?tradeSize * (tradePrice - p):0) - new_a_diff*tradeSize,
+		new_a_diff
 	};
 	Strategy_PLFromPos *newinst =  new Strategy_PLFromPos(cfg, tradePrice, new_a, new_pos, new_err);
 	return std::make_pair(res,newinst);
@@ -72,4 +73,7 @@ Strategy_PLFromPos::MinMax Strategy_PLFromPos::calcSafeRange(double assets,
 		std::numeric_limits<double>::quiet_NaN(),
 		std::numeric_limits<double>::quiet_NaN()
 	};
+}
+
+double Strategy_PLFromPos::getEquilibrium() const {
 }

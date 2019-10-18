@@ -27,6 +27,8 @@ public:
 	virtual IStrategy *importState(json::Value src) const override;
 	virtual double calcOrderSize(double price, double assets) const override;
 	virtual MinMax calcSafeRange(double assets, double currencies) const override;
+	virtual double getEquilibrium() const override;
+	virtual IStrategy *reset() const override;
 
 protected:
 	Config cfg;

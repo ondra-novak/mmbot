@@ -39,7 +39,7 @@ public:
 	///Creates a new state after trade
 	/**
 	 * @param tradePrice price where the trade has been executed
-	 * @param tradeSize size of the execution
+	 * @param tradeSize size of the execution. If this value is 0, then trade has been created by accept_loss
 	 * @param assetsLeft assets left on the account (or position)
 	 * @param currencyLeft currency left on the account
 	 * @return result of trade and pointer to a new state
@@ -63,6 +63,10 @@ public:
 	};
 
 	virtual MinMax calcSafeRange(double assets, double currencies) const = 0;
+
+	virtual double getEquilibrium() const = 0;
+
+	virtual IStrategy *reset() const = 0;
 
 	virtual ~IStrategy() {}
 };

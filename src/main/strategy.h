@@ -40,7 +40,15 @@ public:
 	MinMax calcSafeRange(double assets, double currencies) const {
 		return ptr->calcSafeRange(assets, currencies);
 	}
+	double getEquilibrium() const {
+		return ptr->getEquilibrium();
+	}
+	void reset() {
+		ptr = ptr->reset();
+	}
 
+
+	static Strategy create(ondra_shared::StrViewA name, json::Value config);
 
 protected:
 	Ptr ptr;
@@ -48,8 +56,6 @@ protected:
 
 
 };
-
-
 
 
 #endif /* SRC_MAIN_STRATEGY_H_ */
