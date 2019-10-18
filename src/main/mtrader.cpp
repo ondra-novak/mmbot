@@ -2,6 +2,7 @@
 #include <imtjson/string.h>
 #include "istockapi.h"
 #include "mtrader.h"
+#include "strategy.h"
 
 #include <chrono>
 #include <cmath>

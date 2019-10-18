@@ -7,6 +7,7 @@
 
 #ifndef SRC_MAIN_SGN_H_
 #define SRC_MAIN_SGN_H_
+#include <cmath>
 
 
 

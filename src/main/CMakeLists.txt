@@ -16,6 +16,8 @@ add_executable (mmbot
 	webcfg.cpp	
 	backtest_broker.cpp
 	traders.cpp
+	strategy_halfhalf.cpp
+	strategy_plfrompos.cpp
 	)
 target_link_libraries (mmbot LINK_PUBLIC simpleServer imtjson curlpp ssl crypto curl stdc++fs pthread)
 install(TARGETS mmbot DESTINATION "bin") 
