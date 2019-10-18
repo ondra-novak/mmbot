@@ -81,7 +81,7 @@ void Report::setOrders(StrViewA symb, const std::optional<IStockApi::Order> &buy
 }
 
 
-void Report::setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> trades, bool margin) {
+void Report::setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> trades, Strategy strategy) {
 
 	using ondra_shared::range;
 
@@ -107,9 +107,6 @@ void Report::setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> tr
 		std::size_t invest_beg_time = t.time;
 		double invst_value = t.eff_price*t.balance;
 
-		//so the first trade doesn't change the value of portfolio
-//		double init_value = init_balance*t.eff_price+init_fiat;
-		//
 		double init_price = t.eff_price;
 
 
@@ -176,9 +173,9 @@ void Report::setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> tr
 						("time", t.time)
 						("achg", (inverted?-1:1)*t.eff_size)
 						("gain", gain)
-						("norm", margin?Value():Value(norm))
+						("norm", Value(norm))
 						("normch", norm_chng)
-						("nacum", margin?Value():Value((inverted?-1:1)*norm_sum_ass))
+						("nacum", Value((inverted?-1:1)*norm_sum_ass))
 						("pos", (inverted?-1:1)*pos)
 						("pl", cur_fromPos)
 						("pln", potentialpl)

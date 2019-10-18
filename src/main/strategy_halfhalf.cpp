@@ -11,6 +11,10 @@
 
 #include <imtjson/object.h>
 #include "sgn.h"
+
+std::string_view Strategy_HalfHalf::id = "halfhalf";
+
+
 Strategy_HalfHalf::Strategy_HalfHalf(double ea, double accu, double p, double a)
 	:ea(ea), accu(accu), p(p), a(a) {}
 
@@ -73,4 +77,12 @@ Strategy_HalfHalf::MinMax Strategy_HalfHalf::calcSafeRange(double assets, double
 
 double Strategy_HalfHalf::getEquilibrium() const {
 	return p;
+}
+
+IStrategy* Strategy_HalfHalf::reset() const {
+	return new Strategy_HalfHalf(ea, accu);
+}
+
+std::string_view Strategy_HalfHalf::getID() const {
+	return id;
 }

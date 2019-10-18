@@ -16,6 +16,7 @@
 #include "../shared/stdLogOutput.h"
 #include "../shared/stringview.h"
 #include "istatsvc.h"
+#include "strategy.h"
 
 namespace json {
 	class Array;
@@ -41,7 +42,7 @@ public:
 	template<typename T> using StringView = ondra_shared::StringView<T>;
 	void setOrders(StrViewA symb, const std::optional<IStockApi::Order> &buy,
 			  	  	  	  	  	  const std::optional<IStockApi::Order> &sell);
-	void setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> trades, bool margin);
+	void setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> trades, Strategy strategy);
 	void setInfo(StrViewA symb, const InfoObj &info);
 	void setMisc(StrViewA symb, const MiscData &miscData);
 

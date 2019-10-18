@@ -23,6 +23,10 @@ public:
 	virtual MinMax calcSafeRange(double assets, double currencies) const override;
 	virtual double getEquilibrium() const override;
 	virtual IStrategy *reset() const override;
+	virtual std::string_view getID() const override;
+
+	static std::string_view id;
+
 
 protected:
 	double ea;

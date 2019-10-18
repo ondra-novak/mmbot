@@ -158,14 +158,10 @@ public:
 				"status       - print status",
 				"pidof        - print pid",
 				"wait         - wait until service exits",
-				"logrotate    - close and reopen logfile",
-				"calc_range   - calculate and print trading range for each pair",
 				"get_all_pairs- print all tradable pairs - need broker name as argument",
 				"erase_trade  - erases trade. Need id of trader and id of trade",
 				"reset        - erases all trades expect the last one",
-				"achieve      - achieve an internal state (achieve mode)",
 				"repair       - repair pair",
-//				"backtest     - backtest",
 				"show_config  - shows trader's complete configuration"
 		};
 
@@ -236,7 +232,6 @@ int main(int argc, char **argv) {
 
 						auto storagePath = servicesection.mandatory["storage_path"].getPath();
 						auto storageBinary = servicesection["storage_binary"].getBool(true);
-						auto spreadCalcInterval = servicesection["spread_calc_interval"].getUInt(10);
 						auto listen = servicesection["listen"].getString();
 						auto socket = servicesection["socket"].getPath();
 						auto rptsect = app.config["report"];
@@ -255,7 +250,7 @@ int main(int argc, char **argv) {
 						Worker wrk = schedulerGetWorker(sch);
 
 						traders = std::make_unique<Traders>(
-								sch,app.config["brokers"], app.test,spreadCalcInterval,sf,rpt
+								sch,app.config["brokers"], app.test,sf,rpt
 						);
 
 						RefCntPtr<AuthUserList> aul;
@@ -307,38 +302,6 @@ int main(int argc, char **argv) {
 
 						logNote("---- Starting service ----");
 
-						cntr.addCommand("calc_range",[&](const simpleServer::ArgList &args, simpleServer::Stream out){
-
-							run_in_worker(wrk,[&] {
-								try {
-									for(auto &&t:traders->traders) {							;
-										std::ostringstream buff;
-										auto result = t.second->calc_min_max_range();
-										auto ass = t.second->getMarketInfo().asset_symbol;
-										auto curs = t.second->getMarketInfo().currency_symbol;
-										buff << "Trader " << t.second->getConfig().title
-												<< ":" << std::endl
-												<< "\tAssets:\t\t\t" << result.assets << " " << ass << std::endl
-												<< "\tAssets value:\t\t" << result.value << " " << curs << std::endl
-												<< "\tAvailable assets:\t" << result.avail_assets << " " << ass << std::endl
-												<< "\tAvailable money:\t" << result.avail_money << " " << curs << std::endl
-												<< "\tMin price:\t\t" << result.min_price << " " << curs << std::endl;
-										if (result.min_price == 0)
-										   buff << "\t - money left:\t\t" << (result.avail_money-result.value) << " " << curs << std::endl;
-										buff << "\tMax price:\t\t" << result.max_price << " " << curs << std::endl;
-										out << buff.str();
-										out.flush();
-
-									}
-								} catch (std::exception &e) {
-									out << e.what();
-								}
-								return true;
-							});
-
-							return 0;
-						});
-
 						cntr.addCommand("get_all_pairs",[&](simpleServer::ArgList args, simpleServer::Stream stream){
 							if (args.length < 1) {
 								stream << "Append argument: <broker>\n";
@@ -369,17 +332,8 @@ int main(int argc, char **argv) {
 						cntr.addCommand("reset", [&](simpleServer::ArgList args, simpleServer::Stream stream){
 							return cmd_singlecmd(wrk, args,stream,&MTrader::reset);
 						});
-						cntr.addCommand("achieve", [&](simpleServer::ArgList args, simpleServer::Stream stream){
-							return cmd_achieve(wrk, args,stream);
-						});
 						cntr.addCommand("repair", [&](simpleServer::ArgList args, simpleServer::Stream stream){
 							return cmd_singlecmd(wrk, args,stream,&MTrader::repair);
-						});
-//						cntr.addCommand("backtest", [&](simpleServer::ArgList args, simpleServer::Stream stream){
-//							return cmd_backtest(wrk, args, stream, app.configPath.string(), traders->stockSelector, rpt);
-//						});
-						cntr.addCommand("show_config", [&](simpleServer::ArgList args, simpleServer::Stream stream){
-							return cmd_config(wrk, args, stream, app.config);
 						});
 						std::size_t id = 0;
 						cntr.addCommand("run",[&](simpleServer::ArgList, simpleServer::Stream) {

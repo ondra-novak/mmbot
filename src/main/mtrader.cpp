@@ -54,14 +54,14 @@ static bool default_value(json::Value data, bool defval) {
 }
 
 
-void MTrader_Config::loadConfig(json::Value data) {
+void MTrader_Config::loadConfig(json::Value data, bool force_dry_run) {
 	pairsymb = data["symbol"].getString();
 	broker = data["broker"].getString();
 	title = data["title"].getString();
 
 	auto strdata = data["strategy"];
 	auto strstr = strdata["type"].toString();
-	strategy = Strategy::create(strstr, strdata);
+	strategy = Strategy::create(strstr.str(), strdata);
 
 
 	buy_mult = default_value(data["buy_mult"],1.0);
@@ -83,7 +83,7 @@ void MTrader_Config::loadConfig(json::Value data) {
 	spread_calc_sma_hours = default_value(data["spread_calc_sma_hours"], static_cast<uintptr_t>(2))*60;
 	spread_calc_stdev_hours = default_value(data["spread_calc_stdev_hours"], static_cast<uintptr_t>(8))*60;
 
-	dry_run = default_value(data["dry_run"], false);
+	dry_run = force_dry_run || default_value(data["dry_run"], false);
 	internal_balance = default_value(data["internal_balance"], false);
 	detect_manual_trades= default_value(data["detect_manual_trades"], false);
 	enabled= default_value(data["enabled"], true);

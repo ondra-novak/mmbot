@@ -133,7 +133,7 @@ bool WebCfg::reqConfig(simpleServer::HTTPRequest req) const {
 					for (Value v: trs) {
 						StrViewA name = v.getKey();
 						try {
-							MTrader::load(v,false);
+							MTrader_Config().loadConfig(v,false);
 						} catch (std::exception &e) {
 							std::string msg(name.data,name.length);
 							msg.append(" - ");
@@ -414,7 +414,7 @@ bool WebCfg::reqTraders(simpleServer::HTTPRequest req, ondra_shared::StrViewA vp
 						req.sendResponse(std::move(hdr), "true");
 					} else {
 						req.sendResponse(std::move(hdr),
-							Value({"stop","reset","repair","trades","calculator","chart"}).stringify());
+							Value({"stop","reset","repair","trades","strategy","chart"}).stringify());
 					}
 				} else {
 					tr->init();
@@ -454,7 +454,7 @@ bool WebCfg::reqTraders(simpleServer::HTTPRequest req, ondra_shared::StrViewA vp
 					} else if (cmd == "chart") {
 						simpleServer::QueryParser qp(req.getPath());
 						auto strlimit = qp["limit"];
-						unsigned int limit = 120;
+						unsigned int limit = 100000;
 						if (strlimit.defined()) {
 							limit = strtoul(strlimit.data,0,10);
 						};
@@ -471,36 +471,23 @@ bool WebCfg::reqTraders(simpleServer::HTTPRequest req, ondra_shared::StrViewA vp
 						hdr.cacheFor(50);
 						auto s = req.sendResponse(std::move(hdr));
 						jsondata.serialize(s);
-					} else if (cmd == "calculator") {
+					} else if (cmd == "strategy") {
 						if (!req.allowMethods({"GET","PUT"})) return ;
 						if (req.getMethod() == "GET") {
-							auto &calc = tr->getCalculator();
-							req.sendResponse(std::move(hdr), Value(json::object,
-									{Value("P", calc.getPrice()),
-									Value("A", calc.getBalance())}).toString());
+							auto &calc = tr->getStrategy();
+							req.sendResponse(std::move(hdr), calc.exportState().toString());
 						} else {
 							req.readBodyAsync(10000, [=](HTTPRequest req) {
 								try {
 									Value v = Value::fromString(StrViewA(BinaryView(req.getUserBuffer())));
-									auto &calc = tr->getCalculator();
-									calc = Calculator(v["P"].getNumber(), v["A"].getNumber(),false);
+									auto &calc = tr->getStrategy();
+									calc.importState(v);
 
 								} catch (std::exception &e) {
 									req.sendErrorPage(400,StrViewA(),e.what());
 								}
 							});
 						}
-					} else if (cmd == "auto_max_backtest") {
-						if (!req.allowMethods({"POST"})) return ;
-						req.readBodyAsync(10000, [=](HTTPRequest req) {
-							try {
-								json::Value v = Value::fromString(StrViewA(BinaryView(req.getUserBuffer())));
-								auto found = tr->findMaxSize(tr->getLastNeutralPos(), v.getUInt()*3600000);
-								req.sendResponse(std::move(hdr), Value(found).toString());
-							} catch (std::exception &e) {
-								req.sendErrorPage(400,StrViewA(),e.what());
-							}
-						});
 					}
 				}
 			}
@@ -557,7 +544,9 @@ void WebCfg::State::applyConfig(Traders &t) {
 	traderNames.clear();
 
 	for (Value v: data["traders"]) {
-		t.addTrader(MTrader::load(v, t.test),v.getKey());
+		MTrader_Config cfg;
+		cfg.loadConfig(v, t.test);
+		t.addTrader(cfg,v.getKey());
 		traderNames.push_back(v.getKey());
 	}
 	Value newInterval = data["report_interval"];

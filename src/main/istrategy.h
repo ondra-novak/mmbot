@@ -7,6 +7,7 @@
 
 #ifndef SRC_MAIN_ISTRATEGY_H_
 #define SRC_MAIN_ISTRATEGY_H_
+#include <string_view>
 #include <imtjson/value.h>
 #include "../shared/refcnt.h"
 
@@ -67,6 +68,8 @@ public:
 	virtual double getEquilibrium() const = 0;
 
 	virtual IStrategy *reset() const = 0;
+
+	virtual std::string_view getID() const = 0;
 
 	virtual ~IStrategy() {}
 };

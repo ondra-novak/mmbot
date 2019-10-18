@@ -37,35 +37,6 @@ public:
 	void clear();
 };
 
-class ActionQueue: public ondra_shared::RefCntObj {
-public:
-ActionQueue(const ondra_shared::Scheduler &sch):sch(sch) {}
-
-template<typename Fn>
-void push(Fn &&fn) {
-	bool e = dsp.empty();
-	std::move(fn) >> dsp;
-	if (e) goon();
-}
-
-void exec() {
-	if (!dsp.empty()) {
-		dsp.pump();
-		goon();
-	}
-}
-
-void goon() {
-	sch.after(std::chrono::seconds(1)) >> [me = ondra_shared::RefCntPtr<ActionQueue>(this)]{
-			me->exec();
-	};
-}
-
-protected:
-ondra_shared::Dispatcher dsp;
-ondra_shared::Scheduler sch;
-};
-
 
 class Traders {
 public:
@@ -73,16 +44,13 @@ public:
 	using TMap = ondra_shared::linear_map<json::StrViewA,std::unique_ptr<NamedMTrader> >;
 	TMap traders;
     StockSelector stockSelector;
-	ondra_shared::RefCntPtr<ActionQueue> aq;
 	bool test;
-	int spread_calc_interval;
 	StorageFactory &sf;
 	Report &rpt;
 
 	Traders(ondra_shared::Scheduler sch,
 			const ondra_shared::IniConfig::Section &ini,
 			bool test,
-			int spread_calc_interval,
 			StorageFactory &sf,
 			Report &rpt);
 	Traders(const Traders &&other) = delete;
@@ -96,7 +64,6 @@ public:
 	void addTrader(const MTrader::Config &mcfg, ondra_shared::StrViewA n);
 	void removeTrader(ondra_shared::StrViewA n, bool including_state);
 
-	void loadTraders(const ondra_shared::IniConfig &ini, ondra_shared::StrViewA names);
 
 	bool runTraders();
 	void resetBrokers();

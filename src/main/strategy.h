@@ -28,12 +28,9 @@ public:
 		ptr = t.second;
 		return t.first;
 	}
-	json::Value exportState() const {
-		return ptr->exportState();
-	}
-	void importState(json::Value src) {
-		ptr = ptr->importState(src);
-	}
+	json::Value exportState() const;
+	void importState(json::Value src);
+
 	double calcOrderSize(double price, double assets) const {
 		return ptr->calcOrderSize(price, assets);
 	}
@@ -48,7 +45,7 @@ public:
 	}
 
 
-	static Strategy create(ondra_shared::StrViewA name, json::Value config);
+	static Strategy create(std::string_view id, json::Value config);
 
 protected:
 	Ptr ptr;

@@ -10,6 +10,8 @@
 #include <imtjson/object.h>
 #include "sgn.h"
 
+std::string_view Strategy_PLFromPos::id = "plfrompos";
+
 Strategy_PLFromPos::Strategy_PLFromPos(const Config &cfg, double p, double a, double pos, double err)
 	:cfg(cfg),p(p),a(a),pos(pos), err(err)
 {
@@ -76,4 +78,13 @@ Strategy_PLFromPos::MinMax Strategy_PLFromPos::calcSafeRange(double assets,
 }
 
 double Strategy_PLFromPos::getEquilibrium() const {
+	return p;
+}
+
+std::string_view Strategy_PLFromPos::getID() const {
+	return id;
+}
+
+IStrategy* Strategy_PLFromPos::reset() const {
+	return new Strategy_PLFromPos(cfg);
 }

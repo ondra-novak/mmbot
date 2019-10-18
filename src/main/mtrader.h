@@ -62,7 +62,7 @@ struct MTrader_Config {
 
 	Strategy strategy = Strategy(nullptr);
 
-	void loadConfig(json::Value data);
+	void loadConfig(json::Value data, bool force_dry_run);
 
 };
 
@@ -147,6 +147,9 @@ public:
 	const IStockApi::TWBHistory &getTrades() const;
 
 	static std::string_view vtradePrefix;
+
+	Strategy &getStrategy() {return strategy;}
+	const Strategy &getStrategy() const {return strategy;}
 
 protected:
 	std::unique_ptr<IStockApi> ownedStock;

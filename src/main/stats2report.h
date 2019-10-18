@@ -19,27 +19,19 @@ using CalcSpreadQueue = std::function<void(CalcSpreadFn &&) >;
 class Stats2Report: public IStatSvc {
 public:
 
-	struct SpreadInfo {
-		double spread = 0;
-		bool pending = false;
-	};
 
 
 	Stats2Report(
-			CalcSpreadQueue q,
 			std::string name,
-			Report &rpt,
-			int interval
-			)
-			:q(q),rpt(rpt),name(name),interval(interval)
-				,spread(std::make_shared<SpreadInfo>()) {}
+			Report &rpt
+			) :rpt(rpt),name(name)  {}
 
 	virtual void reportOrders(const std::optional<IStockApi::Order> &buy,
 							  const std::optional<IStockApi::Order> &sell) override {
 		rpt.setOrders(name, buy, sell);
 	}
-	virtual void reportTrades(ondra_shared::StringView<IStockApi::TradeWithBalance> trades, bool margin) override {
-		rpt.setTrades(name,trades,margin);
+	virtual void reportTrades(ondra_shared::StringView<IStockApi::TradeWithBalance> trades, const Strategy &strategy) override {
+		rpt.setTrades(name,trades,strategy);
 	}
 	virtual void reportMisc(const MiscData &miscData) override{
 		rpt.setMisc(name, miscData);
@@ -62,12 +54,8 @@ public:
 		rpt.clear(name);
 	}
 
-	CalcSpreadQueue q;
 	Report &rpt;
 	std::string name;
-	int interval;
-	mutable int cnt = 0;
-	std::shared_ptr<SpreadInfo> spread;
 
 
 };

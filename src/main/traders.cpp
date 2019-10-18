@@ -62,13 +62,11 @@ void StockSelector::clear() {
 Traders::Traders(ondra_shared::Scheduler sch,
 		const ondra_shared::IniConfig::Section &ini,
 		bool test,
-		int spread_calc_interval,
 		StorageFactory &sf,
 		Report &rpt)
 
-:aq ( new ActionQueue(sch) )
-,test(test)
-,spread_calc_interval(spread_calc_interval)
+:
+test(test)
 ,sf(sf)
 ,rpt(rpt)
 {
@@ -89,10 +87,7 @@ void Traders::addTrader(const MTrader::Config &mcfg ,ondra_shared::StrViewA n) {
 	try {
 		logProgress("Started trader $1 (for $2)", n, mcfg.pairsymb);
 		auto t = std::make_unique<NamedMTrader>(stockSelector, sf.create(n),
-				std::make_unique<StatsSvc>([aq = this->aq](auto &&fn) {
-						aq->push(std::move(fn));
-				}, n, rpt, spread_calc_interval),
-				mcfg, n);
+				std::make_unique<StatsSvc>(n, rpt), mcfg, n);
 		traders.insert(std::pair(StrViewA(t->ident), std::move(t)));
 	} catch (const std::exception &e) {
 		logFatal("Error: $1", e.what());
@@ -101,19 +96,6 @@ void Traders::addTrader(const MTrader::Config &mcfg ,ondra_shared::StrViewA n) {
 
 }
 
-void Traders::loadTraders(const ondra_shared::IniConfig &ini, ondra_shared::StrViewA names) {
-	std::vector<json::StrViewA> nv;
-
-	auto nspl = names.split(" ");
-	while (!!nspl) {
-		json::StrViewA x = nspl();
-		if (!x.empty()) nv.push_back(x);
-	}
-
-	for (auto n: nv) {
-		addTrader(MTrader::load(ini[n], test), n);
-	}
-}
 
 void Traders::removeTrader(ondra_shared::StrViewA n, bool including_state) {
 	NamedMTrader *t = find(n);
