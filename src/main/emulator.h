@@ -45,6 +45,7 @@ protected:
 
 	Orders orders;
 	TradeHistory trades;
+	Ticker lastTicker;
 
 	std::string balance_symb;
 	std::string currency_symb;

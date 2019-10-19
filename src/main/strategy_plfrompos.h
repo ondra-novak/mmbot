@@ -18,7 +18,7 @@ public:
 		double neutral_pos;
 	};
 
-	Strategy_PLFromPos(const Config &cfg, double p = 0, double a = 0, double pos = 0, double err = 0);
+	Strategy_PLFromPos(const Config &cfg, double p = 0, double a = 0, double pos = 0);
 
 	virtual bool isValid() const override;
 	virtual IStrategy *init(double curPrice, double assets, double currency) const override;
@@ -41,7 +41,6 @@ protected:
 	double p;
 	double a;
 	double pos;
-	double err;
 };
 
 #endif /* SRC_MAIN_STRATEGY_PLFROMPOS_H_ */

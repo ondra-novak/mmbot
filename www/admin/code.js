@@ -212,6 +212,9 @@ App.prototype.brokerImgURL = function(broker) {
 App.prototype.traderURL = function(trader) {
 	return "api/traders/"+encodeURIComponent(trader);
 }
+App.prototype.traderPairURL = function(trader, pair) {
+	return "api/traders/"+encodeURIComponent(trader)+"/broker/pairs/" + encodeURIComponent(pair);	
+}
 
 function defval(v,w) {
 	if (v === undefined) return w;
@@ -271,8 +274,8 @@ App.prototype.fillForm = function (src, trg) {
 
 	var updateHdr = function(data) {
 		
-		pair = fetch_json(this.pairURL(src.broker, src.pair_symbol));
-		orders = fetch_json(this.pairURL(src.broker, src.pair_symbol)+"/orders");
+		pair = fetch_json(this.traderPairURL(src.id, src.pair_symbol));
+		orders = fetch_json(this.traderPairURL(src.id, src.pair_symbol)+"/orders");
 
 		data.broker = broker.then(function(x) {return x.exchangeName;});
 		data.no_api_key = broker.then(function(x) {
@@ -336,8 +339,8 @@ App.prototype.fillForm = function (src, trg) {
 	data.max_pos = filledval(src.max_pos,0);
 	data.sliding_pos_hours = filledval(src["sliding_pos.hours"],240);
 	data.sliding_pos_fade = filledval(src["sliding_pos.fade"],0);
-	data.spread_calc_hours = filledval(src.spread_calc_hours,5*24);
-	data.spread_calc_min_trades = filledval(src.spread_calc_min_trades,4);
+	data.spread_calc_stdev_hours = filledval(src.spread_calc_stdev_hours,8);
+	data.spread_calc_sma_hours = filledval(src.spread_calc_sma_hours,2);
 	data.dynmult_raise = filledval(src.dynmult_raise,250);
 	data.dynmult_fall = filledval(src.dynmult_fall, 5);
 	data.dynmult_mode = filledval(src.dynmult_mode, "half_alternate");
@@ -453,8 +456,8 @@ App.prototype.saveForm = function(form, src) {
 	trader.dry_run = data.dry_run;
 	trader.advanced = data.advanced;
 	trader.accept_loss = data.accept_loss;
-	trader.spread_calc_hours =data.spread_calc_hours;
-	trader.spread_calc_min_trades = data.spread_calc_min_trades;
+	trader.spread_calc_stdev_hours =data.spread_calc_stdev_hours ;
+	trader.spread_calc_sma_hours  = data.spread_calc_sma_trades;
 	trader.dynmult_raise = data.dynmult_raise;
 	trader.dynmult_fall = data.dynmult_fall;
 	trader.dynmult_mode = data.dynmult_mode;
@@ -672,7 +675,7 @@ App.prototype.cancelAllOrdersNoDlg = function(id) {
 
 		var tr = this.traders[id];
 		var cr = fetch_with_error(
-			this.pairURL(tr.broker, tr.pair_symbol)+"/orders",
+			this.traderPairURL(id, tr.pair_symbol)+"/orders",
 			{method:"DELETE"});
 		var dr = fetch_json(
 			this.traderURL(tr.id)+"/stop",
@@ -683,7 +686,7 @@ App.prototype.cancelAllOrdersNoDlg = function(id) {
 			.catch(function(){})
 			.then(function() {
 				this.stopped[id] = true;
-				return fetch_with_error(this.pairURL(tr.broker, tr.pair_symbol), {cache: 'reload'});
+				return fetch_with_error(this.traderPairURL(id, tr.pair_symbol), {cache: 'reload'});
 			}.bind(this));
 
 													
@@ -1231,11 +1234,11 @@ App.prototype.tradingForm = function(id) {
 	form.setItemEvent("edit_order","change",dialogRules);
 	dialogRules();
 	
-	var pair = fetch_with_error(this.pairURL(cfg.broker,cfg.pair_symbol));
+	var pair = fetch_with_error(this.traderPairURL(id,cfg.pair_symbol));
 	var limit = 8*60;
 	function update() {		
 		var traderURL = _this.traderURL(id);
-		var pairURL = _this.pairURL(cfg.broker,cfg.pair_symbol);
+		var pairURL = _this.traderPairURL(id,cfg.pair_symbol);
 		Promise.all([pair,
 			fetch_with_error(traderURL+"/chart?limit="+limit),
 			fetch_with_error(traderURL+"/trades"),
@@ -1324,7 +1327,7 @@ App.prototype.tradingForm = function(id) {
 								ev.stopPropagation();
 								this.hidden = true;
 								this.nextSibling.hidden = false;
-								_this.cancelOrder(cfg.broker, cfg.pair_symbol, x.id).
+								_this.cancelOrder(cfg.id, cfg.pair_symbol, x.id).
 									then(update);
 							},
 							".hidden":false
@@ -1414,7 +1417,7 @@ App.prototype.tradingForm = function(id) {
 			var size = ((b == "button_buybid" || b == "button_buy") == pair.invert_price?-1:1)*d.order_size;	
 			var id;
 			if (d.edit_order) id = JSON.parse(d.edit_order);
-			var url = _this.pairURL(cfg.broker, cfg.pair_symbol)+"/orders";
+			var url = _this.traderPairURL(cfg.id, cfg.pair_symbol)+"/orders";
 			var req = {
 					size: size,
 					price: price,
@@ -1434,8 +1437,8 @@ App.prototype.tradingForm = function(id) {
 	});
 } 
 
-App.prototype.cancelOrder = function(broker, pair, id) {
-	var url = this.pairURL(broker, pair)+"/orders"
+App.prototype.cancelOrder = function(trader, pair, id) {
+	var url = this.traderPairURL(trader, pair)+"/orders"
 	var req = {
 			size:0,
 			price:0,

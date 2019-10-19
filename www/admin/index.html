@@ -88,10 +88,10 @@ reenable trading, but it also finally costs some profit
 <div class="rightinfo"><button data-name="init_backtest">Backtest</button></div>
 </x-section>
 <x-section class="adv"><x-section-caption>Spread</x-section-caption>
-<label  class="adv"><span>Spread calc. hours <span class="tooltip"
->Specifies how many samples are used to calculate spread (in hours)</span></span><x-slider data-name="spread_calc_hours" data-min="24" data-max="2400" data-mult="1"></x-slider></label>
-<label  class="adv"><span>Spread calc. min trades (per day) <span class="tooltip"
->Specifies minimum requirement for count of trade-pairs (buy+sell) per day </span></span><x-slider data-name="spread_calc_min_trades" data-min="1" data-max="24" data-mult="1"></x-slider></label>
+<label  class="adv"><span>Spread stdev calculation hours <span class="tooltip"
+>Specifies how many hours is used to calculate a standard deviation for spread value</span></span><x-slider data-name="spread_calc_stdev_hours" data-min="1" data-max="240" data-mult="1"></x-slider></label>
+<label  class="adv"><span>Spread volatility smooth hours <span class="tooltip"
+>Specifies smooth in hours. The program uses SMA (simple moving average) to calculate volatility smooth. By setting 1, it means, deviation longest than 1 hour is not considered as local deviation.</span></span><x-slider data-name="spread_calc_sma_hours" data-min="1" data-max="240" data-mult="1"></x-slider></label>
 <label class="adv"><span>Dynamic spread mult. raise<span class="tooltip"
 >Specifies [in %] how much is dynamic multiplicator raised after trade.</span></span><x-slider data-name="dynmult_raise" data-min="1" data-max="1000" data-mult="1"></x-slider></label>
 <label class="adv"><span>Dynamic spread mult. fall<span class="tooltip"

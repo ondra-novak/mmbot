@@ -68,12 +68,20 @@ EmulatorAPI::Ticker EmulatorAPI::getTicker(const std::string_view & pair) {
 	this->pair = pair;
 	Ticker tk = datasrc.getTicker(pair);
 	simulation(tk);
+	lastTicker = tk;
 	return tk;
 }
 
 json::Value EmulatorAPI::placeOrder(const std::string_view & pair,
 		double size, double price,json::Value clientId,
 		json::Value replaceId,double replaceSize) {
+
+	if (size > 0) {
+		if (price > lastTicker.last) price = lastTicker.last*(1-1e-8);
+	} else if (size < 0) {
+		if (price < lastTicker.last) price = lastTicker.last*(1+1e-8);
+	}
+
 
 	Order order{genID(), clientId, size, price};
 
@@ -82,12 +90,19 @@ json::Value EmulatorAPI::placeOrder(const std::string_view & pair,
 			return o.id == replaceId;
 		});
 		if (iter != orders.end()) {
-			*iter = order;
-			return iter->id;
+			if (size == 0) {
+				orders.erase(iter);
+				return nullptr;
+			}
+			else {
+				*iter = order;
+				return iter->id;
+			}
 		} else {
 			return nullptr;
 		}
 	} else {
+		if (price <= 0) throw std::runtime_error("Invalid order price");
 		orders.push_back(order);
 		return order.id;
 	}

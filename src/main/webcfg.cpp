@@ -207,9 +207,10 @@ bool WebCfg::reqBrokers(simpleServer::HTTPRequest req, ondra_shared::StrViewA re
 		});
 		Object obj("entries", brokers);
 		req.sendResponse("application/json",Value(obj).stringify());
+		return true;
 	} else {
 		json::String vpath = rest;
-		auto splt = StrViewA(vpath).split("/");
+		auto splt = StrViewA(vpath).split("/",2);
 		StrViewA urlbroker = splt();
 		if (urlbroker == "_reload") {
 			if (!req.allowMethods({"POST"})) return true;
@@ -224,167 +225,173 @@ bool WebCfg::reqBrokers(simpleServer::HTTPRequest req, ondra_shared::StrViewA re
 		}
 		std::string broker = urlDecode(urlbroker);
 		IStockApi *api = trlist.stockSelector.getStock(broker);
-		if (api == nullptr) {
-			req.sendErrorPage(404);
-			return true;
+
+		return reqBrokerSpec(req, splt, api);
+	}
+}
+bool WebCfg::reqBrokerSpec(simpleServer::HTTPRequest req,
+		ondra_shared::StrViewA vpath, IStockApi *api) const {
+
+	if (api == nullptr) {
+		req.sendErrorPage(404);
+		return true;
+	}
+
+	HTTPResponse hdr(200);
+	hdr.cacheFor(30);
+	hdr.contentType("application/json");
+
+	try {
+		auto splt = StrViewA(vpath).split("/");
+		StrViewA entry = splt();
+		StrViewA pair = splt();
+		StrViewA orders = splt();
+
+		if (req.getPath().indexOf("reset=1") != StrViewA::npos) {
+			api->reset();
 		}
 
-
-			HTTPResponse hdr(200);
-			hdr.cacheFor(30);
-			hdr.contentType("application/json");
-
-			try {
-				auto splt = StrViewA(vpath).split("/");
-				splt();
-				StrViewA entry = splt();
-				StrViewA pair = splt();
-				StrViewA orders = splt();
-
-				if (req.getPath().indexOf("reset=1") != StrViewA::npos) {
-					api->reset();
-				}
-
-				if (entry.empty()) {
-					if (!req.allowMethods({"GET"})) return true;
-					auto binfo  = api->getBrokerInfo();
-					Value res = Object("name", binfo.name)
-									("trading_enabled", binfo.trading_enabled)
-									("exchangeName", binfo.exchangeName)
-									("exchangeUrl", binfo.exchangeUrl)
-									("version", binfo.version)
-									("licence", binfo.licence)
-									("entries", {"icon.png","pairs","apikey"});
-					req.sendResponse(HTTPResponse(200)
-									.contentType("application/json")
-									,res.stringify());
-					return true;
-				} else if (entry == "icon.png") {
-					if (!req.allowMethods({"GET"})) return true;
-					auto binfo  = api->getBrokerInfo();
-					Value v = base64->decodeBinaryValue(binfo.favicon);
-					Binary b = v.getBinary(base64);
-					req.sendResponse(HTTPResponse(200).contentType("image/png").cacheFor(600),
-							StrViewA(b));
-					return true;
-				} else if (entry == "apikey") {
-					IApiKey *kk = dynamic_cast<IApiKey *>(api);
-					if (kk == nullptr) {
-						req.sendErrorPage(403);
-						return true;
-					}
-					if (!req.allowMethods({"GET"})) return true;
-					req.sendResponse(std::move(hdr),
-								kk->getApiKeyFields().toString().str());
-					return true;
-				} else if (entry == "pairs"){
-					if (pair.empty()) {
-						if (!req.allowMethods({"GET"})) return true;
-						Array p;
-						auto pairs = api->getAllPairs();
-						for (auto &&k: pairs) p.push_back(k);
-						Object obj("entries", p);
-						req.sendResponse(std::move(hdr),Value(obj).stringify());
-						return true;
-					} else {
-						std::string p = urlDecode(pair);
-
-						try {
-							if (orders.empty()) {
-								if (!req.allowMethods({"GET"})) return true;
-								IStockApi::MarketInfo nfo = api->getMarketInfo(p);
-								double ab = getSafeBalance(api,nfo.asset_symbol);
-								double cb = getSafeBalance(api,nfo.currency_symbol);
-								Value resp = Object
-											("asset_symbol",nfo.asset_symbol)
-											("currency_symbol", nfo.currency_symbol)
-											("fees", nfo.fees)
-											("leverage", nfo.leverage)
-											("invert_price", nfo.invert_price)
-											("asset_balance", ab)
-											("currency_balance", cb)
-											("min_size", nfo.min_size)
-											("price", api->getTicker(pair).last)
-											("entries", {"orders","ticker"});
-								req.sendResponse(std::move(hdr),resp.stringify());
-								return true;
-							} else if (orders == "ticker") {
-								if (!req.allowMethods({"GET"})) return true;
-								auto t = api->getTicker(p);
-								Value ticker = Object
-										("ask", t.ask)
-										("bid", t.bid)
-										("last", t.last)
-										("time", t.time);
-								req.sendResponse(std::move(hdr),ticker.stringify());
-								return true;
-							} else if (orders == "orders") {
-								if (!req.allowMethods({"GET","POST","DELETE"})) return true;
-								if (req.getMethod() == "GET") {
-									auto ords = api->getOpenOrders(p);
-									Value orders = Value(json::array,ords.begin(), ords.end(), [&](const IStockApi::Order &ord) {
-										return Object
-												("price",ord.price)
-												("size", ord.size)
-												("clientId",ord.client_id)
-												("id",ord.id);
-									});
-									req.sendResponse(std::move(hdr),orders.stringify());
-									return true;
-								} else if (req.getMethod() == "DELETE") {
-									api->reset();
-									auto ords = api->getOpenOrders(p);
-									for (auto &&x : ords) {
-										api->placeOrder(p,0,0,Value(),x.id, 0);
-									}
-									api->reset();
-									req.sendResponse(std::move(hdr),"true");
-									return true;
-								} else {
-									api->reset();
-									Stream s = req.getBodyStream();
-									Value parsed = Value::parse(s);
-									Value price = parsed["price"];
-									if (price.type() == json::string) {
-										auto ticker = api->getTicker(pair);
-										if (price.getString() == "ask") price = ticker.ask;
-										else if (price.getString() == "bid") price = ticker.bid;
-										else {
-											req.sendErrorPage(400,"","Invalid price");
-											return true;
-										}
-									}
-									Value res = api->placeOrder(pair,
-											parsed["size"].getNumber(),
-											price.getNumber(),
-											parsed["clientId"],
-											parsed["replaceId"],
-											parsed["replaceSize"].getNumber());
-									req.sendResponse(std::move(hdr),res.stringify());
-									return true;
-								}
-
-							}
-
-						} catch (...) {
-							auto pp = api->getAllPairs();
-							auto f = std::find(pp.begin(), pp.end(), p);
-							if (f==pp.end()) {
-								req.sendErrorPage(404);
-								return true;
-							} else {
-								throw;
-							}
-
-						}
-					}
-				}
-				req.sendErrorPage(404);
+		if (entry.empty()) {
+			if (!req.allowMethods( { "GET" }))
 				return true;
-			} catch (std::exception &e) {
-				req.sendErrorPage(500, StrViewA(), e.what());
+			auto binfo = api->getBrokerInfo();
+			Value res = Object("name", binfo.name)("trading_enabled",
+					binfo.trading_enabled)("exchangeName", binfo.exchangeName)(
+					"exchangeUrl", binfo.exchangeUrl)("version", binfo.version)(
+					"licence", binfo.licence)("entries", { "icon.png", "pairs",
+					"apikey" });
+			req.sendResponse(HTTPResponse(200).contentType("application/json"),
+					res.stringify());
+			return true;
+		} else if (entry == "icon.png") {
+			if (!req.allowMethods( { "GET" }))
+				return true;
+			auto binfo = api->getBrokerInfo();
+			Value v = base64->decodeBinaryValue(binfo.favicon);
+			Binary b = v.getBinary(base64);
+			req.sendResponse(
+					HTTPResponse(200).contentType("image/png").cacheFor(600),
+					StrViewA(b));
+			return true;
+		} else if (entry == "apikey") {
+			IApiKey *kk = dynamic_cast<IApiKey*>(api);
+			if (kk == nullptr) {
+				req.sendErrorPage(403);
 				return true;
 			}
+			if (!req.allowMethods( { "GET" }))
+				return true;
+			req.sendResponse(std::move(hdr),
+					kk->getApiKeyFields().toString().str());
+			return true;
+		} else if (entry == "pairs") {
+			if (pair.empty()) {
+				if (!req.allowMethods( { "GET" }))
+					return true;
+				Array p;
+				auto pairs = api->getAllPairs();
+				for (auto &&k : pairs)
+					p.push_back(k);
+				Object obj("entries", p);
+				req.sendResponse(std::move(hdr), Value(obj).stringify());
+				return true;
+			} else {
+				std::string p = urlDecode(pair);
+
+				try {
+					if (orders.empty()) {
+						if (!req.allowMethods( { "GET" }))
+							return true;
+						IStockApi::MarketInfo nfo = api->getMarketInfo(p);
+						double ab = getSafeBalance(api, nfo.asset_symbol);
+						double cb = getSafeBalance(api, nfo.currency_symbol);
+						Value resp = Object("asset_symbol", nfo.asset_symbol)(
+								"currency_symbol", nfo.currency_symbol)("fees",
+								nfo.fees)("leverage", nfo.leverage)(
+								"invert_price", nfo.invert_price)(
+								"asset_balance", ab)("currency_balance", cb)(
+								"min_size", nfo.min_size)("price",
+								api->getTicker(pair).last)("entries", {
+								"orders", "ticker" });
+						req.sendResponse(std::move(hdr), resp.stringify());
+						return true;
+					} else if (orders == "ticker") {
+						if (!req.allowMethods( { "GET" }))
+							return true;
+						auto t = api->getTicker(p);
+						Value ticker = Object("ask", t.ask)("bid", t.bid)(
+								"last", t.last)("time", t.time);
+						req.sendResponse(std::move(hdr), ticker.stringify());
+						return true;
+					} else if (orders == "orders") {
+						if (!req.allowMethods( { "GET", "POST", "DELETE" }))
+							return true;
+						if (req.getMethod() == "GET") {
+							auto ords = api->getOpenOrders(p);
+							Value orders = Value(json::array, ords.begin(),
+									ords.end(),
+									[&](const IStockApi::Order &ord) {
+										return Object("price", ord.price)(
+												"size", ord.size)("clientId",
+												ord.client_id)("id", ord.id);
+									});
+							req.sendResponse(std::move(hdr),
+									orders.stringify());
+							return true;
+						} else if (req.getMethod() == "DELETE") {
+							api->reset();
+							auto ords = api->getOpenOrders(p);
+							for (auto &&x : ords) {
+								api->placeOrder(p, 0, 0, Value(), x.id, 0);
+							}
+							api->reset();
+							req.sendResponse(std::move(hdr), "true");
+							return true;
+						} else {
+							api->reset();
+							Stream s = req.getBodyStream();
+							Value parsed = Value::parse(s);
+							Value price = parsed["price"];
+							if (price.type() == json::string) {
+								auto ticker = api->getTicker(pair);
+								if (price.getString() == "ask")
+									price = ticker.ask;
+								else if (price.getString() == "bid")
+									price = ticker.bid;
+								else {
+									req.sendErrorPage(400, "", "Invalid price");
+									return true;
+								}
+							}
+							Value res = api->placeOrder(pair,
+									parsed["size"].getNumber(),
+									price.getNumber(), parsed["clientId"],
+									parsed["replaceId"],
+									parsed["replaceSize"].getNumber());
+							req.sendResponse(std::move(hdr), res.stringify());
+							return true;
+						}
+
+					}
+
+				} catch (...) {
+					auto pp = api->getAllPairs();
+					auto f = std::find(pp.begin(), pp.end(), p);
+					if (f == pp.end()) {
+						req.sendErrorPage(404);
+						return true;
+					} else {
+						throw;
+					}
+
+				}
+			}
+		}
+		req.sendErrorPage(404);
+		return true;
+	} catch (std::exception &e) {
+		req.sendErrorPage(500, StrViewA(), e.what());
+		return true;
 	}
 	return true;
 
@@ -416,7 +423,7 @@ bool WebCfg::reqTraders(simpleServer::HTTPRequest req, ondra_shared::StrViewA vp
 						req.sendResponse(std::move(hdr), "true");
 					} else {
 						req.sendResponse(std::move(hdr),
-							Value({"stop","reset","repair","trades","strategy","chart"}).stringify());
+							Value({"stop","reset","repair","trades","strategy","chart","broker"}).stringify());
 					}
 				} else {
 					tr->init();
@@ -433,6 +440,11 @@ bool WebCfg::reqTraders(simpleServer::HTTPRequest req, ondra_shared::StrViewA vp
 						if (!req.allowMethods({"POST"})) return ;
 						tr->repair();
 						req.sendResponse(std::move(hdr), "true");
+					} else if (cmd == "broker") {
+						StrViewA nx = splt();
+						StrViewA vpath = path;
+						StrViewA restpath = vpath.substr(nx.data - vpath.data);
+						reqBrokerSpec(req, restpath, &(tr->getBroker()));
 					} else if (cmd == "trades") {
 						if (!splt) {
 							if (!req.allowMethods({"GET"})) return ;

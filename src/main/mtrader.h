@@ -150,6 +150,7 @@ public:
 
 	Strategy &getStrategy() {return strategy;}
 	const Strategy &getStrategy() const {return strategy;}
+	IStockApi &getBroker() {return stock;}
 
 protected:
 	std::unique_ptr<IStockApi> ownedStock;

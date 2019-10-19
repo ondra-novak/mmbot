@@ -161,6 +161,7 @@ int MTrader::perform() {
 	try {
 		init();
 
+
 		//Get opened orders
 		auto orders = getOrders();
 		//get current status
@@ -179,9 +180,6 @@ int MTrader::perform() {
 		double lastTradePrice = trades.empty()?status.curPrice:trades.back().eff_price;
 		double lastTradeSize = trades.empty()?0:trades.back().eff_size;
 
-		if (!strategy.isValid()) {
-			strategy.init(status.curPrice, status.assetBalance, status.currencyBalance);
-		}
 
 
 		//only create orders, if there are no trades from previous run
@@ -189,9 +187,16 @@ int MTrader::perform() {
 
 
 			if (recalc) {
-				update_dynmult(lastTradeSize > 0, lastTradeSize < 0);
-				strategy.onTrade(lastTradePrice, lastTradeSize, status.assetBalance, status.currencyBalance);
+				if (strategy.isValid()) {
+					update_dynmult(lastTradeSize > 0, lastTradeSize < 0);
+					strategy.onTrade(lastTradePrice, lastTradeSize, status.assetBalance, status.currencyBalance);
+				}
 			}
+
+			if (!strategy.isValid()) {
+				strategy.init(status.curPrice, status.assetBalance, status.currencyBalance);
+			}
+
 
 			ondra_shared::logDebug("internal_balance=$1, external_balance=$2",status.internalBalance,status.assetBalance);
 
@@ -206,25 +211,33 @@ int MTrader::perform() {
 										   status.curPrice, status.assetBalance,
 										   cfg.sell_mult);
 
-			try {
-				setOrder(orders.buy, buyorder);
-			} catch (std::exception &e) {
-				buy_order_error = e.what();
-				if (!acceptLoss(orders.buy, buyorder, status)) {
-					orders.buy = buyorder;
+			if (!cfg.enabled)  {
+				if (orders.buy.has_value())
+					stock.placeOrder(cfg.pairsymb,0,0,magic,orders.buy->id,0);
+				if (orders.sell.has_value())
+					stock.placeOrder(cfg.pairsymb,0,0,magic,orders.sell->id,0);
+				statsvc->reportError(IStatSvc::ErrorObj("Automatic trading is disabled"));
+			} else {
+				try {
+					setOrder(orders.buy, buyorder);
+				} catch (std::exception &e) {
+					buy_order_error = e.what();
+					if (!acceptLoss(orders.buy, buyorder, status)) {
+						orders.buy = buyorder;
+					}
 				}
-			}
 
-			try {
-				setOrder(orders.sell, sellorder);
-			} catch (std::exception &e) {
-				sell_order_error = e.what();
-				if (!acceptLoss(orders.sell, sellorder, status)) {
-					orders.sell = sellorder;
+				try {
+					setOrder(orders.sell, sellorder);
+				} catch (std::exception &e) {
+					sell_order_error = e.what();
+					if (!acceptLoss(orders.sell, sellorder, status)) {
+						orders.sell = sellorder;
+					}
 				}
-			}
-			if (!recalc) {
-				update_dynmult(false,false);
+				if (!recalc) {
+					update_dynmult(false,false);
+				}
 			}
 
 			recalc = false;
@@ -900,7 +913,7 @@ protected:
 };
 
 double MTrader::calcSpread() const {
-	if (chart.empty()) return 0.01;
+	if (chart.size() < 15) return 0.01;
 	std::queue<double> sma;
 	std::vector<double> mapped;
 	std::accumulate(chart.begin(), chart.end(), 0.0, [&](auto &&a, auto &&c) {
@@ -922,8 +935,10 @@ double MTrader::calcSpread() const {
 		return v + c*c;
 	})/std::distance(iter, end));
 
+	double lnspread = std::log((stdev+sma.back())/sma.back());
+	logDebug("Spread calculated: stdev=$1, sma=$2, lnspread=$3", stdev, sma.back(), lnspread);
 
-	return std::log((stdev+sma.back())/sma.back());
+	return lnspread;
 
 
 }

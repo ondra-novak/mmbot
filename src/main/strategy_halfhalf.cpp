@@ -16,7 +16,7 @@ std::string_view Strategy_HalfHalf::id = "halfhalf";
 
 
 Strategy_HalfHalf::Strategy_HalfHalf(double ea, double accu, double p, double a)
-	:ea(ea), accu(accu), p(p), a(a) {}
+	:ea(ea), accu(accu), p(p), a(a+ea) {}
 
 
 
@@ -45,7 +45,7 @@ std::pair<Strategy_HalfHalf::OnTradeResult, IStrategy*> Strategy_HalfHalf::onTra
 		double np = v * (1-accu);
 		return std::make_pair(
 				OnTradeResult {np, ap},
-				new Strategy_HalfHalf(ea,accu,n,a+ap)
+				new Strategy_HalfHalf(ea,accu,n,a+ap-ea)
 		);
 	}
 }
