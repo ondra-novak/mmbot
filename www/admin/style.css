@@ -39,6 +39,8 @@ input[disabled],select[disabled],button[disabled],button[disabled]:hover {
 	
 }
 
+p.textdoc {white-space: pre-wrap;text-align: justify;font-family: monospace;}
+
 button {
 	background-color: #444;
 	box-shadow: 2px 2px 5px black;
@@ -354,6 +356,9 @@ a {
 .security_form .apikeys td.notset {
 	font-size: 2em;
 	color: red;
+}
+.security_form .apikeys [data-name=info_button] {
+	cursor: pointer;
 }
 
 

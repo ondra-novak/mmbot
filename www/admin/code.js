@@ -837,6 +837,18 @@ App.prototype.securityForm = function() {
 												type:"text",
 												value:itm.default || ""
 											}};break;
+						case "number": el ={tag:"input",
+								attrs: {
+									type:"number",
+									step:"any",
+									value:itm.default || ""
+								}};break;
+						case "textarea": el ={tag:"textarea",
+								text:itm.default || "",
+								attrs: {
+									rows:itm.rows || "5",
+									
+								}};break;
 						case "enum": el = {tag:"select",
 										   attrs: {value:itm.default || ""},
 										   content: Object.keys(itm.options).map(function(k){
@@ -909,6 +921,16 @@ App.prototype.securityForm = function() {
 								"!click": setKey.bind(this, false, z, b, cfg)
 							}
 						}.bind(this)),
+						info_button: binfo.then(function(b) {
+							return {
+								"!click": function() {
+									this.dlgbox({text:{
+										value:b.licence,
+										class:"textdoc"}
+										,cancel:{".hidden":true}},"confirm")
+								}.bind(this)
+							}
+						}.bind(this))
 					}
 				}.bind(this));
 			}.bind(this));

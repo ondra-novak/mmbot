@@ -227,12 +227,13 @@ The position is not generally in the sync due to various issues. You need to spe
 </x-section>
 <x-section class="apikeys"><x-section-caption>API Keys</x-section-caption>
 <table>
-<tr><th>Broker</th><th>Exchange</th><th>State</th><th>Action</th></tr>
+<tr><th>Broker</th><th>Exchange</th><th>State</th><th>Action</th><th>Info</th></tr>
 <tr data-name="brokers[]">
 <td><img src="" data-name="img"><span data-name="broker"></span></td>
 <td><a href="" data-name="exchange" target="_blank"></a></td>
 <td data-name="state"><div class="spinner fast inline"></div></td>
 <td><button data-name="bset" disabled="disabled">Set</button><button data-name="berase" disabled="disabled">Erase</button></td>
+<td data-name="info_button">🛈</td>
 </table>
 <span class="no_api_key" data-name="need_save" hidden="hidden">⚠️ - Note that the configuration must be <b><u>saved</u></b> to apply changes to the API keys settings</span></span>
 </x-section>
@@ -277,6 +278,7 @@ The position is not generally in the sync due to various issues. You need to spe
 </div>
 </div>
 </template>
+
 
 <template id="network_error">
 <div class="dialog">

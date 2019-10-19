@@ -69,7 +69,7 @@ double Strategy_PLFromPos::calcOrderSize(double price, double assets) const {
 	double pos_diff = -((price - p) * cfg.step / (price*0.01));
 	if (pos_diff * pos < 0 && fabs(pos) > fabs(pos_diff))
 			pos_diff += sqrt(fabs(pos_diff)) * sgn(pos_diff);
-	return pos_diff + (pos - curPos);
+	return pos_diff + (curPos - pos);
 
 }
 
