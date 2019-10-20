@@ -14,6 +14,7 @@
 <div class="rightinfo pairactions">Actions: 
 	<img src="../res/undo.png" title="Undo changes" data-name="icon_undo"> 
 	<img src="../res/trading.png" title="Trading UI" data-name="icon_trading">
+	<img src="../res/broker_settings.png" title="Broker control" data-name="icon_broker" hidden="hidden">
 	<img src="../res/reset_stats.png" title="Reset statistics" data-name="icon_reset"> 
 	<img src="../res/repair.png" title="Repair" data-name="icon_repair"> 
 	<img src="../res/delete.png" title="Delete" data-name="icon_delete"></div>
@@ -41,6 +42,7 @@
 <label><span>Strategy</span><select data-name="strategy">
 <option value="plfrompos">Profit from position</option>
 <option value="halfhalf">Half-Half</option>
+<option value="keepvalue">Keep Value</option>
 </select></label>
 <div class="label"><span>Options</span><div>
 <label><input type="checkbox" checked="checked" data-name="enabled"> Enabled </label>
@@ -50,7 +52,7 @@
 
 </div>
 </x-section>
-<x-section data-name="strategy_halfhalf" class="goal hidden" hidden="hidden"><x-section-caption>Normalized profit</x-section-caption>
+<x-section data-name="strategy_halfhalf" class="goal hidden" hidden="hidden"><x-section-caption>Half-Half/Keep Value</x-section-caption>
 <label><span>External assets <span class="tooltip">Amount of assets held outside of exchange. They are included into calculations.</span></span><input type="number" step="any" data-name="external_assets"></label>
 <div class="rightinfo">Min price: <span data-name="range_min_price"></span>&nbsp;<span data-name="currency"></span>
 - Max price: <span data-name="range_max_price"></span>&nbsp;<span data-name="currency"></span>
@@ -102,6 +104,9 @@ reenable trading, but it also finally costs some profit
 <option value="alternate">Alternate</option>
 <option value="half_alternate" selected="selected">Half alternate (recommended)</option>
 </select></label>
+<label class="adv"><span>Dynamic spread order size scaling<span class="tooltip"
+>By default, order size scales with spread. This option disables scaling of the order when dynamic spread is in effect</span></span>
+<select data-name="dynmult_scale"><option value="1">Scale</option><option value="0">Don't scale</option></select></label>
 </x-section>
 <x-section class="adv"><x-section-caption>Misc</x-section-caption>
 <div class="label adv"><span>Options<span class="tooltip"
@@ -117,9 +122,6 @@ reenable trading, but it also finally costs some profit
 The position is not generally in the sync due to various issues. You need to specify a difference between the calculated position presented on the report page and the actual position on the exchhange
 </span></span><input type="number" step="any" data-name="report_position_offset"></label>
 <label class="adv"><span>Force spread (0=disabled)<span class="tooltip">Specifies exact spread width and disables the internal spread detection</span></span><input type="number" step="any" data-name="force_spread"></label>
-</x-section>
-<x-section class="adv">
-<label class="adv"><span>Experimental and unsupported settings</span><input type="checkbox" data-name="check_unsupp"></label>
 </x-section>
 <div></div>
 </x-form>
@@ -273,6 +275,7 @@ The position is not generally in the sync due to various issues. You need to spe
 <div class="confirm">
 <h2 data-name="hdr"></h2>
 <p data-name="text"></p>
+<div data-name="custom"></div>
 <button data-name="ok">OK</button>
 <button data-name="cancel">Cancel</button>
 </div>

@@ -209,6 +209,11 @@ div.dialog > div {
 	padding: 5px;
 }
 
+div.dialog div.confirm div[data-name=custom] {
+	text-align:left;
+	margin:  2%;
+	white-space: pre-line;
+}
 
 div.dialog {
 	position: fixed;

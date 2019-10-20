@@ -59,6 +59,7 @@ struct MTrader_Config {
 	bool detect_manual_trades;
 	bool enabled;
 	bool dust_orders;
+	bool dynmult_scale;
 
 	Strategy strategy = Strategy(nullptr);
 
@@ -123,12 +124,14 @@ public:
 
 	Order calculateOrder(double lastTradePrice,
 			double step,
+			double dynmult,
 			double curPrice,
 			double balance,
 			double mult) const;
 	Order calculateOrderFeeLess(
 			double lastTradePrice,
 			double step,
+			double dynmult,
 			double curPrice,
 			double balance,
 			double mult) const;

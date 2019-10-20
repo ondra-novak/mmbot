@@ -336,3 +336,60 @@ function interpolate(beg, end, cur, a, b) {
 	var n = (cur - beg)/(end - beg);
 	return a+(b-a)*n;
 }
+
+
+function formBuilder(format) {
+	var items = format.map(function(itm) {
+		var el;
+		var lb = {
+	        	tag:"span",
+	        	text: itm.label
+	        };
+		
+		switch (itm.type) {
+		case "string": el ={tag:"input",
+							attrs: {
+								type:"text",
+								value:itm.default || ""
+							}};break;
+		case "number": el ={tag:"input",
+				attrs: {
+					type:"number",
+					step:"any",
+					value:itm.default
+				}};break;
+		case "textarea": el ={tag:"textarea",
+				text:itm.default || "",
+				attrs: {
+					rows:itm.rows || "5",
+					
+				}};break;
+		case "enum": el = {tag:"select",
+						   attrs:{},
+						   content: Object.keys(itm.options).map(function(k){
+							   var attrs = {};
+							   if (k == itm.default) attrs.selected = "selected";
+							   attrs.value = k;
+							   return {tag:"option",
+								   attrs: attrs,
+								   text: itm.options[k]
+
+							   }
+						   })};
+						   break;
+						   
+		default:
+			el = {tag:"span",text:"unknown: "+itm.type};
+			break;
+		}
+		if (el.attrs && itm.name) el.attrs["data-name"]=itm.name;
+		return {
+			tag:"label",
+			content:[lb, el]
+		}
+	});
+	var w = TemplateJS.View.fromTemplate({tag:"x-form",content:items});
+	return w;
+}
+
+

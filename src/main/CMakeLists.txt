@@ -16,6 +16,7 @@ add_executable (mmbot
 	strategy.cpp
 	strategy_halfhalf.cpp
 	strategy_plfrompos.cpp
+	strategy_keepvalue.cpp
 	)
 target_link_libraries (mmbot LINK_PUBLIC simpleServer imtjson curlpp ssl crypto curl stdc++fs pthread)
 install(TARGETS mmbot DESTINATION "bin") 

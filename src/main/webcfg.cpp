@@ -258,8 +258,8 @@ bool WebCfg::reqBrokerSpec(simpleServer::HTTPRequest req,
 			Value res = Object("name", binfo.name)("trading_enabled",
 					binfo.trading_enabled)("exchangeName", binfo.exchangeName)(
 					"exchangeUrl", binfo.exchangeUrl)("version", binfo.version)(
-					"licence", binfo.licence)("entries", { "icon.png", "pairs",
-					"apikey" });
+					"licence", binfo.licence)("settings",binfo.settings)("entries", { "icon.png", "pairs",
+					"apikey","settings" });
 			req.sendResponse(HTTPResponse(200).contentType("application/json"),
 					res.stringify());
 			return true;
@@ -284,6 +284,22 @@ bool WebCfg::reqBrokerSpec(simpleServer::HTTPRequest req,
 			req.sendResponse(std::move(hdr),
 					kk->getApiKeyFields().toString().str());
 			return true;
+		} else if (entry == "settings") {
+
+			IBrokerControl *bc = dynamic_cast<IBrokerControl *>(api);
+			if (bc == nullptr) {
+				req.sendErrorPage(403);return true;
+			}
+			if (!req.allowMethods( { "GET", "PUT" })) return true;
+			if (req.getMethod() == "GET") {
+				req.sendResponse(std::move(hdr), Value(bc->getSettings("")).stringify());
+			} else {
+				Stream s = req.getBodyStream();
+				Value v = Value::parse(s);
+				bc->setSettings(v);
+				req.sendResponse("application/json","true",202);
+				return true;
+			}
 		} else if (entry == "pairs") {
 			if (pair.empty()) {
 				if (!req.allowMethods( { "GET" }))
@@ -323,7 +339,23 @@ bool WebCfg::reqBrokerSpec(simpleServer::HTTPRequest req,
 								"last", t.last)("time", t.time);
 						req.sendResponse(std::move(hdr), ticker.stringify());
 						return true;
-					} else if (orders == "orders") {
+					}  else if (orders == "settings") {
+
+						IBrokerControl *bc = dynamic_cast<IBrokerControl *>(api);
+						if (bc == nullptr) {
+							req.sendErrorPage(403);return true;
+						}
+						if (!req.allowMethods( { "GET", "PUT" })) return true;
+						if (req.getMethod() == "GET") {
+							req.sendResponse(std::move(hdr), Value(bc->getSettings(pair)).stringify());
+						} else {
+							Stream s = req.getBodyStream();
+							Value v = Value::parse(s);
+							bc->setSettings(v);
+							req.sendResponse("application/json","true",202);
+							return true;
+						}
+					}else if (orders == "orders") {
 						if (!req.allowMethods( { "GET", "POST", "DELETE" }))
 							return true;
 						if (req.getMethod() == "GET") {

@@ -88,6 +88,7 @@ void MTrader_Config::loadConfig(json::Value data, bool force_dry_run) {
 	detect_manual_trades= default_value(data["detect_manual_trades"], false);
 	enabled= default_value(data["enabled"], true);
 	dust_orders= default_value(data["dust_orders"], true);
+	dynmult_scale = default_value(data["dynmult_scale"], true);
 
 	if (dynmult_raise > 1e6) throw std::runtime_error("'dynmult_raise' is too big");
 	if (dynmult_raise < 0) throw std::runtime_error("'dynmult_raise' is too small");
@@ -202,12 +203,12 @@ int MTrader::perform() {
 
 			//calculate buy order
 			auto buyorder = calculateOrder(lastTradePrice,
-										  -status.curStep*buy_dynmult*cfg.buy_step_mult,
+										  -status.curStep*cfg.buy_step_mult, buy_dynmult,
 										   status.curPrice, status.assetBalance,
 										   cfg.buy_mult);
 			//calculate sell order
 			auto sellorder = calculateOrder(lastTradePrice,
-										   status.curStep*sell_dynmult*cfg.sell_step_mult,
+										   status.curStep*cfg.sell_step_mult, sell_dynmult,
 										   status.curPrice, status.assetBalance,
 										   cfg.sell_mult);
 
@@ -427,12 +428,15 @@ MTrader::Status MTrader::getMarketStatus() const {
 MTrader::Order MTrader::calculateOrderFeeLess(
 		double prevPrice,
 		double step,
+		double dynmult,
 		double curPrice,
 		double balance,
 		double mult) const {
 	Order order;
 
-	double newPrice = prevPrice * exp(step);
+
+	double newPrice = prevPrice * exp(step*dynmult);
+	double newPriceNoScale= prevPrice * exp(step);
 
 	if (step < 0) {
 		//if price is lower than old, check whether current price is above
@@ -445,7 +449,7 @@ MTrader::Order MTrader::calculateOrderFeeLess(
 		if (newPrice < curPrice) newPrice = curPrice;
 	}
 
-	double size = strategy.calcOrderSize(newPrice, balance);
+	double size = strategy.calcOrderSize(cfg.dynmult_scale?newPrice:newPriceNoScale, balance);
 
 	if (size * step >= 0) {
 		if (cfg.dust_orders) {
@@ -466,11 +470,12 @@ MTrader::Order MTrader::calculateOrderFeeLess(
 MTrader::Order MTrader::calculateOrder(
 		double lastTradePrice,
 		double step,
+		double dynmult,
 		double curPrice,
 		double balance,
 		double mult) const {
 
-	Order order(calculateOrderFeeLess(lastTradePrice, step,curPrice,balance,mult));
+	Order order(calculateOrderFeeLess(lastTradePrice, step,dynmult,curPrice,balance,mult));
 
 	if (cfg.max_size && std::fabs(order.size) > cfg.max_size) {
 		order.size = cfg.max_size*sgn(order.size);
@@ -764,7 +769,7 @@ bool MTrader::acceptLoss(std::optional<Order> &orig, const Order &order, const S
 			std::size_t e = st.chartItem.time>ttm?(st.chartItem.time-ttm)/(3600000):0;
 			double lastTradePrice = trades.back().eff_price;
 			if (e > cfg.accept_loss) {
-				auto reford = calculateOrder(lastTradePrice, 2 * st.curStep * sgn(-order.size),lastTradePrice, st.assetBalance, 1.0);
+				auto reford = calculateOrder(lastTradePrice, 2 * st.curStep * sgn(-order.size),1,lastTradePrice, st.assetBalance, 1.0);
 				double df = (st.curPrice - reford.price)* sgn(-order.size);
 				if (df > 0) {
 					ondra_shared::logWarning("Accept loss in effect: price=$1, balance=$2", st.curPrice, st.assetBalance);

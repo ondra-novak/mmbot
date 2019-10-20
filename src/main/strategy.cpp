@@ -11,6 +11,7 @@
 #include "../shared/stringview.h"
 #include "strategy_plfrompos.h"
 #include "strategy_halfhalf.h"
+#include "strategy_keepvalue.h"
 
 using ondra_shared::StrViewA;
 Strategy Strategy::create(std::string_view id, json::Value config) {
@@ -25,6 +26,11 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 		double ea = config["ea"].getNumber();
 		double accum = config["accum"].getNumber();
 		return Strategy(new Strategy_HalfHalf(ea, accum));
+	} else if (id == Strategy_KeepValue::id) {
+		Strategy_KeepValue::Config cfg;
+		cfg.ea = config["ea"].getNumber();
+		cfg.accum = config["accum"].getNumber();
+		return Strategy(new Strategy_KeepValue(cfg));
 	} else {
 		throw std::runtime_error(std::string("Unknown strategy: ").append(id));
 	}

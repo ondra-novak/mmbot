@@ -185,6 +185,8 @@ public:
 		std::string licence;
 		///favicon binary image/png
 		std::string favicon;
+		///this option must be true,if the broker supports getSetting/setSettings
+		bool settings = false;
 	};
 
 

@@ -142,7 +142,8 @@ ExtStockApi::BrokerInfo ExtStockApi::getBrokerInfo()  {
 			resp["url"].getString(),
 			resp["version"].getString(),
 			resp["licence"].getString(),
-			StrViewA(resp["favicon"].getBinary())
+			StrViewA(resp["favicon"].getBinary()),
+			resp["settings"].getBool()
 		};
 	} catch (IStockApi::Exception &) {
 		return BrokerInfo {
@@ -160,4 +161,12 @@ void ExtStockApi::setApiKey(json::Value keyData) {
 
 json::Value ExtStockApi::getApiKeyFields() const {
 	return const_cast<ExtStockApi *>(this)->jsonRequestExchange("getApiKeyFields",json::Value());
+}
+
+json::Value ExtStockApi::getSettings(const std::string_view & pairHint) const {
+	return const_cast<ExtStockApi *>(this)->jsonRequestExchange("getSettings",json::Value(pairHint));
+}
+
+void ExtStockApi::setSettings(json::Value v) {
+	jsonRequestExchange("setSettings", v);
 }

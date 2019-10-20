@@ -1,24 +1,23 @@
 /*
- * strategy_plfrompos.h
+ * strategy_keepvalue.h
  *
- *  Created on: 18. 10. 2019
+ *  Created on: 20. 10. 2019
  *      Author: ondra
  */
 
-#ifndef SRC_MAIN_STRATEGY_PLFROMPOS_H_
-#define SRC_MAIN_STRATEGY_PLFROMPOS_H_
-
+#ifndef SRC_MAIN_STRATEGY_KEEPVALUE_H_
+#define SRC_MAIN_STRATEGY_KEEPVALUE_H_
 #include "istrategy.h"
 
-class Strategy_PLFromPos: public IStrategy {
+class Strategy_KeepValue: public IStrategy {
 public:
+
 	struct Config {
-		double step;
+		double ea;
 		double accum;
-		double neutral_pos;
 	};
 
-	Strategy_PLFromPos(const Config &cfg, double p = 0, double a = 0, double pos = 0);
+	Strategy_KeepValue(const Config &cfg, double p = 0, double a = 0, double acm = 0);
 
 	virtual bool isValid() const override;
 	virtual IStrategy *init(double curPrice, double assets, double currency) const override;
@@ -40,7 +39,8 @@ protected:
 	Config cfg;
 	double p;
 	double a;
-	double pos;
+	double acm;
 };
 
-#endif /* SRC_MAIN_STRATEGY_PLFROMPOS_H_ */
+
+#endif /* SRC_MAIN_STRATEGY_KEEPVALUE_H_ */

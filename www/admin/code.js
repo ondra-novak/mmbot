@@ -77,7 +77,7 @@ App.prototype.createTraderForm = function() {
 	var pl = form.findElements("goal_pl")[0];
 	form.dlgRules = function() {
 		var state = this.readData(["strategy","advanced","check_unsupp"]);
-		this.showWithAnim("strategy_halfhalf",state.strategy == "halfhalf");
+		this.showWithAnim("strategy_halfhalf",state.strategy == "halfhalf" || state.strategy == "keepvalue");
 		this.showWithAnim("strategy_pl",state.strategy == "plfrompos");
 		form.getRoot().classList.toggle("no_adv", !state["advanced"]);
 		form.getRoot().classList.toggle("no_experimental", !state["check_unsupp"]);
@@ -160,6 +160,8 @@ App.prototype.createTraderList = function(form) {
 				t.broker = broker;
 				t.pair_symbol = pair;
 				t.id = name;
+				t.enable = false;
+				t.dry_run = true;
 				if (!t.title) t.title = pair;
 				this.updateTopMenu(name);
 			}.bind(this))
@@ -324,8 +326,8 @@ App.prototype.fillForm = function (src, trg) {
 	data.acum_factor = 0;
 	data.external_assets = 0;
 
-	if (data.strategy == "halfhalf") {
-		data.acum_factor = filledval(defval(src.strategy.acum,0)*100,0);
+	if (data.strategy == "halfhalf" || data.strategy == "keepvalue") {
+		data.acum_factor = filledval(defval(src.strategy.accum,0)*100,0);
 		data.external_assets = filledval(src.strategy.ea,0);
 	} else if (data.strategy == "plfrompos") {
 		data.pl_acum = filledval(defval(src.strategy.accum,0)*100,0);
@@ -344,6 +346,7 @@ App.prototype.fillForm = function (src, trg) {
 	data.dynmult_raise = filledval(src.dynmult_raise,250);
 	data.dynmult_fall = filledval(src.dynmult_fall, 5);
 	data.dynmult_mode = filledval(src.dynmult_mode, "half_alternate");
+	data.dynmult_scale = filledval(src.dynmult_scale?1:0,1);
 	data.order_mult = filledval(defval(src.buy_mult,1)*100,100);
 	data.min_size = filledval(src.min_size,0);
 	data.max_size = filledval(src.max_size,0);
@@ -371,6 +374,18 @@ App.prototype.fillForm = function (src, trg) {
 	data.icon_delete={"!click": this.deleteTrader.bind(this, src.id)};
 	data.icon_undo={"!click": this.undoTrader.bind(this, src.id)};
 	data.icon_trading={"!click":this.tradingForm.bind(this, src.id)};
+	data.icon_broker = broker.then(function(b) {
+		if (b.settings) {
+			return {
+				".hidden":false,
+				"!click":this.brokerConfig.bind(this, src.broker, src.pair_symbol)
+			} 
+		} else {
+			return {
+				".hidden":true
+			}
+		}
+	}.bind(this));
 	
 	function refresh_hdr() {
 		if (trg.getRoot().isConnected) {
@@ -444,7 +459,7 @@ App.prototype.saveForm = function(form, src) {
 		trader.strategy.accum = data.pl_acum/100.0;
 		trader.strategy.step = data.step;
 		trader.strategy.neutral_pos = data.neutral_pos;
-	} else if (data.strategy == "halfhalf") {
+	} else if (data.strategy == "halfhalf" || data.strategy == "keepvalue") {
 		trader.strategy.accum = data.acum_factor/100.0;
 		trader.strategy.ea = data.external_assets;
 	}
@@ -461,6 +476,7 @@ App.prototype.saveForm = function(form, src) {
 	trader.dynmult_raise = data.dynmult_raise;
 	trader.dynmult_fall = data.dynmult_fall;
 	trader.dynmult_mode = data.dynmult_mode;
+	trader.dynmult_scale = data.dynmult_scale == "1"; 
 	trader.buy_mult = data.order_mult/100;
 	trader.sell_mult = data.order_mult/100;
 	trader.min_size = data.min_size;
@@ -824,52 +840,7 @@ App.prototype.securityForm = function() {
 			if (flag) {
 				fetch_with_error(this.brokerURL(broker)+"/apikey")
 				.then(function(ff){
-					var items = ff.map(function(itm) {
-						var el;
-						var lb = {
-					        	tag:"span",
-					        	text: itm.label
-					        };
-						
-						switch (itm.type) {
-						case "string": el ={tag:"input",
-											attrs: {
-												type:"text",
-												value:itm.default || ""
-											}};break;
-						case "number": el ={tag:"input",
-								attrs: {
-									type:"number",
-									step:"any",
-									value:itm.default || ""
-								}};break;
-						case "textarea": el ={tag:"textarea",
-								text:itm.default || "",
-								attrs: {
-									rows:itm.rows || "5",
-									
-								}};break;
-						case "enum": el = {tag:"select",
-										   attrs: {value:itm.default || ""},
-										   content: Object.keys(itm.options).map(function(k){
-											   return {tag:"option",
-												   attrs: {value: k},
-												   text: itm.options[k]
-											   }
-										   })};
-										   break;
-										   
-						default:
-							el = {tag:"span",text:"unknown: "+itm.type};
-							break;
-						}
-						if (el.attrs && itm.name) el.attrs["data-name"]=itm.name;
-						return {
-							tag:"label",
-							content:[lb, el]
-						}
-					});
-					var w = TemplateJS.View.fromTemplate({tag:"x-form",content:items});
+					w = formBuilder(ff);
 					w.setData(cfg);
 					this.dlgbox({text:w},"confirm").then(function() {
 						if (!this.config.apikeys) this.config.apikeys = {};
@@ -1473,3 +1444,13 @@ App.prototype.cancelOrder = function(trader, pair, id) {
 		});
 }
 
+App.prototype.brokerConfig = function(id, pair) {
+	var burl = this.pairURL(id, pair)+"/settings";
+	var form = fetch_with_error(burl).then(formBuilder);
+	this.dlgbox({custom:form}, "confirm").then(function() {
+		form.then(function(f) {
+			var d = f.readData();
+			this.waitScreen(fetch_with_error(burl, {method:"PUT",body:JSON.stringify(d)}));				
+		}.bind(this))
+	}.bind(this))
+}

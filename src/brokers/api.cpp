@@ -92,6 +92,7 @@ static Value getBrokerInfo(AbstractBrokerAPI &handler, const Value &req) {
 				 ("version",nfo.version)
 				 ("licence",nfo.licence)
 				 ("trading_enabled", nfo.trading_enabled)
+				 ("settings",nfo.settings)
 				 ("favicon",Value(BinaryView(StrViewA(nfo.favicon)),base64));
 }
 
@@ -138,6 +139,15 @@ static Value getApiKeyFields(AbstractBrokerAPI &handler, const Value &req) {
 	return handler.getApiKeyFields();
 }
 
+static Value setSettings(AbstractBrokerAPI &handler, const Value &req) {
+	handler.setSettings(req);;
+	return Value();
+}
+
+static Value getSettings(AbstractBrokerAPI &handler, const Value &req) {
+	return handler.getSettings(req.toString().str());
+}
+
 
 ///Handler function
 using HandlerFn = Value (*)(AbstractBrokerAPI &handler, const Value &request);
@@ -156,7 +166,9 @@ static MethodMap methodMap ({
 			{"enableDebug",&enableDebug},
 			{"getBrokerInfo",&getBrokerInfo},
 			{"setApiKey",&setApiKey},
-			{"getApiKeyFields",&getApiKeyFields}
+			{"getApiKeyFields",&getApiKeyFields},
+			{"setSettings",&setSettings},
+			{"getSettings",&getSettings}
 	});
 
 
@@ -231,4 +243,12 @@ void AbstractBrokerAPI::setApiKey(json::Value keyData) {
 
 json::Value AbstractBrokerAPI::getApiKeyFields() const {
 	return apiKeyFormat;
+}
+
+json::Value AbstractBrokerAPI::getSettings(const std::string_view & ) const {
+	throw std::runtime_error("unsupported");
+}
+
+void AbstractBrokerAPI::setSettings(json::Value) {
+	throw std::runtime_error("unsupported");
 }

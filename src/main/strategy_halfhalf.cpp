@@ -40,12 +40,13 @@ std::pair<Strategy_HalfHalf::OnTradeResult, IStrategy*> Strategy_HalfHalf::onTra
 	} else {
 
 		double n = tradePrice;
+		double na = a * sqrt(p/n);
 		double v = a * p + a * n - 2 * a * sqrt(p *  n);
 		double ap = (v / n) * accu;
 		double np = v * (1-accu);
 		return std::make_pair(
 				OnTradeResult {np, ap},
-				new Strategy_HalfHalf(ea,accu,n,a+ap-ea)
+				new Strategy_HalfHalf(ea,accu,n,na+ap-ea)
 		);
 	}
 }

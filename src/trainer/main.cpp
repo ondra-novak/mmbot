@@ -5,23 +5,35 @@
  *      Author: ondra
  */
 
+#include <curlpp/Easy.hpp>
+#include <curlpp/Options.hpp>
+#include <chrono>
+#include <fstream>
+#include <sstream>
 #include <cmath>
 #include <imtjson/value.h>
 #include "../brokers/api.h"
 #include <imtjson/object.h>
+#include <imtjson/string.h>
+#include <imtjson/operations.h>
+
 #include "../shared/stringview.h"
 
 using json::Object;
 using json::Value;
+using json::String;
 using ondra_shared::StrViewA;
 
 
-static Value setupForm = {
+static Value setupForm = {};
+
+
+static Value settingsForm = {
 						Object
 							("name","prices")
 							("type","textarea")
-							("label","Prices one per line")
-							("default","10\n20\n10\n5\n7.5"),
+							("label","Prices one per line\nor\nURL to JSON source,\nand name of the field at second line")
+							("default",""),
 						Object
 							("name","timeframe")
 							("type","number")
@@ -33,10 +45,30 @@ static Value setupForm = {
 							("label","Asset symbol")
 							("default","TEST"),
 						Object
+							("name","asset_balance")
+							("type","number")
+							("label","Asset Balance")
+							("default","0"),
+						Object
+							("name","asset_step")
+							("type","number")
+							("label","Asset Step")
+							("default","0"),
+						Object
 							("name","currency")
 							("type","string")
 							("label","Currency symbol")
 							("default","FIAT"),
+						Object
+							("name","currency_balance")
+							("type","number")
+							("label","Currency Balance")
+							("default","0"),
+						Object
+							("name","currency_step")
+							("type","number")
+							("label","Currency Step")
+							("default","0"),
 						Object
 							("name","type")
 							("type","enum")
@@ -44,18 +76,30 @@ static Value setupForm = {
 									("normal","Standard exchange")
 									("inverted","Inverted futures"))
 							("label","Market type")
-							("default","normal")
-
+							("default","normal"),
+						Object
+							("name","restart")
+							("type","enum")
+							("options",Object
+									("cont","Continue in chart")
+									("restart","Restart from beginning"))
+							("label","Restart or continue in chart")
+							("default","cont"),
 };
+
+
+static std::size_t genIDCnt() {
+	return std::chrono::duration_cast<std::chrono::milliseconds>(
+				std::chrono::system_clock::now().time_since_epoch()).count();
+}
 
 class Interface: public AbstractBrokerAPI {
 public:
 
-	Interface(const std::string &path):AbstractBrokerAPI(path, setupForm) {}
+	Interface(const std::string &path):AbstractBrokerAPI(path, setupForm),fname(path+".jconf"),idcnt(genIDCnt()) {}
 
 	virtual BrokerInfo getBrokerInfo()  override;
-	virtual void onLoadApiKey(json::Value keyData);
-	virtual void setApiKey(json::Value keyData) override;
+	virtual void onLoadApiKey(json::Value) {}
 
 	virtual double getBalance(const std::string_view & symb) override;
 	virtual TradeHistory getTrades(json::Value lastId, std::uintptr_t fromTime, const std::string_view & pair) override;
@@ -73,18 +117,42 @@ public:
 	virtual std::vector<std::string> getAllPairs()override;
 	virtual void enable_debug(bool enable) override;
 	virtual void onInit() override;
+	virtual void setSettings(json::Value v) override;
+	virtual json::Value getSettings(const std::string_view &) const override ;
+
+	json::Value collectSettings() const;
+	void saveSettings();
+	void loadSettings();
 
 	void unsuppError() {
 		throw std::runtime_error("Unsupported operation - The trainer must be run with 'dry_run' flag enabled");
 	}
 
 	bool inited;
-	time_t startTime;
-	std::vector<double> prices;
-	long timeDivisor;
-	std::string asset;
-	std::string currency;
-	bool inverted;
+	time_t startTime = 0;
+	std::vector<double> prices = {100,101,99};
+	long timeDivisor = 120;
+	std::string asset = "TEST";
+	double asset_balance = 0;
+	double asset_step = 0;
+	std::string currency = "FIAT";
+	double currency_balance = 0;
+	double currency_step = 0;
+	bool inverted = false;
+	double prev_price = 0;
+
+
+	Orders orders;
+	TradeHistory trades;
+
+	std::string fname;
+	std::size_t idcnt;
+
+	mutable double last_price = 0;
+	double getCurPrice() const;
+	std::string price_url;
+	std::string price_path;
+
 };
 
 
@@ -102,18 +170,13 @@ int main(int argc, char **argv) {
 
 inline Interface::BrokerInfo Interface::getBrokerInfo() {
 	return BrokerInfo {
-		inited,
+		true,
 		"Trainer",
 		"Trainer",
 		"",
 		"1.0",
 
 		"Trainer(c) 2019 Ondřej Novák\n\n"
-		"The trainer allows you to manually simulate a market. Through the form"
-		"normally used to set API keys, you can control the ticker. The trainer"
-		"cannot be started as standalone market. It needs to enable 'dry_run' to"
-		"enable cooperation with internal emulator"
-		"\n\n"
 		"Permission is hereby granted, free of charge, to any person "
 		"obtaining a copy of this software and associated documentation "
 		"files (the \"Software\"), to deal in the Software without "
@@ -269,83 +332,175 @@ inline Interface::BrokerInfo Interface::getBrokerInfo() {
 		"eytWQwKy0GsDacj2kRdCFrN3q46tOGpxgOPBagSzplB0nSibPSs2K9CdvzhD7uXulwUDskc0p93k"
 		"LPSuc0K97mbRdvfLggHdvxNmYU1IH8DdK3g5q5hqiyVyB32Ad78MJGCpt+sVuPtlwYCl1/VA735Z"
 		"MGDhCHoF7z6oa4IrV194mTNAH8AEXwJ2vDS/RVDs04TEr0saDqZL8Mr1yvWSXP8P78XWqfvv6HgA"
-		"AAAASUVORK5CYII="
+		"AAAASUVORK5CYII=",
+		true
 	};
 }
 
-inline void Interface::onLoadApiKey(json::Value keyData) {
-	if (keyData.hasValue()) {
-		timeDivisor = keyData["timeframe"].getInt()*60;
-		if (timeDivisor < 1) throw std::runtime_error("Time frame has invalid value");
-		prices.clear();
-		StrViewA textPrices = keyData["prices"].getString();
-		auto splt = textPrices.split("\n");
-		while (!!splt) {
-			StrViewA line = splt();
-			line = line.trim(isspace);
-			if (!line.empty()) {
-				double d = strtod(line.data,0);
-				if (std::isfinite(d) && d > 0) {
-					prices.push_back(d);
-				} else {
-					throw std::runtime_error("Invalid price in the list");
-				}
-			}
-		}
-		startTime = keyData["timestamp"].getUInt();
-		inited = !prices.empty();
-		asset = keyData["asset"].getString();
-		currency = keyData["currency"].getString();
-		inverted = keyData["type"].getString() == "inverted";
+
+inline double Interface::getBalance(const std::string_view &x) {
+	if (inverted) {
+		if (x == "CONTRACT") return asset_balance;
+		else return currency_balance;
 	} else {
-		inited = false;
+		if (x == currency) return currency_balance;
+		else return asset_balance;
 	}
-}
-
-inline void Interface::setApiKey(json::Value keyData) {
-	AbstractBrokerAPI::setApiKey(keyData.replace("timestamp", time(nullptr)));
-}
-
-inline double Interface::getBalance(const std::string_view &) {
-	return 0;
 }
 
 inline Interface::TradeHistory Interface::getTrades(json::Value lastId,
 		std::uintptr_t fromTime, const std::string_view &pair) {
-	return TradeHistory{};
+	if (lastId.hasValue()) {
+		TradeHistory ret;
+		std::copy_if(trades.begin(), trades.end(), std::back_inserter(ret), [&](const Trade &x) {
+			return Value::compare(x.id, lastId) > 0;
+		});
+		return ret;
+	} else {
+		return trades;
+	}
 }
 
 inline Interface::Orders Interface::getOpenOrders(const std::string_view &par) {
-	return Orders{};
+	return orders;
+}
+
+double Interface::getCurPrice() const {
+	if (last_price) return last_price;
+	double price = 0;
+
+	if (!price_url.empty()) {
+		cURLpp::Easy curl_handle;
+		std::ostringstream response;
+
+		if (this->debug_mode) {
+			std::cerr << "Send: " << price_url << std::endl;
+		}
+
+		curl_handle.reset();
+		curl_handle.setOpt(cURLpp::Options::Url(price_url));
+		curl_handle.setOpt(cURLpp::Options::WriteStream(&response));
+		curl_handle.perform();
+
+		if (debug_mode) {
+			std::cerr << "Recv: " << response.str() << std::endl;
+		}
+
+
+		json::Value resp =json::Value::fromString(response.str());
+		bool found = false;
+		resp.walk([&](Value x) {
+			if (!found && ((price_path.empty() && x.type() == json::number) ||
+					(!price_path.empty() && x.getKey() == StrViewA(price_path)))) {
+				price = x.getNumber();
+				found = true;
+			}
+			return true;
+		});
+		if (price == 0) throw std::runtime_error("Failed to download price");
+	} else {
+		if (prices.empty()) return 100;
+
+		time_t t = time(nullptr) - startTime;
+		std::size_t index = (t/timeDivisor) % prices.size();
+		price = prices[index];
+	}
+	if (inverted) price = 1/price;
+	last_price = price;
+	return price;
+
 }
 
 inline Interface::Ticker Interface::getTicker(const std::string_view &piar) {
-	if (!inited) unsuppError();
-	time_t t = time(nullptr);
-	std::size_t index = (t/timeDivisor) % prices.size();
-	double price = prices[index];
-	if (inverted) price = 1/price;
-	return Ticker{price,price,price,uintptr_t(t)*1000};
+	double price = getCurPrice();
+	return Ticker{price,price,price,uintptr_t(time(nullptr))*1000};
 }
 
-inline json::Value Interface::placeOrder(const std::string_view &pair,
+inline json::Value Interface::placeOrder(const std::string_view &,
 		double size, double price, json::Value clientId, json::Value replaceId,
 		double replaceSize) {
-	unsuppError();
-	throw;
+
+	double p = getCurPrice();
+	auto iter = std::find_if(orders.begin(), orders.end(),[&](const Order &o) {
+		return o.id == replaceId;
+	});
+	if (iter != orders.end()) {
+		if (replaceSize > fabs(iter->size)) return iter->id;
+		else orders.erase(iter);
+	}
+
+
+
+	Value id = idcnt++;
+	if (size) {
+
+		if (((p - price) / size) < 0) price = p;
+
+		orders.push_back(Order{
+			id,clientId,
+			size,price
+		});
+	}
+
+	return id;
 }
 
 inline bool Interface::reset() {
+
+	last_price = 0;
+	double p = getCurPrice();
+
+	Orders newOrders;
+	for (auto o : orders) {
+		double dp = p - o.price;
+		if (dp / o.size <= 0) {
+			double pprice = trades.empty()?p:trades.back().price;
+			Value id = ++idcnt;
+			double s = o.size * (dp == 0?0.5:1);
+			Trade tr {
+				id,
+				std::size_t(time(nullptr)*1000),
+				s,
+				o.price,
+				s,
+				o.price
+			};
+			trades.push_back(tr);
+			if (inverted) {
+				currency_balance += asset_balance*(o.price - pprice);
+			}
+			asset_balance += s;
+			if (!inverted) {
+				currency_balance -= s * o.price;
+			}
+			double remain = (o.size - s);
+			if (std::fabs(remain) > (asset_step+1e-20)) {
+				newOrders.push_back(Order {
+					o.id,
+					o.client_id,
+					remain,
+					o.price
+				});
+			}
+		} else {
+			newOrders.push_back(o);
+		}
+	}
+
+	newOrders.swap(orders);
+	prev_price = p;
+	saveSettings();
 	return true;
+
 }
 
 inline Interface::MarketInfo Interface::getMarketInfo(const std::string_view &pair) {
 	return MarketInfo{
 		inverted?"CONTRACT":asset,
 		inverted?asset:currency,
-		0,
-		0,
-		0,
+		asset_step,
+		currency_step,
+		asset_step,
 		0,
 		0,
 		AbstractBrokerAPI::currency,
@@ -370,5 +525,89 @@ inline void Interface::enable_debug(bool ) {
 
 
 inline void Interface::onInit() {
-	//empty
+	loadSettings();
+}
+
+inline void Interface::setSettings(json::Value keyData) {
+	timeDivisor = keyData["timeframe"].getInt()*60;
+	prices.clear();
+	price_url.clear();
+	price_path.clear();
+	StrViewA textPrices = keyData["prices"].getString().trim(isspace);
+	if (textPrices.begins("https://") || textPrices.begins("http://")) {
+		auto splt=textPrices.split("\n");
+		StrViewA url = splt();
+		StrViewA path = splt();
+		price_url = url;
+		price_path = path;
+	} else {
+		auto splt = textPrices.split("\n");
+		while (!!splt) {
+			StrViewA line = splt();
+			line = line.trim(isspace);
+			if (!line.empty()) {
+				double d = strtod(line.data,0);
+				if (std::isfinite(d) && d > 0) {
+					prices.push_back(d);
+				}
+			}
+		}
+	}
+	Value st = keyData["startTime"];
+	if (st.hasValue()) startTime = st.getUInt();
+	else {
+		if (keyData["restart"].getString() == "restart") {
+			startTime = time(nullptr);
+		}
+	}
+
+	asset = keyData["asset"].getString();
+	currency = keyData["currency"].getString();
+	asset_balance = keyData["asset_balance"].getNumber();
+	currency_balance = keyData["currency_balance"].getNumber();
+	asset_step = keyData["asset_step"].getNumber();
+	currency_step = keyData["currency_step"].getNumber();
+	inverted = keyData["type"].getString() == "inverted";
+	prev_price = keyData["prev_price"].getNumber();
+	saveSettings();
+}
+
+json::Value Interface::collectSettings() const {
+	json::Object kv;
+	kv.set("prices",price_url.empty()
+					?json::Value(json::array, prices.begin(), prices.end(), [](double v){return v;}).join("\n")
+					:json::Value(json::String({price_url,"\n", price_path})))
+		  ("asset",asset)
+		  ("currency",currency)
+		  ("asset_balance",asset_balance)
+		  ("currency_balance",currency_balance)
+		  ("asset_step",asset_step)
+		  ("currency_step",currency_step)
+		  ("type",inverted?"inverted":"normal")
+		  ("startTime",startTime)
+		  ("restart","cont")
+		  ("timeframe",timeDivisor/60)
+		  ("prev_price", prev_price);
+	return kv;
+}
+
+inline json::Value Interface::getSettings(const std::string_view & ) const {
+	Value kv = collectSettings();
+	return settingsForm.map([&](Value v) {
+		StrViewA n = v["name"].getString();
+		return v.replace("default", kv[n]);
+	});
+}
+
+inline void Interface::saveSettings() {
+	std::ofstream f(fname, std::ios::out|std::ios::trunc);
+	collectSettings().toStream(f);
+}
+
+inline void Interface::loadSettings() {
+	std::ifstream f(fname);
+	if (!f) return;
+	Value v = Value::fromStream(f);
+	if (!f) return;
+	setSettings(v);
 }

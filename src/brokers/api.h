@@ -12,11 +12,12 @@
 
 #include <imtjson/value.h>
 #include "../main/apikeys.h"
+#include "../main/ibrokercontrol.h"
 #include "../main/istockapi.h"
 
 
 
-class AbstractBrokerAPI: public IStockApi, public IApiKey {
+class AbstractBrokerAPI: public IStockApi, public IApiKey, public IBrokerControl {
 public:
 
 	AbstractBrokerAPI(const std::string &secure_storage_path,
@@ -46,6 +47,10 @@ public:
 	 * carried into caller and the broker can graceusly exit.
 	 */
 	virtual void onInit() = 0;
+
+	virtual json::Value getSettings(const std::string_view & pairHint) const override;
+
+	virtual void setSettings(json::Value v) override;
 
 	void dispatch();
 
@@ -89,3 +94,4 @@ protected:
 
 
 #endif /* SRC_BROKERS_API_H_ */
+
