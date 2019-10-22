@@ -31,9 +31,6 @@ IStrategy* Strategy_PLFromPos::init(double curPrice, double assets, double ) con
 }
 
 
-double Strategy_PLFromPos::posFromPrice(double price) const {
-	return  ((p - price ) * cfg.step / (p*0.01));
-}
 
 double Strategy_PLFromPos::calcK() const {
 	return cfg.step / (p * 0.01);

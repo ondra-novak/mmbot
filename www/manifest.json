@@ -12,7 +12,11 @@
       "src": "res/logo.png",
       "type": "image/png",
       "sizes": "512x512"
-    }]
+    },     {
+        "src": "res/icon64.png",
+        "type": "image/png",
+        "sizes": "64x64"
+      }]
   
 }
 

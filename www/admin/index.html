@@ -54,8 +54,6 @@
 </x-section>
 <x-section data-name="strategy_halfhalf" class="goal hidden" hidden="hidden"><x-section-caption>Half-Half/Keep Value</x-section-caption>
 <label><span>External assets <span class="tooltip">Amount of assets held outside of exchange. They are included into calculations.</span></span><input type="number" step="any" data-name="external_assets"></label>
-<div class="rightinfo">Min price: <span data-name="range_min_price"></span>&nbsp;<span data-name="currency"></span>
-- Max price: <span data-name="range_max_price"></span>&nbsp;<span data-name="currency"></span>
 </div>
 <label  class="adv"><span>Accumulation <span class="tooltip">Amount of the profit used to buy extra assets</span></span><x-slider data-name="acum_factor" data-min="0" data-max="100" data-mult="1"></x-slider></label>
 </x-section>
@@ -92,13 +90,14 @@ Enable to the Bot accept partial loss, when trading is not possible due insuffic
 extra "virtual" trade with zero size is generated to shift the center of the spread. This can
 reenable trading, but it also finally costs some profit
 </span></span><x-slider data-name="accept_loss" data-min="0" data-max="100" data-mult="1"></x-slider></label>
-<div class="rightinfo"><button data-name="init_backtest">Backtest</button></div>
 </x-section>
 <x-section class="adv"><x-section-caption>Spread</x-section-caption>
-<label  class="adv"><span>Spread stdev calculation hours <span class="tooltip"
+<label  class="adv"><span>Spread width: st.dev hours <span class="tooltip"
 >Specifies how many hours is used to calculate a standard deviation for spread value</span></span><x-slider data-name="spread_calc_stdev_hours" data-min="1" data-max="240" data-mult="1"></x-slider></label>
-<label  class="adv"><span>Spread volatility smooth hours <span class="tooltip"
+<label  class="adv"><span>Spread width: smooth hours <span class="tooltip"
 >Specifies smooth in hours. The program uses SMA (simple moving average) to calculate volatility smooth. By setting 1, it means, deviation longest than 1 hour is not considered as local deviation.</span></span><x-slider data-name="spread_calc_sma_hours" data-min="1" data-max="240" data-mult="1"></x-slider></label>
+<label  class="adv"><span>Spread width: manual adjust <span class="tooltip"
+>Specify manual adjust. Values above zero causes wider spread up to 2x. Values below zero causes narrow spread up to 1/2</span></span><x-slider data-name="spread_mult" data-min="-100" data-max="100" data-mult="1"></x-slider></label>
 <label class="adv"><span>Dynamic spread mult. raise<span class="tooltip"
 >Specifies [in %] how much is dynamic multiplicator raised after trade.</span></span><x-slider data-name="dynmult_raise" data-min="1" data-max="1000" data-mult="1"></x-slider></label>
 <label class="adv"><span>Dynamic spread mult. fall<span class="tooltip"
@@ -126,7 +125,7 @@ reenable trading, but it also finally costs some profit
 <label class="adv"><span>Report - position offset<span class="tooltip">Allows to sync the position on the report page with the actual state on the echange.<br>
 The position is not generally in the sync due to various issues. You need to specify a difference between the calculated position presented on the report page and the actual position on the exchhange
 </span></span><input type="number" step="any" data-name="report_position_offset"></label>
-<label class="adv"><span>Force spread (0=disabled)<span class="tooltip">Specifies exact spread width and disables the internal spread detection</span></span><input type="number" step="any" data-name="force_spread"></label>
+<label class="adv"><span>Force spread [%](0=disabled)<span class="tooltip">Specifies exact spread in % width and disables the internal spread detection</span></span><input type="number" step="any" data-name="force_spread"></label>
 </x-section>
 <div></div>
 </x-form>

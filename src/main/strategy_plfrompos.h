@@ -36,7 +36,6 @@ public:
 	static std::string_view id;
 
 
-	double posFromPrice(double price) const;
 
 	double calcK() const;
 
