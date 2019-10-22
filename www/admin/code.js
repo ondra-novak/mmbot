@@ -841,7 +841,7 @@ App.prototype.securityForm = function() {
 			if (flag) {
 				fetch_with_error(this.brokerURL(broker)+"/apikey")
 				.then(function(ff){
-					w = formBuilder(ff);
+					var w = formBuilder(ff);
 					w.setData(cfg);
 					this.dlgbox({text:w},"confirm").then(function() {
 						if (!this.config.apikeys) this.config.apikeys = {};
