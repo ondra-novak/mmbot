@@ -65,6 +65,11 @@
 <label><span>Neutral position <span class="tooltip"
 >How much assets are considered as neutral position</span></span><input data-name="neutral_pos" type="number" step="any">
 </label>
+<label><span>Max position (0&nbsp;=&nbsp;disabled)<span class="tooltip"
+>Specifies maximum position in both sides (short or long) for normal trading. This doesn't mean, that trading will
+stop beyond this limit, however the strategy focuses on position reduction regadless on possible loss. This also
+doesn't work as stoploss, because position can still grow beyoind the limit, but a lot of slower.</span></span><input data-name="max_pos" type="number" step="any">
+</label>
 <label class="adv"><span>Accumulation <span class="tooltip">Amount of the profit used to buy extra assets</span></span><x-slider data-name="pl_acum" data-min="0" data-max="100" data-mult="1"></x-slider></label>
 
 </x-section>

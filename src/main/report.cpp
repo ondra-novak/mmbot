@@ -93,6 +93,7 @@ void Report::setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> tr
 
 
 
+
 	if (!trades.empty()) {
 
 		const auto &last = trades[trades.length-1];
@@ -104,67 +105,32 @@ void Report::setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> tr
 		auto iter = trades.begin();
 		auto &&t = *iter;
 
-		std::size_t invest_beg_time = t.time;
-		double invst_value = t.eff_price*t.balance;
 
 		double init_price = t.eff_price;
 
 
-		double prev_balance = t.balance-t.eff_size;
 		double prev_price = init_price;
-		double cur_sum = 0;
 		double cur_fromPos = 0;
 		double norm_sum_ass = 0;
 		double norm_sum_cur = 0;
-		double potentialpl = 0;
-		double neutral_price = 0;
 
+
+		strategy.init(t.eff_price,t.balance,0);
 
 		while (iter != tend) {
 
 			auto &&t = *iter;
 
 			double gain = (t.eff_price - prev_price)*pos ;
-			double earn = -t.eff_price * t.eff_size;
-			double bal_chng = (t.balance - prev_balance) - t.eff_size;
-			invst_value += bal_chng * t.eff_price;
+		//	double earn = -t.eff_price * t.eff_size;
+			auto tr = strategy.onTrade(t.eff_price, t.eff_size,t.balance,0);
 
-
-			double calcbal = prev_balance * sqrt(prev_price/t.eff_price);
-			double asschg = (prev_balance+t.eff_size) - calcbal ;
-			double curchg = -(calcbal * t.eff_price -  prev_balance * prev_price - earn);
-			double norm_chng = 0;
-
-			if (iter != trades.begin() && !iter->manual_trade) {
-				cur_fromPos += gain;
-				cur_sum += earn;
-
-				norm_sum_ass += asschg;
-				norm_sum_cur += curchg;
-				norm_chng = curchg+asschg * t.eff_price;
-
-				pos += t.eff_size;
-
-
-				double np = t.balance-pos;
-				neutral_price = t.eff_price * pow2(t.balance/np);
-				potentialpl = cur_fromPos + pos*(neutral_price-sqrt(t.eff_price*neutral_price));
-
-
-			}
-			if (iter->manual_trade) {
-				invst_value += earn;
-			}
-			double norm;
-			norm = norm_sum_cur;
-
-
-			prev_balance = t.balance;
 			prev_price = t.eff_price;
 
-			double invst_time = t.time - invest_beg_time;
-			double invst_n = norm/invst_time;
-			if (!std::isfinite(invst_n)) invst_n = 0;
+			norm_sum_ass += tr.normAccum;
+			norm_sum_cur += tr.normProfit;
+			cur_fromPos += gain;
+			pos += t.eff_size;
 
 
 			if (t.time >= first) {
@@ -173,18 +139,14 @@ void Report::setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> tr
 						("time", t.time)
 						("achg", (inverted?-1:1)*t.eff_size)
 						("gain", gain)
-						("norm", Value(norm))
-						("normch", norm_chng)
-						("nacum", Value((inverted?-1:1)*norm_sum_ass))
+						("norm", norm_sum_cur)
+						("normch", tr.normProfit + t.eff_price * tr.normAccum)
+						("nacum", norm_sum_ass == 0.0?Value():Value((inverted?-1:1)*norm_sum_ass))
 						("pos", (inverted?-1:1)*pos)
 						("pl", cur_fromPos)
-						("pln", potentialpl)
 						("price", (inverted?1.0/t.price:t.price))
-						("invst_v", invst_value)
-						("invst_n", invst_n)
 						("volume", (inverted?1:-1)*t.eff_price*t.eff_size)
 						("man",t.manual_trade)
-						("np",(inverted?1.0/neutral_price:neutral_price))
 				);
 			}
 

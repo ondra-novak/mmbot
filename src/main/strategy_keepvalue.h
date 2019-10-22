@@ -33,7 +33,6 @@ public:
 
 	static std::string_view id;
 
-	double calcOrderSizeRaw(double price) const;
 
 protected:
 	Config cfg;

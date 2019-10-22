@@ -22,47 +22,52 @@ Strategy_KeepValue::Strategy_KeepValue(const Config& cfg, double p, double a, do
 }
 
 bool Strategy_KeepValue::isValid() const {
-	return p*a >0;
+	return p >0 && (a+cfg.ea) > 0;
 }
 
 IStrategy* Strategy_KeepValue::init(double curPrice, double assets, double) const {
-	return new Strategy_KeepValue(cfg, curPrice, assets);
+	return new Strategy_KeepValue(cfg, curPrice , assets);
 }
 
 std::pair<Strategy_KeepValue::OnTradeResult, IStrategy*> Strategy_KeepValue::onTrade(
 		double tradePrice, double tradeSize, double assetsLeft,
 		double currencyLeft) const {
 
-	double new_a = a + calcOrderSizeRaw(tradePrice);
-	double k = p * (a+cfg.ea);
+	double k = (a+cfg.ea) * p;
 	double cf = -tradeSize * tradePrice;
 	double nv = k * std::log(tradePrice/p);
-	double np = cf - nv;
-	double ap = (np / tradePrice) * cfg.accum;
-	np = np * (1.0 - cfg.accum);
-	return std::pair (OnTradeResult{np,ap}, new Strategy_KeepValue(cfg, tradePrice, new_a, acm+ap));
+	double pf = cf - nv;
+	double ap = (pf / tradePrice) * cfg.accum;
+	double np = pf * (1.0 - cfg.accum);
+	return {
+		OnTradeResult{np,ap}, new Strategy_KeepValue(cfg, tradePrice, (k / tradePrice) - cfg.ea, acm+ap)
+	};
 
 }
 
 json::Value Strategy_KeepValue::exportState() const {
 	return json::Object
 			("p", p)
-			("a", a);
+			("a", a)
+			("acm", acm);
 }
 
 IStrategy* Strategy_KeepValue::importState(json::Value src) const {
-	return init(src["p"].getNumber(), src["a"].getNumber(),0);
+	return init(src["p"].getNumber(), src["a"].getNumber(),src["acm"].getNumber());
 }
 
 double Strategy_KeepValue::calcOrderSize(double price, double assets) const {
-	return calcOrderSizeRaw(price) + (a - assets + acm);
+	double k = (a+cfg.ea) * p;
+	double na = k / price;
+	return (na - cfg.ea) - assets + acm;
 }
 
 Strategy_KeepValue::MinMax Strategy_KeepValue::calcSafeRange(double assets,
 		double currencies) const {
-	double k = p*a;
+	double k = p*(a+cfg.ea);
 	double n = p*std::exp(-currencies/k);
-	return MinMax {n,std::numeric_limits<double>::quiet_NaN()};
+	double m = cfg.ea > 0?(k/cfg.ea):std::numeric_limits<double>::infinity();
+	return MinMax {n,m};
 }
 
 double Strategy_KeepValue::getEquilibrium() const {
@@ -78,11 +83,3 @@ IStrategy* Strategy_KeepValue::reset() const {
 	return new Strategy_KeepValue(cfg);
 }
 
-double Strategy_KeepValue::calcOrderSizeRaw(double price) const {
-	double curVal = price * (a + cfg.ea);
-	double k = p * (a + cfg.ea);
-	double diff = k - curVal;
-	double need = diff/price;
-	logDebug("KeepValue: a=$5, p=$6, price=$7 curVal=$1, k=$2, diff=$3, need=$4", curVal, k, diff, need, a, p, price);
-	return need;
-}

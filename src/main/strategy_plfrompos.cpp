@@ -16,8 +16,8 @@ using ondra_shared::logDebug;
 
 std::string_view Strategy_PLFromPos::id = "plfrompos";
 
-Strategy_PLFromPos::Strategy_PLFromPos(const Config &cfg, double p, double a, double pos)
-	:cfg(cfg),p(p),a(a),pos(pos)
+Strategy_PLFromPos::Strategy_PLFromPos(const Config &cfg, double p, double pos, double acm)
+	:cfg(cfg),p(p),pos(pos), acm(acm)
 {
 }
 
@@ -27,70 +27,76 @@ bool Strategy_PLFromPos::isValid() const {
 }
 
 IStrategy* Strategy_PLFromPos::init(double curPrice, double assets, double ) const {
-	return new Strategy_PLFromPos(cfg, curPrice, cfg.neutral_pos, assets - cfg.neutral_pos);
+	return new Strategy_PLFromPos(cfg, curPrice, assets - cfg.neutral_pos);
+}
+
+
+double Strategy_PLFromPos::posFromPrice(double price) const {
+	return  ((p - price ) * cfg.step / (p*0.01));
+}
+
+double Strategy_PLFromPos::calcK() const {
+	return cfg.step / (p * 0.01);
+}
+
+double Strategy_PLFromPos::calcNewPos(double tradePrice) const {
+	double k = calcK();
+	double new_pos = pos + (p - tradePrice) * k;
+	if (new_pos * pos > 0) {
+		double absdf = fabs(new_pos) - fabs(pos);
+		if (absdf < 0)
+			new_pos = new_pos - sgn(new_pos) * sqrt(-absdf);
+	}
+	return new_pos;
 }
 
 std::pair<Strategy_PLFromPos::OnTradeResult, IStrategy*> Strategy_PLFromPos::onTrade(
 		double tradePrice, double tradeSize, double assetsLeft,
 		double currencyLeft) const {
 
-
-	double chg = calcOrderSizeRaw(tradePrice);
-	double new_pos = pos + chg;
-	double new_a_diff = (tradeSize>0?std::sqrt(tradeSize):0 )* cfg.accum;
-	double new_a = a + new_a_diff;
-	OnTradeResult res{
-		(pos * chg < 0?tradeSize * (tradePrice - p):0) - new_a_diff*tradeSize,
-		new_a_diff
+	double k = calcK();
+	double P = pos / k + p;
+	double cf = -tradeSize * tradePrice;
+	double nf = k*((p - tradePrice) * (p - 2 * P + tradePrice ))/2;
+	double ef = cf - nf;
+	double np = ef * (1 - cfg.accum);
+	double ap = ef * cfg.accum;
+	double new_pos = calcNewPos(tradePrice);
+	if (cfg.maxpos && std::fabs(new_pos) >=cfg.maxpos) {
+		new_pos = sgn(new_pos) * cfg.maxpos;
+	}
+	return {
+		OnTradeResult{np,ap},
+		new Strategy_PLFromPos(cfg,tradePrice, new_pos, acm+ap)
 	};
-	Strategy_PLFromPos *newinst =  new Strategy_PLFromPos(cfg, tradePrice, new_a, new_pos);
-	return std::make_pair(res,newinst);
-
 }
 
 json::Value Strategy_PLFromPos::exportState() const {
 	return json::Object
 			("p",p)
-			("a",a)
 			("pos",pos)
-			("np",cfg.neutral_pos);
+			("acm",acm);
+
 }
 
 IStrategy* Strategy_PLFromPos::importState(json::Value src) const {
 	double new_p = src["p"].getNumber();
-	double new_a = src["a"].getNumber();
 	double new_pos = src["pos"].getNumber();
-	double old_np =  src["np"].getNumber();
-	if (fabs(old_np - cfg.neutral_pos) <= (fabs(old_np) + fabs(cfg.neutral_pos))*1e-5)
-		return new Strategy_PLFromPos(cfg, new_p, new_a, new_pos);
-	else {
-		return new Strategy_PLFromPos(cfg);
-	}
-}
-
-double Strategy_PLFromPos::calcOrderSizeRaw(double price) const {
-	double pos_diff = -((price - p) * cfg.step / (price*0.01));
-	if (pos_diff * pos < 0 && fabs(pos) > fabs(pos_diff))
-			pos_diff += sqrt(fabs(pos_diff)) * sgn(pos_diff);
-	return pos_diff;
-
+	double new_acm =  src["acm"].getNumber();
+	return new Strategy_PLFromPos(cfg, new_p, new_pos, new_acm);
 }
 
 double Strategy_PLFromPos::calcOrderSize(double price, double assets) const {
-	double pos_diff = calcOrderSizeRaw(price);
-	double curPos = assets - a;
-	double error = pos - curPos;
-	logDebug("CalcOrderSize: price=$1, assets=$2, curPos=$3,  newpos=$4, diff=$6, error=$5",
-				price, assets, pos, pos+pos_diff, error, pos_diff);
-	return pos_diff + error;
+	double new_pos = calcNewPos(price);
+	return new_pos + cfg.neutral_pos + acm - assets;
 
 }
 
 Strategy_PLFromPos::MinMax Strategy_PLFromPos::calcSafeRange(double assets,
 		double currencies) const {
 	return MinMax {
-		std::numeric_limits<double>::quiet_NaN(),
-		std::numeric_limits<double>::quiet_NaN()
+		p - sqrt(2*currencies/calcK()),
+		assets / calcK() + p
 	};
 }
 

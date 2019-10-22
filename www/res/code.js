@@ -275,7 +275,7 @@ function app_start(){
 //					misc.avgt = last_norm/misc.mt;
 					misc.avgh = lt.norm/misc.tt*it;
 					misc.avgha = lt.nacum*it/misc.tt;
-					misc.avghpl = it*lt.pln/misc.tt;
+					misc.avghpl = it*lt.pl/misc.tt;
 				}
 
 				for (var n in misc)

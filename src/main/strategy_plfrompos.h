@@ -16,9 +16,10 @@ public:
 		double step;
 		double accum;
 		double neutral_pos;
+		double maxpos;
 	};
 
-	Strategy_PLFromPos(const Config &cfg, double p = 0, double a = 0, double pos = 0);
+	Strategy_PLFromPos(const Config &cfg, double p = 0,double pos = 0, double acm = 0);
 
 	virtual bool isValid() const override;
 	virtual IStrategy *init(double curPrice, double assets, double currency) const override;
@@ -34,13 +35,19 @@ public:
 
 	static std::string_view id;
 
-	double calcOrderSizeRaw(double price) const;
+
+	double posFromPrice(double price) const;
+
+	double calcK() const;
 
 protected:
 	Config cfg;
 	double p;
-	double a;
 	double pos;
+	double acm;
+
+private:
+	double calcNewPos(double tradePrice) const;
 };
 
 #endif /* SRC_MAIN_STRATEGY_PLFROMPOS_H_ */

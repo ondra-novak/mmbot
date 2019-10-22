@@ -333,12 +333,12 @@ App.prototype.fillForm = function (src, trg) {
 		data.pl_acum = filledval(defval(src.strategy.accum,0)*100,0);
 		data.neutral_pos = filledval(src.strategy.neutral_pos,0);		
 		data.step = filledval(src.strategy.step,0);
+		data.max_pos = filledval(src.strategy.maxpos,0);
 	}
 	data.enabled = src.enable;
 	data.dry_run = src.dry_run;
 	trg.setItemEvent("external_assets","input",updateRange);
 	data.accept_loss = filledval(src.accept_loss,1);
-	data.max_pos = filledval(src.max_pos,0);
 	data.sliding_pos_hours = filledval(src["sliding_pos.hours"],240);
 	data.sliding_pos_fade = filledval(src["sliding_pos.fade"],0);
 	data.spread_calc_stdev_hours = filledval(src.spread_calc_stdev_hours,8);
@@ -459,6 +459,7 @@ App.prototype.saveForm = function(form, src) {
 		trader.strategy.accum = data.pl_acum/100.0;
 		trader.strategy.step = data.step;
 		trader.strategy.neutral_pos = data.neutral_pos;
+		trader.strategy.maxpos = data.max_pos;
 	} else if (data.strategy == "halfhalf" || data.strategy == "keepvalue") {
 		trader.strategy.accum = data.acum_factor/100.0;
 		trader.strategy.ea = data.external_assets;
