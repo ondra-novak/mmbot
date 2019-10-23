@@ -30,7 +30,6 @@ public:
 			double size, double price,json::Value clientId,
 			json::Value replaceId,double replaceSize) override;
 	virtual bool reset() override;
-	virtual bool isTest() const override {return false;}
 	virtual MarketInfo getMarketInfo(const std::string_view & pair) override;
 	virtual double getFees(const std::string_view & pair) override;
 	virtual std::vector<std::string> getAllPairs() override;

@@ -102,6 +102,7 @@ ExtStockApi::MarketInfo ExtStockApi::getMarketInfo(const std::string_view & pair
 	res.feeScheme = strFeeScheme[v["feeScheme"].getString()];
 	res.leverage= v["leverage"].getNumber();
 	res.invert_price= v["invert_price"].getBool();
+	res.simulator= v["simulator"].getBool();
 	res.inverted_symbol= v["inverted_symbol"].getString();
 	return res;
 

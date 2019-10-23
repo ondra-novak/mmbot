@@ -506,7 +506,8 @@ inline Interface::MarketInfo Interface::getMarketInfo(const std::string_view &pa
 		AbstractBrokerAPI::currency,
 		0,
 		inverted,
-		currency
+		currency,
+		true
 	};
 }
 

@@ -113,6 +113,7 @@ EmulatorAPI::MarketInfo EmulatorAPI::getMarketInfo(const std::string_view & pair
 	balance_symb = minfo.asset_symbol;
 	currency_symb = minfo.currency_symbol;
 	margin = minfo.leverage > 0;
+	minfo.simulator = true;
 	return minfo;
 }
 
@@ -178,9 +179,6 @@ bool EmulatorAPI::reset() {
 	return true;
 }
 
-bool EmulatorAPI::isTest() const {
-	return true;
-}
 
 std::size_t EmulatorAPI::genID() {
 	return ++prevId;

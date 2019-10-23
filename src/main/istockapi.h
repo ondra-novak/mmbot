@@ -150,6 +150,10 @@ public:
 		///When invert_price is true, the broker should also supply symbol name of inverted price
 		std::string inverted_symbol;
 
+		///This flag must be true, if the broker is just simulator and doesn't do live trading
+		/** Simulators are not included into daily performance */
+		bool simulator = false;
+
 		///Adds fees to values
 		/**
 		 * @param assets reference to current asset change. Negative value is sell,
@@ -259,14 +263,6 @@ public:
 	 * internal brokers and emulators.
 	 */
 	virtual bool reset() = 0;
-	///Determines whether the API is emulator
-	/**
-	 * @retval true API is emulator
-	 * @retval false API is not emulator
-	 *
-	 * @note external brokers cannot set this to 'true'
-	 */
-	virtual bool isTest() const = 0;
 
 	///Retrieve market information
 	/**

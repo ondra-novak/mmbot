@@ -127,7 +127,8 @@ static Value getInfo(AbstractBrokerAPI &handler, const Value &req) {
 			("feeScheme",AbstractBrokerAPI::strFeeScheme[nfo.feeScheme])
 			("leverage", nfo.leverage)
 			("invert_price", nfo.invert_price)
-			("inverted_symbol", nfo.inverted_symbol);
+			("inverted_symbol", nfo.inverted_symbol)
+			("simulator", nfo.simulator);
 }
 
 static Value setApiKey(AbstractBrokerAPI &handler, const Value &req) {

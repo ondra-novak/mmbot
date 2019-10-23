@@ -514,7 +514,7 @@ void MTrader::loadState() {
 				cfg.report_position_offset,
 				minfo.invert_price,
 				minfo.leverage != 0,
-				stock.isTest()
+				minfo.simulator
 			});
 	currency_balance_cache = stock.getBalance(minfo.currency_symbol);
 
@@ -522,10 +522,6 @@ void MTrader::loadState() {
 	auto st = storage->load();
 	need_load = false;
 
-	bool wastest = false;
-
-	auto curtest = stock.isTest();
-	bool drop_calc = false;
 
 	if (!cfg.dry_run) {
 		json::Value t = st["test_backup"];
@@ -535,10 +531,7 @@ void MTrader::loadState() {
 	}
 
 	if (st.defined()) {
-		json::Value tst = st["testStartTime"];
-		wastest = tst.defined();
 
-		drop_calc = drop_calc || (wastest != curtest);
 
 		auto state = st["state"];
 		if (state.defined()) {
@@ -574,7 +567,7 @@ void MTrader::loadState() {
 		if (cfg.dry_run) {
 			test_backup = st["test_backup"];
 			if (!test_backup.hasValue()) {
-				test_backup = st.replace("chart",Value());
+				test_backup = st.replace("chart",json::Value());
 			}
 		}
 	}

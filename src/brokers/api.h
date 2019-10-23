@@ -73,9 +73,6 @@ public:
 
 	}
 
-	virtual bool isTest() const override {
-		return false;
-	}
 	virtual void testBroker() override {}
 
 	virtual void setApiKey(json::Value keyData) override;
