@@ -53,9 +53,7 @@ std::pair<Strategy_PLFromPos::OnTradeResult, IStrategy*> Strategy_PLFromPos::onT
 
 	double k = calcK();
 	double P = pos / k + p;
-	double cf = -tradeSize * tradePrice;
-	double nf = k*((p - tradePrice) * (p - 2 * P + tradePrice ))/2;
-	double ef = cf - nf;
+	double ef = k/2 * (pow2(tradePrice - P) - pow2(p-P)) + pos * (tradePrice - p);
 	double np = ef * (1 - cfg.accum);
 	double ap = ef * cfg.accum;
 	double new_pos = calcNewPos(tradePrice);
