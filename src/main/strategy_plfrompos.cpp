@@ -52,14 +52,14 @@ std::pair<Strategy_PLFromPos::OnTradeResult, IStrategy*> Strategy_PLFromPos::onT
 		double currencyLeft) const {
 
 	double k = calcK();
-	double P = pos / k + p;
-	double ef = k/2 * (pow2(tradePrice - P) - pow2(p-P)) + pos * (tradePrice - p);
-	double np = ef * (1 - cfg.accum);
-	double ap = ef * cfg.accum;
+	//double P = pos / k + p;
 	double new_pos = calcNewPos(tradePrice);
 	if (cfg.maxpos && std::fabs(new_pos) >=cfg.maxpos) {
 		new_pos = sgn(new_pos) * cfg.maxpos;
 	}
+	double ef = (1/ (2*k)) *(pow2(new_pos) - pow2(pos)) + pos * (tradePrice - p);
+	double np = ef * (1 - cfg.accum);
+	double ap = ef * cfg.accum;
 	return {
 		OnTradeResult{np,ap},
 		new Strategy_PLFromPos(cfg,tradePrice, new_pos, acm+ap)

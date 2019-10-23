@@ -299,8 +299,8 @@ a {
 }
 
 .desktop {
-	padding: 0;
-	margin: 4em 0 0 0;
+	padding: 4em 0 0 0;
+	margin: 0 0 0 0;
 }
 
 .lightbox {

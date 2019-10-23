@@ -99,7 +99,7 @@ public:
 	Interface(const std::string &path):AbstractBrokerAPI(path, setupForm),fname(path+".jconf"),idcnt(genIDCnt()) {}
 
 	virtual BrokerInfo getBrokerInfo()  override;
-	virtual void onLoadApiKey(json::Value) {}
+	virtual void onLoadApiKey(json::Value) override {}
 
 	virtual double getBalance(const std::string_view & symb) override;
 	virtual TradeHistory getTrades(json::Value lastId, std::uintptr_t fromTime, const std::string_view & pair) override;
