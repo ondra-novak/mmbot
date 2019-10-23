@@ -9,6 +9,8 @@
 #define SRC_MAIN_STATS2REPORT_H_
 
 #include <memory>
+
+#include "idailyperfmod.h"
 #include "istatsvc.h"
 #include "report.h"
 
@@ -23,8 +25,9 @@ public:
 
 	Stats2Report(
 			std::string name,
-			Report &rpt
-			) :rpt(rpt),name(name)  {}
+			Report &rpt,
+			IDailyPerfModule *perfmod
+			) :rpt(rpt),name(name),perfmod(perfmod)  {}
 
 	virtual void reportOrders(const std::optional<IStockApi::Order> &buy,
 							  const std::optional<IStockApi::Order> &sell) override {
@@ -53,9 +56,13 @@ public:
 	virtual void clear() override {
 		rpt.clear(name);
 	}
+	virtual void reportPerformance(const PerformanceReport &repItem) override {
+		if (perfmod) perfmod->sendItem(repItem);
+	}
 
 	Report &rpt;
 	std::string name;
+	IDailyPerfModule *perfmod;
 
 
 };

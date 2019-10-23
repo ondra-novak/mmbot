@@ -8,11 +8,13 @@
 #ifndef SRC_MAIN_ISTATSVC_H_
 #define SRC_MAIN_ISTATSVC_H_
 
+#include "istatsvc.h"
 #include <memory>
 
 #include "istockapi.h"
 
 struct MTrader_Config;
+struct PerformanceReport;
 class Strategy;
 
 class IStatSvc {
@@ -66,6 +68,7 @@ public:
 	virtual void setInfo(const Info &info) = 0;
 	virtual void reportMisc(const MiscData &miscData) = 0;
 	virtual void reportError(const ErrorObj &errorObj) = 0;
+	virtual void reportPerformance(const PerformanceReport &repItem) = 0;
 	virtual std::size_t getHash() const = 0;
 	virtual void clear() = 0;
 

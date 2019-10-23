@@ -87,7 +87,7 @@ void Traders::addTrader(const MTrader::Config &mcfg ,ondra_shared::StrViewA n) {
 	try {
 		logProgress("Started trader $1 (for $2)", n, mcfg.pairsymb);
 		auto t = std::make_unique<NamedMTrader>(stockSelector, sf.create(n),
-				std::make_unique<StatsSvc>(n, rpt), mcfg, n);
+				std::make_unique<StatsSvc>(n, rpt, nullptr), mcfg, n);
 		traders.insert(std::pair(StrViewA(t->ident), std::move(t)));
 	} catch (const std::exception &e) {
 		logFatal("Error: $1", e.what());

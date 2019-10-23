@@ -11,6 +11,7 @@
 #include <imtjson/array.h>
 #include <numeric>
 #include <queue>
+#include <random>
 
 #include "../shared/stringview.h"
 #include "emulator.h"
@@ -110,6 +111,8 @@ MTrader::MTrader(IStockSelector &stock_selector,
 	//probe that broker is valid configured
 	stock.testBroker();
 	magic = this->statsvc->getHash() & 0xFFFFFFFF;
+	std::random_device rnd;
+	uid = rnd();
 }
 
 
@@ -518,6 +521,8 @@ void MTrader::loadState() {
 			});
 	currency_balance_cache = stock.getBalance(minfo.currency_symbol);
 
+
+
 	if (storage == nullptr) return;
 	auto st = storage->load();
 	need_load = false;
@@ -539,6 +544,7 @@ void MTrader::loadState() {
 			sell_dynmult = state["sell_dynmult"].getNumber();
 			internal_balance = state["internal_balance"].getNumber();
 			recalc = state["recalc"].getBool();
+			uid = state["uid"].getUInt();
 		}
 		auto chartSect = st["chart"];
 		if (chartSect.defined()) {
@@ -571,6 +577,10 @@ void MTrader::loadState() {
 			}
 		}
 	}
+	tempPr.broker = cfg.broker;
+	tempPr.magic = magic;
+	tempPr.uid = uid;
+
 }
 
 void MTrader::saveState() {
@@ -583,6 +593,7 @@ void MTrader::saveState() {
 		st.set("sell_dynmult", sell_dynmult);
 		st.set("internal_balance", *internal_balance);
 		st.set("recalc",recalc);
+		st.set("uid",uid);
 	}
 	{
 		auto ch = obj.array("chart");
@@ -671,6 +682,11 @@ json::Value MTrader::OrderPair::toJSON() const {
 void MTrader::processTrades(Status &st) {
 
 	for (auto &&t : st.new_trades) {
+
+		tempPr.tradeId = t.id.toString().str();
+		tempPr.size = t.eff_size;
+		tempPr.price = t.eff_price;
+		statsvc->reportPerformance(tempPr);
 		trades.push_back(TWBItem(t, st.assetBalance,false));
 	}
 }

@@ -13,6 +13,7 @@
 
 #include <shared/ini_config.h>
 #include <imtjson/namedEnum.h>
+#include "idailyperfmod.h"
 #include "istatsvc.h"
 #include "storage.h"
 #include "report.h"
@@ -178,6 +179,8 @@ protected:
 	std::optional<double> internal_balance;
 	std::optional<double> currency_balance_cache;
 	size_t magic = 0;
+	size_t uid = 0;
+	PerformanceReport tempPr;
 
 	void loadState();
 	void saveState();
