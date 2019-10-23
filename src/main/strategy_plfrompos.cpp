@@ -36,10 +36,10 @@ double Strategy_PLFromPos::calcK() const {
 	return cfg.step / (p * 0.01);
 }
 
-double Strategy_PLFromPos::calcNewPos(double tradePrice) const {
+double Strategy_PLFromPos::calcNewPos(double tradePrice, bool reducepos) const {
 	double k = calcK();
 	double new_pos = pos + (p - tradePrice) * k;
-	if (new_pos * pos > 0) {
+	if (new_pos * pos > 0 && reducepos) {
 		double absdf = fabs(new_pos) - fabs(pos);
 		if (absdf < 0)
 			new_pos = new_pos - sgn(new_pos) * sqrt(-absdf);
@@ -52,12 +52,13 @@ std::pair<Strategy_PLFromPos::OnTradeResult, IStrategy*> Strategy_PLFromPos::onT
 		double currencyLeft) const {
 
 	double k = calcK();
-	//double P = pos / k + p;
-	double new_pos = calcNewPos(tradePrice);
-	if (cfg.maxpos && std::fabs(new_pos) >=cfg.maxpos) {
-		new_pos = sgn(new_pos) * cfg.maxpos;
+	double new_pos = calcNewPos(tradePrice,true);
+	double act_pos = assetsLeft-acm-cfg.neutral_pos;
+	double prev_pos = act_pos - tradeSize;
+	if (cfg.maxpos && std::fabs(act_pos) >=cfg.maxpos) {
+		new_pos = sgn(act_pos) * cfg.maxpos;
 	}
-	double ef = (1/ (2*k)) *(pow2(new_pos) - pow2(pos)) + pos * (tradePrice - p);
+	double ef = (1/ (2*k)) *(pow2(act_pos) - pow2(prev_pos)) + prev_pos * (tradePrice - p);
 	double np = ef * (1 - cfg.accum);
 	double ap = ef * cfg.accum;
 	return {
@@ -82,7 +83,8 @@ IStrategy* Strategy_PLFromPos::importState(json::Value src) const {
 }
 
 double Strategy_PLFromPos::calcOrderSize(double price, double assets) const {
-	double new_pos = calcNewPos(price);
+	bool reducepos = cfg.maxpos && std::fabs(assets-acm-cfg.neutral_pos) < cfg.maxpos;
+	double new_pos = calcNewPos(price, reducepos);
 	return new_pos + cfg.neutral_pos + acm - assets;
 
 }

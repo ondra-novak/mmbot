@@ -341,8 +341,8 @@ App.prototype.fillForm = function (src, trg) {
 	data.accept_loss = filledval(src.accept_loss,1);
 	data.sliding_pos_hours = filledval(src["sliding_pos.hours"],240);
 	data.sliding_pos_fade = filledval(src["sliding_pos.fade"],0);
-	data.spread_calc_stdev_hours = filledval(src.spread_calc_stdev_hours,8);
-	data.spread_calc_sma_hours = filledval(src.spread_calc_sma_hours,2);
+	data.spread_calc_stdev_hours = filledval(src.spread_calc_stdev_hours,16);
+	data.spread_calc_sma_hours = filledval(src.spread_calc_sma_hours,3);
 	data.dynmult_raise = filledval(src.dynmult_raise,250);
 	data.dynmult_fall = filledval(src.dynmult_fall, 5);
 	data.dynmult_mode = filledval(src.dynmult_mode, "half_alternate");
@@ -444,6 +444,15 @@ App.prototype.fillForm = function (src, trg) {
 		return x;
 	}
 
+	data.see_internals = {
+			"!click":function(ev) {
+				ev.stopPropagation();
+				ev.preventDefault();
+				fetch_with_error(this.traderURL(src.id)+"/strategy").then(function(x){
+					trg.setData({"internals": JSON.stringify(x,null," ")});
+				}.bind(this))
+			}.bind(this)
+	}
 
 	return trg.setData(data).catch(function(){}).then(unhide_changed.bind(this)).then(trg.dlgRules.bind(trg));
 }
@@ -474,7 +483,7 @@ App.prototype.saveForm = function(form, src) {
 	trader.advanced = data.advanced;
 	trader.accept_loss = data.accept_loss;
 	trader.spread_calc_stdev_hours =data.spread_calc_stdev_hours ;
-	trader.spread_calc_sma_hours  = data.spread_calc_sma_trades;
+	trader.spread_calc_sma_hours  = data.spread_calc_sma_hours;
 	trader.dynmult_raise = data.dynmult_raise;
 	trader.dynmult_fall = data.dynmult_fall;
 	trader.dynmult_mode = data.dynmult_mode;

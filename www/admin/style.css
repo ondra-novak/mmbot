@@ -207,11 +207,18 @@ div.dialog > div {
 	box-shadow: 10px 6px 20px black;
 	box-sizing: border-box;
 	padding: 5px;
+	max-width: 16cm;
 }
 
+
 div.dialog div.confirm div[data-name=custom] {
-	text-align:left;
+	text-align: justify;
 	margin:  2%;
+	white-space: pre-line;
+}
+
+div.dialog > div.confirm p {
+	text-align: center;
 	white-space: pre-line;
 }
 
@@ -284,7 +291,6 @@ div.broker.pair .form {
 	box-sizing: content-box;
 	padding: 0.2cm;
 	border:  0;
-	margin: 0 0.2em;
 	line-height: 1.1cm;
 }
 
@@ -547,12 +553,31 @@ x-form.pair table.orders td button {
 	z-index: 1;
 }
 
+.pairactions div.icon {
+	display:  inline-block;
+	border-radius: 10cm;
+	overflow: hidden;
+	border: 1px solid #555;
+	margin: 0.05cm;
+}
+
+.pairactions div.icon.red img {
+	background-color: #6f1111;
+} 
+
+.pairactions div.icon.red img:hover {
+	background-color: red;
+} 
+
+
 .pairactions img {
-	width: 1cm;
-	height: 1cm;
+	width: 1.3cm;
+	height: 1.3cm;
 	vertical-align: middle;
-	padding: 0.2cm 0.1cm;
-	border-radius: 0.2cm;
+	border-radius: 0;
+	padding: 0.2cm;
+	box-sizing: border-box;
+	filter: drop-shadow(0px 0px 5px black);
 }
 
 .pairactions img:hover {
@@ -561,11 +586,10 @@ x-form.pair table.orders td button {
 
 .pairactions {
 	margin-bottom: 0.2cm;
-	background: linear-gradient(to right, transparent,#3e3e3e);	
-	margin: -1em -0.4em 1em 20%;
+	background: linear-gradient(to right, transparent,#3e3e3e);
+	margin: -1em -0.4em 1em 0;
 	padding-right: 0.2cm;
-	
-
+	text-align: right;
 }
 
 .security_form .buttons {

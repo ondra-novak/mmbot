@@ -530,7 +530,7 @@ void MTrader::loadState() {
 	if (!cfg.dry_run) {
 		json::Value t = st["test_backup"];
 		if (t.defined()) {
-			st = t;
+			st = t.replace("chart",st["chart"]);
 		}
 	}
 
@@ -574,7 +574,7 @@ void MTrader::loadState() {
 		if (cfg.dry_run) {
 			test_backup = st["test_backup"];
 			if (!test_backup.hasValue()) {
-				test_backup = st;
+				test_backup = st.replace("chart",Value());
 			}
 		}
 	}

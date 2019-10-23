@@ -46,7 +46,7 @@ protected:
 	double acm;
 
 private:
-	double calcNewPos(double tradePrice) const;
+	double calcNewPos(double tradePrice, bool reducepos) const;
 };
 
 #endif /* SRC_MAIN_STRATEGY_PLFROMPOS_H_ */

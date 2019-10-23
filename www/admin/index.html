@@ -11,13 +11,13 @@
 <template id="trader_form">
 <x-form class="pair no_adv sections">
 <x-section><x-section-caption>Info</x-section-caption>
-<div class="rightinfo pairactions">Actions: 
-	<img src="../res/undo.png" title="Undo changes" data-name="icon_undo"> 
-	<img src="../res/trading.png" title="Trading UI" data-name="icon_trading">
-	<img src="../res/broker_settings.png" title="Broker control" data-name="icon_broker" hidden="hidden">
-	<img src="../res/reset_stats.png" title="Reset statistics" data-name="icon_reset"> 
-	<img src="../res/repair.png" title="Repair" data-name="icon_repair"> 
-	<img src="../res/delete.png" title="Delete" data-name="icon_delete"></div>
+<div class="pairactions">
+	<div class="icon" data-name="icon_undo"><img src="../res/undo.png" title="Undo changes" ></div>
+	<div class="icon" data-name="icon_trading"><img src="../res/trading.png" title="Trading UI" ></div>
+	<div class="icon" data-name="icon_broker" hidden="hidden"><img src="../res/broker_settings.png" title="Broker settings" ></div>
+	<div class="icon" data-name="icon_reset"><img src="../res/reset_stats.png" title="Clear statistics"></div> 
+	<div class="icon" data-name="icon_repair"><img src="../res/repair.png" title="Restart strategy" > </div>
+	<div class="icon red" data-name="icon_delete"><img src="../res/delete.png" title="Delete trader"></div></div>
 <label><span>ID</span><span data-name="id" ></span></label>
 <label><span>Broker</span><span><img src="" data-name="broker_img" class="inline_img">
 	<span data-name="broker_id"></span> (<span data-name="broker"></span> <span data-name="broker_ver"></span>)<br/>
@@ -51,6 +51,7 @@
 </div>
 
 </div>
+<div class="label"><a href="" data-name="see_internals">See internals</a><pre data-name="internals"></pre></div>
 </x-section>
 <x-section data-name="strategy_halfhalf" class="goal hidden" hidden="hidden"><x-section-caption>Half-Half/Keep Value</x-section-caption>
 <label><span>External assets <span class="tooltip">Amount of assets held outside of exchange. They are included into calculations.</span></span><input type="number" step="any" data-name="external_assets"></label>
@@ -188,7 +189,7 @@ The position is not generally in the sync due to various issues. You need to spe
 	<img src="../res/security.png" class="fonticon"> Login 
 </div>
 <div data-name="save" class="panelbutton" hidden="hidden">
-	<img src="../res/save_icon.png" class="fonticon"> Save <div data-name="saveok"  class="save hide ok" hidden="hidden">✓</div>
+	<img src="../res/save_icon.png" class="fonticon"> Apply settings <div data-name="saveok"  class="save hide ok" hidden="hidden">✓</div>
 	<div data-name="saveprogress" class="save spinner fast" hidden="hidden"></div></div>
 </div>
 </div>
@@ -220,10 +221,10 @@ The position is not generally in the sync due to various issues. You need to spe
 <td data-name="comment"></td>
 <td><button data-name="drop" data-question="Confirm drop user: ">Drop</button></td>
 </tr>
-<tr><td>&lt;guest&gt;</td><td><select data-name="guest_role">
+<tr><td>&lt;public&gt;</td><td><select data-name="guest_role">
 <option value="none">No access</option>
 <option value="viewer">Viewer</option></select></td>
-<td>All unauthentificated visitors</td><td>&nbsp;</td>
+<td>All anonymous visitors</td><td>&nbsp;</td>
 </tr>
 </table>
 <div class="buttons">
@@ -241,7 +242,7 @@ The position is not generally in the sync due to various issues. You need to spe
 <td><button data-name="bset" disabled="disabled">Set</button><button data-name="berase" disabled="disabled">Erase</button></td>
 <td data-name="info_button">🛈</td>
 </table>
-<span class="no_api_key" data-name="need_save" hidden="hidden">⚠️ - Note that the configuration must be <b><u>saved</u></b> to apply changes to the API keys settings</span></span>
+<span class="no_api_key" data-name="need_save" hidden="hidden">⚠️ - Remember to click on the Apply button to make settings take an effect</span></span>
 </x-section>
 </x-form>
 </template>
@@ -339,9 +340,9 @@ The position is not generally in the sync due to various issues. You need to spe
 </template>
 
 <span id="strtable"
-    data-askcancel="This cancels all orders for the selected pair and also temporaly disables any futher trading for selected trader until the configuration is saved. Do you wish to continue?"
-    data-askreset="This resets statistics, clear charts and removes all trades except the recent one which is used as an anchor. Do you wish to continue?"
-    data-askrepair="This resets the internal state of the trader. Use only if the trader generates unacceptable orders and reports strange numbers. Note that operation can slightly affect the profit, because the internal state can contain important informations to achieve the optimal pefromance"
+    data-askcancel="Do you want to cancel all orders?&#10;This will also temporarily stop auto trading until you click Apply button"
+    data-askreset="Do you wish to clear statistics for this trader? This operation cannot be undone"
+    data-askrepair="This operation resets an internal state of the strategy. The purpose of this operation to solve any strange behaviour of the strategy. However, this can also cause poor performance or loss, because the internal state of the strategy can hold important informations about state of your trading.&#10;&#10;Do you wish to restart strategy for this trader?&#10;&#10;The operation cannot be undone"
     data-askdelete="Confirm trader deletion. This also cancels all orders."
     data-yes="Yes"
     data-no="No"
@@ -351,12 +352,12 @@ The position is not generally in the sync due to various issues. You need to spe
     data-backtest_nodata="Backtest is not available yet (no data). Run trader with minimal power to collect some trades. At least 100 trades is needed."
     data-access_control="Access control"
     data-options="Options"
-    data-global_stop_confirm="This temporaly stops trading for the all configured traders and cancels all orders. To reenable trading, you need to hit the 'Save' button"
+    data-global_stop_confirm="Temporarily stops trading for all configured traders  and cancels all their orders. To re-enable trading, you have to click Apply button"
     data-conflict1="Configuration has been modified externally and cannot be overwritten."
-    data-conflict2="Do you want to reload the configuration?"
+    data-conflict2="Reload the configuration?"
     data-buy="BUY"
     data-sell="SELL"
-    data-trade_ask_stop="This trader is currently in the automatic trading mode. Do you wish to stop the automatic trading to allow a manual trading?"
+    data-trade_ask_stop="This trader is currently in auto trading mode. Do you want to stop automatic trading to allow manual trading? To re-enable trading, you have to click Apply button"
     ></span>
 
 
@@ -370,11 +371,11 @@ The position is not generally in the sync due to various issues. You need to spe
 <template id="options_form">
 <x-form  class="pair options_form sections">
 <x-section><x-section-caption>Options</x-section-caption>
-<label><span>Size of charts [days]: </span><x-slider data-min="1" data-max="60" data-mult="1" data-name="report_interval"></x-slider></label>
-<label><span>Size of backtest [days]: </span><x-slider data-min="1" data-max="60" data-mult="1" data-name="backtest_interval"></x-slider></label>
+<label><span>How many days of history to show in charts: </span><x-slider data-min="1" data-max="60" data-mult="1" data-name="report_interval"></x-slider></label>
+<!-- <label><span>Size of backtest [days]: </span><x-slider data-min="1" data-max="60" data-mult="1" data-name="backtest_interval"></x-slider></label> -->
 </x-section>
 <x-section><x-section-caption>Troubleshoting</x-section-caption>
-<div class="trouble_sect"><div>Cancel all orders and temporarily stop the automatic trading for the all traders. To reenable trading, you need to hit "Save" button<div><button data-name="stop">Global Stop</button></div></div>
+<div class="trouble_sect"><div>Temporarily stops trading for all configured traders  and cancels all their orders. To re-enable trading, you have to click Apply button<div><button data-name="stop">Global Stop</button></div></div>
 <div>Reloads all brokers. This can fix some problems with certain brokers<div><button data-name="reload_brokers">Reload brokers</button></div></div>
 </div>
 </x-form>

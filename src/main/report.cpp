@@ -115,7 +115,7 @@ void Report::setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> tr
 		double norm_sum_cur = 0;
 
 
-		strategy.init(t.eff_price,t.balance,0);
+		strategy.init(t.eff_price,t.balance,t.balance*t.eff_size);
 
 		while (iter != tend) {
 
@@ -123,7 +123,7 @@ void Report::setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> tr
 
 			double gain = (t.eff_price - prev_price)*pos ;
 		//	double earn = -t.eff_price * t.eff_size;
-			auto tr = strategy.onTrade(t.eff_price, t.eff_size,t.balance,0);
+			auto tr = strategy.onTrade(t.eff_price, t.eff_size,t.balance,t.balance*t.eff_size);
 
 			prev_price = t.eff_price;
 
