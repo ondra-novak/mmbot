@@ -156,7 +156,7 @@ void MTrader::init() {
 	}
 }
 
-const IStockApi::TWBHistory& MTrader::getTrades() const {
+const MTrader::TradeHistory& MTrader::getTrades() const {
 	return trades;
 }
 
@@ -256,7 +256,7 @@ int MTrader::perform() {
 		//report order errors to UI
 		statsvc->reportError(IStatSvc::ErrorObj(buy_order_error, sell_order_error));
 		//report trades to UI
-		statsvc->reportTrades(trades, strategy);
+		statsvc->reportTrades(trades);
 		//report price to UI
 		statsvc->reportPrice(status.curPrice);
 		//report misc
@@ -629,7 +629,8 @@ void MTrader::mergeTrades(std::size_t fromPos) {
 	while (rd != end) {
 		if (rd->price == wr->price && rd->size * wr->size > 0) {
 			wr->size+=rd->size;
-			wr->balance = rd->balance;
+			wr->norm_accum = rd->norm_accum;
+			wr->norm_profit = rd->norm_profit;
 			wr->eff_price = rd->eff_price;
 			wr->eff_size+=rd->eff_size;
 			wr->time = rd->time;
@@ -681,13 +682,31 @@ json::Value MTrader::OrderPair::toJSON() const {
 
 void MTrader::processTrades(Status &st) {
 
+	Strategy s = strategy;
+
+	auto z = std::accumulate(st.new_trades.begin(), st.new_trades.end(),std::pair<double,double>(st.assetBalance,st.currencyBalance),
+			[](const std::pair<double,double> &x, const IStockApi::Trade &y) {
+		return std::pair<double,double>(x.first - y.eff_size, x.second + y.eff_size*y.eff_price);}
+	);
+
+	double last_np = 0;
+	double last_ap = 0;
+	if (!trades.empty()) {
+		last_np = trades.back().norm_profit;
+		last_ap = trades.back().norm_accum;
+	}
+
+
 	for (auto &&t : st.new_trades) {
 
 		tempPr.tradeId = t.id.toString().str();
 		tempPr.size = t.eff_size;
 		tempPr.price = t.eff_price;
 		statsvc->reportPerformance(tempPr);
-		trades.push_back(TWBItem(t, st.assetBalance,false));
+		z.first += t.eff_size;
+		z.second -= t.eff_size * t.eff_price;
+		auto norm = s.onTrade(t.eff_price, t.eff_size, z.first, z.second);
+		trades.push_back(TWBItem(t, last_np+=norm.normProfit, last_ap+=norm.normAccum));
 	}
 }
 
@@ -732,7 +751,7 @@ void MTrader::repair() {
 	sell_dynmult = 1;
 	if (cfg.internal_balance) {
 		if (!trades.empty())
-			internal_balance = trades.back().balance;
+			internal_balance = std::accumulate(trades.begin(), trades.end(), 0.0, [](double v, const TWBItem &itm) {return v+itm.eff_size;});
 	} else {
 		internal_balance.reset();
 	}
@@ -782,7 +801,7 @@ bool MTrader::acceptLoss(std::optional<Order> &orig, const Order &order, const S
 				double df = (st.curPrice - reford.price)* sgn(-order.size);
 				if (df > 0) {
 					ondra_shared::logWarning("Accept loss in effect: price=$1, balance=$2", st.curPrice, st.assetBalance);
-					trades.push_back(IStockApi::TradeWithBalance (
+					trades.push_back(TWBItem (
 							IStockApi::Trade {
 								json::Value(json::String({vtradePrefix,"loss_", std::to_string(st.chartItem.time)})),
 								st.chartItem.time,
@@ -790,7 +809,7 @@ bool MTrader::acceptLoss(std::optional<Order> &orig, const Order &order, const S
 								reford.price,
 								0,
 								reford.price,
-							}, st.assetBalance, false));
+							}, trades.back().norm_profit, trades.back().norm_accum));
 					strategy.onTrade(reford.price, 0, st.assetBalance, st.currencyBalance);
 				}
 			}

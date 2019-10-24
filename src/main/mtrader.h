@@ -148,7 +148,9 @@ public:
 	void dropState();
 	void stop();
 
-	const IStockApi::TWBHistory &getTrades() const;
+	using TradeHistory = std::vector<IStatSvc::TradeRecord>;
+
+	const TradeHistory &getTrades() const;
 
 	static std::string_view vtradePrefix;
 
@@ -169,10 +171,10 @@ protected:
 	json::Value test_backup;
 
 	using TradeItem = IStockApi::Trade;
-	using TWBItem = IStockApi::TradeWithBalance;
+	using TWBItem = IStatSvc::TradeRecord;
 
 	std::vector<ChartItem> chart;
-	IStockApi::TWBHistory trades;
+	TradeHistory trades;
 
 	double buy_dynmult=1.0;
 	double sell_dynmult=1.0;

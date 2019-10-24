@@ -61,9 +61,30 @@ public:
 
 	};
 
+	struct TradeRecord: public IStockApi::Trade {
+
+		double norm_profit;
+		double norm_accum;
+
+		TradeRecord(const IStockApi::Trade &t, double norm_profit, double norm_accum)
+			:IStockApi::Trade(t),norm_profit(norm_profit),norm_accum(norm_accum) {}
+
+	    static TradeRecord fromJSON(json::Value v) {
+	    	return TradeRecord(IStockApi::Trade::fromJSON(v), v["np"].getNumber(), v["ap"].getNumber());
+	    }
+	    json::Value toJSON() const {
+	    	return IStockApi::Trade::toJSON().merge(json::Value(json::object,{
+	    			json::Value("np",norm_profit),
+					json::Value("ap",norm_accum)
+	    	}));
+	    }
+
+
+	};
+
 	virtual void reportOrders(const std::optional<IStockApi::Order> &buy,
 							  const std::optional<IStockApi::Order> &sell) = 0;
-	virtual void reportTrades(ondra_shared::StringView<IStockApi::TradeWithBalance> trades, const Strategy &strategy) = 0;
+	virtual void reportTrades(ondra_shared::StringView<TradeRecord> trades) = 0;
 	virtual void reportPrice(double price) = 0;
 	virtual void setInfo(const Info &info) = 0;
 	virtual void reportMisc(const MiscData &miscData) = 0;

@@ -81,7 +81,7 @@ void Report::setOrders(StrViewA symb, const std::optional<IStockApi::Order> &buy
 }
 
 
-void Report::setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> trades, Strategy strategy) {
+void Report::setTrades(StrViewA symb, StringView<IStatSvc::TradeRecord> trades) {
 
 	using ondra_shared::range;
 
@@ -90,9 +90,6 @@ void Report::setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> tr
 	const json::Value &info = infoMap[symb];
 	bool inverted = info["inverted"].getBool();
 	double pos = info["po"].getNumber();
-
-
-
 
 	if (!trades.empty()) {
 
@@ -111,11 +108,10 @@ void Report::setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> tr
 
 		double prev_price = init_price;
 		double cur_fromPos = 0;
-		double norm_sum_ass = 0;
-		double norm_sum_cur = 0;
+		double pnp = 0;
+		double pap = 0;
 
 
-		strategy.init(t.eff_price,t.balance,t.balance*t.eff_size);
 
 		while (iter != tend) {
 
@@ -123,14 +119,16 @@ void Report::setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> tr
 
 			double gain = (t.eff_price - prev_price)*pos ;
 		//	double earn = -t.eff_price * t.eff_size;
-			auto tr = strategy.onTrade(t.eff_price, t.eff_size,t.balance,t.balance*t.eff_size);
 
 			prev_price = t.eff_price;
 
-			norm_sum_ass += tr.normAccum;
-			norm_sum_cur += tr.normProfit;
 			cur_fromPos += gain;
 			pos += t.eff_size;
+
+			double normch = (t.norm_accum - pap) * t.eff_price + (t.norm_profit - pnp);
+			pap = t.norm_accum;
+			pnp = t.norm_profit;
+
 
 
 			if (t.time >= first) {
@@ -139,14 +137,14 @@ void Report::setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> tr
 						("time", t.time)
 						("achg", (inverted?-1:1)*t.eff_size)
 						("gain", gain)
-						("norm", norm_sum_cur)
-						("normch", tr.normProfit + t.eff_price * tr.normAccum)
-						("nacum", norm_sum_ass == 0.0?Value():Value((inverted?-1:1)*norm_sum_ass))
+						("norm", t.norm_profit)
+						("normch", normch)
+						("nacum", Value((inverted?-1:1)*t.norm_accum))
 						("pos", (inverted?-1:1)*pos)
 						("pl", cur_fromPos)
 						("price", (inverted?1.0/t.price:t.price))
 						("volume", (inverted?1:-1)*t.eff_price*t.eff_size)
-						("man",t.manual_trade)
+						("man",false)
 				);
 			}
 

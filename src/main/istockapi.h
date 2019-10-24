@@ -65,8 +65,6 @@ public:
 	    json::Value toJSON() const;
 };
 
-	using TWBHistory = std::vector<TradeWithBalance>;
-
 
 	///Order
 	struct Order {
