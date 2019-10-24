@@ -737,6 +737,10 @@ void MTrader::reset() {
 	if (trades.size() > 1) {
 		trades.erase(trades.begin(), trades.end()-1);
 	}
+	if (!trades.empty()) {
+		trades.back().norm_accum = 0;
+		trades.back().norm_profit = 0;
+	}
 	saveState();
 }
 
