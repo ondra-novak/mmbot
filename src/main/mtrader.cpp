@@ -242,6 +242,12 @@ int MTrader::perform() {
 				if (!recalc) {
 					update_dynmult(false,false);
 				}
+
+				//report orders to UI
+				statsvc->reportOrders(orders.buy,orders.sell);
+				//report order errors to UI
+				statsvc->reportError(IStatSvc::ErrorObj(buy_order_error, sell_order_error));
+
 			}
 
 			recalc = false;
@@ -251,10 +257,6 @@ int MTrader::perform() {
 		}
 
 
-		//report orders to UI
-		statsvc->reportOrders(orders.buy,orders.sell);
-		//report order errors to UI
-		statsvc->reportError(IStatSvc::ErrorObj(buy_order_error, sell_order_error));
 		//report trades to UI
 		statsvc->reportTrades(trades);
 		//report price to UI
