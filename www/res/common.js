@@ -176,6 +176,8 @@ function initChart(chart_interval, ratio, base_interval) {
  return function (elem, chart, fld, lines, fld2) {
 	"use strict";
 
+	chart = chart.filter(function(x) {return fld in x});
+
 	elem.innerText = "";
 	if (chart.length == 0) return;
 	
@@ -197,6 +199,7 @@ function initChart(chart_interval, ratio, base_interval) {
 	minmax.sz = minmax.max - minmax.min;
 	minmax.min =  minmax.min - minmax.sz*0.05;
 	minmax.max =  minmax.max + minmax.sz*0.05;
+	if (minmax.min == minmax.max) {minmax.min = -10; minmax.max = 10;}
 	var priceStep = activeheight/(minmax.max-minmax.min);
 	var axis = 2;
 	var label = 20;

@@ -34,13 +34,15 @@ std::pair<Strategy_KeepValue::OnTradeResult, IStrategy*> Strategy_KeepValue::onT
 		double currencyLeft) const {
 
 	double k = (a+cfg.ea) * p;
-	double cf = -tradeSize * tradePrice;
+	double cf = (assetsLeft-tradeSize)*(tradePrice - p);
 	double nv = k * std::log(tradePrice/p);
 	double pf = cf - nv;
 	double ap = (pf / tradePrice) * cfg.accum;
 	double np = pf * (1.0 - cfg.accum);
+	double new_acm = acm+ap;
+	double new_a = (k / tradePrice) - cfg.ea - acm;
 	return {
-		OnTradeResult{np,ap}, new Strategy_KeepValue(cfg, tradePrice, (k / tradePrice) - cfg.ea, acm+ap)
+		OnTradeResult{np,ap}, new Strategy_KeepValue(cfg, tradePrice, new_a, new_acm)
 	};
 
 }

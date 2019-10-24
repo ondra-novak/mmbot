@@ -578,7 +578,9 @@ function app_start(){
 	}
 
 	function hasChart(chart, item) {
-		return (chart.length != 0) && chart[0][item] !== undefined;
+		return (chart.length != 0) && chart.find(function(x) {
+			return item in x
+		}) !== undefined;
 	}
 
 	function update() {
