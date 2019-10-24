@@ -34,7 +34,7 @@ std::pair<Strategy_KeepValue::OnTradeResult, IStrategy*> Strategy_KeepValue::onT
 		double currencyLeft) const {
 
 	double k = (a+cfg.ea) * p;
-	double cf = (assetsLeft-tradeSize)*(tradePrice - p);
+	double cf = (assetsLeft-tradeSize-acm+cfg.ea)*(tradePrice - p);
 	double nv = k * std::log(tradePrice/p);
 	double pf = cf - nv;
 	double ap = (pf / tradePrice) * cfg.accum;
