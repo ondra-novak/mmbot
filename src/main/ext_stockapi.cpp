@@ -29,14 +29,15 @@ double ExtStockApi::getBalance(const std::string_view & symb) {
 }
 
 
-ExtStockApi::TradeHistory ExtStockApi::getTrades(json::Value lastId, std::uintptr_t fromTime, const std::string_view & pair) {
-	auto r = jsonRequestExchange("getTrades",json::Object
+ExtStockApi::TradesSync ExtStockApi::syncTrades(json::Value lastId, const std::string_view & pair) {
+	auto r = jsonRequestExchange("syncTrades",json::Object
 			("lastId",lastId)
-			("fromTime", fromTime)
 			("pair",StrViewA(pair)));
 	TradeHistory  th;
-	for (json::Value v: r) th.push_back(Trade::fromJSON(v));
-	return th;
+	for (json::Value v: r["trades"]) th.push_back(Trade::fromJSON(v));
+	return TradesSync {
+		th, r["lastId"]
+	};
 }
 
 ExtStockApi::Orders ExtStockApi::getOpenOrders(const std::string_view & pair) {

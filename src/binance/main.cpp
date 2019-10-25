@@ -45,7 +45,7 @@ public:
 
 
 	virtual double getBalance(const std::string_view & symb) override;
-	virtual TradeHistory getTrades(json::Value lastId, std::uintptr_t fromTime, const std::string_view & pair) override;
+	virtual TradesSync syncTrades(json::Value lastId, const std::string_view & pair) override;
 	virtual Orders getOpenOrders(const std::string_view & par)override;
 	virtual Ticker getTicker(const std::string_view & piar)override;
 	virtual json::Value placeOrder(const std::string_view & pair,
@@ -132,53 +132,70 @@ void Interface::updateBalCache() {
 
  }
 */
- Interface::TradeHistory Interface::getTrades(json::Value lastId, std::uintptr_t fromTime, const std::string_view & pair) {
+ Interface::TradesSync Interface::syncTrades(json::Value lastId, const std::string_view & pair) {
 	 auto iter = symbols.find(pair);
 	 if (iter == symbols.end())
 		 throw std::runtime_error("No such symbol");
 
 	 const MarketInfo &minfo = iter->second;
 
+	 if (lastId.hasValue()) {
 
-	 Value r = px.private_request(Proxy::GET,"/api/v3/myTrades", Object
-			 ("fromId", lastId)
-			 ("startTime", fromTime)
-			 ("symbol", pair)
-			 );
 
-	 r = r.map([&](Value x) ->Value{
-		if (x["id"] == lastId) return json::undefined;
-		else return x;
-	  });
+		 Value r = px.private_request(Proxy::GET,"/api/v3/myTrades", Object
+				 ("fromId", lastId)
+				 ("symbol", pair)
+				 );
 
-	 TradeHistory h(mapJSON(r,[&](Value x){
-		 double size = x["qty"].getNumber();
-		 double price = x["price"].getNumber();
-		 StrViewA comass = x["commissionAsset"].getString();
-		 if (!x["isBuyer"].getBool()) size = -size;
-		 double comms = x["commission"].getNumber();
-		 double eff_size = size;
-		 double eff_price = price;
-		 if (comass == StrViewA(minfo.asset_symbol)) {
-			 eff_size -= comms;
-		 } else if (comass == StrViewA(minfo.currency_symbol)) {
-			 eff_price += comms/size;
-		 }
+		 r = r.map([&](Value x) ->Value{
+			if (x["id"] == lastId) return json::undefined;
+			else return x;
+		  });
 
-		 return Trade {
-			 x["id"],
-			 x["time"].getUInt(),
-			 size,
-			 price,
-			 eff_size,
-			 eff_price
+		 TradeHistory h(mapJSON(r,[&](Value x){
+			 double size = x["qty"].getNumber();
+			 double price = x["price"].getNumber();
+			 StrViewA comass = x["commissionAsset"].getString();
+			 if (!x["isBuyer"].getBool()) size = -size;
+			 double comms = x["commission"].getNumber();
+			 double eff_size = size;
+			 double eff_price = price;
+			 if (comass == StrViewA(minfo.asset_symbol)) {
+				 eff_size -= comms;
+			 } else if (comass == StrViewA(minfo.currency_symbol)) {
+				 eff_price += comms/size;
+			 }
+
+			 return Trade {
+				 x["id"],
+				 x["time"].getUInt(),
+				 size,
+				 price,
+				 eff_size,
+				 eff_price
+			 };
+		 }, TradeHistory()));
+
+		 std::sort(h.begin(), h.end(),[&](const Trade &a, const Trade &b) {
+			 return Value::compare(a.id,b.id) < 0;
+		 });
+		 if (!h.empty()) lastId = h.back().id;
+		 return TradesSync{
+			 h,
+			 lastId
 		 };
-	 }, TradeHistory()));
-
-	 std::sort(h.begin(), h.end(),[&](const Trade &a, const Trade &b) {
-		 return Value::compare(a.id,b.id) < 0;
-	 });
-	 return h;
+	 } else {
+		 Value r = px.private_request(Proxy::GET,"/api/v3/myTrades", Object
+				 ("symbol", pair));
+		 Value id = r.reduce([](Value l, Value itm) {
+			 Value id = itm["id"];
+			 return id.getUInt() > l.getUInt()?id:l;
+		 }, Value(0));
+		 return TradesSync {
+			 {},
+			 id
+		 };
+	 }
 }
 
 

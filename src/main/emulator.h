@@ -21,7 +21,7 @@ public:
 
 
 	virtual double getBalance(const std::string_view & symb) override;
-	virtual TradeHistory getTrades(json::Value lastId, std::uintptr_t fromTime, const std::string_view & pair) override;
+	virtual TradesSync syncTrades(json::Value lastId, const std::string_view & pair) override;
 	virtual Orders getOpenOrders(const std::string_view & par) override;
 	virtual Ticker getTicker(const std::string_view & piar) override;
 	virtual json::Value placeOrder(const std::string_view & pair,

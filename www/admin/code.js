@@ -332,7 +332,7 @@ App.prototype.fillForm = function (src, trg) {
 	} else if (data.strategy == "plfrompos") {
 		data.pl_acum = filledval(defval(src.strategy.accum,0)*100,0);
 		data.neutral_pos = filledval(src.strategy.neutral_pos,0);		
-		data.step = filledval(src.strategy.step,0);
+		data.cstep = filledval(src.strategy.cstep,0);
 		data.max_pos = filledval(src.strategy.maxpos,0);
 	}
 	data.enabled = src.enable;
@@ -467,7 +467,7 @@ App.prototype.saveForm = function(form, src) {
 	trader.strategy.type = data.strategy;
 	if (data.strategy == "plfrompos") {
 		trader.strategy.accum = data.pl_acum/100.0;
-		trader.strategy.step = data.step;
+		trader.strategy.cstep = data.cstep;
 		trader.strategy.neutral_pos = data.neutral_pos;
 		trader.strategy.maxpos = data.max_pos;
 	} else if (data.strategy == "halfhalf" || data.strategy == "keepvalue") {

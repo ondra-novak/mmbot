@@ -161,6 +161,8 @@ bool WebCfg::reqConfig(simpleServer::HTTPRequest req) const {
 									}
 								}
 							}
+							traders.runTraders(true);
+							traders.rpt.genReport();
 							req.sendResponse(HTTPResponse(202).contentType("application/json"),data.stringify());
 						} catch (std::exception &e) {
 							req.sendErrorPage(500,StrViewA(),e.what());
@@ -652,7 +654,7 @@ bool WebCfg::reqStop(simpleServer::HTTPRequest req) const {
 			x.second->stop();
 		};
 		trlist.resetBrokers();
-		trlist.runTraders();
+		trlist.runTraders(true);
 		trlist.resetBrokers();
 		req.sendResponse(std::move(hdr), "true");
 

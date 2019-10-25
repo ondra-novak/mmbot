@@ -58,7 +58,7 @@ public:
 
 
 	virtual double getBalance(const std::string_view & symb) override;
-	virtual TradeHistory getTrades(json::Value lastId, std::uintptr_t fromTime, const std::string_view & pair) override;
+	virtual TradesSync syncTrades(json::Value lastId, const std::string_view & pair) override;
 	virtual Orders getOpenOrders(const std::string_view & par)override;
 	virtual Ticker getTicker(const std::string_view & piar)override;
 	virtual json::Value placeOrder(const std::string_view & pair,
@@ -113,38 +113,54 @@ inline double Interface::getBalance(const std::string_view &symb) {
 	}
 }
 
-inline Interface::TradeHistory Interface::getTrades(json::Value lastId,
-		std::uintptr_t fromTime, const std::string_view &pair) {
+inline Interface::TradesSync Interface::syncTrades(json::Value lastId,  const std::string_view &pair) {
 	auto resp = px.request("private/get_user_trades_by_instrument",Object
 			("instrument_name",pair)
 			("sorting","asc")
-			("start_seq", lastId),true);
+			("start_seq", lastId.hasValue()?lastId:Value()),true);
+
 
 	resp = resp["trades"];
-	if (resp[0]["trade_seq"] == lastId) {
-		resp = resp.slice(1);
-	}
 
-	return mapJSON(resp, [&](Value itm){
-		double amount = itm["amount"].getNumber();
-		double price = 1.0/itm["price"].getNumber();
-		auto dir = itm["direction"].getString();
-		if (dir == "buy") amount = -amount;
-		double fee = itm["fee"].getNumber();
-		double eff_price = price;
-		if (fee > 0) {
-			eff_price += -price/amount;
+	if (!lastId.hasValue()) {
+
+		if (resp.empty()) {
+			return TradesSync{ {}, Value(nullptr) };
+		} else {
+			return TradesSync{ {}, resp[resp.size()-1]["trade_seq"]};
 		}
-		return Trade{
-			itm["trade_seq"],
-			itm["timestamp"].getUInt(),
-			amount,
-			price,
-			amount,
-			eff_price
-		};
-	},TradeHistory());
 
+	} else {
+
+
+		if (resp[0]["trade_seq"] == lastId) {
+			resp = resp.slice(1);
+		}
+
+
+		auto trades = mapJSON(resp, [&](Value itm){
+			double amount = itm["amount"].getNumber();
+			double price = 1.0/itm["price"].getNumber();
+			auto dir = itm["direction"].getString();
+			if (dir == "buy") amount = -amount;
+			double fee = itm["fee"].getNumber();
+			double eff_price = price;
+			if (fee > 0) {
+				eff_price += -price/amount;
+			}
+			lastId = itm["trade_seq"];
+			return Trade{
+				itm["trade_seq"],
+				itm["timestamp"].getUInt(),
+				amount,
+				price,
+				amount,
+				eff_price
+			};
+		},TradeHistory());
+		return TradesSync { trades, lastId };
+
+	}
 }
 
 inline Interface::Orders Interface::getOpenOrders(const std::string_view &pair) {

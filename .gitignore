@@ -10,3 +10,4 @@ Makefile
 /local.conf
 /secure_data
 /run/
+/prod/

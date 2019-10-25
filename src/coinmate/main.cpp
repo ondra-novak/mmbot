@@ -38,7 +38,7 @@ public:
 
 
 	virtual double getBalance(const std::string_view & symb) override;
-	virtual TradeHistory getTrades(json::Value lastId, std::uintptr_t fromTime, const std::string_view & pair) override;
+	virtual TradesSync syncTrades(json::Value lastId, const std::string_view & pair) override;
 	virtual Orders getOpenOrders(const std::string_view & par) override;
 	virtual Ticker getTicker(const std::string_view & piar) override;
 	virtual json::Value placeOrder(const std::string_view & pair,
@@ -58,11 +58,9 @@ public:
 
 	Value balanceCache;
 	Value orderCache;
-	Array trades;
-	bool fetchTrades = true;
-	Value firstId;
+	Value tradeCache;
 	Value all_pairs;
-	std::size_t lastFrom = -1;
+	bool fetch_trades = true;
 
 	struct FeeInfo {
 		double fee;
@@ -88,97 +86,89 @@ inline void Interface::onLoadApiKey(json::Value keyData) {
 	cm.privKey = keyData["privKey"].getString();
 	cm.pubKey = keyData["pubKey"].getString();
 	cm.clientid = keyData["clientId"].getString();
+	balanceCache = Value();
+	orderCache = Value();
+	tradeCache = Value();
+	all_pairs = Value();
+	fetch_trades = true;
+
 }
 
- Value Interface::readTradesPerPartes(Value lastId, Value fromTime) {
-	 Array result;
-	 bool rep;
-	 do {
+static bool greaterThanId(Value tx, Value id) {
+	return Value::compare(id, tx["transactionId"]) < 0;
+}
+static int sortById(Value tx1, Value tx2) {
+	return Value::compare(tx1["transactionId"],tx2["transactionId"]);
+}
+
+Interface::TradesSync Interface::syncTrades(json::Value lastId, const std::string_view & pair) {
+
+		if (!tradeCache.hasValue()) {
 			json::Value args (json::object, {
-					json::Value("lastId",lastId),
+					json::Value("limit",10)
+			});
+			Value c =  cm.request(Proxy::POST, "tradeHistory", args).sort(sortById);
+
+			if (c.empty()) return TradesSync{ {}, nullptr };
+
+			tradeCache = c;
+			fetch_trades = false;
+		}
+
+		if (lastId.hasValue() && greaterThanId(tradeCache[0], lastId)) {
+
+			json::Value args (json::object, {
 					json::Value("sort", "ASC"),
-					json::Value("timestampFrom",fromTime),
+					json::Value("lastId",lastId),
 					json::Value("limit",1000)
 			});
+			tradeCache = cm.request(Proxy::POST, "tradeHistory", args);
+			fetch_trades = false;
+		}
 
-			Value res = cm.request(Proxy::POST, "tradeHistory", args);
-			result.addSet(res);
-			rep = !res.empty();
-			if (rep) lastId = result[result.size()-1]["transactionId"];
+		Value l = tradeCache[tradeCache.size()-1]["transactionId"];
 
-	 } while (rep);
-	 return result;
- }
 
-Interface::TradeHistory Interface::getTrades(json::Value lastId, std::uintptr_t fromTime, const std::string_view & pair) {
+		if (fetch_trades) {
 
-		if (!lastId.defined() && fromTime < lastFrom) {
-			trades.clear();
-			fetchTrades = true;
+			json::Value args (json::object, {
+					json::Value("sort", "ASC"),
+					json::Value("lastId",l),
+					json::Value("limit",1000)
+			});
+			tradeCache = tradeCache.merge(cm.request(Proxy::POST, "tradeHistory", args));
+			fetch_trades = false;
+			l = tradeCache[tradeCache.size()-1]["transactionId"];
 		}
 
 
-		if (fetchTrades) {
-			auto fetchLastId = lastId;
-			auto fetchFromTime = fromTime;
-			if (!trades.empty()) {
-				fetchLastId = trades[trades.size()-1]["transactionId"];
-			} else {
-				firstId = lastId;
-			}
+		if (lastId.hasValue()) {
 
-//			std::cerr << "[debug] Fetch trades from: " << fetchLastId << std::endl;
+			Value trades = tradeCache.filter([&](Value v) {
+				return v["currencyPair"] == pair && greaterThanId(v, lastId);
+			});
 
-			Value res = readTradesPerPartes(fetchLastId, fetchFromTime);
-			trades.addSet(res);
-			fetchTrades = false;
+			return TradesSync{
+				mapJSON<TradeHistory> (trades, [&](Value x){
+					double mlt = x["type"].getString() == "SELL"?-1:1;
+					double price = x["price"].getNumber();
+					double fee = x["fee"].getNumber();
+					double size = x["amount"].getNumber()*mlt;
+					double eff_price = price + fee/size;
+					return Trade {
+						x["transactionId"],
+						x["createdTimestamp"].getUInt(),
+						size,
+						price,
+						size,
+						eff_price
+					};
+				}), l};
+
+		} else {
+			return TradesSync{ {}, l};
 		}
 
-		auto start = lastId.defined()?
-				(lastId == firstId?trades.begin():
-						std::find_if(trades.begin(), trades.end(), [&](const Value &v) {
-			return v["transactionId"] == lastId;
-		})):trades.begin();
-
-		Value result;
-		if (start == trades.end() && lastId.defined()) {
-			trades.clear();
-			Value res = readTradesPerPartes(lastId,fromTime);
-			trades.addSet(res);
-			start = trades.begin();
-			firstId = lastId;
-		}
-
-		if (start == trades.end()) return {};
-
-		lastFrom = fromTime?fromTime:trades[0]["createdTimestamp"].getUInt();
-
-		if ((*start)["transactionId"] == lastId)
-			++start;
-		Array part;
-		while (start != trades.end()) {
-			Value v = *start;
-			if (v["currencyPair"] == pair)
-				part.push_back(v);
-			++start;
-		}
-		result = part;
-
-		return mapJSON<TradeHistory> (result, [&](Value x){
-			double mlt = x["type"].getString() == "SELL"?-1:1;
-			double price = x["price"].getNumber();
-			double fee = x["fee"].getNumber();
-			double size = x["amount"].getNumber()*mlt;
-			double eff_price = price + fee/size;
-			return Trade {
-				x["transactionId"],
-				x["createdTimestamp"].getUInt(),
-				size,
-				price,
-				size,
-				eff_price
-			};
-		});
 }
 
 
@@ -261,7 +251,7 @@ json::Value Interface::placeOrder(const std::string_view & pair,
 bool Interface::reset() {
 	balanceCache = Value();
 	orderCache = Value();
-	fetchTrades = true;
+	fetch_trades = true;
 	return true;
 }
 

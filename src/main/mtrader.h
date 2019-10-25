@@ -98,8 +98,8 @@ public:
 			Config config);
 
 
-	///Returns true, if trade was detected, or false, if not
-	int perform();
+
+	void perform(bool manually);
 
 	void init();
 
@@ -117,7 +117,7 @@ public:
 		double internalBalance;
 		double currencyBalance;
 		double new_fees;
-		IStockApi::TradeHistory new_trades;
+		IStockApi::TradesSync new_trades;
 		ChartItem chartItem;
 	};
 
@@ -169,6 +169,7 @@ protected:
 	bool need_load = true;
 	bool recalc = true;
 	json::Value test_backup;
+	json::Value lastTradeId = nullptr;
 
 	using TradeItem = IStockApi::Trade;
 	using TWBItem = IStatSvc::TradeRecord;

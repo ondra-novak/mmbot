@@ -102,7 +102,7 @@ public:
 	virtual void onLoadApiKey(json::Value) override {}
 
 	virtual double getBalance(const std::string_view & symb) override;
-	virtual TradeHistory getTrades(json::Value lastId, std::uintptr_t fromTime, const std::string_view & pair) override;
+	virtual TradesSync syncTrades(json::Value lastId, const std::string_view & pair) override;
 	virtual Orders getOpenOrders(const std::string_view & par)override;
 	virtual Ticker getTicker(const std::string_view & piar)override;
 	virtual json::Value placeOrder(const std::string_view & pair,
@@ -348,16 +348,16 @@ inline double Interface::getBalance(const std::string_view &x) {
 	}
 }
 
-inline Interface::TradeHistory Interface::getTrades(json::Value lastId,
-		std::uintptr_t fromTime, const std::string_view &pair) {
+inline Interface::TradesSync Interface::syncTrades(json::Value lastId, const std::string_view &pair) {
+	using namespace json;
 	if (lastId.hasValue()) {
 		TradeHistory ret;
 		std::copy_if(trades.begin(), trades.end(), std::back_inserter(ret), [&](const Trade &x) {
 			return Value::compare(x.id, lastId) > 0;
 		});
-		return ret;
+		return TradesSync{ret, trades.empty()? lastId: trades.back().id};
 	} else {
-		return trades;
+		return TradesSync { {}, trades.empty()? Value(nullptr): trades.back().id};
 	}
 }
 

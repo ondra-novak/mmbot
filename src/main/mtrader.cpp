@@ -160,7 +160,7 @@ const MTrader::TradeHistory& MTrader::getTrades() const {
 	return trades;
 }
 
-int MTrader::perform() {
+void MTrader::perform(bool manually) {
 
 	try {
 		init();
@@ -179,20 +179,20 @@ int MTrader::perform() {
 		//process all new trades
 		processTrades(status);
 		//merge trades on same price
-		mergeTrades(trades.size() - status.new_trades.size());
+		mergeTrades(trades.size() - status.new_trades.trades.size());
 
-		double lastTradePrice = trades.empty()?status.curPrice:trades.back().eff_price;
+		double lastTradePrice = !trades.empty()?trades.back().eff_price:strategy.isValid()?strategy.getEquilibrium():status.curPrice;
 		double lastTradeSize = trades.empty()?0:trades.back().eff_size;
 
 
 
 		//only create orders, if there are no trades from previous run
-		if (status.new_trades.empty()) {
+		if (status.new_trades.trades.empty()) {
 
 
 			if (recalc) {
 				if (strategy.isValid()) {
-					update_dynmult(lastTradeSize > 0, lastTradeSize < 0);
+					if (!manually) update_dynmult(lastTradeSize > 0, lastTradeSize < 0);
 					strategy.onTrade(lastTradePrice, lastTradeSize, status.assetBalance, status.currencyBalance);
 				}
 			}
@@ -239,7 +239,7 @@ int MTrader::perform() {
 						orders.sell = sellorder;
 					}
 				}
-				if (!recalc) {
+				if (!recalc && !manually) {
 					update_dynmult(false,false);
 				}
 
@@ -266,7 +266,7 @@ int MTrader::perform() {
 			auto minmax = strategy.calcSafeRange(status.assetBalance, status.currencyBalance);
 
 			statsvc->reportMisc(IStatSvc::MiscData{
-				status.new_trades.empty()?0:sgn(status.new_trades.back().size),
+				status.new_trades.trades.empty()?0:sgn(status.new_trades.trades.back().size),
 				strategy.getEquilibrium(),
 				status.curPrice * (exp(status.curStep) - 1),
 				buy_dynmult,
@@ -279,24 +279,26 @@ int MTrader::perform() {
 
 		}
 
-		//store current price (to build chart)
-		chart.push_back(status.chartItem);
-		{
-			//delete very old data from chart
-			unsigned int max_count = std::max(cfg.spread_calc_sma_hours, cfg.spread_calc_stdev_hours);
-			if (chart.size() > max_count)
-				chart.erase(chart.begin(),chart.end()-max_count);
+		if (!manually) {
+			//store current price (to build chart)
+			chart.push_back(status.chartItem);
+			{
+				//delete very old data from chart
+				unsigned int max_count = std::max(cfg.spread_calc_sma_hours, cfg.spread_calc_stdev_hours);
+				if (chart.size() > max_count)
+					chart.erase(chart.begin(),chart.end()-max_count);
+			}
 		}
 
 		internal_balance = status.internalBalance;
 		currency_balance_cache = status.currencyBalance;
+		lastTradeId  = status.new_trades.lastId;
 
 
 
 		//save state
 		saveState();
 
-		return 0;
 	} catch (std::exception &e) {
 		statsvc->reportError(IStatSvc::ErrorObj(e.what()));
 		throw;
@@ -388,11 +390,12 @@ MTrader::Status MTrader::getMarketStatus() const {
 	json::Value lastId;
 
 	if (!trades.empty()) lastId = getTradeLastId();
-	res.new_trades = stock.getTrades(lastId, 0, cfg.pairsymb);
+
+	res.new_trades = stock.syncTrades(lastTradeId, cfg.pairsymb);
 
 	{
-		res.internalBalance = std::accumulate(res.new_trades.begin(),
-				res.new_trades.end(),0.0,
+		res.internalBalance = std::accumulate(res.new_trades.trades.begin(),
+				res.new_trades.trades.end(),0.0,
 				[&](auto &&a, auto &&b) {return a + b.eff_size;});
 		if (internal_balance.has_value()) res.internalBalance += *internal_balance;
 	}
@@ -404,7 +407,7 @@ MTrader::Status MTrader::getMarketStatus() const {
 		res.assetBalance = stock.getBalance(minfo.asset_symbol);
 	}
 
-	if (!res.new_trades.empty()) {
+	if (!res.new_trades.trades.empty()) {
 		res.currencyBalance = stock.getBalance(minfo.currency_symbol);
 	} else {
 		res.currencyBalance = *currency_balance_cache;
@@ -547,6 +550,7 @@ void MTrader::loadState() {
 			internal_balance = state["internal_balance"].getNumber();
 			recalc = state["recalc"].getBool();
 			uid = state["uid"].getUInt();
+			lastTradeId = state["lastTradeId"];
 		}
 		auto chartSect = st["chart"];
 		if (chartSect.defined()) {
@@ -596,6 +600,7 @@ void MTrader::saveState() {
 		st.set("internal_balance", *internal_balance);
 		st.set("recalc",recalc);
 		st.set("uid",uid);
+		st.set("lastTradeId",lastTradeId);
 	}
 	{
 		auto ch = obj.array("chart");
@@ -686,7 +691,7 @@ void MTrader::processTrades(Status &st) {
 
 	Strategy s = strategy;
 
-	auto z = std::accumulate(st.new_trades.begin(), st.new_trades.end(),std::pair<double,double>(st.assetBalance,st.currencyBalance),
+	auto z = std::accumulate(st.new_trades.trades.begin(), st.new_trades.trades.end(),std::pair<double,double>(st.assetBalance,st.currencyBalance),
 			[](const std::pair<double,double> &x, const IStockApi::Trade &y) {
 		return std::pair<double,double>(x.first - y.eff_size, x.second + y.eff_size*y.eff_price);}
 	);
@@ -699,7 +704,7 @@ void MTrader::processTrades(Status &st) {
 	}
 
 
-	for (auto &&t : st.new_trades) {
+	for (auto &&t : st.new_trades.trades) {
 
 		tempPr.tradeId = t.id.toString().str();
 		tempPr.size = t.eff_size;
@@ -765,16 +770,8 @@ void MTrader::repair() {
 	strategy.reset();
 
 	if (!trades.empty()) {
-		auto st = getMarketStatus();
-		auto tm = trades.back().time;
 		stock.reset();
-		IStockApi::TradeHistory cur_trades = stock.getTrades(json::Value(),0,cfg.pairsymb);
-		for (auto &&k: cur_trades) {
-			if (k.time > tm) {
-				st.new_trades.push_back(k);
-			}
-		}
-		processTrades(st);
+		lastTradeId = nullptr;
 	}
 	saveState();
 }

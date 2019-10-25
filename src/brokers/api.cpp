@@ -27,18 +27,18 @@ static Value getBalance(AbstractBrokerAPI &handler, const Value &request) {
 	return handler.getBalance(request.getString());
 }
 
-static Value getTrades(AbstractBrokerAPI &handler, const Value &request) {
-	AbstractBrokerAPI::TradeHistory hst(
-			handler.getTrades(
+static Value syncTrades(AbstractBrokerAPI &handler, const Value &request) {
+	AbstractBrokerAPI::TradesSync hst(
+			handler.syncTrades(
 					request["lastId"],
-					request["fromTime"].getUInt(),
 					request["pair"].getString()));
 	Array response;
-	response.reserve(hst.size());
-	for (auto &&itm: hst) {
+	response.reserve(hst.trades.size());
+	for (auto &&itm: hst.trades) {
 		response.push_back(itm.toJSON());
 	}
-	return response;
+	return Object("trades",response)
+				 ("lastId", hst.lastId);
 }
 
 static Value getOpenOrders(AbstractBrokerAPI &handler, const Value &request) {
@@ -156,7 +156,7 @@ using MethodMap = ondra_shared::linear_map<std::string_view, HandlerFn> ;
 
 static MethodMap methodMap ({
 			{"getBalance",&getBalance},
-			{"getTrades",&getTrades},
+			{"syncTrades",&syncTrades},
 			{"getOpenOrders",&getOpenOrders},
 			{"getTicker",&getTicker},
 			{"placeOrder",&placeOrder},

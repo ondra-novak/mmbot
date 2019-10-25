@@ -18,7 +18,7 @@ using StatsSvc = Stats2Report;
 class NamedMTrader: public MTrader {
 public:
 	NamedMTrader(IStockSelector &sel, StoragePtr &&storage, PStatSvc statsvc, Config cfg, std::string &&name);
-	bool perform();
+	void perform(bool manually);
 	const std::string ident;
 
 };
@@ -65,7 +65,7 @@ public:
 	void removeTrader(ondra_shared::StrViewA n, bool including_state);
 
 
-	bool runTraders();
+	void runTraders(bool manually);
 	void resetBrokers();
 	NamedMTrader *find(json::StrViewA id) const;
 };

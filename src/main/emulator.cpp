@@ -53,10 +53,21 @@ double EmulatorAPI::getBalance(const std::string_view & symb) {
 	}
 }
 
-EmulatorAPI::TradeHistory EmulatorAPI::getTrades(json::Value lastId, std::uintptr_t ,
-		const std::string_view &)  {
+EmulatorAPI::TradesSync EmulatorAPI::syncTrades(json::Value lastId, const std::string_view &)  {
 
-	return TradeHistory(std::move(trades));
+	if (lastId.hasValue()) {
+		std::size_t idx = lastId.getUInt();
+		return TradesSync{
+			TradeHistory(trades.begin()+idx, trades.end()),
+			json::Value(trades.size())
+		};
+	} else {
+		return TradesSync {
+			trades,
+			json::Value(nullptr)
+		};
+	}
+
 }
 
 EmulatorAPI::Orders EmulatorAPI::getOpenOrders(const std::string_view & pair) {

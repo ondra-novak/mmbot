@@ -19,7 +19,7 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 	if (id== Strategy_PLFromPos::id) {
 		Strategy_PLFromPos::Config cfg;
 		cfg.accum = config["accum"].getNumber();
-		cfg.step = config["step"].getNumber();
+		cfg.step = config["cstep"].getNumber();
 		cfg.neutral_pos = config["neutral_pos"].getNumber();
 		cfg.maxpos = config["maxpos"].getNumber();
 		return Strategy(new Strategy_PLFromPos(cfg));

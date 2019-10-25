@@ -15,15 +15,14 @@ NamedMTrader::NamedMTrader(IStockSelector &sel, StoragePtr &&storage, PStatSvc s
 		:MTrader(sel, std::move(storage), std::move(statsvc), cfg), ident(std::move(name)) {
 }
 
-bool NamedMTrader::perform() {
+void NamedMTrader::perform(bool manually) {
 	using namespace ondra_shared;
 	LogObject lg(ident);
 	LogObject::Swap swap(lg);
 	try {
-		return MTrader::perform();
+		MTrader::perform(manually);
 	} catch (std::exception &e) {
 		logError("$1", e.what());
-		return false;
 	}
 }
 
@@ -104,7 +103,7 @@ void Traders::removeTrader(ondra_shared::StrViewA n, bool including_state) {
 			//stop trader
 			t->stop();
 			//perform while stop cancels all orders
-			t->perform();
+			t->perform(true);
 			//drop state
 			t->dropState();
 			//now we can erase
@@ -119,15 +118,12 @@ void Traders::resetBrokers() {
 	});
 }
 
-bool Traders::runTraders() {
+void Traders::runTraders(bool manually) {
 	resetBrokers();
 
-	bool hit = false;
 	for (auto &&t : traders) {
-		bool h = t.second->perform();
-		hit |= h;
+		t.second->perform(manually);
 	}
-	return hit;
 }
 
 Traders::TMap::const_iterator Traders::begin() const {

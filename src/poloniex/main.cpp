@@ -34,7 +34,7 @@ public:
 
 
 	virtual double getBalance(const std::string_view & symb) override;
-	virtual TradeHistory getTrades(json::Value lastId, std::uintptr_t fromTime, const std::string_view & pair) override;
+	virtual TradesSync syncTrades(json::Value lastId, const std::string_view & pair) override;
 	virtual Orders getOpenOrders(const std::string_view & par)override;
 	virtual Ticker getTicker(const std::string_view & piar)override;
 	virtual json::Value placeOrder(const std::string_view & pair,
@@ -105,32 +105,58 @@ public:
 
  }
 
- Interface::TradeHistory Interface::getTrades(json::Value lastId, std::uintptr_t fromTime, const std::string_view & pair) {
+ Interface::TradesSync Interface::syncTrades(json::Value lastId, const std::string_view & pair) {
 
-		if (fromTime < lastFromTime) {
-			tradeMap.clear();
-			needSyncTrades = true;
-			lastFromTime = fromTime;
-		}
+	 	if (!lastId.hasValue()) {
 
-		if (needSyncTrades) {
-			syncTrades(fromTime);
-			needSyncTrades = false;
-		}
+	 		return TradesSync{ {}, Value(json::array,{time(nullptr), nullptr})};
 
-		auto trs = tradeMap[pair];
+	 	} else {
+	 		time_t startTime = lastId[0].getUInt();
+	 		Value id = lastId[1];
 
-		auto iter = trs.begin();
-		auto end = trs.end();
-		if (lastId.defined()) {
-			iter = std::find_if(iter, end, [&](const Trade &x){
-				return x.id == lastId;
-			});
-			if (iter != end) ++iter;
-		}
+	 		Value trs = px.private_request("returnTradeHistory", Object
+	 				("start", startTime)
+	 				("currencyPair",pair)
+	 				("limit", 10000));
 
+ 			TradeHistory loaded;
+	 		for (Value t: trs) {
+				auto time = parseTime(String(t["date"]));
+				auto id = t["tradeID"];
+				auto size = t["amount"].getNumber();
+				auto price = t["rate"].getNumber();
+				auto fee = t["fee"].getNumber();
+				if (t["type"].getString() == "sell") size = -size;
+				double eff_size = size >= 0? size*(1-fee):size;
+				double eff_price = size < 0? price*(1-fee):price;
+				loaded.push_back(Trade {
+					id,
+					time,
+					size,
+					price,
+					eff_size,
+					eff_price,
+				});
+	 		}
 
-		return TradeHistory(iter, end);
+ 			std::sort(loaded.begin(),loaded.end(), tradeOrder);
+	 		auto iter = std::find_if(loaded.begin(), loaded.end(), [&](auto &&x) {
+	 				return x.id == id;
+	 		});
+
+	 		if (iter != loaded.end()) {
+	 			++iter;
+	 			loaded.erase(loaded.begin(),iter);
+	 		}
+
+	 		if (!loaded.empty()) {
+	 			lastId = {loaded.back().time/1000, loaded.back().id};
+	 		}
+
+	 		return TradesSync{ loaded,  lastId};
+
+	 	}
 }
 
 

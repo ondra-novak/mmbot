@@ -192,6 +192,11 @@ public:
 	};
 
 
+	struct TradesSync {
+		TradeHistory trades;
+		json::Value lastId;
+	};
+
 	using Orders = std::vector<Order>;
 
 	///Retrieves available balance for the symbol
@@ -207,7 +212,8 @@ public:
 	 * @param pair specify trading pair
 	 * @return list of trades
 	 */
-	virtual TradeHistory getTrades(json::Value lastId, std::uintptr_t fromTime, const std::string_view & pair) = 0;
+	virtual TradesSync syncTrades(json::Value lastId, const std::string_view & pair) = 0;
+
 	///Retrieve open orders
 	/**
 	 * @param par trading pair

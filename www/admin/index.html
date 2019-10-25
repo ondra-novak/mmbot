@@ -59,8 +59,8 @@
 <label  class="adv"><span>Accumulation <span class="tooltip">Amount of the profit used to buy extra assets</span></span><x-slider data-name="acum_factor" data-min="0" data-max="100" data-mult="1"></x-slider></label>
 </x-section>
 <x-section data-name="strategy_pl" class="goal hidden" hidden="hidden"><x-section-caption>Linear</x-section-caption>
-<label><span>Position step per 1%: <span class="tooltip"
->Specifies how much position changes per %1 of price change</span></span><input data-name="step" type="number" step="any"></label>
+<label><span>Invest to 1% movement in currency [<span data-name="currency"></span>]: <span class="tooltip"
+>Specifies how much currency is used in 1% momement of the price. </span></span><input data-name="cstep" type="number" step="any"></label>
 <label><span>Neutral position <span class="tooltip"
 >How much assets are considered as neutral position</span></span><input data-name="neutral_pos" type="number" step="any">
 </label>

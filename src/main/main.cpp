@@ -351,7 +351,7 @@ int main(int argc, char **argv) {
 
 
 								try {
-									traders->runTraders();
+									traders->runTraders(false);
 									rpt.genReport();
 								} catch (std::exception &e) {
 									logError("Scheduler exception: $1", e.what());
