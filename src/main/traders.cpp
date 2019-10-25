@@ -62,12 +62,14 @@ Traders::Traders(ondra_shared::Scheduler sch,
 		const ondra_shared::IniConfig::Section &ini,
 		bool test,
 		StorageFactory &sf,
-		Report &rpt)
+		Report &rpt,
+		IDailyPerfModule &perfMod)
 
 :
 test(test)
 ,sf(sf)
 ,rpt(rpt)
+,perfMod(perfMod)
 {
 	stockSelector.loadStockMarkets(ini, test);
 }
@@ -86,7 +88,7 @@ void Traders::addTrader(const MTrader::Config &mcfg ,ondra_shared::StrViewA n) {
 	try {
 		logProgress("Started trader $1 (for $2)", n, mcfg.pairsymb);
 		auto t = std::make_unique<NamedMTrader>(stockSelector, sf.create(n),
-				std::make_unique<StatsSvc>(n, rpt, nullptr), mcfg, n);
+				std::make_unique<StatsSvc>(n, rpt, &perfMod), mcfg, n);
 		traders.insert(std::pair(StrViewA(t->ident), std::move(t)));
 	} catch (const std::exception &e) {
 		logFatal("Error: $1", e.what());

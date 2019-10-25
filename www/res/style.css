@@ -803,6 +803,12 @@ table.extended td .color.pos::before {content: "+";}
 [onclick] {
 	cursor: pointer
 }
+table.perfmod {
+	width: 100%;
+}
+table.perfmod td{
+	text-align: center;
+}
 
 .head > .error_icon {
 	width: 20px;

@@ -704,6 +704,9 @@ function app_start(){
 						appendList("_"+k,infoMap[k], ranges[k], stats.misc[k]);
 					}
 					updateLastEventsAll(charts);
+				} else if (fld == "+dpr") {
+					setMode(6);
+					appendDailyPerformance(stats.performance);					
 				} else if (fld.startsWith("!")) {
 					setMode(1);
 					var pair = fld.substr(1);
@@ -763,6 +766,37 @@ function app_start(){
 	
 
 
+	function appendDailyPerformance(data) {
+		document.getElementById("lastevents").innerText="";
+		var table = document.createElement("table");
+		table.setAttribute("class","perfmod");
+		var hdr = document.createElement("tr");
+		data.hdr.forEach(function(x) {
+			var h = document.createElement("th");
+			h.innerText = x;
+			hdr.appendChild(h);
+		})
+		table.appendChild(hdr);
+		data.rows.forEach(function(r) {
+			var first = true;
+			var hr = document.createElement("tr");
+			r.forEach(function(c) {
+				var h = document.createElement("td");
+				if (first && typeof(c) == "number") {
+					first = false;
+					h.innerText = (new Date(c*1000)).toLocaleDateString();
+				} else {
+					h.innerText = adjNum(c);
+				}
+				hr.appendChild(h);
+				
+			});
+			table.appendChild(hr);
+		})
+		var curchart = createChart("perfrep", "perfrep");
+		curchart .innerText = "";
+		curchart .appendChild(table);
+	}
 	
 	
 	window.addEventListener("hashchange", function() {

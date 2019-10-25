@@ -26,6 +26,8 @@
 #include "authmapper.h"
 #include "webcfg.h"
 #include "spawn.h"
+
+#include "localdailyperfmod.h"
 #include "stats2report.h"
 #include "traders.h"
 
@@ -240,17 +242,29 @@ int main(int argc, char **argv) {
 
 
 
+
+
+
 						StorageFactory sf(storagePath,5,storageBinary?Storage::binjson:Storage::json);
 						StorageFactory rptf(rptpath,2,Storage::json);
 
 						Report rpt(rptf.create("report.json"), rptinterval, false);
 
 
+						std::unique_ptr<IDailyPerfModule> perfmod;
+						{
+							//TODO: extend to allow external performance monitors
+
+							perfmod = std::make_unique<LocalDailyPerfMonitor>(sf.create("_performance_daily"), storagePath+"/_performance_current");
+
+						}
+
+
 
 						Worker wrk = schedulerGetWorker(sch);
 
 						traders = std::make_unique<Traders>(
-								sch,app.config["brokers"], app.test,sf,rpt
+								sch,app.config["brokers"], app.test,sf,rpt,*perfmod
 						);
 
 						RefCntPtr<AuthUserList> aul;
@@ -352,6 +366,7 @@ int main(int argc, char **argv) {
 
 								try {
 									traders->runTraders(false);
+									rpt.perfReport(perfmod->getReport());
 									rpt.genReport();
 								} catch (std::exception &e) {
 									logError("Scheduler exception: $1", e.what());

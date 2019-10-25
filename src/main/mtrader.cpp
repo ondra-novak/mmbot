@@ -112,7 +112,11 @@ MTrader::MTrader(IStockSelector &stock_selector,
 	stock.testBroker();
 	magic = this->statsvc->getHash() & 0xFFFFFFFF;
 	std::random_device rnd;
-	uid = rnd();
+	uid = 0;
+	while (!uid) {
+		uid = rnd();
+	}
+
 }
 
 
@@ -547,7 +551,8 @@ void MTrader::loadState() {
 			sell_dynmult = state["sell_dynmult"].getNumber();
 			internal_balance = state["internal_balance"].getNumber();
 			recalc = state["recalc"].getBool();
-			uid = state["uid"].getUInt();
+			std::size_t nuid = state["uid"].getUInt();
+			if (nuid) uid = nuid;
 			lastTradeId = state["lastTradeId"];
 		}
 		auto chartSect = st["chart"];
@@ -584,6 +589,7 @@ void MTrader::loadState() {
 	tempPr.broker = cfg.broker;
 	tempPr.magic = magic;
 	tempPr.uid = uid;
+	tempPr.currency = minfo.currency_symbol;
 
 }
 
@@ -716,7 +722,7 @@ void MTrader::processTrades(Status &st) {
 		tempPr.tradeId = t.id.toString().str();
 		tempPr.size = t.eff_size;
 		tempPr.price = t.eff_price;
-		statsvc->reportPerformance(tempPr);
+		if (!minfo.simulator) statsvc->reportPerformance(tempPr);
 		z.first += t.eff_size;
 		z.second -= t.eff_size * t.eff_price;
 		auto norm = strategy.onTrade(t.eff_price, t.eff_size, z.first, z.second);

@@ -50,6 +50,8 @@ public:
 	void addLogLine(StrViewA ln);
 	void clear(StrViewA symb);
 
+	void perfReport(json::Value report);
+
 	virtual void setError(StrViewA symb, const ErrorObj &errorObj);
 
 	ondra_shared::PStdLogProviderFactory captureLog(ondra_shared::PStdLogProviderFactory target);
@@ -85,6 +87,7 @@ protected:
 	MiscMap miscMap;
 	MiscMap errorMap;
 	json::Array logLines;
+	json::Value perfRep;
 
 	StoragePtr report;
 

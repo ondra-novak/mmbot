@@ -47,12 +47,14 @@ public:
 	bool test;
 	StorageFactory &sf;
 	Report &rpt;
+	IDailyPerfModule &perfMod;
 
 	Traders(ondra_shared::Scheduler sch,
 			const ondra_shared::IniConfig::Section &ini,
 			bool test,
 			StorageFactory &sf,
-			Report &rpt);
+			Report &rpt,
+			IDailyPerfModule &perfMod);
 	Traders(const Traders &&other) = delete;
 	void clear();
 

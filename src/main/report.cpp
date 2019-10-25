@@ -42,6 +42,7 @@ void Report::genReport() {
 					std::chrono::system_clock::now().time_since_epoch()
 				   ).count());
 	st.set("log", logLines);
+	st.set("performance", perfRep);
 	while (logLines.size()>30) logLines.erase(0);
 	report->store(st);
 }
@@ -319,3 +320,6 @@ void Report::clear(StrViewA symb) {
 	orderMap.clear();
 }
 
+void Report::perfReport(json::Value report) {
+	perfRep = report;
+}

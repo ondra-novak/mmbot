@@ -28,6 +28,7 @@
 <option disabled value=""></option>
 <option value="+pl">Total P/L from positions</option>
 <option value="+norm">Total normalized profit</option>
+<option value="+dpr">Daily performance report</option>
 <option disabled value=""></option>
 </select>
 <div id="outage">
@@ -44,7 +45,7 @@
 <div data-name="chart"></div>
 </div>
 </template>
-
+<template id="perfrep"><div></div></template>
 <template id="summary"><div class="summary">
 <div class="head">
  <div class="title" data-name="title"></div>
@@ -75,7 +76,6 @@
 
 <div id="chartarea"></div>
 
-<div id="lastevents">
 <template id="lastevents_hdr">
 <x-trbgr  class="hdr">
 <x-tr class="hdr">
@@ -90,6 +90,9 @@
 </x-tr>
 </x-trbgr>
 </template>
+
+
+<div id="lastevents">
 </div>
 <div id="logfilearea">
 <div id="logfileactivate">LOG</div>
