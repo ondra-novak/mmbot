@@ -243,8 +243,6 @@ void MTrader::perform(bool manually) {
 					update_dynmult(false,false);
 				}
 
-				//report orders to UI
-				statsvc->reportOrders(orders.buy,orders.sell);
 				//report order errors to UI
 				statsvc->reportError(IStatSvc::ErrorObj(buy_order_error, sell_order_error));
 
@@ -253,10 +251,13 @@ void MTrader::perform(bool manually) {
 			recalc = false;
 
 		} else {
+
+
 			recalc = true;
 		}
 
-
+		//report orders to UI
+		statsvc->reportOrders(orders.buy,orders.sell);
 		//report trades to UI
 		statsvc->reportTrades(trades);
 		//report price to UI
