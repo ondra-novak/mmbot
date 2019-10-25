@@ -192,7 +192,7 @@ void MTrader::perform(bool manually) {
 
 			if (recalc) {
 				if (strategy.isValid()) {
-					if (!manually) update_dynmult(lastTradeSize > 0, lastTradeSize < 0);
+					update_dynmult(lastTradeSize > 0, lastTradeSize < 0);
 					strategy.onTrade(lastTradePrice, lastTradeSize, status.assetBalance, status.currencyBalance);
 				}
 			}
