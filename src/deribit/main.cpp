@@ -117,6 +117,8 @@ inline Interface::TradesSync Interface::syncTrades(json::Value lastId,  const st
 	auto resp = px.request("private/get_user_trades_by_instrument",Object
 			("instrument_name",pair)
 			("sorting","asc")
+			("count", 1000)
+			("include_old", true)
 			("start_seq", lastId.hasValue()?lastId:Value()),true);
 
 

@@ -191,10 +191,7 @@ void MTrader::perform(bool manually) {
 
 
 			if (recalc) {
-				if (strategy.isValid()) {
-					update_dynmult(lastTradeSize > 0, lastTradeSize < 0);
-					strategy.onTrade(lastTradePrice, lastTradeSize, status.assetBalance, status.currencyBalance);
-				}
+				update_dynmult(lastTradeSize > 0, lastTradeSize < 0);
 			}
 
 			if (!strategy.isValid()) {
@@ -690,18 +687,27 @@ json::Value MTrader::OrderPair::toJSON() const {
 
 void MTrader::processTrades(Status &st) {
 
-	Strategy s = strategy;
+
+	if (st.new_trades.trades.empty()) return;
+
+
 
 	auto z = std::accumulate(st.new_trades.trades.begin(), st.new_trades.trades.end(),std::pair<double,double>(st.assetBalance,st.currencyBalance),
 			[](const std::pair<double,double> &x, const IStockApi::Trade &y) {
 		return std::pair<double,double>(x.first - y.eff_size, x.second + y.eff_size*y.eff_price);}
 	);
 
+	if (!strategy.isValid()) {
+		strategy.init(st.new_trades.trades[0].eff_price, z.first, z.second);
+	}
+
+
 	double last_np = 0;
 	double last_ap = 0;
 	if (!trades.empty()) {
 		last_np = trades.back().norm_profit;
 		last_ap = trades.back().norm_accum;
+
 	}
 
 
@@ -713,7 +719,7 @@ void MTrader::processTrades(Status &st) {
 		statsvc->reportPerformance(tempPr);
 		z.first += t.eff_size;
 		z.second -= t.eff_size * t.eff_price;
-		auto norm = s.onTrade(t.eff_price, t.eff_size, z.first, z.second);
+		auto norm = strategy.onTrade(t.eff_price, t.eff_size, z.first, z.second);
 		trades.push_back(TWBItem(t, last_np+=norm.normProfit, last_ap+=norm.normAccum));
 	}
 }
