@@ -655,6 +655,7 @@ bool WebCfg::reqStop(simpleServer::HTTPRequest req) const {
 		};
 		trlist.resetBrokers();
 		trlist.runTraders(true);
+		trlist.rpt.genReport();
 		trlist.resetBrokers();
 		req.sendResponse(std::move(hdr), "true");
 

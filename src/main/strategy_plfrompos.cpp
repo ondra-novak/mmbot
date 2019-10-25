@@ -38,11 +38,15 @@ double Strategy_PLFromPos::calcK() const {
 
 double Strategy_PLFromPos::calcNewPos(double tradePrice, bool reducepos) const {
 	double k = calcK();
-	double new_pos = pos + (p - tradePrice) * k;
+	double new_pos;
+	new_pos = pos + (p - tradePrice) * k;
 	if (new_pos * pos > 0 && reducepos) {
+		// ((p - tradePrice)*pos_change)/tradePrice =
 		double absdf = fabs(new_pos) - fabs(pos);
-		if (absdf < 0)
-			new_pos = new_pos - sgn(new_pos) * sqrt(-absdf);
+		if (absdf < 0) {
+			double red_pos = sgn(pos)*sqrt(fabs(pos)*(fabs(pos)+sgn(pos)*(2*k*p-2*k*tradePrice)));
+			if (isfinite(red_pos)) new_pos = red_pos;
+		}
 	}
 	return new_pos;
 }
@@ -83,7 +87,7 @@ IStrategy* Strategy_PLFromPos::importState(json::Value src) const {
 }
 
 double Strategy_PLFromPos::calcOrderSize(double price, double assets) const {
-	bool reducepos = cfg.maxpos && std::fabs(assets-acm-cfg.neutral_pos) < cfg.maxpos;
+	bool reducepos = cfg.maxpos == 0 || std::fabs(assets-acm-cfg.neutral_pos) < cfg.maxpos;
 	double new_pos = calcNewPos(price, reducepos);
 	return new_pos + cfg.neutral_pos + acm - assets;
 
