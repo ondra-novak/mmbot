@@ -380,7 +380,7 @@ App.prototype.fillForm = function (src, trg) {
 	data.accept_loss = filledval(src.accept_loss,1);
 	data.sliding_pos_hours = filledval(src["sliding_pos.hours"],240);
 	data.sliding_pos_fade = filledval(src["sliding_pos.fade"],0);
-	data.spread_calc_stdev_hours = filledval(src.spread_calc_stdev_hours,16);
+	data.spread_calc_stdev_hours = filledval(src.spread_calc_stdev_hours,160);
 	data.spread_calc_sma_hours = filledval(src.spread_calc_sma_hours,3);
 	data.dynmult_raise = filledval(src.dynmult_raise,250);
 	data.dynmult_fall = filledval(src.dynmult_fall, 5);
@@ -1236,6 +1236,10 @@ App.prototype.tradingForm = function(id) {
 				var now = Date.now();
 				var skip = true;
 				chartData.push(ticker);
+				trades.unshift({
+					time: chartData[0].time-100000,
+					price: chartData[0].last
+				});
 				
 				var drawChart = initChart(chartData[chartData.length-1].time - chartData[0].time);
 				var data = mergeArrays(chartData, trades, function(a,b) {
