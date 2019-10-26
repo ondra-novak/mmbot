@@ -889,10 +889,11 @@ App.prototype.securityForm = function() {
 							},
 						info_button: {
 								"!click": function() {
-									this.dlgbox({text:{
-										value:binfo.licence,
-										class:"textdoc"}
-										,cancel:{".hidden":true}},"confirm")
+									this.dlgbox({text:fetch_with_error(this.brokerURL(z)+"/licence")
+											.then(function(t) {
+												return {"value":t,class:"textdoc"};
+											}),
+										cancel:{".hidden":true}},"confirm")
 								}.bind(this)
 							},						
 					}
