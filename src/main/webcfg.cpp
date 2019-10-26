@@ -37,7 +37,8 @@ NamedEnum<WebCfg::Command> WebCfg::strCommand({
 	{WebCfg::traders, "traders"},
 	{WebCfg::stop, "stop"},
 	{WebCfg::logout, "logout"},
-	{WebCfg::logout_commit, "logout_commit"}
+	{WebCfg::logout_commit, "logout_commit"},
+	{WebCfg::editor, "editor"}
 });
 
 WebCfg::WebCfg(
@@ -80,6 +81,7 @@ bool WebCfg::operator ()(const simpleServer::HTTPRequest &req,
 		case traders: return reqTraders(req, rest);
 		case logout: return reqLogout(req,false);
 		case logout_commit: return reqLogout(req,true);
+		case editor: return reqEditor(req);
 		}
 	}
 	return false;
@@ -199,6 +201,13 @@ static double getSafeBalance(IStockApi *api, std::string_view symb) {
 	}
 }
 
+static json::Value brokerToJSON(const IStockApi::BrokerInfo &binfo) {
+	Value res = Object("name", binfo.name)("trading_enabled",
+			binfo.trading_enabled)("exchangeName", binfo.exchangeName)(
+			"exchangeUrl", binfo.exchangeUrl)("version", binfo.version);
+			return res;
+}
+
 
 bool WebCfg::reqBrokers(simpleServer::HTTPRequest req, ondra_shared::StrViewA rest) const {
 	if (rest.empty()) {
@@ -224,6 +233,14 @@ bool WebCfg::reqBrokers(simpleServer::HTTPRequest req, ondra_shared::StrViewA re
 				req.sendResponse("application/json","true");
 			});
 			return true;
+		} else if (urlbroker == "_all") {
+			if (!req.allowMethods({"GET"})) return true;
+			Array res;
+			trlist.stockSelector.forEachStock([&](std::string_view, IStockApi &api) {
+				res.push_back(brokerToJSON(api.getBrokerInfo()));
+			});
+			req.sendResponse("application/json",Value(res).stringify());
+			return true;
 		}
 		std::string broker = urlDecode(urlbroker);
 		IStockApi *api = trlist.stockSelector.getStock(broker);
@@ -231,6 +248,40 @@ bool WebCfg::reqBrokers(simpleServer::HTTPRequest req, ondra_shared::StrViewA re
 		return reqBrokerSpec(req, splt, api);
 	}
 }
+
+static Value getOpenOrders(IStockApi &api, const std::string_view &pair) {
+	Value orders = json::array;
+	try {
+		auto ords = api.getOpenOrders(pair);
+		orders = Value(json::array, ords.begin(),
+				ords.end(),
+				[&](const IStockApi::Order &ord) {
+					return Object("price", ord.price)(
+							"size", ord.size)("clientId",
+							ord.client_id)("id", ord.id);
+				});
+	} catch (...) {
+
+	}
+	return orders;
+
+}
+
+static Value getPairInfo(IStockApi &api, const std::string_view &pair) {
+	IStockApi::MarketInfo nfo = api.getMarketInfo(pair);
+	double ab = getSafeBalance(&api, nfo.asset_symbol);
+	double cb = getSafeBalance(&api, nfo.currency_symbol);
+	Value resp = Object("symbol",pair)("asset_symbol", nfo.asset_symbol)(
+			"currency_symbol", nfo.currency_symbol)("fees",
+			nfo.fees)("leverage", nfo.leverage)(
+			"invert_price", nfo.invert_price)(
+			"asset_balance", ab)("currency_balance", cb)(
+			"min_size", nfo.min_size)("price",
+			api.getTicker(pair).last);
+	return resp;
+
+}
+
 bool WebCfg::reqBrokerSpec(simpleServer::HTTPRequest req,
 		ondra_shared::StrViewA vpath, IStockApi *api) const {
 
@@ -257,14 +308,14 @@ bool WebCfg::reqBrokerSpec(simpleServer::HTTPRequest req,
 			if (!req.allowMethods( { "GET" }))
 				return true;
 			auto binfo = api->getBrokerInfo();
-			Value res = Object("name", binfo.name)("trading_enabled",
-					binfo.trading_enabled)("exchangeName", binfo.exchangeName)(
-					"exchangeUrl", binfo.exchangeUrl)("version", binfo.version)(
-					"licence", binfo.licence)("settings",binfo.settings)("entries", { "icon.png", "pairs",
-					"apikey","settings" });
-			req.sendResponse(HTTPResponse(200).contentType("application/json"),
-					res.stringify());
+			Value res = brokerToJSON(binfo).replace("entries", { "icon.png", "pairs","apikey","settings","licence"});
+			req.sendResponse(std::move(hdr),res.stringify());
 			return true;
+		} else if (entry == "licence") {
+			if (!req.allowMethods( { "GET" }))
+				return true;
+			auto binfo = api->getBrokerInfo();
+			req.sendResponse(std::move(hdr),Value(binfo.licence).stringify());
 		} else if (entry == "icon.png") {
 			if (!req.allowMethods( { "GET" }))
 				return true;
@@ -320,17 +371,7 @@ bool WebCfg::reqBrokerSpec(simpleServer::HTTPRequest req,
 					if (orders.empty()) {
 						if (!req.allowMethods( { "GET" }))
 							return true;
-						IStockApi::MarketInfo nfo = api->getMarketInfo(p);
-						double ab = getSafeBalance(api, nfo.asset_symbol);
-						double cb = getSafeBalance(api, nfo.currency_symbol);
-						Value resp = Object("asset_symbol", nfo.asset_symbol)(
-								"currency_symbol", nfo.currency_symbol)("fees",
-								nfo.fees)("leverage", nfo.leverage)(
-								"invert_price", nfo.invert_price)(
-								"asset_balance", ab)("currency_balance", cb)(
-								"min_size", nfo.min_size)("price",
-								api->getTicker(pair).last)("entries", {
-								"orders", "ticker" });
+						Value resp = getPairInfo(*api, p).replace("entries",{"orders", "ticker" });
 						req.sendResponse(std::move(hdr), resp.stringify());
 						return true;
 					} else if (orders == "ticker") {
@@ -361,14 +402,7 @@ bool WebCfg::reqBrokerSpec(simpleServer::HTTPRequest req,
 						if (!req.allowMethods( { "GET", "POST", "DELETE" }))
 							return true;
 						if (req.getMethod() == "GET") {
-							auto ords = api->getOpenOrders(p);
-							Value orders = Value(json::array, ords.begin(),
-									ords.end(),
-									[&](const IStockApi::Order &ord) {
-										return Object("price", ord.price)(
-												"size", ord.size)("clientId",
-												ord.client_id)("id", ord.id);
-									});
+							Value orders = getOpenOrders(*api, p);
 							req.sendResponse(std::move(hdr),
 									orders.stringify());
 							return true;
@@ -443,6 +477,7 @@ bool WebCfg::reqTraders(simpleServer::HTTPRequest req, ondra_shared::StrViewA vp
 				Value res (json::array, trlist.begin(), trlist.end(), [&](auto &&x) {
 					return x.first;
 				});
+				res = Object("entries", res);
 				req.sendResponse(std::move(hdr), res.stringify());
 			} else {
 				auto splt = StrViewA(path).split("/");
@@ -457,7 +492,7 @@ bool WebCfg::reqTraders(simpleServer::HTTPRequest req, ondra_shared::StrViewA vp
 						req.sendResponse(std::move(hdr), "true");
 					} else {
 						req.sendResponse(std::move(hdr),
-							Value({"stop","reset","repair","trades","strategy","chart","broker"}).stringify());
+							Value(Object("entries",{"stop","reset","repair","broker","trading"})).stringify());
 					}
 				} else {
 					tr->init();
@@ -479,64 +514,29 @@ bool WebCfg::reqTraders(simpleServer::HTTPRequest req, ondra_shared::StrViewA vp
 						StrViewA vpath = path;
 						StrViewA restpath = vpath.substr(nx.data - vpath.data);
 						reqBrokerSpec(req, restpath, &(tr->getBroker()));
-					} else if (cmd == "trades") {
-						if (!splt) {
-							if (!req.allowMethods({"GET"})) return ;
-							auto trades = tr->getTrades();
-							hdr.cacheFor(50);
-							req.sendResponse(std::move(hdr),
-									Value(json::array, trades.begin(), trades.end(),
-										[&](auto &&t) {
-											return t.toJSON();
-										}).stringify());
-						} else {
-							if (!req.allowMethods({"DELETE"})) return ;
-							auto id = urlDecode(StrViewA(splt()));
-							if (!tr->eraseTrade(id, false)) {
-								req.sendErrorPage(404);
-							} else {
-								req.sendResponse(std::move(hdr), "true");
-							}
-
-						}
-					} else if (cmd == "chart") {
-						simpleServer::QueryParser qp(req.getPath());
-						auto strlimit = qp["limit"];
-						unsigned int limit = 100000;
-						if (strlimit.defined()) {
-							limit = strtoul(strlimit.data,0,10);
-						};
+					} else if (cmd == "trading") {
+						Object out;
 						auto chart = tr->getChart();
-						if (limit > chart.length) limit = chart.length;
-						auto subchart = chart.substr(chart.length - limit);
-						Value jsondata(json::array, subchart.begin(), subchart.end(),[&](auto &&item) {
-							return Object
-									("last", item.last)
-									("ask", item.ask)
-									("bid", item.bid)
-									("time", item.time);
-						});
-						hdr.cacheFor(50);
-						auto s = req.sendResponse(std::move(hdr));
-						jsondata.serialize(s);
-					} else if (cmd == "strategy") {
-						if (!req.allowMethods({"GET","PUT"})) return ;
-						if (req.getMethod() == "GET") {
-							auto &calc = tr->getStrategy();
-							req.sendResponse(std::move(hdr), calc.exportState().toString());
-						} else {
-							req.readBodyAsync(10000, [=](HTTPRequest req) {
-								try {
-									Value v = Value::fromString(StrViewA(BinaryView(req.getUserBuffer())));
-									auto &calc = tr->getStrategy();
-									calc.importState(v);
-
-								} catch (std::exception &e) {
-									req.sendErrorPage(400,StrViewA(),e.what());
-								}
-							});
-						}
+						auto &&broker = tr->getBroker();
+						broker.reset();
+						if (chart.length>600) chart.substr(chart.length-600);
+						out.set("chart", Value(json::array,chart.begin(), chart.end(),[&](auto &&item) {
+							return Object("time", item.time)("last",item.last);
+						}));
+						std::size_t start = chart.empty()?0:chart[0].time;
+						auto trades = tr->getTrades();
+						out.set("trades", Value(json::array, trades.begin(), trades.end(),[&](auto &&item) {
+							if (item.time >= start) return item.toJSON(); else return Value();
+						}));
+						out.set("ticker", ([&](auto &&t) {
+							return Object("ask", t.ask)("bid", t.bid)("last", t.last)("time", t.time);
+						})(broker.getTicker(tr->getConfig().pairsymb)));
+						out.set("orders", getOpenOrders(broker, tr->getConfig().pairsymb));
+						out.set("broker", tr->getConfig().broker);
+						out.set("pair", getPairInfo(broker, tr->getConfig().pairsymb));
+						req.sendResponse(std::move(hdr), Value(out).stringify());
 					}
+
 				}
 			}
 		} catch (std::exception &e) {
@@ -678,3 +678,58 @@ bool WebCfg::State::logout_commit(std::string &&user) {
 		return true;
 	}
 }
+
+bool WebCfg::reqEditor(simpleServer::HTTPRequest req) const {
+	if (!req.allowMethods({"POST"})) return true;
+	req.readBodyAsync(10000,[&trlist = this->trlist, state = this->state](simpleServer::HTTPRequest req) {
+
+		Value data = Value::fromString(StrViewA(BinaryView(req.getUserBuffer())));
+		Value broker = data["broker"];
+		Value trader = data["trader"];
+		Value pair = data["pair"];
+		std::string p;
+
+		Sync _(state->lock);
+		NamedMTrader *tr = trlist.find(trader.toString().str());
+		IStockApi *api = nullptr;
+		if (tr == nullptr) {
+			api = trlist.stockSelector.getStock(broker.toString().str());
+		} else {
+			api = &tr->getBroker();
+		}
+		if (api == nullptr) {
+			return req.sendErrorPage(404);
+		}
+		if (tr && !pair.hasValue()) {
+			p = tr->getConfig().pairsymb;
+		} else {
+			p = pair.toString().str();
+		}
+
+
+		api->reset();
+		auto binfo = api->getBrokerInfo();
+		auto pairinfo = api->getMarketInfo(p);
+
+
+		Value strategy;
+		if (tr) {
+			strategy = tr->getStrategy().exportState();
+		}
+
+		Object result;
+		result.set("broker",Object
+				("name", binfo.name)
+				("exchangeName", binfo.exchangeName)
+				("version", binfo.version)
+				("settings", binfo.settings)
+				("trading_enabled", binfo.trading_enabled));
+		result.set("pair", getPairInfo(*api, p));
+		result.set("orders", getOpenOrders(*api, p));
+		result.set("strategy", strategy);
+
+		req.sendResponse("application/json", Value(result).stringify());
+	});
+	return true;
+}
+

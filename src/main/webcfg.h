@@ -15,6 +15,7 @@
 #include <mutex>
 
 #include <shared/ini_config.h>
+#include "../server/src/rpc/rpcServer.h"
 #include "istockapi.h"
 #include "authmapper.h"
 #include "traders.h"
@@ -75,7 +76,8 @@ public:
 		traders,
 		stop,
 		logout,
-		logout_commit
+		logout_commit,
+		editor,
 	};
 
 	AuthMapper auth;
@@ -94,6 +96,7 @@ protected:
 	bool reqLogout(simpleServer::HTTPRequest req, bool commit) const;
 	bool reqStop(simpleServer::HTTPRequest req) const;
 	bool reqBrokerSpec(simpleServer::HTTPRequest req, ondra_shared::StrViewA rest, IStockApi *api) const;
+	bool reqEditor(simpleServer::HTTPRequest req) const;
 
 	using Sync = std::unique_lock<std::recursive_mutex>;
 

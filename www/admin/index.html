@@ -20,9 +20,9 @@
 	<div class="icon red" data-name="icon_delete"><img src="../res/delete.png" title="Delete trader"></div></div>
 <label><span>ID</span><span data-name="id" ></span></label>
 <label><span>Broker</span><span><img src="" data-name="broker_img" class="inline_img">
-	<span data-name="broker_id"></span> (<span data-name="broker"></span> <span data-name="broker_ver"></span>)<br/>
-	<span class="no_api_key" data-name="no_api_key" hidden="hidden">⚠️ - API key isn't set</span>
-	<span class="no_api_key" data-name="api_key_not_saved" hidden="hidden">⚠️ - API key is not active. Please save the configuration to activate the API key</span></span>
+	<span data-name="broker_id"></span> (<span data-name="broker"><span class="spinner fast inline"></span></span> <span data-name="broker_ver"></span>)<br/>
+	<span class="no_api_key" data-name="no_api_key" hidden="hidden">⚠️ - Missing API key</span>
+	<span class="no_api_key" data-name="api_key_not_saved" hidden="hidden">⚠️ - API key is not active yet</span></span>
 	</label>
 
 
@@ -51,7 +51,9 @@
 </div>
 
 </div>
-<div class="label"><a href="" data-name="see_internals">See internals</a><pre data-name="internals"></pre></div>
+<div class="label adv"><span>Strategy state</span><x-section>
+	<div class="label" data-name="strategy_fields[]"><span data-name="key"></span><input type="text" readonly="readonly" data-name="value"></div>
+	</x-section></div>
 </x-section>
 <x-section data-name="strategy_halfhalf" class="goal hidden" hidden="hidden"><x-section-caption>Half-Half/Keep Value</x-section-caption>
 <label><span>External assets <span class="tooltip">Amount of assets held outside of exchange. They are included into calculations.</span></span><input type="number" step="any" data-name="external_assets"></label>
@@ -159,7 +161,7 @@ The position is not generally in the sync due to various issues. You need to spe
 <div data-name="caption"></div>
 </div>
 </div>
-<div class="no_api_key" data-name="excl_info" hidden="hidden">⚠️ - no API keys are set</div>
+<div class="no_api_key" data-name="excl_info" hidden="hidden">⚠️ - Missing API key</div>
 <button data-name="cancel">Cancel</button>
 </div>
 </div>
@@ -243,6 +245,9 @@ The position is not generally in the sync due to various issues. You need to spe
 <td data-name="info_button">🛈</td>
 </table>
 <span class="no_api_key" data-name="need_save" hidden="hidden">⚠️ - Remember to click on the Apply button to make settings take an effect</span></span>
+<div class="waitdlg"  data-name="spinner">
+<div class="spinner"></div>
+</div>
 </x-section>
 </x-form>
 </template>
