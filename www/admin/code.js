@@ -352,6 +352,57 @@ App.prototype.fillForm = function (src, trg) {
 					"!click":this.brokerConfig.bind(this, src.broker, src.pair_symbol)
 				}					
 		data.open_orders_sect = {".hidden":!mp.length};
+
+		var money = Math.abs(pair.currency_balance);
+		var m2 = Math.abs(pair.asset_balance)*pair.price;
+		if (m2 > money) money = m2;
+		
+		function linStrategy_recalc() {
+			var fdata = {};
+			var inputs = trg.readData(["max_pos","cstep","neutral_pos"]);
+			var pos = pair.asset_balance - inputs.neutral_pos;
+			var k = inputs.cstep / (pair.price*pair.price * 0.01);
+			var mp = pos/k + pair.price;
+			var lp = mp-inputs.max_pos/k;
+			fdata.linear_max_in_pos = adjNum(0.5*k*(mp - lp)*(mp - lp));
+			var minp = -inputs.max_pos/k+mp;
+			var maxp = +inputs.max_pos/k+mp;
+			if (pair.invert_price) {
+				fdata.linear_max_price = adjNum(1/minp);
+				fdata.linear_min_price = adjNum(1/maxp);
+			} else {
+				fdata.linear_min_price = adjNum(minp);
+				fdata.linear_max_price = adjNum(maxp);				
+			}
+			trg.setData(fdata);
+		}
+		function linStrategy_recomended() {
+			var invest = pair.currency_balance / 10;
+			var k = invest / (pair.price*pair.price * 0.01);
+			var max_pos = Math.sqrt(k * pair.currency_balance);
+			trg.setData({
+				cstep : adjNumN(invest),
+				max_pos: adjNumN(max_pos)
+			});
+			linStrategy_recalc();
+		}
+		function linStrategy_recomended_maxpos() {			
+			var invest = trg.readData(["cstep"]).cstep;
+			var k = invest / (pair.price*pair.price * 0.01);
+			var max_pos = Math.sqrt(k * pair.currency_balance);
+			trg.setData({
+				max_pos: adjNumN(max_pos)
+			});
+			linStrategy_recalc();
+		}
+		data.max_pos = data.cstep = data.neutral_pos = {"!input": linStrategy_recalc};
+		data.linear_suggest = {"!click":linStrategy_recomended};
+		data.linear_suggest_maxpos = {"!click":linStrategy_recomended_maxpos};
+		linStrategy_recalc();
+		var tmp = trg.readData(["cstep","max_pos"]);
+		if (!tmp.max_pos && !tmp.cstep) linStrategy_recomended();
+		
+		
 	}.bind(this);
 	
 	if (this.fillFormCache[src.id]) fillHeader(this.fillFormCache[src.id], data)
@@ -360,7 +411,7 @@ App.prototype.fillForm = function (src, trg) {
 
 	
 	data.strategy = (src.strategy && src.strategy.type) || "";
-	data.step = 0;
+	data.cstep = 0;
 	data.neutral_pos = 0;
 	data.pl_acum = 0;
 	data.acum_factor = 0;

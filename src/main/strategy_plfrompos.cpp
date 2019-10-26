@@ -95,10 +95,20 @@ double Strategy_PLFromPos::calcOrderSize(double price, double assets) const {
 
 Strategy_PLFromPos::MinMax Strategy_PLFromPos::calcSafeRange(double assets,
 		double currencies) const {
-	return MinMax {
-		p - sqrt(2*currencies/calcK()),
-		assets / calcK() + p
-	};
+	double pos = assets-cfg.neutral_pos-acm;
+	double k = calcK();
+	double mp = pos / k + p;
+	if (cfg.maxpos) {
+		return MinMax {
+			-cfg.maxpos /k + mp,
+			cfg.maxpos /k + mp
+		};
+	} else {
+		return MinMax {
+			p - sqrt(2*currencies/calcK()),
+			assets / calcK() + p
+		};
+	}
 }
 
 double Strategy_PLFromPos::getEquilibrium() const {
