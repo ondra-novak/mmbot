@@ -120,7 +120,7 @@ void AbstractExtern::spawn() {
 
 	{
 
-		log.progress("Connecting to market: cmdline='$1', workdir='$2'", cmdline, workingDir);
+		log.progress("Connecting to broker: cmdline='$1', workdir='$2'", cmdline, workingDir);
 
 		Pipe proc_input (makePipe());
 		Pipe proc_output (makePipe());
