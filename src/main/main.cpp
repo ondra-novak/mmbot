@@ -258,9 +258,9 @@ int main(int argc, char **argv) {
 						{
 							std::string cmdline;
 							std::string workdir;
-							cmdline = rptsect["daily_report_service"].getPath();
-							workdir = rptsect["daily_report_service"].getCurPath();
-							perfmod = std::make_unique<ExtDailyPerfMod>(cmdline,"performance_module", workdir);
+							cmdline = dr.getPath();
+							workdir = dr.getCurPath();
+							perfmod = std::make_unique<ExtDailyPerfMod>(workdir,"performance_module", cmdline);
 						} else {
 							perfmod = std::make_unique<LocalDailyPerfMonitor>(sf.create("_performance_daily"), storagePath+"/_performance_current");
 						}
