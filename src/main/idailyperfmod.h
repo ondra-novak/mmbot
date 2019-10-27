@@ -25,7 +25,7 @@ public:
 
 	virtual void sendItem(const PerformanceReport &report) = 0;
 	virtual json::Value getReport()  = 0;
-
+	virtual ~IDailyPerfModule() {}
 };
 
 

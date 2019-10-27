@@ -27,6 +27,7 @@
 #include "webcfg.h"
 #include "spawn.h"
 
+#include "extdailyperfmod.h"
 #include "localdailyperfmod.h"
 #include "stats2report.h"
 #include "traders.h"
@@ -239,6 +240,7 @@ int main(int argc, char **argv) {
 						auto rptsect = app.config["report"];
 						auto rptpath = rptsect.mandatory["path"].getPath();
 						auto rptinterval = rptsect["interval"].getUInt(864000000);
+						auto dr = rptsect["daily_report_service"];
 
 
 
@@ -252,11 +254,15 @@ int main(int argc, char **argv) {
 
 
 						std::unique_ptr<IDailyPerfModule> perfmod;
+						if (dr.defined())
 						{
-							//TODO: extend to allow external performance monitors
-
+							std::string cmdline;
+							std::string workdir;
+							cmdline = rptsect["daily_report_service"].getPath();
+							workdir = rptsect["daily_report_service"].getCurPath();
+							perfmod = std::make_unique<ExtDailyPerfMod>(cmdline,"performance_module", workdir);
+						} else {
 							perfmod = std::make_unique<LocalDailyPerfMonitor>(sf.create("_performance_daily"), storagePath+"/_performance_current");
-
 						}
 
 
