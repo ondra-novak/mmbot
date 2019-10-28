@@ -14,6 +14,7 @@ add_subdirectory (src/coinmate)
 add_subdirectory (src/poloniex)
 add_subdirectory (src/binance)
 add_subdirectory (src/deribit)
+add_subdirectory (src/bitmex)
 
 
 install(DIRECTORY conf DESTINATION ".") 
