@@ -16,8 +16,8 @@ using ondra_shared::logDebug;
 #include "../shared/logOutput.h"
 std::string_view Strategy_KeepValue::id = "keepvalue";
 
-Strategy_KeepValue::Strategy_KeepValue(const Config& cfg, double p, double a, double acm)
-:cfg(cfg),p(p),a(a),acm(acm)
+Strategy_KeepValue::Strategy_KeepValue(const Config& cfg, double p, double a)
+:cfg(cfg),p(p),a(a)
 {
 }
 
@@ -34,15 +34,14 @@ std::pair<Strategy_KeepValue::OnTradeResult, IStrategy*> Strategy_KeepValue::onT
 		double currencyLeft) const {
 
 	double k = (a+cfg.ea) * p;
-	double cf = (assetsLeft-tradeSize-acm+cfg.ea)*(tradePrice - p);
+	double cf = (assetsLeft-tradeSize+cfg.ea)*(tradePrice - p);
 	double nv = k * std::log(tradePrice/p);
 	double pf = cf - nv;
 	double ap = (pf / tradePrice) * cfg.accum;
 	double np = pf * (1.0 - cfg.accum);
-	double new_acm = acm+ap;
-	double new_a = (k / tradePrice) - cfg.ea - acm;
+	double new_a = (k / tradePrice) - cfg.ea;
 	return {
-		OnTradeResult{np,ap}, new Strategy_KeepValue(cfg, tradePrice, new_a, new_acm)
+		OnTradeResult{np,ap}, new Strategy_KeepValue(cfg, tradePrice, new_a+ap)
 	};
 
 }
@@ -50,8 +49,7 @@ std::pair<Strategy_KeepValue::OnTradeResult, IStrategy*> Strategy_KeepValue::onT
 json::Value Strategy_KeepValue::exportState() const {
 	return json::Object
 			("p", p)
-			("a", a)
-			("acm", acm);
+			("a", a);
 }
 
 IStrategy* Strategy_KeepValue::importState(json::Value src) const {
@@ -61,7 +59,7 @@ IStrategy* Strategy_KeepValue::importState(json::Value src) const {
 double Strategy_KeepValue::calcOrderSize(double price, double assets) const {
 	double k = (a+cfg.ea) * p;
 	double na = k / price;
-	return (na - cfg.ea) - assets + acm;
+	return (na - cfg.ea) - assets;
 }
 
 Strategy_KeepValue::MinMax Strategy_KeepValue::calcSafeRange(double assets,

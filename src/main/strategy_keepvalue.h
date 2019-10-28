@@ -17,7 +17,7 @@ public:
 		double accum;
 	};
 
-	Strategy_KeepValue(const Config &cfg, double p = 0, double a = 0, double acm = 0);
+	Strategy_KeepValue(const Config &cfg, double p = 0, double a = 0);
 
 	virtual bool isValid() const override;
 	virtual IStrategy *init(double curPrice, double assets, double currency) const override;
@@ -38,7 +38,6 @@ protected:
 	Config cfg;
 	double p;
 	double a;
-	double acm;
 };
 
 
