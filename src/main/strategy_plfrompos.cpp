@@ -39,14 +39,10 @@ double Strategy_PLFromPos::calcK() const {
 double Strategy_PLFromPos::calcNewPos(double tradePrice, bool reducepos) const {
 	double k = calcK();
 	double new_pos;
-	new_pos = pos + (p - tradePrice) * k;
-	if (new_pos * pos > 0 && reducepos) {
-		// ((p - tradePrice)*pos_change)/tradePrice =
-		double absdf = fabs(new_pos) - fabs(pos);
-		if (absdf < 0) {
-			double red_pos = sgn(pos)*sqrt(fabs(pos)*(fabs(pos)+sgn(pos)*(2*k*p-2*k*tradePrice)));
-			if (isfinite(red_pos)) new_pos = red_pos;
-		}
+	if (pos == 0 || (p - tradePrice) / pos > 0 ) new_pos = pos + (p - tradePrice) * k;
+	else {
+		double inr = 1 +  2*k*(p - tradePrice)/pos;
+		new_pos = inr>=0?pos * sqrt(inr):0;
 	}
 	return new_pos;
 }

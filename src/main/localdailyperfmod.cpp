@@ -66,7 +66,7 @@ void LocalDailyPerfMonitor::prepareReport() {
 
 
 	Value jheader (json::array, header.begin(), header.end(), [](StrViewA x){return x;});
-	jheader.unshift("time");
+	jheader.unshift("Date");
 	Array reportrows;
 	for (Value row: dailySums) {
 		Value data = row[1];
