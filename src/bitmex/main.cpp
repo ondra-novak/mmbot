@@ -73,11 +73,13 @@ public:
 
 	struct SymbolInfo {
 		String id;
+		String qtc;
 		bool inverse;
 		double multiplier;
 		double lotSize;
 		double leverage;
 		double tickSize;
+		double quantoMult;
 
 	};
 
@@ -108,6 +110,7 @@ private:
 
 	void saveOptions();
 	void loadOptions();
+	Value getBalanceCache();
 };
 
 
@@ -126,14 +129,19 @@ int main(int argc, char **argv) {
 
 }
 
+Value Interface::getBalanceCache() {
+	if (!balanceCache.hasValue()) {
+		balanceCache = px.request("GET","/api/v1/user/margin", Object("currency","XBt")
+					("columns",{"marginBalance"}));
+	}
+	return balanceCache;
+}
+
 inline double Interface::getBalance(const std::string_view &symb) {
 	if (symb == "BTC") {
-		if (!balanceCache.hasValue()) {
-			balanceCache = px.request("GET","/api/v1/user/margin", Object("currency","XBt")
-						("columns",{"marginBalance"}));
-		}
-		return balanceCache["marginBalance"].getNumber()*1e-8;
-
+		return getBalanceCache()["marginBalance"].getNumber()*1e-8;
+	} else 	if (symb == "USD") {
+		return getBalanceCache()["marginBalance"].getNumber()*0.000001;
 	} else {
 		const SymbolInfo &s = getSymbol(symb);
 		if (!positionCache.hasValue()) {
@@ -353,11 +361,11 @@ inline Interface::MarketInfo Interface::getMarketInfo(const std::string_view &pa
 	if (s.inverse) {
 		return MarketInfo{
 			std::string(pair),
-			"BTC",
+			s.qtc.str(),
 			s.multiplier*s.lotSize,
 			0,
 			s.multiplier*s.lotSize,
-			allowSmallOrders?0:0.0026,
+			allowSmallOrders?0:0.0026/s.quantoMult,
 			0,
 			currency,
 			s.leverage,
@@ -368,11 +376,11 @@ inline Interface::MarketInfo Interface::getMarketInfo(const std::string_view &pa
 	} else {
 		return MarketInfo{
 			std::string(pair),
-			"BTC",
+			s.qtc.str(),
 			s.multiplier*s.lotSize,
 			s.tickSize,
 			s.multiplier*s.lotSize,
-			allowSmallOrders?0:0.0026,
+			allowSmallOrders?0:0.0026/s.quantoMult,
 			0,
 			currency,
 			s.leverage,
@@ -458,26 +466,31 @@ void Interface::updateSymbols() {
 			Object("columns",{"optionUnderlyingPrice","isQuanto","settlCurrency","symbol","isInverse","rootSymbol","quoteCurrency","multiplier","lotSize","initMargin","tickSize"}));
 	std::vector<SymbolList::value_type> smap;
 	for (Value s : resp) {
+		SymbolInfo sinfo;
+		sinfo.id = s["symbol"].toString();
 		if (s["optionUnderlyingPrice"].hasValue())
-			continue;
-
-		if (s["isQuanto"].getBool())
 			continue;
 
 		if (s["settlCurrency"].getString() != "XBt")
 			continue;
 
-		SymbolInfo sinfo;
-		sinfo.id = s["symbol"].toString();
 		sinfo.inverse = s["isInverse"].getBool();
 		if (sinfo.inverse) {
 			if (s["rootSymbol"].getString() != "XBT")
 				continue;
-		} else {
-			if (s["quoteCurrency"].getString() != "XBT")
-				continue;
+			sinfo.qtc = "BTC";
 		}
-		sinfo.multiplier = fabs(s["multiplier"].getNumber())/ 100000000.0;
+		if (s["isQuanto"].getBool()) {
+			sinfo.qtc = s["quoteCurrency"].toString();
+			//only USD as quanto is supported
+			if (sinfo.qtc != "USD") continue;
+			sinfo.quantoMult = 0.000001;
+		} else {
+			sinfo.qtc = "BTC";
+			sinfo.quantoMult = 1;
+		}
+
+		sinfo.multiplier = fabs(s["multiplier"].getNumber())/ (100000000.0*sinfo.quantoMult);
 		sinfo.lotSize = s["lotSize"].getNumber();
 		sinfo.leverage = 1/s["initMargin"].getNumber();
 		sinfo.tickSize = s["tickSize"].getNumber();
