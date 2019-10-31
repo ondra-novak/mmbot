@@ -23,7 +23,6 @@ public:
 	cURLpp::Easy curl_handle;
 
 	json::Value request(
-			bool auth,
 			const std::string_view &verb,
 			const std::string_view path,
 			const json::Value &query = json::Value(),

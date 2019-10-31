@@ -61,7 +61,6 @@ std::string Proxy::buildPath(const std::string_view path, const json::Value &que
 }
 
 json::Value Proxy::request(
-		bool auth,
 		const std::string_view &verb,
 		const std::string_view path,
 		const json::Value &query,
@@ -73,7 +72,7 @@ json::Value Proxy::request(
 
 	std::list<std::string> headers;
 
-	if (auth) {
+	if (hasKey()) {
 		auto authdata = signRequest(verb, fpath, fdata);
 
 		headers.push_back("api-expires: "+authdata.expires);
