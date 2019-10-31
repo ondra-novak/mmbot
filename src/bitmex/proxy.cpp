@@ -158,6 +158,7 @@ std::uintptr_t Proxy::now() {
 
 void Proxy::setTestnet(bool testnet) {
 	apiUrl = testnet?"https://testnet.bitmex.com":"https://www.bitmex.com";
+	this->testnet = testnet;
 }
 
 Proxy::AuthData Proxy::signRequest(const std::string_view &verb,

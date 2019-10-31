@@ -21,6 +21,7 @@ public:
 	std::string privKey;
 	std::string pubKey;
 	cURLpp::Easy curl_handle;
+	bool testnet = false;
 
 	json::Value request(
 			const std::string_view &verb,

@@ -154,4 +154,5 @@ std::uintptr_t Proxy::now() {
 
 void Proxy::setTestnet(bool testnet) {
 	apiUrl = testnet?"https://test.deribit.com/api/v2":"https://www.deribit.com/api/v2";
+	this->testnet = testnet;
 }

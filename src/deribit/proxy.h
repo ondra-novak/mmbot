@@ -22,6 +22,7 @@ public:
 	std::string pubKey;
 	std::string scopes;
 	cURLpp::Easy curl_handle;
+	bool testnet;
 
 	///Send request
 	/**

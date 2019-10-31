@@ -304,7 +304,8 @@ inline Interface::MarketInfo Interface::getMarketInfo(const std::string_view &pa
 		IStockApi::currency,
 		leverage,
 		true,
-		"USD"
+		"USD",
+		px.testnet
 	};
 
 

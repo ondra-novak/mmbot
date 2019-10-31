@@ -363,6 +363,7 @@ inline Interface::MarketInfo Interface::getMarketInfo(const std::string_view &pa
 			s.leverage,
 			true,
 			"USD",
+			px.testnet
 		};
 	} else {
 		return MarketInfo{
@@ -376,7 +377,8 @@ inline Interface::MarketInfo Interface::getMarketInfo(const std::string_view &pa
 			currency,
 			s.leverage,
 			false,
-			"XBT"
+			"XBT",
+			px.testnet
 		};
 	}
 }
