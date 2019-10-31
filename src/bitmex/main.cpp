@@ -101,12 +101,10 @@ private:
 
 	Value readOrders();
 
-	std::chrono::system_clock::time_point nextQuoteTime;
 
 	std::size_t quoteEachMin = 5;
 	bool allowSmallOrders = false;
 	std::string optionsFile;
-	bool quote_enabled = false;
 
 	void saveOptions();
 	void loadOptions();
@@ -285,6 +283,8 @@ inline json::Value Interface::placeOrder(const std::string_view &pair,
 		double size, double price, json::Value clientId, json::Value replaceId,
 		double replaceSize) {
 
+	std::intptr_t now = std::intptr_t(px.now()*1000);
+
 	const SymbolInfo &s = getSymbol(pair);
 	if (s.inverse && price) {
 		size = -size;
@@ -301,8 +301,10 @@ inline json::Value Interface::placeOrder(const std::string_view &pair,
 			return v["orderID"] == replaceId;
 		});
 		if (toCancel.hasValue()) {
-			if (size != 0 && !quote_enabled) {
-				if (px.debug) std::cerr << "Re-quote disallowed for this time" << std::endl;
+			std::intptr_t  orderTime = std::intptr_t (parseTime(toCancel["transactTime"].getString()));
+			std::intptr_t limitTime = std::intptr_t(quoteEachMin*60000);
+			if (size != 0 && quoteEachMin && now-orderTime < limitTime) {
+				if (px.debug) std::cerr << "Re-quote disallowed for this time (" << (now-orderTime) <<" < " << limitTime <<") "<< std::endl;
 				return toCancel["orderID"];
 			}
 			if (toCancel["Side"] == side && toCancel["symbol"].getString() == pair
@@ -340,13 +342,6 @@ inline bool Interface::reset() {
 	balanceCache = nullptr;
 	positionCache = nullptr;
 	orderCache = nullptr;
-	auto now = std::chrono::system_clock::now();
-	if (now > nextQuoteTime) {
-		quote_enabled = true;
-		nextQuoteTime = now+std::chrono::seconds(quoteEachMin*60-30);
-	} else {
-		quote_enabled = false;
-	}
 
 
 	return true;
@@ -454,7 +449,6 @@ inline void Interface::onLoadApiKey(json::Value keyData) {
 
 inline void Interface::onInit() {
 	loadOptions();
-	nextQuoteTime = std::chrono::system_clock::now();
 }
 
 void Interface::updateSymbols() {
@@ -510,26 +504,27 @@ inline json::Value Interface::getSettings(const std::string_view&) const {
 	return {
 		Object
 			("name","quoteEachMin")
-			("label","Quote price each")
+			("label","Allow to move the order")
 			("type","enum")
 			("options",Object
-					("m01", "1 minute")
-					("m02", "2 minutes")
-					("m03", "3 minutes")
-					("m04", "4 minutes")
-					("m05", "5 minutes")
-					("m07", "7 minutes")
-					("m10", "10 minutes")
-					("m15", "15 minutes")
-					("m20", "20 minutes")
-					("m30", "30 minutes"))
+					("m00", "anytime")
+					("m01", "every 1 minute")
+					("m02", "every 2 minutes")
+					("m03", "every 3 minutes")
+					("m04", "every 4 minutes")
+					("m05", "every 5 minutes")
+					("m07", "every 7 minutes")
+					("m10", "every 10 minutes")
+					("m15", "every 15 minutes")
+					("m20", "every 20 minutes")
+					("m30", "every 30 minutes"))
 			("default",m),
 		Object
 			("name","allowSmallOrders")
 			("label","Allow small orders (spam orders)")
 			("type","enum")
 			("options", Object
-					("allow", "Allow")
+					("allow", "Allow (not recommended)")
 					("disallow", "Disallow"))
 			("default",allowSmallOrders?"allow":"disallow")
 	};
@@ -538,7 +533,6 @@ inline json::Value Interface::getSettings(const std::string_view&) const {
 inline void Interface::setSettings(json::Value v) {
 	quoteEachMin = std::strtod(v["quoteEachMin"].getString().data+1,nullptr);
 	allowSmallOrders = v["allowSmallOrders"].getString() == "allow";
-	nextQuoteTime = std::chrono::system_clock::now();
 	saveOptions();
 }
 
