@@ -141,7 +141,7 @@ inline double Interface::getBalance(const std::string_view &symb) {
 	if (symb == "BTC") {
 		return getBalanceCache()["marginBalance"].getNumber()*1e-8;
 	} else 	if (symb == "USD") {
-		return getBalanceCache()["marginBalance"].getNumber()*0.000001;
+		return getBalanceCache()["marginBalance"].getNumber()*1e-8/0.000001;
 	} else {
 		const SymbolInfo &s = getSymbol(symb);
 		if (!positionCache.hasValue()) {
@@ -528,11 +528,13 @@ inline json::Value Interface::getSettings(const std::string_view&) const {
 					("m03", "every 3 minutes")
 					("m04", "every 4 minutes")
 					("m05", "every 5 minutes")
-					("m07", "every 7 minutes")
+					("m07", "every 6 minutes")
 					("m10", "every 10 minutes")
+					("m10", "every 12 minutes")
 					("m15", "every 15 minutes")
 					("m20", "every 20 minutes")
-					("m30", "every 30 minutes"))
+					("m30", "every 30 minutes")
+					("m60", "every 60 minutes"))
 			("default",m),
 		Object
 			("name","allowSmallOrders")

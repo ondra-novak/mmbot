@@ -208,12 +208,12 @@ void MTrader::perform(bool manually) {
 			//calculate buy order
 			auto buyorder = calculateOrder(lastTradePrice,
 										  -status.curStep*cfg.buy_step_mult, buy_dynmult,
-										   status.curPrice, status.assetBalance,
+										   status.ticker.bid, status.assetBalance,
 										   cfg.buy_mult);
 			//calculate sell order
 			auto sellorder = calculateOrder(lastTradePrice,
 										   status.curStep*cfg.sell_step_mult, sell_dynmult,
-										   status.curPrice, status.assetBalance,
+										   status.ticker.ask, status.assetBalance,
 										   cfg.sell_mult);
 
 			if (!cfg.enabled)  {
@@ -424,6 +424,7 @@ MTrader::Status MTrader::getMarketStatus() const {
 	res.new_fees = stock.getFees(cfg.pairsymb);
 
 	auto ticker = stock.getTicker(cfg.pairsymb);
+	res.ticker = ticker;
 	res.curPrice = std::sqrt(ticker.ask*ticker.bid);
 
 	res.chartItem.time = ticker.time;

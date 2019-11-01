@@ -111,6 +111,7 @@ public:
 
 
 	struct Status {
+		IStockApi::Ticker ticker;
 		double curPrice;
 		double curStep;
 		double assetBalance;
