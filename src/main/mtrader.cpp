@@ -15,6 +15,7 @@
 
 #include "../shared/stringview.h"
 #include "emulator.h"
+#include "ibrokercontrol.h"
 #include "sgn.h"
 
 using ondra_shared::logDebug;
@@ -516,12 +517,16 @@ MTrader::Order MTrader::calculateOrder(
 
 void MTrader::loadState() {
 	minfo = stock.getMarketInfo(cfg.pairsymb);
+	std::string brokerImg;
+	const IBrokerIcon *bicon = dynamic_cast<const IBrokerIcon *>(&stock);
+	if (bicon) brokerImg = bicon->getIconName();
 	this->statsvc->setInfo(
 			IStatSvc::Info {
 				cfg.title,
 				minfo.asset_symbol,
 				minfo.currency_symbol,
 				minfo.invert_price?minfo.inverted_symbol:minfo.currency_symbol,
+				brokerImg,
 				cfg.report_position_offset,
 				minfo.invert_price,
 				minfo.leverage != 0,

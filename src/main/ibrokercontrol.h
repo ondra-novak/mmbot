@@ -7,6 +7,7 @@
 
 #ifndef SRC_MAIN_IBROKERCONTROL_H_
 #define SRC_MAIN_IBROKERCONTROL_H_
+#include <imtjson/value.h>
 
 class IBrokerControl {
 public:
@@ -16,6 +17,12 @@ public:
 	virtual ~IBrokerControl() {}
 };
 
-
+class IBrokerIcon {
+public:
+	//saves image to disk to specified path
+	virtual void saveIconToDisk(const std::string &path) const = 0;
+	//retrieves name of saved image
+	virtual std::string getIconName() const = 0;
+};
 
 #endif /* SRC_MAIN_IBROKERCONTROL_H_ */

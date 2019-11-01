@@ -270,7 +270,7 @@ int main(int argc, char **argv) {
 						Worker wrk = schedulerGetWorker(sch);
 
 						traders = std::make_unique<Traders>(
-								sch,app.config["brokers"], app.test,sf,rpt,*perfmod
+								sch,app.config["brokers"], app.test,sf,rpt,*perfmod, rptpath
 						);
 
 						RefCntPtr<AuthUserList> aul;
@@ -386,6 +386,7 @@ int main(int argc, char **argv) {
 
 							return 0;
 						});
+
 
 						cntr.dispatch();
 

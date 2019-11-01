@@ -142,6 +142,17 @@ EmulatorAPI::BrokerInfo EmulatorAPI::getBrokerInfo() {
 	return datasrc.getBrokerInfo();
 }
 
+void EmulatorAPI::saveIconToDisk(const std::string &path) const {
+	const IBrokerIcon *icn = dynamic_cast<const IBrokerIcon *>(&datasrc);
+	if (icn) icn->saveIconToDisk(path);
+}
+
+std::string EmulatorAPI::getIconName() const {
+	const IBrokerIcon *icn = dynamic_cast<const IBrokerIcon *>(&datasrc);
+	if (icn) return icn->getIconName();
+	else return std::string();
+}
+
 void EmulatorAPI::simulation(const Ticker &tk) {
 
 	double cur = tk.last;

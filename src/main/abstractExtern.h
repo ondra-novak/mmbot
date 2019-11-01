@@ -45,7 +45,7 @@ protected:
 	std::string workingDir;
 	ondra_shared::LogObject log;
 
-	std::recursive_mutex lock;
+	mutable std::recursive_mutex lock;
 	using Sync = std::unique_lock<std::recursive_mutex>;
 
 	class Reader;

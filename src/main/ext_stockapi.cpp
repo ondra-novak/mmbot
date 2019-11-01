@@ -12,7 +12,10 @@
 
 #include <imtjson/object.h>
 #include <imtjson/binary.h>
+#include <fstream>
+#include <set>
 
+#include "../shared/finally.h"
 using namespace ondra_shared;
 
 
@@ -171,4 +174,31 @@ json::Value ExtStockApi::getSettings(const std::string_view & pairHint) const {
 
 void ExtStockApi::setSettings(json::Value v) {
 	jsonRequestExchange("setSettings", v);
+}
+
+
+
+
+void ExtStockApi::saveIconToDisk(const std::string &path) const {
+	Sync _(lock);
+
+	static std::set<std::string> files;
+	auto clean_call = []{
+			for (auto &&k: files) std::remove(k.c_str());
+	};
+	static ondra_shared::FinallyImpl<decltype(clean_call)> finally(std::move(clean_call));
+
+	std::string name =getIconName();
+	std::string fullpath = path+"/"+name;
+	if (files.find(fullpath) == files.end()) {
+		std::ofstream f(fullpath, std::ios::out|std::ios::trunc|std::ios::binary);
+		BrokerInfo binfo = const_cast<ExtStockApi *>(this)->getBrokerInfo();
+		json::Binary b = json::base64->decodeBinaryValue(binfo.favicon).getBinary(json::base64);
+		f.write(reinterpret_cast<const char *>(b.data), b.length);
+		files.insert(fullpath);
+	}
+}
+
+std::string ExtStockApi::getIconName() const {
+	return name+".png";
 }

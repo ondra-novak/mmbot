@@ -10,11 +10,12 @@
 #include <optional>
 
 #include "../shared/logOutput.h"
+#include "ibrokercontrol.h"
 #include "istockapi.h"
 
 
 
-class EmulatorAPI: public IStockApi {
+class EmulatorAPI: public IStockApi, public IBrokerIcon {
 public:
 
 	EmulatorAPI(IStockApi &datasrc, double initial_currency);
@@ -33,6 +34,10 @@ public:
 	virtual std::vector<std::string> getAllPairs() override;
 	virtual void testBroker() override {datasrc.testBroker();}
 	virtual BrokerInfo getBrokerInfo() override;
+	//saves image to disk to specified path
+	virtual void saveIconToDisk(const std::string &path) const override;
+	//retrieves name of saved image
+	virtual std::string getIconName() const override;
 
 	static std::string_view prefix;
 

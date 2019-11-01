@@ -180,6 +180,7 @@ void Report::setInfo(StrViewA symb, const InfoObj &infoObj) {
 			("currency", infoObj.currencySymb)
 			("asset", infoObj.assetSymb)
 			("price_symb", infoObj.priceSymb)
+			("brokerIcon", infoObj.brokerIcon)
 			("inverted", infoObj.inverted)
 			("emulated",infoObj.emulated)
 			("po", infoObj.position_offset);

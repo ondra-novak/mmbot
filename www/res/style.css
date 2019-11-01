@@ -249,9 +249,15 @@ x-trbgr.hdr {
 .head {
 	display: flex;
 	align-items: flex-start;
-	/* overflow-x: auto; */
-	/* flex-wrap: wrap; */
-	/* justify-content: space-between; */
+}
+
+.head >.title > img {
+	height: 1.0em;
+	vertical-align: middle;
+	padding: 0 0 0.1em 0;
+}
+.head >.title.emulated > img {
+	filter: sepia(1);
 }
 
 .summary::-webkit-scrollbar{

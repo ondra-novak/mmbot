@@ -15,7 +15,7 @@
 
 
 
-class ExtStockApi: public AbstractExtern, public IStockApi, public IApiKey, public IBrokerControl {
+class ExtStockApi: public AbstractExtern, public IStockApi, public IApiKey, public IBrokerControl, public IBrokerIcon {
 public:
 
 	ExtStockApi(const std::string_view & workingDir, const std::string_view & name, const std::string_view & cmdline);
@@ -40,6 +40,9 @@ public:
 	virtual json::Value getApiKeyFields() const override;
 	virtual json::Value getSettings(const std::string_view & pairHint) const override;
 	virtual void setSettings(json::Value v) override;
+	virtual void saveIconToDisk(const std::string &path) const override;
+	virtual std::string getIconName() const override;
+
 
 };
 

@@ -95,7 +95,9 @@ function app_start(){
 	
 	function fillInfo(curchart, title, link, ranges, emulated, misc) {
 		var elem_title = curchart.querySelector("[data-name=title]");
-		elem_title.classList.toggle("emulated",!!emulated);
+		var elem_title_class = curchart.querySelector("[data-name=title_class]");
+		var elem_icon = curchart.querySelector("[data-name=icon]");
+		elem_title_class.classList.toggle("emulated",!!emulated);
 		if (misc) {
 			curchart.classList.toggle("achieve", !!misc.a);
 			curchart.classList.toggle("trade_buy", !!misc.t && misc.t > 0);
@@ -113,7 +115,8 @@ function app_start(){
 				error_element.classList.remove("error");
 			}
 		}
-		elem_title.innerText = title;
+		elem_title.innerText = title;		
+		if (misc && misc.icon) elem_icon.src = misc.icon; else elem_icon.hidden = true;
 		var info = curchart.querySelector("[data-name=info]");
 		if (ranges) {
 			info.hidden = false;
@@ -672,6 +675,7 @@ function app_start(){
 					class: "last",
 				})
 				ranges[sm]["last"] = [stats.prices[sm],""];
+				stats.misc[sm].icon = infoMap[sm].brokerIcon;
 			
 			}
 

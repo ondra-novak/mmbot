@@ -48,13 +48,15 @@ public:
 	StorageFactory &sf;
 	Report &rpt;
 	IDailyPerfModule &perfMod;
+	std::string iconPath;
 
 	Traders(ondra_shared::Scheduler sch,
 			const ondra_shared::IniConfig::Section &ini,
 			bool test,
 			StorageFactory &sf,
 			Report &rpt,
-			IDailyPerfModule &perfMod);
+			IDailyPerfModule &perfMod,
+			std::string iconPath);
 	Traders(const Traders &&other) = delete;
 	void clear();
 
@@ -65,11 +67,15 @@ public:
 
 	void addTrader(const MTrader::Config &mcfg, ondra_shared::StrViewA n);
 	void removeTrader(ondra_shared::StrViewA n, bool including_state);
+	void loadIcons(const std::string &path);
 
 
 	void runTraders(bool manually);
 	void resetBrokers();
 	NamedMTrader *find(json::StrViewA id) const;
+
+private:
+	void loadIcon(MTrader &t);
 };
 
 

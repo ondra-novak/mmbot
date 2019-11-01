@@ -63,13 +63,15 @@ Traders::Traders(ondra_shared::Scheduler sch,
 		bool test,
 		StorageFactory &sf,
 		Report &rpt,
-		IDailyPerfModule &perfMod)
+		IDailyPerfModule &perfMod,
+		std::string iconPath)
 
 :
 test(test)
 ,sf(sf)
 ,rpt(rpt)
 ,perfMod(perfMod)
+,iconPath(iconPath)
 {
 	stockSelector.loadStockMarkets(ini, test);
 }
@@ -79,6 +81,12 @@ void Traders::clear() {
 	stockSelector.clear();
 }
 
+void Traders::loadIcon(MTrader &t) {
+	IStockApi &api = t.getBroker();
+	const IBrokerIcon *bicon = dynamic_cast<const IBrokerIcon*>(&api);
+	if (bicon)
+		bicon->saveIconToDisk(iconPath);
+}
 
 void Traders::addTrader(const MTrader::Config &mcfg ,ondra_shared::StrViewA n) {
 	using namespace ondra_shared;
@@ -89,6 +97,7 @@ void Traders::addTrader(const MTrader::Config &mcfg ,ondra_shared::StrViewA n) {
 		logProgress("Started trader $1 (for $2)", n, mcfg.pairsymb);
 		auto t = std::make_unique<NamedMTrader>(stockSelector, sf.create(n),
 				std::make_unique<StatsSvc>(n, rpt, &perfMod), mcfg, n);
+		loadIcon(*t);
 		traders.insert(std::pair(StrViewA(t->ident), std::move(t)));
 	} catch (const std::exception &e) {
 		logFatal("Error: $1", e.what());
@@ -140,4 +149,12 @@ NamedMTrader *Traders::find(json::StrViewA id) const {
 	auto iter = traders.find(id);
 	if (iter == traders.end()) return nullptr;
 	else return iter->second.get();
+}
+
+void Traders::loadIcons(const std::string &path) {
+	for (auto &&t: traders) {
+		IStockApi &api = t.second->getBroker();
+		const IBrokerIcon *bicon = dynamic_cast<const IBrokerIcon *>(&api);
+		if (bicon) bicon->saveIconToDisk(path);
+	}
 }
