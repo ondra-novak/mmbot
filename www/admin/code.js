@@ -657,7 +657,7 @@ App.prototype.brokerSelect = function() {
 			form.openModal();
 			var show_excl = false;
 			var lst = x.map(function(z) {
-				var e = _this.config.apikeys && _this.config.apikeys[itm];
+				var e = _this.config.apikeys && _this.config.apikeys[z];
 				var ex = e !== undefined || z.trading_enabled;
 				show_excl = show_excl || !ex;
 				return {

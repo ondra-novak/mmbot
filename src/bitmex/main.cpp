@@ -341,7 +341,7 @@ inline json::Value Interface::placeOrder(const std::string_view &pair,
 			 ("price",price)
 			 ("clOrdID", clId)
 			 ("ordType","Limit")
-			 ("execInsts","ParticipateDoNotInitiate");
+			 ("execInst","ParticipateDoNotInitiate");
 	Value resp = px.request("POST","/api/v1/order",Value(),order);
 	return resp["orderID"];
 }
