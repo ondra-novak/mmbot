@@ -71,7 +71,7 @@ double Strategy_HalfHalf::calcOrderSize(double n, double assets) const {
 Strategy_HalfHalf::MinMax Strategy_HalfHalf::calcSafeRange(double assets, double currencies) const {
 	MinMax r;
 	double s = a * p - currencies;
-	r.max = ea<=0?std::numeric_limits<double>::infinity():p*pow2(assets - ea / ea);
+	r.max = ea<=0?std::numeric_limits<double>::infinity():p*pow2((assets + ea) / ea);
 	r.min = s<=0?0:pow2(s/a)/p;
 	return r;
 }

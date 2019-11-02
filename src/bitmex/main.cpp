@@ -269,17 +269,20 @@ inline Interface::Orders Interface::getOpenOrders(const std::string_view &pair) 
 inline Interface::Ticker Interface::getTicker(const std::string_view &pair) {
 	const SymbolInfo &s = getSymbol(pair);
 	Value resp = px.request("GET","/api/v1/orderBook/L2", Object("symbol",pair)("depth",1));
-	Ticker t;
+	double bid = 0;
+	double ask = 0;
 	for (Value v: resp) {
 		double price = v["price"].getNumber();
 		if (v["side"].getString() == "Sell") {
-			if (s.inverse) t.bid =1/price; else t.ask = price;
+			if (s.inverse) bid =1/price; else ask = price;
 		}
 		else if (v["side"].getString() == "Buy") {
-			if (s.inverse) t.ask =1/price; else t.bid = price;
+			if (s.inverse) ask =1/price; else bid = price;
 		}
+		if (bid == 0) bid = ask;
+		if (ask == 0) ask = bid;
 	}
-	return Ticker{t.bid, t.ask, sqrt(t.bid*t.ask), px.now()*1000};
+	return Ticker{bid, ask, sqrt(bid*ask), px.now()*1000};
 }
 
 static bool almostSame(double a, double b) {
