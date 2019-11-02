@@ -90,6 +90,7 @@ public:
 	std::intptr_t time_diff;
 	std::uintptr_t idsrc;
 
+	void initSymbols();
 
 };
 
@@ -133,6 +134,7 @@ void Interface::updateBalCache() {
  }
 */
  Interface::TradesSync Interface::syncTrades(json::Value lastId, const std::string_view & pair) {
+	 initSymbols();
 	 auto iter = symbols.find(pair);
 	 if (iter == symbols.end())
 		 throw std::runtime_error("No such symbol");
@@ -278,6 +280,7 @@ Interface::Ticker Interface::getTicker(const std::string_view &pair) {
 }
 
 std::vector<std::string> Interface::getAllPairs() {
+	initSymbols();
  	 std::vector<std::string> res;
 	 for (auto &&v: symbols) res.push_back(v.first);
 	 return res;
@@ -335,45 +338,50 @@ bool Interface::reset() {
 	return true;
 }
 
-void Interface::onInit() {
-	Value res = px.public_request("/api/v1/exchangeInfo",Value());
+void Interface::initSymbols() {
+	if (symbols.empty()) {
+		Value res = px.public_request("/api/v1/exchangeInfo",Value());
 
-	std::uintptr_t srvtm = res["serverTime"].getUInt();
-	std::uintptr_t localtm = now();
-	time_diff = srvtm - localtm;
+		std::uintptr_t srvtm = res["serverTime"].getUInt();
+		std::uintptr_t localtm = now();
+		time_diff = srvtm - localtm;
 
-	using VT = Symbols::value_type;
-	std::vector<VT> bld;
-	for (Value smb: res["symbols"]) {
-		MarketInfo nfo;
-		nfo.asset_symbol = smb["baseAsset"].getString();
-		nfo.currency_symbol = smb["quoteAsset"].getString();
-		nfo.currency_step = std::pow(10,-smb["quotePrecision"].getNumber());
-		nfo.asset_step = std::pow(10,-smb["baseAssetPrecision"].getNumber());
-		nfo.feeScheme = income;
-		nfo.min_size = 0;
-		nfo.min_volume = 0;
-		nfo.fees = 0;
-		for (Value f: smb["filters"]) {
-			auto ft = f["filterType"].getString();
-			if (ft == "LOT_SIZE") {
-				nfo.min_size = f["minQty"].getNumber();
-				nfo.asset_step = f["stepSize"].getNumber();
-			} else if (ft == "PRICE_FILTER") {
-				nfo.currency_step = f["tickSize"].getNumber();
-			} else if (ft == "MIN_NOTIONAL") {
-				nfo.min_volume = f["minNotional"].getNumber();
+		using VT = Symbols::value_type;
+		std::vector<VT> bld;
+		for (Value smb: res["symbols"]) {
+			MarketInfo nfo;
+			nfo.asset_symbol = smb["baseAsset"].getString();
+			nfo.currency_symbol = smb["quoteAsset"].getString();
+			nfo.currency_step = std::pow(10,-smb["quotePrecision"].getNumber());
+			nfo.asset_step = std::pow(10,-smb["baseAssetPrecision"].getNumber());
+			nfo.feeScheme = income;
+			nfo.min_size = 0;
+			nfo.min_volume = 0;
+			nfo.fees = 0;
+			for (Value f: smb["filters"]) {
+				auto ft = f["filterType"].getString();
+				if (ft == "LOT_SIZE") {
+					nfo.min_size = f["minQty"].getNumber();
+					nfo.asset_step = f["stepSize"].getNumber();
+				} else if (ft == "PRICE_FILTER") {
+					nfo.currency_step = f["tickSize"].getNumber();
+				} else if (ft == "MIN_NOTIONAL") {
+					nfo.min_volume = f["minNotional"].getNumber();
+				}
 			}
+			std::string symbol = smb["symbol"].getString();
+			bld.push_back(VT(symbol, nfo));
 		}
-		std::string symbol = smb["symbol"].getString();
-		bld.push_back(VT(symbol, nfo));
+		symbols = Symbols(std::move(bld));
 	}
-	symbols = Symbols(std::move(bld));
-	idsrc = now();
+}
 
+void Interface::onInit() {
+	idsrc = now();
 }
 
 inline Interface::MarketInfo Interface::getMarketInfo(const std::string_view &pair) {
+	initSymbols();
 
 	auto iter = symbols.find(pair);
 	if (iter == symbols.end())
