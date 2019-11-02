@@ -605,7 +605,13 @@ var TemplateJS = function(){
 			this.marked.push(items[i]);
 		}				
 	};
-		
+			
+
+	View.prototype.forEachElement = function(selector, fn, a, b) {
+		var items = this.findElements(selector);
+		items.forEach(fn, a, b);
+	}
+
 	
 	///Removes all marks
 	/** Useful to remove any highlight in the View

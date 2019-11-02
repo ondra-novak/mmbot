@@ -79,6 +79,7 @@ App.prototype.createTraderForm = function() {
 		var state = this.readData(["strategy","advanced","check_unsupp"]);
 		this.showWithAnim("strategy_halfhalf",state.strategy == "halfhalf" || state.strategy == "keepvalue");
 		this.showWithAnim("strategy_pl",state.strategy == "plfrompos");
+		form.setData({"help_goal":{"class":state.strategy}});
 		form.getRoot().classList.toggle("no_adv", !state["advanced"]);
 		form.getRoot().classList.toggle("no_experimental", !state["check_unsupp"]);
 		
@@ -353,10 +354,6 @@ App.prototype.fillForm = function (src, trg) {
 				}					
 		data.open_orders_sect = {".hidden":!mp.length};
 
-		var money = Math.abs(pair.currency_balance);
-		var m2 = Math.abs(pair.asset_balance)*pair.price;
-		if (m2 > money) money = m2;
-		
 		function linStrategy_recalc() {
 			var fdata = {};
 			var inputs = trg.readData(["max_pos","cstep","neutral_pos"]);
@@ -374,12 +371,20 @@ App.prototype.fillForm = function (src, trg) {
 				fdata.linear_min_price = adjNum(minp);
 				fdata.linear_max_price = adjNum(maxp);				
 			}
+			fdata.err_toolargepos = {classList:{mark:pos > safe_pos}};
+			fdata.err_invalid_values = {classList:{mark:inputs.cstep<=0 || inputs.max_pos<0}};
+
 			trg.setData(fdata);
+			var safe_pos = pair.currency_balance / pair.price;
+			trg.forEachElement("err_toolargepos", function(b,x) 
+				{x.classList.toggle("mark",b);}.bind(null, pos > safe_pos) );
 		}
 		function linStrategy_recomended() {
-			var invest = pair.currency_balance / 10;
+			var inputs = trg.readData(["cstep","neutral_pos"]);
+			var value = pair.currency_balance;
+			var invest = value / 10;
 			var k = invest / (pair.price*pair.price * 0.01);
-			var max_pos = Math.sqrt(k * pair.currency_balance);
+			var max_pos = Math.sqrt(k * value);
 			trg.setData({
 				cstep : adjNumN(invest),
 				max_pos: adjNumN(max_pos)
@@ -387,18 +392,47 @@ App.prototype.fillForm = function (src, trg) {
 			linStrategy_recalc();
 		}
 		function linStrategy_recomended_maxpos() {			
-			var invest = trg.readData(["cstep"]).cstep;
+			var inputs = trg.readData(["cstep","neutral_pos"]);
+			var value = pair.currency_balance;
+			var invest = inputs.cstep;
 			var k = invest / (pair.price*pair.price * 0.01);
-			var max_pos = Math.sqrt(k * pair.currency_balance);
+			var max_pos = Math.sqrt(k * value);
 			trg.setData({
 				max_pos: adjNumN(max_pos)
 			});
 			linStrategy_recalc();
 		}
+
+		function halfHalf_recalc() {
+			var inputs = trg.readData(["strategy","acum_factor","external_assets"]);
+			var p = pair.price;
+			var ea = inputs.external_assets;
+			var data = {};
+			var a = pair.asset_balance+ea;
+			if (inputs.strategy == "halfhalf") {
+				var s = a * p - pair.currency_balance;				
+				data.halfhalf_max_price = ea <= 0?"∞":adjNum(p*a*a/(ea*ea));
+				data.halfhalf_min_price = adjNum(s <0?0:(s/a)*(s/a)/p);
+			} else {
+				var k = p*a;
+				data.halfhalf_min_price = adjNum(p*Math.exp(-pair.currency_balance/k));
+				data.halfhalf_max_price = ea > 0?adjNum(k/ea):"∞";
+			}
+
+			data.err_external_assets = {classList:{mark:!pair.leverage && !pair.invert_price && a <= 0}};
+			data.err_external_assets_margin = {classList:{mark:pair.leverage && !pair.invert_price && a <= 0}};
+			data.err_external_assets_inverse = {classList:{mark:pair.invert_price && a <= 0}};
+			data.external_assets_hint = -pair.asset_balance;
+			trg.setData(data);
+			
+		}
+
 		data.max_pos = data.cstep = data.neutral_pos = {"!input": linStrategy_recalc};
 		data.linear_suggest = {"!click":linStrategy_recomended};
 		data.linear_suggest_maxpos = {"!click":linStrategy_recomended_maxpos};
+		data.external_assets = {"!input": halfHalf_recalc};
 		linStrategy_recalc();
+		halfHalf_recalc();
 		var tmp = trg.readData(["cstep","max_pos"]);
 		if (!tmp.max_pos && !tmp.cstep) linStrategy_recomended();
 		

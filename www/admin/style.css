@@ -495,6 +495,21 @@ a {
 	display: block;	
 }
 
+.warning {
+	color: #f4ff88;
+	font-size: 1em;
+	padding-left: 2em;
+	background: url(data:image/pmh;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAdCAMAAAD8QJ61AAAAM1BMVEVAAAABAwA3KwVVQgZ2YwSQfgC7jwCsoADjtQD9sADkvwD9ugD+wAD9yQD+0wD93AD96gCsTSPwAAAAAXRSTlMAQObYZgAAAM9JREFUKM99ktESxRAMRHG1jVTw/197o6oNynlKYmfFDqUagAjUAogpxZWAEoNrA7aYXxL4lBVhdo4pWa23FHFqcGjmmFkUg4UFX78Vh2+L/MQqiDR5YtnhO60QmUuAuaLRIIOPYEgr9IJuTxSCUobWItzwual1a3BjhECkBYEK4ae1rY14CD1w1vbtxD+rcJTb28FgQGCMkN8WSP5BlLkrezbDfW8Ul4E/X3gHK1qPeUMxOHOSTvS8JzkJ52CaAXUCZ+3eCcC7BR6amEZA/QGVSRdPeDJxawAAAABJRU5ErkJggg==);
+	background-size: 1.4em;
+	background-repeat: no-repeat;
+	background-position: 0% 50%;
+	display: none;
+}
+.warning.mark {
+	display: block;
+}}
+
+
 .security_form table {
 	width: 100%;
 	background-color: #3e4130;
@@ -630,6 +645,11 @@ label span:hover span.tooltip, div.label span:hover span.tooltip {
 	opacity:1;
 	
 }
+
+.strategygoal div {display:none;font-style:italic;margin-bottom: 1em;}
+.strategygoal > div.plfrompos > div.plfrompos {display:block;}
+.strategygoal > div.halfhalf > div.halfhalf {display:block;}
+.strategygoal > div.keepvalue > div.keepvalue {display:block;}
 
 x-form.trading .buttons {text-align: center;}
 x-form.trading .buttons button {width: 40%}

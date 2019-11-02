@@ -268,6 +268,8 @@ x-trbgr.hdr {
 	font-weight:bold;
 	font-size: 1.2em;
 	cursor: pointer;
+	white-space: nowrap;
+
 }
 
 .title:hover, #home:hover {
@@ -528,7 +530,6 @@ x-tr.hdr [data-name=export_csv] {
 	position:relative;
 	/* padding-right: 9px; */
 	color: #dcb684;
-	white-space: nowrap;
 }
 .emulated::after {
 	content:"";
