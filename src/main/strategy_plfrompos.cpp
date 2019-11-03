@@ -44,6 +44,9 @@ double Strategy_PLFromPos::calcNewPos(double tradePrice, bool reducepos) const {
 		double inr = 1 +  2*k*(p - tradePrice)/pos;
 		new_pos = inr>=0?pos * sqrt(inr):0;
 	}
+	if (fabs(new_pos) > cfg.maxpos) {
+		new_pos = (new_pos + cfg.maxpos)/2;
+	}
 	return new_pos;
 }
 
@@ -55,9 +58,9 @@ std::pair<Strategy_PLFromPos::OnTradeResult, IStrategy*> Strategy_PLFromPos::onT
 	double new_pos = calcNewPos(tradePrice,true);
 	double act_pos = assetsLeft-acm-cfg.neutral_pos;
 	double prev_pos = act_pos - tradeSize;
-	if (cfg.maxpos && std::fabs(act_pos) >=cfg.maxpos) {
+/*	if (cfg.maxpos && std::fabs(act_pos) >=cfg.maxpos) {
 		new_pos = sgn(act_pos) * cfg.maxpos;
-	}
+	}*/
 	double ef = (1/ (2*k)) *(pow2(act_pos) - pow2(prev_pos)) + prev_pos * (tradePrice - p);
 	double np = ef * (1 - cfg.accum);
 	double ap = ef * cfg.accum;
