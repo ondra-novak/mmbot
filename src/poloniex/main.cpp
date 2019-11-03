@@ -190,7 +190,7 @@ Interface::Orders Interface::getOpenOrders(const std::string_view & pair) {
 	 }, Orders());
 }
 
-static std::uintptr_t now() {
+static std::uint64_t now() {
 	return std::chrono::duration_cast<std::chrono::milliseconds>(
 						 std::chrono::system_clock::now().time_since_epoch()
 						 ).count();

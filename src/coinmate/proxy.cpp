@@ -26,7 +26,7 @@ static constexpr std::uint64_t start_time = 1557858896532;
 Proxy::Proxy() {
 	apiUrl = "https://coinmate.io/api/";
 	auto now = std::chrono::system_clock::now();
-	std::size_t init_time = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count() - start_time;
+	std::uint64_t init_time = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count() - start_time;
 	nonce = init_time * 100;
 }
 

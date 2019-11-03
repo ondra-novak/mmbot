@@ -91,7 +91,7 @@ public:
 		///Last price
 		double last;
 		///Time when read
-		std::uintptr_t time;
+		std::uint64_t time;
 	};
 
 	enum FeeScheme {

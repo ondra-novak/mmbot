@@ -21,7 +21,7 @@ class IStatSvc {
 public:
 
 	struct ChartItem {
-		std::uintptr_t time;
+		std::uint64_t time;
 		double ask;
 		double bid;
 		double last;
@@ -36,7 +36,7 @@ public:
 		double lowest_price;
 		double highest_price;
 		std::size_t total_trades;
-		std::size_t total_time;
+		std::uint64_t total_time;
 	};
 
 

@@ -145,7 +145,7 @@ const std::string &Proxy::getAccessToken() {
 	return auth_token;
 }
 
-std::uintptr_t Proxy::now() {
+std::uint64_t Proxy::now() {
 	return std::chrono::duration_cast<std::chrono::milliseconds>(
 						 std::chrono::system_clock::now().time_since_epoch()
 						 ).count();

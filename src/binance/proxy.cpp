@@ -26,7 +26,7 @@ using ondra_shared::logDebug;
 Proxy::Proxy() {
 	apiUrl = "https://api.binance.com";
 
-	std::size_t init_time = now();
+	auto  init_time = now();
 	nonce = init_time * 100;
 }
 
@@ -34,7 +34,7 @@ void Proxy::setTimeDiff(std::intptr_t t) {
 	this->time_diff = t;
 }
 
-std::uintptr_t Proxy::now() {
+std::uint64_t Proxy::now() {
 	return std::chrono::duration_cast<std::chrono::milliseconds>(
 						 std::chrono::system_clock::now().time_since_epoch()
 						 ).count();

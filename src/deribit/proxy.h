@@ -39,7 +39,7 @@ public:
 	bool debug = false;
 
 	void setTimeDiff(std::intptr_t t);
-	static std::uintptr_t now();
+	static std::uint64_t now();
 
 	void setTestnet(bool testnet);
 

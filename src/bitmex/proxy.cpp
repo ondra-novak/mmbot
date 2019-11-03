@@ -149,7 +149,7 @@ json::Value Proxy::request(
 }
 
 
-std::uintptr_t Proxy::now() {
+std::uint64_t Proxy::now() {
 	return std::chrono::duration_cast<std::chrono::seconds>(
 						 std::chrono::system_clock::now().time_since_epoch()
 						 ).count();

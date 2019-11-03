@@ -32,7 +32,7 @@ public:
 	bool hasKey() const;
 	bool debug = false;
 
-	static std::uintptr_t now();
+	static std::uint64_t now();
 
 	void setTestnet(bool testnet);
 

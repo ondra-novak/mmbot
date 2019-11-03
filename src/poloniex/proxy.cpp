@@ -29,7 +29,7 @@ Proxy::Proxy() {
 	apiPublicUrl="https://poloniex.com/public";
 
 	auto now = std::chrono::system_clock::now();
-	std::size_t init_time = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count() - start_time;
+	auto init_time = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count() - start_time;
 	nonce = init_time * 100;
 }
 

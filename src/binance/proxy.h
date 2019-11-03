@@ -36,7 +36,7 @@ public:
 
 	bool hasKey() const;
 	void setTimeDiff(std::intptr_t t);
-	static std::uintptr_t now();
+	static std::uint64_t now();
 
 	bool debug = false;
 

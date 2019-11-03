@@ -79,9 +79,6 @@ public:
 	bool needSyncTrades = true;
 	std::size_t lastFromTime = -1;
 
-	void syncTrades(std::size_t fromTime);
-	bool syncTradesCycle(std::size_t fromTime);
-	bool syncTradeCheckTime(const std::vector<Trade> &cont, std::size_t time, Value tradeID);
 
 	static bool tradeOrder(const Trade &a, const Trade &b);
 	void updateBalCache();
@@ -170,7 +167,7 @@ void Interface::updateBalCache() {
 
 			 return Trade {
 				 x["id"],
-				 x["time"].getUInt(),
+				 x["time"].getUIntLong(),
 				 size,
 				 price,
 				 eff_size,
@@ -234,7 +231,7 @@ Interface::Orders Interface::getOpenOrders(const std::string_view & pair) {
 	}, Orders());
 }
 
-static std::uintptr_t now() {
+static std::uint64_t now() {
 	return std::chrono::duration_cast<std::chrono::milliseconds>(
 						 std::chrono::system_clock::now().time_since_epoch()
 						 ).count();
@@ -399,41 +396,6 @@ inline double Interface::getFees(const std::string_view &pair) {
 	} else {
 		return 0.001;
 	}
-}
-
-
-
-void Interface::syncTrades(std::size_t fromTime) {
-	std::size_t startTime ;
-	do {
-		startTime = 0;
-		startTime--;
-		for (auto &&k : tradeMap) {
-			if (!k.second.empty()) {
-				const auto &v = k.second.back();
-				startTime = std::min(startTime, v.time-1);
-			}
-		}
-		++startTime;
-	} while (syncTradesCycle(std::max(startTime,fromTime)));
-}
-
-
-bool Interface::syncTradesCycle(std::size_t fromTime) {
-	return true;
-}
-
-
-
-
-inline bool Interface::syncTradeCheckTime(const std::vector<Trade> &cont,
-		std::size_t time, Value tradeID) {
-
-	if (cont.empty()) return true;
-	const Trade &b = cont.back();
-	if (b.time < time) return true;
-	if (b.time == time && Value::compare(b.id, tradeID) < 0) return true;
-	return false;
 }
 
 

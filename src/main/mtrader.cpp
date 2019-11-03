@@ -568,7 +568,7 @@ void MTrader::loadState() {
 				double ask = v["ask"].getNumber();
 				double bid = v["bid"].getNumber();
 				double last = v["last"].getNumber();
-				std::size_t tm = v["time"].getUInt();
+				std::uint64_t tm = v["time"].getUIntLong();
 
 				chart.push_back({tm,ask,bid,last});
 			}
