@@ -150,7 +150,7 @@ inline double Interface::getBalance(const std::string_view &symb) {
 		Value x = positionCache.find([&](Value v){return v["symbol"] == symb;});
 		double q = x["currentQty"].getNumber();
 		if (s.inverse) q = -q;
-		return q;
+		return q*s.multiplier;
 	}
 	return 0;
 }
@@ -483,15 +483,8 @@ void Interface::updateSymbols() {
 				continue;
 			sinfo.qtc = "BTC";
 		}
-		if (s["isQuanto"].getBool()) {
-			sinfo.qtc = s["quoteCurrency"].toString();
-			//only USD as quanto is supported
-			if (sinfo.qtc != "USD") continue;
-			sinfo.quantoMult = 0.000001;
-		} else {
-			sinfo.qtc = "BTC";
-			sinfo.quantoMult = 1;
-		}
+		sinfo.qtc = "BTC";
+		sinfo.quantoMult = 1;
 
 		sinfo.multiplier = fabs(s["multiplier"].getNumber())/ (100000000.0*sinfo.quantoMult);
 		sinfo.lotSize = s["lotSize"].getNumber();
