@@ -12,11 +12,22 @@
 
 class Strategy_PLFromPos: public IStrategy {
 public:
+	enum CloseMode {
+		always_close,
+		prefer_close,
+		prefer_reverse
+	};
+
+
+
 	struct Config {
 		double step;
 		double accum;
 		double neutral_pos;
 		double maxpos;
+		double reduce_factor;
+		CloseMode closeMode;
+
 	};
 
 	Strategy_PLFromPos(const Config &cfg, double p = 0,double pos = 0, double acm = 0);

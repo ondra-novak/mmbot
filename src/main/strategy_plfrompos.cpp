@@ -38,12 +38,19 @@ double Strategy_PLFromPos::calcK() const {
 
 double Strategy_PLFromPos::calcNewPos(double tradePrice, bool reducepos) const {
 	double k = calcK();
-	double new_pos;
-	if (pos == 0 || (p - tradePrice) / pos > 0 ) new_pos = pos + (p - tradePrice) * k;
-	else {
-		double inr = 1 +  2*k*(p - tradePrice)/pos;
-		new_pos = inr>=0?pos * sqrt(inr):0;
+	double lin_pos = pos + (p - tradePrice) * k;
+	double red_pos_inr = 1 +  2*k*(p - tradePrice)/pos;
+	double red_pos = red_pos_inr > 0? pos * sqrt(red_pos_inr):0;
+	bool gaining = (pos == 0 || (p - tradePrice) / pos > 0 );
+	double new_pos = gaining?lin_pos
+					:(lin_pos + (red_pos - lin_pos)*cfg.reduce_factor);
+
+	switch (cfg.closeMode) {
+	case always_close: if (new_pos * pos <= 0) new_pos = 0;break;
+	case prefer_close: if (!gaining && red_pos == 0) new_pos = 0;break;
+	case prefer_reverse: if (!gaining && red_pos == 0) new_pos = lin_pos;break;
 	}
+
 	if (fabs(new_pos) > cfg.maxpos) {
 		new_pos = (new_pos + cfg.maxpos)/2;
 	}
