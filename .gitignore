@@ -11,3 +11,4 @@ Makefile
 /secure_data
 /run/
 /prod/
+/.settings
