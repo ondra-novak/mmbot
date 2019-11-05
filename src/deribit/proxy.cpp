@@ -25,12 +25,16 @@
 
 using ondra_shared::logDebug;
 
-Proxy::Proxy(Config config):config(config) {
-	hasKey = !config.privKey.empty() && !config.pubKey.empty();
+Proxy::Proxy() {
+	setTestnet(false);
 }
 
 void Proxy::setTimeDiff(std::intptr_t t) {
 	this->time_diff = t;
+}
+
+bool Proxy::hasKey() const {
+	return !privKey.empty() && !pubKey.empty() && !scopes.empty();
 }
 
 json::Value Proxy::request(std::string_view method, json::Value params, bool auth) {
@@ -64,7 +68,7 @@ json::Value Proxy::request(std::string_view method, json::Value params, bool aut
 		curl_handle.setOpt(new cURLpp::Options::HttpHeader(headers));
 	}
 
-	curl_handle.setOpt(new cURLpp::Options::Url(config.apiUrl));
+	curl_handle.setOpt(new cURLpp::Options::Url(apiUrl));
 	curl_handle.setOpt(new cURLpp::Options::WriteStream(&response));
 	curl_handle.perform();
 
@@ -128,9 +132,9 @@ const std::string &Proxy::getAccessToken() {
 
 	auto resp = request("public/auth",json::Object
 			("grant_type","client_credentials") /* Don't know, but client_signature doesn't work for me*/
-			("client_id",config.pubKey)
-			("client_secret",config.privKey)
-			("scope",config.scopes)
+			("client_id",pubKey)
+			("client_secret",privKey)
+			("scope",scopes)
 /*			("timestamp",time)
 			("signature",signature)
 			("nonce",nonce)*/, false);
@@ -141,12 +145,14 @@ const std::string &Proxy::getAccessToken() {
 	return auth_token;
 }
 
-std::uintptr_t Proxy::now() {
+std::uint64_t Proxy::now() {
 	return std::chrono::duration_cast<std::chrono::milliseconds>(
 						 std::chrono::system_clock::now().time_since_epoch()
 						 ).count();
 
 }
 
-
-
+void Proxy::setTestnet(bool testnet) {
+	apiUrl = testnet?"https://test.deribit.com/api/v2":"https://www.deribit.com/api/v2";
+	this->testnet = testnet;
+}

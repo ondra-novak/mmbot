@@ -26,6 +26,7 @@
 
 #include <imtjson/binjson.tcc>
 
+#include "../shared/linux_waitpid.h"
 #include "istockapi.h"
 
 const int AbstractExtern::invval = -1;
@@ -90,6 +91,13 @@ static void report_error(const char *desc) {
 	throw std::runtime_error(buff.str());
 }
 
+static void report_timeout(const char *desc) {
+	std::ostringstream buff;
+	buff << "TIMEOUT while '" << desc << '"';
+	throw std::runtime_error(buff.str());
+
+}
+
 
 AbstractExtern::Pipe AbstractExtern::makePipe() {
 	int tmp[2];
@@ -103,6 +111,7 @@ AbstractExtern::Pipe AbstractExtern::makePipe() {
 
 
 void AbstractExtern::spawn() {
+	Sync _(lock);
 	using ondra_shared::Handle;
 
 	int status;
@@ -111,7 +120,7 @@ void AbstractExtern::spawn() {
 
 	{
 
-		log.progress("Connecting to market: cmdline='$1', workdir='$2'", cmdline, workingDir);
+		log.progress("Connecting to broker: cmdline='$1', workdir='$2'", cmdline, workingDir);
 
 		Pipe proc_input (makePipe());
 		Pipe proc_output (makePipe());
@@ -173,25 +182,27 @@ void AbstractExtern::handleClose(int fd) {
 }
 
 
-static int termThenKill(int id) {
-	int status = 0;
-	for (int i = 1; i < 20; i++) {
-		int r = ::waitpid(id,&status,WNOHANG);
-		if (r == -1) return -1;
-		if (r == id) return status;
-		::kill(id, SIGTERM);
-		std::this_thread::sleep_for(std::chrono::milliseconds(200));
-	}
-	::kill(id, SIGKILL);
-	return -1;
-
-}
-
 void AbstractExtern::kill() {
+	Sync _(lock);
 	if (chldid != -1) {
-		::kill(chldid,SIGTERM);
-		int status = termThenKill(chldid);
-		log.note("terminated with status: $1", status);
+
+		ondra_shared::WaitPid wpid(chldid);
+		extin.close();
+		if (!wpid.wait_for(std::chrono::seconds(3))) {
+			::kill(chldid, SIGTERM);
+			if (!wpid.wait_for(std::chrono::seconds(10))) {
+				::kill(chldid, SIGKILL);
+				if (!wpid.wait_for(std::chrono::seconds(10))) {
+					log.error("Unable to terminate broker! (TIMEOUT waiting on SIGKILL)");
+				}
+			}
+		}
+		int status = wpid.getExitCode();
+		if (WIFSIGNALED(status)) {
+			log.note("Broker process disconnected because signal: $1", WTERMSIG(status));
+		} else {
+			log.note("Broker process disconnected. Exit code : $1", WEXITSTATUS(status));
+		}
 		chldid = -1;
 	}
 }
@@ -274,12 +285,18 @@ json::Value AbstractExtern::readJSON(FD& fd) {
 
 
 void AbstractExtern::preload() {
+	Sync _(lock);
 	if (chldid == -1) {
 		spawn();
 	}
 }
 
+void AbstractExtern::stop() {
+	kill();
+}
+
 json::Value AbstractExtern::jsonExchange(json::Value request) {
+	Sync _(lock);
 
 	std::string z;
 	std::string lastStdErr;
@@ -302,7 +319,7 @@ json::Value AbstractExtern::jsonExchange(json::Value request) {
 			fds[1].events = POLLIN;
 			fds[1].revents = 0;
 			int r = poll(fds,2,30000);
-			if (r == 0) report_error("timeout");
+			if (r == 0) report_timeout("poll");
 			if (r < 0) report_error("poll");
 			if (fds[1].revents) {
 				Reader errrd(exterr);
@@ -344,6 +361,7 @@ json::Value AbstractExtern::jsonExchange(json::Value request) {
 }
 
 json::Value AbstractExtern::jsonRequestExchange(json::String name, json::Value args) {
+	Sync _(lock);
 	auto resp = jsonExchange({name, args});
 	if (resp[0].getBool() == true) {
 		auto result = resp[1];

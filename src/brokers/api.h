@@ -9,10 +9,19 @@
 #define SRC_BROKERS_API_H_
 
 #include <iostream>
+
+#include <imtjson/value.h>
+#include "../main/apikeys.h"
+#include "../main/ibrokercontrol.h"
 #include "../main/istockapi.h"
 
-class AbstractBrokerAPI: public IStockApi {
+
+
+class AbstractBrokerAPI: public IStockApi, public IApiKey, public IBrokerControl {
 public:
+
+	AbstractBrokerAPI(const std::string &secure_storage_path,
+			const json::Value &apiKeyFormat);
 
 	///Called when mmbot is started with debug mode enabled
 	/**
@@ -23,9 +32,25 @@ public:
 	 */
 	virtual void enable_debug(bool enable) {debug_mode = enable;}
 
+	virtual BrokerInfo getBrokerInfo()  override {throw std::runtime_error("unsupported");}
 
-	static void dispatch(std::istream &input, std::ostream &output, IStockApi &handler);
 
+	static void dispatch(std::istream &input, std::ostream &output, AbstractBrokerAPI &handler);
+
+
+	///Called when new keys are set or loaded
+	virtual void onLoadApiKey(json::Value keyData) = 0;
+
+	///Called when broker should be initialized
+	/** When broker starts, it cannot show any error message until it is requested for the very first time.
+	 * This function is called before the first command is executed. If exception is throw, the exception is
+	 * carried into caller and the broker can graceusly exit.
+	 */
+	virtual void onInit() = 0;
+
+	virtual json::Value getSettings(const std::string_view & pairHint) const override;
+
+	virtual void setSettings(json::Value v) override;
 
 	void dispatch();
 
@@ -48,19 +73,22 @@ public:
 
 	}
 
-	virtual bool isTest() const override {
-		return false;
-	}
 	virtual void testBroker() override {}
 
+	virtual void setApiKey(json::Value keyData) override;
+	virtual json::Value getApiKeyFields() const override;
+
+	virtual void loadKeys();
 
 
 protected:
 	bool debug_mode = false;
-
+	std::string secure_storage_path;
+	json::Value apiKeyFormat;
 
 };
 
 
 
 #endif /* SRC_BROKERS_API_H_ */
+

@@ -11,7 +11,11 @@
 #include "ext_stockapi.h"
 
 #include <imtjson/object.h>
+#include <imtjson/binary.h>
+#include <fstream>
+#include <set>
 
+#include "../shared/finally.h"
 using namespace ondra_shared;
 
 
@@ -28,14 +32,15 @@ double ExtStockApi::getBalance(const std::string_view & symb) {
 }
 
 
-ExtStockApi::TradeHistory ExtStockApi::getTrades(json::Value lastId, std::uintptr_t fromTime, const std::string_view & pair) {
-	auto r = jsonRequestExchange("getTrades",json::Object
+ExtStockApi::TradesSync ExtStockApi::syncTrades(json::Value lastId, const std::string_view & pair) {
+	auto r = jsonRequestExchange("syncTrades",json::Object
 			("lastId",lastId)
-			("fromTime", fromTime)
 			("pair",StrViewA(pair)));
 	TradeHistory  th;
-	for (json::Value v: r) th.push_back(Trade::fromJSON(v));
-	return th;
+	for (json::Value v: r["trades"]) th.push_back(Trade::fromJSON(v));
+	return TradesSync {
+		th, r["lastId"]
+	};
 }
 
 ExtStockApi::Orders ExtStockApi::getOpenOrders(const std::string_view & pair) {
@@ -101,6 +106,7 @@ ExtStockApi::MarketInfo ExtStockApi::getMarketInfo(const std::string_view & pair
 	res.feeScheme = strFeeScheme[v["feeScheme"].getString()];
 	res.leverage= v["leverage"].getNumber();
 	res.invert_price= v["invert_price"].getBool();
+	res.simulator= v["simulator"].getBool();
 	res.inverted_symbol= v["inverted_symbol"].getString();
 	return res;
 
@@ -128,4 +134,71 @@ void ExtStockApi::onConnect() {
 	} catch (IStockApi::Exception &) {
 
 	}
+}
+
+ExtStockApi::BrokerInfo ExtStockApi::getBrokerInfo()  {
+
+	try {
+		auto resp = jsonRequestExchange("getBrokerInfo", json::Value());
+		return BrokerInfo {
+			resp["trading_enabled"].getBool(),
+			this->name,
+			resp["name"].getString(),
+			resp["url"].getString(),
+			resp["version"].getString(),
+			resp["licence"].getString(),
+			StrViewA(resp["favicon"].getBinary()),
+			resp["settings"].getBool()
+		};
+	} catch (IStockApi::Exception &) {
+		return BrokerInfo {
+			true,
+			this->name,
+			this->name,
+		};
+	}
+
+}
+
+void ExtStockApi::setApiKey(json::Value keyData) {
+	jsonRequestExchange("setApiKey",keyData);
+}
+
+json::Value ExtStockApi::getApiKeyFields() const {
+	return const_cast<ExtStockApi *>(this)->jsonRequestExchange("getApiKeyFields",json::Value());
+}
+
+json::Value ExtStockApi::getSettings(const std::string_view & pairHint) const {
+	return const_cast<ExtStockApi *>(this)->jsonRequestExchange("getSettings",json::Value(pairHint));
+}
+
+void ExtStockApi::setSettings(json::Value v) {
+	jsonRequestExchange("setSettings", v);
+}
+
+
+
+
+void ExtStockApi::saveIconToDisk(const std::string &path) const {
+	Sync _(lock);
+
+	static std::set<std::string> files;
+	auto clean_call = []{
+			for (auto &&k: files) std::remove(k.c_str());
+	};
+	static ondra_shared::FinallyImpl<decltype(clean_call)> finally(std::move(clean_call));
+
+	std::string name =getIconName();
+	std::string fullpath = path+"/"+name;
+	if (files.find(fullpath) == files.end()) {
+		std::ofstream f(fullpath, std::ios::out|std::ios::trunc|std::ios::binary);
+		BrokerInfo binfo = const_cast<ExtStockApi *>(this)->getBrokerInfo();
+		json::Binary b = json::base64->decodeBinaryValue(binfo.favicon).getBinary(json::base64);
+		f.write(reinterpret_cast<const char *>(b.data), b.length);
+		files.insert(fullpath);
+	}
+}
+
+std::string ExtStockApi::getIconName() const {
+	return name+".png";
 }

@@ -10,6 +10,8 @@
 #include <memory>
 
 #include <imtjson/value.h>
+#include <stack>
+
 #include "istorage.h"
 
 
@@ -27,6 +29,7 @@ public:
 
 	virtual void store(json::Value data) override;
 	virtual json::Value load() override;
+	virtual void erase() override;
 
 
 protected:
@@ -34,6 +37,7 @@ protected:
 	int versions;
 	Format format;
 
+	std::stack<std::string> generateNames();
 };
 
 

@@ -8,17 +8,20 @@
 #ifndef SRC_MAIN_ISTATSVC_H_
 #define SRC_MAIN_ISTATSVC_H_
 
+#include "istatsvc.h"
 #include <memory>
 
 #include "istockapi.h"
 
 struct MTrader_Config;
+struct PerformanceReport;
+class Strategy;
 
 class IStatSvc {
 public:
 
 	struct ChartItem {
-		std::uintptr_t time;
+		std::uint64_t time;
 		double ask;
 		double bid;
 		double last;
@@ -26,18 +29,14 @@ public:
 
 	struct MiscData {
 		int trade_dir;
-		bool achieve;
 		double calc_price;
 		double spread;
 		double dynmult_buy;
 		double dynmult_sell;
-		double size_mult;
-		double value;
-		double boost;
 		double lowest_price;
 		double highest_price;
 		std::size_t total_trades;
-		std::size_t total_time;
+		std::uint64_t total_time;
 	};
 
 
@@ -46,6 +45,7 @@ public:
 		std::string_view assetSymb;
 		std::string_view currencySymb;
 		std::string_view priceSymb;
+		std::string_view brokerIcon;
 		double position_offset;
 		bool inverted;
 		bool margin;
@@ -62,19 +62,37 @@ public:
 
 	};
 
+	struct TradeRecord: public IStockApi::Trade {
+
+		double norm_profit;
+		double norm_accum;
+
+		TradeRecord(const IStockApi::Trade &t, double norm_profit, double norm_accum)
+			:IStockApi::Trade(t),norm_profit(norm_profit),norm_accum(norm_accum) {}
+
+	    static TradeRecord fromJSON(json::Value v) {
+	    	return TradeRecord(IStockApi::Trade::fromJSON(v), v["np"].getNumber(), v["ap"].getNumber());
+	    }
+	    json::Value toJSON() const {
+	    	return IStockApi::Trade::toJSON().merge(json::Value(json::object,{
+	    			json::Value("np",norm_profit),
+					json::Value("ap",norm_accum)
+	    	}));
+	    }
+
+
+	};
+
 	virtual void reportOrders(const std::optional<IStockApi::Order> &buy,
 							  const std::optional<IStockApi::Order> &sell) = 0;
-	virtual void reportTrades(ondra_shared::StringView<IStockApi::TradeWithBalance> trades, bool margin) = 0;
+	virtual void reportTrades(ondra_shared::StringView<TradeRecord> trades) = 0;
 	virtual void reportPrice(double price) = 0;
 	virtual void setInfo(const Info &info) = 0;
 	virtual void reportMisc(const MiscData &miscData) = 0;
 	virtual void reportError(const ErrorObj &errorObj) = 0;
-	virtual double calcSpread(ondra_shared::StringView<ChartItem> chart,
-			const MTrader_Config &config,
-			const IStockApi::MarketInfo &minfo,
-			double balance,
-			double prev_value) const = 0;
+	virtual void reportPerformance(const PerformanceReport &repItem) = 0;
 	virtual std::size_t getHash() const = 0;
+	virtual void clear() = 0;
 
 	virtual ~IStatSvc() {}
 };

@@ -10,29 +10,34 @@
 #include <optional>
 
 #include "../shared/logOutput.h"
+#include "ibrokercontrol.h"
 #include "istockapi.h"
 
 
 
-class EmulatorAPI: public IStockApi {
+class EmulatorAPI: public IStockApi, public IBrokerIcon {
 public:
 
 	EmulatorAPI(IStockApi &datasrc, double initial_currency);
 
 
 	virtual double getBalance(const std::string_view & symb) override;
-	virtual TradeHistory getTrades(json::Value lastId, std::uintptr_t fromTime, const std::string_view & pair) override;
+	virtual TradesSync syncTrades(json::Value lastId, const std::string_view & pair) override;
 	virtual Orders getOpenOrders(const std::string_view & par) override;
 	virtual Ticker getTicker(const std::string_view & piar) override;
 	virtual json::Value placeOrder(const std::string_view & pair,
 			double size, double price,json::Value clientId,
 			json::Value replaceId,double replaceSize) override;
 	virtual bool reset() override;
-	virtual bool isTest() const override;
 	virtual MarketInfo getMarketInfo(const std::string_view & pair) override;
 	virtual double getFees(const std::string_view &pair) override;
 	virtual std::vector<std::string> getAllPairs() override;
 	virtual void testBroker() override {datasrc.testBroker();}
+	virtual BrokerInfo getBrokerInfo() override;
+	//saves image to disk to specified path
+	virtual void saveIconToDisk(const std::string &path) const override;
+	//retrieves name of saved image
+	virtual std::string getIconName() const override;
 
 	static std::string_view prefix;
 
@@ -44,6 +49,7 @@ protected:
 
 	Orders orders;
 	TradeHistory trades;
+	Ticker lastTicker;
 
 	std::string balance_symb;
 	std::string currency_symb;

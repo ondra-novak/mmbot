@@ -23,7 +23,7 @@ IStockApi::Trade IStockApi::Trade::fromJSON(json::Value x) {
 
 		return IStockApi::Trade {
 			x["id"].stripKey(),
-			x["time"].getUInt(),
+			x["time"].getUIntLong(),
 			size,
 			price,
 			size,
@@ -32,7 +32,7 @@ IStockApi::Trade IStockApi::Trade::fromJSON(json::Value x) {
 	} else {
 		return IStockApi::Trade {
 			x["id"].stripKey(),
-			x["time"].getUInt(),
+			x["time"].getUIntLong(),
 			size,
 			price,
 			x["eff_size"].getNumber(),

@@ -23,23 +23,27 @@
 using ondra_shared::logDebug;
 
 static constexpr std::uint64_t start_time = 1557858896532;
-Proxy::Proxy(Config config):config(config) {
+Proxy::Proxy() {
+	apiUrl = "https://coinmate.io/api/";
 	auto now = std::chrono::system_clock::now();
-	std::size_t init_time = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count() - start_time;
+	std::uint64_t init_time = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count() - start_time;
 	nonce = init_time * 100;
-	hasKey = !config.privKey.empty()
-			&& !config.pubKey.empty()
-			&& !config.clientid.empty();
+}
+
+bool Proxy::hasKey() const {
+return  !privKey.empty()
+			&& !pubKey.empty()
+			&& !clientid.empty();
 
 }
 
 std::pair<std::string, std::uint64_t> Proxy::createSignature() {
 	std::ostringstream msgbuff;
-	msgbuff<<nonce<<config.clientid<<config.pubKey;
+	msgbuff<<nonce<<clientid<<pubKey;
 	std::string msg = msgbuff.str();
 	unsigned char dbuff[100];
 	unsigned int dbuff_size = sizeof(dbuff);
-	HMAC(EVP_sha256(), config.privKey.data(), config.privKey.size(),
+	HMAC(EVP_sha256(), privKey.data(), privKey.size(),
 			reinterpret_cast<const unsigned char *>(msg.data()),
 			msg.size(), dbuff, &dbuff_size);
 	std::ostringstream digest;
@@ -54,7 +58,7 @@ json::Value Proxy::request(Method method, std::string path, json::Value data) {
 
 	std::string d = createQuery(data);
 	std::ostringstream response;
-	std::string url = config.apiUrl+path;
+	std::string url = apiUrl+path;
 	std::istringstream src(d);
 
 /*	auto reader = [&](char *buffer, size_t size, size_t nitems) {
@@ -63,7 +67,7 @@ json::Value Proxy::request(Method method, std::string path, json::Value data) {
 		return cnt;
 	};*/
 
-	if (!hasKey && method != GET)
+	if (!hasKey() && method != GET)
 		throw std::runtime_error("This operation requires valid API key");
 
 	const char *m = "";
@@ -112,10 +116,10 @@ json::Value Proxy::request(Method method, std::string path, json::Value data) {
 
 std::string Proxy::createQuery(json::Value data) {
 	std::ostringstream out;
-	if (hasKey) {
+	if (hasKey()) {
 		auto sig = createSignature();
-		out << "clientId=" << config.clientid
-			<< "&publicKey=" << config.pubKey
+		out << "clientId=" << clientid
+			<< "&publicKey=" << pubKey
 			<< "&nonce=" << sig.second
 			<< "&signature=" << sig.first;
 	}

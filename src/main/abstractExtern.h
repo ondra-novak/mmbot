@@ -7,6 +7,8 @@
 
 #ifndef SRC_MAIN_ABSTRACTEXTERN_H_
 #define SRC_MAIN_ABSTRACTEXTERN_H_
+#include <mutex>
+
 #include <imtjson/string.h>
 #include <imtjson/value.h>
 #include <string>
@@ -21,6 +23,7 @@ public:
 
 	void preload();
 	virtual void onConnect() {}
+	void stop();
 protected:
 
 	static const int invval;
@@ -42,6 +45,8 @@ protected:
 	std::string workingDir;
 	ondra_shared::LogObject log;
 
+	mutable std::recursive_mutex lock;
+	using Sync = std::unique_lock<std::recursive_mutex>;
 
 	class Reader;
 

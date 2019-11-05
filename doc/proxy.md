@@ -5,7 +5,7 @@ linux process and comunnicates using pipes.
 
 The Robot starts this broker once it is needed and keeps it running, until the robot is stopped. The connection is made using three pipes connected to **stdin**, **stdout** and **stderr**. So the broker reads its **stdin**, and replies to **stdout**. It can also log its actions to **stderr**, which is routed to the robot's logfile 
 
-The communication is synchronous: request-reply style. The broker must only send one response to each request. The broker can also use stderr only if the response is expected (note: the whole line need to be written to the stderr, including "\n", otherwise, the communication can deadlock and eventually timeour)
+The communication is synchronous: request-reply style. The broker must only send one response to each request. The broker can also use stderr only if the response is expected (note: the whole line need to be written to the stderr, including "\n", otherwise, the communication can deadlock and eventually timeout)
 
 Every request is send on single line terminated by a new line character '\n'
 The response should be send as a single line too.
@@ -54,7 +54,7 @@ If "placeOrder" fails, the order is considered as "not placed".
 Request to reset internal state of the broker. It is ideal place to clear any cache 
 or perform garbage collecting. The function is called at the begining of every cycle.
 
-#### Response
+** Response **
 ```
 [ true ]
 ```
@@ -67,12 +67,12 @@ Enables or disables debug mode. This is optional feature. When debug mode is on,
 should send debug informations to the standard error. When debug mode is off, the broker
 should stay quiet.   
 
-#### Response when supported
+** Response when supported **
 
 ```
 [true]
 ```
-#### Response when not supported
+** Response when not supported **
 
 ```
 [false]
@@ -112,27 +112,30 @@ Returns ticker for given pair
 #### TIP: 
 To reduce count of requests, the broker can read multiple symbols and server them from cache until the "reset"
 
-### getTrades
+### syncTrades
 
 ```
-["getTrades", {"lastId": <value>, "fromTime": <number>, "pair": <pair>} ]
+["syncTrades", {"lastId": <value>,  "pair": <pair>} ]
 ```
 
-Returns trades associated with user account. 
-* **lastId** - (optional) contains **id** of last received trade. It allows to receive
-  trades created after that id. If not specified, the all trades are returned
-* **fromTime** - (optional) returns only trades newer then specified time
+Reads last trades.  
+* **lastId** - contains **lastId** returned by previous read. For the very first read this field is missing or it is set to **null** 
 * **pair** - specifies pair
 
 ```
-[ true, { "id": <value> , 
-        "time": <number>, 
-        "size":<number>, 
-       "price":<number>, 
-    "eff_size":<number>, 
-   "eff_price":<number>,
-    } ]
+[ true, {"lastId":<value>,
+         "trades:[{ 
+             "id": <value> , 
+             "time": <number>, 
+             "size":<number>, 
+             "price":<number>, 
+             "eff_size":<number>, 
+             "eff_price":<number>,
+            } ]
+         }
+]         
 ```
+* **lastId** - this value is remembered and used on next call. It can by any arbitrary JSON value.
 * **id** - id of trade (can be string or number)
 * **time** - timestamp
 * **size** - amount of assets. The number is positive for buy, or negative for sell,
@@ -212,6 +215,10 @@ Returns information about a trading pair
 		   "min_size": <number>,
 		   "fees": <number>,
 		   "feeScheme", "currency|assets|income|outcome"
+		   	"leverage": <number>,
+		   	"invert_price": <bool>
+		   	"inverted_symbol": <string>
+		   	"simulator": <bool>
 		    }]
 ```
 
@@ -229,10 +236,20 @@ search the balance. Example: "XBT"
     - **assets** - fees are substracted from assets
     - **income** - fees are substracted from currency when sell, or assets when buy  
     - **outcome** - fees are substracted from currency when buy, or assets when sell
-- **leverage** - (optional) when pair can use leverage. This value should be greater or
+- **leverage** -  when pair can use leverage. This value should be greater or
   equal to zero. If zero is specified (default), there is no leverage. Otherwise 
   leverage is available (for example 100 means leverage 100x) and it also enables
   `shorts`.
+- **invert_price** - the value `true` specifies, that price is inverted. It is used when
+  the trading pair is inversed futures. The quoted price must be send as 1/price, the position
+  and the size of the order must be multiplied by -1 and this flag  must be set to `true`.
+- **inverted_symbol** - for inversed futures specifies symbol for price in which the futures are
+  quoted. For example Deribit BTC/USD is inversed futures. Assets is 'contract', currency is BTC, 
+  and inverted symbol is USD.
+- **simulator** - set this to `true`, if the pair is not actual trading for the real money, but just
+  kind of simulator, paper trading, etc. 
+    
+    
     
 
 ### getFees
@@ -260,6 +277,97 @@ Returns all available tradable pairs on stockmarket
 ```
 [ true, [<string>,<string>,<string>,...] ]
 ```
+
+### getBrokerInfo 
+```
+["getBrokerInfo"]
+```
+
+Returns general informations about the broker
+
+```
+{
+	"name":<string>,
+	"url":<string>,
+	"version":<string>,
+	"licence":<string>,
+	"trading_enabled":<boolean>,
+	"settings":<boolean>,
+	"favicon":<string>
+}
+```
+* **name** - name of the exchange (Binane, Deribit, BitMEX, Coinmate, etc]
+* **url** - full url to exchange's home page
+* **version** - version of the broker 
+* **licence** - licence text
+* **trading_enabled** - set `true`, if the trading is enabled. Trading is disabled because
+the API key is not set.
+* **settings** - set `true`, if the broker has extra settings (getSettings, setSettings)
+* **favicon** - icon in base64, content-type: image/png
+	 
+### getApiKeyFields
+```
+["getApiKeyFields"]
+```
+Returns list of fields need to be filled by a user to import API key. Different exchanges has
+different format of the key, and the different count of requied fields. 
+
+Description of return value can be found at function `getSettings` The function must not return
+stored keys. These values must be never returned to the user.
+
+### setApiKey
+```
+["setApiKey", <object>]
+```
+Stores all values need to initialize API key. Parameter is object which contains key-value set
+of fields. Names and types of this fields can be obtained by function `getApiKeyFields`
+
+
+###getSettings
+```
+["getSettings","hint"]
+```
+
+Allows to user to change some internal settings of the broker. This function must be enabled
+in the result of the function `getBrokerInfo`. This function returns list of fields with their values to be changed by user. The returned data are used to build a form, which user can fill or edit.
+
+* **hint** - contains currenctly selected pair. The broker can use this value as hint which
+fields to serve.  
+
+** Return value **
+
+Returned value is an array of fields
+
+```
+[{
+	"name",<string>,
+	"label",<string>,
+	"type","string|number|textarea|enum|hidden",
+	"default":<value>,
+	"options": {
+	     "value1":"label1",
+	     "value2":"label2",
+	     ...
+	     }
+},....]
+```
+* **name** - name of the field
+* **label** - label of the field
+* **type** - one of specified type
+* **default** - (optional) if set, the input control is pre-filled by this value
+* **options** - just for `enum` - contains list of values with label. The result control is 
+  a combobox where user can choose one of the values
+
+###setSettings
+```
+["setSettings", <value>]
+```
+
+Stores settings edited by the user. The settings must be stored permanently in the secured area,
+similar to location where the API key is stored. The settings must be also immediatelly applied.
+
+
+
 
 ### When function is not implemented
 

@@ -9,7 +9,6 @@
 
 #include <rpc/rpcServer.h>
 #include "../imtjson/src/imtjson/operations.h"
-#include "config.h"
 #include "proxy.h"
 #include "../main/istockapi.h"
 #include <cmath>
@@ -24,13 +23,18 @@ using namespace json;
 
 class Interface: public AbstractBrokerAPI {
 public:
-	Proxy &px;
+	Proxy px;
 
-	Interface(Proxy &cm, std::string dbpath):px(cm),orderdb(dbpath) {}
+	Interface(const std::string &path):AbstractBrokerAPI(
+			path,
+			{
+					Object("name","key")("type","string")("label","Key"),
+					Object("name","secret")("type","string")("label","Secret")
+			}),orderdb(path+".db") {}
 
 
 	virtual double getBalance(const std::string_view & symb) override;
-	virtual TradeHistory getTrades(json::Value lastId, std::uintptr_t fromTime, const std::string_view & pair) override;
+	virtual TradesSync syncTrades(json::Value lastId, const std::string_view & pair) override;
 	virtual Orders getOpenOrders(const std::string_view & par)override;
 	virtual Ticker getTicker(const std::string_view & piar)override;
 	virtual json::Value placeOrder(const std::string_view & pair,
@@ -44,6 +48,9 @@ public:
 	virtual double getFees(const std::string_view &pair)override;
 	virtual std::vector<std::string> getAllPairs()override;
 	virtual void enable_debug(bool enable) override {px.debug = enable;}
+	virtual BrokerInfo getBrokerInfo() override;
+	virtual void onLoadApiKey(json::Value keyData) override;
+	virtual void onInit() override;
 
 	Value balanceCache;
 	Value tickerCache;
@@ -98,32 +105,58 @@ public:
 
  }
 
- Interface::TradeHistory Interface::getTrades(json::Value lastId, std::uintptr_t fromTime, const std::string_view & pair) {
+ Interface::TradesSync Interface::syncTrades(json::Value lastId, const std::string_view & pair) {
 
-		if (fromTime < lastFromTime) {
-			tradeMap.clear();
-			needSyncTrades = true;
-			lastFromTime = fromTime;
-		}
+	 	if (!lastId.hasValue()) {
 
-		if (needSyncTrades) {
-			syncTrades(fromTime);
-			needSyncTrades = false;
-		}
+	 		return TradesSync{ {}, Value(json::array,{time(nullptr), nullptr})};
 
-		auto trs = tradeMap[pair];
+	 	} else {
+	 		time_t startTime = lastId[0].getUInt();
+	 		Value id = lastId[1];
 
-		auto iter = trs.begin();
-		auto end = trs.end();
-		if (lastId.defined()) {
-			iter = std::find_if(iter, end, [&](const Trade &x){
-				return x.id == lastId;
-			});
-			if (iter != end) ++iter;
-		}
+	 		Value trs = px.private_request("returnTradeHistory", Object
+	 				("start", startTime)
+	 				("currencyPair",pair)
+	 				("limit", 10000));
 
+ 			TradeHistory loaded;
+	 		for (Value t: trs) {
+				auto time = parseTime(String(t["date"]));
+				auto id = t["tradeID"];
+				auto size = t["amount"].getNumber();
+				auto price = t["rate"].getNumber();
+				auto fee = t["fee"].getNumber();
+				if (t["type"].getString() == "sell") size = -size;
+				double eff_size = size >= 0? size*(1-fee):size;
+				double eff_price = size < 0? price*(1-fee):price;
+				loaded.push_back(Trade {
+					id,
+					time,
+					size,
+					price,
+					eff_size,
+					eff_price,
+				});
+	 		}
 
-		return TradeHistory(iter, end);
+ 			std::sort(loaded.begin(),loaded.end(), tradeOrder);
+	 		auto iter = std::find_if(loaded.begin(), loaded.end(), [&](auto &&x) {
+	 				return x.id == id;
+	 		});
+
+	 		if (iter != loaded.end()) {
+	 			++iter;
+	 			loaded.erase(loaded.begin(),iter);
+	 		}
+
+	 		if (!loaded.empty()) {
+	 			lastId = {loaded.back().time/1000, loaded.back().id};
+	 		}
+
+	 		return TradesSync{ loaded,  lastId};
+
+	 	}
 }
 
 
@@ -157,7 +190,7 @@ Interface::Orders Interface::getOpenOrders(const std::string_view & pair) {
 	 }, Orders());
 }
 
-static std::uintptr_t now() {
+static std::uint64_t now() {
 	return std::chrono::duration_cast<std::chrono::milliseconds>(
 						 std::chrono::system_clock::now().time_since_epoch()
 						 ).count();
@@ -275,7 +308,7 @@ inline Interface::MarketInfo Interface::getMarketInfo(const std::string_view &pa
 }
 
 inline double Interface::getFees(const std::string_view &pair) {
-	if (px.hasKey) {
+	if (px.hasKey()) {
 		auto now = std::chrono::system_clock::now();
 		if (!feeInfo.defined() || feeInfoExpiration < now) {
 			feeInfo = px.private_request("returnFeeInfo", Value());
@@ -359,6 +392,14 @@ inline bool Interface::syncTradeCheckTime(const std::vector<Trade> &cont,
 	return false;
 }
 
+inline void Interface::onLoadApiKey(json::Value keyData) {
+	px.privKey = keyData["secret"].getString();
+	px.pubKey = keyData["key"].getString();
+}
+
+inline void Interface::onInit() {
+	//empty
+}
 
 bool Interface::tradeOrder(const Trade &a, const Trade &b) {
 	std::size_t ta = a.time;
@@ -369,35 +410,71 @@ bool Interface::tradeOrder(const Trade &a, const Trade &b) {
 }
 
 
+Interface::BrokerInfo Interface::getBrokerInfo() {
+	return BrokerInfo{
+		px.hasKey(),
+		"poloniex",
+		"Poloniex",
+		"https://www.poloniex.com/",
+		"1.0",
+		R"mit(Copyright (c) 2019 Ondřej Novák
+
+Permission is hereby granted, free of charge, to any person
+obtaining a copy of this software and associated documentation
+files (the "Software"), to deal in the Software without
+restriction, including without limitation the rights to use,
+copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the
+Software is furnished to do so, subject to the following
+conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+OTHER DEALINGS IN THE SOFTWARE.)mit",
+"iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAMAAAD04JH5AAABwlBMVEUAAAAqNTsqNjwrNjwsNz0t"
+"Nz0uOD4vOT8wOkAxO0ExPEEyPEIzPUM0PkQ1PkQ0P0Q1P0U2P0U2QEY3QEY3QUc4QUc4Qkg5QkgA"
+"UlwAU1w6Q0kBU10BVF0BVF47REoCVV47RUsCVV88RUsCVl47RksCVl8DVl88Rkw9RkwDV18DV2A9"
+"R00+R00EWGAEWWFASU8FWmFASlAFW2JBSlAGW2IGW2NBS1EGXGNCS1FCTFIHXWMHXWRDTFIHXmRD"
+"TVNDTlMIX2QIX2VETlQIYGUJYGUJYGZFT1VGT1UJYWYJYWdGUFZHUFYJYmcJYmgJY2gJY2lIUVcJ"
+"ZGkJZGpIUlhJUlgJZWoJZWtKU1kJZmsJZmxKVFpLVFoJZ20KZ21MVVpMVVsKaG4KaG8KaW8KaXAK"
+"anAKanEKa3EKa3IJbHMKbHIKbHMKbXMKbXQLbXQMbnUMb3YNb3YOb3YPcHcQcHcRcXgScngTcnkU"
+"c3kUc3oVc3oWdHsXdHsXdXwYdXwZdnwZdn0adn0bdn4cd34deH8eeH8feYAgeYAheoEieoEie4Ij"
+"e4Ije4MkfIMlfIMlfYQmfYQnfYQofYUofoUpfoUpf4Yqf4Zvf8klAAAAAXRSTlMAQObYZgAAApVJ"
+"REFUeAHt0YOaHUEUReEd27bHsW3btm3bdvK8sfpO37Oqu6qi6f8F9vrOUaFQKBR+9R7I0U4Qu2AH"
+"7RsB72xyssW2VYa3tjdi2ghkemN7LbR2nU22V0BkFZFfwUuBpUDope2FTAuX2MSePbfJsoDIpcD2"
+"VIY5tply8sT2WGXNAHLzCMC+QY4eAv8DkAcg9r7uA/8HkHtAKSZPsymTuyBlHyibO4T3KQDcvmXz"
+"PwC5CWLv68Z12zUlhA/QVZAlQLlcAe4FyucycS5QTpdsF5UwqSzldgG4FSi/8+eAEiakk4ezwCVA"
+"XgFnABfIz2mCBfJ0CpyEAHk7AWQWyN9xcNQsUADHiH41NkFBHAFKgH3vAC4Y/ZP+cIFCOQT7h9MD"
+"FM5hcDC1QAEdJCkFCip7gMI6QOoVKLD9RAkjFRwGxLaPqCjYq8j2EsW2h/z/BbuJYttF4geQBn+C"
+"7YprO1Fc2+LvQwBQZJtJsf9/B2wiimsDUWTZ9uvqFNh6W2lAbeiCNaRk/zOFlGO/9s8doOobBbMa"
+"JPdVFbpgNSndDx2wEpTuhy5YkT+gKsg+MfbjB8B+iILlQAlDq0pUytPiZbbFSqisT36WAdyv/J37"
+"g1PJw2L/AK+CRQT2owfwvl/BfMD7fgXz5oLYAbMB7/sVTJ9l432/gqnTgRIGguwFU4FK9AfKaOIU"
+"mxS3YCIQB3gVjBlnG68UQQNs46S4BaOAyugN5GhEzn31sHV3DgAqq5utq5wMBzJ0sXUWU00N7Fs6"
+"2Tp2EKs21dTI1L6dTagCCLQFAkOG2YTa2FrLNGiATaxNK5tMA4CYWgIZ+vazyUkLYOwDuWkOVFYf"
+"IEfNmjazNFUZvWx95KwJUKqetl7KoHEjk/4ihUKhUPgI3TlJWgiZwUMAAAAASUVORK5CYII="
+
+	};
+}
+
 
 
 int main(int argc, char **argv) {
 	using namespace json;
 
 	if (argc < 2) {
-		std::cerr << "No config given, terminated" << std::endl;
+		std::cerr << "Argument needed" << std::endl;
 		return 1;
 	}
 
-	try {
+	Interface ifc(argv[1]);
+	ifc.dispatch();
 
-		ondra_shared::IniConfig ini;
-
-		ini.load(argv[1]);
-
-		Config cfg = load(ini["api"]);
-		Proxy proxy(cfg);
-
-		std::string dbpath = ini["order_db"].mandatory["path"].getPath();
-
-		Interface ifc(proxy, dbpath);
-
-
-		ifc.dispatch();
-
-
-	} catch (std::exception &e) {
-		std::cerr << "Error: " << e.what() << std::endl;
-		return 2;
-	}
 }

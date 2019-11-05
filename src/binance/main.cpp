@@ -11,7 +11,6 @@
 #include <rpc/rpcServer.h>
 #include <imtjson/operations.h>
 #include "shared/toString.h"
-#include "config.h"
 #include "proxy.h"
 #include "../main/istockapi.h"
 #include <cmath>
@@ -21,7 +20,6 @@
 #include <imtjson/stringValue.h>
 #include "../shared/linear_map.h"
 #include "../shared/iterator_stream.h"
-#include "../brokers/orderdatadb.h"
 #include <imtjson/binary.h>
 #include <imtjson/streams.h>
 #include <imtjson/binjson.tcc>
@@ -29,15 +27,25 @@
 
 using namespace json;
 
+static Value keyFormat = {Object
+							("name","pubKey")
+							("type","string")
+							("label","Public key"),
+						 Object
+							("name","privKey")
+							("type","string")
+							("label","Private key")};
+
 class Interface: public AbstractBrokerAPI {
 public:
-	Proxy &px;
+	Proxy px;
 
-	Interface(Proxy &cm):px(cm) {}
+
+	Interface(const std::string &path):AbstractBrokerAPI(path, keyFormat) {}
 
 
 	virtual double getBalance(const std::string_view & symb) override;
-	virtual TradeHistory getTrades(json::Value lastId, std::uintptr_t fromTime, const std::string_view & pair) override;
+	virtual TradesSync syncTrades(json::Value lastId, const std::string_view & pair) override;
 	virtual Orders getOpenOrders(const std::string_view & par)override;
 	virtual Ticker getTicker(const std::string_view & piar)override;
 	virtual json::Value placeOrder(const std::string_view & pair,
@@ -51,6 +59,9 @@ public:
 	virtual double getFees(const std::string_view &pair)override;
 	virtual std::vector<std::string> getAllPairs()override;
 	virtual void enable_debug(bool enable) override;
+	virtual BrokerInfo getBrokerInfo() override;
+	virtual void onLoadApiKey(json::Value keyData) override;
+	virtual void onInit() override;
 
 	using Symbols = ondra_shared::linear_map<std::string, MarketInfo, std::less<std::string_view> > ;
 	using Tickers = ondra_shared::linear_map<std::string, Ticker,  std::less<std::string_view> >;
@@ -68,18 +79,15 @@ public:
 	bool needSyncTrades = true;
 	std::size_t lastFromTime = -1;
 
-	void syncTrades(std::size_t fromTime);
-	bool syncTradesCycle(std::size_t fromTime);
-	bool syncTradeCheckTime(const std::vector<Trade> &cont, std::size_t time, Value tradeID);
 
 	static bool tradeOrder(const Trade &a, const Trade &b);
 	void updateBalCache();
-	void init();
 	Value generateOrderId(Value clientId);
 
 	std::intptr_t time_diff;
 	std::uintptr_t idsrc;
 
+	void initSymbols();
 
 };
 
@@ -122,53 +130,71 @@ void Interface::updateBalCache() {
 
  }
 */
- Interface::TradeHistory Interface::getTrades(json::Value lastId, std::uintptr_t fromTime, const std::string_view & pair) {
+ Interface::TradesSync Interface::syncTrades(json::Value lastId, const std::string_view & pair) {
+	 initSymbols();
 	 auto iter = symbols.find(pair);
 	 if (iter == symbols.end())
 		 throw std::runtime_error("No such symbol");
 
 	 const MarketInfo &minfo = iter->second;
 
+	 if (lastId.hasValue()) {
 
-	 Value r = px.private_request(Proxy::GET,"/api/v3/myTrades", Object
-			 ("fromId", lastId)
-			 ("startTime", fromTime)
-			 ("symbol", pair)
-			 );
 
-	 r = r.map([&](Value x) ->Value{
-		if (x["id"] == lastId) return json::undefined;
-		else return x;
-	  });
+		 Value r = px.private_request(Proxy::GET,"/api/v3/myTrades", Object
+				 ("fromId", lastId)
+				 ("symbol", pair)
+				 );
 
-	 TradeHistory h(mapJSON(r,[&](Value x){
-		 double size = x["qty"].getNumber();
-		 double price = x["price"].getNumber();
-		 StrViewA comass = x["commissionAsset"].getString();
-		 if (!x["isBuyer"].getBool()) size = -size;
-		 double comms = x["commission"].getNumber();
-		 double eff_size = size;
-		 double eff_price = price;
-		 if (comass == StrViewA(minfo.asset_symbol)) {
-			 eff_size -= comms;
-		 } else if (comass == StrViewA(minfo.currency_symbol)) {
-			 eff_price += comms/size;
-		 }
+		 r = r.map([&](Value x) ->Value{
+			if (x["id"] == lastId) return json::undefined;
+			else return x;
+		  });
 
-		 return Trade {
-			 x["id"],
-			 x["time"].getUInt(),
-			 size,
-			 price,
-			 eff_size,
-			 eff_price
+		 TradeHistory h(mapJSON(r,[&](Value x){
+			 double size = x["qty"].getNumber();
+			 double price = x["price"].getNumber();
+			 StrViewA comass = x["commissionAsset"].getString();
+			 if (!x["isBuyer"].getBool()) size = -size;
+			 double comms = x["commission"].getNumber();
+			 double eff_size = size;
+			 double eff_price = price;
+			 if (comass == StrViewA(minfo.asset_symbol)) {
+				 eff_size -= comms;
+			 } else if (comass == StrViewA(minfo.currency_symbol)) {
+				 eff_price += comms/size;
+			 }
+
+			 return Trade {
+				 x["id"],
+				 x["time"].getUIntLong(),
+				 size,
+				 price,
+				 eff_size,
+				 eff_price
+			 };
+		 }, TradeHistory()));
+
+		 std::sort(h.begin(), h.end(),[&](const Trade &a, const Trade &b) {
+			 return Value::compare(a.id,b.id) < 0;
+		 });
+		 if (!h.empty()) lastId = h.back().id;
+		 return TradesSync{
+			 h,
+			 lastId
 		 };
-	 }, TradeHistory()));
-
-	 std::sort(h.begin(), h.end(),[&](const Trade &a, const Trade &b) {
-		 return Value::compare(a.id,b.id) < 0;
-	 });
-	 return h;
+	 } else {
+		 Value r = px.private_request(Proxy::GET,"/api/v3/myTrades", Object
+				 ("symbol", pair));
+		 Value id = r.reduce([](Value l, Value itm) {
+			 Value id = itm["id"];
+			 return id.getUInt() > l.getUInt()?id:l;
+		 }, Value(0));
+		 return TradesSync {
+			 {},
+			 id
+		 };
+	 }
 }
 
 
@@ -205,7 +231,7 @@ Interface::Orders Interface::getOpenOrders(const std::string_view & pair) {
 	}, Orders());
 }
 
-static std::uintptr_t now() {
+static std::uint64_t now() {
 	return std::chrono::duration_cast<std::chrono::milliseconds>(
 						 std::chrono::system_clock::now().time_since_epoch()
 						 ).count();
@@ -251,6 +277,7 @@ Interface::Ticker Interface::getTicker(const std::string_view &pair) {
 }
 
 std::vector<std::string> Interface::getAllPairs() {
+	initSymbols();
  	 std::vector<std::string> res;
 	 for (auto &&v: symbols) res.push_back(v.first);
 	 return res;
@@ -308,45 +335,50 @@ bool Interface::reset() {
 	return true;
 }
 
-void Interface::init() {
-	Value res = px.public_request("/api/v1/exchangeInfo",Value());
+void Interface::initSymbols() {
+	if (symbols.empty()) {
+		Value res = px.public_request("/api/v1/exchangeInfo",Value());
 
-	std::uintptr_t srvtm = res["serverTime"].getUInt();
-	std::uintptr_t localtm = now();
-	time_diff = srvtm - localtm;
+		std::uintptr_t srvtm = res["serverTime"].getUInt();
+		std::uintptr_t localtm = now();
+		time_diff = srvtm - localtm;
 
-	using VT = Symbols::value_type;
-	std::vector<VT> bld;
-	for (Value smb: res["symbols"]) {
-		MarketInfo nfo;
-		nfo.asset_symbol = smb["baseAsset"].getString();
-		nfo.currency_symbol = smb["quoteAsset"].getString();
-		nfo.currency_step = std::pow(10,-smb["quotePrecision"].getNumber());
-		nfo.asset_step = std::pow(10,-smb["baseAssetPrecision"].getNumber());
-		nfo.feeScheme = income;
-		nfo.min_size = 0;
-		nfo.min_volume = 0;
-		nfo.fees = 0;
-		for (Value f: smb["filters"]) {
-			auto ft = f["filterType"].getString();
-			if (ft == "LOT_SIZE") {
-				nfo.min_size = f["minQty"].getNumber();
-				nfo.asset_step = f["stepSize"].getNumber();
-			} else if (ft == "PRICE_FILTER") {
-				nfo.currency_step = f["tickSize"].getNumber();
-			} else if (ft == "MIN_NOTIONAL") {
-				nfo.min_volume = f["minNotional"].getNumber();
+		using VT = Symbols::value_type;
+		std::vector<VT> bld;
+		for (Value smb: res["symbols"]) {
+			MarketInfo nfo;
+			nfo.asset_symbol = smb["baseAsset"].getString();
+			nfo.currency_symbol = smb["quoteAsset"].getString();
+			nfo.currency_step = std::pow(10,-smb["quotePrecision"].getNumber());
+			nfo.asset_step = std::pow(10,-smb["baseAssetPrecision"].getNumber());
+			nfo.feeScheme = income;
+			nfo.min_size = 0;
+			nfo.min_volume = 0;
+			nfo.fees = 0;
+			for (Value f: smb["filters"]) {
+				auto ft = f["filterType"].getString();
+				if (ft == "LOT_SIZE") {
+					nfo.min_size = f["minQty"].getNumber();
+					nfo.asset_step = f["stepSize"].getNumber();
+				} else if (ft == "PRICE_FILTER") {
+					nfo.currency_step = f["tickSize"].getNumber();
+				} else if (ft == "MIN_NOTIONAL") {
+					nfo.min_volume = f["minNotional"].getNumber();
+				}
 			}
+			std::string symbol = smb["symbol"].getString();
+			bld.push_back(VT(symbol, nfo));
 		}
-		std::string symbol = smb["symbol"].getString();
-		bld.push_back(VT(symbol, nfo));
+		symbols = Symbols(std::move(bld));
 	}
-	symbols = Symbols(std::move(bld));
-	idsrc = now();
+}
 
+void Interface::onInit() {
+	idsrc = now();
 }
 
 inline Interface::MarketInfo Interface::getMarketInfo(const std::string_view &pair) {
+	initSymbols();
 
 	auto iter = symbols.find(pair);
 	if (iter == symbols.end())
@@ -356,7 +388,7 @@ inline Interface::MarketInfo Interface::getMarketInfo(const std::string_view &pa
 }
 
 inline double Interface::getFees(const std::string_view &pair) {
-	if (px.hasKey) {
+	if (px.hasKey()) {
 		 if (!feeInfo.defined()) {
 			 updateBalCache();
 		 }
@@ -364,42 +396,6 @@ inline double Interface::getFees(const std::string_view &pair) {
 	} else {
 		return 0.001;
 	}
-
-}
-
-
-
-void Interface::syncTrades(std::size_t fromTime) {
-	std::size_t startTime ;
-	do {
-		startTime = 0;
-		startTime--;
-		for (auto &&k : tradeMap) {
-			if (!k.second.empty()) {
-				const auto &v = k.second.back();
-				startTime = std::min(startTime, v.time-1);
-			}
-		}
-		++startTime;
-	} while (syncTradesCycle(std::max(startTime,fromTime)));
-}
-
-
-bool Interface::syncTradesCycle(std::size_t fromTime) {
-	return true;
-}
-
-
-
-
-inline bool Interface::syncTradeCheckTime(const std::vector<Trade> &cont,
-		std::size_t time, Value tradeID) {
-
-	if (cont.empty()) return true;
-	const Trade &b = cont.back();
-	if (b.time < time) return true;
-	if (b.time == time && Value::compare(b.id, tradeID) < 0) return true;
-	return false;
 }
 
 
@@ -409,6 +405,11 @@ bool Interface::tradeOrder(const Trade &a, const Trade &b) {
 	if (ta < tb) return true;
 	if (ta > tb) return false;
 	return Value::compare(a.id,b.id) < 0;
+}
+
+inline void Interface::onLoadApiKey(json::Value keyData) {
+	px.privKey = keyData["privKey"].getString();
+	px.pubKey = keyData["pubKey"].getString();
 }
 
 inline Value Interface::generateOrderId(Value clientId) {
@@ -427,28 +428,60 @@ void Interface::enable_debug(bool enable) {
 	px.debug = enable;
 }
 
+Interface::BrokerInfo Interface::getBrokerInfo() {
+	return BrokerInfo{
+		px.hasKey(),
+		"binance",
+		"Binance",
+		"https://www.binance.com/",
+		"1.0",
+		"Copyright (c) 2019 Ondřej Novák\n\n"
+
+"Permission is hereby granted, free of charge, to any person "
+"obtaining a copy of this software and associated documentation "
+"files (the \"Software\"), to deal in the Software without "
+"restriction, including without limitation the rights to use, "
+"copy, modify, merge, publish, distribute, sublicense, and/or sell "
+"copies of the Software, and to permit persons to whom the "
+"Software is furnished to do so, subject to the following "
+"conditions: "
+"\n\n"
+"The above copyright notice and this permission notice shall be "
+"included in all copies or substantial portions of the Software. "
+"\n\n"
+"THE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, "
+"EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES "
+"OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND "
+"NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT "
+"HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, "
+"WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING "
+"FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR "
+"OTHER DEALINGS IN THE SOFTWARE.",
+"iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAMAAAD04JH5AAAABlBMVEX31lXzui274TLJAAAAAXRS"
+"TlMAQObYZgAAAYlJREFUeNrt20FuwzAQQ9Hw/pfuku0iNQxCfQ1gLgMin4ltSR6NXo8efboSzU80"
+"P9H8RPMTxa8Uv1L8SvErxa8Uv1L8SvErxa8Uv1L8SvErHiCKXyl+pfiV4leKXyl+pfiV4lean7/h"
+"r5Pzzt8S7Pwtwc5fE+z88wnyVjdch/hbgp2/JNj5m3cPsJn3BJt5T7CZ9wSbeU8wmvcEd8ygGnR8"
+"OrxjNhXBmllNdOa/H2h/9Vbv+Dd+wIlPX7cu4fi/XJiHq33h3c23bvcD5lsP/AFzvguMj/mpgzPE"
+"PpVlMu+TeUbzupzJbN4WdMluXpa0mcz1+gD+Evib0D+GfiDSQ7GfjPx07Bckfkm2L0on86kF+MUX"
+"qxcT8GpmX07967kvUPgSjS9S+TKdL1TyUi0vVvNyvd6w0Fs2etNKb9vpjUu9das3r/X2vW9gwAl8"
+"E4tN8F8amVQC38xmE+h+Qt1R6ZtabQLf2GwT+OZ2m8AfcLAJ/CEXm8AfdLIJ/GE3m8AfeLQJ+KHX"
+"R48+XF9VnRBZ1a2+VQAAAABJRU5ErkJggg=="
+
+
+	};
+}
+
 int main(int argc, char **argv) {
 	using namespace json;
 
 	if (argc < 2) {
-		std::cerr << "No config given, terminated" << std::endl;
+		std::cerr << "Required storage path" << std::endl;
 		return 1;
 	}
 
 	try {
 
-		ondra_shared::IniConfig ini;
-
-		ini.load(argv[1]);
-
-		Config cfg = load(ini["api"]);
-		Proxy proxy(cfg);
-
-
-		Interface ifc(proxy);
-
-		ifc.init();
-
+		Interface ifc(argv[1]);
 		ifc.dispatch();
 
 

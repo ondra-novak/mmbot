@@ -16,6 +16,7 @@
 #include "../shared/stdLogOutput.h"
 #include "../shared/stringview.h"
 #include "istatsvc.h"
+#include "strategy.h"
 
 namespace json {
 	class Array;
@@ -34,18 +35,22 @@ public:
 		:report(std::move(report)),interval_in_ms(interval_in_ms),a2np(a2np) {}
 
 
+	void setInterval(std::size_t interval);
 	void genReport();
 
 	using StrViewA = ondra_shared::StrViewA;
 	template<typename T> using StringView = ondra_shared::StringView<T>;
 	void setOrders(StrViewA symb, const std::optional<IStockApi::Order> &buy,
 			  	  	  	  	  	  const std::optional<IStockApi::Order> &sell);
-	void setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> trades, bool margin);
+	void setTrades(StrViewA symb, StringView<IStatSvc::TradeRecord> trades);
 	void setInfo(StrViewA symb, const InfoObj &info);
 	void setMisc(StrViewA symb, const MiscData &miscData);
 
 	void setPrice(StrViewA symb, double price);
 	void addLogLine(StrViewA ln);
+	void clear(StrViewA symb);
+
+	void perfReport(json::Value report);
 
 	virtual void setError(StrViewA symb, const ErrorObj &errorObj);
 
@@ -82,6 +87,7 @@ protected:
 	MiscMap miscMap;
 	MiscMap errorMap;
 	json::Array logLines;
+	json::Value perfRep;
 
 	StoragePtr report;
 

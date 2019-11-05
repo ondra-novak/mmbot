@@ -13,99 +13,6 @@ a {
 	color: #AAF;
 }
 
-.stdline {
-	stroke: #FF8;
-	stroke-width: 2px;
-}
-
-.stdline2 {
-	stroke: #afdeff;
-	stroke-width: 2px;
-}
-
-
-.minoraxe {
-	stroke: #888;
-	stroke-opacity: 0.5;
-}
-
-.marker.buy {
-	fill: #4F4;
-}
-
-.marker.sell {
-	fill: #F44;
-}
-line.marker.buy {
-	stroke:#4f4;
-	stroke-width:3px;
-}
-line.marker.sell {
-	stroke:#F44;
-	stroke-width:3px;
-}
-.majoraxe {
-	stroke: #FFF;	
-}
-
-
-.lineaxis {
-	stroke: #888;
-	stroke-width: 1px;
-}
-
-.textaxis {
-	vertical-align: center;
-	text-anchor: begin;
-	alignment-baseline: after-edge;
-	font-size: 20px;
-	fill: #888;
-}
-
-.textaxisx {
-	text-anchor: middle;
-	alignment-baseline: before-edge;
-	font-size: 20px;
-	fill: #888;
-}
-
-.textaxis.bottom {
-	alignment-baseline: after-edge;
-}
-.orderline {
-	stroke: #FAA;
-	stroke-width:2;
-	stroke-dasharray:4;	
-}
-
-.orderline.buy{
-	stroke: #AFA;
-}
-
-.orderline.sell{
-	stroke: #FAA;
-}
-.orderline.last{
-	stroke: #AAF;
-}
-
-.orderline.current{
-	stroke: #f4ff88;
-}
-
-.textorderline {
-	font-size: 27px;
-	fill: #FFF;
-	alignment-baseline: after-edge;
-	font-style: italic;
-	text-shadow: 0 0 10px black;
-	font-weight: bold;
-}
-
-.textorderline.current {
-	fill: #f4ff88;
-	font-size: 20px;
-}
 
 .selchart {
 	position: sticky;
@@ -173,7 +80,7 @@ select > option[disabled] {
 	margin: 0.2cm 0.2cm 0 0.2cm;
 	flex-shrink: 1;
 	flex-grow: 1;
-	min-width: 40%;
+	/* min-width: 40%; */
 	overflow: auto;
 }
 
@@ -342,9 +249,15 @@ x-trbgr.hdr {
 .head {
 	display: flex;
 	align-items: flex-start;
-	/* overflow-x: auto; */
-	/* flex-wrap: wrap; */
-	/* justify-content: space-between; */
+}
+
+.head >.title > img {
+	height: 1.0em;
+	vertical-align: middle;
+	padding: 0 0 0.1em 0;
+}
+.head >.title.emulated > img {
+	filter: sepia(1);
 }
 
 .summary::-webkit-scrollbar{
@@ -355,6 +268,8 @@ x-trbgr.hdr {
 	font-weight:bold;
 	font-size: 1.2em;
 	cursor: pointer;
+	white-space: nowrap;
+
 }
 
 .title:hover, #home:hover {
@@ -615,7 +530,6 @@ x-tr.hdr [data-name=export_csv] {
 	position:relative;
 	/* padding-right: 9px; */
 	color: #dcb684;
-	white-space: nowrap;
 }
 .emulated::after {
 	content:"";
@@ -785,8 +699,9 @@ form button {
 	margin-top: 0.5cm;
 }
 
-#calculator_icon {width: 0.5cm;height:  0.5cm;position: absolute;right: 0.95cm;top: 0.3cm;background-image: url(calculator.svg);background-size: cover;cursor:  p;}
-#donate_icon {width: 0.8cm;height: 0.8cm;position: absolute;right: 1.6cm;top: 0.15cm;background-image: url(donate_sml.svg);background-size: cover;}
+#calculator_icon {width: 0.5cm;height:  0.5cm;position: absolute;right: 1.72cm;top: 0.3cm;background-image: url(calculator.svg);background-size: cover;cursor: pointer;}
+#setup_icon {width: 0.5cm;height:  0.5cm;position: absolute;right: 0.95cm;top: 0.3cm;background-image: url(setup.png);background-size: cover;cursor: pointer;}
+#donate_icon {width: 0.8cm;height: 0.8cm;position: absolute;right: 1.7cm;top: 0.15cm;background-image: url(donate_sml.svg);background-size: cover;cursor: pointer;}
 
 #calculator {
 	transition: all 0.3s;
@@ -894,6 +809,12 @@ table.extended td .color.pos {color: #6C6;}
 table.extended td .color.pos::before {content: "+";}
 [onclick] {
 	cursor: pointer
+}
+table.perfmod {
+	width: 100%;
+}
+table.perfmod td{
+	text-align: center;
 }
 
 .head > .error_icon {
@@ -1005,3 +926,5 @@ table.extended td .color.pos::before {content: "+";}
 #form_sliding_pos .second {
 	color: #afdeff;
 }
+
+

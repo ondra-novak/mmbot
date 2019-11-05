@@ -24,7 +24,9 @@ using std::chrono::_V2::system_clock;
 
 using namespace json;
 
-
+void Report::setInterval(std::size_t interval) {
+	this->interval_in_ms = interval;
+}
 
 
 void Report::genReport() {
@@ -40,6 +42,7 @@ void Report::genReport() {
 					std::chrono::system_clock::now().time_since_epoch()
 				   ).count());
 	st.set("log", logLines);
+	st.set("performance", perfRep);
 	while (logLines.size()>30) logLines.erase(0);
 	report->store(st);
 }
@@ -79,7 +82,7 @@ void Report::setOrders(StrViewA symb, const std::optional<IStockApi::Order> &buy
 }
 
 
-void Report::setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> trades, bool margin) {
+void Report::setTrades(StrViewA symb, StringView<IStatSvc::TradeRecord> trades) {
 
 	using ondra_shared::range;
 
@@ -88,8 +91,6 @@ void Report::setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> tr
 	const json::Value &info = infoMap[symb];
 	bool inverted = info["inverted"].getBool();
 	double pos = info["po"].getNumber();
-
-
 
 	if (!trades.empty()) {
 
@@ -102,23 +103,15 @@ void Report::setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> tr
 		auto iter = trades.begin();
 		auto &&t = *iter;
 
-		std::size_t invest_beg_time = t.time;
-		double invst_value = t.eff_price*t.balance;
 
-		//so the first trade doesn't change the value of portfolio
-//		double init_value = init_balance*t.eff_price+init_fiat;
-		//
 		double init_price = t.eff_price;
 
 
-		double prev_balance = t.balance-t.eff_size;
 		double prev_price = init_price;
-		double cur_sum = 0;
 		double cur_fromPos = 0;
-		double norm_sum_ass = 0;
-		double norm_sum_cur = 0;
-		double potentialpl = 0;
-		double neutral_price = 0;
+		double pnp = 0;
+		double pap = 0;
+
 
 
 		while (iter != tend) {
@@ -126,46 +119,17 @@ void Report::setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> tr
 			auto &&t = *iter;
 
 			double gain = (t.eff_price - prev_price)*pos ;
-			double earn = -t.eff_price * t.eff_size;
-			double bal_chng = (t.balance - prev_balance) - t.eff_size;
-			invst_value += bal_chng * t.eff_price;
+		//	double earn = -t.eff_price * t.eff_size;
 
-
-			double calcbal = prev_balance * sqrt(prev_price/t.eff_price);
-			double asschg = (prev_balance+t.eff_size) - calcbal ;
-			double curchg = -(calcbal * t.eff_price -  prev_balance * prev_price - earn);
-			double norm_chng = 0;
-
-			if (iter != trades.begin() && !iter->manual_trade) {
-				cur_fromPos += gain;
-				cur_sum += earn;
-
-				norm_sum_ass += asschg;
-				norm_sum_cur += curchg;
-				norm_chng = curchg+asschg * t.eff_price;
-
-				pos += t.eff_size;
-
-
-				double np = t.balance-pos;
-				neutral_price = t.eff_price * pow2(t.balance/np);
-				potentialpl = cur_fromPos + pos*(neutral_price-sqrt(t.eff_price*neutral_price));
-
-
-			}
-			if (iter->manual_trade) {
-				invst_value += earn;
-			}
-			double norm;
-			norm = norm_sum_cur;
-
-
-			prev_balance = t.balance;
 			prev_price = t.eff_price;
 
-			double invst_time = t.time - invest_beg_time;
-			double invst_n = norm/invst_time;
-			if (!std::isfinite(invst_n)) invst_n = 0;
+			cur_fromPos += gain;
+			pos += t.eff_size;
+
+			double normch = (t.norm_accum - pap) * t.eff_price + (t.norm_profit - pnp);
+			pap = t.norm_accum;
+			pnp = t.norm_profit;
+
 
 
 			if (t.time >= first) {
@@ -174,18 +138,14 @@ void Report::setTrades(StrViewA symb, StringView<IStockApi::TradeWithBalance> tr
 						("time", t.time)
 						("achg", (inverted?-1:1)*t.eff_size)
 						("gain", gain)
-						("norm", margin?Value():Value(norm))
-						("normch", norm_chng)
-						("nacum", margin?Value():Value((inverted?-1:1)*norm_sum_ass))
+						("norm", t.norm_profit)
+						("normch", normch)
+						("nacum", Value((inverted?-1:1)*t.norm_accum))
 						("pos", (inverted?-1:1)*pos)
 						("pl", cur_fromPos)
-						("pln", potentialpl)
 						("price", (inverted?1.0/t.price:t.price))
-						("invst_v", invst_value)
-						("invst_n", invst_n)
 						("volume", (inverted?1:-1)*t.eff_price*t.eff_size)
-						("man",t.manual_trade)
-						("np",(inverted?1.0/neutral_price:neutral_price))
+						("man",false)
 				);
 			}
 
@@ -220,6 +180,7 @@ void Report::setInfo(StrViewA symb, const InfoObj &infoObj) {
 			("currency", infoObj.currencySymb)
 			("asset", infoObj.assetSymb)
 			("price_symb", infoObj.priceSymb)
+			("brokerIcon", infoObj.brokerIcon)
 			("inverted", infoObj.inverted)
 			("emulated",infoObj.emulated)
 			("po", infoObj.position_offset);
@@ -329,14 +290,10 @@ void Report::setMisc(StrViewA symb, const MiscData &miscData) {
 
 		miscMap[symb] = Object
 				("t",-miscData.trade_dir)
-				("a", miscData.achieve)
 				("mcp", 1.0/miscData.calc_price)
-				("mv", miscData.value)
 				("ms", spread)
 				("mdmb", miscData.dynmult_sell)
 				("mdms", miscData.dynmult_buy)
-				("sm", miscData.size_mult)
-				("mb",miscData.boost)
 				("ml",1.0/miscData.highest_price)
 				("mh",1.0/miscData.lowest_price)
 				("mt",miscData.total_trades)
@@ -344,17 +301,26 @@ void Report::setMisc(StrViewA symb, const MiscData &miscData) {
 	} else {
 		miscMap[symb] = Object
 				("t",miscData.trade_dir)
-				("a", miscData.achieve)
 				("mcp", miscData.calc_price)
-				("mv", miscData.value)
 				("ms", spread)
 				("mdmb", miscData.dynmult_buy)
 				("mdms", miscData.dynmult_sell)
-				("sm", miscData.size_mult)
-				("mb",miscData.boost)
 				("ml",miscData.lowest_price)
 				("mh",miscData.highest_price)
 				("mt",miscData.total_trades)
 				("tt",miscData.total_time);
 	}
+}
+
+void Report::clear(StrViewA symb) {
+	tradeMap.erase(symb);
+	infoMap.erase(symb);
+	priceMap.erase(symb);
+	miscMap.erase(symb);
+	errorMap.erase(symb);
+	orderMap.clear();
+}
+
+void Report::perfReport(json::Value report) {
+	perfRep = report;
 }

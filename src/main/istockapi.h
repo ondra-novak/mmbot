@@ -65,8 +65,6 @@ public:
 	    json::Value toJSON() const;
 };
 
-	using TWBHistory = std::vector<TradeWithBalance>;
-
 
 	///Order
 	struct Order {
@@ -93,7 +91,7 @@ public:
 		///Last price
 		double last;
 		///Time when read
-		std::uintptr_t time;
+		std::uint64_t time;
 	};
 
 	enum FeeScheme {
@@ -150,6 +148,10 @@ public:
 		///When invert_price is true, the broker should also supply symbol name of inverted price
 		std::string inverted_symbol;
 
+		///This flag must be true, if the broker is just simulator and doesn't do live trading
+		/** Simulators are not included into daily performance */
+		bool simulator = false;
+
 		///Adds fees to values
 		/**
 		 * @param assets reference to current asset change. Negative value is sell,
@@ -170,6 +172,30 @@ public:
 		}
 	};
 
+	struct BrokerInfo {
+		///must contain true to enlist broker in the web interface.
+		bool trading_enabled;
+		///Name of the broker
+		std::string name;
+		///Name of the exchange
+		std::string exchangeName;
+		///url to homepage of the exchange
+		std::string exchangeUrl;
+		///version identifier
+		std::string version;
+		///licence text
+		std::string licence;
+		///favicon binary image/png
+		std::string favicon;
+		///this option must be true,if the broker supports getSetting/setSettings
+		bool settings = false;
+	};
+
+
+	struct TradesSync {
+		TradeHistory trades;
+		json::Value lastId;
+	};
 
 	using Orders = std::vector<Order>;
 
@@ -186,7 +212,8 @@ public:
 	 * @param pair specify trading pair
 	 * @return list of trades
 	 */
-	virtual TradeHistory getTrades(json::Value lastId, std::uintptr_t fromTime, const std::string_view & pair) = 0;
+	virtual TradesSync syncTrades(json::Value lastId, const std::string_view & pair) = 0;
+
 	///Retrieve open orders
 	/**
 	 * @param par trading pair
@@ -240,14 +267,6 @@ public:
 	 * internal brokers and emulators.
 	 */
 	virtual bool reset() = 0;
-	///Determines whether the API is emulator
-	/**
-	 * @retval true API is emulator
-	 * @retval false API is not emulator
-	 *
-	 * @note external brokers cannot set this to 'true'
-	 */
-	virtual bool isTest() const = 0;
 
 	///Retrieve market information
 	/**
@@ -273,6 +292,8 @@ public:
 	public:
 		using std::runtime_error::runtime_error;
 	};
+
+	virtual BrokerInfo getBrokerInfo()  = 0;
 
 	virtual ~IStockApi() {}
 

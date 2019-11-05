@@ -1,13 +1,3 @@
-**Developer note:**
-```
- A new major version is in the development. You
- can expect a lot of changes. Because of this, 
-I have a little time to handle support for 
-the current version in the master. 
-Stay tuned, this will be massive!
-```
-
-
 # mmbot
 Market Making trading bot for cryptomarkets
 

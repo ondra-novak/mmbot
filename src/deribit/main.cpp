@@ -11,7 +11,6 @@
 #include <rpc/rpcServer.h>
 #include <imtjson/operations.h>
 #include "shared/toString.h"
-#include "config.h"
 #include "proxy.h"
 #include "../main/istockapi.h"
 #include <cmath>
@@ -31,13 +30,35 @@ using namespace json;
 
 class Interface: public AbstractBrokerAPI {
 public:
-	Proxy &px;
+	Proxy px;
 
-	Interface(Proxy &cm):px(cm) {}
+	Interface(const std::string &path):AbstractBrokerAPI(path, {
+			Object
+				("name","key")
+				("label","Key")
+				("type","string"),
+			Object
+				("name","secret")
+				("label","Secret")
+				("type","string"),
+			Object
+				("name","scopes")
+				("label","Scopes")
+				("type","string")
+				("default","session:apiconsole"),
+			Object
+				("name","server")
+				("label","Server")
+				("type","enum")
+				("options",Object
+						("main","www.deribit.com")
+						("test","test.deribit.com"))
+				("default","main")})
+	{}
 
 
 	virtual double getBalance(const std::string_view & symb) override;
-	virtual TradeHistory getTrades(json::Value lastId, std::uintptr_t fromTime, const std::string_view & pair) override;
+	virtual TradesSync syncTrades(json::Value lastId, const std::string_view & pair) override;
 	virtual Orders getOpenOrders(const std::string_view & par)override;
 	virtual Ticker getTicker(const std::string_view & piar)override;
 	virtual json::Value placeOrder(const std::string_view & pair,
@@ -51,6 +72,9 @@ public:
 	virtual double getFees(const std::string_view &pair)override;
 	virtual std::vector<std::string> getAllPairs()override;
 	virtual void enable_debug(bool enable) override;
+	virtual BrokerInfo getBrokerInfo() override;
+	virtual void onLoadApiKey(json::Value keyData) override;
+	virtual void onInit() override;
 
 
 	ondra_shared::linear_map<std::string, double, std::less<std::string_view> > tick_cache;
@@ -66,29 +90,13 @@ int main(int argc, char **argv) {
 	using namespace json;
 
 	if (argc < 2) {
-		std::cerr << "No config given, terminated" << std::endl;
+		std::cerr << "Requires a signle parametr" << std::endl;
 		return 1;
 	}
 
-	try {
+	Interface ifc(argv[1]);
+	ifc.dispatch();
 
-		ondra_shared::IniConfig ini;
-
-		ini.load(argv[1]);
-
-		Config cfg = load(ini["api"]);
-		Proxy proxy(cfg);
-
-
-		Interface ifc(proxy);
-
-		ifc.dispatch();
-
-
-	} catch (std::exception &e) {
-		std::cerr << "Error: " << e.what() << std::endl;
-		return 2;
-	}
 }
 
 inline double Interface::getBalance(const std::string_view &symb) {
@@ -101,42 +109,60 @@ inline double Interface::getBalance(const std::string_view &symb) {
 	} else {
 		auto response = px.request("private/get_account_summary",Object
 			("currency",symb),true);
-		return response["balance"].getNumber();
+		return response["available_funds"].getNumber();
 	}
 }
 
-inline Interface::TradeHistory Interface::getTrades(json::Value lastId,
-		std::uintptr_t fromTime, const std::string_view &pair) {
+inline Interface::TradesSync Interface::syncTrades(json::Value lastId,  const std::string_view &pair) {
 	auto resp = px.request("private/get_user_trades_by_instrument",Object
 			("instrument_name",pair)
 			("sorting","asc")
-			("start_seq", lastId),true);
+			("count", 1000)
+			("include_old", true)
+			("start_seq", lastId.hasValue()?lastId:Value()),true);
+
 
 	resp = resp["trades"];
-	if (resp[0]["trade_seq"] == lastId) {
-		resp = resp.slice(1);
-	}
 
-	return mapJSON(resp, [&](Value itm){
-		double amount = itm["amount"].getNumber();
-		double price = 1.0/itm["price"].getNumber();
-		auto dir = itm["direction"].getString();
-		if (dir == "buy") amount = -amount;
-		double fee = itm["fee"].getNumber();
-		double eff_price = price;
-		if (fee > 0) {
-			eff_price += -price/amount;
+	if (!lastId.hasValue()) {
+
+		if (resp.empty()) {
+			return TradesSync{ {}, Value(nullptr) };
+		} else {
+			return TradesSync{ {}, resp[resp.size()-1]["trade_seq"]};
 		}
-		return Trade{
-			itm["trade_seq"],
-			itm["timestamp"].getUInt(),
-			amount,
-			price,
-			amount,
-			eff_price
-		};
-	},TradeHistory());
 
+	} else {
+
+
+		if (resp[0]["trade_seq"] == lastId) {
+			resp = resp.slice(1);
+		}
+
+
+		auto trades = mapJSON(resp, [&](Value itm){
+			double amount = itm["amount"].getNumber();
+			double price = 1.0/itm["price"].getNumber();
+			auto dir = itm["direction"].getString();
+			if (dir == "buy") amount = -amount;
+			double fee = itm["fee"].getNumber();
+			double eff_price = price;
+			if (fee > 0) {
+				eff_price += -price/amount;
+			}
+			lastId = itm["trade_seq"];
+			return Trade{
+				itm["trade_seq"],
+				itm["timestamp"].getUInt(),
+				amount,
+				price,
+				amount,
+				eff_price
+			};
+		},TradeHistory());
+		return TradesSync { trades, lastId };
+
+	}
 }
 
 inline Interface::Orders Interface::getOpenOrders(const std::string_view &pair) {
@@ -278,7 +304,8 @@ inline Interface::MarketInfo Interface::getMarketInfo(const std::string_view &pa
 		IStockApi::currency,
 		leverage,
 		true,
-		"USD"
+		"USD",
+		px.testnet
 	};
 
 
@@ -290,6 +317,44 @@ inline double Interface::getFees(const std::string_view &pair) {
 
 void Interface::enable_debug(bool enable) {
 	px.debug = enable;
+}
+
+Interface::BrokerInfo Interface::getBrokerInfo() {
+	return BrokerInfo{
+		px.hasKey(),
+		"deribit",
+		"Deribit",
+		"https://www.deribit.com/",
+		"1.0",
+		R"mit(Copyright (c) 2019 Ondřej Novák
+
+Permission is hereby granted, free of charge, to any person
+obtaining a copy of this software and associated documentation
+files (the "Software"), to deal in the Software without
+restriction, including without limitation the rights to use,
+copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the
+Software is furnished to do so, subject to the following
+conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+OTHER DEALINGS IN THE SOFTWARE.)mit",
+"iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAMAAAD04JH5AAAABlBMVEUAAAAtrpq1rIdBAAAAAXRS"
+"TlMAQObYZgAAANRJREFUeAHt2jcSwzAMBVHs/S9t18r5cwa7rYNeJYkkysxWYt7BrwkQIECAAAEC"
+"BAh47fpw/Gsn47XiAIA4AIgDIA6AOADiAOIA4gCIA4gDiAOIA4gDiAMQQBzAYIB33jbZ7APAvzhg"
+"i/ARoCoOWBV8Bqg4YE3wHaDigBoTwIeAigNKQBiwIhAgQIAAAT6MOgHoDui+LiAKyK8NWanL/gBZ"
+"ACQBbOVGZe+9Yrfru58ZdT837H523Hx+oPcMSe85oqogIDlL5kCjAAECBAgQIECAmR3sB12WHA4r"
+"Mg73AAAAAElFTkSuQmCC"
+	};
 }
 
 inline std::vector<std::string> Interface::getAllPairs() {
@@ -306,4 +371,15 @@ inline std::vector<std::string> Interface::getAllPairs() {
 		}
 	}
 	return resp;
+}
+
+inline void Interface::onLoadApiKey(json::Value keyData) {
+	px.setTestnet(keyData["server"].getString() == "test");
+	px.privKey = keyData["secret"].getString();
+	px.pubKey = keyData["key"].getString();
+	px.scopes = keyData["scopes"].getString();
+}
+
+inline void Interface::onInit() {
+	//empty
 }

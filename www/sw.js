@@ -1,5 +1,5 @@
 var CACHE = 'cache-update-and-refresh';
-//serial 112312315
+//serial 23opwkpo232
 
 self.addEventListener('install', function(evt) {
 	  console.log('The service worker is being installed.');
@@ -10,10 +10,13 @@ self.addEventListener('install', function(evt) {
 		      './index.html',
 		      './res/style.css',
 		      './res/code.js',
+		      './res/common.js',
 		      './res/calculator.svg',
 		      './res/donate.svg',
 		      './res/donate_sml.svg',
 		      './res/logo.png',
+		      './res/setup.png',
+		      './res/chart.css',
 		      './res/icon64.png',
 		      'https://fonts.googleapis.com/css?family=Ruda&display=swap',
 		      'https://fonts.gstatic.com/s/ruda/v10/k3kfo8YQJOpFqnYdaObJ.woff2'
@@ -35,6 +38,7 @@ self.addEventListener('fetch', function(evt) {
 	  if (evt.request.method != 'GET') return;
 
 	  if (evt.request.url.indexOf("report.json") != -1) return;
+	  if (evt.request.url.indexOf("/admin/") != -1) return;
 
 	  var p = fromCache(evt.request);
 	  var q = p.then(function(x) {return x;}, function() {

@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>MM Bot</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="../res/chart.css">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+</head>
+<body onload="app_start();">
+<template id="trader_form">
+<x-form class="pair no_adv sections">
+<x-section><x-section-caption>Info</x-section-caption>
+<div class="pairactions">
+	<div class="icon" data-name="icon_undo"><img src="../res/undo.png" title="Undo changes" ></div>
+	<div class="icon" data-name="icon_trading"><img src="../res/trading.png" title="Trading UI" ></div>
+	<div class="icon" data-name="icon_broker" hidden="hidden"><img src="../res/broker_settings.png" title="Broker settings" ></div>
+	<div class="icon" data-name="icon_reset"><img src="../res/reset_stats.png" title="Clear statistics"></div> 
+	<div class="icon" data-name="icon_repair"><img src="../res/repair.png" title="Restart strategy" > </div>
+	<div class="icon red" data-name="icon_delete"><img src="../res/delete.png" title="Delete trader"></div></div>
+<label><span>ID</span><span data-name="id" ></span></label>
+<label><span>Broker</span><span><img src="" data-name="broker_img" class="inline_img">
+	<span data-name="broker_id"></span> (<span data-name="broker"><span class="spinner fast inline"></span></span> <span data-name="broker_ver"></span>)<br/>
+	<span class="no_api_key" data-name="no_api_key" hidden="hidden">⚠️ - Missing API key</span>
+	<span class="no_api_key" data-name="api_key_not_saved" hidden="hidden">⚠️ - API key is not active yet</span></span>
+	</label>
+
+
+<label><span>Symbol</span><span data-name="symbol" ></span></label>
+<div class="label"><span>Balance:</span><div><span data-name="balance_asset"></span> <span data-name="asset" ></span><br>
+                                             <span data-name="balance_currency"></span> <span data-name="currency" ></span>
+                                             </div></div>
+<div class="label"><span>Price</span><span data-name="price"></span></div>
+<div class="label"><span>Leverage</span><span data-name="leverage"></span></div>
+<div data-name="open_orders_sect" hidden="hidden"><table class="orders"><caption>Open orders</caption>
+<tr><th>ID</th><th>Direction</th><th>Price</th><th>Size</th></tr>
+<tr data-name="orders[]"><td data-name="id">123456</td><td data-name="dir">buy</td><td data-name="price">123456</td><td data-name="size">123456</td><td data-name="action"></td></tr>
+</table></div>
+</x-section>
+<x-section><x-section-caption>General</x-section-caption>
+<label><span>Title</span><input type="text" data-name="title"></label>
+<label><span>Strategy</span><select data-name="strategy">
+<option value="plfrompos">Linear</option>
+<option value="halfhalf">Half-Half</option>
+<option value="keepvalue">Keep Value</option>
+</select></label>
+<div class="label strategygoal"><span>Startegy Goal:</span><div data-name="help_goal">
+<div class="plfrompos">A simple strategy for trading on leveraged stock exchanges and futures, generally on stock exchanges with the ability to open long or short positions. This strategy is the only one that works well with a negative value in "assets" (meaning position)</div>
+<div class="halfhalf">This strategy keeps the value of assets and money on the stock exchange in a ratio 1:1. Whenever this ratio is disrupted, the strategy executes a trade in such a volume to achieve the defined ratio.</div>
+<div class="keepvalue">This strategy keeps the value of assets on the stock exchange at the same value. If the value of assets falls or rises (due to changing price), the strategy executes a trade in such a volume to achieve the same value of the assets as before.</div>
+</div></div>
+<div class="label"><span>Options</span><div>
+<label><input type="checkbox" checked="checked" data-name="enabled"> Enabled </label>
+<label><input type="checkbox" data-name="dry_run"> Paper trade (simulation) </label>
+<label><input type="checkbox" data-name="advanced"> Advanced mode </label>
+</div>
+
+</div>
+<div class="label adv"><span>Strategy state</span><x-section>
+	<div class="label" data-name="strategy_fields[]"><span data-name="key"></span><input type="text" readonly="readonly" data-name="value"></div>
+	</x-section></div>
+</x-section>
+<x-section data-name="strategy_halfhalf" class="goal hidden" hidden="hidden"><x-section-caption>Half-Half/Keep Value</x-section-caption>
+<label><span>External assets <span class="tooltip">Amount of assets held outside of exchange. They are included into calculations.</span></span><input type="number" step="any" data-name="external_assets"></label>
+</div>
+<label  class="adv"><span>Accumulation <span class="tooltip">Amount of the profit used to buy extra assets</span></span><x-slider data-name="acum_factor" data-min="0" data-max="100" data-mult="1"></x-slider></label>
+<div class="warning" data-name="err_external_assets">Unable to trade - This strategy requies to fund account with some assets [<span data-name="asset"></span>].  You can also set the "external assets" field above <span data-name="external_assets_hint">0</span>. It is generally recommended to have ratio between the value of the assets [<span data-name="asset"></span>] (including external assets) and the currrency [<span data-name="currency"></span>] (including external currencies) at 1:1</div>
+<div class="warning" data-name="err_external_assets_margin">Unable to trade - This strategy needs to have a <b><u>long position</u></b> opened. You can also set external assets above <span data-name="external_assets_hint">0</span></div>
+<div class="warning" data-name="err_external_assets_inverse">Unable to trade - This strategy needs to have a <b><u>short position</u></b> opened. You can also set external assets above <span data-name="external_assets_hint">0</span></div>
+
+<x-section>
+<div class="label"><span>Min price:</span><span data-name="halfhalf_min_price">---</span></div>
+<div class="label"><span>Max price:</span><span data-name="halfhalf_max_price">---</span></div>
+</x-section>
+</x-section>
+<x-section data-name="strategy_pl" class="goal hidden" hidden="hidden"><x-section-caption>Linear</x-section-caption>
+<label><span>Invest to 1% movement in currency [<span data-name="currency"></span>]: <span class="tooltip"
+>Specifies how much currency is used in 1% momement of the price. </span></span><input data-name="cstep" type="number" step="any"></label>
+<label><span>Max position (0&nbsp;=&nbsp;disabled)<span class="tooltip"
+>Specifies maximum position in both sides (short or long) for normal trading. This doesn't mean, that trading will
+stop beyond this limit, however the strategy focuses on position reduction regadless on possible loss. This also
+doesn't work as stoploss, because position can still grow beyoind the limit, but a lot of slower.</span></span><input data-name="max_pos" type="number" step="any">
+</label>
+<label><span>Neutral position <span class="tooltip"
+>How much assets are considered as neutral position</span></span><input data-name="neutral_pos" type="number" step="any">
+</label>
+<label class="adv"><span>When position is about to close<span class="tooltip">Defines behavoiur when position is about to close. Prefering to close position is safer. Reverse position can make more profit in sideways market</span></span><select data-name="pl_closepos">
+<option value="always_close">Always close position</option>
+<option value="prefer_close">Prefer closing position</option>
+<option value="prefer_reverse">Prefer reverse position</option>
+</select></label>
+<label class="adv"><span>Reduction factor [%]<span class="tooltip">Specifies factor of position reduction. Value 0% means no profit is used to reduce position. This can make a lot of profit in sideways market, however brings a lot of risk in a trending market. Default value 100% is precisely calculated ratio of profit which is used to reduce position without causing loss. This helps to reduce position in trending markets and still makes reasonable profit in sideways markets. Higher values can result to loss, because all or more profit is used to reduce position</span></span><x-slider data-name="pl_redfact" data-min="0" data-max="200" data-mult="10"></x-slider></label>
+<label class="adv"><span>Accumulation <span class="tooltip">Amount of the profit used to buy extra assets</span></span><x-slider data-name="pl_acum" data-min="0" data-max="100" data-mult="1"></x-slider></label>
+<div class="rightinfo"><button data-name="linear_suggest">Propose</button><button data-name="linear_suggest_maxpos">Propose max position</button></div>
+<div class="warning" data-name="err_toolargepos">Changing setting is discouraged because the open position is too large</div>
+<div class="warning" data-name="err_invalid_values">Unable to trade - invalid values</div>
+
+<x-section>
+<div class="label"><span>Max in position</span><span><span data-name="linear_max_in_pos">---</span>&nbsp;<span data-name="currency"></span></span></div>
+<div class="label"><span>Min price:</span><span data-name="linear_min_price">---</span></div>
+<div class="label"><span>Max price:</span><span data-name="linear_max_price">---</span></div>
+</x-section>
+
+</x-section>
+<x-section class="adv" data-name="backtest_anchor"><x-section-caption>Common</x-section-caption>
+<label  class="adv"><span>Order minimal size (0&nbsp;=&nbsp;disabled)<span class="tooltip">
+Specifies minimal order size. If disabled, minimal size is defined by the exchange. This also
+specifies size of the "dust order"
+</span></span><input type="number" data-name="min_size" step="any"></label>
+<label  class="adv"><span>Order maximal size (0&nbsp;=&nbsp;disabled)<span class="tooltip">
+Specifies maximal order size. 
+</span></span><input type="number" data-name="max_size" step="any"></label>
+<label  class="adv"><span>Order size modifier [%]<span class="tooltip">It is recomended to set values below
+100. This makes orders smaller but also causes that order will be split into smaller orders. For
+example if you specify value 50, the order 24 may be split to orders 12, 6, 3, 2, 1 = 24. This can
+help to push the "average open price" near to the current price
+</span></span><x-slider data-name="order_mult" data-min="1" data-max="199" data-mult="1"></x-slider></label>
+<label class="adv"><span>Accept loss after hours (0&nbsp;=&nbsp;disabled)<span class="tooltip">
+Enable to the Bot accept partial loss, when trading is not possible due insufficient balance or when
+"Hard max position" is reached. The value specified amount of hours after last trade, when
+extra "virtual" trade with zero size is generated to shift the center of the spread. This can
+reenable trading, but it also finally costs some profit
+</span></span><x-slider data-name="accept_loss" data-min="0" data-max="100" data-mult="1"></x-slider></label>
+</x-section>
+<x-section class="adv"><x-section-caption>Spread</x-section-caption>
+<label  class="adv"><span>Spread width: st.dev hours <span class="tooltip"
+>Specifies how many hours is used to calculate a standard deviation for spread value</span></span><x-slider data-name="spread_calc_stdev_hours" data-min="1" data-max="240" data-mult="1"></x-slider></label>
+<label  class="adv"><span>Spread width: smooth hours <span class="tooltip"
+>Specifies smooth in hours. The program uses SMA (simple moving average) to calculate volatility smooth. By setting 1, it means, deviation longest than 1 hour is not considered as local deviation.</span></span><x-slider data-name="spread_calc_sma_hours" data-min="1" data-max="240" data-mult="1"></x-slider></label>
+<label  class="adv"><span>Spread width: manual adjust <span class="tooltip"
+>Specify manual adjust. Values above zero causes wider spread up to 2x. Values below zero causes narrow spread up to 1/2</span></span><x-slider data-name="spread_mult" data-min="-100" data-max="100" data-mult="1"></x-slider></label>
+<label class="adv"><span>Dynamic spread mult. raise<span class="tooltip"
+>Specifies [in %] how much is dynamic multiplicator raised after trade.</span></span><x-slider data-name="dynmult_raise" data-min="1" data-max="1000" data-mult="1"></x-slider></label>
+<label class="adv"><span>Dynamic spread mult. fall<span class="tooltip"
+>Specifies [in %] how much is dynamic multiplicator falls every minute without trade.</span></span><x-slider data-name="dynmult_fall" data-min="0.1" data-max="10" data-mult="0.1" data-fixed="1"></x-slider></label>
+<label class="adv"><span>Dynamic spread behaviour</span><select data-name="dynmult_mode">
+<option value="independent">Independent (original)</option>
+<option value="together">Together</option>
+<option value="alternate">Alternate</option>
+<option value="half_alternate" selected="selected">Half alternate (recommended)</option>
+</select></label>
+<label class="adv"><span>Dynamic spread order size scaling<span class="tooltip"
+>By default, order size scales with spread. This option disables scaling of the order when dynamic spread is in effect</span></span>
+<select data-name="dynmult_scale"><option value="1">Scale</option><option value="0">Don't scale</option></select></label>
+</x-section>
+<x-section class="adv"><x-section-caption>Misc</x-section-caption>
+<div class="label adv"><span>Options<span class="tooltip"
+><strong>Internal balance</strong> - track balance by trades - do not use balance on exchange<br><br>
+<strong>Dust orders</strong> Enable to use smallest orders when otherwise trading would be impossible (they act as alert)<br><br>
+<strong>Detect manual trades</strong> Try to detect and ignore trades made by the user manually (it is not recomended to trade along with the Bot. Please use a subaccount instead</span></span><div>
+<label class="adv"><input type="checkbox" data-name="internal_balance"> Internal balance </label>
+<label class="adv"><input type="checkbox" checked="checked" data-name="dust_orders"> Dust orders (recomended) </label>
+<label class="adv"><input type="checkbox" data-name="detect_manual_trades"> Detect manual trades </label>
+</div>
+</div>
+<label class="adv"><span>Report - position offset<span class="tooltip">Allows to sync the position on the report page with the actual state on the echange.<br>
+The position is not generally in the sync due to various issues. You need to specify a difference between the calculated position presented on the report page and the actual position on the exchhange
+</span></span><input type="number" step="any" data-name="report_position_offset"></label>
+<label class="adv"><span>Force spread [%](0=disabled)<span class="tooltip">Specifies exact spread in % width and disables the internal spread detection</span></span><input type="number" step="any" data-name="force_spread"></label>
+</x-section>
+<div></div>
+</x-form>
+</template>
+
+<template id="trader_list">
+<div class="trader list">
+<div class="item" data-name="item[]">
+<img src="" data-name="image">
+<div data-name="caption"></div>
+</div>
+</div>
+</template>
+
+<template id="desktop"><div class="desktop vertical">
+<div class="top_panel" data-name="top_panel"></div>
+<div class="menu" data-name="menu"></div>
+<div class="content" data-name="content"></div>
+</div>
+</template>
+
+<template id="broker_select">
+<div class="dialog">
+<div class="broker select">
+<h2>Select broker</h2>
+<div class="trader list">
+<div class="item" data-name="item[]">
+<div class="exclamation" data-name="excl_info" hidden="hidden">⚠️</div>
+<img src="" data-name="image">
+<div data-name="caption"></div>
+</div>
+</div>
+<div class="no_api_key" data-name="excl_info" hidden="hidden">⚠️ - Missing API key</div>
+<button data-name="cancel">Cancel</button>
+</div>
+</div>
+</template>
+
+<template id="broker_pair">
+<div class="dialog">
+<div class="broker pair">
+<div class="form">
+<img src="" data-name="image">
+<h2>Select pair</h2>
+<select data-name="pair"><option data-name="item[]"></option></select> <div data-name="spinner" class="spinner fast"></div>
+<h2>Enter trader's UID</h2>
+<input type="text" data-name="name">
+</div>
+<button data-name="ok">OK</button>
+<button data-name="cancel">Cancel</button>
+</div>
+</div>
+</template>
+
+<template id="top_panel">
+<div class="flexpanel">
+<div><a href="../"><span class="fonticon backicon">&lt;</span></a> MMBot administration</div>
+<div>
+<div data-name="login" class="panelbutton">
+	<img src="../res/security.png" class="fonticon"> Login 
+</div>
+<div data-name="save" class="panelbutton" hidden="hidden">
+	<img src="../res/save_icon.png" class="fonticon"> Apply settings <div data-name="saveok"  class="save hide ok" hidden="hidden">✓</div>
+	<div data-name="saveprogress" class="save spinner fast" hidden="hidden"></div></div>
+</div>
+</div>
+</template>
+
+<template id="main_form_wait">
+<div class="main_form_wait">
+<x-form class="pair sections">
+<x-section><x-section-caption>Info</x-section-caption>
+<div class="spinner"></div>
+</x-section>
+</x-form>
+</div>
+
+</template>
+
+<template id="security_form">
+<x-form  class="pair security_form sections">
+<x-section><x-section-caption>Access control</x-section-caption>
+<table>
+<tr><th>User</th><th>Role</th><th>Comment</th><th>Action</th></tr>
+
+<tr data-name="rows[]">
+<td data-name="user"></td>
+<td><select data-name="role">
+<option value="admin">Administrator</option>
+<option value="viewer">Viewer</option>
+</select></td>
+<td data-name="comment"></td>
+<td><button data-name="drop" data-question="Confirm drop user: ">Drop</button></td>
+</tr>
+<tr><td>&lt;public&gt;</td><td><select data-name="guest_role">
+<option value="none">No access</option>
+<option value="viewer">Viewer</option></select></td>
+<td>All anonymous visitors</td><td>&nbsp;</td>
+</tr>
+</table>
+<div class="buttons">
+<button class="logout" data-name="logout"><img src="../res/logout.png">&nbsp;Logout</button>
+<button class="add" data-name="add"><img src="../res/adduser.png">&nbsp;Add&nbsp;user</button>
+</div>
+</x-section>
+<x-section class="apikeys"><x-section-caption>API Keys</x-section-caption>
+<table>
+<tr><th>Broker</th><th>Exchange</th><th>State</th><th>Action</th><th>Info</th></tr>
+<tr data-name="brokers[]">
+<td><img src="" data-name="img"><span data-name="broker"></span></td>
+<td><a href="" data-name="exchange" target="_blank"></a></td>
+<td data-name="state"><div class="spinner fast inline"></div></td>
+<td><button data-name="bset" disabled="disabled">Set</button><button data-name="berase" disabled="disabled">Erase</button></td>
+<td data-name="info_button">🛈</td>
+</table>
+<span class="no_api_key" data-name="need_save" hidden="hidden">⚠️ - Remember to click on the Apply button to make settings take an effect</span></span>
+<div class="waitdlg"  data-name="spinner">
+<div class="spinner"></div>
+</div>
+</x-section>
+</x-form>
+</template>
+
+<template id="add_user_dlg">
+<div class="dialog">
+<div class="add user">
+<x-form>
+<h2>Add user</h2>
+<label><span>Username:</span><input type="text" data-name="username"></label>
+<label><span>Comment:</span><textarea data-name="comment" rows="3" cols="40"></textarea></label>
+<button data-name="ok">Add</button>
+<button data-name="cancel">Cancel</button>
+</div>
+</div>
+</template>
+
+<template id="password_dlg">
+<div class="dialog"><div class="add user">
+<x-form>
+<h2>Please new enter password:</h2>
+<label><span>Username:</span><input type="text" data-name="username" readonly="readonly" tabindex="-1"></label>
+<label><span>Password:</span><input type="password" data-name="pwd"></label>
+<label><span>Retype password:</span><input type="password" data-name="pwd2"></label>
+<div class="error" data-name="errpwd">Passwords are not same</div>
+<button data-name="ok">OK</button>
+<button data-name="cancel">Cancel</button>
+</x-form>
+</div></div>
+</template>
+
+
+<template id="confirm">
+<div class="dialog">
+<div class="confirm">
+<h2 data-name="hdr"></h2>
+<p data-name="text"></p>
+<div data-name="custom"></div>
+<button data-name="ok">OK</button>
+<button data-name="cancel">Cancel</button>
+</div>
+</div>
+</template>
+
+
+<template id="network_error">
+<div class="dialog">
+<div class="confirm">
+<p>Unable to fetch data from the server</p>
+<p data-name="text"></p>
+<p data-name="desc"></p>
+<button data-name="ok">OK</button>
+</div>
+</div>
+</template>
+
+<template id="validation_error">
+<div class="dialog">
+<div class="confirm">
+<h2>Can't apply the new settings</h2>
+<p data-name="text"></p>
+<button data-name="ok">OK</button>
+</div>
+</div>
+</template>
+
+
+<template id="waitdlg">
+<div class="dialog">
+<div class="waitdlg">
+<div class="spinner"></div>
+<div></div>
+</div>
+</div>
+
+</template>
+
+<template id="backtest_res">
+<x-section class="backtest"><x-section-caption>Backtest</x-section-caption>
+<div class="label"><span>profit/loss</span><input data-name="bt_pl" readonly="readonly"></div>
+<div class="label"><span>Unrealized profit/loss</span><input data-name="bt_pln" readonly="readonly"></div>
+<div class="label"><span>Max downdraw</span><input data-name="bt_dd" readonly="readonly"></div>
+<div class="label"><span>Max position</span><input data-name="bt_mp" readonly="readonly"></div>
+<div class="charts">
+<div data-name="chart1"><div><em>Loading data, please wait...</em><div class="spinner fast save"></div></div></div>
+<div data-name="chart2"></div>
+<div data-name="chart3"></div>
+</div>
+<div class="label"><span>Range</span><div><input data-name="date_from" type="date">
+											<input data-name="date_to" type="date"></div>
+</div>
+<div class="label"><span>Apply from</span><div><input data-name="apply_from" type="date"></div></div>
+<div class="label"><span>Starting position</span><input data-name="start_pos" type="number" step="any"></div>
+</x-section>
+</template>
+
+<span id="strtable"
+    data-askcancel="Do you want to cancel all orders?&#10;This will also temporarily stop auto trading until you click Apply button"
+    data-askreset="Do you wish to clear statistics for this trader? This operation cannot be undone"
+    data-askrepair="This operation resets an internal state of the strategy. The purpose of this operation to solve any strange behaviour of the strategy. However, this can also cause poor performance or loss, because the internal state of the strategy can hold important informations about state of your trading.&#10;&#10;Do you wish to restart strategy for this trader?&#10;&#10;The operation cannot be undone"
+    data-askdelete="Confirm trader deletion. This also cancels all orders."
+    data-yes="Yes"
+    data-no="No"
+    data-reload="↻ Reload"
+    data-need_admin="You need to define at least one user with the administration role"
+    data-backtest_lesstrades="There are less than 100 trades. Results can be inaccurate"
+    data-backtest_nodata="Backtest is not available yet (no data). Run trader with minimal power to collect some trades. At least 100 trades is needed."
+    data-access_control="Access control"
+    data-options="Options"
+    data-global_stop_confirm="Temporarily stops trading for all configured traders  and cancels all their orders. To re-enable trading, you have to click Apply button"
+    data-conflict1="Configuration has been modified externally and cannot be overwritten."
+    data-conflict2="Reload the configuration?"
+    data-buy="BUY"
+    data-sell="SELL"
+    data-trade_ask_stop="This trader is currently in auto trading mode. Do you want to stop automatic trading to allow manual trading? To re-enable trading, you have to click Apply button"
+    ></span>
+
+
+<script src="../res/template.js" type="text/javascript"></script>
+<script src="../res/common.js" type="text/javascript"></script>
+<script src="code.js" type="text/javascript"></script>
+</body>
+</html>
+	
+	
+<template id="options_form">
+<x-form  class="pair options_form sections">
+<x-section><x-section-caption>Options</x-section-caption>
+<label><span>How many days of history to show in charts: </span><x-slider data-min="1" data-max="60" data-mult="1" data-name="report_interval"></x-slider></label>
+<!-- <label><span>Size of backtest [days]: </span><x-slider data-min="1" data-max="60" data-mult="1" data-name="backtest_interval"></x-slider></label> -->
+</x-section>
+<x-section><x-section-caption>Troubleshoting</x-section-caption>
+<div class="trouble_sect"><div>Temporarily stops trading for all configured traders  and cancels all their orders. To re-enable trading, you have to click Apply button<div><button data-name="stop">Global Stop</button></div></div>
+<div>Reloads all brokers. This can fix some problems with certain brokers<div><button data-name="reload_brokers">Reload brokers</button></div></div>
+</div>
+</x-form>
+</template>
+
+	
+<template id="trading_form">
+<x-form class="trading sections">
+<x-section class="wide backtest"><x-section-caption>Chart</x-section-caption>
+<div class="chart" data-name="chart"><div class="spinner"></div></div>
+</x-section>
+<x-section class="small_box"><x-section-caption>Ticker</x-section-caption>
+<label><span>Ask</span><input type="text" data-name="ask_price" readonly="readonly"></label>
+<label><span>Last</span><input type="text" data-name="last_price" readonly="readonly"></label>
+<label><span>Bid</span><input type="text" data-name="bid_price" readonly="readonly"></label>
+<label><span>Balance assets</span><input type="text" data-name="bal_assets" readonly="readonly"></label>
+<label><span>Balance currency</span><input type="text" data-name="bal_currency" readonly="readonly"></label>
+</x-section>
+<x-section  class="small_box"><x-section-caption>Open orders</x-section-caption>
+<table class="orders">
+<tr><th>Direction</th><th>Price</th><th>Size</th><th></th></tr>
+<tr data-name="orders[]">
+<td data-name="dir">buy</td>
+<td data-name="price">123456</td>
+<td data-name="size">123456</td>
+<td><button data-name="cancel">X</button><div class="spinner fast" hidden="hidden" data-name="spinner"></div></td></tr>
+</table>
+</x-section>
+<x-section class="center_box"><x-section-caption>New order</x-section-caption>
+<label><span>Edit order</span><select name="edit_order"><option value="">-- new order --</option><option name="edit_orders[]" value=""></option></select></label>
+<label><span>Order size</span><input type="number" step="any" data-name="order_size"></label>
+<label><span>Price</span><input type="number" step="any" data-name="order_price"></label>
+<div class="buttons">
+<button data-name="button_buy" class="buy">BUY</button>
+<button data-name="button_sell" class="sell">SELL</button>
+<button data-name="button_buybid" class="buy">BUY at bid</button>
+<button data-name="button_sellask" class="sell">SELL at ask</button>
+</div>
+</x-section>
+</x-form>
+</template>

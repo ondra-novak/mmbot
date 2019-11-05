@@ -4,15 +4,17 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin/)
 
 include_directories(BEFORE src/imtjson/src src/server/src src )
 add_compile_options(-std=c++17)
-add_compile_options(-Wall -Werror -Wno-noexcept-type)
+add_compile_options(-Wall -Wno-noexcept-type)
 
 add_subdirectory (src/imtjson/src/imtjson EXCLUDE_FROM_ALL)
 add_subdirectory (src/server/src/simpleServer EXCLUDE_FROM_ALL)
 add_subdirectory (src/main)
+add_subdirectory (src/trainer)
 add_subdirectory (src/coinmate)
 add_subdirectory (src/poloniex)
 add_subdirectory (src/binance)
 add_subdirectory (src/deribit)
+add_subdirectory (src/bitmex)
 
 
 install(DIRECTORY conf DESTINATION ".") 

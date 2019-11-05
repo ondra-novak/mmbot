@@ -23,20 +23,18 @@
 
 using ondra_shared::logDebug;
 
-static constexpr std::uint64_t start_time = 1557858896532;
-Proxy::Proxy(Config config):config(config) {
-	auto now = std::chrono::system_clock::now();
-	std::size_t init_time = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count() - start_time;
-	nonce = init_time * 100;
-	hasKey = !config.privKey.empty() && !config.pubKey.empty();
+Proxy::Proxy() {
+	apiUrl = "https://api.binance.com";
 
+	auto  init_time = now();
+	nonce = init_time * 100;
 }
 
 void Proxy::setTimeDiff(std::intptr_t t) {
 	this->time_diff = t;
 }
 
-std::uintptr_t Proxy::now() {
+std::uint64_t Proxy::now() {
 	return std::chrono::duration_cast<std::chrono::milliseconds>(
 						 std::chrono::system_clock::now().time_since_epoch()
 						 ).count();
@@ -58,7 +56,7 @@ void Proxy::buildParams(const json::Value& params, std::ostream& data) {
 
 json::Value Proxy::public_request(std::string method, json::Value data) {
 	std::ostringstream urlbuilder;
-	urlbuilder << config.apiUrl <<  method;
+	urlbuilder << apiUrl <<  method;
 	buildParams(data, urlbuilder);
 	std::ostringstream response;
 	curl_handle.reset();
@@ -96,19 +94,19 @@ static std::string signData(std::string_view key, std::string_view data) {
 }
 
 json::Value Proxy::private_request(Method method, std::string command, json::Value data) {
-	if (!hasKey)
+	if (!hasKey())
 		throw std::runtime_error("Function requires valid API keys");
 
 	data = data.replace("timestamp", now()+time_diff);
 
 	std::ostringstream urlbuilder;
-	urlbuilder << config.apiUrl <<  command;
+	urlbuilder << apiUrl <<  command;
 
 	std::ostringstream databld;
 	buildParams(data, databld);
 
 	std::string request = databld.str().substr(1);
-	std::string sign = signData(config.privKey,request);
+	std::string sign = signData(privKey,request);
 	std::string url = urlbuilder.str();
 	request.append("&signature=").append(sign);
 
@@ -138,7 +136,7 @@ json::Value Proxy::private_request(Method method, std::string command, json::Val
 	}
 
 	std::list<std::string> headers;
-	headers.push_back("X-MBX-APIKEY: "+config.pubKey);
+	headers.push_back("X-MBX-APIKEY: "+pubKey);
 
 	curl_handle.setOpt(new cURLpp::Options::HttpHeader(headers));
 
@@ -159,4 +157,6 @@ json::Value Proxy::private_request(Method method, std::string command, json::Val
 	return v;
 }
 
-
+bool Proxy::hasKey() const {
+	return !privKey.empty() && !pubKey.empty();
+}

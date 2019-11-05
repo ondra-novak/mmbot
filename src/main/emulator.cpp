@@ -53,10 +53,21 @@ double EmulatorAPI::getBalance(const std::string_view & symb) {
 	}
 }
 
-EmulatorAPI::TradeHistory EmulatorAPI::getTrades(json::Value lastId, std::uintptr_t ,
-		const std::string_view &)  {
+EmulatorAPI::TradesSync EmulatorAPI::syncTrades(json::Value lastId, const std::string_view &)  {
 
-	return TradeHistory(std::move(trades));
+	if (lastId.hasValue()) {
+		std::size_t idx = lastId.getUInt();
+		return TradesSync{
+			TradeHistory(trades.begin()+idx, trades.end()),
+			json::Value(trades.size())
+		};
+	} else {
+		return TradesSync {
+			trades,
+			json::Value(nullptr)
+		};
+	}
+
 }
 
 EmulatorAPI::Orders EmulatorAPI::getOpenOrders(const std::string_view & pair) {
@@ -68,12 +79,20 @@ EmulatorAPI::Ticker EmulatorAPI::getTicker(const std::string_view & pair) {
 	this->pair = pair;
 	Ticker tk = datasrc.getTicker(pair);
 	simulation(tk);
+	lastTicker = tk;
 	return tk;
 }
 
 json::Value EmulatorAPI::placeOrder(const std::string_view & pair,
 		double size, double price,json::Value clientId,
 		json::Value replaceId,double replaceSize) {
+
+	if (size > 0) {
+		if (price > lastTicker.last) price = lastTicker.last*(1-1e-8);
+	} else if (size < 0) {
+		if (price < lastTicker.last) price = lastTicker.last*(1+1e-8);
+	}
+
 
 	Order order{genID(), clientId, size, price};
 
@@ -82,12 +101,19 @@ json::Value EmulatorAPI::placeOrder(const std::string_view & pair,
 			return o.id == replaceId;
 		});
 		if (iter != orders.end()) {
-			*iter = order;
-			return iter->id;
+			if (size == 0) {
+				orders.erase(iter);
+				return nullptr;
+			}
+			else {
+				*iter = order;
+				return iter->id;
+			}
 		} else {
 			return nullptr;
 		}
 	} else {
+		if (price <= 0) throw std::runtime_error("Invalid order price");
 		orders.push_back(order);
 		return order.id;
 	}
@@ -98,6 +124,7 @@ EmulatorAPI::MarketInfo EmulatorAPI::getMarketInfo(const std::string_view & pair
 	balance_symb = minfo.asset_symbol;
 	currency_symb = minfo.currency_symbol;
 	margin = minfo.leverage > 0;
+	minfo.simulator = true;
 	return minfo;
 }
 
@@ -109,6 +136,21 @@ double EmulatorAPI::getFees(const std::string_view &pair) {
 
 std::vector<std::string> EmulatorAPI::getAllPairs() {
 	return datasrc.getAllPairs();
+}
+
+EmulatorAPI::BrokerInfo EmulatorAPI::getBrokerInfo() {
+	return datasrc.getBrokerInfo();
+}
+
+void EmulatorAPI::saveIconToDisk(const std::string &path) const {
+	const IBrokerIcon *icn = dynamic_cast<const IBrokerIcon *>(&datasrc);
+	if (icn) icn->saveIconToDisk(path);
+}
+
+std::string EmulatorAPI::getIconName() const {
+	const IBrokerIcon *icn = dynamic_cast<const IBrokerIcon *>(&datasrc);
+	if (icn) return icn->getIconName();
+	else return std::string();
 }
 
 void EmulatorAPI::simulation(const Ticker &tk) {
@@ -159,9 +201,6 @@ bool EmulatorAPI::reset() {
 	return true;
 }
 
-bool EmulatorAPI::isTest() const {
-	return true;
-}
 
 std::size_t EmulatorAPI::genID() {
 	return ++prevId;

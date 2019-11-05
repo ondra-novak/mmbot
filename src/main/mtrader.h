@@ -13,10 +13,11 @@
 
 #include <shared/ini_config.h>
 #include <imtjson/namedEnum.h>
-#include "calculator.h"
+#include "idailyperfmod.h"
 #include "istatsvc.h"
 #include "storage.h"
 #include "report.h"
+#include "strategy.h"
 
 class IStockApi;
 
@@ -39,7 +40,6 @@ struct MTrader_Config {
 	double sell_mult;
 	double buy_step_mult;
 	double sell_step_mult;
-	double external_assets;
 	double min_size;
 	double max_size;
 
@@ -47,48 +47,24 @@ struct MTrader_Config {
 	double dynmult_fall;
 	Dynmult_mode dynmult_mode;
 
-	double acm_factor_buy;
-	double acm_factor_sell;
-
 	unsigned int accept_loss;
 
-	double sliding_pos_hours;
-	double sliding_pos_weaken;
-
 	double force_spread;
-	double emulated_currency;
 	double report_position_offset;
 
-
-	unsigned int spread_calc_mins;
-	unsigned int spread_calc_min_trades;
-	unsigned int spread_calc_max_trades;
-
-
-	enum NeutralPosType {
-		disabled,
-		assets,
-		currency,
-		center
-	};
-
-	NeutralPosType neutralPosType;
-	double neutral_pos;
-	double max_pos;
-	double expected_trend;
-
+	unsigned int spread_calc_stdev_hours;
+	unsigned int spread_calc_sma_hours;
 
 	bool dry_run;
 	bool internal_balance;
 	bool detect_manual_trades;
 	bool enabled;
-	bool force_margin;
 	bool dust_orders;
+	bool dynmult_scale;
 
-	std::size_t start_time;
+	Strategy strategy = Strategy(nullptr);
 
-
-	void parse_neutral_pos(ondra_shared::StrViewA txt);
+	void loadConfig(json::Value data, bool force_dry_run);
 
 };
 
@@ -98,14 +74,6 @@ public:
 
 	using StoragePtr = PStorage;
 	using Config = MTrader_Config;
-
-
-
-
-
-	static Config load(const ondra_shared::IniConfig::Section &ini, bool force_dry_run);
-	static void showConfig(const ondra_shared::IniConfig::Section &ini, bool force_dry_run, std::ostream &out);
-
 
 	struct Order: public IStockApi::Order {
 		bool isSimilarTo(const Order &other, double step);
@@ -130,81 +98,66 @@ public:
 			Config config);
 
 
-	///Returns true, if trade was detected, or false, if not
-	int perform();
+
+	void perform(bool manually);
 
 	void init();
 
 	OrderPair getOrders();
 	void setOrder(std::optional<Order> &orig, Order neworder);
-	void setOrderCheckMaxPos(std::optional<Order> &orig, Order neworder, double balance, double neutral);
 
 
 	using ChartItem = IStatSvc::ChartItem;
 
 
 	struct Status {
+		IStockApi::Ticker ticker;
 		double curPrice;
 		double curStep;
 		double assetBalance;
 		double internalBalance;
+		double currencyBalance;
 		double new_fees;
-		IStockApi::TradeHistory new_trades;
+		IStockApi::TradesSync new_trades;
 		ChartItem chartItem;
 	};
 
 	Status getMarketStatus() const;
 
-
-	/// Calculate order
-	/**
-	 * @param step precalculated step (spread), negative for sell, positive for buy
-	 * @param oldPrice price of last trade (reference price)
-	 * @param curPrice current price (center price)
-	 * @param balance current balance (including external)
-	 * @return order
-	 */
 	Order calculateOrder(double lastTradePrice,
 			double step,
+			double dynmult,
 			double curPrice,
 			double balance,
-			double acm,
 			double mult) const;
 	Order calculateOrderFeeLess(
 			double lastTradePrice,
 			double step,
+			double dynmult,
 			double curPrice,
 			double balance,
-			double acm,
 			double mult) const;
 
 	const Config &getConfig() {return cfg;}
 
 	const IStockApi::MarketInfo getMarketInfo() const {return minfo;}
 
-	struct CalcRes {
-		double assets;
-		double avail_assets;
-		double value;
-		double avail_money;
-		double min_price;
-		double max_price;
-		double cur_price;
-
-	};
-
-	CalcRes calc_min_max_range();
-
 	bool eraseTrade(std::string_view id, bool trunc);
 	void reset();
 	void repair();
-	void achieve_balance(double price, double balance);
 	ondra_shared::StringView<IStatSvc::ChartItem> getChart() const;
-	double getLastSpread() const;
-	double getInternalBalance() const;
-	void setInternalBalance(double v);
+	void dropState();
+	void stop();
+
+	using TradeHistory = std::vector<IStatSvc::TradeRecord>;
+
+	const TradeHistory &getTrades() const;
 
 	static std::string_view vtradePrefix;
+
+	Strategy &getStrategy() {return strategy;}
+	const Strategy &getStrategy() const {return strategy;}
+	IStockApi &getBroker() {return stock;}
 
 protected:
 	std::unique_ptr<IStockApi> ownedStock;
@@ -213,53 +166,45 @@ protected:
 	IStockApi::MarketInfo minfo;
 	StoragePtr storage;
 	PStatSvc statsvc;
-	OrderPair lastOrders[2];
+	Strategy strategy;
 	bool need_load = true;
-	bool first_order = true;
-	Calculator calculator;
+	bool recalc = true;
+	json::Value test_backup;
+	json::Value lastTradeId = nullptr;
 
 	using TradeItem = IStockApi::Trade;
-	using TWBItem = IStockApi::TradeWithBalance;
+	using TWBItem = IStatSvc::TradeRecord;
 
 	std::vector<ChartItem> chart;
-	IStockApi::TWBHistory trades;
+	TradeHistory trades;
 
 	double buy_dynmult=1.0;
 	double sell_dynmult=1.0;
-	double internal_balance = 0;
-	mutable double prev_spread=0.01;
-	double prev_calc_ref = 0;
-	double currency_balance_cache = 0;
+	std::optional<double> internal_balance;
+	std::optional<double> currency_balance_cache;
 	size_t magic = 0;
-	double cur_trend_adv = 0;
+	size_t uid = 0;
+	PerformanceReport tempPr;
 
 	void loadState();
 	void saveState();
 
-
-	double range_max_price(Status st, double &avail_assets);
-	double range_min_price(Status st, double &avail_money);
-
 	double raise_fall(double v, bool raise) const;
 
-
 	static IStockApi &selectStock(IStockSelector &stock_selector, const Config &conf, std::unique_ptr<IStockApi> &ownedStock);
-	std::size_t testStartTime;
 
-	struct PTResult {
-		bool manual_trades;
-	};
-	PTResult processTrades(Status &st,bool first_trade);
+	void processTrades(Status &st);
 
 	void mergeTrades(std::size_t fromPos);
 
 	void update_dynmult(bool buy_trade,bool sell_trade);
 
-	bool acceptLoss(std::optional<Order> &orig, const Order &order, const Status &st, double neutral_pos);
+	bool acceptLoss(std::optional<Order> &orig, const Order &order, const Status &st);
 	json::Value getTradeLastId() const;
 
+	double calcSpread() const;
 
-	double calcWeakenMult(double neutral_pos, double balance);
+
 };
 
 
