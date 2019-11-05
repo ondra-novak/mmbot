@@ -1,5 +1,17 @@
 #!/bin/bash
 	
+echo ""
+echo "    ▗     Version 2.0 has been merged into 'master'." 
+echo "   ▗▘▚    The branch 2.0 is now closed and will"
+echo "  ▗▘▐ ▚   receive no more updates. Please checkout" 
+echo " ▗▘ ▗  ▚  the 'master'."
+echo "▗▙▄▄▄▄▄▄▙ "
+echo ""
+echo "$ git checkout master"
+echo "  ^^^^^^^^^^^^^^^^^^^"
+
+exit 1
+	
 mkdir -p ./data
 mkdir -p ./secure_data
 mkdir -p ./log
