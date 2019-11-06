@@ -153,7 +153,7 @@ inline Interface::TradesSync Interface::syncTrades(json::Value lastId,  const st
 			lastId = itm["trade_seq"];
 			return Trade{
 				itm["trade_seq"],
-				itm["timestamp"].getUInt(),
+				itm["timestamp"].getUIntLong(),
 				amount,
 				price,
 				amount,
@@ -207,7 +207,7 @@ inline Interface::Ticker Interface::getTicker(const std::string_view &pair) {
 		1.0/response["best_ask_price"].getNumber(),
 		1.0/response["best_bid_price"].getNumber(),
 		1.0/response["last_price"].getNumber(),
-		response["timestamp"].getUInt()
+		response["timestamp"].getUIntLong()
 	};
 }
 

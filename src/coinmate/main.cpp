@@ -157,7 +157,7 @@ Interface::TradesSync Interface::syncTrades(json::Value lastId, const std::strin
 					double eff_price = price + fee/size;
 					return Trade {
 						x["transactionId"],
-						x["createdTimestamp"].getUInt(),
+						x["createdTimestamp"].getUIntLong(),
 						size,
 						price,
 						size,
@@ -199,7 +199,7 @@ Interface::TradesSync Interface::syncTrades(json::Value lastId, const std::strin
 		 r["bid"].getNumber(),
 		 r["ask"].getNumber(),
 		 r["last"].getNumber(),
-		 r["timestamp"].getUInt()*1000 //HACK - time is not in milliseconds
+		 r["timestamp"].getUIntLong()*1000 //HACK - time is not in milliseconds
 	 };
 }
 

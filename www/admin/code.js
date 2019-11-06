@@ -161,7 +161,7 @@ App.prototype.createTraderList = function(form) {
 				t.broker = broker;
 				t.pair_symbol = pair;
 				t.id = name;
-				t.enable = true;
+				t.enabled = true;
 				t.dry_run = false;
 				if (!t.title) t.title = pair;
 				this.updateTopMenu(name);
@@ -465,7 +465,7 @@ App.prototype.fillForm = function (src, trg) {
 		data.pl_closepos = filledval(src.strategy.closepos,"prefer_close");
 		data.pl_redfact = filledval(defval(src.strategy.reduce_factor,1)*100,100); 
 	}
-	data.enabled = src.enable;
+	data.enabled = src.enabled;
 	data.dry_run = src.dry_run;
 	data.accept_loss = filledval(src.accept_loss,1);
 	data.sliding_pos_hours = filledval(src["sliding_pos.hours"],240);
@@ -575,7 +575,7 @@ App.prototype.saveForm = function(form, src) {
 	trader.broker =src.broker;
 	trader.pair_symbol = src.pair_symbol;
 	trader.title = data.title;
-	trader.enable = data.enabled;
+	trader.enabled = data.enabled;
 	trader.dry_run = data.dry_run;
 	trader.advanced = data.advanced;
 	trader.accept_loss = data.accept_loss;

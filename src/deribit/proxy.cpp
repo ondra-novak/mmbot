@@ -139,7 +139,7 @@ const std::string &Proxy::getAccessToken() {
 			("signature",signature)
 			("nonce",nonce)*/, false);
 
-	std::size_t expires =resp["expires_in"].getUInt();
+	std::uint64_t expires =resp["expires_in"].getUIntLong();
 	auth_token = resp["access_token"].getString();
 	auth_token_expire = std::chrono::system_clock::now() + std::chrono::seconds(expires-10);
 	return auth_token;

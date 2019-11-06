@@ -188,7 +188,7 @@ void Interface::updateBalCache() {
 				 ("symbol", pair));
 		 Value id = r.reduce([](Value l, Value itm) {
 			 Value id = itm["id"];
-			 return id.getUInt() > l.getUInt()?id:l;
+			 return id.getUIntLong() > l.getUIntLong()?id:l;
 		 }, Value(0));
 		 return TradesSync {
 			 {},
@@ -339,8 +339,8 @@ void Interface::initSymbols() {
 	if (symbols.empty()) {
 		Value res = px.public_request("/api/v1/exchangeInfo",Value());
 
-		std::uintptr_t srvtm = res["serverTime"].getUInt();
-		std::uintptr_t localtm = now();
+		std::uint64_t srvtm = res["serverTime"].getUIntLong();
+		std::uint64_t localtm = now();
 		time_diff = srvtm - localtm;
 
 		using VT = Symbols::value_type;

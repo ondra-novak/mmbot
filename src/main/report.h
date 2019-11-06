@@ -35,7 +35,7 @@ public:
 		:report(std::move(report)),interval_in_ms(interval_in_ms),a2np(a2np) {}
 
 
-	void setInterval(std::size_t interval);
+	void setInterval(std::uint64_t interval);
 	void genReport();
 
 	using StrViewA = ondra_shared::StrViewA;
@@ -97,7 +97,7 @@ protected:
 	void exportTitles(json::Object &&out);
 	void exportPrices(json::Object &&out);
 	void exportMisc(json::Object &&out);
-	std::size_t interval_in_ms;
+	std::uint64_t interval_in_ms;
 	bool a2np;
 };
 

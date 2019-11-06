@@ -65,7 +65,7 @@ ExtStockApi::Ticker ExtStockApi::getTicker(const std::string_view & pair) {
 		resp["bid"].getNumber(),
 		resp["ask"].getNumber(),
 		resp["last"].getNumber(),
-		resp["timestamp"].getUInt(),
+		resp["timestamp"].getUIntLong(),
 	};
 }
 

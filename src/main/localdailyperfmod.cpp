@@ -78,7 +78,7 @@ void LocalDailyPerfMonitor::prepareReport() {
 	for (Value row: dailySums) {
 		Value data = row[1];
 		Array rrow;
-		rrow.push_back(row[0].getUInt()*daySeconds);
+		rrow.push_back(row[0].getUIntLong()*daySeconds);
 		unsigned int idx = 0;
 		for (auto &h : header) {
 			double v = data[h].getNumber();

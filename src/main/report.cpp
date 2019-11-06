@@ -24,7 +24,7 @@ using std::chrono::_V2::system_clock;
 
 using namespace json;
 
-void Report::setInterval(std::size_t interval) {
+void Report::setInterval(std::uint64_t interval) {
 	this->interval_in_ms = interval;
 }
 
@@ -95,8 +95,8 @@ void Report::setTrades(StrViewA symb, StringView<IStatSvc::TradeRecord> trades) 
 	if (!trades.empty()) {
 
 		const auto &last = trades[trades.length-1];
-		std::size_t last_time = last.time;
-		std::size_t first = last_time - interval_in_ms;
+		std::uint64_t last_time = last.time;
+		std::uint64_t first = last_time - interval_in_ms;
 
 
 		auto tend = trades.end();

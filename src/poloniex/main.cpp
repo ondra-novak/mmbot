@@ -112,7 +112,7 @@ public:
 	 		return TradesSync{ {}, Value(json::array,{time(nullptr), nullptr})};
 
 	 	} else {
-	 		time_t startTime = lastId[0].getUInt();
+	 		time_t startTime = lastId[0].getUIntLong();
 	 		Value id = lastId[1];
 
 	 		Value trs = px.private_request("returnTradeHistory", Object

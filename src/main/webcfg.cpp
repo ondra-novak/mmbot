@@ -519,7 +519,7 @@ bool WebCfg::reqTraders(simpleServer::HTTPRequest req, ondra_shared::StrViewA vp
 						auto chart = tr->getChart();
 						auto &&broker = tr->getBroker();
 						broker.reset();
-						if (chart.length>600) chart.substr(chart.length-600);
+						if (chart.length>600) chart = chart.substr(chart.length-600);
 						out.set("chart", Value(json::array,chart.begin(), chart.end(),[&](auto &&item) {
 							return Object("time", item.time)("last",item.last);
 						}));
