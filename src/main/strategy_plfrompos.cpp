@@ -46,7 +46,7 @@ double Strategy_PLFromPos::calcNewPos(double tradePrice, bool reducepos) const {
 					:(lin_pos + (red_pos - lin_pos)*cfg.reduce_factor);
 
 	switch (cfg.closeMode) {
-	case always_close: if (new_pos * pos <= 0) new_pos = 0;break;
+	case always_close: if (new_pos * pos < 0) new_pos = 0;break;
 	case prefer_close: if (!gaining && red_pos == 0) new_pos = 0;break;
 	case prefer_reverse: if (!gaining && red_pos == 0) new_pos = lin_pos;break;
 	}
@@ -81,7 +81,8 @@ json::Value Strategy_PLFromPos::exportState() const {
 	return json::Object
 			("p",p)
 			("pos",pos)
-			("acm",acm);
+			("acm",acm)
+			("np", cfg.neutral_pos);
 
 }
 
@@ -89,6 +90,10 @@ IStrategy* Strategy_PLFromPos::importState(json::Value src) const {
 	double new_p = src["p"].getNumber();
 	double new_pos = src["pos"].getNumber();
 	double new_acm =  src["acm"].getNumber();
+	double old_np = src["np"].getNumber();
+	if (fabs(old_np -cfg.neutral_pos) > (fabs(old_np)+fabs(cfg.neutral_pos))*0.00001) {
+		new_acm = 0;
+	}
 	return new Strategy_PLFromPos(cfg, new_p, new_pos, new_acm);
 }
 
@@ -127,4 +132,15 @@ std::string_view Strategy_PLFromPos::getID() const {
 
 IStrategy* Strategy_PLFromPos::reset() const {
 	return new Strategy_PLFromPos(cfg);
+}
+
+IStrategy* Strategy_PLFromPos::setMarketInfo(
+		const IStockApi::MarketInfo &minfo) const {
+	if (minfo.invert_price) {
+		Config cfg = this->cfg;
+		cfg.neutral_pos = -this->cfg.neutral_pos;
+		return new Strategy_PLFromPos(cfg, p, pos);
+	} else {
+		return const_cast<Strategy_PLFromPos *>(this);
+	}
 }

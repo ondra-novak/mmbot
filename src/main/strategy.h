@@ -22,6 +22,9 @@ public:
 	void init(double curPrice, double assets, double currency)  {
 		ptr = ptr->init(curPrice, assets, currency);
 	}
+	void setMarketInfo(const IStockApi::MarketInfo &minfo) {
+		ptr = ptr->setMarketInfo(minfo);
+	}
 	TradeResult onTrade(double tradePrice, double tradeSize,
 			double assetsLeft, double currencyLeft)  {
 		auto t = ptr->onTrade(tradePrice, tradeSize, assetsLeft, currencyLeft);

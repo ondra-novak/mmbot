@@ -87,3 +87,7 @@ IStrategy* Strategy_HalfHalf::reset() const {
 std::string_view Strategy_HalfHalf::getID() const {
 	return id;
 }
+
+IStrategy* Strategy_HalfHalf::setMarketInfo(const IStockApi::MarketInfo &) const {
+	return const_cast<Strategy_HalfHalf *>(this);
+}

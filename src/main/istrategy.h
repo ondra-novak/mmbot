@@ -10,6 +10,7 @@
 #include <string_view>
 #include <imtjson/value.h>
 #include "../shared/refcnt.h"
+#include "istockapi.h"
 
 class IStrategy: public ondra_shared::RefCntObj {
 public:
@@ -30,6 +31,8 @@ public:
 	 * @return initialized strategy
 	 */
 	virtual IStrategy *init(double curPrice, double assets, double currency) const = 0;
+
+	virtual IStrategy *setMarketInfo(const IStockApi::MarketInfo &minfo)  const = 0;
 
 
 	struct OnTradeResult {

@@ -533,6 +533,7 @@ void MTrader::loadState() {
 				minfo.simulator
 			});
 	currency_balance_cache = stock.getBalance(minfo.currency_symbol);
+	strategy.setMarketInfo(minfo);
 
 
 

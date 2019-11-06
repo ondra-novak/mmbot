@@ -83,3 +83,7 @@ IStrategy* Strategy_KeepValue::reset() const {
 	return new Strategy_KeepValue(cfg);
 }
 
+
+IStrategy* Strategy_KeepValue::setMarketInfo(const IStockApi::MarketInfo &) const {
+	return const_cast<Strategy_KeepValue *>(this);
+}

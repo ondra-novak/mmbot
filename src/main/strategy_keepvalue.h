@@ -30,6 +30,7 @@ public:
 	virtual double getEquilibrium() const override;
 	virtual std::string_view getID() const override;
 	virtual IStrategy *reset() const override;
+	virtual IStrategy *setMarketInfo(const IStockApi::MarketInfo &minfo)  const override;
 
 	static std::string_view id;
 
