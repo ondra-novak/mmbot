@@ -55,6 +55,12 @@ double EmulatorAPI::getBalance(const std::string_view & symb) {
 
 EmulatorAPI::TradesSync EmulatorAPI::syncTrades(json::Value lastId, const std::string_view &)  {
 
+	if (trades.empty()) {
+		return {
+			{},0
+		};
+	}
+
 	if (lastId.hasValue()) {
 		std::size_t idx = lastId.getUInt();
 		return TradesSync{

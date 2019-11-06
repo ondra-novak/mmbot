@@ -64,6 +64,13 @@ void LocalDailyPerfMonitor::prepareReport() {
 		}
 	}
 
+	std::vector<double> sum;
+	std::vector<unsigned int> cnt;
+	std::vector<double> avg;
+	sum.resize(header.size(),0);
+	cnt.resize(header.size(),0);
+	avg.resize(header.size(),0);
+
 
 	Value jheader (json::array, header.begin(), header.end(), [](StrViewA x){return x;});
 	jheader.unshift("Date");
@@ -72,16 +79,27 @@ void LocalDailyPerfMonitor::prepareReport() {
 		Value data = row[1];
 		Array rrow;
 		rrow.push_back(row[0].getUInt()*daySeconds);
+		unsigned int idx = 0;
 		for (auto &h : header) {
-			rrow.push_back(data[h].getNumber());
+			double v = data[h].getNumber();
+			sum[idx]+=v;
+			if (v) cnt[idx]++;
+			idx++;
+			rrow.push_back(v);
+
 		}
 		reportrows.push_back(rrow);
 	}
 
+	std::transform(sum.begin(), sum.end(), cnt.begin(), avg.begin(),[](double a, unsigned int b) {
+		return a / b;
+	});
+
 	report = Object
 			("hdr", jheader)
-			("rows", reportrows);
-
+			("rows", reportrows)
+			("sums", Value(json::array, sum.begin(), sum.end(), [](double x){return x;}))
+			("avg", Value(json::array, avg.begin(), avg.end(), [](double x){return x;}));
 
 
 }
@@ -173,7 +191,6 @@ void LocalDailyPerfMonitor::aggregate(unsigned int curDayIndex) {
 
 	} catch (std::exception &e) {
 		logError("failed to flush daily performance data - $1", e.what());
-		dayIndex = curDayIndex;
 		logf.open(logfile, std::ios::app);
 		return;
 	}

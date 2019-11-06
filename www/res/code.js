@@ -686,11 +686,14 @@ function app_start(){
 			drawChart = initChart(stats.interval);
 			redraw = function() {
 
-				var fld = location.hash;
+				chart_padding.hidden = false;
+				
+				var fld = location.hash;			
 				if (fld) fld = decodeURIComponent(fld.substr(1));
 				else fld = "+summary";
 				
 				selector.value = fld;
+
 
 				if (fld == "+summary") {
 					setMode(4);
@@ -711,6 +714,7 @@ function app_start(){
 				} else if (fld == "+dpr") {
 					setMode(6);
 					appendDailyPerformance(stats.performance);					
+					chart_padding.hidden = true;
 				} else if (fld.startsWith("!")) {
 					setMode(1);
 					var pair = fld.substr(1);
@@ -781,22 +785,37 @@ function app_start(){
 			hdr.appendChild(h);
 		})
 		table.appendChild(hdr);
-		data.rows.forEach(function(r) {
-			var first = true;
+
+		function row(data, cls, symbol){
+			var first = !symbol;
 			var hr = document.createElement("tr");
-			r.forEach(function(c) {
+			if (cls) hr.setAttribute("class",cls);
+			if (symbol) {
+				var th = document.createElement("td");
+				hr.appendChild(th);
+				th.innerText=symbol;
+			}
+			data.forEach(function(c) {
 				var h = document.createElement("td");
 				if (first && typeof(c) == "number") {
 					first = false;
 					h.innerText = (new Date(c*1000)).toLocaleDateString();
 				} else {
 					h.innerText = adjNum(c);
+					h.classList.toggle("pos", c>0);
+					h.classList.toggle("neg", c<0);
 				}
 				hr.appendChild(h);
-				
 			});
-			table.appendChild(hr);
+			table.appendChild(hr);			
+		}
+
+		
+		data.rows.forEach(function(r) {
+			row(r, null, null);
 		})
+		row(data.sums, "sep bold","∑");
+/*		row(data.avg, "ital","⌀");*/
 		var curchart = createChart("perfrep", "perfrep");
 		curchart .innerText = "";
 		curchart .appendChild(table);

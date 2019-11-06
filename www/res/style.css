@@ -797,8 +797,8 @@ table.extended th {
     vertical-align: top;
 }
 table  tr > * {
-	padding: 2px 0.5em;
-	border-top: 1px solid #222222;
+	/* padding: 2px 0.5em; */
+	border: 1px solid #222222;
 	background-color: #1b1b1b;
 	white-space: nowrap;
 }
@@ -812,9 +812,30 @@ table.extended td .color.pos::before {content: "+";}
 }
 table.perfmod {
 	width: 100%;
+	border-collapse: collapse;
 }
 table.perfmod td{
 	text-align: center;
+	color: #555;
+}
+table.perfmod td:first-child{
+	color: #ccc;
+}
+table.perfmod td.pos{
+	color: #8c8;
+}
+table.perfmod td.neg{
+	color: #f88;
+}
+
+table.perfmod tr.sep > td{
+	border-top: 2px solid #888;
+}
+table.perfmod tr.bold > td{font-weight: bold;background-color: #333;}
+table.perfmod tr.ital > td{font-size: 0.9em;}
+
+.perfrep {
+	text-align:center;
 }
 
 .head > .error_icon {
