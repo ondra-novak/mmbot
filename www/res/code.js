@@ -147,6 +147,18 @@ function app_start(){
 				e.classList.add("size");
 				e.innerText = l2;
 				elem.appendChild(e);				
+				if (r && r.ometer) {
+					var k = table_rows.get(curchart);
+					if (!k) {
+						k = document.createElement("div");
+						k.setAttribute("class","ometer");
+						table_rows.set(curchart, k);
+					}
+					e.appendChild(k);
+					setTimeout(function() {
+						k.style.left = r.ometer+"%";
+					},100);
+				}
 				if (er) {
 					var popup = document.createElement("div")
 					popup.innerText = er;
@@ -627,7 +639,7 @@ function app_start(){
 				notifyTrades(newTrades);
 			}
 
-			
+					
 			(stats.orders || []).forEach(function(o) {
 				var s = orders[o.symb];
 				var sz = o.size;
@@ -653,7 +665,6 @@ function app_start(){
 					class: dir,
 				})
 				ranges[o.symb][dir] = [o.price,o.size];
-				ranges[o.symb].pos = [last.pos,infoMap[o.symb].asset];
 			}) 
 			
 			for (var sm in stats.prices) {
@@ -675,6 +686,20 @@ function app_start(){
 					class: "last",
 				})
 				ranges[sm]["last"] = [stats.prices[sm],""];
+				ranges[sm].pos = [last.pos,infoMap[sm].asset];
+				var rpos;
+				if (ranges[sm].buy !== undefined) {
+					if (ranges[sm].sell !== undefined) {
+						rpos = (ranges[sm].last[0] - ranges[sm].buy[0])/(ranges[sm].sell[0] - ranges[sm].buy[0])
+					} else {
+						rpos = 1;
+					}
+				} else if (ranges[sm].sell !== undefined) {
+					rpos = 0;
+				} else {
+					rpos = 0.5;
+				}
+				ranges[sm].last.ometer = adjNum(rpos*100);
 				stats.misc[sm].icon = infoMap[sm].brokerIcon;
 			
 			}

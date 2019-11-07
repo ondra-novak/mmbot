@@ -358,6 +358,20 @@ x-trbgr.hdr {
 	text-overflow:ellipsis;
 	margin-left:0.1cm;
 }
+.info > div.last > .size  {
+	height: 1em;
+	background-color: #333;
+
+}
+.info > div > .size > .ometer {
+	position: absolute;height:  1em;transition: 5s all;width: 4px;background: #888;
+	margin-left:-2px;
+	box-sizing:border-box;
+	left:50%;
+	bottom: 0;
+}
+
+
 .info span.buy_sz::before {
 	content: "+"
 }
