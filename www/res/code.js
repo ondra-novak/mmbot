@@ -74,6 +74,7 @@ function app_start(){
 	fillCats();
 
 	var infoMap = {};
+	var ometers = {};
 	
 	function setField(root, name, value, classes) {
 		var info = root.querySelectorAll("[data-name="+name+"]");
@@ -93,7 +94,7 @@ function app_start(){
 		})
 	}
 	
-	function fillInfo(curchart, title, link, ranges, emulated, misc) {
+	function fillInfo(id,curchart, title, link, ranges, emulated, misc) {
 		var elem_title = curchart.querySelector("[data-name=title]");
 		var elem_title_class = curchart.querySelector("[data-name=title_class]");
 		var elem_icon = curchart.querySelector("[data-name=icon]");
@@ -148,15 +149,17 @@ function app_start(){
 				e.innerText = l2;
 				elem.appendChild(e);				
 				if (r && r.ometer) {
-					var k = table_rows.get(curchart);
+					var k = ometers[id];
 					if (!k) {
-						k = document.createElement("div");
-						k.setAttribute("class","ometer");
-						table_rows.set(curchart, k);
+						k = ometers[id] = "50%";
 					}
-					e.appendChild(k);
+					var p = document.createElement("div");
+					p.setAttribute("class","ometer");
+					p.style.left = k
+					e.appendChild(p);
 					setTimeout(function() {
-						k.style.left = r.ometer+"%";
+						k = ometers[id] = r.ometer+"%";
+						p.style.left = k;
 					},100);
 				}
 				if (er) {
@@ -227,7 +230,7 @@ function app_start(){
 			}			
 			var elem_chart = curchart.querySelector("[data-name=chart]");
 			drawChart(elem_chart, data, fld, orders,  secondary_charts[fld]);
-			fillInfo(curchart, info.title,id,  ranges, info.emulated);
+			fillInfo(id,curchart, info.title,id,  ranges, info.emulated);
 		} catch (e) {
 			curchart.hidden = true;
 		}
@@ -235,7 +238,7 @@ function app_start(){
 
 	function appendList(id, info, ranges, misc) {
 		var curchart = createChart(id, "summary");
-		fillInfo(curchart,  info.title,id, ranges, info.emulated, misc);
+		fillInfo(id,curchart,  info.title,id, ranges, info.emulated, misc);
 		var ext =curchart.getElementsByClassName("extended")[0];
 		ext.hidden = true;
 		var ext =curchart.getElementsByClassName("daystats")[0];
@@ -248,7 +251,7 @@ function app_start(){
 			var curchart = createChart(id, "summary");
 			var ext =curchart.getElementsByClassName("daystats")[0];
 			ext.hidden = false;
-			fillInfo(curchart,  info.title,id, ranges, info.emulated, misc);
+			fillInfo(id,curchart,  info.title,id, ranges, info.emulated, misc);
 			var start = Date.now() - 24*60*60*1000;
 			var sum = data.reduce(function(a,b,idx) {
 				if (b.time >= start) {
@@ -743,7 +746,7 @@ function app_start(){
 				} else if (fld.startsWith("!")) {
 					setMode(1);
 					var pair = fld.substr(1);
-					appendSummary("_"+k,infoMap[pair], charts[pair], ranges[pair], stats.misc[pair],true);
+					appendSummary("_"+pair,infoMap[pair], charts[pair], ranges[pair], stats.misc[pair],true);
 					for (var k in cats) {						
 						appendChart("!"+k, {title:cats[k]}, charts[pair], k, orders[pair], stats.misc[k]);
 						

@@ -174,7 +174,7 @@ void EmulatorAPI::simulation(const Ticker &tk) {
 
 			IStockApi::Trade tr {
 				json::Value(json::String({prefix,std::to_string(genID())})),
-				static_cast<std::size_t>(tm),
+				tm,
 				o.size,
 				o.price,
 				o.size,
