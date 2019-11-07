@@ -700,18 +700,29 @@ json::Value MTrader::OrderPair::toJSON() const {
 
 void MTrader::processTrades(Status &st) {
 
+	StringView<IStockApi::Trade> new_trades(st.new_trades.trades);
 
-	if (st.new_trades.trades.empty()) return;
+	//Remove duplicate trades
+	//which can happen by failed synchronization
+	//while the new trade is already in current trades
+	while (!new_trades.empty() && !trades.empty()
+			&& std::find_if(trades.begin(), trades.end(),[&](const IStockApi::Trade &t) {
+				return t.id == new_trades[0].id;
+			}) != trades.end()) {
+			new_trades = new_trades.substr(1);
+	}
+
+	if (new_trades.empty()) return;
 
 
 
-	auto z = std::accumulate(st.new_trades.trades.begin(), st.new_trades.trades.end(),std::pair<double,double>(st.assetBalance,st.currencyBalance),
+	auto z = std::accumulate(new_trades.begin(), new_trades.end(),std::pair<double,double>(st.assetBalance,st.currencyBalance),
 			[](const std::pair<double,double> &x, const IStockApi::Trade &y) {
 		return std::pair<double,double>(x.first - y.eff_size, x.second + y.eff_size*y.eff_price);}
 	);
 
 	if (!strategy.isValid()) {
-		strategy.init(st.new_trades.trades[0].eff_price, z.first, z.second);
+		strategy.init(new_trades[0].eff_price, z.first, z.second);
 	}
 
 
@@ -724,7 +735,7 @@ void MTrader::processTrades(Status &st) {
 	}
 
 
-	for (auto &&t : st.new_trades.trades) {
+	for (auto &&t : new_trades) {
 
 		tempPr.tradeId = t.id.toString().str();
 		tempPr.size = t.eff_size;

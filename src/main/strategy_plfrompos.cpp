@@ -70,7 +70,7 @@ std::pair<Strategy_PLFromPos::OnTradeResult, IStrategy*> Strategy_PLFromPos::onT
 	}*/
 	double ef = (1/ (2*k)) *(pow2(act_pos) - pow2(prev_pos)) + prev_pos * (tradePrice - p);
 	double np = ef * (1 - cfg.accum);
-	double ap = ef * cfg.accum;
+	double ap = (ef * cfg.accum)/tradePrice;
 	return {
 		OnTradeResult{np,ap},
 		new Strategy_PLFromPos(cfg,tradePrice, new_pos, acm+ap)
@@ -91,7 +91,9 @@ IStrategy* Strategy_PLFromPos::importState(json::Value src) const {
 	double new_pos = src["pos"].getNumber();
 	double new_acm =  src["acm"].getNumber();
 	double old_np = src["np"].getNumber();
+	new_pos -= (cfg.neutral_pos - old_np);
 	if (fabs(old_np -cfg.neutral_pos) > (fabs(old_np)+fabs(cfg.neutral_pos))*0.00001) {
+		new_pos += new_acm;
 		new_acm = 0;
 	}
 	return new Strategy_PLFromPos(cfg, new_p, new_pos, new_acm);
