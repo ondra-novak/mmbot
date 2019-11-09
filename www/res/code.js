@@ -335,6 +335,7 @@ function app_start(){
 			selMode = mode;							
 		}
 	}
+
 	
 	var table_rows = new WeakMap();
 	var tmp = [];
@@ -742,9 +743,8 @@ function app_start(){
 				
 				selector.value = fld;
 
-
+				setMode(location.hash);
 				if (fld == "+summary") {
-					setMode(4);
 					for (var k in charts) {
 						appendSummary("_"+k,infoMap[k], charts[k], ranges[k], stats.misc[k]);
 					}
@@ -754,17 +754,14 @@ function app_start(){
 					updateLastEventsAll(charts);
 					
 				} else if (fld == "+list") {
-					setMode(5);
 					for (var k in charts) {
 						appendList("_"+k,infoMap[k], ranges[k], stats.misc[k]);
 					}
 					updateLastEventsAll(charts);
 				} else if (fld == "+dpr") {
-					setMode(6);
 					appendDailyPerformance(stats.performance);					
 					chart_padding.hidden = true;
 				} else if (fld.startsWith("!")) {
-					setMode(1);
 					var pair = fld.substr(1);
 					appendSummary("_"+pair,infoMap[pair], charts[pair], ranges[pair], stats.misc[pair],true);
 					for (var k in cats) {						
@@ -774,14 +771,12 @@ function app_start(){
 					updateLastEvents(charts[pair],pair);
 					
 				} else if (fld.startsWith("+")) {
-					setMode(2);
 					fld = fld.substr(1);
 					for (var k in sums) {
 						appendChart(k,{"title":k}, sums[k], fld);
 					}
 					updateLastEventsAll(charts);			
 				} else {
-					setMode(3);
 					for (var k in charts) {
 						appendChart(k,infoMap[k], charts[k], fld,  orders[k],ranges[k], stats.misc[k]);
 					}

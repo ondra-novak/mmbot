@@ -253,6 +253,7 @@ x-trbgr.hdr {
 
 .head >.title > img {
 	height: 1.0em;
+	width:  1.0em;
 	vertical-align: middle;
 	padding: 0 0 0.1em 0;
 }
