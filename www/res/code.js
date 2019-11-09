@@ -279,18 +279,38 @@ function app_start(){
 						neg:sum[n]<0
 					});
 			}
-			if (misc) {
-				var last_norm = data.length?data[data.length-1].norm:0;
-				var last_nacum = data.length?data[data.length-1].nacum:0;
-				misc.pnorm = last_norm;
-				misc.pnormp = 100*last_norm/misc.mv;
+			if (misc) {				
 				if (data.length) {
+					var lastItem = data[data.length-1];
+					var last_norm = lastItem.norm;
+					var last_nacum = lastItem.nacum;
+					var normdiff = data.reduce(function(a,b) {return a + b.normch},0);
+					var pldiff = lastItem.pl - data[0].pl;
 					var it = intervals[interval][1]*1000;
-					var lt = data[data.length-1];
+					var lt = data[data.length-1];					
+					var rate;
 //					misc.avgt = last_norm/misc.mt;
 					misc.avgh = lt.norm/misc.tt*it;
 					misc.avgha = lt.nacum*it/misc.tt;
 					misc.avghpl = it*lt.pl/misc.tt;
+					misc.pnorm = last_norm;
+					misc.pnormp = 100*last_norm/misc.mv;
+					if (pldiff > 0) {
+						if (normdiff > pldiff) rate = "A";
+						else if (normdiff > 0 && normdiff < pldiff) rate = "B";
+						else rate = "C"
+					} else if (normdiff > 0) {
+						if (normdiff > -pldiff) rate = "B";
+						else rate = "D";
+					} else {
+						rate = "E";
+					}
+					setField(curchart,"rate",rate,{["rate"+rate]:true,rate:true});
+					
+				} else {
+					misc.pnorm = 0;
+					misc.pnormp = 0;
+
 				}
 
 				for (var n in misc)
