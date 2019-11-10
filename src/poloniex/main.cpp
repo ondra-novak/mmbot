@@ -15,6 +15,7 @@
 #include <ctime>
 
 #include "../brokers/api.h"
+#include "../brokers/isotime.h"
 #include "../imtjson/src/imtjson/stringValue.h"
 #include "../shared/linear_map.h"
 #include "orderdatadb.h"
@@ -86,25 +87,6 @@ public:
 	 else throw std::runtime_error("No such symbol");
 }
 
-
- static std::size_t parseTime(json::String date) {
-	 int y,M,d,h,m;
-	 float s;
-	 sscanf(date.c_str(), "%d-%d-%d %d:%d:%f", &y, &M, &d, &h, &m, &s);
-	 float sec;
-	 float msec = std::modf(s,&sec)*1000;
-	 std::tm t={0};
-	 t.tm_year = y - 1900;
-	 t.tm_mon = M-1;
-	 t.tm_mday = d;
-	 t.tm_hour = h;
-	 t.tm_min = m;
-	 t.tm_sec = static_cast<int>(sec);
-	 std::size_t res = timegm(&t) * 1000 + static_cast<std::size_t>(msec);
-	 return res;
-
- }
-
  Interface::TradesSync Interface::syncTrades(json::Value lastId, const std::string_view & pair) {
 
 	 	if (!lastId.hasValue()) {
@@ -122,7 +104,7 @@ public:
 
  			TradeHistory loaded;
 	 		for (Value t: trs) {
-				auto time = parseTime(String(t["date"]));
+				auto time = parseTime(String(t["date"]), ParseTimeFormat::mysql);
 				auto id = t["tradeID"];
 				auto size = t["amount"].getNumber();
 				auto price = t["rate"].getNumber();
@@ -352,7 +334,7 @@ bool Interface::syncTradesCycle(std::size_t fromTime) {
 		auto && lst = tradeMap[pair];
 		std::vector<Trade> loaded;
 		for (Value t: p) {
-			auto time = parseTime(String(t["date"]));
+			auto time = parseTime(String(t["date"]),ParseTimeFormat::mysql);
 			auto id = t["tradeID"];
 			if (syncTradeCheckTime(lst, time, id)) {
 				auto size = t["amount"].getNumber();

@@ -22,6 +22,8 @@
 #include <imtjson/binary.h>
 #include <imtjson/streams.h>
 #include <imtjson/binjson.tcc>
+
+#include "../brokers/isotime.h"
 #include "../imtjson/src/imtjson/string.h"
 #include "../main/sgn.h"
 
@@ -104,7 +106,7 @@ private:
 	Value readOrders();
 
 
-	std::size_t quoteEachMin = 5;
+	std::uint64_t quoteEachMin = 5;
 	bool allowSmallOrders = false;
 	std::string optionsFile;
 
@@ -155,23 +157,6 @@ inline double Interface::getBalance(const std::string_view &symb) {
 	return 0;
 }
 
-static std::size_t parseTime(json::String date) {
-	 int y,M,d,h,m;
-	 float s;
-	 sscanf(date.c_str(), "%d-%d-%dT%d:%d:%fZ", &y, &M, &d, &h, &m, &s);
-	 float sec;
-	 float msec = std::modf(s,&sec)*1000;
-	 std::tm t={0};
-	 t.tm_year = y - 1900;
-	 t.tm_mon = M-1;
-	 t.tm_mday = d;
-	 t.tm_hour = h;
-	 t.tm_min = m;
-	 t.tm_sec = static_cast<int>(sec);
-	 std::size_t res = timegm(&t) * 1000 + static_cast<std::size_t>(msec);
-	 return res;
-
-}
 
 
 
@@ -218,7 +203,7 @@ inline Interface::TradesSync Interface::syncTrades(json::Value lastId,  const st
 		double price = s.inverse?1.0/item["lastPx"].getNumber():item["lastPx"].getNumber();
 		resp.trades.push_back(Trade{
 			lastExecId,
-			parseTime(lastExecTime.toString()),
+			parseTime(lastExecTime.toString(), ParseTimeFormat::iso),
 			size,
 			price,
 			size,
@@ -294,7 +279,7 @@ inline json::Value Interface::placeOrder(const std::string_view &pair,
 		double size, double price, json::Value clientId, json::Value replaceId,
 		double replaceSize) {
 
-	std::intptr_t now = std::intptr_t(px.now()*1000);
+	auto now = px.now()*1000;
 
 	const SymbolInfo &s = getSymbol(pair);
 	if (s.inverse && price) {
@@ -312,8 +297,8 @@ inline json::Value Interface::placeOrder(const std::string_view &pair,
 			return v["orderID"] == replaceId;
 		});
 		if (toCancel.hasValue()) {
-			std::intptr_t  orderTime = std::intptr_t (parseTime(toCancel["transactTime"].getString()));
-			std::intptr_t limitTime = std::intptr_t(quoteEachMin*60000);
+			std::uint64_t  orderTime = parseTime(toCancel["transactTime"].toString(), ParseTimeFormat::iso);
+			std::uint64_t limitTime = quoteEachMin*60000;
 			if (size != 0 && quoteEachMin && now-orderTime < limitTime) {
 				if (px.debug) std::cerr << "Re-quote disallowed for this time (" << (now-orderTime) <<" < " << limitTime <<") "<< std::endl;
 				return toCancel["orderID"];
