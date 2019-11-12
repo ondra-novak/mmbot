@@ -84,7 +84,8 @@ void IStockApi::MarketInfo::addFees(double &assets, double &price) const {
 					else price = price*(1-fees);
 	}
 
-	price = adjValue(price, currency_step, awayZero);
+	if (invert_price) price = 1/(adjValue(1/price, currency_step, awayZero));
+	else price = adjValue(price, currency_step, awayZero);
 	assets = adjValue(assets, asset_step, awayZero);
 }
 

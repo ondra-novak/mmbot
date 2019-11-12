@@ -29,6 +29,11 @@ void AuthUserList::setUsers(std::vector<std::pair<std::string, std::string> > &&
 
 }
 
+void AuthUserList::setUser(const std::string &uname, const std::string &pwdhash) {
+	Sync _(lock);
+	users[uname] = pwdhash;
+}
+
 void AuthUserList::setCfgUsers(std::vector<std::pair<std::string, std::string> > &&users) {
 	Sync _(lock);
 	this->cfgusers.swap(users);

@@ -513,42 +513,6 @@ x-trbgr.hdr {
 	background-color: #c1c12f;
 }
 
-#outage {
-	background-color: #ff6c6c;
-	color:  yellow;
-	font-weight: bold;
-	font-size:  larger;
-	border-radius: 0.5em;
-	position: relative;
-	transition: 1s all;
-	max-height: 0;
-	box-sizing: border-box;
-	overflow:hidden;
-	opacity: 0;
-	padding: 0 0.5em;
-	}
-
-#outage.detected {
-	padding: 0.5em;
-	max-height: 6em;
-	opacity: 1;
-}
-#outage .hdr::before {
-	content: "!";
-	display: inline-block;
-	padding: 0.1em 0.55em 0 0.5em;
-	margin-right: 0.2em;
-	background-color: red;
-	border-radius: 1em;
-	font-size: 1.4em;
-	border: 1px solid black;
-	box-shadow: 0 0 5px black;
-}
-#outage .hdr {
-	text-shadow: 0 0 5px black;
-	font-variant: small-caps;
-}
-#outage .note {font-size: 0.6em;margin: 0.5em 0 0 0;color: #941414;}
 
 #home {
 	position: absolute;
