@@ -38,9 +38,7 @@ void Report::genReport() {
 	exportPrices(st.object("prices"));
 	exportMisc(st.object("misc"));
 	st.set("interval", interval_in_ms);
-	st.set("time", std::chrono::duration_cast<std::chrono::milliseconds>(
-					std::chrono::system_clock::now().time_since_epoch()
-				   ).count());
+	st.set("rev", counter++);
 	st.set("log", logLines);
 	st.set("performance", perfRep);
 	while (logLines.size()>30) logLines.erase(0);
@@ -323,4 +321,8 @@ void Report::clear(StrViewA symb) {
 
 void Report::perfReport(json::Value report) {
 	perfRep = report;
+}
+
+std::size_t Report::initCounter() {
+	return time(nullptr);
 }

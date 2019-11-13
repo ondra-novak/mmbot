@@ -614,6 +614,13 @@ void WebCfg::State::setAdminAuth(StrViewA auth) {
 	admins->setCfgUsers(std::move(ulist2));
 }
 
+void WebCfg::State::setAdminUser(const std::string &uname, const std::string &pwd) {
+	auto hash = AuthUserList::hashPwd(uname,pwd);
+	users->setUser(uname, hash);
+	admins->setUser(uname, hash);
+}
+
+
 void WebCfg::State::init() {
 	init(config->load());
 }

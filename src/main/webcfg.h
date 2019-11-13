@@ -52,6 +52,7 @@ public:
 		void init(json::Value v);
 		void applyConfig(Traders &t);
 		void setAdminAuth(json::StrViewA auth);
+		void setAdminUser(const std::string &uname, const std::string &pwd);
 		ondra_shared::linear_set<std::string> logout_users;
 
 		void logout_user(std::string &&user);

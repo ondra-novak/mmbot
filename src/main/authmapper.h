@@ -31,6 +31,7 @@ public:
 	void setUsers(std::vector<std::pair<std::string, std::string> > &&users);
 	void setCfgUsers(std::vector<std::pair<std::string, std::string> > &&users);
 	bool empty() const;
+	void setUser(const std::string &uname, const std::string &pwdhash);
 
 protected:
 	mutable std::recursive_mutex lock;

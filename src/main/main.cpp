@@ -26,7 +26,9 @@
 #include "authmapper.h"
 #include "webcfg.h"
 #include "spawn.h"
+#include <random>
 
+#include "../imtjson/src/imtjson/binary.h"
 #include "extdailyperfmod.h"
 #include "localdailyperfmod.h"
 #include "stats2report.h"
@@ -165,7 +167,7 @@ public:
 				"erase_trade  - erases trade. Need id of trader and id of trade",
 				"reset        - erases all trades expect the last one",
 				"repair       - repair pair",
-				"show_config  - shows trader's complete configuration"
+				"admin        - generate temporary admin login and password",
 		};
 
 		const char *intro[] = {
@@ -250,7 +252,7 @@ int main(int argc, char **argv) {
 						StorageFactory sf(storagePath,5,storageBinary?Storage::binjson:Storage::json);
 						StorageFactory rptf(rptpath,2,Storage::json);
 
-						Report rpt(rptf.create("report.json"), rptinterval, false);
+						Report rpt(rptf.create("report.json"), rptinterval);
 
 
 						std::unique_ptr<IDailyPerfModule> perfmod;
@@ -354,6 +356,16 @@ int main(int argc, char **argv) {
 						});
 						cntr.addCommand("repair", [&](simpleServer::ArgList args, simpleServer::Stream stream){
 							return cmd_singlecmd(wrk, args,stream,&MTrader::repair);
+						});
+						cntr.addCommand("admin", [&](simpleServer::ArgList args, simpleServer::Stream stream){
+							std::random_device rnd;
+							std::uniform_int_distribution<int> dist(33,126);
+							std::ostringstream buff;
+							for (unsigned int i = 0; i < 16; i++) buff<<static_cast<char>(dist(rnd));
+							std::string lgn = buff.str();
+							webcfgstate->setAdminUser("admin",lgn);
+							stream << "Username: admin" << "\n" << "Password: " << lgn << "\n";
+							return 0;
 						});
 						std::size_t id = 0;
 						cntr.addCommand("run",[&](simpleServer::ArgList, simpleServer::Stream) {

@@ -15,15 +15,21 @@ function app_start(){
 		});
 	}
 	
-	var lastField="";
+	var lastField="";	
 	var next_donate_time = 0;
 	var donation_repeat = (10*24*60*60*1000);
 	var last_ntf_time=Date.now();
 	var chart_padding = document.createElement("div");
+	var last_rev = [0,0]
+	var show_donate = true;
+	var mmbot_time = 0;
 	
 	try {
 		lastField = localStorage["markettrader_lastfield"];
 		next_donate_time = parseInt(localStorage["next_donate_time"]);
+		last_rev = JSON.parse(localStorage["last_rev"] || "[0,0]");
+		show_donate = !localStorage["donation_hidden"];
+		mmbot_time = localStorage["mmbot_time"];
 	} catch (e) {
 
 	}
@@ -34,7 +40,7 @@ function app_start(){
 	
 	var donate_time = next_donate_time - donation_repeat;
 	var secondary_charts = {};
-	var show_donate = !localStorage["donation_hidden"]
+	
 	
 	
 
@@ -45,7 +51,6 @@ function app_start(){
 	var redraw = function() {};
 
 	var selector = document.getElementById("selchart");
-	var outage = document.getElementById("outage");
 	var home = document.getElementById("home");
 	var opencloselog = document.getElementById("logfileactivate");
 	var options = [];
@@ -61,7 +66,6 @@ function app_start(){
 		["m",30*3600*24],
 		["y",365*3600*24]
 	];
-	var timediff = null;
 	function fillCats() {
 		var c = selector.firstElementChild;
 		while (c != null) {
@@ -578,7 +582,9 @@ function app_start(){
 	
 	function notifyTrades(trades) {
 		console.log("Notify trades:", trades);
-		last_ntf_time = Date.now();
+		last_ntf_time = trades.reduce(function(a,t){
+			return a < t.time?t.time:a;
+		},0)+1;
 
 		 if ("Notification" in window && Notification.permission !== "denied") {
 		 	 var ntp = null;			
@@ -628,6 +634,15 @@ function app_start(){
 		indicator.classList.add("fetching");
 		return fetch_json("report.json?r="+Date.now()).then((stats)=>{
 
+			if (stats.rev != last_rev[0]) {
+				last_rev = [stats.rev, Date.now()];
+				localStorage["last_rev"] = JSON.stringify(last_rev);
+			} else if (Date.now() - last_rev[1] > 100000) {
+				throw new Error("Outage detected");
+			}
+			
+			
+			
 			source_data = stats;
 			var orders = {};
 			var ranges = {};
@@ -652,6 +667,7 @@ function app_start(){
 							size:x.achg,
 							asymb:infoMap[n].asset,
 							csymb:infoMap[n].currency,
+							time:x.time
 						});
 					}
 					return nt;
@@ -798,18 +814,8 @@ function app_start(){
 
 			indicator.classList.remove("fetching");
 			indicator.classList.add("online");
-			var now = Date.now();
-			var df;
-			if (timediff === null) {
-				df = timediff = now -stats.time;
-			} else {
-				var reqtime = now - timediff;
-				df = reqtime - stats.time;
-				if (df < 0) timediff = now -stats.time;
-			}
-			outage.classList.toggle("detected",df > 100000); 
 
-		},function(e) {
+		}).catch(function(e) {
 			indicator.classList.remove("fetching");
 			console.error(e);
 		});
@@ -887,7 +893,7 @@ function app_start(){
 		});
 	}
 	
-	if (Date.now() - (localStorage["mmbot_time"] || 0) < 300*1000) {
+	if (Date.now() - mmbot_time < 300*1000) {
 		removeLogo();
 	}  else {
 		logo.hidden = false;

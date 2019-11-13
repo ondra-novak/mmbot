@@ -31,8 +31,9 @@ public:
 	using ErrorObj = IStatSvc::ErrorObj;
 	using InfoObj = IStatSvc::Info;
 
-	Report(StoragePtr &&report, std::size_t interval_in_ms, bool a2np )
-		:report(std::move(report)),interval_in_ms(interval_in_ms),a2np(a2np) {}
+	Report(StoragePtr &&report, std::size_t interval_in_ms)
+		:report(std::move(report)),interval_in_ms(interval_in_ms)
+		,counter(initCounter()){}
 
 
 	void setInterval(std::uint64_t interval);
@@ -98,7 +99,13 @@ protected:
 	void exportPrices(json::Object &&out);
 	void exportMisc(json::Object &&out);
 	std::uint64_t interval_in_ms;
-	bool a2np;
+
+	std::size_t counter;
+
+
+	static std::size_t initCounter();
+
+
 };
 
 
