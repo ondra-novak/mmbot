@@ -324,7 +324,7 @@ Interface::BrokerInfo Interface::getBrokerInfo() {
 		px.hasKey(),
 		"deribit",
 		"Deribit",
-		"https://www.deribit.com/",
+		"https://www.deribit.com/reg-8695.6923?q=home",
 		"1.0",
 		R"mit(Copyright (c) 2019 Ondřej Novák
 

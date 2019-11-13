@@ -307,7 +307,7 @@ Interface::BrokerInfo Interface::getBrokerInfo() {
 		cm.hasKey(),
 		"coinmate",
 		"Coinmate",
-		"https://www.coinmate.io/",
+		"https://coinmate.io?referral=U1RjMGVTMUljV2h3VmxkWk0xbHViWFF6WHkxcFFRPT0",
 		"1.0",
 		R"mit(Copyright (c) 2019 Ondřej Novák
 

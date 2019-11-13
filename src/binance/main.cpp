@@ -433,7 +433,7 @@ Interface::BrokerInfo Interface::getBrokerInfo() {
 		px.hasKey(),
 		"binance",
 		"Binance",
-		"https://www.binance.com/",
+		"https://www.binance.com/en/register?ref=37092760",
 		"1.0",
 		"Copyright (c) 2019 Ondřej Novák\n\n"
 

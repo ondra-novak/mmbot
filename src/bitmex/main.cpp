@@ -392,7 +392,7 @@ Interface::BrokerInfo Interface::getBrokerInfo() {
 		px.hasKey(),
 		"bitmex",
 		"BitMEX",
-		"https://www.bitmex.com/",
+		"https://www.bitmex.com/register/ns01mS",
 		"1.0",
 		R"mit(Copyright (c) 2019 Ondřej Novák
 
