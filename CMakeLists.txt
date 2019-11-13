@@ -8,13 +8,14 @@ add_compile_options(-Wall -Wno-noexcept-type)
 
 add_subdirectory (src/imtjson/src/imtjson EXCLUDE_FROM_ALL)
 add_subdirectory (src/server/src/simpleServer EXCLUDE_FROM_ALL)
-add_subdirectory (src/main)
 add_subdirectory (src/trainer)
 add_subdirectory (src/coinmate)
 add_subdirectory (src/poloniex)
 add_subdirectory (src/binance)
 add_subdirectory (src/deribit)
 add_subdirectory (src/bitmex)
+add_subdirectory (src/simplefx)
+add_subdirectory (src/main)
 
 
 install(DIRECTORY conf DESTINATION ".") 
