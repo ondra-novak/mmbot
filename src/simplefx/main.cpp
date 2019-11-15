@@ -9,6 +9,11 @@
 #include "../brokers/api.h"
 #include <imtjson/value.h>
 #include <imtjson/object.h>
+#include "httpjson.h"
+#include "market.h"
+#include "quotedist.h"
+#include "quotestream.h"
+#include "tradingengine.h"
 
 using json::Object;
 using json::Value;
@@ -22,12 +27,44 @@ static Value keyFormat = {Object
 						 Object
 							("name","secret")
 							("type","string")
-							("label","Secret")};
+							("label","Secret"),
+						 Object
+							("name","reality")
+							("type","enum")
+							("options",Object("LIVE","Live")("DEMO","Demo"))
+							("label","Reality")
+};
 
 class Interface: public AbstractBrokerAPI {
 public:
 
-	Interface(const std::string &path):AbstractBrokerAPI(path, keyFormat) {}
+	simpleServer::HttpClient httpc;
+	HTTPJson hjsn;
+	std::unique_ptr<QuoteStream> qstream;
+	std::unique_ptr<Market> market;
+
+
+	double execCommand(const std::string &symbol, double amount);
+
+	PTradingEngine getEngine(const std::string_view &symbol) {
+		if (market == nullptr) {
+			PQuoteDistributor qdist = new QuoteDistributor();
+			qstream = std::make_unique<QuoteStream>(httpc,"https://web-quotes.simplefx.com/signalr/", qdist->createReceiveFn());
+			qdist->connect(qstream->connect());
+			market = std::make_unique<Market>(qdist, [this](const std::string &symbol, double amount){
+				return this->execCommand(symbol, amount);
+			});
+		}
+		return market->getMarket(symbol);
+	}
+
+
+	void login();
+
+	Interface(const std::string &path):AbstractBrokerAPI(path, keyFormat)
+	,httpc("+mmbot/2.0 simplefx_broker (https://github.com/ondra-novak/mmbot)",
+			simpleServer::newHttpsProvider())
+	,hjsn(httpc,"https://simplefx.com") {}
 
 	virtual double getBalance(const std::string_view & symb) override;
 	virtual TradesSync syncTrades(json::Value lastId, const std::string_view & pair) override;
@@ -78,20 +115,47 @@ inline double Interface::getBalance(const std::string_view &symb) {
 
 inline Interface::TradesSync Interface::syncTrades(json::Value lastId,
 		const std::string_view &pair) {
-	return TradesSync();
+
+	PTradingEngine eng = getEngine(pair);
+	TradingEngine::UID uid = lastId.getUInt();
+	TradesSync s;
+	s.lastId = eng->readTrades(uid, [&](const Trade &t) {
+		s.trades.push_back(t);
+	});
+
+	return s;
 }
 
-inline Interface::Orders Interface::getOpenOrders(const std::string_view &par) {
-	return {};
+inline Interface::Orders Interface::getOpenOrders(const std::string_view &pair) {
+	PTradingEngine eng = getEngine(pair);
+
+	Orders lst;
+	eng->readOrders([&](const Order &o) {
+		lst.push_back(o);
+	});
+
+	return lst;
 }
 
-inline Interface::Ticker Interface::getTicker(const std::string_view &piar) {
-	return {};
+inline Interface::Ticker Interface::getTicker(const std::string_view &pair) {
+	PTradingEngine eng = getEngine(pair);
+
+	return eng->getTicker();
 }
 
 inline json::Value Interface::placeOrder(const std::string_view &pair,
 		double size, double price, json::Value clientId, json::Value replaceId,
 		double replaceSize) {
+
+	PTradingEngine eng = getEngine(pair);
+	if (replaceId.defined()) {
+		eng->cancelOrder(replaceId.getUInt());
+	}
+	if (size) {
+		return eng->placeOrder(price, size, clientId);
+	}
+
+
 	return nullptr;
 }
 
@@ -168,6 +232,29 @@ inline Interface::BrokerInfo Interface::getBrokerInfo() {
 
 inline void Interface::onLoadApiKey(json::Value keyData) {
 
+}
+
+inline double Interface::execCommand(const std::string &symbol, double amount) {
+	login();
+	Value v = hjsn.POST("/api/v3/trading/orders/market",json::Object
+			("Reality",authReality)
+			("Login", authLogin)
+			("Symbol", symbol)
+			("Side",amount>0?"BUY":"SELL")
+			("Volume", fabs(amount))
+			("IsFIFO", true));
+
+}
+
+inline void Interface::login() {
+	if (!hjsn.hasToken()) {
+		Value v = hjsn.POST("/api/v3/auth/key", json::Object
+				  ("clientId", authKey)
+				  ("clientSecret",authSecret));
+		Value data = v["data"];
+		Value token = v["token"];
+		hjsn.setToken(token.getString());
+	}
 }
 
 inline void Interface::onInit() {
