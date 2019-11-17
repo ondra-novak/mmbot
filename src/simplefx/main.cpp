@@ -263,6 +263,7 @@ inline json::Value Interface::placeOrder(const std::string_view &pair,
 }
 
 inline bool Interface::reset() {
+	login();
 	return true;
 }
 
