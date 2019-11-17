@@ -35,7 +35,7 @@ public:
 	virtual BrokerInfo getBrokerInfo()  override {throw std::runtime_error("unsupported");}
 
 
-	static void dispatch(std::istream &input, std::ostream &output, AbstractBrokerAPI &handler);
+	static void dispatch(std::istream &input, std::ostream &output, std::ostream &error, AbstractBrokerAPI &handler);
 
 
 	///Called when new keys are set or loaded
@@ -47,6 +47,7 @@ public:
 	 * carried into caller and the broker can graceusly exit.
 	 */
 	virtual void onInit() = 0;
+
 
 	virtual json::Value getSettings(const std::string_view & pairHint) const override;
 
@@ -80,11 +81,22 @@ public:
 
 	virtual void loadKeys();
 
+	///Safely logs message
+	/** Logging directly to stderr is discouradged because logging must be performed during
+	 * a communication. This function collects log messages when happen outside communication
+	 * and flushes them immediatelly when communication is opened
+	 * @param msg
+	 */
+	void logMessage(std::string &&msg);
+
 
 protected:
 	bool debug_mode = false;
 	std::string secure_storage_path;
 	json::Value apiKeyFormat;
+	std::vector<std::string> logMessages;
+	std::ostream *logStream = nullptr;;
+	virtual void flushMessages();
 
 };
 

@@ -7,7 +7,11 @@
 #include <chrono>
 
 #include "../shared/countdown.h"
+#include "../shared/logOutput.h"
 #include "httpjson.h"
+
+using ondra_shared::logDebug;
+using ondra_shared::logError;
 
 QuoteStream::QuoteStream(simpleServer::HttpClient &httpc, std::string url, ReceiveQuotesFn &&cb)
 :url(url)
@@ -36,9 +40,11 @@ SubscribeFn QuoteStream::connect() {
 
 	std::string enctoken = simpleServer::urlEncode(v["ConnectionToken"].toString());
 
-	std::string wsurl = "connect?transport=webSockets&ConnectionToken="+enctoken+"&clientProtocol=1.5&connectionData=%5B%7B%22name%22%3A%22quotessubscribehub%22%7D%5D";
+	std::string wsurl = url+"connect?transport=webSockets&ConnectionToken="+enctoken+"&clientProtocol=1.5&connectionData=%5B%7B%22name%22%3A%22quotessubscribehub%22%7D%5D";
+	logDebug("Opening stream: $1", wsurl);
 
 	ws = simpleServer::connectWebSocket(httpc, wsurl, simpleServer::SendHeaders());
+	ws.getStream().setIOTimeout(30000);
 
 	ondra_shared::Countdown cnt(1);
 
@@ -63,13 +69,35 @@ SubscribeFn QuoteStream::connect() {
 	return [this](const std::string_view &symbol) {
 		Sync _(lock);
 
+		json::Value A = json::Value(json::array,{json::Value(json::array,{symbol})});
 		json::Value data = json::Object
 				("H","quotessubscribehub")
+				("M","getLastPrices")
+				("A",A)
+				("I",this->cnt++);
+		ws.postText(data.stringify());
+		data = json::Object
+				("H","quotessubscribehub")
 				("M","subscribeList")
-				("A",json::Value(json::array,{json::Value(json::array,{symbol})}))
+				("A",A)
 				("I",this->cnt++);
 		ws.postText(data.stringify());
 	};
+}
+
+void QuoteStream::processQuotes(const json::Value& quotes) {
+	for (json::Value q : quotes) {
+		json::Value s = q["s"];
+		json::Value a = q["a"];
+		json::Value b = q["b"];
+		json::Value t = q["t"];
+		if (!cb(s.getString(), b.getNumber(), a.getNumber(), t.getUIntLong()*1000)) {
+			json::Value data = json::Object("H", "quotessubscribehub")("M",
+					"unsubscribeList")("A", json::Value(json::array, {
+					json::Value(json::array, { s }) }))("I", this->cnt++);
+			ws.postText(data.stringify());
+		}
+	}
 }
 
 void QuoteStream::processMessages() {
@@ -78,21 +106,21 @@ void QuoteStream::processMessages() {
 			try {
 				json::Value data = json::Value::fromString(ws.getText());
 
-				json::Value C = data["C"];
-				if (C.defined()) {
-					json::Value M = data["M"];
-					for (json::Value x: M) {
-						json::Value H = x["H"];
-						json::Value M = x["M"];
-						json::Value A = x["A"];
-						if (H.getString() == "QuotesSubscribeHub" && M == "ReceiveQuotes") {
-							json::Value quotes = A[0];
-							for (json::Value q: quotes) {
-								json::Value s = q["s"];
-								json::Value a = q["a"];
-								json::Value b = q["b"];
-								json::Value t = q["t"];
-								cb(s.getString(), b.getNumber(), a.getNumber(), t.getUIntLong());
+				json::Value R = data["R"];
+				if (R.defined()) {
+					json::Value quotes = R["data"];
+					processQuotes(quotes);
+				} else {
+					json::Value C = data["C"];
+					if (C.defined()) {
+						json::Value M = data["M"];
+						for (json::Value x: M) {
+							json::Value H = x["H"];
+							json::Value M = x["M"];
+							json::Value A = x["A"];
+							if (H.getString() == "QuotesSubscribeHub" && M == "ReceiveQuotes") {
+								json::Value quotes = A[0];
+								processQuotes(quotes);
 							}
 						}
 					}
@@ -115,8 +143,8 @@ void QuoteStream::reconnect() {
 			try {
 				connect();
 				break;
-			} catch (...) {
-				//TODO: logObject
+			} catch (std::exception &e) {
+				logError("QuoteStream reconnect: $1", e.what());
 				std::this_thread::sleep_for(std::chrono::seconds(3));
 			}
 		}

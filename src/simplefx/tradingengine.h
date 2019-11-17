@@ -7,6 +7,8 @@
 
 #ifndef SRC_SIMPLEFX_TRADINGENGINE_H_
 #define SRC_SIMPLEFX_TRADINGENGINE_H_
+#include <condition_variable>
+
 #include "fndef.h"
 #include <cstdint>
 #include <mutex>
@@ -14,6 +16,8 @@
 
 #include "../brokers/api.h"
 #include "../shared/refcnt.h"
+
+
 
 class TradingEngine;
 
@@ -27,7 +31,7 @@ public:
 
 	void start(RegisterPriceChangeEvent &&regFn);
 	void stop();
-	UID placeOrder(double price, double size, json::Value userId);
+	UID placeOrder(double price, double size, json::Value userId, const UID *replace = nullptr);
 	void cancelOrder(UID id);
 
 	UID readTrades(UID fromId, std::function<void(IStockApi::Trade)> &&cb);
@@ -35,6 +39,9 @@ public:
 	IStockApi::Ticker getTicker() const;
 
 	static PTradingEngine create(Command &&cmdIfc);
+
+	static std::uint64_t now();
+
 
 protected:
 
@@ -57,6 +64,7 @@ protected:
 	std::vector<Trade> trades;
 	mutable std::recursive_mutex lock;
 	using Sync = std::unique_lock<std::recursive_mutex>;
+	mutable std::condition_variable_any tickerWait;
 
 	IStockApi::Ticker ticker;
 
@@ -64,11 +72,13 @@ protected:
 
 	UID uidcnt;
 
-	static std::uint64_t now();
-	bool stopped = false;
 
 	RegisterPriceChangeEvent starter;
-	void startListenPrices();
+	void startListenPrices() const;
+
+	mutable std::uint64_t quoteStop = 0;
+	mutable bool quotesStopped = true;
+	void runQuotes() const;
 
 };
 

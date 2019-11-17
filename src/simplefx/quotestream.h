@@ -42,6 +42,7 @@ protected:
 
 	void processMessages();
 	void reconnect();
+	void processQuotes(const json::Value& quotes);
 };
 
 

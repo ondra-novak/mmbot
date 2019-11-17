@@ -23,7 +23,7 @@ public:
 	json::Value POST(const std::string_view &path, const json::Value &data, unsigned int expectedCode = 200);
 	json::Value PUT(const std::string_view &path, const json::Value &data, unsigned int expectedCode = 200);
 	json::Value DELETE(const std::string_view &path, const json::Value &data, unsigned int expectedCode = 200);
-	bool hasToken() {return token.empty();}
+	bool hasToken() {return !token.empty();}
 protected:
 	simpleServer::HttpClient &httpc;
 	std::string baseUrl;

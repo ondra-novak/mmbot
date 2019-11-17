@@ -186,25 +186,31 @@ Value callMethod(AbstractBrokerAPI &api, std::string_view name, Value args) {
 }
 
 
-void AbstractBrokerAPI::dispatch(std::istream& input, std::ostream& output, AbstractBrokerAPI &handler) {
+void AbstractBrokerAPI::dispatch(std::istream& input, std::ostream& output, std::ostream &error, AbstractBrokerAPI &handler) {
 
 	try {
 		Value v = Value::fromStream(input);
+		handler.logStream = &error;
+		handler.flushMessages();
 		handler.loadKeys();
 		handler.onInit();
 		while (true) {
 			callMethod(handler, v[0].getString(), v[1]).toStream(output);
+			handler.logStream = nullptr;
 			output << std::endl;
 			int i = input.get();
 			while (i != EOF && isspace(i)) i = input.get();
 			if (i == EOF) break;
 			input.putback(i);
 			v = Value::fromStream(input);
+			handler.logStream = &error;
+			handler.flushMessages();
 		}
 	} catch (std::exception &e) {
 		Value({false, e.what()}).toStream(output);
 		output << std::endl;
 	}
+	handler.logStream = nullptr;
 }
 
 AbstractBrokerAPI::AbstractBrokerAPI(const std::string &secure_storage_path,
@@ -228,7 +234,7 @@ void AbstractBrokerAPI::loadKeys() {
 }
 
 void AbstractBrokerAPI::dispatch() {
-	dispatch(std::cin, std::cout, *this);
+	dispatch(std::cin, std::cout, std::cerr, *this);
 }
 
 void AbstractBrokerAPI::setApiKey(json::Value keyData) {
@@ -252,4 +258,20 @@ json::Value AbstractBrokerAPI::getSettings(const std::string_view & ) const {
 
 void AbstractBrokerAPI::setSettings(json::Value) {
 	throw std::runtime_error("unsupported");
+}
+
+void AbstractBrokerAPI::logMessage(std::string&& msg) {
+	if (logStream) {
+		(*logStream) << msg << std::endl;
+	} else {
+		logMessages.push_back(std::move(msg));
+	}
+}
+
+void AbstractBrokerAPI::flushMessages() {
+	if (logStream) {
+		for (auto &&msg: logMessages)
+			(*logStream) << msg << std::endl;
+		logMessages.clear();
+	}
 }
