@@ -11,6 +11,7 @@
 #include <thread>
 #include <simpleServer/websockets_stream.h>
 #include <simpleServer/http_client.h>
+#include "../shared/linear_set.h"
 
 
 #include "datasrc.h"
@@ -43,6 +44,7 @@ protected:
 	void processMessages();
 	void reconnect();
 	void processQuotes(const json::Value& quotes);
+	ondra_shared::linear_set<std::string> subscribed;
 };
 
 

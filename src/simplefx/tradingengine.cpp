@@ -112,7 +112,7 @@ void TradingEngine::onPriceChange(const IStockApi::Ticker &price) {
 
 	ticker.ask = std::min(maxPrice, price.ask);
 	ticker.bid = std::max(minPrice, price.bid);
-	ticker.last = sqrt(price.ask*price.bid);
+	ticker.last = sqrt(ticker.ask*ticker.bid);
 	ticker.time = price.time;
 
 	logDebug("Quote received: ask: $1, bid $2", ticker.ask, ticker.bid);

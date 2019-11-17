@@ -14,7 +14,9 @@
 
 #include "../shared/stdLogOutput.h"
 #include "../shared/first_match.h"
+#include "../shared/logOutput.h"
 #include "httpjson.h"
+#include "log.h"
 #include "market.h"
 #include "quotedist.h"
 #include "quotestream.h"
@@ -24,6 +26,7 @@ using json::Object;
 using json::String;
 using json::Value;
 using ondra_shared::first_match;
+using ondra_shared::logDebug;
 
 
 
@@ -118,7 +121,6 @@ public:
 		std::string currency_symbol;
 		double mult;
 		double step;
-		double position;
 	};
 
 	struct CurrencyInfo {
@@ -126,6 +128,7 @@ public:
 	};
 
 	mutable std::unordered_map<std::string, SymbolInfo> smbinfo;
+	mutable std::unordered_map<std::string, double> position;
 	mutable std::unordered_map<std::string, CurrencyInfo> curinfo;
 	std::uint64_t tokenExpire = 0;
 
@@ -159,6 +162,9 @@ public:
 		std::lock_guard<LogProvider> _(*logProvider);
 		AbstractBrokerAPI::flushMessages();
 	}
+
+protected:
+	void updatePosition(const std::string& symbol, double amount);
 };
 
 
@@ -198,8 +204,9 @@ inline double Interface::getBalance(const std::string_view &symb) {
 	auto iter = curinfo.find(symbol);
 	if (iter == curinfo.end()) {
 
-		SymbolInfo &sinfo = getSymbolInfo(symbol);
-		return sinfo.position;
+		auto iter = position.find(symbol);
+		if (iter == position.end()) return 0;
+		else return iter->second;
 	} else {
 
 		double conv = iter->second.convRate;
@@ -352,6 +359,18 @@ inline void Interface::onLoadApiKey(json::Value keyData) {
 	authAccount = keyData["account"].getString();
 }
 
+void Interface::updatePosition(const std::string& symbol, double amount) {
+	auto piter = position.find(symbol);
+	if (piter == position.end())
+		position.emplace(symbol, amount);
+	else
+		piter->second += amount;
+
+	logDebug("Positions updated - $1 changed by $2, currently $3",
+			symbol, amount, LogRange(position.begin(), position.end(), ","));
+
+}
+
 inline double Interface::execCommand(const std::string &symbol, double amount) {
 	login();
 	SymbolInfo &sinfo = getSymbolInfo(symbol);
@@ -367,7 +386,7 @@ inline double Interface::execCommand(const std::string &symbol, double amount) {
 	Value morder = v["marketOrders"][0];
 	Value order = morder["order"];
 	updateRate(sinfo, order);
-	sinfo.position += amount;
+	updatePosition(symbol, amount);
 	switch (morder["action"].getUInt()) {
 		case 1: {
 			return order["openPrice"].getNumber();
@@ -460,9 +479,7 @@ inline void Interface::updatePositions() {
 			("reality", curReality)
 	));
 
-	for (auto &&x : smbinfo) {
-		x.second.position = 0;
-	}
+	this->position.clear();
 
 	Value morders = data["marketOrders"];
 	for (Value v : morders) {
@@ -470,7 +487,7 @@ inline void Interface::updatePositions() {
 		SymbolInfo &sinfo = getSymbolInfo(symbol);
 		double volume = v["volume"].getNumber() * sinfo.mult;
 		if (v["side"].getString() == "SELL") volume = -volume;
-		sinfo.position += volume;
+		updatePosition(symbol, volume);
 		updateRate(sinfo, v);
 	}
 
@@ -478,7 +495,8 @@ inline void Interface::updatePositions() {
 
 inline void Interface::updateRate(const SymbolInfo &sinfo, Value order) {
 	double rate = first_match([](Value v){return v.getNumber();}, order["closeConversionRate"], order["openConversionRate"]).getNumber();
-	if (rate) rate = 1/rate;
+	double rate2 = order["closePrice"].getNumber();
+	if (rate) rate = rate2/rate;
 	CurrencyInfo &cinfo = curinfo[sinfo.currency_symbol];
 	cinfo.convRate = rate;
 

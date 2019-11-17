@@ -9,9 +9,11 @@
 #include "../shared/countdown.h"
 #include "../shared/logOutput.h"
 #include "httpjson.h"
+#include "log.h"
 
 using ondra_shared::logDebug;
 using ondra_shared::logError;
+using ondra_shared::logWarning;
 
 QuoteStream::QuoteStream(simpleServer::HttpClient &httpc, std::string url, ReceiveQuotesFn &&cb)
 :url(url)
@@ -56,7 +58,8 @@ SubscribeFn QuoteStream::connect() {
 				std::this_thread::sleep_for(std::chrono::seconds(10));
 				reconnect();
 			}
-		} catch (...) {
+		} catch (std::exception &e) {
+			logError("Stream error: $1 - reconnect", e.what());
 			reconnect();
 		}
 	});
@@ -66,7 +69,7 @@ SubscribeFn QuoteStream::connect() {
 	std::string starturl = "start?transport=webSockets&ConnectionToken="+enctoken+"&clientProtocol=1.5&connectionData=%5B%7B%22name%22%3A%22quotessubscribehub%22%7D%5D";
 	v = hj.GET(starturl);
 
-	return [this](const std::string_view &symbol) {
+	auto subscribeFn = [this](const std::string_view &symbol) {
 		Sync _(lock);
 
 		json::Value A = json::Value(json::array,{json::Value(json::array,{symbol})});
@@ -82,7 +85,15 @@ SubscribeFn QuoteStream::connect() {
 				("A",A)
 				("I",this->cnt++);
 		ws.postText(data.stringify());
+
+		subscribed.insert(std::string(symbol));
+		logDebug("+++ Subscribed $1, currently: $2", symbol, LogRange<decltype(subscribed.begin())>(subscribed.begin(), subscribed.end(), ","));
 	};
+
+	auto oldlst = std::move(subscribed);
+	for (auto &&x: oldlst) subscribeFn(x);
+
+	return subscribeFn;
 }
 
 void QuoteStream::processQuotes(const json::Value& quotes) {
@@ -92,10 +103,14 @@ void QuoteStream::processQuotes(const json::Value& quotes) {
 		json::Value b = q["b"];
 		json::Value t = q["t"];
 		if (!cb(s.getString(), b.getNumber(), a.getNumber(), t.getUIntLong()*1000)) {
+			Sync _(lock);
+
 			json::Value data = json::Object("H", "quotessubscribehub")("M",
 					"unsubscribeList")("A", json::Value(json::array, {
 					json::Value(json::array, { s }) }))("I", this->cnt++);
 			ws.postText(data.stringify());
+			subscribed.erase(s.getString());
+			logDebug("--- Unsubscribed $1, currently: $2", s, LogRange<decltype(subscribed.begin())>(subscribed.begin(), subscribed.end(), ","));
 		}
 	}
 }
@@ -131,6 +146,8 @@ void QuoteStream::processMessages() {
 		}
 	} while (ws.readFrame());
 
+	logWarning("Stream closed - reconnect");
+
 	reconnect();
 }
 
@@ -144,7 +161,7 @@ void QuoteStream::reconnect() {
 				connect();
 				break;
 			} catch (std::exception &e) {
-				logError("QuoteStream reconnect: $1", e.what());
+				logError("QuoteStream reconnect error: $1", e.what());
 				std::this_thread::sleep_for(std::chrono::seconds(3));
 			}
 		}
