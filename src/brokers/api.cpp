@@ -24,7 +24,9 @@ using namespace json;
 
 
 static Value getBalance(AbstractBrokerAPI &handler, const Value &request) {
-	return handler.getBalance(request.getString());
+	Value symb = request["symbol"];
+	Value pair = request["pair"];
+	return handler.getBalance(symb.toString().str(), pair.toString().str());
 }
 
 static Value syncTrades(AbstractBrokerAPI &handler, const Value &request) {
@@ -274,4 +276,7 @@ void AbstractBrokerAPI::flushMessages() {
 			(*logStream) << msg << std::endl;
 		logMessages.clear();
 	}
+}
+double AbstractBrokerAPI::getBalance(const std::string_view & symb, const std::string_view & pair){
+	return getBalance(symb);
 }

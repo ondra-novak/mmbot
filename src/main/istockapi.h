@@ -202,9 +202,10 @@ public:
 	///Retrieves available balance for the symbol
 	/**
 	 * @param symb currency or asset symbol
+	 * @param pair pair information - helps to broker idenitify which value to return in case to separated balances
 	 * @return available balance
 	 */
-	virtual double getBalance(const std::string_view & symb) = 0;
+	virtual double getBalance(const std::string_view & symb, const std::string_view & pair) = 0;
 	///Retrieves trades
 	/**
 	 * @param lastId last seen trade. Set to json::undefined if you has no trades

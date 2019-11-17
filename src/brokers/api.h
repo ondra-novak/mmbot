@@ -55,7 +55,8 @@ public:
 
 	void dispatch();
 
-
+	virtual double getBalance(const std::string_view & symb) = 0;
+	virtual double getBalance(const std::string_view & symb, const std::string_view & pair) override;
 	template<typename T, typename Fn>
 	T mapJSON(json::Value cont, Fn &&fn, T &&tmp = T()) {
 		for (json::Value x: cont) {

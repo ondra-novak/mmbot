@@ -22,7 +22,7 @@ public:
 
 
 
-	virtual double getBalance(const std::string_view & symb) override;
+	virtual double getBalance(const std::string_view & symb, const std::string_view & pair) override;
 	virtual TradesSync syncTrades(json::Value lastId, const std::string_view & pair) override;
 	virtual Orders getOpenOrders(const std::string_view & par) override;
 	virtual Ticker getTicker(const std::string_view & piar) override;

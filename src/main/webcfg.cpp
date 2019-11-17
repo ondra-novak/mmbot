@@ -193,9 +193,9 @@ bool WebCfg::reqSerial(simpleServer::HTTPRequest req) const {
 }
 
 
-static double getSafeBalance(IStockApi *api, std::string_view symb) {
+static double getSafeBalance(IStockApi *api, std::string_view symb,  std::string_view pair) {
 	try {
-		return api->getBalance(symb);
+		return api->getBalance(symb,pair);
 	} catch (...) {
 		return 0;
 	}
@@ -269,8 +269,8 @@ static Value getOpenOrders(IStockApi &api, const std::string_view &pair) {
 
 static Value getPairInfo(IStockApi &api, const std::string_view &pair) {
 	IStockApi::MarketInfo nfo = api.getMarketInfo(pair);
-	double ab = getSafeBalance(&api, nfo.asset_symbol);
-	double cb = getSafeBalance(&api, nfo.currency_symbol);
+	double ab = getSafeBalance(&api, nfo.asset_symbol, pair);
+	double cb = getSafeBalance(&api, nfo.currency_symbol, pair);
 	Value resp = Object("symbol",pair)("asset_symbol", nfo.asset_symbol)(
 			"currency_symbol", nfo.currency_symbol)("fees",
 			nfo.fees)("leverage", nfo.leverage)(

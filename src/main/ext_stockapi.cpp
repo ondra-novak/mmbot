@@ -26,8 +26,10 @@ ExtStockApi::ExtStockApi(const std::string_view & workingDir, const std::string_
 
 
 
-double ExtStockApi::getBalance(const std::string_view & symb) {
-	return jsonRequestExchange("getBalance",StrViewA(symb)).getNumber();
+double ExtStockApi::getBalance(const std::string_view & symb, const std::string_view & pair) {
+	return jsonRequestExchange("getBalance",
+			json::Object("pair", pair)
+				  ("symbol", symb)).getNumber();
 
 }
 

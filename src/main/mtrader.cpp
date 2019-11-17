@@ -407,11 +407,11 @@ MTrader::Status MTrader::getMarketStatus() const {
 	if (cfg.internal_balance) {
 		res.assetBalance = res.internalBalance;
 	} else{
-		res.assetBalance = stock.getBalance(minfo.asset_symbol);
+		res.assetBalance = stock.getBalance(minfo.asset_symbol, cfg.pairsymb);
 	}
 
 	if (!res.new_trades.trades.empty()) {
-		res.currencyBalance = stock.getBalance(minfo.currency_symbol);
+		res.currencyBalance = stock.getBalance(minfo.currency_symbol, cfg.pairsymb);
 	} else {
 		res.currencyBalance = *currency_balance_cache;
 	}
@@ -532,7 +532,7 @@ void MTrader::loadState() {
 				minfo.leverage != 0,
 				minfo.simulator
 			});
-	currency_balance_cache = stock.getBalance(minfo.currency_symbol);
+	currency_balance_cache = stock.getBalance(minfo.currency_symbol, cfg.pairsymb);
 	strategy.setMarketInfo(minfo);
 
 

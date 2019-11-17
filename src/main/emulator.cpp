@@ -24,9 +24,9 @@ EmulatorAPI::EmulatorAPI(IStockApi &datasrc, double initial_currency):datasrc(da
 
 }
 
-double EmulatorAPI::readBalance(const std::string_view &symb, double defval) {
+double EmulatorAPI::readBalance(const std::string_view &symb, const std::string_view & pair, double defval) {
 	try {
-		return datasrc.getBalance(symb);
+		return datasrc.getBalance(symb,pair);
 	} catch (std::exception &e) {
 		log.warning("Balance for $1 is not available, setting to $2 - ", symb, defval, e.what());
 		return defval;
@@ -34,18 +34,18 @@ double EmulatorAPI::readBalance(const std::string_view &symb, double defval) {
 
 }
 
-double EmulatorAPI::getBalance(const std::string_view & symb) {
+double EmulatorAPI::getBalance(const std::string_view & symb, const std::string_view & ) {
 
 	if (balance_symb == symb) {
 		if (initial_read_balance) {
 			initial_read_balance = false;
-			balance = readBalance(symb, 0);
+			balance = readBalance(symb, pair, 0);
 		}
 		return balance;
 	} else if (currency_symb == symb) {
 		if (initial_read_currency) {
 			initial_read_currency = false;
-			currency = readBalance(symb, initial_currency);
+			currency = readBalance(symb, pair, initial_currency);
 		}
 		return currency;
 	} else {

@@ -4,7 +4,9 @@
  *  Created on: 13. 11. 2019
  *      Author: ondra
  */
+#include <imtjson/array.h>
 #include <vector>
+#include <fstream>
 
 #include "../brokers/api.h"
 #include <imtjson/value.h>
@@ -41,7 +43,7 @@ static Value keyFormat = {Object
 						 Object
 							("name","account")
 							("type","string")
-							("label","Account ID")
+							("label","Default account ID")
 };
 
 class Interface: public AbstractBrokerAPI {
@@ -88,6 +90,7 @@ public:
 	}
 
 	virtual double getBalance(const std::string_view & symb) override;
+	virtual double getBalance(const std::string_view & symb, const std::string_view & pair) override;
 	virtual TradesSync syncTrades(json::Value lastId, const std::string_view & pair) override;
 	virtual Orders getOpenOrders(const std::string_view & par)override;
 	virtual Ticker getTicker(const std::string_view & piar)override;
@@ -105,15 +108,23 @@ public:
 	virtual BrokerInfo getBrokerInfo() override;
 	virtual void onLoadApiKey(json::Value keyData) override;
 	virtual void onInit() override;
+	virtual json::Value getSettings(const std::string_view & pairHint) const override;
+	virtual void setSettings(json::Value v) override;
+	virtual void setApiKey(json::Value keyData) override;
 
 
 	std::string authKey;
 	std::string authSecret;
 	std::string authAccount;
+	unsigned int defaultAccount;
+	double refBalance;
 
-	std::string curReality;
-	unsigned int curLogin;
-	double balance;
+
+	struct Account {
+		std::string reality;
+		unsigned int login;
+		double balance;
+	};
 
 
 	struct SymbolInfo {
@@ -125,11 +136,19 @@ public:
 
 	struct CurrencyInfo {
 		double convRate = 0;
+		unsigned int login = 0;
 	};
 
 	mutable std::unordered_map<std::string, SymbolInfo> smbinfo;
 	mutable std::unordered_map<std::string, double> position;
 	mutable std::unordered_map<std::string, CurrencyInfo> curinfo;
+	mutable std::unordered_map<unsigned int, Account> accounts;
+	mutable std::unordered_map<std::string, unsigned int> symbol2account;
+
+	Account &getAccount(const std::string &symbol);
+	Account &getAccount(unsigned int login);
+
+
 	std::uint64_t tokenExpire = 0;
 
 
@@ -165,6 +184,8 @@ public:
 
 protected:
 	void updatePosition(const std::string& symbol, double amount);
+	std::__cxx11::basic_string<char, std::char_traits<char>,
+			std::allocator<char> > getSettingsFile();
 };
 
 
@@ -199,8 +220,15 @@ static Value getData(Value resp) {
 }
 
 inline double Interface::getBalance(const std::string_view &symb) {
+	throw std::runtime_error("not supported");
+}
+
+inline double Interface::getBalance(const std::string_view& symb,
+		const std::string_view& pair) {
 	std::string symbol (symb);
+	std::string p (pair);
 	if (smbinfo.empty()) updateSymbols();
+	Account &a = getAccount(p);
 	auto iter = curinfo.find(symbol);
 	if (iter == curinfo.end()) {
 
@@ -210,7 +238,7 @@ inline double Interface::getBalance(const std::string_view &symb) {
 	} else {
 
 		double conv = iter->second.convRate;
-		return balance*conv;
+		return a.balance*conv;
 
 	}
 	return 0;
@@ -268,7 +296,9 @@ inline bool Interface::reset() {
 }
 
 inline Interface::MarketInfo Interface::getMarketInfo(const std::string_view &pair) {
-	const SymbolInfo &sinfo = getSymbolInfo(std::string(pair));
+	std::string symbol (pair);
+	const SymbolInfo &sinfo = getSymbolInfo(symbol);
+	const Account &a = getAccount(symbol);
 	return MarketInfo {
 		std::string(pair),
 		sinfo.currency_symbol,
@@ -281,7 +311,7 @@ inline Interface::MarketInfo Interface::getMarketInfo(const std::string_view &pa
 		100,
 		false,
 		"",
-		curReality == "DEMO"
+		a.reality == "DEMO"
 	};
 }
 
@@ -350,7 +380,8 @@ inline Interface::BrokerInfo Interface::getBrokerInfo() {
 "fm+AtJzXnYCtYjVKG8oW3bul+WjgplqD/qBh2zqrCykaVlh4ZfKHlbbY6UgFm+LKvakoTXbl3dMv"
 "ST3AVZ1Qkh6AUHlG6gEQxkzMh6xYVxe3Qiu2BkyEIY42nXUAbrUvLovYEuDpjvtbS0AoBU571NQB"
 "9J88sRXAa9WTsB9g0jLZM310xeqzTdw2KrYAeAqXbQwfnrEyjRvKPwyfvrEyBrGqTCZGQKgsBRob"
-"VICNcrZqbPk3iPS3R8BEpSn/RTLKKKN8t/wHuIduWNu27QwAAAAASUVORK5CYII="
+"VICNcrZqbPk3iPS3R8BEpSn/RTLKKKN8t/wHuIduWNu27QwAAAAASUVORK5CYII=",
+true
 	};
 }
 
@@ -358,6 +389,69 @@ inline void Interface::onLoadApiKey(json::Value keyData) {
 	authKey = keyData["key"].getString();
 	authSecret = keyData["secret"].getString();
 	authAccount = keyData["account"].getString();
+}
+
+inline Interface::Account& Interface::getAccount(const std::string& symbol) {
+	auto iter = symbol2account.find(symbol);
+	unsigned int login;
+	if (iter == symbol2account.end()) login = defaultAccount;
+	else login = iter->second;
+	return getAccount(login);
+}
+
+inline Interface::Account& Interface::getAccount(unsigned int login) {
+	auto iter2 = accounts.find(login);
+	if (iter2 == accounts.end()) {
+		iter2 = accounts.find(defaultAccount);
+		if (iter2 == accounts.end()) {
+			iter2 = accounts.begin();
+			if (iter2 == accounts.end()) {
+				throw std::runtime_error("Failed to get account");
+			}
+		}
+	}
+	return iter2->second;
+}
+
+inline json::Value Interface::getSettings(const std::string_view& pairHint) const {
+	const_cast<Interface *>(this)->login();
+	Account &a = const_cast<Interface *>(this)->getAccount(std::string(pairHint));
+	return {Object
+		("type","enum")
+		("label","Symbol")
+		("name","pairHint")
+		("default", pairHint)
+		("options", Object(pairHint,pairHint)),
+		Object
+			("type","enum")
+			("label","Use Account")
+			("name","account")
+			("default",a.login)
+			("options",Value(json::object, accounts.begin(), accounts.end(),[](auto &x){
+				Value l = x.second.login;
+				String ls = l.toString();
+				return Value(ls, String({ls," (",x.second.reality,")"}));
+			}))
+	};
+}
+
+inline void Interface::setSettings(json::Value v) {
+	std::string pairHint = v["pairHint"].getString();
+	unsigned int account = v["account"].getUInt();
+	if (account == defaultAccount) symbol2account.erase(pairHint);
+	else symbol2account.emplace(pairHint,account);
+	json::Array out;
+	for (auto &x : symbol2account) {
+		out.push_back({x.first, x.second});
+	}
+	std::ofstream f(getSettingsFile(), std::ios::out|std::ios::trunc);
+	Value(out).toStream(f);
+}
+
+inline void Interface::setApiKey(json::Value keyData) {
+	AbstractBrokerAPI::setApiKey(keyData);
+	remove(getSettingsFile().c_str());
+	symbol2account.clear();
 }
 
 void Interface::updatePosition(const std::string& symbol, double amount) {
@@ -375,10 +469,11 @@ void Interface::updatePosition(const std::string& symbol, double amount) {
 inline double Interface::execCommand(const std::string &symbol, double amount) {
 	login();
 	SymbolInfo &sinfo = getSymbolInfo(symbol);
+	Account &a = getAccount(symbol);
 	double adjamount = amount / sinfo.mult;
 	Value v = getData(hjsn.POST("/api/v3/trading/orders/market",json::Object
-			("Reality",curReality)
-			("Login", curLogin)
+			("Reality",a.reality)
+			("Login", a.login)
 			("Symbol", symbol)
 			("Side",adjamount>0?"BUY":"SELL")
 			("Volume", fabs(adjamount))
@@ -416,25 +511,42 @@ inline void Interface::login() {
 		Value token = v["token"];
 		hjsn.setToken(token.getString());
 		tokenExpire = now + 15*60000;
-		Value accounts = getData(hjsn.GET("/api/v3/accounts"));
-		curLogin = 0;
-		curReality = "";
-		for (Value v: accounts) {
+		Value alist = getData(hjsn.GET("/api/v3/accounts"));
+		accounts.clear();
+		defaultAccount = 0;
+		for (Value v: alist) {
 			Value login = v["login"];
 			Value reality = v["reality"];
+
+			accounts.emplace(login.getUInt(),Account {
+				reality.getString(),
+				static_cast<unsigned int>(login.getUInt()),
+  			    v["freeMargin"].getNumber()
+			});
+
 			if (login.toString().str() == StrViewA(authAccount)) {
-				curLogin = login.getUInt();
-				curReality = reality.getString();
-				balance = v["freeMargin"].getNumber();
-				break;
+				defaultAccount = login.getUInt();
 			}
 		}
-		if (!curLogin) throw std::runtime_error("Can't find specified account (API key is invalid)");
+		if (!defaultAccount) throw std::runtime_error("Can't find specified account (API key is invalid)");
 		updatePositions();
 	}
 }
 
+std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > Interface::getSettingsFile() {
+	return this->secure_storage_path + ".conf";
+}
+
 inline void Interface::onInit() {
+	std::ifstream settings(getSettingsFile());
+	if (!settings) return;
+	Value data = Value::fromStream(settings);
+	symbol2account.clear();
+	for (Value k: data) {
+		symbol2account.emplace(k[0].getString(), k[1].getUInt());
+	}
+
+
 }
 
 inline Interface::SymbolInfo& Interface::getSymbolInfo(const std::string& symbol) {
@@ -471,27 +583,28 @@ inline void Interface::updateSymbols() {
 }
 
 inline bool Interface::hasKey() const {
-	return !(authKey.empty() || authSecret.empty() || authAccount.empty() || curLogin == 0);
+	return !(authKey.empty() || authSecret.empty() || authAccount.empty());
 }
 
 inline void Interface::updatePositions() {
-	Value data = getData(hjsn.POST("/api/v3/trading/orders/active", Object
-			("login",curLogin)
-			("reality", curReality)
-	));
-
 	this->position.clear();
 
-	Value morders = data["marketOrders"];
-	for (Value v : morders) {
-		std::string symbol = v["symbol"].getString();
-		SymbolInfo &sinfo = getSymbolInfo(symbol);
-		double volume = v["volume"].getNumber() * sinfo.mult;
-		if (v["side"].getString() == "SELL") volume = -volume;
-		updatePosition(symbol, volume);
-		updateRate(sinfo, v);
-	}
+	for (auto &a : accounts) {
+		Value data = getData(hjsn.POST("/api/v3/trading/orders/active", Object
+				("login",a.second.login)
+				("reality", a.second.reality)
+		));
 
+		Value morders = data["marketOrders"];
+		for (Value v : morders) {
+			std::string symbol = v["symbol"].getString();
+			SymbolInfo &sinfo = getSymbolInfo(symbol);
+			double volume = v["volume"].getNumber() * sinfo.mult;
+			if (v["side"].getString() == "SELL") volume = -volume;
+			updatePosition(symbol, volume);
+			updateRate(sinfo, v);
+		}
+	}
 }
 
 inline void Interface::updateRate(const SymbolInfo &sinfo, Value order) {
