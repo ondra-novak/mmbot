@@ -202,5 +202,5 @@ void ExtStockApi::saveIconToDisk(const std::string &path) const {
 }
 
 std::string ExtStockApi::getIconName() const {
-	return name+".png";
+	return "fav_"+name+".png";
 }

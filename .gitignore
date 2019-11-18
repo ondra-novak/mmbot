@@ -12,3 +12,4 @@ Makefile
 /run/
 /prod/
 /.settings
+/www/fav_*.png
