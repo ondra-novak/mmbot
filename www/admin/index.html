@@ -122,7 +122,7 @@ extra "virtual" trade with zero size is generated to shift the center of the spr
 reenable trading, but it also finally costs some profit
 </span></span><x-slider data-name="accept_loss" data-min="0" data-max="100" data-mult="1"></x-slider></label>
 </x-section>
-<x-section class="adv"><x-section-caption>Spread</x-section-caption>
+<x-section class="adv" data-name="spread_vis_anchor"><x-section-caption>Spread</x-section-caption>
 <label  class="adv"><span>Spread width: st.dev hours <span class="tooltip"
 >Specifies how many hours is used to calculate a standard deviation for spread value</span></span><x-slider data-name="spread_calc_stdev_hours" data-min="1" data-max="240" data-mult="1"></x-slider></label>
 <label  class="adv"><span>Spread width: smooth hours <span class="tooltip"
@@ -142,6 +142,7 @@ reenable trading, but it also finally costs some profit
 <label class="adv"><span>Dynamic spread order size scaling<span class="tooltip"
 >By default, order size scales with spread. This option disables scaling of the order when dynamic spread is in effect</span></span>
 <select data-name="dynmult_scale"><option value="1">Scale</option><option value="0">Don't scale</option></select></label>
+<div class="rightinfo"><button name="vis_spread">Visualize spread</button></div>
 </x-section>
 <x-section class="adv"><x-section-caption>Misc</x-section-caption>
 <div class="label adv"><span>Options<span class="tooltip"
@@ -369,6 +370,15 @@ The position is not generally in the sync due to various issues. You need to spe
 </div>
 <div class="label"><span>Apply from</span><div><input data-name="apply_from" type="date"></div></div>
 <div class="label"><span>Starting position</span><input data-name="start_pos" type="number" step="any"></div>
+</x-section>
+</template>
+
+<template id="spread_vis">
+<x-section class="backtest"><x-section-caption>Spred visualisator</x-section-caption>
+<div class="charts">
+<div data-name="chart1"><div><em>Loading data, please wait...</em><div class="spinner fast save"></div></div></div>
+<div data-name="chart2"></div>
+</div>
 </x-section>
 </template>
 

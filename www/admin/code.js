@@ -434,6 +434,7 @@ App.prototype.fillForm = function (src, trg) {
 		data.linear_suggest = {"!click":linStrategy_recomended};
 		data.linear_suggest_maxpos = {"!click":linStrategy_recomended_maxpos};
 		data.external_assets = {"!input": halfHalf_recalc};
+		data.vis_spread = {"!click": this.init_spreadvis.bind(this, trg, src.id)};
 		linStrategy_recalc();
 		halfHalf_recalc();
 		var tmp = trg.readData(["cstep","max_pos"]);
@@ -483,7 +484,7 @@ App.prototype.fillForm = function (src, trg) {
 	data.detect_manual_trades = filledval(src.detect_manual_trades,false);
 	data.report_position_offset = filledval(src.report_position_offset,0);
 	data.force_spread = filledval(adjNum((Math.exp(defval(src.force_spread,0))-1)*100),"0.000");
-	
+		
 
 	
 	
@@ -527,20 +528,6 @@ App.prototype.fillForm = function (src, trg) {
 
 		refresh_hdr();
 
-		var ambt = null; 
-		trg.setItemEvent("auto_max_backtest_time","input",function() {
-			if (ambt) clearTimeout(ambt);
-			ambt=setTimeout(function() {
-				trg.setData({auto_max_backtest_result:{classList:{wait:true}}}); 
-				trg.setData({auto_max_backtest_result: 
-					fetchSizeBacktest.call(this,trg.readData(["auto_max_backtest_time"]).auto_max_backtest_time)
-					.then(function(x) {
-						return {
-							value:x,classList:{wait:false}
-						}})});
-			}.bind(this),250);
-				
-		}.bind(this));
 		
 		
 		return x;
@@ -1116,6 +1103,64 @@ App.prototype.validate = function(cfg) {
 
 
 
+App.prototype.init_spreadvis = function(form, id) {
+	var url = this.traderURL(id)+"/spread";
+	form.enableItem("vis_spread",false);
+	var el = form.findElements("spread_vis_anchor")[0];
+	var bt = TemplateJS.View.fromTemplate("spread_vis");
+	el.parentNode.insertBefore(bt.getRoot(),el.nextSibling);
+
+	function data_map(v, i) {
+		return {time:i*60000, v:v};
+	}
+
+	function update() {
+		var data = form.readData(["spread_calc_stdev_hours", "spread_calc_sma_hours","spread_mult"]);
+		var req = {
+			sma:data.spread_calc_sma_hours,
+			stdev:data.spread_calc_stdev_hours
+		}
+		var mult = Math.pow(2,data.spread_mult*0.01);
+	
+		fetch_with_error(url, {method:"POST", body:JSON.stringify(req)}).then(function(v) {			
+			var spread = v.spread.map(function(x,i){
+				return {
+					time:i*60000,
+					s:v.prices[i]*Math.exp((i & 1?x:-x)*mult),
+					p:v.prices[i]
+				}
+				});
+			var chart1 = bt.findElements('chart1')[0];
+
+			var interval = spread.length*60000;
+			var drawChart = initChart(interval,5,700000);
+
+			drawChart(chart1,spread,"p",[],"s");
+
+		})
+	};
+
+	var tm;
+
+	function delayUpdate() {
+		if (tm) clearTimeout(tm);
+		tm = setTimeout(function() {
+			tm = null;
+			update()},250);
+	}
+
+	form.forEachElement("spread_calc_stdev_hours", function(x){
+		x.addEventListener("input",delayUpdate);
+	})
+	form.forEachElement("spread_calc_sma_hours", function(x){
+		x.addEventListener("input",delayUpdate);
+	});
+	form.forEachElement("spread_mult", function(x){
+		x.addEventListener("input",delayUpdate);
+	});
+	update();
+
+}
 
 App.prototype.init_backtest = function(form, id, pair) {
 	var url = this.traderURL(id)+"/trades";

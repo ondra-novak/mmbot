@@ -61,11 +61,16 @@ json::NamedEnum<IStockApi::FeeScheme> IStockApi::strFeeScheme ({
 	{IStockApi::income, "income"},
 	{IStockApi::outcome, "outcome"}
 });
-
+/*
 static double awayZero(double v) {
 	if (v < 0) return floor(v);
 	else return ceil(v);
 }
+*/
+static double nearZero(double v) {
+	return sgn(v) * floor(abs(v)+0.1);
+}
+
 
 void IStockApi::MarketInfo::addFees(double &assets, double &price) const {
 	switch (feeScheme) {
@@ -84,9 +89,9 @@ void IStockApi::MarketInfo::addFees(double &assets, double &price) const {
 					else price = price*(1-fees);
 	}
 
-	if (invert_price) price = 1/(adjValue(1/price, currency_step, awayZero));
-	else price = adjValue(price, currency_step, awayZero);
-	assets = adjValue(assets, asset_step, awayZero);
+	if (invert_price) price = 1/(adjValue(1/price, currency_step, round));
+	else price = adjValue(price, currency_step, round);
+	assets = adjValue(assets, asset_step, nearZero);
 }
 
 void IStockApi::MarketInfo::removeFees(double &assets, double &price) const {

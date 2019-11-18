@@ -206,16 +206,40 @@ void MTrader::perform(bool manually) {
 
 			ondra_shared::logDebug("internal_balance=$1, external_balance=$2",status.internalBalance,status.assetBalance);
 
-			//calculate buy order
-			auto buyorder = calculateOrder(lastTradePrice,
-										  -status.curStep*cfg.buy_step_mult, buy_dynmult,
-										   status.ticker.bid, status.assetBalance,
-										   cfg.buy_mult);
-			//calculate sell order
-			auto sellorder = calculateOrder(lastTradePrice,
-										   status.curStep*cfg.sell_step_mult, sell_dynmult,
-										   status.ticker.ask, status.assetBalance,
-										   cfg.sell_mult);
+			Order buyorder;
+			Order sellorder;
+			double bm = 0, sm = 0;
+
+			int retryCnt = 500;
+			bool retry;
+			do {
+				retry = false;
+
+
+				//calculate buy order
+				buyorder = calculateOrder(lastTradePrice,
+											  -status.curStep*cfg.buy_step_mult, buy_dynmult+bm,
+											   status.ticker.bid, status.assetBalance,
+											   cfg.buy_mult);
+				//calculate sell order
+				sellorder = calculateOrder(lastTradePrice,
+											   status.curStep*cfg.sell_step_mult, sell_dynmult+sm,
+											   status.ticker.ask, status.assetBalance,
+											   cfg.sell_mult);
+
+				if (buyorder.size == 0 && !orders.buy.has_value()) {
+					bm += 0.1;
+					retry = true;
+				}
+				if (sellorder.size == 0 && !orders.sell.has_value()) {
+					sm += 0.1;
+					retry = true;
+				}
+
+				retryCnt--;
+
+			} while (retryCnt > 0 && retry);
+
 
 			if (!cfg.enabled)  {
 				if (orders.buy.has_value())
@@ -232,15 +256,15 @@ void MTrader::perform(bool manually) {
 						orders.buy = buyorder;
 					}
 				}
-
 				try {
-					setOrder(orders.sell, sellorder);
-				} catch (std::exception &e) {
-					sell_order_error = e.what();
-					if (!acceptLoss(orders.sell, sellorder, status)) {
-						orders.sell = sellorder;
+						setOrder(orders.sell, sellorder);
+					} catch (std::exception &e) {
+						sell_order_error = e.what();
+						if (!acceptLoss(orders.sell, sellorder, status)) {
+							orders.sell = sellorder;
 					}
 				}
+
 				if (!recalc && !manually) {
 					update_dynmult(false,false);
 				}
@@ -287,7 +311,7 @@ void MTrader::perform(bool manually) {
 			chart.push_back(status.chartItem);
 			{
 				//delete very old data from chart
-				unsigned int max_count = std::max(cfg.spread_calc_sma_hours, cfg.spread_calc_stdev_hours);
+				unsigned int max_count = std::max<unsigned int>(std::max(cfg.spread_calc_sma_hours, cfg.spread_calc_stdev_hours),240);
 				if (chart.size() > max_count)
 					chart.erase(chart.begin(),chart.end()-max_count);
 			}
@@ -342,7 +366,14 @@ MTrader::OrderPair MTrader::getOrders() {
 
 void MTrader::setOrder(std::optional<Order> &orig, Order neworder) {
 	try {
-		if (neworder.price < 0 || neworder.size == 0) return;
+		if (neworder.price < 0) {
+			if (orig.has_value()) return;
+			throw std::runtime_error("Order rejected - negative price");
+		}
+		if (neworder.size == 0) {
+			if (orig.has_value()) return;
+			throw std::runtime_error("Order rejected - zero size - probably too small order");
+		}
 		neworder.client_id = magic;
 		json::Value replaceid;
 		double replaceSize = 0;
@@ -462,10 +493,11 @@ MTrader::Order MTrader::calculateOrderFeeLess(
 	}
 
 	double size = strategy.calcOrderSize(cfg.dynmult_scale?newPrice:newPriceNoScale, balance);
+	bool enableDust = false;
 
 	if (size * step >= 0) {
 		if (cfg.dust_orders) {
-			size = -sgn(step)*minfo.min_size;
+			enableDust = true;
 		} else {
 			size = 0;
 		}
@@ -473,6 +505,22 @@ MTrader::Order MTrader::calculateOrderFeeLess(
 	//fill order
 	order.size = size * mult;
 	order.price = newPrice;
+
+	if (cfg.max_size && std::fabs(order.size) > cfg.max_size) {
+		order.size = enableDust?cfg.max_size*sgn(order.size):0;
+	}
+	if (std::fabs(order.size) < cfg.min_size) {
+		order.size = enableDust?cfg.min_size*sgn(order.size):0;
+	}
+	if (std::fabs(order.size) < minfo.min_size) {
+		order.size = enableDust?minfo.min_size*sgn(order.size):0;
+	}
+	if (minfo.min_volume) {
+		double vol = std::fabs(order.size * order.price);
+		if (vol < minfo.min_volume) {
+			order.size = enableDust?minfo.min_volume/order.price*sgn(order.size):0;
+		}
+	}
 
 
 	return order;
@@ -488,22 +536,6 @@ MTrader::Order MTrader::calculateOrder(
 		double mult) const {
 
 	Order order(calculateOrderFeeLess(lastTradePrice, step,dynmult,curPrice,balance,mult));
-
-	if (cfg.max_size && std::fabs(order.size) > cfg.max_size) {
-		order.size = cfg.max_size*sgn(order.size);
-	}
-	if (std::fabs(order.size) < cfg.min_size) {
-		order.size = cfg.min_size*sgn(order.size);
-	}
-	if (std::fabs(order.size) < minfo.min_size) {
-		order.size = minfo.min_size*sgn(order.size);
-	}
-	if (minfo.min_volume) {
-		double vol = std::fabs(order.size * order.price);
-		if (vol < minfo.min_volume) {
-			order.size = minfo.min_volume/order.price*sgn(order.size);
-		}
-	}
 	//apply fees
 	minfo.addFees(order.size, order.price);
 
@@ -831,7 +863,12 @@ bool MTrader::acceptLoss(std::optional<Order> &orig, const Order &order, const S
 		if (buy_dynmult <= 1.0 && sell_dynmult <= 1.0) {
 			if (cfg.dust_orders) {
 				Order cpy (order);
-				cpy.size = sgn(cpy.size)*minfo.min_size;
+				double newsz = std::max(minfo.min_size, cfg.min_size);
+				if (newsz * cpy.price < minfo.min_volume) {
+					newsz = cpy.price / minfo.min_volume;
+				}
+				cpy.size = sgn(cpy.size)* newsz;
+				minfo.addFees(cpy.size, cpy.price);
 				try {
 					setOrder(orig,cpy);
 					return true;
@@ -990,33 +1027,56 @@ protected:
 	json::Value config;
 };
 
-double MTrader::calcSpread() const {
-	if (chart.size() < 15) return 0.01;
+static double stCalcSpread(const std::vector<double> &values,unsigned int input_sma, unsigned int input_stdev) {
+	input_sma = std::max<unsigned int>(input_sma,30);
+	input_stdev = std::max<unsigned int>(input_stdev,30);
 	std::queue<double> sma;
 	std::vector<double> mapped;
-	std::accumulate(chart.begin(), chart.end(), 0.0, [&](auto &&a, auto &&c) {
+	std::accumulate(values.begin(), values.end(), 0.0, [&](auto &&a, auto &&c) {
 		double h = 0.0;
-		if ( sma.size() >= cfg.spread_calc_sma_hours) {
+		if ( sma.size() >= input_sma) {
 			h = sma.front();
 			sma.pop();
 		}
-		double d = a + c.last - h;
-		sma.push(c.last);
-		mapped.push_back(c.last - d/sma.size());
+		double d = a + c - h;
+		sma.push(c);
+		mapped.push_back(c - d/sma.size());
 		return d;
 	});
 
-	std::size_t i = mapped.size() >= cfg.spread_calc_stdev_hours?mapped.size()-cfg.spread_calc_stdev_hours:0;
+	std::size_t i = mapped.size() >= input_stdev?mapped.size()-input_stdev:0;
 	auto iter = mapped.begin()+i;
 	auto end = mapped.end();
 	auto stdev = std::sqrt(std::accumulate(iter, end, 0.0, [&](auto &&v, auto &&c) {
 		return v + c*c;
 	})/std::distance(iter, end));
+	return std::log((stdev+sma.back())/sma.back());
+}
 
-	double lnspread = std::log((stdev+sma.back())/sma.back());
-	logDebug("Spread calculated: stdev=$1, sma=$2, lnspread=$3", stdev, sma.back(), lnspread);
+double MTrader::calcSpread() const {
+	if (chart.size() < 3) return 0.01;
+	std::vector<double> values(chart.size());
+	std::transform(chart.begin(), chart.end(),  values.begin(), [&](auto &&c) {return c.last;});
+
+	double lnspread = stCalcSpread(values, cfg.spread_calc_sma_hours, cfg.spread_calc_stdev_hours);
 
 	return lnspread;
 
+
+}
+
+MTrader::VisRes MTrader::visualizeSpread(unsigned int sma, unsigned int stdev) {
+	std::vector<double> results;
+	std::vector<double> values;
+	for (auto &&k : chart) {
+		values.push_back(k.last);
+		if (values.size()<3) results.push_back(0);
+		else results.push_back(stCalcSpread(values, sma*60, stdev*60));
+	}
+	if (minfo.invert_price) std::transform(values.begin(), values.end(),values.begin(), [](double d){return 1.0/d;});
+	return {
+		values,
+		results
+	};
 
 }

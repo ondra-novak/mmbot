@@ -492,7 +492,7 @@ bool WebCfg::reqTraders(simpleServer::HTTPRequest req, ondra_shared::StrViewA vp
 						req.sendResponse(std::move(hdr), "true");
 					} else {
 						req.sendResponse(std::move(hdr),
-							Value(Object("entries",{"stop","reset","repair","broker","trading"})).stringify());
+							Value(Object("entries",{"stop","reset","repair","broker","trading","spread"})).stringify());
 					}
 				} else {
 					tr->init();
@@ -535,7 +535,19 @@ bool WebCfg::reqTraders(simpleServer::HTTPRequest req, ondra_shared::StrViewA vp
 						out.set("broker", tr->getConfig().broker);
 						out.set("pair", getPairInfo(broker, tr->getConfig().pairsymb));
 						req.sendResponse(std::move(hdr), Value(out).stringify());
+					} else if (cmd == "spread") {
+						if (!req.allowMethods({"POST"})) return;
+						Value args = Value::parse(req.getBodyStream());
+						Value sma = args["sma"];
+						Value stdev = args["stdev"];
+						auto res = tr->visualizeSpread(sma.getUInt(), stdev.getUInt());
+						auto dmap = [&](double k){return k;};
+						Value out (json::object,
+							{Value("prices",Value(json::array, res.prices.begin(), res.prices.end(), dmap)),
+							 Value("spread",Value(json::array, res.spread.begin(), res.spread.end(), dmap))});
+						req.sendResponse(std::move(hdr), out.stringify());
 					}
+
 
 				}
 			}

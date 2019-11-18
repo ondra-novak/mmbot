@@ -62,9 +62,9 @@ std::pair<Strategy_PLFromPos::OnTradeResult, IStrategy*> Strategy_PLFromPos::onT
 		double currencyLeft) const {
 
 	double k = calcK();
-	double new_pos = calcNewPos(tradePrice,true);
 	double act_pos = assetsLeft-acm-cfg.neutral_pos;
 	double prev_pos = act_pos - tradeSize;
+	double new_pos = tradeSize?calcNewPos(tradePrice,true):prev_pos;
 
 	double ef = (1/ (2*k)) *(pow2(act_pos) - pow2(prev_pos)) + prev_pos * (tradePrice - p);
 	double np = ef * (1 - cfg.accum);

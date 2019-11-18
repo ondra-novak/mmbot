@@ -159,6 +159,11 @@ public:
 	const Strategy &getStrategy() const {return strategy;}
 	IStockApi &getBroker() {return stock;}
 
+	struct VisRes {
+		std::vector<double> prices, spread;
+	};
+	VisRes visualizeSpread(unsigned int sma, unsigned int stdev);
+
 protected:
 	std::unique_ptr<IStockApi> ownedStock;
 	IStockApi &stock;

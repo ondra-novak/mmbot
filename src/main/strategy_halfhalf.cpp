@@ -33,22 +33,17 @@ IStrategy* Strategy_HalfHalf::init(double curPrice, double assets,
 std::pair<Strategy_HalfHalf::OnTradeResult, IStrategy*> Strategy_HalfHalf::onTrade(
 		double tradePrice, double size , double assetsLeft, double currencyLeft ) const {
 
-	if (size == 0) {
-		return std::make_pair(
-				OnTradeResult{0,0},
-				new Strategy_HalfHalf(ea, accu, tradePrice, assetsLeft));
-	} else {
-
-		double n = tradePrice;
-		double na = a * sqrt(p/n);
-		double v = a * p + a * n - 2 * a * sqrt(p *  n);
-		double ap = (v / n) * accu;
-		double np = v * (1-accu);
-		return std::make_pair(
-				OnTradeResult {np, ap},
-				new Strategy_HalfHalf(ea,accu,n,na+ap-ea)
-		);
-	}
+	double n = tradePrice;
+	double p = this->p;
+	double v = a * p + a * n - 2 * a * sqrt(p *  n);
+	if (size == 0) p = n;
+	double na = a * sqrt(p/n);
+	double ap = (v / n) * accu;
+	double np = v * (1-accu);
+	return std::make_pair(
+			OnTradeResult {np, ap},
+			new Strategy_HalfHalf(ea,accu,n,na+ap-ea)
+	);
 }
 
 json::Value Strategy_HalfHalf::exportState() const {
