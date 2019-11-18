@@ -83,10 +83,11 @@ should stay quiet.
 ### getBalance
 
 ```
-["getBalance", <symbol>]
+["getBalance", {"symbol":<symbol>,"pair":<pair>}]
 ```
 Return wallet's balance for given `symbol`. Note that complete balance is required 
-(blocked money for orders must not be substracted). Result is sent as single number
+(blocked money for orders must not be substracted). Result is sent as single number.
+The field `pair` contains identifier of pair in which context the request was made. This helps to choose correct wallet in case of multiwallet account.
 
 ```
 [ true, <number> ]
