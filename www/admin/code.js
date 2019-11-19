@@ -1116,11 +1116,12 @@ App.prototype.init_spreadvis = function(form, id) {
 
 	function update() {
 		var data = form.readData(["spread_calc_stdev_hours", "spread_calc_sma_hours","spread_mult"]);
+		var mult = Math.pow(2,data.spread_mult*0.01);
 		var req = {
 			sma:data.spread_calc_sma_hours,
-			stdev:data.spread_calc_stdev_hours
+			stdev:data.spread_calc_stdev_hours,
+			mult:mult
 		}
-		var mult = Math.pow(2,data.spread_mult*0.01);
 	
 		fetch_with_error(url, {method:"POST", body:JSON.stringify(req)}).then(function(v) {			
 			var c = v.chart.map(function(x) {

@@ -311,7 +311,7 @@ void MTrader::perform(bool manually) {
 			chart.push_back(status.chartItem);
 			{
 				//delete very old data from chart
-				unsigned int max_count = std::max<unsigned int>(std::max(cfg.spread_calc_sma_hours, cfg.spread_calc_stdev_hours),240);
+				unsigned int max_count = std::max<unsigned int>(std::max(cfg.spread_calc_sma_hours, cfg.spread_calc_stdev_hours),240*60);
 				if (chart.size() > max_count)
 					chart.erase(chart.begin(),chart.end()-max_count);
 			}
@@ -1065,7 +1065,7 @@ double MTrader::calcSpread() const {
 
 }
 
-MTrader::VisRes MTrader::visualizeSpread(unsigned int sma, unsigned int stdev) {
+MTrader::VisRes MTrader::visualizeSpread(unsigned int sma, unsigned int stdev, double mult) {
 	VisRes res;
 	if (chart.empty()) return res;
 	double last = chart[0].last;
@@ -1075,8 +1075,8 @@ MTrader::VisRes MTrader::visualizeSpread(unsigned int sma, unsigned int stdev) {
 		if (minfo.invert_price) p = 1.0/p;
 		prices.push_back(p);
 		double spread = stCalcSpread(prices, sma*60, stdev*60);
-		double low = last * std::exp(-spread);
-		double high = last * std::exp(spread);
+		double low = last * std::exp(-spread*mult);
+		double high = last * std::exp(spread*mult);
 		double size = 0;
 		if (p > high) {last = p; size = -1;}
 		else if (p < low) {last = p; size = 1;}

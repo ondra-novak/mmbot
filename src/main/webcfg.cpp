@@ -540,7 +540,8 @@ bool WebCfg::reqTraders(simpleServer::HTTPRequest req, ondra_shared::StrViewA vp
 						Value args = Value::parse(req.getBodyStream());
 						Value sma = args["sma"];
 						Value stdev = args["stdev"];
-						auto res = tr->visualizeSpread(sma.getUInt(), stdev.getUInt());
+						Value mult = args["mult"];
+						auto res = tr->visualizeSpread(sma.getUInt(), stdev.getUInt(),mult.getNumber());
 						Value out (json::object,
 							{Value("chart",Value(json::array, res.chart.begin(), res.chart.end(), [](auto &&k){
 								return Value(json::object,{
