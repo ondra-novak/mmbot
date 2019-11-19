@@ -1054,7 +1054,7 @@ static double stCalcSpread(const std::vector<double> &values,unsigned int input_
 }
 
 double MTrader::calcSpread() const {
-	if (chart.size() < 3) return 0.01;
+	if (chart.size() < 3) return 0;
 	std::vector<double> values(chart.size());
 	std::transform(chart.begin(), chart.end(),  values.begin(), [&](auto &&c) {return c.last;});
 
@@ -1066,17 +1066,23 @@ double MTrader::calcSpread() const {
 }
 
 MTrader::VisRes MTrader::visualizeSpread(unsigned int sma, unsigned int stdev) {
-	std::vector<double> results;
-	std::vector<double> values;
+	VisRes res;
+	if (chart.empty()) return res;
+	double last = chart[0].last;
+	std::vector<double> prices;
 	for (auto &&k : chart) {
-		values.push_back(k.last);
-		if (values.size()<3) results.push_back(0);
-		else results.push_back(stCalcSpread(values, sma*60, stdev*60));
+		double p = k.last;
+		if (minfo.invert_price) p = 1.0/p;
+		prices.push_back(p);
+		double spread = stCalcSpread(prices, sma*60, stdev*60);
+		double low = last * std::exp(-spread);
+		double high = last * std::exp(spread);
+		double size = 0;
+		if (p > high) {last = p; size = -1;}
+		else if (p < low) {last = p; size = 1;}
+		res.chart.push_back(VisRes::Item{
+			p, low, high, size,k.time
+		});
 	}
-	if (minfo.invert_price) std::transform(values.begin(), values.end(),values.begin(), [](double d){return 1.0/d;});
-	return {
-		values,
-		results
-	};
-
+	return res;
 }

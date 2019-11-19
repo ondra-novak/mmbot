@@ -1123,19 +1123,18 @@ App.prototype.init_spreadvis = function(form, id) {
 		var mult = Math.pow(2,data.spread_mult*0.01);
 	
 		fetch_with_error(url, {method:"POST", body:JSON.stringify(req)}).then(function(v) {			
-			var spread = v.spread.map(function(x,i){
-				return {
-					time:i*60000,
-					s:v.prices[i]*Math.exp((i & 1?x:-x)*mult),
-					p:v.prices[i]
-				}
-				});
-			var chart1 = bt.findElements('chart1')[0];
+			var c = v.chart.map(function(x) {
+				x.achg = x.s;
+				x.time = x.t;
+				return x;
+			})
+			if (c.length == 0) return;
 
-			var interval = spread.length*60000;
+			var chart1 = bt.findElements('chart1')[0];
+			var interval = c[c.length-1].time-c[0].time;
 			var drawChart = initChart(interval,5,700000);
 
-			drawChart(chart1,spread,"p",[],"s");
+			drawChart(chart1,c,"p",[],"l", "h");
 
 		})
 	};

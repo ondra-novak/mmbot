@@ -160,7 +160,11 @@ public:
 	IStockApi &getBroker() {return stock;}
 
 	struct VisRes {
-		std::vector<double> prices, spread;
+		struct Item {
+			double price, low, high, size;
+			std::uint64_t time;
+		};
+		std::vector<Item> chart;
 	};
 	VisRes visualizeSpread(unsigned int sma, unsigned int stdev);
 

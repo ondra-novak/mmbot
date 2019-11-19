@@ -68,7 +68,7 @@ static double awayZero(double v) {
 }
 */
 static double nearZero(double v) {
-	return sgn(v) * floor(abs(v)+0.1);
+	return sgn(v) * floor(std::abs(v)+0.1);
 }
 
 

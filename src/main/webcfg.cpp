@@ -541,10 +541,17 @@ bool WebCfg::reqTraders(simpleServer::HTTPRequest req, ondra_shared::StrViewA vp
 						Value sma = args["sma"];
 						Value stdev = args["stdev"];
 						auto res = tr->visualizeSpread(sma.getUInt(), stdev.getUInt());
-						auto dmap = [&](double k){return k;};
 						Value out (json::object,
-							{Value("prices",Value(json::array, res.prices.begin(), res.prices.end(), dmap)),
-							 Value("spread",Value(json::array, res.spread.begin(), res.spread.end(), dmap))});
+							{Value("chart",Value(json::array, res.chart.begin(), res.chart.end(), [](auto &&k){
+								return Value(json::object,{
+									Value("p",k.price),
+									Value("l",k.low),
+									Value("h",k.high),
+									Value("s",k.size),
+									Value("t",k.time),
+								});
+							}))}
+						);
 						req.sendResponse(std::move(hdr), out.stringify());
 					}
 
