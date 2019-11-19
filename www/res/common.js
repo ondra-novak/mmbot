@@ -253,15 +253,17 @@ function initChart(chart_interval, ratio, base_interval) {
 		var y2 = map_y(chart[i+1][fld]);
 		new_svg_el("line",{x1:x1,y1:y1,x2:x2,y2:y2,class:pos},svg);
 	}
-	var args = Array.prototype.slice.call(arguments,3);
+	var args = Array.prototype.slice.call(arguments,4);
 	args.forEach(function(fld2) {
-		for (var i = 0; i <cnt-1; i++) {
-			var pos = "stdline2";
-			var x1 = map_x(chart[i].time/base_interval-tmstart);
-			var x2 = map_x(chart[i+1].time/base_interval-tmstart);
-			var y1 = map_y(chart[i][fld2]);
-			var y2 = map_y(chart[i+1][fld2]);
-			new_svg_el("line",{x1:x1,y1:y1,x2:x2,y2:y2,class:pos},svg);
+		if (fld2) {
+			for (var i = 0; i <cnt-1; i++) {
+				var pos = "stdline2";
+				var x1 = map_x(chart[i].time/base_interval-tmstart);
+				var x2 = map_x(chart[i+1].time/base_interval-tmstart);
+				var y1 = map_y(chart[i][fld2]);
+				var y2 = map_y(chart[i+1][fld2]);
+				new_svg_el("line",{x1:x1,y1:y1,x2:x2,y2:y2,class:pos},svg);
+			}
 		}
 	})
 	for (var i = 0; i <cnt; i++) if (chart[i].achg) {

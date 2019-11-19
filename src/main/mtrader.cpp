@@ -206,72 +206,76 @@ void MTrader::perform(bool manually) {
 
 			ondra_shared::logDebug("internal_balance=$1, external_balance=$2",status.internalBalance,status.assetBalance);
 
-			Order buyorder;
-			Order sellorder;
-			double bm = 0, sm = 0;
+			if (status.curStep) {
+				Order buyorder;
+				Order sellorder;
+				double bm = 0, sm = 0;
 
-			int retryCnt = 500;
-			bool retry;
-			do {
-				retry = false;
-
-
-				//calculate buy order
-				buyorder = calculateOrder(lastTradePrice,
-											  -status.curStep*cfg.buy_step_mult, buy_dynmult+bm,
-											   status.ticker.bid, status.assetBalance,
-											   cfg.buy_mult);
-				//calculate sell order
-				sellorder = calculateOrder(lastTradePrice,
-											   status.curStep*cfg.sell_step_mult, sell_dynmult+sm,
-											   status.ticker.ask, status.assetBalance,
-											   cfg.sell_mult);
-
-				if (buyorder.size == 0 && !orders.buy.has_value()) {
-					bm += 0.1;
-					retry = true;
-				}
-				if (sellorder.size == 0 && !orders.sell.has_value()) {
-					sm += 0.1;
-					retry = true;
-				}
-
-				retryCnt--;
-
-			} while (retryCnt > 0 && retry);
+				int retryCnt = 500;
+				bool retry;
+				do {
+					retry = false;
 
 
-			if (!cfg.enabled)  {
-				if (orders.buy.has_value())
-					stock.placeOrder(cfg.pairsymb,0,0,magic,orders.buy->id,0);
-				if (orders.sell.has_value())
-					stock.placeOrder(cfg.pairsymb,0,0,magic,orders.sell->id,0);
-				statsvc->reportError(IStatSvc::ErrorObj("Automatic trading is disabled"));
-			} else {
-				try {
-					setOrder(orders.buy, buyorder);
-				} catch (std::exception &e) {
-					buy_order_error = e.what();
-					if (!acceptLoss(orders.buy, buyorder, status)) {
-						orders.buy = buyorder;
+					//calculate buy order
+					buyorder = calculateOrder(lastTradePrice,
+												  -status.curStep*cfg.buy_step_mult, buy_dynmult+bm,
+												   status.ticker.bid, status.assetBalance,
+												   cfg.buy_mult);
+					//calculate sell order
+					sellorder = calculateOrder(lastTradePrice,
+												   status.curStep*cfg.sell_step_mult, sell_dynmult+sm,
+												   status.ticker.ask, status.assetBalance,
+												   cfg.sell_mult);
+
+					if (buyorder.size == 0 && !orders.buy.has_value()) {
+						bm += 0.1;
+						retry = true;
 					}
-				}
-				try {
-						setOrder(orders.sell, sellorder);
+					if (sellorder.size == 0 && !orders.sell.has_value()) {
+						sm += 0.1;
+						retry = true;
+					}
+
+					retryCnt--;
+
+				} while (retryCnt > 0 && retry);
+
+
+				if (!cfg.enabled)  {
+					if (orders.buy.has_value())
+						stock.placeOrder(cfg.pairsymb,0,0,magic,orders.buy->id,0);
+					if (orders.sell.has_value())
+						stock.placeOrder(cfg.pairsymb,0,0,magic,orders.sell->id,0);
+					statsvc->reportError(IStatSvc::ErrorObj("Automatic trading is disabled"));
+				} else {
+					try {
+						setOrder(orders.buy, buyorder);
 					} catch (std::exception &e) {
-						sell_order_error = e.what();
-						if (!acceptLoss(orders.sell, sellorder, status)) {
-							orders.sell = sellorder;
+						buy_order_error = e.what();
+						if (!acceptLoss(orders.buy, buyorder, status)) {
+							orders.buy = buyorder;
+						}
 					}
+					try {
+							setOrder(orders.sell, sellorder);
+						} catch (std::exception &e) {
+							sell_order_error = e.what();
+							if (!acceptLoss(orders.sell, sellorder, status)) {
+								orders.sell = sellorder;
+						}
+					}
+
+					if (!recalc && !manually) {
+						update_dynmult(false,false);
+					}
+
+					//report order errors to UI
+					statsvc->reportError(IStatSvc::ErrorObj(buy_order_error, sell_order_error));
+
 				}
-
-				if (!recalc && !manually) {
-					update_dynmult(false,false);
-				}
-
-				//report order errors to UI
-				statsvc->reportError(IStatSvc::ErrorObj(buy_order_error, sell_order_error));
-
+			} else {
+				statsvc->reportError(IStatSvc::ErrorObj("Initializing, please wait\n(5 minutes aprox.)"));
 			}
 
 			recalc = false;
@@ -1054,7 +1058,7 @@ static double stCalcSpread(const std::vector<double> &values,unsigned int input_
 }
 
 double MTrader::calcSpread() const {
-	if (chart.size() < 3) return 0;
+	if (chart.size() < 5) return 0;
 	std::vector<double> values(chart.size());
 	std::transform(chart.begin(), chart.end(),  values.begin(), [&](auto &&c) {return c.last;});
 
