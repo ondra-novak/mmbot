@@ -112,7 +112,6 @@ public:
 	virtual void setSettings(json::Value v) override;
 	virtual void setApiKey(json::Value keyData) override;
 
-
 	std::string authKey;
 	std::string authSecret;
 	std::string authAccount;
@@ -124,24 +123,25 @@ public:
 		std::string reality;
 		unsigned int login;
 		double balance;
+		double main_conv_rate;
+		std::string currency;
+		ondra_shared::linear_map<std::string, double> conv_rate;
+
 	};
 
 
 	struct SymbolInfo {
 		std::string symbol;
 		std::string currency_symbol;
+		std::string asset_symbol;
 		double mult;
 		double step;
+		double price;
 	};
 
-	struct CurrencyInfo {
-		double convRate = 0;
-		unsigned int login = 0;
-	};
 
 	mutable std::unordered_map<std::string, SymbolInfo> smbinfo;
 	mutable std::unordered_map<std::string, double> position;
-	mutable std::unordered_map<std::string, CurrencyInfo> curinfo;
 	mutable std::unordered_map<unsigned int, Account> accounts;
 	mutable std::unordered_map<std::string, unsigned int> symbol2account;
 
@@ -156,7 +156,8 @@ public:
 	void updateSymbols();
 	bool hasKey() const;
 	void updatePositions();
-	void updateRate(const SymbolInfo &sinfo, Value order);
+	void updateRate(const SymbolInfo &sinfo, Value order, Account &a);
+	double findConvRate(std::string fromCurrency, std::string toCurrency);
 
 
 	class LogProvider: public ondra_shared::StdLogProviderFactory {
@@ -223,25 +224,44 @@ inline double Interface::getBalance(const std::string_view &symb) {
 	throw std::runtime_error("not supported");
 }
 
+double Interface::findConvRate(std::string fromCurrency, std::string toCurrency) {
+	std::unordered_map<std::string, double> toTarget;
+	toTarget[fromCurrency] = 1.0;
+	std::size_t sz = -1;
+	while (toTarget.find(toCurrency) == toTarget.end() && toTarget.size() != sz) {
+		sz = toTarget.size();
+		for (auto &&k : smbinfo) {
+			auto iter = toTarget.find(k.second.asset_symbol);
+			if (iter != toTarget.end()) {
+				toTarget.emplace(k.second.currency_symbol, iter->second*k.second.price);
+			}
+			iter = toTarget.find(k.second.currency_symbol);
+			if (iter != toTarget.end()) {
+					toTarget.emplace(k.second.asset_symbol, iter->second/k.second.price);
+			}
+		}
+	}
+	auto res = toTarget.find(toCurrency);
+	if (res == toTarget.end()) return 0;
+	else return res->second;
+
+}
+
 inline double Interface::getBalance(const std::string_view& symb,
 		const std::string_view& pair) {
 	std::string symbol (symb);
 	std::string p (pair);
 	if (smbinfo.empty()) updateSymbols();
 	Account &a = getAccount(p);
-	auto iter = curinfo.find(symbol);
-	if (iter == curinfo.end()) {
-
+	if (symb == pair) {
 		auto iter = position.find(symbol);
 		if (iter == position.end()) return 0;
 		else return iter->second;
 	} else {
-
-		double conv = iter->second.convRate;
-		return a.balance*conv;
-
+		auto conv = a.conv_rate.find(symbol);
+		if (conv == a.conv_rate.end()) return (a.balance/a.main_conv_rate)*findConvRate(a.currency, symbol);
+		else return a.balance*conv->second;
 	}
-	return 0;
 }
 
 inline Interface::TradesSync Interface::syncTrades(json::Value lastId,
@@ -481,7 +501,7 @@ inline double Interface::execCommand(const std::string &symbol, double amount) {
 
 	Value morder = v["marketOrders"][0];
 	Value order = morder["order"];
-	updateRate(sinfo, order);
+	updateRate(sinfo, order,a);
 	updatePosition(symbol, amount);
 	switch (morder["action"].getUInt()) {
 		case 1: {
@@ -514,14 +534,21 @@ inline void Interface::login() {
 		Value alist = getData(hjsn.GET("/api/v3/accounts"));
 		accounts.clear();
 		defaultAccount = 0;
+		Value currencies = getData(hjsn.GET("/api/v3/currencies"));
 		for (Value v: alist) {
 			Value login = v["login"];
 			Value reality = v["reality"];
+			Value currency = v["currency"];
+			Value c = currencies.find([&](Value v){
+				return v["currency"] == currency;
+			});
 
 			accounts.emplace(login.getUInt(),Account {
 				reality.getString(),
 				static_cast<unsigned int>(login.getUInt()),
-  			    v["freeMargin"].getNumber()
+  			    v["freeMargin"].getNumber(),
+				c["multiplier"].hasValue()?c["multiplier"].getNumber():1.0,
+				c["displayCurrency"].getString()
 			});
 
 			if (login.toString().str() == StrViewA(authAccount)) {
@@ -571,13 +598,16 @@ inline void Interface::updateSymbols() {
 	for (Value z : symbs) {
 		std::string symbol = z["symbol"].getString();
 		std::string curSymb = z["priceCurrency"].getString();
+		std::string assSymb = z["marginCurrency"].getString();
+		double quote = sqrt(z["quote"]["a"].getNumber()*z["quote"]["b"].getNumber());
 		smbinfo.emplace(symbol, SymbolInfo {
 			symbol,
 			curSymb,
+			assSymb,
 			z["contractSize"].getNumber(),
 			z["step"].getNumber(),
+			quote
 		});
-		curinfo[curSymb];
 	}
 
 }
@@ -591,27 +621,25 @@ inline void Interface::updatePositions() {
 
 	for (auto &a : accounts) {
 		Value data = getData(hjsn.POST("/api/v3/trading/orders/active", Object
-				("login",a.second.login)
-				("reality", a.second.reality)
-		));
+					("login",a.second.login)
+					("reality", a.second.reality)
+			));
 
-		Value morders = data["marketOrders"];
-		for (Value v : morders) {
-			std::string symbol = v["symbol"].getString();
-			SymbolInfo &sinfo = getSymbolInfo(symbol);
-			double volume = v["volume"].getNumber() * sinfo.mult;
-			if (v["side"].getString() == "SELL") volume = -volume;
-			updatePosition(symbol, volume);
-			updateRate(sinfo, v);
+			Value morders = data["marketOrders"];
+			for (Value v : morders) {
+				std::string symbol = v["symbol"].getString();
+				SymbolInfo &sinfo = getSymbolInfo(symbol);
+				double volume = v["volume"].getNumber() * sinfo.mult;
+				if (v["side"].getString() == "SELL") volume = -volume;
+				updatePosition(symbol, volume);
+				updateRate(sinfo, v, a.second);
 		}
 	}
 }
 
-inline void Interface::updateRate(const SymbolInfo &sinfo, Value order) {
+inline void Interface::updateRate(const SymbolInfo &sinfo, Value order, Account &a) {
 	double rate = first_match([](Value v){return v.getNumber();}, order["closeConversionRate"], order["openConversionRate"]).getNumber();
 	double rate2 = order["closePrice"].getNumber();
 	if (rate) rate = rate2/rate;
-	CurrencyInfo &cinfo = curinfo[sinfo.currency_symbol];
-	cinfo.convRate = rate;
-
+	a.conv_rate[sinfo.currency_symbol] = rate;
 }
