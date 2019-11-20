@@ -30,7 +30,6 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 		cfg.neutral_pos = config["neutral_pos"].getNumber();
 		cfg.maxpos = config["maxpos"].getNumber();
 		cfg.reduce_factor = config["reduce_factor"].getNumber();
-		cfg.closeMode = strCloseMode[config["closepos"].getString()];
 		return Strategy(new Strategy_PLFromPos(cfg));
 	} else if (id == Strategy_HalfHalf::id) {
 		double ea = config["ea"].getNumber();

@@ -37,24 +37,40 @@ double Strategy_PLFromPos::calcK() const {
 }
 
 double Strategy_PLFromPos::calcNewPos(double tradePrice, bool reducepos) const {
+	//calculate direction of the line defines position change per price change
 	double k = calcK();
-	double lin_pos = pos + (p - tradePrice) * k;
-	double red_pos_inr = 1 +  2*k*(p - tradePrice)/pos;
-	double red_pos = red_pos_inr > 0? pos * sqrt(red_pos_inr):0;
-	bool gaining = (pos == 0 || (p - tradePrice) / pos > 0 );
-	double new_pos = gaining?lin_pos
-					:(lin_pos + (red_pos - lin_pos)*cfg.reduce_factor);
-
-	switch (cfg.closeMode) {
-	case always_close: if (new_pos * pos < 0) new_pos = 0;break;
-	case prefer_close: if (!gaining && red_pos == 0) new_pos = 0;break;
-	case prefer_reverse: if (!gaining && red_pos == 0) new_pos = lin_pos;break;
+	//calculate new position on new price
+	double np = pos + (p - tradePrice) * k;
+	//get absolute value of the position
+	double ap = std::abs(np);
+	//if new position is reduced, but not reversed
+	if (ap < std::abs(pos) && np * pos > 0) {
+		//calculate profit made from moving price from p to tradePrice
+		//profit is defined by current position * difference of two prices
+		//also increas or decrease it by reduce factor, which can be configured (default 1)
+		double s = (pos - np) * (tradePrice - p)*cfg.reduce_factor;
+		//calculate inner of sqrt();
+		//it expect, that prices moves to tradePrice and makes profit 's'
+		//then part of position is closed to value 'np'
+		//absolute value of position is 'ap'
+		//we need calculate new np where this profit is used to reduce position
+		//
+		//new position squared is calculated here
+		//(check: s = 0 -> ap = ap)
+		//(check: s > 0 -> ap goes down
+		double np2 = ap*ap - 2 * k * s;
+		//if result is non-negative
+		if (np2 > 0) {
+			//calculate new positon by sqrt(np2) and adding signature
+			np = sgn(np) * sqrt(np2);
+		} //otherwise stick with original np
 	}
-
-	if (cfg.maxpos && fabs(new_pos) > cfg.maxpos) {
-		new_pos = (new_pos + cfg.maxpos)/2;
+	//adjust np, if max position has been reached
+	if (cfg.maxpos && fabs(np) > cfg.maxpos) {
+		return (np + cfg.maxpos)/2;
+	} else {
+		return np;
 	}
-	return new_pos;
 }
 
 std::pair<Strategy_PLFromPos::OnTradeResult, IStrategy*> Strategy_PLFromPos::onTrade(
@@ -65,9 +81,15 @@ std::pair<Strategy_PLFromPos::OnTradeResult, IStrategy*> Strategy_PLFromPos::onT
 	double act_pos = assetsLeft-acm-cfg.neutral_pos;
 	double prev_pos = act_pos - tradeSize;
 	double new_pos = tradeSize?calcNewPos(tradePrice,true):prev_pos;
-
-	double ef = (1/ (2*k)) *(pow2(act_pos) - pow2(prev_pos)) + prev_pos * (tradePrice - p);
+	//realised profit/loss
+	double rpl = prev_pos * (tradePrice - p);
+	//unrealised profit/loss change
+	double upl = 0.5*(act_pos - prev_pos)*(act_pos + prev_pos)/k;
+	//potential change
+	double ef = rpl + upl;
+	//normalized profit
 	double np = ef * (1 - cfg.accum);
+	//normalized accumulated
 	double ap = (ef * cfg.accum)/tradePrice;
 	return {
 		OnTradeResult{np,ap},
