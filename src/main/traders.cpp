@@ -125,6 +125,8 @@ void Traders::removeTrader(ondra_shared::StrViewA n, bool including_state) {
 
 void Traders::resetBrokers() {
 	stockSelector.forEachStock([](json::StrViewA, IStockApi&api) {
+		AbstractExtern *extr = dynamic_cast<AbstractExtern *>(&api);
+		if (extr) extr->housekeeping(5);
 		api.reset();
 	});
 }

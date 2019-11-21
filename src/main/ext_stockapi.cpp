@@ -86,11 +86,15 @@ json::Value  ExtStockApi::placeOrder(const std::string_view & pair,
 
 
 bool ExtStockApi::reset() {
+	Sync _(lock);
+	//save housekeep counter to avoid reset treat as action
+	auto hs = this->houseKeepingCounter;
 	if (chldid != -1) try {
 		jsonRequestExchange("reset",json::Value());
 	} catch (...) {
 		jsonRequestExchange("reset",json::Value());
 	}
+	this->houseKeepingCounter = hs;
 	return true;
 }
 

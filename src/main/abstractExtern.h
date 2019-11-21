@@ -24,6 +24,7 @@ public:
 	void preload();
 	virtual void onConnect() {}
 	void stop();
+	void housekeeping(int counter);
 protected:
 
 	static const int invval;
@@ -55,6 +56,7 @@ protected:
 
 	static Pipe makePipe();
 	int msgCntr = 1;
+	int houseKeepingCounter = 0;
 
 
 	json::Value jsonExchange(json::Value request);

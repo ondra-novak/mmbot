@@ -168,6 +168,7 @@ void AbstractExtern::spawn() {
 				exterr = std::move(proc_error.read);
 				extin = std::move(proc_input.write);
 				chldid = frk;
+				houseKeepingCounter = 0;
 			}
 		});
 	}
@@ -277,6 +278,18 @@ bool AbstractExtern::writeJSON(json::Value v, FD& fd) {
 	return true;
 }
 
+void AbstractExtern::housekeeping(int counter) {
+	Sync _(lock);
+	if (chldid != -1) {
+		houseKeepingCounter++;
+		if (houseKeepingCounter >= counter) {
+			log.progress("Stopping the idle broker");
+			stop();
+		} else {
+			log.debug("HouseKeepCounter: $1", houseKeepingCounter);
+		}
+	}
+}
 
 json::Value AbstractExtern::readJSON(FD& fd) {
 	return json::Value::parse(Reader(fd));
@@ -297,6 +310,8 @@ void AbstractExtern::stop() {
 
 json::Value AbstractExtern::jsonExchange(json::Value request) {
 	Sync _(lock);
+
+	houseKeepingCounter=0;
 
 	std::string z;
 	std::string lastStdErr;
