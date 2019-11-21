@@ -119,6 +119,8 @@ public:
 	virtual void onInit() override;
 	virtual void setSettings(json::Value v) override;
 	virtual json::Value getSettings(const std::string_view &) const override ;
+	virtual PageData fetchPage(const std::string_view &method, const std::string_view &vpath, const PageData &pageData) override;
+
 
 	json::Value collectSettings() const;
 	void saveSettings();
@@ -173,7 +175,7 @@ inline Interface::BrokerInfo Interface::getBrokerInfo() {
 		true,
 		"Trainer",
 		"Trainer",
-		"",
+		"/",
 		"1.0",
 
 		"Trainer(c) 2019 Ondřej Novák\n\n"
@@ -611,4 +613,32 @@ inline void Interface::loadSettings() {
 	Value v = Value::fromStream(f);
 	if (!f) return;
 	setSettings(v);
+}
+
+Interface::PageData Interface::fetchPage(const std::string_view &method, const std::string_view &vpath, const Interface::PageData &pageData) {
+
+	std::ostringstream out;
+	out << R"html(
+		<!DOCTYPE html>
+		<html>
+		<head><title>Trainer example web page</title><head>
+		<body>
+		<h1>Trainer</h1>
+        <p>Hello - this is example page of the trainer. It is also test of the function fetchPage. Following part of the page contains data of the request.</p><table border="1">)html";
+	out << "<tr><th>Method:<td>" << method;
+	out << "<tr><th>Path:<td>" << vpath;
+	for (auto &&k: pageData.headers) {
+		out << "<tr><th>" << k.first << "<td>" << k.second;
+	}
+	out << "<tr><th>Body:<td>" << pageData.body;
+	out << "</table>";
+	out << "</body></html>";
+
+	return Interface::PageData {
+		200,
+		{
+				{"Content-Type","text/html;charset=utf-8"}
+		},
+		out.str()
+	};
 }

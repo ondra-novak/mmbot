@@ -42,7 +42,7 @@ public:
 	virtual void setSettings(json::Value v) override;
 	virtual void saveIconToDisk(const std::string &path) const override;
 	virtual std::string getIconName() const override;
-
+	virtual PageData fetchPage(const std::string_view &method, const std::string_view &vpath, const PageData &pageData) override;
 
 };
 

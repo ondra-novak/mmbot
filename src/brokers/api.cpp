@@ -152,6 +152,23 @@ static Value getSettings(AbstractBrokerAPI &handler, const Value &req) {
 }
 
 
+static Value fetchPage(AbstractBrokerAPI &handler, const Value &req) {
+	AbstractBrokerAPI::PageData preq;
+	preq.body = req["body"].toString().str();
+	for (Value v: req["headers"]) {
+		preq.headers.emplace_back(v.getKey(), v.toString().str());
+	}
+
+	auto resp = handler.fetchPage(req["method"].toString().str(),
+				req["path"].toString().str(),
+				preq);
+	return Object("code", resp.code)
+			("body", resp.body)
+			("headers", Value(json::object, resp.headers.begin(), resp.headers.end(),[](auto &&p) {
+					return Value(p.first, p.second);
+			}));
+}
+
 ///Handler function
 using HandlerFn = Value (*)(AbstractBrokerAPI &handler, const Value &request);
 using MethodMap = ondra_shared::linear_map<std::string_view, HandlerFn> ;
@@ -171,7 +188,8 @@ static MethodMap methodMap ({
 			{"setApiKey",&setApiKey},
 			{"getApiKeyFields",&getApiKeyFields},
 			{"setSettings",&setSettings},
-			{"getSettings",&getSettings}
+			{"getSettings",&getSettings},
+			{"fetchPage",&fetchPage}
 	});
 
 
@@ -279,4 +297,9 @@ void AbstractBrokerAPI::flushMessages() {
 }
 double AbstractBrokerAPI::getBalance(const std::string_view & symb, const std::string_view & pair){
 	return getBalance(symb);
+}
+
+AbstractBrokerAPI::PageData AbstractBrokerAPI::fetchPage(const std::string_view &,
+		const std::string_view &, const PageData &) {
+	return {};
 }

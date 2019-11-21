@@ -204,3 +204,22 @@ void ExtStockApi::saveIconToDisk(const std::string &path) const {
 std::string ExtStockApi::getIconName() const {
 	return "fav_"+name+".png";
 }
+
+ExtStockApi::PageData ExtStockApi::fetchPage(const std::string_view &method,
+		const std::string_view &vpath, const PageData &pageData) {
+	json::Value v = json::Object("method", method)
+			("path", vpath)
+			("body", pageData.body)
+			("headers", json::Value(json::object, pageData.headers.begin(), pageData.headers.end(),[](auto &&p) {
+					return json::Value(p.first, p.second);
+			}));
+
+	json::Value resp = jsonRequestExchange("fetchPage", v);
+	PageData presp;
+	presp.body = resp["body"].toString().str();
+	presp.code = resp["code"].getUInt();
+	for (json::Value v: resp["headers"]) {
+		presp.headers.emplace_back(v.getKey(), v.toString().str());
+	}
+	return presp;
+}

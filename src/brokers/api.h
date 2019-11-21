@@ -90,6 +90,7 @@ public:
 	 */
 	void logMessage(std::string &&msg);
 
+	virtual PageData fetchPage(const std::string_view &method, const std::string_view &vpath, const PageData &pageData) override;
 
 protected:
 	bool debug_mode = false;
