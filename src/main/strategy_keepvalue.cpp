@@ -59,10 +59,10 @@ IStrategy* Strategy_KeepValue::importState(json::Value src) const {
 	return init(src["p"].getNumber(), src["a"].getNumber(),src["acm"].getNumber());
 }
 
-double Strategy_KeepValue::calcOrderSize(double price, double assets) const {
+double Strategy_KeepValue::getOrderSize(double price, double assets) const {
 	double k = (a+cfg.ea) * p;
 	double na = k / price;
-	return (na - cfg.ea) - assets;
+	return calcOrderSize(a, assets, na - cfg.ea);
 }
 
 Strategy_KeepValue::MinMax Strategy_KeepValue::calcSafeRange(double assets,

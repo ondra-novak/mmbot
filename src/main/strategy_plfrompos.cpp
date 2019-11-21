@@ -119,11 +119,10 @@ IStrategy* Strategy_PLFromPos::importState(json::Value src) const {
 	return new Strategy_PLFromPos(cfg, new_p, new_pos, new_acm);
 }
 
-double Strategy_PLFromPos::calcOrderSize(double price, double assets) const {
+double Strategy_PLFromPos::getOrderSize(double price, double assets) const {
 	bool reducepos = cfg.maxpos == 0 || std::fabs(assets-acm-cfg.neutral_pos) < cfg.maxpos;
 	double new_pos = calcNewPos(price, reducepos);
-	return new_pos + cfg.neutral_pos + acm - assets;
-
+	return calcOrderSize(pos + cfg.neutral_pos + acm, assets, new_pos + cfg.neutral_pos+acm);
 }
 
 Strategy_PLFromPos::MinMax Strategy_PLFromPos::calcSafeRange(double assets,

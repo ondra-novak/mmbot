@@ -1,8 +1,13 @@
 #!/bin/bash
+
+BUILDTYPE=RELWITHDEBINFO
+if [[ $1 == "debug" ]]; then 
+    BUILDTYPE=DEBUG
+fi
 	
 mkdir -p ./data
 mkdir -p ./secure_data
 mkdir -p ./log
 mkdir -p ./run
-cmake -DCMAKE_BUILD_TYPE=RELWITHDEBINFO .
+cmake -DCMAKE_BUILD_TYPE=$BUILDTYPE .
 make all -j `nproc`

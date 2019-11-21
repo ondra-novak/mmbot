@@ -38,7 +38,7 @@ public:
 						double assetsLeft, double currencyLeft) const override;
 	virtual json::Value exportState() const override;
 	virtual IStrategy *importState(json::Value src) const override;
-	virtual double calcOrderSize(double price, double assets) const override;
+	virtual double getOrderSize(double price, double assets) const override;
 	virtual MinMax calcSafeRange(double assets, double currencies) const override;
 	virtual double getEquilibrium() const override;
 	virtual std::string_view getID() const override;

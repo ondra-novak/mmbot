@@ -58,9 +58,8 @@ IStrategy* Strategy_HalfHalf::importState(json::Value src) const {
 	return new Strategy_HalfHalf(ea, accu, new_p, new_a);
 }
 
-double Strategy_HalfHalf::calcOrderSize(double n, double assets) const {
-	double ca = assets + ea;
-	return a * sqrt(p/n) - ca + (a * p + a * n - 2 * a * sqrt(p * n)) * accu / n;
+double Strategy_HalfHalf::getOrderSize(double n, double assets) const {
+	return calcOrderSize(a, assets + ea, a * sqrt(p/n) + (a * p + a * n - 2 * a * sqrt(p * n)) * accu / n);
 }
 
 Strategy_HalfHalf::MinMax Strategy_HalfHalf::calcSafeRange(double assets, double currencies) const {

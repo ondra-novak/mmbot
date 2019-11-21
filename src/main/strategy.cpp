@@ -54,3 +54,10 @@ void Strategy::importState(json::Value src) {
 	json::Value data = src[ptr->getID()];
 	ptr = ptr->importState(data);
 }
+
+double IStrategy::calcOrderSize(double expectedAmount, double actualAmount, double newAmount) {
+	double middle = (actualAmount + expectedAmount)/2;
+	double size = newAmount - middle;
+	return size;
+}
+

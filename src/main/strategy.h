@@ -35,7 +35,7 @@ public:
 	void importState(json::Value src);
 
 	double calcOrderSize(double price, double assets) const {
-		return ptr->calcOrderSize(price, assets);
+		return ptr->getOrderSize(price, assets);
 	}
 	MinMax calcSafeRange(double assets, double currencies) const {
 		return ptr->calcSafeRange(assets, currencies);

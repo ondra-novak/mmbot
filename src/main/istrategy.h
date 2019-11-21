@@ -58,7 +58,7 @@ public:
 	virtual IStrategy *importState(json::Value src) const = 0;
 
 
-	virtual double calcOrderSize(double price, double assets) const = 0;
+	virtual double getOrderSize(double price, double assets) const = 0;
 
 
 	struct MinMax {
@@ -75,6 +75,22 @@ public:
 	virtual std::string_view getID() const = 0;
 
 	virtual ~IStrategy() {}
+
+protected:
+	///Calculates order size
+	/**
+	 *
+	 * @param expectedAmount expected amount of assets on the exchange
+	 * @param actualAmmount actual amount of the assets on the exchange (can be different)
+	 * @param newAmount new amount to achieve on th exchange
+	 * @return size of the order
+	 *
+	 * @note the simple formula is to substract newAmount from actualAmount. However the
+	 * formula is slightly relaxed to avoid large orders if the actualAmount is much different
+	 * than expectedAmount.
+	 *
+	 */
+	static double calcOrderSize(double expectedAmount, double actualAmount, double newAmount);
 };
 
 
