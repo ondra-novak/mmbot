@@ -125,8 +125,6 @@ public:
 		double balance;
 		double main_conv_rate;
 		std::string currency;
-		ondra_shared::linear_map<std::string, double> conv_rate;
-
 	};
 
 
@@ -156,7 +154,6 @@ public:
 	void updateSymbols();
 	bool hasKey() const;
 	void updatePositions();
-	void updateRate(const SymbolInfo &sinfo, Value order, Account &a);
 	double findConvRate(std::string fromCurrency, std::string toCurrency);
 
 
@@ -258,9 +255,7 @@ inline double Interface::getBalance(const std::string_view& symb,
 		if (iter == position.end()) return 0;
 		else return iter->second;
 	} else {
-		auto conv = a.conv_rate.find(symbol);
-		if (conv == a.conv_rate.end()) return (a.balance/a.main_conv_rate)*findConvRate(a.currency, symbol);
-		else return a.balance*conv->second;
+		return (a.balance/a.main_conv_rate)*findConvRate(a.currency, symbol);
 	}
 }
 
@@ -449,8 +444,9 @@ inline json::Value Interface::getSettings(const std::string_view& pairHint) cons
 			("default",a.login)
 			("options",Value(json::object, accounts.begin(), accounts.end(),[](auto &x){
 				Value l = x.second.login;
+				Value bal = x.second.balance / x.second.main_conv_rate;
 				String ls = l.toString();
-				return Value(ls, String({ls," (",x.second.reality,")"}));
+				return Value(ls, String({ls," (",x.second.reality,") ",bal.toString()," ",x.second.currency}));
 			}))
 	};
 }
@@ -501,7 +497,6 @@ inline double Interface::execCommand(const std::string &symbol, double amount) {
 
 	Value morder = v["marketOrders"][0];
 	Value order = morder["order"];
-	updateRate(sinfo, order,a);
 	updatePosition(symbol, amount);
 	switch (morder["action"].getUInt()) {
 		case 1: {
@@ -632,14 +627,7 @@ inline void Interface::updatePositions() {
 				double volume = v["volume"].getNumber() * sinfo.mult;
 				if (v["side"].getString() == "SELL") volume = -volume;
 				updatePosition(symbol, volume);
-				updateRate(sinfo, v, a.second);
 		}
 	}
 }
 
-inline void Interface::updateRate(const SymbolInfo &sinfo, Value order, Account &a) {
-	double rate = first_match([](Value v){return v.getNumber();}, order["closeConversionRate"], order["openConversionRate"]).getNumber();
-	double rate2 = order["closePrice"].getNumber();
-	if (rate) rate = rate2/rate;
-	a.conv_rate[sinfo.currency_symbol] = rate;
-}
