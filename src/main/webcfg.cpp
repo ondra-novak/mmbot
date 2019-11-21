@@ -267,9 +267,9 @@ static Value getOpenOrders(IStockApi &api, const std::string_view &pair) {
 
 }
 
-static Value getPairInfo(IStockApi &api, const std::string_view &pair) {
+static Value getPairInfo(IStockApi &api, const std::string_view &pair, const std::optional<double> &internalBalance = std::optional<double>()) {
 	IStockApi::MarketInfo nfo = api.getMarketInfo(pair);
-	double ab = getSafeBalance(&api, nfo.asset_symbol, pair);
+	double ab = internalBalance.has_value()?*internalBalance:getSafeBalance(&api, nfo.asset_symbol, pair);
 	double cb = getSafeBalance(&api, nfo.currency_symbol, pair);
 	Value resp = Object("symbol",pair)("asset_symbol", nfo.asset_symbol)(
 			"currency_symbol", nfo.currency_symbol)("fees",
@@ -533,7 +533,8 @@ bool WebCfg::reqTraders(simpleServer::HTTPRequest req, ondra_shared::StrViewA vp
 						})(broker.getTicker(tr->getConfig().pairsymb)));
 						out.set("orders", getOpenOrders(broker, tr->getConfig().pairsymb));
 						out.set("broker", tr->getConfig().broker);
-						out.set("pair", getPairInfo(broker, tr->getConfig().pairsymb));
+						auto ibalance = tr->getInternalBalance();
+						out.set("pair", getPairInfo(broker, tr->getConfig().pairsymb, ibalance));
 						req.sendResponse(std::move(hdr), Value(out).stringify());
 					} else if (cmd == "spread") {
 						if (!req.allowMethods({"POST"})) return;
@@ -751,7 +752,7 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req) const {
 				("version", binfo.version)
 				("settings", binfo.settings)
 				("trading_enabled", binfo.trading_enabled));
-		result.set("pair", getPairInfo(*api, p));
+		result.set("pair", getPairInfo(*api, p, tr->getInternalBalance()));
 		result.set("orders", getOpenOrders(*api, p));
 		result.set("strategy", strategy);
 

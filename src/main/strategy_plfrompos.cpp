@@ -67,7 +67,7 @@ double Strategy_PLFromPos::calcNewPos(double tradePrice, bool reducepos) const {
 	}
 	//adjust np, if max position has been reached
 	if (cfg.maxpos && fabs(np) > cfg.maxpos) {
-		return (np + cfg.maxpos)/2;
+		return sgn(np)*(ap + cfg.maxpos)/2;
 	} else {
 		return np;
 	}

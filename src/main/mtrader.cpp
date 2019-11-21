@@ -207,39 +207,20 @@ void MTrader::perform(bool manually) {
 			ondra_shared::logDebug("internal_balance=$1, external_balance=$2",status.internalBalance,status.assetBalance);
 
 			if (status.curStep) {
-				Order buyorder;
-				Order sellorder;
-				double bm = 0, sm = 0;
-
-				int retryCnt = 500;
-				bool retry;
-				do {
-					retry = false;
 
 
 					//calculate buy order
-					buyorder = calculateOrder(lastTradePrice,
-												  -status.curStep*cfg.buy_step_mult, buy_dynmult+bm,
+				Order buyorder = calculateOrder(lastTradePrice,
+												  -status.curStep*cfg.buy_step_mult, buy_dynmult,
 												   status.ticker.bid, status.assetBalance,
 												   cfg.buy_mult);
 					//calculate sell order
-					sellorder = calculateOrder(lastTradePrice,
-												   status.curStep*cfg.sell_step_mult, sell_dynmult+sm,
+				Order sellorder = calculateOrder(lastTradePrice,
+												   status.curStep*cfg.sell_step_mult, sell_dynmult,
 												   status.ticker.ask, status.assetBalance,
 												   cfg.sell_mult);
 
-					if (buyorder.size == 0 && !orders.buy.has_value()) {
-						bm += 0.1;
-						retry = true;
-					}
-					if (sellorder.size == 0 && !orders.sell.has_value()) {
-						sm += 0.1;
-						retry = true;
-					}
 
-					retryCnt--;
-
-				} while (retryCnt > 0 && retry);
 
 
 				if (!cfg.enabled)  {
@@ -443,6 +424,7 @@ MTrader::Status MTrader::getMarketStatus() const {
 		res.assetBalance = res.internalBalance;
 	} else{
 		res.assetBalance = stock.getBalance(minfo.asset_symbol, cfg.pairsymb);
+		res.internalBalance = res.assetBalance;
 	}
 
 	if (!res.new_trades.trades.empty()) {
@@ -502,11 +484,12 @@ MTrader::Order MTrader::calculateOrderFeeLess(
 	if (size * step >= 0) {
 		if (cfg.dust_orders) {
 			enableDust = true;
+			size = -1e-90*sgn(step);
 		} else {
 			size = 0;
 		}
 	}
-	//fill order
+
 	order.size = size * mult;
 	order.price = newPrice;
 
@@ -539,12 +522,24 @@ MTrader::Order MTrader::calculateOrder(
 		double balance,
 		double mult) const {
 
-	Order order(calculateOrderFeeLess(lastTradePrice, step,dynmult,curPrice,balance,mult));
-	//apply fees
-	minfo.addFees(order.size, order.price);
+		double m = 1;
 
-	//order here
-	return order;
+		int cnt = 0;
+
+		do {
+
+			Order order(calculateOrderFeeLess(lastTradePrice, step*m,dynmult,curPrice,balance,mult));
+			//apply fees
+			minfo.addFees(order.size, order.price);
+
+			if (order.size || cnt > 1000) {
+				return order;
+			}
+
+			cnt++;
+			m = m*1.1;
+
+		} while (true);
 
 }
 
@@ -644,7 +639,8 @@ void MTrader::saveState() {
 		auto st = obj.object("state");
 		st.set("buy_dynmult", buy_dynmult);
 		st.set("sell_dynmult", sell_dynmult);
-		st.set("internal_balance", *internal_balance);
+		if (internal_balance.has_value())
+			st.set("internal_balance", *internal_balance);
 		st.set("recalc",recalc);
 		st.set("uid",uid);
 		st.set("lastTradeId",lastTradeId);
@@ -871,7 +867,7 @@ bool MTrader::acceptLoss(std::optional<Order> &orig, const Order &order, const S
 				if (newsz * cpy.price < minfo.min_volume) {
 					newsz = cpy.price / minfo.min_volume;
 				}
-				cpy.size = sgn(cpy.size)* newsz;
+				cpy.size = sgn(order.size)* newsz;
 				minfo.addFees(cpy.size, cpy.price);
 				try {
 					setOrder(orig,cpy);
@@ -1056,6 +1052,12 @@ static double stCalcSpread(const std::vector<double> &values,unsigned int input_
 	})/std::distance(iter, end));
 	return std::log((stdev+sma.back())/sma.back());
 }
+
+std::optional<double> MTrader::getInternalBalance() {
+	if (cfg.internal_balance) return internal_balance;
+	else return std::optional<double>();
+}
+
 
 double MTrader::calcSpread() const {
 	if (chart.size() < 5) return 0;
