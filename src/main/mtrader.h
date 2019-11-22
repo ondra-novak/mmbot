@@ -76,7 +76,7 @@ public:
 	using Config = MTrader_Config;
 
 	struct Order: public IStockApi::Order {
-		bool isSimilarTo(const Order &other, double step);
+		bool isSimilarTo(const Order &other, double step, bool inverted);
 		Order(const IStockApi::Order& o):IStockApi::Order(o) {}
 		Order() {}
 		Order(double size, double price){

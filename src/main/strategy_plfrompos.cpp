@@ -64,9 +64,10 @@ double Strategy_PLFromPos::calcNewPos(double tradePrice, bool reducepos) const {
 			//calculate new positon by sqrt(np2) and adding signature
 			np = sgn(np) * sqrt(np2);
 		} //otherwise stick with original np
+		ap = std::abs(np);
 	}
 	//adjust np, if max position has been reached
-	if (cfg.maxpos && fabs(np) > cfg.maxpos) {
+	if (cfg.maxpos && ap > cfg.maxpos) {
 		return sgn(np)*(ap + cfg.maxpos)/2;
 	} else {
 		return np;

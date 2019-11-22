@@ -121,8 +121,16 @@ MTrader::MTrader(IStockSelector &stock_selector,
 }
 
 
-bool MTrader::Order::isSimilarTo(const Order& other, double step) {
-	return std::fabs(price - other.price) < step && size * other.size > 0;
+bool MTrader::Order::isSimilarTo(const Order& other, double step, bool inverted) {
+	double p1,p2;
+	if (inverted) {
+		 p1 = 1.0/price;
+		 p2 = 1.0/other.price;
+	} else {
+		p1 = price;
+		p2 = other.price;
+	}
+	return std::fabs(p1 - p2) < step && size * other.size > 0;
 }
 
 
@@ -363,7 +371,7 @@ void MTrader::setOrder(std::optional<Order> &orig, Order neworder) {
 		json::Value replaceid;
 		double replaceSize = 0;
 		if (orig.has_value()) {
-			if (orig->isSimilarTo(neworder, minfo.currency_step)) return;
+			if (orig->isSimilarTo(neworder, minfo.currency_step, minfo.invert_price)) return;
 			replaceid = orig->id;
 			replaceSize = std::fabs(orig->size);
 		}
