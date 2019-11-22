@@ -36,7 +36,8 @@ double Strategy_PLFromPos::calcK() const {
 	return cfg.step / (pow2(p) * 0.01);
 }
 
-double Strategy_PLFromPos::calcNewPos(double tradePrice, bool reducepos) const {
+double Strategy_PLFromPos::calcNewPos(double tradePrice) const {
+	double maxpos = cfg.maxpos?cfg.maxpos:std::numeric_limits<double>::max();
 	//calculate direction of the line defines position change per price change
 	double k = calcK();
 	//calculate new position on new price
@@ -44,7 +45,7 @@ double Strategy_PLFromPos::calcNewPos(double tradePrice, bool reducepos) const {
 	//get absolute value of the position
 	double ap = std::abs(np);
 	//if new position is reduced, but not reversed
-	if (ap < std::abs(pos) && np * pos > 0) {
+	if (ap < std::abs(pos) && np * pos > 0 && std::abs(pos) <= maxpos) {
 		//calculate profit made from moving price from p to tradePrice
 		//profit is defined by current position * difference of two prices
 		//also increas or decrease it by reduce factor, which can be configured (default 1)
@@ -67,8 +68,8 @@ double Strategy_PLFromPos::calcNewPos(double tradePrice, bool reducepos) const {
 		ap = std::abs(np);
 	}
 	//adjust np, if max position has been reached
-	if (cfg.maxpos && ap > cfg.maxpos) {
-		return sgn(np)*(ap + cfg.maxpos)/2;
+	if (ap > maxpos) {
+		return sgn(np)*(ap + maxpos)/2;
 	} else {
 		return np;
 	}
@@ -81,7 +82,7 @@ std::pair<Strategy_PLFromPos::OnTradeResult, IStrategy*> Strategy_PLFromPos::onT
 	double k = calcK();
 	double act_pos = assetsLeft-acm-cfg.neutral_pos;
 	double prev_pos = act_pos - tradeSize;
-	double new_pos = tradeSize?calcNewPos(tradePrice,true):prev_pos;
+	double new_pos = tradeSize?calcNewPos(tradePrice):prev_pos;
 	//realised profit/loss
 	double rpl = prev_pos * (tradePrice - p);
 	//unrealised profit/loss change
@@ -121,8 +122,7 @@ IStrategy* Strategy_PLFromPos::importState(json::Value src) const {
 }
 
 double Strategy_PLFromPos::getOrderSize(double price, double assets) const {
-	bool reducepos = cfg.maxpos == 0 || std::fabs(assets-acm-cfg.neutral_pos) < cfg.maxpos;
-	double new_pos = calcNewPos(price, reducepos);
+	double new_pos = calcNewPos(price);
 	return calcOrderSize(pos + cfg.neutral_pos + acm, assets, new_pos + cfg.neutral_pos+acm);
 }
 
