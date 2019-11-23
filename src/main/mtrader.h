@@ -167,7 +167,7 @@ public:
 		std::vector<Item> chart;
 	};
 	VisRes visualizeSpread(unsigned int sma, unsigned int stdev, double mult);
-	std::optional<double> getInternalBalance();
+	static std::optional<double> getInternalBalance(const MTrader *ptr);
 
 protected:
 	std::unique_ptr<IStockApi> ownedStock;

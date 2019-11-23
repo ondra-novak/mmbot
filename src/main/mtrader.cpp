@@ -1061,8 +1061,8 @@ static double stCalcSpread(const std::vector<double> &values,unsigned int input_
 	return std::log((stdev+sma.back())/sma.back());
 }
 
-std::optional<double> MTrader::getInternalBalance() {
-	if (cfg.internal_balance) return internal_balance;
+std::optional<double> MTrader::getInternalBalance(const MTrader *ptr) {
+	if (ptr && ptr->cfg.internal_balance) return ptr->internal_balance;
 	else return std::optional<double>();
 }
 

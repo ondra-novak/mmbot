@@ -109,7 +109,7 @@ inline double Interface::getBalance(const std::string_view &symb) {
 	} else {
 		auto response = px.request("private/get_account_summary",Object
 			("currency",symb),true);
-		return response["available_funds"].getNumber();
+		return response["margin_balance"].getNumber();
 	}
 }
 

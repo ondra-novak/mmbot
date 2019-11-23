@@ -13,6 +13,7 @@
 #include "sgn.h"
 
 using ondra_shared::logDebug;
+using ondra_shared::logInfo;
 
 std::string_view Strategy_PLFromPos::id = "plfrompos";
 
@@ -26,8 +27,10 @@ bool Strategy_PLFromPos::isValid() const {
 	return p > 0;
 }
 
-IStrategy* Strategy_PLFromPos::init(double curPrice, double assets, double ) const {
-	return new Strategy_PLFromPos(cfg, curPrice, assets - cfg.neutral_pos);
+IStrategy* Strategy_PLFromPos::init(double curPrice, double assets, double currency) const {
+	Config c = cfg;
+	if (cfg.power) calcPower(c, curPrice, assets, currency);
+	return new Strategy_PLFromPos(c, curPrice, assets - cfg.neutral_pos);
 }
 
 
@@ -93,9 +96,11 @@ std::pair<Strategy_PLFromPos::OnTradeResult, IStrategy*> Strategy_PLFromPos::onT
 	double np = ef * (1 - cfg.accum);
 	//normalized accumulated
 	double ap = (ef * cfg.accum)/tradePrice;
+	Config c = cfg;
+	if (cfg.power) calcPower(c, tradePrice, assetsLeft, currencyLeft);
 	return {
 		OnTradeResult{np,ap},
-		new Strategy_PLFromPos(cfg,tradePrice, new_pos, acm+ap)
+		new Strategy_PLFromPos(c,tradePrice, new_pos, acm+ap)
 	};
 }
 
@@ -104,7 +109,8 @@ json::Value Strategy_PLFromPos::exportState() const {
 			("p",p)
 			("pos",pos)
 			("acm",acm)
-			("np", cfg.neutral_pos);
+			("np", cfg.neutral_pos)
+			("pw", cfg.power && p?json::Value(json::Object("step",cfg.step)("max_pos",cfg.maxpos)("pw",(int)(cfg.power*1000))):json::Value());
 
 }
 
@@ -113,12 +119,18 @@ IStrategy* Strategy_PLFromPos::importState(json::Value src) const {
 	double new_pos = src["pos"].getNumber();
 	double new_acm =  src["acm"].getNumber();
 	double old_np = src["np"].getNumber();
+	Config new_cfg = cfg;
+	json::Value jcfg = src["pw"];
+	if (jcfg.defined() && (int)(cfg.power*1000) == jcfg["power"].getInt()) {
+		new_cfg.step = jcfg["step"].getNumber();
+		new_cfg.maxpos = jcfg["max_pos"].getNumber();
+	}
 	new_pos -= (cfg.neutral_pos - old_np);
 	if (fabs(old_np -cfg.neutral_pos) > (fabs(old_np)+fabs(cfg.neutral_pos))*0.00001) {
 		new_pos += new_acm;
 		new_acm = 0;
 	}
-	return new Strategy_PLFromPos(cfg, new_p, new_pos, new_acm);
+	return new Strategy_PLFromPos(new_cfg, new_p, new_pos, new_acm);
 }
 
 double Strategy_PLFromPos::getOrderSize(double price, double assets) const {
@@ -165,4 +177,14 @@ IStrategy* Strategy_PLFromPos::setMarketInfo(
 	} else {
 		return const_cast<Strategy_PLFromPos *>(this);
 	}
+}
+
+void Strategy_PLFromPos::calcPower(Config& c, double price, double , double currency)
+{
+	double step = currency * std::pow(10, c.power)*0.01;
+	double k = step / (price * price * 0.01);
+	double max_pos = sqrt(k * currency);
+	c.maxpos = max_pos;
+	c.step = step;
+	logInfo("Strategy recalculated: step=$1, max_pos=$2", step, max_pos);
 }

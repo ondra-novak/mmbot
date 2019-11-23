@@ -365,11 +365,11 @@ App.prototype.fillForm = function (src, trg) {
 			var minp = -inputs.max_pos/k+mp;
 			var maxp = +inputs.max_pos/k+mp;
 			if (pair.invert_price) {
-				fdata.linear_max_price = adjNum(1/minp);
+				fdata.linear_max_price = minp<0?"∞":adjNum(1/minp);
 				fdata.linear_min_price = adjNum(1/maxp);
 			} else {
 				fdata.linear_min_price = adjNum(minp);
-				fdata.linear_max_price = adjNum(maxp);				
+				fdata.linear_max_price = maxp<0?"∞":adjNum(maxp);				
 			}
 			fdata.err_toolargepos = {classList:{mark:pos > safe_pos}};
 			fdata.err_invalid_values = {classList:{mark:inputs.cstep<=0 || inputs.max_pos<0}};
@@ -429,6 +429,16 @@ App.prototype.fillForm = function (src, trg) {
 			trg.setData(data);
 			
 		}
+		function linStrategy_recalc_power() {
+			var v = trg.readData(["pl_power","pl_confmode"]);
+			if (v.pl_confmode == "m") return;
+			var m = Math.pow(10,v.pl_power)*0.01;
+			trg.setData({"pl_show_factor":adjNumN(m),
+						"cstep":pair.currency_balance*m});
+			
+			linStrategy_recomended_maxpos();
+
+		}
 
 		data.max_pos = data.cstep = data.neutral_pos = {"!input": linStrategy_recalc};
 		data.linear_suggest = {"!click":linStrategy_recomended};
@@ -437,9 +447,16 @@ App.prototype.fillForm = function (src, trg) {
 		data.vis_spread = {"!click": this.init_spreadvis.bind(this, trg, src.id)};
 		linStrategy_recalc();
 		halfHalf_recalc();
+		linStrategy_recalc_power();
 		var tmp = trg.readData(["cstep","max_pos"]);
 		if (!tmp.max_pos && !tmp.cstep) linStrategy_recomended();
-		
+		data.pl_power={"!input":function() {
+			linStrategy_recalc_power();
+		}};
+		data.pl_confmode = {"!change":function() {
+			trg.showItem("pl_mode_m", this.value == "m");
+			trg.showItem("pl_mode_a", this.value == "a");
+		}};
 		
 	}.bind(this);
 	
@@ -454,6 +471,9 @@ App.prototype.fillForm = function (src, trg) {
 	data.pl_acum = 0;
 	data.acum_factor = 0;
 	data.external_assets = 0;
+	data.pl_mode_m = {".hidden":true};
+	data.pl_power=1;
+	data.pl_show_factor=0.1;
 
 	if (data.strategy == "halfhalf" || data.strategy == "keepvalue") {
 		data.acum_factor = filledval(defval(src.strategy.accum,0)*100,0);
@@ -463,7 +483,12 @@ App.prototype.fillForm = function (src, trg) {
 		data.neutral_pos = filledval(src.strategy.neutral_pos,0);		
 		data.cstep = filledval(src.strategy.cstep,0);
 		data.max_pos = filledval(src.strategy.maxpos,0);
-		data.pl_redfact = filledval(defval(src.strategy.reduce_factor,1)*100,100); 
+		data.pl_redfact = filledval(defval(src.strategy.reduce_factor,1)*100,100);
+		data.pl_confmode= filledval(src.strategy.power?"a":"m", "a");
+		data.pl_power=filledval(src.strategy.power?src.strategy.power:1,1);
+		data.pl_mode_m = {".hidden":!!src.strategy.power};
+		data.pl_mode_a = {".hidden":!src.strategy.power};
+		data.pl_show_factor=Math.pow(10,defval(src.strategy.power,1))*0.01;
 	}
 	data.enabled = src.enabled;
 	data.dry_run = src.dry_run;
@@ -550,6 +575,7 @@ App.prototype.saveForm = function(form, src) {
 		trader.strategy.neutral_pos = data.neutral_pos;
 		trader.strategy.maxpos = data.max_pos;
 		trader.strategy.reduce_factor = data.pl_redfact/100;
+		trader.strategy.power = data.pl_confmode=="a"?data.pl_power:0;
 	} else if (data.strategy == "halfhalf" || data.strategy == "keepvalue") {
 		trader.strategy.accum = data.acum_factor/100.0;
 		trader.strategy.ea = data.external_assets;

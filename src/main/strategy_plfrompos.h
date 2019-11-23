@@ -26,7 +26,7 @@ public:
 		double neutral_pos;
 		double maxpos;
 		double reduce_factor;
-		CloseMode closeMode;
+		double power;
 
 	};
 
@@ -59,6 +59,7 @@ protected:
 
 private:
 	double calcNewPos(double tradePrice) const;
+	static void calcPower(Config &c, double price, double assets, double currency);
 };
 
 #endif /* SRC_MAIN_STRATEGY_PLFROMPOS_H_ */

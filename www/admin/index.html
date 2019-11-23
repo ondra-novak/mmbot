@@ -75,9 +75,11 @@
 </x-section>
 </x-section>
 <x-section data-name="strategy_pl" class="goal hidden" hidden="hidden"><x-section-caption>Linear</x-section-caption>
-<label><span>Invest to 1% movement in currency [<span data-name="currency"></span>]: <span class="tooltip"
+<label><span>Configuration mode</span><select name="pl_confmode"><option value="a">Automatic (easy)</option><option value="m">Manual</option></select></label>
+<label data-name="pl_mode_a"><span>Power (<span data-name="pl_show_factor"></span>x)</span><x-slider data-name="pl_power" data-min="0.01" data-max="5" data-mult="0.01" data-fixed="2"></x-slider></label>
+<label data-name="pl_mode_m"><span>Invest to 1% movement in currency [<span data-name="currency"></span>]: <span class="tooltip"
 >Specifies how much currency is used in 1% momement of the price. </span></span><input data-name="cstep" type="number" step="any"></label>
-<label><span>Max position (0&nbsp;=&nbsp;disabled)<span class="tooltip"
+<label data-name="pl_mode_m"><span>Max position (0&nbsp;=&nbsp;disabled)<span class="tooltip"
 >Specifies maximum position in both sides (short or long) for normal trading. This doesn't mean, that trading will
 stop beyond this limit, however the strategy focuses on position reduction regadless on possible loss. This also
 doesn't work as stoploss, because position can still grow beyoind the limit, but a lot of slower.</span></span><input data-name="max_pos" type="number" step="any">
@@ -87,7 +89,7 @@ doesn't work as stoploss, because position can still grow beyoind the limit, but
 </label>
 <label class="adv"><span>Reduction factor [%]<span class="tooltip">Specifies factor of position reduction. Value 0% means no profit is used to reduce position. This can make a lot of profit in sideways market, however brings a lot of risk in a trending market. Default value 100% is precisely calculated ratio of profit which is used to reduce position without causing loss. This helps to reduce position in trending markets and still makes reasonable profit in sideways markets. Higher values can result to loss, because all or more profit is used to reduce position</span></span><x-slider data-name="pl_redfact" data-min="0" data-max="100" data-mult="10"></x-slider></label>
 <label class="adv"><span>Accumulation <span class="tooltip">Amount of the profit used to buy extra assets</span></span><x-slider data-name="pl_acum" data-min="0" data-max="100" data-mult="1"></x-slider></label>
-<div class="rightinfo"><button data-name="linear_suggest">Propose</button><button data-name="linear_suggest_maxpos">Propose max position</button></div>
+<div class="rightinfo"><button data-name="linear_suggest pl_mode_m">Propose</button><button data-name="linear_suggest_maxpos  pl_mode_m">Propose max position</button></div>
 <div class="warning" data-name="err_toolargepos">Changing setting is discouraged because the open position is too large</div>
 <div class="warning" data-name="err_invalid_values">Unable to trade - invalid values</div>
 

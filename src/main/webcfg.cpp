@@ -566,7 +566,7 @@ bool WebCfg::reqTraders(simpleServer::HTTPRequest req, ondra_shared::StrViewA vp
 						})(broker.getTicker(tr->getConfig().pairsymb)));
 						out.set("orders", getOpenOrders(broker, tr->getConfig().pairsymb));
 						out.set("broker", tr->getConfig().broker);
-						auto ibalance = tr->getInternalBalance();
+						auto ibalance = MTrader::getInternalBalance(tr);
 						out.set("pair", getPairInfo(broker, tr->getConfig().pairsymb, ibalance));
 						req.sendResponse(std::move(hdr), Value(out).stringify());
 					} else if (cmd == "spread") {
@@ -785,7 +785,7 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req) const {
 				("version", binfo.version)
 				("settings", binfo.settings)
 				("trading_enabled", binfo.trading_enabled));
-		result.set("pair", getPairInfo(*api, p, tr->getInternalBalance()));
+		result.set("pair", getPairInfo(*api, p, MTrader::getInternalBalance(tr)));
 		result.set("orders", getOpenOrders(*api, p));
 		result.set("strategy", strategy);
 
