@@ -12,53 +12,24 @@
 #include "../shared/refcnt.h"
 #include "istockapi.h"
 
+class IStrategy;
+using PStrategy = ondra_shared::RefCntPtr<const IStrategy>;
+
 class IStrategy: public ondra_shared::RefCntObj {
 public:
-
-	///Strategy is initialized and valid
-	/**
-	 * @retval true valid and ready
-	 * @retval false not ready, you must do initial setup
-	 */
-	virtual bool isValid() const = 0;
-
-
-	///Initialized strategy. Because the object is immutable, it creates a new revision and returns it
-	/**
-	 * @param curPrice current price
-	 * @param assets current assets (or position)
-	 * @param currency current currencies
-	 * @return initialized strategy
-	 */
-	virtual IStrategy *init(double curPrice, double assets, double currency) const = 0;
-
-	virtual IStrategy *setMarketInfo(const IStockApi::MarketInfo &minfo)  const = 0;
-
 
 	struct OnTradeResult {
 		double normProfit;
 		double normAccum;
 	};
 
-	///Creates a new state after trade
-	/**
-	 * @param tradePrice price where the trade has been executed
-	 * @param tradeSize size of the execution. If this value is 0, then trade has been created by accept_loss
-	 * @param assetsLeft assets left on the account (or position)
-	 * @param currencyLeft currency left on the account
-	 * @return result of trade and pointer to a new state
-	 */
-	virtual std::pair<OnTradeResult,IStrategy *> onTrade(double tradePrice, double tradeSize, double assetsLeft, double currencyLeft) const = 0;
+	struct OrderData {
+		//price where order is put. If this field is 0, recommended price is used
+		double price;
+		//size of the order, +buy, -sell. If this field is 0, the order is not issued
+		double size;
+	};
 
-	///Export state to JSON
-	virtual json::Value exportState() const = 0;
-
-	///Import state from JSON
-	/** Creates new instance */
-	virtual IStrategy *importState(json::Value src) const = 0;
-
-
-	virtual double getOrderSize(double price, double assets) const = 0;
 
 
 	struct MinMax {
@@ -66,14 +37,19 @@ public:
 		double max;
 	};
 
-	virtual MinMax calcSafeRange(double assets, double currencies) const = 0;
 
+
+
+	virtual bool isValid() const = 0;
+	virtual PStrategy onIdle(const IStockApi::MarketInfo &minfo, const IStockApi::Ticker &curTicker, double assets, double currency) const = 0;
+	virtual std::pair<OnTradeResult, PStrategy > onTrade(const IStockApi::MarketInfo &minfo, double tradePrice, double tradeSize, double assetsLeft, double currencyLeft) const = 0;
+	virtual json::Value exportState() const = 0;
+	virtual PStrategy importState(json::Value src) const = 0;
+	virtual OrderData getNewOrder(const IStockApi::MarketInfo &minfo, double new_price, double dir, double assets, double currency) const = 0;
+	virtual MinMax calcSafeRange(const IStockApi::MarketInfo &minfo, double assets, double currencies) const = 0;
 	virtual double getEquilibrium() const = 0;
-
-	virtual IStrategy *reset() const = 0;
-
+	virtual PStrategy reset() const = 0;
 	virtual std::string_view getID() const = 0;
-
 	virtual ~IStrategy() {}
 
 protected:

@@ -334,7 +334,9 @@ App.prototype.fillForm = function (src, trg) {
 		var fields = []
 
 		function fill_recursive(path, node) {
+			if (node === undefined) return;
 			if (typeof node == "object") {
+				if (node === null) return;
 				Object.keys(node).forEach(function(k) {
 					fill_recursive(path.concat(k), node[k]);
 				});
@@ -493,8 +495,8 @@ App.prototype.fillForm = function (src, trg) {
 	data.enabled = src.enabled;
 	data.dry_run = src.dry_run;
 	data.accept_loss = filledval(src.accept_loss,1);
-	data.spread_calc_stdev_hours = filledval(src.spread_calc_stdev_hours,48);
-	data.spread_calc_sma_hours = filledval(src.spread_calc_sma_hours,4);
+	data.spread_calc_stdev_hours = filledval(src.spread_calc_stdev_hours,4);
+	data.spread_calc_sma_hours = filledval(src.spread_calc_sma_hours,24);
 	data.dynmult_raise = filledval(src.dynmult_raise,250);
 	data.dynmult_fall = filledval(src.dynmult_fall, 5);
 	data.dynmult_mode = filledval(src.dynmult_mode, "half_alternate");

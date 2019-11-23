@@ -17,32 +17,60 @@ using ondra_shared::logInfo;
 
 std::string_view Strategy_PLFromPos::id = "plfrompos";
 
-Strategy_PLFromPos::Strategy_PLFromPos(const Config &cfg, double p, double pos, double acm)
-	:cfg(cfg),p(p),pos(pos), acm(acm)
+Strategy_PLFromPos::Strategy_PLFromPos(const Config &cfg, const State &st)
+	:cfg(cfg),st(st)
 {
 }
 
 
 bool Strategy_PLFromPos::isValid() const {
-	return p > 0;
+	return st.inited;
 }
 
-IStrategy* Strategy_PLFromPos::init(double curPrice, double assets, double currency) const {
-	Config c = cfg;
-	if (cfg.power) calcPower(c, curPrice, assets, currency);
-	return new Strategy_PLFromPos(c, curPrice, assets - cfg.neutral_pos);
+double Strategy_PLFromPos::calcK(const State &st) {
+	return st.step / (pow2(st.p) * 0.01);
 }
-
-
 
 double Strategy_PLFromPos::calcK() const {
-	return cfg.step / (pow2(p) * 0.01);
+	return calcK(st);
 }
 
-double Strategy_PLFromPos::calcNewPos(double tradePrice) const {
-	double maxpos = cfg.maxpos?cfg.maxpos:std::numeric_limits<double>::max();
+PStrategy Strategy_PLFromPos::onIdle(const IStockApi::MarketInfo &minfo,
+		const IStockApi::Ticker &curTicker, double assets,
+		double currency) const {
+
+	if (st.inited && st.valid_power) return this;
+	double last = curTicker.last;
+	State newst = st;
+	if (!st.inited) {
+		newst.p = last;
+		newst.a = assets;
+	}
+
+	newst.inited = true;
+
+	if (!st.valid_power || !cfg.power) {
+		calcPower(newst, last, assets, currency);
+	}
+
+	if (!st.inited) {
+		double pos = assetsToPos(minfo,assets);
+		newst.value = pow2(pos) / (2* calcK(newst));
+	}
+
+
+	return new Strategy_PLFromPos(cfg,newst);
+
+}
+
+
+double Strategy_PLFromPos::calcNewPos(const IStockApi::MarketInfo &minfo, double tradePrice) const {
+	double maxpos = st.maxpos?st.maxpos:std::numeric_limits<double>::max();
 	//calculate direction of the line defines position change per price change
 	double k = calcK();
+	double pos = assetsToPos(minfo,st.a);
+	double p = st.p;
+
 	//calculate new position on new price
 	double np = pos + (p - tradePrice) * k;
 	//get absolute value of the position
@@ -72,75 +100,113 @@ double Strategy_PLFromPos::calcNewPos(double tradePrice) const {
 	}
 	//adjust np, if max position has been reached
 	if (ap > maxpos) {
-		return sgn(np)*(ap + maxpos)/2;
-	} else {
-		return np;
+		np = sgn(np)*(ap + maxpos)/2;
 	}
+	return posToAssets(minfo,np);
 }
 
-std::pair<Strategy_PLFromPos::OnTradeResult, IStrategy*> Strategy_PLFromPos::onTrade(
+std::pair<Strategy_PLFromPos::OnTradeResult, PStrategy> Strategy_PLFromPos::onTrade(
+		const IStockApi::MarketInfo &minfo,
 		double tradePrice, double tradeSize, double assetsLeft,
 		double currencyLeft) const {
 
+	PStrategy s;
+	if (st.inited) {
+		s = this;
+	} else {
+		s = onIdle(minfo, IStockApi::Ticker{tradePrice,tradePrice,tradePrice}, assetsLeft, currencyLeft);
+	}
+	return static_cast<const Strategy_PLFromPos &>(*s).onTrade2(minfo,tradePrice, tradeSize,assetsLeft, currencyLeft);
+
+}
+
+
+std::pair<Strategy_PLFromPos::OnTradeResult, PStrategy> Strategy_PLFromPos::onTrade2(
+		const IStockApi::MarketInfo &minfo,
+		double tradePrice, double tradeSize, double assetsLeft,
+		double currencyLeft) const {
+
+	State newst = st;
+
 	double k = calcK();
-	double act_pos = assetsLeft-acm-cfg.neutral_pos;
+	double act_pos = assetsToPos(minfo,assetsLeft);
 	double prev_pos = act_pos - tradeSize;
-	double new_pos = tradeSize?calcNewPos(tradePrice):prev_pos;
+	double new_pos = tradeSize?calcNewPos(minfo,tradePrice):prev_pos;
 	//realised profit/loss
-	double rpl = prev_pos * (tradePrice - p);
+	double rpl = prev_pos * (tradePrice - st.p);
+	//position potential value (pos^2 / (2*k) - surface of a triangle)
+	double posVal = act_pos*act_pos/(2*k);
 	//unrealised profit/loss change
-	double upl = 0.5*(act_pos - prev_pos)*(act_pos + prev_pos)/k;
+	double upl = posVal - st.value;
 	//potential change
 	double ef = rpl + upl;
 	//normalized profit
 	double np = ef * (1 - cfg.accum);
 	//normalized accumulated
 	double ap = (ef * cfg.accum)/tradePrice;
-	Config c = cfg;
-	if (cfg.power) calcPower(c, tradePrice, assetsLeft, currencyLeft);
+
+	newst.acm  = st.acm + ap;
+	newst.p = tradePrice;
+	newst.a = new_pos;
+	newst.value = posVal;
+
+	calcPower(newst, tradePrice, assetsLeft, currencyLeft);
 	return {
 		OnTradeResult{np,ap},
-		new Strategy_PLFromPos(c,tradePrice, new_pos, acm+ap)
+		new Strategy_PLFromPos(cfg,newst)
 	};
 }
 
 json::Value Strategy_PLFromPos::exportState() const {
+	if (st.inited)
 	return json::Object
-			("p",p)
-			("pos",pos)
-			("acm",acm)
-			("np", cfg.neutral_pos)
-			("pw", cfg.power && p?json::Value(json::Object("step",cfg.step)("max_pos",cfg.maxpos)("pw",(int)(cfg.power*1000))):json::Value());
-
+			("p",st.p)
+			("a",st.a)
+			("acm",st.acm)
+			("maxpos",st.maxpos)
+			("step",st.step)
+			("val", st.value)
+			("pw", (int)(cfg.power*1000));
+	else return json::undefined;
 }
 
-IStrategy* Strategy_PLFromPos::importState(json::Value src) const {
-	double new_p = src["p"].getNumber();
-	double new_pos = src["pos"].getNumber();
-	double new_acm =  src["acm"].getNumber();
-	double old_np = src["np"].getNumber();
-	Config new_cfg = cfg;
-	json::Value jcfg = src["pw"];
-	if (jcfg.defined() && (int)(cfg.power*1000) == jcfg["power"].getInt()) {
-		new_cfg.step = jcfg["step"].getNumber();
-		new_cfg.maxpos = jcfg["max_pos"].getNumber();
+PStrategy Strategy_PLFromPos::importState(json::Value src) const {
+	if (src.hasValue()) {
+		State newst {
+			src["a"].defined(),
+			true,
+			src["p"].getNumber(),
+			src["a"].getNumber(),
+			src["step"].getNumber(),
+			src["maxpos"].getNumber(),
+			src["acm"].getNumber(),
+			src["val"].getNumber(),
+		};
+		int curpw = (int)(cfg.power*1000);
+		if (curpw != src["pw"].getUInt()) {
+			newst.valid_power = false;
+		}
+		return new Strategy_PLFromPos(cfg, newst);
+	} else {
+		return this;
 	}
-	new_pos -= (cfg.neutral_pos - old_np);
-	if (fabs(old_np -cfg.neutral_pos) > (fabs(old_np)+fabs(cfg.neutral_pos))*0.00001) {
-		new_pos += new_acm;
-		new_acm = 0;
-	}
-	return new Strategy_PLFromPos(new_cfg, new_p, new_pos, new_acm);
 }
 
-double Strategy_PLFromPos::getOrderSize(double price, double assets) const {
-	double new_pos = calcNewPos(price);
-	return calcOrderSize(pos + cfg.neutral_pos + acm, assets, new_pos + cfg.neutral_pos+acm);
+Strategy_PLFromPos::OrderData Strategy_PLFromPos::getNewOrder(
+		const IStockApi::MarketInfo &minfo,
+		double price, double dir, double assets, double currency) const {
+	double new_pos = calcNewPos(minfo, price);
+	double sz = calcOrderSize(st.a, assets, new_pos);
+	return OrderData {0, sz};
 }
 
-Strategy_PLFromPos::MinMax Strategy_PLFromPos::calcSafeRange(double assets,
+Strategy_PLFromPos::MinMax Strategy_PLFromPos::calcSafeRange(
+		const IStockApi::MarketInfo &minfo,
+		double assets,
 		double currencies) const {
-	double pos = assets-cfg.neutral_pos-acm;
+
+	double pos = assetsToPos(minfo,assets);
+	double p = st.p;
 	double k = calcK();
 	double mp = pos / k + p;
 	if (cfg.maxpos) {
@@ -157,34 +223,46 @@ Strategy_PLFromPos::MinMax Strategy_PLFromPos::calcSafeRange(double assets,
 }
 
 double Strategy_PLFromPos::getEquilibrium() const {
-	return p;
+	return st.p;
 }
 
 std::string_view Strategy_PLFromPos::getID() const {
 	return id;
 }
 
-IStrategy* Strategy_PLFromPos::reset() const {
-	return new Strategy_PLFromPos(cfg);
+PStrategy Strategy_PLFromPos::reset() const {
+	return new Strategy_PLFromPos(cfg,{});
 }
 
-IStrategy* Strategy_PLFromPos::setMarketInfo(
+
+double Strategy_PLFromPos::getNeutralPos(
 		const IStockApi::MarketInfo &minfo) const {
-	if (minfo.invert_price) {
-		Config cfg = this->cfg;
-		cfg.neutral_pos = -this->cfg.neutral_pos;
-		return new Strategy_PLFromPos(cfg, p, pos);
-	} else {
-		return const_cast<Strategy_PLFromPos *>(this);
-	}
+	return (minfo.invert_price?-1.0:1.0)*cfg.neutral_pos+st.acm;
 }
 
-void Strategy_PLFromPos::calcPower(Config& c, double price, double , double currency)
-{
-	double step = currency * std::pow(10, c.power)*0.01;
-	double k = step / (price * price * 0.01);
-	double max_pos = sqrt(k * currency);
-	c.maxpos = max_pos;
-	c.step = step;
-	logInfo("Strategy recalculated: step=$1, max_pos=$2", step, max_pos);
+double Strategy_PLFromPos::assetsToPos(const IStockApi::MarketInfo &minfo,
+	double assets) const {
+	return assets - getNeutralPos(minfo);
 }
+
+double Strategy_PLFromPos::posToAssets(const IStockApi::MarketInfo &minfo,
+	double pos) const {
+	return pos + getNeutralPos(minfo);
+}
+
+void Strategy_PLFromPos::calcPower(State& st, double price, double , double currency) const
+{
+	if (cfg.power) {
+		double step = currency * std::pow(10, cfg.power)*0.01;
+		double k = step / (price * price * 0.01);
+		double max_pos = sqrt(k * currency);
+		st.maxpos = max_pos;
+		st.step = step;
+		logInfo("Strategy recalculated: step=$1, max_pos=$2", step, max_pos);
+	} else {
+		st.maxpos = cfg.maxpos;
+		st.step = cfg.step;
+	}
+	st.valid_power = true;
+}
+

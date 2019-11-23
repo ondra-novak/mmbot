@@ -15,57 +15,68 @@
 std::string_view Strategy_HalfHalf::id = "halfhalf";
 
 
-Strategy_HalfHalf::Strategy_HalfHalf(double ea, double accu, double p, double a)
-	:ea(ea), accu(accu), p(p), a(a+ea) {}
+Strategy_HalfHalf::Strategy_HalfHalf(const Config &cfg, double p, double a)
+	:cfg(cfg), p(p), a(a) {}
 
 
 
 bool Strategy_HalfHalf::isValid() const {
-	return a * p > 0;
+	return (a+cfg.ea) * p > 0;
 }
 
 
-IStrategy* Strategy_HalfHalf::init(double curPrice, double assets,
-		double currency) const {
-		return new Strategy_HalfHalf(ea, accu, curPrice, assets);
+PStrategy Strategy_HalfHalf::onIdle(
+		const IStockApi::MarketInfo &,
+		const IStockApi::Ticker &curTicker, double assets, double currency) const {
+		return new Strategy_HalfHalf(cfg, curTicker.last, assets);
 }
 
-std::pair<Strategy_HalfHalf::OnTradeResult, IStrategy*> Strategy_HalfHalf::onTrade(
-		double tradePrice, double size , double assetsLeft, double currencyLeft ) const {
+std::pair<Strategy_HalfHalf::OnTradeResult, PStrategy> Strategy_HalfHalf::onTrade(
+		const IStockApi::MarketInfo &,
+		double tradePrice, double tradeSize, double assetsLeft, double currencyLeft) const {
 
+	double a = this->a + cfg.ea;
 	double n = tradePrice;
 	double p = this->p;
 	double v = a * p + a * n - 2 * a * sqrt(p *  n);
-	if (size == 0) p = n;
+	if (tradeSize == 0) p = n;
 	double na = a * sqrt(p/n);
-	double ap = (v / n) * accu;
-	double np = v * (1-accu);
+	double ap = (v / n) * cfg.accum;
+	double np = v * (1-cfg.accum);
 	return std::make_pair(
 			OnTradeResult {np, ap},
-			new Strategy_HalfHalf(ea,accu,n,na+ap-ea)
+			new Strategy_HalfHalf(cfg,n,na+ap-cfg.ea)
 	);
 }
 
 json::Value Strategy_HalfHalf::exportState() const {
 	return json::Object
 			("p",p)
-			("a",a-ea);
+			("a",a);
 }
 
-IStrategy* Strategy_HalfHalf::importState(json::Value src) const {
+PStrategy Strategy_HalfHalf::importState(json::Value src) const {
 	double new_p = src["p"].getNumber();
 	double new_a = src["a"].getNumber();
-	return new Strategy_HalfHalf(ea, accu, new_p, new_a);
+	return new Strategy_HalfHalf(cfg, new_p, new_a);
 }
 
-double Strategy_HalfHalf::getOrderSize(double n, double assets) const {
-	return calcOrderSize(a, assets + ea, a * sqrt(p/n) + (a * p + a * n - 2 * a * sqrt(p * n)) * accu / n);
+IStrategy::OrderData Strategy_HalfHalf::getNewOrder(const IStockApi::MarketInfo &,
+		double n, double dir, double assets,double currency) const {
+	double a = this->a + cfg.ea;
+	double p = this->p;
+	return {
+		0,
+		calcOrderSize(a, assets + cfg.ea,
+			a * sqrt(p/n) + (a * p + a * n - 2 * a * sqrt(p * n)) * cfg.accum / n)
+	};
 }
 
-Strategy_HalfHalf::MinMax Strategy_HalfHalf::calcSafeRange(double assets, double currencies) const {
+Strategy_HalfHalf::MinMax Strategy_HalfHalf::calcSafeRange(const IStockApi::MarketInfo &,
+		double assets, double currencies) const {
 	MinMax r;
 	double s = a * p - currencies;
-	r.max = ea<=0?std::numeric_limits<double>::infinity():p*pow2((assets + ea) / ea);
+	r.max = cfg.ea<=0?std::numeric_limits<double>::infinity():p*pow2((assets + cfg.ea) / cfg.ea);
 	r.min = s<=0?0:pow2(s/a)/p;
 	return r;
 }
@@ -74,14 +85,11 @@ double Strategy_HalfHalf::getEquilibrium() const {
 	return p;
 }
 
-IStrategy* Strategy_HalfHalf::reset() const {
-	return new Strategy_HalfHalf(ea, accu);
+PStrategy Strategy_HalfHalf::reset() const {
+	return new Strategy_HalfHalf(cfg);
 }
 
 std::string_view Strategy_HalfHalf::getID() const {
 	return id;
 }
 
-IStrategy* Strategy_HalfHalf::setMarketInfo(const IStockApi::MarketInfo &) const {
-	return const_cast<Strategy_HalfHalf *>(this);
-}

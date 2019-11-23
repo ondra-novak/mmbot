@@ -31,11 +31,12 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 		cfg.maxpos = config["maxpos"].getNumber();
 		cfg.reduce_factor = config["reduce_factor"].getNumber();
 		cfg.power= config["power"].getNumber();
-		return Strategy(new Strategy_PLFromPos(cfg));
+		return Strategy(new Strategy_PLFromPos(cfg,{}));
 	} else if (id == Strategy_HalfHalf::id) {
-		double ea = config["ea"].getNumber();
-		double accum = config["accum"].getNumber();
-		return Strategy(new Strategy_HalfHalf(ea, accum));
+		Strategy_HalfHalf::Config cfg;
+		cfg.ea = config["ea"].getNumber();
+		cfg.accum = config["accum"].getNumber();
+		return Strategy(new Strategy_HalfHalf(cfg));
 	} else if (id == Strategy_KeepValue::id) {
 		Strategy_KeepValue::Config cfg;
 		cfg.ea = config["ea"].getNumber();

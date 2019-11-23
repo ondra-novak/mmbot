@@ -207,10 +207,7 @@ void MTrader::perform(bool manually) {
 				update_dynmult(lastTradeSize > 0, lastTradeSize < 0);
 			}
 
-			if (!strategy.isValid()) {
-				strategy.init(status.curPrice, status.assetBalance, status.currencyBalance);
-			}
-
+			strategy.onIdle(minfo, status.ticker, status.assetBalance, status.currencyBalance);
 
 			ondra_shared::logDebug("internal_balance=$1, external_balance=$2",status.internalBalance,status.assetBalance);
 
@@ -221,11 +218,13 @@ void MTrader::perform(bool manually) {
 				Order buyorder = calculateOrder(lastTradePrice,
 												  -status.curStep*cfg.buy_step_mult, buy_dynmult,
 												   status.ticker.bid, status.assetBalance,
+												   status.currencyBalance,
 												   cfg.buy_mult);
 					//calculate sell order
 				Order sellorder = calculateOrder(lastTradePrice,
 												   status.curStep*cfg.sell_step_mult, sell_dynmult,
 												   status.ticker.ask, status.assetBalance,
+												   status.currencyBalance,
 												   cfg.sell_mult);
 
 
@@ -283,7 +282,7 @@ void MTrader::perform(bool manually) {
 		statsvc->reportPrice(status.curPrice);
 		//report misc
 		{
-			auto minmax = strategy.calcSafeRange(status.assetBalance, status.currencyBalance);
+			auto minmax = strategy.calcSafeRange(minfo, status.assetBalance, status.currencyBalance);
 
 			statsvc->reportMisc(IStatSvc::MiscData{
 				status.new_trades.trades.empty()?0:sgn(status.new_trades.trades.back().size),
@@ -300,13 +299,15 @@ void MTrader::perform(bool manually) {
 		}
 
 		if (!manually) {
-			//store current price (to build chart)
-			chart.push_back(status.chartItem);
-			{
-				//delete very old data from chart
-				unsigned int max_count = std::max<unsigned int>(std::max(cfg.spread_calc_sma_hours, cfg.spread_calc_stdev_hours),240*60);
-				if (chart.size() > max_count)
-					chart.erase(chart.begin(),chart.end()-max_count);
+			if (chart.empty() || chart.back().time < status.chartItem.time) {
+				//store current price (to build chart)
+				chart.push_back(status.chartItem);
+				{
+					//delete very old data from chart
+					unsigned int max_count = std::max<unsigned int>(std::max(cfg.spread_calc_sma_hours, cfg.spread_calc_stdev_hours),240*60);
+					if (chart.size() > max_count)
+						chart.erase(chart.begin(),chart.end()-max_count);
+				}
 			}
 		}
 
@@ -468,12 +469,14 @@ MTrader::Order MTrader::calculateOrderFeeLess(
 		double dynmult,
 		double curPrice,
 		double balance,
+		double currency,
 		double mult) const {
 	Order order;
 
 
 	double newPrice = prevPrice * exp(step*dynmult);
 	double newPriceNoScale= prevPrice * exp(step);
+	double dir = sgn(-step);
 
 	if (step < 0) {
 		//if price is lower than old, check whether current price is above
@@ -486,10 +489,12 @@ MTrader::Order MTrader::calculateOrderFeeLess(
 		if (newPrice < curPrice) newPrice = curPrice;
 	}
 
-	double size = strategy.calcOrderSize(cfg.dynmult_scale?newPrice:newPriceNoScale, balance);
+	auto ord= strategy.getNewOrder(minfo, cfg.dynmult_scale?newPrice:newPriceNoScale,dir, balance, currency);
+	if (ord.price > 0 && (ord.price - prevPrice)*step > 0) newPrice = ord.price;
+	double size = ord.size;
 	bool enableDust = false;
 
-	if (size * step >= 0) {
+	if (size * dir < 0) {
 		if (cfg.dust_orders) {
 			enableDust = true;
 			size = -1e-90*sgn(step);
@@ -528,6 +533,7 @@ MTrader::Order MTrader::calculateOrder(
 		double dynmult,
 		double curPrice,
 		double balance,
+		double currency,
 		double mult) const {
 
 		double m = 1;
@@ -536,7 +542,7 @@ MTrader::Order MTrader::calculateOrder(
 
 		do {
 
-			Order order(calculateOrderFeeLess(lastTradePrice, step*m,dynmult,curPrice,balance,mult));
+			Order order(calculateOrderFeeLess(lastTradePrice, step*m,dynmult,curPrice,balance,currency,mult));
 			//apply fees
 			minfo.addFees(order.size, order.price);
 
@@ -572,7 +578,6 @@ void MTrader::loadState() {
 				minfo.simulator
 			});
 	currency_balance_cache = stock.getBalance(minfo.currency_symbol, cfg.pairsymb);
-	strategy.setMarketInfo(minfo);
 
 
 
@@ -761,10 +766,6 @@ void MTrader::processTrades(Status &st) {
 		return std::pair<double,double>(x.first - y.eff_size, x.second + y.eff_size*y.eff_price);}
 	);
 
-	if (!strategy.isValid()) {
-		strategy.init(new_trades[0].eff_price, z.first, z.second);
-	}
-
 
 	double last_np = 0;
 	double last_ap = 0;
@@ -783,7 +784,7 @@ void MTrader::processTrades(Status &st) {
 		if (!minfo.simulator) statsvc->reportPerformance(tempPr);
 		z.first += t.eff_size;
 		z.second -= t.eff_size * t.eff_price;
-		auto norm = strategy.onTrade(t.eff_price, t.eff_size, z.first, z.second);
+		auto norm = strategy.onTrade(minfo, t.eff_price, t.eff_size, z.first, z.second);
 		trades.push_back(TWBItem(t, last_np+=norm.normProfit, last_ap+=norm.normAccum));
 	}
 }
@@ -887,7 +888,7 @@ bool MTrader::acceptLoss(std::optional<Order> &orig, const Order &order, const S
 			std::size_t e = st.chartItem.time>ttm?(st.chartItem.time-ttm)/(3600000):0;
 			double lastTradePrice = trades.back().eff_price;
 			if (e > cfg.accept_loss) {
-				auto reford = calculateOrder(lastTradePrice, 2 * st.curStep * sgn(-order.size),1,lastTradePrice, st.assetBalance, 1.0);
+				auto reford = calculateOrder(lastTradePrice, 2 * st.curStep * sgn(-order.size),1,lastTradePrice, st.assetBalance, st.currencyBalance, 1.0);
 				double df = (st.curPrice - reford.price)* sgn(-order.size);
 				if (df > 0) {
 					ondra_shared::logWarning("Accept loss in effect: price=$1, balance=$2", st.curPrice, st.assetBalance);
@@ -900,7 +901,7 @@ bool MTrader::acceptLoss(std::optional<Order> &orig, const Order &order, const S
 								0,
 								reford.price,
 							}, trades.back().norm_profit, trades.back().norm_accum));
-					strategy.onTrade(reford.price, 0, st.assetBalance, st.currencyBalance);
+					strategy.onTrade(minfo, reford.price, 0, st.assetBalance, st.currencyBalance);
 				}
 			}
 		}
@@ -1098,5 +1099,6 @@ MTrader::VisRes MTrader::visualizeSpread(unsigned int sma, unsigned int stdev, d
 			p, low, high, size,k.time
 		});
 	}
+	if (res.chart.size()>10) res.chart.erase(res.chart.begin(), res.chart.begin()+res.chart.size()/2);
 	return res;
 }

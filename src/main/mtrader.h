@@ -129,6 +129,7 @@ public:
 			double dynmult,
 			double curPrice,
 			double balance,
+			double currency,
 			double mult) const;
 	Order calculateOrderFeeLess(
 			double lastTradePrice,
@@ -136,6 +137,7 @@ public:
 			double dynmult,
 			double curPrice,
 			double balance,
+			double currency,
 			double mult) const;
 
 	const Config &getConfig() {return cfg;}

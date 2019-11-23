@@ -30,36 +30,49 @@ public:
 
 	};
 
-	Strategy_PLFromPos(const Config &cfg, double p = 0,double pos = 0, double acm = 0);
+	struct State {
+		bool inited = false;
+		bool valid_power = false;
+		double p = 0;
+		double a = 0;
+		double step = 0;
+		double maxpos = 0;
+		double acm = 0;
+		double value = 0;
+	};
+
+	Strategy_PLFromPos(const Config &cfg, const State &st);
 
 	virtual bool isValid() const override;
-	virtual IStrategy *init(double curPrice, double assets, double currency) const override;
-	virtual std::pair<OnTradeResult,IStrategy *> onTrade(double tradePrice, double tradeSize,
-						double assetsLeft, double currencyLeft) const override;
+	virtual PStrategy onIdle(const IStockApi::MarketInfo &minfo, const IStockApi::Ticker &curTicker, double assets, double currency) const override;
+	virtual std::pair<OnTradeResult,PStrategy > onTrade(const IStockApi::MarketInfo &minfo, double tradePrice, double tradeSize, double assetsLeft, double currencyLeft) const override;;
 	virtual json::Value exportState() const override;
-	virtual IStrategy *importState(json::Value src) const override;
-	virtual double getOrderSize(double price, double assets) const override;
-	virtual MinMax calcSafeRange(double assets, double currencies) const override;
+	virtual PStrategy importState(json::Value src) const override;
+	virtual OrderData getNewOrder(const IStockApi::MarketInfo &minfo, double new_price, double dir, double assets, double currency) const override;
+	virtual MinMax calcSafeRange(const IStockApi::MarketInfo &minfo, double assets, double currencies) const override;
 	virtual double getEquilibrium() const override;
+	virtual PStrategy reset() const override;
 	virtual std::string_view getID() const override;
-	virtual IStrategy *reset() const override;
-	virtual IStrategy *setMarketInfo(const IStockApi::MarketInfo &minfo)  const override;
 
 	static std::string_view id;
 
+	double getNeutralPos(const IStockApi::MarketInfo &minfo) const;
+	double assetsToPos(const IStockApi::MarketInfo &minfo, double assets) const;
+	double posToAssets(const IStockApi::MarketInfo &minfo, double pos) const;
 
 
 	double calcK() const;
+	static double calcK(const State &st);
 
 protected:
 	Config cfg;
-	double p;
-	double pos;
-	double acm;
+	State st;
+
+	std::pair<OnTradeResult,PStrategy > onTrade2(const IStockApi::MarketInfo &minfo, double tradePrice, double tradeSize, double assetsLeft, double currencyLeft) const;
 
 private:
-	double calcNewPos(double tradePrice) const;
-	static void calcPower(Config &c, double price, double assets, double currency);
+	double calcNewPos(const IStockApi::MarketInfo &minfo, double tradePrice) const;
+	void calcPower(State &st,  double price, double assets, double currency) const;
 };
 
 #endif /* SRC_MAIN_STRATEGY_PLFROMPOS_H_ */

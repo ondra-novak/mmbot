@@ -11,27 +11,29 @@
 
 class Strategy_HalfHalf: public IStrategy {
 public:
-	Strategy_HalfHalf(double ea, double accu, double p = 0, double a = 0);
+	struct Config {
+		double ea;
+		double accum;
+	};
+
+	Strategy_HalfHalf(const Config &cfg, double p = 0, double a = 0);
 
 	virtual bool isValid() const override;
-	virtual IStrategy *init(double curPrice, double assets, double currency) const override;
-	virtual std::pair<OnTradeResult,IStrategy *> onTrade(double tradePrice, double tradeSize,
-						double assetsLeft, double currencyLeft) const override;
+	virtual PStrategy onIdle(const IStockApi::MarketInfo &minfo, const IStockApi::Ticker &curTicker, double assets, double currency) const override;
+	virtual std::pair<OnTradeResult,PStrategy> onTrade(const IStockApi::MarketInfo &minfo, double tradePrice, double tradeSize, double assetsLeft, double currencyLeft) const override;;
 	virtual json::Value exportState() const override;
-	virtual IStrategy *importState(json::Value src) const override;
-	virtual double getOrderSize(double price, double assets) const override;
-	virtual MinMax calcSafeRange(double assets, double currencies) const override;
+	virtual PStrategy importState(json::Value src) const override;
+	virtual OrderData getNewOrder(const IStockApi::MarketInfo &minfo, double new_price, double dir, double assets, double currency) const override;
+	virtual MinMax calcSafeRange(const IStockApi::MarketInfo &minfo, double assets, double currencies) const override;
 	virtual double getEquilibrium() const override;
-	virtual IStrategy *reset() const override;
+	virtual PStrategy reset() const override;
 	virtual std::string_view getID() const override;
-	virtual IStrategy *setMarketInfo(const IStockApi::MarketInfo &minfo)  const override;
 
 	static std::string_view id;
 
 
 protected:
-	double ea;
-	double accu;
+	Config cfg;
 	double p;
 	double a;
 };
