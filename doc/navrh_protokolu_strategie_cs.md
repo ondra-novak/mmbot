@@ -1,4 +1,4 @@
-## Návrh protokolu pro externí strategi
+## Návrh protokolu pro externí strategii
 
 **Následující dokument nepopisuje existující funkci, jde pouze o návrh**
 
