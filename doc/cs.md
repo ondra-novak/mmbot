@@ -197,8 +197,72 @@ Tato strategie se snaží, aby poměr mezi hodnotou assetů a penězi na účtu 
 * **accumulation** - zisk z obchodování se použije k nákupu assetů. Tyto navíc assety se následně započítávají do rovnováhy.
 
 
- 
+## Různé druhý trhů a jak si s nimi robot poradí
+
+Nastavení strategie silně záleží i na typu trhu, na kterém se obchoduje. A ačkoliv způsob obchodování je zpravidla vždy stejný, přesto se liší v ruzných nuancích, které ale ovlivňují nasazení určité strategie
+
+### Klasická exchange
+
+Klasická exchange je typ trhu, na kterém se směnuje jeden druh assetu za jiný, nebo peníze za asset. Směnou vždy o jeden asset přicházíme a jiný získáváme. Hodnota držených assetů se směnou nemění, ale mění se hodnota pouze se změnou ceny jednoho assetu vůči jinému. 
+
+Robot pomocí nakupování za nižší cenu nebo prodejem za vyšší cenu se pokouší maximualizovat hodnotu v obou držených assetech. Toto obchodování má dvě krajní meze, totiž okamžik, kdy dojde jeden nebo druhý asset (nebo asset a peníze). Tato situace je nemilá, ale nikoliv problematická. Držený asset stále má hodnotu a i když v ten okamžik jeho hodnota není výhodná, situace se může změnit.
+
+Robota lze z tohoto stavu odblokovat pomocí aktivní funkce `Accept loss`, která po nastavené době přijme malou ztrátu, posune equilibrium a pokusí se restartovat obchodování prodáním nějakého assetu pod cenou. Tam se může stát, že robot po nějakou dobu bude nakupovat dráž, než prodával, ale je to jisté řešení, jak pokračovat v obchodování a ztrátu dohnat
+
+Doporučené strategie **Half-Half** nebo **Keep-Value**. Strategie **Linear** funguje taky, ale díky tomu, že dochází ke směně, je obchodovatelný rozsah velice úzky, a není možné shortovat. Short lze nahradit posunutím neutrální pozice třeba do středu hodnoty na účtu, kdy určitá část assetů je prohlášena za nulu a short je pak stav, kdy na účtu je méně assetů, než neutrální nula. Statistiky pak počítají takový stav jako short, tedy je to rozdíl mezi aktuálním ziskem a hypotetickým ziskem získaným tím, když by se assety neobchodovaly, ale pouze držely
+
+### Margin exchange a bežné futures
+
+Robota lze provozovat na marginových burzách a na běžných futures. V takovém trhu lze provádět i short obchody. Běžné futures se vyznačují tím, že držená pozice nemění své množství v závislosti na ceně a že tudíž velikost pozice odpovídá držení daného assetu. Například LONG 10 BTC na margin exchange BTC/USD je ekvivalentní jako nákup 10 BTC na klasické exchange a zisk z takové pozice vychází stejně.
+
+Výhodou marginové exchange a futures je v tom, že směna neznamená ztrátu hotovosti a opačná směna pouze změni stav hotovosti podle relizované ztráty nebo zisku. Samotná výše směny je víceméně bez nákladů, pouze část hotovosti je blokována v marginu.
+
+Robot dobře funguje v marginových burzách s vysokou pákou. Je třeba si uvědomit, že vysoká páka nezvyšuje obchodovatelný rozsah. Ten je dán celkovou možnou ztrátkou, kterou je možné držet na účtu před likvidací. Nižší margin jen omezuje možnost navyšovat hodnotu na krajích rozsahu, protože exchange už nedovolí vypsat další pokyn (v takovém případě může pomoci funkce `Accept loss`]. Na vysokopákových exchanges a futures je vlastní margin zanedbatelný. Velká pozice totiž vždy má mnohem větší nerealizovaný zisk, než je vlastní margin pozice a to často až 10x více.
+
+Příklady běžných futures: Bitmex ETH/XBT, LTC/XBT (cokoliv/XBT}
+
+Pro obchodování na Margin exchange a futures se doporučuje strategie **Linear**
 
 
+### Inverzni futures
 
+Na trzích s kryptem jsou oblíbené tzv. inverzní futures. To jsou futures, na kterých se obchoduje asset vůči americkému dolaru, nebo jiné měně, ale kolaterál je veden v assetu a zisky a ztráty jsou též připisovány v assetech (např BTC). Velikost vzaté pozice se mění s tím, jak se mění vlastní cena assetu atd.
+
+Invezní futures jsou definovány jako futures převrácených hodnot. Robot s nimi nakládá tak, že se kótuje inverzní hodnota assetu, tedy že kontrakt je veden ve měně, a cena je vedena jako hodnota kontrakru v assetech (čili převráceně, než je kótována na exchange).  Toto převrácení ale zajišťuje už samotný broker process a robot od tohoto procesu dostane informaci, že výsledky má před prezentací opět převrátit zpět do normálního tvaru. 
+
+V inverzních futures je tedy long držen jako short, nákup je proveden jako prodej a cena je zobrazena jako 1/x. Na místech, kde se zobrazují méně důležité informace, v základní podobě tak lze u inverzní futures zahlédnout neupravenou hodnotu. Long pozice může být záporná, cena může být setinách až tisícínách.
+
+Příklady inverzní futures: Deribit BTC/USD, ETH/USD. Bitmex XBT/USD. Na Deribitu je třeba depositovat BTC pro BTC/USD a ETH pro ETH/USD.
+
+Pro obchodování Inverzních futures se doporučuje strategie **Linear**. Využít lze i strategii **Keep Value** pro hedge, nebo spekulace u assetů, u kterých je vysoká pravděpodobnost, že nebudou výrazně růst. Při obchodování **Keep Value** začínáme otevřením **short** pozice. Robot se pak snaží udržet hodnotu otevřené short pozice. Protože hodnota té pozice je dána cenou assetu, tak poklesem ceny robot short pozici zavírá, ale za normálních okolnosti vychází plné zavření short pozice na ceně 0. Velikost short pozice volíme s ohledem na cenu likvidace na vyšších cenách.
+
+### Quanto futures
+
+Quanto futures je vynález BitMEXu a je to způsob jak obchodovat ETH/USD bez nutnosti mít účet v USD nebo ETH (pro případ inverzních futures). V době psaní článku je USD odvozeno od BTC s kurzem 1mil USD. Pohyb ceny o 1 USD tak znamená pohyb o 0.000001 BTC.
+
+Robot obchoduje ETH/USD jako ETH/XBT s tím, že cena je kótována v BTC. Díky tomu velikost pozice musí přepočtena na mikrobitcoiny, tedy long 123 ETH se vypisuje jako 0.000123ETH - protože pokud BTC stojí 1mil USD, je toto ekvivalentní pozice
+
+
+### Forex, CFD
+
+Obchodování na forexu a CFD je novinkou a aktuálně jej zajišťuje broker process "simplefx". Na rozdíl od exchange, CFD broker nenabízí klasické LIMITní příkazy, takže je nelze vypsat přímo na platformě. Také postupné otevírání pozice vede na několik pozic
+samostatně evidovaných na platformě. Velkou otázkou také hraje spread.
+
+Robot ve spolupráci s činnosti broker processu zvládá obchodovat a eliminovat některé nevýhody plynoucí z odlišnosti CFD od exchange.
+
+* Broker process emuluje LIMITní příkazy a eviduje je u sebe. Nastavení limitních příkazů se tedy nepřepisuje na platformu brokera - CFD Broker nemá šanci zjistit, na jaké ceně máte otevřené LIMITní příkazy
+
+* Broker process sleduje živý stream kótací a pokud se objeví cena odpovídající některému limitnímu příkazu, okamžite exekuuje pokyn na platformě jako MARKET order. Narozdíl od exchange se u CFD nezmění cena exekuce podle velikosti.
+
+* Pokud dochází k exekuci opačného směru, než je držená pozice (redukce), probíhá k uzavírání existujících pozic v pořadí FIFO. Toto je funkce vlastního CFD Brokera na API, robot nemůže zvolit jiné pořadí
+
+* Protože exekuce probíhá v reakci na kótaci, může dojit vlivem pomalé odezvi sítě k posunu ceny (slippage) a k exekuci na jiné ceně, než byl LIMITní příkaz vypsán. Naštěstí ten rozdíl nebývá velký
+
+* Broker process se snaží maximálně eliminovat efekt spreadu. Provádí tak reálnou simulaci orderbooku, ve kterém jsou dva obchodníci a oba kótují obě strany orderbooku. Dokud neexistuje průnik mezi BID a ASK, k obchodu nedojde. Jakmile se objeví průnik, exekuuje se obchod zpravidla poblíž ceny, na které byl příkaz vypsán
+
+* LAST CENA se pro účely zobrazení počítá jako střední cena v simulovaném orderbooku, přičemž opět do toho vstupuje jak kótace brokera, tak kótace robota. Ve výsledku tedy LAST cena leží vždy mezi nákupním a prodejním příkazem a pokud by došlo k vyjetí z rozsahu, doje k exekuci. Protože ale kótace robota mají vliv na hodnotu LAST ceny, nemusí graf LAST ceny přesně odpovídat grafu malovného na platformě, protože platforma často zobrazuje jen nákupní cenu, případně jen prodejní, nebo středovou, aniž by se do toho promítala kótace robota.
+
+Doporučená strategie na CFD je **Linear**
+
+  
  
