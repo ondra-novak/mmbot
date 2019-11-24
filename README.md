@@ -13,5 +13,3 @@ Sorry, english documentation is not complete
 
 Česká dokumentace
 * [Obecné seznámení](doc/cs.md)
-* [Config](doc/config_cs.md)
-* [Poznámka k obchodování na Deribit a Bitmex](doc/deribit_bitmex_cs.md)
