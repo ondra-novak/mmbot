@@ -40,7 +40,7 @@ Robota v tuto chvíli není možné nastavit aby provozoval skalpovací strategi
 
 ### postup
  
-1. použijte `git clone https://github.com/ondra-novak/mmbot.git` (v současném stavu přidejte `-b 2.0`, ve větvi 2.0)
+1. použijte `git clone https://github.com/ondra-novak/mmbot.git` 
 2. přejděte do adresáře `mmbot` 
 3. spusťte `./update`
 
