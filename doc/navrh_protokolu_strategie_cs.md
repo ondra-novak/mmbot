@@ -141,14 +141,9 @@ Položka **expected** obsahuje očekávaný zůstatek na účtu v assetech před
 
 Položka **required** obsahuje požadovaný zůstatek na účtu v assetech po exekuci pokynu. Robot spočítá velikost pokynu podle aktuálního zůstatku s přihlédnutím na to, že velké rozdíly od **excepted** je schopen nějakým způsobem snížit.
 
+Strategie může vrátit `null` pokud nechce vypsat pokyn v zadaném směru. V tom případě se současný pokyn zruší a zůstane bez vypsaného pokynu.
 
-Pokud je **size** nulová, pokyn se nevypíše
-
-Pokud je **size** záporná, může se vypsat **dust_order**, ovšem kladný
-
-Hodnota **size** se zaokrouhluje do X.9 dolu a nad X.9 nahoru. Pokud je po zaokrouhlení nula, může se volání opakovat s vyšší navrhovanou cenou. Aby se předšlo přetahování o cenu, může strategie zabránit špatnému zaokrouhlení tím, že dodrží nastavení kroku a minimálních objemů, které má k dispozici v **minfo**
-
-**Pozn**: Prodejní pokyn se zasílá s kladným **size**.
+Pokud je výsledkem rozdílu záporné číslo nebo nula, může dojít k vypsání dust_orderu  ve správém směru, případně může zůstat zachován původní pokyn bezezměny (záleží na nastavení tradera)
 
 #### calcSafeRange
  
