@@ -76,31 +76,34 @@ double Strategy_PLFromPos::calcNewPos(const IStockApi::MarketInfo &minfo, double
 	//get absolute value of the position
 	double ap = std::abs(np);
 	//if new position is reduced, but not reversed
-	if (ap < std::abs(pos) && np * pos > 0 && std::abs(pos) <= maxpos) {
-		//calculate profit made from moving price from p to tradePrice
-		//profit is defined by current position * difference of two prices
-		//also increas or decrease it by reduce factor, which can be configured (default 1)
-		double s = (pos - np) * (tradePrice - p)*cfg.reduce_factor;
-		//calculate inner of sqrt();
-		//it expect, that prices moves to tradePrice and makes profit 's'
-		//then part of position is closed to value 'np'
-		//absolute value of position is 'ap'
-		//we need calculate new np where this profit is used to reduce position
-		//
-		//new position squared is calculated here
-		//(check: s = 0 -> ap = ap)
-		//(check: s > 0 -> ap goes down
-		double np2 = ap*ap - 2 * k * s;
-		//if result is non-negative
-		if (np2 > 0) {
-			//calculate new positon by sqrt(np2) and adding signature
-			np = sgn(np) * sqrt(np2);
-		} //otherwise stick with original np
-		ap = std::abs(np);
-	}
-	//adjust np, if max position has been reached
-	if (ap > maxpos) {
-		np = sgn(np)*(ap + maxpos)/2;
+	if (ap < std::abs(pos) && np * pos > 0) {
+		//don't reduce, if max pos reached
+		if (std::abs(pos) <= maxpos) {
+			//calculate profit made from moving price from p to tradePrice
+			//profit is defined by current position * difference of two prices
+			//also increas or decrease it by reduce factor, which can be configured (default 1)
+			double s = (pos - np) * (tradePrice - p)*cfg.reduce_factor;
+			//calculate inner of sqrt();
+			//it expect, that prices moves to tradePrice and makes profit 's'
+			//then part of position is closed to value 'np'
+			//absolute value of position is 'ap'
+			//we need calculate new np where this profit is used to reduce position
+			//
+			//new position squared is calculated here
+			//(check: s = 0 -> ap = ap)
+			//(check: s > 0 -> ap goes down
+			double np2 = ap*ap - 2 * k * s;
+			//if result is non-negative
+			if (np2 > 0) {
+				//calculate new positon by sqrt(np2) and adding signature
+				np = sgn(np) * sqrt(np2);
+			} //otherwise stick with original np
+		}
+	} else {
+		//adjust np, if max position has been reached
+		if (std::fabs(pos) >= maxpos) {
+			np = sgn(np)*(ap + maxpos)/2;
+		}
 	}
 	return posToAssets(minfo,np);
 }
