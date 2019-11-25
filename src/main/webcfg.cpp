@@ -774,8 +774,16 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req) const {
 
 
 		Value strategy;
+		Value position;
 		if (tr) {
 			strategy = tr->getStrategy().exportState();
+			auto trades = tr->getTrades();
+			auto pos = std::accumulate(trades.begin(), trades.end(),0.0,[&](
+					auto &&a, auto &&b
+			) {
+				return a + b.eff_size;
+			});
+			position = pos;
 		}
 
 		Object result;
@@ -788,6 +796,7 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req) const {
 		result.set("pair", getPairInfo(*api, p, MTrader::getInternalBalance(tr)));
 		result.set("orders", getOpenOrders(*api, p));
 		result.set("strategy", strategy);
+		result.set("position", position);
 
 		req.sendResponse("application/json", Value(result).stringify());
 	});

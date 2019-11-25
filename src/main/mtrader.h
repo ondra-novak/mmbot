@@ -157,8 +157,7 @@ public:
 
 	static std::string_view vtradePrefix;
 
-	Strategy &getStrategy() {return strategy;}
-	const Strategy &getStrategy() const {return strategy;}
+	Strategy getStrategy() const {return strategy;}
 	IStockApi &getBroker() {return stock;}
 
 	struct VisRes {
@@ -206,8 +205,6 @@ protected:
 	static IStockApi &selectStock(IStockSelector &stock_selector, const Config &conf, std::unique_ptr<IStockApi> &ownedStock);
 
 	void processTrades(Status &st);
-
-	void mergeTrades(std::size_t fromPos);
 
 	void update_dynmult(bool buy_trade,bool sell_trade);
 

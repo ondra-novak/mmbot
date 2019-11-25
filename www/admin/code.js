@@ -439,7 +439,21 @@ App.prototype.fillForm = function (src, trg) {
 						"cstep":pair.currency_balance*m});
 			
 			linStrategy_recomended_maxpos();
-
+		}
+		
+		function calcPosition(data) {
+			var v = trg.readData(["neutral_pos","report_position_offset"]);
+			var cpos = invSize((isFinite(v.report_position_offset)?v.report_position_offset:0) + state.position,pair.invert_price);
+			if (isFinite(cpos)) {
+				var apos = invSize(pair.asset_balance, pair.invert_price) - v.neutral_pos;
+				data.hdr_position = adjNum(cpos);
+				data.sync_pos = {
+						".hidden":(Math.abs(cpos - apos) <= (Math.abs(cpos)+Math.abs(apos))*1e-8)
+				};
+			} else {
+				data.hdr_position = adjNum();
+				data.sync_pos = {};
+			}
 		}
 
 		data.max_pos = data.cstep = data.neutral_pos = {"!input": linStrategy_recalc};
@@ -459,10 +473,25 @@ App.prototype.fillForm = function (src, trg) {
 			trg.showItem("pl_mode_m", this.value == "m");
 			trg.showItem("pl_mode_a", this.value == "a");
 		}};
+		calcPosition(data);
+		data.sync_pos["!click"] = function() {
+			var data = {};
+			var v = trg.readData(["neutral_pos","report_position_offset"]);
+			var s = pair.asset_balance - invSize(v.neutral_pos, pair.invert_price) - state.position;
+			trg.setData({report_position_offset:s});
+			calcPosition(data);
+			trg.setData(data);
+		}
 		
 	}.bind(this);
 	
-	if (this.fillFormCache[src.id]) fillHeader(this.fillFormCache[src.id], data)
+	if (this.fillFormCache[src.id]) {
+	setTimeout(function() {
+			var data= {};
+			fillHeader(this.fillFormCache[src.id], data);
+			trg.setData(data);
+	}.bind(this),1);
+	}
 	data.broker_img = this.brokerImgURL(src.broker);
 	data.advanced = src.advanced;
 

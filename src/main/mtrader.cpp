@@ -191,8 +191,6 @@ void MTrader::perform(bool manually) {
 		minfo.fees = status.new_fees;
 		//process all new trades
 		processTrades(status);
-		//merge trades on same price
-		mergeTrades(trades.size() - status.new_trades.trades.size());
 
 		double lastTradePrice = !trades.empty()?trades.back().eff_price:strategy.isValid()?strategy.getEquilibrium():status.curPrice;
 		double lastTradeSize = trades.empty()?0:trades.back().eff_size;
@@ -411,6 +409,7 @@ MTrader::Status MTrader::getMarketStatus() const {
 
 	Status res;
 
+	IStockApi::Trade ftrade = {json::Value(), 0, 0, 0, 0, 0}, *last_trade = &ftrade;
 
 
 //	if (!initial_price) initial_price = res.curPrice;
@@ -419,7 +418,19 @@ MTrader::Status MTrader::getMarketStatus() const {
 
 	if (!trades.empty()) lastId = getTradeLastId();
 
-	res.new_trades = stock.syncTrades(lastTradeId, cfg.pairsymb);
+// merge trades here
+	auto new_trades = stock.syncTrades(lastTradeId, cfg.pairsymb);
+	res.new_trades.lastId = new_trades.lastId;
+	for (auto &&k : new_trades.trades) {
+		if (last_trade->eff_price == k.eff_price) {
+			last_trade->size += k.size;
+			last_trade->eff_size += k.eff_size;
+			last_trade->time = k.time;
+		} else {
+			res.new_trades.trades.push_back(k);
+			last_trade = &res.new_trades.trades.back();
+		}
+	}
 
 	{
 		res.internalBalance = std::accumulate(res.new_trades.trades.begin(),
@@ -627,7 +638,6 @@ void MTrader::loadState() {
 					trades.push_back(itm);
 				}
 			}
-			mergeTrades(0);
 		}
 		strategy.importState(st["strategy"]);
 		if (cfg.dry_run) {
@@ -679,35 +689,6 @@ void MTrader::saveState() {
 	}
 	storage->store(obj);
 }
-
-
-void MTrader::mergeTrades(std::size_t fromPos) {
-	if (fromPos) --fromPos;
-	auto wr = trades.begin()+fromPos;
-	auto rd = wr;
-	auto end = trades.end();
-
-	if (rd == end) return ;
-	++rd;
-	while (rd != end) {
-		if (rd->price == wr->price && rd->size * wr->size > 0) {
-			wr->size+=rd->size;
-			wr->norm_accum = rd->norm_accum;
-			wr->norm_profit = rd->norm_profit;
-			wr->eff_price = rd->eff_price;
-			wr->eff_size+=rd->eff_size;
-			wr->time = rd->time;
-			wr->id = rd->id;
-		} else {
-			++wr;
-			if (wr != rd) *wr = *rd;
-		}
-		++rd;
-	}
-	++wr;
-	if (wr != rd) trades.erase(wr,end);
-}
-
 
 
 bool MTrader::eraseTrade(std::string_view id, bool trunc) {
