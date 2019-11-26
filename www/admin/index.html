@@ -5,6 +5,7 @@
 <title>MM Bot</title>
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="../res/chart.css">
+  <link rel="stylesheet" href="../res/ui.css">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <link rel="icon" type="image/png" href="../res/icon64.png" />
 </head>
@@ -12,6 +13,7 @@
 <template id="trader_form">
 <x-form class="pair no_adv sections">
 <x-section><x-section-caption>Info</x-section-caption>
+<div class="toppanel">
 <div class="pairactions">
 	<div class="icon" data-name="icon_undo"><img src="../res/undo.png" title="Undo changes" ></div>
 	<div class="icon" data-name="icon_trading"><img src="../res/trading.png" title="Trading UI" ></div>
@@ -19,6 +21,11 @@
 	<div class="icon" data-name="icon_reset"><img src="../res/reset_stats.png" title="Clear statistics"></div> 
 	<div class="icon" data-name="icon_repair"><img src="../res/repair.png" title="Restart strategy" > </div>
 	<div class="icon red" data-name="icon_delete"><img src="../res/delete.png" title="Delete trader"></div></div>
+<div>
+<x-checkbox data-name="advanced">Show&nbsp;all</x-checkbox>
+</div>
+</div>
+
 <label><span>ID</span><span data-name="id" ></span></label>
 <label><span>Broker</span><span><img src="" data-name="broker_img" class="inline_img">
 	<span data-name="broker_id"></span> (<span data-name="broker"><span class="spinner fast inline"></span></span> <span data-name="broker_ver"></span>)<br/>
@@ -52,23 +59,19 @@
 <div class="keepvalue">This strategy keeps the value of assets on the stock exchange at the same value. If the value of assets falls or rises (due to changing price), the strategy executes a trade in such a volume to achieve the same value of the assets as before.</div>
 </div></div>
 <div class="label"><span>Options</span><div>
-<label><input type="checkbox" checked="checked" data-name="enabled"> Enabled </label>
-<label><input type="checkbox" data-name="dry_run"> Paper trade (simulation) </label>
-<label><input type="checkbox" data-name="advanced"> Advanced mode </label>
-</div>
-
-</div>
+<div><x-checkbox data-name="enabled">Enabled</x-checkbox></div>
+<div><x-checkbox data-name="dry_run">Paper trade (simulation)</x-checkbox></div>
+</div></div>
 <div class="label adv"><span>Strategy state</span><x-section>
 	<div class="label" data-name="strategy_fields[]"><span data-name="key"></span><input type="text" readonly="readonly" data-name="value"></div>
 	</x-section></div>
 </x-section>
 <x-section data-name="strategy_halfhalf" class="goal hidden" hidden="hidden"><x-section-caption>Half-Half/Keep Value</x-section-caption>
 <label><span>External assets <span class="tooltip">Amount of assets held outside of exchange. They are included into calculations.</span></span><input type="number" step="any" data-name="external_assets"></label>
-</div>
 <label  class="adv"><span>Accumulation <span class="tooltip">Amount of the profit used to buy extra assets</span></span><x-slider data-name="acum_factor" data-min="0" data-max="100" data-mult="1"></x-slider></label>
 <div class="warning" data-name="err_external_assets">Unable to trade - This strategy requies to fund account with some assets [<span data-name="asset"></span>].  You can also set the "external assets" field above <span data-name="external_assets_hint">0</span>. It is generally recommended to have ratio between the value of the assets [<span data-name="asset"></span>] (including external assets) and the currrency [<span data-name="currency"></span>] (including external currencies) at 1:1</div>
-<div class="warning" data-name="err_external_assets_margin">Unable to trade - This strategy needs to have a <b><u>long position</u></b> opened. You can also set external assets above <span data-name="external_assets_hint">0</span></div>
-<div class="warning" data-name="err_external_assets_inverse">Unable to trade - This strategy needs to have a <b><u>short position</u></b> opened. You can also set external assets above <span data-name="external_assets_hint">0</span></div>
+<div class="warning" data-name="err_external_assets_margin">Unable to trade - This strategy needs to have a <b>long position</b> opened. You can also set external assets above <span data-name="external_assets_hint">0</span></div>
+<div class="warning" data-name="err_external_assets_inverse">Unable to trade - This strategy needs to have a <b>short position</b> opened. You can also set external assets above <span data-name="external_assets_hint">0</span></div>
 
 <x-section>
 <div class="label"><span>Min price:</span><span data-name="halfhalf_min_price">---</span></div>
@@ -148,9 +151,8 @@ reenable trading, but it also finally costs some profit
 ><strong>Internal balance</strong> - track balance by trades - do not use balance on exchange<br><br>
 <strong>Dust orders</strong> Enable to use smallest orders when otherwise trading would be impossible (they act as alert)<br><br>
 <strong>Detect manual trades</strong> Try to detect and ignore trades made by the user manually (it is not recomended to trade along with the Bot. Please use a subaccount instead</span></span><div>
-<label class="adv"><input type="checkbox" data-name="internal_balance"> Internal balance </label>
-<label class="adv"><input type="checkbox" checked="checked" data-name="dust_orders"> Dust orders (recomended) </label>
-<label class="adv"><input type="checkbox" data-name="detect_manual_trades"> Detect manual trades </label>
+<div><x-checkbox data-name="internal_balance">Internal balance</x-checkbox></div>
+<div><x-checkbox data-name="dust_orders">Dust orders</x-checkbox></div>
 </div>
 </div>
 <label class="adv"><span>Report - position offset<span class="tooltip">Allows to sync the position on the report page with the actual state on the echange.<br>
@@ -403,11 +405,6 @@ The position is not generally in the sync due to various issues. You need to spe
     ></span>
 
 
-<script src="../res/template.js" type="text/javascript"></script>
-<script src="../res/common.js" type="text/javascript"></script>
-<script src="code.js" type="text/javascript"></script>
-</body>
-</html>
 	
 	
 <template id="options_form">
@@ -459,3 +456,10 @@ The position is not generally in the sync due to various issues. You need to spe
 </x-section>
 </x-form>
 </template>
+
+<script src="../res/template.js" type="text/javascript"></script>
+<script src="../res/common.js" type="text/javascript"></script>
+<script src="../res/ui.js" type="text/javascript"></script>
+<script src="code.js" type="text/javascript"></script>
+</body>
+</html>
