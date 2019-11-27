@@ -518,40 +518,45 @@ inline double Interface::execCommand(const std::string &symbol, double amount) {
 }
 
 inline void Interface::login() {
-	auto now = TradingEngine::now();
-	if (hasKey() && (!hjsn.hasToken() || tokenExpire < now)) {
-		Value v = getData(hjsn.POST("/api/v3/auth/key", json::Object
-				  ("clientId", authKey)
-				  ("clientSecret",authSecret)));
-		Value token = v["token"];
-		hjsn.setToken(token.getString());
-		tokenExpire = now + 15*60000;
-		Value alist = getData(hjsn.GET("/api/v3/accounts"));
-		accounts.clear();
-		defaultAccount = 0;
-		Value currencies = getData(hjsn.GET("/api/v3/currencies"));
-		for (Value v: alist) {
-			Value login = v["login"];
-			Value reality = v["reality"];
-			Value currency = v["currency"];
-			Value c = currencies.find([&](Value v){
-				return v["currency"] == currency;
-			});
+	try {
+		auto now = TradingEngine::now();
+		if (hasKey() && (!hjsn.hasToken() || tokenExpire < now)) {
+			Value v = getData(hjsn.POST("/api/v3/auth/key", json::Object
+					  ("clientId", authKey)
+					  ("clientSecret",authSecret)));
+			Value token = v["token"];
+			hjsn.setToken(token.getString());
+			tokenExpire = now + 15*60000;
+			Value alist = getData(hjsn.GET("/api/v3/accounts"));
+			accounts.clear();
+			defaultAccount = 0;
+			Value currencies = getData(hjsn.GET("/api/v3/currencies"));
+			for (Value v: alist) {
+				Value login = v["login"];
+				Value reality = v["reality"];
+				Value currency = v["currency"];
+				Value c = currencies.find([&](Value v){
+					return v["currency"] == currency;
+				});
 
-			accounts.emplace(login.getUInt(),Account {
-				reality.getString(),
-				static_cast<unsigned int>(login.getUInt()),
-  			    v["freeMargin"].getNumber(),
-				c["multiplier"].hasValue()?c["multiplier"].getNumber():1.0,
-				c["displayCurrency"].getString()
-			});
+				accounts.emplace(login.getUInt(),Account {
+					reality.getString(),
+					static_cast<unsigned int>(login.getUInt()),
+					v["freeMargin"].getNumber(),
+					c["multiplier"].hasValue()?c["multiplier"].getNumber():1.0,
+					c["displayCurrency"].getString()
+				});
 
-			if (login.toString().str() == StrViewA(authAccount)) {
-				defaultAccount = login.getUInt();
+				if (login.toString().str() == StrViewA(authAccount)) {
+					defaultAccount = login.getUInt();
+				}
 			}
+			if (!defaultAccount) throw std::runtime_error("Can't find specified account (API key is invalid)");
+			updatePositions();
 		}
-		if (!defaultAccount) throw std::runtime_error("Can't find specified account (API key is invalid)");
-		updatePositions();
+	} catch (const simpleServer::HTTPStatusException &e) {
+		if (e.getStatusCode() == 409) throw std::runtime_error("simplefx: Invalid API key");
+		else throw;
 	}
 }
 
