@@ -65,7 +65,8 @@ public:
 				qstream = std::make_unique<QuoteStream>(httpc,"https://web-quotes.simplefx.com/signalr/", qdist->createReceiveFn());
 				qdist->connect(qstream->connect());
 				market = std::make_unique<Market>(qdist, [this](const std::string &symbol, double amount){
-					return this->execCommand(symbol, amount);
+					auto z = this->execCommand(symbol, amount);
+					return z;
 				});
 			}
 			return market->getMarket(symbol);
@@ -142,6 +143,7 @@ public:
 	mutable std::unordered_map<std::string, double> position;
 	mutable std::unordered_map<unsigned int, Account> accounts;
 	mutable std::unordered_map<std::string, unsigned int> symbol2account;
+	mutable std::chrono::system_clock::time_point smbexpire;
 
 	Account &getAccount(const std::string &symbol);
 	Account &getAccount(unsigned int login);
@@ -455,7 +457,7 @@ inline void Interface::setSettings(json::Value v) {
 	std::string pairHint = v["pairHint"].getString();
 	unsigned int account = v["account"].getUInt();
 	if (account == defaultAccount) symbol2account.erase(pairHint);
-	else symbol2account.emplace(pairHint,account);
+	else symbol2account[pairHint]=account;
 	json::Array out;
 	for (auto &x : symbol2account) {
 		out.push_back({x.first, x.second});
@@ -577,7 +579,11 @@ inline void Interface::onInit() {
 }
 
 inline Interface::SymbolInfo& Interface::getSymbolInfo(const std::string& symbol) {
-	if (smbinfo.empty()) updateSymbols();
+	auto now = std::chrono::system_clock::now();
+	if (smbinfo.empty() || smbexpire < now) {
+		updateSymbols();
+		smbexpire = now+std::chrono::minutes(55);
+	}
 	auto iter = smbinfo.find(symbol);
 	if (iter == smbinfo.end()) {
 		throw std::runtime_error("Unknown symbol");
