@@ -17,7 +17,7 @@
 #include "../shared/stdLogOutput.h"
 #include "../shared/first_match.h"
 #include "../shared/logOutput.h"
-#include "httpjson.h"
+#include "../brokers/httpjson.h"
 #include "../brokers/log.h"
 #include "market.h"
 #include "quotedist.h"
@@ -82,11 +82,9 @@ public:
 	Interface(const std::string &path):AbstractBrokerAPI(path, keyFormat)
 	,httpc("+mmbot/2.0 simplefx_broker (https://github.com/ondra-novak/mmbot)",
 			simpleServer::newHttpsProvider())
-	,hjsn(httpc,"https://rest.simplefx.com")
-	,hjsn_utils(httpc,"https://simplefx.com")
+	,hjsn(simpleServer::HttpClient(httpc),"https://rest.simplefx.com")
+	,hjsn_utils(simpleServer::HttpClient(httpc),"https://simplefx.com")
 	{
-		httpc.setIOTimeout(10000);
-		httpc.setConnectTimeout(10000);
 	}
 
 	virtual double getBalance(const std::string_view & symb) override;
@@ -148,6 +146,7 @@ public:
 
 
 	std::uint64_t tokenExpire = 0;
+	std::string token;
 
 
 	SymbolInfo &getSymbolInfo(const std::string &symbol);
@@ -156,6 +155,7 @@ public:
 	void updatePositions();
 	double findConvRate(std::string fromCurrency, std::string toCurrency);
 
+	Value tokenHeader();
 
 
 protected:
@@ -466,7 +466,7 @@ inline double Interface::execCommand(const std::string &symbol, double amount) {
 			("Symbol", symbol)
 			("Side",adjamount>0?"BUY":"SELL")
 			("Volume", fabs(adjamount))
-			("IsFIFO", true)));
+			("IsFIFO", true), tokenHeader()));
 
 	Value morder = v["marketOrders"][0];
 	Value order = morder["order"];
@@ -493,17 +493,17 @@ inline double Interface::execCommand(const std::string &symbol, double amount) {
 inline void Interface::login() {
 	try {
 		auto now = TradingEngine::now();
-		if (hasKey() && (!hjsn.hasToken() || tokenExpire < now)) {
+		if (hasKey() && (token.empty()|| tokenExpire < now)) {
 			Value v = getData(hjsn.POST("/api/v3/auth/key", json::Object
 					  ("clientId", authKey)
 					  ("clientSecret",authSecret)));
 			Value token = v["token"];
-			hjsn.setToken(token.getString());
+			this->token = token.getString();
 			tokenExpire = now + 15*60000;
-			Value alist = getData(hjsn.GET("/api/v3/accounts"));
+			Value alist = getData(hjsn.GET("/api/v3/accounts", tokenHeader()));
 			accounts.clear();
 			defaultAccount = 0;
-			Value currencies = getData(hjsn.GET("/api/v3/currencies"));
+			Value currencies = getData(hjsn.GET("/api/v3/currencies", tokenHeader()));
 			for (Value v: alist) {
 				Value login = v["login"];
 				Value reality = v["reality"];
@@ -530,6 +530,14 @@ inline void Interface::login() {
 	} catch (const simpleServer::HTTPStatusException &e) {
 		if (e.getStatusCode() == 409) throw std::runtime_error("simplefx: Invalid API key");
 		else throw;
+	}
+}
+
+inline Value Interface::tokenHeader() {
+	if (!token.empty()) {
+		return Object("Authorization","bearer "+ token);
+	} else {
+		return Value();
 	}
 }
 
@@ -599,7 +607,7 @@ inline void Interface::updatePositions() {
 	for (auto &a : accounts) {
 		Value data = getData(hjsn.POST("/api/v3/trading/orders/active", Object
 					("login",a.second.login)
-					("reality", a.second.reality)
+					("reality", a.second.reality), tokenHeader()
 			));
 
 			Value morders = data["marketOrders"];

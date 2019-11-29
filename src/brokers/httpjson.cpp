@@ -36,9 +36,13 @@ static simpleServer::SendHeaders hdrs(const json::Value &headers) {
 	simpleServer::SendHeaders hdr;
 	for (json::Value v: headers) {
 		auto k = v.getKey();
-		if (k != "Connection") hdr(k, v.toString());
+		if (k != "Connection") {
+			hdr(k, v.toString());
+		}
+
 	}
 	hdr("Connection","close");
+	if (!headers["Accept"].defined()) hdr("Accept","application/json");
 	return hdr;
 }
 
@@ -66,6 +70,14 @@ json::Value HTTPJson::SEND(const std::string_view &path,
 	std::string url = baseUrl;
 	url.append(path);
 	auto sdata = data.toString();
+
+	if (!headers["Content-Type"].defined()) {
+		if (data.type() != json::string ) {
+			headers = headers.replace("Content-Type", "application/json");
+		} else {
+			headers = headers.replace("Content-Type", "application/x-www-form-urlencoded");
+		}
+	}
 
 	logDebug("$1 $2 - data $3", method, url, data);
 

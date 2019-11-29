@@ -8,8 +8,7 @@ add_executable (simplefx
 	main.cpp
 	 tradingengine.cpp 
 	 quotedist.cpp
-	 quotestream.cpp 
-	 httpjson.cpp
+	 quotestream.cpp 	 
 	 market.cpp
 	 
 )

@@ -16,6 +16,8 @@
 #include <imtjson/object.h>
 #include <imtjson/string.h>
 #include <imtjson/operations.h>
+#include <simpleServer/http_client.h>
+#include "../brokers/httpjson.h"
 
 #include "../shared/stringview.h"
 
@@ -23,6 +25,7 @@ using json::Object;
 using json::Value;
 using json::String;
 using ondra_shared::StrViewA;
+using namespace simpleServer;
 
 
 static Value setupForm = {};
@@ -115,7 +118,6 @@ public:
 	virtual MarketInfo getMarketInfo(const std::string_view & pair)override;
 	virtual double getFees(const std::string_view &pair)override;
 	virtual std::vector<std::string> getAllPairs()override;
-	virtual void enable_debug(bool enable) override;
 	virtual void onInit() override;
 	virtual void setSettings(json::Value v) override;
 	virtual json::Value getSettings(const std::string_view &) const override ;
@@ -372,24 +374,8 @@ double Interface::getCurPrice() const {
 	double price = 0;
 
 	if (!price_url.empty()) {
-		cURLpp::Easy curl_handle;
-		std::ostringstream response;
-
-		if (this->debug_mode) {
-			std::cerr << "Send: " << price_url << std::endl;
-		}
-
-		curl_handle.reset();
-		curl_handle.setOpt(cURLpp::Options::Url(price_url));
-		curl_handle.setOpt(cURLpp::Options::WriteStream(&response));
-		curl_handle.perform();
-
-		if (debug_mode) {
-			std::cerr << "Recv: " << response.str() << std::endl;
-		}
-
-
-		json::Value resp =json::Value::fromString(response.str());
+		HTTPJson httpc(simpleServer::HttpClient("MMBot Trainer",newHttpsProvider(), newNoProxyProvider()),"");
+		json::Value resp = httpc.GET(price_url);
 		bool found = false;
 		resp.walk([&](Value x) {
 			if (!found && ((price_path.empty() && x.type() == json::number) ||
@@ -520,10 +506,6 @@ inline double Interface::getFees(const std::string_view &pair) {
 
 inline std::vector<std::string> Interface::getAllPairs() {
 	return {"TRAINER_PAIR"};
-}
-
-inline void Interface::enable_debug(bool ) {
-
 }
 
 

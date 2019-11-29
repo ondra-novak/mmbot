@@ -8,7 +8,7 @@
 
 #include "../shared/countdown.h"
 #include "../shared/logOutput.h"
-#include "httpjson.h"
+#include "../brokers/httpjson.h"
 #include "../brokers/log.h"
 
 
@@ -38,7 +38,7 @@ QuoteStream::~QuoteStream() {
 SubscribeFn QuoteStream::connect() {
 	Sync _(lock);
 
-	HTTPJson hj(httpc,url);
+	HTTPJson hj(simpleServer::HttpClient(httpc),url);
 	json::Value v = hj.GET("negotiate?clientProtocol=1.5&connectionData=%5B%7B%22name%22%3A%22quotessubscribehub%22%7D%5D");
 
 	std::string enctoken = simpleServer::urlEncode(v["ConnectionToken"].toString());

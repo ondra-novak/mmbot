@@ -48,7 +48,6 @@ public:
 	virtual MarketInfo getMarketInfo(const std::string_view & pair)override;
 	virtual double getFees(const std::string_view &pair)override;
 	virtual std::vector<std::string> getAllPairs()override;
-	virtual void enable_debug(bool enable) override {px.debug = enable;}
 	virtual BrokerInfo getBrokerInfo() override;
 	virtual void onLoadApiKey(json::Value keyData) override;
 	virtual void onInit() override;

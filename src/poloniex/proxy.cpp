@@ -18,12 +18,18 @@
 #include <chrono>
 
 #include <imtjson/string.h>
+#include <simpleServer/http_client.h>
+#include <simpleServer/urlencode.h>
+#include "../imtjson/src/imtjson/object.h"
 #include "../shared/logOutput.h"
 
 using ondra_shared::logDebug;
-
+using namespace simpleServer;
 static constexpr std::uint64_t start_time = 1557858896532;
-Proxy::Proxy() {
+Proxy::Proxy():httpc(HttpClient("MMBot Poloniex broker",
+		newHttpsProvider(),
+		newNoProxyProvider()), "")
+ {
 
 	apiPrivUrl="https://poloniex.com/tradingApi";
 	apiPublicUrl="https://poloniex.com/public";
@@ -48,10 +54,7 @@ void Proxy::buildParams(const json::Value& params, std::ostream& data) {
 		data << "&" << field.getKey() << "=";
 		json::String s = field.toString();
 		if (!s.empty()) {
-			char* esc = curl_easy_escape(curl_handle.getHandle(), s.c_str(),
-					s.length());
-			data << esc;
-			curl_free(esc);
+			data << urlEncode(s);
 		}
 	}
 }
@@ -62,25 +65,7 @@ json::Value Proxy::public_request(std::string method, json::Value data) {
 	buildParams(data, urlbuilder);
 	std::ostringstream response;
 
-	if (debug) {
-		std::cerr << "Send: " << urlbuilder.str() << std::endl;
-	}
-
-
-	curl_handle.reset();
-
-
-	curl_handle.setOpt(cURLpp::Options::Url(urlbuilder.str()));
-	curl_handle.setOpt(cURLpp::Options::WriteStream(&response));
-	curl_handle.perform();
-
-	if (debug) {
-		std::cerr << "Recv: " << response.str() << std::endl;
-	}
-
-
-	return json::Value::fromString(response.str());
-
+	return httpc.GET(urlbuilder.str());
 }
 
 static std::string signData(std::string_view key, std::string_view data) {
@@ -110,32 +95,14 @@ json::Value Proxy::private_request(std::string method, json::Value data) {
 	std::istringstream src(request);
 
 
-	if (debug) {
-		std::cerr << "Send: " << request << std::endl;
-	}
 
+	json::Object headers;
+	headers("Accepts","application/json");
+	headers("Content-Type","application/x-www-form-urlencoded");
+	headers("Key",pubKey);
+	headers("Sign",signData(privKey, request));;
 
-	curl_handle.reset();
-
-	curl_handle.setOpt(new cURLpp::Options::Post(true));
-	curl_handle.setOpt(new cURLpp::Options::ReadStream(&src));
-	curl_handle.setOpt(new cURLpp::Options::PostFieldSize(request.length()));
-
-	std::list<std::string> headers;
-	headers.push_back("Key: "+pubKey);
-	headers.push_back("Sign: "+signData(privKey, request));;
-
-	curl_handle.setOpt(new cURLpp::Options::HttpHeader(headers));
-
-	curl_handle.setOpt(new cURLpp::Options::Url(apiPrivUrl));
-	curl_handle.setOpt(new cURLpp::Options::WriteStream(&response));
-	curl_handle.perform();
-
-	if (debug) {
-		std::cerr << "Recv: " << response.str() << std::endl;
-	}
-
-	json::Value v =  json::Value::fromString(response.str());
+	json::Value v = httpc.POST(apiPrivUrl, request, headers);
 	if (v["error"].defined()) throw std::runtime_error(v["error"].toString().c_str());
 	return v;
 }

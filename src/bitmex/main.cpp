@@ -26,6 +26,10 @@
 #include "../brokers/isotime.h"
 #include "../imtjson/src/imtjson/string.h"
 #include "../main/sgn.h"
+#include "../shared/logOutput.h"
+
+using ondra_shared::logNote;
+using ondra_shared::logError;
 
 using namespace json;
 
@@ -299,7 +303,7 @@ inline json::Value Interface::placeOrder(const std::string_view &pair,
 			std::uint64_t  orderTime = parseTime(toCancel["transactTime"].toString(), ParseTimeFormat::iso);
 			std::uint64_t limitTime = quoteEachMin*60000;
 			if (size != 0 && quoteEachMin && now-orderTime < limitTime) {
-				if (px.debug) std::cerr << "Re-quote disallowed for this time (" << (now-orderTime) <<" < " << limitTime <<") "<< std::endl;
+				logNote("Re-quote disallowed for this time ($1<$2)", now-orderTime , limitTime );
 				return toCancel["orderID"];
 			}
 			if (toCancel["Side"] == side && toCancel["symbol"].getString() == pair
@@ -558,6 +562,6 @@ inline void Interface::loadOptions() {
 		quoteEachMin = v["quoteEachMin"].getUInt();
 		allowSmallOrders = v["allowSmallOrders"].getUInt();
 	} catch (std::exception &e) {
-		std::cerr<<"Failed to load config: " << e.what() << std::endl;
+		logError("Failed to load config: $1", e.what());
 	}
 }

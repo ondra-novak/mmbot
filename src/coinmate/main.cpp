@@ -75,7 +75,6 @@ public:
 
  double Interface::getBalance(const std::string_view &symb) {
 	 if (!balanceCache.defined()) {
-//			std::cerr << "[debug] Fetch balance: " << std::endl;
 		 	balanceCache = cm.request(Proxy::POST, "balances", Value());
 	 }
 	 return balanceCache[symb]["balance"].getNumber();
@@ -175,7 +174,6 @@ Interface::TradesSync Interface::syncTrades(json::Value lastId, const std::strin
 
 
 	 	 if (!orderCache.defined()) {
-//  			 std::cerr << "[debug] Fetch orders: " << std::endl;
 	 		 orderCache = cm.request(Proxy::POST, "openOrders", Value());
 	 	 }
 
