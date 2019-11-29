@@ -51,22 +51,11 @@ json::Value HTTPJson::GET(const std::string_view &path, json::Value &&headers, u
 	auto resp = httpc.request("GET", url, hdrs(headers));
 	unsigned int st = resp.getStatus();
 	if ((expectedCode && st != expectedCode) || (!expectedCode && st/100 != 2)) {
-		throw simpleServer::HTTPStatusException(st, resp.getMessage());
+		throw UnknownStatusException(st, resp.getMessage(),resp);
 	}
 	json::Value r = json::Value::parse(resp.getBody());
 	logDebug("RECV: $1", r);
 	return r;
-}
-
-static json::String toFormData(json::Value j) {
-	if (j.type() == json::string) return j.toString();
-	std::ostringstream buffer;
-	for (json::Value v : j) {
-		StrViewA key = v.getKey();
-		json::String val = v.toString();
-		buffer << '&' << urlEncode(key) << '=' << urlEncode(val);
-	}
-	return buffer.str();
 }
 
 json::Value HTTPJson::SEND(const std::string_view &path,
@@ -84,7 +73,7 @@ json::Value HTTPJson::SEND(const std::string_view &path,
 	auto resp = httpc.request(method, url, hdrs(headers), sdata.str());
 	unsigned int st = resp.getStatus();
 	if ((expectedCode && st != expectedCode) || (!expectedCode && st/100 != 2)) {
-		throw simpleServer::HTTPStatusException(st, resp.getMessage());
+		throw UnknownStatusException(st, resp.getMessage(), resp);
 	}
 	json::Value r = json::Value::parse(resp.getBody());
 	logDebug("RECV: $1", r);

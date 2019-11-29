@@ -7,10 +7,10 @@
 
 #ifndef SRC_COINMATE_PROXY_H_
 #define SRC_COINMATE_PROXY_H_
-#include <curlpp/Easy.hpp>
 #include <chrono>
 
 #include <imtjson/value.h>
+#include "../brokers/httpjson.h"
 
 class Proxy {
 public:
@@ -20,7 +20,9 @@ public:
 	std::string apiUrl;
 	std::string privKey;
 	std::string pubKey;
-	cURLpp::Easy curl_handle;
+
+	HTTPJson httpc;
+
 	bool testnet = false;
 
 	json::Value request(

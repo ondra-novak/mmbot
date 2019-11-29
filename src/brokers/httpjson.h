@@ -44,6 +44,18 @@ public:
 			json::Value &&headers = json::Value(),
 			unsigned int expectedCode = 0);
 
+
+	class UnknownStatusException: public simpleServer::HTTPStatusException {
+	public:
+		UnknownStatusException(int code, const std::string &message, simpleServer::HttpResponse response)
+			:simpleServer::HTTPStatusException(code,message),response(response) {}
+		UnknownStatusException(int code, std::string &&message, simpleServer::HttpResponse response)
+			:simpleServer::HTTPStatusException(code,std::move(message)),response(response) {}
+
+		simpleServer::HttpResponse response;
+	};
+
+
 protected:
 	simpleServer::HttpClient httpc;
 	std::string baseUrl;

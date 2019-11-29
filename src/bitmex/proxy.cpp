@@ -22,12 +22,20 @@
 #include <imtjson/string.h>
 #include <imtjson/object.h>
 #include <imtjson/value.h>
+#include <simpleServer/http_client.h>
+#include <simpleServer/urlencode.h>
+#include "../imtjson/src/imtjson/parser.h"
 #include "../shared/logOutput.h"
 
 using json::Value;
 using ondra_shared::logDebug;
+using namespace simpleServer;
 
-Proxy::Proxy() {
+Proxy::Proxy()
+:httpc(HttpClient("MMBot Bitmex broker",
+		newHttpsProvider(),
+		newNoProxyProvider()), "")
+ {
 	setTestnet(false);
 }
 
@@ -38,10 +46,7 @@ bool Proxy::hasKey() const {
 
 
 void Proxy::urlEncode(const std::string_view &text, std::ostream &out) {
-	char* esc = curl_easy_escape(curl_handle.getHandle(), text.data(),
-			text.length());
-	out << esc;
-	curl_free(esc);
+	out << simpleServer::urlEncode(text);
 }
 
 std::string Proxy::buildPath(const std::string_view path, const json::Value &query) {
@@ -66,85 +71,55 @@ json::Value Proxy::request(
 		const json::Value &query,
 		const json::Value &data) {
 
-	curl_handle.reset();
 	std::string fpath = buildPath(path, query);
 	std::string fdata = data.hasValue()?data.stringify().str():json::StrViewA();
 
-	std::list<std::string> headers;
+	json::Object headers;
+
+
 
 	if (hasKey()) {
 		auto authdata = signRequest(verb, fpath, fdata);
 
-		headers.push_back("api-expires: "+authdata.expires);
-		headers.push_back("api-key: "+authdata.key);
-		headers.push_back("api-signature: "+authdata.signature);
+		headers("api-expires",authdata.expires);
+		headers("api-key",authdata.key);
+		headers("api-signature",authdata.signature);
 
 	}
 
 	if (verb != "GET" && !fdata.empty()) {
-		headers.push_back("Content-Type: application/json");
-		headers.push_back("Accepts: application/json");
+		headers("Content-Type","application/json");
+		headers("Accepts","application/json");
 	}
 
-	std::istringstream request(fdata);
-	std::ostringstream response;
 
 	std::string url = apiUrl + fpath;
+	Value res;
 
-	curl_handle.reset();
-	if (verb == "POST") {
-		curl_handle.setOpt(new cURLpp::Options::Post(true));
-		curl_handle.setOpt(new cURLpp::Options::ReadStream(&request));
-		curl_handle.setOpt(new cURLpp::Options::PostFieldSize(fdata.length()));
-	} else if (verb == "PUT") {
-		curl_handle.setOpt(new cURLpp::Options::Put(true));
-		curl_handle.setOpt(new cURLpp::Options::ReadStream(&request));
-		curl_handle.setOpt(new cURLpp::Options::PostFieldSize(fdata.length()));
-	} else if (verb == "DELETE") {
-		curl_handle.setOpt(new cURLpp::Options::CustomRequest("DELETE"));
-	}
+	try {
 
-	curl_handle.setOpt(new cURLpp::Options::HttpHeader(headers));
-
-	curl_handle.setOpt(new cURLpp::Options::Url(url));
-	curl_handle.setOpt(new cURLpp::Options::WriteStream(&response));
-
-	if (debug) {
-		std::cerr << "SEND: " << verb <<  " " << url << std::endl;
-		if (!fdata.empty()) std::cerr << "SEND BODY: " << fdata << std::endl;
-	}
-
-	curl_handle.perform();
-
-	if (debug) {
-		std::cerr << "RECV: " << response.str() << std::endl;
-	}
-
-
-
-	auto resp_code = curlpp::infos::ResponseCode::get(curl_handle);
-	if (resp_code /100 != 2) {
+		if (verb == "POST") {
+			res = httpc.POST(url,fdata,headers);
+		} else if (verb == "PUT") {
+			res = httpc.PUT(url, fdata, headers);
+		} else if (verb == "DELETE") {
+			res = httpc.DELETE(url,fdata,headers);
+		} else {
+			res = httpc.GET(url, headers);
+		}
+		return res;
+	} catch (HTTPJson::UnknownStatusException &e) {
 		std::string errmsg;
 		try {
-			Value p = Value::fromString(response.str());
-			errmsg = std::to_string(resp_code).append(" ")
+			Value p = Value::parse(e.response.getBody());
+			errmsg = std::to_string(e.getStatusCode()).append(" ")
 					.append(std::string_view(p["error"]["message"].getString()))
 					.append(" ")
 					.append(std::string_view(p["error"]["ordRejReason"].getString()));
 		} catch (...) {
-			errmsg = std::to_string(resp_code).append(" ").append(response.str());
+			errmsg = std::to_string(e.getStatusCode()).append(" ").append(e.getStatusMessage());
 		}
 		throw std::runtime_error(errmsg);
-	} else {
-		try {
-			Value p = Value::fromString(response.str());
-			return p;
-		} catch (...) {
-			std::string errmsg;
-			errmsg = std::to_string(500).append(" ").append(response.str());
-			throw std::runtime_error(errmsg);
-		}
-
 	}
 }
 
