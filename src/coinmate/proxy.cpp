@@ -20,6 +20,7 @@
 #include <imtjson/string.h>
 #include <simpleServer/http_client.h>
 #include <simpleServer/urlencode.h>
+#include <imtjson/object.h>
 #include "../shared/logOutput.h"
 
 using ondra_shared::logDebug;
@@ -62,14 +63,15 @@ json::Value Proxy::request(Method method, std::string path, json::Value data) {
 
 	if (!hasKey() && method != GET)
 		throw std::runtime_error("This operation requires valid API key");
+	static json::Object ctx("Content-Type","application/x-www-form-urlencoded");
 
 	json::Value v;
 	switch(method) {
 	case POST:
-		v = httpc.POST(path , createQuery(data), HTTPJson::form);
+		v = httpc.POST(path , createQuery(data), ctx);
 		break;
 	case PUT:
-		v = httpc.PUT(path, createQuery(data), HTTPJson::form);
+		v = httpc.PUT(path, createQuery(data), ctx);
 		break;
 	case GET:
 		v = httpc.GET(path + "?" + createQuery(data));

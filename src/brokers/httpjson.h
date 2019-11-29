@@ -18,25 +18,35 @@ public:
 	HTTPJson(simpleServer::HttpClient &&httpc, const std::string_view &baseUrl);
 	void setToken(const std::string_view &token);
 
-	enum BodyType {
-		///do not set content type
-		none,
-		///set application/json and use toString to serialize string
-		json,
-		///set application/x-www-form-urlencoded and use json to query serializer
-		form,
-	};
 
-	json::Value GET(const std::string_view &path, unsigned int expectedCode = 0);
-	json::Value SEND(const std::string_view &path, const std::string_view &method, const json::Value &data,BodyType bodyType,  unsigned int expectedCode = 0);
-	json::Value POST(const std::string_view &path, const json::Value &data, BodyType bodyType, unsigned int expectedCode = 0);
-	json::Value PUT(const std::string_view &path, const json::Value &data, BodyType bodyType, unsigned int expectedCode = 0);
-	json::Value DELETE(const std::string_view &path, const json::Value &data, BodyType bodyType, unsigned int expectedCode = 0);
-	bool hasToken() {return !token.empty();}
+	json::Value GET(const std::string_view &path,
+			json::Value &&headers = json::Value(),
+			unsigned int expectedCode = 0);
+
+	json::Value SEND(const std::string_view &path,
+					const std::string_view &method,
+					const json::Value &data,
+					json::Value &&headers = json::Value(),
+					unsigned int expectedCode = 0);
+
+	json::Value POST(const std::string_view &path,
+			const json::Value &data,
+			json::Value &&headers = json::Value(),
+			unsigned int expectedCode = 0);
+
+	json::Value PUT(const std::string_view &path,
+			const json::Value &data,
+			json::Value &&headers = json::Value(),
+			unsigned int expectedCode = 0);
+
+	json::Value DELETE(const std::string_view &path,
+			const json::Value &data,
+			json::Value &&headers = json::Value(),
+			unsigned int expectedCode = 0);
+
 protected:
 	simpleServer::HttpClient httpc;
 	std::string baseUrl;
-	std::string token;
 };
 
 

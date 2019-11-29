@@ -19,13 +19,21 @@
 #include <chrono>
 
 #include <imtjson/string.h>
+#include <simpleServer/http_client.h>
+#include <simpleServer/urlencode.h>
+#include <imtjson/object.h>
 #include "../shared/logOutput.h"
 
 using ondra_shared::logDebug;
+using namespace simpleServer;
 
-Proxy::Proxy() {
-	apiUrl = "https://api.binance.com";
 
+Proxy::Proxy()
+:httpc(HttpClient("MMBot Binance broker",
+		newHttpsProvider(),
+		newNoProxyProvider()), "https://api.binance.com")
+
+{
 	auto  init_time = now();
 	nonce = init_time * 100;
 }
@@ -46,10 +54,7 @@ void Proxy::buildParams(const json::Value& params, std::ostream& data) {
 		data << "&" << field.getKey() << "=";
 		json::String s = field.toString();
 		if (!s.empty()) {
-			char* esc = curl_easy_escape(curl_handle.getHandle(), s.c_str(),
-					s.length());
-			data << esc;
-			curl_free(esc);
+			data << simpleServer::urlEncode(s);
 		}
 	}
 }
@@ -59,23 +64,8 @@ json::Value Proxy::public_request(std::string method, json::Value data) {
 	urlbuilder << apiUrl <<  method;
 	buildParams(data, urlbuilder);
 	std::ostringstream response;
-	curl_handle.reset();
 
-	if (debug) {
-			std::cerr << "SEND: " << urlbuilder.str() << std::endl;
-	}
-
-
-	curl_handle.setOpt(cURLpp::Options::Url(urlbuilder.str()));
-	curl_handle.setOpt(cURLpp::Options::WriteStream(&response));
-	curl_handle.perform();
-
-	if (debug) {
-			std::cerr << "RECV: " << response.str() << std::endl;
-	}
-
-
-	return json::Value::fromString(response.str());
+	return httpc.GET(urlbuilder.str());
 
 }
 
@@ -100,7 +90,7 @@ json::Value Proxy::private_request(Method method, std::string command, json::Val
 	data = data.replace("timestamp", now()+time_diff);
 
 	std::ostringstream urlbuilder;
-	urlbuilder << apiUrl <<  command;
+	urlbuilder << command;
 
 	std::ostringstream databld;
 	buildParams(data, databld);
@@ -113,48 +103,29 @@ json::Value Proxy::private_request(Method method, std::string command, json::Val
 
 
 	std::ostringstream response;
-	std::istringstream src(request);
-	curl_handle.reset();
+
+	json::Value res;
+	//json::Object hdrs("Content-Type","application/x-www-form-urlencoded");
+
+	json::Object headers;
+	headers("X-MBX-APIKEY",pubKey);
 
 	if (method == GET) {
 		url = url + "?" + request;
-		if (debug) std::cerr << "SEND: GET " << url << std::endl;
+		res = httpc.GET(url, headers);
 	} else if (method == DELETE) {
 		url = url + "?" + request;
-		if (debug) std::cerr << "SEND: DELETE " << url << std::endl;
-		curl_handle.setOpt(new cURLpp::Options::CustomRequest("DELETE"));
+		res = httpc.DELETE(url,json::String(), headers);
 	} else {
+		headers("Content-Type","application/x-www-form-urlencoded");
 		if (method == POST) {
-			if (debug) std::cerr << "SEND: POST " << url << "( " << request << " )" << std::endl;
-			curl_handle.setOpt(new cURLpp::Options::Post(true));
+			res = httpc.POST(url, request, headers);
 		} else {
-			if (debug) std::cerr << "SEND: PUT " << url << "( " << request << " )" << std::endl;
-			curl_handle.setOpt(new cURLpp::Options::Put(true));
+			res = httpc.PUT(url, request, headers);
 		}
-		curl_handle.setOpt(new cURLpp::Options::ReadStream(&src));
-		curl_handle.setOpt(new cURLpp::Options::PostFieldSize(request.length()));
 	}
 
-	std::list<std::string> headers;
-	headers.push_back("X-MBX-APIKEY: "+pubKey);
-
-	curl_handle.setOpt(new cURLpp::Options::HttpHeader(headers));
-
-	curl_handle.setOpt(new cURLpp::Options::Url(url));
-	curl_handle.setOpt(new cURLpp::Options::WriteStream(&response));
-	curl_handle.perform();
-
-	std::string rsp = response.str();
-	auto resp_code = curlpp::infos::ResponseCode::get(curl_handle);
-
-	if (debug) std::cerr << "RECV: " << resp_code << " " << rsp << std::endl;
-
-	//	std::cerr << rsp << std::endl;
-
-	if (resp_code/100 != 2) throw std::runtime_error(rsp);
-
-	json::Value v =  json::Value::fromString(rsp);
-	return v;
+	return res;
 }
 
 bool Proxy::hasKey() const {

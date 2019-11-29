@@ -24,9 +24,6 @@ HTTPJson::HTTPJson(simpleServer::HttpClient &&httpc,
 	httpc.setIOTimeout(10000);
 }
 
-void HTTPJson::setToken(const std::string_view &token) {
-	this->token = token;
-}
 
 enum class BodyType {
 	none,
@@ -34,26 +31,24 @@ enum class BodyType {
 	json
 };
 
-static simpleServer::SendHeaders hdrs(const std::string &token, HTTPJson::BodyType bodyType) {
+static simpleServer::SendHeaders hdrs(const json::Value &headers) {
 
 	simpleServer::SendHeaders hdr;
-	switch (bodyType) {
-	case HTTPJson::form: hdr.contentType("application/x-www-form-urlencoded");break;
-	case HTTPJson::json: hdr.contentType("application/json");break;
-	default: break;
+	for (json::Value v: headers) {
+		auto k = v.getKey();
+		if (k != "Connection") hdr(k, v.toString());
 	}
-	if (!token.empty()) hdr("Authorization","Bearer "+token);
 	hdr("Connection","close");
 	return hdr;
 }
 
-json::Value HTTPJson::GET(const std::string_view &path, unsigned int expectedCode) {
+json::Value HTTPJson::GET(const std::string_view &path, json::Value &&headers, unsigned int expectedCode) {
 	std::string url = baseUrl;
 	url.append(path);
 
 	logDebug("GET $1", url);
 
-	auto resp = httpc.request("GET", url, hdrs(token,BodyType::none));
+	auto resp = httpc.request("GET", url, hdrs(headers));
 	unsigned int st = resp.getStatus();
 	if ((expectedCode && st != expectedCode) || (!expectedCode && st/100 != 2)) {
 		throw simpleServer::HTTPStatusException(st, resp.getMessage());
@@ -76,17 +71,17 @@ static json::String toFormData(json::Value j) {
 
 json::Value HTTPJson::SEND(const std::string_view &path,
 		const std::string_view &method, const json::Value &data,
-		BodyType bodyType,
+		json::Value &&headers,
 		unsigned int expectedCode) {
 
 	std::string url = baseUrl;
 	url.append(path);
-	auto sdata = bodyType == json?data.toString():bodyType == form?toFormData(data):json::String();
+	auto sdata = data.toString();
 
 	logDebug("$1 $2 - data $3", method, url, data);
 
 
-	auto resp = httpc.request(method, url, hdrs(token,bodyType), sdata.str());
+	auto resp = httpc.request(method, url, hdrs(headers), sdata.str());
 	unsigned int st = resp.getStatus();
 	if ((expectedCode && st != expectedCode) || (!expectedCode && st/100 != 2)) {
 		throw simpleServer::HTTPStatusException(st, resp.getMessage());
@@ -98,16 +93,16 @@ json::Value HTTPJson::SEND(const std::string_view &path,
 }
 
 json::Value HTTPJson::POST(const std::string_view &path,
-		const json::Value &data, BodyType bodyType, unsigned int expectedCode) {
-	return SEND(path, "POST", data, bodyType, expectedCode);
+		const json::Value &data, json::Value &&headers, unsigned int expectedCode) {
+	return SEND(path, "POST", data, std::move(headers), expectedCode);
 }
 
 json::Value HTTPJson::PUT(const std::string_view &path, const json::Value &data,
-		BodyType bodyType, unsigned int expectedCode) {
-	return SEND(path, "PUT", data, bodyType, expectedCode);
+		json::Value &&headers, unsigned int expectedCode) {
+	return SEND(path, "PUT", data, std::move(headers), expectedCode);
 }
 
 json::Value HTTPJson::DELETE(const std::string_view &path,
-		const json::Value &data,BodyType bodyType,  unsigned int expectedCode) {
-	return SEND(path, "DELETE", data, bodyType, expectedCode);
+		const json::Value &data,json::Value &&headers,  unsigned int expectedCode) {
+	return SEND(path, "DELETE", data, std::move(headers), expectedCode);
 }
