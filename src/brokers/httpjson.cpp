@@ -8,25 +8,40 @@
 #include <imtjson/string.h>
 #include <imtjson/parser.h>
 #include "httpjson.h"
+
+#include <simpleServer/urlencode.h>
 #include "../shared/logOutput.h"
 #include "log.h"
 
 using ondra_shared::logDebug;
+using simpleServer::urlEncode;
 
-HTTPJson::HTTPJson(simpleServer::HttpClient &httpc,
+HTTPJson::HTTPJson(simpleServer::HttpClient &&httpc,
 		const std::string_view &baseUrl)
-:httpc(httpc),baseUrl(baseUrl)
+:httpc(std::move(httpc)),baseUrl(baseUrl)
 {
+	httpc.setConnectTimeout(5000);
+	httpc.setIOTimeout(10000);
 }
 
 void HTTPJson::setToken(const std::string_view &token) {
 	this->token = token;
 }
 
-static simpleServer::SendHeaders hdrs(const std::string &token, bool body) {
+enum class BodyType {
+	none,
+	form,
+	json
+};
+
+static simpleServer::SendHeaders hdrs(const std::string &token, HTTPJson::BodyType bodyType) {
 
 	simpleServer::SendHeaders hdr;
-	if (body) hdr.contentType("application/json");
+	switch (bodyType) {
+	case HTTPJson::form: hdr.contentType("application/x-www-form-urlencoded");break;
+	case HTTPJson::json: hdr.contentType("application/json");break;
+	default: break;
+	}
 	if (!token.empty()) hdr("Authorization","Bearer "+token);
 	hdr("Connection","close");
 	return hdr;
@@ -38,9 +53,9 @@ json::Value HTTPJson::GET(const std::string_view &path, unsigned int expectedCod
 
 	logDebug("GET $1", url);
 
-	auto resp = httpc.request("GET", url, hdrs(token,false));
+	auto resp = httpc.request("GET", url, hdrs(token,BodyType::none));
 	unsigned int st = resp.getStatus();
-	if (st != expectedCode) {
+	if ((expectedCode && st != expectedCode) || (!expectedCode && st/100 != 2)) {
 		throw simpleServer::HTTPStatusException(st, resp.getMessage());
 	}
 	json::Value r = json::Value::parse(resp.getBody());
@@ -48,20 +63,32 @@ json::Value HTTPJson::GET(const std::string_view &path, unsigned int expectedCod
 	return r;
 }
 
+static json::String toFormData(json::Value j) {
+	if (j.type() == json::string) return j.toString();
+	std::ostringstream buffer;
+	for (json::Value v : j) {
+		StrViewA key = v.getKey();
+		json::String val = v.toString();
+		buffer << '&' << urlEncode(key) << '=' << urlEncode(val);
+	}
+	return buffer.str();
+}
+
 json::Value HTTPJson::SEND(const std::string_view &path,
 		const std::string_view &method, const json::Value &data,
+		BodyType bodyType,
 		unsigned int expectedCode) {
 
 	std::string url = baseUrl;
 	url.append(path);
-	auto sdata = data.stringify();
+	auto sdata = bodyType == json?data.toString():bodyType == form?toFormData(data):json::String();
 
 	logDebug("$1 $2 - data $3", method, url, data);
 
 
-	auto resp = httpc.request(method, url, hdrs(token,true), sdata.str());
+	auto resp = httpc.request(method, url, hdrs(token,bodyType), sdata.str());
 	unsigned int st = resp.getStatus();
-	if (st != expectedCode) {
+	if ((expectedCode && st != expectedCode) || (!expectedCode && st/100 != 2)) {
 		throw simpleServer::HTTPStatusException(st, resp.getMessage());
 	}
 	json::Value r = json::Value::parse(resp.getBody());
@@ -71,16 +98,16 @@ json::Value HTTPJson::SEND(const std::string_view &path,
 }
 
 json::Value HTTPJson::POST(const std::string_view &path,
-		const json::Value &data, unsigned int expectedCode) {
-	return SEND(path, "POST", data, expectedCode);
+		const json::Value &data, BodyType bodyType, unsigned int expectedCode) {
+	return SEND(path, "POST", data, bodyType, expectedCode);
 }
 
 json::Value HTTPJson::PUT(const std::string_view &path, const json::Value &data,
-		unsigned int expectedCode) {
-	return SEND(path, "PUT", data, expectedCode);
+		BodyType bodyType, unsigned int expectedCode) {
+	return SEND(path, "PUT", data, bodyType, expectedCode);
 }
 
 json::Value HTTPJson::DELETE(const std::string_view &path,
-		const json::Value &data, unsigned int expectedCode) {
-	return SEND(path, "DELETE", data, expectedCode);
+		const json::Value &data,BodyType bodyType,  unsigned int expectedCode) {
+	return SEND(path, "DELETE", data, bodyType, expectedCode);
 }

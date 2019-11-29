@@ -7,9 +7,9 @@
 
 #ifndef SRC_COINMATE_PROXY_H_
 #define SRC_COINMATE_PROXY_H_
-#include <curlpp/Easy.hpp>
 
 #include <imtjson/value.h>
+#include "../brokers/httpjson.h"
 
 class Proxy {
 public:
@@ -21,7 +21,7 @@ public:
 	std::string pubKey;
 	std::string clientid;
 
-	cURLpp::Easy curl_handle;
+	HTTPJson httpc;
 
 	std::uint64_t nonce;
 

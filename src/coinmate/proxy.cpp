@@ -18,13 +18,17 @@
 #include <chrono>
 
 #include <imtjson/string.h>
+#include <simpleServer/http_client.h>
+#include <simpleServer/urlencode.h>
 #include "../shared/logOutput.h"
 
 using ondra_shared::logDebug;
+using namespace simpleServer;
 
 static constexpr std::uint64_t start_time = 1557858896532;
-Proxy::Proxy() {
-	apiUrl = "https://coinmate.io/api/";
+Proxy::Proxy()
+	:httpc(HttpClient("MMBot coinmate broker", newHttpsProvider(), newNoProxyProvider()), "https://coinmate.io/api/")
+	{
 	auto now = std::chrono::system_clock::now();
 	std::uint64_t init_time = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count() - start_time;
 	nonce = init_time * 100;
@@ -56,62 +60,23 @@ std::pair<std::string, std::uint64_t> Proxy::createSignature() {
 
 json::Value Proxy::request(Method method, std::string path, json::Value data) {
 
-	std::string d = createQuery(data);
-	std::ostringstream response;
-	std::string url = apiUrl+path;
-	std::istringstream src(d);
-
-/*	auto reader = [&](char *buffer, size_t size, size_t nitems) {
-		src.read(buffer,size*nitems);
-		std::size_t cnt = src.gcount();
-		return cnt;
-	};*/
-
 	if (!hasKey() && method != GET)
 		throw std::runtime_error("This operation requires valid API key");
 
-	const char *m = "";
-	curl_handle.reset();
+	json::Value v;
 	switch(method) {
 	case POST:
-		m="POST";
-		curl_handle.setOpt(cURLpp::Options::Post(true));
-		curl_handle.setOpt(new cURLpp::Options::ReadStream(&src));
-		curl_handle.setOpt(cURLpp::Options::PostFieldSize(d.length()));
+		v = httpc.POST(path , createQuery(data), HTTPJson::form);
 		break;
 	case PUT:
-		m="PUT";
-		curl_handle.setOpt(cURLpp::Options::Upload(true));
-		curl_handle.setOpt(cURLpp::Options::ReadStream(&src));
-		curl_handle.setOpt(cURLpp::Options::InfileSize(d.length()));
+		v = httpc.PUT(path, createQuery(data), HTTPJson::form);
 		break;
 	case GET:
-		m="GET";
-		url = url + "?" + d;
-		d.clear();
-		break;
+		v = httpc.GET(path + "?" + createQuery(data));
 	}
 
-	if (debug) {
-		std::cerr << "Send: " << m << " " << url << " " << d << std::endl;
-	}
-
-	logDebug("Request: $1 $2 $3", m, url, d);
-
-
-	curl_handle.setOpt(cURLpp::Options::Url(url));
-	curl_handle.setOpt(cURLpp::Options::WriteStream(&response));
-	curl_handle.perform();
-
-	if (debug) {
-		std::cerr << "Recv: " << response.str() << std::endl;
-	}
-
-
-	json::Value v = json::Value::fromString(response.str());
 	if (v["error"].getBool()) throw std::runtime_error(v["errorMessage"].toString().c_str());
 	return v["data"];
-
 }
 
 std::string Proxy::createQuery(json::Value data) {
@@ -128,9 +93,7 @@ std::string Proxy::createQuery(json::Value data) {
 		out << "&" << x.getKey() << "=";
 		json::String s = x.toString();
 		if (!s.empty()) {
-			char *esc = curl_easy_escape(curl_handle.getHandle(),s.c_str(), s.length());
-			out << esc;
-			curl_free(esc);
+			out << urlEncode(s.str());
 		}
 	}
 	return out.str();
