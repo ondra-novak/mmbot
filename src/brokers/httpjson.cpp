@@ -9,7 +9,7 @@
 #include <imtjson/parser.h>
 #include "httpjson.h"
 #include "../shared/logOutput.h"
-#include "../brokers/log.h"
+#include "log.h"
 
 using ondra_shared::logDebug;
 

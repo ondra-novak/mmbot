@@ -18,7 +18,7 @@
 #include "../shared/first_match.h"
 #include "../shared/logOutput.h"
 #include "httpjson.h"
-#include "log.h"
+#include "../brokers/log.h"
 #include "market.h"
 #include "quotedist.h"
 #include "quotestream.h"
@@ -84,7 +84,6 @@ public:
 			simpleServer::newHttpsProvider())
 	,hjsn(httpc,"https://rest.simplefx.com")
 	,hjsn_utils(httpc,"https://simplefx.com")
-	,logProvider(new LogProvider(*this))
 	{
 		httpc.setIOTimeout(10000);
 		httpc.setConnectTimeout(10000);
@@ -105,7 +104,6 @@ public:
 	virtual MarketInfo getMarketInfo(const std::string_view & pair)override;
 	virtual double getFees(const std::string_view &pair)override;
 	virtual std::vector<std::string> getAllPairs()override;
-	virtual void enable_debug(bool enable) override;
 	virtual BrokerInfo getBrokerInfo() override;
 	virtual void onLoadApiKey(json::Value keyData) override;
 	virtual void onInit() override;
@@ -159,28 +157,6 @@ public:
 	double findConvRate(std::string fromCurrency, std::string toCurrency);
 
 
-	class LogProvider: public ondra_shared::StdLogProviderFactory {
-	public:
-		using Super = ondra_shared::StdLogProviderFactory;
-		LogProvider(Interface &owner):owner(owner) {}
-		virtual void writeToLog(const StrViewA &line, const std::time_t &, ondra_shared::LogLevel ) {
-			owner.logMessage(std::string(line));
-		}
-		void lock() {
-			Super::lock.lock();
-		}
-		void unlock() {
-			Super::lock.unlock();
-		}
-	protected:
-		Interface &owner;
-	};
-
-	ondra_shared::RefCntPtr<LogProvider> logProvider;
-	virtual void flushMessages() override {
-		std::lock_guard<LogProvider> _(*logProvider);
-		AbstractBrokerAPI::flushMessages();
-	}
 
 protected:
 	void updatePosition(const std::string& symbol, double amount);
@@ -201,7 +177,6 @@ int main(int argc, char **argv) {
 	try {
 
 		Interface ifc(argv[1]);
-		ifc.logProvider->setDefault();
 		ifc.dispatch();
 
 
@@ -344,10 +319,6 @@ inline std::vector<std::string> Interface::getAllPairs() {
 	}
 	std::sort(res.begin(), res.end());
 	return res;
-}
-
-inline void Interface::enable_debug(bool e) {
-	logProvider->setEnabledLogLevel(e?ondra_shared::LogLevel::debug:ondra_shared::LogLevel::error);
 }
 
 inline Interface::BrokerInfo Interface::getBrokerInfo() {

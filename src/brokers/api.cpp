@@ -18,7 +18,53 @@
 #include <imtjson/binary.h>
 
 #include "../main/istockapi.cpp"
+#include "../shared/stdLogOutput.h"
 using namespace json;
+
+class BrokerLogProvider: public ondra_shared::StdLogProvider {
+public:
+	using ondra_shared::StdLogProvider::StdLogProvider;
+
+
+	virtual ondra_shared::PLogProvider newSection(const StrViewA &ident)  override {
+		return ondra_shared::PLogProvider(new BrokerLogProvider(*this,ident));
+	}
+
+	virtual void appendDate(std::time_t ) override {}
+	virtual void appendThreadIdent() override {}
+
+
+};
+
+
+class AbstractBrokerAPI::LogProvider: public ondra_shared::StdLogProviderFactory {
+public:
+	using Super = ondra_shared::StdLogProviderFactory;
+	LogProvider(AbstractBrokerAPI &owner):owner(owner) {}
+	virtual void writeToLog(const StrViewA &line, const std::time_t &, ondra_shared::LogLevel ) override {
+		if (connected) owner.logMessage(std::string(line));
+	}
+	void lock() {
+		Super::lock.lock();
+	}
+	void unlock() {
+		Super::lock.unlock();
+	}
+	void disconnect() {
+		lock();
+		connected = false;
+		unlock();
+
+	}
+
+	virtual ondra_shared::PLogProvider create() override {
+		return ondra_shared::PLogProvider(new BrokerLogProvider(this));
+	}
+
+protected:
+	AbstractBrokerAPI &owner;
+	bool connected = true;
+};
 
 
 
@@ -208,6 +254,7 @@ Value callMethod(AbstractBrokerAPI &api, std::string_view name, Value args) {
 
 void AbstractBrokerAPI::dispatch(std::istream& input, std::ostream& output, std::ostream &error, AbstractBrokerAPI &handler) {
 
+	handler.logProvider->setDefault();
 	try {
 		Value v = Value::fromStream(input);
 		handler.logStream = &error;
@@ -235,10 +282,15 @@ void AbstractBrokerAPI::dispatch(std::istream& input, std::ostream& output, std:
 
 AbstractBrokerAPI::AbstractBrokerAPI(const std::string &secure_storage_path,
 		const Value &apiKeyFormat)
-:secure_storage_path(secure_storage_path),apiKeyFormat(apiKeyFormat) {
+:secure_storage_path(secure_storage_path)
+,apiKeyFormat(apiKeyFormat)
+,logProvider(new LogProvider(*this))
+{
 
 }
-
+AbstractBrokerAPI::~AbstractBrokerAPI() {
+logProvider->disconnect();
+}
 
 void AbstractBrokerAPI::loadKeys() {
 	try {
@@ -281,6 +333,7 @@ void AbstractBrokerAPI::setSettings(json::Value) {
 }
 
 void AbstractBrokerAPI::logMessage(std::string&& msg) {
+//already locked
 	if (logStream) {
 		(*logStream) << msg << std::endl;
 	} else {
@@ -289,6 +342,7 @@ void AbstractBrokerAPI::logMessage(std::string&& msg) {
 }
 
 void AbstractBrokerAPI::flushMessages() {
+	std::lock_guard<LogProvider> _(*logProvider);
 	if (logStream) {
 		for (auto &&msg: logMessages)
 			(*logStream) << msg << std::endl;
@@ -302,4 +356,9 @@ double AbstractBrokerAPI::getBalance(const std::string_view & symb, const std::s
 AbstractBrokerAPI::PageData AbstractBrokerAPI::fetchPage(const std::string_view &,
 		const std::string_view &, const PageData &) {
 	return {};
+}
+
+void AbstractBrokerAPI::enable_debug(bool enable) {
+	logProvider->setEnabledLogLevel(enable?ondra_shared::LogLevel::debug:ondra_shared::LogLevel::error);
+	debug_mode = enable;
 }

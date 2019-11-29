@@ -9,7 +9,8 @@
 #include "../shared/countdown.h"
 #include "../shared/logOutput.h"
 #include "httpjson.h"
-#include "log.h"
+#include "../brokers/log.h"
+
 
 using ondra_shared::logDebug;
 using ondra_shared::logError;

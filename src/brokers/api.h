@@ -23,6 +23,7 @@ public:
 	AbstractBrokerAPI(const std::string &secure_storage_path,
 			const json::Value &apiKeyFormat);
 
+	~AbstractBrokerAPI();
 	///Called when mmbot is started with debug mode enabled
 	/**
 	 * @param enable if set to true, debug mode is enabled. The broker should send more debug informations
@@ -30,8 +31,7 @@ public:
 	 *
 	 * Default implementaion only sets debug_mode flag to true, so any function can easyli check this status
 	 */
-	virtual void enable_debug(bool enable) {debug_mode = enable;}
-
+	virtual void enable_debug(bool enable);
 	virtual BrokerInfo getBrokerInfo()  override {throw std::runtime_error("unsupported");}
 
 
@@ -92,6 +92,8 @@ public:
 
 	virtual PageData fetchPage(const std::string_view &method, const std::string_view &vpath, const PageData &pageData) override;
 
+
+
 protected:
 	bool debug_mode = false;
 	std::string secure_storage_path;
@@ -99,6 +101,9 @@ protected:
 	std::vector<std::string> logMessages;
 	std::ostream *logStream = nullptr;;
 	virtual void flushMessages();
+
+	class LogProvider;
+	ondra_shared::RefCntPtr<LogProvider> logProvider;
 
 };
 
