@@ -21,11 +21,17 @@
 
 #include <imtjson/string.h>
 #include "../imtjson/src/imtjson/object.h"
+#include <simpleServer/http_client.h>
 #include "../shared/logOutput.h"
 
 using ondra_shared::logDebug;
+using namespace simpleServer;
 
-Proxy::Proxy() {
+Proxy::Proxy()
+:httpc(HttpClient("MMBot Deribit broker",
+		newHttpsProvider(),
+		newNoProxyProvider()), "")
+ {
 	setTestnet(false);
 }
 
@@ -48,42 +54,15 @@ json::Value Proxy::request(std::string_view method, json::Value params, bool aut
 			json::Value("id",req_id++),
 			json::Value("jsonrpc","2.0"),
 	});
-	std::string req_str = req.stringify().str();
-	std::istringstream req_strm(req_str);
-	std::ostringstream response;
 
-	if (debug) {
-			std::cerr << "SEND: " << req_str << std::endl;
-	}
-
-	curl_handle.reset();
-	curl_handle.setOpt(new cURLpp::Options::Post(true));
-	curl_handle.setOpt(new cURLpp::Options::ReadStream(&req_strm));
-	curl_handle.setOpt(new cURLpp::Options::PostFieldSize(req_str.length()));
+	json::Object headers;
+	headers("Content-Type","application/json");
 
 	if (tk) {
-		std::string hdr = "Authorization: bearer "+ *tk;
-		std::list<std::string> headers;
-		headers.push_back(hdr);
-		curl_handle.setOpt(new cURLpp::Options::HttpHeader(headers));
+		headers("Authorization","bearer "+ *tk);
 	}
 
-	curl_handle.setOpt(new cURLpp::Options::Url(apiUrl));
-	curl_handle.setOpt(new cURLpp::Options::WriteStream(&response));
-	curl_handle.perform();
-
-	std::string rsp = response.str();
-	auto resp_code = curlpp::infos::ResponseCode::get(curl_handle);
-
-	if (debug) {
-		std::cerr << "Status: " << resp_code << std::endl;
-		std::cerr << "RECV: " << rsp << std::endl;
-	}
-
-	if (resp_code/100 != 2) throw std::runtime_error(rsp);
-
-
-	json::Value resp =  json::Value::fromString(rsp);
+	json::Value resp = httpc.POST(apiUrl,req,headers);
 	json::Value success = resp["result"];
 	json::Value error = resp["error"];
 	if (error.defined()) throw std::runtime_error(error.toString().str());

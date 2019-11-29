@@ -5,12 +5,12 @@
  *      Author: ondra
  */
 
-#ifndef SRC_COINMATE_PROXY_H_
-#define SRC_COINMATE_PROXY_H_
-#include <curlpp/Easy.hpp>
+#ifndef SRC_DERIBIT_PROXY_H_
+#define SRC_DERIBIT_PROXY_H_
 #include <chrono>
 
 #include <imtjson/value.h>
+#include "../brokers/httpjson.h"
 
 class Proxy {
 public:
@@ -21,7 +21,9 @@ public:
 	std::string privKey;
 	std::string pubKey;
 	std::string scopes;
-	cURLpp::Easy curl_handle;
+
+	HTTPJson httpc;
+
 	bool testnet;
 
 	///Send request
@@ -54,4 +56,4 @@ private:
 
 
 
-#endif /* SRC_COINMATE_PROXY_H_ */
+#endif /* SRC_DERIBIT_PROXY_H_ */
