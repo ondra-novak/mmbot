@@ -6,7 +6,6 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin/brokers/)
 
 add_executable (simplefx 
 	main.cpp
-	 ../brokers/api.cpp 
 	 tradingengine.cpp 
 	 quotedist.cpp
 	 quotestream.cpp 
@@ -14,5 +13,5 @@ add_executable (simplefx
 	 market.cpp
 	 
 )
-target_link_libraries (simplefx LINK_PUBLIC simpleServer imtjson ssl crypto  stdc++fs pthread)
+target_link_libraries (simplefx LINK_PUBLIC brokers_common simpleServer imtjson ssl crypto  stdc++fs pthread)
 install(TARGETS simplefx DESTINATION "bin/simplefx") 

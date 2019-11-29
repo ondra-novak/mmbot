@@ -5,6 +5,6 @@ file(GLOB main_HDR "*.h" "*.tcc")
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin/brokers/)
 
-add_executable (coinmate main.cpp proxy.cpp ../brokers/api.cpp )
-target_link_libraries (coinmate LINK_PUBLIC imtjson curlpp ssl crypto curl stdc++fs pthread)
+add_executable (coinmate main.cpp proxy.cpp )
+target_link_libraries (coinmate LINK_PUBLIC brokers_common imtjson curlpp ssl crypto curl stdc++fs pthread)
 install(TARGETS coinmate DESTINATION "bin/brokers") 
