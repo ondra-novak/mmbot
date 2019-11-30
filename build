@@ -1,8 +1,15 @@
-#!/bin/bash
+#!/bin/sh
 
 BUILDTYPE=RELWITHDEBINFO
-if [[ $1 == "debug" ]]; then 
+if [ "$1" = "debug" ] ; then 
     BUILDTYPE=DEBUG
+fi
+
+NPROC=`which nproc`
+if [ "$NPROC" = "" ] ; then
+	PROCS=2
+else
+	PROCS=`$NPROC`
 fi
 	
 mkdir -p ./data
