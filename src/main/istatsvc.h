@@ -10,6 +10,7 @@
 
 #include "istatsvc.h"
 #include <memory>
+#include <optional>
 
 #include "istockapi.h"
 

@@ -160,8 +160,7 @@ public:
 
 protected:
 	void updatePosition(const std::string& symbol, double amount);
-	std::__cxx11::basic_string<char, std::char_traits<char>,
-			std::allocator<char> > getSettingsFile();
+	std::string getSettingsFile();
 };
 
 

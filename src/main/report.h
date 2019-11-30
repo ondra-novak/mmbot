@@ -10,6 +10,7 @@
 
 #include <imtjson/array.h>
 #include <string_view>
+#include <optional>
 #include "istockapi.h"
 #include "storage.h"
 #include "../shared/linear_map.h"

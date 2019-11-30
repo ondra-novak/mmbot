@@ -4,6 +4,7 @@
 #include <shared/default_app.h>
 #include <algorithm>
 #include <iostream>
+#include <sstream>
 
 #include "../server/src/simpleServer/abstractStream.h"
 #include "../server/src/simpleServer/address.h"
