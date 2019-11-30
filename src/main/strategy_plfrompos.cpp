@@ -186,7 +186,7 @@ PStrategy Strategy_PLFromPos::importState(json::Value src) const {
 			src["val"].getNumber(),
 		};
 		int curpw = (int)(cfg.power*1000);
-		if (curpw != src["pw"].getUInt()) {
+		if (curpw != (int)src["pw"].getInt()) {
 			newst.valid_power = false;
 		}
 		return new Strategy_PLFromPos(cfg, newst);
