@@ -540,7 +540,7 @@ inline Value Interface::tokenHeader() {
 	}
 }
 
-std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > Interface::getSettingsFile() {
+std::string Interface::getSettingsFile() {
 	return this->secure_storage_path + ".conf";
 }
 

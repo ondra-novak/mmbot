@@ -20,7 +20,7 @@
 #include "sgn.h"
 
 using ondra_shared::logError;
-using std::chrono::_V2::system_clock;
+using namespace std::chrono;
 
 using namespace json;
 
