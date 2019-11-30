@@ -17,4 +17,5 @@ mkdir -p ./secure_data
 mkdir -p ./log
 mkdir -p ./run
 cmake -DCMAKE_BUILD_TYPE=$BUILDTYPE .
-make all -j `nproc`
+echo "Building in $PROCS thread(s)"
+make all -j$PROCS
