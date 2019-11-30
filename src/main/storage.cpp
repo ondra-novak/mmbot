@@ -8,6 +8,7 @@
 #include "storage.h"
 
 #include <fstream>
+#include <sstream>
 #include <experimental/filesystem>
 #include <stack>
 

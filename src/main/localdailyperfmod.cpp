@@ -8,6 +8,7 @@
 #include <imtjson/object.h>
 #include <ctime>
 #include <unordered_set>
+#include <unordered_map>
 
 #include "localdailyperfmod.h"
 

@@ -71,6 +71,10 @@ static double nearZero(double v) {
 	return sgn(v) * floor(std::abs(v)+0.1);
 }
 
+static double rounded(double v) {
+	return std::round(v);
+}
+
 
 void IStockApi::MarketInfo::addFees(double &assets, double &price) const {
 	switch (feeScheme) {
@@ -89,8 +93,8 @@ void IStockApi::MarketInfo::addFees(double &assets, double &price) const {
 					else price = price*(1-fees);
 	}
 
-	if (invert_price) price = 1/(adjValue(1/price, currency_step, round));
-	else price = adjValue(price, currency_step, round);
+	if (invert_price) price = 1/(adjValue(1/price, currency_step, rounded));
+	else price = adjValue(price, currency_step, rounded);
 	assets = adjValue(assets, asset_step, nearZero);
 }
 

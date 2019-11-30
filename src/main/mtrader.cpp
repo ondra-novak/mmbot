@@ -828,9 +828,9 @@ void MTrader::repair() {
 	}
 	double lastPrice = 0;
 	for (auto &&x : trades) {
-		if (!isfinite(x.norm_accum)) x.norm_accum = 0;
-		if (!isfinite(x.norm_profit)) x.norm_profit = 0;
-		if (x.price < 1e-8 || !isfinite(x.price)) {
+		if (!std::isfinite(x.norm_accum)) x.norm_accum = 0;
+		if (!std::isfinite(x.norm_profit)) x.norm_profit = 0;
+		if (x.price < 1e-8 || !std::isfinite(x.price)) {
 			x.price = lastPrice;
 		} else {
 			lastPrice = x.price;
