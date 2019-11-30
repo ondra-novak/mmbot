@@ -14,7 +14,6 @@
 #include <iomanip>
 
 #include <sstream>
-#include <curlpp/Options.hpp>
 #include <chrono>
 
 #include <imtjson/string.h>

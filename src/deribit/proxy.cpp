@@ -14,8 +14,6 @@
 #include <iomanip>
 
 #include <sstream>
-#include <curlpp/Options.hpp>
-#include <curlpp/Infos.hpp>
 #include <chrono>
 #include <random>
 

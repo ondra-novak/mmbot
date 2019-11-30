@@ -5,8 +5,6 @@
  *      Author: ondra
  */
 
-#include <curlpp/Easy.hpp>
-#include <curlpp/Options.hpp>
 #include <chrono>
 #include <fstream>
 #include <sstream>
