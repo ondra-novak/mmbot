@@ -1,5 +1,20 @@
 cmake_minimum_required(VERSION 2.8)
 project (mmbot)
+
+EXEC_PROGRAM(uname OUTPUT_VARIABLE SYSTEM_NAME)
+SET(SYSTEM_NAME "${SYSTEM_NAME}" CACHE INTERNAL "")
+
+IF(SYSTEM_NAME STREQUAL "Linux")
+   MESSAGE("LINUX BOX")
+   LINK_LIBRARIES( stdc++fs)
+ENDIF(SYSTEM_NAME STREQUAL "Linux")
+
+IF(SYSTEM_NAME STREQUAL "FreeBSD")
+   MESSAGE("FREEBSD BOX")
+   LINK_LIBRARIES(execinfo)   
+ENDIF(SYSTEM_NAME STREQUAL "FreeBSD")
+LINK_LIBRARIES(ssl crypto pthread)
+
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin/)
 
 include_directories(BEFORE src/imtjson/src src/server/src src )

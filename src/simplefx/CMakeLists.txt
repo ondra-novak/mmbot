@@ -12,5 +12,5 @@ add_executable (simplefx
 	 market.cpp
 	 
 )
-target_link_libraries (simplefx LINK_PUBLIC brokers_common simpleServer imtjson ssl crypto  stdc++fs pthread)
+target_link_libraries (simplefx LINK_PUBLIC brokers_common simpleServer imtjson)
 install(TARGETS simplefx DESTINATION "bin/simplefx") 

@@ -21,5 +21,5 @@ add_executable (mmbot
 	extdailyperfmod.cpp
 	strategy_external.cpp
 	)
-target_link_libraries (mmbot LINK_PUBLIC simpleServer imtjson ssl crypto stdc++fs pthread)
+target_link_libraries (mmbot LINK_PUBLIC simpleServer imtjson )
 install(TARGETS mmbot DESTINATION "bin") 
