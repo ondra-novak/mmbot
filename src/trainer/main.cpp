@@ -731,7 +731,6 @@ inline bool Interface::reset() {
 	newOrders.swap(orders);
 	prev_price = p;
 	saveSettings();
-	getCWAssets();
 	return true;
 
 }
