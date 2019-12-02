@@ -515,7 +515,7 @@ App.prototype.fillForm = function (src, trg) {
 		data.neutral_pos = filledval(src.strategy.neutral_pos,0);		
 		data.cstep = filledval(src.strategy.cstep,0);
 		data.max_pos = filledval(src.strategy.maxpos,0);
-		data.pl_redfact = filledval(defval(src.strategy.reduce_factor,1)*100,50);
+		data.pl_redfact = filledval(defval(src.strategy.reduce_factor,0.5)*100,50);
 		data.pl_confmode= filledval(src.strategy.power?"a":"m", "a");
 		data.pl_power=filledval(src.strategy.power?src.strategy.power:1,1);
 		data.pl_mode_m = {".hidden":!!src.strategy.power};
@@ -1019,7 +1019,10 @@ App.prototype.dlgbox = function(data, template) {
 	return new Promise(function(ok, cancel) {
 		var dlg = TemplateJS.View.fromTemplate(template);
 		dlg.openModal();
-		dlg.setData(data);
+		dlg.enableItem("ok",false);
+		dlg.setData(data).then(function() {
+			dlg.enableItem("ok",true);
+		})
 		dlg.setCancelAction(function() {
 			dlg.close();cancel();
 		},"cancel");
@@ -1573,10 +1576,10 @@ App.prototype.cancelOrder = function(trader, pair, id) {
 App.prototype.brokerConfig = function(id, pair) {
 	var burl = this.pairURL(id, pair)+"/settings";
 	var form = fetch_with_error(burl).then(formBuilder);
-	this.dlgbox({custom:form}, "confirm").then(function() {
+	return this.dlgbox({form:form}, "broker_options_dlg").then(function() {
 		form.then(function(f) {
 			var d = f.readData();
-			this.waitScreen(fetch_with_error(burl, {method:"PUT",body:JSON.stringify(d)}));				
+			return fetch_with_error(burl, {method:"PUT",body:JSON.stringify(d)});				
 		}.bind(this))
 	}.bind(this))
 }

@@ -289,7 +289,13 @@ inline bool Interface::reset() {
 inline Interface::MarketInfo Interface::getMarketInfo(const std::string_view &pair) {
 	std::string symbol (pair);
 	const SymbolInfo &sinfo = getSymbolInfo(symbol);
-	const Account &a = getAccount(symbol);
+	bool isdemo;
+	try {
+		const Account &a = getAccount(symbol);
+		isdemo = a.reality == "DEMO";
+	} catch (...) {
+		isdemo = true;
+	}
 	return MarketInfo {
 		std::string(pair),
 		sinfo.currency_symbol,
@@ -302,7 +308,7 @@ inline Interface::MarketInfo Interface::getMarketInfo(const std::string_view &pa
 		100,
 		false,
 		"",
-		a.reality == "DEMO"
+		isdemo
 	};
 }
 
@@ -368,7 +374,7 @@ inline Interface::BrokerInfo Interface::getBrokerInfo() {
 "ST3AVZ1Qkh6AUHlG6gEQxkzMh6xYVxe3Qiu2BkyEIY42nXUAbrUvLovYEuDpjvtbS0AoBU571NQB"
 "9J88sRXAa9WTsB9g0jLZM310xeqzTdw2KrYAeAqXbQwfnrEyjRvKPwyfvrEyBrGqTCZGQKgsBRob"
 "VICNcrZqbPk3iPS3R8BEpSn/RTLKKKN8t/wHuIduWNu27QwAAAAASUVORK5CYII=",
-true
+hasKey()
 	};
 }
 
@@ -527,7 +533,7 @@ inline void Interface::login() {
 			updatePositions();
 		}
 	} catch (const simpleServer::HTTPStatusException &e) {
-		if (e.getStatusCode() == 409) throw std::runtime_error("simplefx: Invalid API key");
+		if (e.getStatusCode() == 409) throw std::runtime_error("Invalid API key");
 		else throw;
 	}
 }

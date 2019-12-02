@@ -402,13 +402,14 @@ function formBuilder(format) {
 		var d = w.readData();
 		format.forEach(function(itm){
 			if (itm.showif) {
+				var show = false;
 				for (var k in itm.showif) {
-					var show = (itm.showif[k] && itm.showif[k].indexOf(d[k]) != -1);
-					w.forEachElement(itm.name, function(x) {
-						var p = x.parentNode;
-						p.hidden = !show;
-					});
+					show = show || (itm.showif[k] && itm.showif[k].indexOf(d[k]) != -1);
 				}
+				w.forEachElement(itm.name, function(x) {
+					var p = x.parentNode;
+					p.hidden = !show;
+				});
 			}
 		})
 	}

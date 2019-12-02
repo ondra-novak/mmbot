@@ -189,10 +189,6 @@ public:
 	void loadSettings();
 	void updateLiq(double openPrice);
 
-	void unsuppError() {
-		throw std::runtime_error("Unsupported operation - The trainer must be run with 'dry_run' flag enabled");
-	}
-
 	bool inited;
 	time_t startTime = 0;
 	std::vector<double> prices;
@@ -225,6 +221,8 @@ public:
 	std::string src_asset;
 	std::string src_currency;
 
+
+
 };
 
 
@@ -240,20 +238,48 @@ int main(int argc, char **argv) {
 	ifc.dispatch();
 }
 
-struct CWPairs {
-	std::vector<std::string> assets;
-	std::vector<std::string> currencies;
-};
+class CWSource {
+public:
 
-static CWPairs getCWAssets() {
-	static CWPairs cache;
-	static std::chrono::system_clock::time_point cacheExpire;
-	auto now= std::chrono::system_clock::now();
-	if (cacheExpire < now) {
+	struct Pairs {
+		std::vector<std::string> assets;
+		std::vector<std::string> currencies;
+	};
+
+	std::unordered_map<std::string, json::Value>cache;
+	std::unordered_map<std::string, double> volumes;
+	std::chrono::system_clock::time_point expires;
+	HTTPJson httpc;
+
+
+	CWSource()
+		:expires(std::chrono::system_clock::now())
+		, httpc(simpleServer::HttpClient("MMBot Trainer",newHttpsProvider(), newNoProxyProvider()),"") {}
+
+	void cleanIfExpired() {
+		auto now = std::chrono::system_clock::now();
+		if (now > expires) {
+			cache.clear();
+			volumes.clear();
+			expires = now+std::chrono::hours(1);
+		}
+	}
+
+	json::Value getCached(const std::string &url) {
+		auto iter = cache.find(url);
+		if (iter == cache.end()) {
+			json::Value data = httpc.GET(url);
+			cache.emplace(url,data);
+			return data;
+		} else {
+			return iter->second;
+		}
+	}
+
+	Pairs getAssets() {
 
 		try {
-			HTTPJson httpc(simpleServer::HttpClient("MMBot Trainer",newHttpsProvider(), newNoProxyProvider()),"");
-			json::Value v = httpc.GET("https://api.cryptowat.ch/pairs");
+			json::Value v = getCached("https://api.cryptowat.ch/pairs");
 
 			std::unordered_set<std::string> assets, currencies;
 			for (json::Value r : v["result"]) {
@@ -262,33 +288,18 @@ static CWPairs getCWAssets() {
 				assets.insert(asset.str());
 				currencies.insert(currency.str());
 			}
-			cache =  {
+			return {
 				std::vector<std::string>(assets.begin(), assets.end()),
 				std::vector<std::string>(currencies.begin(), currencies.end())
 			};
 
 		} catch (std::exception &e) {
 			logError("$1",e.what());
-		}
-		cacheExpire = now+std::chrono::hours(1);
-	}
-
-	return cache;
-}
-
-
-static std::string createCWUrl(const std::string &asset, const std::string &currency) {
-	static std::unordered_map<std::string, double> volumes;
-	HTTPJson httpc(simpleServer::HttpClient("MMBot Trainer",newHttpsProvider(), newNoProxyProvider()),"");
-
-	if (volumes.empty()) {
-		json::Value v = httpc.GET("https://api.cryptowat.ch/markets/summaries");
-		for (Value z:v["result"]) {
-			volumes[z.getKey()] = z["volume"].getNumber();
+			return {};
 		}
 	}
 
-	auto getScore = [&](Value v) {
+	double getScore(Value v) {
 		std::string key (v["exchange"].getString());
 		key.push_back(':');
 		key.append(v["pair"].getString());
@@ -298,27 +309,42 @@ static std::string createCWUrl(const std::string &asset, const std::string &curr
 		return res;
 	};
 
-	json::Value v = httpc.GET("https://api.cryptowat.ch/pairs");
+
+	std::string createUrl(const std::string &asset, const std::string &currency) {
+		if (volumes.empty()) {
+			json::Value v = getCached("https://api.cryptowat.ch/markets/summaries");
+			for (Value z:v["result"]) {
+				volumes[z.getKey()] = z["volume"].getNumber();
+			}
+		}
+
+		json::Value v = getCached("https://api.cryptowat.ch/pairs");
 
 
-
-	Value mk = v["result"].find([asset =StrViewA(asset), currency = StrViewA(currency)](Value v) {
-		String a = v["base"]["symbol"].toString();
-		String c = v["quote"]["symbol"].toString();
-		return (a == asset && c == currency);
-	});
-	if (mk.defined()) {
-			String rt = mk["route"].toString();
-			json::Value m = httpc.GET(rt.str());
-			json::Value markets = m["result"]["markets"].filter(
-					[&](Value v){return v["active"].getBool();}
-			).sort([&](Value a, Value b) {
-				return getScore(b) - getScore(a);
-			});
-			return std::string(markets[0]["route"].getString())+"/price";
+		Value mk = v["result"].find([asset =StrViewA(asset), currency = StrViewA(currency)](Value v) {
+			String a = v["base"]["symbol"].toString();
+			String c = v["quote"]["symbol"].toString();
+			return (a == asset && c == currency);
+		});
+		if (mk.defined()) {
+				String rt = mk["route"].toString();
+				json::Value m = getCached(rt.str());
+				json::Value markets = m["result"]["markets"].filter(
+						[&](Value v){return v["active"].getBool();}
+				).sort([&](Value a, Value b) {
+					return getScore(b) - getScore(a);
+				});
+				return std::string(markets[0]["route"].getString())+"/price";
+		}
+		return std::string();
 	}
-	return std::string();
-}
+
+};
+
+static CWSource cwsource;
+
+
+
 
 inline Interface::BrokerInfo Interface::getBrokerInfo() {
 	return BrokerInfo {
@@ -823,18 +849,21 @@ inline void Interface::setSettings(json::Value keyData) {
 		inverted = true;
 	}
 	if (price_source == "cryptowatch") {
-		std::string url = createCWUrl(src_asset, src_currency);
-		if (url.empty()) throw std::runtime_error("Unable to find market for selected combination");
-		asset = src_asset;
-		currency = src_currency;
-		std::transform(asset.begin(), asset.end(), asset.begin(), toupper);
-		std::transform(currency.begin(), currency.end(), currency.begin(), toupper);
-		price_url = url;
-		price_path = "price";
-
+		if (!keyData["loaded"].defined()) {
+			std::string url = cwsource.createUrl(src_asset, src_currency);
+			if (url.empty()) throw std::runtime_error("Unable to find market for selected combination");
+			asset = src_asset;
+			currency = src_currency;
+			std::transform(asset.begin(), asset.end(), asset.begin(), toupper);
+			std::transform(currency.begin(), currency.end(), currency.begin(), toupper);
+			price_url = url;
+			price_path = "price";
+		}
 	}
 	prev_price = keyData["prev_price"].getNumber();
-	saveSettings();
+	if (!keyData["loaded"].defined()) {
+		saveSettings();
+	}
 	updateLiq(prev_price);
 }
 
@@ -860,20 +889,26 @@ json::Value Interface::collectSettings() const {
 		  ("src_url", price_url)
 		  ("src_field", price_path)
 	  	  ("src_asset", src_asset)
-	  	  ("src_currency", src_currency);
+	  	  ("src_currency", src_currency)
+		  ("loaded",true);
 	return kv;
 }
 
 
 json::Value mergeAssets(Value options, const std::vector<std::string> &a) {
 	Object o(options);
-	for (auto &&k : a) o.set(k,k);
+	std::string label;
+	for (auto &&k : a){
+		label.clear();
+		std::transform(k.begin(), k.end(),std::back_inserter(label), toupper);
+		o.set(k,label);
+	}
 	return o;
 }
 
 inline json::Value Interface::getSettings(const std::string_view & ) const {
 	Value kv = collectSettings();
-	CWPairs cwAssets = getCWAssets();
+	CWSource::Pairs cwAssets = cwsource.getAssets();
 
 	return settingsForm.map([&](Value v) {
 		StrViewA n = v["name"].getString();

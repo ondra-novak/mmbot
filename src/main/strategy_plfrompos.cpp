@@ -39,17 +39,21 @@ PStrategy Strategy_PLFromPos::onIdle(const IStockApi::MarketInfo &minfo,
 		const IStockApi::Ticker &curTicker, double assets,
 		double currency) const {
 
-	if (st.inited && st.valid_power) return this;
+	if (st.inited && st.valid_power && std::isfinite(st.a) && std::isfinite(st.p) && std::isfinite(st.step) && std::isfinite(st.acm) && std::isfinite(st.value) && st.step) return this;
 	double last = curTicker.last;
 	State newst = st;
-	if (!st.inited) {
+	if (!st.inited || !std::isfinite(st.p) || !std::isfinite(st.a)) {
 		newst.p = last;
 		newst.a = assets;
+		calcPower(newst, last, assets, currency);
 	}
+
+	if (!std::isfinite(st.value)) newst.value = 0;
+	if (!std::isfinite(st.acm)) newst.acm = 0;
 
 	newst.inited = true;
 
-	if (!st.valid_power || !cfg.power) {
+	if (!st.valid_power || !cfg.power || st.step == 0) {
 		calcPower(newst, last, assets, currency);
 	}
 
