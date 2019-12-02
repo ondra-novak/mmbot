@@ -341,6 +341,7 @@ function mergeArrays(array1, array2, cmp, fn) {
 }
 
 function interpolate(beg, end, cur, a, b) {
+	if (beg == end) return (a+b)/2;
 	var n = (cur - beg)/(end - beg);
 	return a+(b-a)*n;
 }
@@ -397,6 +398,27 @@ function formBuilder(format) {
 		}
 	});
 	var w = TemplateJS.View.fromTemplate({tag:"x-form",content:items});
+	function dialogRules() {
+		var d = w.readData();
+		format.forEach(function(itm){
+			if (itm.showif) {
+				for (var k in itm.showif) {
+					var show = (itm.showif[k] && itm.showif[k].indexOf(d[k]) != -1);
+					w.forEachElement(itm.name, function(x) {
+						var p = x.parentNode;
+						p.hidden = !show;
+					});
+				}
+			}
+		})
+	}
+	w.setData(format.reduce(function(data,itm) {
+		if (itm.name) {
+			data[itm.name] = {"!change": dialogRules};
+		} 
+		return data;
+	},{}));
+	dialogRules();
 	return w;
 }
 

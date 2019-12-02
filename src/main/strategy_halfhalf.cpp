@@ -62,7 +62,7 @@ PStrategy Strategy_HalfHalf::importState(json::Value src) const {
 }
 
 IStrategy::OrderData Strategy_HalfHalf::getNewOrder(const IStockApi::MarketInfo &,
-		double n, double dir, double assets,double currency) const {
+		double, double n, double dir, double assets,double currency) const {
 	double a = this->a + cfg.ea;
 	double p = this->p;
 	return {

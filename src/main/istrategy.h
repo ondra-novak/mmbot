@@ -24,9 +24,9 @@ public:
 	};
 
 	struct OrderData {
-		//price where order is put. If this field is 0, recommended price is used
+		///price where order is put. If this field is 0, recommended price is used
 		double price;
-		//size of the order, +buy, -sell. If this field is 0, the order is not issued
+		///size of the order, +buy, -sell. If this field is 0, the order is not issued
 		double size;
 	};
 
@@ -45,7 +45,7 @@ public:
 	virtual std::pair<OnTradeResult, PStrategy > onTrade(const IStockApi::MarketInfo &minfo, double tradePrice, double tradeSize, double assetsLeft, double currencyLeft) const = 0;
 	virtual json::Value exportState() const = 0;
 	virtual PStrategy importState(json::Value src) const = 0;
-	virtual OrderData getNewOrder(const IStockApi::MarketInfo &minfo, double new_price, double dir, double assets, double currency) const = 0;
+	virtual OrderData getNewOrder(const IStockApi::MarketInfo &minfo, double cur_price, double new_price, double dir, double assets, double currency) const = 0;
 	virtual MinMax calcSafeRange(const IStockApi::MarketInfo &minfo, double assets, double currencies) const = 0;
 	virtual double getEquilibrium() const = 0;
 	virtual PStrategy reset() const = 0;

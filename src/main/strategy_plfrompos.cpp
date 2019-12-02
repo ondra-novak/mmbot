@@ -55,7 +55,7 @@ PStrategy Strategy_PLFromPos::onIdle(const IStockApi::MarketInfo &minfo,
 
 	if (!st.inited) {
 		double pos = assetsToPos(minfo,assets);
-		newst.value = pow2(pos) / (2* calcK(newst));
+		newst.value = std::abs(pos)>minfo.asset_step/10?(pow2(pos) / (2* calcK(newst))):0;
 	}
 
 
@@ -70,6 +70,7 @@ double Strategy_PLFromPos::calcNewPos(const IStockApi::MarketInfo &minfo, double
 	double k = calcK();
 	double pos = assetsToPos(minfo,st.a);
 	double p = st.p;
+	if (k == 0) return 0;
 
 	//calculate new position on new price
 	double np = pos + (p - tradePrice) * k;
@@ -197,10 +198,15 @@ PStrategy Strategy_PLFromPos::importState(json::Value src) const {
 
 Strategy_PLFromPos::OrderData Strategy_PLFromPos::getNewOrder(
 		const IStockApi::MarketInfo &minfo,
-		double price, double dir, double assets, double currency) const {
-	double new_pos = calcNewPos(minfo, price);
+		double cur_price, double new_price, double dir, double assets, double currency) const {
+	double pos = assetsToPos(minfo, st.a);
+	if (pos < -cfg.maxpos || pos > cfg.maxpos) {
+		float f = pow2(cfg.maxpos/pos)*0.5;
+		new_price = st.p * (1-f) + new_price * f;
+	}
+	double new_pos = calcNewPos(minfo, new_price);
 	double sz = calcOrderSize(st.a, assets, new_pos);
-	return OrderData {0, sz};
+	return OrderData {new_price, sz};
 }
 
 Strategy_PLFromPos::MinMax Strategy_PLFromPos::calcSafeRange(

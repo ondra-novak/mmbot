@@ -65,6 +65,7 @@ public:
 	 * Function called twice for buy and sell order.
 	 *
 	 * @param minfo market info
+	 * @param cur_price current price (from ticker). It defines limit how the price can be changed
 	 * @param new_price new price of the order
 	 * @param assets remain assets on account
 	 * @param currency remain currency on account
@@ -73,8 +74,8 @@ public:
 	 * option is turned on, a dust order is issued instead atd given price. If the option is turned off no order is issued
 	 * @return data used to create new order
 	 */
-	OrderData getNewOrder(const IStockApi::MarketInfo &minfo, double new_price, double dir, double assets, double currency) const {
-		return ptr->getNewOrder(minfo, new_price, dir, assets, currency);
+	OrderData getNewOrder(const IStockApi::MarketInfo &minfo, double cur_price, double new_price, double dir, double assets, double currency) const {
+		return ptr->getNewOrder(minfo, cur_price, new_price, dir, assets, currency);
 	}
 	///Calculates safe range
 	/**

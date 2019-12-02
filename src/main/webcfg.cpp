@@ -275,13 +275,19 @@ static Value getPairInfo(IStockApi &api, const std::string_view &pair, const std
 	IStockApi::MarketInfo nfo = api.getMarketInfo(pair);
 	double ab = internalBalance.has_value()?*internalBalance:getSafeBalance(&api, nfo.asset_symbol, pair);
 	double cb = getSafeBalance(&api, nfo.currency_symbol, pair);
+	Value last;
+	try {
+		auto ticker = api.getTicker(pair);
+		last = ticker.last;
+	} catch (std::exception &e) {
+		last = e.what();
+	}
 	Value resp = Object("symbol",pair)("asset_symbol", nfo.asset_symbol)(
 			"currency_symbol", nfo.currency_symbol)("fees",
 			nfo.fees)("leverage", nfo.leverage)(
 			"invert_price", nfo.invert_price)(
 			"asset_balance", ab)("currency_balance", cb)(
-			"min_size", nfo.min_size)("price",
-			api.getTicker(pair).last);
+			"min_size", nfo.min_size)("price",last);
 	return resp;
 
 }

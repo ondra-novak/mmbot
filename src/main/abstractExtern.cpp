@@ -383,7 +383,7 @@ json::Value AbstractExtern::jsonRequestExchange(json::String name, json::Value a
 		return result;
 	} else {
 		auto error = resp[1];
-		throw IStockApi::Exception(error.toString().str());
+		throw IStockApi::Exception(this->name+": "+error.toString().c_str()+" ("+name.c_str()+")");
 	}
 }
 

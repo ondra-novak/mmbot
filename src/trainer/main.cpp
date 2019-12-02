@@ -9,6 +9,9 @@
 #include <fstream>
 #include <sstream>
 #include <cmath>
+#include <queue>
+#include <unordered_set>
+
 #include <imtjson/value.h>
 #include "../brokers/api.h"
 #include <imtjson/object.h>
@@ -16,12 +19,15 @@
 #include <imtjson/operations.h>
 #include <simpleServer/http_client.h>
 #include "../brokers/httpjson.h"
+#include "../shared/logOutput.h"
 
 #include "../shared/stringview.h"
 
 using json::Object;
 using json::Value;
 using json::String;
+using ondra_shared::logDebug;
+using ondra_shared::logError;
 using ondra_shared::StrViewA;
 using namespace simpleServer;
 
@@ -29,21 +35,67 @@ using namespace simpleServer;
 static Value setupForm = {};
 
 
+static Value showIfAuto = Object
+		("source",Value(json::array,{"cryptowatch"}));
+static Value showIfUrl = Object
+		("source",Value(json::array,{"urljson"}));
+static Value showIfManual = Object
+		("source",Value(json::array,{"manual"}));
 static Value settingsForm = {
+					Object
+						("name","source")
+						("type","enum")
+						("label","Price source")
+						("default","cryptowatch")
+						("options",Object
+								("cryptowatch","Cryptowatch")
+								("urljson","Link to JSON url")
+								("manual","Manual enter prices")
+						),
+					Object("name","src_asset")
+						("type","enum")
+						("label","Asset")
+						("default","")
+						("showif", showIfAuto)
+						("options",Object
+								("","---select---")
+						),
+					Object("name","src_currency")
+							("type","enum")
+							("label","Currency")
+							("default","")
+							("showif", showIfAuto)
+							("options",Object
+									("","---select---")
+							),
+					Object("name","src_url")
+						("type","string")
+						("label","URL")
+						("default","")
+						("showif", showIfUrl),
+						Object("name","src_field")
+							("type","string")
+							("label","Field name")
+							("default","")
+							("showif", showIfUrl),
 						Object
 							("name","prices")
 							("type","textarea")
 							("label","Prices one per line\nor\nURL to JSON source,\nand name of the field at second line")
+							("showif", showIfManual)
 							("default",""),
+
 						Object
 							("name","timeframe")
 							("type","number")
 							("label","Time frame in minutes")
+							("showif", showIfManual)
 							("default",1),
 						Object
 							("name","asset")
 							("type","string")
 							("label","Asset symbol")
+							("showif", Object("source", {"manual","urljson"}))
 							("default","TEST"),
 						Object
 							("name","asset_balance")
@@ -59,6 +111,7 @@ static Value settingsForm = {
 							("name","currency")
 							("type","string")
 							("label","Currency symbol")
+							("showif", Object("source", {"manual","urljson"}))
 							("default","FIAT"),
 						Object
 							("name","currency_balance")
@@ -75,12 +128,21 @@ static Value settingsForm = {
 							("type","enum")
 							("options",Object
 									("normal","Standard exchange")
-									("inverted","Inverted futures"))
+									("futures","Normal futures")
+									("inverted","Inverted futures")
+									("futures_liq","Futures with liquidation")
+									("inverted_liq","Inv Futures with liquidation"))
 							("label","Market type")
 							("default","normal"),
 						Object
+							("name","liq")
+							("type","string")
+							("label","Liquidation price")
+							("showif",Object("type",{"futures_liq","inverted_liq"})),
+						Object
 							("name","restart")
 							("type","enum")
+							("showif", showIfManual)
 							("options",Object
 									("cont","Continue in chart")
 									("restart","Restart from beginning"))
@@ -125,6 +187,7 @@ public:
 	json::Value collectSettings() const;
 	void saveSettings();
 	void loadSettings();
+	void updateLiq(double openPrice);
 
 	void unsuppError() {
 		throw std::runtime_error("Unsupported operation - The trainer must be run with 'dry_run' flag enabled");
@@ -132,7 +195,7 @@ public:
 
 	bool inited;
 	time_t startTime = 0;
-	std::vector<double> prices = {100,101,99};
+	std::vector<double> prices;
 	long timeDivisor = 120;
 	std::string asset = "TEST";
 	double asset_balance = 0;
@@ -140,8 +203,12 @@ public:
 	std::string currency = "FIAT";
 	double currency_balance = 0;
 	double currency_step = 0;
+	bool futures = false;
 	bool inverted = false;
+	bool liquidation = false;
 	double prev_price = 0;
+	double low_liq = 0;
+	double high_liq = std::numeric_limits<double>::max();
 
 
 	Orders orders;
@@ -154,6 +221,9 @@ public:
 	double getCurPrice() const;
 	std::string price_url;
 	std::string price_path;
+	std::string price_source = "manual";
+	std::string src_asset;
+	std::string src_currency;
 
 };
 
@@ -168,6 +238,86 @@ int main(int argc, char **argv) {
 
 	Interface ifc(argv[1]);
 	ifc.dispatch();
+}
+
+struct CWPairs {
+	std::vector<std::string> assets;
+	std::vector<std::string> currencies;
+};
+
+static CWPairs getCWAssets() {
+	static CWPairs cache;
+	static std::chrono::system_clock::time_point cacheExpire;
+	auto now= std::chrono::system_clock::now();
+	if (cacheExpire < now) {
+
+		try {
+			HTTPJson httpc(simpleServer::HttpClient("MMBot Trainer",newHttpsProvider(), newNoProxyProvider()),"");
+			json::Value v = httpc.GET("https://api.cryptowat.ch/pairs");
+
+			std::unordered_set<std::string> assets, currencies;
+			for (json::Value r : v["result"]) {
+				String asset = r["base"]["symbol"].toString();
+				String currency = r["quote"]["symbol"].toString();
+				assets.insert(asset.str());
+				currencies.insert(currency.str());
+			}
+			cache =  {
+				std::vector<std::string>(assets.begin(), assets.end()),
+				std::vector<std::string>(currencies.begin(), currencies.end())
+			};
+
+		} catch (std::exception &e) {
+			logError("$1",e.what());
+		}
+		cacheExpire = now+std::chrono::hours(1);
+	}
+
+	return cache;
+}
+
+
+static std::string createCWUrl(const std::string &asset, const std::string &currency) {
+	static std::unordered_map<std::string, double> volumes;
+	HTTPJson httpc(simpleServer::HttpClient("MMBot Trainer",newHttpsProvider(), newNoProxyProvider()),"");
+
+	if (volumes.empty()) {
+		json::Value v = httpc.GET("https://api.cryptowat.ch/markets/summaries");
+		for (Value z:v["result"]) {
+			volumes[z.getKey()] = z["volume"].getNumber();
+		}
+	}
+
+	auto getScore = [&](Value v) {
+		std::string key (v["exchange"].getString());
+		key.push_back(':');
+		key.append(v["pair"].getString());
+		auto iter = volumes.find(key);
+		double res =( iter != volumes.end()?iter->second:0.0);
+		logDebug("Exchange $1 score $2", key, res);
+		return res;
+	};
+
+	json::Value v = httpc.GET("https://api.cryptowat.ch/pairs");
+
+
+
+	Value mk = v["result"].find([asset =StrViewA(asset), currency = StrViewA(currency)](Value v) {
+		String a = v["base"]["symbol"].toString();
+		String c = v["quote"]["symbol"].toString();
+		return (a == asset && c == currency);
+	});
+	if (mk.defined()) {
+			String rt = mk["route"].toString();
+			json::Value m = httpc.GET(rt.str());
+			json::Value markets = m["result"]["markets"].filter(
+					[&](Value v){return v["active"].getBool();}
+			).sort([&](Value a, Value b) {
+				return getScore(b) - getScore(a);
+			});
+			return std::string(markets[0]["route"].getString())+"/price";
+	}
+	return std::string();
 }
 
 inline Interface::BrokerInfo Interface::getBrokerInfo() {
@@ -367,30 +517,88 @@ inline Interface::Orders Interface::getOpenOrders(const std::string_view &par) {
 	return orders;
 }
 
+static Value searchField(Value data, StrViewA path) {
+	auto n = path.indexOf(".");
+	StrViewA f;
+	StrViewA r;
+	if (n == path.npos) {
+		f = path;
+	} else {
+		f = path.substr(0,n);
+		r = path.substr(n+1);
+	}
+
+	n = f.indexOf("[");
+	StrViewA idxs;
+	if (n != f.npos) {
+		idxs = f.substr(n+1);
+		f = f.substr(0,n);
+	}
+
+	Value found;
+
+
+	if (f.empty()) {
+		found = data;
+	}
+	else  {
+		std::queue<Value> q;
+
+		for (Value n : data) {
+			if (n.getKey() == f) {
+				found = n;
+				break;
+			}
+			q.push(n);
+		}
+		if (!found.defined()) {
+			while (!q.empty()) {
+				Value n = q.front();
+				q.pop();
+				if (n.getKey() == f) {
+					found = n;
+					break;
+				}
+				for (Value m: n) q.push(m);
+			}
+		}
+	}
+	if (!found.defined()) return found;
+	if (!idxs.empty()) {
+		auto splt = idxs.split("][");
+		while (!!splt && found.isContainer()) {
+			StrViewA idx = splt();
+			auto i = std::strtod(idx.data,nullptr);
+			found = found[i];
+		}
+	}
+	if (found.type() == json::object && !r.empty()) {
+		return searchField(found,r);
+	} else {
+		return found;
+	}
+
+}
+
 double Interface::getCurPrice() const {
 	if (last_price) return last_price;
 	double price = 0;
 
-	if (!price_url.empty()) {
-		HTTPJson httpc(simpleServer::HttpClient("MMBot Trainer",newHttpsProvider(), newNoProxyProvider()),"");
-		json::Value resp = httpc.GET(price_url);
-		bool found = false;
-		resp.walk([&](Value x) {
-			if (!found && ((price_path.empty() && x.type() == json::number) ||
-					(!price_path.empty() && x.getKey() == StrViewA(price_path)))) {
-				price = x.getNumber();
-				found = true;
-			}
-			return true;
-		});
-		if (price == 0) throw std::runtime_error("Failed to download price");
+	if (price_source == "urljson" || price_source == "cryptowatch") {
+		if (!price_url.empty()) {
+			HTTPJson httpc(simpleServer::HttpClient("MMBot Trainer",newHttpsProvider(), newNoProxyProvider()),"");
+			json::Value resp = httpc.GET(price_url);
+			Value found = searchField(resp,price_path);
+			price = found.getNumber();
+		}
 	} else {
-		if (prices.empty()) return 100;
+		if (prices.empty()) return 0;
 
 		time_t t = time(nullptr) - startTime;
 		std::size_t index = (t/timeDivisor) % prices.size();
 		price = prices[index];
 	}
+	if (price == 0) return 0;
 	if (inverted) price = 1/price;
 	last_price = price;
 	return price;
@@ -399,12 +607,16 @@ double Interface::getCurPrice() const {
 
 inline Interface::Ticker Interface::getTicker(const std::string_view &piar) {
 	double price = getCurPrice();
+	if (price == 0)
+		 throw std::runtime_error("Trainer: Failed to get current price, check configuration");
+
 	return Ticker{price,price,price,uintptr_t(time(nullptr))*1000};
 }
 
 inline json::Value Interface::placeOrder(const std::string_view &,
 		double size, double price, json::Value clientId, json::Value replaceId,
 		double replaceSize) {
+
 
 	double p = getCurPrice();
 	auto iter = std::find_if(orders.begin(), orders.end(),[&](const Order &o) {
@@ -415,7 +627,9 @@ inline json::Value Interface::placeOrder(const std::string_view &,
 		else orders.erase(iter);
 	}
 
-
+	if (price > high_liq || price < low_liq) {
+		throw std::runtime_error("Balance is low");
+	}
 
 	Value id = idcnt++;
 	if (size) {
@@ -431,10 +645,50 @@ inline json::Value Interface::placeOrder(const std::string_view &,
 	return id;
 }
 
+inline void Interface::updateLiq(double openPrice) {
+	if (liquidation && asset_balance) {
+		if (currency_balance<0) {
+			high_liq = 0;
+			low_liq = std::numeric_limits<double>::max();
+		} else if (asset_balance < 0) {
+			high_liq = -currency_balance/asset_balance + openPrice;
+			low_liq = 0;
+		} else if (asset_balance > 0) {
+			low_liq = -currency_balance/asset_balance + openPrice;
+			high_liq = std::numeric_limits<double>::max();
+		} else {
+			low_liq = 0;
+			high_liq = std::numeric_limits<double>::max();
+		}
+
+	} else {
+		low_liq = 0;
+		high_liq = std::numeric_limits<double>::max();
+	}
+	logDebug("Liquidation prices: High $1, Low $2", inverted?1.0/low_liq:high_liq, inverted?1.0/high_liq:low_liq);
+}
+
 inline bool Interface::reset() {
 
 	last_price = 0;
 	double p = getCurPrice();
+
+	if (p < low_liq || p > high_liq) {
+		Value id = ++idcnt;
+		Trade tr {
+			id,
+			std::size_t(time(nullptr)*1000),
+			-asset_balance,
+			p,
+			-asset_balance,
+			p,
+		};
+		trades.push_back(tr);
+		currency_balance = 0;
+		asset_balance = 0;
+		orders.clear();
+	}
+
 
 	Orders newOrders;
 	for (auto o : orders) {
@@ -452,11 +706,11 @@ inline bool Interface::reset() {
 				o.price
 			};
 			trades.push_back(tr);
-			if (inverted) {
+			if (futures) {
 				currency_balance += asset_balance*(o.price - pprice);
 			}
 			asset_balance += s;
-			if (!inverted) {
+			if (!futures) {
 				currency_balance -= s * o.price;
 			}
 			double remain = (o.size - s);
@@ -468,6 +722,7 @@ inline bool Interface::reset() {
 					o.price
 				});
 			}
+			updateLiq(o.price);
 		} else {
 			newOrders.push_back(o);
 		}
@@ -476,6 +731,7 @@ inline bool Interface::reset() {
 	newOrders.swap(orders);
 	prev_price = p;
 	saveSettings();
+	getCWAssets();
 	return true;
 
 }
@@ -490,7 +746,7 @@ inline Interface::MarketInfo Interface::getMarketInfo(const std::string_view &pa
 		0,
 		0,
 		AbstractBrokerAPI::currency,
-		0,
+		futures?1000000.0:0.0,
 		inverted,
 		currency,
 		true
@@ -516,14 +772,9 @@ inline void Interface::setSettings(json::Value keyData) {
 	prices.clear();
 	price_url.clear();
 	price_path.clear();
+
 	StrViewA textPrices = keyData["prices"].getString().trim(isspace);
-	if (textPrices.begins("https://") || textPrices.begins("http://")) {
-		auto splt=textPrices.split("\n");
-		StrViewA url = splt();
-		StrViewA path = splt();
-		price_url = url;
-		price_path = path;
-	} else {
+	{
 		auto splt = textPrices.split("\n");
 		while (!!splt) {
 			StrViewA line = splt();
@@ -550,35 +801,97 @@ inline void Interface::setSettings(json::Value keyData) {
 	currency_balance = keyData["currency_balance"].getNumber();
 	asset_step = keyData["asset_step"].getNumber();
 	currency_step = keyData["currency_step"].getNumber();
-	inverted = keyData["type"].getString() == "inverted";
+	price_source = keyData["source"].getString();
+	price_path = keyData["src_field"].getString();
+	price_url = keyData["src_url"].getString();
+	src_asset = keyData["src_asset"].getString();
+	src_currency = keyData["src_currency"].getString();
+	futures = false;
+	inverted = false;
+	liquidation = false;
+	StrViewA type = keyData["type"].getString();
+	if (type == "futures") {
+		futures = true;
+	} else if (type == "inverted") {
+		futures = true;
+		inverted = true;
+	} else if (type == "futures_liq") {
+		futures = true;
+		liquidation = true;
+	} else if (type == "inverted_liq") {
+		futures = true;
+		liquidation = true;
+		inverted = true;
+	}
+	if (price_source == "cryptowatch") {
+		std::string url = createCWUrl(src_asset, src_currency);
+		if (url.empty()) throw std::runtime_error("Unable to find market for selected combination");
+		asset = src_asset;
+		currency = src_currency;
+		std::transform(asset.begin(), asset.end(), asset.begin(), toupper);
+		std::transform(currency.begin(), currency.end(), currency.begin(), toupper);
+		price_url = url;
+		price_path = "price";
+
+	}
 	prev_price = keyData["prev_price"].getNumber();
 	saveSettings();
+	updateLiq(prev_price);
 }
 
 json::Value Interface::collectSettings() const {
 	json::Object kv;
-	kv.set("prices",price_url.empty()
-					?json::Value(json::array, prices.begin(), prices.end(), [](double v){return v;}).join("\n")
-					:json::Value(json::String({price_url,"\n", price_path})))
+	kv.set("prices",json::Value(json::array, prices.begin(), prices.end(), [](double v){return v;}).join("\n"))
 		  ("asset",asset)
 		  ("currency",currency)
 		  ("asset_balance",asset_balance)
 		  ("currency_balance",currency_balance)
 		  ("asset_step",asset_step)
 		  ("currency_step",currency_step)
-		  ("type",inverted?"inverted":"normal")
+		  ("type",futures?
+				  	  (inverted?
+						  (liquidation?"inverted_liq":"inverted")
+						  :(liquidation?"futures_liq":"futures"))
+					  :("normal"))
 		  ("startTime",startTime)
 		  ("restart","cont")
 		  ("timeframe",timeDivisor/60)
-		  ("prev_price", prev_price);
+		  ("prev_price", prev_price)
+		  ("source", price_source)
+		  ("src_url", price_url)
+		  ("src_field", price_path)
+	  	  ("src_asset", src_asset)
+	  	  ("src_currency", src_currency);
 	return kv;
+}
+
+
+json::Value mergeAssets(Value options, const std::vector<std::string> &a) {
+	Object o(options);
+	for (auto &&k : a) o.set(k,k);
+	return o;
 }
 
 inline json::Value Interface::getSettings(const std::string_view & ) const {
 	Value kv = collectSettings();
+	CWPairs cwAssets = getCWAssets();
+
 	return settingsForm.map([&](Value v) {
 		StrViewA n = v["name"].getString();
-		return v.replace("default", kv[n]);
+		Value z = v.replace("default", kv[n]);
+		if (z["name"].getString() == "src_asset") {
+			z = z.replace("options", mergeAssets(z["options"], cwAssets.assets));
+		}
+		else if (z["name"].getString() == "src_currency") {
+			z = z.replace("options", mergeAssets(z["options"], cwAssets.currencies));
+		} else if (z["name"].getString() == "liq") {
+			if (asset_balance > 0) {
+				z = z.replace("default",inverted?1.0/low_liq:high_liq);
+			} else if (asset_balance < 0) {
+				z = z.replace("default",inverted?1.0/high_liq:low_liq);
+			}
+		}
+		return z;
 	});
 }
 

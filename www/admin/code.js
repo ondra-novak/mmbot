@@ -1387,6 +1387,7 @@ App.prototype.tradingForm = function(id) {
 					if (n == 0) {
 						if (f != null && t != null) {
 							p2 = invp(interpolate(f.time, t.time, k.time, f.price, t.price));
+							if (f.time == k.time) achg = invs(t.size);
 						} else if (f != null) {
 							p2 = invp(f.price);
 						}

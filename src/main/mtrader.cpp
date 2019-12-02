@@ -500,7 +500,7 @@ MTrader::Order MTrader::calculateOrderFeeLess(
 		if (newPrice < curPrice) newPrice = curPrice;
 	}
 
-	auto ord= strategy.getNewOrder(minfo, cfg.dynmult_scale?newPrice:newPriceNoScale,dir, balance, currency);
+	auto ord= strategy.getNewOrder(minfo,curPrice, cfg.dynmult_scale?newPrice:newPriceNoScale,dir, balance, currency);
 	if (ord.price > 0 && (ord.price - prevPrice)*step > 0) newPrice = ord.price;
 	double size = ord.size;
 	bool enableDust = false;

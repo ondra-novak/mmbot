@@ -77,14 +77,14 @@ auto run_in_worker(Worker wrk, Fn &&fn) -> decltype(fn()) {
 	return *ret;
 }
 
-static int eraseTradeHandler(Worker &wrk, simpleServer::ArgList args, simpleServer::Stream stream, bool trunc) {
+static int eraseTradeHandler(Worker &wrk, simpleServer::ArgList args, std::ostream &stream, bool trunc) {
 	if (args.length<2) {
-		stream << "Needsd arguments: <trader_ident> <trade_id>\n";
+		stream << "Needsd arguments: <trader_ident> <trade_id>" << std::endl;
 		return 1;
 	} else {
 		NamedMTrader *trader = traders->find(args[0]);
 		if (trader == nullptr) {
-			stream << "Trader idenitification is invalid: " << args[0] << "\n";
+			stream << "Trader idenitification is invalid: " << args[0] << std::endl;
 			return 2;
 		} else {
 			try {
@@ -92,21 +92,21 @@ static int eraseTradeHandler(Worker &wrk, simpleServer::ArgList args, simpleServ
 					return trader->eraseTrade(args[1],trunc);
 				});
 				if (!res) {
-					stream << "Trade not found: " << args[1] << "\n";
+					stream << "Trade not found: " << args[1] << std::endl;
 					return 2;
 				} else {
-					stream << "OK\n";
+					stream << "OK" << std::endl;
 					return 0;
 				}
 			} catch (std::exception &e) {
-				stream << e.what() << "\n";
+				stream << e.what() << std::endl;;
 				return 3;
 			}
 		}
 	}
 }
 
-static int cmd_singlecmd(Worker &wrk, simpleServer::ArgList args, simpleServer::Stream stream, void (MTrader::*fn)()) {
+static int cmd_singlecmd(Worker &wrk, simpleServer::ArgList args, std::ostream &stream, void (MTrader::*fn)()) {
 	if (args.empty()) {
 		stream << "Need argument: <trader_ident>\n"; return 1;
 	}
@@ -325,9 +325,9 @@ int main(int argc, char **argv) {
 
 						logNote("---- Starting service ----");
 
-						cntr.addCommand("get_all_pairs",[&](simpleServer::ArgList args, simpleServer::Stream stream){
+						cntr.on("get_all_pairs") >> [&](auto &&args, std::ostream &stream){
 							if (args.length < 1) {
-								stream << "Append argument: <broker>\n";
+								stream << "Append argument: <broker>" << std::endl;
 								return 1;
 							} else {
 								StockSelector ss;
@@ -335,41 +335,38 @@ int main(int argc, char **argv) {
 								IStockApi *stock = ss.getStock(args[0]);
 								if (stock) {
 									for (auto &&k : stock->getAllPairs()) {
-										stream << k << "\n";
+										stream << k << std::endl;
 									}
 									return 0;
 								} else {
-									stream << "Stock is not defined\n";
+									stream << "Stock is not defined" << std::endl;
 									return 2;
 								}
 							}
 
-						});
+						};
 
-						cntr.addCommand("erase_trade", [&](simpleServer::ArgList args, simpleServer::Stream stream){
-							return eraseTradeHandler(wrk, args,stream,false);
-						});
-						cntr.addCommand("resync_trades_from", [&](simpleServer::ArgList args, simpleServer::Stream stream){
-							return eraseTradeHandler(wrk, args,stream,true);
-						});
-						cntr.addCommand("reset", [&](simpleServer::ArgList args, simpleServer::Stream stream){
-							return cmd_singlecmd(wrk, args,stream,&MTrader::reset);
-						});
-						cntr.addCommand("repair", [&](simpleServer::ArgList args, simpleServer::Stream stream){
-							return cmd_singlecmd(wrk, args,stream,&MTrader::repair);
-						});
-						cntr.addCommand("admin", [&](simpleServer::ArgList args, simpleServer::Stream stream){
+						cntr.on("erase_trade") >> [&](auto &&args, std::ostream &out){
+							return eraseTradeHandler(wrk, args,out,false);
+						};
+						cntr.on("reset") >> [&](auto &&args, std::ostream &out){
+							return cmd_singlecmd(wrk, args,out,&MTrader::reset);
+						};
+						cntr.on("repair") >> [&](auto &&args, std::ostream &out){
+							return cmd_singlecmd(wrk, args,out,&MTrader::repair);
+						};
+						cntr.on("admin") >> [&](auto &&, std::ostream &out){
 							std::random_device rnd;
 							std::uniform_int_distribution<int> dist(33,126);
 							std::ostringstream buff;
 							for (unsigned int i = 0; i < 16; i++) buff<<static_cast<char>(dist(rnd));
 							std::string lgn = buff.str();
 							webcfgstate->setAdminUser("admin",lgn);
-							stream << "Username: admin" << "\n" << "Password: " << lgn << "\n";
+							out << "Username: admin" << std::endl << "Password: " << lgn << std::endl;
 							return 0;
-						});
+						};
 						std::size_t id = 0;
-						cntr.addCommand("run",[&](simpleServer::ArgList, simpleServer::Stream) {
+						cntr.on_run() >> [&] {
 
 							ondra_shared::PStdLogProviderFactory current =
 									&dynamic_cast<ondra_shared::StdLogProviderFactory &>(*ondra_shared::AbstractLogProviderFactory::getInstance());
@@ -398,7 +395,7 @@ int main(int argc, char **argv) {
 
 
 							return 0;
-						});
+						};
 
 
 						cntr.dispatch();
@@ -412,8 +409,7 @@ int main(int argc, char **argv) {
 
 					return 0;
 
-					}, simpleServer::ArgList(argList.data(), argList.size()),
-					cmd == "calc_range" || cmd == "get_all_pairs" || cmd == "achieve" || cmd == "reset" || cmd=="repair" || cmd == "backtest" || cmd == "show_config");
+					}, simpleServer::ArgList(argList.data(), argList.size()),cmd != "admin");
 			} catch (std::exception &e) {
 				std::cerr << "Error: " << e.what() << std::endl;
 				return 2;
