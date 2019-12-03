@@ -152,6 +152,7 @@ std::pair<Strategy_PLFromPos::OnTradeResult, PStrategy> Strategy_PLFromPos::onTr
 	double np = ef * (1 - cfg.accum);
 	//normalized accumulated
 	double ap = (ef * cfg.accum)/tradePrice;
+	double p0 = new_pos/k + tradePrice;
 
 	newst.acm  = st.acm + ap;
 	newst.p = tradePrice;
@@ -160,7 +161,7 @@ std::pair<Strategy_PLFromPos::OnTradeResult, PStrategy> Strategy_PLFromPos::onTr
 
 	calcPower(newst, tradePrice, assetsLeft, currencyLeft);
 	return {
-		OnTradeResult{np,ap},
+		OnTradeResult{np,ap,p0},
 		new Strategy_PLFromPos(cfg,newst)
 	};
 }

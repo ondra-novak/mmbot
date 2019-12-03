@@ -766,7 +766,7 @@ void MTrader::processTrades(Status &st) {
 		z.first += t.eff_size;
 		z.second -= t.eff_size * t.eff_price;
 		auto norm = strategy.onTrade(minfo, t.eff_price, t.eff_size, z.first, z.second);
-		trades.push_back(TWBItem(t, last_np+=norm.normProfit, last_ap+=norm.normAccum));
+		trades.push_back(TWBItem(t, last_np+=norm.normProfit, last_ap+=norm.normAccum, norm.neutralPrice));
 	}
 }
 
@@ -881,7 +881,7 @@ bool MTrader::acceptLoss(std::optional<Order> &orig, const Order &order, const S
 								reford.price,
 								0,
 								reford.price,
-							}, trades.back().norm_profit, trades.back().norm_accum));
+							}, trades.back().norm_profit, trades.back().norm_accum, trades.back().neutral_price));
 					strategy.onTrade(minfo, reford.price, 0, st.assetBalance, st.currencyBalance);
 				}
 			}

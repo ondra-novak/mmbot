@@ -48,7 +48,7 @@ std::pair<Strategy_KeepValue::OnTradeResult, PStrategy> Strategy_KeepValue::onTr
 	double np = pf * (1.0 - cfg.accum);
 	double new_a = (k / tradePrice) - cfg.ea;
 	return {
-		OnTradeResult{np,ap}, new Strategy_KeepValue(cfg, tradePrice, new_a+ap)
+		OnTradeResult{np,ap,0}, new Strategy_KeepValue(cfg, tradePrice, new_a+ap)
 	};
 
 }

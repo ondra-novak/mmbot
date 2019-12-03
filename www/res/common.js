@@ -258,10 +258,13 @@ function initChart(chart_interval, ratio, base_interval) {
 		if (fld2) {
 			for (var i = 0; i <cnt-1; i++) {
 				var pos = "stdline2";
+				var v1 = chart[i][fld2];
+				var v2 = chart[i+1][fld2];
+				if (v1 == undefined || v2 == undefined) continue;
 				var x1 = map_x(chart[i].time/base_interval-tmstart);
 				var x2 = map_x(chart[i+1].time/base_interval-tmstart);
-				var y1 = map_y(chart[i][fld2]);
-				var y2 = map_y(chart[i+1][fld2]);
+				var y1 = map_y(v1);
+				var y2 = map_y(v2);
 				new_svg_el("line",{x1:x1,y1:y1,x2:x2,y2:y2,class:pos},svg);
 			}
 		}

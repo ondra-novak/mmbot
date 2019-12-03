@@ -44,7 +44,7 @@ std::pair<Strategy_HalfHalf::OnTradeResult, PStrategy> Strategy_HalfHalf::onTrad
 	double ap = (v / n) * cfg.accum;
 	double np = v * (1-cfg.accum);
 	return std::make_pair(
-			OnTradeResult {np, ap},
+			OnTradeResult {np, ap, 0},
 			new Strategy_HalfHalf(cfg,n,na+ap-cfg.ea)
 	);
 }

@@ -19,8 +19,12 @@ class IStrategy: public ondra_shared::RefCntObj {
 public:
 
 	struct OnTradeResult {
+		///normalized profit
 		double normProfit;
+		///normalized accumulated
 		double normAccum;
+		///neutral position, if 0, the value is not drawn on chart
+		double neutralPrice;
 	};
 
 	struct OrderData {

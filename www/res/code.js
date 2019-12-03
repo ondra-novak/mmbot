@@ -39,7 +39,7 @@ function app_start(){
 	}
 	
 	var donate_time = next_donate_time - donation_repeat;
-	var secondary_charts = {};
+	var secondary_charts = {price:"p0"};
 	
 	
 	
@@ -297,6 +297,7 @@ function app_start(){
 					misc.avgh = lt.norm/misc.tt*it;
 					misc.avgha = lt.nacum*it/misc.tt;
 					misc.avghpl = it*lt.pl/misc.tt;
+					misc.p0 = lastItem.p0 == undefined?"---":lastItem.p0
 					misc.pnorm = last_norm;
 					misc.pnormp = 100*last_norm/misc.mv;
 					if (pldiff > 0) {

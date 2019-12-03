@@ -67,17 +67,19 @@ public:
 
 		double norm_profit;
 		double norm_accum;
+		double neutral_price;
 
-		TradeRecord(const IStockApi::Trade &t, double norm_profit, double norm_accum)
-			:IStockApi::Trade(t),norm_profit(norm_profit),norm_accum(norm_accum) {}
+		TradeRecord(const IStockApi::Trade &t, double norm_profit, double norm_accum, double neutral_price)
+			:IStockApi::Trade(t),norm_profit(norm_profit),norm_accum(norm_accum),neutral_price(neutral_price) {}
 
 	    static TradeRecord fromJSON(json::Value v) {
-	    	return TradeRecord(IStockApi::Trade::fromJSON(v), v["np"].getNumber(), v["ap"].getNumber());
+	    	return TradeRecord(IStockApi::Trade::fromJSON(v), v["np"].getNumber(), v["ap"].getNumber(), v["p0"].getNumber());
 	    }
 	    json::Value toJSON() const {
 	    	return IStockApi::Trade::toJSON().merge(json::Value(json::object,{
 	    			json::Value("np",norm_profit),
-					json::Value("ap",norm_accum)
+					json::Value("ap",norm_accum),
+					json::Value("p0",neutral_price)
 	    	}));
 	    }
 

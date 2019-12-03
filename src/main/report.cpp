@@ -142,6 +142,7 @@ void Report::setTrades(StrViewA symb, StringView<IStatSvc::TradeRecord> trades) 
 						("pos", (inverted?-1:1)*pos)
 						("pl", cur_fromPos)
 						("price", (inverted?1.0/t.price:t.price))
+						("p0",t.neutral_price?Value(inverted?1.0/t.neutral_price:t.neutral_price):Value())
 						("volume", fabs(t.eff_price*t.eff_size))
 						("man",false)
 				);
