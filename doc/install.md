@@ -1,45 +1,114 @@
-# install sequence 
+# INSTALL 
 
-## prepare system (as root)
+## FreeBSD
 
-Instalation has been performed on clean ubuntu bionic (chroot, debootstrap, minverse)
-
-```
-$ apt install nano
-```
+* Install required packages
 
 ```
-$ nano /etc/apt/sources.list
+$ pkg install cmake git gcc 
 ```
+(you will also need openssl development package, but this package was found already installed on FreeBSD 12)
 
-Add **universe** 
-
-```
-$ apt update
-$ apt install cmake make g++ git libcurl4-openssl-dev libssl-dev libcurlpp-dev
-```
-
-choose directory for source. It is strongly recomended to create a separate user for the robot
-
-### create user (as root)
+* Add an user
 
 ```
-$ adduser --disabled-password --gecos "" mmbot
-$ su mmbot
+$ adduser
+```
+(now answer the questions)
+
+* Switch to the user
+
+```
+$ su <user>
 $ cd ~
-
 ```
-Now you should install under mmbot user. 
 
-
-## install 
+* download from git and perform update
 
 ```
 $ git clone https://github.com/ondra-novak/mmbot.git
 $ cd mmbot
 $ ./update
+```
+
+* first run using ssh tunnel
 
 ```
+$ bin/mmbot -p <tunnel_port> start
+```
+
+
+You should install a webserver, and proxy_pass to `/home/<user>/mmbot/run/mmbot.socket`
+
+### Debian/Ubuntu
+
+* Install required packages
+
+```
+$ apt update
+$ apt install git cmake make g++ libssl-dev
+```
+
+* Add and user and switch
+
+```
+$ adduser --disabled-password <user>
+$ su <user>
+$ cd ~
+```
+
+* download from git and perform update		
+
+```
+$ git clone https://github.com/ondra-novak/mmbot.git
+$ cd mmbot
+$ ./update
+```
+
+* first run using ssh tunnel
+
+```
+$ bin/mmbot -p <tunnel_port> start
+```
+
+You should install a webserver, and proxy_pass to `/home/<user>/mmbot/run/mmbot.socket`
+
+
+### Fedora/CentOS
+
+* Install required packages
+
+```
+$ yum install git gcc-c++ openssl-devel cmake make
+```
+
+* Add and user and switch
+
+```
+$ adduser <user>
+$ su <user>
+$ cd ~
+```
+
+* download from git and perform update		
+
+```
+$ git clone https://github.com/ondra-novak/mmbot.git
+$ cd mmbot
+$ ./update
+```
+
+* first run using ssh tunnel
+
+```
+$ bin/mmbot -p <tunnel_port> start
+```
+
+You should install a webserver, and proxy_pass to `/home/<user>/mmbot/run/mmbot.socket`
+
+
+
+
 
 ## update to newest version
 
@@ -62,20 +131,12 @@ git add conf/<name of conf>
 
 otherwise next update fails until the conflict is resolved.
 
-## configure and run
-
- * configuration is under `conf` directory
- * trading pairs are added into `conf/traders.conf`
- * you can set API keys for various stockmarkets into configurations under `conf/brokers/` 
- * to start bot, type `$ bin/mmbot start`
- * to start bot with maximum debug informations, type `$ bin/mmbot -d start`
- * to start in verbose mode, type `$ bin/mmbot -v run`
- * to stop bot (not in verbose mode) type `$ bin/mmbot stop`
- 
 
 ## automatic start after reboot 
 
 You can use crontab to initiate job after reboot
+
+### Debian/Ubuntu
 
 ```
 $ crontab -e
@@ -85,25 +146,14 @@ and save
 
 (why such path? /home/<user>/<instdir>/bin/mmbot)
 
-## enable web interface (without web server)
+### FreeBSD
 
-just append following lines to `conf/mmbot.conf`
+* Create a file under `/usr/local/etc/rc.d/mmbot.sh`
+* Put following command to the file:
 
 ```
-[report]
-http_bind=*:12345
+#!/bin/sh
+su <user> -c "/home/<user>/mmbot/bin/mmbot start"
 ```
-(ensure, that very last line is empty, otherwise it will not work)
-
-You can specify different port if you don't like '12345'. If you wish to prevent accessing web interface from the internet, use `localhost` instead `*` (`localhost:12345`). Then, only local connection will be accepted.
-
-## enable web interface through the web server (nginx, apache)
-
-just configure to web server to point at directory `www`
-
-(for nginx `root /home/mmbot/mmbot/www;` instead default path)
-
-It is strongly recommended to configure https access (see letsencrypt, certbot, etc)
 
 
-  
