@@ -108,18 +108,28 @@ json::Value Proxy::private_request(Method method, std::string command, json::Val
 	json::Object headers;
 	headers("X-MBX-APIKEY",pubKey);
 
-	if (method == GET) {
-		url = url + "?" + request;
-		res = httpc.GET(url, headers);
-	} else if (method == DELETE) {
-		url = url + "?" + request;
-		res = httpc.DELETE(url,json::String(), headers);
-	} else {
-		headers("Content-Type","application/x-www-form-urlencoded");
-		if (method == POST) {
-			res = httpc.POST(url, request, headers);
+	try {
+		if (method == GET) {
+			url = url + "?" + request;
+			res = httpc.GET(url, headers);
+		} else if (method == DELETE) {
+			url = url + "?" + request;
+			res = httpc.DELETE(url,json::String(), headers);
 		} else {
-			res = httpc.PUT(url, request, headers);
+			headers("Content-Type","application/x-www-form-urlencoded");
+			if (method == POST) {
+				res = httpc.POST(url, request, headers);
+			} else {
+				res = httpc.PUT(url, request, headers);
+			}
+		}
+	} catch (const HTTPJson::UnknownStatusException &e) {
+		try {
+			res = json::Value::parse(e.response.getBody());
+			json::String msg({res["code"].toString()," ",res["msg"].toString()});
+			throw std::runtime_error(msg.c_str());
+		} catch (...) {
+			throw e;
 		}
 	}
 
