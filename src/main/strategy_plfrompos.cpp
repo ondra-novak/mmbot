@@ -159,7 +159,11 @@ std::pair<Strategy_PLFromPos::OnTradeResult, PStrategy> Strategy_PLFromPos::onTr
 	newst.a = new_pos;
 	newst.value = posVal;
 
-	calcPower(newst, tradePrice, assetsLeft, currencyLeft);
+	double fpos = assetsToPos(minfo, new_pos);
+	double ppos = assetsToPos(minfo,st.a);
+
+	if (std::abs(fpos) <= cfg.maxpos*1e-10 || std::abs(fpos) > std::abs(ppos))
+			calcPower(newst, tradePrice, assetsLeft, currencyLeft);
 	return {
 		OnTradeResult{np,ap,p0},
 		new Strategy_PLFromPos(cfg,newst)
