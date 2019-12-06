@@ -31,6 +31,7 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 		cfg.maxpos = config["maxpos"].getNumber();
 		cfg.reduce_factor = config["reduce_factor"].getNumber();
 		cfg.power= config["power"].getNumber();
+		cfg.baltouse= config["balance_use"].defined()?config["balance_use"].getNumber():1;
 		return Strategy(new Strategy_PLFromPos(cfg,{}));
 	} else if (id == Strategy_HalfHalf::id) {
 		Strategy_HalfHalf::Config cfg;

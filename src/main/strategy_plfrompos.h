@@ -27,6 +27,7 @@ public:
 		double maxpos;
 		double reduce_factor;
 		double power;
+		double baltouse;
 
 	};
 

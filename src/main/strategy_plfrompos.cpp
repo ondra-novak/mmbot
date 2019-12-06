@@ -175,7 +175,7 @@ json::Value Strategy_PLFromPos::exportState() const {
 			("maxpos",st.maxpos)
 			("step",st.step)
 			("val", st.value)
-			("pw", (int)(cfg.power*1000));
+			("pw", (int)(cfg.power*100000)+(int)(cfg.baltouse*100));
 	else return json::undefined;
 }
 
@@ -191,7 +191,7 @@ PStrategy Strategy_PLFromPos::importState(json::Value src) const {
 			src["acm"].getNumber(),
 			src["val"].getNumber(),
 		};
-		int curpw = (int)(cfg.power*1000);
+		int curpw = (int)(cfg.power*100000)+(int)(cfg.baltouse*100);
 		if (curpw != (int)src["pw"].getInt()) {
 			newst.valid_power = false;
 		}
@@ -267,9 +267,10 @@ double Strategy_PLFromPos::posToAssets(const IStockApi::MarketInfo &minfo,
 void Strategy_PLFromPos::calcPower(State& st, double price, double , double currency) const
 {
 	if (cfg.power) {
-		double step = currency * std::pow(10, cfg.power)*0.01;
+		double c = currency * cfg.baltouse;
+		double step = c * std::pow(10, cfg.power)*0.01;
 		double k = step / (price * price * 0.01);
-		double max_pos = sqrt(k * currency);
+		double max_pos = sqrt(k * c);
 		st.maxpos = max_pos;
 		st.step = step;
 		logInfo("Strategy recalculated: step=$1, max_pos=$2", step, max_pos);

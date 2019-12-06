@@ -383,23 +383,21 @@ App.prototype.fillForm = function (src, trg) {
 				{x.classList.toggle("mark",b);}.bind(null, pos > safe_pos) );
 		}
 		function linStrategy_recomended() {
-			var inputs = trg.readData(["cstep","neutral_pos"]);
-			var value = pair.currency_balance;
+			var inputs = trg.readData(["cstep","neutral_pos","pl_baluse"]);
+			var value = pair.currency_balance*inputs.pl_baluse*0.01;
 			var invest = value / 10;
 			var k = invest / (pair.price*pair.price * 0.01);
 			var max_pos = Math.sqrt(k * value);
 			trg.setData({
 				cstep : adjNumN(invest),
-				max_pos: adjNumN(max_pos),
-				pl_redfact: 100,
-				pl_closepos: "prefer_close"
+				max_pos: adjNumN(max_pos)
 			});
 
 			linStrategy_recalc();
 		}
 		function linStrategy_recomended_maxpos() {			
-			var inputs = trg.readData(["cstep","neutral_pos"]);
-			var value = pair.currency_balance;
+			var inputs = trg.readData(["cstep","neutral_pos","pl_baluse"]);
+			var value = pair.currency_balance*inputs.pl_baluse*0.01;
 			var invest = inputs.cstep;
 			var k = invest / (pair.price*pair.price * 0.01);
 			var max_pos = Math.sqrt(k * value);
@@ -433,11 +431,11 @@ App.prototype.fillForm = function (src, trg) {
 			
 		}
 		function linStrategy_recalc_power() {
-			var v = trg.readData(["pl_power","pl_confmode"]);
+			var v = trg.readData(["pl_power","pl_confmode","pl_baluse"]);
 			if (v.pl_confmode == "m") return;
 			var m = Math.pow(10,v.pl_power)*0.01;
 			trg.setData({"pl_show_factor":adjNumN(m),
-						"cstep":pair.currency_balance*m});
+						"cstep":pair.currency_balance*m*v.pl_baluse*0.01});
 			
 			linStrategy_recomended_maxpos();
 		}
@@ -467,7 +465,7 @@ App.prototype.fillForm = function (src, trg) {
 		linStrategy_recalc_power();
 		var tmp = trg.readData(["cstep","max_pos"]);
 		if (!tmp.max_pos && !tmp.cstep) linStrategy_recomended();
-		data.pl_power={"!input":function() {
+		data.pl_baluse = data.pl_power={"!input":function() {
 			linStrategy_recalc_power();
 		}};
 		data.pl_confmode = {"!change":function() {
@@ -516,6 +514,7 @@ App.prototype.fillForm = function (src, trg) {
 		data.cstep = filledval(src.strategy.cstep,0);
 		data.max_pos = filledval(src.strategy.maxpos,0);
 		data.pl_redfact = filledval(defval(src.strategy.reduce_factor,0.5)*100,50);
+		data.pl_baluse = filledval(defval(src.strategy.balance_use,1)*100,100);
 		data.pl_confmode= filledval(src.strategy.power?"a":"m", "a");
 		data.pl_power=filledval(src.strategy.power?src.strategy.power:1,1);
 		data.pl_mode_m = {".hidden":!!src.strategy.power};
@@ -607,6 +606,7 @@ App.prototype.saveForm = function(form, src) {
 		trader.strategy.neutral_pos = data.neutral_pos;
 		trader.strategy.maxpos = data.max_pos;
 		trader.strategy.reduce_factor = data.pl_redfact/100;
+		trader.strategy.balance_use = data.pl_baluse/100;
 		trader.strategy.power = data.pl_confmode=="a"?data.pl_power:0;
 	} else if (data.strategy == "halfhalf" || data.strategy == "keepvalue") {
 		trader.strategy.accum = data.acum_factor/100.0;
