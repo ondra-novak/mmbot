@@ -163,12 +163,13 @@ bool WebCfg::reqConfig(simpleServer::HTTPRequest req) const {
 									}
 								}
 							}
-							traders.runTraders(true);
-							traders.rpt.genReport();
-							req.sendResponse(HTTPResponse(202).contentType("application/json"),data.stringify());
 						} catch (std::exception &e) {
 							req.sendErrorPage(500,StrViewA(),e.what());
+							return;
 						}
+						req.sendResponse(HTTPResponse(202).contentType("application/json"),data.stringify());
+						traders.runTraders(true);
+						traders.rpt.genReport();
 					});
 
 
