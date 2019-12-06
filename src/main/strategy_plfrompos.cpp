@@ -209,7 +209,7 @@ Strategy_PLFromPos::OrderData Strategy_PLFromPos::getNewOrder(
 		const IStockApi::MarketInfo &minfo,
 		double cur_price, double new_price, double dir, double assets, double currency) const {
 	double pos = assetsToPos(minfo, st.a);
-	if (pos < -cfg.maxpos || pos > cfg.maxpos) {
+	if (cfg.maxpos && (pos < -cfg.maxpos || pos > cfg.maxpos)) {
 		float f = pow2(cfg.maxpos/pos)*0.5;
 		new_price = st.p * (1-f) + new_price * f;
 	}
