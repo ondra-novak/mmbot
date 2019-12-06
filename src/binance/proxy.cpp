@@ -17,6 +17,7 @@
 #include <chrono>
 
 #include <imtjson/string.h>
+#include <imtjson/parser.h>
 #include <simpleServer/http_client.h>
 #include <simpleServer/urlencode.h>
 #include <imtjson/object.h>
