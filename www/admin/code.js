@@ -7,30 +7,36 @@ function app_start() {
 	
 }
 
+function parse_fetch_error(e) {
+	var txt;
+	if (e.headers) {
+		var ct = e.headers.get("Content-Type");
+		if (ct == "text/html" || ct == "application/xhtml+xml") {
+			txt = e.text().then(function(text) {
+			 	var parser = new DOMParser();
+				var htmlDocument = parser.parseFromString(text, ct);
+				var el = htmlDocument.body.querySelector("p");
+				if (!el) el = htmlDocument.body;
+				return el.innerText;
+			});
+		} else {
+			txt = e.text() || "";
+		}
+	} else {
+		txt = Promise.resolve(e.toString());
+	}	
+	return txt.then(function(t) {
+			var msg = (e.status || "")+" "+(e.statusText || "");
+			if (t == msg) t = "";
+			return {msg:msg, t:t};
+	});
+} 
+
 function fetch_error(e) {
 	if (!fetch_error.shown) {
 		fetch_error.shown = true;
-		var txt;
-		if (e.headers) {
-			var ct = e.headers.get("Content-Type");
-			if (ct == "text/html" || ct == "application/xhtml+xml") {
-				txt = e.text().then(function(text) {
-				 	var parser = new DOMParser();
-					var htmlDocument = parser.parseFromString(text, ct);
-					var el = htmlDocument.body.querySelector("p");
-					if (!el) el = htmlDocument.body;
-					return el.innerText;
-				});
-			} else {
-				txt = e.text() || "";
-			}
-		} else {
-			txt = Promise.resolve(e.toString());
-		}
-		txt.then(function(t) {
-			var msg = (e.status || "")+" "+(e.statusText || "");
-			if (t == msg) t = "";
-			app.dlgbox({text:msg, desc:t},"network_error").then(function() {
+		return parse_fetch_error(e).then(function(t) {
+			app.dlgbox({text:t.msg, desc:t.tt},"network_error").then(function() {
 				fetch_error.shown = false;
 			});
 		});
@@ -289,6 +295,19 @@ App.prototype.fillForm = function (src, trg) {
 			var data = {};
 			fillHeader(st,data);
 			trg.setData(data);
+		},function(err) {
+			var ep = parse_fetch_error(err);
+			ep.then(function(x) {
+				trg.setData({
+					err_failed_to_fetch:{
+						value:x.msg+" - "+x.t,
+						classList:{
+							mark:true
+						}
+					},
+					broker:"error"
+				});
+			});
 		});			
 	}.bind(this);
 	
@@ -481,6 +500,10 @@ App.prototype.fillForm = function (src, trg) {
 			calcPosition(data);
 			trg.setData(data);
 		}
+		trg.forEachElement("neutral_pos",function(x) {
+			x.parentNode.classList.toggle("adv", pair.leverage != 0);
+		});
+		
 		
 	}.bind(this);
 	
@@ -504,6 +527,8 @@ App.prototype.fillForm = function (src, trg) {
 	data.pl_mode_m = {".hidden":true};
 	data.pl_power=1;
 	data.pl_show_factor=0.1;
+	data.pl_baluse=100;
+	data.pl_redfact=50;
 
 	if (data.strategy == "halfhalf" || data.strategy == "keepvalue") {
 		data.acum_factor = filledval(defval(src.strategy.accum,0)*100,0);
