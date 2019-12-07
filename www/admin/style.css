@@ -384,6 +384,18 @@ a {
 .backtest .charts {
 	overflow: auto;
 }
+.backtest .charts.spread_vis {
+	position: relative;
+}
+
+.backtest .charts.spread_vis .spinner {
+	display: block;
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	margin: auto;
+}
 
 .backtest {
 	width: 100% !important;

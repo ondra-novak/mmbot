@@ -25,6 +25,7 @@ using ondra_shared::StringView;
 using ondra_shared::StrViewA;
 
 json::NamedEnum<Dynmult_mode> strDynmult_mode  ({
+	{Dynmult_mode::disabled, "disabled"},
 	{Dynmult_mode::independent, "independent"},
 	{Dynmult_mode::together, "together"},
 	{Dynmult_mode::alternate, "alternate"},
@@ -93,6 +94,7 @@ MTrader::MTrader(IStockSelector &stock_selector,
 ,storage(std::move(storage))
 ,statsvc(std::move(statsvc))
 ,strategy(config.strategy)
+,dynmult(cfg.dynmult_raise,cfg.dynmult_fall, cfg.dynmult_mode)
 {
 	//probe that broker is valid configured
 	stock.testBroker();
@@ -139,13 +141,6 @@ double MTrader::raise_fall(double v, bool raise) const {
 		return std::max(1.0,v - ff);
 	}
 }
-/*
-static auto calc_margin_range(double A, double D, double P) {
-	double x1 = (A*P - 2*sqrt(A*D*P) + D)/A;
-	double x2 = (A*P + 2*sqrt(A*D*P) + D)/A;
-	return std::make_pair(x1,x2);
-}
-*/
 
 void MTrader::init() {
 	if (need_load){
@@ -199,13 +194,13 @@ void MTrader::perform(bool manually) {
 
 					//calculate buy order
 				Order buyorder = calculateOrder(lastTradePrice,
-												  -status.curStep*cfg.buy_step_mult, buy_dynmult,
+												  -status.curStep*cfg.buy_step_mult, dynmult.getBuyMult(),
 												   status.ticker.bid, status.assetBalance,
 												   status.currencyBalance,
 												   cfg.buy_mult);
 					//calculate sell order
 				Order sellorder = calculateOrder(lastTradePrice,
-												   status.curStep*cfg.sell_step_mult, sell_dynmult,
+												   status.curStep*cfg.sell_step_mult, dynmult.getSellMult(),
 												   status.ticker.ask, status.assetBalance,
 												   status.currencyBalance,
 												   cfg.sell_mult);
@@ -277,8 +272,8 @@ void MTrader::perform(bool manually) {
 				status.new_trades.trades.empty()?0:sgn(status.new_trades.trades.back().size),
 				strategy.getEquilibrium(),
 				status.curPrice * (exp(status.curStep) - 1),
-				buy_dynmult,
-				sell_dynmult,
+				dynmult.getBuyMult(),
+				dynmult.getSellMult(),
 				minmax.min,
 				minmax.max,
 				trades.size(),
@@ -611,8 +606,7 @@ void MTrader::loadState() {
 
 		auto state = st["state"];
 		if (state.defined()) {
-			buy_dynmult = state["buy_dynmult"].getNumber();
-			sell_dynmult = state["sell_dynmult"].getNumber();
+			dynmult.setMult(state["buy_dynmult"].getNumber(),state["sell_dynmult"].getNumber());
 			internal_balance = state["internal_balance"].getNumber();
 			recalc = state["recalc"].getBool();
 			std::size_t nuid = state["uid"].getUInt();
@@ -662,8 +656,8 @@ void MTrader::saveState() {
 
 	{
 		auto st = obj.object("state");
-		st.set("buy_dynmult", buy_dynmult);
-		st.set("sell_dynmult", sell_dynmult);
+		st.set("buy_dynmult", dynmult.getBuyMult());
+		st.set("sell_dynmult", dynmult.getSellMult());
 		if (internal_balance.has_value())
 			st.set("internal_balance", *internal_balance);
 		st.set("recalc",recalc);
@@ -773,25 +767,7 @@ void MTrader::processTrades(Status &st) {
 }
 
 void MTrader::update_dynmult(bool buy_trade,bool sell_trade) {
-
-	switch (cfg.dynmult_mode) {
-	case Dynmult_mode::independent:
-		break;
-	case Dynmult_mode::together:
-		buy_trade = buy_trade || sell_trade;
-		sell_trade = buy_trade;
-		break;
-	case Dynmult_mode::alternate:
-		if (buy_trade) this->sell_dynmult = 0;
-		else if (sell_trade) this->buy_dynmult = 0;
-		break;
-	case Dynmult_mode::half_alternate:
-		if (buy_trade) this->sell_dynmult = ((this->sell_dynmult-1) * 0.5) + 1;
-		else if (sell_trade) this->buy_dynmult = ((this->buy_dynmult-1) * 0.5) + 1;
-		break;
-	}
-	this->buy_dynmult= raise_fall(this->buy_dynmult, buy_trade);
-	this->sell_dynmult= raise_fall(this->sell_dynmult, sell_trade);
+	dynmult.update(buy_trade, sell_trade);
 }
 
 void MTrader::reset() {
@@ -813,8 +789,7 @@ void MTrader::stop() {
 
 void MTrader::repair() {
 	if (need_load) loadState();
-	buy_dynmult = 1;
-	sell_dynmult = 1;
+	dynmult.setMult(1,1);
 	if (cfg.internal_balance) {
 		if (!trades.empty())
 			internal_balance = std::accumulate(trades.begin(), trades.end(), 0.0, [](double v, const TWBItem &itm) {return v+itm.eff_size;});
@@ -852,7 +827,7 @@ bool MTrader::acceptLoss(std::optional<Order> &orig, const Order &order, const S
 	if (cfg.accept_loss && cfg.enabled && !trades.empty()) {
 		std::size_t ttm = trades.back().time;
 
-		if (buy_dynmult <= 1.0 && sell_dynmult <= 1.0) {
+		if (dynmult.getBuyMult() <= 1.0 && dynmult.getSellMult() <= 1.0) {
 			if (cfg.dust_orders) {
 				//both short and long
 				//or enable_long and size>0 - because enable_short=false we cannot allow size<0
@@ -1069,7 +1044,8 @@ double MTrader::calcSpread() const {
 
 }
 
-MTrader::VisRes MTrader::visualizeSpread(unsigned int sma, unsigned int stdev, double mult) {
+MTrader::VisRes MTrader::visualizeSpread(double sma, double stdev, double mult, double dyn_raise, double dyn_fall, json::StrViewA dynMode) {
+	DynMultControl dynmult(dyn_raise, dyn_fall, strDynmult_mode[dynMode]);
 	VisRes res;
 	if (chart.empty()) return res;
 	double last = chart[0].last;
@@ -1079,15 +1055,72 @@ MTrader::VisRes MTrader::visualizeSpread(unsigned int sma, unsigned int stdev, d
 		if (minfo.invert_price) p = 1.0/p;
 		prices.push_back(p);
 		double spread = stCalcSpread(prices, sma*60, stdev*60);
-		double low = last * std::exp(-spread*mult);
-		double high = last * std::exp(spread*mult);
+		double low = last * std::exp(-spread*mult*dynmult.getBuyMult());
+		double high = last * std::exp(spread*mult*dynmult.getSellMult());
 		double size = 0;
-		if (p > high) {last = p; size = -1;}
-		else if (p < low) {last = p; size = 1;}
+		if (p > high) {
+			last = p; size = -1;dynmult.update(false,true);
+		}
+		else if (p < low) {
+			last = p; size = 1;dynmult.update(true,false);
+		}
+		else {
+			dynmult.update(false,false);
+		}
 		res.chart.push_back(VisRes::Item{
 			p, low, high, size,k.time
 		});
 	}
 	if (res.chart.size()>10) res.chart.erase(res.chart.begin(), res.chart.begin()+res.chart.size()/2);
 	return res;
+}
+
+void MTrader::DynMultControl::setMult(double buy, double sell) {
+	this->mult_buy = buy;
+	this->mult_sell = sell;
+}
+
+double MTrader::DynMultControl::getBuyMult() const {
+	return mult_buy;
+}
+
+double MTrader::DynMultControl::getSellMult() const {
+	return mult_sell;
+}
+
+double MTrader::DynMultControl::raise_fall(double v, bool israise) {
+	if (israise) {
+		double rr = raise/100.0;
+		return v + rr;
+	} else {
+		double ff = fall/100.0;
+		return std::max(1.0,v - ff);
+	}
+
+}
+
+void MTrader::DynMultControl::update(bool buy_trade, bool sell_trade) {
+
+	switch (mode) {
+	case Dynmult_mode::disabled:
+		mult_buy = 1.0;
+		mult_sell = 1.0;
+		return;
+	case Dynmult_mode::independent:
+		break;
+	case Dynmult_mode::together:
+		buy_trade = buy_trade || sell_trade;
+		sell_trade = buy_trade;
+		break;
+	case Dynmult_mode::alternate:
+		if (buy_trade) mult_sell = 0;
+		else if (sell_trade) mult_buy = 0;
+		break;
+	case Dynmult_mode::half_alternate:
+		if (buy_trade) mult_sell = ((mult_sell-1) * 0.5) + 1;
+		else if (sell_trade) mult_buy = ((mult_buy-1) * 0.5) + 1;
+		break;
+	}
+	mult_buy= raise_fall(mult_buy, buy_trade);
+	mult_sell= raise_fall(mult_sell, sell_trade);
 }

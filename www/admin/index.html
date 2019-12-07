@@ -138,6 +138,7 @@ reenable trading, but it also finally costs some profit
 <label class="adv"><span>Dynamic spread mult. fall<span class="tooltip"
 >Specifies [in %] how much is dynamic multiplicator falls every minute without trade.</span></span><x-slider data-name="dynmult_fall" data-min="0.1" data-max="10" data-mult="0.1" data-fixed="1"></x-slider></label>
 <label class="adv"><span>Dynamic spread behaviour</span><select data-name="dynmult_mode">
+<option value="disabled">Disabled</option>
 <option value="independent">Independent (original)</option>
 <option value="together">Together</option>
 <option value="alternate">Alternate</option>
@@ -391,9 +392,10 @@ The position is not generally in the sync due to various issues. You need to spe
 
 <template id="spread_vis">
 <x-section class="backtest"><x-section-caption>Spread visualizer</x-section-caption>
-<div class="charts">
-<div data-name="chart1"><div><em>Loading data, please wait...</em><div class="spinner fast save"></div></div></div>
+<div class="charts spread_vis">
+<div data-name="chart1"><div><em>Loading data, please wait...</em></div></div>
 <div data-name="chart2"></div>
+<div class="spinner fast save" data-name="spinner" hidden="hidden"></div>
 </div>
 </x-section>
 </template>

@@ -22,6 +22,7 @@
 class IStockApi;
 
 enum class Dynmult_mode {
+	disabled,
 	independent,
 	together,
 	alternate,
@@ -169,10 +170,31 @@ public:
 		};
 		std::vector<Item> chart;
 	};
-	VisRes visualizeSpread(unsigned int sma, unsigned int stdev, double mult);
+	VisRes visualizeSpread(double sma, double stdev, double mult, double dyn_raise, double dyn_fall, json::StrViewA dynMode);
 	static std::optional<double> getInternalBalance(const MTrader *ptr);
 
 protected:
+	class DynMultControl {
+	public:
+		DynMultControl(double raise, double fall, Dynmult_mode mode):raise(raise),fall(fall),mode(mode),mult_buy(1),mult_sell(1) {}
+
+		void setMult(double buy, double sell);
+		double getBuyMult() const;
+		double getSellMult() const;
+
+		double raise_fall(double v, bool israise);
+		void update(bool buy_trade,bool sell_trade);
+
+	protected:
+
+		double raise;
+		double fall;
+		Dynmult_mode mode;
+		double mult_buy;
+		double mult_sell;
+
+	};
+
 	std::unique_ptr<IStockApi> ownedStock;
 	IStockApi &stock;
 	Config cfg;
@@ -180,6 +202,7 @@ protected:
 	StoragePtr storage;
 	PStatSvc statsvc;
 	Strategy strategy;
+	DynMultControl dynmult;
 	bool need_load = true;
 	bool recalc = true;
 	bool enable_short = true;
@@ -193,8 +216,6 @@ protected:
 	std::vector<ChartItem> chart;
 	TradeHistory trades;
 
-	double buy_dynmult=1.0;
-	double sell_dynmult=1.0;
 	std::optional<double> internal_balance;
 	std::optional<double> currency_balance_cache;
 	size_t magic = 0;

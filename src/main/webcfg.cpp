@@ -582,7 +582,11 @@ bool WebCfg::reqTraders(simpleServer::HTTPRequest req, ondra_shared::StrViewA vp
 						Value sma = args["sma"];
 						Value stdev = args["stdev"];
 						Value mult = args["mult"];
-						auto res = tr->visualizeSpread(sma.getUInt(), stdev.getUInt(),mult.getNumber());
+						Value dynmult_raise = args["raise"];
+						Value dynmult_fall = args["fall"];
+						Value dynmult_mode = args["mode"];
+						auto res = tr->visualizeSpread(sma.getUInt(), stdev.getUInt(),mult.getNumber(),
+								dynmult_raise.getValueOrDefault(1.0),dynmult_fall.getValueOrDefault(1.0),dynmult_mode.getValueOrDefault("independent"));
 						Value out (json::object,
 							{Value("chart",Value(json::array, res.chart.begin(), res.chart.end(), [](auto &&k){
 								return Value(json::object,{

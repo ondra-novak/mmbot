@@ -1140,21 +1140,38 @@ App.prototype.init_spreadvis = function(form, id) {
 	form.enableItem("vis_spread",false);
 	var el = form.findElements("spread_vis_anchor")[0];
 	var bt = TemplateJS.View.fromTemplate("spread_vis");
+	var spinner_cnt=0;
 	el.parentNode.insertBefore(bt.getRoot(),el.nextSibling);
 
 	function data_map(v, i) {
 		return {time:i*60000, v:v};
 	}
+	
+	var inputs = ["spread_calc_stdev_hours", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode"]; 
 
+	function showSpinner() {
+		spinner_cnt++;
+		bt.showItem("spinner",true);
+	}
+	function hideSpinner() {
+		if (--spinner_cnt == 0)
+			bt.showItem("spinner",false);
+	}
+	
 	function update() {
-		var data = form.readData(["spread_calc_stdev_hours", "spread_calc_sma_hours","spread_mult"]);
+		showSpinner();
+		var data = form.readData(inputs);
 		var mult = Math.pow(2,data.spread_mult*0.01);
 		var req = {
 			sma:data.spread_calc_sma_hours,
 			stdev:data.spread_calc_stdev_hours,
-			mult:mult
+			mult:mult,
+			raise:data.dynmult_raise,
+			fall:data.dynmult_fall,
+			mode:data.dynmult_mode,
 		}
-	
+		
+		
 		fetch_with_error(url, {method:"POST", body:JSON.stringify(req)}).then(function(v) {			
 			var c = v.chart.map(function(x) {
 				x.achg = x.s;
@@ -1165,11 +1182,10 @@ App.prototype.init_spreadvis = function(form, id) {
 
 			var chart1 = bt.findElements('chart1')[0];
 			var interval = c[c.length-1].time-c[0].time;
-			var drawChart = initChart(interval,5,700000);
+			var drawChart = initChart(interval,4,700000);
 
 			drawChart(chart1,c,"p",[],"l", "h");
-
-		})
+		}).then(hideSpinner,hideSpinner);
 	};
 
 	var tm;
@@ -1181,14 +1197,10 @@ App.prototype.init_spreadvis = function(form, id) {
 			update()},250);
 	}
 
-	form.forEachElement("spread_calc_stdev_hours", function(x){
-		x.addEventListener("input",delayUpdate);
-	})
-	form.forEachElement("spread_calc_sma_hours", function(x){
-		x.addEventListener("input",delayUpdate);
-	});
-	form.forEachElement("spread_mult", function(x){
-		x.addEventListener("input",delayUpdate);
+	inputs.forEach(function(a) {
+		form.forEachElement(a, function(x){
+			x.addEventListener("input",delayUpdate);
+		})
 	});
 	update();
 
