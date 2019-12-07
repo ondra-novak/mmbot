@@ -33,27 +33,9 @@ json::NamedEnum<Dynmult_mode> strDynmult_mode  ({
 
 std::string_view MTrader::vtradePrefix = "__vt__";
 
+static const char *LONG_DISABLED = "Rejected, because LONGs are disabled";
+static const char *SHORT_DISABLED = "Rejected, because SHORTs are disabled";
 
-static double default_value(json::Value data, double defval) {
-	if (data.type() == json::number) return data.getNumber();
-	else return defval;
-}
-static StrViewA default_value(json::Value data, StrViewA defval) {
-	if (data.type() == json::string) return data.getString();
-	else return defval;
-}
-/*static intptr_t default_value(json::Value data, intptr_t defval) {
-	if (data.type() == json::number) return data.getInt();
-	else return defval;
-}*/
-static uintptr_t default_value(json::Value data, uintptr_t defval) {
-	if (data.type() == json::number) return data.getUInt();
-	else return defval;
-}
-static bool default_value(json::Value data, bool defval) {
-	if (data.type() == json::boolean) return data.getBool();
-	else return defval;
-}
 
 
 void MTrader_Config::loadConfig(json::Value data, bool force_dry_run) {
@@ -66,31 +48,34 @@ void MTrader_Config::loadConfig(json::Value data, bool force_dry_run) {
 	strategy = Strategy::create(strstr.str(), strdata);
 
 
-	buy_mult = default_value(data["buy_mult"],1.0);
-	sell_mult = default_value(data["sell_mult"],1.0);
-	buy_step_mult = default_value(data["buy_step_mult"],1.0);
-	sell_step_mult = default_value(data["sell_step_mult"],1.0);
-	min_size = default_value(data["min_size"],0.0);
-	max_size = default_value(data["max_size"],0.0);
+	buy_mult = data["buy_mult"].getValueOrDefault(1.0);
+	sell_mult = data["sell_mult"].getValueOrDefault(1.0);
+	buy_step_mult = data["buy_step_mult"].getValueOrDefault(1.0);
+	sell_step_mult = data["sell_step_mult"].getValueOrDefault(1.0);
+	min_size = data["min_size"].getValueOrDefault(0.0);
+	max_size = data["max_size"].getValueOrDefault(0.0);
 
-	dynmult_raise = default_value(data["dynmult_raise"],0.0);
-	dynmult_fall = default_value(data["dynmult_fall"],0.0);
-	dynmult_mode = strDynmult_mode[default_value(data["dynmult_mode"], StrViewA("half_alternate"))];
+	dynmult_raise = data["dynmult_raise"].getValueOrDefault(0.0);
+	dynmult_fall = data["dynmult_fall"].getValueOrDefault(1.0);
+	dynmult_mode = strDynmult_mode[data["dynmult_mode"].getValueOrDefault("half_alternate")];
 
-	accept_loss = default_value(data["accept_loss"], static_cast<uintptr_t>(1));
+	accept_loss = data["accept_loss"].getValueOrDefault(1);
 
-	force_spread = default_value(data["force_spread"], 0.0);
-	report_position_offset = default_value(data["report_position_offset"], 0.0);
+	force_spread = data["force_spread"].getValueOrDefault(0.0);
+	report_position_offset = data["report_position_offset"].getValueOrDefault(0.0);
 
-	spread_calc_sma_hours = default_value(data["spread_calc_sma_hours"], static_cast<uintptr_t>(2))*60;
-	spread_calc_stdev_hours = default_value(data["spread_calc_stdev_hours"], static_cast<uintptr_t>(8))*60;
+	spread_calc_sma_hours = static_cast<unsigned int>(data["spread_calc_sma_hours"].getValueOrDefault(24.0)*60.0);
+	spread_calc_stdev_hours = static_cast<unsigned int>(data["spread_calc_stdev_hours"].getValueOrDefault(4.0)*60.0);
 
-	dry_run = force_dry_run || default_value(data["dry_run"], false);
-	internal_balance = default_value(data["internal_balance"], false);
-	detect_manual_trades= default_value(data["detect_manual_trades"], false);
-	enabled= default_value(data["enabled"], true);
-	dust_orders= default_value(data["dust_orders"], true);
-	dynmult_scale = default_value(data["dynmult_scale"], true);
+	dry_run = force_dry_run || data["dry_run"].getValueOrDefault(false);
+	internal_balance = data["internal_balance"].getValueOrDefault(false);
+	detect_manual_trades= data["detect_manual_trades"].getValueOrDefault(false);
+	enabled= data["enabled"].getValueOrDefault(true);
+	dust_orders= data["dust_orders"].getValueOrDefault(true);
+	dynmult_scale = data["dynmult_scale"].getValueOrDefault(true);
+
+	enable_short = data["enable_short"].getValueOrDefault(true);
+	enable_long = data["enable_long"].getValueOrDefault(true);
 
 	if (dynmult_raise > 1e6) throw std::runtime_error("'dynmult_raise' is too big");
 	if (dynmult_raise < 0) throw std::runtime_error("'dynmult_raise' is too small");
@@ -236,6 +221,9 @@ void MTrader::perform(bool manually) {
 					statsvc->reportError(IStatSvc::ErrorObj("Automatic trading is disabled"));
 				} else {
 					try {
+						if (!enable_long && status.assetBalance+buyorder.size > 0) {
+							throw std::runtime_error(minfo.invert_price?SHORT_DISABLED:LONG_DISABLED);
+						}
 						setOrder(orders.buy, buyorder);
 					} catch (std::exception &e) {
 						buy_order_error = e.what();
@@ -244,11 +232,14 @@ void MTrader::perform(bool manually) {
 						}
 					}
 					try {
-							setOrder(orders.sell, sellorder);
-						} catch (std::exception &e) {
-							sell_order_error = e.what();
-							if (!acceptLoss(orders.sell, sellorder, status)) {
-								orders.sell = sellorder;
+						if (!enable_short && status.assetBalance+sellorder.size < 0) {
+							throw std::runtime_error(minfo.invert_price?LONG_DISABLED:SHORT_DISABLED);
+						}
+						setOrder(orders.sell, sellorder);
+					} catch (std::exception &e) {
+						sell_order_error = e.what();
+						if (!acceptLoss(orders.sell, sellorder, status)) {
+							orders.sell = sellorder;
 						}
 					}
 
@@ -517,6 +508,10 @@ MTrader::Order MTrader::calculateOrderFeeLess(
 	order.size = size * mult;
 	order.price = newPrice;
 
+	if ((!enable_long && order.size+balance > 0 && balance < 0) || (!enable_short && order.size+balance < 0 && balance > 0)) {
+		order.size = -balance;
+	}
+
 	if (cfg.max_size && std::fabs(order.size) > cfg.max_size) {
 		order.size = enableDust?cfg.max_size*sgn(order.size):0;
 	}
@@ -590,6 +585,13 @@ void MTrader::loadState() {
 			});
 	currency_balance_cache = stock.getBalance(minfo.currency_symbol, cfg.pairsymb);
 
+	if (minfo.invert_price) {
+		enable_short = cfg.enable_long;
+		enable_long = cfg.enable_short;
+	} else {
+		enable_long = cfg.enable_long;
+		enable_short = cfg.enable_short;
+	}
 
 
 	if (storage == nullptr) return;
@@ -852,18 +854,24 @@ bool MTrader::acceptLoss(std::optional<Order> &orig, const Order &order, const S
 
 		if (buy_dynmult <= 1.0 && sell_dynmult <= 1.0) {
 			if (cfg.dust_orders) {
-				Order cpy (order);
-				double newsz = std::max(minfo.min_size, cfg.min_size);
-				if (newsz * cpy.price < minfo.min_volume) {
-					newsz = cpy.price / minfo.min_volume;
-				}
-				cpy.size = sgn(order.size)* newsz;
-				minfo.addFees(cpy.size, cpy.price);
-				try {
-					setOrder(orig,cpy);
-					return true;
-				} catch (...) {
+				//both short and long
+				//or enable_long and size>0 - because enable_short=false we cannot allow size<0
+				//or enable_short and size<0 - because enable_long=false we cannot allow size>0
+				//or both false then size cannot be >0 and <0
+				if ((enable_long || order.size < 0) && (enable_short || order.size > 0)) {
+					Order cpy (order);
+					double newsz = std::max(minfo.min_size, cfg.min_size);
+					if (newsz * cpy.price < minfo.min_volume) {
+						newsz = cpy.price / minfo.min_volume;
+					}
+					cpy.size = sgn(order.size)* newsz;
+					minfo.addFees(cpy.size, cpy.price);
+					try {
+						setOrder(orig,cpy);
+						return true;
+					} catch (...) {
 
+					}
 				}
 			}
 			std::size_t e = st.chartItem.time>ttm?(st.chartItem.time-ttm)/(3600000):0;

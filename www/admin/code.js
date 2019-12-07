@@ -564,6 +564,8 @@ App.prototype.fillForm = function (src, trg) {
 	data.detect_manual_trades = filledval(src.detect_manual_trades,false);
 	data.report_position_offset = filledval(src.report_position_offset,0);
 	data.force_spread = filledval(adjNum((Math.exp(defval(src.force_spread,0))-1)*100),"0.000");
+	data.enable_short = filledval(src.enable_short, true);
+	data.enable_long = filledval(src.enable_long, true);
 		
 
 	
@@ -661,7 +663,9 @@ App.prototype.saveForm = function(form, src) {
 	trader.dust_orders = data.dust_orders;
 	trader.detect_manual_trades = data.detect_manual_trades;
 	trader.report_position_offset = data.report_position_offset;
-	trader.force_spread = Math.log(data.force_spread/100+1);	
+	trader.force_spread = Math.log(data.force_spread/100+1);
+	trader.enable_short = data.enable_short;
+	trader.enable_long = data.enable_long;
 	return trader;
 	
 }

@@ -61,6 +61,8 @@ struct MTrader_Config {
 	bool enabled;
 	bool dust_orders;
 	bool dynmult_scale;
+	bool enable_short;
+	bool enable_long;
 
 	Strategy strategy = Strategy(nullptr);
 
@@ -180,6 +182,8 @@ protected:
 	Strategy strategy;
 	bool need_load = true;
 	bool recalc = true;
+	bool enable_short = true;
+	bool enable_long = true;
 	json::Value test_backup;
 	json::Value lastTradeId = nullptr;
 
@@ -212,7 +216,6 @@ protected:
 	json::Value getTradeLastId() const;
 
 	double calcSpread() const;
-
 
 };
 

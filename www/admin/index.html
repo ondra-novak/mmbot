@@ -152,9 +152,11 @@ reenable trading, but it also finally costs some profit
 <div class="label adv"><span>Options<span class="tooltip"
 ><strong>Internal balance</strong> - track balance by trades - do not use balance on exchange<br><br>
 <strong>Dust orders</strong> Enable to use smallest orders when otherwise trading would be impossible (they act as alert)<br><br>
-<strong>Detect manual trades</strong> Try to detect and ignore trades made by the user manually (it is not recomended to trade along with the Bot. Please use a subaccount instead</span></span><div>
+<strong>Enable SHORT/LONG</strong>This options allows you to limit trading for longs and short side only. Default value is enabled. By disabling LONG, the robot will rejects any order which increase a positive asset balance. By disabling SHORT, the robot rejects any order which decreases a negative asset balance. </span></span><div>
 <div><x-checkbox data-name="internal_balance">Internal balance</x-checkbox></div>
 <div><x-checkbox data-name="dust_orders">Dust orders</x-checkbox></div>
+<div><x-checkbox data-name="enable_short">Enable short (negative asset balance)</x-checkbox></div>
+<div><x-checkbox data-name="enable_long">Enable long (positive asset balance)</x-checkbox></div>
 </div>
 </div>
 <label class="adv"><span>Report - position offset<span class="tooltip">Allows to sync the position on the report page with the actual state on the echange.<br>
