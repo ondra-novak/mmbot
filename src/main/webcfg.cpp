@@ -753,63 +753,65 @@ bool WebCfg::State::logout_commit(std::string &&user) {
 
 bool WebCfg::reqEditor(simpleServer::HTTPRequest req) const {
 	if (!req.allowMethods({"POST"})) return true;
-	req.readBodyAsync(10000,[&trlist = this->trlist, state = this->state](simpleServer::HTTPRequest req) {
+	dispatch([req,&trlist = this->trlist, state = this->state]()mutable{
+		req.readBodyAsync(10000,[&trlist,state](simpleServer::HTTPRequest req) {
 
-		Value data = Value::fromString(StrViewA(BinaryView(req.getUserBuffer())));
-		Value broker = data["broker"];
-		Value trader = data["trader"];
-		Value pair = data["pair"];
-		std::string p;
+			Value data = Value::fromString(StrViewA(BinaryView(req.getUserBuffer())));
+			Value broker = data["broker"];
+			Value trader = data["trader"];
+			Value pair = data["pair"];
+			std::string p;
 
-		Sync _(state->lock);
-		NamedMTrader *tr = trlist.find(trader.toString().str());
-		IStockApi *api = nullptr;
-		if (tr == nullptr) {
-			api = trlist.stockSelector.getStock(broker.toString().str());
-		} else {
-			api = &tr->getBroker();
-		}
-		if (api == nullptr) {
-			return req.sendErrorPage(404);
-		}
-		if (tr && !pair.hasValue()) {
-			p = tr->getConfig().pairsymb;
-		} else {
-			p = pair.toString().str();
-		}
-
-
-		api->reset();
-		auto binfo = api->getBrokerInfo();
-		auto pairinfo = api->getMarketInfo(p);
+			Sync _(state->lock);
+			NamedMTrader *tr = trlist.find(trader.toString().str());
+			IStockApi *api = nullptr;
+			if (tr == nullptr) {
+				api = trlist.stockSelector.getStock(broker.toString().str());
+			} else {
+				api = &tr->getBroker();
+			}
+			if (api == nullptr) {
+				return req.sendErrorPage(404);
+			}
+			if (tr && !pair.hasValue()) {
+				p = tr->getConfig().pairsymb;
+			} else {
+				p = pair.toString().str();
+			}
 
 
-		Value strategy;
-		Value position;
-		if (tr) {
-			strategy = tr->getStrategy().exportState();
-			auto trades = tr->getTrades();
-			auto pos = std::accumulate(trades.begin(), trades.end(),0.0,[&](
-					auto &&a, auto &&b
-			) {
-				return a + b.eff_size;
-			});
-			position = pos;
-		}
+			api->reset();
+			auto binfo = api->getBrokerInfo();
+			auto pairinfo = api->getMarketInfo(p);
 
-		Object result;
-		result.set("broker",Object
-				("name", binfo.name)
-				("exchangeName", binfo.exchangeName)
-				("version", binfo.version)
-				("settings", binfo.settings)
-				("trading_enabled", binfo.trading_enabled));
-		result.set("pair", getPairInfo(*api, p, MTrader::getInternalBalance(tr)));
-		result.set("orders", getOpenOrders(*api, p));
-		result.set("strategy", strategy);
-		result.set("position", position);
 
-		req.sendResponse("application/json", Value(result).stringify());
+			Value strategy;
+			Value position;
+			if (tr) {
+				strategy = tr->getStrategy().exportState();
+				auto trades = tr->getTrades();
+				auto pos = std::accumulate(trades.begin(), trades.end(),0.0,[&](
+						auto &&a, auto &&b
+				) {
+					return a + b.eff_size;
+				});
+				position = pos;
+			}
+
+			Object result;
+			result.set("broker",Object
+					("name", binfo.name)
+					("exchangeName", binfo.exchangeName)
+					("version", binfo.version)
+					("settings", binfo.settings)
+					("trading_enabled", binfo.trading_enabled));
+			result.set("pair", getPairInfo(*api, p, MTrader::getInternalBalance(tr)));
+			result.set("orders", getOpenOrders(*api, p));
+			result.set("strategy", strategy);
+			result.set("position", position);
+
+			req.sendResponse("application/json", Value(result).stringify());
+		});
 	});
 	return true;
 }

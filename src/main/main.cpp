@@ -244,6 +244,7 @@ int main(int argc, char **argv) {
 						auto rptpath = rptsect.mandatory["path"].getPath();
 						auto rptinterval = rptsect["interval"].getUInt(864000000);
 						auto dr = rptsect["daily_report_service"];
+						auto isim = rptsect["ignore_simulator"].getBool(false);
 
 
 
@@ -263,9 +264,9 @@ int main(int argc, char **argv) {
 							std::string workdir;
 							cmdline = dr.getPath();
 							workdir = dr.getCurPath();
-							perfmod = std::make_unique<ExtDailyPerfMod>(workdir,"performance_module", cmdline);
+							perfmod = std::make_unique<ExtDailyPerfMod>(workdir,"performance_module", cmdline, isim);
 						} else {
-							perfmod = std::make_unique<LocalDailyPerfMonitor>(sf.create("_performance_daily"), storagePath+"/_performance_current");
+							perfmod = std::make_unique<LocalDailyPerfMonitor>(sf.create("_performance_daily"), storagePath+"/_performance_current",isim);
 						}
 
 

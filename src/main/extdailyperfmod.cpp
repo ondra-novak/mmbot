@@ -7,6 +7,7 @@
 
 #include "extdailyperfmod.h"
 
+#include <random>
 #include "../shared/logOutput.h"
 using json::Object;
 using json::Value;
@@ -18,32 +19,49 @@ std::size_t ExtDailyPerfMod::daySeconds = 86400;
 
 void ExtDailyPerfMod::sendItem(const PerformanceReport &report) {
 
+	if (!report.simulator || ignore_simulator) {
 
-	try {
+		try {
 
-		Object jrep;
-		jrep.set("broker",report.broker);
-		jrep.set("currency",report.currency);
-		jrep.set("magic",report.magic);
-		jrep.set("price",report.price);
-		jrep.set("size",report.size);
-		jrep.set("tradeId",report.tradeId);
-		jrep.set("uid",report.uid);
-		jsonRequestExchange("sendItem", jrep);
+			Object jrep;
+			jrep.set("broker",report.broker);
+			jrep.set("currency",report.currency);
+			jrep.set("asset",report.asset);
+			jrep.set("magic",report.magic);
+			jrep.set("price",report.price);
+			jrep.set("size",report.size);
+			jrep.set("tradeId",report.tradeId);
+			jrep.set("uid",report.uid);
+			jrep.set("change",report.change);
+			jsonRequestExchange("sendItem", jrep);
 
-	} catch (std::exception &e) {
-		logError("ExtDailyPerfMod: $1", e.what());
+		} catch (std::exception &e) {
+			logError("ExtDailyPerfMod: $1", e.what());
+		}
 	}
 }
 
+ExtDailyPerfMod::ExtDailyPerfMod(const std::string_view &workingDir,
+		const std::string_view &name, const std::string_view &cmdline,
+		bool ignore_simulator)
+:AbstractExtern(workingDir, name, cmdline),ignore_simulator(ignore_simulator)
+{
+	std::random_device r;
+	rnd = r() % 1000; //avoid multiple robots requests the database at same time. This allows
+					//to request regenerate report randomly in 1000 seconds
+}
+
 json::Value ExtDailyPerfMod::getReport() {
-	std::size_t newidx = time(nullptr)/daySeconds;
+	time_t now = time(nullptr);
+	std::size_t newidx = (now-rnd)/(daySeconds/12);
+	std::size_t repDayIndex = now/daySeconds;
 	if (dayIndex != newidx) {
 		try {
-			reportCache = jsonRequestExchange("getReport", json::Value());
+			reportCache = jsonRequestExchange("getReport", json::Value(repDayIndex));
 			dayIndex = newidx;
 		} catch (std::exception &e) {
-			return Object("hdr",Value(json::array, {"error"}))
+			if (reportCache.hasValue()) return reportCache;
+			else return Object("hdr",Value(json::array, {"error"}))
 						("rows",Value(json::array, {Value(json::array,{e.what()})}));
 		}
 	}

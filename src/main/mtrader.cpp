@@ -608,6 +608,7 @@ void MTrader::loadState() {
 		if (state.defined()) {
 			dynmult.setMult(state["buy_dynmult"].getNumber(),state["sell_dynmult"].getNumber());
 			internal_balance = state["internal_balance"].getNumber();
+			json::Value accval = state["account_value"];
 			recalc = state["recalc"].getBool();
 			std::size_t nuid = state["uid"].getUInt();
 			if (nuid) uid = nuid;
@@ -647,6 +648,8 @@ void MTrader::loadState() {
 	tempPr.magic = magic;
 	tempPr.uid = uid;
 	tempPr.currency = minfo.currency_symbol;
+	tempPr.asset = minfo.asset_symbol;
+	tempPr.simulator = minfo.simulator;
 
 }
 
@@ -722,6 +725,7 @@ json::Value MTrader::OrderPair::toJSON() const {
 
 void MTrader::processTrades(Status &st) {
 
+
 	StringView<IStockApi::Trade> new_trades(st.new_trades.trades);
 
 	//Remove duplicate trades
@@ -746,11 +750,14 @@ void MTrader::processTrades(Status &st) {
 
 	double last_np = 0;
 	double last_ap = 0;
+	double last_price = 0;
 	if (!trades.empty()) {
 		last_np = trades.back().norm_profit;
 		last_ap = trades.back().norm_accum;
-
+		last_price = trades.back().eff_price;
 	}
+
+
 
 
 	for (auto &&t : new_trades) {
@@ -758,7 +765,9 @@ void MTrader::processTrades(Status &st) {
 		tempPr.tradeId = t.id.toString().str();
 		tempPr.size = t.eff_size;
 		tempPr.price = t.eff_price;
-		if (!minfo.simulator) statsvc->reportPerformance(tempPr);
+		tempPr.change = z.first * (t.eff_price - last_price);
+		if (last_price) statsvc->reportPerformance(tempPr);
+		last_price = t.eff_price;
 		z.first += t.eff_size;
 		z.second -= t.eff_size * t.eff_price;
 		auto norm = strategy.onTrade(minfo, t.eff_price, t.eff_size, z.first, z.second);
@@ -1124,3 +1133,4 @@ void MTrader::DynMultControl::update(bool buy_trade, bool sell_trade) {
 	mult_buy= raise_fall(mult_buy, buy_trade);
 	mult_sell= raise_fall(mult_sell, sell_trade);
 }
+

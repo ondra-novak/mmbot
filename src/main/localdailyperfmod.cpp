@@ -20,8 +20,8 @@ using ondra_shared::StrViewA;
 
 std::size_t LocalDailyPerfMonitor::daySeconds = 86400;
 
-LocalDailyPerfMonitor::LocalDailyPerfMonitor(PStorage &&storage, std::string logfile)
-	:storage(std::move(storage)), logfile(logfile)
+LocalDailyPerfMonitor::LocalDailyPerfMonitor(PStorage &&storage, std::string logfile,bool ignore_simulator)
+	:storage(std::move(storage)), logfile(logfile),ignore_simulator(ignore_simulator)
 {
 }
 
@@ -40,18 +40,19 @@ void LocalDailyPerfMonitor::checkInit() {
 }
 
 void LocalDailyPerfMonitor::sendItem(const PerformanceReport &report) {
-	checkInit();
+	if (!report.simulator || ignore_simulator) {
 
-	json::Object sentence;
-	sentence.set
-			("uid",report.uid)
-			("currency",report.currency)
-			("price",report.price)
-			("size",report.size);
+		checkInit();
 
-	json::Value(sentence).toStream(logf);
-	logf.put('\n');
-	logf.flush();
+		json::Object sentence;
+		sentence.set
+				("currency",report.currency)
+				("change", report.change);
+
+		json::Value(sentence).toStream(logf);
+		logf.put('\n');
+		logf.flush();
+	}
 
 }
 
@@ -127,7 +128,14 @@ void LocalDailyPerfMonitor::init(unsigned int curDayIndex) {
 
 }
 
+struct Sum {
+	double val = 0;
+};
+
 void LocalDailyPerfMonitor::aggregate(unsigned int curDayIndex) {
+
+	std::unordered_map<std::string, Sum> cur_sum;
+
 
 	struct Position {
 		std::string currency;
@@ -135,10 +143,6 @@ void LocalDailyPerfMonitor::aggregate(unsigned int curDayIndex) {
 		double pos = 0;
 		bool hit = false;
 	};
-
-
-	std::unordered_map<std::size_t, Position> positions;
-	std::unordered_map<std::string, double> pldb;
 
 	logf.close();
 	try {
@@ -149,25 +153,16 @@ void LocalDailyPerfMonitor::aggregate(unsigned int curDayIndex) {
 			if (isspace(i)) continue;
 			inf.putback(i);
 			json::Value row = json::Value::fromStream(inf);
-
-			std::size_t uid = row["uid"].getUInt();
 			std::string currency = row["currency"].getString();
-			double price = row["price"].getNumber();
-			double size = row["size"].getNumber();
+			double change = row["change"].getNumber();
 
-			Position &pos = positions[uid];
-			double pl = (price - pos.price) * pos.pos;
-			if (pl) pos.hit = true;
-			pldb[currency] += pl;
-			pos.currency = currency;
-			pos.pos += size;
-			pos.price = price;
+			cur_sum[currency].val+=change;
 		}
 
 		json::Object curs;
-		for (auto &&t: pldb) {
-			if (t.second) {
-				curs.set(t.first, t.second);
+		for (auto &&t: cur_sum) {
+			if (t.second.val) {
+				curs.set(t.first, t.second.val);
 			}
 		}
 		dailySums.push({curDayIndex, curs});
@@ -178,16 +173,6 @@ void LocalDailyPerfMonitor::aggregate(unsigned int curDayIndex) {
 		logf.clear(std::ios::badbit|std::ios::eofbit);
 
 		logf.open(logfile, std::ios::out| std::ios::trunc);
-		{
-			for(auto &&t: positions) {
-				  if (t.second.hit) {
-					sendItem(PerformanceReport {
-						0,t.first,"",t.second.currency,"",t.second.price,t.second.pos
-					});
-				  }
-			}
-		}
-		logf.flush();
 		prepareReport();
 
 	} catch (std::exception &e) {

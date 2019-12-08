@@ -14,9 +14,16 @@
 		std::size_t uid;
 		std::string tradeId;
 		std::string currency;
+		std::string asset;
 		std::string broker;
+		///price where trade happened
 		double price;
+		///size of the trade
 		double size;
+		///account value change (assets are recalculated by current price)
+		double change;
+		///set true, if the record is from simulator
+		bool simulator;
 	};
 
 

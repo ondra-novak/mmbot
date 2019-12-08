@@ -23,7 +23,7 @@ inline bool similar(double a, double b, double e) {
 	double c1 = std::fabs(a-b);
 	double c2 = (std::fabs(a)+std::fabs(b))/2;
 
-	return c1 == 0 || (c1/c2) <= e;
+	return c1 <= c2*e;
 
 }
 

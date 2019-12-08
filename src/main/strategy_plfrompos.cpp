@@ -101,7 +101,9 @@ double Strategy_PLFromPos::calcNewPos(const IStockApi::MarketInfo &minfo, double
 			//if result is non-negative
 			if (np2 > 0) {
 				//calculate new positon by sqrt(np2) and adding signature
-				np = sgn(np) * sqrt(np2);
+				double nnp = sgn(np) * sqrt(np2);;
+				logDebug("Reduction of position: np=$1, nnp=$2, s=$3, val=$4", np, nnp, s, pow2(pos)/(k*2));
+				np = nnp;
 			} //otherwise stick with original np
 		}
 	} else {

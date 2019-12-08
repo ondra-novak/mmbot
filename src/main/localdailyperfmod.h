@@ -19,7 +19,7 @@
 class LocalDailyPerfMonitor: public IDailyPerfModule {
 public:
 
-	LocalDailyPerfMonitor(PStorage &&storage, std::string logfile);
+	LocalDailyPerfMonitor(PStorage &&storage, std::string logfile, bool ignore_simulator);
 
 
 	virtual void sendItem(const PerformanceReport &report) override;
@@ -30,6 +30,7 @@ protected:
 	unsigned int dayIndex;
 	std::ofstream logf;
 	std::string logfile;
+	bool ignore_simulator;
 	json::Value dailySums;
 	json::Value report;
 
@@ -38,6 +39,8 @@ protected:
 	void save();
 	void prepareReport();
 	void checkInit();
+
+
 
 	static std::size_t daySeconds;
 
