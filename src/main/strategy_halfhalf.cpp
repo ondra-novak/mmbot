@@ -28,7 +28,8 @@ bool Strategy_HalfHalf::isValid() const {
 PStrategy Strategy_HalfHalf::onIdle(
 		const IStockApi::MarketInfo &,
 		const IStockApi::Ticker &curTicker, double assets, double currency) const {
-		return new Strategy_HalfHalf(cfg, curTicker.last, assets);
+	if (isValid()) return this;
+	else return new Strategy_HalfHalf(cfg, curTicker.last, assets);
 }
 
 std::pair<Strategy_HalfHalf::OnTradeResult, PStrategy> Strategy_HalfHalf::onTrade(
@@ -38,7 +39,8 @@ std::pair<Strategy_HalfHalf::OnTradeResult, PStrategy> Strategy_HalfHalf::onTrad
 	double a = this->a + cfg.ea;
 	double n = tradePrice;
 	double p = this->p;
-	double v = a * p + a * n - 2 * a * sqrt(p *  n);
+	//extra money earned by spread
+	double v = a*p + a*n-2*a*sqrt(p* n);
 	if (tradeSize == 0) p = n;
 	double na = a * sqrt(p/n);
 	double ap = (v / n) * cfg.accum;
@@ -65,11 +67,8 @@ IStrategy::OrderData Strategy_HalfHalf::getNewOrder(const IStockApi::MarketInfo 
 		double, double n, double dir, double assets,double currency) const {
 	double a = this->a + cfg.ea;
 	double p = this->p;
-	return {
-		0,
-		calcOrderSize(a, assets + cfg.ea,
-			a * sqrt(p/n) + (a * p + a * n - 2 * a * sqrt(p * n)) * cfg.accum / n)
-	};
+	double na = a * sqrt(p/n);
+	return {0,calcOrderSize(this->a, assets, na-cfg.ea)};
 }
 
 Strategy_HalfHalf::MinMax Strategy_HalfHalf::calcSafeRange(const IStockApi::MarketInfo &,
