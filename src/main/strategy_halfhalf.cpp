@@ -33,8 +33,14 @@ PStrategy Strategy_HalfHalf::onIdle(
 }
 
 std::pair<Strategy_HalfHalf::OnTradeResult, PStrategy> Strategy_HalfHalf::onTrade(
-		const IStockApi::MarketInfo &,
+		const IStockApi::MarketInfo &minfo,
 		double tradePrice, double tradeSize, double assetsLeft, double currencyLeft) const {
+
+	if (!isValid()) {
+		Strategy_HalfHalf tmp(cfg, tradePrice, assetsLeft-tradeSize);
+		return tmp.onTrade(minfo, tradePrice,tradeSize,assetsLeft, currencyLeft);
+	}
+
 
 	double a = this->a + cfg.ea;
 	double n = tradePrice;

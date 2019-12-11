@@ -84,10 +84,13 @@ double Strategy_PLFromPos::calcNewPos(const IStockApi::MarketInfo &minfo, double
 	if (ap < std::abs(pos) && np * pos > 0) {
 		//don't reduce, if max pos reached
 		if (std::abs(pos) <= maxpos) {
+			//Negative reduce factor is used differently - it specifies directly percent of size of normal order
+			//so first we treat this as 100% reduction
+			double reduce_factor = cfg.reduce_factor>=0?cfg.reduce_factor:1.0;
 			//calculate profit made from moving price from p to tradePrice
 			//profit is defined by current position * difference of two prices
 			//also increas or decrease it by reduce factor, which can be configured (default 1)
-			double s = (pos - np) * (tradePrice - p)*cfg.reduce_factor;
+			double s = (pos - np) * (tradePrice - p)*reduce_factor;
 			//calculate inner of sqrt();
 			//it expect, that prices moves to tradePrice and makes profit 's'
 			//then part of position is closed to value 'np'
@@ -100,8 +103,15 @@ double Strategy_PLFromPos::calcNewPos(const IStockApi::MarketInfo &minfo, double
 			double np2 = ap*ap - 2 * k * s;
 			//if result is non-negative
 			if (np2 > 0) {
-				//calculate new positon by sqrt(np2) and adding signature
-				double nnp = sgn(np) * sqrt(np2);;
+				double nnp;
+				//for negative reduce factor
+				if (cfg.reduce_factor < 0) {
+					//use value to calculate increase of position reduction directly
+					nnp = pos + (np - pos) * (1 - cfg.reduce_factor);
+				} else {
+					//calculate new positon by sqrt(np2) and adding signature
+					nnp = sgn(np) * sqrt(np2);
+				}
 				logDebug("Reduction of position: np=$1, nnp=$2, s=$3, val=$4", np, nnp, s, pow2(pos)/(k*2));
 				np = nnp;
 			} //otherwise stick with original np

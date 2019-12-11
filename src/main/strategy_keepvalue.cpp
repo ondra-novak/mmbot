@@ -28,18 +28,23 @@ bool Strategy_KeepValue::isValid() const {
 PStrategy Strategy_KeepValue::onIdle(
 		const IStockApi::MarketInfo &,
 		const IStockApi::Ticker &ticker, double assets, double) const {
-	if (p > 0 && (a+cfg.ea) > 0) return this;
+	if (isValid()) return this;
 	else return new Strategy_KeepValue(cfg, ticker.last, assets);
 }
 
 std::pair<Strategy_KeepValue::OnTradeResult, PStrategy> Strategy_KeepValue::onTrade(
-		const IStockApi::MarketInfo &,
+		const IStockApi::MarketInfo &minfo,
 		double tradePrice, double tradeSize, double assetsLeft,
 		double currencyLeft) const {
 
+	if (!isValid()) {
+		Strategy_KeepValue tmp(cfg, tradePrice, assetsLeft-tradeSize);
+		return tmp.onTrade(minfo, tradePrice,tradeSize,assetsLeft, currencyLeft);
+	}
+
+	double p = this->p;
 
 	double cf = (assetsLeft-tradeSize+cfg.ea)*(tradePrice - p);
-	double p = this->p;
 	if (tradeSize == 0) p = tradePrice;
 	double k = (a+cfg.ea) * p;
 	double nv = k * std::log(tradePrice/p);
