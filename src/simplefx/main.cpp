@@ -521,8 +521,8 @@ inline void Interface::login() {
 					reality.getString(),
 					static_cast<unsigned int>(login.getUInt()),
 					v["freeMargin"].getNumber(),
-					c["multiplier"].hasValue()?c["multiplier"].getNumber():1.0,
-					c["displayCurrency"].getString()
+					c["multiplier"].getValueOrDefault(1.0),
+					c["displayCurrency"].getValueOrDefault(currency).getString()
 				});
 
 				if (login.toString().str() == StrViewA(authAccount)) {

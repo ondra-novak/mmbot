@@ -43,6 +43,11 @@ static Value showIfManual = Object
 		("source",Value(json::array,{"manual"}));
 static Value settingsForm = {
 					Object
+						("name","pair")
+						("type","string")
+						("label","Pair")
+						("showif",json::array),
+					Object
 						("name","source")
 						("type","enum")
 						("label","Price source")
@@ -165,6 +170,7 @@ public:
 	virtual void onLoadApiKey(json::Value) override {}
 
 	virtual double getBalance(const std::string_view & symb) override;
+	virtual double getBalance(const std::string_view & symb, const std::string_view & pair) override;
 	virtual TradesSync syncTrades(json::Value lastId, const std::string_view & pair) override;
 	virtual Orders getOpenOrders(const std::string_view & par)override;
 	virtual Ticker getTicker(const std::string_view & piar)override;
@@ -180,46 +186,63 @@ public:
 	virtual std::vector<std::string> getAllPairs()override;
 	virtual void onInit() override;
 	virtual void setSettings(json::Value v) override;
+	void setSettings(json::Value v, bool loaded, unsigned int pairId) ;
 	virtual json::Value getSettings(const std::string_view &) const override ;
 	virtual PageData fetchPage(const std::string_view &method, const std::string_view &vpath, const PageData &pageData) override;
 
 
-	json::Value collectSettings() const;
+	class TestPair {
+	public:
+
+
+		json::Value collectSettings() const;
+
+		bool inited = false;
+		time_t startTime = 0;
+		time_t activityTime = 0;
+		std::vector<double> prices;
+		long timeDivisor = 120;
+		std::string asset = "TEST";
+		double asset_balance = 0;
+		double asset_step = 0;
+		std::string currency = "FIAT";
+		double currency_balance = 0;
+		double currency_step = 0;
+		bool futures = false;
+		bool inverted = false;
+		bool liquidation = false;
+		double prev_price = 0;
+		double low_liq = 0;
+		double high_liq = std::numeric_limits<double>::max();
+
+
+		Orders orders;
+		TradeHistory trades;
+
+
+		mutable double last_price = 0;
+		double getCurPrice() const;
+		std::string price_url;
+		std::string price_path;
+		std::string price_source = "manual";
+		std::string src_asset;
+		std::string src_currency;
+		void updateLiq(double openPrice);
+	};
+
+
+	using PairMap = std::unordered_map<unsigned int, TestPair>;
+	PairMap pairs;
+
 	void saveSettings();
 	void loadSettings();
-	void updateLiq(double openPrice);
 
-	bool inited;
-	time_t startTime = 0;
-	std::vector<double> prices;
-	long timeDivisor = 120;
-	std::string asset = "TEST";
-	double asset_balance = 0;
-	double asset_step = 0;
-	std::string currency = "FIAT";
-	double currency_balance = 0;
-	double currency_step = 0;
-	bool futures = false;
-	bool inverted = false;
-	bool liquidation = false;
-	double prev_price = 0;
-	double low_liq = 0;
-	double high_liq = std::numeric_limits<double>::max();
+	TestPair &getPair(const std::string_view &name);
+	const TestPair *getPairPtr(const std::string_view &name) const;
 
-
-	Orders orders;
-	TradeHistory trades;
 
 	std::string fname;
 	std::size_t idcnt;
-
-	mutable double last_price = 0;
-	double getCurPrice() const;
-	std::string price_url;
-	std::string price_path;
-	std::string price_source = "manual";
-	std::string src_asset;
-	std::string src_currency;
 
 
 
@@ -517,30 +540,38 @@ inline Interface::BrokerInfo Interface::getBrokerInfo() {
 
 
 inline double Interface::getBalance(const std::string_view &x) {
-	if (inverted) {
-		if (x == "CONTRACT") return asset_balance;
-		else return currency_balance;
+	return 0;
+}
+double Interface::getBalance(const std::string_view & symb, const std::string_view & pair) {
+
+	TestPair &p = getPair(pair);
+	if (p.inverted) {
+		if (symb == "CONTRACT") return p.asset_balance;
+		else return p.currency_balance;
 	} else {
-		if (x == currency) return currency_balance;
-		else return asset_balance;
+		if (symb == p.currency) return p.currency_balance;
+		else return p.asset_balance;
 	}
 }
 
 inline Interface::TradesSync Interface::syncTrades(json::Value lastId, const std::string_view &pair) {
+	TestPair &p = getPair(pair);
+
 	using namespace json;
 	if (lastId.hasValue()) {
 		TradeHistory ret;
-		std::copy_if(trades.begin(), trades.end(), std::back_inserter(ret), [&](const Trade &x) {
+		std::copy_if(p.trades.begin(), p.trades.end(), std::back_inserter(ret), [&](const Trade &x) {
 			return Value::compare(x.id, lastId) > 0;
 		});
-		return TradesSync{ret, trades.empty()? lastId: trades.back().id};
+		return TradesSync{ret, p.trades.empty()? lastId: p.trades.back().id};
 	} else {
-		return TradesSync { {}, trades.empty()? Value(nullptr): trades.back().id};
+		return TradesSync { {}, p.trades.empty()? Value(nullptr): p.trades.back().id};
 	}
 }
 
-inline Interface::Orders Interface::getOpenOrders(const std::string_view &par) {
-	return orders;
+inline Interface::Orders Interface::getOpenOrders(const std::string_view &pair) {
+	TestPair &p = getPair(pair);
+	return p.orders;
 }
 
 static Value searchField(Value data, StrViewA path) {
@@ -606,7 +637,7 @@ static Value searchField(Value data, StrViewA path) {
 
 }
 
-double Interface::getCurPrice() const {
+double Interface::TestPair::getCurPrice() const {
 	if (last_price) return last_price;
 	double price = 0;
 
@@ -631,38 +662,41 @@ double Interface::getCurPrice() const {
 
 }
 
-inline Interface::Ticker Interface::getTicker(const std::string_view &piar) {
-	double price = getCurPrice();
+inline Interface::Ticker Interface::getTicker(const std::string_view &pair) {
+	TestPair &p = getPair(pair);
+	double price = p.getCurPrice();
 	if (price == 0)
 		 throw std::runtime_error("Trainer: Failed to get current price, check configuration");
 
 	return Ticker{price,price,price,uintptr_t(time(nullptr))*1000};
 }
 
-inline json::Value Interface::placeOrder(const std::string_view &,
+inline json::Value Interface::placeOrder(const std::string_view &pair,
 		double size, double price, json::Value clientId, json::Value replaceId,
 		double replaceSize) {
 
+	TestPair &p = getPair(pair);
 
-	double p = getCurPrice();
-	auto iter = std::find_if(orders.begin(), orders.end(),[&](const Order &o) {
+
+	double cp = p.getCurPrice();
+	auto iter = std::find_if(p.orders.begin(), p.orders.end(),[&](const Order &o) {
 		return o.id == replaceId;
 	});
-	if (iter != orders.end()) {
+	if (iter != p.orders.end()) {
 		if (replaceSize > fabs(iter->size)) return iter->id;
-		else orders.erase(iter);
+		else p.orders.erase(iter);
 	}
 
-	if (price > high_liq || price < low_liq) {
+	if (price > p.high_liq || price < p.low_liq) {
 		throw std::runtime_error("Balance is low");
 	}
 
 	Value id = idcnt++;
 	if (size) {
 
-		if (((p - price) / size) < 0) price = p;
+		if (((cp - price) / size) < 0) price = cp;
 
-		orders.push_back(Order{
+		p.orders.push_back(Order{
 			id,clientId,
 			size,price
 		});
@@ -671,7 +705,7 @@ inline json::Value Interface::placeOrder(const std::string_view &,
 	return id;
 }
 
-inline void Interface::updateLiq(double openPrice) {
+inline void Interface::TestPair::updateLiq(double openPrice) {
 	if (liquidation && asset_balance) {
 		if (currency_balance<0) {
 			high_liq = 0;
@@ -696,84 +730,104 @@ inline void Interface::updateLiq(double openPrice) {
 
 inline bool Interface::reset() {
 
-	last_price = 0;
-	double p = getCurPrice();
+	time_t now = time(nullptr);
+	time_t exp = now - 600;
+	std::vector<std::size_t> remove;
 
-	if (p < low_liq || p > high_liq) {
-		Value id = ++idcnt;
-		Trade tr {
-			id,
-			std::size_t(time(nullptr)*1000),
-			-asset_balance,
-			p,
-			-asset_balance,
-			p,
-		};
-		trades.push_back(tr);
-		currency_balance = 0;
-		asset_balance = 0;
-		orders.clear();
-	}
+	for (auto &&pp: pairs) {
+
+		auto &p = pp.second;
+		if (p.activityTime < exp) {
+			remove.push_back(pp.first);
+			continue;
+		}
 
 
-	Orders newOrders;
-	for (auto o : orders) {
-		double dp = p - o.price;
-		if (dp / o.size <= 0) {
-			double pprice = trades.empty()?p:trades.back().price;
+		p.last_price = 0;
+		double cp = p.getCurPrice();
+
+		if (cp < p.low_liq || cp > p.high_liq) {
 			Value id = ++idcnt;
-			double s = o.size * (dp == 0?0.5:1);
 			Trade tr {
 				id,
 				std::size_t(time(nullptr)*1000),
-				s,
-				o.price,
-				s,
-				o.price
+				-p.asset_balance,
+				cp,
+				-p.asset_balance,
+				cp,
 			};
-			trades.push_back(tr);
-			if (futures) {
-				currency_balance += asset_balance*(o.price - pprice);
-			}
-			asset_balance += s;
-			if (!futures) {
-				currency_balance -= s * o.price;
-			}
-			double remain = (o.size - s);
-			if (std::fabs(remain) > (asset_step+1e-20)) {
-				newOrders.push_back(Order {
-					o.id,
-					o.client_id,
-					remain,
-					o.price
-				});
-			}
-			updateLiq(o.price);
-		} else {
-			newOrders.push_back(o);
+			p.trades.push_back(tr);
+			p.currency_balance = 0;
+			p.asset_balance = 0;
+			p.orders.clear();
 		}
-	}
 
-	newOrders.swap(orders);
-	prev_price = p;
+
+		Orders newOrders;
+		for (auto o : p.orders) {
+			double dp = cp - o.price;
+			if (dp / o.size <= 0) {
+				double pprice = p.trades.empty()?cp:p.trades.back().price;
+				Value id = ++idcnt;
+				double s = o.size * (dp == 0?0.5:1);
+				Trade tr {
+					id,
+					std::size_t(time(nullptr)*1000),
+					s,
+					o.price,
+					s,
+					o.price
+				};
+				p.trades.push_back(tr);
+				if (p.futures) {
+					p.currency_balance += p.asset_balance*(o.price - pprice);
+				}
+				p.asset_balance += s;
+				if (!p.futures) {
+					p.currency_balance -= s * o.price;
+				}
+				double remain = (o.size - s);
+				if (std::fabs(remain) > (p.asset_step+1e-20)) {
+					newOrders.push_back(Order {
+						o.id,
+						o.client_id,
+						remain,
+						o.price
+					});
+				}
+				p.updateLiq(o.price);
+			} else {
+				newOrders.push_back(o);
+			}
+		}
+
+		newOrders.swap(p.orders);
+		p.prev_price = cp;
+	}
+	for (auto &&k : remove) {
+		TestPair &p = pairs[k];
+		if (p.activityTime < exp)
+			pairs.erase(k);
+	}
 	saveSettings();
 	return true;
 
 }
 
 inline Interface::MarketInfo Interface::getMarketInfo(const std::string_view &pair) {
+	auto &p = getPair(pair);
 	return MarketInfo{
-		inverted?"CONTRACT":asset,
-		inverted?asset:currency,
-		asset_step,
-		currency_step,
-		asset_step,
+		p.inverted?"CONTRACT":p.asset,
+		p.inverted?p.asset:p.currency,
+		p.asset_step,
+		p.currency_step,
+		p.asset_step,
 		0,
 		0,
 		AbstractBrokerAPI::currency,
-		futures?1000000.0:0.0,
-		inverted,
-		currency,
+		p.futures?1000000.0:0.0,
+		p.inverted,
+		p.currency,
 		true
 	};
 }
@@ -784,7 +838,12 @@ inline double Interface::getFees(const std::string_view &pair) {
 }
 
 inline std::vector<std::string> Interface::getAllPairs() {
-	return {"TRAINER_PAIR"};
+	unsigned int i = 0;
+	char buff[20];
+	do {
+		sprintf(buff,"TEST%04d",++i);
+	} while (getPairPtr(buff) != nullptr);
+	return {buff};
 }
 
 
@@ -793,10 +852,17 @@ inline void Interface::onInit() {
 }
 
 inline void Interface::setSettings(json::Value keyData) {
-	timeDivisor = keyData["timeframe"].getInt()*60;
-	prices.clear();
-	price_url.clear();
-	price_path.clear();
+	std::hash<std::string_view> h;
+	setSettings(keyData,false,h(keyData["pair"].getString()));
+}
+inline void Interface::setSettings(json::Value keyData, bool loaded,  unsigned int pairId) {
+	auto &p = pairs[pairId];
+	p.activityTime = time(nullptr);
+
+	p.timeDivisor = keyData["timeframe"].getInt()*60;
+	p.prices.clear();
+	p.price_url.clear();
+	p.price_path.clear();
 
 	StrViewA textPrices = keyData["prices"].getString().trim(isspace);
 	{
@@ -807,67 +873,67 @@ inline void Interface::setSettings(json::Value keyData) {
 			if (!line.empty()) {
 				double d = strtod(line.data,0);
 				if (std::isfinite(d) && d > 0) {
-					prices.push_back(d);
+					p.prices.push_back(d);
 				}
 			}
 		}
 	}
 	Value st = keyData["startTime"];
-	if (st.hasValue()) startTime = st.getUInt();
+	if (st.hasValue()) p.startTime = st.getUInt();
 	else {
 		if (keyData["restart"].getString() == "restart") {
-			startTime = time(nullptr);
+			p.startTime = time(nullptr);
 		}
 	}
 
-	asset = keyData["asset"].getString();
-	currency = keyData["currency"].getString();
-	asset_balance = keyData["asset_balance"].getNumber();
-	currency_balance = keyData["currency_balance"].getNumber();
-	asset_step = keyData["asset_step"].getNumber();
-	currency_step = keyData["currency_step"].getNumber();
-	price_source = keyData["source"].getString();
-	price_path = keyData["src_field"].getString();
-	price_url = keyData["src_url"].getString();
-	src_asset = keyData["src_asset"].getString();
-	src_currency = keyData["src_currency"].getString();
-	futures = false;
-	inverted = false;
-	liquidation = false;
+	p.asset = keyData["asset"].getString();
+	p.currency = keyData["currency"].getString();
+	p.asset_balance = keyData["asset_balance"].getNumber();
+	p.currency_balance = keyData["currency_balance"].getNumber();
+	p.asset_step = keyData["asset_step"].getNumber();
+	p.currency_step = keyData["currency_step"].getNumber();
+	p.price_source = keyData["source"].getString();
+	p.price_path = keyData["src_field"].getString();
+	p.price_url = keyData["src_url"].getString();
+	p.src_asset = keyData["src_asset"].getString();
+	p.src_currency = keyData["src_currency"].getString();
+	p.futures = false;
+	p.inverted = false;
+	p.liquidation = false;
 	StrViewA type = keyData["type"].getString();
 	if (type == "futures") {
-		futures = true;
+		p.futures = true;
 	} else if (type == "inverted") {
-		futures = true;
-		inverted = true;
+		p.futures = true;
+		p.inverted = true;
 	} else if (type == "futures_liq") {
-		futures = true;
-		liquidation = true;
+		p.futures = true;
+		p.liquidation = true;
 	} else if (type == "inverted_liq") {
-		futures = true;
-		liquidation = true;
-		inverted = true;
+		p.futures = true;
+		p.liquidation = true;
+		p.inverted = true;
 	}
-	if (price_source == "cryptowatch") {
+	if (p.price_source == "cryptowatch") {
 		if (!keyData["loaded"].defined()) {
-			std::string url = cwsource.createUrl(src_asset, src_currency);
+			std::string url = cwsource.createUrl(p.src_asset, p.src_currency);
 			if (url.empty()) throw std::runtime_error("Unable to find market for selected combination");
-			asset = src_asset;
-			currency = src_currency;
-			std::transform(asset.begin(), asset.end(), asset.begin(), toupper);
-			std::transform(currency.begin(), currency.end(), currency.begin(), toupper);
-			price_url = url;
-			price_path = "price";
+			p.asset = p.src_asset;
+			p.currency = p.src_currency;
+			std::transform(p.asset.begin(), p.asset.end(), p.asset.begin(), toupper);
+			std::transform(p.currency.begin(), p.currency.end(), p.currency.begin(), toupper);
+			p.price_url = url;
+			p.price_path = "price";
 		}
 	}
-	prev_price = keyData["prev_price"].getNumber();
-	if (!keyData["loaded"].defined()) {
+	p.prev_price = keyData["prev_price"].getNumber();
+	if (!loaded) {
 		saveSettings();
 	}
-	updateLiq(prev_price);
+	p.updateLiq(p.prev_price);
 }
 
-json::Value Interface::collectSettings() const {
+json::Value Interface::TestPair::collectSettings() const {
 	json::Object kv;
 	kv.set("prices",json::Value(json::array, prices.begin(), prices.end(), [](double v){return v;}).join("\n"))
 		  ("asset",asset)
@@ -906,8 +972,11 @@ json::Value mergeAssets(Value options, const std::vector<std::string> &a) {
 	return o;
 }
 
-inline json::Value Interface::getSettings(const std::string_view & ) const {
-	Value kv = collectSettings();
+inline json::Value Interface::getSettings(const std::string_view & pair) const {
+	const auto &pptr = getPairPtr(pair);
+	if (pptr == nullptr) return json::undefined;
+	const auto &p = *pptr;
+	Value kv = p.collectSettings();
 	CWSource::Pairs cwAssets = cwsource.getAssets();
 
 	return settingsForm.map([&](Value v) {
@@ -919,19 +988,25 @@ inline json::Value Interface::getSettings(const std::string_view & ) const {
 		else if (z["name"].getString() == "src_currency") {
 			z = z.replace("options", mergeAssets(z["options"], cwAssets.currencies));
 		} else if (z["name"].getString() == "liq") {
-			if (asset_balance > 0) {
-				z = z.replace("default",inverted?1.0/low_liq:high_liq);
-			} else if (asset_balance < 0) {
-				z = z.replace("default",inverted?1.0/high_liq:low_liq);
+			if (p.asset_balance > 0) {
+				z = z.replace("default",p.inverted?1.0/p.low_liq:p.high_liq);
+			} else if (p.asset_balance < 0) {
+				z = z.replace("default",p.inverted?1.0/p.high_liq:p.low_liq);
 			}
+		}
+		else if (z["name"].getString() == "pair") {
+			z = z.replace("default", pair);
 		}
 		return z;
 	});
 }
 
 inline void Interface::saveSettings() {
+	json::Array r;
+	for (auto &&k: pairs) r.push_back(k.second.collectSettings().replace("pairId", k.first));
+
 	std::ofstream f(fname, std::ios::out|std::ios::trunc);
-	collectSettings().toStream(f);
+	Value(r).toStream(f);
 }
 
 inline void Interface::loadSettings() {
@@ -939,7 +1014,15 @@ inline void Interface::loadSettings() {
 	if (!f) return;
 	Value v = Value::fromStream(f);
 	if (!f) return;
-	setSettings(v);
+	pairs.clear();
+	if (v.type() == json::object) {
+		std::hash<std::string_view> h;
+		setSettings(v,true,h("TRAINER_PAIR"));
+	} else {
+		for (Value x: v) {
+			setSettings(x,true,x["pairId"].getUInt());
+		}
+	}
 }
 
 Interface::PageData Interface::fetchPage(const std::string_view &method, const std::string_view &vpath, const Interface::PageData &pageData) {
@@ -968,4 +1051,19 @@ Interface::PageData Interface::fetchPage(const std::string_view &method, const s
 		},
 		out.str()
 	};
+}
+
+inline Interface::TestPair& Interface::getPair(const std::string_view &name) {
+	std::hash<std::string_view> h;
+	TestPair &p = pairs[h(name)];
+	p.activityTime = time(nullptr);
+	return p;
+}
+
+inline const Interface::TestPair* Interface::getPairPtr(const std::string_view &name) const {
+	std::hash<std::string_view> h;
+	auto idx = h(name);
+	auto iter = pairs.find(idx);
+	if (iter == pairs.end()) return nullptr;
+	return &iter->second;
 }
