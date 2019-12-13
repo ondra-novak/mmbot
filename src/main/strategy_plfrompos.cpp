@@ -300,7 +300,7 @@ void Strategy_PLFromPos::calcPower(State& st, double price, double , double curr
 json::Value Strategy_PLFromPos::dumpStatePretty(const IStockApi::MarketInfo &minfo) const {
 	return json::Object
 			("Last price",minfo.invert_price?1.0/st.p:st.p)
-			("Position",assetsToPos(minfo, st.a)*(minfo.invert_price?-1.0:0.1))
+			("Position",assetsToPos(minfo, st.a)*(minfo.invert_price?-1.0:1.0))
 			("Accumulated",st.acm?json::Value(st.acm):json::Value())
 			("Max allowed position",st.maxpos)
 			("Step",st.step)

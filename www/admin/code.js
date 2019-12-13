@@ -35,7 +35,7 @@ function parse_fetch_error(e) {
 function fetch_error(e) {
 	if (!fetch_error.shown) {
 		fetch_error.shown = true;
-		return parse_fetch_error(e).then(function(t) {
+		parse_fetch_error(e).then(function(t) {
 			app.dlgbox({text:t.msg, desc:t.t},"network_error").then(function() {
 				fetch_error.shown = false;
 			});
