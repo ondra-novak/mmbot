@@ -367,7 +367,7 @@ App.prototype.fillForm = function (src, trg) {
 				});
 			}
 		}
-		if (state.strategy) fill_recursive([],state.strategy[Object.keys(state.strategy)[0]]);
+		if (state.strategy) fill_recursive([],state.strategy);
 
 		data.strategy_fields = fields;
 		data.icon_broker = {

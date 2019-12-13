@@ -102,4 +102,12 @@ PStrategy Strategy_KeepValue::reset() const {
 	return new Strategy_KeepValue(cfg);
 }
 
+json::Value Strategy_KeepValue::dumpStatePretty(
+		const IStockApi::MarketInfo &minfo) const {
+
+	return json::Object("Assets", a)
+				 ("Last price", p);
+
+}
+
 

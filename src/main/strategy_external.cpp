@@ -24,6 +24,7 @@ public:
 	virtual double getEquilibrium() const override;
 	virtual PStrategy reset() const override;
 	virtual std::string_view getID() const override;
+	virtual json::Value dumpStatePretty(const IStockApi::MarketInfo &minfo) const override;
 
 protected:
 	StrategyExternal &owner;
@@ -160,6 +161,10 @@ json::Value StrategyExternal::Strategy::toJSON(const IStockApi::MarketInfo &minf
 			("inverted_symbol",minfo.inverted_symbol)
 			("simulator",minfo.simulator);
 
+}
+
+inline json::Value StrategyExternal::Strategy::dumpStatePretty(	const IStockApi::MarketInfo &minfo) const {
+	return owner.jsonRequestExchange("dumpStatePretty", toJSON(minfo));
 }
 
 json::Value StrategyExternal::Strategy::toJSON(const IStockApi::Ticker &tk) {

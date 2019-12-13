@@ -789,7 +789,7 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req) const {
 				Value strategy;
 				Value position;
 				if (tr) {
-					strategy = tr->getStrategy().exportState();
+					strategy = tr->getStrategy().dumpStatePretty(tr->getMarketInfo());
 					auto trades = tr->getTrades();
 					auto pos = std::accumulate(trades.begin(), trades.end(),0.0,[&](
 							auto &&a, auto &&b

@@ -29,6 +29,7 @@ public:
 	virtual double getEquilibrium() const override;
 	virtual PStrategy reset() const override;
 	virtual std::string_view getID() const override;
+	virtual json::Value dumpStatePretty(const IStockApi::MarketInfo &minfo) const override;
 
 	static std::string_view id;
 

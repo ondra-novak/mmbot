@@ -98,3 +98,10 @@ std::string_view Strategy_HalfHalf::getID() const {
 	return id;
 }
 
+json::Value Strategy_HalfHalf::dumpStatePretty(
+		const IStockApi::MarketInfo &minfo) const {
+
+	return json::Object("Assets", a)
+				 ("Last price", p);
+
+}

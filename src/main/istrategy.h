@@ -48,6 +48,7 @@ public:
 	virtual PStrategy onIdle(const IStockApi::MarketInfo &minfo, const IStockApi::Ticker &curTicker, double assets, double currency) const = 0;
 	virtual std::pair<OnTradeResult, PStrategy > onTrade(const IStockApi::MarketInfo &minfo, double tradePrice, double tradeSize, double assetsLeft, double currencyLeft) const = 0;
 	virtual json::Value exportState() const = 0;
+	virtual json::Value dumpStatePretty(const IStockApi::MarketInfo &minfo) const = 0;
 	virtual PStrategy importState(json::Value src) const = 0;
 	virtual OrderData getNewOrder(const IStockApi::MarketInfo &minfo, double cur_price, double new_price, double dir, double assets, double currency) const = 0;
 	virtual MinMax calcSafeRange(const IStockApi::MarketInfo &minfo, double assets, double currencies) const = 0;

@@ -98,6 +98,11 @@ public:
 		ptr = ptr->reset();
 	}
 
+	///dumps state of strategy in pretty format (best to display on admin page)
+	json::Value dumpStatePretty(const IStockApi::MarketInfo &minfo) const  {
+		return ptr->dumpStatePretty(minfo);
+	}
+
 	static Strategy create(std::string_view id, json::Value config);
 
 protected:
