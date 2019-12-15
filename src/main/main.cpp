@@ -244,7 +244,7 @@ int main(int argc, char **argv) {
 						auto rptpath = rptsect.mandatory["path"].getPath();
 						auto rptinterval = rptsect["interval"].getUInt(864000000);
 						auto dr = rptsect["report_broker"];
-						auto isim = rptsect["ignore_simulator"].getBool(false);
+						auto isim = rptsect["include_simulators"].getBool(false);
 
 
 
