@@ -766,6 +766,7 @@ void MTrader::processTrades(Status &st) {
 		tempPr.size = t.eff_size;
 		tempPr.price = t.eff_price;
 		tempPr.change = z.first * (t.eff_price - last_price);
+		tempPr.time = t.time;
 		if (last_price) statsvc->reportPerformance(tempPr);
 		last_price = t.eff_price;
 		z.first += t.eff_size;

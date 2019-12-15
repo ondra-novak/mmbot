@@ -243,7 +243,7 @@ int main(int argc, char **argv) {
 						auto rptsect = app.config["report"];
 						auto rptpath = rptsect.mandatory["path"].getPath();
 						auto rptinterval = rptsect["interval"].getUInt(864000000);
-						auto dr = rptsect["daily_report_service"];
+						auto dr = rptsect["report_broker"];
 						auto isim = rptsect["ignore_simulator"].getBool(false);
 
 

@@ -24,6 +24,7 @@
 		double change;
 		///set true, if the record is from simulator
 		bool simulator;
+		uint64_t time;
 	};
 
 

@@ -33,6 +33,7 @@ void ExtDailyPerfMod::sendItem(const PerformanceReport &report) {
 			jrep.set("tradeId",report.tradeId);
 			jrep.set("uid",report.uid);
 			jrep.set("change",report.change);
+			jrep.set("time", report.time);
 			jsonRequestExchange("sendItem", jrep);
 
 		} catch (std::exception &e) {

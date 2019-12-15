@@ -46,6 +46,25 @@ static simpleServer::SendHeaders hdrs(const json::Value &headers) {
 	return hdr;
 }
 
+json::Value parseResponse(simpleServer::HttpResponse &resp) {
+	json::Value r;
+	StrViewA ctx = resp.getHeaders()["Content-Type"];
+	if (ctx.indexOf("application/json") != ctx.npos) {
+		r = json::Value::parse(resp.getBody());
+	} else {
+		std::ostringstream buff;
+		auto s = resp.getBody();
+		BinaryView b = s.read();
+		while (!b.empty()) {
+			buff.write(reinterpret_cast<const char*>(b.data), b.length);
+			b = s.read();
+		}
+		r = buff.str();
+	}
+	return r;
+}
+
+
 json::Value HTTPJson::GET(const std::string_view &path, json::Value &&headers, unsigned int expectedCode) {
 	std::string url = baseUrl;
 	url.append(path);
@@ -57,10 +76,11 @@ json::Value HTTPJson::GET(const std::string_view &path, json::Value &&headers, u
 	if ((expectedCode && st != expectedCode) || (!expectedCode && st/100 != 2)) {
 		throw UnknownStatusException(st, resp.getMessage(),resp);
 	}
-	json::Value r = json::Value::parse(resp.getBody());
+	json::Value r = parseResponse(resp);
 	logDebug("RECV: $1", r);
 	return r;
 }
+
 
 json::Value HTTPJson::SEND(const std::string_view &path,
 		const std::string_view &method, const json::Value &data,
@@ -87,7 +107,7 @@ json::Value HTTPJson::SEND(const std::string_view &path,
 	if ((expectedCode && st != expectedCode) || (!expectedCode && st/100 != 2)) {
 		throw UnknownStatusException(st, resp.getMessage(), resp);
 	}
-	json::Value r = json::Value::parse(resp.getBody());
+	json::Value r = parseResponse(resp);
 	logDebug("RECV: $1", r);
 	return r;
 
