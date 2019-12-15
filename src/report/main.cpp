@@ -68,15 +68,18 @@ Value readFromStream(std::istream &in) {
 	return json::undefined;
 }
 
+static std::mutex lock;
+
 void storeToSend(const Config &cfg, Value data) {
+	std::unique_lock<std::mutex> _(lock);
 	data = data.replace("ident",cfg.ident);
 	std::ofstream f(cfg.tmpfile, std::ios::out|std::ios::app);
 	data.toStream(f);
 	f << std::endl;
 }
 
-std::vector<Value> readStorage(const Config &cfg) {
-	std::ifstream f(cfg.tmpfile, std::ios::in);
+std::vector<Value> readStorage(std::string fname) {
+	std::ifstream f(fname, std::ios::in);
 	std::vector<Value>  out;
 	if (!!f) {
 		Value v = readFromStream(f);
@@ -90,23 +93,30 @@ std::vector<Value> readStorage(const Config &cfg) {
 
 ondra_shared::MsgQueue<std::string> errors;
 
-
-void flushStorage(HTTPJson &httpc, const Config &cfg) {
-
-	auto items = readStorage(cfg);
+void flushStoragePart(HTTPJson &httpc, const Config &cfg) {
 	std::string part = cfg.tmpfile+".part";
-	std::ofstream f(part, std::ios::out|std::ios::trunc);
+
+	auto items = readStorage(part);
 	for (Value v : items) {
 		try {
 			httpc.SEND(cfg.postUrl, cfg.postMethod, v, Object("Content-Type","application/json"));
 		} catch (std::exception &e) {
 			errors.push(e.what());
-			v.toStream(f);
-			f << std::endl;
+			storeToSend(cfg,v);
 		}
 	}
-	f.close();
-	std::rename(part.c_str(), cfg.tmpfile.c_str());
+	std::remove(part.c_str());
+}
+
+void flushStorage(HTTPJson &httpc, const Config &cfg) {
+
+	std::unique_lock<std::mutex> _(lock);
+	std::string part = cfg.tmpfile+".part";
+	std::rename(cfg.tmpfile.c_str(), part.c_str());
+	_.unlock();
+
+	flushStoragePart(httpc, cfg);
+
 }
 
 Value getReport(HTTPJson &httpc, const Config &cfg) {
@@ -130,6 +140,10 @@ int main(int argc, char **argv) {
 		HTTPJson httpc(HttpClient("MMBot reporting client",newHttpsProvider(),newNoProxyProvider()),"");
 
 		Worker wrk = Worker::create(1);
+
+		wrk >> [&]{
+			flushStoragePart(httpc,cfg);
+		};
 
 		Value req = readFromStream(std::cin);
 		Value resp;
