@@ -6,8 +6,9 @@
  */
 
 #include "tradingengine.h"
-
+#include <imtjson/string.h>
 #include <cmath>
+#include "lexid.h"
 
 
 #include "../shared/logOutput.h"
@@ -56,10 +57,10 @@ void TradingEngine::readOrders(std::function<void(IStockApi::Order)> &&cb) {
 	}
 }
 
-TradingEngine::UID TradingEngine::readTrades(UID fromId, std::function<void(IStockApi::Trade)> &&cb) {
+std::string TradingEngine::readTrades(const std::string &fromId, std::function<void(IStockApi::Trade)> &&cb) {
 	Sync _(lock);
 	runQuotes();
-	UID last = fromId;
+	auto last = fromId;
 	for (auto &&t : trades) {
 		if (t.id > fromId) {cb(IStockApi::Trade {
 			t.id,
@@ -75,12 +76,17 @@ TradingEngine::UID TradingEngine::readTrades(UID fromId, std::function<void(ISto
 	return last;
 }
 
-TradingEngine::UID TradingEngine::placeOrder(double price, double size, json::Value clientId,const UID *replace ) {
+template<typename T>
+std::string UIDToString(T val) {
+	return lexID::create(val);
+}
+
+std::string TradingEngine::placeOrder(double price, double size, json::Value clientId,const std::string *replace ) {
 	Sync _(lock);
 	runQuotes();
 	if (replace) cancelOrder(*replace);
 	if (size) {
-		UID oid = uidcnt++;
+		std::string oid = UIDToString(uidcnt++);
 		orders.push_back(Order {
 			oid,
 			clientId,
@@ -95,10 +101,10 @@ TradingEngine::UID TradingEngine::placeOrder(double price, double size, json::Va
 	}
 }
 
-void TradingEngine::cancelOrder(UID id) {
+void TradingEngine::cancelOrder(std::string id) {
 	Sync _(lock);
 	auto iter = std::find_if(orders.begin(), orders.end(), [&](const Order &o) {
-		return o.id.getUInt() == id;
+		return o.id.getString() == json::StrViewA(id);
 	});
 	if (iter != orders.end()) {
 		logDebug("Order canceled: $1", id);
@@ -125,7 +131,7 @@ void TradingEngine::onPriceChange(const IStockApi::Ticker &price) {
 			if ((order.size < 0 && order.price < ticker.bid)
 					|| (order.size > 0 && order.price > ticker.ask)) {
 				volume += order.size;
-				logDebug("Matching order $1 at $2 size $3", order.id.getUInt(), order.price, order.size);
+				logDebug("Matching order $1 at $2 size $3", order.id.toString(), order.price, order.size);
 			} else {
 				pending.push_back(order);
 			}
@@ -134,7 +140,7 @@ void TradingEngine::onPriceChange(const IStockApi::Ticker &price) {
 			double execprice = cmdFn(volume);
 			logDebug("Executed total $1 at price $2", volume, execprice);
 			trades.push_back(Trade {
-				uidcnt++,
+				UIDToString(uidcnt++),
 				execprice,
 				volume,
 				now()

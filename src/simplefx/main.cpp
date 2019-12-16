@@ -239,7 +239,7 @@ inline Interface::TradesSync Interface::syncTrades(json::Value lastId,
 		const std::string_view &pair) {
 
 	PTradingEngine eng = getEngine(pair);
-	TradingEngine::UID uid = lastId.getUInt();
+	std::string uid = lastId.getString();
 	TradesSync s;
 	s.lastId = eng->readTrades(uid, [&](const Trade &t) {
 		s.trades.push_back(t);
@@ -271,7 +271,7 @@ inline json::Value Interface::placeOrder(const std::string_view &pair,
 
 	PTradingEngine eng = getEngine(pair);
 	if (replaceId.defined()) {
-		eng->cancelOrder(replaceId.getUInt());
+		eng->cancelOrder(replaceId.getString());
 	}
 	if (size) {
 		return eng->placeOrder(price, size, clientId);

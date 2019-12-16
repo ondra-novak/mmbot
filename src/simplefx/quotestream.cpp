@@ -4,6 +4,7 @@
 
 #include "quotestream.h"
 
+#include <imtjson/namedEnum.h>
 #include <chrono>
 
 #include "../shared/countdown.h"
@@ -116,6 +117,16 @@ void QuoteStream::processQuotes(const json::Value& quotes) {
 	}
 }
 
+json::NamedEnum<simpleServer::WSFrameType> frameTypes({
+	{simpleServer::WSFrameType::binary,"binary"},
+	{simpleServer::WSFrameType::connClose,"connClose"},
+	{simpleServer::WSFrameType::incomplete,"incomplete (EOF)"},
+	{simpleServer::WSFrameType::init,"init"},
+	{simpleServer::WSFrameType::ping,"ping"},
+	{simpleServer::WSFrameType::pong,"pong"},
+	{simpleServer::WSFrameType::text,"text"},
+});
+
 void QuoteStream::processMessages() {
 	do {
 		if (ws.getFrameType() == simpleServer::WSFrameType::text) {
@@ -141,13 +152,15 @@ void QuoteStream::processMessages() {
 						}
 					}
 				}
-			} catch (...) {
-				break;
+			} catch (std::exception &e) {
+				logError("Exception: $1 (discarded frame: $2)", e.what(), ws.getText());
 			}
 		}
 	} while (ws.readFrame());
 
-	logWarning("Stream closed - reconnect");
+	logWarning("Stream closed - reconnect (frameType: $1)", frameTypes[ws.getFrameType()]);
+
+	std::this_thread::sleep_for(std::chrono::seconds(3));
 
 	reconnect();
 }

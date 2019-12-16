@@ -27,14 +27,14 @@ class TradingEngine: public ondra_shared::RefCntObj {
 public:
 	TradingEngine(Command &&cmdFn);
 
-	using UID = unsigned int;
+	using UID = std::uint64_t;
 
 	void start(RegisterPriceChangeEvent &&regFn);
 	void stop();
-	UID placeOrder(double price, double size, json::Value userId, const UID *replace = nullptr);
-	void cancelOrder(UID id);
+	std::string placeOrder(double price, double size, json::Value userId, const std::string *replace = nullptr);
+	void cancelOrder(std::string id);
 
-	UID readTrades(UID fromId, std::function<void(IStockApi::Trade)> &&cb);
+	std::string readTrades(const std::string &fromId, std::function<void(IStockApi::Trade)> &&cb);
 	void readOrders(std::function<void(IStockApi::Order)> &&cb);
 	IStockApi::Ticker getTicker() const;
 
@@ -49,7 +49,7 @@ protected:
 
 
 	struct Trade {
-		UID id;
+		std::string id;
 		double price;
 		double size;
 		std::uint64_t timestamp;
