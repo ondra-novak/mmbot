@@ -23,7 +23,16 @@ public:
 
 };
 
+
 using PStorage = std::unique_ptr<IStorage>;
 
+
+class IStorageFactory {
+public:
+	virtual PStorage create(std::string name) const = 0;
+	virtual ~IStorageFactory() {}
+};
+
+using PStorageFactory = std::unique_ptr<IStorageFactory>;
 
 #endif /* SRC_MAIN_ISTORAGE_H_ */

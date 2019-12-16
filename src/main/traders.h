@@ -45,7 +45,7 @@ public:
 	TMap traders;
     StockSelector stockSelector;
 	bool test;
-	StorageFactory &sf;
+	PStorageFactory &sf;
 	Report &rpt;
 	IDailyPerfModule &perfMod;
 	std::string iconPath;
@@ -53,7 +53,7 @@ public:
 	Traders(ondra_shared::Scheduler sch,
 			const ondra_shared::IniConfig::Section &ini,
 			bool test,
-			StorageFactory &sf,
+			PStorageFactory &sf,
 			Report &rpt,
 			IDailyPerfModule &perfMod,
 			std::string iconPath);

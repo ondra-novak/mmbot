@@ -30,6 +30,7 @@
 #include <random>
 
 #include "../imtjson/src/imtjson/binary.h"
+#include "ext_storage.h"
 #include "extdailyperfmod.h"
 #include "localdailyperfmod.h"
 #include "stats2report.h"
@@ -238,6 +239,7 @@ int main(int argc, char **argv) {
 
 						auto storagePath = servicesection.mandatory["storage_path"].getPath();
 						auto storageBinary = servicesection["storage_binary"].getBool(true);
+						auto storageBroker = servicesection["storage_broker"];
 						auto listen = servicesection["listen"].getString();
 						auto socket = servicesection["socket"].getPath();
 						auto rptsect = app.config["report"];
@@ -247,11 +249,13 @@ int main(int argc, char **argv) {
 						auto isim = rptsect["include_simulators"].getBool(false);
 
 
+						PStorageFactory sf;
 
-
-
-
-						StorageFactory sf(storagePath,5,storageBinary?Storage::binjson:Storage::json);
+						if (!storageBroker.defined()) {
+							sf = PStorageFactory(new StorageFactory(storagePath,5,storageBinary?Storage::binjson:Storage::json));
+						} else {
+							sf = PStorageFactory(new ExtStorage(storageBroker.getCurPath(), "storage_broker", storageBroker.getString()));
+						}
 						StorageFactory rptf(rptpath,2,Storage::json);
 
 						Report rpt(rptf.create("report.json"), rptinterval);
@@ -266,7 +270,7 @@ int main(int argc, char **argv) {
 							workdir = dr.getCurPath();
 							perfmod = std::make_unique<ExtDailyPerfMod>(workdir,"performance_module", cmdline, isim);
 						} else {
-							perfmod = std::make_unique<LocalDailyPerfMonitor>(sf.create("_performance_daily"), storagePath+"/_performance_current",isim);
+							perfmod = std::make_unique<LocalDailyPerfMonitor>(sf->create("_performance_daily"), storagePath+"/_performance_current",isim);
 						}
 
 
@@ -281,7 +285,7 @@ int main(int argc, char **argv) {
 
 						RefCntPtr<WebCfg::State> webcfgstate;
 						StrViewA webadmin_auth = servicesection["admin"].getString();
-						webcfgstate = new WebCfg::State(sf.create("web_admin_conf"),new AuthUserList, new AuthUserList);
+						webcfgstate = new WebCfg::State(sf->create("web_admin_conf"),new AuthUserList, new AuthUserList);
 						webcfgstate->setAdminAuth(webadmin_auth);
 						webcfgstate->applyConfig(*traders);
 						aul = webcfgstate->users;

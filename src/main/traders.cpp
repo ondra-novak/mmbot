@@ -61,7 +61,7 @@ void StockSelector::clear() {
 Traders::Traders(ondra_shared::Scheduler sch,
 		const ondra_shared::IniConfig::Section &ini,
 		bool test,
-		StorageFactory &sf,
+		PStorageFactory &sf,
 		Report &rpt,
 		IDailyPerfModule &perfMod,
 		std::string iconPath)
@@ -95,7 +95,7 @@ void Traders::addTrader(const MTrader::Config &mcfg ,ondra_shared::StrViewA n) {
 	LogObject::Swap swp(lg);
 	try {
 		logProgress("Started trader $1 (for $2)", n, mcfg.pairsymb);
-		auto t = std::make_unique<NamedMTrader>(stockSelector, sf.create(n),
+		auto t = std::make_unique<NamedMTrader>(stockSelector, sf->create(n),
 				std::make_unique<StatsSvc>(n, rpt, &perfMod), mcfg, n);
 		loadIcon(*t);
 		traders.insert(std::pair(StrViewA(t->ident), std::move(t)));

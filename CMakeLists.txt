@@ -32,7 +32,8 @@ add_subdirectory (src/deribit)
 add_subdirectory (src/poloniex)
 add_subdirectory (src/simplefx)
 add_subdirectory (src/trainer)
-add_subdirectory (src/report)
+add_subdirectory (src/report_broker)
+add_subdirectory (src/storage_broker)
 
 
 install(DIRECTORY conf DESTINATION ".") 
