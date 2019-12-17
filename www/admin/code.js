@@ -404,7 +404,7 @@ App.prototype.fillForm = function (src, trg) {
 		function linStrategy_recomended() {
 			var inputs = trg.readData(["cstep","neutral_pos","pl_baluse"]);
 			var value = pair.currency_balance*inputs.pl_baluse*0.01;
-			var invest = value / 10;
+			var invest = value / 20;
 			var k = invest / (pair.price*pair.price * 0.01);
 			var max_pos = Math.sqrt(k * value);
 			trg.setData({
@@ -525,7 +525,7 @@ App.prototype.fillForm = function (src, trg) {
 	data.acum_factor = 0;
 	data.external_assets = 0;
 	data.pl_mode_m = {".hidden":true};
-	data.pl_power=1;
+	data.pl_power=0.5;
 	data.pl_show_factor=0.1;
 	data.pl_baluse=100;
 	data.pl_redfact=50;

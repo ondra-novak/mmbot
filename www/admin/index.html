@@ -81,7 +81,7 @@
 </x-section>
 <x-section data-name="strategy_pl" class="goal hidden" hidden="hidden"><x-section-caption>Linear</x-section-caption>
 <label><span>Configuration mode</span><select name="pl_confmode"><option value="a">Automatic</option><option value="m">Manual</option></select></label>
-<label data-name="pl_mode_a"><span>Power (<span data-name="pl_show_factor"></span>x)</span><x-slider data-name="pl_power" data-min="0.01" data-max="5" data-mult="0.01" data-fixed="2"></x-slider></label>
+<label data-name="pl_mode_a"><span>Power (<span data-name="pl_show_factor"></span>x)<span class="tooltip">Specifies power of 10 multiplier of current balance used to automatically calculate the step (for 1% of movement). <br><br>Use <strong>0.5</strong> for <strong>cryptocurrencies</strong> <br>and values between <strong>3-4</strong> for <strong>Forex</strong></span></span><x-slider data-name="pl_power" data-min="0.01" data-max="5" data-mult="0.01" data-fixed="2"></x-slider></label>
 <label data-name="pl_mode_a" class="adv"><span>Balance to use</span><x-slider data-name="pl_baluse" data-min="1" data-max="100" data-mult="1" data-fixed="0"></x-slider></label>
 <label data-name="pl_mode_m"><span>Invest to 1% movement in currency [<span data-name="currency"></span>]: <span class="tooltip"
 >Specifies how much currency is used in 1% momement of the price. </span></span><input data-name="cstep" type="number" step="any"></label>
