@@ -105,9 +105,9 @@ double Strategy_PLFromPos::calcNewPos(const IStockApi::MarketInfo &minfo, double
 			if (np2 > 0) {
 				double nnp;
 				//for negative reduce factor
-				if (cfg.reduce_factor < 0) {
+				if (cfg.fixed_reduce) {
 					//use value to calculate increase of position reduction directly
-					nnp = pos + (np - pos) * (1 - cfg.reduce_factor);
+					nnp = pos + (np - pos) * (1 + cfg.reduce_factor);
 				} else {
 					//calculate new positon by sqrt(np2) and adding signature
 					nnp = sgn(np) * sqrt(np2);

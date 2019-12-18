@@ -7,6 +7,7 @@
 
 #include "strategy.h"
 
+#include <cmath>
 #include <imtjson/namedEnum.h>
 #include <imtjson/object.h>
 #include "../shared/stringview.h"
@@ -31,6 +32,8 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 		cfg.maxpos = config["maxpos"].getNumber();
 		cfg.reduce_factor = config["reduce_factor"].getNumber();
 		cfg.power= config["power"].getNumber();
+		cfg.fixed_reduce= config["fixed_reduce"].getBool() || cfg.reduce_factor < 0;
+		cfg.reduce_factor = std::abs(cfg.reduce_factor);
 		cfg.baltouse= config["balance_use"].defined()?config["balance_use"].getNumber():1;
 		return Strategy(new Strategy_PLFromPos(cfg,{}));
 	} else if (id == Strategy_HalfHalf::id) {

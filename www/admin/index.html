@@ -93,7 +93,18 @@ doesn't work as stoploss, because position can still grow beyoind the limit, but
 <label><span>Neutral position <span class="tooltip"
 >How much assets are considered as neutral position.</span></span><input data-name="neutral_pos" type="number" step="any">
 </label>
-<label class="adv"><span>Reduction factor [%]<span class="tooltip">Specifies factor of position reduction. Value 0% means no profit is used to reduce position. This can make a lot of profit in sideways market, however brings a lot of risk in a trending market. Default value 100% is precisely calculated ratio of profit which is used to reduce position without causing loss. This helps to reduce position in trending markets and still makes reasonable profit in sideways markets. Higher values can result to loss, because all or more profit is used to reduce position</span></span><x-slider data-name="pl_redfact" data-min="0" data-max="100" data-mult="10"></x-slider></label>
+<div class="adv label ttb"><span><select data-name="pl_redmode">
+		<option value="fixed">Fixed reduction [%]</option>
+		<option value="rp">RP reduction (old) [%]</option></select><br>
+		<span class="tooltip">Specifies factor of position reduction.<br><br>
+		<strong>Fixed</strong> - position is reduces by a fixed amount, which
+		decreases profit (and turns to potential loss) with raise of the position.<br><br> 
+		
+		<strong>RP</strong> - (realized profit) reduction uses current realized profit to
+		reduce current position. Note that unrealized loss increases by square, while
+		realized profit is linear, so larger positions are reduced less than
+		smaller positions</span></span>
+		<x-slider data-name="pl_redfact" data-min="0" data-max="100" data-mult="10"></x-slider></div>
 <label class="adv"><span>Accumulation <span class="tooltip">Amount of the profit used to buy extra assets</span></span><x-slider data-name="pl_acum" data-min="0" data-max="100" data-mult="1"></x-slider></label>
 <div class="rightinfo"><button data-name="linear_suggest pl_mode_m">Propose</button><button data-name="linear_suggest_maxpos  pl_mode_m">Propose max position</button></div>
 <div class="warning" data-name="err_toolargepos">Changing setting is discouraged because the open position is too large</div>

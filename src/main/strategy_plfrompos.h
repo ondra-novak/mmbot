@@ -28,6 +28,7 @@ public:
 		double reduce_factor;
 		double power;
 		double baltouse;
+		bool fixed_reduce;
 
 	};
 

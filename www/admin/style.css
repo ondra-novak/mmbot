@@ -638,7 +638,6 @@ span.tooltip {
 	z-index: 5000;
 	padding:  5px;
 	border: 1px solid #888;
-	top: 0;
 	left: 2em;
 	color:  white;
 	font-size: smaller;
@@ -646,6 +645,7 @@ span.tooltip {
 	opacity: 0;
 	transition: 1s all cubic-bezier(1, -2.49, 1, 0.97);
 }
+
 
 label span:hover span.tooltip, div.label span:hover span.tooltip {
 	display: block;	
