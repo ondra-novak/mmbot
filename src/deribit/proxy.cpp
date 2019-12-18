@@ -20,6 +20,7 @@
 #include <imtjson/string.h>
 #include "../imtjson/src/imtjson/object.h"
 #include <simpleServer/http_client.h>
+#include "../imtjson/src/imtjson/parser.h"
 #include "../shared/logOutput.h"
 
 using ondra_shared::logDebug;
@@ -60,7 +61,12 @@ json::Value Proxy::request(std::string_view method, json::Value params, bool aut
 		headers("Authorization","bearer "+ *tk);
 	}
 
-	json::Value resp = httpc.POST(apiUrl,req,headers);
+	json::Value resp;
+	try {
+		resp = httpc.POST(apiUrl,req,headers);
+	} catch (const HTTPJson::UnknownStatusException &e) {
+		resp = json::Value::parse(e.response.getBody());
+	}
 	json::Value success = resp["result"];
 	json::Value error = resp["error"];
 	if (error.defined()) throw std::runtime_error(error.toString().str());

@@ -119,7 +119,8 @@ double Strategy_PLFromPos::calcNewPos(const IStockApi::MarketInfo &minfo, double
 	} else {
 		//adjust np, if max position has been reached
 		if (std::fabs(pos) >= maxpos) {
-			np = sgn(np)*(ap + maxpos)/2;
+			//minimum step
+			np = sgn(pos)*(std::fabs(pos)+minfo.asset_step);
 		}
 	}
 	return posToAssets(minfo,np);
