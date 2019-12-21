@@ -49,9 +49,6 @@ protected:
 
 	ondra_shared::RefCntPtr<Proxy> proxy;
 
-
-
-
 };
 
 #endif /* SRC_MAIN_EXT_STORAGE_H_ */
