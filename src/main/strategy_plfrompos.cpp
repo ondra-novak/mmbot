@@ -105,9 +105,9 @@ double Strategy_PLFromPos::calcNewPos(const IStockApi::MarketInfo &minfo, double
 			if (np2 > 0) {
 				double nnp;
 				//for negative reduce factor
-				if (cfg.reduce_factor < 0) {
+				if (cfg.fixed_reduce) {
 					//use value to calculate increase of position reduction directly
-					nnp = pos + (np - pos) * (1 - cfg.reduce_factor);
+					nnp = pos + (np - pos) * (1 + cfg.reduce_factor);
 				} else {
 					//calculate new positon by sqrt(np2) and adding signature
 					nnp = sgn(np) * sqrt(np2);
@@ -119,7 +119,8 @@ double Strategy_PLFromPos::calcNewPos(const IStockApi::MarketInfo &minfo, double
 	} else {
 		//adjust np, if max position has been reached
 		if (std::fabs(pos) >= maxpos) {
-			np = sgn(np)*(ap + maxpos)/2;
+			//minimum step
+			np = sgn(pos)*(std::fabs(pos)+minfo.asset_step);
 		}
 	}
 	return posToAssets(minfo,np);
