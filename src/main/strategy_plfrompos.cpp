@@ -120,7 +120,7 @@ double Strategy_PLFromPos::calcNewPos(const IStockApi::MarketInfo &minfo, double
 		//adjust np, if max position has been reached
 		if (std::fabs(pos) >= maxpos) {
 			//minimum step
-			np = sgn(pos)*(std::fabs(pos)+minfo.asset_step);
+			return std::numeric_limits<double>::signaling_NaN();
 		}
 	}
 	return posToAssets(minfo,np);
@@ -152,7 +152,8 @@ std::pair<Strategy_PLFromPos::OnTradeResult, PStrategy> Strategy_PLFromPos::onTr
 	double k = calcK();
 	double act_pos = assetsToPos(minfo,assetsLeft);
 	double prev_pos = act_pos - tradeSize;
-	double new_pos = tradeSize?calcNewPos(minfo,tradePrice):prev_pos;
+	double exp_pos = calcNewPos(minfo,tradePrice);
+	double new_pos = tradeSize && !std::isnan(exp_pos)?exp_pos:prev_pos;
 	//realised profit/loss
 	double rpl = prev_pos * (tradePrice - st.p);
 	//position potential value (pos^2 / (2*k) - surface of a triangle)
@@ -228,6 +229,9 @@ Strategy_PLFromPos::OrderData Strategy_PLFromPos::getNewOrder(
 	}
 	double new_pos = calcNewPos(minfo, new_price);
 	double sz = calcOrderSize(st.a, assets, new_pos);
+	if (std::isnan(sz)) {
+		sz = dir*std::max(minfo.min_size*1.5, (minfo.min_volume/cur_price)*1.5);
+	}
 	return OrderData {new_price, sz};
 }
 
