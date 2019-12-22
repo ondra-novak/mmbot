@@ -818,7 +818,11 @@ function app_start(){
 
 		}).catch(function(e) {
 			indicator.classList.remove("fetching");
-			console.error(e);
+			if (e && e.status === 401) {
+				location.href = "index.html?relogin=1";
+			} else {
+				console.error(e);
+			}
 		});
 	}
 	
@@ -911,6 +915,9 @@ function app_start(){
 		interval = (interval+1)%intervals.length;
 		redraw();
 	}
+	if (location.href.indexOf("?relogin=1") !== -1) {
+		location.href="index.html";
+	}
 }
 
 
@@ -963,9 +970,6 @@ function donate() {
 		});
 		hd.checked = localStorage["donation_hidden"] === hd.value;
 	}
-}
-function setup() {
-	location.href="admin/index.html";
 }
 function close_donate() {
 	var w = document.getElementById("donate_window");

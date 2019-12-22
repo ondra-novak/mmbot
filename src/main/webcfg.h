@@ -79,6 +79,7 @@ public:
 		logout,
 		logout_commit,
 		editor,
+		login,
 	};
 
 	AuthMapper auth;
@@ -96,6 +97,7 @@ protected:
 	bool reqTraders(simpleServer::HTTPRequest req, ondra_shared::StrViewA rest) const;
 	bool reqLogout(simpleServer::HTTPRequest req, bool commit) const;
 	bool reqStop(simpleServer::HTTPRequest req) const;
+	bool reqLogin(simpleServer::HTTPRequest req) const;
 	bool reqBrokerSpec(simpleServer::HTTPRequest req, ondra_shared::StrViewA rest, IStockApi *api) const;
 	bool reqEditor(simpleServer::HTTPRequest req) const;
 

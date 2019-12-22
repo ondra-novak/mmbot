@@ -36,9 +36,16 @@ function fetch_error(e) {
 	if (!fetch_error.shown) {
 		fetch_error.shown = true;
 		parse_fetch_error(e).then(function(t) {
-			app.dlgbox({text:t.msg, desc:t.t},"network_error").then(function() {
-				fetch_error.shown = false;
-			});
+			if (e.status == 401) {
+				var txts = document.getElementById("strtable");
+				app.dlgbox({text: txts.dataset.please_login},"network_error").then(function() {
+					fetch_error.shown = false;
+				});
+			} else {
+				app.dlgbox({text:t.msg, desc:t.t},"network_error").then(function() {
+					fetch_error.shown = false;
+				});
+			}
 		});
 	}
 	throw e;	
@@ -689,7 +696,7 @@ App.prototype.init = function() {
 	this.desktop.setItemValue("top_panel", top_panel);
 	top_panel.setItemEvent("save","click", this.save.bind(this));
 	top_panel.setItemEvent("login","click", function() {
-		location.reload();
+		location.href="api/login";
 	});
 	
 	
