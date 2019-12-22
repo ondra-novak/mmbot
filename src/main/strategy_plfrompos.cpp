@@ -223,11 +223,11 @@ Strategy_PLFromPos::OrderData Strategy_PLFromPos::getNewOrder(
 		const IStockApi::MarketInfo &minfo,
 		double cur_price, double new_price, double dir, double assets, double currency) const {
 	double pos = assetsToPos(minfo, st.a);
+	double new_pos = calcNewPos(minfo, new_price);
 	if (cfg.maxpos && (pos < -cfg.maxpos || pos > cfg.maxpos)) {
 		float f = pow2(cfg.maxpos/pos)*0.5;
 		new_price = st.p * (1-f) + new_price * f;
 	}
-	double new_pos = calcNewPos(minfo, new_price);
 	double sz = calcOrderSize(st.a, assets, new_pos);
 	if (std::isnan(sz)) {
 		sz = dir*std::max(minfo.min_size*1.5, (minfo.min_volume/cur_price)*1.5);

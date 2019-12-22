@@ -36,7 +36,7 @@ self.addEventListener('fetch', function(evt) {
 	  // Let the browser do its default thing
 	  // for non-GET requests.
 	  if (evt.request.method != 'GET') return;
-
+	  if (evt.request.url.indexOf("?relogin=1") != -1) return;
 	  if (evt.request.url.indexOf("report.json") != -1) return;
 	  if (evt.request.url.indexOf("/admin/") != -1) return;
 

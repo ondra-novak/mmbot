@@ -37,6 +37,7 @@ NamedEnum<WebCfg::Command> WebCfg::strCommand({
 	{WebCfg::traders, "traders"},
 	{WebCfg::stop, "stop"},
 	{WebCfg::logout, "logout"},
+	{WebCfg::login, "login"},
 	{WebCfg::logout_commit, "logout_commit"},
 	{WebCfg::editor, "editor"}
 });
@@ -80,6 +81,7 @@ bool WebCfg::operator ()(const simpleServer::HTTPRequest &req,
 		case stop: return reqStop(req);
 		case traders: return reqTraders(req, rest);
 		case logout: return reqLogout(req,false);
+		case login: return reqLogin(req);
 		case logout_commit: return reqLogout(req,true);
 		case editor: return reqEditor(req);
 		}
@@ -823,4 +825,10 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req) const {
 	});
 	return true;
 }
+
+bool WebCfg::reqLogin(simpleServer::HTTPRequest req) const {
+	req.redirect("../index.html", simpleServer::Redirect::temporary_repeat);
+	return true;
+}
+
 
