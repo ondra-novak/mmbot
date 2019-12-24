@@ -35,6 +35,7 @@ public:
 		PStorage config;
 		ondra_shared::RefCntPtr<AuthUserList> users, admins;
 		std::vector<std::string> traderNames;
+		json::Value broker_config;
 
 		State( PStorage &&config,
 			  ondra_shared::RefCntPtr<AuthUserList> users,
@@ -57,6 +58,7 @@ public:
 
 		void logout_user(std::string &&user);
 		bool logout_commit(std::string &&user);
+		void setBrokerConfig(json::StrViewA name, json::Value config);
 	};
 
 
@@ -98,7 +100,7 @@ protected:
 	bool reqLogout(simpleServer::HTTPRequest req, bool commit) const;
 	bool reqStop(simpleServer::HTTPRequest req) const;
 	bool reqLogin(simpleServer::HTTPRequest req) const;
-	bool reqBrokerSpec(simpleServer::HTTPRequest req, ondra_shared::StrViewA rest, IStockApi *api) const;
+	bool reqBrokerSpec(simpleServer::HTTPRequest req, ondra_shared::StrViewA rest, IStockApi *api, ondra_shared::StrViewA broker_name) const;
 	bool reqEditor(simpleServer::HTTPRequest req) const;
 
 	using Sync = std::unique_lock<std::recursive_mutex>;

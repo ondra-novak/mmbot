@@ -22,6 +22,7 @@ public:
 
 
 
+
 	virtual double getBalance(const std::string_view & symb, const std::string_view & pair) override;
 	virtual TradesSync syncTrades(json::Value lastId, const std::string_view & pair) override;
 	virtual Orders getOpenOrders(const std::string_view & par) override;
@@ -39,11 +40,15 @@ public:
 	virtual void setApiKey(json::Value keyData) override;
 	virtual json::Value getApiKeyFields() const override;
 	virtual json::Value getSettings(const std::string_view & pairHint) const override;
-	virtual void setSettings(json::Value v) override;
+	virtual json::Value setSettings(json::Value v) override;
+	virtual void restoreSettings(json::Value v) override;
 	virtual void saveIconToDisk(const std::string &path) const override;
 	virtual std::string getIconName() const override;
 	virtual PageData fetchPage(const std::string_view &method, const std::string_view &vpath, const PageData &pageData) override;
 
+
+protected:
+	json::Value broker_config;
 };
 
 

@@ -13,7 +13,16 @@ class IBrokerControl {
 public:
 
 	virtual json::Value getSettings(const std::string_view &pairHint) const = 0;
-	virtual void setSettings(json::Value v) = 0;
+	///Sets settings to the broker
+	/** @param v settings created complette by the template returned by getSettings
+	 * @return Can return "undefinded" or it can also return an object. This object is
+	 * remembered and next time when broker restarts it is used after initialization
+	 * to restore configuration. The broker's configuration is stored in bot's configuration file.
+	 */
+	virtual json::Value setSettings(json::Value v) = 0;
+
+	///Restores settings previously stored after setSettings called
+	virtual void restoreSettings(json::Value v) = 0;
 
 	struct PageData{
 		unsigned int code = 0;

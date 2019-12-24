@@ -32,7 +32,7 @@ public:
 
 	void loadStockMarkets(const ondra_shared::IniConfig::Section &ini, bool test);
 	virtual IStockApi *getStock(const std::string_view &stockName) const override;
-	void addStockMarket(ondra_shared::StrViewA name, PStockApi &&market);
+//	void addStockMarket(ondra_shared::StrViewA name, PStockApi &&market);
 	virtual void forEachStock(EnumFn fn)  const override;
 	void clear();
 };

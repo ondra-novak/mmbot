@@ -368,6 +368,18 @@ Stores settings edited by the user. The settings must be stored permanently in t
 similar to location where the API key is stored. The settings must be also immediatelly applied.
 
 
+**Return value**
+
+Function can optionally return an object. If object is returned, then the object is stored in the bot's configuration file. Then anytime, the broker is restarted, the stored object is passed using **restoreSettings** during initialization. This allows to broker keep its configuration together with configuration of the bot. The broker should avoid to store security data in this configuration.
+
+###restoreSettings
+```
+["restoreSettings", <value>]
+```
+
+Restores complete settings from the JSON value. This function is called right after the
+broker is started. The JSON value is remembered after setSettings returns it as return value. This allows to store settings inside of broker's configuration
+
 
 
 ### When function is not implemented

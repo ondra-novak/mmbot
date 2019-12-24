@@ -45,9 +45,10 @@ IStockApi *StockSelector::getStock(const std::string_view &stockName) const {
 	if (f == stock_markets.cend()) return nullptr;
 	return f->second.get();
 }
+/*
 void StockSelector::addStockMarket(ondra_shared::StrViewA name, PStockApi &&market) {
 	stock_markets.insert(std::pair(name,std::move(market)));
-}
+}*/
 
 void StockSelector::forEachStock(EnumFn fn)  const {
 	for(auto &&x: stock_markets) {

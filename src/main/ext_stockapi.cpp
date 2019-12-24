@@ -140,6 +140,11 @@ void ExtStockApi::onConnect() {
 	} catch (IStockApi::Exception &) {
 
 	}
+	try {
+		if (broker_config.defined()) jsonRequestExchange("restoreSettings",broker_config);
+	} catch (IStockApi::Exception &) {
+
+	}
 }
 
 ExtStockApi::BrokerInfo ExtStockApi::getBrokerInfo()  {
@@ -178,9 +183,17 @@ json::Value ExtStockApi::getSettings(const std::string_view & pairHint) const {
 	return const_cast<ExtStockApi *>(this)->jsonRequestExchange("getSettings",json::Value(pairHint));
 }
 
-void ExtStockApi::setSettings(json::Value v) {
-	jsonRequestExchange("setSettings", v);
+json::Value ExtStockApi::setSettings(json::Value v) {
+	return (broker_config = jsonRequestExchange("setSettings", v));
 }
+
+void ExtStockApi::restoreSettings(json::Value v) {
+	broker_config = v;
+	if (chldid != -1) {
+		jsonRequestExchange("restoreSettings", v);
+	}
+}
+
 
 
 
