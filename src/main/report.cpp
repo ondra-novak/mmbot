@@ -197,7 +197,7 @@ void Report::setPrice(StrViewA symb, double price) {
 void Report::exportOrders(json::Array &&out) {
 
 	for (auto &&ord : orderMap) {
-		if (ord.second.size) {
+		if (ord.second.price) {
 			out.push_back(Object
 					("symb",ord.first.symb)
 					("dir",static_cast<int>(ord.first.dir))

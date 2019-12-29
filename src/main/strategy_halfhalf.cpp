@@ -103,6 +103,6 @@ json::Value Strategy_HalfHalf::dumpStatePretty(
 
 	return json::Object("Assets", a)
 				 ("Last price", p)
-				 ("Factor", a*std::sqrt(p));
+				 ("Factor", (a+cfg.ea)*std::sqrt(p));
 
 }

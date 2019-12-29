@@ -388,7 +388,7 @@ App.prototype.fillForm = function (src, trg) {
 			var inputs = trg.readData(["max_pos","cstep","neutral_pos"]);
 			var pos = invSize(pair.asset_balance,pair.invert_price) - inputs.neutral_pos;
 			var k = inputs.cstep / (pair.price*pair.price * 0.01);
-			var mp = pos/k + pair.price;
+			var mp = pair.price - pos/k;
 			var lp = mp-inputs.max_pos/k;
 			fdata.linear_max_in_pos = adjNum(0.5*k*(mp - lp)*(mp - lp));
 			var minp = -inputs.max_pos/k+mp;
@@ -583,8 +583,8 @@ App.prototype.fillForm = function (src, trg) {
 	data.detect_manual_trades = filledval(src.detect_manual_trades,false);
 	data.report_position_offset = filledval(src.report_position_offset,0);
 	data.force_spread = filledval(adjNum((Math.exp(defval(src.force_spread,0))-1)*100),"0.000");
-	data.enable_short = filledval(src.enable_short, true);
-	data.enable_long = filledval(src.enable_long, true);
+	data.max_balance = filledval(src.max_balance,"");
+	data.min_balance = filledval(src.min_balance,"");
 		
 
 	
@@ -684,8 +684,8 @@ App.prototype.saveForm = function(form, src) {
 	trader.detect_manual_trades = data.detect_manual_trades;
 	trader.report_position_offset = data.report_position_offset;
 	trader.force_spread = Math.log(data.force_spread/100+1);
-	trader.enable_short = data.enable_short;
-	trader.enable_long = data.enable_long;
+	if (isFinite(data.min_balance)) trader.min_balance = data.min_balance;
+	if (isFinite(data.max_balance)) trader.max_balance = data.max_balance;
 	return trader;
 	
 }

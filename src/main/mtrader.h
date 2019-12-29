@@ -43,6 +43,8 @@ struct MTrader_Config {
 	double sell_step_mult;
 	double min_size;
 	double max_size;
+	std::optional<double> min_balance;
+	std::optional<double> max_balance;
 
 	double dynmult_raise;
 	double dynmult_fall;
@@ -62,8 +64,6 @@ struct MTrader_Config {
 	bool enabled;
 	bool dust_orders;
 	bool dynmult_scale;
-	bool enable_short;
-	bool enable_long;
 
 	Strategy strategy = Strategy(nullptr);
 
@@ -205,8 +205,6 @@ protected:
 	DynMultControl dynmult;
 	bool need_load = true;
 	bool recalc = true;
-	bool enable_short = true;
-	bool enable_long = true;
 	json::Value test_backup;
 	json::Value lastTradeId = nullptr;
 
@@ -233,10 +231,12 @@ protected:
 
 	void update_dynmult(bool buy_trade,bool sell_trade);
 
-	bool acceptLoss(std::optional<Order> &orig, const Order &order, const Status &st);
+	void acceptLoss(const Status &st, double dir);
 	json::Value getTradeLastId() const;
 
 	double calcSpread() const;
+	bool checkMinMaxBalance(double newBalance, double dir) const;
+	double limitOrderMinMaxBalance(double balance, double orderSize) const;
 
 };
 

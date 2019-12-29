@@ -107,7 +107,7 @@ json::Value Strategy_KeepValue::dumpStatePretty(
 
 	return json::Object("Assets", a)
 				 ("Last price", p)
-				 ("Keep", p*a);
+				 ("Keep", p*(a+cfg.ea));
 
 }
 

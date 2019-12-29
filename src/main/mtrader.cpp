@@ -34,9 +34,6 @@ json::NamedEnum<Dynmult_mode> strDynmult_mode  ({
 
 std::string_view MTrader::vtradePrefix = "__vt__";
 
-static const char *LONG_DISABLED = "Rejected, because LONGs are disabled";
-static const char *SHORT_DISABLED = "Rejected, because SHORTs are disabled";
-
 
 
 void MTrader_Config::loadConfig(json::Value data, bool force_dry_run) {
@@ -55,6 +52,10 @@ void MTrader_Config::loadConfig(json::Value data, bool force_dry_run) {
 	sell_step_mult = data["sell_step_mult"].getValueOrDefault(1.0);
 	min_size = data["min_size"].getValueOrDefault(0.0);
 	max_size = data["max_size"].getValueOrDefault(0.0);
+	json::Value min_balance = data["min_balance"];
+	json::Value max_balance = data["max_balance"];
+	if (min_balance.type() == json::number) this->min_balance = min_balance.getNumber();
+	if (max_balance.type() == json::number) this->max_balance = max_balance.getNumber();
 
 	dynmult_raise = data["dynmult_raise"].getValueOrDefault(0.0);
 	dynmult_fall = data["dynmult_fall"].getValueOrDefault(1.0);
@@ -75,8 +76,6 @@ void MTrader_Config::loadConfig(json::Value data, bool force_dry_run) {
 	dust_orders= data["dust_orders"].getValueOrDefault(true);
 	dynmult_scale = data["dynmult_scale"].getValueOrDefault(true);
 
-	enable_short = data["enable_short"].getValueOrDefault(true);
-	enable_long = data["enable_long"].getValueOrDefault(true);
 
 	if (dynmult_raise > 1e6) throw std::runtime_error("'dynmult_raise' is too big");
 	if (dynmult_raise < 0) throw std::runtime_error("'dynmult_raise' is too small");
@@ -216,26 +215,26 @@ void MTrader::perform(bool manually) {
 					statsvc->reportError(IStatSvc::ErrorObj("Automatic trading is disabled"));
 				} else {
 					try {
-						if (!enable_long && status.assetBalance+buyorder.size > 0) {
-							throw std::runtime_error(minfo.invert_price?SHORT_DISABLED:LONG_DISABLED);
-						}
 						setOrder(orders.buy, buyorder);
+						if (!orders.buy.has_value()) {
+							acceptLoss(status, 1);
+							orders.buy = buyorder;
+							buy_order_error = "Blocked by strategy or settings";
+						}
 					} catch (std::exception &e) {
 						buy_order_error = e.what();
-						if (!acceptLoss(orders.buy, buyorder, status)) {
-							orders.buy = buyorder;
-						}
+						acceptLoss(status, 1);
 					}
 					try {
-						if (!enable_short && status.assetBalance+sellorder.size < 0) {
-							throw std::runtime_error(minfo.invert_price?LONG_DISABLED:SHORT_DISABLED);
-						}
 						setOrder(orders.sell, sellorder);
+						if (!orders.sell.has_value()) {
+							acceptLoss(status, 1);
+							orders.sell = sellorder;
+							sell_order_error = "Blocked by strategy or settings";
+						}
 					} catch (std::exception &e) {
 						sell_order_error = e.what();
-						if (!acceptLoss(orders.sell, sellorder, status)) {
-							orders.sell = sellorder;
-						}
+						acceptLoss(status,-1);
 					}
 
 					if (!recalc && !manually) {
@@ -349,8 +348,7 @@ void MTrader::setOrder(std::optional<Order> &orig, Order neworder) {
 			throw std::runtime_error("Order rejected - negative price");
 		}
 		if (neworder.size == 0) {
-			if (orig.has_value()) return;
-			throw std::runtime_error("Order rejected - zero size - probably too small order");
+			return;
 		}
 		neworder.client_id = magic;
 		json::Value replaceid;
@@ -468,60 +466,72 @@ MTrader::Order MTrader::calculateOrderFeeLess(
 		double balance,
 		double currency,
 		double mult) const {
+
+	double m = 1;
+
+	int cnt = 0;
+	double prevSz = 0;
+	double sz = 0;
 	Order order;
 
+	do {
+		prevSz = sz;
 
-	double newPrice = prevPrice * exp(step*dynmult);
-	double newPriceNoScale= prevPrice * exp(step);
-	double dir = sgn(-step);
+		double newPrice = prevPrice * exp(step*dynmult*m);
+		double newPriceNoScale= prevPrice * exp(step);
+		double dir = sgn(-step);
 
-	if (step < 0) {
-		//if price is lower than old, check whether current price is above
-		//otherwise lower the price more
-		if (newPrice > curPrice) newPrice = curPrice;
-	} else {
-		//if price is higher then old, check whether current price is below
-		//otherwise highter the newPrice more
-
-		if (newPrice < curPrice) newPrice = curPrice;
-	}
-
-	auto ord= strategy.getNewOrder(minfo,curPrice, cfg.dynmult_scale?newPrice:newPriceNoScale,dir, balance, currency);
-	if (ord.price > 0 && (ord.price - prevPrice)*step > 0) newPrice = ord.price;
-	double size = ord.size;
-	bool enableDust = false;
-
-	if (size * dir < 0) {
-		if (cfg.dust_orders) {
-			enableDust = true;
-			size = -1e-90*sgn(step);
+		if (step < 0) {
+			//if price is lower than old, check whether current price is above
+			//otherwise lower the price more
+			if (newPrice > curPrice) newPrice = curPrice;
 		} else {
-			size = 0;
+			//if price is higher then old, check whether current price is below
+			//otherwise highter the newPrice more
+
+			if (newPrice < curPrice) newPrice = curPrice;
 		}
-	}
 
-	order.size = size * mult;
-	order.price = newPrice;
+		auto ord= strategy.getNewOrder(minfo,curPrice, cfg.dynmult_scale?newPrice:newPriceNoScale,dir, balance, currency);
+		if (ord.price > 0 && (ord.price - prevPrice)*step > 0) newPrice = ord.price;
+		double size = ord.size;
+		bool enableDust = false;
 
-	if ((!enable_long && order.size+balance > 0 && balance < 0) || (!enable_short && order.size+balance < 0 && balance > 0)) {
-		order.size = -balance;
-	}
-
-	if (cfg.max_size && std::fabs(order.size) > cfg.max_size) {
-		order.size = enableDust?cfg.max_size*sgn(order.size):0;
-	}
-	if (std::fabs(order.size) < cfg.min_size) {
-		order.size = enableDust?cfg.min_size*sgn(order.size):0;
-	}
-	if (std::fabs(order.size) < minfo.min_size) {
-		order.size = enableDust?minfo.min_size*sgn(order.size):0;
-	}
-	if (minfo.min_volume) {
-		double vol = std::fabs(order.size * order.price);
-		if (vol < minfo.min_volume) {
-			order.size = enableDust?minfo.min_volume/order.price*sgn(order.size):0;
+		if (size * dir < 0) {
+			if (cfg.dust_orders) {
+				enableDust = true;
+				size = -1e-90*sgn(step);
+			} else {
+				size = 0;
+			}
 		}
-	}
+
+		sz = limitOrderMinMaxBalance(balance, size * mult);
+
+		order.size = sz;
+		order.price = newPrice;
+
+
+		if (cfg.max_size && std::fabs(order.size) > cfg.max_size) {
+			order.size = enableDust?cfg.max_size*sgn(order.size):0;
+		}
+		if (std::fabs(order.size) < cfg.min_size) {
+			order.size = enableDust?cfg.min_size*sgn(order.size):0;
+		}
+		if (std::fabs(order.size) < minfo.min_size) {
+			order.size = enableDust?minfo.min_size*sgn(order.size):0;
+		}
+		if (minfo.min_volume) {
+			double vol = std::fabs(order.size * order.price);
+			if (vol < minfo.min_volume) {
+				order.size = enableDust?minfo.min_volume/order.price*sgn(order.size):0;
+			}
+		}
+
+		cnt++;
+		m = m*1.1;
+
+	} while (cnt < 1000 && order.size == 0 && std::abs(prevSz) < std::abs(sz));
 
 
 	return order;
@@ -537,24 +547,11 @@ MTrader::Order MTrader::calculateOrder(
 		double currency,
 		double mult) const {
 
-		double m = 1;
+		Order order(calculateOrderFeeLess(lastTradePrice, step,dynmult,curPrice,balance,currency,mult));
+		//apply fees
+		minfo.addFees(order.size, order.price);
 
-		int cnt = 0;
-
-		do {
-
-			Order order(calculateOrderFeeLess(lastTradePrice, step*m,dynmult,curPrice,balance,currency,mult));
-			//apply fees
-			minfo.addFees(order.size, order.price);
-
-			if (order.size || cnt > 1000) {
-				return order;
-			}
-
-			cnt++;
-			m = m*1.1;
-
-		} while (true);
+		return order;
 
 }
 
@@ -580,13 +577,6 @@ void MTrader::loadState() {
 			});
 	currency_balance_cache = stock.getBalance(minfo.currency_symbol, cfg.pairsymb);
 
-	if (minfo.invert_price) {
-		enable_short = cfg.enable_long;
-		enable_long = cfg.enable_short;
-	} else {
-		enable_long = cfg.enable_long;
-		enable_short = cfg.enable_short;
-	}
 
 
 	if (storage == nullptr) return;
@@ -832,55 +822,30 @@ ondra_shared::StringView<IStatSvc::ChartItem> MTrader::getChart() const {
 }
 
 
-bool MTrader::acceptLoss(std::optional<Order> &orig, const Order &order, const Status &st) {
+void MTrader::acceptLoss(const Status &st, double dir) {
 
 	if (cfg.accept_loss && cfg.enabled && !trades.empty()) {
 		std::size_t ttm = trades.back().time;
 
 		if (dynmult.getBuyMult() <= 1.0 && dynmult.getSellMult() <= 1.0) {
-			if (cfg.dust_orders) {
-				//both short and long
-				//or enable_long and size>0 - because enable_short=false we cannot allow size<0
-				//or enable_short and size<0 - because enable_long=false we cannot allow size>0
-				//or both false then size cannot be >0 and <0
-				if ((enable_long || order.size < 0) && (enable_short || order.size > 0)) {
-					Order cpy (order);
-					double newsz = std::max(minfo.min_size, cfg.min_size);
-					if (newsz * cpy.price < minfo.min_volume) {
-						newsz = cpy.price / minfo.min_volume;
-					}
-					cpy.size = sgn(order.size)* newsz;
-					minfo.addFees(cpy.size, cpy.price);
-					try {
-						setOrder(orig,cpy);
-						return true;
-					} catch (...) {
-
-					}
-				}
-			}
 			std::size_t e = st.chartItem.time>ttm?(st.chartItem.time-ttm)/(3600000):0;
 			double lastTradePrice = trades.back().eff_price;
-			if (e > cfg.accept_loss) {
-				auto reford = calculateOrder(lastTradePrice, 2 * st.curStep * sgn(-order.size),1,lastTradePrice, st.assetBalance, st.currencyBalance, 1.0);
-				double df = (st.curPrice - reford.price)* sgn(-order.size);
-				if (df > 0) {
-					ondra_shared::logWarning("Accept loss in effect: price=$1, balance=$2", st.curPrice, st.assetBalance);
-					trades.push_back(TWBItem (
-							IStockApi::Trade {
-								json::Value(json::String({vtradePrefix,"loss_", std::to_string(st.chartItem.time)})),
-								st.chartItem.time,
-								0,
-								reford.price,
-								0,
-								reford.price,
-							}, trades.back().norm_profit, trades.back().norm_accum, trades.back().neutral_price));
-					strategy.onTrade(minfo, reford.price, 0, st.assetBalance, st.currencyBalance);
-				}
+			double limitPrice = lastTradePrice * std::exp( -2 * st.curStep * dir);
+			if (e > cfg.accept_loss && (st.curPrice - limitPrice) * dir < 0) {
+				ondra_shared::logWarning("Accept loss in effect: price=$1, balance=$2", st.curPrice, st.assetBalance);
+				trades.push_back(TWBItem (
+						IStockApi::Trade {
+							json::Value(json::String({vtradePrefix,"loss_", std::to_string(st.chartItem.time)})),
+							st.chartItem.time,
+							0,
+							limitPrice,
+							0,
+							limitPrice,
+						}, trades.back().norm_profit, trades.back().norm_accum, trades.back().neutral_price));
+				strategy.onTrade(minfo, limitPrice, 0, st.assetBalance, st.currencyBalance);
 			}
 		}
 	}
-	return false;
 }
 
 class ConfigOuput {
@@ -1135,3 +1100,29 @@ void MTrader::DynMultControl::update(bool buy_trade, bool sell_trade) {
 	mult_sell= raise_fall(mult_sell, sell_trade);
 }
 
+bool MTrader::checkMinMaxBalance(double balance, double orderSize) const {
+	double x = limitOrderMinMaxBalance(balance, orderSize);
+	return x == orderSize;
+}
+
+double MTrader::limitOrderMinMaxBalance(double balance, double orderSize) const {
+	const auto &min_balance = minfo.invert_price?cfg.max_balance:cfg.min_balance;
+	const auto &max_balance = minfo.invert_price?cfg.min_balance:cfg.max_balance;
+	double factor = minfo.invert_price?-1:1;
+
+	if (orderSize < 0) {
+		if (min_balance.has_value()) {
+			double m = *min_balance * factor;
+			if (balance < m) return 0;
+			if (balance+orderSize < m) return m - balance;
+		}
+
+	} else {
+		if (max_balance.has_value()) {
+			double m = *max_balance * factor;
+			if (balance > m) return 0;
+			if (balance+orderSize > m) return m - balance;
+		}
+	}
+	return orderSize;
+}

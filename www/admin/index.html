@@ -136,6 +136,12 @@ Enable to the Bot accept partial loss, when trading is not possible due insuffic
 extra "virtual" trade with zero size is generated to shift the center of the spread. This can
 reenable trading, but it also finally costs some profit
 </span></span><x-slider data-name="accept_loss" data-min="0" data-max="100" data-mult="1"></x-slider></label>
+<label  class="adv"><span>MIN asset balance/position<span class="tooltip">
+Specifies minimum allowed asset balance (or position, for short use negative value). When balance hits this value, no futher sells are allowed. In this situation 'Accept loss' rule can be applied
+</span></span><input type="number" data-name="min_balance" step="any"></label>
+<label  class="adv"><span>MAX asset balance/position<span class="tooltip">
+Specifies maximum allowed asset balance (or position, for short use negative value). When balance hits this value, no futher buys are allowed. In this situation 'Accept loss' rule can be applied
+</span></span><input type="number" data-name="max_balance" step="any"></label>
 </x-section>
 <x-section class="adv" data-name="spread_vis_anchor"><x-section-caption>Spread</x-section-caption>
 <label  class="adv"><span>Spread width: st.dev hours <span class="tooltip"
@@ -167,8 +173,6 @@ reenable trading, but it also finally costs some profit
 <strong>Enable SHORT/LONG</strong>This options allows you to limit trading for longs and short side only. Default value is enabled. By disabling LONG, the robot will rejects any order which increase a positive asset balance. By disabling SHORT, the robot rejects any order which decreases a negative asset balance. </span></span><div>
 <div><x-checkbox data-name="internal_balance">Internal balance</x-checkbox></div>
 <div><x-checkbox data-name="dust_orders">Dust orders</x-checkbox></div>
-<div><x-checkbox data-name="enable_short">Enable short (negative asset balance)</x-checkbox></div>
-<div><x-checkbox data-name="enable_long">Enable long (positive asset balance)</x-checkbox></div>
 </div>
 </div>
 <label class="adv"><span>Report - position offset<span class="tooltip">Allows to sync the position on the report page with the actual state on the echange.<br>
