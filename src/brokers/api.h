@@ -51,7 +51,9 @@ public:
 
 	virtual json::Value getSettings(const std::string_view & pairHint) const override;
 
-	virtual void setSettings(json::Value v) override;
+	virtual json::Value setSettings(json::Value v) override;
+
+	virtual void restoreSettings(json::Value v) override;
 
 	void dispatch();
 

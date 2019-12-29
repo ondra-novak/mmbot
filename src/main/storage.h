@@ -41,13 +41,13 @@ protected:
 };
 
 
-class StorageFactory {
+class StorageFactory: public IStorageFactory {
 public:
 
 	StorageFactory(std::string path):path(path),versions(5),format(Storage::json) {}
 	StorageFactory(std::string path, bool binary):path(path),versions(5),format(binary?Storage::binjson:Storage::json) {}
 	StorageFactory(std::string path, int versions, Storage::Format format):path(path),versions(versions),format(format) {}
-	PStorage create(std::string name) const;
+	virtual PStorage create(std::string name) const override;
 
 
 protected:

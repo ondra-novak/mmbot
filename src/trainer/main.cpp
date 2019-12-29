@@ -185,7 +185,8 @@ public:
 	virtual double getFees(const std::string_view &pair)override;
 	virtual std::vector<std::string> getAllPairs()override;
 	virtual void onInit() override;
-	virtual void setSettings(json::Value v) override;
+	virtual json::Value setSettings(json::Value v) override;
+	virtual void restoreSettings(json::Value v) override;
 	void setSettings(json::Value v, bool loaded, unsigned int pairId) ;
 	virtual json::Value getSettings(const std::string_view &) const override ;
 	virtual PageData fetchPage(const std::string_view &method, const std::string_view &vpath, const PageData &pageData) override;
@@ -234,7 +235,7 @@ public:
 	using PairMap = std::unordered_map<unsigned int, TestPair>;
 	PairMap pairs;
 
-	void saveSettings();
+	Value saveSettings();
 	void loadSettings();
 
 	TestPair &getPair(const std::string_view &name);
@@ -851,9 +852,18 @@ inline void Interface::onInit() {
 	loadSettings();
 }
 
-inline void Interface::setSettings(json::Value keyData) {
-	std::hash<std::string_view> h;
-	setSettings(keyData,false,h(keyData["pair"].getString()));
+inline json::Value Interface::setSettings(json::Value keyData) {
+		std::hash<std::string_view> h;
+		setSettings(keyData,false,h(keyData["pair"].getString()));
+		return saveSettings();
+}
+inline void Interface::restoreSettings(json::Value keyData) {
+	for (Value x: keyData) {
+		auto pair = x["pairId"].getUInt();
+		if (pairs.find(pair) == pairs.end()) {
+			setSettings(x,true,pair);
+		}
+	}
 }
 inline void Interface::setSettings(json::Value keyData, bool loaded,  unsigned int pairId) {
 	auto &p = pairs[pairId];
@@ -1001,12 +1011,14 @@ inline json::Value Interface::getSettings(const std::string_view & pair) const {
 	});
 }
 
-inline void Interface::saveSettings() {
+inline json::Value Interface::saveSettings() {
 	json::Array r;
 	for (auto &&k: pairs) r.push_back(k.second.collectSettings().replace("pairId", k.first));
 
 	std::ofstream f(fname, std::ios::out|std::ios::trunc);
-	Value(r).toStream(f);
+	Value s = r;
+	s.toStream(f);
+	return s;
 }
 
 inline void Interface::loadSettings() {

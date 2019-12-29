@@ -94,7 +94,8 @@ public:
 
 	const SymbolInfo &getSymbol(const std::string_view &id);
 	virtual json::Value getSettings(const std::string_view &) const override;
-	virtual void setSettings(json::Value v) override;
+	virtual json::Value setSettings(json::Value v) override;
+	virtual void restoreSettings(json::Value v) override;
 
 
 
@@ -113,7 +114,7 @@ private:
 	bool allowSmallOrders = false;
 	std::string optionsFile;
 
-	void saveOptions();
+	json::Value saveOptions();
 	void loadOptions();
 	Value getBalanceCache();
 };
@@ -528,10 +529,19 @@ inline json::Value Interface::getSettings(const std::string_view&) const {
 	};
 }
 
-inline void Interface::setSettings(json::Value v) {
-	quoteEachMin = std::strtod(v["quoteEachMin"].getString().data+1,nullptr);
+inline json::Value Interface::setSettings(json::Value v) {
+	auto m = v["quoteEachMin"].getString();
+	if (m.length > 1) {
+		quoteEachMin = std::strtod(m.data+1,nullptr);
+	}
 	allowSmallOrders = v["allowSmallOrders"].getString() == "allow";
-	saveOptions();
+	return saveOptions();
+}
+
+inline void Interface::restoreSettings(json::Value v) {
+	quoteEachMin = v["quoteEachMin"].getUInt();
+	allowSmallOrders = v["allowSmallOrders"].getBool();
+	remove(optionsFile.c_str());
 }
 
 Value Interface::readOrders() {
@@ -546,12 +556,14 @@ Value Interface::readOrders() {
 
 }
 
-inline void Interface::saveOptions() {
+inline json::Value Interface::saveOptions() {
 	Object opt;
 	opt.set("quoteEachMin",quoteEachMin);
 	opt.set("allowSmallOrders", allowSmallOrders);
-	std::ofstream file(optionsFile,std::ios::out|std::ios::trunc);
-	Value(opt).toStream(file);
+	Value s = opt;
+/*	std::ofstream file(optionsFile,std::ios::out|std::ios::trunc);
+	s.toStream(file);*/
+	return s;
 }
 
 inline void Interface::loadOptions() {

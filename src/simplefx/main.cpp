@@ -106,7 +106,8 @@ public:
 	virtual void onLoadApiKey(json::Value keyData) override;
 	virtual void onInit() override;
 	virtual json::Value getSettings(const std::string_view & pairHint) const override;
-	virtual void setSettings(json::Value v) override;
+	virtual json::Value setSettings(json::Value v) override;
+	virtual void restoreSettings(json::Value v) override;
 	virtual void setApiKey(json::Value keyData) override;
 
 	std::string authKey;
@@ -429,7 +430,7 @@ inline json::Value Interface::getSettings(const std::string_view& pairHint) cons
 	};
 }
 
-inline void Interface::setSettings(json::Value v) {
+inline json::Value Interface::setSettings(json::Value v) {
 	std::string pairHint = v["pairHint"].getString();
 	unsigned int account = v["account"].getUInt();
 	if (account == defaultAccount) symbol2account.erase(pairHint);
@@ -438,8 +439,16 @@ inline void Interface::setSettings(json::Value v) {
 	for (auto &x : symbol2account) {
 		out.push_back({x.first, x.second});
 	}
-	std::ofstream f(getSettingsFile(), std::ios::out|std::ios::trunc);
-	Value(out).toStream(f);
+	return out;
+}
+
+void Interface::restoreSettings(json::Value v) {
+	for (Value item:v) {
+		std::string pairHint = item[0].getString();
+		unsigned int account = item[1].getUInt();
+		symbol2account[pairHint]=account;
+	}
+	remove(getSettingsFile().c_str());
 }
 
 inline void Interface::setApiKey(json::Value keyData) {

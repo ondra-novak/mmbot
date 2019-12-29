@@ -1,0 +1,8 @@
+{
+  "_id": "_design/storage",
+  "language": "javascript",
+  "updates": {
+    "store": "function(doc, req) {\n    var data = JSON.parse(req.body);\n    if (doc) data._rev = doc._rev;\n    data._id = req.id;\n    return [data,\"\"];\n}\n",
+    "erase": "function(doc, req) {\n    if (doc == null) {\n        return[doc,\"\"];\n    } else {\n        var data={};\n        if (doc) data._rev = doc._rev;\n        data._id = req.id;\n        data._deleted = true;\n        return [data,\"\"];\n    }\n}\n"
+  }
+}

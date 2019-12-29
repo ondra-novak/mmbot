@@ -149,9 +149,11 @@ bool WebCfg::reqConfig(simpleServer::HTTPRequest req) const {
 						}
 					}
 					data = data.replace("revision", state->write_serial+1);
+					data = data.replace("brokers", state->broker_config);
 					Value apikeys = data["apikeys"];
 					state->config->store(data.replace("apikeys", Value()));
 					state->write_serial = serial+1;;
+
 					dispatch([&traders, state, req, data, apikeys] {
 						try {
 							state->applyConfig(traders);
@@ -256,7 +258,7 @@ bool WebCfg::reqBrokers(simpleServer::HTTPRequest req, ondra_shared::StrViewA re
 		std::string broker = urlDecode(urlbroker);
 		IStockApi *api = trlist.stockSelector.getStock(broker);
 
-		return reqBrokerSpec(req, splt, api);
+		return reqBrokerSpec(req, splt, api,broker);
 	}
 }
 
@@ -300,7 +302,7 @@ static Value getPairInfo(IStockApi &api, const std::string_view &pair, const std
 }
 
 bool WebCfg::reqBrokerSpec(simpleServer::HTTPRequest req,
-		ondra_shared::StrViewA vpath, IStockApi *api) const {
+		ondra_shared::StrViewA vpath, IStockApi *api, ondra_shared::StrViewA broker_name) const {
 
 	if (api == nullptr) {
 		req.sendErrorPage(404);
@@ -325,7 +327,7 @@ bool WebCfg::reqBrokerSpec(simpleServer::HTTPRequest req,
 			if (!req.allowMethods( { "GET" }))
 				return true;
 			auto binfo = api->getBrokerInfo();
-			Value res = brokerToJSON(binfo).replace("entries", { "icon.png", "pairs","apikey","settings","licence","page" });
+			Value res = brokerToJSON(binfo).replace("entries", { "icon.png", "pairs","apikey","licence","page" });
 			req.sendResponse(std::move(hdr),res.stringify());
 			return true;
 		} else if (entry == "licence") {
@@ -354,23 +356,6 @@ bool WebCfg::reqBrokerSpec(simpleServer::HTTPRequest req,
 			req.sendResponse(std::move(hdr),
 					kk->getApiKeyFields().toString().str());
 			return true;
-		} else if (entry == "settings") {
-
-			IBrokerControl *bc = dynamic_cast<IBrokerControl *>(api);
-			if (bc == nullptr) {
-				req.sendErrorPage(403);return true;
-			}
-			if (!req.allowMethods( { "GET", "PUT" })) return true;
-			if (req.getMethod() == "GET") {
-				req.sendResponse(std::move(hdr), Value(bc->getSettings("")).stringify());
-			} else {
-				Stream s = req.getBodyStream();
-				Value v = Value::parse(s);
-				bc->setSettings(v);
-				req.sendResponse("application/json","true",202);
-				return true;
-			}
-
 		}else if (entry == "page") {
 			IBrokerControl *bc = dynamic_cast<IBrokerControl *>(api);
 			if (bc == nullptr) {
@@ -440,8 +425,10 @@ bool WebCfg::reqBrokerSpec(simpleServer::HTTPRequest req,
 						} else {
 							Stream s = req.getBodyStream();
 							Value v = Value::parse(s);
-							bc->setSettings(v);
-							req.sendResponse("application/json","true",202);
+							Value res = bc->setSettings(v);
+							if (!res.defined()) res = true;
+							else state->setBrokerConfig(broker_name, res);
+							req.sendResponse("application/json", res.stringify(), 202);
 							return true;
 						}
 					}else if (orders == "orders") {
@@ -559,7 +546,8 @@ bool WebCfg::reqTraders(simpleServer::HTTPRequest req, ondra_shared::StrViewA vp
 						StrViewA nx = splt();
 						StrViewA vpath = path;
 						StrViewA restpath = vpath.substr(nx.data - vpath.data);
-						reqBrokerSpec(req, restpath, &(tr->getBroker()));
+						std::string brokerName = tr->getConfig().broker;
+						reqBrokerSpec(req, restpath, &(tr->getBroker()), brokerName);
 					} else if (cmd == "trading") {
 						Object out;
 						auto chart = tr->getChart();
@@ -656,6 +644,17 @@ void WebCfg::State::init(json::Value data) {
 void WebCfg::State::applyConfig(Traders &t) {
 	auto data = config->load();
 	init(data);
+	Value bc = data["brokers"];
+	broker_config = bc;
+	t.stockSelector.forEachStock([&](std::string_view name, IStockApi &api) {
+		Value b = bc[name];
+		if (b.defined()) {
+			IBrokerControl *eapi = dynamic_cast<IBrokerControl *>(&api);
+			if (eapi) {
+				eapi->restoreSettings(b);
+			}
+		}
+	});
 	for (auto &&n :traderNames) {
 		t.removeTrader(n, !data["traders"][n].defined());
 	}
@@ -829,6 +828,11 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req) const {
 bool WebCfg::reqLogin(simpleServer::HTTPRequest req) const {
 	req.redirect("../index.html", simpleServer::Redirect::temporary_repeat);
 	return true;
+}
+
+void WebCfg::State::setBrokerConfig(json::StrViewA name, json::Value config) {
+	Sync _(lock);
+	broker_config = broker_config.getValueOrDefault(Value(json::object)).replace(name,config);
 }
 
 

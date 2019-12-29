@@ -67,6 +67,7 @@ public:
 
 	double calcK() const;
 	static double calcK(const State &st);
+	double reducedK(double k) const;
 
 protected:
 	Config cfg;

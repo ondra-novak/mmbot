@@ -189,7 +189,10 @@ static Value getApiKeyFields(AbstractBrokerAPI &handler, const Value &req) {
 }
 
 static Value setSettings(AbstractBrokerAPI &handler, const Value &req) {
-	handler.setSettings(req);;
+	return handler.setSettings(req);
+}
+static Value restoreSettings(AbstractBrokerAPI &handler, const Value &req) {
+	handler.restoreSettings(req);
 	return Value();
 }
 
@@ -235,6 +238,7 @@ static MethodMap methodMap ({
 			{"getApiKeyFields",&getApiKeyFields},
 			{"setSettings",&setSettings},
 			{"getSettings",&getSettings},
+			{"restoreSettings",&restoreSettings},
 			{"fetchPage",&fetchPage}
 	});
 
@@ -328,7 +332,10 @@ json::Value AbstractBrokerAPI::getSettings(const std::string_view & ) const {
 	throw std::runtime_error("unsupported");
 }
 
-void AbstractBrokerAPI::setSettings(json::Value) {
+json::Value AbstractBrokerAPI::setSettings(json::Value) {
+	throw std::runtime_error("unsupported");
+}
+void AbstractBrokerAPI::restoreSettings(json::Value v) {
 	throw std::runtime_error("unsupported");
 }
 

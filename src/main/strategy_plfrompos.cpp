@@ -35,6 +35,14 @@ double Strategy_PLFromPos::calcK() const {
 	return calcK(st);
 }
 
+double Strategy_PLFromPos::reducedK(double k) const {
+	if (cfg.fixed_reduce) k = k * (1+cfg.reduce_factor);
+	return k;
+}
+
+
+
+
 PStrategy Strategy_PLFromPos::onIdle(const IStockApi::MarketInfo &minfo,
 		const IStockApi::Ticker &curTicker, double assets,
 		double currency) const {
@@ -59,7 +67,7 @@ PStrategy Strategy_PLFromPos::onIdle(const IStockApi::MarketInfo &minfo,
 
 	if (!st.inited) {
 		double pos = assetsToPos(minfo,assets);
-		newst.value = std::abs(pos)>minfo.asset_step/10?(pow2(pos) / (2* calcK(newst))):0;
+		newst.value = std::abs(pos)>minfo.asset_step/10?(pow2(pos) / (2* reducedK(calcK(newst)))):0;
 	}
 
 
@@ -157,7 +165,7 @@ std::pair<Strategy_PLFromPos::OnTradeResult, PStrategy> Strategy_PLFromPos::onTr
 	//realised profit/loss
 	double rpl = prev_pos * (tradePrice - st.p);
 	//position potential value (pos^2 / (2*k) - surface of a triangle)
-	double posVal = act_pos*act_pos/(2*k);
+	double posVal = act_pos*act_pos/(2*reducedK(k));
 	//unrealised profit/loss change
 	double upl = posVal - st.value;
 	//potential change
