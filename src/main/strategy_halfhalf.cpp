@@ -102,6 +102,7 @@ json::Value Strategy_HalfHalf::dumpStatePretty(
 		const IStockApi::MarketInfo &minfo) const {
 
 	return json::Object("Assets", a)
-				 ("Last price", p);
+				 ("Last price", p)
+				 ("Factor", a*std::sqrt(p));
 
 }

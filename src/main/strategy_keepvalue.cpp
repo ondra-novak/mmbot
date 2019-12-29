@@ -106,7 +106,8 @@ json::Value Strategy_KeepValue::dumpStatePretty(
 		const IStockApi::MarketInfo &minfo) const {
 
 	return json::Object("Assets", a)
-				 ("Last price", p);
+				 ("Last price", p)
+				 ("Keep", p*a);
 
 }
 
