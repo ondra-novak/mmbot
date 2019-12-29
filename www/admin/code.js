@@ -386,7 +386,7 @@ App.prototype.fillForm = function (src, trg) {
 		function linStrategy_recalc() {
 			var fdata = {};
 			var inputs = trg.readData(["max_pos","cstep","neutral_pos"]);
-			var pos = pair.asset_balance - inputs.neutral_pos;
+			var pos = invSize(pair.asset_balance,pair.invert_price) - inputs.neutral_pos;
 			var k = inputs.cstep / (pair.price*pair.price * 0.01);
 			var mp = pos/k + pair.price;
 			var lp = mp-inputs.max_pos/k;
@@ -439,14 +439,24 @@ App.prototype.fillForm = function (src, trg) {
 			var ea = inputs.external_assets;
 			var data = {};
 			var a = pair.asset_balance+ea;
-			if (inputs.strategy == "halfhalf") {
+			if (inputs.strategy == "halfhalf") {				
 				var s = a * p - pair.currency_balance;				
-				data.halfhalf_max_price = ea <= 0?"∞":adjNum(p*a*a/(ea*ea));
-				data.halfhalf_min_price = adjNum(s <0?0:(s/a)*(s/a)/p);
+				if (pair.invert_price) {
+					data.halfhalf_max_price = adjNum(s <0?"∞":p/((s/a)*(s/a)));
+					data.halfhalf_min_price = ea <= 0?0:adjNum((ea*ea)/(p*a*a));
+				} else {
+					data.halfhalf_max_price = ea <= 0?"∞":adjNum(p*a*a/(ea*ea));
+					data.halfhalf_min_price = adjNum(s <0?0:(s/a)*(s/a)/p);
+				}
 			} else {
 				var k = p*a;
-				data.halfhalf_min_price = adjNum(p*Math.exp(-pair.currency_balance/k));
-				data.halfhalf_max_price = ea > 0?adjNum(k/ea):"∞";
+				if (pair.invert_price) {
+				    data.halfhalf_min_price = ea > 0?adjNum(ea/k):0;
+				    data.halfhalf_max_price = adjNum(1.0/(p*Math.exp(-pair.currency_balance/k)));
+				} else {
+				    data.halfhalf_min_price = adjNum(p*Math.exp(-pair.currency_balance/k));
+				    data.halfhalf_max_price = ea > 0?adjNum(k/ea):"∞";
+				}
 			}
 
 			data.err_external_assets = {classList:{mark:!pair.leverage && !pair.invert_price && a <= 0}};
