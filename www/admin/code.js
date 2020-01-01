@@ -91,8 +91,9 @@ App.prototype.createTraderForm = function() {
 	var pl = form.findElements("goal_pl")[0];
 	form.dlgRules = function() {
 		var state = this.readData(["strategy","advanced","check_unsupp"]);
-		this.showWithAnim("strategy_halfhalf",state.strategy == "halfhalf" || state.strategy == "keepvalue");
-		this.showWithAnim("strategy_pl",state.strategy == "plfrompos");
+		form.showItem("strategy_halfhalf",state.strategy == "halfhalf" || state.strategy == "keepvalue");
+		form.showItem("strategy_pl",state.strategy == "plfrompos");
+		form.showItem("kv_valinc_h",state.strategy == "keepvalue");
 		form.setData({"help_goal":{"class":state.strategy}});
 		form.getRoot().classList.toggle("no_adv", !state["advanced"]);
 		form.getRoot().classList.toggle("no_experimental", !state["check_unsupp"]);
@@ -547,10 +548,12 @@ App.prototype.fillForm = function (src, trg) {
 	data.pl_baluse=50;
 	data.pl_redfact=50;
 	data.pl_redmode="fixed";
-
+	data.kv_valinc = 0;
+	
 	if (data.strategy == "halfhalf" || data.strategy == "keepvalue") {
 		data.acum_factor = filledval(defval(src.strategy.accum,0)*100,0);
 		data.external_assets = filledval(src.strategy.ea,0);
+		data.kv_valinc = filledval(src.strategy.valinc,0);
 	} else if (data.strategy == "plfrompos") {
 		data.pl_acum = filledval(defval(src.strategy.accum,0)*100,0);
 		data.neutral_pos = filledval(src.strategy.neutral_pos,0);		
@@ -658,6 +661,7 @@ App.prototype.saveForm = function(form, src) {
 	} else if (data.strategy == "halfhalf" || data.strategy == "keepvalue") {
 		trader.strategy.accum = data.acum_factor/100.0;
 		trader.strategy.ea = data.external_assets;
+		trader.strategy.valinc = data.kv_valinc;
 	}
 	trader.id = src.id;
 	trader.broker =src.broker;
@@ -1119,7 +1123,7 @@ App.prototype.save = function() {
 				})
 			} else {
 				fetch_error(e);
-			}pl
+			}
 			
 		}.bind(this));
 	}.bind(this), function(e) {

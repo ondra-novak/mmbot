@@ -67,9 +67,15 @@
 	<div class="label" data-name="strategy_fields[]"><span data-name="key"></span><input type="text" readonly="readonly" data-name="value"></div>
 	</x-section></div>
 </x-section>
-<x-section data-name="strategy_halfhalf" class="goal hidden" hidden="hidden"><x-section-caption>Half-Half/Keep Value</x-section-caption>
+<x-section data-name="strategy_halfhalf" class="goal" hidden="hidden"><x-section-caption>Half-Half/Keep Value</x-section-caption>
 <label><span>External assets <span class="tooltip">Amount of assets held outside of exchange. They are included into calculations.</span></span><input type="number" step="any" data-name="external_assets"></label>
 <label  class="adv"><span>Accumulation <span class="tooltip">Amount of the profit used to buy extra assets</span></span><x-slider data-name="acum_factor" data-min="0" data-max="100" data-mult="1"></x-slider></label>
+<label class="adv" data-name="kv_valinc_h"><span>Change kept value over time <span style="white-space: nowrap">(<span data-name="currency"></span> monthly)</span><span class="tooltip">
+This option is designed for regular investments. The value of held assets is increased monthly by a
+fixed constant. The robot is forced to buy assets, but if the price of assets rises faster, it can
+sell part of the assets and use the currency to buy assets at a better price. It is also possible
+to enter a negative value and then the value of the assets held will decrease and allow slower but more efficient sales.</span></span>
+<input type="number" step="any" data-name="kv_valinc"></label>
 <div class="warning" data-name="err_external_assets">Unable to trade - This strategy requies to fund account with some assets [<span data-name="asset"></span>].  You can also set the "external assets" field above <span data-name="external_assets_hint">0</span>. It is generally recommended to have ratio between the value of the assets [<span data-name="asset"></span>] (including external assets) and the currrency [<span data-name="currency"></span>] (including external currencies) at 1:1</div>
 <div class="warning" data-name="err_external_assets_margin">Unable to trade - This strategy needs to have a <b>long position</b> opened. You can also set external assets above <span data-name="external_assets_hint">0</span></div>
 <div class="warning" data-name="err_external_assets_inverse">Unable to trade - This strategy needs to have a <b>short position</b> opened. You can also set external assets above <span data-name="external_assets_hint">0</span></div>
@@ -79,7 +85,7 @@
 <div class="label"><span>Max price:</span><span data-name="halfhalf_max_price">---</span></div>
 </x-section>
 </x-section>
-<x-section data-name="strategy_pl" class="goal hidden" hidden="hidden"><x-section-caption>Linear</x-section-caption>
+<x-section data-name="strategy_pl" class="goal" hidden="hidden"><x-section-caption>Linear</x-section-caption>
 <label><span>Configuration mode</span><select name="pl_confmode"><option value="a">Automatic</option><option value="m">Manual</option></select></label>
 <label data-name="pl_mode_a"><span>Power (<span data-name="pl_show_factor"></span>x)<span class="tooltip">Specifies power of 10 multiplier of current balance used to automatically calculate the step (for 1% of movement). <br><br>Use <strong>0.5</strong> for <strong>cryptocurrencies</strong> <br>and values between <strong>3-4</strong> for <strong>Forex</strong></span></span><x-slider data-name="pl_power" data-min="0.01" data-max="5" data-mult="0.01" data-fixed="2"></x-slider></label>
 <label data-name="pl_mode_a" class="adv"><span>Balance to use</span><x-slider data-name="pl_baluse" data-min="1" data-max="100" data-mult="1" data-fixed="0"></x-slider></label>

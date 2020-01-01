@@ -7,6 +7,8 @@
 
 #ifndef SRC_MAIN_STRATEGY_KEEPVALUE_H_
 #define SRC_MAIN_STRATEGY_KEEPVALUE_H_
+#include <chrono>
+
 #include "istrategy.h"
 
 class Strategy_KeepValue: public IStrategy {
@@ -15,9 +17,18 @@ public:
 	struct Config {
 		double ea;
 		double accum;
+		double chngtm;
 	};
 
-	Strategy_KeepValue(const Config &cfg, double p = 0, double a = 0);
+
+	struct State {
+			bool valid = false;
+			double p = 0;
+			double a = 0;
+			std::chrono::system_clock::time_point lt;
+		};
+
+	Strategy_KeepValue(const Config &cfg, State &&st);
 
 	virtual bool isValid() const override;
 	virtual PStrategy  onIdle(const IStockApi::MarketInfo &minfo, const IStockApi::Ticker &curTicker, double assets, double currency) const override;
@@ -35,8 +46,9 @@ public:
 
 protected:
 	Config cfg;
-	double p;
-	double a;
+	State st;
+
+	double calcK() const;
 };
 
 

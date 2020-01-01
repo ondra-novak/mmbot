@@ -45,7 +45,8 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 		Strategy_KeepValue::Config cfg;
 		cfg.ea = config["ea"].getNumber();
 		cfg.accum = config["accum"].getNumber();
-		return Strategy(new Strategy_KeepValue(cfg));
+		cfg.chngtm = config["valinc"].getNumber();
+		return Strategy(new Strategy_KeepValue(cfg,{}));
 	} else {
 		throw std::runtime_error(std::string("Unknown strategy: ").append(id));
 	}
