@@ -22,7 +22,7 @@ Strategy_KeepValue::Strategy_KeepValue(const Config &cfg, State &&st)
 
 
 bool Strategy_KeepValue::isValid() const {
-	return st.valid && st.p >0 && (st.a+cfg.ea) > 0;
+	return st.valid && calcK() > 0;
 }
 
 double Strategy_KeepValue::calcK() const {

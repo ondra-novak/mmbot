@@ -529,7 +529,7 @@ MTrader::Order MTrader::calculateOrderFeeLess(
 		}
 
 		if (order.size == 0) {
-			logDebug("Calc order: size = 0, sz = $1, prevsz = $2, cnt = $3, m = $4", sz, prevSz, cnt, m);
+			logDebug("Calc order: size = 0, sz = $1, prevsz = $2, cnt = $3, m = $4, op=$5, np=$6", sz, prevSz, cnt, m, order.price, newPrice);
 		}
 
 		cnt++;
