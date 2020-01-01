@@ -30,7 +30,7 @@ double Strategy_KeepValue::calcK() const {
 	double tm = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now() - st.lt).count();
 	static double month_sec = 24*60*60*30;
 	double f = tm / month_sec;
-	return k + cfg.chngtm * f;
+	return std::max(k + cfg.chngtm * f,0.0);
 
 }
 
