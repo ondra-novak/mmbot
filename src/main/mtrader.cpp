@@ -223,6 +223,7 @@ void MTrader::perform(bool manually) {
 						}
 					} catch (std::exception &e) {
 						buy_order_error = e.what();
+						orders.buy = buyorder;
 						acceptLoss(status, 1);
 					}
 					try {
@@ -234,6 +235,7 @@ void MTrader::perform(bool manually) {
 						}
 					} catch (std::exception &e) {
 						sell_order_error = e.what();
+						orders.sell = sellorder;
 						acceptLoss(status,-1);
 					}
 
