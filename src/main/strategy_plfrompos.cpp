@@ -90,8 +90,6 @@ double Strategy_PLFromPos::calcNewPos(const IStockApi::MarketInfo &minfo, double
 	double ap = std::abs(np);
 	//if new position is reduced, but not reversed
 	if (ap < std::abs(pos) && np * pos > 0) {
-		//don't reduce, if max pos reached
-		if (std::abs(pos) <= maxpos) {
 			//Negative reduce factor is used differently - it specifies directly percent of size of normal order
 			//so first we treat this as 100% reduction
 			double reduce_factor = cfg.reduce_factor>=0?cfg.reduce_factor:1.0;
@@ -123,13 +121,9 @@ double Strategy_PLFromPos::calcNewPos(const IStockApi::MarketInfo &minfo, double
 				logDebug("Reduction of position: np=$1, nnp=$2, s=$3, val=$4", np, nnp, s, pow2(pos)/(k*2));
 				np = nnp;
 			} //otherwise stick with original np
-		}
-	} else {
-		//adjust np, if max position has been reached
-		if (std::fabs(pos) >= maxpos) {
-			//minimum step
-			return std::numeric_limits<double>::signaling_NaN();
-		}
+	} else if (std::fabs(pos) >= maxpos) {
+			//in this case, doesn't change position - however getNewOrder will increase by step
+			np = pos;
 	}
 	return posToAssets(minfo,np);
 }
@@ -160,8 +154,7 @@ std::pair<Strategy_PLFromPos::OnTradeResult, PStrategy> Strategy_PLFromPos::onTr
 	double k = calcK();
 	double act_pos = assetsToPos(minfo,assetsLeft);
 	double prev_pos = act_pos - tradeSize;
-	double exp_pos = calcNewPos(minfo,tradePrice);
-	double new_pos = tradeSize && !std::isnan(exp_pos)?exp_pos:prev_pos;
+	double new_pos = calcNewPos(minfo,tradePrice);
 	//realised profit/loss
 	double rpl = prev_pos * (tradePrice - st.p);
 	//position potential value (pos^2 / (2*k) - surface of a triangle)
@@ -174,7 +167,7 @@ std::pair<Strategy_PLFromPos::OnTradeResult, PStrategy> Strategy_PLFromPos::onTr
 	double np = ef * (1 - cfg.accum);
 	//normalized accumulated
 	double ap = (ef * cfg.accum)/tradePrice;
-	double p0 = new_pos/k + tradePrice;
+	double p0 = new_pos/reducedK(k) + tradePrice;
 
 	newst.acm  = st.acm + ap;
 	newst.p = tradePrice;
@@ -231,15 +224,14 @@ Strategy_PLFromPos::OrderData Strategy_PLFromPos::getNewOrder(
 		const IStockApi::MarketInfo &minfo,
 		double cur_price, double new_price, double dir, double assets, double currency) const {
 	double pos = assetsToPos(minfo, st.a);
-	double new_pos = calcNewPos(minfo, new_price);
 	if (cfg.maxpos && (pos < -cfg.maxpos || pos > cfg.maxpos)) {
 		float f = pow2(cfg.maxpos/pos)*0.5;
 		new_price = st.p * (1-f) + new_price * f;
 	}
+	double new_pos = calcNewPos(minfo, new_price);
 	double sz = calcOrderSize(st.a, assets, new_pos);
-	if (std::isnan(sz)) {
-		sz = dir*std::max(minfo.min_size*1.5, (minfo.min_volume/cur_price)*1.5);
-	}
+	double minsz = std::max(minfo.min_size*1.5, (minfo.min_volume/cur_price)*1.5);
+	if (dir*sz < minsz) sz = dir * minsz;
 	return OrderData {new_price, sz};
 }
 

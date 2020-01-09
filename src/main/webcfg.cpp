@@ -122,70 +122,68 @@ bool WebCfg::reqConfig(simpleServer::HTTPRequest req) const {
 		RefCntPtr<State> state = this->state;
 
 
-			state->lock.lock();
-			req.readBodyAsync(1024*1024, [state,&traders,dispatch = this->dispatch](simpleServer::HTTPRequest req) mutable {
-				try {
-					Sync _(state->lock);
-					state->lock.unlock();
+		req.readBodyAsync(1024*1024, [state,&traders,dispatch = this->dispatch](simpleServer::HTTPRequest req) mutable {
+			try {
+				Sync _(state->lock);
 
-					Value data = Value::fromString(StrViewA(BinaryView(req.getUserBuffer())));
-					unsigned int serial = data["revision"].getUInt();
-					if (serial != state->write_serial) {
-						req.sendErrorPage(409);
-						return ;
+				Value data = Value::fromString(StrViewA(BinaryView(req.getUserBuffer())));
+				unsigned int serial = data["revision"].getUInt();
+				if (serial != state->write_serial) {
+					req.sendErrorPage(409);
+					return ;
+				}
+				data = hashPswds(data);
+				Value trs = data["traders"];
+				for (Value v: trs) {
+					StrViewA name = v.getKey();
+					try {
+						MTrader_Config().loadConfig(v,false);
+					} catch (std::exception &e) {
+						std::string msg(name.data,name.length);
+						msg.append(" - ");
+						msg.append(e.what());
+						req.sendErrorPage(406, StrViewA(), msg);
+						return;
 					}
-					data = hashPswds(data);
-					Value trs = data["traders"];
-					for (Value v: trs) {
-						StrViewA name = v.getKey();
-						try {
-							MTrader_Config().loadConfig(v,false);
-						} catch (std::exception &e) {
-							std::string msg(name.data,name.length);
-							msg.append(" - ");
-							msg.append(e.what());
-							req.sendErrorPage(406, StrViewA(), msg);
-							return;
-						}
-					}
-					data = data.replace("revision", state->write_serial+1);
-					data = data.replace("brokers", state->broker_config);
-					Value apikeys = data["apikeys"];
-					state->config->store(data.replace("apikeys", Value()));
-					state->write_serial = serial+1;;
+				}
+				data = data.replace("revision", state->write_serial+1);
+				data = data.replace("brokers", state->broker_config);
+				Value apikeys = data["apikeys"];
+				state->config->store(data.replace("apikeys", Value()));
+				state->write_serial = serial+1;;
 
-					dispatch([&traders, state, req, data, apikeys] {
-						try {
-							state->applyConfig(traders);
-							if (apikeys.type() == json::object) {
-								for (Value v: apikeys) {
-									StrViewA broker = v.getKey();
-									IStockApi *b = traders.stockSelector.getStock(broker);
-									if (b) {
-										IApiKey *apik = dynamic_cast<IApiKey *>(b);
-										apik->setApiKey(v);
-									}
+				dispatch([&traders, state, req, data, apikeys] {
+					try {
+						state->applyConfig(traders);
+						if (apikeys.type() == json::object) {
+							for (Value v: apikeys) {
+								StrViewA broker = v.getKey();
+								IStockApi *b = traders.stockSelector.getStock(broker);
+								if (b) {
+									IApiKey *apik = dynamic_cast<IApiKey *>(b);
+									apik->setApiKey(v);
 								}
 							}
-						} catch (std::exception &e) {
-							req.sendErrorPage(500,StrViewA(),e.what());
-							return;
 						}
-						try {
-							req.sendResponse(HTTPResponse(202).contentType("application/json"),data.stringify());
-							traders.runTraders(true);
-							traders.rpt.genReport();
-						} catch (std::exception &e) {
-							logError("%1", e.what());
-						}
-					});
+					} catch (std::exception &e) {
+						req.sendErrorPage(500,StrViewA(),e.what());
+						return;
+					}
+					try {
+						req.sendResponse(HTTPResponse(202).contentType("application/json"),data.stringify());
+						traders.runTraders(true);
+						traders.rpt.genReport();
+					} catch (std::exception &e) {
+						logError("%1", e.what());
+					}
+				});
 
 
-				} catch (std::exception &e) {
-					req.sendErrorPage(500,StrViewA(),e.what());
-				}
+			} catch (std::exception &e) {
+				req.sendErrorPage(500,StrViewA(),e.what());
+			}
 
-			});
+		});
 
 
 	}
