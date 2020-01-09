@@ -320,7 +320,7 @@ json::Value AbstractExtern::jsonExchange(json::Value request) {
 		spawn();
 	}
 	bool verbose = log.isLogLevelEnabled(ondra_shared::LogLevel::debug);
-	if (verbose) log.debug("SEND: $1", request.toString());
+	if (verbose) log.debug("SEND: $1", request.toString().substr(0,512));
 	if (writeJSON(request, extin) == false) {
 		kill();
 	}
@@ -363,7 +363,7 @@ json::Value AbstractExtern::jsonExchange(json::Value request) {
 			}
 			if (fds[0].revents) {
 					auto ret = readJSON(extout);
-					if (verbose) log.debug("RECV: $1", ret.toString());
+					if (verbose) log.debug("RECV: $1", ret.toString().substr(0,512));
 					return ret;
 
 			}
