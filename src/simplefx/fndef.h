@@ -37,5 +37,14 @@ using OnPriceChange = std::function<bool(const IStockApi::Ticker &price)>;
  */
 using RegisterPriceChangeEvent = std::function<void(OnPriceChange &&cb)>;
 
+enum class SettlementMode {
+	///no settlement
+	none,
+	///settlement is active (manually activated)
+	active,
+	///settlement is active on friday before the market is closed
+	friday
+};
+
 
 #endif /* SRC_SIMPLEFX_FNDEF_H_ */

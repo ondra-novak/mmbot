@@ -14,6 +14,8 @@
 #include "../shared/logOutput.h"
 
 using ondra_shared::logDebug;
+using ondra_shared::logError;
+using ondra_shared::logNote;
 using ondra_shared::logWarning;
 
 TradingEngine::TradingEngine(Command &&cmdFn)
@@ -114,6 +116,12 @@ void TradingEngine::cancelOrder(std::string id) {
 	}
 }
 
+void TradingEngine::executeTrade(double volume) {
+	double execprice = cmdFn(volume);
+	logDebug("Executed total $1 at price $2", volume, execprice);
+	trades.push_back(Trade { UIDToString(uidcnt++), execprice, volume, now() });
+}
+
 void TradingEngine::onPriceChange(const IStockApi::Ticker &price) {
 
 	ticker.ask = std::min(maxPrice, price.ask);
@@ -137,14 +145,7 @@ void TradingEngine::onPriceChange(const IStockApi::Ticker &price) {
 			}
 		}
 		if (volume) {
-			double execprice = cmdFn(volume);
-			logDebug("Executed total $1 at price $2", volume, execprice);
-			trades.push_back(Trade {
-				UIDToString(uidcnt++),
-				execprice,
-				volume,
-				now()
-			});
+			executeTrade(volume);
 		}
 		std::swap(pending, orders);
 		updateMinMaxPrice();
@@ -181,4 +182,11 @@ std::uint64_t TradingEngine::now() {
 void TradingEngine::runQuotes() const {
 	if (quotesStopped) startListenPrices();
 	quoteStop = now()+(5*60000);
+}
+
+void TradingEngine::runSettlement(double amount) {
+	Sync _(lock);
+	logNote("Settlement $1", amount);
+	orders.clear();
+	executeTrade(amount);
 }

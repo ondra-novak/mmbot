@@ -33,6 +33,7 @@ public:
 	void stop();
 	std::string placeOrder(double price, double size, json::Value userId, const std::string *replace = nullptr);
 	void cancelOrder(std::string id);
+	void runSettlement(double amount);
 
 	std::string readTrades(const std::string &fromId, std::function<void(IStockApi::Trade)> &&cb);
 	void readOrders(std::function<void(IStockApi::Order)> &&cb);
@@ -79,7 +80,7 @@ protected:
 	mutable std::uint64_t quoteStop = 0;
 	mutable bool quotesStopped = true;
 	void runQuotes() const;
-
+	void executeTrade(double volume);
 };
 
 
