@@ -57,6 +57,7 @@ public:
 		rpt.clear(name);
 	}
 	virtual void reportPerformance(const PerformanceReport &repItem) override {
+		Report::Sync _(rpt.report_lock());
 		if (perfmod) perfmod->sendItem(repItem);
 	}
 

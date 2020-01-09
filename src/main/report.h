@@ -26,11 +26,14 @@ namespace json {
 }
 
 class Report {
+
+
 public:
 	using StoragePtr = PStorage;
 	using MiscData = IStatSvc::MiscData;
 	using ErrorObj = IStatSvc::ErrorObj;
 	using InfoObj = IStatSvc::Info;
+	using Sync = std::unique_lock<std::recursive_mutex>;
 
 	Report(StoragePtr &&report, std::size_t interval_in_ms)
 		:report(std::move(report)),interval_in_ms(interval_in_ms)
@@ -57,6 +60,7 @@ public:
 	virtual void setError(StrViewA symb, const ErrorObj &errorObj);
 
 	ondra_shared::PStdLogProviderFactory captureLog(ondra_shared::PStdLogProviderFactory target);
+	Sync report_lock() const {return Sync(lock);}
 
 protected:
 
@@ -92,6 +96,7 @@ protected:
 	json::Value perfRep;
 
 	StoragePtr report;
+	mutable std::recursive_mutex lock;
 
 
 	void exportCharts(json::Object&& out);
@@ -105,6 +110,7 @@ protected:
 
 
 	static std::size_t initCounter();
+
 
 
 };

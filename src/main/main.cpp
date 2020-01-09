@@ -30,6 +30,7 @@
 #include <random>
 
 #include "../imtjson/src/imtjson/binary.h"
+#include "../server/src/simpleServer/threadPoolAsync.h"
 #include "ext_storage.h"
 #include "extdailyperfmod.h"
 #include "localdailyperfmod.h"
@@ -248,6 +249,11 @@ int main(int argc, char **argv) {
 						auto rptinterval = rptsect["interval"].getUInt(864000000);
 						auto dr = rptsect["report_broker"];
 						auto isim = rptsect["include_simulators"].getBool(false);
+						auto threads = servicesection["thread_pool"].getInt(0);
+						auto asyncProvider = simpleServer::ThreadPoolAsync::create(std::max<int>(threads,1),1);
+						Worker traderWorker;
+
+						if (threads>1) traderWorker = asyncProvider;
 
 
 						PStorageFactory sf;
@@ -284,8 +290,9 @@ int main(int argc, char **argv) {
 
 						Worker wrk = schedulerGetWorker(sch);
 
+
 						traders = std::make_unique<Traders>(
-								sch,app.config["brokers"], app.test,sf,rpt,*perfmod, rptpath
+								sch,app.config["brokers"], app.test,sf,rpt,*perfmod, rptpath, traderWorker
 						);
 
 						RefCntPtr<AuthUserList> aul;
@@ -316,7 +323,7 @@ int main(int argc, char **argv) {
 						}
 
 						if (addr.getHandle() != nullptr) {
-							srv = std::make_unique<simpleServer::MiniHttpServer>(addr, 1, 1);
+							srv = std::make_unique<simpleServer::MiniHttpServer>(addr, asyncProvider);
 
 
 							std::vector<simpleServer::HttpStaticPathMapper::MapRecord> paths;
@@ -343,7 +350,7 @@ int main(int argc, char **argv) {
 								return 1;
 							} else {
 								StockSelector ss;
-								ss.loadStockMarkets(app.config["brokers"], true);
+								ss.loadBrokers(app.config["brokers"], true);
 								IStockApi *stock = ss.getStock(args[0]);
 								if (stock) {
 									for (auto &&k : stock->getAllPairs()) {

@@ -10,7 +10,10 @@
 
 #include "traders.h"
 
+#include "../shared/countdown.h"
 #include "ext_stockapi.h"
+
+using ondra_shared::Countdown;
 NamedMTrader::NamedMTrader(IStockSelector &sel, StoragePtr &&storage, PStatSvc statsvc, Config cfg, std::string &&name)
 		:MTrader(sel, std::move(storage), std::move(statsvc), cfg), ident(std::move(name)) {
 }
@@ -29,7 +32,7 @@ void NamedMTrader::perform(bool manually) {
 
 
 
-void StockSelector::loadStockMarkets(const ondra_shared::IniConfig::Section &ini, bool test) {
+void StockSelector::loadBrokers(const ondra_shared::IniConfig::Section &ini, bool test) {
 	std::vector<StockMarketMap::value_type> data;
 	for (auto &&def: ini) {
 		ondra_shared::StrViewA name = def.first;
@@ -65,7 +68,8 @@ Traders::Traders(ondra_shared::Scheduler sch,
 		PStorageFactory &sf,
 		Report &rpt,
 		IDailyPerfModule &perfMod,
-		std::string iconPath)
+		std::string iconPath,
+		Worker worker)
 
 :
 test(test)
@@ -73,8 +77,9 @@ test(test)
 ,rpt(rpt)
 ,perfMod(perfMod)
 ,iconPath(iconPath)
+,worker(worker)
 {
-	stockSelector.loadStockMarkets(ini, test);
+	stockSelector.loadBrokers(ini, test);
 }
 
 void Traders::clear() {
@@ -124,19 +129,43 @@ void Traders::removeTrader(ondra_shared::StrViewA n, bool including_state) {
 	}
 }
 
+static void resetBroker(IStockApi &api) {
+	AbstractExtern *extr = dynamic_cast<AbstractExtern *>(&api);
+	if (extr) extr->housekeeping(5);
+	api.reset();
+}
+
 void Traders::resetBrokers() {
 	stockSelector.forEachStock([](json::StrViewA, IStockApi&api) {
-		AbstractExtern *extr = dynamic_cast<AbstractExtern *>(&api);
-		if (extr) extr->housekeeping(5);
-		api.reset();
+		resetBroker(api);
 	});
 }
 
 void Traders::runTraders(bool manually) {
-	resetBrokers();
 
-	for (auto &&t : traders) {
-		t.second->perform(manually);
+	if (worker.defined()) {
+		Countdown cdn;
+		stockSelector.forEachStock([&cdn,worker=this->worker](json::StrViewA, IStockApi&api) {
+			cdn.inc();
+			worker >> [&cdn,&api] {
+				resetBroker(api);
+				cdn.dec();
+			};
+		});
+		for (auto &&t : traders) {
+			NamedMTrader *nt = t.second.get();
+			cdn.inc();
+			worker >> [nt,manually,&cdn] {
+				try {nt->perform(manually);} catch (...) {}
+				cdn.dec();
+			};
+		}
+		cdn.wait();
+	} else {
+		resetBrokers();
+		for (auto &&t : traders) {
+			t.second->perform(manually);
+		}
 	}
 }
 

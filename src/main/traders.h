@@ -8,9 +8,12 @@
 #ifndef SRC_MAIN_TRADERS_H_
 #define SRC_MAIN_TRADERS_H_
 #include "../shared/scheduler.h"
+#include "../shared/worker.h"
 #include "istockapi.h"
 #include "mtrader.h"
 #include "stats2report.h"
+
+using ondra_shared::Worker;
 
 
 using StatsSvc = Stats2Report;
@@ -30,7 +33,7 @@ public:
 
 	StockMarketMap stock_markets;
 
-	void loadStockMarkets(const ondra_shared::IniConfig::Section &ini, bool test);
+	void loadBrokers(const ondra_shared::IniConfig::Section &ini, bool test);
 	virtual IStockApi *getStock(const std::string_view &stockName) const override;
 //	void addStockMarket(ondra_shared::StrViewA name, PStockApi &&market);
 	virtual void forEachStock(EnumFn fn)  const override;
@@ -49,6 +52,7 @@ public:
 	Report &rpt;
 	IDailyPerfModule &perfMod;
 	std::string iconPath;
+	Worker worker;
 
 	Traders(ondra_shared::Scheduler sch,
 			const ondra_shared::IniConfig::Section &ini,
@@ -56,7 +60,8 @@ public:
 			PStorageFactory &sf,
 			Report &rpt,
 			IDailyPerfModule &perfMod,
-			std::string iconPath);
+			std::string iconPath,
+			Worker worker);
 	Traders(const Traders &&other) = delete;
 	void clear();
 
