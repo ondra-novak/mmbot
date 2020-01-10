@@ -156,13 +156,13 @@ and save
 su <user> -c "/home/<user>/mmbot/bin/mmbot start"
 ```
 
-## How to set server and use https on your web domain
+## Set server for using https on your web domain
 This tutorial is written for Ubuntu 18.04
 
 ### What do you need:
 
-1. web server soft - for this purpose we used nginx
-2. Your domain
+1. web server software - for this purpose we used nginx
+2. your domain
 3. certbot - for creating certificate etc.
 
 ### Install and setting web server nginx
@@ -209,7 +209,7 @@ nano default
 
 Examples above means - you move to folder sites-enabled and run file default with any editor you like for example vim or nano.
 
-Inside the default file you wil find some text for us is important this part:
+Inside the default file you will find some text for us is important this part:
 
 ```
 location / {
@@ -218,13 +218,45 @@ location / {
     try files $uri $uri/ =404;
  }
 ```
-This part you have to change for location of your mmbot socket:
+This part you have to change for location of your mmbot socket as:
 
 ```
 location / {
     proxy_pass http://unix:/home/your_user/mmbot/run/mmbot.socket:/;
  }
 ```
+With this settings location in nginx we will connect mmbot and nginx. When you edit file default save it.
+
+
+It is goof practice to check if everything was done succesful.
+
+You can check it as root by this command:
+```
+nginx -t
+```
+If everything alright you should get this message:
+```
+nginx: the configuration file /etc/nginx/nginx.conf syntax is ok
+nginx: configuration file /etc/nginx/nginx.conf test is successful
+```
+Finally reload your nginx:
+```
+service nginx reload
+```
+
+At this moment nginx is set up for mmbot you can check it when you write IP of your server to your browser, you should get mmbot service. Now you can closed your port.
+Just restart your mmbot without specific port to close the port:
+```
+your_user@name_your_server:~/mmbot$ bin/mmbot restart
+```
+
+Congratulations ! Your nginx is done with mmbot.
+
+
+
+
+
+
 
 
 
