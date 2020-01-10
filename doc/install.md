@@ -198,5 +198,33 @@ This file you should find in path:
 ```
 /etc/nginx/sites-enabled/default
 ```
+File default we have to edit, below is just exmaple how could you edit the file:
+```
+vim default
+```
+or
+```
+nano default
+```
+
+Examples above means - you move to folder sites-enabled and run file default with any editor you like for example vim or nano.
+
+Inside the default file you wil find some text for us is important this part:
+
+```
+location / {
+    # First attempt to serve request as file, then
+    # as directory, then fall back displaying a 404.
+    try files $uri $uri/ =404;
+ }
+```
+This part you have to change for location of your mmbot socket:
+
+```
+location / {
+    proxy_pass http://unix:/home/your_user/mmbot/run/mmbot.socket:/;
+ }
+```
+
 
 
