@@ -156,4 +156,47 @@ and save
 su <user> -c "/home/<user>/mmbot/bin/mmbot start"
 ```
 
+## How to set server and use https on your web domain
+This tutorial is written for Ubuntu 18.04
+
+### What do you need:
+
+1. web server soft - for this purpose we used nginx
+2. Your domain
+3. certbot - for creating certificate etc.
+
+### Install and setting web server nginx
+
+It is recommended to upgrade your system.
+
+So update your list:
+
+```
+sudo apt-get update
+```
+
+after updating info about packages let's upgrade them:
+
+```
+sudo apt-get upgrade
+```
+
+then install nginx:
+
+```
+sudo apt install nginx
+```
+
+Done!
+
+So far you have to run your bot on some port. With nginx server you can run on IPv4 adress of your server directly, but we have to set in nginx the location of running socket.
+
+For setting the location of mmbot socket you have to edit file default.
+
+This file you should find in path:
+
+```
+/etc/nginx/sites-enabled/default
+```
+
 
