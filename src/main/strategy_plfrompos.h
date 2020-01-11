@@ -19,6 +19,11 @@ public:
 	};
 
 
+	enum ReduceMode {
+		reduceFromProfit,
+		fixedReduce,
+		neutralMove
+	};
 
 	struct Config {
 		double step;
@@ -28,7 +33,7 @@ public:
 		double reduce_factor;
 		double power;
 		double baltouse;
-		bool fixed_reduce;
+		ReduceMode reduceMode;
 
 	};
 

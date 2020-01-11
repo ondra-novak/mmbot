@@ -560,7 +560,8 @@ App.prototype.fillForm = function (src, trg) {
 		data.cstep = filledval(src.strategy.cstep,0);
 		data.max_pos = filledval(src.strategy.maxpos,0);
 		data.pl_redfact = filledval(defval(Math.abs(src.strategy.reduce_factor),0.5)*100,50);
-		data.pl_redmode = filledval(defval(src.strategy.fixed_reduce,src.strategy.reduce_factor<0)?"fixed":"rp");
+		if (src.strategy.fixed_reduce) data.pl_redmode = "fixed";
+		else data.pl_redmode = filledval(src.strategy.reduce_mode, "fixed");		
 		data.pl_baluse = filledval(defval(src.strategy.balance_use,1)*100,100);
 		data.pl_confmode= filledval(src.strategy.power?"a":"m", "a");
 		data.pl_power=filledval(src.strategy.power?src.strategy.power:1,1);
@@ -655,7 +656,7 @@ App.prototype.saveForm = function(form, src) {
 		trader.strategy.neutral_pos = data.neutral_pos;
 		trader.strategy.maxpos = data.max_pos;
 		trader.strategy.reduce_factor = data.pl_redfact/100;
-		trader.strategy.fixed_reduce = data.pl_redmode=="fixed";
+		trader.strategy.reduce_mode = data.pl_redmode;
 		trader.strategy.balance_use = data.pl_baluse/100;
 		trader.strategy.power = data.pl_confmode=="a"?data.pl_power:0;
 	} else if (data.strategy == "halfhalf" || data.strategy == "keepvalue") {

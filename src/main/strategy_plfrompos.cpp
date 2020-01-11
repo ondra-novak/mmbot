@@ -36,7 +36,7 @@ double Strategy_PLFromPos::calcK() const {
 }
 
 double Strategy_PLFromPos::reducedK(double k) const {
-	if (cfg.fixed_reduce) k = k * (1+cfg.reduce_factor);
+	if (cfg.reduceMode == fixedReduce) k = k * (1+cfg.reduce_factor);
 	return k;
 }
 
@@ -84,12 +84,15 @@ double Strategy_PLFromPos::calcNewPos(const IStockApi::MarketInfo &minfo, double
 	double p = st.p;
 	if (k == 0) return 0;
 
+
+
 	//calculate new position on new price
 	double np = pos + (p - tradePrice) * k;
 	//get absolute value of the position
 	double ap = std::abs(np);
 	//if new position is reduced, but not reversed
-	if (ap < std::abs(pos) && np * pos > 0) {
+	bool lower = ap < std::abs(pos);
+	if ((lower || cfg.reduceMode == neutralMove) && np * pos > 0) {
 			//Negative reduce factor is used differently - it specifies directly percent of size of normal order
 			//so first we treat this as 100% reduction
 			double reduce_factor = cfg.reduce_factor>=0?cfg.reduce_factor:1.0;
@@ -110,15 +113,21 @@ double Strategy_PLFromPos::calcNewPos(const IStockApi::MarketInfo &minfo, double
 			//if result is non-negative
 			if (np2 > 0) {
 				double nnp;
-				//for negative reduce factor
-				if (cfg.fixed_reduce) {
-					//use value to calculate increase of position reduction directly
-					nnp = pos + (np - pos) * (1 + cfg.reduce_factor);
-				} else {
-					//calculate new positon by sqrt(np2) and adding signature
-					nnp = sgn(np) * sqrt(np2);
+				switch (cfg.reduceMode) {
+				case fixedReduce: 	nnp = pos + (np - pos) * (1 + cfg.reduce_factor); break;
+				case reduceFromProfit: nnp = sgn(np) * sqrt(np2); break;
+				case neutralMove: {
+					double neutral_price = pos/k+p;
+					double c = cfg.reduce_factor*0.1;
+					double r = (lower?c-1.0:1);
+					double new_neutral_price = neutral_price+(tradePrice-neutral_price)*c*r;
+					nnp = k * (new_neutral_price - tradePrice);
+					logDebug("Reduction of position: r=$3, nprice=$1, nnprice=$2", neutral_price, new_neutral_price, r*c);
+					break;
+					}
+
 				}
-				logDebug("Reduction of position: np=$1, nnp=$2, s=$3, val=$4", np, nnp, s, pow2(pos)/(k*2));
+				logDebug("Reduction of position: np=$1, nnp=$2, s=$3, val=$4", np, nnp, s, pow2(nnp)/(k*2));
 				np = nnp;
 			} //otherwise stick with original np
 	} else if (std::fabs(pos) >= maxpos) {

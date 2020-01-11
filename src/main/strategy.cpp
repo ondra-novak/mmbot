@@ -21,6 +21,13 @@ static json::NamedEnum<Strategy_PLFromPos::CloseMode> strCloseMode ({
 		{Strategy_PLFromPos::prefer_reverse,"prefer_reverse"}
 });
 
+static json::NamedEnum<Strategy_PLFromPos::ReduceMode> strReduceMode ({
+		{Strategy_PLFromPos::reduceFromProfit,"rp"},
+		{Strategy_PLFromPos::reduceFromProfit,""},
+		{Strategy_PLFromPos::fixedReduce,"fixed"},
+		{Strategy_PLFromPos::neutralMove,"npmove"}
+});
+
 using ondra_shared::StrViewA;
 Strategy Strategy::create(std::string_view id, json::Value config) {
 
@@ -32,7 +39,11 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 		cfg.maxpos = config["maxpos"].getNumber();
 		cfg.reduce_factor = config["reduce_factor"].getNumber();
 		cfg.power= config["power"].getNumber();
-		cfg.fixed_reduce= config["fixed_reduce"].getBool() || cfg.reduce_factor < 0;
+		if (config["fixed_reduce"].getBool() || cfg.reduce_factor < 0) {
+			cfg.reduceMode = Strategy_PLFromPos::fixedReduce;
+		} else {
+			cfg.reduceMode = strReduceMode[config["reduce_mode"].getString()];
+		}
 		cfg.reduce_factor = std::abs(cfg.reduce_factor);
 		cfg.baltouse= config["balance_use"].defined()?config["balance_use"].getNumber():1;
 		return Strategy(new Strategy_PLFromPos(cfg,{}));

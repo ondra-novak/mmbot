@@ -100,9 +100,13 @@ doesn't work as stoploss, because position can still grow beyoind the limit, but
 >How much assets are considered as neutral position.</span></span><input data-name="neutral_pos" type="number" step="any">
 </label>
 <div class="adv label ttb"><span><select data-name="pl_redmode">
+		<option value="npmove">Sliding zero [‰]</option>
 		<option value="fixed">Fixed reduction [%]</option>
-		<option value="rp">RP reduction (old) [%]</option></select><br>
+		<option value="rp">RP reduction  [%]</option></select><br>
 		<span class="tooltip">Specifies factor of position reduction.<br><br>
+		<strong>Sliding zero</strong> - Absolute position is calculated using
+		difference between current price and neutral price. The neutral price is slightly sliding towards to current price after each trade.
+		The value specifies amount of move per trade in per mille<br><br>
 		<strong>Fixed</strong> - position is reduces by a fixed amount, which
 		decreases profit (and turns to potential loss) with raise of the position.<br><br> 
 		
