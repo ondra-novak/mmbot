@@ -114,20 +114,23 @@ double Strategy_PLFromPos::calcNewPos(const IStockApi::MarketInfo &minfo, double
 			if (np2 > 0) {
 				double nnp;
 				switch (cfg.reduceMode) {
-				case fixedReduce: 	nnp = pos + (np - pos) * (1 + cfg.reduce_factor); break;
-				case reduceFromProfit: nnp = sgn(np) * sqrt(np2); break;
+				case fixedReduce: 	nnp = pos + (np - pos) * (1 + cfg.reduce_factor);
+					logDebug("Reduction of position: np=$1, nnp=$2, inc = $3", np, nnp, nnp - np);
+					break;
+				case reduceFromProfit: nnp = sgn(np) * sqrt(np2);
+					logDebug("Reduction of position: np=$1, nnp=$2, s=$3, val=$4", np, nnp, s, pow2(nnp)/(k*2));
+				break;
 				case neutralMove: {
 					double neutral_price = pos/k+p;
 					double c = cfg.reduce_factor*0.1;
 					double r = (lower?c-1.0:1);
 					double new_neutral_price = neutral_price+(tradePrice-neutral_price)*c*r;
 					nnp = k * (new_neutral_price - tradePrice);
-					logDebug("Reduction of position: r=$3, nprice=$1, nnprice=$2", neutral_price, new_neutral_price, r*c);
+					logDebug("Reduction of position: r=$3, nprice=$1, nnprice=$2, orig_order=$4, red_order=$5,", neutral_price, new_neutral_price, r*c, np-pos, nnp-pos);
 					break;
 					}
 
 				}
-				logDebug("Reduction of position: np=$1, nnp=$2, s=$3, val=$4", np, nnp, s, pow2(nnp)/(k*2));
 				np = nnp;
 			} //otherwise stick with original np
 	} else if (std::fabs(pos) >= maxpos) {
@@ -233,14 +236,19 @@ Strategy_PLFromPos::OrderData Strategy_PLFromPos::getNewOrder(
 		const IStockApi::MarketInfo &minfo,
 		double cur_price, double new_price, double dir, double assets, double currency) const {
 	double pos = assetsToPos(minfo, st.a);
-	if (cfg.maxpos && (pos < -cfg.maxpos || pos > cfg.maxpos)) {
+	bool atmaxpos = cfg.maxpos && (pos < -cfg.maxpos || pos > cfg.maxpos);
+	if (atmaxpos) {
 		float f = pow2(cfg.maxpos/pos)*0.5;
 		new_price = st.p * (1-f) + new_price * f;
 	}
 	double new_pos = calcNewPos(minfo, new_price);
 	double sz = calcOrderSize(st.a, assets, new_pos);
-	double minsz = std::max(minfo.min_size*1.5, (minfo.min_volume/cur_price)*1.5);
-	if (dir*sz < minsz) sz = dir * minsz;
+	if (atmaxpos) {
+		double minsz = std::max(minfo.min_size*1.5, (minfo.min_volume/cur_price)*1.5);
+		if (dir*sz < minsz) sz = dir * minsz;
+	} else if (cfg.reduceMode == neutralMove && dir*sz < 0) {
+		sz = (1e-90)*(cur_price-new_price)/cur_price; //HACK: disable dust orders - generate very small increasing size, but not enough to generate order
+	}
 	return OrderData {new_price, sz};
 }
 
