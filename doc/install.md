@@ -163,7 +163,7 @@ This tutorial is written for Ubuntu 18.04
 
 1. web server software - for this purpose we used nginx
 2. your domain
-3. certbot - for creating certificate etc.
+3. certbot - for creating certificate etc. (https://certbot.eff.org/)
 
 ### Install and setting web server nginx
 
@@ -252,11 +252,51 @@ your_user@name_your_server:~/mmbot$ bin/mmbot restart
 
 Congratulations ! Your nginx is done with mmbot.
 
+### Get your domain
+
+It is necessary to get your domain because certbot is not able to create https with just IPv4 adress.
+
+For this purpose you have to buy your domain which convert your IP to readebale and easy remembered form.
+When you buy your domain you have to connect your domain with IP of your server:
+Add your IP adress to **DNS reports** of your domain. This reports you will find on configuration website of your domain provider.
+Then you have to wait. Process of adding new IP takes a quite long time (12 - 24h). Other servers has to confirm (detect) your change. Be patient !
+
+### Start https on your domain via certbot
+
+Installing certbot on your server as root:
+```
+apt install python-certbot-nginx
+```
+
+Add your domain to nginx:
+* for adding edit file default on your server on path
+```
+/etc/nginx/sites-enabled/default
+```
+* inside file rewrite
+from:
+    ```
+    server_name _;
+    ```
+
+to:
+    ```
+    server_name your_domain.com;
+    ```
+Save and exit the file default.
 
 
+Run this command to get a certificate and have Certbot edit your Nginx configuration automatically to serve it.
+```
+certbot --nginx
+```
+Fill your email and choose domain where you want to do https ceritficate.
+Now certbot done everything automatically what is necessary to set for using https.
 
 
+At the end restart your nginx:
+```
+service nginx restart
+```
 
-
-
-
+Now try to reload you website in browser you should see that your website is https and your transfer is secure.
