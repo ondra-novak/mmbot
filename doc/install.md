@@ -273,16 +273,19 @@ Add your domain to nginx:
 ```
 /etc/nginx/sites-enabled/default
 ```
-* inside file rewrite
-from:
-    ```
-    server_name _;
-    ```
+* inside file rewrite:
 
-to:
-    ```
-    server_name your_domain.com;
-    ```
+from
+```
+server_name _;
+```
+
+to
+
+```
+server_name your_domain.com;
+```
+
 Save and exit the file default.
 
 
