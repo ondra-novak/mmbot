@@ -161,9 +161,9 @@ This tutorial is written for Ubuntu 18.04
 
 ### What do you need:
 
-1. web server software - for this purpose we used nginx
+1. web server software - for this purpose we used [nginx] https://nginx.org/en/docs/
 2. your domain
-3. certbot - for creating certificate etc. (https://certbot.eff.org/)
+3. [certbot](https://certbot.eff.org/) - for creating certificate etc.
 
 ### Install and setting web server nginx
 
