@@ -242,12 +242,17 @@ Strategy_PLFromPos::OrderData Strategy_PLFromPos::getNewOrder(
 		new_price = st.p * (1-f) + new_price * f;
 	}
 	double new_pos = calcNewPos(minfo, new_price);
+	double mult = 1;
+	while ((new_pos - st.a)*dir < 0 && mult < 100) {
+		double nn = cur_price + (new_price - cur_price)*mult;
+		logDebug("Reduction of position: Increasing spread to $1", nn-cur_price);
+		mult = mult * 1.1;
+		new_pos = calcNewPos(minfo, nn);
+	}
 	double sz = calcOrderSize(st.a, assets, new_pos);
 	if (atmaxpos) {
 		double minsz = std::max(minfo.min_size*1.5, (minfo.min_volume/cur_price)*1.5);
 		if (dir*sz < minsz) sz = dir * minsz;
-	} else if (cfg.reduceMode == neutralMove && dir*sz < 0) {
-		sz = (1e-90)*(cur_price-new_price)/cur_price; //HACK: disable dust orders - generate very small increasing size, but not enough to generate order
 	}
 	return OrderData {new_price, sz};
 }

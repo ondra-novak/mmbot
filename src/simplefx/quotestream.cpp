@@ -65,11 +65,25 @@ SubscribeFn QuoteStream::connect() {
 			reconnect();
 		}
 	});
-
+	cnt.wait();
 	thr = std::move(t2);
 
 	std::string starturl = "start?transport=webSockets&ConnectionToken="+enctoken+"&clientProtocol=1.5&connectionData=%5B%7B%22name%22%3A%22quotessubscribehub%22%7D%5D";
-	v = hj.GET(starturl);
+	std::this_thread::sleep_for(std::chrono::seconds(1));
+	try {
+		hj.GET(starturl);
+	} catch (...) {
+		//retry after 2 seconds
+		std::this_thread::sleep_for(std::chrono::seconds(2));
+		try {
+			hj.GET(starturl);
+		} catch (...) {
+			//retry after 3 seconds
+			std::this_thread::sleep_for(std::chrono::seconds(3));
+			hj.GET(starturl);
+			//give up on error
+		}
+	}
 
 	auto subscribeFn = [this](const std::string_view &symbol) {
 		Sync _(lock);
