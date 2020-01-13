@@ -612,7 +612,7 @@ static void AULFromJSON(json::Value js, AuthUserList &aul, bool admin) {
 	using LoginPwd = AuthUserList::LoginPwd;
 
 	UserVector ulist = js.reduce([&](
-			UserVector &&curVal, Value r){
+			UserVector &curVal, Value r){
 		Value username = r["username"];
 		Value password = r["pwdhash"];
 		Value isadmin = r["admin"];
