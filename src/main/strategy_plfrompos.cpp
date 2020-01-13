@@ -126,7 +126,17 @@ double Strategy_PLFromPos::calcNewPos(const IStockApi::MarketInfo &minfo, double
 					double r = (lower?c-1.0:1);
 					double new_neutral_price = neutral_price+(tradePrice-neutral_price)*c*r;
 					nnp = k * (new_neutral_price - tradePrice);
-					logDebug("Reduction of position: r=$3, nprice=$1, nnprice=$2, orig_order=$4, red_order=$5,", neutral_price, new_neutral_price, r*c, np-pos, nnp-pos);
+					if ((nnp - pos) * (p - tradePrice )< 0) {
+						double r2 = (lower?1:c-1.0);
+						double new_neutral_price2 = neutral_price+(tradePrice-neutral_price)*c*r2;
+						double nnp2 = k * (new_neutral_price2 - tradePrice);
+						if ((nnp2 - pos) * (p - tradePrice ) > 0) {
+							nnp = nnp2;
+							new_neutral_price = new_neutral_price2;
+							r = r2;
+						}
+					}
+					logDebug("Reduction of position: r=$3, nprice=$1, nnprice=$2, orig_order=$4, red_order=$5", neutral_price, new_neutral_price, r*c, np-pos, nnp-pos);
 					break;
 					}
 
