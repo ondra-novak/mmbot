@@ -216,6 +216,7 @@ protected:
 
 	std::optional<double> internal_balance;
 	std::optional<double> currency_balance_cache;
+
 	size_t magic = 0;
 	size_t uid = 0;
 	PerformanceReport tempPr;
