@@ -81,61 +81,73 @@ double Strategy_PLFromPos::calcNewPos(const IStockApi::MarketInfo &minfo, double
 	//calculate direction of the line defines position change per price change
 	double k = calcK();
 	double pos = assetsToPos(minfo,st.a);
+	if (k == 0) return pos;
+
 	double p = st.p;
-	if (k == 0) return 0;
+	double np = pos;
+
+	//requested trade dir: 1=buy, -1=sell;
+	double dir = sgn(p - tradePrice);
+	//new position should be reduced (-1 * 1 or 1 * -1 = decreaseing)
+	bool dcrs = pos * dir <= 0;
+
+	//if position is increasing at maxpos do not increase position beyond that limit
+	if (dcrs || std::abs(pos) <= maxpos) {
+		//so position is decreasing or we did not reach maxpos
+
+		if (cfg.reduceMode == neutralMove) {
+			//neutralMove reduction, calculate neutral_price.
+			//the formula is inverse to k * (neutral_price - p) = pos
+			double neutral_price = pos/k + p;
+			//adjust reduce factor, it is in per milles
+			double c = cfg.reduce_factor * 0.1;
+			//calculate reverse reduction of reduce factor, if position is decreasing (or 1)
+			double r = (dcrs?c-1.0:1.0);
+			//calculate new neutral position as move position of amount of distance to tradePrice * reduce factor * adjustment
+			double new_neutral_price = neutral_price+(tradePrice-neutral_price)*c*r;
+			//calculate new position using new neutral price and requested tradePrice with same k
+			np = k * (new_neutral_price - tradePrice);
+
+		} else {
 
 
+			//calculate new position on new price
+			np = pos + (p - tradePrice) * k;
+			//get absolute value of the position
+			double ap = std::abs(np);
 
-	//calculate new position on new price
-	double np = pos + (p - tradePrice) * k;
-	//get absolute value of the position
-	double ap = std::abs(np);
-	//if new position is reduced, but not reversed
-	bool lower = ap < std::abs(pos);
-	if ((lower || cfg.reduceMode == neutralMove) && np * pos > 0) {
-			//Negative reduce factor is used differently - it specifies directly percent of size of normal order
-			//so first we treat this as 100% reduction
-			double reduce_factor = cfg.reduce_factor>=0?cfg.reduce_factor:1.0;
-			//calculate profit made from moving price from p to tradePrice
-			//profit is defined by current position * difference of two prices
-			//also increas or decrease it by reduce factor, which can be configured (default 1)
-			double s = (pos - np) * (tradePrice - p)*reduce_factor;
-			//calculate inner of sqrt();
-			//it expect, that prices moves to tradePrice and makes profit 's'
-			//then part of position is closed to value 'np'
-			//absolute value of position is 'ap'
-			//we need calculate new np where this profit is used to reduce position
-			//
-			//new position squared is calculated here
-			//(check: s = 0 -> ap = ap)
-			//(check: s > 0 -> ap goes down
-			double np2 = ap*ap - 2 * k * s;
-			//if result is non-negative
-			if (np2 > 0) {
-				double nnp;
-				switch (cfg.reduceMode) {
-				case fixedReduce: 	nnp = pos + (np - pos) * (1 + cfg.reduce_factor);
-					logDebug("Reduction of position: np=$1, nnp=$2, inc = $3", np, nnp, nnp - np);
-					break;
-				case reduceFromProfit: nnp = sgn(np) * sqrt(np2);
-					logDebug("Reduction of position: np=$1, nnp=$2, s=$3, val=$4", np, nnp, s, pow2(nnp)/(k*2));
-				break;
-				case neutralMove: {
-					double neutral_price = pos/k+p;
-					double c = cfg.reduce_factor*0.1;
-					double r = (lower?c-1.0:1);
-					double new_neutral_price = neutral_price+(tradePrice-neutral_price)*c*r;
-					nnp = k * (new_neutral_price - tradePrice);
-					logDebug("Reduction of position: r=$3, nprice=$1, nnprice=$2, orig_order=$4, red_order=$5,", neutral_price, new_neutral_price, r*c, np-pos, nnp-pos);
-					break;
+
+			if (dcrs  && np * pos > 0) {
+				double reduce_factor = cfg.reduce_factor;
+				//calculate profit made from moving price from p to tradePrice
+				//profit is defined by current position * difference of two prices
+				//also increas or decrease it by reduce factor, which can be configured (default 1)
+				double s = (pos - np) * (tradePrice - p)*reduce_factor;
+				//calculate inner of sqrt();
+				//it expect, that prices moves to tradePrice and makes profit 's'
+				//then part of position is closed to value 'np'
+				//absolute value of position is 'ap'
+				//we need calculate new np where this profit is used to reduce position
+				//
+				//new position squared is calculated here
+				//(check: s = 0 -> ap = ap)
+				//(check: s > 0 -> ap goes down
+				double np2 = ap*ap - 2 * k * s;
+				//if result is non-negative
+				if (np2 > 0) {
+					double nnp;
+					//depend of type of reduction
+					switch (cfg.reduceMode) {
+					default:
+						//fixed reduction is easy
+					case fixedReduce: 	nnp = pos + (np - pos) * (1 + reduce_factor); break;
+						//result from first part is extra reduction powered by 2. Now sqare root of it
+					case reduceFromProfit: nnp = sgn(np) * sqrt(np2);break;
 					}
-
-				}
-				np = nnp;
-			} //otherwise stick with original np
-	} else if (std::fabs(pos) >= maxpos) {
-			//in this case, doesn't change position - however getNewOrder will increase by step
-			np = pos;
+					np = nnp;
+				} //otherwise stick with original np
+			}
+		}
 	}
 	return posToAssets(minfo,np);
 }
@@ -243,7 +255,7 @@ Strategy_PLFromPos::OrderData Strategy_PLFromPos::getNewOrder(
 	}
 	double new_pos = calcNewPos(minfo, new_price);
 	double sz = calcOrderSize(st.a, assets, new_pos);
-	double minsz = std::max(minfo.min_size*1.5, (minfo.min_volume/cur_price)*1.5);
+	double minsz = std::max(minfo.min_size*1.2, (minfo.min_volume/cur_price)*1.2);
 	if (dir*sz < minsz) sz = dir * minsz;
 	return OrderData {new_price, sz};
 }
