@@ -752,6 +752,20 @@ function app_start(){
 			drawChart = initChart(stats.interval);
 			redraw = function() {
 
+                var traders = Object.keys(charts).map(function(k) {
+                    return {
+                    	k:k,
+                    	info: infoMap[k],
+                    	chart: charts[k],
+                    	ranges: ranges[k],
+                    	misc: stats.misc[k],
+                    }
+                });
+                traders.sort(function(a,b){
+                	return a.info.order - b.info.order;
+                });
+
+
 				chart_padding.hidden = false;
 				
 				var fld = location.hash;			
@@ -762,9 +776,9 @@ function app_start(){
 
 				setMode(location.hash);
 				if (fld == "+summary") {
-					for (var k in charts) {
-						appendSummary("_"+k,infoMap[k], charts[k], ranges[k], stats.misc[k]);
-					}
+					traders.forEach(function(t) {
+						appendSummary("_"+t.k,t.info, t.chart, t.ranges, t.misc);
+					});
 					for (var k in sums) {
 						appendSummary("_"+k,{"title":k,"asset":"","currency":k}, sums[k]);
 					}
@@ -794,9 +808,9 @@ function app_start(){
 					}
 					updateLastEventsAll(charts);			
 				} else {
-					for (var k in charts) {
-						appendChart(k,infoMap[k], charts[k], fld,  orders[k],ranges[k], stats.misc[k]);
-					}
+					traders.forEach(function(t) {
+						appendChart(t.k,t.info, t.chart, fld,  t.orders,t.ranges, t.misc);
+					});
 					updateLastEventsAll(charts);
 				}
 				if (lastField) {

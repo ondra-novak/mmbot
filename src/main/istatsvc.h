@@ -48,6 +48,7 @@ public:
 		std::string_view priceSymb;
 		std::string_view brokerIcon;
 		double position_offset;
+		double order;
 		bool inverted;
 		bool margin;
 		bool emulated;

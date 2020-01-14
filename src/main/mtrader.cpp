@@ -65,6 +65,7 @@ void MTrader_Config::loadConfig(json::Value data, bool force_dry_run) {
 
 	force_spread = data["force_spread"].getValueOrDefault(0.0);
 	report_position_offset = data["report_position_offset"].getValueOrDefault(0.0);
+	report_order = data["report_order"].getValueOrDefault(0.0);
 
 	spread_calc_sma_hours = static_cast<unsigned int>(data["spread_calc_sma_hours"].getValueOrDefault(24.0)*60.0);
 	spread_calc_stdev_hours = static_cast<unsigned int>(data["spread_calc_stdev_hours"].getValueOrDefault(4.0)*60.0);
@@ -73,6 +74,7 @@ void MTrader_Config::loadConfig(json::Value data, bool force_dry_run) {
 	internal_balance = data["internal_balance"].getValueOrDefault(false);
 	detect_manual_trades= data["detect_manual_trades"].getValueOrDefault(false);
 	enabled= data["enabled"].getValueOrDefault(true);
+	hidden = data["hidden"].getValueOrDefault(false);
 	dust_orders= data["dust_orders"].getValueOrDefault(true);
 	dynmult_scale = data["dynmult_scale"].getValueOrDefault(true);
 
@@ -143,6 +145,7 @@ double MTrader::raise_fall(double v, bool raise) const {
 
 void MTrader::init() {
 	if (need_load){
+		initialize();
 		loadState();
 		need_load = false;
 	}
@@ -212,7 +215,7 @@ void MTrader::perform(bool manually) {
 						stock.placeOrder(cfg.pairsymb,0,0,magic,orders.buy->id,0);
 					if (orders.sell.has_value())
 						stock.placeOrder(cfg.pairsymb,0,0,magic,orders.sell->id,0);
-					statsvc->reportError(IStatSvc::ErrorObj("Automatic trading is disabled"));
+					if (!cfg.hidden) statsvc->reportError(IStatSvc::ErrorObj("Automatic trading is disabled"));
 				} else {
 					try {
 						setOrder(orders.buy, buyorder);
@@ -244,11 +247,11 @@ void MTrader::perform(bool manually) {
 					}
 
 					//report order errors to UI
-					statsvc->reportError(IStatSvc::ErrorObj(buy_order_error, sell_order_error));
+					if (!cfg.hidden) statsvc->reportError(IStatSvc::ErrorObj(buy_order_error, sell_order_error));
 
 				}
 			} else {
-				statsvc->reportError(IStatSvc::ErrorObj("Initializing, please wait\n(5 minutes aprox.)"));
+				if (!cfg.hidden) statsvc->reportError(IStatSvc::ErrorObj("Initializing, please wait\n(5 minutes aprox.)"));
 			}
 
 			recalc = false;
@@ -259,14 +262,14 @@ void MTrader::perform(bool manually) {
 			recalc = true;
 		}
 
-		//report orders to UI
-		statsvc->reportOrders(orders.buy,orders.sell);
-		//report trades to UI
-		statsvc->reportTrades(trades);
-		//report price to UI
-		statsvc->reportPrice(status.curPrice);
-		//report misc
-		{
+		if (!cfg.hidden) {
+			//report orders to UI
+			statsvc->reportOrders(orders.buy,orders.sell);
+			//report trades to UI
+			statsvc->reportTrades(trades);
+			//report price to UI
+			statsvc->reportPrice(status.curPrice);
+			//report misc
 			auto minmax = strategy.calcSafeRange(minfo, status.assetBalance, status.currencyBalance);
 
 			statsvc->reportMisc(IStatSvc::MiscData{
@@ -561,30 +564,48 @@ MTrader::Order MTrader::calculateOrder(
 
 }
 
+void MTrader::initialize() {
+	std::string brokerImg;
+	const IBrokerIcon *bicon = dynamic_cast<const IBrokerIcon*>(&stock);
+	if (bicon)
+		brokerImg = bicon->getIconName();
 
+	try {
+		minfo = stock.getMarketInfo(cfg.pairsymb);
 
+		if (!cfg.hidden) {
+			this->statsvc->setInfo(
+				IStatSvc::Info { cfg.title, minfo.asset_symbol,
+						minfo.currency_symbol,
+								minfo.invert_price ?
+										minfo.inverted_symbol :
+										minfo.currency_symbol, brokerImg,
+						cfg.report_position_offset, cfg.report_order,
+						minfo.invert_price, minfo.leverage != 0, minfo.simulator });
+		}
+		else {
+			statsvc->clear();
+		}
+		currency_balance_cache = stock.getBalance(minfo.currency_symbol,
+				cfg.pairsymb);
+	} catch (std::exception &e) {
+		this->statsvc->setInfo(
+				IStatSvc::Info {cfg.title, "???",
+								"???",
+								"???",
+								brokerImg,
+								cfg.report_position_offset,
+								cfg.report_order,
+								false,
+								false,
+								true});
+		currency_balance_cache = 0;
+		this->statsvc->reportError(IStatSvc::ErrorObj(e.what()));
+		throw;
+	}
+}
 
 void MTrader::loadState() {
-	minfo = stock.getMarketInfo(cfg.pairsymb);
-	std::string brokerImg;
-	const IBrokerIcon *bicon = dynamic_cast<const IBrokerIcon *>(&stock);
-	if (bicon) brokerImg = bicon->getIconName();
-	this->statsvc->setInfo(
-			IStatSvc::Info {
-				cfg.title,
-				minfo.asset_symbol,
-				minfo.currency_symbol,
-				minfo.invert_price?minfo.inverted_symbol:minfo.currency_symbol,
-				brokerImg,
-				cfg.report_position_offset,
-				minfo.invert_price,
-				minfo.leverage != 0,
-				minfo.simulator
-			});
-	currency_balance_cache = stock.getBalance(minfo.currency_symbol, cfg.pairsymb);
-
-
-
 	if (storage == nullptr) return;
 	auto st = storage->load();
 	need_load = false;
@@ -687,7 +708,7 @@ void MTrader::saveState() {
 
 
 bool MTrader::eraseTrade(std::string_view id, bool trunc) {
-	if (need_load) loadState();
+	init();
 	auto iter = std::find_if(trades.begin(), trades.end(), [&](const IStockApi::Trade &tr) {
 		json::String s = tr.id.toString();
 		return s.str() == id;
@@ -777,7 +798,7 @@ void MTrader::update_dynmult(bool buy_trade,bool sell_trade) {
 }
 
 void MTrader::reset() {
-	if (need_load) loadState();
+	init();
 	if (trades.size() > 1) {
 		trades.erase(trades.begin(), trades.end()-1);
 	}
@@ -794,7 +815,7 @@ void MTrader::stop() {
 
 
 void MTrader::repair() {
-	if (need_load) loadState();
+	init();
 	dynmult.setMult(1,1);
 	if (cfg.internal_balance) {
 		if (!trades.empty())

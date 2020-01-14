@@ -187,7 +187,8 @@ void Report::setInfo(StrViewA symb, const InfoObj &infoObj) {
 			("brokerIcon", infoObj.brokerIcon)
 			("inverted", infoObj.inverted)
 			("emulated",infoObj.emulated)
-			("po", infoObj.position_offset);
+			("po", infoObj.position_offset)
+			("order", infoObj.order);
 }
 
 void Report::setPrice(StrViewA symb, double price) {

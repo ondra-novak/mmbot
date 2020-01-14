@@ -60,8 +60,9 @@
 <div class="keepvalue">This strategy keeps the value of assets on the stock exchange at the same value. If the value of assets falls or rises (due to changing price), the strategy executes a trade in such a volume to achieve the same value of the assets as before.</div>
 </div></div>
 <div class="label"><span>Options</span><div>
-<div><x-checkbox data-name="enabled">Enabled</x-checkbox></div>
+<div><x-checkbox data-name="enabled">Enable automatic trading</x-checkbox></div>
 <div><x-checkbox data-name="dry_run">Paper trade (simulation)</x-checkbox></div>
+<div><x-checkbox data-name="hidden">Hidden</x-checkbox></div>
 </div></div>
 <div class="label adv"><span>Strategy state</span><x-section>
 	<div class="label" data-name="strategy_fields[]"><span data-name="key"></span><input type="text" readonly="readonly" data-name="value"></div>
@@ -176,7 +177,7 @@ Specifies maximum allowed asset balance (or position, for short use negative val
 <select data-name="dynmult_scale"><option value="1">Scale</option><option value="0">Don't scale</option></select></label>
 <div class="rightinfo"><button name="vis_spread">Visualize spread</button></div>
 </x-section>
-<x-section class="adv"><x-section-caption>Misc</x-section-caption>
+<x-section class=""><x-section-caption>Misc</x-section-caption>
 <div class="label adv"><span>Options<span class="tooltip"
 ><strong>Internal balance</strong> - track balance by trades - do not use balance on exchange<br><br>
 <strong>Dust orders</strong> Enable to use smallest orders when otherwise trading would be impossible (they act as alert)<br><br>
@@ -188,6 +189,9 @@ Specifies maximum allowed asset balance (or position, for short use negative val
 <label class="adv"><span>Report - position offset<span class="tooltip">Allows to sync the position on the report page with the actual state on the echange.<br>
 The position is not generally in the sync due to various issues. You need to specify a difference between the calculated position presented on the report page and the actual position on the exchhange
 </span></span><input type="number" step="any" data-name="report_position_offset"></label>
+<label class="adv"><span>Order<span class="tooltip">Specifies order in report page. The traders are ordered by this ascending number. If there are two traders with
+the same order, they are ordered by its ID - this is the default ordering. Modifying this number you can change the default ordering.
+</span></span><input type="number" step="any" data-name="report_order"></label>
 <label class="adv"><span>Force spread [%](0=disabled)<span class="tooltip">Specifies exact spread in % width and disables the internal spread detection</span></span><input type="number" step="any" data-name="force_spread"></label>
 </x-section>
 <div></div>

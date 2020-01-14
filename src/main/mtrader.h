@@ -54,6 +54,7 @@ struct MTrader_Config {
 
 	double force_spread;
 	double report_position_offset;
+	double report_order;
 
 	unsigned int spread_calc_stdev_hours;
 	unsigned int spread_calc_sma_hours;
@@ -62,6 +63,7 @@ struct MTrader_Config {
 	bool internal_balance;
 	bool detect_manual_trades;
 	bool enabled;
+	bool hidden;
 	bool dust_orders;
 	bool dynmult_scale;
 
@@ -239,6 +241,8 @@ protected:
 	bool checkMinMaxBalance(double newBalance, double dir) const;
 	double limitOrderMinMaxBalance(double balance, double orderSize) const;
 
+private:
+	void initialize();
 };
 
 
