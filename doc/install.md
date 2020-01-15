@@ -290,9 +290,11 @@ Save and exit the file default.
 
 
 Run this command to get a certificate and have Certbot edit your Nginx configuration automatically to serve it.
+
 ```
 certbot --nginx
 ```
+
 Fill your email and choose domain where you want to do https ceritficate.
 Now certbot done everything automatically what is necessary to set for using https.
 
