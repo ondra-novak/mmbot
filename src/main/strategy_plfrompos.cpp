@@ -102,7 +102,7 @@ double Strategy_PLFromPos::calcNewPos(const IStockApi::MarketInfo &minfo, double
 			//adjust reduce factor, it is in per milles
 			double c = cfg.reduce_factor * 0.1;
 			//calculate reverse reduction of reduce factor, if position is decreasing (or 1)
-			double r = (dcrs?c-1.0:1.0);
+			double r = (dcrs?-0.9:1.0);
 			//calculate new neutral position as move position of amount of distance to tradePrice * reduce factor * adjustment
 			double new_neutral_price = neutral_price+(tradePrice-neutral_price)*c*r;
 			//calculate new position using new neutral price and requested tradePrice with same k
