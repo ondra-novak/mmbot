@@ -251,6 +251,9 @@ int main(int argc, char **argv) {
 						auto isim = rptsect["include_simulators"].getBool(false);
 						auto threads = servicesection["thread_pool"].getInt(0);
 						auto asyncProvider = simpleServer::ThreadPoolAsync::create(std::max<int>(threads,1),1);
+
+						Strategy::setConfig(app.config["strategy"]);
+
 						Worker traderWorker;
 
 						if (threads>1) traderWorker = asyncProvider;

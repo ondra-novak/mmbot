@@ -8,6 +8,7 @@
 #ifndef SRC_MAIN_STRATEGY_H_
 #define SRC_MAIN_STRATEGY_H_
 
+#include "../shared/ini_config.h"
 #include "istrategy.h"
 
 class Strategy {
@@ -104,6 +105,8 @@ public:
 	}
 
 	static Strategy create(std::string_view id, json::Value config);
+
+	static void setConfig(const ondra_shared::IniConfig::Section &cfg);
 
 protected:
 	Ptr ptr;

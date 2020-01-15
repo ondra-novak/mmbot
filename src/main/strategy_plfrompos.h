@@ -74,6 +74,8 @@ public:
 	static double calcK(const State &st);
 	double reducedK(double k) const;
 
+	static double sliding_zero_factor;;
+
 protected:
 	Config cfg;
 	State st;
@@ -84,5 +86,7 @@ private:
 	double calcNewPos(const IStockApi::MarketInfo &minfo, double tradePrice) const;
 	void calcPower(State &st,  double price, double assets, double currency) const;
 };
+
+
 
 #endif /* SRC_MAIN_STRATEGY_PLFROMPOS_H_ */
