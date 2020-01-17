@@ -80,5 +80,5 @@ double IStrategy::calcOrderSize(double expectedAmount, double actualAmount, doub
 }
 
 void Strategy::setConfig(const ondra_shared::IniConfig::Section &cfg) {
-	Strategy_PLFromPos::sliding_zero_factor = cfg["sliding_zero_reverse"].getNumber(0.9);
+	Strategy_PLFromPos::sliding_zero_factor = cfg["sliding_zero_reverse"].getNumber(0.95);
 }

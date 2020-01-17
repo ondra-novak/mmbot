@@ -15,7 +15,7 @@
 using ondra_shared::logDebug;
 using ondra_shared::logInfo;
 
-double Strategy_PLFromPos::sliding_zero_factor = 0.9;
+double Strategy_PLFromPos::sliding_zero_factor = 0.95;
 
 std::string_view Strategy_PLFromPos::id = "plfrompos";
 
@@ -105,8 +105,8 @@ double Strategy_PLFromPos::calcNewPos(const IStockApi::MarketInfo &minfo, double
 			double c = cfg.reduce_factor * 0.1;
 			//calculate reverse reduction of reduce factor, if position is decreasing (or 1)
 			double r = (dcrs?-sliding_zero_factor:1.0);
-			//calculate new neutral position as move position of amount of distance to tradePrice * reduce factor * adjustment
-			double new_neutral_price = neutral_price+(tradePrice-neutral_price)*c*r;
+			//calculate new neutral position as move position of amount of distance to p * reduce factor * adjustment
+			double new_neutral_price = neutral_price+(p-neutral_price)*c*r;
 			//calculate new position using new neutral price and requested tradePrice with same k
 			np = k * (new_neutral_price - tradePrice);
 
