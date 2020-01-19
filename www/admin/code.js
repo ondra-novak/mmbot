@@ -1318,7 +1318,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		var chart1 = cntr.bt.findElements('chart1')[0];
 		var chart2 = cntr.bt.findElements('chart2')[0];
 		if (interval > days) interval = days;
-		var ratio = 5;		
+		var ratio = 4;		
 		var scale = 900000;
 		var drawChart = initChart(interval,ratio,scale);
 		drawChart(chart1,c,"pr",[],"np");
