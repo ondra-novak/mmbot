@@ -389,7 +389,7 @@ App.prototype.fillForm = function (src, trg) {
 			var fdata = {};
 			var inputs = trg.readData(["max_pos","cstep","neutral_pos"]);
 			var pos = invSize(pair.asset_balance,pair.invert_price) - inputs.neutral_pos;
-			var k = inputs.cstep / (pair.price*pair.price * 0.01);
+			var k = inputs.cstep;
 			var mp = pair.price - pos/k;
 			var lp = mp-inputs.max_pos/k;
 			fdata.linear_max_in_pos = adjNum(0.5*k*(mp - lp)*(mp - lp));
@@ -417,7 +417,7 @@ App.prototype.fillForm = function (src, trg) {
 			var k = invest / (pair.price*pair.price * 0.01);
 			var max_pos = Math.sqrt(k * value);
 			trg.setData({
-				cstep : adjNumN(invest),
+				cstep : adjNumN(k),
 				max_pos: adjNumN(max_pos)
 			});
 
@@ -427,7 +427,7 @@ App.prototype.fillForm = function (src, trg) {
 			var inputs = trg.readData(["cstep","neutral_pos","pl_baluse"]);
 			var value = pair.currency_balance*inputs.pl_baluse*0.01;
 			var invest = inputs.cstep;
-			var k = invest / (pair.price*pair.price * 0.01);
+			var k = invest;
 			var max_pos = Math.sqrt(k * value);
 			trg.setData({
 				max_pos: adjNumN(max_pos)
@@ -472,8 +472,7 @@ App.prototype.fillForm = function (src, trg) {
 			var v = trg.readData(["pl_power","pl_confmode","pl_baluse"]);
 			if (v.pl_confmode == "m") return;
 			var m = Math.pow(10,v.pl_power)*0.01;
-			trg.setData({"pl_show_factor":adjNumN(m),
-						"cstep":pair.currency_balance*m*v.pl_baluse*0.01});
+			trg.setData({"pl_show_factor":adjNumN(m)});
 			
 			linStrategy_recomended_maxpos();
 		}
@@ -559,7 +558,7 @@ App.prototype.fillForm = function (src, trg) {
 	} else if (data.strategy == "plfrompos") {
 		data.pl_acum = filledval(defval(src.strategy.accum,0)*100,0);
 		data.neutral_pos = filledval(src.strategy.neutral_pos,0);		
-		data.cstep = filledval(src.strategy.cstep,0);
+		data.cstep = filledval(src.strategy.k,0);
 		data.max_pos = filledval(src.strategy.maxpos,0);
 		data.pl_redfact = filledval(defval(Math.abs(src.strategy.reduce_factor),0.5)*100,50);
 		if (src.strategy.fixed_reduce) data.pl_redmode = "fixed";
@@ -656,7 +655,7 @@ App.prototype.saveForm = function(form, src) {
 	trader.strategy.type = data.strategy;
 	if (data.strategy == "plfrompos") {
 		trader.strategy.accum = data.pl_acum/100.0;
-		trader.strategy.cstep = data.cstep;
+		trader.strategy.k= data.cstep;
 		trader.strategy.neutral_pos = data.neutral_pos;
 		trader.strategy.maxpos = data.max_pos;
 		trader.strategy.reduce_factor = data.pl_redfact/100;
@@ -1274,7 +1273,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 			var chart1 = cntr.bt.findElements('chart1')[0];
 			var chart2 = cntr.bt.findElements('chart2')[0];
 			var interval = c[c.length-1].time-c[0].time;	
-			var ratio = 4;		
+			var ratio = 5;		
 			var scale = 700000;
 			if (interval > days) {
 				var r = interval/days;

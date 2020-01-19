@@ -58,6 +58,7 @@ button:active {
 
 x-form {
 	display:block;
+	position: relative;
 }
 x-form.sections {
 	margin: 0px 2%;
@@ -396,10 +397,22 @@ a {
 	right: 0;
 	margin: auto;
 }
+/*
 
 .backtest {
 	width: 100% !important;
 }
+.backtest.floating {
+	position: fixed;
+	bottom: 0.3cm;
+	right:  0;
+	left: 0;
+	max-width: 22cm;
+	margin: 0 auto 0 0;
+	background: #222222;
+	z-index: 1000;
+	box-shadow: 0 0 5px 6px black;
+}*/
 
 .trouble_sect {
 	display:flex;

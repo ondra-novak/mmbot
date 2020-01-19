@@ -30,7 +30,7 @@ bool Strategy_PLFromPos::isValid() const {
 }
 
 double Strategy_PLFromPos::calcK(const State &st) {
-	return st.step / (pow2(st.p) * 0.01);
+	return st.k;
 }
 
 double Strategy_PLFromPos::calcK() const {
@@ -49,7 +49,7 @@ PStrategy Strategy_PLFromPos::onIdle(const IStockApi::MarketInfo &minfo,
 		const IStockApi::Ticker &curTicker, double assets,
 		double currency) const {
 
-	if (st.inited && st.valid_power && std::isfinite(st.a) && std::isfinite(st.p) && std::isfinite(st.step) && std::isfinite(st.acm) && std::isfinite(st.value) && st.step) return this;
+	if (st.inited && st.valid_power && st.k && std::isfinite(st.a) && std::isfinite(st.p) && std::isfinite(st.k) && std::isfinite(st.acm) && std::isfinite(st.value) ) return this;
 	double last = curTicker.last;
 	State newst = st;
 	if (!st.inited || !std::isfinite(st.p) || !std::isfinite(st.a)) {
@@ -63,7 +63,7 @@ PStrategy Strategy_PLFromPos::onIdle(const IStockApi::MarketInfo &minfo,
 
 	newst.inited = true;
 
-	if (!st.valid_power || !cfg.power || st.step == 0) {
+	if (!st.valid_power || !cfg.power || st.k== 0) {
 		calcPower(newst, last, assets, currency);
 	}
 
@@ -91,7 +91,7 @@ double Strategy_PLFromPos::calcNewPos(const IStockApi::MarketInfo &minfo, double
 	//requested trade dir: 1=buy, -1=sell;
 	double dir = sgn(p - tradePrice);
 	//new position should be reduced (-1 * 1 or 1 * -1 = decreaseing)
-	bool dcrs = pos * dir <= 0;
+	bool dcrs = pos * dir < 0;
 
 	//if position is increasing at maxpos do not increase position beyond that limit
 	if (dcrs || std::abs(pos) <= maxpos) {
@@ -109,6 +109,9 @@ double Strategy_PLFromPos::calcNewPos(const IStockApi::MarketInfo &minfo, double
 			double new_neutral_price = neutral_price+(p-neutral_price)*c*r;
 			//calculate new position using new neutral price and requested tradePrice with same k
 			np = k * (new_neutral_price - tradePrice);
+			if (dcrs && std::abs(np) > std::abs(pos))
+				np = pos;
+
 
 		} else {
 
@@ -216,9 +219,9 @@ json::Value Strategy_PLFromPos::exportState() const {
 	return json::Object
 			("p",st.p)
 			("a",st.a)
+			("k",st.k)
 			("acm",st.acm)
 			("maxpos",st.maxpos)
-			("step",st.step)
 			("val", st.value)
 			("pw", (int)(cfg.power*100000)+(int)(cfg.baltouse*100));
 	else return json::undefined;
@@ -231,11 +234,12 @@ PStrategy Strategy_PLFromPos::importState(json::Value src) const {
 			true,
 			src["p"].getNumber(),
 			src["a"].getNumber(),
-			src["step"].getNumber(),
+			src["k"].getNumber(),
 			src["maxpos"].getNumber(),
 			src["acm"].getNumber(),
-			src["val"].getNumber(),
+			src["val"].getNumber()
 		};
+		if (newst.k != cfg.k) newst.k = 0;
 		int curpw = (int)(cfg.power*100000)+(int)(cfg.baltouse*100);
 		if (curpw != (int)src["pw"].getInt()) {
 			newst.valid_power = false;
@@ -320,11 +324,11 @@ void Strategy_PLFromPos::calcPower(State& st, double price, double , double curr
 		double k = step / (price * price * 0.01);
 		double max_pos = sqrt(k * c);
 		st.maxpos = max_pos;
-		st.step = step;
+		st.k= k;
 		logInfo("Strategy recalculated: step=$1, max_pos=$2", step, max_pos);
 	} else {
 		st.maxpos = cfg.maxpos;
-		st.step = cfg.step;
+		st.k= cfg.k;
 	}
 	st.valid_power = true;
 }
@@ -335,7 +339,7 @@ json::Value Strategy_PLFromPos::dumpStatePretty(const IStockApi::MarketInfo &min
 			("Position",assetsToPos(minfo, st.a)*(minfo.invert_price?-1.0:1.0))
 			("Accumulated",st.acm?json::Value(st.acm):json::Value())
 			("Max allowed position",st.maxpos)
-			("Step",st.step)
+			("K",st.k)
 			("Value of the position", st.value);
 
 }

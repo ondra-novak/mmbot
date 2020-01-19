@@ -26,7 +26,7 @@ public:
 	};
 
 	struct Config {
-		double step;
+		double k;
 		double accum;
 		double neutral_pos;
 		double maxpos;
@@ -42,7 +42,7 @@ public:
 		bool valid_power = false;
 		double p = 0;
 		double a = 0;
-		double step = 0;
+		double k = 0;
 		double maxpos = 0;
 		double acm = 0;
 		double value = 0;
