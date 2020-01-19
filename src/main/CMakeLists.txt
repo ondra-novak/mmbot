@@ -19,7 +19,8 @@ add_executable (mmbot
 	strategy_keepvalue.cpp
 	localdailyperfmod.cpp
 	extdailyperfmod.cpp
-	ext_storage
+	ext_storage.cpp
+	backtest.cpp
 	)
 target_link_libraries (mmbot LINK_PUBLIC simpleServer imtjson )
 install(TARGETS mmbot DESTINATION "bin") 

@@ -18,6 +18,7 @@
 #include "../server/src/rpc/rpcServer.h"
 #include "istockapi.h"
 #include "authmapper.h"
+#include "backtest.h"
 #include "traders.h"
 
 
@@ -27,6 +28,33 @@ public:
 	using Action = std::function<void()>;
 	using Dispatch = ondra_shared::shared_function<void(Action &&)>;
 
+	template<typename T>
+	class Cache {
+	public:
+		using Subj = T;
+
+		Cache() {}
+		Cache(const T &t, std::string name, std::chrono::system_clock::time_point expires)
+			:t(t),name(name),expires(expires) {}
+
+		const T getSubject() const {return t;}
+		bool available(const std::string_view &name, std::chrono::system_clock::time_point time) {
+			return name == this->name && time < expires;
+		}
+
+	protected:
+		T t;
+		std::string name;
+		std::chrono::system_clock::time_point expires;
+	};
+
+	struct SpreadCacheItem {
+		MTrader::Chart chart;
+		bool invert_price;
+	};
+
+	using BacktestCache = Cache<std::vector<BTPrice> >;
+	using SpreadCache = Cache<SpreadCacheItem>;
 
 	class State : public ondra_shared::RefCntObj{
 	public:
@@ -36,6 +64,8 @@ public:
 		ondra_shared::RefCntPtr<AuthUserList> users, admins;
 		std::vector<std::string> traderNames;
 		json::Value broker_config;
+		BacktestCache backtest_cache;
+		SpreadCache spread_cache;
 
 		State( PStorage &&config,
 			  ondra_shared::RefCntPtr<AuthUserList> users,
@@ -82,6 +112,8 @@ public:
 		logout_commit,
 		editor,
 		login,
+		backtest,
+		spread
 	};
 
 	AuthMapper auth;
@@ -102,6 +134,8 @@ protected:
 	bool reqLogin(simpleServer::HTTPRequest req) const;
 	bool reqBrokerSpec(simpleServer::HTTPRequest req, ondra_shared::StrViewA rest, IStockApi *api, ondra_shared::StrViewA broker_name) const;
 	bool reqEditor(simpleServer::HTTPRequest req) const;
+	bool reqBacktest(simpleServer::HTTPRequest req) const;
+	bool reqSpread(simpleServer::HTTPRequest req) const;
 
 	using Sync = std::unique_lock<std::recursive_mutex>;
 

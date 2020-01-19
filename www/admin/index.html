@@ -153,6 +153,7 @@ Specifies minimum allowed asset balance (or position, for short use negative val
 <label  class="adv"><span>MAX asset balance/position<span class="tooltip">
 Specifies maximum allowed asset balance (or position, for short use negative value). When balance hits this value, no futher buys are allowed. In this situation 'Accept loss' rule can be applied
 </span></span><input type="number" data-name="max_balance" step="any"></label>
+<div class="rightinfo"><button name="show_backtest">Backtest</button></div>
 </x-section>
 <x-section class="adv" data-name="spread_vis_anchor"><x-section-caption>Spread</x-section-caption>
 <label  class="adv"><span>Spread width: st.dev hours <span class="tooltip"
@@ -308,7 +309,7 @@ the same order, they are ordered by its ID - this is the default ordering. Modif
 <td><button data-name="bset" disabled="disabled">Set</button><button data-name="berase" disabled="disabled">Erase</button></td>
 <td data-name="info_button">🛈</td>
 </table>
-<span class="no_api_key" data-name="need_save" hidden="hidden">⚠️ - Remember to click on the Apply button to make settings take an effect</span></span>
+<span class="no_api_key" data-name="need_save" hidden="hidden">⚠️ - Remember to click on the Apply button to make settings take an effect</span>
 <div class="waitdlg"  data-name="spinner">
 <div class="spinner"></div>
 </div>
@@ -400,27 +401,18 @@ the same order, they are ordered by its ID - this is the default ordering. Modif
 
 </template>
 
-<template id="backtest_res">
-<x-section class="backtest"><x-section-caption>Backtest</x-section-caption>
-<div class="label"><span>profit/loss</span><input data-name="bt_pl" readonly="readonly"></div>
-<div class="label"><span>Unrealized profit/loss</span><input data-name="bt_pln" readonly="readonly"></div>
-<div class="label"><span>Max downdraw</span><input data-name="bt_dd" readonly="readonly"></div>
-<div class="label"><span>Max position</span><input data-name="bt_mp" readonly="readonly"></div>
-<div class="charts">
-<div data-name="chart1"><div><em>Loading data, please wait...</em><div class="spinner fast save"></div></div></div>
+<template id="spread_vis">
+<x-section class="backtest"><x-section-caption>Spread visualizer</x-section-caption>
+<div class="charts spread_vis">
+<div data-name="chart1"><div><em>Loading data, please wait...</em></div></div>
 <div data-name="chart2"></div>
-<div data-name="chart3"></div>
+<div class="spinner fast save" data-name="spinner" hidden="hidden"></div>
 </div>
-<div class="label"><span>Range</span><div><input data-name="date_from" type="date">
-											<input data-name="date_to" type="date"></div>
-</div>
-<div class="label"><span>Apply from</span><div><input data-name="apply_from" type="date"></div></div>
-<div class="label"><span>Starting position</span><input data-name="start_pos" type="number" step="any"></div>
 </x-section>
 </template>
 
-<template id="spread_vis">
-<x-section class="backtest"><x-section-caption>Spread visualizer</x-section-caption>
+<template id="backtest_vis">
+<x-section class="backtest"><x-section-caption>Backtest</x-section-caption>
 <div class="charts spread_vis">
 <div data-name="chart1"><div><em>Loading data, please wait...</em></div></div>
 <div data-name="chart2"></div>

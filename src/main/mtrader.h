@@ -113,6 +113,7 @@ public:
 
 
 	using ChartItem = IStatSvc::ChartItem;
+	using Chart = std::vector<ChartItem>;
 
 
 	struct Status {
@@ -152,7 +153,8 @@ public:
 	bool eraseTrade(std::string_view id, bool trunc);
 	void reset();
 	void repair();
-	ondra_shared::StringView<IStatSvc::ChartItem> getChart() const;
+
+	Chart getChart() const;
 	void dropState();
 	void stop();
 
@@ -172,8 +174,12 @@ public:
 		};
 		std::vector<Item> chart;
 	};
-	VisRes visualizeSpread(double sma, double stdev, double mult, double dyn_raise, double dyn_fall, json::StrViewA dynMode);
+
+
+	static VisRes visualizeSpread(const Chart &chart, double sma, double stdev, double mult, double dyn_raise, double dyn_fall, json::StrViewA dynMode);
+
 	static std::optional<double> getInternalBalance(const MTrader *ptr);
+
 
 protected:
 	class DynMultControl {
@@ -240,7 +246,6 @@ protected:
 	double calcSpread() const;
 	bool checkMinMaxBalance(double newBalance, double dir) const;
 	double limitOrderMinMaxBalance(double balance, double orderSize) const;
-
 private:
 	void initialize();
 };

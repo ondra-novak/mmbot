@@ -39,7 +39,9 @@ NamedEnum<WebCfg::Command> WebCfg::strCommand({
 	{WebCfg::logout, "logout"},
 	{WebCfg::login, "login"},
 	{WebCfg::logout_commit, "logout_commit"},
-	{WebCfg::editor, "editor"}
+	{WebCfg::editor, "editor"},
+	{WebCfg::backtest, "backtest"},
+	{WebCfg::spread, "spread"}
 });
 
 WebCfg::WebCfg(
@@ -84,6 +86,8 @@ bool WebCfg::operator ()(const simpleServer::HTTPRequest &req,
 		case login: return reqLogin(req);
 		case logout_commit: return reqLogout(req,true);
 		case editor: return reqEditor(req);
+		case backtest: return reqBacktest(req);
+		case spread: return reqSpread(req);
 		}
 	}
 	return false;
@@ -548,7 +552,8 @@ bool WebCfg::reqTraders(simpleServer::HTTPRequest req, ondra_shared::StrViewA vp
 						reqBrokerSpec(req, restpath, &(tr->getBroker()), brokerName);
 					} else if (cmd == "trading") {
 						Object out;
-						auto chart = tr->getChart();
+						auto chartx = tr->getChart();
+						StringView<MTrader::ChartItem> chart(chartx.data(), chartx.size());
 						auto &&broker = tr->getBroker();
 						broker.reset();
 						if (chart.length>600) chart = chart.substr(chart.length-600);
@@ -568,29 +573,6 @@ bool WebCfg::reqTraders(simpleServer::HTTPRequest req, ondra_shared::StrViewA vp
 						auto ibalance = MTrader::getInternalBalance(tr);
 						out.set("pair", getPairInfo(broker, tr->getConfig().pairsymb, ibalance));
 						req.sendResponse(std::move(hdr), Value(out).stringify());
-					} else if (cmd == "spread") {
-						if (!req.allowMethods({"POST"})) return;
-						Value args = Value::parse(req.getBodyStream());
-						Value sma = args["sma"];
-						Value stdev = args["stdev"];
-						Value mult = args["mult"];
-						Value dynmult_raise = args["raise"];
-						Value dynmult_fall = args["fall"];
-						Value dynmult_mode = args["mode"];
-						auto res = tr->visualizeSpread(sma.getUInt(), stdev.getUInt(),mult.getNumber(),
-								dynmult_raise.getValueOrDefault(1.0),dynmult_fall.getValueOrDefault(1.0),dynmult_mode.getValueOrDefault("independent"));
-						Value out (json::object,
-							{Value("chart",Value(json::array, res.chart.begin(), res.chart.end(), [](auto &&k){
-								return Value(json::object,{
-									Value("p",k.price),
-									Value("l",k.low),
-									Value("h",k.high),
-									Value("s",k.size),
-									Value("t",k.time),
-								});
-							}))}
-						);
-						req.sendResponse(std::move(hdr), out.stringify());
 					}
 
 
@@ -831,6 +813,163 @@ bool WebCfg::reqLogin(simpleServer::HTTPRequest req) const {
 void WebCfg::State::setBrokerConfig(json::StrViewA name, json::Value config) {
 	Sync _(lock);
 	broker_config = broker_config.getValueOrDefault(Value(json::object)).replace(name,config);
+}
+
+bool WebCfg::reqBacktest(simpleServer::HTTPRequest req) const {
+	if (!req.allowMethods({"POST"})) return true;
+	req.readBodyAsync(50000,[&trlist = this->trlist,state =  this->state, dispatch = this->dispatch](simpleServer::HTTPRequest req)mutable{
+		try {
+			Value data = Value::fromString(StrViewA(BinaryView(req.getUserBuffer())));
+			Value id = data["id"];
+
+
+			auto process=[=](Traders &trlist, const BacktestCache::Subj &trades) {
+
+				Value config = data["config"];
+				Value init_pos = data["init_pos"];
+				Value balance = data["balance"];
+
+				MTrader_Config mconfig;
+				mconfig.loadConfig(config,false);
+				auto piter = trades.begin();
+				auto pend = trades.end();
+
+				BTTrades rs = backtest_cycle(mconfig, [&]{
+					std::optional<BTPrice> x;
+					if (piter != pend) {
+						x = *piter;
+						++piter;
+					}
+					return x;
+				}, trlist.stockSelector,init_pos.getNumber(), balance.getNumber());
+
+				Value result (json::array, rs.begin(), rs.end(), [](const BTTrade &x) {
+					return Object
+							("np",x.neutral_price)
+							("na",x.norm_accum)
+							("npl",x.norm_profit)
+							("pl",x.pl)
+							("ps",x.pos)
+							("pr",x.price.price)
+							("tm",x.price.time)
+							("sz",x.size);
+				});
+				String resstr = result.toString();
+				req.sendResponse("application/json",resstr.str());
+			};
+
+
+
+
+			Sync _(state->lock);
+			if (state->backtest_cache.available(id.toString().str(),std::chrono::system_clock::now())) {
+				auto t = state->backtest_cache.getSubject();
+				_.unlock();
+				process(trlist, t);
+			} else {
+
+				dispatch([&trlist, state, req, id, process = std::move(process)]()mutable {
+					try {
+						MTrader *tr = trlist.find(id.getString());
+						if (tr == nullptr) {
+							req.sendErrorPage(404);
+							return;
+						}
+
+						const auto &tradeHist = tr->getTrades();
+						BacktestCache::Subj trs;
+						std::transform(tradeHist.begin(),tradeHist.end(),
+								std::back_insert_iterator(trs),[](const IStatSvc::TradeRecord &r) {
+							return BTPrice{r.time, r.price};
+						});
+
+						Sync _(state->lock);
+						state->backtest_cache = BacktestCache(trs, id.toString().str(), std::chrono::system_clock::now()+std::chrono::minutes(10));
+						_.unlock();
+						process(trlist, trs);
+					} catch (std::exception &e) {
+						req.sendErrorPage(400,"", e.what());
+					}
+				});
+			}
+		} catch (std::exception &e) {
+			req.sendErrorPage(400,"", e.what());
+		}
+
+	});
+	return true;
+}
+
+bool WebCfg::reqSpread(simpleServer::HTTPRequest req) const {
+	if (!req.allowMethods({"POST"})) return true;
+	req.readBodyAsync(50000,[&trlist = this->trlist,state =  this->state, dispatch = this->dispatch](simpleServer::HTTPRequest req)mutable{
+		try {
+			Value args = Value::fromString(StrViewA(BinaryView(req.getUserBuffer())));
+			Value id = args["id"];
+			auto process = [=](const SpreadCacheItem &data) {
+
+				Value sma = args["sma"];
+				Value stdev = args["stdev"];
+				Value mult = args["mult"];
+				Value dynmult_raise = args["raise"];
+				Value dynmult_fall = args["fall"];
+				Value dynmult_mode = args["mode"];
+
+				auto res = MTrader::visualizeSpread(data.chart,sma.getUInt(), stdev.getUInt(),mult.getNumber(),
+						dynmult_raise.getValueOrDefault(1.0),dynmult_fall.getValueOrDefault(1.0),dynmult_mode.getValueOrDefault("independent"));
+				if (data.invert_price) {
+					std::transform(res.chart.begin(), res.chart.end(), res.chart.begin(),[](const MTrader::VisRes::Item &itm) {
+						return MTrader::VisRes::Item{1.0/itm.price,1.0/itm.high, 1.0/itm.low,-itm.size,itm.time};
+					});
+				}
+
+				Value out (json::object,
+					{Value("chart",Value(json::array, res.chart.begin(), res.chart.end(), [](auto &&k){
+						return Value(json::object,{
+							Value("p",k.price),
+							Value("l",k.low),
+							Value("h",k.high),
+							Value("s",k.size),
+							Value("t",k.time),
+						});
+					}))}
+				);
+				req.sendResponse("application/json", out.stringify());
+			};
+
+			Sync _(state->lock);
+			if (state->spread_cache.available(id.toString().str(),std::chrono::system_clock::now())) {
+				auto t = state->spread_cache.getSubject();
+				_.unlock();
+				process(t);
+			} else {
+				dispatch([&trlist, state, req, id, process = std::move(process)]()mutable {
+					try {
+						MTrader *tr = trlist.find(id.getString());
+						if (tr == nullptr) {
+							req.sendErrorPage(404);
+							return;
+						}
+						SpreadCacheItem x;
+						x.chart = tr->getChart();
+						x.invert_price = tr->getMarketInfo().invert_price;
+						Sync _(state->lock);
+						state->spread_cache= SpreadCache(x, id.toString().str(), std::chrono::system_clock::now()+std::chrono::minutes(10));
+						_.unlock();
+						process(x);
+					} catch (std::exception &e) {
+						req.sendErrorPage(400,"", e.what());
+					}
+
+				});
+			}
+
+
+		} catch (std::exception &e) {
+			req.sendErrorPage(400,"",e.what());
+		}
+	});
+	return true;
 }
 
 

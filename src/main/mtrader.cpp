@@ -844,7 +844,7 @@ void MTrader::repair() {
 	saveState();
 }
 
-ondra_shared::StringView<IStatSvc::ChartItem> MTrader::getChart() const {
+MTrader::Chart MTrader::getChart() const {
 	return chart;
 }
 
@@ -1046,7 +1046,7 @@ double MTrader::calcSpread() const {
 
 }
 
-MTrader::VisRes MTrader::visualizeSpread(double sma, double stdev, double mult, double dyn_raise, double dyn_fall, json::StrViewA dynMode) {
+MTrader::VisRes MTrader::visualizeSpread(const std::vector<ChartItem> &chart, double sma, double stdev, double mult, double dyn_raise, double dyn_fall, json::StrViewA dynMode) {
 	DynMultControl dynmult(dyn_raise, dyn_fall, strDynmult_mode[dynMode]);
 	VisRes res;
 	if (chart.empty()) return res;
@@ -1054,7 +1054,7 @@ MTrader::VisRes MTrader::visualizeSpread(double sma, double stdev, double mult, 
 	std::vector<double> prices;
 	for (auto &&k : chart) {
 		double p = k.last;
-		if (minfo.invert_price) p = 1.0/p;
+/*		if (minfo.invert_price) p = 1.0/p;*/
 		prices.push_back(p);
 		double spread = stCalcSpread(prices, sma*60, stdev*60);
 		double low = last * std::exp(-spread*mult*dynmult.getBuyMult());
