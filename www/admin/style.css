@@ -397,22 +397,104 @@ a {
 	right: 0;
 	margin: auto;
 }
-/*
 
-.backtest {
+.backtest input[type=range] {
+	width:100%;
+	box-sizing: border-box;
+	/* color: #bf2d2d; */
+	/* background: #773030; */
+}
+
+.backtest.wide {
 	width: 100% !important;
 }
-.backtest.floating {
-	position: fixed;
-	bottom: 0.3cm;
-	right:  0;
-	left: 0;
-	max-width: 22cm;
-	margin: 0 auto 0 0;
-	background: #222222;
-	z-index: 1000;
-	box-shadow: 0 0 5px 6px black;
-}*/
+
+input[type=range].thick {
+  -webkit-appearance: none;
+  width: 100%;
+  margin: 0px 0;
+  border: 0;
+  background: none;
+}
+input[type=range].thick:focus {
+  outline: none;
+}
+input[type=range].thick::-webkit-slider-runnable-track {
+  width: 100%;
+  height: 32px;
+  cursor: pointer;
+  box-shadow: 0px 0px 0px #000000, 0px 0px 0px #0d0d0d;
+  background: #646464;
+  border-radius: 0px;
+  border: 0.3px solid #010101;
+}
+input[type=range].thick::-webkit-slider-thumb {
+  box-shadow: 0px 0px 1px #670000, 0px 0px 0px #810000;
+  border: 0px solid #ff1e00;
+  height: 32px;
+  width: 50px;
+  border-radius: 0px;
+  background: #cacaca;
+  cursor: pointer;
+  -webkit-appearance: none;
+  margin-top: -0.3px;
+}
+input[type=range].thick:focus::-webkit-slider-runnable-track {
+  background: #717171;
+}
+input[type=range].thick::-moz-range-track {
+  width: 100%;
+  height: 32px;
+  cursor: pointer;
+  box-shadow: 0px 0px 0px #000000, 0px 0px 0px #0d0d0d;
+  background: #646464;
+  border-radius: 0px;
+  border: 0.3px solid #010101;
+}
+input[type=range].thick::-moz-range-thumb {
+  box-shadow: 0px 0px 1px #670000, 0px 0px 0px #810000;
+  border: 0px solid #ff1e00;
+  height: 32px;
+  width: 50px;
+  border-radius: 0px;
+  background: #cacaca;
+  cursor: pointer;
+}
+input[type=range].thick::-ms-track {
+  width: 100%;
+  height: 32px;
+  cursor: pointer;
+  background: transparent;
+  border-color: transparent;
+  color: transparent;
+}
+input[type=range].thick::-ms-fill-lower {
+  background: #575757;
+  border: 0.3px solid #010101;
+  border-radius: 0px;
+  box-shadow: 0px 0px 0px #000000, 0px 0px 0px #0d0d0d;
+}
+input[type=range].thick::-ms-fill-upper {
+  background: #646464;
+  border: 0.3px solid #010101;
+  border-radius: 0px;
+  box-shadow: 0px 0px 0px #000000, 0px 0px 0px #0d0d0d;
+}
+input[type=range].thick::-ms-thumb {
+  box-shadow: 0px 0px 1px #670000, 0px 0px 0px #810000;
+  border: 0px solid #ff1e00;
+  width: 50px;
+  border-radius: 0px;
+  background: #cacaca;
+  cursor: pointer;
+  height: 32px;
+}
+input[type=range].thick:focus::-ms-fill-lower {
+  background: #646464;
+}
+input[type=range].thick:focus::-ms-fill-upper {
+  background: #717171;
+}
 
 .trouble_sect {
 	display:flex;
@@ -664,6 +746,12 @@ label span:hover span.tooltip, div.label span:hover span.tooltip {
 	display: block;	
 	opacity:1;
 	
+}
+
+.colornumb.buy {color: #08d208;}
+
+.colornumb.sell {
+	color: #ff4141;
 }
 
 .strategygoal div {display:none;font-style:italic;margin-bottom: 1em;}

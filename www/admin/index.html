@@ -115,7 +115,7 @@ doesn't work as stoploss, because position can still grow beyoind the limit, but
 		reduce current position. Note that unrealized loss increases by square, while
 		realized profit is linear, so larger positions are reduced less than
 		smaller positions</span></span>
-		<x-slider data-name="pl_redfact" data-min="0" data-max="100" data-mult="10"></x-slider></div>
+		<x-slider data-name="pl_redfact" data-min="0" data-max="100" data-mult="1"></x-slider></div>
 <label class="adv"><span>Accumulation <span class="tooltip">Amount of the profit used to buy extra assets</span></span><x-slider data-name="pl_acum" data-min="0" data-max="100" data-mult="1"></x-slider></label>
 <div class="rightinfo"><button data-name="linear_suggest pl_mode_m">Propose</button><button data-name="linear_suggest_maxpos  pl_mode_m">Propose max position</button></div>
 <div class="warning" data-name="err_toolargepos">Changing setting is discouraged because the open position is too large</div>
@@ -412,13 +412,16 @@ the same order, they are ordered by its ID - this is the default ordering. Modif
 </template>
 
 <template id="backtest_vis">
-<x-section class="backtest floating"><x-section-caption>Backtest</x-section-caption>
+<x-section class="backtest"><x-section-caption>Backtest</x-section-caption>
+<div>Overall profit/loss: <strong data-name="pl" class="colornumb">0.00</strong> (per year: <strong data-name="ply" class="colornumb">0.00</strong>)</div>
+<div>Max position: <strong data-name="max_pos" class="colornumb">0.00</strong>, Max loss: <strong data-name="max_loss" class="colornumb">0.00</strong>, Max profit: <strong data-name="max_profit" class="colornumb">0.00</strong></div>
 <div class="charts spread_vis">
 <div>Price / neutral price</div>
 <div data-name="chart1"><div><em>Loading data, please wait...</em></div></div>
 <div>Profit from position / normalized profit</div>
 <div data-name="chart2"></div>
 <div class="spinner fast save" data-name="spinner" hidden="hidden"></div>
+<div><input name="pos" type="range" min="-100" max="0" step="0.1" value="0" class="thick"></div>
 </div>
 </x-section>
 </template>

@@ -76,6 +76,8 @@ public:
 
 	static double sliding_zero_factor;;
 
+	std::size_t cfgStateHash() const;
+
 protected:
 	Config cfg;
 	State st;

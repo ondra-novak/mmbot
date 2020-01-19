@@ -28,11 +28,13 @@ BTTrades backtest_cycle(const MTrader_Config &config, BTPriceSource &&priceSourc
 	bt.price = *price;
 	trades.push_back(bt);
 
+	double pl = 0;
+
 	double minsize = std::max(minfo.min_size, config.min_size);
 	for (price = priceSource();price.has_value();price = priceSource()) {
-		double pl = pl + pos * (price->price - bt.price.price);
+		pl = pl + pos * (price->price - bt.price.price);
 		double dir = sgn(bt.price.price- price->price);
-		auto orderData = s.getNewOrder(minfo, bt.price.price, price->price, dir, pos, balance);
+		auto orderData = s.getNewOrder(minfo, bt.price.price, price->price, dir, pos, balance+pl);
 		if (orderData.size * dir < 0) {
 			if (config.dust_orders) {
 				orderData.size = dir * minsize;
@@ -43,7 +45,7 @@ BTTrades backtest_cycle(const MTrader_Config &config, BTPriceSource &&priceSourc
 		orderData.size *= dir>0?config.buy_mult:config.sell_mult;
 		if (std::abs(orderData.size) < minsize) continue;
 		pos += orderData.size;
-		auto tres = s.onTrade(minfo, price->price, orderData.size, pos, balance);
+		auto tres = s.onTrade(minfo, price->price, orderData.size, pos, balance+pl);
 		bt.neutral_price = tres.neutralPrice;
 		bt.norm_accum += tres.normAccum;
 		bt.norm_profit += tres.normProfit;

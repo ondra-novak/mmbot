@@ -193,23 +193,6 @@ void MTrader::perform(bool manually) {
 
 			if (status.curStep) {
 
-
-					//calculate buy order
-				Order buyorder = calculateOrder(lastTradePrice,
-												  -status.curStep*cfg.buy_step_mult, dynmult.getBuyMult(),
-												   status.ticker.bid, status.assetBalance,
-												   status.currencyBalance,
-												   cfg.buy_mult);
-					//calculate sell order
-				Order sellorder = calculateOrder(lastTradePrice,
-												   status.curStep*cfg.sell_step_mult, dynmult.getSellMult(),
-												   status.ticker.ask, status.assetBalance,
-												   status.currencyBalance,
-												   cfg.sell_mult);
-
-
-
-
 				if (!cfg.enabled)  {
 					if (orders.buy.has_value())
 						stock.placeOrder(cfg.pairsymb,0,0,magic,orders.buy->id,0);
@@ -217,6 +200,23 @@ void MTrader::perform(bool manually) {
 						stock.placeOrder(cfg.pairsymb,0,0,magic,orders.sell->id,0);
 					if (!cfg.hidden) statsvc->reportError(IStatSvc::ErrorObj("Automatic trading is disabled"));
 				} else {
+
+						//calculate buy order
+					Order buyorder = calculateOrder(lastTradePrice,
+													  -status.curStep*cfg.buy_step_mult, dynmult.getBuyMult(),
+													   status.ticker.bid, status.assetBalance,
+													   status.currencyBalance,
+													   cfg.buy_mult);
+						//calculate sell order
+					Order sellorder = calculateOrder(lastTradePrice,
+													   status.curStep*cfg.sell_step_mult, dynmult.getSellMult(),
+													   status.ticker.ask, status.assetBalance,
+													   status.currencyBalance,
+													   cfg.sell_mult);
+
+
+
+
 					try {
 						setOrder(orders.buy, buyorder);
 						if (!orders.buy.has_value()) {

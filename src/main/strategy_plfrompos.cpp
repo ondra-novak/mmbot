@@ -8,6 +8,7 @@
 #include "strategy_plfrompos.h"
 #include <cmath>
 #include <imtjson/object.h>
+#include <imtjson/string.h>
 
 #include "../shared/logOutput.h"
 #include "sgn.h"
@@ -98,20 +99,40 @@ double Strategy_PLFromPos::calcNewPos(const IStockApi::MarketInfo &minfo, double
 		//so position is decreasing or we did not reach maxpos
 
 		if (cfg.reduceMode == neutralMove) {
-			//neutralMove reduction, calculate neutral_price.
-			//the formula is inverse to k * (neutral_price - p) = pos
-			double neutral_price = pos/k + p;
-			//adjust reduce factor, it is in per milles
-			double c = cfg.reduce_factor * 0.1;
-			//calculate reverse reduction of reduce factor, if position is decreasing (or 1)
-			double r = (dcrs?c-1.0:1.0);
-			//calculate new neutral position as move position of amount of distance to p * reduce factor * adjustment
-			double new_neutral_price = neutral_price+(p-neutral_price)*c*r;
-			//calculate new position using new neutral price and requested tradePrice with same k
-			np = k * (new_neutral_price - tradePrice);
-			if (dcrs && std::abs(np) > std::abs(pos))
-				np = pos;
+		/*	if (minfo.invert_price) {
 
+				//neutralMove reduction, calculate neutral_price.
+				//the formula is inverse to k * (neutral_price - p) = pos
+				double neutral_price = 1.0/(pos/k + p);
+				//adjust reduce factor, it is in per milles
+				double c = cfg.reduce_factor * 0.1;
+				//calculate reverse reduction of reduce factor, if position is decreasing (or 1)
+				double r = (dcrs?-sliding_zero_factor:1.0);
+				//calculate new neutral position as move position of amount of distance to p * reduce factor * adjustment
+				double new_neutral_price = 1.0/(neutral_price+(p-neutral_price)*c*r);
+				//calculate new position using new neutral price and requested tradePrice with same k
+				np = k * (new_neutral_price - tradePrice);
+				if (dcrs && std::abs(np) > std::abs(pos) && np * pos > 0)
+					np = pos;
+
+
+			} else*/ {
+
+				//neutralMove reduction, calculate neutral_price.
+				//the formula is inverse to k * (neutral_price - p) = pos
+				double neutral_price = pos/k + p;
+				//adjust reduce factor, it is in per milles
+				double c = cfg.reduce_factor * 0.1;
+				//calculate reverse reduction of reduce factor, if position is decreasing (or 1)
+				double r = (dcrs?-sliding_zero_factor:1.0);
+				//calculate new neutral position as move position of amount of distance to p * reduce factor * adjustment
+				double new_neutral_price = neutral_price+(p-neutral_price)*c*r;
+				//calculate new position using new neutral price and requested tradePrice with same k
+				np = k * (new_neutral_price - tradePrice);
+				if (dcrs && std::abs(np) > std::abs(pos) && np * pos > 0)
+					np = pos;
+
+			}
 
 		} else {
 
@@ -206,12 +227,19 @@ std::pair<Strategy_PLFromPos::OnTradeResult, PStrategy> Strategy_PLFromPos::onTr
 	double fpos = assetsToPos(minfo, new_pos);
 	double ppos = assetsToPos(minfo,st.a);
 
-	if (std::abs(fpos) <= cfg.maxpos*1e-10 || std::abs(fpos) > std::abs(ppos))
+	if ((cfg.maxpos && std::abs(fpos) > cfg.maxpos) || (fpos * ppos <=0))
 			calcPower(newst, tradePrice, assetsLeft, currencyLeft);
 	return {
 		OnTradeResult{np,ap,p0},
 		new Strategy_PLFromPos(cfg,newst)
 	};
+}
+
+std::size_t Strategy_PLFromPos::cfgStateHash() const {
+	json::Value v( {cfg.power,cfg.baltouse,cfg.k});
+	std::string txt = v.toString().str();
+	return std::hash<std::string>()(txt);
+
 }
 
 json::Value Strategy_PLFromPos::exportState() const {
@@ -223,7 +251,7 @@ json::Value Strategy_PLFromPos::exportState() const {
 			("acm",st.acm)
 			("maxpos",st.maxpos)
 			("val", st.value)
-			("pw", (int)(cfg.power*100000)+(int)(cfg.baltouse*100));
+			("cfg",cfgStateHash());
 	else return json::undefined;
 }
 
@@ -239,9 +267,8 @@ PStrategy Strategy_PLFromPos::importState(json::Value src) const {
 			src["acm"].getNumber(),
 			src["val"].getNumber()
 		};
-		if (newst.k != cfg.k) newst.k = 0;
-		int curpw = (int)(cfg.power*100000)+(int)(cfg.baltouse*100);
-		if (curpw != (int)src["pw"].getInt()) {
+		std::size_t chash = src["cfg"].getUInt();
+		if (chash != cfgStateHash()) {
 			newst.valid_power = false;
 		}
 		return new Strategy_PLFromPos(cfg, newst);
@@ -340,6 +367,7 @@ json::Value Strategy_PLFromPos::dumpStatePretty(const IStockApi::MarketInfo &min
 			("Accumulated",st.acm?json::Value(st.acm):json::Value())
 			("Max allowed position",st.maxpos)
 			("K",st.k)
+			("Step",st.k*st.p*st.p*0.01)
 			("Value of the position", st.value);
 
 }

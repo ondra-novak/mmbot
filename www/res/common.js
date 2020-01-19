@@ -426,4 +426,13 @@ function formBuilder(format) {
 	return w;
 }
 
+function adjNumBuySell(x) {
+	return {
+		"value":adjNum(x),
+		"classList":{
+			"buy":x>0,
+			"sell":x<0}
+	};
+}
+
 
