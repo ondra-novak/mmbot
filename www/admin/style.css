@@ -802,17 +802,18 @@ x-form.trading .chart .spinner {
 
 }
 .sharedlg textarea {
-	display: block;
 	box-sizing: border-box;
 	width: 94%;
 	margin: 3%;
 	text-align: center;
 	font-family: monospace;
+	overflow: auto;
+	height: 18em;
 }
 
 @media all and (max-width: 15cm) { 
 
-.pairactions img {width: 1.1cm;height: 1.1cm;margin: -0.1cm;}
+.pairactions img {width: 1.3cm;height: 1.3cm;margin: -0.1cm;}
 
 
 input,select,button,textarea {
