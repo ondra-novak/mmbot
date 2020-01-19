@@ -20,6 +20,7 @@
 	<div class="icon" data-name="icon_broker" hidden="hidden"><img src="../res/broker_settings.png" title="Broker settings" ></div>
 	<div class="icon" data-name="icon_reset"><img src="../res/reset_stats.png" title="Clear statistics"></div> 
 	<div class="icon" data-name="icon_repair"><img src="../res/repair.png" title="Restart strategy" > </div>
+	<div class="icon" data-name="icon_share"><img src="../res/share.png" title="Share settings" > </div>
 	<div class="icon red" data-name="icon_delete"><img src="../res/delete.png" title="Delete trader"></div></div>
 <div>
 <x-checkbox data-name="advanced">Show&nbsp;all</x-checkbox>
@@ -344,6 +345,21 @@ the same order, they are ordered by its ID - this is the default ordering. Modif
 </div></div>
 </template>
 
+<template id="share_dlg">
+<div class="dialog"><div class="sharedlg">
+<x-form>
+<h2>Share the settings</h2>
+<p>Share following block, or click on "import" to import another settings</p>
+<textarea name="share_input" onfocus="this.select();" rows="14"></textarea>
+<button data-name="import">Import</button>
+<button data-name="copy">Copy</button>
+<button data-name="paste">Paste</button>
+<button data-name="ok">Apply</button>
+<button data-name="cancel">Close</button>
+</x-form>
+</div></div>
+</template>
+
 
 <template id="confirm">
 <div class="dialog">
@@ -446,6 +462,7 @@ the same order, they are ordered by its ID - this is the default ordering. Modif
     data-sell="SELL"
     data-trade_ask_stop="This trader is currently in auto trading mode. Do you want to stop automatic trading to allow manual trading? To re-enable trading, you have to click Apply button"
     data-please_login="Your session has expired. Please log in to contine"
+    data-import_failed="Import failed. The code is probably damaged"
     ></span>
 
 

@@ -166,7 +166,7 @@ public:
 		void removeFees(double &assets, double &price) const;
 
 		template<typename Fn>
-		double adjValue(double value, double step, Fn &&fn) const {
+		static double adjValue(double value, double step, Fn &&fn)  {
 			if (step == 0) return value;
 			return fn(value/step) * step;
 		}

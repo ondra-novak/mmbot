@@ -1,6 +1,7 @@
 #include <imtjson/value.h>
 #include "backtest.h"
 
+#include <cmath>
 #include "istatsvc.h"
 #include "mtrader.h"
 #include "sgn.h"
@@ -35,7 +36,7 @@ BTTrades backtest_cycle(const MTrader_Config &config, BTPriceSource &&priceSourc
 		pl = pl + pos * (price->price - bt.price.price);
 		double dir = sgn(bt.price.price- price->price);
 		auto orderData = s.getNewOrder(minfo, bt.price.price, price->price, dir, pos, balance+pl);
-		if (orderData.size * dir < 0) {
+		if (orderData.size * dir <= 0) {
 			if (config.dust_orders) {
 				orderData.size = dir * minsize;
 			}else{
@@ -43,7 +44,9 @@ BTTrades backtest_cycle(const MTrader_Config &config, BTPriceSource &&priceSourc
 			}
 		}
 		orderData.size *= dir>0?config.buy_mult:config.sell_mult;
-		if (std::abs(orderData.size) < minsize) continue;
+		orderData.size  = IStockApi::MarketInfo::adjValue(orderData.size,minfo.asset_step,round);
+		if (std::abs(orderData.size) < minsize)
+			continue;
 		pos += orderData.size;
 		auto tres = s.onTrade(minfo, price->price, orderData.size, pos, balance+pl);
 		bt.neutral_price = tres.neutralPrice;

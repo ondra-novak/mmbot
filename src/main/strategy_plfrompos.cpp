@@ -99,7 +99,11 @@ double Strategy_PLFromPos::calcNewPos(const IStockApi::MarketInfo &minfo, double
 		//so position is decreasing or we did not reach maxpos
 
 		if (cfg.reduceMode == neutralMove) {
-		/*	if (minfo.invert_price) {
+			if (minfo.invert_price) {
+
+				double invp = 1.0/p;
+				double invt = 1.0/tradePrice;
+				double midl = (invp + invt)*0.5;
 
 				//neutralMove reduction, calculate neutral_price.
 				//the formula is inverse to k * (neutral_price - p) = pos
@@ -109,15 +113,15 @@ double Strategy_PLFromPos::calcNewPos(const IStockApi::MarketInfo &minfo, double
 				//calculate reverse reduction of reduce factor, if position is decreasing (or 1)
 				double r = (dcrs?-sliding_zero_factor:1.0);
 				//calculate new neutral position as move position of amount of distance to p * reduce factor * adjustment
-				double new_neutral_price = 1.0/(neutral_price+(p-neutral_price)*c*r);
+				double new_neutral_price = 1.0/(neutral_price+(midl-neutral_price)*c*r);
 				//calculate new position using new neutral price and requested tradePrice with same k
 				np = k * (new_neutral_price - tradePrice);
 				if (dcrs && std::abs(np) > std::abs(pos) && np * pos > 0)
 					np = pos;
 
 
-			} else*/ {
-
+			} else {
+				double midl = (p+tradePrice)*0.5;
 				//neutralMove reduction, calculate neutral_price.
 				//the formula is inverse to k * (neutral_price - p) = pos
 				double neutral_price = pos/k + p;
@@ -126,7 +130,7 @@ double Strategy_PLFromPos::calcNewPos(const IStockApi::MarketInfo &minfo, double
 				//calculate reverse reduction of reduce factor, if position is decreasing (or 1)
 				double r = (dcrs?-sliding_zero_factor:1.0);
 				//calculate new neutral position as move position of amount of distance to p * reduce factor * adjustment
-				double new_neutral_price = neutral_price+(p-neutral_price)*c*r;
+				double new_neutral_price = neutral_price+(midl-neutral_price)*c*r;
 				//calculate new position using new neutral price and requested tradePrice with same k
 				np = k * (new_neutral_price - tradePrice);
 				if (dcrs && std::abs(np) > std::abs(pos) && np * pos > 0)

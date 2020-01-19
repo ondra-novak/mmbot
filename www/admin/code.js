@@ -511,7 +511,7 @@ App.prototype.fillForm = function (src, trg) {
 			if (src.strategy.k) data.cstep.value = adjNumN(src.strategy.k*pair.price*pair.price*0.01);
 			else linStrategy_recomended();
 		} else {
-		    if (!tmp.max_pos || isNaN(tmp.max_pos)) {
+		    if ((!tmp.max_pos || isNaN(tmp.max_pos)) && (!tmp.cstep || isNaN(tmp.cstep))) {
 		    	linStrategy_recomended();
 		    }
 		}
@@ -614,6 +614,7 @@ App.prototype.fillForm = function (src, trg) {
 	data.icon_delete={"!click": this.deleteTrader.bind(this, src.id)};
 	data.icon_undo={"!click": this.undoTrader.bind(this, src.id)};
 	data.icon_trading={"!click":this.tradingForm.bind(this, src.id)};
+	data.icon_share={"!click":this.shareForm.bind(this, src.id, trg)};
 	
 	function refresh_hdr() {
 		if (trg.getRoot().isConnected) {
@@ -1092,13 +1093,13 @@ App.prototype.securityForm = function() {
 }
 
 App.prototype.dlgbox = function(data, template) {
-	return new Promise(function(ok, cancel) {
-		var dlg = TemplateJS.View.fromTemplate(template);
-		dlg.openModal();
-		dlg.enableItem("ok",false);
-		dlg.setData(data).then(function() {
-			dlg.enableItem("ok",true);
-		})
+	var dlg = TemplateJS.View.fromTemplate(template);
+	dlg.openModal();
+	dlg.enableItem("ok",false);
+	dlg.setData(data).then(function() {
+		dlg.enableItem("ok",true);
+	})
+	var res = new Promise(function(ok, cancel) {
 		dlg.setCancelAction(function() {
 			dlg.close();cancel();
 		},"cancel");
@@ -1106,6 +1107,8 @@ App.prototype.dlgbox = function(data, template) {
 			dlg.close();ok();
 		},"ok");
 	});		
+	res.view = dlg;
+	return res;
 }
 
 App.prototype.save = function() {
@@ -1639,4 +1642,65 @@ App.prototype.brokerConfig = function(id, pair) {
 			return fetch_with_error(burl, {method:"PUT",body:JSON.stringify(d)});				
 		}.bind(this))
 	}.bind(this))
+}
+
+App.prototype.shareForm = function(id, form) {
+	var cfg = this.saveForm(form, {});
+	delete cfg.title;
+	delete cfg.enable;
+	delete cfg.dry_run;
+	delete cfg.report_position_offset;
+	delete cfg.report_order;
+	delete cfg.hidden;
+	var cfgstr = JSON.stringify(cfg);	
+	var splt = "{{"+btoa(cfgstr).match(/.{1,24}/g).join(" ")+"}}";	
+	var p = this.dlgbox({share_input:splt},"share_dlg");
+	var dlg = p.view;
+	var shelm = dlg.findElements("share_input")[0];
+	shelm.readOnly=true;
+	dlg.showItem("ok", false);
+	dlg.showItem("paste", false)
+	dlg.setItemEvent("import","click",function(){
+		dlg.setItemValue("share_input","");
+		dlg.showItem("ok", true);
+		dlg.showItem("import", false);
+		dlg.showItem("paste", true);
+		dlg.showItem("copy", false);		
+		shelm.readOnly=false;
+		shelm.focus();
+	});
+	dlg.setItemEvent("copy","click",function(){
+			shelm.focus();
+			shelm.select();
+			document.execCommand("copy");
+	});
+	dlg.setItemEvent("paste","click",function(){
+		if (navigator.clipboard && navigator.clipboard.readText) {
+			navigator.clipboard.readText().then(function(x){
+				shelm.value = x;
+			});			
+		} else {
+			shelm.focus();
+			shelm.select();			
+			document.execCommand("paste");
+		}
+	});
+	p.then(function(){
+		var txt = shelm.value;	
+		txt = txt.trim();
+		if (txt.startsWith("{{") && txt.endsWith("}}")) {
+			txt = txt.substr(2,txt.length-4);
+			txt = txt.split(/\s+/).join("");
+			var json = atob(txt);
+			try {
+				var newcfg = JSON.parse(json);
+				this.traders[id] = Object.assign(this.traders[id], newcfg);
+				this.undoTrader(id);
+				return;
+			} catch (e) {
+				
+			}
+		}
+		this.dlgbox({"text":this.strtable.import_failed,"cancel":{hidden:true}},"confirm");
+	}.bind(this));
 }

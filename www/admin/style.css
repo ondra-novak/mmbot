@@ -798,7 +798,21 @@ x-form.trading .chart .spinner {
 	box-sizing: border-box;
 }
 
+.sharedlg {
+
+}
+.sharedlg textarea {
+	display: block;
+	box-sizing: border-box;
+	width: 94%;
+	margin: 3%;
+	text-align: center;
+	font-family: monospace;
+}
+
 @media all and (max-width: 15cm) { 
+
+.pairactions img {width: 1.1cm;height: 1.1cm;margin: -0.1cm;}
 
 
 input,select,button,textarea {
