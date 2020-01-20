@@ -86,7 +86,7 @@ protected:
 
 private:
 	double calcNewPos(const IStockApi::MarketInfo &minfo, double tradePrice) const;
-	void calcPower(State &st,  double price, double assets, double currency) const;
+	void calcPower(const IStockApi::MarketInfo &minfo, State &st,  double price, double assets, double currency, bool keepnp) const;
 };
 
 

@@ -39,7 +39,7 @@ double Strategy_PLFromPos::calcK() const {
 }
 
 double Strategy_PLFromPos::reducedK(double k) const {
-	if (cfg.reduceMode == fixedReduce) k = k * (1+cfg.reduce_factor);
+/*	if (cfg.reduceMode == fixedReduce) k = k * (1+cfg.reduce_factor);*/
 	return k;
 }
 
@@ -56,7 +56,7 @@ PStrategy Strategy_PLFromPos::onIdle(const IStockApi::MarketInfo &minfo,
 	if (!st.inited || !std::isfinite(st.p) || !std::isfinite(st.a)) {
 		newst.p = last;
 		newst.a = assets;
-		calcPower(newst, last, assets, currency);
+		calcPower(minfo, newst, last, assets, currency,false);
 	}
 
 	if (!std::isfinite(st.value)) newst.value = 0;
@@ -65,7 +65,7 @@ PStrategy Strategy_PLFromPos::onIdle(const IStockApi::MarketInfo &minfo,
 	newst.inited = true;
 
 	if (!st.valid_power || !cfg.power || st.k== 0) {
-		calcPower(newst, last, assets, currency);
+		calcPower(minfo, newst, last, assets, currency,false);
 	}
 
 	if (!st.inited) {
@@ -99,28 +99,6 @@ double Strategy_PLFromPos::calcNewPos(const IStockApi::MarketInfo &minfo, double
 		//so position is decreasing or we did not reach maxpos
 
 		if (cfg.reduceMode == neutralMove) {
-			if (minfo.invert_price) {
-
-				double invp = 1.0/p;
-				double invt = 1.0/tradePrice;
-				double midl = (invp + invt)*0.5;
-
-				//neutralMove reduction, calculate neutral_price.
-				//the formula is inverse to k * (neutral_price - p) = pos
-				double neutral_price = 1.0/(pos/k + p);
-				//adjust reduce factor, it is in per milles
-				double c = cfg.reduce_factor * 0.1;
-				//calculate reverse reduction of reduce factor, if position is decreasing (or 1)
-				double r = (dcrs?-sliding_zero_factor:1.0);
-				//calculate new neutral position as move position of amount of distance to p * reduce factor * adjustment
-				double new_neutral_price = 1.0/(neutral_price+(midl-neutral_price)*c*r);
-				//calculate new position using new neutral price and requested tradePrice with same k
-				np = k * (new_neutral_price - tradePrice);
-				if (dcrs && std::abs(np) > std::abs(pos) && np * pos > 0)
-					np = pos;
-
-
-			} else {
 				double midl = (p+tradePrice)*0.5;
 				//neutralMove reduction, calculate neutral_price.
 				//the formula is inverse to k * (neutral_price - p) = pos
@@ -136,7 +114,6 @@ double Strategy_PLFromPos::calcNewPos(const IStockApi::MarketInfo &minfo, double
 				if (dcrs && std::abs(np) > std::abs(pos) && np * pos > 0)
 					np = pos;
 
-			}
 
 		} else {
 
@@ -231,8 +208,7 @@ std::pair<Strategy_PLFromPos::OnTradeResult, PStrategy> Strategy_PLFromPos::onTr
 	double fpos = assetsToPos(minfo, new_pos);
 	double ppos = assetsToPos(minfo,st.a);
 
-	if ((cfg.maxpos && std::abs(fpos) > cfg.maxpos) || (fpos * ppos <=0))
-			calcPower(newst, tradePrice, assetsLeft, currencyLeft);
+	calcPower(minfo, newst, newst.p, newst.a, currencyLeft,true);
 	return {
 		OnTradeResult{np,ap,p0},
 		new Strategy_PLFromPos(cfg,newst)
@@ -347,16 +323,23 @@ double Strategy_PLFromPos::posToAssets(const IStockApi::MarketInfo &minfo,
 	return pos + getNeutralPos(minfo);
 }
 
-void Strategy_PLFromPos::calcPower(State& st, double price, double , double currency) const
+void Strategy_PLFromPos::calcPower(const IStockApi::MarketInfo &minfo, State& st, double price, double assets, double currency, bool keepnp) const
 {
 	if (cfg.power) {
+		double pos = assetsToPos(minfo, assets);
+		double new_pos = pos;
+		double neutral_price = pos/calcK(st) + price;
 		double c = currency * cfg.baltouse;
 		double step = c * std::pow(10, cfg.power)*0.01;
 		double k = step / (price * price * 0.01);
 		double max_pos = sqrt(k * c);
 		st.maxpos = max_pos;
 		st.k= k;
-		logInfo("Strategy recalculated: step=$1, max_pos=$2", step, max_pos);
+		if (keepnp) {
+			new_pos = k * (neutral_price - price);
+			st.a = posToAssets(minfo, new_pos);
+		}
+//		logInfo("Strategy recalculated: step=$1, pos=$3, max_pos=$2, new_pos=$4", step, max_pos, pos, new_pos);
 	} else {
 		st.maxpos = cfg.maxpos;
 		st.k= cfg.k;
