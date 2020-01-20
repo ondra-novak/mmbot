@@ -11,6 +11,7 @@
 #include "../shared/logOutput.h"
 #include "../brokers/httpjson.h"
 #include "../brokers/log.h"
+#include "tradingengine.h"
 
 
 using ondra_shared::logDebug;
@@ -40,20 +41,31 @@ SubscribeFn QuoteStream::connect() {
 	Sync _(lock);
 
 	HTTPJson hj(simpleServer::HttpClient(httpc),url);
-	json::Value v = hj.GET("negotiate?clientProtocol=1.5&connectionData=%5B%7B%22name%22%3A%22quotessubscribehub%22%7D%5D");
+	json::Value headers;
+	json::Value v = hj.GET("negotiate?clientProtocol=1.5&connectionData=%5B%7B%22name%22%3A%22quotessubscribehub%22%7D%5D&_="+std::to_string(TradingEngine::now()),std::move(headers));
+	json::Value cookie = headers["set-cookie"];
+	std::string cookeText = StrViewA(cookie.getString().split(";")()).trim(isspace);
+	json::Value reqhdrs = json::Object("cookie", cookeText);
+
+
 
 	std::string enctoken = simpleServer::urlEncode(v["ConnectionToken"].toString());
 
 	std::string wsurl = url+"connect?transport=webSockets&ConnectionToken="+enctoken+"&clientProtocol=1.5&connectionData=%5B%7B%22name%22%3A%22quotessubscribehub%22%7D%5D";
 	logDebug("Opening stream: $1", wsurl);
 
-	ws = simpleServer::connectWebSocket(httpc, wsurl, simpleServer::SendHeaders());
+	ws = simpleServer::connectWebSocket(httpc, wsurl, simpleServer::SendHeaders()("cookie", cookeText));
 	ws.getStream().setIOTimeout(30000);
 
 	ondra_shared::Countdown cnt(1);
 
 	std::thread t2([this, &cnt]{
 		bool rr = ws.readFrame();
+		while (rr && ws.getFrameType() != simpleServer::WSFrameType::text) {
+			logDebug("Received frame type: $1", (int)ws.getFrameType());
+			rr = ws.readFrame();
+		}
+		logDebug("Received initial frame : $1 - connected", ws.getText());
 		cnt.dec();
 		try {
 			if (rr) processMessages(); else {
@@ -68,21 +80,19 @@ SubscribeFn QuoteStream::connect() {
 	cnt.wait();
 	thr = std::move(t2);
 
-	std::string starturl = "start?transport=webSockets&ConnectionToken="+enctoken+"&clientProtocol=1.5&connectionData=%5B%7B%22name%22%3A%22quotessubscribehub%22%7D%5D";
-	std::this_thread::sleep_for(std::chrono::seconds(1));
+	std::string starturl = "start?transport=webSockets&ConnectionToken="+enctoken+"&clientProtocol=1.5&connectionData=%5B%7B%22name%22%3A%22quotessubscribehub%22%7D%5D&_="+std::to_string(TradingEngine::now());
 	try {
-		hj.GET(starturl);
-	} catch (...) {
-		//retry after 2 seconds
-		std::this_thread::sleep_for(std::chrono::seconds(2));
-		try {
-			hj.GET(starturl);
-		} catch (...) {
-			//retry after 3 seconds
-			std::this_thread::sleep_for(std::chrono::seconds(3));
-			hj.GET(starturl);
-			//give up on error
+		hj.GET(starturl,std::move(reqhdrs));
+	} catch (const HTTPJson::UnknownStatusException &e) {
+		std::string s;
+		auto body = e.response.getBody();
+		StrViewA c = StrViewA(body.read());
+		while (!c.empty()) {
+			s.append(c.data, c.length);
+			c = StrViewA(body.read());
 		}
+		logError("Unable to start stream: $1", s);
+		throw;
 	}
 
 	auto subscribeFn = [this](const std::string_view &symbol) {

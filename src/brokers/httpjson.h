@@ -12,6 +12,7 @@
 #include <imtjson/value.h>
 #include <simpleServer/http_client.h>
 
+
 class HTTPJson {
 public:
 
@@ -59,6 +60,7 @@ public:
 protected:
 	simpleServer::HttpClient httpc;
 	std::string baseUrl;
+
 };
 
 

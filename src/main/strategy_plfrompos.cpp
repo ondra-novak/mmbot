@@ -205,8 +205,8 @@ std::pair<Strategy_PLFromPos::OnTradeResult, PStrategy> Strategy_PLFromPos::onTr
 	newst.a = new_pos;
 	newst.value = posVal;
 
-	double fpos = assetsToPos(minfo, new_pos);
-	double ppos = assetsToPos(minfo,st.a);
+/*	double fpos = assetsToPos(minfo, new_pos);
+	double ppos = assetsToPos(minfo,st.a);*/
 
 	calcPower(minfo, newst, newst.p, newst.a, currencyLeft,true);
 	return {

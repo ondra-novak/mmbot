@@ -84,7 +84,7 @@ public:
 
 	Interface(const std::string &path):AbstractBrokerAPI(path, keyFormat)
 	,httpc("+mmbot/2.0 simplefx_broker (https://github.com/ondra-novak/mmbot)",
-			simpleServer::newHttpsProvider())
+			simpleServer::newHttpsProvider(),nullptr,simpleServer::newCachedDNSProvider(10))
 	,hjsn(simpleServer::HttpClient(httpc),"https://rest.simplefx.com")
 	,hjsn_utils(simpleServer::HttpClient(httpc),"https://simplefx.com")
 	{
@@ -189,6 +189,7 @@ int main(int argc, char **argv) {
 
 		Interface ifc(argv[1]);
 		ifc.dispatch();
+		exit(0);
 
 
 	} catch (std::exception &e) {
