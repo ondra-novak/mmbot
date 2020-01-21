@@ -201,6 +201,7 @@ public:
 		bool inited = false;
 		time_t startTime = 0;
 		time_t activityTime = 0;
+		int activityCounter = 10;
 		std::vector<double> prices;
 		long timeDivisor = 120;
 		std::string asset = "TEST";
@@ -732,15 +733,20 @@ inline void Interface::TestPair::updateLiq(double openPrice) {
 inline bool Interface::reset() {
 
 	time_t now = time(nullptr);
-	time_t exp = now - 600;
+	time_t exp = now - 60;
 	std::vector<std::size_t> remove;
 
 	for (auto &&pp: pairs) {
 
 		auto &p = pp.second;
 		if (p.activityTime < exp) {
-			remove.push_back(pp.first);
-			continue;
+			p.activityCounter--;
+			if (p.activityCounter<=0) {
+				remove.push_back(pp.first);
+				continue;
+			} else {
+				p.activityTime = now;
+			}
 		}
 
 
@@ -806,9 +812,7 @@ inline bool Interface::reset() {
 		p.prev_price = cp;
 	}
 	for (auto &&k : remove) {
-		TestPair &p = pairs[k];
-		if (p.activityTime < exp)
-			pairs.erase(k);
+		pairs.erase(k);
 	}
 	saveSettings();
 	return true;
@@ -868,6 +872,7 @@ inline void Interface::restoreSettings(json::Value keyData) {
 inline void Interface::setSettings(json::Value keyData, bool loaded,  unsigned int pairId) {
 	auto &p = pairs[pairId];
 	p.activityTime = time(nullptr);
+	p.activityCounter = 10;
 
 	p.timeDivisor = keyData["timeframe"].getInt()*60;
 	p.prices.clear();
@@ -907,6 +912,7 @@ inline void Interface::setSettings(json::Value keyData, bool loaded,  unsigned i
 	p.price_url = keyData["src_url"].getString();
 	p.src_asset = keyData["src_asset"].getString();
 	p.src_currency = keyData["src_currency"].getString();
+	p.activityCounter = keyData["activityCounter"].getValueOrDefault(10);
 	p.futures = false;
 	p.inverted = false;
 	p.liquidation = false;
@@ -966,6 +972,7 @@ json::Value Interface::TestPair::collectSettings() const {
 		  ("src_field", price_path)
 	  	  ("src_asset", src_asset)
 	  	  ("src_currency", src_currency)
+		  ("activityCounter", activityCounter)
 		  ("loaded",true);
 	return kv;
 }
@@ -1069,6 +1076,7 @@ inline Interface::TestPair& Interface::getPair(const std::string_view &name) {
 	std::hash<std::string_view> h;
 	TestPair &p = pairs[h(name)];
 	p.activityTime = time(nullptr);
+	p.activityCounter = 10;
 	return p;
 }
 

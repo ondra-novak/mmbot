@@ -56,7 +56,7 @@ PStrategy Strategy_PLFromPos::onIdle(const IStockApi::MarketInfo &minfo,
 	if (!st.inited || !std::isfinite(st.p) || !std::isfinite(st.a)) {
 		newst.p = last;
 		newst.a = assets;
-		calcPower(minfo, newst, last, assets, currency,false);
+		calcPower(minfo, newst, last, assets, currency,true);
 	}
 
 	if (!std::isfinite(st.value)) newst.value = 0;
@@ -65,7 +65,7 @@ PStrategy Strategy_PLFromPos::onIdle(const IStockApi::MarketInfo &minfo,
 	newst.inited = true;
 
 	if (!st.valid_power || !cfg.power || st.k== 0) {
-		calcPower(minfo, newst, last, assets, currency,false);
+		calcPower(minfo, newst, last, assets, currency, true);
 	}
 
 	if (!st.inited) {
@@ -216,7 +216,7 @@ std::pair<Strategy_PLFromPos::OnTradeResult, PStrategy> Strategy_PLFromPos::onTr
 }
 
 std::size_t Strategy_PLFromPos::cfgStateHash() const {
-	json::Value v( {cfg.power,cfg.baltouse,cfg.k});
+	json::Value v( {cfg.power,cfg.baltouse,cfg.step});
 	std::string txt = v.toString().str();
 	return std::hash<std::string>()(txt);
 
@@ -325,24 +325,24 @@ double Strategy_PLFromPos::posToAssets(const IStockApi::MarketInfo &minfo,
 
 void Strategy_PLFromPos::calcPower(const IStockApi::MarketInfo &minfo, State& st, double price, double assets, double currency, bool keepnp) const
 {
+	double pos = assetsToPos(minfo, assets);
+	double new_pos = pos;
+	double neutral_price = pos/calcK(st) + price;
 	if (cfg.power) {
-		double pos = assetsToPos(minfo, assets);
-		double new_pos = pos;
-		double neutral_price = pos/calcK(st) + price;
 		double c = currency * cfg.baltouse;
 		double step = c * std::pow(10, cfg.power)*0.01;
 		double k = step / (price * price * 0.01);
 		double max_pos = sqrt(k * c);
 		st.maxpos = max_pos;
 		st.k= k;
-		if (keepnp) {
-			new_pos = k * (neutral_price - price);
-			st.a = posToAssets(minfo, new_pos);
-		}
 //		logInfo("Strategy recalculated: step=$1, pos=$3, max_pos=$2, new_pos=$4", step, max_pos, pos, new_pos);
 	} else {
 		st.maxpos = cfg.maxpos;
-		st.k= cfg.k;
+		st.k= cfg.step / (price * price * 0.01);
+	}
+	if (keepnp && std::isfinite(neutral_price)) {
+		new_pos = st.k * (neutral_price - price);
+		st.a = posToAssets(minfo, new_pos);
 	}
 	st.valid_power = true;
 }
@@ -353,7 +353,6 @@ json::Value Strategy_PLFromPos::dumpStatePretty(const IStockApi::MarketInfo &min
 			("Position",assetsToPos(minfo, st.a)*(minfo.invert_price?-1.0:1.0))
 			("Accumulated",st.acm?json::Value(st.acm):json::Value())
 			("Max allowed position",st.maxpos)
-			("K",st.k)
 			("Step",st.k*st.p*st.p*0.01)
 			("Value of the position", st.value);
 

@@ -1,5 +1,5 @@
 @charset "UTF-8";
-
+ 
 @import url(https://fonts.googleapis.com/css?family=Ruda&display=swap);
 body {
 	background-color:#222;
@@ -89,7 +89,7 @@ x-form input[type=number] {
 x-section {
 	display:block;
 	border: 1px solid;
-	padding: 1em 0.5em;
+	padding: 0.5em;
 	position: relative;
 	margin: 1em 0;
 	box-sizing: border-box;
@@ -398,11 +398,62 @@ a {
 	margin: auto;
 }
 
+.backtest p {
+	text-align:center;
+	margin: 0;
+	font-style:italic
+}
+
+.backtest div.tablecont {
+	background: linear-gradient(to right, transparent,#3e3e3e);	
+	margin: -0.5em -0.5em 0.5em -0.5em;
+}
+.backtest table{
+	width: 100%;
+	border-collapse:collapse;
+	padding:0;
+}
+
+.backtest  tr > * {
+	text-align:center;
+	padding: 0 2px;
+	margin: 0;
+	font-size: 0.9em;
+}
+
+.backtest th {
+	font-weight:normal;
+	white-space: nowrap;
+	width: 15%;
+}
+.backtest th[data-name=options]:hover {
+	background-color: #FFF2;
+	cursor: pointer;
+}
+.backtest th[data-name=options].sel {
+    background-color: #151515;
+}
+.backtest th img {
+	width: 2em
+}
+.backtest > x-form.floating {
+	position: absolute;
+	top:3em;
+	right: 0;
+	background-color: #151515;
+	padding: 0.5em;	
+}
+
+.backtest td {
+	font-weight:bold;
+}
+.backtest td[data-name=max_loss_pc]::after,.backtest td[data-name=pc]::after {
+	content: '%'
+}
+
 .backtest input[type=range] {
 	width:100%;
 	box-sizing: border-box;
-	/* color: #bf2d2d; */
-	/* background: #773030; */
 }
 
 .backtest.wide {
@@ -689,7 +740,7 @@ x-form.pair table.orders td button {
 .toppanel {
 	margin-bottom: 0.2cm;
 	background: linear-gradient(to right, transparent,#3e3e3e);
-	margin: -1em -0.4em 1em 0;
+	margin: -0.5em -0.5em 1em 0;
 	/* line-height: 1.7cm; */
 	min-height: 1.8cm;
 	padding-top: 0.6cm;
@@ -833,6 +884,9 @@ input,select,button,textarea {
 	flex-grow:1;
 	width: 40%;
 
+}
+.backtest {
+	font-size: 2.5vw;
 }
 }
 

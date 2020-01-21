@@ -214,10 +214,18 @@ function initChart(chart_interval, ratio, base_interval) {
 	new_svg_el("line",{x1:0, y1:activeheight+1,x2:activewidth+axis,y2:activeheight+1,class:"lineaxis"},svg);
 	var cnt = chart.length;
 	function map_y(p) {
-		return activeheight-(p-minmax.min)*priceStep;
+		if (isFinite(p)) {
+		    return activeheight-(p-minmax.min)*priceStep;
+		} else {
+			return activeheight-(minmax.min)*priceStep;;
+		}
 	}
 	function map_x(x) {
-		return x*step+axis;
+		if (isFinite(x)) {
+		    return x*step+axis;
+		} else {
+			return axis;
+		}
 	}
 
 	if (!isFinite(rowbeg) || !isFinite(rowend)) return;
@@ -426,9 +434,9 @@ function formBuilder(format) {
 	return w;
 }
 
-function adjNumBuySell(x) {
+function adjNumBuySell(x,d) {
 	return {
-		"value":adjNum(x),
+		"value":adjNum(x,d),
 		"classList":{
 			"buy":x>0,
 			"sell":x<0}

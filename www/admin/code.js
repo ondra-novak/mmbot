@@ -339,7 +339,6 @@ App.prototype.fillForm = function (src, trg) {
 		data.price= adjNum(invPrice(pair.price,pair.invert_price));
 		data.leverage=pair.leverage?pair.leverage+"x":"n/a";
 		trg._balance = pair.currency_balance;
-		trg._price = pair.price;
 
 		var mp = orders?orders.map(function(z) {
 			return {
@@ -494,10 +493,7 @@ App.prototype.fillForm = function (src, trg) {
 			}
 		}
 
-		data.max_pos =  {"!input": linStrategy_recalc};
-		data.cstep = Object.assign({}, data.max_pos);
-		data.neutral_pos =  Object.assign({}, data.max_pos);
-		data.cstep["!input"] = linStrategy_recalc;
+		data.max_pos = data.cstep = data.neutral_pos = {"!input": linStrategy_recalc};
 		data.linear_suggest = {"!click":linStrategy_recomended};
 		data.linear_suggest_maxpos = {"!click":linStrategy_recomended_maxpos};
 		data.external_assets = {"!input": halfHalf_recalc};
@@ -507,14 +503,7 @@ App.prototype.fillForm = function (src, trg) {
 		halfHalf_recalc();
 		linStrategy_recalc_power();
 		var tmp = trg.readData(["cstep","max_pos"]);
-		if (isNaN(tmp.cstep)) {
-			if (src.strategy.k) data.cstep.value = adjNumN(src.strategy.k*pair.price*pair.price*0.01);
-			else linStrategy_recomended();
-		} else {
-		    if ((!tmp.max_pos || isNaN(tmp.max_pos)) && (!tmp.cstep || isNaN(tmp.cstep))) {
-		    	linStrategy_recomended();
-		    }
-		}
+		if (!tmp.max_pos && !tmp.cstep) linStrategy_recomended();
 		data.pl_baluse = data.pl_power={"!input":function() {
 			linStrategy_recalc_power();
 		}};
@@ -560,7 +549,7 @@ App.prototype.fillForm = function (src, trg) {
 	data.pl_show_factor=0.1;
 	data.pl_baluse=50;
 	data.pl_redfact=50;
-	data.pl_redmode="fixed";
+	data.pl_redmode="rp";
 	data.kv_valinc = 0;
 	
 	if (data.strategy == "halfhalf" || data.strategy == "keepvalue") {
@@ -570,12 +559,11 @@ App.prototype.fillForm = function (src, trg) {
 	} else if (data.strategy == "plfrompos") {
 		data.pl_acum = filledval(defval(src.strategy.accum,0)*100,0);
 		data.neutral_pos = filledval(src.strategy.neutral_pos,0);		
-		if (src.strategy.k) data.cstep = {"data-orig":src.strategy.k};
-//		data.cstep = filledval(src.strategy.cstep,0);
+		data.cstep = filledval(src.strategy.cstep,0);
 		data.max_pos = filledval(src.strategy.maxpos,0);
 		data.pl_redfact = filledval(defval(Math.abs(src.strategy.reduce_factor),0.5)*100,50);
 		if (src.strategy.fixed_reduce) data.pl_redmode = "fixed";
-		else data.pl_redmode = filledval(src.strategy.reduce_mode, "fixed");		
+		else data.pl_redmode = filledval(src.strategy.reduce_mode, "rp");		
 		data.pl_baluse = filledval(defval(src.strategy.balance_use,1)*100,100);
 		data.pl_confmode= filledval(src.strategy.power?"a":"m", "a");
 		data.pl_power=filledval(src.strategy.power?src.strategy.power:1,1);
@@ -669,11 +657,7 @@ App.prototype.saveForm = function(form, src) {
 	trader.strategy.type = data.strategy;
 	if (data.strategy == "plfrompos") {
 		trader.strategy.accum = data.pl_acum/100.0;
-		if (isFinite(data.cstep) && form._price)
-			trader.strategy.k = data.cstep / (form._price * form._price * 0.01);
-		else {
-			trader.strategy.k = parseFloat(form.findElements("cstep")[0].dataset.orig);
-		}
+		trader.strategy.cstep = data.cstep;
 		trader.strategy.neutral_pos = data.neutral_pos;
 		trader.strategy.maxpos = data.max_pos;
 		trader.strategy.reduce_factor = data.pl_redfact/100;
@@ -1215,10 +1199,16 @@ App.prototype.gen_backtest = function(form,anchor, template, inputs, updatefn) {
 			tm = null;
 			update()},250);
 	}
+	obj.update = delayUpdate;
 
 	inputs.forEach(function(a) {
 		form.forEachElement(a, function(x){
-			x.addEventListener("input",delayUpdate);
+			if (x.tagName == "BUTTON")
+				x.addEventListener("click", delayUpdate);
+			else {
+				x.addEventListener("input",delayUpdate);
+				x.addEventListener("change",delayUpdate);
+			}
 		})
 	});
 	update();
@@ -1266,13 +1256,13 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 	var url = "api/backtest";
 	form.enableItem("show_backtest",false);		
 	var inputs = ["external_assets", "acum_factor","kv_valinc","pl_confmode","pl_power","pl_baluse","cstep",
-		"max_pos","neutral_pos","pl_redmode","pl_redfact","pl_acum","min_size","max_size","order_mult","dust_orders"];
+		"max_pos","neutral_pos","pl_redmode","pl_redfact","pl_acum","min_size","max_size","order_mult","dust_orders","inear_suggest","inear_suggest_maxpos"];
 	var balance = form._balance;
 	var days = 45*60*60*24*1000;
     var offset = 0;
     var offset_max = 0;
 
-	function draw(cntr, v, offset) {
+	function draw(cntr, v, offset, balance) {
 
         var vlast = v[v.length-1];
 		var interval = vlast.tm-v[0].tm;	
@@ -1282,7 +1272,8 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		var imax = vlast.tm - offset;
 		var max_pos = 0;
 		var min_pl = 0;
-		var max_pl = 0;
+		var max_pl = 0;		
+		var max_downdraw = 0;
 
 		var c = [];
 		var acp = true;
@@ -1296,8 +1287,8 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 			acp = nacp;
 			var ap = Math.abs(x.ps);
 			if (ap > max_pos) max_pos = ap;
-			if (x.pl > max_pl) max_pl = x.pl;
-			if (x.pl < min_pl) min_pl = x.pl;
+			if (x.pl > max_pl) {max_pl = x.pl;min_pl = x.pl;}
+			if (x.pl < min_pl) {min_pl = x.pl;var downdraw = max_pl - min_pl; if (downdraw> max_downdraw) max_downdraw = downdraw;}
 		});
 
 		var last = c[c.length-1];
@@ -1311,8 +1302,11 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
         	"pl":adjNumBuySell(vlast.pl),
         	"ply":adjNumBuySell(vlast.pl*31536000000/interval),
         	"max_pos":adjNum(max_pos),
-        	"max_loss":adjNumBuySell(min_pl),
-        	"max_profit":adjNumBuySell(max_pl)
+        	"max_loss":adjNumBuySell(-max_downdraw),
+        	"max_loss_pc":adjNum(max_downdraw/balance*100,0),
+        	"max_profit":adjNumBuySell(max_pl),
+        	"pr": adjNum(max_pl/max_downdraw),
+        	"pc": adjNumBuySell(vlast.pl*3153600000000/(interval*balance),0)
         });
 
 		var chart1 = cntr.bt.findElements('chart1')[0];
@@ -1330,29 +1324,42 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 	}
 
 
+	var frst = true;
 
 	this.gen_backtest(form,"backtest_anchor", "backtest_vis",inputs,function(cntr){
 
 		cntr.showSpinner();
 		var config = this.saveForm(form,{});
+        var opts = cntr.bt.readData(["initial_balance", "initial_pos"]);
 		config.broker = broker;
 		config.pair_symbol = pair;
+		var bal = isFinite(opts.initial_balance)?opts.initial_balance:balance;
 		var req = {
 			config: config,
 			id: id,
-			init_pos:0,
-			balance:balance,
+			init_pos:isFinite(opts.initial_pos)?opts.initial_pos:0,
+			balance:bal
 		}
 
 		var update;
 		var tm;
+
+		if (frst) {
+			frst = false;
+			cntr.bt.setItemEvent("options", "click", function() {
+				this.classList.toggle("sel");
+				cntr.bt.showItem("options_form", this.classList.contains("sel"));
+			});
+			cntr.bt.setItemEvent("initial_balance","input",cntr.update);
+			cntr.bt.setItemEvent("initial_pos","input",cntr.update);
+		}
 		
 		fetch_with_error(url, {method:"POST", body:JSON.stringify(req)}).then(function(v) {					    
 			if (v.length == 0) return;
-			draw(cntr,v,offset);
+			draw(cntr,v,offset,bal);
 			update = function() {
 				if (tm) clearTimeout(tm);
-				tm = setTimeout(draw.bind(this,cntr,v,offset), 1);
+				tm = setTimeout(draw.bind(this,cntr,v,offset,bal), 1);
 			}
 		}).then(cntr.hideSpinner,function(e){cntr.hideSpinner;throw e;});
 

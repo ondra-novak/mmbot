@@ -65,7 +65,16 @@ json::Value Proxy::request(std::string_view method, json::Value params, bool aut
 	try {
 		resp = httpc.POST(apiUrl,req,headers);
 	} catch (const HTTPJson::UnknownStatusException &e) {
-		resp = json::Value::parse(e.response.getBody());
+		try {
+			resp = json::Value::parse(e.response.getBody());
+		} catch (...) {
+			std::string buff;
+			auto stream = e.response.getBody();
+			for (StrViewA x (stream.read());!x.empty();x = StrViewA(stream.read())) {
+				buff.append(x.data, x.length);
+			}
+			resp = json::Object("error", json::Object("code",e.getStatusCode())("message", buff));
+		}
 	}
 	json::Value success = resp["result"];
 	json::Value error = resp["error"];

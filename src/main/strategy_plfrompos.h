@@ -26,7 +26,7 @@ public:
 	};
 
 	struct Config {
-		double k;
+		double step;
 		double accum;
 		double neutral_pos;
 		double maxpos;

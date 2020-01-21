@@ -121,7 +121,7 @@ doesn't work as stoploss, because position can still grow beyoind the limit, but
 <div class="rightinfo"><button data-name="linear_suggest pl_mode_m">Propose</button><button data-name="linear_suggest_maxpos  pl_mode_m">Propose max position</button></div>
 <div class="warning" data-name="err_toolargepos">Changing setting is discouraged because the open position is too large</div>
 <div class="warning" data-name="err_invalid_values">Unable to trade - invalid values</div>
-
+<div class="rightinfo"><button name="show_backtest">Backtest</button></div>
 <x-section>
 <div class="label"><span>Max in position</span><span><span data-name="linear_max_in_pos">---</span>&nbsp;<span data-name="currency"></span></span></div>
 <div class="label"><span>Min price:</span><span data-name="linear_min_price">---</span></div>
@@ -154,7 +154,6 @@ Specifies minimum allowed asset balance (or position, for short use negative val
 <label  class="adv"><span>MAX asset balance/position<span class="tooltip">
 Specifies maximum allowed asset balance (or position, for short use negative value). When balance hits this value, no futher buys are allowed. In this situation 'Accept loss' rule can be applied
 </span></span><input type="number" data-name="max_balance" step="any"></label>
-<div class="rightinfo"><button name="show_backtest">Backtest</button></div>
 </x-section>
 <x-section class="adv" data-name="spread_vis_anchor"><x-section-caption>Spread</x-section-caption>
 <label  class="adv"><span>Spread width: st.dev hours <span class="tooltip"
@@ -179,7 +178,7 @@ Specifies maximum allowed asset balance (or position, for short use negative val
 <select data-name="dynmult_scale"><option value="1">Scale</option><option value="0">Don't scale</option></select></label>
 <div class="rightinfo"><button name="vis_spread">Visualize spread</button></div>
 </x-section>
-<x-section class=""><x-section-caption>Misc</x-section-caption>
+<x-section class="adv"><x-section-caption>Misc</x-section-caption>
 <div class="label adv"><span>Options<span class="tooltip"
 ><strong>Internal balance</strong> - track balance by trades - do not use balance on exchange<br><br>
 <strong>Dust orders</strong> Enable to use smallest orders when otherwise trading would be impossible (they act as alert)<br><br>
@@ -429,16 +428,33 @@ the same order, they are ordered by its ID - this is the default ordering. Modif
 
 <template id="backtest_vis">
 <x-section class="backtest"><x-section-caption>Backtest</x-section-caption>
-<div>Overall profit/loss: <strong data-name="pl" class="colornumb">0.00</strong> (per year: <strong data-name="ply" class="colornumb">0.00</strong>)</div>
-<div>Max position: <strong data-name="max_pos" class="colornumb">0.00</strong>, Max loss: <strong data-name="max_loss" class="colornumb">0.00</strong>, Max profit: <strong data-name="max_profit" class="colornumb">0.00</strong></div>
+<div class="tablecont"><table>
+<tr><th>p&l</th><th>p&l/year</th><th>p&l p.a.</th><th>max pos</th><th>max p&l</th><th colspan="2">downdraw</th><th>RRR</th><th rowspan="2" data-name="options"><img src="../res/options.png" ></tr>
+<tr>
+<td class="colornumb" data-name="pl"></td>
+<td class="colornumb" data-name="ply"></td>
+<td class="colornumb" data-name="pc"></td>
+<td class="colornumb" data-name="max_pos"></td>
+<td class="colornumb" data-name="max_profit"></td>
+<td class="colornumb" data-name="max_loss"></td>
+<td class="colornumb sell" data-name="max_loss_pc"></td>
+<td class="colornumb" data-name="pr"></td>
+</tr>
+</table>
+</div>
+
 <div class="charts spread_vis">
-<div>Price / neutral price</div>
 <div data-name="chart1"><div><em>Loading data, please wait...</em></div></div>
-<div>Profit from position / normalized profit</div>
+<p>Price / neutral price</p>
 <div data-name="chart2"></div>
+<p>Profit from position / normalized profit</p>
 <div class="spinner fast save" data-name="spinner" hidden="hidden"></div>
 <div><input name="pos" type="range" min="-100" max="0" step="0.1" value="0" class="thick"></div>
 </div>
+<x-form class="floating" hidden="hidden" data-name="options_form">
+<label><span>Initial balance</span><input type="number" step="any" data-name="initial_balance"></label>
+<label><span>Initial position</span><input type="number" step="any" data-name="initial_pos"></label>
+</x-form>
 </x-section>
 </template>
 
