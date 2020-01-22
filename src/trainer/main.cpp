@@ -301,6 +301,17 @@ public:
 		}
 	}
 
+	json::Value getPrices(StrViewA a, StrViewA c, unsigned int days, unsigned int period) {
+		std::string url = createUrl(a, c,"ohlc");
+		if (url.empty()) throw std::runtime_error("Cannot find market for given pair");
+		time_t tbeg = time(nullptr)-86400*days;
+		std::string p = std::to_string(period);
+		url  = url+"?after="+std::to_string(tbeg)+"&periods="+p;
+		Value resp = httpc.GET(url);
+		Value result = resp["result"];
+		return result[p].map([](Value v){return v[4];});
+	}
+
 	Pairs getAssets() {
 
 		try {
@@ -335,7 +346,7 @@ public:
 	};
 
 
-	std::string createUrl(const std::string &asset, const std::string &currency) {
+	std::string createUrl(const std::string &asset, const std::string &currency, const std::string &endpoint) {
 		if (volumes.empty()) {
 			json::Value v = getCached("https://api.cryptowat.ch/markets/summaries");
 			for (Value z:v["result"]) {
@@ -359,7 +370,7 @@ public:
 				).sort([&](Value a, Value b) {
 					return getScore(b) - getScore(a);
 				});
-				return std::string(markets[0]["route"].getString())+"/price";
+				return std::string(markets[0]["route"].getString())+"/"+endpoint;
 		}
 		return std::string();
 	}
@@ -932,7 +943,7 @@ inline void Interface::setSettings(json::Value keyData, bool loaded,  unsigned i
 	}
 	if (p.price_source == "cryptowatch") {
 		if (!keyData["loaded"].defined()) {
-			std::string url = cwsource.createUrl(p.src_asset, p.src_currency);
+			std::string url = cwsource.createUrl(p.src_asset, p.src_currency,"price");
 			if (url.empty()) throw std::runtime_error("Unable to find market for selected combination");
 			p.asset = p.src_asset;
 			p.currency = p.src_currency;
@@ -1044,32 +1055,125 @@ inline void Interface::loadSettings() {
 	}
 }
 
+extern const char *index_html;
+
+static void interpolate(std::vector<double> &x, double b, double e, int cnt) {
+	double mx(cnt);
+	for (int i = 0; i < cnt; i++) {
+		double f = i / mx;
+		x.push_back(b + (e - b)*f);
+	}
+}
+
+template<typename Iter>
+static void normalizeBlock(Iter begin, Iter end) {
+	double x = 0;
+	double sx = 0;
+	double sy = 0;
+	double sxy = 0;
+	double sxx = 0;
+	double syy = 0;
+	for (Iter c = begin; c != end; ++c) {
+		double y = *c;
+		sx = sx + x;
+		sy = sy + y;
+		sxy = sxy + x*y;
+		sxx = sxx + x*x;
+		syy = syy + y*y;
+		x = x + 1;
+	}
+	double beta = (x*sxy - sx*sy)/(x*sxx - sx*sx);
+	double alpha = (sy/x) - beta*(sx/x);
+
+	x = 0;
+	for (Iter c = begin; c != end; ++c) {
+		double y = beta*x + alpha;
+		double &s = *c;
+		x = x + 1;
+		s -= y;
+	}
+	double p = beta*(x/2) + alpha;
+	for (Iter c = begin; c != end; ++c) {
+		double &s = *c;
+		s /= p;
+	}
+
+
+}
+
+static void normalize(std::vector<double> &bk, unsigned int blockSize) {
+	unsigned int size = bk.size();
+	for (unsigned int i = 0; i < size; i+=blockSize) {
+		auto b = bk.begin()+i;
+		auto e = b + blockSize;
+		normalizeBlock(b,e);
+	}
+}
+
+static std::vector<double> generatePrices(StrViewA a, StrViewA c, unsigned int days) {
+	Value p1 = cwsource.getPrices(a, c, days, 14400);
+	std::vector<double> prc;
+	double b = p1[0].getNumber();
+	for (Value v : p1) {
+		double e = v.getNumber();
+		interpolate(prc, b, e, 14400/60);
+		b = e;
+	}
+	Value p2 = cwsource.getPrices(a, c, 100, 180);
+	std::vector<double> bk;
+	b = p2[0].getNumber();
+	for (Value v: p2) {
+		double e = v.getNumber();
+		interpolate(bk, b, e, 3);
+		b = e;
+	}
+	{
+		unsigned int remain = bk.size() % 144;
+		if (remain) bk.erase(bk.begin(), bk.begin() + remain);
+	}
+	normalize(bk, 144);
+	std::vector<double> res;
+	double mult = 1;
+	for (auto i1 = prc.begin(), i2 = bk.begin(); i1 != prc.end(); ++i1) {
+		res.push_back(*i1 * (1 + *i2*mult));
+		++i2;
+		if (i2 == bk.end()) {
+			i2 = bk.begin();
+			mult = -mult;
+		}
+	}
+
+	return res;
+}
+
 Interface::PageData Interface::fetchPage(const std::string_view &method, const std::string_view &vpath, const Interface::PageData &pageData) {
 
-	std::ostringstream out;
-	out << R"html(
-		<!DOCTYPE html>
-		<html>
-		<head><title>Trainer example web page</title><head>
-		<body>
-		<h1>Trainer</h1>
-        <p>Hello - this is example page of the trainer. It is also test of the function fetchPage. Following part of the page contains data of the request.</p><table border="1">)html";
-	out << "<tr><th>Method:<td>" << method;
-	out << "<tr><th>Path:<td>" << vpath;
-	for (auto &&k: pageData.headers) {
-		out << "<tr><th>" << k.first << "<td>" << k.second;
-	}
-	out << "<tr><th>Body:<td>" << pageData.body;
-	out << "</table>";
-	out << "</body></html>";
+	if (method == "GET") {
+		if (vpath == "/") {
+			return Interface::PageData {200,{{"Content-Type","text/html;charset=utf-8"}},index_html};
+		}
+		if (vpath == "/symbols") {
+			Object resp;
+			resp.set("a", mergeAssets(json::object, cwsource.getAssets().assets));
+			resp.set("c", mergeAssets(json::object, cwsource.getAssets().currencies));
+			return Interface::PageData {200,{{"Content-Type","application/json"}},Value(resp).stringify().str()};
+		}
+		if (vpath.substr(0,8) == "/prices-") {
+			StrViewA req (vpath.substr(8));
+			auto splt = req.split("-");
+			StrViewA a = splt();
+			StrViewA c = splt();
+			StrViewA d = splt();
+			unsigned int days = Value(d).getUInt();
 
-	return Interface::PageData {
-		200,
-		{
-				{"Content-Type","text/html;charset=utf-8"}
-		},
-		out.str()
-	};
+			auto prices = generatePrices(a, c, days);
+			std::ostringstream s;
+			for (auto &&p : prices) s << p << std::endl;
+			return Interface::PageData {200,{{"Content-Type","application/octet-stream"}},s.str()};
+		}
+	}
+
+	return Interface::PageData {404,{},""};
 }
 
 inline Interface::TestPair& Interface::getPair(const std::string_view &name) {

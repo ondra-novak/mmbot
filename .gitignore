@@ -13,3 +13,4 @@ Makefile
 /prod/
 /.settings
 /www/fav_*.png
+generated

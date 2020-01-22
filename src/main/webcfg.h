@@ -66,6 +66,7 @@ public:
 		json::Value broker_config;
 		BacktestCache backtest_cache;
 		SpreadCache spread_cache;
+		bool upload_in_progress = false;
 
 		State( PStorage &&config,
 			  ondra_shared::RefCntPtr<AuthUserList> users,
@@ -113,7 +114,8 @@ public:
 		editor,
 		login,
 		backtest,
-		spread
+		spread,
+		upload_prices,
 	};
 
 	AuthMapper auth;
@@ -136,6 +138,7 @@ protected:
 	bool reqEditor(simpleServer::HTTPRequest req) const;
 	bool reqBacktest(simpleServer::HTTPRequest req) const;
 	bool reqSpread(simpleServer::HTTPRequest req) const;
+	bool reqUploadPrices(simpleServer::HTTPRequest req) const;
 
 	using Sync = std::unique_lock<std::recursive_mutex>;
 

@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>MM Bot</title>
+  <link rel="stylesheet" href="../../../../style.css">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="icon" type="image/png" href="../icon.png" />
+</head>
+<body onload="start()">
+<div class="flexpanel">
+<div><span class="fonticon backicon"></span>Trainer - backtest data generator</div>
+</div>
+
+<div class="desktop">
+<x-form class="sections">
+<x-section><x-section-caption>Select market</x-section-caption>
+<div class="label"><select id="asset_symbol" size="12"></select><select id="currency_symbol" size="12"></select></div>
+<label><span>Days to generate</span><input type="number" step="1" value="360" id="days"></label>
+<div style="text-align:right"><button id="generate">Generate</button></div>
+</x-section>
+<div></div>
+</x-form>
+</div>
+
+<script src="../../../../../res/template.js" type="text/javascript"></script>
+<script src="../../../../../res/common.js" type="text/javascript"></script>
+<script src="../../../../../res/ui.js" type="text/javascript"></script>
+<script src="../../../../code.js" type="text/javascript"></script>
+<script type="text/javascript">
+"use strict";
+
+function loadOptions(opt, json) {
+		for (var x in json) {
+			var t = document.createElement("option");
+			t.innerText = json[x];
+			t.value = x;
+			opt.appendChild(t);
+		}
+}
+
+function start() {
+	fetch("symbols").then(x=>x.json()).then(x=>{
+		loadOptions(document.getElementById("asset_symbol"),x.a);
+		loadOptions(document.getElementById("currency_symbol"),x.c);
+	});
+	document.getElementById("generate").addEventListener("click", generate);
+}
+
+function generate() {
+	var a = document.getElementById("asset_symbol").value;
+	var c = document.getElementById("currency_symbol").value;
+	var d = document.getElementById("days").value;
+	if (a && c && d) {
+		
+		var url = "prices-"+a+"-"+c+"-"+d+"-"+Date.now();
+		location.href = url;
+		
+	} else {
+		alert("Please select two symbols");
+	}
+}
+
+
+</script>
+
+</body>
+</html>

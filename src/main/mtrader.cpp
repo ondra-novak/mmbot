@@ -1002,12 +1002,13 @@ protected:
 	json::Value config;
 };
 
-static double stCalcSpread(const std::vector<double> &values,unsigned int input_sma, unsigned int input_stdev) {
+template<typename Iter>
+static double stCalcSpread(Iter beg, Iter end, unsigned int input_sma, unsigned int input_stdev) {
 	input_sma = std::max<unsigned int>(input_sma,30);
 	input_stdev = std::max<unsigned int>(input_stdev,30);
 	std::queue<double> sma;
 	std::vector<double> mapped;
-	std::accumulate(values.begin(), values.end(), 0.0, [&](auto &&a, auto &&c) {
+	std::accumulate(beg, end, 0.0, [&](auto &&a, auto &&c) {
 		double h = 0.0;
 		if ( sma.size() >= input_sma) {
 			h = sma.front();
@@ -1021,10 +1022,10 @@ static double stCalcSpread(const std::vector<double> &values,unsigned int input_
 
 	std::size_t i = mapped.size() >= input_stdev?mapped.size()-input_stdev:0;
 	auto iter = mapped.begin()+i;
-	auto end = mapped.end();
-	auto stdev = std::sqrt(std::accumulate(iter, end, 0.0, [&](auto &&v, auto &&c) {
+	auto mend = mapped.end();
+	auto stdev = std::sqrt(std::accumulate(iter, mend, 0.0, [&](auto &&v, auto &&c) {
 		return v + c*c;
-	})/std::distance(iter, end));
+	})/std::distance(iter, mend));
 	return std::log((stdev+sma.back())/sma.back());
 }
 
@@ -1039,24 +1040,27 @@ double MTrader::calcSpread() const {
 	std::vector<double> values(chart.size());
 	std::transform(chart.begin(), chart.end(),  values.begin(), [&](auto &&c) {return c.last;});
 
-	double lnspread = stCalcSpread(values, cfg.spread_calc_sma_hours, cfg.spread_calc_stdev_hours);
+	double lnspread = stCalcSpread(values.begin(), values.end(), cfg.spread_calc_sma_hours, cfg.spread_calc_stdev_hours);
 
 	return lnspread;
 
 
 }
 
-MTrader::VisRes MTrader::visualizeSpread(const std::vector<ChartItem> &chart, double sma, double stdev, double mult, double dyn_raise, double dyn_fall, json::StrViewA dynMode) {
+MTrader::VisRes MTrader::visualizeSpread(const std::vector<ChartItem> &chart, double sma, double stdev, double mult, double dyn_raise, double dyn_fall, json::StrViewA dynMode, bool strip, bool onlyTrades) {
 	DynMultControl dynmult(dyn_raise, dyn_fall, strDynmult_mode[dynMode]);
 	VisRes res;
 	if (chart.empty()) return res;
 	double last = chart[0].last;
 	std::vector<double> prices;
+	std::size_t isma = sma*60;
+	std::size_t istdev = stdev * 60;
+	std::size_t mx = std::max(isma+istdev, 2*istdev);
 	for (auto &&k : chart) {
 		double p = k.last;
 /*		if (minfo.invert_price) p = 1.0/p;*/
 		prices.push_back(p);
-		double spread = stCalcSpread(prices, sma*60, stdev*60);
+		double spread = stCalcSpread(prices.end()-std::min(mx,prices.size()), prices.end(), sma*60, stdev*60);
 		double low = last * std::exp(-spread*mult*dynmult.getBuyMult());
 		double high = last * std::exp(spread*mult*dynmult.getSellMult());
 		double size = 0;
@@ -1069,11 +1073,11 @@ MTrader::VisRes MTrader::visualizeSpread(const std::vector<ChartItem> &chart, do
 		else {
 			dynmult.update(false,false);
 		}
-		res.chart.push_back(VisRes::Item{
+		if (size || !onlyTrades) res.chart.push_back(VisRes::Item{
 			p, low, high, size,k.time
 		});
 	}
-	if (res.chart.size()>10) res.chart.erase(res.chart.begin(), res.chart.begin()+res.chart.size()/2);
+	if (strip && res.chart.size()>10) res.chart.erase(res.chart.begin(), res.chart.begin()+res.chart.size()/2);
 	return res;
 }
 

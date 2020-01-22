@@ -1257,6 +1257,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 	form.enableItem("show_backtest",false);		
 	var inputs = ["external_assets", "acum_factor","kv_valinc","pl_confmode","pl_power","pl_baluse","cstep",
 		"max_pos","neutral_pos","pl_redmode","pl_redfact","pl_acum","min_size","max_size","order_mult","dust_orders","inear_suggest","inear_suggest_maxpos"];
+	var spread_inputs = ["spread_calc_stdev_hours", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode"];
 	var balance = form._balance;
 	var days = 45*60*60*24*1000;
     var offset = 0;
@@ -1352,6 +1353,43 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 			});
 			cntr.bt.setItemEvent("initial_balance","input",cntr.update);
 			cntr.bt.setItemEvent("initial_pos","input",cntr.update);
+			cntr.bt.setItemEvent("price_file","change",function() {
+				if (this.files[0]) {
+					var reader = new FileReader();
+					reader.onload = function() {
+						var prices = reader.result.split("\n").map(function(x) {return parseFloat(x);});
+						console.log(prices);
+						var data = form.readData(spread_inputs);
+						var mult = Math.pow(2,data.spread_mult*0.01);
+						var req = {
+							sma:data.spread_calc_sma_hours,
+							stdev:data.spread_calc_stdev_hours,
+							mult:mult,
+							raise:data.dynmult_raise,
+							fall:data.dynmult_fall,
+							mode:data.dynmult_mode,
+							id: id,
+							prices: prices
+						}
+						fetch_with_error("api/upload_prices", {method:"POST", body:JSON.stringify(req)}).then(function(){							
+							var dlg = TemplateJS.View.fromTemplate("waitdlg");
+							dlg.openModal();
+							function wait() {
+								fetch_with_error("api/upload_prices").then(function(x) {
+									if (x) {
+										dlg.close();
+										cntr.update();
+									}
+									else setTimeout(wait,1000);
+								})
+							}
+							wait();							
+						});						
+					}
+					reader.readAsText(this.files[0]);
+				}
+			});
+			
 		}
 		
 		fetch_with_error(url, {method:"POST", body:JSON.stringify(req)}).then(function(v) {					    
