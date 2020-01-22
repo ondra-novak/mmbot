@@ -903,6 +903,18 @@ bool WebCfg::reqBacktest(simpleServer::HTTPRequest req) const {
 	return true;
 }
 
+template<typename Iter>
+class IterFn{
+public:
+	IterFn(Iter beg, Iter end):beg(beg), end(end) {}
+	Iter beg,end;
+	auto operator()() {
+		using T = std::remove_reference_t<decltype(*beg)>;
+		if (beg == end) return std::optional<T>();
+		else return std::optional<T>(*(beg++));
+	}
+};
+
 bool WebCfg::reqSpread(simpleServer::HTTPRequest req) const {
 	if (!req.allowMethods({"POST"})) return true;
 		req.readBodyAsync(50000,[&trlist = this->trlist,state =  this->state, dispatch = this->dispatch](simpleServer::HTTPRequest req)mutable{
@@ -918,7 +930,7 @@ bool WebCfg::reqSpread(simpleServer::HTTPRequest req) const {
 				Value dynmult_fall = args["fall"];
 				Value dynmult_mode = args["mode"];
 
-				auto res = MTrader::visualizeSpread(data.chart,sma.getUInt(), stdev.getUInt(),mult.getNumber(),
+				auto res = MTrader::visualizeSpread(IterFn(data.chart.begin(),data.chart.end()),sma.getUInt(), stdev.getUInt(),mult.getNumber(),
 						dynmult_raise.getValueOrDefault(1.0),dynmult_fall.getValueOrDefault(1.0),dynmult_mode.getValueOrDefault("independent"),true,false);
 				if (data.invert_price) {
 					std::transform(res.chart.begin(), res.chart.end(), res.chart.begin(),[](const MTrader::VisRes::Item &itm) {
@@ -976,11 +988,16 @@ bool WebCfg::reqSpread(simpleServer::HTTPRequest req) const {
 }
 
 bool WebCfg::reqUploadPrices(simpleServer::HTTPRequest req) const {
-	if (!req.allowMethods({"POST","GET"})) return true;
+	if (!req.allowMethods({"POST","GET","DELETE"})) return true;
 	if (req.getMethod() == "GET") {
 		Sync _(state->lock);
-		req.sendResponse("application/json",Value(!state->upload_in_progress).stringify());
+		req.sendResponse("application/json",Value(state->upload_progress).stringify());
 		return true;
+	} else  if (req.getMethod() == "DELETE") {
+			Sync _(state->lock);
+			state->cancel_upload = true;
+			req.sendResponse("application/json",Value(state->upload_progress).stringify());
+			return true;
 	} else {
 	req.readBodyAsync(10*1024*1024,[&trlist = this->trlist,state =  this->state, dispatch = this->dispatch](simpleServer::HTTPRequest req)mutable{
 		dispatch([&trlist, state, req]()mutable{
@@ -1012,20 +1029,29 @@ bool WebCfg::reqUploadPrices(simpleServer::HTTPRequest req) const {
 							p,p,p};
 				});
 				Sync _(state->lock);
-				req.sendResponse("application/json", "false");
-				state->upload_in_progress = true;
+				req.sendResponse("application/json", "0");
+				state->upload_progress = 0;
+				state->cancel_upload = false;
 				req = nullptr;
 				_.unlock();
 
 				try {
-					MTrader::VisRes trades = MTrader::visualizeSpread(chart,sma.getNumber(), stdev.getNumber(),mult.getNumber(),
+					std::size_t count = chart.size();
+					std::size_t pos = 0;
+					IterFn iterfn(chart.begin(),chart.end());
+					MTrader::VisRes trades = MTrader::visualizeSpread(
+							[&]() {
+						pos++;
+						if (state->cancel_upload) return std::optional<MTrader::ChartItem>();
+						state->upload_progress = (pos * 100)/count;
+						return iterfn();},sma.getNumber(), stdev.getNumber(),mult.getNumber(),
 							dynmult_raise.getValueOrDefault(1.0),dynmult_fall.getValueOrDefault(1.0),dynmult_mode.getValueOrDefault("independent"),false,true);
 					BacktestCache::Subj bt;
 					std::transform(trades.chart.begin(), trades.chart.end(), std::back_inserter(bt), [](const MTrader::VisRes::Item &itm) {
 						return BTPrice{itm.time, itm.price};
 					});
 					_.lock();
-					state->upload_in_progress = false;
+					state->upload_progress = -1;
 					state->backtest_cache = BacktestCache(bt, id.toString().str(), std::chrono::system_clock::now()+std::chrono::hours(24));
 					_.unlock();
 				} catch (std::exception &e) {

@@ -85,6 +85,7 @@ double Strategy_PLFromPos::calcNewPos(const IStockApi::MarketInfo &minfo, double
 	double k = calcK();
 	double pos = assetsToPos(minfo,st.a);
 	if (k == 0) return pos;
+	bool atmax = std::abs(pos) > maxpos;
 
 	double p = st.p;
 	double np = pos;
@@ -95,10 +96,10 @@ double Strategy_PLFromPos::calcNewPos(const IStockApi::MarketInfo &minfo, double
 	bool dcrs = pos * dir < 0;
 
 	//if position is increasing at maxpos do not increase position beyond that limit
-	if (dcrs || std::abs(pos) <= maxpos) {
+	{
 		//so position is decreasing or we did not reach maxpos
 
-		if (cfg.reduceMode == neutralMove) {
+		if (cfg.reduceMode == neutralMove && !atmax) {
 				//neutralMove reduction, calculate neutral_price.
 				//the formula is inverse to k * (neutral_price - p) = pos
 				double neutral_price = pos/k + p;
@@ -123,7 +124,7 @@ double Strategy_PLFromPos::calcNewPos(const IStockApi::MarketInfo &minfo, double
 			double ap = std::abs(np);
 
 
-			if (dcrs  && np * pos > 0) {
+			if (dcrs  && np * pos > 0 && !atmax) {
 				double reduce_factor = cfg.reduce_factor;
 				//calculate profit made from moving price from p to tradePrice
 				//profit is defined by current position * difference of two prices
@@ -220,12 +221,19 @@ std::pair<Strategy_PLFromPos::OnTradeResult, PStrategy> Strategy_PLFromPos::onTr
 	double appos = std::abs(ppos);
 
 	newst.avgsum = (fpos * ppos < 0 || st.avgsum == 0)?(afpos * tradePrice):(st.avgsum + (afpos - appos) * tradePrice );
-
-	if (st.maxpos && afpos > st.maxpos)  {
-		newst.a = posToAssets(minfo,fpos*(1-cfg.slred));
+	if (st.maxpos) {
+		if (st.maxpos < afpos) {
+			fpos = fpos * 0.99;
+			afpos = std::abs(fpos);
+			newst.a = posToAssets(minfo,fpos);
+		} else if (afpos <= st.maxpos && appos > st.maxpos) {
+			fpos = fpos * 0.90;
+			newst.a = posToAssets(minfo,fpos);
+			calcPower(minfo, newst, newst.p, newst.a, currencyLeft,true);
+		}
 	}
-	if ((st.maxpos && afpos > st.maxpos) || fpos * ppos <= 0)
-		calcPower(minfo, newst, newst.p, newst.a, currencyLeft,true);
+
+	if (fpos * ppos <= 0) calcPower(minfo, newst, newst.p, newst.a, currencyLeft,true);
 	return {
 		OnTradeResult{np,ap,p0, afpos?newst.avgsum/afpos:newst.p},
 		new Strategy_PLFromPos(cfg,newst)
@@ -280,16 +288,17 @@ Strategy_PLFromPos::OrderData Strategy_PLFromPos::getNewOrder(
 		const IStockApi::MarketInfo &minfo,
 		double cur_price, double new_price, double dir, double assets, double currency) const {
 	double pos = assetsToPos(minfo, st.a);
-	bool atmaxpos = cfg.maxpos && (pos < -cfg.maxpos || pos > cfg.maxpos);
+	bool atmaxpos = st.maxpos && std::abs(pos) > st.maxpos;
 	if (atmaxpos) {
-		float f = pow2(cfg.maxpos/pos)*0.5;
-		new_price = st.p * (1-f) + new_price * f;
+		if (dir * pos < 0) {
+			double zeroPos = posToAssets(minfo, 0);
+			double osz = calcOrderSize(zeroPos, assets, zeroPos);
+			return OrderData{st.p, osz, true};
+		} else {
+			return OrderData{new_price, 0, true};
+		}
 	}
-	double new_pos = calcNewPos(minfo, new_price);
-	double sz = calcOrderSize(st.a, assets, new_pos);
-	double minsz = std::max(minfo.min_size*1.2, (minfo.min_volume/cur_price)*1.2);
-	if (dir*sz < minsz) sz = dir * minsz;
-	return OrderData {new_price, sz};
+	return OrderData {0, calcOrderSize(st.a, assets, calcNewPos(minfo, new_price))};
 }
 
 Strategy_PLFromPos::MinMax Strategy_PLFromPos::calcSafeRange(

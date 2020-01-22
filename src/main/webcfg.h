@@ -66,7 +66,8 @@ public:
 		json::Value broker_config;
 		BacktestCache backtest_cache;
 		SpreadCache spread_cache;
-		bool upload_in_progress = false;
+		int upload_progress=-1;
+		bool cancel_upload = false;
 
 		State( PStorage &&config,
 			  ondra_shared::RefCntPtr<AuthUserList> users,

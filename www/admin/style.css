@@ -440,8 +440,9 @@ a {
 	position: absolute;
 	top:3em;
 	right: 0;
-	background-color: #151515;
-	padding: 0.5em;	
+	background-color: #1515158f;
+	padding: 0.5em;
+	width: 10cm;
 }
 
 .backtest td {
@@ -861,6 +862,22 @@ x-form.trading .chart .spinner {
 	overflow: auto;
 	height: 18em;
 }
+
+.upload_dialog > p:first-child{
+	font-weight: bold;
+	font-size: larger;
+
+}
+
+.upload_dialog  div.progress {
+	border: 1px solid #666;
+	margin: 1em 10%;
+	line-height: 2em;
+	position: relative;
+	color: #9c997e;
+}
+
+.upload_dialog  div.progress > div {background: green;height:  2em;transition: 1s all;position: absolute;left: 0;top: 0;}
 
 @media all and (max-width: 15cm) { 
 

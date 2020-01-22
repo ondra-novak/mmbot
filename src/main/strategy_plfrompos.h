@@ -34,7 +34,6 @@ public:
 		double reduce_factor;
 		double power;
 		double baltouse;
-		double slred;
 		ReduceMode reduceMode;
 
 	};

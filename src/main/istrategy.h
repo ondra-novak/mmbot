@@ -32,8 +32,10 @@ public:
 	struct OrderData {
 		///price where order is put. If this field is 0, recommended price is used
 		double price;
-		///size of the order, +buy, -sell. If this field is 0, the order is not issued
+		///size of the order, +buy, -sell. If this field is 0, the order is not placed
 		double size;
+		///set true, to put alert/dust order. This needs size equal to zero
+		bool alert = false;
 	};
 
 

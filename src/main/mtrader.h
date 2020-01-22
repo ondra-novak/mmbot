@@ -176,7 +176,7 @@ public:
 	};
 
 
-	static VisRes visualizeSpread(const Chart &chart, double sma, double stdev, double mult, double dyn_raise, double dyn_fall, json::StrViewA dynMode, bool strip, bool onlyTrades);
+	static VisRes visualizeSpread(std::function<std::optional<ChartItem>()> &&source, double sma, double stdev, double mult, double dyn_raise, double dyn_fall, json::StrViewA dynMode, bool strip, bool onlyTrades);
 
 	static std::optional<double> getInternalBalance(const MTrader *ptr);
 

@@ -551,7 +551,7 @@ App.prototype.fillForm = function (src, trg) {
 	data.pl_redfact=50;
 	data.pl_redmode="rp";
 	data.kv_valinc = 0;
-	data.pl_slred = 50;
+
 	
 	if (data.strategy == "halfhalf" || data.strategy == "keepvalue") {
 		data.acum_factor = filledval(defval(src.strategy.accum,0)*100,0);
@@ -563,7 +563,7 @@ App.prototype.fillForm = function (src, trg) {
 		data.cstep = filledval(src.strategy.cstep,0);
 		data.max_pos = filledval(src.strategy.maxpos,0);
 		data.pl_redfact = filledval(defval(Math.abs(src.strategy.reduce_factor),0.5)*100,50);
-		data.pl_slred= filledval(defval(src.strategy.sl_reduce,0.5)*100,50);
+	
 		if (src.strategy.fixed_reduce) data.pl_redmode = "fixed";
 		else data.pl_redmode = filledval(src.strategy.reduce_mode, "rp");		
 		data.pl_baluse = filledval(defval(src.strategy.balance_use,1)*100,100);
@@ -664,8 +664,7 @@ App.prototype.saveForm = function(form, src) {
 		trader.strategy.maxpos = data.max_pos;
 		trader.strategy.reduce_factor = data.pl_redfact/100;
 		trader.strategy.reduce_mode = data.pl_redmode;
-		trader.strategy.balance_use = data.pl_baluse/100;
-		trader.strategy.sl_reduce = data.pl_slred/100;
+		trader.strategy.balance_use = data.pl_baluse/100;		
 		trader.strategy.power = data.pl_confmode=="a"?data.pl_power:0;
 	} else if (data.strategy == "halfhalf" || data.strategy == "keepvalue") {
 		trader.strategy.accum = data.acum_factor/100.0;
@@ -1259,7 +1258,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 	var url = "api/backtest";
 	form.enableItem("show_backtest",false);		
 	var inputs = ["external_assets", "acum_factor","kv_valinc","pl_confmode","pl_power","pl_baluse","cstep",
-		"max_pos","neutral_pos","pl_redmode","pl_redfact","pl_acum","min_size","max_size","order_mult","dust_orders","linear_suggest","linear_suggest_maxpos","pl_slred"];
+		"max_pos","neutral_pos","pl_redmode","pl_redfact","pl_acum","min_size","max_size","order_mult","dust_orders","linear_suggest","linear_suggest_maxpos"];
 	var spread_inputs = ["spread_calc_stdev_hours", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode"];
 	var balance = form._balance;
 	var days = 45*60*60*24*1000;
@@ -1291,7 +1290,8 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 			}
 			acp = nacp;
 			var ap = Math.abs(x.ps);
-			if (ap > max_pos) max_pos = ap;
+			if (ap > max_pos) 
+			    max_pos = ap;
 			if (x.pl > max_pl) {max_pl = x.pl;min_pl = x.pl;}
 			if (x.pl < min_pl) {min_pl = x.pl;var downdraw = max_pl - min_pl; if (downdraw> max_downdraw) max_downdraw = downdraw;}
 		});
@@ -1373,7 +1373,6 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 					var reader = new FileReader();
 					reader.onload = function() {
 						var prices = reader.result.split("\n").map(function(x) {return parseFloat(x);});
-						console.log(prices);
 						var data = form.readData(spread_inputs);
 						var mult = Math.pow(2,data.spread_mult*0.01);
 						var req = {
@@ -1386,19 +1385,32 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 							id: id,
 							prices: prices
 						}
+						var dlg = TemplateJS.View.fromTemplate("upload_chart_wait");
+						dlg.openModal();						
 						fetch_with_error("api/upload_prices", {method:"POST", body:JSON.stringify(req)}).then(function(){							
-							var dlg = TemplateJS.View.fromTemplate("waitdlg");
-							dlg.openModal();
+							dlg.showItem("upload_mark",false);
+							dlg.showItem("process_mark",true);
+							dlg.setItemEvent("stop","click", function() {
+								fetch_json("api/upload_prices", {method:"DELETE"});
+							});
 							function wait() {
 								fetch_with_error("api/upload_prices").then(function(x) {
-									if (x) {
+									if (x == -1) {
 										dlg.close();
 										cntr.update();
+									} 
+									else {
+										dlg.setData({progress:{"style":"width: "+x+"%"}});
+										setTimeout(wait,1000);
 									}
-									else setTimeout(wait,1000);
-								})
+								}).catch(function() {
+										setTimeout(wait,1000);										
+								});
 							}
 							wait();							
+						}).catch(function(e) {
+							dlg.close();
+							console.error(e);
 						});						
 					}
 					reader.readAsText(this.files[0]);

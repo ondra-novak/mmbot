@@ -486,50 +486,41 @@ MTrader::Order MTrader::calculateOrderFeeLess(
 		double newPriceNoScale= prevPrice * exp(step*m);
 		double dir = sgn(-step);
 
-		if (step < 0) {
-			//if price is lower than old, check whether current price is above
-			//otherwise lower the price more
-			if (newPrice > curPrice) newPrice = curPrice;
-		} else {
-			//if price is higher then old, check whether current price is below
-			//otherwise highter the newPrice more
-
-			if (newPrice < curPrice) newPrice = curPrice;
-		}
-
+		//if newPrice > curPrice when buy or newPrice < curPrice when sell, fix to curPrice
+		if ((newPrice - curPrice) * dir > 0) newPrice = curPrice;
 		auto ord= strategy.getNewOrder(minfo,curPrice, cfg.dynmult_scale?newPrice:newPriceNoScale,dir, balance, currency);
-		if (ord.price > 0 && (ord.price - prevPrice)*step > 0) newPrice = ord.price;
-		double size = ord.size;
-		bool enableDust = false;
+		if (ord.price > 0) newPrice = ord.price;
+		//if newPrice > curPrice when buy or newPrice < curPrice when sell, fix to curPrice
+		if ((newPrice - curPrice) * dir > 0) newPrice = curPrice;
 
-		if (size * dir < 0) {
+		sz = ord.size;
+		bool enableDust = ord.alert;
+
+		if (sz * dir < 0) {
+			sz =0;
 			if (cfg.dust_orders) {
 				enableDust = true;
-				size = -1e-90*sgn(step);
-			} else {
-				size = 0;
 			}
+		} else {
+			sz = sz * mult;
 		}
-
-		sz = limitOrderMinMaxBalance(balance, size * mult);
 
 		order.size = sz;
 		order.price = newPrice;
 
-
 		if (cfg.max_size && std::fabs(order.size) > cfg.max_size) {
-			order.size = enableDust?cfg.max_size*sgn(order.size):0;
+			order.size = cfg.max_size*dir;
 		}
 		if (std::fabs(order.size) < cfg.min_size) {
-			order.size = enableDust?cfg.min_size*sgn(order.size):0;
+			order.size = enableDust?cfg.min_size*dir:0;
 		}
 		if (std::fabs(order.size) < minfo.min_size) {
-			order.size = enableDust?minfo.min_size*sgn(order.size):0;
+			order.size = enableDust?minfo.min_size*dir:0;
 		}
 		if (minfo.min_volume) {
 			double vol = std::fabs(order.size * order.price);
 			if (vol < minfo.min_volume) {
-				order.size = enableDust?minfo.min_volume/order.price*sgn(order.size):0;
+				order.size = enableDust?minfo.min_volume/order.price*dir:0;
 			}
 		}
 
@@ -542,6 +533,7 @@ MTrader::Order MTrader::calculateOrderFeeLess(
 
 	} while (cnt < 1000 && order.size == 0 && (std::abs(prevSz) < std::abs(sz) || cnt < 10));
 
+	order.size = limitOrderMinMaxBalance(balance, order.size);
 
 	return order;
 
@@ -1047,35 +1039,38 @@ double MTrader::calcSpread() const {
 
 }
 
-MTrader::VisRes MTrader::visualizeSpread(const std::vector<ChartItem> &chart, double sma, double stdev, double mult, double dyn_raise, double dyn_fall, json::StrViewA dynMode, bool strip, bool onlyTrades) {
+MTrader::VisRes MTrader::visualizeSpread(std::function<std::optional<ChartItem>()> &&source, double sma, double stdev, double mult, double dyn_raise, double dyn_fall, json::StrViewA dynMode, bool strip, bool onlyTrades) {
 	DynMultControl dynmult(dyn_raise, dyn_fall, strDynmult_mode[dynMode]);
 	VisRes res;
-	if (chart.empty()) return res;
-	double last = chart[0].last;
+	double last = 0;
 	std::vector<double> prices;
 	std::size_t isma = sma*60;
 	std::size_t istdev = stdev * 60;
 	std::size_t mx = std::max(isma+istdev, 2*istdev);
-	for (auto &&k : chart) {
-		double p = k.last;
-/*		if (minfo.invert_price) p = 1.0/p;*/
-		prices.push_back(p);
-		double spread = stCalcSpread(prices.end()-std::min(mx,prices.size()), prices.end(), sma*60, stdev*60);
-		double low = last * std::exp(-spread*mult*dynmult.getBuyMult());
-		double high = last * std::exp(spread*mult*dynmult.getSellMult());
-		double size = 0;
-		if (p > high) {
-			last = p; size = -1;dynmult.update(false,true);
+	for (auto k = source(); k.has_value(); k = source()) {
+		double p = k->last;
+		if (last) {
+	/*		if (minfo.invert_price) p = 1.0/p;*/
+			prices.push_back(p);
+			double spread = stCalcSpread(prices.end()-std::min(mx,prices.size()), prices.end(), sma*60, stdev*60);
+			double low = last * std::exp(-spread*mult*dynmult.getBuyMult());
+			double high = last * std::exp(spread*mult*dynmult.getSellMult());
+			double size = 0;
+			if (p > high) {
+				last = p; size = -1;dynmult.update(false,true);
+			}
+			else if (p < low) {
+				last = p; size = 1;dynmult.update(true,false);
+			}
+			else {
+				dynmult.update(false,false);
+			}
+			if (size || !onlyTrades) res.chart.push_back(VisRes::Item{
+				p, low, high, size,k->time
+			});
+		} else {
+			last = p;
 		}
-		else if (p < low) {
-			last = p; size = 1;dynmult.update(true,false);
-		}
-		else {
-			dynmult.update(false,false);
-		}
-		if (size || !onlyTrades) res.chart.push_back(VisRes::Item{
-			p, low, high, size,k.time
-		});
 	}
 	if (strip && res.chart.size()>10) res.chart.erase(res.chart.begin(), res.chart.begin()+res.chart.size()/2);
 	return res;

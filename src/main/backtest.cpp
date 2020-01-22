@@ -37,19 +37,29 @@ BTTrades backtest_cycle(const MTrader_Config &config, BTPriceSource &&priceSourc
 		pl = pl + pchange;
 		balance = balance + pchange;
 		if (balance > 0) {
+			bool enableDust = config.dust_orders;
 			double dir = sgn(bt.price.price- price->price);
 			auto orderData = s.getNewOrder(minfo, bt.price.price, price->price, dir, pos, balance);
-			if (orderData.size * dir <= 0) {
-				if (config.dust_orders) {
+			if (orderData.alert) {
+				enableDust = true;
+			}
+			if (orderData.size * dir < 0) {
+				if (enableDust) {
 					orderData.size = dir * minsize;
 				}else{
 					continue;
 				}
+			} else {
+				orderData.size *= dir>0?config.buy_mult:config.sell_mult;
 			}
-			orderData.size *= dir>0?config.buy_mult:config.sell_mult;
 			orderData.size  = IStockApi::MarketInfo::adjValue(orderData.size,minfo.asset_step,round);
-			if (std::abs(orderData.size) < minsize)
-				continue;
+			if (std::abs(orderData.size) < minsize) {
+				if (enableDust) {
+					orderData.size = dir * minsize;
+				} else {
+					continue;
+				}
+			}
 			if (config.max_size && std::abs(orderData.size) > config.max_size) {
 				orderData.size = config.max_size*sgn(orderData.size);
 			}

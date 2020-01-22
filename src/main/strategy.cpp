@@ -45,7 +45,6 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 		} else {
 			cfg.reduceMode = strReduceMode[config["reduce_mode"].getString()];
 		}
-		cfg.slred = config["sl_reduce"].getNumber();
 		cfg.reduce_factor = std::abs(cfg.reduce_factor);
 		cfg.baltouse= config["balance_use"].defined()?config["balance_use"].getNumber():1;
 		return Strategy(new Strategy_PLFromPos(cfg,{}));
