@@ -50,6 +50,9 @@ BTTrades backtest_cycle(const MTrader_Config &config, BTPriceSource &&priceSourc
 			orderData.size  = IStockApi::MarketInfo::adjValue(orderData.size,minfo.asset_step,round);
 			if (std::abs(orderData.size) < minsize)
 				continue;
+			if (config.max_size && std::abs(orderData.size) > config.max_size) {
+				orderData.size = config.max_size*sgn(orderData.size);
+			}
 			pos += orderData.size;
 			auto tres = s.onTrade(minfo, price->price, orderData.size, pos, balance);
 			bt.neutral_price = tres.neutralPrice;
