@@ -46,7 +46,7 @@ std::pair<Strategy_KeepValue::OnTradeResult, PStrategy> Strategy_KeepValue::onTr
 		double tradePrice, double tradeSize, double assetsLeft,
 		double currencyLeft) const {
 
-	if (!isValid()) {
+	if (!st.valid) {
 		Strategy_KeepValue tmp(cfg, State{true,tradePrice, assetsLeft-tradeSize,std::chrono::system_clock::now()});
 		return tmp.onTrade(minfo, tradePrice,tradeSize,assetsLeft, currencyLeft);
 	}

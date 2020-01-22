@@ -22,7 +22,8 @@ public:
 	enum ReduceMode {
 		reduceFromProfit,
 		fixedReduce,
-		neutralMove
+		neutralMove,
+		toOpenPrice
 	};
 
 	struct Config {
@@ -33,6 +34,7 @@ public:
 		double reduce_factor;
 		double power;
 		double baltouse;
+		double slred;
 		ReduceMode reduceMode;
 
 	};
@@ -46,6 +48,7 @@ public:
 		double maxpos = 0;
 		double acm = 0;
 		double value = 0;
+		double avgsum = 0;
 	};
 
 	Strategy_PLFromPos(const Config &cfg, const State &st);

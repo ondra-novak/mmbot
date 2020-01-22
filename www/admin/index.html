@@ -86,6 +86,7 @@ to enter a negative value and then the value of the assets held will decrease an
 <div class="label"><span>Min price:</span><span data-name="halfhalf_min_price">---</span></div>
 <div class="label"><span>Max price:</span><span data-name="halfhalf_max_price">---</span></div>
 </x-section>
+<div class="rightinfo"><button name="show_backtest">Backtest</button></div>
 </x-section>
 <x-section data-name="strategy_pl backtest_anchor" class="goal" hidden="hidden"><x-section-caption>Linear</x-section-caption>
 <label><span>Configuration mode</span><select name="pl_confmode"><option value="a">Automatic</option><option value="m">Manual</option></select></label>
@@ -104,7 +105,8 @@ doesn't work as stoploss, because position can still grow beyoind the limit, but
 <div class="adv label ttb"><span><select data-name="pl_redmode">
 		<option value="npmove">Sliding zero [‰]</option>
 		<option value="fixed">Fixed reduction [%]</option>
-		<option value="rp">RP reduction  [%]</option></select><br>
+		<option value="rp">RP reduction  [%]</option>
+		<option value="openp">Toward opening price</option></select><br>
 		<span class="tooltip">Specifies factor of position reduction.<br><br>
 		<strong>Sliding zero</strong> - Absolute position is calculated using
 		difference between current price and neutral price. The neutral price is slightly sliding towards to current price after each trade.
@@ -117,6 +119,7 @@ doesn't work as stoploss, because position can still grow beyoind the limit, but
 		realized profit is linear, so larger positions are reduced less than
 		smaller positions</span></span>
 		<x-slider data-name="pl_redfact" data-min="0" data-max="100" data-mult="1"></x-slider></div>
+<label class="adv"><span>Stoploss reduction <span class="tooltip">How much the position is internally reduced when maxpos is hit</span></span><x-slider data-name="pl_slred" data-min="0" data-max="100" data-mult="1"></x-slider></label>
 <label class="adv"><span>Accumulation <span class="tooltip">Amount of the profit used to buy extra assets</span></span><x-slider data-name="pl_acum" data-min="0" data-max="100" data-mult="1"></x-slider></label>
 <div class="rightinfo"><button data-name="linear_suggest pl_mode_m">Propose</button><button data-name="linear_suggest_maxpos  pl_mode_m">Propose max position</button></div>
 <div class="warning" data-name="err_toolargepos">Changing setting is discouraged because the open position is too large</div>
@@ -452,6 +455,7 @@ the same order, they are ordered by its ID - this is the default ordering. Modif
 <div><input name="pos" type="range" min="-100" max="0" step="0.1" value="0" class="thick"></div>
 </div>
 <x-form class="floating" hidden="hidden" data-name="options_form">
+<label><span>Show: neutral price</span><x-checkbox data-name="show_op">open price</x-checkbox></label>
 <label><span>Initial balance</span><input type="number" step="any" data-name="initial_balance"></label>
 <label><span>Initial position</span><input type="number" step="any" data-name="initial_pos"></label>
 <label><span>Import prices</span><input type="file"  data-name="price_file"></label>

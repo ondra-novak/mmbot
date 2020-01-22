@@ -149,6 +149,16 @@ double Strategy_PLFromPos::calcNewPos(const IStockApi::MarketInfo &minfo, double
 					case fixedReduce: 	nnp = pos + (np - pos) * (1 + reduce_factor); break;
 						//result from first part is extra reduction powered by 2. Now sqare root of it
 					case reduceFromProfit: nnp = sgn(np) * sqrt(np2);break;
+
+					case toOpenPrice: {
+						double openPrice = st.avgsum/std::abs(pos);
+						double f = (tradePrice - st.p)/(openPrice - st.p);
+						if (std::isfinite(f) && f >= 0 && f <= 1) {
+							nnp = (pos * (1-f))*reduce_factor + np * (1-reduce_factor);
+						} else {
+							nnp = np;
+						}
+						} break;
 					}
 					np = nnp;
 				} //otherwise stick with original np
@@ -206,11 +216,18 @@ std::pair<Strategy_PLFromPos::OnTradeResult, PStrategy> Strategy_PLFromPos::onTr
 
 	double fpos = assetsToPos(minfo, new_pos);
 	double ppos = assetsToPos(minfo,st.a);
+	double afpos = std::abs(fpos);
+	double appos = std::abs(ppos);
 
-	if ((st.maxpos && std::abs(fpos) > st.maxpos) || fpos * ppos <= 0)
+	newst.avgsum = (fpos * ppos < 0 || st.avgsum == 0)?(afpos * tradePrice):(st.avgsum + (afpos - appos) * tradePrice );
+
+	if (st.maxpos && afpos > st.maxpos)  {
+		newst.a = posToAssets(minfo,fpos*(1-cfg.slred));
+	}
+	if ((st.maxpos && afpos > st.maxpos) || fpos * ppos <= 0)
 		calcPower(minfo, newst, newst.p, newst.a, currencyLeft,true);
 	return {
-		OnTradeResult{np,ap,p0},
+		OnTradeResult{np,ap,p0, afpos?newst.avgsum/afpos:newst.p},
 		new Strategy_PLFromPos(cfg,newst)
 	};
 }
@@ -228,6 +245,7 @@ json::Value Strategy_PLFromPos::exportState() const {
 			("p",st.p)
 			("a",st.a)
 			("k",st.k)
+			("avg",st.avgsum)
 			("acm",st.acm)
 			("maxpos",st.maxpos)
 			("val", st.value)
@@ -245,10 +263,11 @@ PStrategy Strategy_PLFromPos::importState(json::Value src) const {
 			src["k"].getNumber(),
 			src["maxpos"].getNumber(),
 			src["acm"].getNumber(),
-			src["val"].getNumber()
+			src["val"].getNumber(),
+			src["avgs"].getNumber()
 		};
 		std::size_t chash = src["cfg"].getUInt();
-		if (chash != cfgStateHash()) {
+		if (chash != cfgStateHash() ) {
 			newst.valid_power = false;
 		}
 		return new Strategy_PLFromPos(cfg, newst);
@@ -349,12 +368,15 @@ void Strategy_PLFromPos::calcPower(const IStockApi::MarketInfo &minfo, State& st
 }
 
 json::Value Strategy_PLFromPos::dumpStatePretty(const IStockApi::MarketInfo &minfo) const {
+	double pos = assetsToPos(minfo, st.a);
+	double openPrice = st.avgsum/std::abs(pos);
 	return json::Object
 			("Last price",minfo.invert_price?1.0/st.p:st.p)
 			("Position",assetsToPos(minfo, st.a)*(minfo.invert_price?-1.0:1.0))
 			("Accumulated",st.acm?json::Value(st.acm):json::Value())
 			("Max allowed position",st.maxpos)
 			("Step",st.k*st.p*st.p*0.01)
+			("Open price", minfo.invert_price?1.0/openPrice:openPrice)
 			("Value of the position", st.value);
 
 }

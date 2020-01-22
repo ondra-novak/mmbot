@@ -25,6 +25,7 @@ struct BTTrade {
 	double norm_profit = 0;
 	double norm_accum = 0;
 	double neutral_price = 0;
+	double open_price = 0;
 	double pl = 0;
 	double pos = 0;
 };

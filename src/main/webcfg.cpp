@@ -848,6 +848,7 @@ bool WebCfg::reqBacktest(simpleServer::HTTPRequest req) const {
 				Value result (json::array, rs.begin(), rs.end(), [](const BTTrade &x) {
 					return Object
 							("np",x.neutral_price)
+							("op",x.open_price)
 							("na",x.norm_accum)
 							("npl",x.norm_profit)
 							("pl",x.pl)

@@ -24,7 +24,9 @@ public:
 		///normalized accumulated
 		double normAccum;
 		///neutral position, if 0, the value is not drawn on chart
-		double neutralPrice;
+		double neutralPrice = 0;
+		///open price, if 0, the value is not drawn
+		double openPrice = 0;
 	};
 
 	struct OrderData {

@@ -50,11 +50,15 @@ BTTrades backtest_cycle(const MTrader_Config &config, BTPriceSource &&priceSourc
 			orderData.size  = IStockApi::MarketInfo::adjValue(orderData.size,minfo.asset_step,round);
 			if (std::abs(orderData.size) < minsize)
 				continue;
+			if (config.max_size && std::abs(orderData.size) > config.max_size) {
+				orderData.size = config.max_size*sgn(orderData.size);
+			}
 			pos += orderData.size;
 			auto tres = s.onTrade(minfo, price->price, orderData.size, pos, balance);
 			bt.neutral_price = tres.neutralPrice;
 			bt.norm_accum += tres.normAccum;
 			bt.norm_profit += tres.normProfit;
+			bt.open_price = tres.openPrice;
 			bt.size = orderData.size;
 		} else {
 			bt.neutral_price = 0;
@@ -74,6 +78,7 @@ BTTrades backtest_cycle(const MTrader_Config &config, BTPriceSource &&priceSourc
 	if (minfo.invert_price) {
 		for (auto &&x: trades) {
 			x.neutral_price = 1.0/x.neutral_price;
+			x.open_price = 1.0/x.open_price;
 			x.pos = -x.pos;
 			x.price.price = 1.0/x.price.price;
 			x.size = -x.size;

@@ -36,7 +36,7 @@ std::pair<Strategy_HalfHalf::OnTradeResult, PStrategy> Strategy_HalfHalf::onTrad
 		const IStockApi::MarketInfo &minfo,
 		double tradePrice, double tradeSize, double assetsLeft, double currencyLeft) const {
 
-	if (!isValid()) {
+	if (p == 0) {
 		Strategy_HalfHalf tmp(cfg, tradePrice, assetsLeft-tradeSize);
 		return tmp.onTrade(minfo, tradePrice,tradeSize,assetsLeft, currencyLeft);
 	}
