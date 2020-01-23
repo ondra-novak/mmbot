@@ -1300,6 +1300,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		if (offset) {
 			var x = Object.assign({}, last);
 			x.time = imax;
+			x.pl = x.npl;
 			c.push(x);
 		}
 
