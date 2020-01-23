@@ -80,12 +80,12 @@ PStrategy Strategy_PLFromPos::onIdle(const IStockApi::MarketInfo &minfo,
 
 
 double Strategy_PLFromPos::calcNewPos(const IStockApi::MarketInfo &minfo, double tradePrice) const {
-	double maxpos = st.maxpos?st.maxpos:std::numeric_limits<double>::max();
+//	double maxpos = st.maxpos?st.maxpos:std::numeric_limits<double>::max();
 	//calculate direction of the line defines position change per price change
 	double k = calcK();
 	double pos = assetsToPos(minfo,st.a);
 	if (k == 0) return pos;
-	bool atmax = std::abs(pos) > maxpos;
+	//bool atmax = std::abs(pos) > maxpos;
 
 	double p = st.p;
 	double np = pos;
@@ -99,7 +99,7 @@ double Strategy_PLFromPos::calcNewPos(const IStockApi::MarketInfo &minfo, double
 	{
 		//so position is decreasing or we did not reach maxpos
 
-		if (cfg.reduceMode == neutralMove && !atmax) {
+		if (cfg.reduceMode == neutralMove) {
 				//neutralMove reduction, calculate neutral_price.
 				//the formula is inverse to k * (neutral_price - p) = pos
 				double neutral_price = pos/k + p;
@@ -124,7 +124,7 @@ double Strategy_PLFromPos::calcNewPos(const IStockApi::MarketInfo &minfo, double
 			double ap = std::abs(np);
 
 
-			if (dcrs  && np * pos > 0 && !atmax) {
+			if (dcrs  && np * pos > 0) {
 				double reduce_factor = cfg.reduce_factor;
 				//calculate profit made from moving price from p to tradePrice
 				//profit is defined by current position * difference of two prices
@@ -221,7 +221,7 @@ std::pair<Strategy_PLFromPos::OnTradeResult, PStrategy> Strategy_PLFromPos::onTr
 	double appos = std::abs(ppos);
 
 	newst.avgsum = (fpos * ppos < 0 || st.avgsum == 0)?(afpos * tradePrice):(st.avgsum + (afpos - appos) * tradePrice );
-	if (st.maxpos) {
+/*	if (st.maxpos) {
 		if (st.maxpos < afpos) {
 			fpos = fpos * 0.99;
 			afpos = std::abs(fpos);
@@ -231,7 +231,7 @@ std::pair<Strategy_PLFromPos::OnTradeResult, PStrategy> Strategy_PLFromPos::onTr
 			newst.a = posToAssets(minfo,fpos);
 			calcPower(minfo, newst, newst.p, newst.a, currencyLeft,true);
 		}
-	}
+	}*/
 
 	if (fpos * ppos <= 0) calcPower(minfo, newst, newst.p, newst.a, currencyLeft,true);
 	return {
@@ -243,7 +243,9 @@ std::pair<Strategy_PLFromPos::OnTradeResult, PStrategy> Strategy_PLFromPos::onTr
 std::size_t Strategy_PLFromPos::cfgStateHash() const {
 	json::Value v( {cfg.power,cfg.baltouse,cfg.step});
 	std::string txt = v.toString().str();
-	return std::hash<std::string>()(txt);
+	std::size_t h = std::hash<std::string>()(txt);
+	logDebug("Strategy settings hash: $1", h);
+	return h;
 
 }
 
@@ -272,12 +274,10 @@ PStrategy Strategy_PLFromPos::importState(json::Value src) const {
 			src["maxpos"].getNumber(),
 			src["acm"].getNumber(),
 			src["val"].getNumber(),
-			src["avgs"].getNumber()
+			src["avg"].getNumber()
 		};
 		std::size_t chash = src["cfg"].getUInt();
-		if (chash != cfgStateHash() ) {
-			newst.valid_power = false;
-		}
+		newst.valid_power = chash == cfgStateHash();
 		return new Strategy_PLFromPos(cfg, newst);
 	} else {
 		return this;
@@ -356,18 +356,18 @@ void Strategy_PLFromPos::calcPower(const IStockApi::MarketInfo &minfo, State& st
 	double pos = assetsToPos(minfo, assets);
 	double new_pos = pos;
 	double neutral_price = pos/calcK(st) + price;
-	double ref_price = std::isfinite(neutral_price)?neutral_price:price;
+//	double ref_price = std::isfinite(neutral_price)?neutral_price:price;
 	if (cfg.power) {
 		double c = currency * cfg.baltouse;
 		double step = c * std::pow(10, cfg.power)*0.01;
-		double k = step / (ref_price * ref_price* 0.01);
+		double k = step / (price * price* 0.01);
 		double max_pos = sqrt(k * c);
 		st.maxpos = max_pos;
 		st.k= k;
 //		logInfo("Strategy recalculated: step=$1, pos=$3, max_pos=$2, new_pos=$4", step, max_pos, pos, new_pos);
 	} else {
 		st.maxpos = cfg.maxpos;
-		st.k= cfg.step / (ref_price * ref_price* 0.01);
+		st.k= cfg.step / (price * price* 0.01);
 	}
 	if (keepnp && std::isfinite(neutral_price)) {
 		new_pos = st.k * (neutral_price - price);

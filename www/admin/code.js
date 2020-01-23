@@ -1321,11 +1321,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		var scale = 900000;
 		var drawChart = initChart(interval,ratio,scale);
 		drawChart(chart1,c,"pr",[],show_op?"op":"np");
-		drawChart(chart2,c,"pl",[{
-			pl: vlast.pl,
-			label:"P/L",
-			class: vlast.pl>0?"buy":"sell"
-		}],"npl");
+		drawChart(chart2,c,"pl",[],"npl");
 	}
 
 
