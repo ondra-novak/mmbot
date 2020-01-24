@@ -431,15 +431,28 @@ the same order, they are ordered by its ID - this is the default ordering. Modif
 <template id="backtest_vis">
 <x-section class="backtest"><x-section-caption>Backtest</x-section-caption>
 <div class="tablecont"><table>
-<tr><th>p&l</th><th>p&l/year</th><th>p&l p.a.</th><th>max pos</th><th>max p&l</th><th colspan="2">downdraw</th><th>RRR</th><th rowspan="2" data-name="options"><img src="../res/options.png" ></tr>
 <tr>
-<td class="colornumb" data-name="pl"></td>
-<td class="colornumb" data-name="ply"></td>
-<td class="colornumb" data-name="pc"></td>
-<td class="colornumb" data-name="max_pos"></td>
+<th class="a" data-name="showpl">p&amp;l</th>
+<th class="a" data-name="showpl">p&amp;l/y</th>
+<th class="a" data-name="showpl">p&amp;l p.a.</th>
+<th class="a" data-name="showpl">max pos</th>
+<th class="a" data-name="shownorm">norm</th>
+<th class="a" data-name="shownorm">norm/y</th>
+<th class="a" data-name="shownorm">norm p.a.</th>
+<th class="a" data-name="shownorm">max cost</th>
+<th>max profit</th><th colspan="2">downdraw</th><th>RRR</th><th rowspan="2" data-name="options"><img src="../res/options.png" ></tr>
+<tr>
+<td class="colornumb a" data-name="pl showpl"></td>
+<td class="colornumb a" data-name="ply showpl"></td>
+<td class="colornumb a pc" data-name="pc showpl"></td>
+<td class="colornumb a" data-name="max_pos showpl"></td>
+<td class="colornumb a" data-name="npl shownorm"></td>
+<td class="colornumb a" data-name="nply shownorm"></td>
+<td class="colornumb a pc" data-name="npc shownorm"></td>
+<td class="colornumb a" data-name="max_cost shownorm"></td>
 <td class="colornumb" data-name="max_profit"></td>
 <td class="colornumb" data-name="max_loss"></td>
-<td class="colornumb sell" data-name="max_loss_pc"></td>
+<td class="colornumb sell pc" data-name="max_loss_pc"></td>
 <td class="colornumb" data-name="pr"></td>
 </tr>
 </table>
@@ -455,9 +468,10 @@ the same order, they are ordered by its ID - this is the default ordering. Modif
 </div>
 <x-form class="floating" hidden="hidden" data-name="options_form">
 <label><span>Show: neutral price</span><x-checkbox data-name="show_op">open price</x-checkbox></label>
-<label><span>Balance</span><input type="number" step="any" data-name="initial_balance"></label>
-<label><span>Position</span><input type="number" step="any" data-name="initial_pos"></label>
-<label><span>Import prices</span><input type="file"  data-name="price_file"></label>
+<label><span>Currency</span><input type="number" step="any" data-name="initial_balance"></label>
+<label><span>Assets/Position</span><input type="number" step="any" data-name="initial_pos"></label>
+<div class="label"><span>Import prices</span><button data-name="select_file">Browse file</button><input hidden="hidden" type="file"  data-name="price_file"></div>
+<div class="label"><span>Export</span><a href="#" data-name="export">CSV</a></div>
 </x-form>
 </x-section>
 </template>

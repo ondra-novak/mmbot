@@ -443,4 +443,20 @@ function adjNumBuySell(x,d) {
 	};
 }
 
+function doDownlaodFile(data,name,content_type) {
+	var blob = new Blob(
+		    [ data ],
+		    {
+		        type : content_type
+		    });
+	 var downloadUrl = URL.createObjectURL( blob );
+	 var a = document.createElement("A");
+	 a.setAttribute("href", downloadUrl);
+	 a.setAttribute("download",name);
+	 a.setAttribute("target","_blank");
+	 document.body.appendChild(a);
+	 a.click();
+	 document.body.removeChild(a);
+	 URL.revokeObjectURL(downloadUrl);
+}
 

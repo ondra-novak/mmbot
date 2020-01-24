@@ -80,12 +80,12 @@ PStrategy Strategy_PLFromPos::onIdle(const IStockApi::MarketInfo &minfo,
 
 
 double Strategy_PLFromPos::calcNewPos(const IStockApi::MarketInfo &minfo, double tradePrice) const {
-//	double maxpos = st.maxpos?st.maxpos:std::numeric_limits<double>::max();
+	double maxpos = st.maxpos?st.maxpos:std::numeric_limits<double>::max();
 	//calculate direction of the line defines position change per price change
 	double k = calcK();
 	double pos = assetsToPos(minfo,st.a);
 	if (k == 0) return pos;
-	//bool atmax = std::abs(pos) > maxpos;
+	bool atmax = std::abs(pos) > maxpos;
 
 	double p = st.p;
 	double np = pos;
@@ -96,6 +96,7 @@ double Strategy_PLFromPos::calcNewPos(const IStockApi::MarketInfo &minfo, double
 	bool dcrs = pos * dir < 0;
 
 	//if position is increasing at maxpos do not increase position beyond that limit
+	if (!atmax || dcrs)
 	{
 		//so position is decreasing or we did not reach maxpos
 
@@ -224,12 +225,17 @@ std::pair<Strategy_PLFromPos::OnTradeResult, PStrategy> Strategy_PLFromPos::onTr
 	newst.avgsum = ( reversal || st.avgsum == 0)?(afpos * tradePrice):(st.avgsum + (afpos - appos) * tradePrice );
 	if (st.maxpos) {
 		if (st.maxpos < afpos) {
-			calcPower(minfo, newst, newst.p, newst.a, currencyLeft,true);
+			//calcPower(minfo, newst, newst.p, newst.a, currencyLeft,true);
+			newst.mult = 0.05;
 		}/* else if (afpos <= st.maxpos && appos > st.maxpos) {
 			fpos = fpos * 0.90;
 			newst.a = posToAssets(minfo,fpos);
 			calcPower(minfo, newst, newst.p, newst.a, currencyLeft,true);
 		}*/
+	 else {
+		newst.mult = (st.mult * 2);
+		if (newst.mult > 1.0) newst.mult =1.0;
+	}
 	}
 
 	if (reversal) calcPower(minfo, newst, newst.p, newst.a, currencyLeft,true);
@@ -258,6 +264,7 @@ json::Value Strategy_PLFromPos::exportState() const {
 			("acm",st.acm)
 			("maxpos",st.maxpos)
 			("val", st.value)
+			("mult", st.mult)
 			("cfg",cfgStateHash());
 	else return json::undefined;
 }
@@ -273,7 +280,8 @@ PStrategy Strategy_PLFromPos::importState(json::Value src) const {
 			src["maxpos"].getNumber(),
 			src["acm"].getNumber(),
 			src["val"].getNumber(),
-			src["avg"].getNumber()
+			src["avg"].getNumber(),
+			src["mult"].getValueOrDefault(1.0)
 		};
 		std::size_t chash = src["cfg"].getUInt();
 		newst.valid_power = chash == cfgStateHash();
@@ -289,19 +297,19 @@ Strategy_PLFromPos::OrderData Strategy_PLFromPos::getNewOrder(
 	double pos = assetsToPos(minfo, st.a);
 	bool atmaxpos = st.maxpos && std::abs(pos) > st.maxpos;
 	if (atmaxpos) {
+		double zeroPos = posToAssets(minfo, 0);
+		double osz = calcOrderSize(zeroPos, assets, zeroPos);
 		if (dir * pos < 0) {
-			double zeroPos = posToAssets(minfo, 0);
-			double osz = calcOrderSize(zeroPos, assets, zeroPos);
-			return OrderData{st.p, osz, true};
+			return OrderData{st.p, osz, false};
 		} else {
-			return OrderData{new_price, 0, true};
+			return OrderData{new_price, 0, std::abs(osz) <= minfo.asset_step};
 		}
 	}
 	double new_pos = calcNewPos(minfo, new_price);
 	if (st.maxpos && std::abs(new_pos)> st.maxpos) {
 		return OrderData {0, 0, true};
 	} else {
-		return OrderData {0, calcOrderSize(st.a, assets, posToAssets(minfo,new_pos))};
+		return OrderData {0, calcOrderSize(st.a, assets, posToAssets(minfo,new_pos))*st.mult};
 	}
 }
 

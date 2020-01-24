@@ -1254,6 +1254,43 @@ App.prototype.init_spreadvis = function(form, id) {
 	}.bind(this));
 }
 
+function createCSV(chart) {
+	"use strict";
+	
+	function makeRow(row) {
+		var s = JSON.stringify(row);
+		return s.substr(1,s.length-2);
+	}
+	
+	var rows = chart.map(function(rw){
+		return makeRow([
+			(new Date(rw.tm)).toLocaleString("en-GB"),
+			rw.pr,
+			rw.sz,
+			rw.ps,
+			rw.pl,
+			rw.npl,
+			rw.na,
+			rw.np,
+			rw.op,
+		]);
+	})
+	
+	rows.unshift(makeRow([
+			"time",
+			"price",
+			"size",
+			"position",
+			"profit/loss",
+			"normalized profit",
+			"accumulation",
+			"neutral price",
+			"open price",
+		]));
+	return rows.join("\r\n");
+}
+
+
 App.prototype.init_backtest = function(form, id, pair, broker) {
 	var url = "api/backtest";
 	form.enableItem("show_backtest",false);		
@@ -1265,6 +1302,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
     var offset = 0;
     var offset_max = 0;
     var show_op=false;
+    var show_norm=this.traders[id].strategy.type == "halfhalf" || this.traders[id].strategy.type == "keepvalue"; 
 
 	function draw(cntr, v, offset, balance) {
 
@@ -1278,6 +1316,8 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		var min_pl = 0;
 		var max_pl = 0;		
 		var max_downdraw = 0;
+		var cost = 0;
+		var max_cost = 0;
 
 		var c = [];
 		var acp = true;
@@ -1294,6 +1334,8 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 			    max_pos = ap;
 			if (x.pl > max_pl) {max_pl = x.pl;min_pl = x.pl;}
 			if (x.pl < min_pl) {min_pl = x.pl;var downdraw = max_pl - min_pl; if (downdraw> max_downdraw) max_downdraw = downdraw;}
+			cost = cost + x.sz * x.pr;
+			if (cost > max_cost) max_cost = cost;
 		});
 
 		var last = c[c.length-1];
@@ -1307,12 +1349,18 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
         cntr.bt.setData({
         	"pl":adjNumBuySell(vlast.pl),
         	"ply":adjNumBuySell(vlast.pl*31536000000/interval),
+        	"npl":adjNumBuySell(vlast.npl),
+        	"nply":adjNumBuySell(vlast.npl*31536000000/interval),
         	"max_pos":adjNum(max_pos),
+        	"max_cost":adjNum(max_cost),
         	"max_loss":adjNumBuySell(-max_downdraw),
         	"max_loss_pc":adjNum(max_downdraw/balance*100,0),
         	"max_profit":adjNumBuySell(max_pl),
         	"pr": adjNum(max_pl/max_downdraw),
-        	"pc": adjNumBuySell(vlast.pl*3153600000000/(interval*balance),0)
+        	"pc": adjNumBuySell(vlast.pl*3153600000000/(interval*balance),0),
+        	"npc": adjNumBuySell(vlast.npl*3153600000000/(interval*balance),1),
+        	"showpl":{".hidden":show_norm},
+        	"shownorm":{".hidden":!show_norm}
         });
 
 		var chart1 = cntr.bt.findElements('chart1')[0];
@@ -1334,7 +1382,12 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 	var opts
 	var bal;
 	var req;
+	var res_data;
 
+	function swapshowpl() {
+		show_norm = !show_norm;
+		update();
+	}
 
 	this.gen_backtest(form,"backtest_anchor", "backtest_vis",inputs,function(cntr){
 
@@ -1365,8 +1418,19 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 				show_op = cntr.bt.readData(["show_op"]).show_op;
 				update();
 			})
+			cntr.bt.setItemEvent("showpl","click",swapshowpl);
+			cntr.bt.setItemEvent("shownorm","click",swapshowpl);
+			cntr.bt.setItemEvent("select_file","click",function(){
+				var el = cntr.bt.findElements("price_file")[0];
+				el.value="";
+				el.click();
+			});
+			cntr.bt.setItemEvent("export","click",function() {
+				doDownlaodFile(createCSV(res_data),id+".csv","text/plain");
+			})			
 			cntr.bt.setItemEvent("price_file","change",function() {
 				if (this.files[0]) {
+    				cntr.bt.setItemValue("select_file", this.files[0].name);
 					var reader = new FileReader();
 					reader.onload = function() {
 						var prices = reader.result.split("\n").map(function(x) {return parseFloat(x);});
@@ -1424,6 +1488,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		}
 		fetch_with_error(url, {method:"POST", body:JSON.stringify(req)}).then(function(v) {					    
 			if (v.length == 0) return;
+			res_data = v;
 			draw(cntr,v,offset,bal);			
 			update = function() {
 				if (tm) clearTimeout(tm);

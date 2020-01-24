@@ -420,6 +420,10 @@ a {
 	margin: 0;
 	font-size: 0.9em;
 }
+.backtest input,.backtest button {
+	font-size: 0.9em;
+	margin: 0;
+}
 
 .backtest th {
 	font-weight:normal;
@@ -442,13 +446,20 @@ a {
 	right: 0;
 	background-color: #1515158f;
 	padding: 0.5em;
-	width: 10cm;
+	width: 44vw;
+	font-size: smaller;
 }
 
 .backtest td {
 	font-weight:bold;
 }
-.backtest td[data-name=max_loss_pc]::after,.backtest td[data-name=pc]::after {
+.backtest td.a,.backtest th.a {
+	cursor: pointer;
+}
+.backtest td.a:hover,.backtest th.a:hover {
+	background-color: #FFF2;
+}
+.backtest td.pc::after {
 	content: '%'
 }
 
