@@ -58,7 +58,7 @@ line.marker.sell {
 	alignment-baseline: after-edge;
 }
 .orderline {
-	stroke: #FAA;
+	stroke: #9fc9e7;
 	stroke-width:2;
 	stroke-dasharray:4;	
 }

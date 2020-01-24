@@ -1320,14 +1320,20 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		var max_cost = 0;
 
 		var c = [];
-		var acp = true;
+		var ilst,acp = false;
 		v.forEach(function(x) {
 			var nacp = x.tm >= imin && x.tm <=imax;
-			if (acp || nacp) {
+			if (nacp || acp) {
 				x.achg = x.sz;
 				x.time = x.tm;
-				c.push(x);
-			}
+				if (ilst) {
+				    c.push(ilst);
+					ilst = null;
+				}
+				c.push(x);				
+			} else {
+				ilst = x;
+			}	
 			acp = nacp;
 			var ap = Math.abs(x.ps);
 			if (ap > max_pos) 
@@ -1338,11 +1344,17 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 			if (cost > max_cost) max_cost = cost;
 		});
 
+        
 		var last = c[c.length-1];
+		var lastnp;
+		var lastnpl;
+		var lastop;
 		if (offset) {
 			var x = Object.assign({}, last);
 			x.time = imax;
-			x.pl = x.npl;
+			lastnp = x.np;
+			lastnpl = x.npl;
+			lastop = x.op;
 			c.push(x);
 		}
 
@@ -1369,8 +1381,12 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		var ratio = 4;		
 		var scale = 900000;
 		var drawChart = initChart(interval,ratio,scale);
-		drawChart(chart1,c,"pr",[],show_op?"op":"np");
-		drawChart(chart2,c,"pl",[],"npl");
+		if (show_op) {
+		    drawChart(chart1,c,"pr",[{label:"open",pr:lastop}],"op");
+		} else {
+		    drawChart(chart1,c,"pr",[{label:"neutral",pr:lastnp}],"np");			
+		}
+		drawChart(chart2,c,"pl",[{label:"norm",pl:lastnpl}],"npl");
 	}
 
 

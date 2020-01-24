@@ -891,7 +891,7 @@ x-form.trading .chart .spinner {
 	color: #9c997e;
 }
 
-.upload_dialog  div.progress > div {background: green;height:  2em;transition: 2s all linear;position: absolute;left: 0;top: 0;}
+.upload_dialog  div.progress > div {background: green;height:  2em;transition: 1s all linear;position: absolute;left: 0;top: 0;}
 
 @media all and (max-width: 15cm) { 
 

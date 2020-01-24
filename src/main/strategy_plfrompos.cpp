@@ -211,7 +211,7 @@ std::pair<Strategy_PLFromPos::OnTradeResult, PStrategy> Strategy_PLFromPos::onTr
 	double ap = (ef * cfg.accum)/tradePrice;
 	double p0 = new_pos/reducedK(k) + tradePrice;
 
-
+	newst.stop = false;
 	newst.acm  = st.acm + ap;
 	newst.p = tradePrice;
 	newst.a = posToAssets(minfo,new_pos);
@@ -225,7 +225,8 @@ std::pair<Strategy_PLFromPos::OnTradeResult, PStrategy> Strategy_PLFromPos::onTr
 	newst.avgsum = ( reversal || st.avgsum == 0)?(afpos * tradePrice):(st.avgsum + (afpos - appos) * tradePrice );
 	if (st.maxpos) {
 		if (st.maxpos < afpos) {
-			//calcPower(minfo, newst, newst.p, newst.a, currencyLeft,true);
+			newst.stop = st.stop || std::abs(act_pos)<=minfo.asset_step;
+			calcPower(minfo, newst, newst.p, newst.a, currencyLeft,true);
 			newst.mult = 0.05;
 		}/* else if (afpos <= st.maxpos && appos > st.maxpos) {
 			fpos = fpos * 0.90;
@@ -265,6 +266,7 @@ json::Value Strategy_PLFromPos::exportState() const {
 			("maxpos",st.maxpos)
 			("val", st.value)
 			("mult", st.mult)
+			("stop", st.stop)
 			("cfg",cfgStateHash());
 	else return json::undefined;
 }
@@ -281,7 +283,8 @@ PStrategy Strategy_PLFromPos::importState(json::Value src) const {
 			src["acm"].getNumber(),
 			src["val"].getNumber(),
 			src["avg"].getNumber(),
-			src["mult"].getValueOrDefault(1.0)
+			src["mult"].getValueOrDefault(1.0),
+			src["stop"].getBool()
 		};
 		json::Value chash = src["cfg"];
 		newst.valid_power = chash == cfgStateHash();
@@ -298,11 +301,11 @@ Strategy_PLFromPos::OrderData Strategy_PLFromPos::getNewOrder(
 	bool atmaxpos = st.maxpos && std::abs(pos) > st.maxpos;
 	if (atmaxpos) {
 		double zeroPos = posToAssets(minfo, 0);
-		double osz = calcOrderSize(zeroPos, assets, zeroPos);
-		if (dir * pos < 0) {
-			return OrderData{st.p, osz, false};
+		double osz = zeroPos - assets;
+		if (dir * pos < 0 && !st.stop) {
+			return OrderData{st.p, osz, true};
 		} else {
-			return OrderData{new_price, 0, std::abs(osz) > minfo.asset_step};
+			return OrderData{new_price, 0, true};
 		}
 	}
 	double new_pos = calcNewPos(minfo, new_price);
@@ -381,11 +384,11 @@ void Strategy_PLFromPos::calcPower(const IStockApi::MarketInfo &minfo, State& st
 		st.maxpos = cfg.maxpos;
 		st.k= cfg.step / (price * price* 0.01);
 	}
-	if (keepnp && std::isfinite(neutral_price)) {
+/*	if (keepnp && std::isfinite(neutral_price)) {
 		logDebug("Position recalculated: $1 -> $2", pos, new_pos);
 		new_pos = st.k * (neutral_price - price);
 		st.a = posToAssets(minfo, new_pos);
-	}
+	}*/
 	st.valid_power = true;
 }
 

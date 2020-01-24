@@ -49,6 +49,7 @@ public:
 		double value = 0;
 		double avgsum = 0;
 		double mult = 1.0;
+		bool stop = false;
 	};
 
 	Strategy_PLFromPos(const Config &cfg, const State &st);
