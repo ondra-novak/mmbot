@@ -79,7 +79,7 @@ public:
 
 	static double sliding_zero_factor;;
 
-	std::size_t cfgStateHash() const;
+	json::Value cfgStateHash() const;
 
 protected:
 	Config cfg;

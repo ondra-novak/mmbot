@@ -444,10 +444,13 @@ a {
 	position: absolute;
 	top:3em;
 	right: 0;
-	background-color: #1515158f;
+	background-color: #151515;
 	padding: 0.5em;
 	width: 44vw;
+	max-width: 8cm;
 	font-size: smaller;
+	opacity: 0.9;
+	border: 1px solid #FFF5;
 }
 
 .backtest td {

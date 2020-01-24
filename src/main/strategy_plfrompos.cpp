@@ -245,12 +245,12 @@ std::pair<Strategy_PLFromPos::OnTradeResult, PStrategy> Strategy_PLFromPos::onTr
 	};
 }
 
-std::size_t Strategy_PLFromPos::cfgStateHash() const {
+json::Value Strategy_PLFromPos::cfgStateHash() const {
 	json::Value v( {cfg.power,cfg.baltouse,cfg.step});
 	std::string txt = v.toString().str();
 	std::size_t h = std::hash<std::string>()(txt);
 	logDebug("Strategy settings hash: $1", h);
-	return h;
+	return std::to_string(h);
 
 }
 
@@ -283,7 +283,7 @@ PStrategy Strategy_PLFromPos::importState(json::Value src) const {
 			src["avg"].getNumber(),
 			src["mult"].getValueOrDefault(1.0)
 		};
-		std::size_t chash = src["cfg"].getUInt();
+		json::Value chash = src["cfg"];
 		newst.valid_power = chash == cfgStateHash();
 		return new Strategy_PLFromPos(cfg, newst);
 	} else {
@@ -302,7 +302,7 @@ Strategy_PLFromPos::OrderData Strategy_PLFromPos::getNewOrder(
 		if (dir * pos < 0) {
 			return OrderData{st.p, osz, false};
 		} else {
-			return OrderData{new_price, 0, std::abs(osz) <= minfo.asset_step};
+			return OrderData{new_price, 0, std::abs(osz) > minfo.asset_step};
 		}
 	}
 	double new_pos = calcNewPos(minfo, new_price);
@@ -376,12 +376,13 @@ void Strategy_PLFromPos::calcPower(const IStockApi::MarketInfo &minfo, State& st
 		double max_pos = sqrt(k * c);
 		st.maxpos = max_pos;
 		st.k= k;
-//		logInfo("Strategy recalculated: step=$1, pos=$3, max_pos=$2, new_pos=$4", step, max_pos, pos, new_pos);
+		logInfo("Strategy recalculated: step=$1, pos=$3, max_pos=$2, new_pos=$4", step, max_pos, pos, new_pos);
 	} else {
 		st.maxpos = cfg.maxpos;
 		st.k= cfg.step / (price * price* 0.01);
 	}
 	if (keepnp && std::isfinite(neutral_price)) {
+		logDebug("Position recalculated: $1 -> $2", pos, new_pos);
 		new_pos = st.k * (neutral_price - price);
 		st.a = posToAssets(minfo, new_pos);
 	}
