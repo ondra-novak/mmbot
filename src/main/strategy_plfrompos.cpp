@@ -17,6 +17,7 @@ using ondra_shared::logDebug;
 using ondra_shared::logInfo;
 
 double Strategy_PLFromPos::sliding_zero_factor = 0.95;
+double Strategy_PLFromPos::min_rp_reduce = 0.1;
 
 std::string_view Strategy_PLFromPos::id = "plfrompos";
 
@@ -150,7 +151,13 @@ double Strategy_PLFromPos::calcNewPos(const IStockApi::MarketInfo &minfo, double
 						//fixed reduction is easy
 					case fixedReduce: 	nnp = pos + (np - pos) * (1 + reduce_factor); break;
 						//result from first part is extra reduction powered by 2. Now sqare root of it
-					case reduceFromProfit: nnp = sgn(np) * sqrt(np2);break;
+					case reduceFromProfit: {
+						nnp = sgn(np) * sqrt(np2);
+						double nnp2 = pos + (np - pos) * (1 + min_rp_reduce*reduce_factor);
+						if (std::abs(nnp) > std::abs(nnp2)) nnp = nnp2;;
+						break;
+					}
+
 
 					case toOpenPrice: {
 						double openPrice = st.avgsum/std::abs(pos);
@@ -226,7 +233,7 @@ std::pair<Strategy_PLFromPos::OnTradeResult, PStrategy> Strategy_PLFromPos::onTr
 	if (st.maxpos) {
 		if (st.maxpos < afpos) {
 			newst.stop = st.stop || std::abs(act_pos)<=minfo.asset_step;
-			calcPower(minfo, newst, newst.p, newst.a, currencyLeft,true);
+//			calcPower(minfo, newst, newst.p, newst.a, currencyLeft,true);
 			newst.mult = 0.05;
 		}/* else if (afpos <= st.maxpos && appos > st.maxpos) {
 			fpos = fpos * 0.90;
@@ -298,6 +305,7 @@ Strategy_PLFromPos::OrderData Strategy_PLFromPos::getNewOrder(
 		const IStockApi::MarketInfo &minfo,
 		double cur_price, double new_price, double dir, double assets, double currency) const {
 	double pos = assetsToPos(minfo, st.a);
+	double cur_pos = assetsToPos(minfo, assets);
 	bool atmaxpos = st.maxpos && std::abs(pos) > st.maxpos;
 	if (atmaxpos) {
 		double zeroPos = posToAssets(minfo, 0);
@@ -309,11 +317,7 @@ Strategy_PLFromPos::OrderData Strategy_PLFromPos::getNewOrder(
 		}
 	}
 	double new_pos = calcNewPos(minfo, new_price);
-	if (st.maxpos && std::abs(new_pos)> st.maxpos) {
-		return OrderData {0, 0, true};
-	} else {
-		return OrderData {0, calcOrderSize(st.a, assets, posToAssets(minfo,new_pos))*st.mult};
-	}
+	return OrderData {0, calcOrderSize(st.a, assets, posToAssets(minfo,new_pos))*st.mult};
 }
 
 Strategy_PLFromPos::MinMax Strategy_PLFromPos::calcSafeRange(

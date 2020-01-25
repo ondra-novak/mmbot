@@ -79,6 +79,7 @@ public:
 	double reducedK(double k) const;
 
 	static double sliding_zero_factor;;
+	static double min_rp_reduce;
 
 	json::Value cfgStateHash() const;
 
