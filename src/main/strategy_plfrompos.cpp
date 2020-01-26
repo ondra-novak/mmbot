@@ -317,7 +317,8 @@ Strategy_PLFromPos::OrderData Strategy_PLFromPos::getNewOrder(
 		}
 	}
 	double new_pos = calcNewPos(minfo, new_price);
-	return OrderData {0, calcOrderSize(st.a, assets, posToAssets(minfo,new_pos))*st.mult};
+	if (st.maxpos && std::abs(new_pos) > st.maxpos) return OrderData{0,0,true};
+	else return OrderData {0, calcOrderSize(st.a, assets, posToAssets(minfo,new_pos))*st.mult};
 }
 
 Strategy_PLFromPos::MinMax Strategy_PLFromPos::calcSafeRange(
