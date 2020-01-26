@@ -34,8 +34,9 @@ double EmulatorAPI::readBalance(const std::string_view &symb, const std::string_
 
 }
 
-double EmulatorAPI::getBalance(const std::string_view & symb, const std::string_view & ) {
+double EmulatorAPI::getBalance(const std::string_view & symb, const std::string_view &pair ) {
 
+	this->pair = pair;
 	if (balance_symb == symb) {
 		if (initial_read_balance) {
 			initial_read_balance = false;

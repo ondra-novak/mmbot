@@ -350,7 +350,7 @@ inline Interface::BrokerInfo Interface::getBrokerInfo() {
 		hasKey(),
 		"simplefx",
 		"$impleFX",
-		"https://app.simplefx.com/",
+		"https://simplefx.com/n/_13219",
 		"1.0",
 		"Copyright (c) 2019 Ondřej Novák\n\n"
 

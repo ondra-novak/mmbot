@@ -833,8 +833,8 @@ bool WebCfg::reqBacktest(simpleServer::HTTPRequest req) const {
 
 				MTrader_Config mconfig;
 				mconfig.loadConfig(config,false);
-				auto piter = trades.begin();
-				auto pend = trades.end();
+				auto piter = trades.prices.begin();
+				auto pend = trades.prices.end();
 
 				BTTrades rs = backtest_cycle(mconfig, [&]{
 					std::optional<BTPrice> x;
@@ -843,7 +843,7 @@ bool WebCfg::reqBacktest(simpleServer::HTTPRequest req) const {
 						++piter;
 					}
 					return x;
-				}, trlist.stockSelector,init_pos.getNumber(), balance.getNumber());
+				}, trades.minfo,init_pos.getNumber(), balance.getNumber());
 
 				Value result (json::array, rs.begin(), rs.end(), [](const BTTrade &x) {
 					return Object
@@ -880,11 +880,12 @@ bool WebCfg::reqBacktest(simpleServer::HTTPRequest req) const {
 						}
 
 						const auto &tradeHist = tr->getTrades();
-						BacktestCache::Subj trs;
+						BacktestCacheSubj trs;
 						std::transform(tradeHist.begin(),tradeHist.end(),
-								std::back_insert_iterator(trs),[](const IStatSvc::TradeRecord &r) {
+								std::back_insert_iterator(trs.prices),[](const IStatSvc::TradeRecord &r) {
 							return BTPrice{r.time, r.price};
 						});
+						trs.minfo = tr->getMarketInfo();
 
 						Sync _(state->lock);
 						state->backtest_cache = BacktestCache(trs, id.toString().str(), std::chrono::system_clock::now()+std::chrono::minutes(10));
@@ -1046,10 +1047,11 @@ bool WebCfg::reqUploadPrices(simpleServer::HTTPRequest req) const {
 						state->upload_progress = (pos * 100)/count;
 						return iterfn();},sma.getNumber(), stdev.getNumber(),mult.getNumber(),
 							dynmult_raise.getValueOrDefault(1.0),dynmult_fall.getValueOrDefault(1.0),dynmult_mode.getValueOrDefault("independent"),false,true);
-					BacktestCache::Subj bt;
-					std::transform(trades.chart.begin(), trades.chart.end(), std::back_inserter(bt), [](const MTrader::VisRes::Item &itm) {
+					BacktestCacheSubj bt;
+					std::transform(trades.chart.begin(), trades.chart.end(), std::back_inserter(bt.prices), [](const MTrader::VisRes::Item &itm) {
 						return BTPrice{itm.time, itm.price};
 					});
+					bt.minfo = tr->getMarketInfo();
 					_.lock();
 					state->upload_progress = -1;
 					state->backtest_cache = BacktestCache(bt, id.toString().str(), std::chrono::system_clock::now()+std::chrono::hours(24));

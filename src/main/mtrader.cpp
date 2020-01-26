@@ -32,7 +32,6 @@ json::NamedEnum<Dynmult_mode> strDynmult_mode  ({
 	{Dynmult_mode::half_alternate, "half_alternate"}
 });
 
-std::string_view MTrader::vtradePrefix = "__vt__";
 
 
 
@@ -109,7 +108,7 @@ MTrader::MTrader(IStockSelector &stock_selector,
 }
 
 
-bool MTrader::Order::isSimilarTo(const Order& other, double step, bool inverted) {
+bool MTrader::Order::isSimilarTo(const IStockApi::Order& other, double step, bool inverted) {
 	double p1,p2;
 	if (inverted) {
 		 p1 = 1.0/price;
@@ -155,6 +154,17 @@ const MTrader::TradeHistory& MTrader::getTrades() const {
 	return trades;
 }
 
+void MTrader::alertTrigger(Status &st, double price) {
+	st.new_trades.trades.push_back(IStockApi::Trade{
+		json::Value(json::String({"ALERT:",json::Value(st.chartItem.time).toString()})),
+		st.chartItem.time,
+		0,
+		price,
+		0,
+		price
+	});
+}
+
 void MTrader::perform(bool manually) {
 
 	try {
@@ -181,6 +191,7 @@ void MTrader::perform(bool manually) {
 
 		//only create orders, if there are no trades from previous run
 		if (status.new_trades.trades.empty()) {
+
 
 
 			if (recalc) {
@@ -218,27 +229,21 @@ void MTrader::perform(bool manually) {
 
 
 					try {
-						setOrder(orders.buy, buyorder);
+						setOrder(orders.buy, buyorder, buy_alert);
 						if (!orders.buy.has_value()) {
 							acceptLoss(status, 1);
-							orders.buy = buyorder;
-							buy_order_error = "Blocked by strategy or settings";
 						}
 					} catch (std::exception &e) {
 						buy_order_error = e.what();
-						orders.buy = buyorder;
 						acceptLoss(status, 1);
 					}
 					try {
-						setOrder(orders.sell, sellorder);
+						setOrder(orders.sell, sellorder, sell_alert);
 						if (!orders.sell.has_value()) {
 							acceptLoss(status, 1);
-							orders.sell = sellorder;
-							sell_order_error = "Blocked by strategy or settings";
 						}
 					} catch (std::exception &e) {
 						sell_order_error = e.what();
-						orders.sell = sellorder;
 						acceptLoss(status,-1);
 					}
 
@@ -260,6 +265,8 @@ void MTrader::perform(bool manually) {
 
 
 			recalc = true;
+			sell_alert.reset();
+			buy_alert.reset();
 		}
 
 		if (!cfg.hidden) {
@@ -321,7 +328,7 @@ MTrader::OrderPair MTrader::getOrders() {
 	for (auto &&x: data) {
 		try {
 			if (x.client_id == magic) {
-				Order o(x);
+				IStockApi::Order o(x);
 				if (o.size<0) {
 					if (ret.sell.has_value()) {
 						ondra_shared::logWarning("Multiple sell orders (trying to cancel)");
@@ -346,53 +353,51 @@ MTrader::OrderPair MTrader::getOrders() {
 }
 
 
-void MTrader::setOrder(std::optional<Order> &orig, Order neworder) {
+void MTrader::setOrder(std::optional<IStockApi::Order> &orig, Order neworder, std::optional<double> &alert) {
+	alert.reset();
 	try {
 		if (neworder.price < 0) {
 			if (orig.has_value()) return;
 			throw std::runtime_error("Order rejected - negative price");
 		}
-		if (neworder.size == 0) {
+		if (neworder.alert) {
+			alert = neworder.price;
+			neworder.update(orig);
 			return;
 		}
-		neworder.client_id = magic;
-		json::Value replaceid;
-		double replaceSize = 0;
-		if (orig.has_value()) {
-			if (orig->isSimilarTo(neworder, minfo.currency_step, minfo.invert_price)) return;
-			replaceid = orig->id;
-			replaceSize = std::fabs(orig->size);
-		}
-		json::Value placeid = stock.placeOrder(
-					cfg.pairsymb,
-					neworder.size,
-					neworder.price,
-					neworder.client_id,
-					replaceid,
-					replaceSize);
-		if (placeid.isNull() || !placeid.defined()) {
-			orig.reset();
-		} else if (placeid != replaceid) {
-			orig = neworder;
+		IStockApi::Order n {json::undefined, magic, neworder.size, neworder.price};
+		try {
+			json::Value replaceid;
+			double replaceSize = 0;
+			if (orig.has_value()) {
+				if (neworder.isSimilarTo(*orig, minfo.currency_step, minfo.invert_price)) return;
+				replaceid = orig->id;
+				replaceSize = std::fabs(orig->size);
+			}
+			json::Value placeid = stock.placeOrder(
+						cfg.pairsymb,
+						n.size,
+						n.price,
+						n.client_id,
+						replaceid,
+						replaceSize);
+			if (!placeid.hasValue()) {
+				orig.reset();
+			} else if (placeid != replaceid) {
+				n.id = placeid;
+				orig = n;
+			}
+		} catch (...) {
+			orig = n;
+			throw;
 		}
 	} catch (...) {
-		orig.reset();
 		throw;
 	}
 }
 
 
 
-json::Value MTrader::getTradeLastId() const{
-	json::Value res;
-	if (!trades.empty()) {
-		auto i = std::find_if_not(trades.rbegin(), trades.rend(), [&](auto &&x) {
-			return json::StrViewA(x.id.toString()).begins(vtradePrefix);
-		});
-		if (i != trades.rend()) res = i->id;
-	}
-	return res;
-}
 
 MTrader::Status MTrader::getMarketStatus() const {
 
@@ -401,11 +406,6 @@ MTrader::Status MTrader::getMarketStatus() const {
 	IStockApi::Trade ftrade = {json::Value(), 0, 0, 0, 0, 0}, *last_trade = &ftrade;
 
 
-//	if (!initial_price) initial_price = res.curPrice;
-
-	json::Value lastId;
-
-	if (!trades.empty()) lastId = getTradeLastId();
 
 // merge trades here
 	auto new_trades = stock.syncTrades(lastTradeId, cfg.pairsymb);
@@ -459,6 +459,17 @@ MTrader::Status MTrader::getMarketStatus() const {
 	res.chartItem.ask = ticker.ask;
 	res.chartItem.last = ticker.last;
 
+	if (res.new_trades.trades.empty()) {
+		//process alerts
+		if (sell_alert.has_value() && res.curPrice > *sell_alert) {
+			alertTrigger(res, *sell_alert);
+		}
+		if (buy_alert.has_value() && res.curPrice < *buy_alert) {
+			alertTrigger(res, *buy_alert);
+		}
+	}
+
+
 	return res;
 }
 
@@ -479,6 +490,8 @@ MTrader::Order MTrader::calculateOrderFeeLess(
 	double sz = 0;
 	Order order;
 
+	double min_size = std::max(cfg.min_size, minfo.min_size);
+
 	do {
 		prevSz = sz;
 
@@ -488,40 +501,23 @@ MTrader::Order MTrader::calculateOrderFeeLess(
 
 		//if newPrice > curPrice when buy or newPrice < curPrice when sell, fix to curPrice
 		if ((newPrice - curPrice) * dir > 0) newPrice = curPrice;
-		auto ord= strategy.getNewOrder(minfo,curPrice, cfg.dynmult_scale?newPrice:newPriceNoScale,dir, balance, currency);
-		if (ord.price > 0) newPrice = ord.price;
-		//if newPrice > curPrice when buy or newPrice < curPrice when sell, fix to curPrice
-		if ((newPrice - curPrice) * dir > 0) newPrice = curPrice;
+		order= strategy.getNewOrder(minfo,curPrice, cfg.dynmult_scale?newPrice:newPriceNoScale,dir, balance, currency);
 
-		sz = ord.size;
-		bool enableDust = ord.alert;
+		sz = order.size;
 
-		if (sz * dir < 0) {
-			sz =0;
-			if (cfg.dust_orders) {
-				enableDust = true;
-			}
-		} else {
-			sz = sz * mult;
-		}
 
-		order.size = sz;
-		order.price = newPrice;
+
+		if (order.price <= 0 || (order.price - curPrice) * dir > 0) order.price = newPrice;
+		Strategy::adjustOrder(dir, mult, cfg.dust_orders, order);
+		if (order.alert) return order;
 
 		if (cfg.max_size && std::fabs(order.size) > cfg.max_size) {
 			order.size = cfg.max_size*dir;
 		}
-		if (std::fabs(order.size) < cfg.min_size) {
-			order.size = enableDust?cfg.min_size*dir:0;
-		}
-		if (std::fabs(order.size) < minfo.min_size) {
-			order.size = enableDust?minfo.min_size*dir:0;
-		}
+		if (std::fabs(order.size) < min_size) order.size = 0;
 		if (minfo.min_volume) {
 			double vol = std::fabs(order.size * order.price);
-			if (vol < minfo.min_volume) {
-				order.size = enableDust?minfo.min_volume/order.price*dir:0;
-			}
+			if (vol < minfo.min_volume) order.size = 0;
 		}
 
 		if (order.size == 0) {
@@ -532,8 +528,8 @@ MTrader::Order MTrader::calculateOrderFeeLess(
 		m = m*1.1;
 
 	} while (cnt < 1000 && order.size == 0 && (std::abs(prevSz) < std::abs(sz) || cnt < 10));
-
 	order.size = limitOrderMinMaxBalance(balance, order.size);
+	order.alert = !order.size && cfg.dust_orders;
 
 	return order;
 
@@ -550,7 +546,7 @@ MTrader::Order MTrader::calculateOrder(
 
 		Order order(calculateOrderFeeLess(lastTradePrice, step,dynmult,curPrice,balance,currency,mult));
 		//apply fees
-		minfo.addFees(order.size, order.price);
+		if (!order.alert) minfo.addFees(order.size, order.price);
 
 		return order;
 
@@ -716,22 +712,6 @@ bool MTrader::eraseTrade(std::string_view id, bool trunc) {
 }
 
 
-MTrader::OrderPair MTrader::OrderPair::fromJSON(json::Value json) {
-	json::Value bj = json["bj"];
-	json::Value sj = json["sj"];
-	std::optional<Order> nullorder;
-	return 	OrderPair {
-		bj.defined()?std::optional<Order>(Order::fromJSON(bj)):nullorder,
-		sj.defined()?std::optional<Order>(Order::fromJSON(sj)):nullorder
-	};
-}
-
-json::Value MTrader::OrderPair::toJSON() const {
-	return json::Object
-			("buy",buy.has_value()?buy->toJSON():json::Value())
-			("sell",sell.has_value()?sell->toJSON():json::Value());
-}
-
 void MTrader::processTrades(Status &st) {
 
 
@@ -854,7 +834,7 @@ void MTrader::acceptLoss(const Status &st, double dir) {
 				ondra_shared::logWarning("Accept loss in effect: price=$1, balance=$2", st.curPrice, st.assetBalance);
 				Status nest = st;
 				nest.new_trades.trades.push_back(IStockApi::Trade {
-					json::Value(json::String({vtradePrefix,"loss_", std::to_string(st.chartItem.time)})),
+					json::Value(json::String({"LOSS:", std::to_string(st.chartItem.time)})),
 					st.chartItem.time,
 					0,
 					limitPrice,

@@ -84,3 +84,17 @@ void Strategy::setConfig(const ondra_shared::IniConfig::Section &cfg) {
 	Strategy_PLFromPos::sliding_zero_factor = cfg["sliding_zero_reverse"].getNumber(0.9);
 	Strategy_PLFromPos::min_rp_reduce = cfg["min_rp_reduce"].getNumber(0.1);
 }
+
+void Strategy::adjustOrder(double dir, double mult,
+		bool enable_alerts, Strategy::OrderData &order) {
+
+	if (order.size * dir < 0) {
+		order.alert = order.alert || enable_alerts;
+		order.size = 0;
+	} else if (order.size > 0) {
+		order.alert = false;
+	}
+
+	order.size *= mult;
+
+}

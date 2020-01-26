@@ -305,7 +305,7 @@ Strategy_PLFromPos::OrderData Strategy_PLFromPos::getNewOrder(
 		const IStockApi::MarketInfo &minfo,
 		double cur_price, double new_price, double dir, double assets, double currency) const {
 	double pos = assetsToPos(minfo, st.a);
-	double cur_pos = assetsToPos(minfo, assets);
+	//double cur_pos = assetsToPos(minfo, assets);
 	bool atmaxpos = st.maxpos && std::abs(pos) > st.maxpos;
 	if (atmaxpos) {
 		double zeroPos = posToAssets(minfo, 0);
@@ -374,7 +374,7 @@ void Strategy_PLFromPos::calcPower(const IStockApi::MarketInfo &minfo, State& st
 {
 	double pos = assetsToPos(minfo, assets);
 	double new_pos = pos;
-	double neutral_price = pos/calcK(st) + price;
+//	double neutral_price = pos/calcK(st) + price;
 //	double ref_price = std::isfinite(neutral_price)?neutral_price:price;
 	if (cfg.power) {
 		double c = currency * cfg.baltouse;

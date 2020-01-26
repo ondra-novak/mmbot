@@ -80,20 +80,30 @@ public:
 	using StoragePtr = PStorage;
 	using Config = MTrader_Config;
 
-	struct Order: public IStockApi::Order {
-		bool isSimilarTo(const Order &other, double step, bool inverted);
-		Order(const IStockApi::Order& o):IStockApi::Order(o) {}
+	struct Order: public Strategy::OrderData {
+		bool isSimilarTo(const IStockApi::Order &other, double step, bool inverted);
+		Order(const Strategy::OrderData& o):Strategy::OrderData(o) {}
 		Order() {}
-		Order(double size, double price){
-			this->size = size;
-			this->price = price;
+		Order(double size, double price, bool alert)
+			:Strategy::OrderData {price, size, alert} {}
+		void update(IStockApi::Order &o) {
+			o.price = price;
+			o.size = size;
+			o.id = json::undefined;
+			o.client_id = json::undefined;
+		}
+		void update(std::optional<IStockApi::Order> &o) {
+			o.emplace(IStockApi::Order{
+				json::undefined,
+				json::undefined,
+				size,
+				price,
+			});
 		}
 	};
 
 	struct OrderPair {
-		std::optional<Order> buy,sell;
-		static OrderPair fromJSON(json::Value json);
-		json::Value toJSON() const;
+		std::optional<IStockApi::Order> buy,sell;
 	};
 
 
@@ -109,7 +119,7 @@ public:
 	void init();
 
 	OrderPair getOrders();
-	void setOrder(std::optional<Order> &orig, Order neworder);
+	void setOrder(std::optional<IStockApi::Order> &orig, Order neworder, std::optional<double> &alert);
 
 
 	using ChartItem = IStatSvc::ChartItem;
@@ -162,7 +172,6 @@ public:
 
 	const TradeHistory &getTrades() const;
 
-	static std::string_view vtradePrefix;
 
 	Strategy getStrategy() const {return strategy;}
 	IStockApi &getBroker() {return stock;}
@@ -215,6 +224,7 @@ protected:
 	bool recalc = true;
 	json::Value test_backup;
 	json::Value lastTradeId = nullptr;
+	std::optional<double> sell_alert, buy_alert;
 
 	using TradeItem = IStockApi::Trade;
 	using TWBItem = IStatSvc::TradeRecord;
@@ -239,6 +249,7 @@ protected:
 	void processTrades(Status &st);
 
 	void update_dynmult(bool buy_trade,bool sell_trade);
+	static void alertTrigger(Status &st, double price);
 
 	void acceptLoss(const Status &st, double dir);
 	json::Value getTradeLastId() const;

@@ -11,9 +11,11 @@
 #include "traders.h"
 
 #include "../shared/countdown.h"
+#include "../shared/logOutput.h"
 #include "ext_stockapi.h"
 
 using ondra_shared::Countdown;
+using ondra_shared::logError;
 NamedMTrader::NamedMTrader(IStockSelector &sel, StoragePtr &&storage, PStatSvc statsvc, Config cfg, std::string &&name)
 		:MTrader(sel, std::move(storage), std::move(statsvc), cfg), ident(std::move(name)) {
 }
@@ -132,7 +134,11 @@ void Traders::removeTrader(ondra_shared::StrViewA n, bool including_state) {
 static void resetBroker(IStockApi &api) {
 	AbstractExtern *extr = dynamic_cast<AbstractExtern *>(&api);
 	if (extr) extr->housekeeping(5);
-	api.reset();
+	try {
+		api.reset();
+	} catch (std::exception &e) {
+		logError("Exception when RESET: $1", e.what());
+	}
 }
 
 void Traders::resetBrokers() {

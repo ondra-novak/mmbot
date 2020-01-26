@@ -35,7 +35,7 @@ using BTTrades = std::vector<BTTrade>;
 
 class IStockSelector;
 
-BTTrades backtest_cycle(const MTrader_Config &config, BTPriceSource &&priceSource, const IStockSelector &ssel, double init_pos, double balance);
+BTTrades backtest_cycle(const MTrader_Config &config, BTPriceSource &&priceSource, const IStockApi::MarketInfo &minfo, double init_pos, double balance);
 
 
 

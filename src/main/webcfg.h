@@ -53,7 +53,12 @@ public:
 		bool invert_price;
 	};
 
-	using BacktestCache = Cache<std::vector<BTPrice> >;
+	struct BacktestCacheSubj {
+		std::vector<BTPrice> prices;
+		IStockApi::MarketInfo minfo;
+	};
+
+	using BacktestCache = Cache<BacktestCacheSubj>;
 	using SpreadCache = Cache<SpreadCacheItem>;
 
 	class State : public ondra_shared::RefCntObj{

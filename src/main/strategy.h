@@ -108,6 +108,8 @@ public:
 
 	static void setConfig(const ondra_shared::IniConfig::Section &cfg);
 
+	static void adjustOrder(double dir,double mult,bool enable_alerts, Strategy::OrderData &order);
+
 protected:
 	Ptr ptr;
 
