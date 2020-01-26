@@ -54,7 +54,6 @@ std::pair<Strategy_KeepValue::OnTradeResult, PStrategy> Strategy_KeepValue::onTr
 	double p = st.p;
 
 	double cf = (assetsLeft-tradeSize+cfg.ea)*(tradePrice - p);
-	if (tradeSize == 0) p = tradePrice;
 	double k = calcK();
 	double nv = k * std::log(tradePrice/p);
 	double pf = cf - nv;

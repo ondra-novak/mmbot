@@ -852,16 +852,17 @@ void MTrader::acceptLoss(const Status &st, double dir) {
 			double limitPrice = lastTradePrice * std::exp( -2 * st.curStep * dir);
 			if (e > cfg.accept_loss && (st.curPrice - limitPrice) * dir < 0) {
 				ondra_shared::logWarning("Accept loss in effect: price=$1, balance=$2", st.curPrice, st.assetBalance);
-				trades.push_back(TWBItem (
-						IStockApi::Trade {
-							json::Value(json::String({vtradePrefix,"loss_", std::to_string(st.chartItem.time)})),
-							st.chartItem.time,
-							0,
-							limitPrice,
-							0,
-							limitPrice,
-						}, trades.back().norm_profit, trades.back().norm_accum, trades.back().neutral_price));
-				strategy.onTrade(minfo, limitPrice, 0, st.assetBalance, st.currencyBalance);
+				Status nest = st;
+				nest.new_trades.trades.push_back(IStockApi::Trade {
+					json::Value(json::String({vtradePrefix,"loss_", std::to_string(st.chartItem.time)})),
+					st.chartItem.time,
+					0,
+					limitPrice,
+					0,
+					limitPrice,
+				});
+				processTrades(nest);
+				strategy.reset();
 			}
 		}
 	}

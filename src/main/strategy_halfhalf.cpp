@@ -47,7 +47,6 @@ std::pair<Strategy_HalfHalf::OnTradeResult, PStrategy> Strategy_HalfHalf::onTrad
 	double p = this->p;
 	//extra money earned by spread
 	double v = a*p + a*n-2*a*sqrt(p* n);
-	if (tradeSize == 0) p = n;
 	double na = a * sqrt(p/n);
 	double ap = (v / n) * cfg.accum;
 	double np = v * (1-cfg.accum);
