@@ -550,6 +550,7 @@ App.prototype.fillForm = function (src, trg) {
 	data.pl_baluse=50;
 	data.pl_redfact=50;
 	data.pl_redmode="rp";
+	data.pl_slrev=0;
 	data.kv_valinc = 0;
 
 	
@@ -572,6 +573,7 @@ App.prototype.fillForm = function (src, trg) {
 		data.pl_mode_m = {".hidden":!!src.strategy.power};
 		data.pl_mode_a = {".hidden":!src.strategy.power};
 		data.pl_show_factor=Math.pow(10,defval(src.strategy.power,1))*0.01;
+		data.pl_slrev = filledval(defval(src.strategy.slreverse,0)*100,0);
 	}
 	data.enabled = src.enabled;
 	data.hidden = !!src.hidden;
@@ -666,6 +668,7 @@ App.prototype.saveForm = function(form, src) {
 		trader.strategy.reduce_mode = data.pl_redmode;
 		trader.strategy.balance_use = data.pl_baluse/100;		
 		trader.strategy.power = data.pl_confmode=="a"?data.pl_power:0;
+		trader.strategy.slreverse = data.pl_slrev/100;
 	} else if (data.strategy == "halfhalf" || data.strategy == "keepvalue") {
 		trader.strategy.accum = data.acum_factor/100.0;
 		trader.strategy.ea = data.external_assets;
@@ -1295,7 +1298,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 	var url = "api/backtest";
 	form.enableItem("show_backtest",false);		
 	var inputs = ["external_assets", "acum_factor","kv_valinc","pl_confmode","pl_power","pl_baluse","cstep",
-		"max_pos","neutral_pos","pl_redmode","pl_redfact","pl_acum","min_size","max_size","order_mult","dust_orders","linear_suggest","linear_suggest_maxpos"];
+		"max_pos","neutral_pos","pl_redmode","pl_redfact","pl_acum","min_size","max_size","order_mult","dust_orders","linear_suggest","linear_suggest_maxpos","pl_slrev"];
 	var spread_inputs = ["spread_calc_stdev_hours", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode"];
 	var balance = form._balance;
 	var days = 45*60*60*24*1000;

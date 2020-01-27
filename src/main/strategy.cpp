@@ -26,7 +26,8 @@ static json::NamedEnum<Strategy_PLFromPos::ReduceMode> strReduceMode ({
 		{Strategy_PLFromPos::reduceFromProfit,""},
 		{Strategy_PLFromPos::fixedReduce,"fixed"},
 		{Strategy_PLFromPos::neutralMove,"npmove"},
-		{Strategy_PLFromPos::toOpenPrice ,"openp"}
+		{Strategy_PLFromPos::toOpenPrice ,"openp"},
+		{Strategy_PLFromPos::ema,"ema"}
 });
 
 using ondra_shared::StrViewA;
@@ -47,6 +48,7 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 		}
 		cfg.reduce_factor = std::abs(cfg.reduce_factor);
 		cfg.baltouse= config["balance_use"].defined()?config["balance_use"].getNumber():1;
+		cfg.stoploss_reverse=config["slreverse"].getNumber();
 		return Strategy(new Strategy_PLFromPos(cfg,{}));
 	} else if (id == Strategy_HalfHalf::id) {
 		Strategy_HalfHalf::Config cfg;

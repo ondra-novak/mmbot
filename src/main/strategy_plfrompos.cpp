@@ -98,6 +98,7 @@ double Strategy_PLFromPos::calcNewPos(const IStockApi::MarketInfo &minfo, double
 	//new position should be reduced (-1 * 1 or 1 * -1 = decreaseing)
 	bool dcrs = pos * dir < 0;
 
+
 	//if position is increasing at maxpos do not increase position beyond that limit
 	if (!atmax || dcrs)
 	{
@@ -170,6 +171,12 @@ double Strategy_PLFromPos::calcNewPos(const IStockApi::MarketInfo &minfo, double
 							nnp = np;
 						}
 						} break;
+					case ema: {
+						double neutral_price = pos/k + p;
+						double z = 2/(cfg.reduce_factor*1000+1);
+						double neutral_price_ema = p*z + neutral_price*(1-z);
+						nnp = k * (neutral_price_ema - tradePrice);
+					} break;
 					}
 					np = nnp;
 				} //otherwise stick with original np
@@ -220,7 +227,6 @@ std::pair<Strategy_PLFromPos::OnTradeResult, PStrategy> Strategy_PLFromPos::onTr
 	double ap = (ef * cfg.accum)/tradePrice;
 	double p0 = new_pos/reducedK(k) + tradePrice;
 
-	newst.stop = false;
 	newst.acm  = st.acm + ap;
 	newst.p = tradePrice;
 	newst.a = posToAssets(minfo,new_pos);
@@ -234,14 +240,8 @@ std::pair<Strategy_PLFromPos::OnTradeResult, PStrategy> Strategy_PLFromPos::onTr
 	newst.avgsum = ( reversal || st.avgsum == 0)?(afpos * tradePrice):(st.avgsum + (afpos - appos) * tradePrice );
 	if (st.maxpos) {
 		if (st.maxpos < afpos) {
-			newst.stop = st.stop || std::abs(act_pos)<=minfo.asset_step;
-//			calcPower(minfo, newst, newst.p, newst.a, currencyLeft,true);
 			newst.mult = 0.05;
-		}/* else if (afpos <= st.maxpos && appos > st.maxpos) {
-			fpos = fpos * 0.90;
-			newst.a = posToAssets(minfo,fpos);
-			calcPower(minfo, newst, newst.p, newst.a, currencyLeft,true);
-		}*/
+		}
 	 else {
 		newst.mult = (st.mult * 2);
 		if (newst.mult > 1.0) newst.mult =1.0;
@@ -278,7 +278,6 @@ json::Value Strategy_PLFromPos::exportState() const {
 			("maxpos",st.maxpos)
 			("val", st.value)
 			("mult", st.mult)
-			("stop", st.stop)
 			("cfg",cfgStateHash());
 	else return json::undefined;
 }
@@ -296,7 +295,6 @@ PStrategy Strategy_PLFromPos::importState(json::Value src) const {
 			src["val"].getNumber(),
 			src["avg"].getNumber(),
 			src["mult"].getValueOrDefault(1.0),
-			src["stop"].getBool()
 		};
 		json::Value chash = src["cfg"];
 		newst.valid_power = chash == cfgStateHash();
@@ -314,12 +312,12 @@ Strategy_PLFromPos::OrderData Strategy_PLFromPos::getNewOrder(
 	bool atmaxpos = st.maxpos && std::abs(pos) > st.maxpos;
 	double half_price = (new_price + st.p) * 0.5;
 	if (atmaxpos) {
-		double zeroPos = posToAssets(minfo, 0);
+		double zeroPos = posToAssets(minfo, -sgn(pos)*cfg.stoploss_reverse*st.maxpos);
 		double osz = calcOrderSize(st.a,assets,zeroPos);
 		if (dir * pos < 0 && act_pos * dir <= 0) {
 			return OrderData{cur_price, osz, true};
 		} else {
-			return OrderData { half_price, 0, true };
+			return OrderData { half_price, osz, true };
 		}
 	}
 	double new_pos = calcNewPos(minfo, new_price);

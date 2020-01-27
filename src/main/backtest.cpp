@@ -25,46 +25,62 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 
 	double pl = 0;
 	double minsize = std::max(minfo.min_size, cfg.min_size);
+	int cont = 0;
+	bool rep;
 	for (price = priceSource();price.has_value();price = priceSource()) {
-		double p = price->price;
-		Ticker tk{p,p,p,price->time};
-		double pchange = pos * (p - bt.price.price);;
-		pl = pl + pchange;
-		balance = balance + pchange;
-		if (balance > 0) {
-			s.onIdle(minfo,tk,pos,balance);
-			double dir = sgn(bt.price.price- p);
-			double mult = dir>1?cfg.buy_mult:cfg.sell_mult;
-			Strategy::OrderData order = s.getNewOrder(minfo, bt.price.price, p, dir, pos, balance);
-			Strategy::adjustOrder(dir, mult,cfg.dust_orders, order);
-			if (!order.alert) {
-				order.size  = IStockApi::MarketInfo::adjValue(order.size,minfo.asset_step,round);
-				if (std::abs(order.size) < minsize) continue;
+		cont = 0;
+		do {
+			rep = false;
+			double p = price->price;
+			Ticker tk{p,p,p,price->time};
+			double pchange = pos * (p - bt.price.price);;
+			pl = pl + pchange;
+			balance = balance + pchange;
+			if (balance > 0) {
+				s.onIdle(minfo,tk,pos,balance);
+				double dir = sgn(bt.price.price- p);
+				double mult = dir>1?cfg.buy_mult:cfg.sell_mult;
+				Strategy::OrderData order = s.getNewOrder(minfo, bt.price.price, p, dir, pos, balance);
+				Strategy::adjustOrder(dir, mult,cfg.dust_orders, order);
+				if (order.alert) {
+					Strategy::OrderData rorder = s.getNewOrder(minfo, bt.price.price, 2*bt.price.price - p, -dir, pos, balance);
+					Strategy::adjustOrder(-dir, mult,cfg.dust_orders, rorder);
+					if (rorder.price == bt.price.price && rorder.size) {
+						rorder.size  = IStockApi::MarketInfo::adjValue(rorder.size,minfo.asset_step,round);
+						if (std::abs(rorder.size) >= minsize) {
+							cont++; rep = true;order = rorder;
+							p = bt.price.price;
+						}
+					}
+				} else {
+					order.size  = IStockApi::MarketInfo::adjValue(order.size,minfo.asset_step,round);
+					if (std::abs(order.size) < minsize) continue;
+				}
+				if (cfg.max_size && std::abs(order.size) > cfg.max_size) {
+					order.size = cfg.max_size*sgn(order.size);
+				}
+				pos += order.size;
+				auto tres = s.onTrade(minfo, p, order.size, pos, balance);
+				bt.neutral_price = tres.neutralPrice;
+				bt.norm_accum += tres.normAccum;
+				bt.norm_profit += tres.normProfit;
+				bt.open_price = tres.openPrice;
+				bt.size = order.size;
+			} else {
+				bt.neutral_price = 0;
+				bt.norm_accum += 0;
+				bt.norm_profit += 0;
+				bt.size = 0;
+				pl-=balance;
+				balance = 0;
+				pos = 0;
 			}
-			if (cfg.max_size && std::abs(order.size) > cfg.max_size) {
-				order.size = cfg.max_size*sgn(order.size);
-			}
-			pos += order.size;
-			auto tres = s.onTrade(minfo, p, order.size, pos, balance);
-			bt.neutral_price = tres.neutralPrice;
-			bt.norm_accum += tres.normAccum;
-			bt.norm_profit += tres.normProfit;
-			bt.open_price = tres.openPrice;
-			bt.size = order.size;
-		} else {
-			bt.neutral_price = 0;
-			bt.norm_accum += 0;
-			bt.norm_profit += 0;
-			bt.size = 0;
-			pl-=balance;
-			balance = 0;
-			pos = 0;
-		}
-		bt.price.price = p;
-		bt.price.time = price->time;
-		bt.pl = pl;
-		bt.pos = pos;
-		trades.push_back(bt);
+			bt.price.price = p;
+			bt.price.time = price->time;
+			bt.pl = pl;
+			bt.pos = pos;
+			trades.push_back(bt);
+		} while (cont%16 && rep);
 	}
 
 	if (minfo.invert_price) {
