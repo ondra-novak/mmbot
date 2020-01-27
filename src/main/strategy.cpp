@@ -91,8 +91,11 @@ void Strategy::adjustOrder(double dir, double mult,
 	if (order.size * dir < 0) {
 		order.alert = order.alert || enable_alerts;
 		order.size = 0;
-	} else if (order.size > 0) {
-		order.alert = false;
+	} else if (order.size * dir > 0) {
+		if (order.alert) {
+			if (mult > 1.9)  mult = 1.9;
+			order.alert = false;
+		}
 	}
 
 	order.size *= mult;

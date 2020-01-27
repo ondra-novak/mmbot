@@ -507,7 +507,8 @@ MTrader::Order MTrader::calculateOrderFeeLess(
 
 
 
-		if (order.price <= 0 || (order.price - curPrice) * dir > 0) order.price = newPrice;
+		if (order.price <= 0) order.price = newPrice;
+		if ((order.price - curPrice) * dir > 0) order.price = curPrice;
 		Strategy::adjustOrder(dir, mult, cfg.dust_orders, order);
 		if (order.alert) return order;
 
