@@ -57,6 +57,7 @@ PStrategy Strategy_PLFromPos::onIdle(const IStockApi::MarketInfo &minfo,
 	if (!st.inited || !std::isfinite(st.p) || !std::isfinite(st.a)) {
 		newst.p = last;
 		newst.a = assets;
+		logDebug("not inited");
 		calcPower(minfo, newst, last, assets, currency,true);
 	}
 
@@ -66,6 +67,7 @@ PStrategy Strategy_PLFromPos::onIdle(const IStockApi::MarketInfo &minfo,
 	newst.inited = true;
 
 	if (!st.valid_power || !cfg.power || st.k== 0) {
+		logDebug("not valid power");
 		calcPower(minfo, newst, last, assets, currency, true);
 	}
 
@@ -246,7 +248,10 @@ std::pair<Strategy_PLFromPos::OnTradeResult, PStrategy> Strategy_PLFromPos::onTr
 	}
 	}
 
-	if (reversal) calcPower(minfo, newst, newst.p, newst.a, currencyLeft,true);
+	if (reversal) {
+		logDebug("Position reversal: new_pos=$1, ppos=$2", new_pos, ppos);
+		calcPower(minfo, newst, newst.p, newst.a, currencyLeft,true);
+	}
 	return {
 		OnTradeResult{np,ap,p0, afpos?newst.avgsum/afpos:newst.p},
 		new Strategy_PLFromPos(cfg,newst)
@@ -305,19 +310,27 @@ Strategy_PLFromPos::OrderData Strategy_PLFromPos::getNewOrder(
 		const IStockApi::MarketInfo &minfo,
 		double cur_price, double new_price, double dir, double assets, double currency) const {
 	double pos = assetsToPos(minfo, st.a);
-	//double cur_pos = assetsToPos(minfo, assets);
+	double act_pos = assetsToPos(minfo, assets);
 	bool atmaxpos = st.maxpos && std::abs(pos) > st.maxpos;
+	double half_price = (new_price + st.p) * 0.5;
 	if (atmaxpos) {
 		double zeroPos = posToAssets(minfo, 0);
-		double osz = zeroPos - assets;
-		if (dir * pos < 0 && !st.stop) {
-			return OrderData{st.p, osz, true};
+		double osz = calcOrderSize(st.a,assets,zeroPos);
+		if (dir * pos < 0 && act_pos * dir <= 0) {
+			return OrderData{cur_price, osz, true};
 		} else {
-			return OrderData{(new_price+st.p)*0.5, 0, true};
+			return OrderData { half_price, 0, true };
 		}
 	}
 	double new_pos = calcNewPos(minfo, new_price);
-	if (st.maxpos && std::abs(new_pos) > st.maxpos) return OrderData{0,0,true};
+	if (st.maxpos && std::abs(new_pos) > st.maxpos) {
+		double new_pos2 = calcNewPos(minfo, half_price);
+		if (st.maxpos && std::abs(new_pos2) > st.maxpos) {
+			return OrderData{half_price,0,true};
+		} else{
+			return OrderData{0,0,true};
+		}
+	}
 	else return OrderData {0, calcOrderSize(st.a, assets, posToAssets(minfo,new_pos))*st.mult};
 }
 
@@ -330,10 +343,10 @@ Strategy_PLFromPos::MinMax Strategy_PLFromPos::calcSafeRange(
 	double p = st.p;
 	double k = calcK();
 	double mp = pos / k + p;
-	if (cfg.maxpos) {
+	if (st.maxpos) {
 		return MinMax {
-			-cfg.maxpos /k + mp,
-			cfg.maxpos /k + mp
+			-st.maxpos /k + mp,
+			st.maxpos /k + mp
 		};
 	} else {
 		return MinMax {
