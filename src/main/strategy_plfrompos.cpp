@@ -313,7 +313,7 @@ Strategy_PLFromPos::OrderData Strategy_PLFromPos::getNewOrder(
 		if (dir * pos < 0 && !st.stop) {
 			return OrderData{st.p, osz, true};
 		} else {
-			return OrderData{new_price, 0, true};
+			return OrderData{(new_price+st.p)*0.5, 0, true};
 		}
 	}
 	double new_pos = calcNewPos(minfo, new_price);
