@@ -50,6 +50,8 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 						if (std::abs(rorder.size) >= minsize) {
 							cont++; rep = true;order = rorder;
 							p = bt.price.price;
+							balance -= pchange;
+							pl -= pchange;
 						}
 					}
 				} else {
