@@ -313,7 +313,7 @@ Strategy_PLFromPos::OrderData Strategy_PLFromPos::getNewOrder(
 	double half_price = (new_price + st.p) * 0.5;
 	if (atmaxpos) {
 		double zeroPos = posToAssets(minfo, -sgn(pos)*cfg.stoploss_reverse*st.maxpos);
-		double osz = calcOrderSize(st.a,assets,zeroPos);
+		double osz = calcOrderSize(assets,assets,zeroPos);
 		if (dir * pos < 0 && act_pos * dir <= 0) {
 			return OrderData{cur_price, osz, true};
 		} else {
