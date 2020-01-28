@@ -323,7 +323,7 @@ Strategy_PLFromPos::OrderData Strategy_PLFromPos::getNewOrder(
 	if (secret_strategy) {
 		double zeroPos = posToAssets(minfo, -sgn(pos)*cfg.stoploss_reverse*st.maxpos);
 		double osz = zeroPos - (st.a * (1-cfg.reduce_factor) + assets*cfg.reduce_factor);
-		double price = osz?cur_price * (1-st.mult) + new_price*st.mult:new_price;
+		double price = (osz * dir > 0)?cur_price * (1-st.mult) + new_price*st.mult:new_price;
 		return OrderData{price, osz, true};
 	} else {
 		double half_price = (new_price + st.p) * 0.5;
