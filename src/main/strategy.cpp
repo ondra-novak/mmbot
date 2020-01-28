@@ -27,7 +27,8 @@ static json::NamedEnum<Strategy_PLFromPos::ReduceMode> strReduceMode ({
 		{Strategy_PLFromPos::fixedReduce,"fixed"},
 		{Strategy_PLFromPos::neutralMove,"npmove"},
 		{Strategy_PLFromPos::toOpenPrice ,"openp"},
-		{Strategy_PLFromPos::ema,"ema"}
+		{Strategy_PLFromPos::ema,"ema"},
+		{Strategy_PLFromPos::overload,"overload"}
 });
 
 using ondra_shared::StrViewA;
