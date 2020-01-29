@@ -254,7 +254,6 @@ std::pair<Strategy_PLFromPos::OnTradeResult, PStrategy> Strategy_PLFromPos::onTr
 
 	if (cfg.reduceMode == overload) {
 		newst.mult = tradeSize?1:0;
-		if (newst.a == 0) newst.a = st.maxpos;
 	}
 
 	if (reversal) {
@@ -321,10 +320,15 @@ Strategy_PLFromPos::OrderData Strategy_PLFromPos::getNewOrder(
 	bool atmaxpos = st.maxpos && std::abs(pos) > st.maxpos;
 	bool secret_strategy = cfg.reduceMode == overload;
 	if (secret_strategy) {
-		double zeroPos = posToAssets(minfo, -sgn(pos)*cfg.stoploss_reverse*st.maxpos);
-		double osz = zeroPos - (st.a * (1-cfg.reduce_factor) + assets*cfg.reduce_factor);
-		double price = osz?cur_price * (1-st.mult) + new_price*st.mult:new_price;
-		return OrderData{price, osz, true};
+		if  (atmaxpos) {
+			double zeroPos = posToAssets(minfo, -sgn(pos)*cfg.stoploss_reverse*st.maxpos);
+			double osz = zeroPos - (st.a * (1-cfg.reduce_factor) + assets*cfg.reduce_factor);
+			double price = osz?st.p * (1-st.mult) + new_price*st.mult:new_price;
+			return OrderData{price, osz, true};
+		} else {
+			double new_pos = calcNewPos(minfo, new_price);
+			return OrderData {0, calcOrderSize(st.a, assets, posToAssets(minfo,new_pos))};
+		}
 	} else {
 		double half_price = (new_price + st.p) * 0.5;
 		if (atmaxpos) {

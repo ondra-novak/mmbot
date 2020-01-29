@@ -10,7 +10,7 @@ using TradeRec=IStatSvc::TradeRecord;
 using Trade=IStockApi::Trade;
 using Ticker=IStockApi::Ticker;
 
-BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, const IStockApi::MarketInfo &minfo, double init_pos, double balance) {
+BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, const IStockApi::MarketInfo &minfo, double init_pos, double balance, bool fill_atprice) {
 
 	std::optional<BTPrice> price = priceSource();
 	if (!price.has_value()) return {};
@@ -29,6 +29,7 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 	bool rep;
 	for (price = priceSource();price.has_value();price = priceSource()) {
 		cont = 0;
+		if (std::abs(price->price-bt.price.price) == 0) continue;
 		do {
 			rep = false;
 			double p = price->price;
@@ -38,20 +39,22 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 			balance = balance + pchange;
 			if (balance > 0) {
 				s.onIdle(minfo,tk,pos,balance);
-				double dir = sgn(bt.price.price- p);
-				double mult = dir>1?cfg.buy_mult:cfg.sell_mult;
+				double dir = p>bt.price.price?-1:1;
+				double mult = dir>0?cfg.buy_mult:cfg.sell_mult;
 				Strategy::OrderData order = s.getNewOrder(minfo, bt.price.price, p, dir, pos, balance);
 				Strategy::adjustOrder(dir, mult,cfg.dust_orders, order);
 				if (order.alert) {
-					Strategy::OrderData rorder = s.getNewOrder(minfo, bt.price.price, 2*bt.price.price - p, -dir, pos, balance);
-					Strategy::adjustOrder(-dir, mult,cfg.dust_orders, rorder);
-					if (rorder.price == bt.price.price && rorder.size) {
-						rorder.size  = IStockApi::MarketInfo::adjValue(rorder.size,minfo.asset_step,round);
-						if (std::abs(rorder.size) >= minsize) {
-							cont++; rep = true;order = rorder;
-							p = bt.price.price;
-							balance -= pchange;
-							pl -= pchange;
+					if (fill_atprice) {
+						Strategy::OrderData rorder = s.getNewOrder(minfo, bt.price.price, 2*bt.price.price - p, -dir, pos, balance);
+						Strategy::adjustOrder(-dir, mult,cfg.dust_orders, rorder);
+						if (rorder.price == bt.price.price && rorder.size) {
+							rorder.size  = IStockApi::MarketInfo::adjValue(rorder.size,minfo.asset_step,round);
+							if (std::abs(rorder.size) >= minsize) {
+								cont++; rep = true;order = rorder;
+								p = bt.price.price;
+								balance -= pchange;
+								pl -= pchange;
+							}
 						}
 					}
 				} else {
