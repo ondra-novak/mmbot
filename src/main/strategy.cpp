@@ -13,6 +13,7 @@
 #include "../shared/stringview.h"
 #include "strategy_plfrompos.h"
 #include "strategy_halfhalf.h"
+#include "strategy_harmonic.h"
 #include "strategy_keepvalue.h"
 
 static json::NamedEnum<Strategy_PLFromPos::CloseMode> strCloseMode ({
@@ -62,6 +63,10 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 		cfg.accum = config["accum"].getNumber();
 		cfg.chngtm = config["valinc"].getNumber();
 		return Strategy(new Strategy_KeepValue(cfg,{}));
+	} else if (id == Strategy_Harmonic::id) {
+		Strategy_Harmonic::Config cfg;
+		cfg.power = config["power"].getNumber();
+		return Strategy(new Strategy_Harmonic(cfg));
 	} else {
 		throw std::runtime_error(std::string("Unknown strategy: ").append(id));
 	}

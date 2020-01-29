@@ -93,6 +93,7 @@ App.prototype.createTraderForm = function() {
 		var state = this.readData(["strategy","advanced","check_unsupp"]);
 		form.showItem("strategy_halfhalf",state.strategy == "halfhalf" || state.strategy == "keepvalue");
 		form.showItem("strategy_pl",state.strategy == "plfrompos");
+		form.showItem("strategy_harmonic",state.strategy == "harmonic");
 		form.showItem("kv_valinc_h",state.strategy == "keepvalue");
 		form.setData({"help_goal":{"class":state.strategy}});
 		form.getRoot().classList.toggle("no_adv", !state["advanced"]);
@@ -552,12 +553,19 @@ App.prototype.fillForm = function (src, trg) {
 	data.pl_redmode="rp";
 	data.pl_slrev=0;
 	data.kv_valinc = 0;
+	data.hm_power={"value":1};
+	data.hm_show_factor=0.1;
+
+	function powerCalc(x) {return adjNumN(Math.pow(10,x)*0.01);};
 
 	
 	if (data.strategy == "halfhalf" || data.strategy == "keepvalue") {
 		data.acum_factor = filledval(defval(src.strategy.accum,0)*100,0);
 		data.external_assets = filledval(src.strategy.ea,0);
 		data.kv_valinc = filledval(src.strategy.valinc,0);
+	} else if (data.strategy == "harmonic") {
+		data.hm_power = filledval(src.strategy.power,1);
+		data.hm_show_factor = powerCalc(data.hm_power.value)
 	} else if (data.strategy == "plfrompos") {
 		data.pl_acum = filledval(defval(src.strategy.accum,0)*100,0);
 		data.neutral_pos = filledval(src.strategy.neutral_pos,0);		
@@ -574,6 +582,9 @@ App.prototype.fillForm = function (src, trg) {
 		data.pl_mode_a = {".hidden":!src.strategy.power};
 		data.pl_show_factor=Math.pow(10,defval(src.strategy.power,1))*0.01;
 		data.pl_slrev = filledval(defval(src.strategy.slreverse,0)*100,0);
+	}
+	data.hm_power["!change"] = function() {
+		trg.setItemValue("hm_show_factor",powerCalc(trg.readData(["hm_power"]).hm_power));
 	}
 	data.enabled = src.enabled;
 	data.hidden = !!src.hidden;
@@ -673,6 +684,8 @@ App.prototype.saveForm = function(form, src) {
 		trader.strategy.accum = data.acum_factor/100.0;
 		trader.strategy.ea = data.external_assets;
 		trader.strategy.valinc = data.kv_valinc;
+	} else 	if (data.strategy == "harmonic") {
+		trader.strategy.power = data.hm_power;
 	}
 	trader.id = src.id;
 	trader.broker =src.broker;
@@ -1301,7 +1314,8 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 	var url = "api/backtest";
 	form.enableItem("show_backtest",false);		
 	var inputs = ["external_assets", "acum_factor","kv_valinc","pl_confmode","pl_power","pl_baluse","cstep",
-		"max_pos","neutral_pos","pl_redmode","pl_redfact","pl_acum","min_size","max_size","order_mult","dust_orders","linear_suggest","linear_suggest_maxpos","pl_slrev"];
+		"max_pos","neutral_pos","pl_redmode","pl_redfact","pl_acum","min_size","max_size","order_mult","dust_orders","linear_suggest","linear_suggest_maxpos","pl_slrev",
+		"hm_power"];
 	var spread_inputs = ["spread_calc_stdev_hours", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode"];
 	var balance = form._balance;
 	var days = 45*60*60*24*1000;

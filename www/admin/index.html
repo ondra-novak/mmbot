@@ -52,6 +52,7 @@
 <label><span>Title</span><input type="text" data-name="title"></label>
 <label><span>Strategy</span><select data-name="strategy">
 <option value="plfrompos">Linear</option>
+<option value="harmonic">Harmony</option>
 <option value="halfhalf">Half-Half</option>
 <option value="keepvalue">Keep Value</option>
 </select></label>
@@ -86,6 +87,9 @@ to enter a negative value and then the value of the assets held will decrease an
 <div class="label"><span>Min price:</span><span data-name="halfhalf_min_price">---</span></div>
 <div class="label"><span>Max price:</span><span data-name="halfhalf_max_price">---</span></div>
 </x-section>
+</x-section>
+<x-section data-name="strategy_harmonic" class="goal" hidden="hidden"><x-section-caption>Harmony</x-section-caption>
+<label><span>Power (<span data-name="hm_show_factor"></span>x)<span class="tooltip">Specifies power of 10 multiplier of current balance used to automatically calculate the step (for 1% of movement). <br><br>Use <strong>0.5</strong> for <strong>cryptocurrencies</strong> <br>and values between <strong>3-4</strong> for <strong>Forex</strong></span></span><x-slider data-name="hm_power" data-min="0.01" data-max="5" data-mult="0.01" data-fixed="2"></x-slider></label>
 <div class="rightinfo"><button name="show_backtest">Backtest</button></div>
 </x-section>
 <x-section data-name="strategy_pl backtest_anchor" class="goal" hidden="hidden"><x-section-caption>Linear</x-section-caption>
@@ -107,7 +111,6 @@ doesn't work as stoploss, because position can still grow beyoind the limit, but
 		<option value="fixed">Fixed reduction [%]</option>
 		<option value="rp">RP reduction  [%]</option>
 		<option value="openp">Toward opening price</option>
-		<option value="overload">Overload [%]</option>
 		<option value="ema">EMA (10xtrades)</option></select><br>
 		<span class="tooltip">Specifies factor of position reduction.<br><br>
 		<strong>Sliding zero</strong> - Absolute position is calculated using

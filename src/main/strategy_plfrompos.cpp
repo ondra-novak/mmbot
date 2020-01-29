@@ -179,7 +179,7 @@ double Strategy_PLFromPos::calcNewPos(const IStockApi::MarketInfo &minfo, double
 						nnp = k * (neutral_price_ema - tradePrice);
 					} break;
 					case overload: {
-						nnp = (p - pos/k - tradePrice) * k;
+						nnp = ((p - pos/k - tradePrice) * k)*0.99;
 					}break;
 					}
 					np = nnp;
