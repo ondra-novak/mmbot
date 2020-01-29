@@ -830,6 +830,7 @@ bool WebCfg::reqBacktest(simpleServer::HTTPRequest req) const {
 				Value config = data["config"];
 				Value init_pos = data["init_pos"];
 				Value balance = data["balance"];
+				Value fill_atprice= data["fill_atprice"];
 
 				MTrader_Config mconfig;
 				mconfig.loadConfig(config,false);
@@ -843,7 +844,7 @@ bool WebCfg::reqBacktest(simpleServer::HTTPRequest req) const {
 						++piter;
 					}
 					return x;
-				}, trades.minfo,init_pos.getNumber(), balance.getNumber());
+				}, trades.minfo,init_pos.getNumber(), balance.getNumber(), fill_atprice.getBool());
 
 				Value result (json::array, rs.begin(), rs.end(), [](const BTTrade &x) {
 					return Object

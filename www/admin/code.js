@@ -1293,6 +1293,9 @@ function createCSV(chart) {
 	return rows.join("\r\n");
 }
 
+var fill_atprice=true;
+var show_op=false;
+
 
 App.prototype.init_backtest = function(form, id, pair, broker) {
 	var url = "api/backtest";
@@ -1304,7 +1307,6 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 	var days = 45*60*60*24*1000;
     var offset = 0;
     var offset_max = 0;
-    var show_op=false;
     var show_norm=this.traders[id].strategy.type == "halfhalf" || this.traders[id].strategy.type == "keepvalue"; 
 
 	function draw(cntr, v, offset, balance) {
@@ -1420,8 +1422,9 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 			config: config,
 			id: id,
 			init_pos:isFinite(opts.initial_pos)?opts.initial_pos:0,
-			balance:bal
-		}
+			balance:bal,
+			fill_atprice:fill_atprice
+		};
 
 
 		if (frst) {
@@ -1433,9 +1436,14 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 			cntr.bt.setItemEvent("initial_balance","input",cntr.update);
 			cntr.bt.setItemEvent("initial_pos","input",cntr.update);
 			cntr.bt.setItemValue("show_op", show_op);
+			cntr.bt.setItemValue("fill_atprice",fill_atprice);
 			cntr.bt.setItemEvent("show_op","change", function() {
 				show_op = cntr.bt.readData(["show_op"]).show_op;
 				update();
+			})
+			cntr.bt.setItemEvent("fill_atprice","change", function() {
+				fill_atprice = cntr.bt.readData(["fill_atprice"]).fill_atprice;
+				cntr.update();
 			})
 			cntr.bt.setItemEvent("showpl","click",swapshowpl);
 			cntr.bt.setItemEvent("shownorm","click",swapshowpl);

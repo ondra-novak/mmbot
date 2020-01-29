@@ -192,11 +192,23 @@ void MTrader::perform(bool manually) {
 		//only create orders, if there are no trades from previous run
 		if (status.new_trades.trades.empty()) {
 
-
-
 			if (recalc) {
 				update_dynmult(lastTradeSize > 0, lastTradeSize < 0);
 			}
+
+			//process alerts
+			if (sell_alert.has_value() && status.ticker.last >= *sell_alert) {
+				alertTrigger(status, *sell_alert);
+				update_dynmult(true,false);
+			}
+			if (buy_alert.has_value() && status.ticker.last <= *buy_alert) {
+				alertTrigger(status, *buy_alert);
+				update_dynmult(false,true);
+			}
+			if (!status.new_trades.trades.empty()) {
+				processTrades(status);
+			}
+
 
 			strategy.onIdle(minfo, status.ticker, status.assetBalance, status.currencyBalance);
 
@@ -459,15 +471,6 @@ MTrader::Status MTrader::getMarketStatus() const {
 	res.chartItem.ask = ticker.ask;
 	res.chartItem.last = ticker.last;
 
-	if (res.new_trades.trades.empty()) {
-		//process alerts
-		if (sell_alert.has_value() && res.curPrice > *sell_alert) {
-			alertTrigger(res, *sell_alert);
-		}
-		if (buy_alert.has_value() && res.curPrice < *buy_alert) {
-			alertTrigger(res, *buy_alert);
-		}
-	}
 
 
 	return res;
