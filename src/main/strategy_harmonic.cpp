@@ -65,7 +65,7 @@ bool Strategy_Harmonic::isValid() const {
 }
 
 json::Value Strategy_Harmonic::exportState() const {
-	return json::Object("strike", st.strike);
+	return json::Object("strike", st.strike)("p",st.p);
 }
 
 PStrategy Strategy_Harmonic::onIdle(const IStockApi::MarketInfo &minfo,
@@ -101,7 +101,8 @@ json::Value Strategy_Harmonic::dumpStatePretty(
 
 PStrategy Strategy_Harmonic::importState(json::Value src) const {
 	State newst {
-		static_cast<int>(src["strike"].getInt())
+		static_cast<int>(src["strike"].getInt()),
+		src["p"].getNumber()
 	};
 	return new Strategy_Harmonic(cfg, newst);
 }
