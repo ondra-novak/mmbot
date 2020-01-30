@@ -66,6 +66,7 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 	} else if (id == Strategy_Harmonic::id) {
 		Strategy_Harmonic::Config cfg;
 		cfg.power = config["power"].getNumber();
+		cfg.close_first= config["close_first"].getBool();
 		return Strategy(new Strategy_Harmonic(cfg));
 	} else {
 		throw std::runtime_error(std::string("Unknown strategy: ").append(id));

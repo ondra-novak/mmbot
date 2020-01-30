@@ -555,6 +555,7 @@ App.prototype.fillForm = function (src, trg) {
 	data.kv_valinc = 0;
 	data.hm_power={"value":1};
 	data.hm_show_factor=0.1;
+	data.hm_close_first=false;
 
 	function powerCalc(x) {return adjNumN(Math.pow(10,x)*0.01);};
 
@@ -566,6 +567,7 @@ App.prototype.fillForm = function (src, trg) {
 	} else if (data.strategy == "harmonic") {
 		data.hm_power = filledval(src.strategy.power,1);
 		data.hm_show_factor = powerCalc(data.hm_power.value)
+		data.hm_close_first = filledval(src.strategy.close_first, false);
 	} else if (data.strategy == "plfrompos") {
 		data.pl_acum = filledval(defval(src.strategy.accum,0)*100,0);
 		data.neutral_pos = filledval(src.strategy.neutral_pos,0);		
@@ -686,6 +688,7 @@ App.prototype.saveForm = function(form, src) {
 		trader.strategy.valinc = data.kv_valinc;
 	} else 	if (data.strategy == "harmonic") {
 		trader.strategy.power = data.hm_power;
+		trader.strategy.close_first = data.hm_close_first;
 	}
 	trader.id = src.id;
 	trader.broker =src.broker;
@@ -1315,7 +1318,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 	form.enableItem("show_backtest",false);		
 	var inputs = ["external_assets", "acum_factor","kv_valinc","pl_confmode","pl_power","pl_baluse","cstep",
 		"max_pos","neutral_pos","pl_redmode","pl_redfact","pl_acum","min_size","max_size","order_mult","dust_orders","linear_suggest","linear_suggest_maxpos","pl_slrev",
-		"hm_power"];
+		"hm_power","hm_close_first"];
 	var spread_inputs = ["spread_calc_stdev_hours", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode"];
 	var balance = form._balance;
 	var days = 45*60*60*24*1000;

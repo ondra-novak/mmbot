@@ -19,12 +19,16 @@ IStrategy::OrderData Strategy_Harmonic::getNewOrder(
 		double dir, double assets, double currency) const {
 
 	double power = calcPower(currency);
-	if (dir * st.strike <= 0) {
-		return OrderData{0, dir * power - assets};
+	if (dir * st.streak <= 0) {
+		if (cfg.close_first && st.streak && assets) {
+			return OrderData{0, -assets};
+		} else {
+			return OrderData{0, dir * power - assets};
+		}
 	}
 	else {
 		double sum = 0;
-		int cnt = std::abs(st.strike);
+		int cnt = std::abs(st.streak);
 		for (int i = 0; i <= cnt; i++)
 			sum = sum + 1.0/(i+1.0);
 		double diff = (dir * power * sum) - assets;
@@ -42,11 +46,15 @@ std::pair<IStrategy::OnTradeResult, ondra_shared::RefCntPtr<const IStrategy> > S
 		double assetsLeft, double currencyLeft) const {
 	double dir = sgn(tradeSize);
 	State newst = st;
-	if (dir * st.strike > 0) {
-		newst.strike = st.strike+dir;
+	if (dir * st.streak > 0) {
+		newst.streak = st.streak+dir;
+	} else if (cfg.close_first && newst.streak) {
+		newst.streak = 0;
 	} else {
-		newst.strike = dir;
+		newst.streak = dir;
 	}
+	newst.cur = currencyLeft;
+	newst.p = tradePrice;
 	return {
 		OnTradeResult{
 			0,0,0,0
@@ -65,23 +73,24 @@ bool Strategy_Harmonic::isValid() const {
 }
 
 json::Value Strategy_Harmonic::exportState() const {
-	return json::Object("strike", st.strike)("p",st.p);
+	return json::Object("streak", st.streak)("p",st.p);
 }
 
 PStrategy Strategy_Harmonic::onIdle(const IStockApi::MarketInfo &minfo,
 		const IStockApi::Ticker &curTicker, double assets,
 		double currency) const {
-	if (st.p > 0) return this;
-	else {
-		State newst;
+	if (st.p > 0 && st.cur) return this;
+	State newst = st;
+	if (st.p <= 0) {
 		newst.p =  curTicker.last;
-		newst.strike = 0;
-		return new Strategy_Harmonic(cfg, newst);
+		newst.streak = 0;
 	}
+	newst.cur = currency;
+	return new Strategy_Harmonic(cfg, newst);
 }
 
 double Strategy_Harmonic::getEquilibrium() const {
-	return 0;
+	return st.p;
 }
 
 PStrategy Strategy_Harmonic::reset() const {
@@ -96,12 +105,14 @@ std::string_view Strategy_Harmonic::getID() const {
 
 json::Value Strategy_Harmonic::dumpStatePretty(
 		const IStockApi::MarketInfo &minfo) const {
-	return json::Object("Strike", st.strike);
+	return json::Object("Streak", (minfo.invert_price?-1:1) *st.streak)
+	                   ("Last Price", minfo.invert_price?1.0/st.p:st.p)
+					   ("Base order size", calcPower(st.cur));
 }
 
 PStrategy Strategy_Harmonic::importState(json::Value src) const {
 	State newst {
-		static_cast<int>(src["strike"].getInt()),
+		static_cast<int>(src["streak"].getValueOrDefault(src["strike"].getUInt())),
 		src["p"].getNumber()
 	};
 	return new Strategy_Harmonic(cfg, newst);

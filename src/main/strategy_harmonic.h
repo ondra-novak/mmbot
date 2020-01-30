@@ -14,14 +14,16 @@ class Strategy_Harmonic: public IStrategy {
 public:
 	struct Config {
 		double power;
+		bool close_first;
 	};
 
 	struct State {
-		int strike = 0;
+		int streak = 0;
 		double p = 0;
+		double cur = 0;
 	};
 
-	Strategy_Harmonic(const Config &cfg, const State &state = State{0,0});
+	Strategy_Harmonic(const Config &cfg, const State &state = State{0,0,0});
 	virtual ~Strategy_Harmonic();
 	virtual IStrategy::OrderData getNewOrder(const IStockApi::MarketInfo &minfo,
 			double cur_price, double new_price, double dir, double assets,
