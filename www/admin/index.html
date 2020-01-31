@@ -88,9 +88,11 @@ to enter a negative value and then the value of the assets held will decrease an
 <div class="label"><span>Min price:</span><span data-name="halfhalf_min_price">---</span></div>
 <div class="label"><span>Max price:</span><span data-name="halfhalf_max_price">---</span></div>
 </x-section>
+<div class="rightinfo"><button name="show_backtest">Backtest</button></div>
 </x-section>
 <x-section data-name="strategy_harmonic" class="goal" hidden="hidden"><x-section-caption>Harmony</x-section-caption>
 <label><span>Power (<span data-name="hm_show_factor"></span>x)<span class="tooltip">Specifies power of 10 multiplier of current balance used to automatically calculate the step (for 1% of movement). <br><br>Use <strong>0.5</strong> for <strong>cryptocurrencies</strong> <br>and values between <strong>3-4</strong> for <strong>Forex</strong></span></span><x-slider data-name="hm_power" data-min="0.01" data-max="5" data-mult="0.01" data-fixed="2"></x-slider></label>
+<label><span>Favor trend </span><x-slider data-name="hm_favor_trend" data-min="0" data-max="100" data-mult="1" data-fixed="0"></x-slider></label>
 <label><span>Options</span><x-checkbox data-name="hm_close_first">Don't reverse position (TradeSanta)</x-checkbox></label>
 <div class="rightinfo"><button name="show_backtest">Backtest</button></div>
 </x-section>
@@ -171,7 +173,7 @@ Specifies maximum allowed asset balance (or position, for short use negative val
 <label  class="adv"><span>Spread width: smooth hours <span class="tooltip"
 >Specifies smooth in hours. The program uses SMA (simple moving average) to calculate volatility smooth. By setting 1, it means, deviation longest than 1 hour is not considered as local deviation.</span></span><x-slider data-name="spread_calc_sma_hours" data-min="1" data-max="240" data-mult="1"></x-slider></label>
 <label  class="adv"><span>Spread width: manual adjust <span class="tooltip"
->Specify manual adjust. Values above zero causes wider spread up to 2x. Values below zero causes narrow spread up to 1/2</span></span><x-slider data-name="spread_mult" data-min="-100" data-max="100" data-mult="1"></x-slider></label>
+>Specify manual adjust. Values above zero causes wider spread up to 2x. Values below zero causes narrow spread up to 1/2</span></span><x-slider data-name="spread_mult" data-min="-100" data-max="100" data-mult="1" data-fixed="0"></x-slider></label>
 <label class="adv"><span>Dynamic spread mult. raise<span class="tooltip"
 >Specifies [in %] how much is dynamic multiplicator raised after trade.</span></span><x-slider data-name="dynmult_raise" data-min="1" data-max="1000" data-mult="1"></x-slider></label>
 <label class="adv"><span>Dynamic spread mult. fall<span class="tooltip"
@@ -475,12 +477,18 @@ the same order, they are ordered by its ID - this is the default ordering. Modif
 <div><input name="pos" type="range" min="-100" max="0" step="0.1" value="0" class="thick"></div>
 </div>
 <x-form class="floating" hidden="hidden" data-name="options_form">
+<div class="backtesticons">
+	<div class="icon" data-name="select_file"><img src="../res/upload_data.png" title="Upload 1minute data" ></div>
+	<div class="icon" data-name="icon_internal"><img src="../res/internal_data.png" title="Use internal data"></div> 
+	<div class="icon" data-name="icon_recalc"><img src="../res/recalc_data.png" title="Recalculate spread" ></div>
+	<div class="icon" data-name="export"><img src="../res/export_csv.png" title="Export CSV" > </div>
+	<div class="icon" data-name="icon_reset"><img src="../res/repair.png" title="Reset data" ></div>
+</div>
+<input hidden="hidden" type="file"  data-name="price_file">
 <label><span>Show: neutral price</span><x-checkbox data-name="show_op">open price</x-checkbox></label>
 <label><span>Fill orders at price</span><x-checkbox data-name="fill_atprice"></x-checkbox></label>
 <label><span>Currency</span><input type="number" step="any" data-name="initial_balance"></label>
 <label><span>Assets/Position</span><input type="number" step="any" data-name="initial_pos"></label>
-<div class="label"><span>Import prices</span><button data-name="select_file">Browse file</button><input hidden="hidden" type="file"  data-name="price_file"></div>
-<div class="label"><span>Export</span><a href="#" data-name="export">CSV</a></div>
 </x-form>
 </x-section>
 </template>

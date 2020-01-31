@@ -59,7 +59,8 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 					}
 				} else {
 					order.size  = IStockApi::MarketInfo::adjValue(order.size,minfo.asset_step,round);
-					if (std::abs(order.size) < minsize) continue;
+					if (std::abs(order.size) < minsize)
+						continue;
 				}
 				if (cfg.max_size && std::abs(order.size) > cfg.max_size) {
 					order.size = cfg.max_size*sgn(order.size);

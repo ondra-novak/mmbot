@@ -555,6 +555,7 @@ App.prototype.fillForm = function (src, trg) {
 	data.kv_valinc = 0;
 	data.hm_power={"value":1};
 	data.hm_show_factor=0.1;
+	data.hm_favor_trend=25;
 	data.hm_close_first=false;
 
 	function powerCalc(x) {return adjNumN(Math.pow(10,x)*0.01);};
@@ -568,6 +569,7 @@ App.prototype.fillForm = function (src, trg) {
 		data.hm_power = filledval(src.strategy.power,1);
 		data.hm_show_factor = powerCalc(data.hm_power.value)
 		data.hm_close_first = filledval(src.strategy.close_first, false);
+		data.hm_favor_trend = filledval(defval(src.strategy.favor_trend,0.25)*100, 25);
 	} else if (data.strategy == "plfrompos") {
 		data.pl_acum = filledval(defval(src.strategy.accum,0)*100,0);
 		data.neutral_pos = filledval(src.strategy.neutral_pos,0);		
@@ -689,6 +691,7 @@ App.prototype.saveForm = function(form, src) {
 	} else 	if (data.strategy == "harmonic") {
 		trader.strategy.power = data.hm_power;
 		trader.strategy.close_first = data.hm_close_first;
+		trader.strategy.favor_trend = data.hm_favor_trend*0.01;
 	}
 	trader.id = src.id;
 	trader.broker =src.broker;
@@ -1318,7 +1321,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 	form.enableItem("show_backtest",false);		
 	var inputs = ["external_assets", "acum_factor","kv_valinc","pl_confmode","pl_power","pl_baluse","cstep",
 		"max_pos","neutral_pos","pl_redmode","pl_redfact","pl_acum","min_size","max_size","order_mult","dust_orders","linear_suggest","linear_suggest_maxpos","pl_slrev",
-		"hm_power","hm_close_first"];
+		"hm_power","hm_close_first","hm_favor_trend"];
 	var spread_inputs = ["spread_calc_stdev_hours", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode"];
 	var balance = form._balance;
 	var days = 45*60*60*24*1000;
@@ -1427,6 +1430,56 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		update();
 	}
 
+	function progress_wait() {		
+		var dlg = TemplateJS.View.fromTemplate("upload_chart_wait");
+		dlg.openModal();
+		function wait(cb) {
+			fetch_with_error("api/upload_prices").then(function(x) {
+				if (x == -1) {
+					dlg.close();
+					cb();
+				} 
+				else {
+					dlg.setData({progress:{"style":"width: "+x+"%"}});
+					setTimeout(wait.bind(null,cb),1000);
+				}
+			}).catch(function() {
+					setTimeout(wait.bind(null,cb),1000);										
+			});
+		}
+		dlg.wait = function() {
+			dlg.showItem("upload_mark",false);
+			dlg.showItem("process_mark",true);
+			return new Promise(wait);
+		}
+		dlg.setItemEvent("stop","click", function() {
+			fetch_json("api/upload_prices", {method:"DELETE"});
+		});
+		return dlg;		
+	}
+
+	function recalc_spread(prices, cntr) {
+		var data = form.readData(spread_inputs);
+		var mult = Math.pow(2,data.spread_mult*0.01);
+		var req = {
+			sma:data.spread_calc_sma_hours,
+			stdev:data.spread_calc_stdev_hours,
+			mult:mult,
+			raise:data.dynmult_raise,
+			fall:data.dynmult_fall,
+			mode:data.dynmult_mode,
+			id: id,
+			prices: prices
+		}
+		var w = progress_wait();
+		fetch_with_error("api/upload_prices", {method:"POST", body:JSON.stringify(req)}).then(function(){							
+			w.wait().then(cntr.update.bind(cntr));
+		}).catch(function(e) {
+			w.close();
+			console.error(e);
+		});								
+	}
+	
 	this.gen_backtest(form,"backtest_anchor", "backtest_vis",inputs,function(cntr){
 
 		cntr.showSpinner();
@@ -1474,53 +1527,23 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 			})			
 			cntr.bt.setItemEvent("price_file","change",function() {
 				if (this.files[0]) {
-    				cntr.bt.setItemValue("select_file", this.files[0].name);
 					var reader = new FileReader();
 					reader.onload = function() {
 						var prices = reader.result.split("\n").map(function(x) {return parseFloat(x);});
-						var data = form.readData(spread_inputs);
-						var mult = Math.pow(2,data.spread_mult*0.01);
-						var req = {
-							sma:data.spread_calc_sma_hours,
-							stdev:data.spread_calc_stdev_hours,
-							mult:mult,
-							raise:data.dynmult_raise,
-							fall:data.dynmult_fall,
-							mode:data.dynmult_mode,
-							id: id,
-							prices: prices
-						}
-						var dlg = TemplateJS.View.fromTemplate("upload_chart_wait");
-						dlg.openModal();						
-						fetch_with_error("api/upload_prices", {method:"POST", body:JSON.stringify(req)}).then(function(){							
-							dlg.showItem("upload_mark",false);
-							dlg.showItem("process_mark",true);
-							dlg.setItemEvent("stop","click", function() {
-								fetch_json("api/upload_prices", {method:"DELETE"});
-							});
-							function wait() {
-								fetch_with_error("api/upload_prices").then(function(x) {
-									if (x == -1) {
-										dlg.close();
-										cntr.update();
-									} 
-									else {
-										dlg.setData({progress:{"style":"width: "+x+"%"}});
-										setTimeout(wait,1000);
-									}
-								}).catch(function() {
-										setTimeout(wait,1000);										
-								});
-							}
-							wait();							
-						}).catch(function(e) {
-							dlg.close();
-							console.error(e);
-						});						
+						recalc_spread(prices,cntr);
 					}
 					reader.readAsText(this.files[0]);
 				}
 			});
+			cntr.bt.setItemEvent("icon_internal","click",function(){
+				recalc_spread("internal",cntr);
+			})
+			cntr.bt.setItemEvent("icon_recalc","click",function(){
+				recalc_spread("update",cntr);
+			})
+			cntr.bt.setItemEvent("icon_reset","click",function(){
+				fetch_json("api/backtest", {method:"DELETE"}).then(cntr.update.bind(cntr));
+			})
 			
 
 			cntr.bt.setItemEvent("pos","input",function() {

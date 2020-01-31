@@ -818,91 +818,101 @@ void WebCfg::State::setBrokerConfig(json::StrViewA name, json::Value config) {
 }
 
 bool WebCfg::reqBacktest(simpleServer::HTTPRequest req) const {
-	if (!req.allowMethods({"POST"})) return true;
-	req.readBodyAsync(50000,[&trlist = this->trlist,state =  this->state, dispatch = this->dispatch](simpleServer::HTTPRequest req)mutable{
-		try {
-			Value data = Value::fromString(StrViewA(BinaryView(req.getUserBuffer())));
-			Value id = data["id"];
+	if (!req.allowMethods({"POST","DELETE"})) return true;
+	if (req.getMethod() == "DELETE") {
+		Sync _(state->lock);
+		state->backtest_cache.clear();
+		state->prices_cache.clear();
+		state->spread_cache.clear();
+		_.unlock();
+		req.sendResponse("application/json","true");
+		return true;
+	} else  {
+		req.readBodyAsync(50000,[&trlist = this->trlist,state =  this->state, dispatch = this->dispatch](simpleServer::HTTPRequest req)mutable{
+			try {
+				Value data = Value::fromString(StrViewA(BinaryView(req.getUserBuffer())));
+				Value id = data["id"];
 
 
-			auto process=[=](Traders &trlist, const BacktestCache::Subj &trades) {
+				auto process=[=](Traders &trlist, const BacktestCache::Subj &trades) {
 
-				Value config = data["config"];
-				Value init_pos = data["init_pos"];
-				Value balance = data["balance"];
-				Value fill_atprice= data["fill_atprice"];
+					Value config = data["config"];
+					Value init_pos = data["init_pos"];
+					Value balance = data["balance"];
+					Value fill_atprice= data["fill_atprice"];
 
-				MTrader_Config mconfig;
-				mconfig.loadConfig(config,false);
-				auto piter = trades.prices.begin();
-				auto pend = trades.prices.end();
+					MTrader_Config mconfig;
+					mconfig.loadConfig(config,false);
+					auto piter = trades.prices.begin();
+					auto pend = trades.prices.end();
 
-				BTTrades rs = backtest_cycle(mconfig, [&]{
-					std::optional<BTPrice> x;
-					if (piter != pend) {
-						x = *piter;
-						++piter;
-					}
-					return x;
-				}, trades.minfo,init_pos.getNumber(), balance.getNumber(), fill_atprice.getBool());
-
-				Value result (json::array, rs.begin(), rs.end(), [](const BTTrade &x) {
-					return Object
-							("np",x.neutral_price)
-							("op",x.open_price)
-							("na",x.norm_accum)
-							("npl",x.norm_profit)
-							("pl",x.pl)
-							("ps",x.pos)
-							("pr",x.price.price)
-							("tm",x.price.time)
-							("sz",x.size);
-				});
-				String resstr = result.toString();
-				req.sendResponse("application/json",resstr.str());
-			};
-
-
-
-
-			Sync _(state->lock);
-			if (state->backtest_cache.available(id.toString().str(),std::chrono::system_clock::now())) {
-				auto t = state->backtest_cache.getSubject();
-				_.unlock();
-				process(trlist, t);
-			} else {
-
-				dispatch([&trlist, state, req, id, process = std::move(process)]()mutable {
-					try {
-						MTrader *tr = trlist.find(id.getString());
-						if (tr == nullptr) {
-							req.sendErrorPage(404);
-							return;
+					BTTrades rs = backtest_cycle(mconfig, [&]{
+						std::optional<BTPrice> x;
+						if (piter != pend) {
+							x = *piter;
+							++piter;
 						}
+						return x;
+					}, trades.minfo,init_pos.getNumber(), balance.getNumber(), fill_atprice.getBool());
 
-						const auto &tradeHist = tr->getTrades();
-						BacktestCacheSubj trs;
-						std::transform(tradeHist.begin(),tradeHist.end(),
-								std::back_insert_iterator(trs.prices),[](const IStatSvc::TradeRecord &r) {
-							return BTPrice{r.time, r.price};
-						});
-						trs.minfo = tr->getMarketInfo();
+					Value result (json::array, rs.begin(), rs.end(), [](const BTTrade &x) {
+						return Object
+								("np",x.neutral_price)
+								("op",x.open_price)
+								("na",x.norm_accum)
+								("npl",x.norm_profit)
+								("pl",x.pl)
+								("ps",x.pos)
+								("pr",x.price.price)
+								("tm",x.price.time)
+								("sz",x.size);
+					});
+					String resstr = result.toString();
+					req.sendResponse("application/json",resstr.str());
+				};
 
-						Sync _(state->lock);
-						state->backtest_cache = BacktestCache(trs, id.toString().str(), std::chrono::system_clock::now()+std::chrono::minutes(10));
-						_.unlock();
-						process(trlist, trs);
-					} catch (std::exception &e) {
-						req.sendErrorPage(400,"", e.what());
-					}
-				});
+
+
+
+				Sync _(state->lock);
+				if (state->backtest_cache.available(id.toString().str())) {
+					auto t = state->backtest_cache.getSubject();
+					_.unlock();
+					process(trlist, t);
+				} else {
+
+					dispatch([&trlist, state, req, id, process = std::move(process)]()mutable {
+						try {
+							MTrader *tr = trlist.find(id.getString());
+							if (tr == nullptr) {
+								req.sendErrorPage(404);
+								return;
+							}
+
+							const auto &tradeHist = tr->getTrades();
+							BacktestCacheSubj trs;
+							std::transform(tradeHist.begin(),tradeHist.end(),
+									std::back_insert_iterator(trs.prices),[](const IStatSvc::TradeRecord &r) {
+								return BTPrice{r.time, r.price};
+							});
+							trs.minfo = tr->getMarketInfo();
+
+							Sync _(state->lock);
+							state->backtest_cache = BacktestCache(trs, id.toString().str());
+							_.unlock();
+							process(trlist, trs);
+						} catch (std::exception &e) {
+							req.sendErrorPage(400,"", e.what());
+						}
+					});
+				}
+			} catch (std::exception &e) {
+				req.sendErrorPage(400,"", e.what());
 			}
-		} catch (std::exception &e) {
-			req.sendErrorPage(400,"", e.what());
-		}
 
-	});
-	return true;
+		});
+		return true;
+	}
 }
 
 template<typename Iter>
@@ -955,7 +965,7 @@ bool WebCfg::reqSpread(simpleServer::HTTPRequest req) const {
 			};
 
 			Sync _(state->lock);
-			if (state->spread_cache.available(id.toString().str(),std::chrono::system_clock::now())) {
+			if (state->spread_cache.available(id.toString().str())) {
 				auto t = state->spread_cache.getSubject();
 				_.unlock();
 				process(t);
@@ -971,7 +981,7 @@ bool WebCfg::reqSpread(simpleServer::HTTPRequest req) const {
 						x.chart = tr->getChart();
 						x.invert_price = tr->getMarketInfo().invert_price;
 						Sync _(state->lock);
-						state->spread_cache= SpreadCache(x, id.toString().str(), std::chrono::system_clock::now()+std::chrono::minutes(10));
+						state->spread_cache= SpreadCache(x, id.toString().str());
 						_.unlock();
 						process(x);
 					} catch (std::exception &e) {
@@ -1006,60 +1016,36 @@ bool WebCfg::reqUploadPrices(simpleServer::HTTPRequest req) const {
 			try {
 				Value args = Value::fromString(StrViewA(BinaryView(req.getUserBuffer())));
 				Value id = args["id"];
-				Value sma = args["sma"];
-				Value stdev = args["stdev"];
-				Value mult = args["mult"];
-				Value dynmult_raise = args["raise"];
-				Value dynmult_fall = args["fall"];
-				Value dynmult_mode = args["mode"];
 				Value prices = args["prices"];
 
-				MTrader *tr = trlist.find(id.getString());
-				if (tr == nullptr) {
-					req.sendErrorPage(404);
-					return;
-				}
-				IStockApi::MarketInfo minfo = tr->getMarketInfo();
-				MTrader::Chart chart;
-				auto tm = std::chrono::system_clock::now() - std::chrono::minutes(prices.size()+1);
-				std::transform(prices.begin(), prices.end(), std::back_inserter(chart),[&](Value itm){
-					double p = itm.getNumber();
-					if (minfo.invert_price) p = 1.0/p;
-					tm = tm + std::chrono::minutes(1);
-					return MTrader::ChartItem{static_cast<std::uint64_t>(
-							std::chrono::duration_cast<std::chrono::milliseconds>(tm.time_since_epoch()).count()),
-							p,p,p};
-				});
-				Sync _(state->lock);
-				req.sendResponse("application/json", "0");
-				state->upload_progress = 0;
-				state->cancel_upload = false;
-				req = nullptr;
-				_.unlock();
+				if (prices.getString() == "internal") {
+					Sync _(state->lock);
+					state->prices_cache.clear();
+					state->upload_progress = 0;
+				} else if (prices.getString() == "update") {
+					Sync _(state->lock);
+					state->upload_progress = 0;
+				} else {
 
-				try {
-					std::size_t count = chart.size();
-					std::size_t pos = 0;
-					IterFn iterfn(chart.begin(),chart.end());
-					MTrader::VisRes trades = MTrader::visualizeSpread(
-							[&]() {
-						pos++;
-						if (state->cancel_upload) return std::optional<MTrader::ChartItem>();
-						state->upload_progress = (pos * 100)/count;
-						return iterfn();},sma.getNumber(), stdev.getNumber(),mult.getNumber(),
-							dynmult_raise.getValueOrDefault(1.0),dynmult_fall.getValueOrDefault(1.0),dynmult_mode.getValueOrDefault("independent"),false,true);
-					BacktestCacheSubj bt;
-					std::transform(trades.chart.begin(), trades.chart.end(), std::back_inserter(bt.prices), [](const MTrader::VisRes::Item &itm) {
-						return BTPrice{itm.time, itm.price};
+					MTrader *tr = trlist.find(id.getString());
+					if (tr == nullptr) {
+						req.sendErrorPage(404);
+						return;
+					}
+					IStockApi::MarketInfo minfo = tr->getMarketInfo();
+					std::vector<double> chart;
+					std::transform(prices.begin(), prices.end(), std::back_inserter(chart),[&](Value itm){
+						double p = itm.getNumber();
+						if (minfo.invert_price) p = 1.0/p;
+						return p;
 					});
-					bt.minfo = tr->getMarketInfo();
-					_.lock();
-					state->upload_progress = -1;
-					state->backtest_cache = BacktestCache(bt, id.toString().str(), std::chrono::system_clock::now()+std::chrono::hours(24));
-					_.unlock();
-				} catch (std::exception &e) {
-					logError("Error: $1", e.what());
+					Sync _(state->lock);
+					state->prices_cache = PricesCache(chart, id.toString().str());
+					state->upload_progress = 0;
 				}
+				req.sendResponse("application/json", "0");
+				req = nullptr;
+				generateTrades(trlist, state, args);
 			} catch (std::exception &e) {
 				req.sendErrorPage(400,"",e.what());
 			}
@@ -1067,6 +1053,70 @@ bool WebCfg::reqUploadPrices(simpleServer::HTTPRequest req) const {
 	});
 	}
 	return true;
+}
+bool WebCfg::generateTrades(Traders &trlist, ondra_shared::RefCntPtr<State> state, json::Value args) {
+	try {
+		Value id = args["id"];
+		Value sma = args["sma"];
+		Value stdev = args["stdev"];
+		Value mult = args["mult"];
+		Value dynmult_raise = args["raise"];
+		Value dynmult_fall = args["fall"];
+		Value dynmult_mode = args["mode"];
+
+		MTrader *tr = trlist.find(id.getString());
+		if (tr == nullptr) {
+			state->upload_progress = -1;
+			return false;
+		}
+
+		std::function<std::optional<MTrader::ChartItem>()> source;
+		Sync _(state->lock);
+		state->upload_progress = 0;
+		if (!state->prices_cache.available(id.getString())) {
+			auto chart = tr->getChart();
+			source = [=,pos = std::size_t(0) ]() mutable {
+				if (state->cancel_upload || pos >= chart.size()) {
+					return std::optional<MTrader::ChartItem>();
+				}
+				state->upload_progress = (pos * 100)/chart.size();
+				return std::optional<MTrader::ChartItem>(chart[pos++]);
+			};
+		} else {
+			auto prc = state->prices_cache.getSubject();
+			auto now = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+			source = [prc = std::move(prc), pos = std::size_t(0), state , now]() mutable {
+				std::size_t sz = prc.size();
+				if (state->cancel_upload || pos >= sz) {
+					return std::optional<MTrader::ChartItem>();
+				}
+				double p = prc[pos++];
+				state->upload_progress = (pos * 100)/sz;
+				return std::optional<MTrader::ChartItem>(MTrader::ChartItem{now - (sz - pos)*60000,p,p,p});
+			};
+		}
+		state->cancel_upload = false;
+		_.unlock();
+		MTrader::VisRes trades = MTrader::visualizeSpread(std::move(source),sma.getNumber(),stdev.getNumber(),mult.getNumber(),
+				dynmult_raise.getValueOrDefault(1.0),dynmult_fall.getValueOrDefault(1.0),dynmult_mode.getValueOrDefault("independent"),false,true);
+
+		BacktestCacheSubj bt;
+		std::transform(trades.chart.begin(), trades.chart.end(), std::back_inserter(bt.prices), [](const MTrader::VisRes::Item &itm) {
+				return BTPrice{itm.time, itm.price};
+		});
+		bt.minfo = tr->getMarketInfo();
+		_.lock();
+		state->upload_progress = -1;
+		state->backtest_cache = BacktestCache(bt, id.toString().str());
+		_.unlock();
+		return true;
+	} catch (std::exception &e) {
+		logError("Error: $1", e.what());
+		Sync _(state->lock);
+		state->upload_progress = -1;
+		_.unlock();
+		return false;
+	}
 
 }
 

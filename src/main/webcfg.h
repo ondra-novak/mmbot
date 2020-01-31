@@ -34,18 +34,21 @@ public:
 		using Subj = T;
 
 		Cache() {}
-		Cache(const T &t, std::string name, std::chrono::system_clock::time_point expires)
-			:t(t),name(name),expires(expires) {}
+		Cache(const T &t, std::string name)
+			:t(t),name(name) {}
 
 		const T getSubject() const {return t;}
-		bool available(const std::string_view &name, std::chrono::system_clock::time_point time) {
-			return name == this->name && time < expires;
+		bool available(const std::string_view &name) {
+			return name == this->name;
+		}
+		void clear() {
+			name.clear();
+			t = T();
 		}
 
 	protected:
 		T t;
 		std::string name;
-		std::chrono::system_clock::time_point expires;
 	};
 
 	struct SpreadCacheItem {
@@ -60,6 +63,7 @@ public:
 
 	using BacktestCache = Cache<BacktestCacheSubj>;
 	using SpreadCache = Cache<SpreadCacheItem>;
+	using PricesCache = Cache<std::vector<double> >;
 
 	class State : public ondra_shared::RefCntObj{
 	public:
@@ -71,6 +75,7 @@ public:
 		json::Value broker_config;
 		BacktestCache backtest_cache;
 		SpreadCache spread_cache;
+		PricesCache prices_cache;
 		int upload_progress=-1;
 		bool cancel_upload = false;
 
@@ -151,6 +156,7 @@ protected:
 
 
 	ondra_shared::RefCntPtr<State> state;
+	static bool generateTrades(Traders &trlist, ondra_shared::RefCntPtr<State> state, json::Value args);
 };
 
 

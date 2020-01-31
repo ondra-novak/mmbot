@@ -475,6 +475,28 @@ a {
 	width: 100% !important;
 }
 
+.backtesticons {
+	display: flex;
+	flex-wrap:nowrap;	
+	background-color: #282828;
+	margin: -0.5em -0.5em 0.5em -0.5em;
+}
+.backtesticons img {
+	width: 60%;
+	display: block;
+	margin: auto;
+
+}
+.backtesticons > * {
+	padding: 0.5em;
+	width: 20%;	
+	cursor: pointer;
+}
+
+.backtesticons > *:hover {
+	background-color:#FFF2
+
+}
 input[type=range].thick {
   -webkit-appearance: none;
   width: 100%;

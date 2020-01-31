@@ -199,11 +199,11 @@ void MTrader::perform(bool manually) {
 			//process alerts
 			if (sell_alert.has_value() && status.ticker.last >= *sell_alert) {
 				alertTrigger(status, *sell_alert);
-				update_dynmult(true,false);
+				update_dynmult(false,true);
 			}
 			if (buy_alert.has_value() && status.ticker.last <= *buy_alert) {
 				alertTrigger(status, *buy_alert);
-				update_dynmult(false,true);
+				update_dynmult(true,false);
 			}
 			if (!status.new_trades.trades.empty()) {
 				processTrades(status);

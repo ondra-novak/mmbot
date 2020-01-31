@@ -19,11 +19,12 @@ IStrategy::OrderData Strategy_Harmonic::getNewOrder(
 		double dir, double assets, double currency) const {
 
 	double power = calcPower(currency);
+	double offset = -(st.inbalance*cfg.favor_trend) * power;
 	if (dir * st.streak <= 0) {
 		if (cfg.close_first && st.streak && assets) {
-			return OrderData{0, -assets};
+			return OrderData{new_price, -assets};
 		} else {
-			return OrderData{0, dir * power - assets};
+			return OrderData{new_price, dir * power - assets+offset};
 		}
 	}
 	else {
@@ -31,7 +32,7 @@ IStrategy::OrderData Strategy_Harmonic::getNewOrder(
 		int cnt = std::abs(st.streak);
 		for (int i = 0; i <= cnt; i++)
 			sum = sum + 1.0/(i+1.0);
-		double diff = (dir * power * sum) - assets;
+		double diff = (dir * power * sum) - assets+offset;
 		return OrderData{0, diff};
 	}
 
@@ -55,9 +56,17 @@ std::pair<IStrategy::OnTradeResult, ondra_shared::RefCntPtr<const IStrategy> > S
 	}
 	newst.cur = currencyLeft;
 	newst.p = tradePrice;
+	newst.inbalance += st.streak/2;
+	int inbalancemax = static_cast<int>(round(4/cfg.favor_trend));
+	if (std::abs(newst.inbalance)>inbalancemax) newst.inbalance = sgn(newst.inbalance) * inbalancemax;
+	double prevPos = assetsLeft - tradeSize;
+	double newPos = assetsLeft;
+	if (prevPos*newPos <=0) newst.open_price = tradePrice;
+	else  if (dir * sgn(newPos) > 0) newst.open_price = (newst.open_price * prevPos + tradeSize * tradePrice)/newPos;
+
 	return {
 		OnTradeResult{
-			0,0,0,0
+			0,0,newst.open_price,newst.open_price
 		},PStrategy(new Strategy_Harmonic(cfg, newst))
 	};
 }
@@ -73,7 +82,7 @@ bool Strategy_Harmonic::isValid() const {
 }
 
 json::Value Strategy_Harmonic::exportState() const {
-	return json::Object("streak", st.streak)("p",st.p);
+	return json::Object("streak", st.streak)("p",st.p)("inbal",st.inbalance)("open_price",st.open_price);
 }
 
 PStrategy Strategy_Harmonic::onIdle(const IStockApi::MarketInfo &minfo,
@@ -107,13 +116,17 @@ json::Value Strategy_Harmonic::dumpStatePretty(
 		const IStockApi::MarketInfo &minfo) const {
 	return json::Object("Streak", (minfo.invert_price?-1:1) *st.streak)
 	                   ("Last Price", minfo.invert_price?1.0/st.p:st.p)
+					   ("Inbalance",st.inbalance)
+					   ("Open price",st.open_price)
 					   ("Base order size", calcPower(st.cur));
 }
 
 PStrategy Strategy_Harmonic::importState(json::Value src) const {
 	State newst {
 		static_cast<int>(src["streak"].getValueOrDefault(src["strike"].getUInt())),
-		src["p"].getNumber()
+		static_cast<int>(src["inbalance"].getUInt()),
+		src["p"].getNumber(),
+		src["open_price"].getNumber()
 	};
 	return new Strategy_Harmonic(cfg, newst);
 }
