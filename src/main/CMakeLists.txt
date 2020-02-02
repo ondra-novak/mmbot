@@ -17,7 +17,6 @@ add_executable (mmbot
 	strategy_halfhalf.cpp
 	strategy_plfrompos.cpp
 	strategy_keepvalue.cpp
-	strategy_harmonic.cpp
 	strategy_stairs.cpp
 	localdailyperfmod.cpp
 	extdailyperfmod.cpp

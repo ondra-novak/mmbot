@@ -13,7 +13,6 @@
 #include "../shared/stringview.h"
 #include "strategy_plfrompos.h"
 #include "strategy_halfhalf.h"
-#include "strategy_harmonic.h"
 #include "strategy_keepvalue.h"
 #include "strategy_stairs.h"
 
@@ -72,12 +71,6 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 		cfg.accum = config["accum"].getNumber();
 		cfg.chngtm = config["valinc"].getNumber();
 		return Strategy(new Strategy_KeepValue(cfg,{}));
-	} else if (id == Strategy_Harmonic::id) {
-		Strategy_Harmonic::Config cfg;
-		cfg.power = config["power"].getNumber();
-		cfg.close_first= config["close_first"].getBool();
-		cfg.favor_trend= config["favor_trend"].getNumber();
-		return Strategy(new Strategy_Harmonic(cfg));
 	} else if (id == Strategy_Stairs::id) {
 		Strategy_Stairs::Config cfg;
 		cfg.power = config["power"].getNumber();
