@@ -4,6 +4,9 @@ BUILDTYPE=RELWITHDEBINFO
 if [ "$1" = "debug" ] ; then 
     BUILDTYPE=DEBUG
 fi
+if [ "$1" = "nodebug" ] ; then
+    BUILDTYPE=RELEASE
+fi
 
 NPROC=`which nproc`
 if [ "$NPROC" = "" ] ; then

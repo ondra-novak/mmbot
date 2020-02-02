@@ -15,6 +15,7 @@
 #include "strategy_halfhalf.h"
 #include "strategy_harmonic.h"
 #include "strategy_keepvalue.h"
+#include "strategy_stairs.h"
 
 static json::NamedEnum<Strategy_PLFromPos::CloseMode> strCloseMode ({
 		{Strategy_PLFromPos::always_close,"always_close"},
@@ -30,6 +31,14 @@ static json::NamedEnum<Strategy_PLFromPos::ReduceMode> strReduceMode ({
 		{Strategy_PLFromPos::toOpenPrice ,"openp"},
 		{Strategy_PLFromPos::ema,"ema"},
 		{Strategy_PLFromPos::overload,"overload"}
+});
+
+static json::NamedEnum<Strategy_Stairs::Pattern> strStairsPattern ({
+		{Strategy_Stairs::arithmetic,"arithmetic"},
+		{Strategy_Stairs::constant,""},
+		{Strategy_Stairs::constant,"constant"},
+		{Strategy_Stairs::exponencial,"exponencial"},
+		{Strategy_Stairs::harmonic,"harmonic"}
 });
 
 using ondra_shared::StrViewA;
@@ -69,6 +78,15 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 		cfg.close_first= config["close_first"].getBool();
 		cfg.favor_trend= config["favor_trend"].getNumber();
 		return Strategy(new Strategy_Harmonic(cfg));
+	} else if (id == Strategy_Stairs::id) {
+		Strategy_Stairs::Config cfg;
+		cfg.power = config["power"].getNumber();
+		cfg.neutral_pos= config["neutral_pos"].getNumber();
+		cfg.zero_step= config["zero_step"].getBool();
+		cfg.max_steps=config["max_steps"].getInt();
+		cfg.close_on_reverse=config["close_on_reverse"].getBool();
+		cfg.pattern=strStairsPattern[config["pattern"].getString()];
+		return Strategy(new Strategy_Stairs(cfg));
 	} else {
 		throw std::runtime_error(std::string("Unknown strategy: ").append(id));
 	}

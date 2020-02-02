@@ -52,7 +52,8 @@
 <label><span>Title</span><input type="text" data-name="title"></label>
 <label><span>Strategy</span><select data-name="strategy">
 <option value="plfrompos">Linear</option>
-<option value="harmonic">Harmony (TradeSanta)</option>
+<option value="harmonic">Harmony</option>
+<option value="stairs">Stairs</option>
 <option value="halfhalf">Half-Half</option>
 <option value="keepvalue">Keep Value</option>
 </select></label>
@@ -60,7 +61,6 @@
 <div class="plfrompos">A simple strategy for trading on leveraged stock exchanges and futures, generally on stock exchanges with the ability to open long or short positions. This strategy is the only one that works well with a negative value in "assets" (meaning position)</div>
 <div class="halfhalf">This strategy keeps the value of assets and money on the stock exchange in a ratio 1:1. Whenever this ratio is disrupted, the strategy executes a trade in such a volume to achieve the defined ratio.</div>
 <div class="keepvalue">This strategy keeps the value of assets on the stock exchange at the same value. If the value of assets falls or rises (due to changing price), the strategy executes a trade in such a volume to achieve the same value of the assets as before.</div>
-<div class="harmonic">The strategy for trading on leveraged stock exchanges and futures. It is inspired by TradeSanta. It uses harmonic serie to determine size of each order. Oposite order is always take-profit order. This order can also open reverse position at the same time. The strategy heavily depends on good spread settings. Use Backtest to determine ideal spread settings. The ideal configuration allowss the spread to addapt dynamically to the current market volatility</div>
 </div></div>
 <div class="label"><span>Options</span><div>
 <div><x-checkbox data-name="enabled">Enable automatic trading</x-checkbox></div>
@@ -94,6 +94,22 @@ to enter a negative value and then the value of the assets held will decrease an
 <label><span>Power (<span data-name="hm_show_factor"></span>x)<span class="tooltip">Specifies power of 10 multiplier of current balance used to automatically calculate the step (for 1% of movement). <br><br>Use <strong>0.5</strong> for <strong>cryptocurrencies</strong> <br>and values between <strong>3-4</strong> for <strong>Forex</strong></span></span><x-slider data-name="hm_power" data-min="0.01" data-max="5" data-mult="0.01" data-fixed="2"></x-slider></label>
 <label><span>Favor trend </span><x-slider data-name="hm_favor_trend" data-min="0" data-max="100" data-mult="1" data-fixed="0"></x-slider></label>
 <label><span>Options</span><x-checkbox data-name="hm_close_first">Don't reverse position (TradeSanta)</x-checkbox></label>
+<div class="rightinfo"><button name="show_backtest">Backtest</button></div>
+</x-section>
+<x-section data-name="strategy_stairs" class="goal" hidden="hidden"><x-section-caption>Stairs</x-section-caption>
+<label><span>Power (<span data-name="st_show_factor"></span>x)<span class="tooltip">Specifies power of 10 multiplier of current balance used to automatically calculate the step (for 1% of movement). <br><br>Use <strong>0.5</strong> for <strong>cryptocurrencies</strong> <br>and values between <strong>3-4</strong> for <strong>Forex</strong></span></span><x-slider data-name="st_power" data-min="0.01" data-max="5" data-mult="0.01" data-fixed="2"></x-slider></label>
+<label><span>Max steps<span class="tooltip">TBD</span></span><x-slider data-name="st_max_step" data-min="1" data-max="50" data-mult="1" data-fixed="0"></x-slider></label>
+<label><span>Pattern</span><select data-name="st_pattern">
+<option value="constant">Constant step</option>
+<option value="harmonic">Harmonic (1,1.5,1.83,2.083,...)</option> 
+<option value="arithmetic">Arithmetic (1,3,6,10,15,...)</option>
+<option value="exponencial">Exponencial (1,2,4,8,16...)</option>
+</select></label>
+<label><span>Neutral position <span class="tooltip">How much assets are considered as neutral position.</span></span><input data-name="st_neutral_pos" type="number" step="any"></label>
+<div class="label"><span>Options</span><div>
+<div><x-checkbox data-name="st_close">Include "closed" step</x-checkbox></div>
+<div><x-checkbox data-name="st_close_on_rev">Close instead of reduction</x-checkbox></div>
+</div></div>
 <div class="rightinfo"><button name="show_backtest">Backtest</button></div>
 </x-section>
 <x-section data-name="strategy_pl backtest_anchor" class="goal" hidden="hidden"><x-section-caption>Linear</x-section-caption>
@@ -187,7 +203,7 @@ Specifies maximum allowed asset balance (or position, for short use negative val
 </select></label>
 <div class="label adv"><span>Options</span><div>
 <div><x-checkbox data-name="dynmult_scale">Scale with dynamic spread</x-checkbox></div>
-<div><x-checkbox data-name="dynmult_sliding">Sliding (can break rule buy low, sell high)</x-checkbox></div>
+<div><x-checkbox data-name="dynmult_sliding">Sliding (can break rule: buy low, sell high)</x-checkbox></div>
 </div></div>
 <div class="rightinfo"><button name="vis_spread">Visualize spread</button></div>
 </x-section>

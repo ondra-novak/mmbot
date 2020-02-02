@@ -94,6 +94,7 @@ App.prototype.createTraderForm = function() {
 		form.showItem("strategy_halfhalf",state.strategy == "halfhalf" || state.strategy == "keepvalue");
 		form.showItem("strategy_pl",state.strategy == "plfrompos");
 		form.showItem("strategy_harmonic",state.strategy == "harmonic");
+		form.showItem("strategy_stairs",state.strategy == "stairs");
 		form.showItem("kv_valinc_h",state.strategy == "keepvalue");
 		form.setData({"help_goal":{"class":state.strategy}});
 		form.getRoot().classList.toggle("no_adv", !state["advanced"]);
@@ -557,6 +558,12 @@ App.prototype.fillForm = function (src, trg) {
 	data.hm_show_factor=0.1;
 	data.hm_favor_trend=25;
 	data.hm_close_first=false;
+	data.st_power={"value":1};
+	data.st_neutral_pos=0;
+	data.st_max_step=1;
+	data.st_close=false;
+	data.st_close_on_rev=true;
+	data.st_pattern = "constant";
 
 	function powerCalc(x) {return adjNumN(Math.pow(10,x)*0.01);};
 
@@ -570,6 +577,14 @@ App.prototype.fillForm = function (src, trg) {
 		data.hm_show_factor = powerCalc(data.hm_power.value)
 		data.hm_close_first = filledval(src.strategy.close_first, false);
 		data.hm_favor_trend = filledval(defval(src.strategy.favor_trend,0.25)*100, 25);
+	} else if (data.strategy == "stairs") {
+		data.st_power = filledval(src.strategy.power,1);
+		data.st_show_factor = powerCalc(data.st_power.value)
+		data.st_neutral_pos = filledval(src.strategy.neutral_pos,0);
+		data.st_max_step = filledval(src.strategy.max_steps,1);
+		data.st_close = filledval(src.strategy.zero_step,false);
+		data.st_pattern = filledval(src.strategy.pattern,"constant");
+		data.st_close_on_rev = filledval(src.strategy.close_on_reverse,true);
 	} else if (data.strategy == "plfrompos") {
 		data.pl_acum = filledval(defval(src.strategy.accum,0)*100,0);
 		data.neutral_pos = filledval(src.strategy.neutral_pos,0);		
@@ -589,6 +604,9 @@ App.prototype.fillForm = function (src, trg) {
 	}
 	data.hm_power["!change"] = function() {
 		trg.setItemValue("hm_show_factor",powerCalc(trg.readData(["hm_power"]).hm_power));
+	}
+	data.st_power["!change"] = function() {
+		trg.setItemValue("st_show_factor",powerCalc(trg.readData(["st_power"]).st_power));
 	}
 	data.enabled = src.enabled;
 	data.hidden = !!src.hidden;
@@ -693,6 +711,16 @@ App.prototype.saveForm = function(form, src) {
 		trader.strategy.power = data.hm_power;
 		trader.strategy.close_first = data.hm_close_first;
 		trader.strategy.favor_trend = data.hm_favor_trend*0.01;
+	} else 	if (data.strategy == "stairs") {
+		trader.strategy ={
+				type: data.strategy,
+				power : data.st_power,
+				neutral_pos: data.st_neutral_pos,
+				zero_step: data.st_close,
+				max_steps: data.st_max_step,
+				close_on_reverse: data.st_close_on_rev,
+				pattern: data.st_pattern
+		}
 	}
 	trader.id = src.id;
 	trader.broker =src.broker;
@@ -1324,7 +1352,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 	form.enableItem("show_backtest",false);		
 	var inputs = ["external_assets", "acum_factor","kv_valinc","pl_confmode","pl_power","pl_baluse","cstep",
 		"max_pos","neutral_pos","pl_redmode","pl_redfact","pl_acum","min_size","max_size","order_mult","dust_orders","linear_suggest","linear_suggest_maxpos","pl_slrev",
-		"hm_power","hm_close_first","hm_favor_trend"];
+		"hm_power","hm_close_first","hm_favor_trend","st_power","st_neutral_pos","st_close","st_max_step","st_pattern","st_close_on_rev"];
 	var spread_inputs = ["spread_calc_stdev_hours", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode","dynmult_sliding"];
 	var balance = form._balance;
 	var days = 45*60*60*24*1000;
