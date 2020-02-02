@@ -840,6 +840,7 @@ bool WebCfg::reqBacktest(simpleServer::HTTPRequest req) const {
 					Value init_pos = data["init_pos"];
 					Value balance = data["balance"];
 					Value fill_atprice= data["fill_atprice"];
+					std::uint64_t start_date=data["start_date"].getUIntLong();
 
 					MTrader_Config mconfig;
 					mconfig.loadConfig(config,false);
@@ -848,6 +849,7 @@ bool WebCfg::reqBacktest(simpleServer::HTTPRequest req) const {
 
 					BTTrades rs = backtest_cycle(mconfig, [&]{
 						std::optional<BTPrice> x;
+						while (piter != pend && piter->time < start_date) ++piter;
 						if (piter != pend) {
 							x = *piter;
 							++piter;
@@ -941,9 +943,14 @@ bool WebCfg::reqSpread(simpleServer::HTTPRequest req) const {
 				Value dynmult_raise = args["raise"];
 				Value dynmult_fall = args["fall"];
 				Value dynmult_mode = args["mode"];
+				Value dynmult_sliding = args["sliding"];
 
 				auto res = MTrader::visualizeSpread(IterFn(data.chart.begin(),data.chart.end()),sma.getUInt(), stdev.getUInt(),mult.getNumber(),
-						dynmult_raise.getValueOrDefault(1.0),dynmult_fall.getValueOrDefault(1.0),dynmult_mode.getValueOrDefault("independent"),true,false);
+						dynmult_raise.getValueOrDefault(1.0),
+						dynmult_fall.getValueOrDefault(1.0),
+						dynmult_mode.getValueOrDefault("independent"),
+						dynmult_sliding.getBool(),
+						true,false);
 				if (data.invert_price) {
 					std::transform(res.chart.begin(), res.chart.end(), res.chart.begin(),[](const MTrader::VisRes::Item &itm) {
 						return MTrader::VisRes::Item{1.0/itm.price,1.0/itm.high, 1.0/itm.low,-itm.size,itm.time};
@@ -1063,6 +1070,7 @@ bool WebCfg::generateTrades(Traders &trlist, ondra_shared::RefCntPtr<State> stat
 		Value dynmult_raise = args["raise"];
 		Value dynmult_fall = args["fall"];
 		Value dynmult_mode = args["mode"];
+		Value dynmult_sliding = args["sliding"];
 
 		MTrader *tr = trlist.find(id.getString());
 		if (tr == nullptr) {
@@ -1098,7 +1106,11 @@ bool WebCfg::generateTrades(Traders &trlist, ondra_shared::RefCntPtr<State> stat
 		state->cancel_upload = false;
 		_.unlock();
 		MTrader::VisRes trades = MTrader::visualizeSpread(std::move(source),sma.getNumber(),stdev.getNumber(),mult.getNumber(),
-				dynmult_raise.getValueOrDefault(1.0),dynmult_fall.getValueOrDefault(1.0),dynmult_mode.getValueOrDefault("independent"),false,true);
+				dynmult_raise.getValueOrDefault(1.0),
+				dynmult_fall.getValueOrDefault(1.0),
+				dynmult_mode.getValueOrDefault("independent"),
+				dynmult_sliding.getBool(),
+				false,true);
 
 		BacktestCacheSubj bt;
 		std::transform(trades.chart.begin(), trades.chart.end(), std::back_inserter(bt.prices), [](const MTrader::VisRes::Item &itm) {

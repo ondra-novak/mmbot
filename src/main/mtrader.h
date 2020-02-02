@@ -66,6 +66,7 @@ struct MTrader_Config {
 	bool hidden;
 	bool dust_orders;
 	bool dynmult_scale;
+	bool dynmult_sliding;
 
 	Strategy strategy = Strategy(nullptr);
 
@@ -134,6 +135,7 @@ public:
 		double internalBalance;
 		double currencyBalance;
 		double new_fees;
+		double spreadCenter;
 		IStockApi::TradesSync new_trades;
 		ChartItem chartItem;
 	};
@@ -185,9 +187,10 @@ public:
 	};
 
 
-	static VisRes visualizeSpread(std::function<std::optional<ChartItem>()> &&source, double sma, double stdev, double mult, double dyn_raise, double dyn_fall, json::StrViewA dynMode, bool strip, bool onlyTrades);
+	static VisRes visualizeSpread(std::function<std::optional<ChartItem>()> &&source, double sma, double stdev, double mult, double dyn_raise, double dyn_fall, json::StrViewA dynMode, bool sliding, bool strip, bool onlyTrades);
 
 	static std::optional<double> getInternalBalance(const MTrader *ptr);
+
 
 
 protected:
@@ -222,6 +225,7 @@ protected:
 	DynMultControl dynmult;
 	bool need_load = true;
 	bool recalc = true;
+	double lastPriceOffset = 0;
 	json::Value test_backup;
 	json::Value lastTradeId = nullptr;
 	std::optional<double> sell_alert, buy_alert;
@@ -254,10 +258,21 @@ protected:
 	void acceptLoss(const Status &st, double dir);
 	json::Value getTradeLastId() const;
 
-	double calcSpread() const;
+
+	struct SpreadCalcResult {
+		double spread;
+		double center;
+	};
+
+
+	SpreadCalcResult calcSpread() const;
 	bool checkMinMaxBalance(double newBalance, double dir) const;
 	double limitOrderMinMaxBalance(double balance, double orderSize) const;
 private:
+	template<typename Iter>
+	static SpreadCalcResult stCalcSpread(Iter beg, Iter end, unsigned int input_sma, unsigned int input_stdev);
+
+
 	void initialize();
 };
 

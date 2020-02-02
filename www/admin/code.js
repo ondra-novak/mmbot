@@ -599,7 +599,8 @@ App.prototype.fillForm = function (src, trg) {
 	data.dynmult_raise = filledval(src.dynmult_raise,250);
 	data.dynmult_fall = filledval(src.dynmult_fall, 5);
 	data.dynmult_mode = filledval(src.dynmult_mode, "half_alternate");
-	data.dynmult_scale = filledval(defval(src.dynmult_scale,true)?1:0,1);
+	data.dynmult_scale = filledval(src.dynmult_scale,true);
+	data.dynmult_sliding = filledval(src.dynmult_sliding,false);
 	data.spread_mult = filledval(Math.log(defval(src.buy_step_mult,1))/Math.log(2)*100,0);
 	data.order_mult = filledval(defval(src.buy_mult,1)*100,100);
 	data.min_size = filledval(src.min_size,0);
@@ -707,7 +708,8 @@ App.prototype.saveForm = function(form, src) {
 	trader.dynmult_raise = data.dynmult_raise;
 	trader.dynmult_fall = data.dynmult_fall;
 	trader.dynmult_mode = data.dynmult_mode;
-	trader.dynmult_scale = data.dynmult_scale == "1"; 
+	trader.dynmult_scale = data.dynmult_scale; 
+	trader.dynmult_sliding = data.dynmult_sliding; 
 	trader.buy_mult = data.order_mult/100;
 	trader.sell_mult = data.order_mult/100;
 	trader.buy_step_mult = Math.pow(2,data.spread_mult*0.01)
@@ -1241,7 +1243,7 @@ App.prototype.gen_backtest = function(form,anchor, template, inputs, updatefn) {
 App.prototype.init_spreadvis = function(form, id) {
 	var url = "api/spread"
 	form.enableItem("vis_spread",false);
-	var inputs = ["spread_calc_stdev_hours", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode"];
+	var inputs = ["spread_calc_stdev_hours", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode","dynmult_sliding"];
 	this.gen_backtest(form,"spread_vis_anchor", "spread_vis",inputs,function(cntr){
 
 		cntr.showSpinner();
@@ -1254,6 +1256,7 @@ App.prototype.init_spreadvis = function(form, id) {
 			raise:data.dynmult_raise,
 			fall:data.dynmult_fall,
 			mode:data.dynmult_mode,
+			sliding:data.dynmult_sliding,
 			id: id
 		}
 		
@@ -1322,11 +1325,12 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 	var inputs = ["external_assets", "acum_factor","kv_valinc","pl_confmode","pl_power","pl_baluse","cstep",
 		"max_pos","neutral_pos","pl_redmode","pl_redfact","pl_acum","min_size","max_size","order_mult","dust_orders","linear_suggest","linear_suggest_maxpos","pl_slrev",
 		"hm_power","hm_close_first","hm_favor_trend"];
-	var spread_inputs = ["spread_calc_stdev_hours", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode"];
+	var spread_inputs = ["spread_calc_stdev_hours", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode","dynmult_sliding"];
 	var balance = form._balance;
 	var days = 45*60*60*24*1000;
     var offset = 0;
     var offset_max = 0;
+	var start_date = "";
     var show_norm=this.traders[id].strategy.type == "halfhalf" || this.traders[id].strategy.type == "keepvalue"; 
 
 	function draw(cntr, v, offset, balance) {
@@ -1423,7 +1427,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 	var opts
 	var bal;
 	var req;
-	var res_data;
+	var res_data;	
 
 	function swapshowpl() {
 		show_norm = !show_norm;
@@ -1468,6 +1472,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 			raise:data.dynmult_raise,
 			fall:data.dynmult_fall,
 			mode:data.dynmult_mode,
+			sliding:data.dynmult_sliding,
 			id: id,
 			prices: prices
 		}
@@ -1493,7 +1498,8 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 			id: id,
 			init_pos:isFinite(opts.initial_pos)?opts.initial_pos:0,
 			balance:bal,
-			fill_atprice:fill_atprice
+			fill_atprice:fill_atprice,
+			start_date: start_date
 		};
 
 
@@ -1510,6 +1516,10 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 			cntr.bt.setItemEvent("show_op","change", function() {
 				show_op = cntr.bt.readData(["show_op"]).show_op;
 				update();
+			})
+			cntr.bt.setItemEvent("start_date","input", function() {
+				start_date=this.valueAsNumber;
+				cntr.update();
 			})
 			cntr.bt.setItemEvent("fill_atprice","change", function() {
 				fill_atprice = cntr.bt.readData(["fill_atprice"]).fill_atprice;

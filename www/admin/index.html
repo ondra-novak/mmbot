@@ -185,9 +185,10 @@ Specifies maximum allowed asset balance (or position, for short use negative val
 <option value="alternate">Alternate</option>
 <option value="half_alternate" selected="selected">Half alternate (recommended)</option>
 </select></label>
-<label class="adv"><span>Dynamic spread order size scaling<span class="tooltip"
->By default, order size scales with spread. This option disables scaling of the order when dynamic spread is in effect</span></span>
-<select data-name="dynmult_scale"><option value="1">Scale</option><option value="0">Don't scale</option></select></label>
+<div class="label adv"><span>Options</span><div>
+<div><x-checkbox data-name="dynmult_scale">Scale with dynamic spread</x-checkbox></div>
+<div><x-checkbox data-name="dynmult_sliding">Sliding (can break rule buy low, sell high)</x-checkbox></div>
+</div></div>
 <div class="rightinfo"><button name="vis_spread">Visualize spread</button></div>
 </x-section>
 <x-section class="adv"><x-section-caption>Misc</x-section-caption>
@@ -485,10 +486,11 @@ the same order, they are ordered by its ID - this is the default ordering. Modif
 	<div class="icon" data-name="icon_reset"><img src="../res/repair.png" title="Reset data" ></div>
 </div>
 <input hidden="hidden" type="file"  data-name="price_file">
-<label><span>Show: neutral price</span><x-checkbox data-name="show_op">open price</x-checkbox></label>
-<label><span>Fill orders at price</span><x-checkbox data-name="fill_atprice"></x-checkbox></label>
+<label><span>Start date</span><input type="date" data-name="start_date"></label>
 <label><span>Currency</span><input type="number" step="any" data-name="initial_balance"></label>
 <label><span>Assets/Position</span><input type="number" step="any" data-name="initial_pos"></label>
+<label><span>Show: neutral price</span><x-checkbox data-name="show_op">open price</x-checkbox></label>
+<label><span>Fill orders at price</span><x-checkbox data-name="fill_atprice"></x-checkbox></label>
 </x-form>
 </x-section>
 </template>

@@ -76,6 +76,7 @@ void MTrader_Config::loadConfig(json::Value data, bool force_dry_run) {
 	hidden = data["hidden"].getValueOrDefault(false);
 	dust_orders= data["dust_orders"].getValueOrDefault(true);
 	dynmult_scale = data["dynmult_scale"].getValueOrDefault(true);
+	dynmult_sliding = data["dynmult_sliding"].getValueOrDefault(false);
 
 
 	if (dynmult_raise > 1e6) throw std::runtime_error("'dynmult_raise' is too big");
@@ -184,9 +185,13 @@ void MTrader::perform(bool manually) {
 		//process all new trades
 		processTrades(status);
 
-		double lastTradePrice = !trades.empty()?trades.back().eff_price:strategy.isValid()?strategy.getEquilibrium():status.curPrice;
 		double lastTradeSize = trades.empty()?0:trades.back().eff_size;
-
+		double lastTradePrice;
+		if (lastPriceOffset == 0) {
+			lastTradePrice = !trades.empty()?trades.back().eff_price:strategy.isValid()?strategy.getEquilibrium():status.curPrice;
+		} else {
+			lastTradePrice = lastPriceOffset+status.spreadCenter;
+		}
 
 
 		//only create orders, if there are no trades from previous run
@@ -274,7 +279,6 @@ void MTrader::perform(bool manually) {
 			recalc = false;
 
 		} else {
-
 
 			recalc = true;
 			sell_alert.reset();
@@ -456,8 +460,9 @@ MTrader::Status MTrader::getMarketStatus() const {
 
 
 
-	auto step = cfg.force_spread>0?cfg.force_spread:calcSpread();
-	res.curStep = step;
+	auto step = calcSpread();
+	res.curStep = cfg.force_spread>0?cfg.force_spread:step.spread;
+	res.spreadCenter = cfg.dynmult_sliding?step.center:0;
 
 
 	res.new_fees = stock.getFees(cfg.pairsymb);
@@ -622,6 +627,10 @@ void MTrader::loadState() {
 			std::size_t nuid = state["uid"].getUInt();
 			if (nuid) uid = nuid;
 			lastTradeId = state["lastTradeId"];
+			lastPriceOffset = state["lastPriceOffset"].getNumber();
+			bool cfg_sliding = state["cfg_sliding_spread"].getBool();
+			if (cfg_sliding != cfg.dynmult_sliding)
+				lastPriceOffset = 0;
 		}
 		auto chartSect = st["chart"];
 		if (chartSect.defined()) {
@@ -675,6 +684,8 @@ void MTrader::saveState() {
 		st.set("recalc",recalc);
 		st.set("uid",uid);
 		st.set("lastTradeId",lastTradeId);
+		st.set("lastPriceOffset",lastPriceOffset);
+		st.set("cfg_sliding_spread",cfg.dynmult_sliding);
 	}
 	{
 		auto ch = obj.array("chart");
@@ -766,6 +777,7 @@ void MTrader::processTrades(Status &st) {
 		z.second -= t.eff_size * t.eff_price;
 		auto norm = strategy.onTrade(minfo, t.eff_price, t.eff_size, z.first, z.second);
 		trades.push_back(TWBItem(t, last_np+=norm.normProfit, last_ap+=norm.normAccum, norm.neutralPrice));
+		lastPriceOffset = t.price - st.spreadCenter;
 	}
 }
 
@@ -807,6 +819,7 @@ void MTrader::repair() {
 		lastTradeId = nullptr;
 	}
 	double lastPrice = 0;
+	lastPriceOffset = 0;
 	for (auto &&x : trades) {
 		if (!std::isfinite(x.norm_accum)) x.norm_accum = 0;
 		if (!std::isfinite(x.norm_profit)) x.norm_profit = 0;
@@ -979,12 +992,15 @@ protected:
 	json::Value config;
 };
 
+
+
 template<typename Iter>
-static double stCalcSpread(Iter beg, Iter end, unsigned int input_sma, unsigned int input_stdev) {
+MTrader::SpreadCalcResult MTrader::stCalcSpread(Iter beg, Iter end, unsigned int input_sma, unsigned int input_stdev) {
 	input_sma = std::max<unsigned int>(input_sma,30);
 	input_stdev = std::max<unsigned int>(input_stdev,30);
 	std::queue<double> sma;
 	std::vector<double> mapped;
+	double avg = 0;
 	std::accumulate(beg, end, 0.0, [&](auto &&a, auto &&c) {
 		double h = 0.0;
 		if ( sma.size() >= input_sma) {
@@ -993,7 +1009,8 @@ static double stCalcSpread(Iter beg, Iter end, unsigned int input_sma, unsigned 
 		}
 		double d = a + c - h;
 		sma.push(c);
-		mapped.push_back(c - d/sma.size());
+		avg = d/sma.size();
+		mapped.push_back(c - avg);
 		return d;
 	});
 
@@ -1003,7 +1020,10 @@ static double stCalcSpread(Iter beg, Iter end, unsigned int input_sma, unsigned 
 	auto stdev = std::sqrt(std::accumulate(iter, mend, 0.0, [&](auto &&v, auto &&c) {
 		return v + c*c;
 	})/std::distance(iter, mend));
-	return std::log((stdev+sma.back())/sma.back());
+	return SpreadCalcResult{
+		std::log((stdev+avg)/avg),
+		avg
+	};
 }
 
 std::optional<double> MTrader::getInternalBalance(const MTrader *ptr) {
@@ -1012,19 +1032,19 @@ std::optional<double> MTrader::getInternalBalance(const MTrader *ptr) {
 }
 
 
-double MTrader::calcSpread() const {
-	if (chart.size() < 5) return 0;
+MTrader::SpreadCalcResult MTrader::calcSpread() const {
+	if (chart.size() < 5) return SpreadCalcResult{0,0};
 	std::vector<double> values(chart.size());
 	std::transform(chart.begin(), chart.end(),  values.begin(), [&](auto &&c) {return c.last;});
 
-	double lnspread = stCalcSpread(values.begin(), values.end(), cfg.spread_calc_sma_hours, cfg.spread_calc_stdev_hours);
+	SpreadCalcResult lnspread = stCalcSpread(values.begin(), values.end(), cfg.spread_calc_sma_hours, cfg.spread_calc_stdev_hours);
 
 	return lnspread;
 
 
 }
 
-MTrader::VisRes MTrader::visualizeSpread(std::function<std::optional<ChartItem>()> &&source, double sma, double stdev, double mult, double dyn_raise, double dyn_fall, json::StrViewA dynMode, bool strip, bool onlyTrades) {
+MTrader::VisRes MTrader::visualizeSpread(std::function<std::optional<ChartItem>()> &&source, double sma, double stdev, double mult, double dyn_raise, double dyn_fall, json::StrViewA dynMode, bool sliding,bool strip, bool onlyTrades) {
 	DynMultControl dynmult(dyn_raise, dyn_fall, strDynmult_mode[dynMode]);
 	VisRes res;
 	double last = 0;
@@ -1034,18 +1054,20 @@ MTrader::VisRes MTrader::visualizeSpread(std::function<std::optional<ChartItem>(
 	std::size_t mx = std::max(isma+istdev, 2*istdev);
 	for (auto k = source(); k.has_value(); k = source()) {
 		double p = k->last;
-		if (last) {
+		if (last || sliding) {
 	/*		if (minfo.invert_price) p = 1.0/p;*/
 			prices.push_back(p);
-			double spread = stCalcSpread(prices.end()-std::min(mx,prices.size()), prices.end(), sma*60, stdev*60);
-			double low = last * std::exp(-spread*mult*dynmult.getBuyMult());
-			double high = last * std::exp(spread*mult*dynmult.getSellMult());
+			auto spread_info = stCalcSpread(prices.end()-std::min(mx,prices.size()), prices.end(), sma*60, stdev*60);
+			double spread = spread_info.spread;
+			double center = sliding?spread_info.center:0;
+			double low = (center+last) * std::exp(-spread*mult*dynmult.getBuyMult());
+			double high = (center+last) * std::exp(spread*mult*dynmult.getSellMult());
 			double size = 0;
 			if (p > high) {
-				last = p; size = -1;dynmult.update(false,true);
+				last = high-center; size = -1;dynmult.update(false,true);
 			}
 			else if (p < low) {
-				last = p; size = 1;dynmult.update(true,false);
+				last = low-center; size = 1;dynmult.update(true,false);
 			}
 			else {
 				dynmult.update(false,false);
