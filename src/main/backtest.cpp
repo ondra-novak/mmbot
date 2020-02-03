@@ -42,11 +42,11 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 				double dir = p>bt.price.price?-1:1;
 				double mult = dir>0?cfg.buy_mult:cfg.sell_mult;
 				Strategy::OrderData order = s.getNewOrder(minfo, bt.price.price, p, dir, pos, balance);
-				Strategy::adjustOrder(dir, mult,cfg.dust_orders, order);
+				Strategy::adjustOrder(dir, mult,cfg.alerts||cfg.delayed_alerts, order);
 				if (order.alert) {
 					if (fill_atprice) {
 						Strategy::OrderData rorder = s.getNewOrder(minfo, bt.price.price, 2*bt.price.price - p, -dir, pos, balance);
-						Strategy::adjustOrder(-dir, mult,cfg.dust_orders, rorder);
+						Strategy::adjustOrder(-dir, mult,cfg.alerts, rorder);
 						if (rorder.price == bt.price.price && rorder.size) {
 							rorder.size  = IStockApi::MarketInfo::adjValue(rorder.size,minfo.asset_step,round);
 							if (std::abs(rorder.size) >= minsize) {

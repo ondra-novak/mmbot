@@ -204,9 +204,11 @@ Specifies maximum allowed asset balance (or position, for short use negative val
 <div class="label adv"><span>Options<span class="tooltip"
 ><strong>Internal balance</strong> - track balance by trades - do not use balance from exchange<br><br>
 <strong>Alerts</strong> - Enables to use alerts when strategy is unable to put order in reasonable distance from the current price. Alert allows to recalculate strategy when price crosses the alert price but without actual trading. The crossed alerts are reported in the list of the trades. Note that strategy can still use alerts even if this option is disabled<br><br>
+<strong>Delayed alerts</strong> - Enables delaying the alert after some time from the last trade. The time is specified by the value <em>Accept&nbsp;loss</em>. If the <em>Accept&nbsp;loss</em> is zero, then time is calculated as average period between (real) trades<br><br>
  </span></span><div>
 <div><x-checkbox data-name="internal_balance">Internal balance</x-checkbox></div>
-<div><x-checkbox data-name="dust_orders">Alerts</x-checkbox></div>
+<div><x-checkbox data-name="alerts">Alerts</x-checkbox></div>
+<div><x-checkbox data-name="delayed_alerts">Delayed alerts</x-checkbox></div>
 </div>
 </div>
 <label class="adv"><span>Report - position offset<span class="tooltip">Allows to sync the position on the report page with the actual state on the echange.<br>

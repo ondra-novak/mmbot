@@ -598,7 +598,7 @@ App.prototype.fillForm = function (src, trg) {
 	data.enabled = src.enabled;
 	data.hidden = !!src.hidden;
 	data.dry_run = src.dry_run;
-	data.accept_loss = filledval(src.accept_loss,1);
+	data.accept_loss = filledval(src.accept_loss,0);
 	data.spread_calc_stdev_hours = filledval(src.spread_calc_stdev_hours,4);
 	data.spread_calc_sma_hours = filledval(src.spread_calc_sma_hours,24);
 	data.dynmult_raise = filledval(src.dynmult_raise,250);
@@ -611,7 +611,8 @@ App.prototype.fillForm = function (src, trg) {
 	data.min_size = filledval(src.min_size,0);
 	data.max_size = filledval(src.max_size,0);
 	data.internal_balance = filledval(src.internal_balance,0);
-	data.dust_orders = filledval(src.dust_orders,true);
+	data.alerts = filledval(src.alerts,true);
+	data.delayed_alerts= filledval(src.delayed_alerts,true);
 	data.detect_manual_trades = filledval(src.detect_manual_trades,false);
 	data.report_position_offset = filledval(src.report_position_offset,0);
 	data.report_order = filledval(src.report_order,0);
@@ -728,7 +729,8 @@ App.prototype.saveForm = function(form, src) {
 	trader.min_size = data.min_size;
 	trader.max_size = data.max_size;
 	trader.internal_balance = data.internal_balance;
-	trader.dust_orders = data.dust_orders;
+	trader.alerts = data.alerts;
+	trader.delayed_alerts= data.delayed_alerts;
 	trader.detect_manual_trades = data.detect_manual_trades;
 	trader.report_position_offset = data.report_position_offset;
 	trader.report_order = data.report_order;
@@ -1334,7 +1336,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 	var url = "api/backtest";
 	form.enableItem("show_backtest",false);		
 	var inputs = ["external_assets", "acum_factor","kv_valinc","pl_confmode","pl_power","pl_baluse","cstep",
-		"max_pos","neutral_pos","pl_redmode","pl_redfact","pl_acum","min_size","max_size","order_mult","dust_orders","linear_suggest","linear_suggest_maxpos","pl_slrev",
+		"max_pos","neutral_pos","pl_redmode","pl_redfact","pl_acum","min_size","max_size","order_mult","alerts","delayed_alerts","linear_suggest","linear_suggest_maxpos","pl_slrev",
 		"st_power","st_neutral_pos","st_close","st_max_step","st_pattern","st_close_on_rev"];
 	var spread_inputs = ["spread_calc_stdev_hours", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode","dynmult_sliding"];
 	var balance = form._balance;

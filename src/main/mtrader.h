@@ -64,7 +64,8 @@ struct MTrader_Config {
 	bool detect_manual_trades;
 	bool enabled;
 	bool hidden;
-	bool dust_orders;
+	bool alerts;
+	bool delayed_alerts;
 	bool dynmult_scale;
 	bool dynmult_sliding;
 
@@ -138,6 +139,8 @@ public:
 		double spreadCenter;
 		IStockApi::TradesSync new_trades;
 		ChartItem chartItem;
+		bool enable_alerts;
+		std::size_t enable_alerts_after_minutes;
 	};
 
 	Status getMarketStatus() const;
@@ -148,7 +151,8 @@ public:
 			double curPrice,
 			double balance,
 			double currency,
-			double mult) const;
+			double mult,
+			bool alerts) const;
 	Order calculateOrderFeeLess(
 			double lastTradePrice,
 			double step,
@@ -156,7 +160,8 @@ public:
 			double curPrice,
 			double balance,
 			double currency,
-			double mult) const;
+			double mult,
+			bool alerts) const;
 
 	const Config &getConfig() {return cfg;}
 
@@ -274,6 +279,7 @@ private:
 
 
 	void initialize();
+	mutable std::uint64_t period_cache = 0;
 };
 
 

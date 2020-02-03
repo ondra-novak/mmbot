@@ -74,7 +74,8 @@ void MTrader_Config::loadConfig(json::Value data, bool force_dry_run) {
 	detect_manual_trades= data["detect_manual_trades"].getValueOrDefault(false);
 	enabled= data["enabled"].getValueOrDefault(true);
 	hidden = data["hidden"].getValueOrDefault(false);
-	dust_orders= data["dust_orders"].getValueOrDefault(true);
+	alerts= data["alerts"].getValueOrDefault(true);
+	delayed_alerts= data["delayed_alerts"].getValueOrDefault(true);
 	dynmult_scale = data["dynmult_scale"].getValueOrDefault(true);
 	dynmult_sliding = data["dynmult_sliding"].getValueOrDefault(false);
 
@@ -164,6 +165,7 @@ void MTrader::alertTrigger(Status &st, double price) {
 		0,
 		price
 	});
+	st.enable_alerts = false;
 }
 
 void MTrader::perform(bool manually) {
@@ -234,13 +236,13 @@ void MTrader::perform(bool manually) {
 													  -status.curStep*cfg.buy_step_mult, dynmult.getBuyMult(),
 													   status.ticker.bid, status.assetBalance,
 													   status.currencyBalance,
-													   cfg.buy_mult);
+													   cfg.buy_mult, status.enable_alerts);
 						//calculate sell order
 					Order sellorder = calculateOrder(lastTradePrice,
 													   status.curStep*cfg.sell_step_mult, dynmult.getSellMult(),
 													   status.ticker.ask, status.assetBalance,
 													   status.currencyBalance,
-													   cfg.sell_mult);
+													   cfg.sell_mult, status.enable_alerts);
 
 
 
@@ -476,8 +478,38 @@ MTrader::Status MTrader::getMarketStatus() const {
 	res.chartItem.ask = ticker.ask;
 	res.chartItem.last = ticker.last;
 
+	if (cfg.delayed_alerts && !trades.empty()) {
+		if (res.new_trades.trades.empty()) {
+			auto now = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+			auto ellapsed = now - trades.back().time;
+			using TT = decltype(ellapsed);
+			TT period;
+			if (cfg.accept_loss) {
+				period = cfg.accept_loss * static_cast<TT>(3600*1000);
+			} else {
+				if (period_cache) {
+					period = period_cache;
+				} else {
+					auto cnt = std::count_if(trades.begin(), trades.end(), [&](const IStatSvc::TradeRecord &t) {
+						return t.size != 0;
+					});
+					auto sum = std::accumulate(trades.begin()+1, trades.end(), std::pair(trades[0].time, TT(0)), [&](const auto &c, const auto &t) {
+						if (t.size != 0) return std::pair(t.time, c.second+(t.time-c.first)); else return c;
+					});
+					if (cnt>1) period = sum.second /(cnt-1); else period = 0;
+					period_cache = period;
+				}
+			}
+			res.enable_alerts = ellapsed > period;
+			res.enable_alerts_after_minutes = period - ellapsed;
+		} else {
+			res.enable_alerts = false;
+			period_cache = 0;
+		}
 
-
+	} else {
+		res.enable_alerts = cfg.alerts;
+	}
 	return res;
 }
 
@@ -489,7 +521,8 @@ MTrader::Order MTrader::calculateOrderFeeLess(
 		double curPrice,
 		double balance,
 		double currency,
-		double mult) const {
+		double mult,
+		bool alerts) const {
 
 	double m = 1;
 
@@ -517,7 +550,7 @@ MTrader::Order MTrader::calculateOrderFeeLess(
 
 		if (order.price <= 0) order.price = newPrice;
 		if ((order.price - curPrice) * dir > 0) order.price = curPrice;
-		Strategy::adjustOrder(dir, mult, cfg.dust_orders, order);
+		Strategy::adjustOrder(dir, mult, alerts, order);
 		if (order.alert) return order;
 
 		if (cfg.max_size && std::fabs(order.size) > cfg.max_size) {
@@ -538,7 +571,7 @@ MTrader::Order MTrader::calculateOrderFeeLess(
 
 	} while (cnt < 1000 && order.size == 0 && (std::abs(prevSz) < std::abs(sz) || cnt < 10));
 	order.size = limitOrderMinMaxBalance(balance, order.size);
-	order.alert = !order.size && cfg.dust_orders;
+	order.alert = !order.size && cfg.alerts;
 
 	return order;
 
@@ -551,9 +584,10 @@ MTrader::Order MTrader::calculateOrder(
 		double curPrice,
 		double balance,
 		double currency,
-		double mult) const {
+		double mult,
+		bool alerts) const {
 
-		Order order(calculateOrderFeeLess(lastTradePrice, step,dynmult,curPrice,balance,currency,mult));
+		Order order(calculateOrderFeeLess(lastTradePrice, step,dynmult,curPrice,balance,currency,mult,alerts));
 		//apply fees
 		if (!order.alert) minfo.addFees(order.size, order.price);
 
