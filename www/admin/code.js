@@ -98,7 +98,10 @@ App.prototype.createTraderForm = function() {
 		form.setData({"help_goal":{"class":state.strategy}});
 		form.getRoot().classList.toggle("no_adv", !state["advanced"]);
 		form.getRoot().classList.toggle("no_experimental", !state["check_unsupp"]);
-		
+		if (form.onChangeStrategy) {
+			form.onChangeStrategy(state);
+		}
+		return state;
 	};
 	form.setItemEvent("strategy","change", form.dlgRules.bind(form));
 	form.setItemEvent("advanced","change", form.dlgRules.bind(form));
@@ -499,7 +502,7 @@ App.prototype.fillForm = function (src, trg) {
 		data.linear_suggest_maxpos = {"!click":linStrategy_recomended_maxpos};
 		data.external_assets = {"!input": halfHalf_recalc};
 		data.vis_spread = {"!click": this.init_spreadvis.bind(this, trg, src.id)};
-		data.show_backtest= {"!click": this.init_backtest.bind(this, trg, src.id, src.pair_symbol, src.broker)};
+		data.show_backtest= {"!click": this.init_backtest.bind(this, trg, src.id, src.pair_symbol, src.broker)};		
 		linStrategy_recalc();
 		halfHalf_recalc();
 		linStrategy_recalc_power();
@@ -524,6 +527,10 @@ App.prototype.fillForm = function (src, trg) {
 		trg.forEachElement("neutral_pos",function(x) {
 			x.parentNode.classList.toggle("adv", pair.leverage != 0);
 		});
+		if (!pair.leverage) {
+			var elm = trg.findElements("st_power")[0].querySelector("input[type=range]");
+			elm.setAttribute("max","199");
+		}
 		
 		
 	}.bind(this);
@@ -553,8 +560,7 @@ App.prototype.fillForm = function (src, trg) {
 	data.pl_redmode="rp";
 	data.pl_slrev=0;
 	data.kv_valinc = 0;
-	data.st_power={"value":1};
-	data.st_neutral_pos=0;
+	data.st_power={"value":1.7};
 	data.st_max_step=1;
 	data.st_close=false;
 	data.st_close_on_rev=true;
@@ -568,9 +574,8 @@ App.prototype.fillForm = function (src, trg) {
 		data.external_assets = filledval(src.strategy.ea,0);
 		data.kv_valinc = filledval(src.strategy.valinc,0);
 	} else if (data.strategy == "stairs") {
-		data.st_power = filledval(src.strategy.power,1);
+		data.st_power = filledval(src.strategy.power,1.7);
 		data.st_show_factor = powerCalc(data.st_power.value)
-		data.st_neutral_pos = filledval(src.strategy.neutral_pos,0);
 		data.st_max_step = filledval(src.strategy.max_steps,1);
 		data.st_close = filledval(src.strategy.zero_step,false);
 		data.st_pattern = filledval(src.strategy.pattern,"constant");
@@ -669,6 +674,21 @@ App.prototype.fillForm = function (src, trg) {
 		return x;
 	}
 
+	trg.onChangeStrategy = function(state) {
+		var data = {}; 
+		if (src.alerts === undefined) {
+			if (state.strategy == "stairs") {
+				data.alerts = false;
+				data.delayed_alerts = false;
+				data.dynmult_sliding = true;
+			} else {
+				data.dynmult_sliding = false;
+			}
+			trg.setData(data);
+		}
+	}
+
+	
 
 	return trg.setData(data).catch(function(){}).then(unhide_changed.bind(this)).then(trg.dlgRules.bind(trg));
 }
@@ -699,7 +719,6 @@ App.prototype.saveForm = function(form, src) {
 		trader.strategy ={
 				type: data.strategy,
 				power : data.st_power,
-				neutral_pos: data.st_neutral_pos,
 				zero_step: data.st_close,
 				max_steps: data.st_max_step,
 				close_on_reverse: data.st_close_on_rev,
@@ -1337,7 +1356,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 	form.enableItem("show_backtest",false);		
 	var inputs = ["external_assets", "acum_factor","kv_valinc","pl_confmode","pl_power","pl_baluse","cstep",
 		"max_pos","neutral_pos","pl_redmode","pl_redfact","pl_acum","min_size","max_size","order_mult","alerts","delayed_alerts","linear_suggest","linear_suggest_maxpos","pl_slrev",
-		"st_power","st_neutral_pos","st_close","st_max_step","st_pattern","st_close_on_rev"];
+		"st_power","st_close","st_max_step","st_pattern","st_close_on_rev"];
 	var spread_inputs = ["spread_calc_stdev_hours", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode","dynmult_sliding"];
 	var balance = form._balance;
 	var days = 45*60*60*24*1000;

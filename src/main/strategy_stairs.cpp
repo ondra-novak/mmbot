@@ -68,10 +68,10 @@ IStrategy::OrderData Strategy_Stairs::getNewOrder(
 		const IStockApi::MarketInfo &minfo, double cur_price, double new_price,
 		double dir, double assets, double currency) const {
 
-	double power = calcPower(st.price, currency);
+	double power = st.power;
 	auto step = getNextStep(dir);
 	double new_pos = power * calcPattern(step);
-	return OrderData{0.0,calcOrderSize(posToAssets(minfo,st.pos),assets, posToAssets(minfo,new_pos))};
+	return OrderData{0.0,calcOrderSize(posToAssets(st.pos),assets, posToAssets(	new_pos))};
 }
 
 std::pair<IStrategy::OnTradeResult, ondra_shared::RefCntPtr<const IStrategy> > Strategy_Stairs::onTrade(
@@ -81,8 +81,8 @@ std::pair<IStrategy::OnTradeResult, ondra_shared::RefCntPtr<const IStrategy> > S
 	if (!isValid()) return onIdle(minfo,{tradePrice,tradePrice,tradePrice,0},assetsLeft,currencyLeft)
 						->onTrade(minfo,tradePrice,tradeSize,assetsLeft,currencyLeft);
 	double dir = sgn(tradeSize);
-	double power = calcPower(st.price, currencyLeft);
-	double curpos = assetsToPos(minfo, assetsLeft);
+	double power = st.power;
+	double curpos = assetsToPos(assetsLeft);
 	double prevpos = curpos - tradeSize;
 	intptr_t step = getNextStep(dir);
 	State nst = st;
@@ -93,6 +93,12 @@ std::pair<IStrategy::OnTradeResult, ondra_shared::RefCntPtr<const IStrategy> > S
 	double spread = std::abs(tradePrice - st.price);
 	double astp = std::abs(nst.step);
 	nst.value = power * spread * astp* (astp+1) / 2;
+	if (minfo.leverage) {
+		nst.power = calcPower(tradePrice, currencyLeft);
+	} else {
+		nst.neutral_pos = calcNeutralPos(assetsLeft,currencyLeft, tradePrice);
+		nst.power = calcPower(tradePrice, nst.neutral_pos * tradePrice);
+	}
 	return {
 		OnTradeResult{
 			prevpos * (tradePrice - st.price) + (nst.value - st.value),
@@ -110,7 +116,7 @@ IStrategy::MinMax Strategy_Stairs::calcSafeRange(
 }
 
 bool Strategy_Stairs::isValid() const {
-	return st.price > 0;
+	return st.price > 0 && st.power > 0;
 }
 
 json::Value Strategy_Stairs::exportState() const {
@@ -118,6 +124,8 @@ json::Value Strategy_Stairs::exportState() const {
 					   ("pos", st.pos)
 					   ("open", st.open)
 					   ("value", st.value)
+					   ("neutral_pos", st.neutral_pos)
+					   ("power", st.power)
 					   ("step", st.step);
 }
 
@@ -131,9 +139,14 @@ PStrategy Strategy_Stairs::onIdle(const IStockApi::MarketInfo &minfo,
 		double currency) const {
 	if (isValid()) return this;
 	else {
-		double ps = calcPower(curTicker.last, currency);
-		double gs = std::round(assetsToPos(minfo,assets) / ps);
-		return new Strategy_Stairs(cfg, State {curTicker.last, assets - cfg.neutral_pos, curTicker.last, 0, static_cast<intptr_t>(gs)});
+		if (minfo.leverage) {
+			double ps = calcPower(curTicker.last, currency);
+			return new Strategy_Stairs(cfg, State {curTicker.last, 0, curTicker.last, 0, 0, ps,  0});
+		} else {
+			double neutral_pos = calcNeutralPos(assets,currency, curTicker.last);
+			double ps = calcPower(curTicker.last, neutral_pos * curTicker.last);
+			return new Strategy_Stairs(cfg, State {curTicker.last, 0, curTicker.last, 0, neutral_pos, ps,  0});
+		}
 	}
 
 }
@@ -165,6 +178,8 @@ json::Value Strategy_Stairs::dumpStatePretty(
 			("Last price", minfo.invert_price?1.0/st.price:st.price)
 			("Position", minfo.invert_price?-st.pos:st.pos)
 			("Step", minfo.invert_price?-st.step:st.step)
+			("Velocity", minfo.invert_price?-st.power:st.power)
+			("Neutral position", minfo.invert_price?-st.neutral_pos:st.neutral_pos)
 			("Open price", minfo.invert_price?1.0/st.open:st.open);
 
 }
@@ -175,17 +190,21 @@ PStrategy Strategy_Stairs::importState(json::Value src) const {
 		src["pos"].getNumber(),
 		src["open"].getNumber(),
 		src["value"].getNumber(),
+		src["neutral_pos"].getNumber(),
+		src["power"].getNumber(),
 		src["step"].getInt()
 	});
 }
-double Strategy_Stairs::getNeutralPos(const IStockApi::MarketInfo &minfo) const {
-	return (minfo.invert_price?-1.0:1.0)*cfg.neutral_pos;
+double Strategy_Stairs::assetsToPos(double assets) const {
+	return assets - st.neutral_pos;
 }
-double Strategy_Stairs::assetsToPos(const IStockApi::MarketInfo &minfo,double assets) const {
-	return assets - getNeutralPos(minfo);
-}
-double Strategy_Stairs::posToAssets(const IStockApi::MarketInfo &minfo,double pos) const {
-	return pos + getNeutralPos(minfo);
+double Strategy_Stairs::posToAssets(double pos) const {
+	return pos + st.neutral_pos;
 }
 
+double Strategy_Stairs::calcNeutralPos(double assets, double currency, double price) const {
+	double value = assets * price + currency;
+	double middle = value/2;
+	return middle/price;
+}
 
