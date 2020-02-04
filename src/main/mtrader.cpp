@@ -383,6 +383,9 @@ void MTrader::setOrder(std::optional<IStockApi::Order> &orig, Order neworder, st
 			neworder.update(orig);
 			return;
 		}
+		if (neworder.size == 0 && orig.has_value()) {
+			return;
+		}
 		IStockApi::Order n {json::undefined, magic, neworder.size, neworder.price};
 		try {
 			json::Value replaceid;
@@ -532,16 +535,19 @@ MTrader::Order MTrader::calculateOrderFeeLess(
 	Order order;
 
 	double min_size = std::max(cfg.min_size, minfo.min_size);
+	double dir = sgn(-step);
 
 	do {
 		prevSz = sz;
 
 		double newPrice = prevPrice * exp(step*dynmult*m);
 		double newPriceNoScale= prevPrice * exp(step*m);
-		double dir = sgn(-step);
 
 		//if newPrice > curPrice when buy or newPrice < curPrice when sell, fix to curPrice
-		if ((newPrice - curPrice) * dir > 0) newPrice = curPrice;
+		if ((newPrice - curPrice) * dir > 0) {
+			newPrice = curPrice;
+			step = log(curPrice/prevPrice);
+		}
 		order= strategy.getNewOrder(minfo,curPrice, cfg.dynmult_scale?newPrice:newPriceNoScale,dir, balance, currency);
 
 		sz = order.size;
@@ -549,7 +555,9 @@ MTrader::Order MTrader::calculateOrderFeeLess(
 
 
 		if (order.price <= 0) order.price = newPrice;
-		if ((order.price - curPrice) * dir > 0) order.price = curPrice;
+		if ((order.price - curPrice) * dir > 0) {
+			order.price = curPrice;
+		}
 		Strategy::adjustOrder(dir, mult, alerts, order);
 		if (order.alert) return order;
 
@@ -569,7 +577,7 @@ MTrader::Order MTrader::calculateOrderFeeLess(
 		cnt++;
 		m = m*1.1;
 
-	} while (cnt < 1000 && order.size == 0 && (std::abs(prevSz) < std::abs(sz) || cnt < 10));
+	} while (cnt < 1000 && order.size == 0 && ((sz - prevSz)*dir>0  || cnt < 10));
 	order.size = limitOrderMinMaxBalance(balance, order.size);
 	order.alert = !order.size && cfg.alerts;
 
