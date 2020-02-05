@@ -33,6 +33,8 @@ public:
 		double pos = 0;
 		double open = 0;
 		double value = 0;
+		double neutral_pos = 0;
+		double power = 0;
 		intptr_t step = 0;
 	};
 
@@ -69,10 +71,11 @@ protected:
 	double calcPower(double price, double currency) const;
 	intptr_t getNextStep(double dir) const;
 
-	double getNeutralPos(const IStockApi::MarketInfo &minfo) const;
-	double assetsToPos(const IStockApi::MarketInfo &minfo, double assets) const;
-	double posToAssets(const IStockApi::MarketInfo &minfo, double pos) const;
+	double assetsToPos(double assets) const;
+	double posToAssets(double pos) const;
 	double calcPattern(std::intptr_t step) const;
+
+	double calcNeutralPos(double assets, double currency, double price) const;
 
 };
 

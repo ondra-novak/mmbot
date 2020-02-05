@@ -21,11 +21,14 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 
 	BTTrade bt;
 	bt.price = *price;
+
 	trades.push_back(bt);
 
 	double pl = 0;
 	double minsize = std::max(minfo.min_size, cfg.min_size);
 	int cont = 0;
+	const std::uint64_t sliding_spread_wait = cfg.spread_calc_sma_hours *50000;
+	const std::uint64_t delayed_alert_wait = cfg.accept_loss * 3600000;
 	bool rep;
 	for (price = priceSource();price.has_value();price = priceSource()) {
 		cont = 0;
@@ -43,11 +46,13 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 				double dir = p>bt.price.price?-1:1;
 				double mult = dir>0?cfg.buy_mult:cfg.sell_mult;
 				Strategy::OrderData order = s.getNewOrder(minfo, bt.price.price, p, dir, pos, balpl);
-				Strategy::adjustOrder(dir, mult,cfg.alerts||cfg.delayed_alerts, order);
+				bool allowAlert = (cfg.dynmult_sliding && price->time - bt.price.time > sliding_spread_wait)
+						|| (cfg.delayed_alerts &&  price->time - bt.price.time >delayed_alert_wait);
+				Strategy::adjustOrder(dir, mult, cfg.alerts || allowAlert, order);
 				if (order.alert) {
 					if (fill_atprice) {
 						Strategy::OrderData rorder = s.getNewOrder(minfo, bt.price.price, 2*bt.price.price - p, -dir, pos, balpl);
-						Strategy::adjustOrder(-dir, mult,cfg.alerts, rorder);
+						Strategy::adjustOrder(-dir, mult,false, rorder);
 						if (rorder.price == bt.price.price && rorder.size) {
 							rorder.size  = IStockApi::MarketInfo::adjValue(rorder.size,minfo.asset_step,round);
 							if (std::abs(rorder.size) >= minsize) {
@@ -59,7 +64,7 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 					}
 				} else {
 					order.size  = IStockApi::MarketInfo::adjValue(order.size,minfo.asset_step,round);
-					if (std::abs(order.size) < minsize) {
+					if (std::abs(order.size) < minsize && !allowAlert) {
 						pl = prevpl;
 						continue;
 					}
