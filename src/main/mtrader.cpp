@@ -1086,7 +1086,7 @@ MTrader::SpreadCalcResult MTrader::calcSpread() const {
 
 }
 
-MTrader::VisRes MTrader::visualizeSpread(std::function<std::optional<ChartItem>()> &&source, double sma, double stdev, double mult, double dyn_raise, double dyn_fall, json::StrViewA dynMode, bool sliding,bool strip, bool onlyTrades) {
+MTrader::VisRes MTrader::visualizeSpread(std::function<std::optional<ChartItem>()> &&source, double sma, double stdev, double mult, double dyn_raise, double dyn_fall, json::StrViewA dynMode, bool sliding, bool strip, bool onlyTrades) {
 	DynMultControl dynmult(dyn_raise, dyn_fall, strDynmult_mode[dynMode]);
 	VisRes res;
 	double last = 0;
