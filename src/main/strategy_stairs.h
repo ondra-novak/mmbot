@@ -19,13 +19,23 @@ public:
 		exponencial
 	};
 
+	enum Reduction {
+		step1, //reduce by one step
+		step2, //reduce by two steps
+		step3, //reduce by three steps
+		step4, //reduce by three steps
+		step5, //reduce by three steps
+		half, //reduce by half of steps
+		close, //close position
+		reverse  //close and reverse to 1 step
+	};
+
 	struct Config {
 		double power;
 		double neutral_pos;
 		Pattern pattern;
 		intptr_t max_steps;
-		bool zero_step;
-		bool close_on_reverse;
+		Reduction reduction;
 	};
 
 	struct State {
@@ -73,9 +83,14 @@ protected:
 
 	double assetsToPos(double assets) const;
 	double posToAssets(double pos) const;
-	double calcPattern(std::intptr_t step) const;
+	double stepToPos(std::intptr_t step) const;
+	std::intptr_t posToStep(double pos) const;
 
 	double calcNeutralPos(double assets, double currency, double price) const;
+
+	template<typename Fn>
+	static void serie(Pattern pat, Fn &&cb);
+
 
 };
 

@@ -16,53 +16,70 @@ Strategy_Stairs::~Strategy_Stairs() {
 
 intptr_t Strategy_Stairs::getNextStep(double dir) const {
 	auto cs = st.step;
-	if (cfg.close_on_reverse && dir * cs < 0) {
-		if (cfg.zero_step) return 0;
-		cs = 0;
+	auto idir = static_cast<int>(dir);
+	if (idir * cs >= 0) {
+		cs = cs + idir;
+	} else {
+		switch (cfg.reduction) {
+		case step1: cs = cs + idir;break;
+		case step2: cs = cs + 2*idir;break;
+		case step3: cs = cs + 3*idir;break;
+		case step4: cs = cs + 4*idir;break;
+		case step5: cs = cs + 5*idir;break;
+		case half: cs = cs + cfg.max_steps*idir/2;break;
+		case close: cs = 0;break;
+		case reverse: cs = idir;break;
+		}
 	}
-	if (dir < 0) {
-		cs = cs -1;
-		if (cs == 0 && !cfg.zero_step) cs = cs - 1;
-		else if (cs < -cfg.max_steps) cs = -cfg.max_steps;
-	}
-	else if (dir > 0) {
-		cs = cs + 1;
-		if (cs == 0 && !cfg.zero_step) cs = cs + 1;
-		else if (cs > cfg.max_steps) cs = cfg.max_steps;
-	}
-	return cs;
+	return std::min(std::max(cs, -cfg.max_steps), cfg.max_steps);
 }
 
-double Strategy_Stairs::calcPattern(std::intptr_t step) const {
-	std::uintptr_t s = std::abs(step);
-	std::intptr_t dir = sgn(step);
-	double sum = 0;
-
-	switch (cfg.pattern) {
-	default:
-	case constant: return step;
-	case harmonic: {
-		for (std::uintptr_t i = 0; i < s; i++) {
-			sum = sum + 1.0/(i+1.0);
+template<typename Fn>
+void Strategy_Stairs::serie(Pattern pat, Fn &&fn) {
+	int idx;
+	double sum;
+	switch(pat) {
+	case constant: idx = 0;
+		while (fn(idx,idx)) idx++;
+		break;
+	case harmonic: sum = 0; idx=0;
+		while (fn(idx,sum)) {++idx; sum = sum + 1.0/idx;}
+		break;
+	case arithmetic: sum = 0; idx=0;
+		while (fn(idx,sum)) {++idx; sum = sum + idx;}
+		break;
+	case exponencial:
+		if (fn(0, 0)) {
+			sum = 1;
+			idx = 1;
+			while (fn(idx,sum)) {sum = sum + sum;++idx;}
 		}
-		return sum*dir;
-	}
-	case arithmetic: {
-		for (std::uintptr_t i = 0; i < s; i++) {
-			sum = sum + (i+1.0);
-		}
-		return sum*dir;
-	}
-	case exponencial: {
-		double a = 1;
-		for (std::uintptr_t i = 0; i < s; i++) {
-			sum = a;
-			a = a + a;
-		}
-		return sum*dir;
-	}
+		break;
 	}
 }
+
+double Strategy_Stairs::stepToPos(std::intptr_t step) const {
+	if (cfg.pattern == constant) return step;
+	else {
+		double mlt = sgn(step);
+		std::intptr_t istep = std::abs(step);
+		double res = 0;
+		serie(cfg.pattern, [&](int idx, double amount){res = amount; return idx < istep;});
+		return res*mlt;
+	}
+}
+std::intptr_t Strategy_Stairs::posToStep(double pos) const{
+	std::intptr_t s = sgn(pos);
+	double p = std::abs(pos);
+	if (cfg.pattern == constant) return static_cast<std::intptr_t>(std::round(p)) * s;
+	else {
+		std::intptr_t r = 0;
+		serie(cfg.pattern, [&](int idx, double amount){r = idx; return amount<p && idx < cfg.max_steps;});
+		return r * s;
+	}
+}
+
+
 
 IStrategy::OrderData Strategy_Stairs::getNewOrder(
 		const IStockApi::MarketInfo &minfo, double cur_price, double new_price,
@@ -70,7 +87,7 @@ IStrategy::OrderData Strategy_Stairs::getNewOrder(
 
 	double power = st.power;
 	auto step = getNextStep(dir);
-	double new_pos = power * calcPattern(step);
+	double new_pos = power * stepToPos(step);
 	return OrderData{0.0,calcOrderSize(posToAssets(st.pos),assets, posToAssets(	new_pos))};
 }
 
@@ -80,14 +97,14 @@ std::pair<IStrategy::OnTradeResult, ondra_shared::RefCntPtr<const IStrategy> > S
 
 	if (!isValid()) return onIdle(minfo,{tradePrice,tradePrice,tradePrice,0},assetsLeft,currencyLeft)
 						->onTrade(minfo,tradePrice,tradeSize,assetsLeft,currencyLeft);
-	double dir = sgn(tradeSize);
+//	double dir = sgn(tradeSize);
 	double power = st.power;
 	double curpos = assetsToPos(assetsLeft);
 	double prevpos = curpos - tradeSize;
-	intptr_t step = getNextStep(dir);
+	intptr_t step = posToStep(std::round(curpos/power));
 	State nst = st;
 	nst.price = tradePrice;
-	nst.pos = power * calcPattern(step);
+	nst.pos = curpos;
 	nst.open = curpos*prevpos <=0 ? tradePrice:(st.open*prevpos + tradeSize*tradePrice)/curpos;
 	nst.step = step;
 	double spread = std::abs(tradePrice - st.price);
@@ -132,7 +149,7 @@ json::Value Strategy_Stairs::exportState() const {
 }
 
 double Strategy_Stairs::calcPower(double price, double currency) const {
-	double steps = calcPattern(cfg.max_steps);
+	double steps = stepToPos(cfg.max_steps);
 	return (currency / price * std::pow(10, cfg.power)*0.01)/steps;
 }
 
@@ -141,14 +158,17 @@ PStrategy Strategy_Stairs::onIdle(const IStockApi::MarketInfo &minfo,
 		double currency) const {
 	if (isValid()) return this;
 	else {
+		PStrategy g;
 		if (minfo.leverage) {
 			double ps = calcPower(curTicker.last, currency);
-			return new Strategy_Stairs(cfg, State {curTicker.last, 0, curTicker.last, 0, 0, ps,  0});
+			g = new Strategy_Stairs(cfg, State {curTicker.last, 0, curTicker.last, 0, 0, ps,  0});
 		} else {
 			double neutral_pos = calcNeutralPos(assets,currency, curTicker.last);
 			double ps = calcPower(curTicker.last, neutral_pos * curTicker.last);
-			return new Strategy_Stairs(cfg, State {curTicker.last, 0, curTicker.last, 0, neutral_pos, ps,  0});
+			g = new Strategy_Stairs(cfg, State {curTicker.last, 0, curTicker.last, 0, neutral_pos, ps,  0});
 		}
+		if (g->isValid()) return g;
+		else throw std::runtime_error("Stairs: Invalid settings - unable to initialize strategy");
 	}
 
 }

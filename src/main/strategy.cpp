@@ -40,6 +40,18 @@ static json::NamedEnum<Strategy_Stairs::Pattern> strStairsPattern ({
 		{Strategy_Stairs::harmonic,"harmonic"}
 });
 
+static json::NamedEnum<Strategy_Stairs::Reduction> strStairsReduction ({
+		{Strategy_Stairs::step1,"step1"},
+		{Strategy_Stairs::step2,"step2"},
+		{Strategy_Stairs::step2,""},
+		{Strategy_Stairs::step3,"step3"},
+		{Strategy_Stairs::step4,"step4"},
+		{Strategy_Stairs::step5,"step5"},
+		{Strategy_Stairs::half,"half"},
+		{Strategy_Stairs::close,"close"},
+		{Strategy_Stairs::reverse,"reverse"}
+});
+
 using ondra_shared::StrViewA;
 Strategy Strategy::create(std::string_view id, json::Value config) {
 
@@ -75,9 +87,8 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 		Strategy_Stairs::Config cfg;
 		cfg.power = config["power"].getNumber();
 		cfg.neutral_pos= config["neutral_pos"].getNumber();
-		cfg.zero_step= config["zero_step"].getBool();
+		cfg.reduction= strStairsReduction[config["reduction"].getString()];
 		cfg.max_steps=config["max_steps"].getInt();
-		cfg.close_on_reverse=config["close_on_reverse"].getBool();
 		cfg.pattern=strStairsPattern[config["pattern"].getString()];
 		return Strategy(new Strategy_Stairs(cfg));
 	} else {

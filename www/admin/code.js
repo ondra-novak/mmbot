@@ -562,8 +562,7 @@ App.prototype.fillForm = function (src, trg) {
 	data.kv_valinc = 0;
 	data.st_power={"value":1.7};
 	data.st_max_step=1;
-	data.st_close=false;
-	data.st_close_on_rev=true;
+	data.st_reduction="step2";
 	data.st_pattern = "constant";
 
 	function powerCalc(x) {return adjNumN(Math.pow(10,x)*0.01);};
@@ -577,9 +576,8 @@ App.prototype.fillForm = function (src, trg) {
 		data.st_power = filledval(src.strategy.power,1.7);
 		data.st_show_factor = powerCalc(data.st_power.value)
 		data.st_max_step = filledval(src.strategy.max_steps,1);
-		data.st_close = filledval(src.strategy.zero_step,false);
 		data.st_pattern = filledval(src.strategy.pattern,"constant");
-		data.st_close_on_rev = filledval(src.strategy.close_on_reverse,true);
+		data.st_reduction= filledval(src.strategy.reduction,"step2");
 	} else if (data.strategy == "plfrompos") {
 		data.pl_acum = filledval(defval(src.strategy.accum,0)*100,0);
 		data.neutral_pos = filledval(src.strategy.neutral_pos,0);		
@@ -719,10 +717,9 @@ App.prototype.saveForm = function(form, src) {
 		trader.strategy ={
 				type: data.strategy,
 				power : data.st_power,
-				zero_step: data.st_close,
 				max_steps: data.st_max_step,
-				close_on_reverse: data.st_close_on_rev,
-				pattern: data.st_pattern
+				pattern: data.st_pattern,
+				reduction:data.st_reduction
 		}
 	}
 	trader.id = src.id;
@@ -1356,7 +1353,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 	form.enableItem("show_backtest",false);		
 	var inputs = ["external_assets", "acum_factor","kv_valinc","pl_confmode","pl_power","pl_baluse","cstep",
 		"max_pos","neutral_pos","pl_redmode","pl_redfact","pl_acum","min_size","max_size","order_mult","alerts","delayed_alerts","linear_suggest","linear_suggest_maxpos","pl_slrev",
-		"st_power","st_close","st_max_step","st_pattern","st_close_on_rev","dynmult_sliding","accept_loss","spread_calc_sma_hours"];
+		"st_power","st_reduction","st_max_step","st_pattern","dynmult_sliding","accept_loss","spread_calc_sma_hours"];
 	var spread_inputs = ["spread_calc_stdev_hours", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode","dynmult_sliding"];
 	var balance = form._balance;
 	var days = 45*60*60*24*1000;
