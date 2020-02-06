@@ -57,6 +57,13 @@ static json::NamedEnum<Strategy_Stairs::Reduction> strStairsReduction ({
 		{Strategy_Stairs::same_3,"same_3"}
 });
 
+static json::NamedEnum<Strategy_Stairs::TradingMode> strStairsTMode ({
+	{Strategy_Stairs::autodetect,""},
+	{Strategy_Stairs::autodetect,"auto"},
+	{Strategy_Stairs::exchange,"exchange"},
+	{Strategy_Stairs::margin,"margin"}
+});
+
 using ondra_shared::StrViewA;
 Strategy Strategy::create(std::string_view id, json::Value config) {
 
@@ -95,6 +102,7 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 		cfg.reduction= strStairsReduction[config["reduction"].getString()];
 		cfg.max_steps=config["max_steps"].getInt();
 		cfg.pattern=strStairsPattern[config["pattern"].getString()];
+		cfg.mode = strStairsTMode[config["mode"].getString()];
 		return Strategy(new Strategy_Stairs(cfg));
 	} else {
 		throw std::runtime_error(std::string("Unknown strategy: ").append(id));

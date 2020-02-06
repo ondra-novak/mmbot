@@ -90,6 +90,11 @@ to enter a negative value and then the value of the assets held will decrease an
 <div class="rightinfo"><button name="show_backtest">Backtest</button></div>
 </x-section>
 <x-section data-name="strategy_stairs" class="goal" hidden="hidden"><x-section-caption>Stairs</x-section-caption>
+<label class="adv"><span>Trading mode</span><select data-name="st_tmode">
+<option value="auto" selected="selected">Auto</option>
+<option value="exchange">Exchange</option>
+<option value="margin">Margin</option>
+</select></label>
 <label><span>Power (<span data-name="st_show_factor"></span>x)<span class="tooltip">Specifies power of 10 multiplier of current balance used to automatically calculate the step (for 1% of movement). <br><br>Use <strong>0.5</strong> for <strong>cryptocurrencies</strong> <br>and values between <strong>3-4</strong> for <strong>Forex</strong></span></span><x-slider data-name="st_power" data-min="0.01" data-max="5" data-mult="0.01" data-fixed="2"></x-slider></label>
 <label><span>Max steps<span class="tooltip">TBD</span></span><x-slider data-name="st_max_step" data-min="1" data-max="50" data-mult="1" data-fixed="0"></x-slider></label>
 <label><span>Series</span><select data-name="st_pattern">

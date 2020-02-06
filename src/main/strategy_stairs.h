@@ -35,12 +35,19 @@ public:
 		same_3
 	};
 
+	enum TradingMode {
+		autodetect,
+		exchange,
+		margin
+	};
+
 	struct Config {
 		double power;
 		double neutral_pos;
 		Pattern pattern;
 		intptr_t max_steps;
 		Reduction reduction;
+		TradingMode mode;
 	};
 
 	struct State {
@@ -79,6 +86,7 @@ public:
 
 
 	static std::string_view id;
+	bool isMargin(const IStockApi::MarketInfo& minfo) const;
 protected:
 	const Config cfg;
 	State st;

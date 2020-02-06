@@ -97,6 +97,16 @@ IStrategy::OrderData Strategy_Stairs::getNewOrder(
 	return OrderData{0.0,sz,sz*dir<0 && step != st.step};
 }
 
+bool Strategy_Stairs::isMargin(const IStockApi::MarketInfo& minfo) const {
+	switch (cfg.mode) {
+	default:
+	case autodetect: return minfo.leverage != 0;
+	case exchange: return false;
+	case margin: return true;
+	}
+
+}
+
 std::pair<IStrategy::OnTradeResult, ondra_shared::RefCntPtr<const IStrategy> > Strategy_Stairs::onTrade(
 		const IStockApi::MarketInfo &minfo, double tradePrice, double tradeSize,
 		double assetsLeft, double currencyLeft) const {
@@ -117,7 +127,7 @@ std::pair<IStrategy::OnTradeResult, ondra_shared::RefCntPtr<const IStrategy> > S
 	double astp = std::abs(nst.step);
 	nst.value = power * spread * astp* (astp+1) / 2;
 	if (nst.pos * st.pos <=0) {
-		if (minfo.leverage) {
+		if (isMargin(minfo)) {
 			nst.power = calcPower(tradePrice, currencyLeft);
 		} else {
 			nst.neutral_pos = calcNeutralPos(assetsLeft,currencyLeft, tradePrice);
@@ -165,7 +175,7 @@ PStrategy Strategy_Stairs::onIdle(const IStockApi::MarketInfo &minfo,
 	if (isValid()) return this;
 	else {
 		PStrategy g;
-		if (minfo.leverage) {
+		if (isMargin(minfo)) {
 			double ps = calcPower(curTicker.last, currency);
 			g = new Strategy_Stairs(cfg, State {curTicker.last, 0, curTicker.last, 0, 0, ps,  posToStep(assets)});
 		} else {
