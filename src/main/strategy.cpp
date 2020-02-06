@@ -49,7 +49,12 @@ static json::NamedEnum<Strategy_Stairs::Reduction> strStairsReduction ({
 		{Strategy_Stairs::step5,"step5"},
 		{Strategy_Stairs::half,"half"},
 		{Strategy_Stairs::close,"close"},
-		{Strategy_Stairs::reverse,"reverse"}
+		{Strategy_Stairs::reverse,"reverse"},
+		{Strategy_Stairs::same,"same"},
+		{Strategy_Stairs::same1,"same1"},
+		{Strategy_Stairs::same_1,"same_1"},
+		{Strategy_Stairs::same_2,"same_2"},
+		{Strategy_Stairs::same_3,"same_3"}
 });
 
 using ondra_shared::StrViewA;

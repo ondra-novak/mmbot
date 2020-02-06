@@ -27,7 +27,12 @@ public:
 		step5, //reduce by three steps
 		half, //reduce by half of steps
 		close, //close position
-		reverse  //close and reverse to 1 step
+		reverse,  //close and reverse to 1 step
+		same,
+		same1,
+		same_1,
+		same_2,
+		same_3
 	};
 
 	struct Config {

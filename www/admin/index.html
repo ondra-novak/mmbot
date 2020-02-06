@@ -99,14 +99,19 @@ to enter a negative value and then the value of the assets held will decrease an
 <option value="exponencial">Exponencial (1,2,4,8,16...)</option>
 </select></label>
 <label><span>Reduction</span><select data-name="st_reduction">
-<option value="step1">Reduction by 1 step</option>
-<option value="step2">Reduction by 2 steps</option>
-<option value="step3">Reduction by 3 steps</option>
-<option value="step4">Reduction by 4 steps</option>
-<option value="step5">Reduction by 5 steps</option>
-<option value="half">Reduction by half of the Max steps</option>
-<option value="close">Close position</option>
-<option value="reverse">Reverse position to step -1</option>
+<option value="step1">by 1 step</option>
+<option value="step2">by 2 steps</option>
+<option value="step3">by 3 steps</option>
+<option value="step4">by 4 steps</option>
+<option value="step5">by 5 steps</option>
+<option value="half">by half of "Max steps"</option>
+<option value="close">close position</option>
+<option value="reverse">reverse to step -1</option>
+<option value="same">reverse by "Max steps"</option>
+<option value="same1">reverse by "Max steps" + 1</option>
+<option value="same_1">reverse by "Max steps" - 1</option>
+<option value="same_2">reverse by "Max steps" - 2</option>
+<option value="same_3">reverse by "Max steps" - 3</option>
 </select></label>
 <div class="rightinfo"><button name="show_backtest">Backtest</button></div>
 </x-section>

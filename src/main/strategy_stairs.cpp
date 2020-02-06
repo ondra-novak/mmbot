@@ -27,6 +27,11 @@ intptr_t Strategy_Stairs::getNextStep(double dir) const {
 		case step4: cs = cs + 4*idir;break;
 		case step5: cs = cs + 5*idir;break;
 		case half: cs = cs + cfg.max_steps*idir/2;break;
+		case same: cs = cs + cfg.max_steps*idir;break;
+		case same1: cs = cs + (cfg.max_steps+1)*idir;break;
+		case same_1: cs = cs + (cfg.max_steps-1)*idir;break;
+		case same_2: cs = cs + (cfg.max_steps-2)*idir;break;
+		case same_3: cs = cs + (cfg.max_steps-3)*idir;break;
 		case close: cs = 0;break;
 		case reverse: cs = idir;break;
 		}
@@ -88,7 +93,8 @@ IStrategy::OrderData Strategy_Stairs::getNewOrder(
 	double power = st.power;
 	auto step = getNextStep(dir);
 	double new_pos = power * stepToPos(step);
-	return OrderData{0.0,calcOrderSize(posToAssets(st.pos),assets, posToAssets(	new_pos))};
+	double sz = calcOrderSize(posToAssets(st.pos),assets, posToAssets(	new_pos));
+	return OrderData{0.0,sz,sz*dir<0 && step != st.step};
 }
 
 std::pair<IStrategy::OnTradeResult, ondra_shared::RefCntPtr<const IStrategy> > Strategy_Stairs::onTrade(
@@ -161,11 +167,12 @@ PStrategy Strategy_Stairs::onIdle(const IStockApi::MarketInfo &minfo,
 		PStrategy g;
 		if (minfo.leverage) {
 			double ps = calcPower(curTicker.last, currency);
-			g = new Strategy_Stairs(cfg, State {curTicker.last, 0, curTicker.last, 0, 0, ps,  0});
+			g = new Strategy_Stairs(cfg, State {curTicker.last, 0, curTicker.last, 0, 0, ps,  posToStep(assets)});
 		} else {
 			double neutral_pos = calcNeutralPos(assets,currency, curTicker.last);
 			double ps = calcPower(curTicker.last, neutral_pos * curTicker.last);
-			g = new Strategy_Stairs(cfg, State {curTicker.last, 0, curTicker.last, 0, neutral_pos, ps,  0});
+			double pos = assets-neutral_pos;
+			g = new Strategy_Stairs(cfg, State {curTicker.last, pos, curTicker.last, 0, neutral_pos, ps,  posToStep(pos)});
 		}
 		if (g->isValid()) return g;
 		else throw std::runtime_error("Stairs: Invalid settings - unable to initialize strategy");
