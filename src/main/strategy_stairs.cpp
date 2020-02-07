@@ -73,10 +73,13 @@ double Strategy_Stairs::stepToPos(std::intptr_t step) const {
 		return res*mlt;
 	}
 }
-std::intptr_t Strategy_Stairs::posToStep(double pos) const{
+std::intptr_t Strategy_Stairs::posToStep(const State &st, double pos) const {
 	std::intptr_t s = sgn(pos);
 	double p = std::abs(pos);
-	if (cfg.pattern == constant) return static_cast<std::intptr_t>(std::round(p)) * s;
+	std::intptr_t res;
+	if (cfg.pattern == constant) {
+		res = static_cast<std::intptr_t>(std::round(p)) * s;
+	}
 	else {
 		std::intptr_t r = 0;
 		double prevp = 0;
@@ -86,8 +89,9 @@ std::intptr_t Strategy_Stairs::posToStep(double pos) const{
 			double pp = prevp+diff*0.5;
 			prevp = amount;
 			return pp<=p && r < cfg.max_steps;});
-		return r * s;
+		res = r*s;
 	}
+	return std::min(std::max(res, -cfg.max_steps), cfg.max_steps);
 }
 
 
@@ -119,11 +123,11 @@ std::pair<IStrategy::OnTradeResult, ondra_shared::RefCntPtr<const IStrategy> > S
 
 	if (!isValid()) return onIdle(minfo,{tradePrice,tradePrice,tradePrice,0},assetsLeft,currencyLeft)
 						->onTrade(minfo,tradePrice,tradeSize,assetsLeft,currencyLeft);
-	double dir = sgn(tradeSize);
+	auto dir = sgn(st.price - tradePrice);
 	double power = st.power;
 	double curpos = assetsToPos(assetsLeft);
 	double prevpos = curpos - tradeSize;
-	intptr_t step = posToStep((st.pos+tradeSize)/power);
+	intptr_t step = getNextStep(dir);
 	State nst = st;
 	nst.price = tradePrice;
 	nst.pos = stepToPos(step)*power;
@@ -187,15 +191,18 @@ PStrategy Strategy_Stairs::onIdle(const IStockApi::MarketInfo &minfo,
 	if (isValid()) return this;
 	else {
 		PStrategy g;
+		State nst;
 		if (isMargin(minfo)) {
 			double ps = calcPower(curTicker.last, currency);
-			g = new Strategy_Stairs(cfg, State {curTicker.last, 0, curTicker.last, curTicker.last, 0,0, ps,  posToStep(assets)});
+			nst = State{curTicker.last, 0, curTicker.last, curTicker.last, 0,0, ps,  0};
 		} else {
 			double neutral_pos = calcNeutralPos(assets,currency, curTicker.last, minfo.leverage != 0);
 			double ps = calcPower(curTicker.last, neutral_pos * curTicker.last);
 			double pos = assets-neutral_pos;
-			g = new Strategy_Stairs(cfg, State {curTicker.last, pos, curTicker.last, curTicker.last, 0,neutral_pos, ps,  posToStep(pos)});
+			nst =  State {curTicker.last, pos, curTicker.last, curTicker.last, 0,neutral_pos, ps,  0};
 		}
+		nst.step = posToStep(nst,assets);
+		g = new Strategy_Stairs(cfg, nst);
 		if (g->isValid()) return g;
 		else throw std::runtime_error("Stairs: Invalid settings - unable to initialize strategy");
 	}
@@ -229,7 +236,7 @@ json::Value Strategy_Stairs::dumpStatePretty(
 			("Last price", minfo.invert_price?1.0/st.price:st.price)
 			("Position", minfo.invert_price?-st.pos:st.pos)
 			("Step", minfo.invert_price?-st.step:st.step)
-			("Velocity", minfo.invert_price?-st.power:st.power)
+			("Step width", st.power)
 			("Neutral position", minfo.invert_price?-st.neutral_pos:st.neutral_pos)
 			("Open price", minfo.invert_price?1.0/st.open:st.open);
 
