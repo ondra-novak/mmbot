@@ -54,6 +54,7 @@ public:
 		double price = 0;
 		double pos = 0;
 		double open = 0;
+		double enter = 0;
 		double value = 0;
 		double neutral_pos = 0;
 		double power = 0;
@@ -99,7 +100,7 @@ protected:
 	double stepToPos(std::intptr_t step) const;
 	std::intptr_t posToStep(double pos) const;
 
-	double calcNeutralPos(double assets, double currency, double price) const;
+	double calcNeutralPos(double assets, double currency, double price, bool leverage) const;
 
 	template<typename Fn>
 	static void serie(Pattern pat, Fn &&cb);

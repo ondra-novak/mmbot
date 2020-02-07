@@ -1570,7 +1570,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 				if (this.files[0]) {
 					var reader = new FileReader();
 					reader.onload = function() {
-						var prices = reader.result.split("\n").map(function(x) {return parseFloat(x);});
+						var prices = reader.result.split("\n").map(function(x) {return parseFloat(x);}).filter(function(x) {return isFinite(x);});
 						recalc_spread(prices,cntr);
 					}
 					reader.readAsText(this.files[0]);

@@ -79,7 +79,13 @@ std::intptr_t Strategy_Stairs::posToStep(double pos) const{
 	if (cfg.pattern == constant) return static_cast<std::intptr_t>(std::round(p)) * s;
 	else {
 		std::intptr_t r = 0;
-		serie(cfg.pattern, [&](int idx, double amount){r = idx; return amount<p && idx < cfg.max_steps;});
+		double prevp = 0;
+		serie(cfg.pattern, [&](int idx, double amount){
+			r = idx-1;
+			double diff = amount - prevp;
+			double pp = prevp+diff*0.5;
+			prevp = amount;
+			return pp<=p && r < cfg.max_steps;});
 		return r * s;
 	}
 }
@@ -113,31 +119,36 @@ std::pair<IStrategy::OnTradeResult, ondra_shared::RefCntPtr<const IStrategy> > S
 
 	if (!isValid()) return onIdle(minfo,{tradePrice,tradePrice,tradePrice,0},assetsLeft,currencyLeft)
 						->onTrade(minfo,tradePrice,tradeSize,assetsLeft,currencyLeft);
-//	double dir = sgn(tradeSize);
+	double dir = sgn(tradeSize);
 	double power = st.power;
 	double curpos = assetsToPos(assetsLeft);
 	double prevpos = curpos - tradeSize;
-	intptr_t step = posToStep(std::round(curpos/power));
+	intptr_t step = posToStep((st.pos+tradeSize)/power);
 	State nst = st;
 	nst.price = tradePrice;
-	nst.pos = curpos;
-	nst.open = curpos*prevpos <=0 ? tradePrice:(st.open*prevpos + tradeSize*tradePrice)/curpos;
+	nst.pos = stepToPos(step)*power;
+	nst.open = prevpos*curpos<=0 ? tradePrice:(st.open*prevpos + tradeSize*tradePrice)/curpos;
+	nst.enter = prevpos*curpos<=0 ? tradePrice:curpos * dir > 0?(st.enter*prevpos + tradeSize*tradePrice)/curpos:st.enter;
 	nst.step = step;
 	double spread = std::abs(tradePrice - st.price);
-	double astp = std::abs(nst.step);
-	nst.value = power * spread * astp* (astp+1) / 2;
-	if (nst.pos * st.pos <=0) {
+	double posChange = std::abs(tradeSize);
+	if (posChange) {
+		double value = spread * pow2(nst.pos)/(posChange*2.0);
+		double f = posChange / (std::abs(nst.pos)+posChange);
+		nst.value = nst.value *  (1-f) + value * f;
+	}
+	if (nst.pos * st.pos <0 || st.pos == 0) {
 		if (isMargin(minfo)) {
 			nst.power = calcPower(tradePrice, currencyLeft);
 		} else {
-			nst.neutral_pos = calcNeutralPos(assetsLeft,currencyLeft, tradePrice);
+			nst.neutral_pos = calcNeutralPos(assetsLeft,currencyLeft, tradePrice, minfo.leverage != 0);
 			nst.power = calcPower(tradePrice, nst.neutral_pos * tradePrice);
 		}
 	}
 	return {
 		OnTradeResult{
 			prevpos * (tradePrice - st.price) + (nst.value - st.value),
-			0,tradePrice - spread*nst.step,nst.open
+			0,nst.enter,nst.open
 		},new Strategy_Stairs(cfg,nst)
 	};
 }
@@ -158,6 +169,7 @@ json::Value Strategy_Stairs::exportState() const {
 	return json::Object("price", st.price)
 					   ("pos", st.pos)
 					   ("open", st.open)
+					   ("enter", st.enter)
 					   ("value", st.value)
 					   ("neutral_pos", st.neutral_pos)
 					   ("power", st.power)
@@ -177,12 +189,12 @@ PStrategy Strategy_Stairs::onIdle(const IStockApi::MarketInfo &minfo,
 		PStrategy g;
 		if (isMargin(minfo)) {
 			double ps = calcPower(curTicker.last, currency);
-			g = new Strategy_Stairs(cfg, State {curTicker.last, 0, curTicker.last, 0, 0, ps,  posToStep(assets)});
+			g = new Strategy_Stairs(cfg, State {curTicker.last, 0, curTicker.last, curTicker.last, 0,0, ps,  posToStep(assets)});
 		} else {
-			double neutral_pos = calcNeutralPos(assets,currency, curTicker.last);
+			double neutral_pos = calcNeutralPos(assets,currency, curTicker.last, minfo.leverage != 0);
 			double ps = calcPower(curTicker.last, neutral_pos * curTicker.last);
 			double pos = assets-neutral_pos;
-			g = new Strategy_Stairs(cfg, State {curTicker.last, pos, curTicker.last, 0, neutral_pos, ps,  posToStep(pos)});
+			g = new Strategy_Stairs(cfg, State {curTicker.last, pos, curTicker.last, curTicker.last, 0,neutral_pos, ps,  posToStep(pos)});
 		}
 		if (g->isValid()) return g;
 		else throw std::runtime_error("Stairs: Invalid settings - unable to initialize strategy");
@@ -228,6 +240,7 @@ PStrategy Strategy_Stairs::importState(json::Value src) const {
 		src["price"].getNumber(),
 		src["pos"].getNumber(),
 		src["open"].getNumber(),
+		src["enter"].getNumber(),
 		src["value"].getNumber(),
 		src["neutral_pos"].getNumber(),
 		src["power"].getNumber(),
@@ -241,8 +254,8 @@ double Strategy_Stairs::posToAssets(double pos) const {
 	return pos + st.neutral_pos;
 }
 
-double Strategy_Stairs::calcNeutralPos(double assets, double currency, double price) const {
-	double value = assets * price + currency;
+double Strategy_Stairs::calcNeutralPos(double assets, double currency, double price, bool leverage) const {
+	double value = leverage?currency:(assets * price + currency);
 	double middle = value/2;
 	return middle/price;
 }
