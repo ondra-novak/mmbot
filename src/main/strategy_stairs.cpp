@@ -73,7 +73,7 @@ double Strategy_Stairs::stepToPos(std::intptr_t step) const {
 		return res*mlt;
 	}
 }
-std::intptr_t Strategy_Stairs::posToStep(const State &st, double pos) const {
+std::intptr_t Strategy_Stairs::posToStep(double pos) const {
 	std::intptr_t s = sgn(pos);
 	double p = std::abs(pos);
 	std::intptr_t res;
@@ -201,7 +201,7 @@ PStrategy Strategy_Stairs::onIdle(const IStockApi::MarketInfo &minfo,
 			double pos = assets-neutral_pos;
 			nst =  State {curTicker.last, pos, curTicker.last, curTicker.last, 0,neutral_pos, ps,  0};
 		}
-		nst.step = posToStep(nst,assets);
+		nst.step = posToStep(assets/nst.power);
 		g = new Strategy_Stairs(cfg, nst);
 		if (g->isValid()) return g;
 		else throw std::runtime_error("Stairs: Invalid settings - unable to initialize strategy");

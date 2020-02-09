@@ -98,7 +98,7 @@ protected:
 	double assetsToPos(double assets) const;
 	double posToAssets(double pos) const;
 	double stepToPos(std::intptr_t step) const;
-	std::intptr_t posToStep(const State &st, double pos) const;
+	std::intptr_t posToStep(double pos) const;
 
 	double calcNeutralPos(double assets, double currency, double price, bool leverage) const;
 
