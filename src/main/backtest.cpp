@@ -15,6 +15,9 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 	std::optional<BTPrice> price = priceSource();
 	if (!price.has_value()) return {};
 	double pos = init_pos;
+	if (pos == 0 && !minfo.leverage) {
+		pos = balance / price->price;
+	}
 	BTTrades trades;
 
 	Strategy s = cfg.strategy;
@@ -89,7 +92,6 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 				bt.norm_accum += 0;
 				bt.norm_profit += 0;
 				bt.size = 0;
-				pos = 0;
 			}
 			bt.price.price = p;
 			bt.price.time = price->time;

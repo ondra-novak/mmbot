@@ -768,9 +768,16 @@ function app_start(){
 
 				chart_padding.hidden = false;
 				
-				var fld = location.hash;			
-				if (fld) fld = decodeURIComponent(fld.substr(1));
-				else fld = "+summary";
+				var fld = location.hash;		
+				if (!fld) {
+					fld = localStorage["home"];
+				}
+				if (fld) {
+					fld = decodeURIComponent(fld.substr(1));
+				}
+				else {
+				    fld = "+summary";
+				}
 				
 				selector.value = fld;
 
@@ -898,8 +905,20 @@ function app_start(){
 	selector.addEventListener("change",function(){
 		location.hash = "#"+encodeURIComponent(selector.value);
 	});
+	var home_tap_cntr = 0;
+	var home_tap_prev;
 	home.addEventListener("click",function() {
-		location.hash = "#";
+		if (home_tap_prev && !location.hash) {
+			home_tap_cntr++;
+			if (home_tap_cntr > 2) {
+				localStorage["home"] = home_tap_prev;
+				location.hash = home_tap_prev;
+			}
+		} else {
+			home_tap_prev = location.hash;
+			location.hash = "#";
+			home_tap_cntr = 0;
+		}		
 	})
 	
 	

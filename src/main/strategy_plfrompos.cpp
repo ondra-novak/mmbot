@@ -374,6 +374,9 @@ PStrategy Strategy_PLFromPos::reset() const {
 	return new Strategy_PLFromPos(cfg,{});
 }
 
+bool Strategy_PLFromPos::isAuto() const {
+	return cfg.power != 0;
+}
 
 double Strategy_PLFromPos::getNeutralPos(
 		const IStockApi::MarketInfo &minfo) const {

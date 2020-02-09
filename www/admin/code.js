@@ -293,6 +293,7 @@ App.prototype.fillForm = function (src, trg) {
 	
 	
 	var apikey = this.config.apikeys && this.config.apikeys[src.broker];
+	var first_fetch = true;
 
 	var updateHdr = function(){
 		var state = fetch_json("api/editor",{
@@ -496,40 +497,43 @@ App.prototype.fillForm = function (src, trg) {
 				data.sync_pos = {};
 			}
 		}
-
-		data.max_pos = data.cstep = data.neutral_pos = {"!input": linStrategy_recalc};
-		data.linear_suggest = {"!click":linStrategy_recomended};
-		data.linear_suggest_maxpos = {"!click":linStrategy_recomended_maxpos};
-		data.external_assets = {"!input": halfHalf_recalc};
-		data.vis_spread = {"!click": this.init_spreadvis.bind(this, trg, src.id)};
-		data.show_backtest= {"!click": this.init_backtest.bind(this, trg, src.id, src.pair_symbol, src.broker)};		
-		linStrategy_recalc();
-		halfHalf_recalc();
-		linStrategy_recalc_power();
-		var tmp = trg.readData(["cstep","max_pos"]);
-		if (!tmp.max_pos && !tmp.cstep) linStrategy_recomended();
-		data.pl_baluse = data.pl_power={"!input":function() {
-			linStrategy_recalc_power();
-		}};
-		data.pl_confmode = {"!change":function() {
-			trg.showItem("pl_mode_m", this.value == "m");
-			trg.showItem("pl_mode_a", this.value == "a");
-		}};
 		calcPosition(data);
-		data.sync_pos["!click"] = function() {
-			var data = {};
-			var v = trg.readData(["neutral_pos","report_position_offset"]);
-			var s = pair.asset_balance - invSize(v.neutral_pos, pair.invert_price) - state.position;
-			trg.setData({report_position_offset:s});
-			calcPosition(data);
-			trg.setData(data);
-		}
-		trg.forEachElement("neutral_pos",function(x) {
-			x.parentNode.classList.toggle("adv", pair.leverage != 0);
-		});
-		if (!pair.leverage) {
-			var elm = trg.findElements("st_power")[0].querySelector("input[type=range]");
-			elm.setAttribute("max","199");
+
+		if (first_fetch) {
+			data.max_pos = data.cstep = data.neutral_pos = {"!input": linStrategy_recalc};
+			data.linear_suggest = {"!click":linStrategy_recomended};
+			data.linear_suggest_maxpos = {"!click":linStrategy_recomended_maxpos};
+			data.external_assets = {"!input": halfHalf_recalc};
+			data.vis_spread = {"!click": this.init_spreadvis.bind(this, trg, src.id), ".disabled":false};
+			data.show_backtest= {"!click": this.init_backtest.bind(this, trg, src.id, src.pair_symbol, src.broker), ".disabled":false};
+			linStrategy_recalc();
+			halfHalf_recalc();
+			linStrategy_recalc_power();
+			var tmp = trg.readData(["cstep","max_pos"]);
+			if (!tmp.max_pos && !tmp.cstep) linStrategy_recomended();
+			data.pl_baluse = data.pl_power={"!input":function() {
+				linStrategy_recalc_power();
+			}};
+			data.pl_confmode = {"!change":function() {
+				trg.showItem("pl_mode_m", this.value == "m");
+				trg.showItem("pl_mode_a", this.value == "a");
+			}};
+			data.sync_pos["!click"] = function() {
+				var data = {};
+				var v = trg.readData(["neutral_pos","report_position_offset"]);
+				var s = pair.asset_balance - invSize(v.neutral_pos, pair.invert_price) - state.position;
+				trg.setData({report_position_offset:s});
+				calcPosition(data);
+				trg.setData(data);
+			}
+			trg.forEachElement("neutral_pos",function(x) {
+				x.parentNode.classList.toggle("adv", pair.leverage != 0);
+			});
+			if (!pair.leverage) {
+				var elm = trg.findElements("st_power")[0].querySelector("input[type=range]");
+				elm.setAttribute("max","199");
+			}
+			first_fetch = false;
 		}
 		
 		

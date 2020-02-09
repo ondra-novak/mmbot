@@ -87,7 +87,7 @@ to enter a negative value and then the value of the assets held will decrease an
 <div class="label"><span>Min price:</span><span data-name="halfhalf_min_price">---</span></div>
 <div class="label"><span>Max price:</span><span data-name="halfhalf_max_price">---</span></div>
 </x-section>
-<div class="rightinfo"><button name="show_backtest">Backtest</button></div>
+<div class="rightinfo"><button name="show_backtest" disabled="disabled">Backtest</button></div>
 </x-section>
 <x-section data-name="strategy_stairs" class="goal" hidden="hidden"><x-section-caption>Stairs</x-section-caption>
 <label class="adv"><span>Trading mode</span><select data-name="st_tmode">
@@ -118,7 +118,7 @@ to enter a negative value and then the value of the assets held will decrease an
 <option value="same_2">reverse by "Max steps" - 2</option>
 <option value="same_3">reverse by "Max steps" - 3</option>
 </select></label>
-<div class="rightinfo"><button name="show_backtest">Backtest</button></div>
+<div class="rightinfo"><button name="show_backtest" disabled="disabled">Backtest</button></div>
 </x-section>
 <x-section data-name="strategy_pl backtest_anchor" class="goal" hidden="hidden"><x-section-caption>Linear</x-section-caption>
 <label><span>Configuration mode</span><select name="pl_confmode"><option value="a">Automatic</option><option value="m">Manual</option></select></label>
@@ -157,7 +157,7 @@ doesn't work as stoploss, because position can still grow beyoind the limit, but
 <div class="rightinfo"><button data-name="linear_suggest pl_mode_m">Propose</button><button data-name="linear_suggest_maxpos  pl_mode_m">Propose max position</button></div>
 <div class="warning" data-name="err_toolargepos">Changing setting is discouraged because the open position is too large</div>
 <div class="warning" data-name="err_invalid_values">Unable to trade - invalid values</div>
-<div class="rightinfo"><button name="show_backtest">Backtest</button></div>
+<div class="rightinfo"><button name="show_backtest" disabled="disabled">Backtest</button></div>
 <x-section>
 <div class="label"><span>Max in position</span><span><span data-name="linear_max_in_pos">---</span>&nbsp;<span data-name="currency"></span></span></div>
 <div class="label"><span>Min price:</span><span data-name="linear_min_price">---</span></div>
@@ -213,7 +213,7 @@ Specifies maximum allowed asset balance (or position, for short use negative val
 <div><x-checkbox data-name="dynmult_scale">Scale with dynamic spread</x-checkbox></div>
 <div><x-checkbox data-name="dynmult_sliding">Sliding (can break rule: buy low, sell high)</x-checkbox></div>
 </div></div>
-<div class="rightinfo"><button name="vis_spread">Visualize spread</button></div>
+<div class="rightinfo"><button name="vis_spread"  disabled="disabled">Visualize spread</button></div>
 </x-section>
 <x-section class="adv"><x-section-caption>Misc</x-section-caption>
 <div class="label adv"><span>Options<span class="tooltip"
