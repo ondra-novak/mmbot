@@ -97,26 +97,12 @@ to enter a negative value and then the value of the assets held will decrease an
 </select></label>
 <label><span>Power (<span data-name="st_show_factor"></span>x)<span class="tooltip">Specifies power of 10 multiplier of current balance used to automatically calculate the step (for 1% of movement). <br><br>Use <strong>0.5</strong> for <strong>cryptocurrencies</strong> <br>and values between <strong>3-4</strong> for <strong>Forex</strong></span></span><x-slider data-name="st_power" data-min="0.01" data-max="5" data-mult="0.01" data-fixed="2"></x-slider></label>
 <label><span>Max steps<span class="tooltip">TBD</span></span><x-slider data-name="st_max_step" data-min="1" data-max="50" data-mult="1" data-fixed="0"></x-slider></label>
+<label><span>Reduction steps<span class="tooltip">TBD</span></span><x-slider data-name="st_reduction_step" data-min="1" data-max="50" data-mult="1" data-fixed="0"></x-slider></label>
 <label><span>Series</span><select data-name="st_pattern">
 <option value="constant">Constant step</option>
 <option value="harmonic">Harmonic (1,1.5,1.83,2.083,...)</option> 
 <option value="arithmetic">Arithmetic (1,3,6,10,15,...)</option>
 <option value="exponencial">Exponencial (1,2,4,8,16...)</option>
-</select></label>
-<label><span>Reduction</span><select data-name="st_reduction">
-<option value="step1">by 1 step</option>
-<option value="step2">by 2 steps</option>
-<option value="step3">by 3 steps</option>
-<option value="step4">by 4 steps</option>
-<option value="step5">by 5 steps</option>
-<option value="half">by half of "Max steps"</option>
-<option value="close">close position</option>
-<option value="reverse">reverse to step -1</option>
-<option value="same">reverse by "Max steps"</option>
-<option value="same1">reverse by "Max steps" + 1</option>
-<option value="same_1">reverse by "Max steps" - 1</option>
-<option value="same_2">reverse by "Max steps" - 2</option>
-<option value="same_3">reverse by "Max steps" - 3</option>
 </select></label>
 <div class="rightinfo"><button name="show_backtest" disabled="disabled">Backtest</button></div>
 </x-section>

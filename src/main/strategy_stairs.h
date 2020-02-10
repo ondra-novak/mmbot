@@ -19,21 +19,6 @@ public:
 		exponencial
 	};
 
-	enum Reduction {
-		step1, //reduce by one step
-		step2, //reduce by two steps
-		step3, //reduce by three steps
-		step4, //reduce by three steps
-		step5, //reduce by three steps
-		half, //reduce by half of steps
-		close, //close position
-		reverse,  //close and reverse to 1 step
-		same,
-		same1,
-		same_1,
-		same_2,
-		same_3
-	};
 
 	enum TradingMode {
 		autodetect,
@@ -46,7 +31,7 @@ public:
 		double neutral_pos;
 		Pattern pattern;
 		intptr_t max_steps;
-		Reduction reduction;
+		intptr_t reduction;
 		TradingMode mode;
 	};
 

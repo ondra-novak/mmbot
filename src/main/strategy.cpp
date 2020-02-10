@@ -40,22 +40,6 @@ static json::NamedEnum<Strategy_Stairs::Pattern> strStairsPattern ({
 		{Strategy_Stairs::harmonic,"harmonic"}
 });
 
-static json::NamedEnum<Strategy_Stairs::Reduction> strStairsReduction ({
-		{Strategy_Stairs::step1,"step1"},
-		{Strategy_Stairs::step2,"step2"},
-		{Strategy_Stairs::step2,""},
-		{Strategy_Stairs::step3,"step3"},
-		{Strategy_Stairs::step4,"step4"},
-		{Strategy_Stairs::step5,"step5"},
-		{Strategy_Stairs::half,"half"},
-		{Strategy_Stairs::close,"close"},
-		{Strategy_Stairs::reverse,"reverse"},
-		{Strategy_Stairs::same,"same"},
-		{Strategy_Stairs::same1,"same1"},
-		{Strategy_Stairs::same_1,"same_1"},
-		{Strategy_Stairs::same_2,"same_2"},
-		{Strategy_Stairs::same_3,"same_3"}
-});
 
 static json::NamedEnum<Strategy_Stairs::TradingMode> strStairsTMode ({
 	{Strategy_Stairs::autodetect,""},
@@ -98,8 +82,7 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 	} else if (id == Strategy_Stairs::id) {
 		Strategy_Stairs::Config cfg;
 		cfg.power = config["power"].getNumber();
-		cfg.neutral_pos= config["neutral_pos"].getNumber();
-		cfg.reduction= strStairsReduction[config["reduction"].getString()];
+		cfg.reduction= config["reduction_steps"].getValueOrDefault(2);
 		cfg.max_steps=config["max_steps"].getInt();
 		cfg.pattern=strStairsPattern[config["pattern"].getString()];
 		cfg.mode = strStairsTMode[config["mode"].getString()];

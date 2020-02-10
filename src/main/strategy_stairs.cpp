@@ -20,21 +20,7 @@ intptr_t Strategy_Stairs::getNextStep(double dir) const {
 	if (idir * cs >= 0) {
 		cs = cs + idir;
 	} else {
-		switch (cfg.reduction) {
-		case step1: cs = cs + idir;break;
-		case step2: cs = cs + 2*idir;break;
-		case step3: cs = cs + 3*idir;break;
-		case step4: cs = cs + 4*idir;break;
-		case step5: cs = cs + 5*idir;break;
-		case half: cs = cs + cfg.max_steps*idir/2;break;
-		case same: cs = cs + cfg.max_steps*idir;break;
-		case same1: cs = cs + (cfg.max_steps+1)*idir;break;
-		case same_1: cs = cs + (cfg.max_steps-1)*idir;break;
-		case same_2: cs = cs + (cfg.max_steps-2)*idir;break;
-		case same_3: cs = cs + (cfg.max_steps-3)*idir;break;
-		case close: cs = 0;break;
-		case reverse: cs = idir;break;
-		}
+		cs = cs + cfg.reduction * idir;
 	}
 	return std::min(std::max(cs, -cfg.max_steps), cfg.max_steps);
 }
