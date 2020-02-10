@@ -19,6 +19,10 @@ intptr_t Strategy_Stairs::getNextStep(double dir) const {
 	auto idir = static_cast<int>(dir);
 	if (idir * cs >= 0) {
 		cs = cs + idir;
+	} else if (cfg.reduction == 0) {
+		cs = 0;
+	} else if (cfg.reduction == -1) {
+		cs = -idir;
 	} else {
 		cs = cs + cfg.reduction * idir;
 	}
