@@ -44,6 +44,7 @@ public:
 		double neutral_pos = 0;
 		double power = 0;
 		intptr_t step = 0;
+		intptr_t prevdir = 0;
 	};
 
 	Strategy_Stairs(const Config &cfg);
@@ -78,7 +79,7 @@ protected:
 	State st;
 
 	double calcPower(double price, double currency) const;
-	intptr_t getNextStep(double dir) const;
+	intptr_t getNextStep(double dir, std::intptr_t prev_dir) const;
 
 	double assetsToPos(double assets) const;
 	double posToAssets(double pos) const;

@@ -14,7 +14,7 @@ Strategy_Stairs::~Strategy_Stairs() {
 	// TODO Auto-generated destructor stub
 }
 
-intptr_t Strategy_Stairs::getNextStep(double dir) const {
+intptr_t Strategy_Stairs::getNextStep(double dir, std::intptr_t prev_dir) const {
 	auto cs = st.step;
 	auto idir = static_cast<int>(dir);
 	if (idir * cs >= 0) {
@@ -22,7 +22,13 @@ intptr_t Strategy_Stairs::getNextStep(double dir) const {
 	} else if (cfg.reduction == 0) {
 		cs = 0;
 	} else if (cfg.reduction == -1) {
-		cs = -idir;
+		cs = idir;
+	} else if (cfg.reduction == -2) {
+		if (cs == -dir) cs = 0;
+		else cs = -idir;
+	} else if (cfg.reduction == -3) {
+		if (cs == -2*idir && prev_dir * idir < 0) cs = 0;
+		else cs = -idir;
 	} else {
 		cs = cs + cfg.reduction * idir;
 	}
@@ -91,7 +97,7 @@ IStrategy::OrderData Strategy_Stairs::getNewOrder(
 		double dir, double assets, double currency) const {
 
 	double power = st.power;
-	auto step = getNextStep(dir);
+	auto step = getNextStep(dir, st.prevdir);
 	double new_pos = power * stepToPos(step);
 	double sz = calcOrderSize(posToAssets(st.pos),assets, posToAssets(	new_pos));
 	return OrderData{0.0,sz,sz*dir<0 && step != st.step};
@@ -117,13 +123,14 @@ std::pair<IStrategy::OnTradeResult, ondra_shared::RefCntPtr<const IStrategy> > S
 	double power = st.power;
 	double curpos = assetsToPos(assetsLeft);
 	double prevpos = curpos - tradeSize;
-	intptr_t step = getNextStep(dir);
+	intptr_t step = getNextStep(dir,st.prevdir);
 	State nst = st;
 	nst.price = tradePrice;
 	nst.pos = stepToPos(step)*power;
 	nst.open = prevpos*curpos<=0 ? tradePrice:(st.open*prevpos + tradeSize*tradePrice)/curpos;
 	nst.enter = prevpos*curpos<=0 ? tradePrice:curpos * dir > 0?(st.enter*prevpos + tradeSize*tradePrice)/curpos:st.enter;
 	nst.step = step;
+	nst.prevdir = dir;
 	double spread = std::abs(tradePrice - st.price);
 	double posChange = std::abs(tradeSize);
 	if (posChange) {
@@ -167,7 +174,8 @@ json::Value Strategy_Stairs::exportState() const {
 					   ("value", st.value)
 					   ("neutral_pos", st.neutral_pos)
 					   ("power", st.power)
-					   ("step", st.step);
+					   ("step", st.step)
+					   ("prev_dir", st.prevdir);
 }
 
 double Strategy_Stairs::calcPower(double price, double currency) const {
@@ -241,7 +249,8 @@ PStrategy Strategy_Stairs::importState(json::Value src) const {
 		src["value"].getNumber(),
 		src["neutral_pos"].getNumber(),
 		src["power"].getNumber(),
-		src["step"].getInt()
+		src["step"].getInt(),
+		src["prev_step"].getInt()
 	});
 }
 double Strategy_Stairs::assetsToPos(double assets) const {
