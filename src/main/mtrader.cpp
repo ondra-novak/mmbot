@@ -458,20 +458,9 @@ MTrader::Status MTrader::getMarketStatus() const {
 			if (internal_balance.has_value()) res.assetBalance += *internal_balance;
 			if (currency_balance.has_value()) res.currencyBalance += *currency_balance;
 		} else {
-			try {
-				res.assetBalance = stock.getBalance(minfo.asset_symbol, cfg.pairsymb);
-				res.assetBalance = 0;
-			} catch (std::exception &e) {
-				logWarning("Asset balance is not available. Setting 0: $1", e.what());
-			}
-			try {
-				res.currencyBalance = stock.getBalance(minfo.currency_symbol, cfg.pairsymb);
-				res.currencyBalance = 0;
-			} catch (std::exception &e) {
-				logWarning("Currrency balance is not available. Setting 0: $1", e.what());
-			}
+			res.assetBalance = stock.getBalance(minfo.asset_symbol, cfg.pairsymb);
+			res.currencyBalance = stock.getBalance(minfo.currency_symbol, cfg.pairsymb);
 		}
-
 	} else {
 		res.currencyBalance = *currency_balance;
 		res.assetBalance = *internal_balance;
