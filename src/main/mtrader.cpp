@@ -21,6 +21,7 @@
 using ondra_shared::logDebug;
 using ondra_shared::logInfo;
 using ondra_shared::logNote;
+using ondra_shared::logWarning;
 using ondra_shared::StringView;
 using ondra_shared::StrViewA;
 
@@ -78,6 +79,7 @@ void MTrader_Config::loadConfig(json::Value data, bool force_dry_run) {
 	delayed_alerts= data["delayed_alerts"].getValueOrDefault(true);
 	dynmult_scale = data["dynmult_scale"].getValueOrDefault(true);
 	dynmult_sliding = data["dynmult_sliding"].getValueOrDefault(false);
+	dynmult_mult = data["dynmult_mult"].getValueOrDefault(false);
 
 
 	if (dynmult_raise > 1e6) throw std::runtime_error("'dynmult_raise' is too big");
@@ -96,7 +98,7 @@ MTrader::MTrader(IStockSelector &stock_selector,
 ,storage(std::move(storage))
 ,statsvc(std::move(statsvc))
 ,strategy(config.strategy)
-,dynmult(cfg.dynmult_raise,cfg.dynmult_fall, cfg.dynmult_mode)
+,dynmult(cfg.dynmult_raise,cfg.dynmult_fall, cfg.dynmult_mode, cfg.dynmult_mult)
 {
 	//probe that broker is valid configured
 	stock.testBroker();
@@ -219,8 +221,6 @@ void MTrader::perform(bool manually) {
 
 			strategy.onIdle(minfo, status.ticker, status.assetBalance, status.currencyBalance);
 
-			ondra_shared::logDebug("internal_balance=$1, external_balance=$2",status.internalBalance,status.assetBalance);
-
 			if (status.curStep) {
 
 				if (!cfg.enabled)  {
@@ -324,8 +324,8 @@ void MTrader::perform(bool manually) {
 			}
 		}
 
-		internal_balance = status.internalBalance;
-		currency_balance_cache = status.currencyBalance;
+		internal_balance = status.assetBalance;
+		currency_balance = status.currencyBalance;
 		lastTradeId  = status.new_trades.lastId;
 
 
@@ -418,7 +418,13 @@ void MTrader::setOrder(std::optional<IStockApi::Order> &orig, Order neworder, st
 }
 
 
-
+template<typename T>
+static std::pair<double,double> sumTrades(const std::pair<double,double> &a, const T &b) {
+	return {
+		a.first + b.eff_size,
+		a.second - b.eff_size*b.eff_price
+	};
+}
 
 MTrader::Status MTrader::getMarketStatus() const {
 
@@ -442,32 +448,35 @@ MTrader::Status MTrader::getMarketStatus() const {
 		}
 	}
 
+	if (!res.new_trades.trades.empty() || !internal_balance.has_value() || !currency_balance.has_value())
 	{
-		res.internalBalance = std::accumulate(res.new_trades.trades.begin(),
-				res.new_trades.trades.end(),0.0,
-				[&](auto &&a, auto &&b) {return a + b.eff_size;});
-		if (internal_balance.has_value()) res.internalBalance += *internal_balance;
-	}
+		if (cfg.internal_balance && internal_balance.has_value() && currency_balance.has_value()) {
+			auto sumt = std::accumulate(res.new_trades.trades.begin(),
+					res.new_trades.trades.end(),std::pair<double,double>(0,0),sumTrades<IStockApi::Trade>);
+			res.assetBalance = sumt.first;
+			res.currencyBalance = minfo.leverage?0:sumt.second;
+			if (internal_balance.has_value()) res.assetBalance += *internal_balance;
+			if (currency_balance.has_value()) res.currencyBalance += *currency_balance;
+		} else {
+			try {
+				res.assetBalance = stock.getBalance(minfo.asset_symbol, cfg.pairsymb);
+				res.assetBalance = 0;
+			} catch (std::exception &e) {
+				logWarning("Asset balance is not available. Setting 0: $1", e.what());
+			}
+			try {
+				res.currencyBalance = stock.getBalance(minfo.currency_symbol, cfg.pairsymb);
+				res.currencyBalance = 0;
+			} catch (std::exception &e) {
+				logWarning("Currrency balance is not available. Setting 0: $1", e.what());
+			}
+		}
 
-
-	if (cfg.internal_balance) {
-		res.assetBalance = res.internalBalance;
-	} else{
-		res.assetBalance = stock.getBalance(minfo.asset_symbol, cfg.pairsymb);
-		res.internalBalance = res.assetBalance;
-	}
-
-	if (!res.new_trades.trades.empty()) {
-		res.currencyBalance = stock.getBalance(minfo.currency_symbol, cfg.pairsymb);
 	} else {
-		res.currencyBalance = *currency_balance_cache;
+		res.currencyBalance = *currency_balance;
+		res.assetBalance = *internal_balance;
 	}
 
-
-
-	auto step = calcSpread();
-	res.curStep = cfg.force_spread>0?cfg.force_spread:step.spread;
-	res.spreadCenter = cfg.dynmult_sliding?step.center:0;
 
 
 	res.new_fees = stock.getFees(cfg.pairsymb);
@@ -513,6 +522,11 @@ MTrader::Status MTrader::getMarketStatus() const {
 	} else {
 		res.enable_alerts = cfg.alerts;
 	}
+
+	auto step = calcSpread();
+	res.curStep = cfg.force_spread>0?cfg.force_spread:step.spread;
+	res.spreadCenter = cfg.dynmult_sliding?step.center:0;
+
 	return res;
 }
 
@@ -625,8 +639,6 @@ void MTrader::initialize() {
 		else {
 			statsvc->clear();
 		}
-		currency_balance_cache = stock.getBalance(minfo.currency_symbol,
-				cfg.pairsymb);
 	} catch (std::exception &e) {
 		this->statsvc->setInfo(
 				IStatSvc::Info {cfg.title, "???",
@@ -638,7 +650,6 @@ void MTrader::initialize() {
 								false,
 								false,
 								true});
-		currency_balance_cache = 0;
 		this->statsvc->reportError(IStatSvc::ErrorObj(e.what()));
 		throw;
 	}
@@ -664,6 +675,7 @@ void MTrader::loadState() {
 		if (state.defined()) {
 			dynmult.setMult(state["buy_dynmult"].getNumber(),state["sell_dynmult"].getNumber());
 			internal_balance = state["internal_balance"].getNumber();
+			currency_balance = state["currency_balance"].getNumber();
 			json::Value accval = state["account_value"];
 			recalc = state["recalc"].getBool();
 			std::size_t nuid = state["uid"].getUInt();
@@ -723,6 +735,8 @@ void MTrader::saveState() {
 		st.set("sell_dynmult", dynmult.getSellMult());
 		if (internal_balance.has_value())
 			st.set("internal_balance", *internal_balance);
+		if (currency_balance.has_value())
+			st.set("currency_balance", *currency_balance);
 		st.set("recalc",recalc);
 		st.set("uid",uid);
 		st.set("lastTradeId",lastTradeId);
@@ -852,8 +866,9 @@ void MTrader::repair() {
 			internal_balance = std::accumulate(trades.begin(), trades.end(), 0.0, [](double v, const TWBItem &itm) {return v+itm.eff_size;});
 	} else {
 		internal_balance.reset();
+		currency_balance.reset();
 	}
-	currency_balance_cache.reset();
+	currency_balance.reset();
 	strategy.reset();
 
 	if (!trades.empty()) {
@@ -1086,8 +1101,11 @@ MTrader::SpreadCalcResult MTrader::calcSpread() const {
 
 }
 
-MTrader::VisRes MTrader::visualizeSpread(std::function<std::optional<ChartItem>()> &&source, double sma, double stdev, double mult, double dyn_raise, double dyn_fall, json::StrViewA dynMode, bool sliding, bool strip, bool onlyTrades) {
-	DynMultControl dynmult(dyn_raise, dyn_fall, strDynmult_mode[dynMode]);
+MTrader::VisRes MTrader::visualizeSpread(std::function<std::optional<ChartItem>()> &&source, double sma, double stdev,
+		double mult, double dyn_raise, double dyn_fall,
+		json::StrViewA dynMode, bool sliding, bool dyn_mult,
+		bool strip, bool onlyTrades) {
+	DynMultControl dynmult(dyn_raise, dyn_fall, strDynmult_mode[dynMode], dyn_mult);
 	VisRes res;
 	double last = 0;
 	std::vector<double> prices;
@@ -1141,10 +1159,10 @@ double MTrader::DynMultControl::getSellMult() const {
 double MTrader::DynMultControl::raise_fall(double v, bool israise) {
 	if (israise) {
 		double rr = raise/100.0;
-		return v + rr;
+		return mult?v*(1+rr):v + rr;
 	} else {
 		double ff = fall/100.0;
-		return std::max(1.0,v - ff);
+		return std::max(1.0,mult?v*(1.0-ff):v - ff);
 	}
 
 }

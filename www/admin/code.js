@@ -614,6 +614,7 @@ App.prototype.fillForm = function (src, trg) {
 	data.dynmult_mode = filledval(src.dynmult_mode, "half_alternate");
 	data.dynmult_scale = filledval(src.dynmult_scale,true);
 	data.dynmult_sliding = filledval(src.dynmult_sliding,false);
+	data.dynmult_mult = filledval(src.dynmult_mult, true);
 	data.spread_mult = filledval(Math.log(defval(src.buy_step_mult,1))/Math.log(2)*100,0);
 	data.order_mult = filledval(defval(src.buy_mult,1)*100,100);
 	data.min_size = filledval(src.min_size,0);
@@ -729,7 +730,8 @@ App.prototype.saveForm = function(form, src) {
 	trader.dynmult_fall = data.dynmult_fall;
 	trader.dynmult_mode = data.dynmult_mode;
 	trader.dynmult_scale = data.dynmult_scale; 
-	trader.dynmult_sliding = data.dynmult_sliding; 
+	trader.dynmult_sliding = data.dynmult_sliding;
+	trader.dynmult_mult = data.dynmult_mult;
 	trader.buy_mult = data.order_mult/100;
 	trader.sell_mult = data.order_mult/100;
 	trader.buy_step_mult = Math.pow(2,data.spread_mult*0.01)
@@ -1264,7 +1266,7 @@ App.prototype.gen_backtest = function(form,anchor, template, inputs, updatefn) {
 App.prototype.init_spreadvis = function(form, id) {
 	var url = "api/spread"
 	form.enableItem("vis_spread",false);
-	var inputs = ["spread_calc_stdev_hours", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode","dynmult_sliding"];
+	var inputs = ["spread_calc_stdev_hours", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode","dynmult_sliding","dynmult_mult"];
 	this.gen_backtest(form,"spread_vis_anchor", "spread_vis",inputs,function(cntr){
 
 		cntr.showSpinner();
@@ -1278,6 +1280,7 @@ App.prototype.init_spreadvis = function(form, id) {
 			fall:data.dynmult_fall,
 			mode:data.dynmult_mode,
 			sliding:data.dynmult_sliding,
+			dyn_mult:data.dynmult_mult,
 			id: id
 		}
 		
@@ -1346,7 +1349,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 	var inputs = ["external_assets", "acum_factor","kv_valinc","pl_confmode","pl_power","pl_baluse","cstep",
 		"max_pos","neutral_pos","pl_redmode","pl_redfact","pl_acum","min_size","max_size","order_mult","alerts","delayed_alerts","linear_suggest","linear_suggest_maxpos","pl_slrev",
 		"st_power","st_reduction_step","st_max_step","st_pattern","dynmult_sliding","accept_loss","spread_calc_sma_hours","st_tmode"];
-	var spread_inputs = ["spread_calc_stdev_hours", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode","dynmult_sliding"];
+	var spread_inputs = ["spread_calc_stdev_hours", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode","dynmult_sliding","dynmult_mult"];
 	var balance = form._balance;
 	var days = 45*60*60*24*1000;
     var offset = 0;
@@ -1494,6 +1497,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 			fall:data.dynmult_fall,
 			mode:data.dynmult_mode,
 			sliding:data.dynmult_sliding,
+			dyn_mult:data.dynmult_mult,
 			id: id,
 			prices: prices
 		}

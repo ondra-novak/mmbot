@@ -68,6 +68,7 @@ struct MTrader_Config {
 	bool delayed_alerts;
 	bool dynmult_scale;
 	bool dynmult_sliding;
+	bool dynmult_mult;
 
 	Strategy strategy = Strategy(nullptr);
 
@@ -133,7 +134,6 @@ public:
 		double curPrice;
 		double curStep;
 		double assetBalance;
-		double internalBalance;
 		double currencyBalance;
 		double new_fees;
 		double spreadCenter;
@@ -192,7 +192,7 @@ public:
 	};
 
 
-	static VisRes visualizeSpread(std::function<std::optional<ChartItem>()> &&source, double sma, double stdev, double mult, double dyn_raise, double dyn_fall, json::StrViewA dynMode, bool sliding, bool strip, bool onlyTrades);
+	static VisRes visualizeSpread(std::function<std::optional<ChartItem>()> &&source, double sma, double stdev, double mult, double dyn_raise, double dyn_fall, json::StrViewA dynMode, bool sliding, bool dyn_mult, bool strip, bool onlyTrades);
 
 	static std::optional<double> getInternalBalance(const MTrader *ptr);
 
@@ -201,7 +201,7 @@ public:
 protected:
 	class DynMultControl {
 	public:
-		DynMultControl(double raise, double fall, Dynmult_mode mode):raise(raise),fall(fall),mode(mode),mult_buy(1),mult_sell(1) {}
+		DynMultControl(double raise, double fall, Dynmult_mode mode, bool mult):raise(raise),fall(fall),mode(mode),mult_buy(1),mult_sell(1),mult(mult) {}
 
 		void setMult(double buy, double sell);
 		double getBuyMult() const;
@@ -217,6 +217,7 @@ protected:
 		Dynmult_mode mode;
 		double mult_buy;
 		double mult_sell;
+		bool mult;
 
 	};
 
@@ -242,7 +243,7 @@ protected:
 	TradeHistory trades;
 
 	std::optional<double> internal_balance;
-	std::optional<double> currency_balance_cache;
+	std::optional<double> currency_balance;
 
 	size_t magic = 0;
 	size_t uid = 0;
