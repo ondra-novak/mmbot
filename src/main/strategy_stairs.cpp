@@ -145,7 +145,7 @@ std::pair<IStrategy::OnTradeResult, ondra_shared::RefCntPtr<const IStrategy> > S
 	nst.open = prevpos*curpos<=0 ? tradePrice:(st.open*prevpos + tradeSize*tradePrice)/curpos;
 	nst.enter = prevpos*curpos<=0 ? tradePrice:curpos * dir > 0?(st.enter*prevpos + tradeSize*tradePrice)/curpos:st.enter;
 	nst.step = step;
-	nst.prevdir = dir;
+	nst.prevdir = dir?dir:st.prevdir;
 	double spread = std::abs(tradePrice - st.price);
 	double posChange = std::abs(tradeSize);
 	if (posChange) {
