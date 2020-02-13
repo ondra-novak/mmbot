@@ -49,6 +49,7 @@ public:
 
 protected:
 	json::Value broker_config;
+	std::chrono::steady_clock::time_point lastReset;
 };
 
 

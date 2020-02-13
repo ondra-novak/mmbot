@@ -90,6 +90,9 @@ bool ExtStockApi::reset() {
 	//save housekeep counter to avoid reset treat as action
 	auto hs = this->houseKeepingCounter;
 	if (chldid != -1) try {
+		auto now = std::chrono::steady_clock::now();
+		if (std::chrono::duration_cast<std::chrono::seconds>(now - lastReset).count() < 13) return true;
+		lastReset = now;
 		jsonRequestExchange("reset",json::Value());
 	} catch (...) {
 		jsonRequestExchange("reset",json::Value());

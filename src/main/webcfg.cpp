@@ -944,12 +944,14 @@ bool WebCfg::reqSpread(simpleServer::HTTPRequest req) const {
 				Value dynmult_fall = args["fall"];
 				Value dynmult_mode = args["mode"];
 				Value dynmult_sliding = args["sliding"];
+				Value dynmult_mult = args["dyn_mult"];
 
 				auto res = MTrader::visualizeSpread(IterFn(data.chart.begin(),data.chart.end()),sma.getUInt(), stdev.getUInt(),mult.getNumber(),
 						dynmult_raise.getValueOrDefault(1.0),
 						dynmult_fall.getValueOrDefault(1.0),
 						dynmult_mode.getValueOrDefault("independent"),
 						dynmult_sliding.getBool(),
+						dynmult_mult.getBool(),
 						true,false);
 				if (data.invert_price) {
 					std::transform(res.chart.begin(), res.chart.end(), res.chart.begin(),[](const MTrader::VisRes::Item &itm) {
@@ -1071,6 +1073,8 @@ bool WebCfg::generateTrades(Traders &trlist, ondra_shared::RefCntPtr<State> stat
 		Value dynmult_fall = args["fall"];
 		Value dynmult_mode = args["mode"];
 		Value dynmult_sliding = args["sliding"];
+		Value dynmult_mult = args["dyn_mult"];
+
 
 		MTrader *tr = trlist.find(id.getString());
 		if (tr == nullptr) {
@@ -1110,6 +1114,7 @@ bool WebCfg::generateTrades(Traders &trlist, ondra_shared::RefCntPtr<State> stat
 				dynmult_fall.getValueOrDefault(1.0),
 				dynmult_mode.getValueOrDefault("independent"),
 				dynmult_sliding.getBool(),
+				dynmult_mult.getBool(),
 				false,true);
 
 		BacktestCacheSubj bt;

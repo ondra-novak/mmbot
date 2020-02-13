@@ -171,6 +171,7 @@ void Traders::runTraders(bool manually) {
 		resetBrokers();
 		for (auto &&t : traders) {
 			t.second->perform(manually);
+			ondra_shared::Scheduler::yield();
 		}
 	}
 }
