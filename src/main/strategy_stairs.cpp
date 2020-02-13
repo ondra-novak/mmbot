@@ -24,7 +24,7 @@ intptr_t Strategy_Stairs::getNextStep(double dir, std::intptr_t prev_dir) const 
 	} else if (cfg.reduction == -1) {
 		cs = idir;
 	} else if (cfg.reduction == -2) {
-		if (cs == -dir) cs = 0;
+		if (cs == -idir) cs = 0;
 		else cs = -idir;
 	} else if (cfg.reduction == -3) {
 		if ((cs == -idir || cs == -2*idir) && prev_dir * idir < 0) cs = 0;

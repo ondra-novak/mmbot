@@ -461,7 +461,7 @@ MTrader::Status MTrader::getMarketStatus() const {
 			res.assetBalance = stock.getBalance(minfo.asset_symbol, cfg.pairsymb);
 			res.currencyBalance = stock.getBalance(minfo.currency_symbol, cfg.pairsymb);
 		}
-	} else if (cfg.internal_balance) {
+	} else {
 		res.currencyBalance = *currency_balance;
 		res.assetBalance = *internal_balance;
 	}
@@ -665,8 +665,10 @@ void MTrader::loadState() {
 		auto state = st["state"];
 		if (state.defined()) {
 			dynmult.setMult(state["buy_dynmult"].getNumber(),state["sell_dynmult"].getNumber());
-			if (state["internal_balance"].hasValue()) internal_balance = state["internal_balance"].getNumber();
-			if (state["currency_balance"].hasValue()) currency_balance = state["currency_balance"].getNumber();
+			if (cfg.internal_balance) {
+				if (state["internal_balance"].hasValue()) internal_balance = state["internal_balance"].getNumber();
+				if (state["currency_balance"].hasValue()) currency_balance = state["currency_balance"].getNumber();
+			}
 			json::Value accval = state["account_value"];
 			recalc = state["recalc"].getBool();
 			std::size_t nuid = state["uid"].getUInt();
