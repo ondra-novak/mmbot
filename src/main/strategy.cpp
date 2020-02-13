@@ -29,7 +29,7 @@ static json::NamedEnum<Strategy_PLFromPos::ReduceMode> strReduceMode ({
 		{Strategy_PLFromPos::neutralMove,"npmove"},
 		{Strategy_PLFromPos::toOpenPrice ,"openp"},
 		{Strategy_PLFromPos::ema,"ema"},
-		{Strategy_PLFromPos::overload,"overload"}
+		{Strategy_PLFromPos::booster,"booster"}
 });
 
 static json::NamedEnum<Strategy_Stairs::Pattern> strStairsPattern ({

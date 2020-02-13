@@ -178,12 +178,17 @@ double Strategy_PLFromPos::calcNewPos(const IStockApi::MarketInfo &minfo, double
 						double neutral_price_ema = p*z + neutral_price*(1-z);
 						nnp = k * (neutral_price_ema - tradePrice);
 					} break;
-					case overload: {
-						nnp = ((p - pos/k - tradePrice) * k)*0.99;
+					case booster: {
+						nnp = pos + (sgn(np)*sqrt(np2) - pos) * (st.booster_mult);
+						break;
 					}break;
 					}
 					np = nnp;
-				} //otherwise stick with original np
+				}else if (cfg.reduceMode == booster) {
+					np = pos + (np - pos) * (st.booster_mult);
+				}
+			} else if (cfg.reduceMode == booster) {
+				np = pos + (np - pos) * (st.booster_mult);
 			}
 		}
 	}
@@ -213,6 +218,7 @@ std::pair<Strategy_PLFromPos::OnTradeResult, PStrategy> Strategy_PLFromPos::onTr
 
 	State newst = st;
 
+	int dir = sgn(st.p - tradePrice);
 	double k = calcK();
 	double act_pos = assetsToPos(minfo,assetsLeft);
 	double prev_pos = act_pos - tradeSize;
@@ -236,6 +242,10 @@ std::pair<Strategy_PLFromPos::OnTradeResult, PStrategy> Strategy_PLFromPos::onTr
 	newst.a = posToAssets(minfo,new_pos);
 	newst.value = posVal;
 
+	newst.booster_mult = st.booster_dir != dir?
+			(dir * sgn(act_pos) > 0?st.booster_mult*(1+cfg.reduce_factor):st.booster_mult):1.0;
+	newst.booster_dir = dir;
+
 	double ppos = assetsToPos(minfo,st.a);
 	double afpos = std::abs(new_pos);
 	double appos = std::abs(ppos);
@@ -252,9 +262,6 @@ std::pair<Strategy_PLFromPos::OnTradeResult, PStrategy> Strategy_PLFromPos::onTr
 	}
 	}
 
-	if (cfg.reduceMode == overload) {
-		newst.mult = tradeSize?1:0;
-	}
 
 	if (reversal) {
 		logDebug("Position reversal: new_pos=$1, ppos=$2", new_pos, ppos);
@@ -286,6 +293,8 @@ json::Value Strategy_PLFromPos::exportState() const {
 			("maxpos",st.maxpos)
 			("val", st.value)
 			("mult", st.mult)
+			("booster_mult", st.booster_mult)
+			("booster_dir" , st.booster_dir)
 			("cfg",cfgStateHash());
 	else return json::undefined;
 }
@@ -303,6 +312,8 @@ PStrategy Strategy_PLFromPos::importState(json::Value src) const {
 			src["val"].getNumber(),
 			src["avg"].getNumber(),
 			src["mult"].getValueOrDefault(1.0),
+			src["booster_mult"].getValueOrDefault(1.0),
+			src["booster_dir"].getValueOrDefault(0)
 		};
 		json::Value chash = src["cfg"];
 		newst.valid_power = chash == cfgStateHash();
@@ -423,6 +434,8 @@ json::Value Strategy_PLFromPos::dumpStatePretty(const IStockApi::MarketInfo &min
 			("Max allowed position",st.maxpos)
 			("Step",st.k*st.p*st.p*0.01)
 			("Open price", minfo.invert_price?1.0/openPrice:openPrice)
-			("Value of the position", st.value);
+			("Value of the position", st.value)
+			("Booster mult", st.booster_mult)
+			("Booster dir", st.booster_dir);
 
 }
