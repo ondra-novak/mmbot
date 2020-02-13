@@ -87,7 +87,7 @@ public:
 		bool isSimilarTo(const IStockApi::Order &other, double step, bool inverted);
 		Order(const Strategy::OrderData& o):Strategy::OrderData(o) {}
 		Order() {}
-		Order(double size, double price, bool alert)
+		Order(double size, double price, IStrategy::Alert alert)
 			:Strategy::OrderData {price, size, alert} {}
 		void update(IStockApi::Order &o) {
 			o.price = price;

@@ -121,7 +121,7 @@ IStrategy::OrderData Strategy_Stairs::getNewOrder(
 	auto step = getNextStep(dir, st.prevdir);
 	double new_pos = power * stepToPos(step);
 	double sz = calcOrderSize(posToAssets(st.pos),assets, posToAssets(	new_pos));
-	return OrderData{0.0,sz,sz*dir<0 && step != st.step};
+	return OrderData{0.0,sz};
 }
 
 bool Strategy_Stairs::isMargin(const IStockApi::MarketInfo& minfo) const {

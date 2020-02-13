@@ -378,7 +378,7 @@ void MTrader::setOrder(std::optional<IStockApi::Order> &orig, Order neworder, st
 			if (orig.has_value()) return;
 			throw std::runtime_error("Order rejected - negative price");
 		}
-		if (neworder.alert) {
+		if (neworder.alert == IStrategy::Alert::forced) {
 			alert = neworder.price;
 			neworder.update(orig);
 			return;
@@ -461,7 +461,7 @@ MTrader::Status MTrader::getMarketStatus() const {
 			res.assetBalance = stock.getBalance(minfo.asset_symbol, cfg.pairsymb);
 			res.currencyBalance = stock.getBalance(minfo.currency_symbol, cfg.pairsymb);
 		}
-	} else {
+	} else if (cfg.internal_balance) {
 		res.currencyBalance = *currency_balance;
 		res.assetBalance = *internal_balance;
 	}
@@ -539,17 +539,19 @@ MTrader::Order MTrader::calculateOrderFeeLess(
 
 	double min_size = std::max(cfg.min_size, minfo.min_size);
 	double dir = sgn(-step);
+	double offset = 0;
 
 	do {
 		prevSz = sz;
 
-		double newPrice = prevPrice * exp(step*dynmult*m);
+		double newPrice = prevPrice * exp(step*dynmult*m) + offset;
 		double newPriceNoScale= prevPrice * exp(step*m);
 
 		//if newPrice > curPrice when buy or newPrice < curPrice when sell, fix to curPrice
 		if ((newPrice - curPrice) * dir > 0) {
+			offset += curPrice - newPrice;
 			newPrice = curPrice;
-			step = log(curPrice/prevPrice);
+
 		}
 		order= strategy.getNewOrder(minfo,curPrice, cfg.dynmult_scale?newPrice:newPriceNoScale,dir, balance, currency);
 
@@ -562,7 +564,7 @@ MTrader::Order MTrader::calculateOrderFeeLess(
 			order.price = curPrice;
 		}
 		Strategy::adjustOrder(dir, mult, alerts, order);
-		if (order.alert) return order;
+		if (order.alert == IStrategy::Alert::forced) return order;
 
 		if (cfg.max_size && std::fabs(order.size) > cfg.max_size) {
 			order.size = cfg.max_size*dir;
@@ -582,7 +584,7 @@ MTrader::Order MTrader::calculateOrderFeeLess(
 
 	} while (cnt < 1000 && order.size == 0 && ((sz - prevSz)*dir>0  || cnt < 10));
 	order.size = limitOrderMinMaxBalance(balance, order.size);
-	order.alert = !order.size && cfg.alerts;
+	order.alert = !order.size && cfg.alerts?IStrategy::Alert::forced:IStrategy::Alert::disabled;
 
 	return order;
 
@@ -600,7 +602,7 @@ MTrader::Order MTrader::calculateOrder(
 
 		Order order(calculateOrderFeeLess(lastTradePrice, step,dynmult,curPrice,balance,currency,mult,alerts));
 		//apply fees
-		if (!order.alert) minfo.addFees(order.size, order.price);
+		if (order.alert != IStrategy::Alert::forced) minfo.addFees(order.size, order.price);
 
 		return order;
 
@@ -663,8 +665,8 @@ void MTrader::loadState() {
 		auto state = st["state"];
 		if (state.defined()) {
 			dynmult.setMult(state["buy_dynmult"].getNumber(),state["sell_dynmult"].getNumber());
-			internal_balance = state["internal_balance"].getNumber();
-			currency_balance = state["currency_balance"].getNumber();
+			if (state["internal_balance"].hasValue()) internal_balance = state["internal_balance"].getNumber();
+			if (state["currency_balance"].hasValue()) currency_balance = state["currency_balance"].getNumber();
 			json::Value accval = state["account_value"];
 			recalc = state["recalc"].getBool();
 			std::size_t nuid = state["uid"].getUInt();

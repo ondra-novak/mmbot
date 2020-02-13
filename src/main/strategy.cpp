@@ -116,11 +116,11 @@ void Strategy::setConfig(const ondra_shared::IniConfig::Section &cfg) {
 void Strategy::adjustOrder(double dir, double mult,
 		bool enable_alerts, Strategy::OrderData &order) {
 
-	if (order.size * dir < 0) {
-		order.alert = order.alert || enable_alerts;
+	if (order.size * dir <= 0) {
+		order.alert = order.alert == IStrategy::Alert::forced || (enable_alerts && order.alert == IStrategy::Alert::enabled)?IStrategy::Alert::forced:IStrategy::Alert::disabled;
 		order.size = 0;
-	} else if (order.size * dir > 0) {
-		order.alert = false;
+	} else {
+		order.alert = IStrategy::Alert::disabled;
 	}
 
 	order.size *= mult;

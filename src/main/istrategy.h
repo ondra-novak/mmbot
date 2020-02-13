@@ -18,6 +18,15 @@ using PStrategy = ondra_shared::RefCntPtr<const IStrategy>;
 class IStrategy: public ondra_shared::RefCntObj {
 public:
 
+	enum class Alert {
+		//alerts are disabled. If the order cannot be placed, the MTrader will try different price
+		disabled,
+		//alerts are enabled however it appearence is controlled by the MTrader. It still can cause that MTrader will try different price
+		enabled,
+		//alert is enforced. This causes, that alert appear at given price regadless on settings
+		forced
+	};
+
 	struct OnTradeResult {
 		///normalized profit
 		double normProfit;
@@ -35,7 +44,7 @@ public:
 		///size of the order, +buy, -sell. If this field is 0, the order is not placed
 		double size;
 		///set true, to put alert/dust order. This needs size equal to zero
-		bool alert = false;
+		Alert alert = Alert::enabled;
 	};
 
 
