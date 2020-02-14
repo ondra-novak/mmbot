@@ -13,11 +13,11 @@
 #include "tradingengine.h"
 class Market {
 public:
-	using CmdFn = std::function<double(const std::string &symbol, double amount)>;
+	using CmdFn = std::function<double(const std::string &symbol, double amount, double last_price)>;
 
 	Market(const PQuoteDistributor &qdist, CmdFn  &&cmdfn);
 
-	PTradingEngine getMarket(const std::string_view &symbol);
+	PTradingEngine getMarket(const std::string_view &symbol, bool create = true);
 
 
 protected:

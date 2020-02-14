@@ -107,6 +107,8 @@ protected:
 	class LogProvider;
 	ondra_shared::RefCntPtr<LogProvider> logProvider;
 
+	virtual json::Value callMethod(std::string_view name, json::Value args);
+
 };
 
 

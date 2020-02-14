@@ -29,6 +29,7 @@ using json::String;
 using json::Value;
 using ondra_shared::first_match;
 using ondra_shared::logDebug;
+using ondra_shared::logError;
 
 
 
@@ -56,7 +57,7 @@ public:
 	std::unique_ptr<Market> market;
 
 
-	double execCommand(const std::string &symbol, double amount);
+	double execCommand(const std::string &symbol, double amount, double last_price);
 
 	PTradingEngine getEngine(const std::string_view &symbol) {
 		return getEngine(std::string(symbol));
@@ -67,8 +68,8 @@ public:
 				PQuoteDistributor qdist = new QuoteDistributor();
 				qstream = std::make_unique<QuoteStream>(httpc,"https://web-quotes.simplefx.com/signalr/", qdist->createReceiveFn());
 				qdist->connect(qstream->connect());
-				market = std::make_unique<Market>(qdist, [this](const std::string &symbol, double amount){
-					auto z = this->execCommand(symbol, amount);
+				market = std::make_unique<Market>(qdist, [this](const std::string &symbol, double amount, double last_price){
+					auto z = this->execCommand(symbol, amount, last_price);
 					return z;
 				});
 			}
@@ -168,7 +169,10 @@ public:
 
 
 	Value tokenHeader();
+	using Sync = std::unique_lock<std::recursive_mutex>;
+	std::recursive_mutex lock;
 
+	virtual json::Value callMethod(std::string_view name, json::Value args) override;
 
 protected:
 	void updatePosition(const std::string& symbol, double amount);
@@ -514,38 +518,56 @@ void Interface::updatePosition(const std::string& symbol, double amount) {
 
 }
 
-inline double Interface::execCommand(const std::string &symbol, double amount) {
+inline double Interface::execCommand(const std::string &symbol, double amount, double last_price) {
+	Sync _(lock);
 	login();
 	SymbolInfo &sinfo = getSymbolInfo(symbol);
 	Account &a = getAccount(symbol);
 	double adjamount = amount / sinfo.mult;
-	Value v = getData(hjsn.POST("/api/v3/trading/orders/market",json::Object
-			("Reality",a.reality)
-			("Login", a.login)
-			("Symbol", symbol)
-			("Side",adjamount>0?"BUY":"SELL")
-			("Volume", fabs(adjamount))
-			("IsFIFO", true), tokenHeader()));
+	try {
+		Value v = getData(hjsn.POST("/api/v3/trading/orders/market",json::Object
+				("Reality",a.reality)
+				("Login", a.login)
+				("Symbol", symbol)
+				("Side",adjamount>0?"BUY":"SELL")
+				("Volume", fabs(adjamount))
+				("IsFIFO", true), tokenHeader()));
 
-	Value morder = v["marketOrders"][0];
-	Value order = morder["order"];
-	updatePosition(symbol, amount);
-	switch (morder["action"].getUInt()) {
-		case 1: {
-			return order["openPrice"].getNumber();
-		}
-		case 3: {
-			return order["closePrice"].getNumber();
-		}
-		default: {
-			if (order["closeTime"].hasValue()) {
-				return order["closePrice"].getNumber();
-			} else {
+		Value morder = v["marketOrders"][0];
+		Value order = morder["order"];
+		updatePosition(symbol, amount);
+		switch (morder["action"].getUInt()) {
+			case 1: {
 				return order["openPrice"].getNumber();
 			}
+			case 3: {
+				return order["closePrice"].getNumber();
+			}
+			default: {
+				if (order["closeTime"].hasValue()) {
+					return order["closePrice"].getNumber();
+				} else {
+					return order["openPrice"].getNumber();
+				}
+			}
 		}
-
-
+	} catch (std::exception &e) {
+		_.unlock();
+		logError("Unable to execute trade - %1", e.what());
+		//actually we don't know, whether the order has been executed.
+		//but current experience found, that mostly it did.
+		while (true) {
+			try {
+				_.lock();
+				login();
+				updatePositions();
+				return -1;
+			} catch (std::exception &e) {
+				logError("Unable to execute trade - recovery failed:  %1", e.what());
+				_.unlock();
+			}
+			std::this_thread::sleep_for(std::chrono::seconds(4));
+		}
 	}
 }
 
@@ -714,6 +736,25 @@ inline void Interface::updatePositions() {
 					updatePosition(symbol, volume);
 			}
 		}
+
+		for (auto &a: this->position) {
+
+			auto iter = save.find(a.first);
+			if (iter != save.end()) {
+				double diff = a.second - iter->second;
+				const auto &symb = getSymbolInfo(a.first);
+				double step = symb.mult * symb.step;
+				logDebug("Difference for symbol: $1 $2", a.first, diff);
+				if (std::abs(diff) > step) {
+					PTradingEngine eng = getEngine(a.first);
+					if (eng != nullptr) {
+						eng->addTrade(diff);
+					}
+				}
+
+			}
+		}
+
 	} catch (...) {
 		//if exception thrown, restore position state
 		std::swap(save, this->position);
@@ -721,3 +762,8 @@ inline void Interface::updatePositions() {
 	}
 }
 
+
+json::Value Interface::callMethod(std::string_view name, json::Value args) {
+	Sync _(lock);
+	return AbstractBrokerAPI::callMethod(name, args);
+}

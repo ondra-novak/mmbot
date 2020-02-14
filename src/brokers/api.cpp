@@ -243,11 +243,11 @@ static MethodMap methodMap ({
 	});
 
 
-Value callMethod(AbstractBrokerAPI &api, std::string_view name, Value args) {
+Value AbstractBrokerAPI::callMethod(std::string_view name, Value args) {
 	try {
 		auto iter = methodMap.find(name);
 		if (iter == methodMap.end()) throw std::runtime_error("Method not implemented");
-		return {true, (*iter->second)(api, args)};
+		return {true, (*iter->second)(*this, args)};
 	} catch (Value &e) {
 		return {false, e};
 	} catch (std::exception &e) {
@@ -266,7 +266,7 @@ void AbstractBrokerAPI::dispatch(std::istream& input, std::ostream& output, std:
 		handler.loadKeys();
 		handler.onInit();
 		while (true) {
-			callMethod(handler, v[0].getString(), v[1]).toStream(output);
+			handler.callMethod(v[0].getString(), v[1]).toStream(output);
 			handler.logStream = nullptr;
 			output << std::endl;
 			int i = input.get();

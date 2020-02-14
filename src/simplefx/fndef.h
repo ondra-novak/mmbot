@@ -20,7 +20,7 @@
  *
  *  On CFD market, it should close opened oposite positions (FIFO mode)
  */
-using Command = std::function<double(double)>;
+using Command = std::function<double(double, double)>;
 
 ///Called on price change
 /**

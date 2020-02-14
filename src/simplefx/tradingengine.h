@@ -43,6 +43,7 @@ public:
 
 	static std::uint64_t now();
 
+	void addTrade(double volume);
 
 protected:
 
@@ -69,7 +70,7 @@ protected:
 
 	IStockApi::Ticker ticker;
 
-	void onPriceChange(const IStockApi::Ticker &price);
+	void onPriceChange(const IStockApi::Ticker &price, Sync &hldLock);
 
 	UID uidcnt;
 
@@ -80,7 +81,7 @@ protected:
 	mutable std::uint64_t quoteStop = 0;
 	mutable bool quotesStopped = true;
 	void runQuotes() const;
-	void executeTrade(double volume);
+	void executeTrade(double volume, double price);
 };
 
 

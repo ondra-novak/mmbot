@@ -38,7 +38,7 @@ void TradingEngine::startListenPrices() const {
 			me->quotesStopped=true;
 			return false;
 		}
-		me->onPriceChange(price);
+		me->onPriceChange(price, _);
 		return true;
 	});
 	quotesStopped = false;
@@ -116,25 +116,39 @@ void TradingEngine::cancelOrder(std::string id) {
 	}
 }
 
-void TradingEngine::executeTrade(double volume) {
-	double execprice = cmdFn(volume);
-	logDebug("Executed total $1 at price $2", volume, execprice);
-	trades.push_back(Trade { UIDToString(uidcnt++), execprice, volume, now() });
+void TradingEngine::executeTrade(double volume, double price) {
+	try {
+		double execprice = cmdFn(volume, price);
+		if (execprice <= 0) return;
+		Sync _(lock);
+		logDebug("Executed total $1 at price $2", volume, execprice);
+		trades.push_back(Trade { UIDToString(uidcnt++), execprice, volume, now() });
+	} catch (std::exception &e) {
+		logError("Execution failed: $1", e.what());
+	}
 }
 
-void TradingEngine::onPriceChange(const IStockApi::Ticker &price) {
+void TradingEngine::addTrade(double volume) {
+	Sync _(lock);
+	logDebug("Added trade: price=$1, size=$2", ticker.last, volume);
+	trades.push_back(Trade { UIDToString(uidcnt++), ticker.last, volume, now() });
+}
+
+void TradingEngine::onPriceChange(const IStockApi::Ticker &price, Sync &hlck) {
+
+	double volume = 0;
 
 	ticker.ask = std::min(maxPrice, price.ask);
 	ticker.bid = std::max(minPrice, price.bid);
 	ticker.last = sqrt(ticker.ask*ticker.bid);
 	ticker.time = price.time;
 
+
 	logDebug("Quote received: ask: $1, bid $2", ticker.ask, ticker.bid);
 
 	if (ticker.ask < minPrice || ticker.bid > maxPrice) {
 		std::vector<Order> pending;
 		pending.reserve(orders.size());
-		double volume = 0;
 		for (auto &&order: orders) {
 			if ((order.size < 0 && order.price < ticker.bid)
 					|| (order.size > 0 && order.price > ticker.ask)) {
@@ -144,13 +158,17 @@ void TradingEngine::onPriceChange(const IStockApi::Ticker &price) {
 				pending.push_back(order);
 			}
 		}
-		if (volume) {
-			executeTrade(volume);
-		}
 		std::swap(pending, orders);
 		updateMinMaxPrice();
 	}
 	tickerWait.notify_all();
+
+	if (volume) {
+		//to avoid deadlock, we can now unlock
+		//while trade is being executed, no reason to block user from doing other requests
+		hlck.unlock();
+		executeTrade(volume, ticker.last);
+	}
 }
 
 void TradingEngine::updateMinMaxPrice() {
@@ -188,5 +206,5 @@ void TradingEngine::runSettlement(double amount) {
 	Sync _(lock);
 	logNote("Settlement $1", amount);
 	orders.clear();
-	executeTrade(amount);
+	executeTrade(amount, ticker.last);
 }
