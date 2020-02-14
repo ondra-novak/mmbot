@@ -20,6 +20,7 @@
 #include <simpleServer/http_client.h>
 #include <simpleServer/urlencode.h>
 #include "../imtjson/src/imtjson/object.h"
+#include "../imtjson/src/imtjson/parser.h"
 #include "../shared/logOutput.h"
 
 using ondra_shared::logDebug;
@@ -101,9 +102,17 @@ json::Value Proxy::private_request(std::string method, json::Value data) {
 	headers("Key",pubKey);
 	headers("Sign",signData(privKey, request));;
 
-	json::Value v = httpc.POST(apiPrivUrl, request, headers);
-	if (v["error"].defined()) throw std::runtime_error(v["error"].toString().c_str());
-	return v;
+	try {
+		json::Value v = httpc.POST(apiPrivUrl, request, headers);
+		if (v["error"].defined()) throw std::runtime_error(v["error"].toString().c_str());
+		return v;
+	} catch (const HTTPJson::UnknownStatusException &e) {
+		json::Value err;
+		try {err = json::Value::parse(e.response.getBody());} catch (...) {}
+		if (!err.hasValue()) throw;
+		if (err["error"].defined()) throw std::runtime_error(err["error"].toString().c_str());
+		else throw std::runtime_error(err.toString().c_str());
+	}
 }
 
 
