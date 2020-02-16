@@ -256,10 +256,10 @@ std::pair<Strategy_PLFromPos::OnTradeResult, PStrategy> Strategy_PLFromPos::onTr
 		newst.mult = tradeSize?1:0;
 	}
 
-	if (reversal) {
-		logDebug("Position reversal: new_pos=$1, ppos=$2", new_pos, ppos);
+/*	if (reversal) {
+		logDebug("Position reversal: new_pos=$1, ppos=$2", new_pos, ppos);*/
 		calcPower(minfo, newst, newst.p, newst.a, currencyLeft,true);
-	}
+/*	}*/
 	return {
 		OnTradeResult{np,ap,p0, afpos?newst.avgsum/afpos:newst.p},
 		new Strategy_PLFromPos(cfg,newst)
@@ -394,7 +394,7 @@ void Strategy_PLFromPos::calcPower(const IStockApi::MarketInfo &minfo, State& st
 //	double neutral_price = pos/calcK(st) + price;
 //	double ref_price = std::isfinite(neutral_price)?neutral_price:price;
 	if (cfg.power) {
-		double c = currency * cfg.baltouse;
+		double c = currency * cfg.baltouse + st.value;
 		double step = c * std::pow(10, cfg.power)*0.01;
 		double k = step / (price * price* 0.01);
 		double max_pos = sqrt(k * c);
