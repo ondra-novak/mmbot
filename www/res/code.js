@@ -792,9 +792,9 @@ function app_start(){
 					updateLastEventsAll(charts);
 					
 				} else if (fld == "+list") {
-					for (var k in charts) {
-						appendList("_"+k,infoMap[k], ranges[k], stats.misc[k]);
-					}
+					traders.forEach(function(t) {
+						appendList("_"+t.k,t.info, t.ranges, t.misc);
+					});
 					updateLastEventsAll(charts);
 				} else if (fld == "+dpr") {
 					appendDailyPerformance(stats.performance);					

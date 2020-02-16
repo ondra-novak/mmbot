@@ -322,9 +322,9 @@ Strategy_PLFromPos::OrderData Strategy_PLFromPos::getNewOrder(
 		double zeroPos = posToAssets(minfo, -sgn(pos)*cfg.stoploss_reverse*st.maxpos);
 		double osz = calcOrderSize(assets,assets,zeroPos);
 		if (dir * pos < 0 && act_pos * dir < 0) {
-			return OrderData{cur_price, osz, Alert::forced};
+			return OrderData{cur_price, osz, Alert::stoploss};
 		} else {
-			return OrderData { 0, osz, Alert::forced };
+			return OrderData { 0, osz, Alert::stoploss};
 		}
 	}
 	double new_pos = calcNewPos(minfo, new_price);

@@ -24,7 +24,9 @@ public:
 		//alerts are enabled however it appearence is controlled by the MTrader. It still can cause that MTrader will try different price
 		enabled,
 		//alert is enforced. This causes, that alert appear at given price regadless on settings
-		forced
+		forced,
+		//order is stoploss - no futher modification are allowed. If the order cannot be executed, it is converted to alert
+		stoploss
 	};
 
 	struct OnTradeResult {

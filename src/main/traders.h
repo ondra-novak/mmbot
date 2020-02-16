@@ -81,6 +81,7 @@ public:
 
 private:
 	void loadIcon(MTrader &t);
+	unsigned int chgcnt=0;
 };
 
 

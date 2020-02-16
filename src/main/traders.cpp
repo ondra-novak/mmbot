@@ -85,6 +85,7 @@ test(test)
 }
 
 void Traders::clear() {
+	chgcnt++;
 	traders.clear();
 	stockSelector.clear();
 }
@@ -97,6 +98,7 @@ void Traders::loadIcon(MTrader &t) {
 }
 
 void Traders::addTrader(const MTrader::Config &mcfg ,ondra_shared::StrViewA n) {
+	chgcnt++;
 	using namespace ondra_shared;
 
 	LogObject lg(n);
@@ -116,6 +118,7 @@ void Traders::addTrader(const MTrader::Config &mcfg ,ondra_shared::StrViewA n) {
 
 
 void Traders::removeTrader(ondra_shared::StrViewA n, bool including_state) {
+	chgcnt++;
 	NamedMTrader *t = find(n);
 	if (t) {
 		if (including_state) {
@@ -168,9 +171,12 @@ void Traders::runTraders(bool manually) {
 		}
 		cdn.wait();
 	} else {
+		unsigned int c = chgcnt;
 		resetBrokers();
 		for (auto &&t : traders) {
 			ondra_shared::Scheduler::yield();
+			//because yield can cause adding or removing the trader - detect and when happen, leave the cycle
+			if (c != chgcnt) break;
 			t.second->perform(manually);
 		}
 	}
