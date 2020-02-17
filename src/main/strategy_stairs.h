@@ -26,6 +26,13 @@ public:
 		margin
 	};
 
+	enum ReductionMode {
+		stepsBack,
+		reverse,
+		lockOnReduce,
+		lockOnReverse
+	};
+
 	struct Config {
 		double power;
 		double neutral_pos;
@@ -33,6 +40,7 @@ public:
 		intptr_t max_steps;
 		intptr_t reduction;
 		TradingMode mode;
+		ReductionMode redmode;
 	};
 
 	struct State {

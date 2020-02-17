@@ -135,6 +135,8 @@ void AbstractExtern::spawn() {
 				throw std::runtime_error(strerror(err));
 			}
 			if (frk == 0) {
+				//ignore signal SIGINT - we don't need it, but gdb send SIGINT on interrupt
+				signal(SIGINT, SIG_IGN);
 
 				try {
 					std::experimental::filesystem::current_path(workingDir);

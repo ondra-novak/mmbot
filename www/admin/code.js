@@ -582,6 +582,7 @@ App.prototype.fillForm = function (src, trg) {
 		data.st_max_step = filledval(src.strategy.max_steps,1);
 		data.st_pattern = filledval(src.strategy.pattern,"constant");
 		data.st_reduction_step= filledval(src.strategy.reduction_steps,2);
+		data.st_redmode= filledval(src.strategy.redmode,"stepsBack");
 		data.st_tmode=filledval(src.strategy.mode, "auto");
 	} else if (data.strategy == "plfrompos") {
 		data.pl_acum = filledval(defval(src.strategy.accum,0)*100,0);
@@ -712,6 +713,7 @@ App.prototype.saveForm = function(form, src) {
 				max_steps: data.st_max_step,
 				pattern: data.st_pattern,
 				reduction_steps:data.st_reduction_step,
+				redmode:data.st_redmode,
 				mode:data.st_tmode
 		}
 	}
@@ -1348,7 +1350,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 	form.enableItem("show_backtest",false);		
 	var inputs = ["external_assets", "acum_factor","kv_valinc","pl_confmode","pl_power","pl_baluse","cstep",
 		"max_pos","neutral_pos","pl_redmode","pl_redfact","pl_acum","min_size","max_size","order_mult","alerts","delayed_alerts","linear_suggest","linear_suggest_maxpos","pl_slrev",
-		"st_power","st_reduction_step","st_max_step","st_pattern","dynmult_sliding","accept_loss","spread_calc_sma_hours","st_tmode"];
+		"st_power","st_reduction_step","st_redmode","st_max_step","st_pattern","dynmult_sliding","accept_loss","spread_calc_sma_hours","st_tmode"];
 	var spread_inputs = ["spread_calc_stdev_hours", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode","dynmult_sliding","dynmult_mult"];
 	var balance = form._balance;
 	var days = 45*60*60*24*1000;

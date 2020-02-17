@@ -19,39 +19,22 @@ intptr_t Strategy_Stairs::getNextStep(double dir, std::intptr_t prev_dir) const 
 	auto idir = static_cast<int>(dir);
 	if (idir * cs >= 0) {
 		cs = cs + idir;
-	} else if (cfg.reduction == 0) {
-		cs = 0;
-	} else if (cfg.reduction == -1) {
-		cs = idir;
-	} else if (cfg.reduction == -2) {
-		if (cs == -idir) cs = 0;
-		else cs = -idir;
-	} else if (cfg.reduction == -3) {
-		if ((cs == -idir || cs == -2*idir) && prev_dir * idir < 0) cs = 0;
-		else cs = -idir;
-	} else if (cfg.reduction == -4) {
-		if ((cs == -idir || cs == -2*idir) && prev_dir * idir < 0) cs = idir;
-		else cs = -idir;
-	} else if (cfg.reduction == -5) {
-		if ((cs == -2*idir) && prev_dir * idir < 0) cs = 0;
-		else cs = -idir;
-	} else if (cfg.reduction == -6) {
-		if ((cs == -2*idir) && prev_dir * idir < 0) cs = idir;
-		else cs = -idir;
-	} else if (cfg.reduction == -7) {
-		if ((cs == -3*idir) && prev_dir * idir < 0) cs = 0;
-		else cs = -idir;
-	} else if (cfg.reduction == -8) {
-		if ((cs == -3*idir) && prev_dir * idir < 0) cs = idir;
-		else cs = -idir;
-	} else if (cfg.reduction == -9) {
-		if ((cs == -3*idir) && prev_dir * idir < 0) cs = 0;
-		else cs = cs + 2*idir;
-	} else if (cfg.reduction == -10) {
-		if ((cs == -3*idir) && prev_dir * idir < 0) cs = idir;
-		else cs = cs + 2*idir;
-	} else {
-		cs = cs + cfg.reduction * idir;
+	} else switch (cfg.redmode) {
+		case stepsBack:
+			if (cfg.reduction>0) cs = cs + idir * cfg.reduction; else cs = 0;break;
+		case reverse:
+			cs = idir*cfg.reduction; break;
+		case lockOnReduce:
+			if (cs * idir < -cfg.reduction || prev_dir * dir >= 0) {
+				cs = -((cfg.reduction-1) * idir);
+			} else {
+				cs = idir;
+			}
+			break;
+		case lockOnReverse:
+			if (cs * idir < -cfg.reduction)
+				cs = idir;
+			break;
 	}
 	return std::min(std::max(cs, -cfg.max_steps), cfg.max_steps);
 }

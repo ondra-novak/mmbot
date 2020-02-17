@@ -40,6 +40,13 @@ static json::NamedEnum<Strategy_Stairs::Pattern> strStairsPattern ({
 		{Strategy_Stairs::harmonic,"harmonic"}
 });
 
+static json::NamedEnum<Strategy_Stairs::ReductionMode> strStairsRedMode ({
+	{Strategy_Stairs::stepsBack,""},
+	{Strategy_Stairs::stepsBack,"stepsBack"},
+	{Strategy_Stairs::reverse,"reverse"},
+	{Strategy_Stairs::lockOnReduce,"lockOnReduce"},
+	{Strategy_Stairs::lockOnReverse,"lockOnReverse"},
+});
 
 static json::NamedEnum<Strategy_Stairs::TradingMode> strStairsTMode ({
 	{Strategy_Stairs::autodetect,""},
@@ -86,6 +93,7 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 		cfg.max_steps=config["max_steps"].getInt();
 		cfg.pattern=strStairsPattern[config["pattern"].getString()];
 		cfg.mode = strStairsTMode[config["mode"].getString()];
+		cfg.redmode = strStairsRedMode[config["redmode"].getString()];
 		return Strategy(new Strategy_Stairs(cfg));
 	} else {
 		throw std::runtime_error(std::string("Unknown strategy: ").append(id));

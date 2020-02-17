@@ -97,7 +97,12 @@ to enter a negative value and then the value of the assets held will decrease an
 </select></label>
 <label><span>Power (<span data-name="st_show_factor"></span>x)<span class="tooltip">Specifies power of 10 multiplier of current balance used to automatically calculate the step (for 1% of movement). <br><br>Use <strong>0.5</strong> for <strong>cryptocurrencies</strong> <br>and values between <strong>3-4</strong> for <strong>Forex</strong></span></span><x-slider data-name="st_power" data-min="0.01" data-max="5" data-mult="0.01" data-fixed="2"></x-slider></label>
 <label><span>Max steps<span class="tooltip">TBD</span></span><x-slider data-name="st_max_step" data-min="1" data-max="50" data-mult="1" data-fixed="0"></x-slider></label>
-<label><span>Reduction steps<span class="tooltip">TBD</span></span><x-slider data-name="st_reduction_step" data-min="-2" data-max="50" data-mult="1" data-fixed="0"></x-slider></label>
+<div class="label ttb"><span><select data-name="st_redmode">
+	<option value="stepsBack" selected="selected">N steps back</option>
+	<option value="reverse">Close/Reverse</option>
+	<option value="lockOnReduce">Locked step</option>
+	<option value="lockOnReverse">Min step to reverse</option>
+</select></span><x-slider data-name="st_reduction_step" data-min="0" data-max="50" data-mult="1" data-fixed="0"></x-slider></div>
 <label><span>Series</span><select data-name="st_pattern">
 <option value="constant">Constant step</option>
 <option value="harmonic">Harmonic (1,1.5,1.83,2.083,...)</option> 
