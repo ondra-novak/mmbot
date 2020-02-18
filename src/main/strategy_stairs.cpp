@@ -101,10 +101,10 @@ IStrategy::OrderData Strategy_Stairs::getNewOrder(
 		double dir, double assets, double currency) const {
 
 	double power = st.power;
-	auto step = getNextStep(dir, st.prevdir);
+	auto step = st.sl?0:getNextStep(dir, st.prevdir);
 	double new_pos = power * stepToPos(step);
 	double sz = calcOrderSize(posToAssets(st.pos),assets, posToAssets(	new_pos));
-	return OrderData{0.0,sz};
+	return OrderData{st.sl?cur_price:new_price,sz,st.sl?Alert::stoploss:Alert::enabled};
 }
 
 bool Strategy_Stairs::isMargin(const IStockApi::MarketInfo& minfo) const {
@@ -127,7 +127,7 @@ std::pair<IStrategy::OnTradeResult, ondra_shared::RefCntPtr<const IStrategy> > S
 	double power = st.power;
 	double curpos = assetsToPos(assetsLeft);
 	double prevpos = curpos - tradeSize;
-	intptr_t step = getNextStep(dir,st.prevdir);
+	intptr_t step = curpos == 0?0:getNextStep(dir,st.prevdir);
 	State nst = st;
 	nst.price = tradePrice;
 	nst.pos = stepToPos(step)*power;
@@ -135,6 +135,7 @@ std::pair<IStrategy::OnTradeResult, ondra_shared::RefCntPtr<const IStrategy> > S
 	nst.enter = prevpos*curpos<=0 ? tradePrice:curpos * dir > 0?(st.enter*prevpos + tradeSize*tradePrice)/curpos:st.enter;
 	nst.step = step;
 	nst.prevdir = dir?dir:st.prevdir;
+	nst.sl = cfg.sl && step == st.step && dir * step >= cfg.max_steps && tradeSize == 0;
 	double spread = std::abs(tradePrice - st.price);
 	double posChange = std::abs(tradeSize);
 	if (posChange) {
@@ -181,6 +182,7 @@ json::Value Strategy_Stairs::exportState() const {
 					   ("step", st.step)
 					   ("prev_dir", st.prevdir)
 					   ("cfg_hash", st.cfghash)
+					   ("sl",st.sl)
 					   ;
 }
 
@@ -258,7 +260,8 @@ PStrategy Strategy_Stairs::importState(json::Value src) const {
 		src["power"].getNumber(),
 		src["step"].getInt(),
 		src["prev_dir"].getInt(),
-		src["cfg_hash"].getUInt()
+		src["cfg_hash"].getUInt(),
+		src["sl"].getBool()
 	};
 	if (newst.cfghash != getCfgHash()) {
 		newst.price = 0;

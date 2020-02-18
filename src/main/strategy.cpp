@@ -94,6 +94,7 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 		cfg.pattern=strStairsPattern[config["pattern"].getString()];
 		cfg.mode = strStairsTMode[config["mode"].getString()];
 		cfg.redmode = strStairsRedMode[config["redmode"].getString()];
+		cfg.sl = config["sl"].getBool();
 		return Strategy(new Strategy_Stairs(cfg));
 	} else {
 		throw std::runtime_error(std::string("Unknown strategy: ").append(id));

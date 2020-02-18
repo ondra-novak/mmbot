@@ -41,6 +41,7 @@ public:
 		intptr_t reduction;
 		TradingMode mode;
 		ReductionMode redmode;
+		bool sl;
 	};
 
 	struct State {
@@ -54,6 +55,7 @@ public:
 		intptr_t step = 0;
 		intptr_t prevdir = 0;
 		std::size_t cfghash = 0;
+		bool sl = false;
 	};
 
 	Strategy_Stairs(const Config &cfg);
