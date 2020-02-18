@@ -108,7 +108,7 @@ IStrategy::OrderData Strategy_Stairs::getNewOrder(
 		double dir, double assets, double currency) const {
 
 	double power = st.power;
-	auto step = st.sl?0:getNextStep(dir, st.prevdir);
+	auto step = getNextStep(dir, st.prevdir);
 	double new_pos = power * stepToPos(step);
 	double sz = calcOrderSize(posToAssets(st.pos),assets, posToAssets(	new_pos));
 	return OrderData{(st.sl && dir * new_pos < 0)?cur_price:new_price,sz,st.sl?Alert::stoploss:Alert::enabled};
@@ -130,11 +130,11 @@ std::pair<IStrategy::OnTradeResult, ondra_shared::RefCntPtr<const IStrategy> > S
 
 	if (!isValid()) return onIdle(minfo,{tradePrice,tradePrice,tradePrice,0},assetsLeft,currencyLeft)
 						->onTrade(minfo,tradePrice,tradeSize,assetsLeft,currencyLeft);
-	auto dir = sgn(st.price - tradePrice);
+	auto dir = st.sl?sgn(tradeSize):sgn(st.price - tradePrice);
 	double power = st.power;
 	double curpos = assetsToPos(assetsLeft);
 	double prevpos = curpos - tradeSize;
-	intptr_t step = curpos == 0?0:getNextStep(dir,st.prevdir);
+	intptr_t step = getNextStep(dir,st.prevdir);
 	State nst = st;
 	nst.price = tradePrice;
 	nst.pos = stepToPos(step)*power;
