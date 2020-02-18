@@ -16,7 +16,8 @@ public:
 		constant,
 		arithmetic,
 		harmonic,
-		exponencial
+		exponencial,
+		parabolic
 	};
 
 
@@ -100,7 +101,7 @@ protected:
 	double calcNeutralPos(double assets, double currency, double price, bool leverage) const;
 
 	template<typename Fn>
-	static void serie(Pattern pat, Fn &&cb);
+	static void serie(Pattern pat, int maxstep, Fn &&cb);
 	std::size_t getCfgHash() const;
 
 };

@@ -40,7 +40,7 @@ intptr_t Strategy_Stairs::getNextStep(double dir, std::intptr_t prev_dir) const 
 }
 
 template<typename Fn>
-void Strategy_Stairs::serie(Pattern pat, Fn &&fn) {
+void Strategy_Stairs::serie(Pattern pat, int maxstep, Fn &&fn) {
 	int idx;
 	double sum;
 	switch(pat) {
@@ -60,6 +60,13 @@ void Strategy_Stairs::serie(Pattern pat, Fn &&fn) {
 			while (fn(idx,sum)) {sum = sum + sum;++idx;}
 		}
 		break;
+	case parabolic:
+		sum = 0;
+		idx = 0;
+		while (fn(idx, sum)) {
+			++idx;
+			sum = sum + std::max((maxstep+1-idx)*idx,0);
+		}
 	}
 }
 
@@ -69,7 +76,7 @@ double Strategy_Stairs::stepToPos(std::intptr_t step) const {
 		double mlt = sgn(step);
 		std::intptr_t istep = std::abs(step);
 		double res = 0;
-		serie(cfg.pattern, [&](int idx, double amount){res = amount; return idx < istep;});
+		serie(cfg.pattern, cfg.max_steps,[&](int idx, double amount){res = amount; return idx < istep;});
 		return res*mlt;
 	}
 }
@@ -83,7 +90,7 @@ std::intptr_t Strategy_Stairs::posToStep(double pos) const {
 	else {
 		std::intptr_t r = 0;
 		double prevp = 0;
-		serie(cfg.pattern, [&](int idx, double amount){
+		serie(cfg.pattern,cfg.max_steps, [&](int idx, double amount){
 			r = idx-1;
 			double diff = amount - prevp;
 			double pp = prevp+diff*0.5;
@@ -104,7 +111,7 @@ IStrategy::OrderData Strategy_Stairs::getNewOrder(
 	auto step = st.sl?0:getNextStep(dir, st.prevdir);
 	double new_pos = power * stepToPos(step);
 	double sz = calcOrderSize(posToAssets(st.pos),assets, posToAssets(	new_pos));
-	return OrderData{st.sl?cur_price:new_price,sz,st.sl?Alert::stoploss:Alert::enabled};
+	return OrderData{(st.sl && dir * new_pos < 0)?cur_price:new_price,sz,st.sl?Alert::stoploss:Alert::enabled};
 }
 
 bool Strategy_Stairs::isMargin(const IStockApi::MarketInfo& minfo) const {

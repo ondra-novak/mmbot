@@ -1427,6 +1427,8 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 				if (dir < 0) descents++;
 			}
 		});
+		if (cur_streak > max_streak) max_streak = cur_streak;
+
 
         
 		var last = c[c.length-1];

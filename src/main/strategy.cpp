@@ -37,7 +37,8 @@ static json::NamedEnum<Strategy_Stairs::Pattern> strStairsPattern ({
 		{Strategy_Stairs::constant,""},
 		{Strategy_Stairs::constant,"constant"},
 		{Strategy_Stairs::exponencial,"exponencial"},
-		{Strategy_Stairs::harmonic,"harmonic"}
+		{Strategy_Stairs::harmonic,"harmonic"},
+		{Strategy_Stairs::parabolic,"parabolic"}
 });
 
 static json::NamedEnum<Strategy_Stairs::ReductionMode> strStairsRedMode ({
