@@ -459,7 +459,7 @@ the same order, they are ordered by its ID - this is the default ordering. Modif
 
 <template id="backtest_vis">
 <x-section class="backtest"><x-section-caption>Backtest</x-section-caption>
-<div class="tablecont"><table>
+<div class="tablecont up"><table>
 <tr>
 <th class="a" data-name="showpl">p&amp;l</th>
 <th class="a" data-name="showpl">p&amp;l/y</th>
@@ -495,6 +495,27 @@ the same order, they are ordered by its ID - this is the default ordering. Modif
 <div class="spinner fast save" data-name="spinner" hidden="hidden"></div>
 <div><input name="pos" type="range" min="-100" max="0" step="0.1" value="0" class="thick"></div>
 </div>
+<div class="tablecont bottom"><table>
+<tr>
+<th>Trades</th>
+<th>Buys</th>
+<th>Sells</th>
+<th>Alerts</th>
+<th>Ascents</th>
+<th>Descents</th>
+<th>Max streak</th>
+<tr>
+<td data-name="trades"></td>
+<td data-name="buys"></td>
+<td data-name="sells"></td>
+<td data-name="alerts"></td>
+<td data-name="ascents"></td>
+<td data-name="descents"></td>
+<td data-name="streak"></td>
+</tr>
+</table>
+</div>
+
 <x-form class="floating" hidden="hidden" data-name="options_form">
 <div class="backtesticons">
 	<div class="icon" data-name="select_file"><img src="../res/upload_data.png" title="Upload 1minute data" ></div>

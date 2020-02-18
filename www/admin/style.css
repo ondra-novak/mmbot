@@ -406,7 +406,12 @@ a {
 
 .backtest div.tablecont {
 	background: linear-gradient(to right, transparent,#3e3e3e);	
-	margin: -0.5em -0.5em 0.5em -0.5em;
+}
+.backtest div.tablecont.up {
+		margin: -0.5em -0.5em 0.5em -0.5em;
+}
+.backtest div.tablecont.bottom {
+		margin: 0.5em -0.5em -0.5em -0.5em;
 }
 .backtest table{
 	width: 100%;

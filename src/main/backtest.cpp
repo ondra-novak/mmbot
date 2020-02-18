@@ -95,6 +95,7 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 				bt.norm_accum += 0;
 				bt.norm_profit += 0;
 				bt.size = 0;
+				pos = 0;
 			}
 			bt.price.price = p;
 			bt.price.time = price->time;

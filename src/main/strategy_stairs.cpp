@@ -179,7 +179,9 @@ json::Value Strategy_Stairs::exportState() const {
 					   ("neutral_pos", st.neutral_pos)
 					   ("power", st.power)
 					   ("step", st.step)
-					   ("prev_dir", st.prevdir);
+					   ("prev_dir", st.prevdir)
+					   ("cfg_hash", st.cfghash)
+					   ;
 }
 
 double Strategy_Stairs::calcPower(double price, double currency) const {
@@ -196,7 +198,7 @@ PStrategy Strategy_Stairs::onIdle(const IStockApi::MarketInfo &minfo,
 		State nst;
 		if (isMargin(minfo)) {
 			double ps = calcPower(curTicker.last, currency);
-			nst = State{curTicker.last, 0, curTicker.last, curTicker.last, 0,0, ps,  0};
+			nst = State{curTicker.last, assets, curTicker.last, curTicker.last, 0,0, ps,  0};
 		} else {
 			double neutral_pos = calcNeutralPos(assets,currency, curTicker.last, minfo.leverage != 0);
 			double ps = calcPower(curTicker.last, neutral_pos * curTicker.last);
@@ -204,6 +206,7 @@ PStrategy Strategy_Stairs::onIdle(const IStockApi::MarketInfo &minfo,
 			nst =  State {curTicker.last, pos, curTicker.last, curTicker.last, 0,neutral_pos, ps,  0};
 		}
 		nst.step = posToStep(assets/nst.power);
+		nst.cfghash = getCfgHash();
 		g = new Strategy_Stairs(cfg, nst);
 		if (g->isValid()) return g;
 		else throw std::runtime_error("Stairs: Invalid settings - unable to initialize strategy");
@@ -245,7 +248,7 @@ json::Value Strategy_Stairs::dumpStatePretty(
 }
 
 PStrategy Strategy_Stairs::importState(json::Value src) const {
-	return new Strategy_Stairs(cfg, State{
+	State newst{
 		src["price"].getNumber(),
 		src["pos"].getNumber(),
 		src["open"].getNumber(),
@@ -254,8 +257,15 @@ PStrategy Strategy_Stairs::importState(json::Value src) const {
 		src["neutral_pos"].getNumber(),
 		src["power"].getNumber(),
 		src["step"].getInt(),
-		src["prev_step"].getInt()
-	});
+		src["prev_dir"].getInt(),
+		src["cfg_hash"].getUInt()
+	};
+	if (newst.cfghash != getCfgHash()) {
+		newst.price = 0;
+		newst.power = 0;
+	}
+
+	return new Strategy_Stairs(cfg, newst);
 }
 double Strategy_Stairs::assetsToPos(double assets) const {
 	return assets - st.neutral_pos;
@@ -270,3 +280,14 @@ double Strategy_Stairs::calcNeutralPos(double assets, double currency, double pr
 	return middle/price;
 }
 
+std::size_t Strategy_Stairs::getCfgHash() const {
+	json::Value data = {
+			cfg.power,
+			(int)cfg.pattern,
+			cfg.max_steps,
+			cfg.reduction,
+			(int)cfg.mode,
+			(int)cfg.redmode
+	};
+	return std::hash<json::Value>()(data);
+}

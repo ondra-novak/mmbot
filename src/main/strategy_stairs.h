@@ -53,6 +53,7 @@ public:
 		double power = 0;
 		intptr_t step = 0;
 		intptr_t prevdir = 0;
+		std::size_t cfghash = 0;
 	};
 
 	Strategy_Stairs(const Config &cfg);
@@ -98,7 +99,7 @@ protected:
 
 	template<typename Fn>
 	static void serie(Pattern pat, Fn &&cb);
-
+	std::size_t getCfgHash() const;
 
 };
 

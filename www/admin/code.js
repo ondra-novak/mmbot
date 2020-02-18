@@ -1373,6 +1373,16 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		var max_downdraw = 0;
 		var cost = 0;
 		var max_cost = 0;
+		var trades = 0;
+		var buys = 0;
+		var sells = 0;
+		var alerts = -1;
+		var ascents = 0;
+		var descents = 0;
+		var max_streak = 0;
+		var cur_streak = 0;
+		var last_dir = 0;
+		var lastp = v[0].pr;
 
 		var c = [];
 		var ilst,acp = false;
@@ -1390,13 +1400,29 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 				ilst = x;
 			}	
 			acp = nacp;
-			var ap = Math.abs(x.ps);
-			if (ap > max_pos) 
-			    max_pos = ap;
-			if (x.pl > max_pl) {max_pl = x.pl;min_pl = x.pl;}
-			if (x.pl < min_pl) {min_pl = x.pl;var downdraw = max_pl - min_pl; if (downdraw> max_downdraw) max_downdraw = downdraw;}
-			cost = cost + x.sz * x.pr;
-			if (cost > max_cost) max_cost = cost;
+			if (balance!==undefined) {
+				var ap = Math.abs(x.ps);
+				if (ap > max_pos) 
+				    max_pos = ap;
+				if (x.pl > max_pl) {max_pl = x.pl;min_pl = x.pl;}
+				if (x.pl < min_pl) {min_pl = x.pl;var downdraw = max_pl - min_pl; if (downdraw> max_downdraw) max_downdraw = downdraw;}
+				cost = cost + x.sz * x.pr;
+				if (cost > max_cost) max_cost = cost;
+				if (x.achg > 0) buys++;
+				if (x.achg < 0) sells++;
+				if (x.achg == 0) alerts++; else trades++;
+				var dir = Math.sign(x.pr - lastp);
+				lastp = x.pr;
+				if (dir != last_dir) {
+					if (cur_streak > max_streak) max_streak = cur_streak;
+					cur_streak = 1;
+					last_dir = dir;
+				} else {
+					cur_streak++;
+				}
+				if (dir > 0) ascents++;
+				if (dir < 0) descents++;
+			}
 		});
 
         
@@ -1413,6 +1439,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 			c.push(x);
 		}
 
+		if (balance!==undefined) {
         cntr.bt.setData({
         	"pl":adjNumBuySell(vlast.pl),
         	"ply":adjNumBuySell(vlast.pl*31536000000/interval),
@@ -1427,8 +1454,16 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
         	"pc": adjNumBuySell(vlast.pl*3153600000000/(interval*balance),0),
         	"npc": adjNumBuySell(vlast.npl*3153600000000/(interval*balance),1),
         	"showpl":{".hidden":show_norm},
-        	"shownorm":{".hidden":!show_norm}
+        	"shownorm":{".hidden":!show_norm},
+        	"trades": trades,
+        	"buys": buys,
+        	"sells": sells,
+        	"alerts": alerts,
+        	"ascents": ascents,
+        	"descents": descents,
+        	"streak": max_streak        
         });
+		}
 
 		var chart1 = cntr.bt.findElements('chart1')[0];
 		var chart2 = cntr.bt.findElements('chart2')[0];
@@ -1596,7 +1631,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 			draw(cntr,v,offset,bal);			
 			update = function() {
 				if (tm) clearTimeout(tm);
-				tm = setTimeout(draw.bind(this,cntr,v,offset,bal), 1);
+				tm = setTimeout(draw.bind(this,cntr,v,offset), 1);
 			}
 		}).then(cntr.hideSpinner,function(e){cntr.hideSpinner;throw e;});
 		
