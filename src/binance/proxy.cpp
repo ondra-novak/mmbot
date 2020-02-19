@@ -125,15 +125,17 @@ json::Value Proxy::private_request(Method method, std::string command, json::Val
 			}
 		}
 	} catch (const HTTPJson::UnknownStatusException &e) {
-		try {
-			res = json::Value::parse(e.response.getBody());
-			json::String msg({res["code"].toString()," ",res["msg"].toString()});
+		json::Value err;
+		try {err = json::Value::parse(e.response.getBody());} catch (...) {}
+		if (!err.hasValue()) throw;
+		if (err["code"].defined()) {
+			json::String msg({err["code"].toString()," ",err["msg"].toString()});
 			throw std::runtime_error(msg.c_str());
-		} catch (...) {
-			throw e;
+		}
+		else {
+			throw std::runtime_error(err.toString().c_str());
 		}
 	}
-
 	return res;
 }
 
