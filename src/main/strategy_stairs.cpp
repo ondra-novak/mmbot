@@ -110,8 +110,9 @@ IStrategy::OrderData Strategy_Stairs::getNewOrder(
 	double power = st.power;
 	auto step = getNextStep(dir, st.prevdir);
 	double new_pos = power * stepToPos(step);
-	double sz = calcOrderSize(posToAssets(st.pos),assets, posToAssets(	new_pos));
-	return OrderData{(st.sl && dir * new_pos < 0)?cur_price:new_price,sz,st.sl?Alert::stoploss:Alert::enabled};
+	if (st.sl) new_pos = new_pos*0.5; //ensure, that one extra step will be taken to avoid zigzag chained loss
+	double sz = posToAssets(new_pos) - assets;
+	return OrderData{(st.sl && dir * st.pos < 0)?cur_price:new_price,sz,st.sl?Alert::stoploss:Alert::enabled};
 }
 
 bool Strategy_Stairs::isMargin(const IStockApi::MarketInfo& minfo) const {
@@ -130,7 +131,9 @@ std::pair<IStrategy::OnTradeResult, ondra_shared::RefCntPtr<const IStrategy> > S
 
 	if (!isValid()) return onIdle(minfo,{tradePrice,tradePrice,tradePrice,0},assetsLeft,currencyLeft)
 						->onTrade(minfo,tradePrice,tradeSize,assetsLeft,currencyLeft);
-	auto dir = st.sl?sgn(tradeSize):sgn(st.price - tradePrice);
+	auto dir = 0;
+	dir = st.sl?sgn(tradeSize):0;
+	if (dir == 0) dir =sgn(st.price - tradePrice);
 	double power = st.power;
 	double curpos = assetsToPos(assetsLeft);
 	double prevpos = curpos - tradeSize;
@@ -142,7 +145,7 @@ std::pair<IStrategy::OnTradeResult, ondra_shared::RefCntPtr<const IStrategy> > S
 	nst.enter = prevpos*curpos<=0 ? tradePrice:curpos * dir > 0?(st.enter*prevpos + tradeSize*tradePrice)/curpos:st.enter;
 	nst.step = step;
 	nst.prevdir = dir?dir:st.prevdir;
-	nst.sl = cfg.sl && step == st.step && dir * step >= cfg.max_steps && tradeSize == 0;
+	nst.sl = cfg.sl && step == st.step && std::abs(step) >= cfg.max_steps && tradeSize == 0;
 	double spread = std::abs(tradePrice - st.price);
 	double posChange = std::abs(tradeSize);
 	if (posChange) {
