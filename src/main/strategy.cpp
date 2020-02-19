@@ -38,7 +38,13 @@ static json::NamedEnum<Strategy_Stairs::Pattern> strStairsPattern ({
 		{Strategy_Stairs::constant,"constant"},
 		{Strategy_Stairs::exponencial,"exponencial"},
 		{Strategy_Stairs::harmonic,"harmonic"},
-		{Strategy_Stairs::parabolic,"parabolic"}
+		{Strategy_Stairs::parabolic,"parabolic"},
+		{Strategy_Stairs::sqrt,"sqrt"},
+		{Strategy_Stairs::poisson1,"poisson1"},
+		{Strategy_Stairs::poisson2,"poisson2"},
+		{Strategy_Stairs::poisson3,"poisson3"},
+		{Strategy_Stairs::poisson4,"poisson4"},
+		{Strategy_Stairs::poisson5,"poisson5"}
 });
 
 static json::NamedEnum<Strategy_Stairs::ReductionMode> strStairsRedMode ({

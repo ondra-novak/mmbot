@@ -104,11 +104,17 @@ to enter a negative value and then the value of the assets held will decrease an
 	<option value="lockOnReverse">One-way steps</option>
 </select></span><x-slider data-name="st_reduction_step" data-min="0" data-max="50" data-mult="1" data-fixed="0"></x-slider></div>
 <label><span>Series</span><select data-name="st_pattern">
-<option value="constant">Constant step</option>
+<option value="constant">Linear increase</option>
 <option value="harmonic">Harmonic (1,1.5,1.83,2.083,...)</option> 
+<option value="sqrt">Square root(1,1.4,1.7,2,2.2...)</option>
 <option value="arithmetic">Arithmetic (1,3,6,10,15,...)</option>
 <option value="exponencial">Exponencial (1,2,4,8,16...)</option>
 <option value="parabolic">Parabolic</option>
+<option value="poisson1">Poisson μ=1</option>
+<option value="poisson2">Poisson μ=2</option>
+<option value="poisson3">Poisson μ=5</option>
+<option value="poisson4">Poisson μ=7</option>
+<option value="poisson5">Poisson μ=11</option>
 </select></label>
 <label class="adv"><span>Options</span><span><x-checkbox data-name="st_sl">Stoploss</x-checkbox></span></label>
 <div class="rightinfo"><button name="show_backtest" disabled="disabled">Backtest</button></div>

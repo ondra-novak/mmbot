@@ -17,7 +17,13 @@ public:
 		arithmetic,
 		harmonic,
 		exponencial,
-		parabolic
+		parabolic,
+		sqrt,
+		poisson1,
+		poisson2,
+		poisson3,
+		poisson4,
+		poisson5
 	};
 
 

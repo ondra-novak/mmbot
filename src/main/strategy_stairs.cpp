@@ -21,15 +21,18 @@ intptr_t Strategy_Stairs::getNextStep(double dir, std::intptr_t prev_dir) const 
 		cs = cs + idir;
 	} else switch (cfg.redmode) {
 		case stepsBack:
-			if (cfg.reduction>0) cs = cs + idir * cfg.reduction; else cs = 0;break;
+			if (cfg.reduction>0) {
+				cs = cs + idir * cfg.reduction;
+			} else {
+				if (cs * idir == -cfg.reduction) cs = 0;
+				else cs = cs + idir;
+			}
 		case reverse:
 			cs = idir*cfg.reduction; break;
 		case lockOnReduce:
-			if (cs * idir < -cfg.reduction || prev_dir * dir >= 0) {
-				cs = -((cfg.reduction-1) * idir);
-			} else {
-				cs = idir;
-			}
+			if (cs * idir == -cfg.reduction-1 && prev_dir * idir < 0) cs = idir;
+			else if (cs * idir > -cfg.reduction) cs = cs + idir;
+			else if (cs * idir < -cfg.reduction-1) cs = -idir * cfg.reduction;
 			break;
 		case lockOnReverse:
 			if (cs * idir < -cfg.reduction)
@@ -39,9 +42,26 @@ intptr_t Strategy_Stairs::getNextStep(double dir, std::intptr_t prev_dir) const 
 	return std::min(std::max(cs, -cfg.max_steps), cfg.max_steps);
 }
 
+static std::vector<double> calcFactorials() {
+	std::vector<double> ret;
+	double sum = 1;
+	ret.push_back(sum);
+	for (unsigned int i = 1; i < 100; i++) {
+		sum = sum * i; ret.push_back(sum);
+	}
+	return ret;
+}
+
+static double factorial(unsigned int x) {
+	static std::vector<double> factTable(calcFactorials());
+	if (x >= factTable.size()) return std::numeric_limits<double>::infinity();
+	return factTable[x];
+}
+
 template<typename Fn>
 void Strategy_Stairs::serie(Pattern pat, int maxstep, Fn &&fn) {
 	int idx;
+	int mi;
 	double sum;
 	switch(pat) {
 	case constant: idx = 0;
@@ -65,8 +85,37 @@ void Strategy_Stairs::serie(Pattern pat, int maxstep, Fn &&fn) {
 		idx = 0;
 		while (fn(idx, sum)) {
 			++idx;
-			sum = sum + std::max((maxstep+1-idx)*idx,0);
+			sum = std::sqrt(idx);
 		}
+		break;
+	case sqrt:
+		sum = 0;
+		idx = 0;
+		while (fn(idx, sum)) {
+			++idx;
+			sum =std::sqrt(idx);
+		}
+		break;
+	case poisson1:
+	case poisson2:
+	case poisson3:
+	case poisson4:
+	case poisson5:
+		switch(pat) {
+			default:
+			case poisson1: mi=1;break;
+			case poisson2: mi=2;break;
+			case poisson3: mi=5;break;
+			case poisson4: mi=7;break;
+			case poisson5: mi=11;break;
+		};
+		sum = 0;
+		idx = 0;
+		while (fn(idx, sum)) {
+			sum = sum + std::exp(-mi) * std::pow(mi,idx) / factorial(idx);
+			++idx;
+		}
+		break;
 	}
 }
 
@@ -112,7 +161,7 @@ IStrategy::OrderData Strategy_Stairs::getNewOrder(
 	double new_pos = power * stepToPos(step);
 	if (st.sl) new_pos = new_pos*0.5; //ensure, that one extra step will be taken to avoid zigzag chained loss
 	double sz = posToAssets(new_pos) - assets;
-	return OrderData{(st.sl && dir * st.pos < 0)?cur_price:new_price,sz,st.sl?Alert::stoploss:Alert::enabled};
+	return OrderData{(st.sl && dir * st.pos < 0)?cur_price:0,sz,st.sl?Alert::stoploss:Alert::enabled};
 }
 
 bool Strategy_Stairs::isMargin(const IStockApi::MarketInfo& minfo) const {
