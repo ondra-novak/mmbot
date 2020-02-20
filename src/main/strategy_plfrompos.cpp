@@ -83,13 +83,13 @@ PStrategy Strategy_PLFromPos::onIdle(const IStockApi::MarketInfo &minfo,
 
 
 double Strategy_PLFromPos::calcNewPos(const IStockApi::MarketInfo &minfo, double tradePrice) const {
-	double maxpos = st.maxpos?st.maxpos:std::numeric_limits<double>::max();
+	//double maxpos = st.maxpos?st.maxpos:std::numeric_limits<double>::max();
 	//calculate direction of the line defines position change per price change
 	double k = calcK();
 	double pos = assetsToPos(minfo,st.a);
 	if (k == 0) return pos;
 	double apos = std::abs(pos);
-	bool atmax = apos > maxpos;
+	//bool atmax = apos > maxpos;
 
 	double p = st.p;
 	double np = pos;
