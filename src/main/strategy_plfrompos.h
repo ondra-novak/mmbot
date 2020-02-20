@@ -51,7 +51,6 @@ public:
 		double acm = 0;
 		double value = 0;
 		double avgsum = 0;
-		double mult = 1.0;
 	};
 
 	Strategy_PLFromPos(const Config &cfg, const State &st);
