@@ -151,8 +151,8 @@ doesn't work as stoploss, because position can still grow beyoind the limit, but
 		realized profit is linear, so larger positions are reduced less than
 		smaller positions</span></span>
 		<x-slider data-name="pl_redfact" data-min="0" data-max="100" data-mult="1"></x-slider></div>
-<label class="adv"><span>Stoploss - reverse [%]<span class="tooltip">Allows to reverse position when stop is reached. The value specifies size of the position relative to max.pos.</span></span><x-slider data-name="pl_slrev" data-min="0" data-max="100" data-mult="1"  data-fixed="0"></x-slider></label>
 <label class="adv"><span>Accumulation <span class="tooltip">Amount of the profit used to buy extra assets</span></span><x-slider data-name="pl_acum" data-min="0" data-max="100" data-mult="1"></x-slider></label>
+<label class="adv"><span>Options<span class="tooltip">Reduce opening orders - runs reduction function also for opening orders which causes, that position may be opened less than calculated. This would be generally safer option, however it also reduces potentional profit significantly</span></span><x-checkbox data-name="pl_redoninc">Reduce also opening orders</x-checkbox></label>
 <div class="rightinfo"><button data-name="linear_suggest pl_mode_m">Propose</button><button data-name="linear_suggest_maxpos  pl_mode_m">Propose max position</button></div>
 <div class="warning" data-name="err_toolargepos">Changing setting is discouraged because the open position is too large</div>
 <div class="warning" data-name="err_invalid_values">Unable to trade - invalid values</div>

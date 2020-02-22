@@ -562,7 +562,7 @@ App.prototype.fillForm = function (src, trg) {
 	data.pl_baluse=50;
 	data.pl_redfact=50;
 	data.pl_redmode="rp";
-	data.pl_slrev=0;
+	data.pl_redoninc=true;
 	data.kv_valinc = 0;
 	data.st_power={"value":1.7};
 	data.st_max_step=1;
@@ -601,7 +601,7 @@ App.prototype.fillForm = function (src, trg) {
 		data.pl_mode_m = {".hidden":!!src.strategy.power};
 		data.pl_mode_a = {".hidden":!src.strategy.power};
 		data.pl_show_factor=Math.pow(10,defval(src.strategy.power,1))*0.01;
-		data.pl_slrev = filledval(defval(src.strategy.slreverse,0)*100,0);
+		data.pl_redoninc = filledval(src.strategy.reduce_on_inc,true);
 	}
 	data.st_power["!change"] = function() {
 		trg.setItemValue("st_show_factor",powerCalc(trg.readData(["st_power"]).st_power));
@@ -703,7 +703,7 @@ App.prototype.saveForm = function(form, src) {
 		trader.strategy.reduce_mode = data.pl_redmode;
 		trader.strategy.balance_use = data.pl_baluse/100;		
 		trader.strategy.power = data.pl_confmode=="a"?data.pl_power:0;
-		trader.strategy.slreverse = data.pl_slrev/100;
+		trader.strategy.reduce_on_inc = data.pl_redoninc;
 	} else if (data.strategy == "halfhalf" || data.strategy == "keepvalue") {
 		trader.strategy.accum = data.acum_factor/100.0;
 		trader.strategy.ea = data.external_assets;
@@ -1352,7 +1352,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 	var url = "api/backtest";
 	form.enableItem("show_backtest",false);		
 	var inputs = ["external_assets", "acum_factor","kv_valinc","pl_confmode","pl_power","pl_baluse","cstep",
-		"max_pos","neutral_pos","pl_redmode","pl_redfact","pl_acum","min_size","max_size","order_mult","alerts","delayed_alerts","linear_suggest","linear_suggest_maxpos","pl_slrev",
+		"max_pos","neutral_pos","pl_redmode","pl_redfact","pl_acum","min_size","max_size","order_mult","alerts","delayed_alerts","linear_suggest","linear_suggest_maxpos","pl_redoninc",
 		"st_power","st_reduction_step","st_sl","st_redmode","st_max_step","st_pattern","dynmult_sliding","accept_loss","spread_calc_sma_hours","st_tmode"];
 	var spread_inputs = ["spread_calc_stdev_hours", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode","dynmult_sliding","dynmult_mult"];
 	var balance = form._balance;

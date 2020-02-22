@@ -38,7 +38,7 @@ public:
 		double baltouse;
 		ReduceMode reduceMode;
 		double stoploss_reverse;
-
+		bool reduce_on_increase;
 	};
 
 	struct State {

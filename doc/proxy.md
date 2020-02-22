@@ -24,7 +24,7 @@ Both request and response are valid JSONs (stderr can handle any arbitrary text)
 
 (the character '\n' represents the new line character)
 
-There can be zero or one argument - multiple arguments are passes as a JSON object  
+There can be zero or one argument - multiple arguments are passed as a JSON object  
 
 ### Successful response
 
@@ -41,7 +41,8 @@ The function can return zero or one result. Multiple results are returned as a J
 [ false, "<error message>" ]\n
 ```
 
-Errors are carried as exception through the robot's code. It depends on the situation how it is handled. In most cases, the robot skips the cycle and tries the to repeat the operation after a while.
+Errors are carried as exception through the robot's code. It depends on the situation how it is handled. In most of the cases, the robot skips the cycle and tries the to repeat the operation after a while.
+
 If "placeOrder" fails, the order is considered as "not placed".
 
 ## Functions
@@ -111,7 +112,7 @@ Returns ticker for given pair
 ```
 
 #### TIP: 
-To reduce count of requests, the broker can read multiple symbols and server them from cache until the "reset"
+To reduce count of requests, the broker can read multiple symbols and serve them from cache until the "reset"
 
 ### syncTrades
 
@@ -172,10 +173,10 @@ eff_price = 7644.8262
 ```
 ["getOpenOrders", <pair>]
 ```
-Returns open trades for given **pair**
+Returns open orders for given **pair**
 
 ```
-[ true, {"id":<value>, "clientOrderId": <value>, "size": <number>, "price":<number> } ]
+[ true, [{"id":<value>, "clientOrderId": <value>, "size": <number>, "price":<number> },...] ]
 ```
 
 * **id** - id of order (string or number)
@@ -227,9 +228,9 @@ Returns information about a trading pair
    of decimal places, but is represented as minimal fraction. For example 0.0001 represents 4 decimal numbers. 
 - **currency_step** - step on which the price of the order can be specified (count
    of decimal places, but is represented as minimal fraction. For example 0.0001 represents 4 decimal numbers. 
-- **asset_symbols** - string contains symbol for the assets. This symbol is used to
+- **asset_symbol** - string contains symbol for the assets. This symbol is used to
 search the balance. Example: "XBT" 
-- **currency_step** - string contains symbol for the currency. This symbol is used to search the balance. Example: "USD"
+- **currency_symbol** - string contains symbol for the currency. This symbol is used to search the balance. Example: "USD"
 - **min_size** - minimal size of the order
 - **fees** - maker fees as fraction of 1. If the fees are 0.1%, the correct value for this field is 0.001
 - **feeScheme** - specifies how fees are substracted 
@@ -242,10 +243,10 @@ search the balance. Example: "XBT"
   leverage is available (for example 100 means leverage 100x) and it also enables
   `shorts`.
 - **invert_price** - the value `true` specifies, that price is inverted. It is used when
-  the trading pair is inversed futures. The quoted price must be send as 1/price, the position
+  the trading pair is inverted futures. The quoted price must be send as 1/price, the position
   and the size of the order must be multiplied by -1 and this flag  must be set to `true`.
-- **inverted_symbol** - for inversed futures specifies symbol for price in which the futures are
-  quoted. For example Deribit BTC/USD is inversed futures. Assets is 'contract', currency is BTC, 
+- **inverted_symbol** - for inverted futures specifies symbol for price in which the futures are
+  quoted. For example Deribit BTC/USD is inverted futures. Assets is 'contracts', currency is BTC, 
   and inverted symbol is USD.
 - **simulator** - set this to `true`, if the pair is not actual trading for the real money, but just
   kind of simulator, paper trading, etc. 

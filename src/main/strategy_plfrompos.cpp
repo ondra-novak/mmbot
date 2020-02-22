@@ -134,7 +134,7 @@ double Strategy_PLFromPos::calcNewPos(const IStockApi::MarketInfo &minfo, double
 			double ap = std::abs(np);
 
 
-			if (dcrs  && np * pos > 0) {
+			if ((dcrs || cfg.reduce_on_increase)  && np * pos > 0) {
 				//calculate profit made from moving price from p to tradePrice
 				//profit is defined by current position * difference of two prices
 				//also increas or decrease it by reduce factor, which can be configured (default 1)
@@ -156,7 +156,7 @@ double Strategy_PLFromPos::calcNewPos(const IStockApi::MarketInfo &minfo, double
 					switch (cfg.reduceMode) {
 					default:
 						//fixed reduction is easy
-					case fixedReduce: 	nnp = pos + (np - pos) * (1 + ramped_reduce_factor); break;
+					case fixedReduce: 	nnp = pos + (np - pos) * (dcrs?(1 + ramped_reduce_factor):1/(1 + ramped_reduce_factor)); break;
 						//result from first part is extra reduction powered by 2. Now sqare root of it
 					case reduceFromProfit: {
 						nnp = sgn(np) * sqrt(np2);
