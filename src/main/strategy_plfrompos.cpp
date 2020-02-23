@@ -88,7 +88,7 @@ double Strategy_PLFromPos::calcNewPos(const IStockApi::MarketInfo &minfo, double
 	double k = calcK();
 	double pos = assetsToPos(minfo,st.a);
 	if (k == 0) return pos;
-	double apos = std::abs(pos);
+
 	//bool atmax = apos > maxpos;
 
 	double p = st.p;
@@ -100,7 +100,6 @@ double Strategy_PLFromPos::calcNewPos(const IStockApi::MarketInfo &minfo, double
 	bool dcrs = pos * dir < 0;
 
 	double reduce_factor = cfg.reduce_factor;
-	double ramped_reduce_factor = st.maxpos?2*reduce_factor*(apos/st.maxpos):reduce_factor;
 
 
 	//if position is increasing at maxpos do not increase position beyond that limit
@@ -156,7 +155,7 @@ double Strategy_PLFromPos::calcNewPos(const IStockApi::MarketInfo &minfo, double
 					switch (cfg.reduceMode) {
 					default:
 						//fixed reduction is easy
-					case fixedReduce: 	nnp = pos + (np - pos) * (dcrs?(1 + ramped_reduce_factor):1/(1 + ramped_reduce_factor)); break;
+					case fixedReduce: 	nnp = pos + (np - pos) * (dcrs?(1 + reduce_factor):1/(1 + reduce_factor)); break;
 						//result from first part is extra reduction powered by 2. Now sqare root of it
 					case reduceFromProfit: {
 						nnp = sgn(np) * sqrt(np2);
