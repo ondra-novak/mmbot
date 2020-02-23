@@ -30,8 +30,7 @@ public:
 
 	struct Config {
 		double step;
-		double accum;
-		double neutral_pos;
+		double pos_offset;
 		double maxpos;
 		double reduce_factor;
 		double power;
@@ -48,9 +47,9 @@ public:
 		double a = 0;
 		double k = 0;
 		double maxpos = 0;
-		double acm = 0;
 		double value = 0;
 		double avgsum = 0;
+		double neutral_pos = 0;
 	};
 
 	Strategy_PLFromPos(const Config &cfg, const State &st);
@@ -70,14 +69,12 @@ public:
 
 	static std::string_view id;
 
-	double getNeutralPos(const IStockApi::MarketInfo &minfo) const;
-	double assetsToPos(const IStockApi::MarketInfo &minfo, double assets) const;
-	double posToAssets(const IStockApi::MarketInfo &minfo, double pos) const;
+	double assetsToPos(double assets) const;
+	double posToAssets(double pos) const;
 
 
 	double calcK() const;
 	static double calcK(const State &st);
-	double reducedK(double k) const;
 
 	static double sliding_zero_factor;;
 	static double min_rp_reduce;
@@ -92,8 +89,15 @@ protected:
 
 private:
 	double calcNewPos(const IStockApi::MarketInfo &minfo, double tradePrice) const;
-	void calcPower(const IStockApi::MarketInfo &minfo, State &st,  double price, double assets, double currency, bool keepnp) const;
+	void calcPower(const IStockApi::MarketInfo &minfo, State &st,  double price, double assets, double currency) const;
 	bool isAuto() const;
+	bool isExchange(const IStockApi::MarketInfo &minfo) const;
+
+	struct CalcNeutralBalanceResult {
+		double neutral_pos;
+		double balance;
+	};
+	CalcNeutralBalanceResult calcNeutralBalance(const IStockApi::MarketInfo &minfo, double assets, double currency, double price) const;
 };
 
 

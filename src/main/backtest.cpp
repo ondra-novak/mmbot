@@ -60,8 +60,17 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 				if (cfg.max_size && std::abs(order.size) > cfg.max_size) {
 					order.size = cfg.max_size*sgn(order.size);
 				}
-				pos += order.size;
-				if (!minfo.leverage) balance -= order.size*p;
+				if (!minfo.leverage) {
+					double chg = order.size*p;
+					if (balance - chg < 0 || pos + order.size < 0) {
+						pl  -= pchange;
+						continue;
+					}
+					balance -= chg;
+					pos += order.size;
+				} else {
+					pos += order.size;
+				}
 				auto tres = s.onTrade(minfo, p, order.size, pos, balance);
 				bt.neutral_price = tres.neutralPrice;
 				bt.norm_accum += tres.normAccum;

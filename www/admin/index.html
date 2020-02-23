@@ -130,8 +130,8 @@ to enter a negative value and then the value of the assets held will decrease an
 stop beyond this limit, however the strategy focuses on position reduction regadless on possible loss. This also
 doesn't work as stoploss, because position can still grow beyoind the limit, but a lot of slower.</span></span><input data-name="max_pos" type="number" step="any">
 </label>
-<label><span>Neutral position <span class="tooltip"
->How much assets are considered as neutral position.</span></span><input data-name="neutral_pos" type="number" step="any">
+<label class="adv"><span>Neutral position offset <span class="tooltip"
+>Sets offset to neutral position, the strategy will reduce to this position</span></span><input data-name="pl_posoffset" type="number" step="any">
 </label>
 <div class="adv label ttb"><span><select data-name="pl_redmode">
 		<option value="npmove">Sliding zero [‰]</option>
@@ -151,7 +151,6 @@ doesn't work as stoploss, because position can still grow beyoind the limit, but
 		realized profit is linear, so larger positions are reduced less than
 		smaller positions</span></span>
 		<x-slider data-name="pl_redfact" data-min="0" data-max="100" data-mult="1"></x-slider></div>
-<label class="adv"><span>Accumulation <span class="tooltip">Amount of the profit used to buy extra assets</span></span><x-slider data-name="pl_acum" data-min="0" data-max="100" data-mult="1"></x-slider></label>
 <label class="adv"><span>Options<span class="tooltip">Reduce opening orders - runs reduction function also for opening orders which causes, that position may be opened less than calculated. This would be generally safer option, however it also reduces potentional profit significantly</span></span><x-checkbox data-name="pl_redoninc">Also reduce opening orders</x-checkbox></label>
 <div class="rightinfo"><button data-name="linear_suggest pl_mode_m">Propose</button><button data-name="linear_suggest_maxpos  pl_mode_m">Propose max position</button></div>
 <div class="warning" data-name="err_toolargepos">Changing setting is discouraged because the open position is too large</div>

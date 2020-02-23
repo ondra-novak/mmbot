@@ -392,8 +392,8 @@ App.prototype.fillForm = function (src, trg) {
 
 		function linStrategy_recalc() {
 			var fdata = {};
-			var inputs = trg.readData(["max_pos","cstep","neutral_pos"]);
-			var pos = invSize(pair.asset_balance,pair.invert_price) - inputs.neutral_pos;
+			var inputs = trg.readData(["max_pos","cstep","pl_posoffset"]);
+			var pos = invSize(pair.asset_balance,pair.invert_price) - inputs.pl_posoffset;
 			var k = inputs.cstep / (pair.price*pair.price * 0.01);
 			var mp = pair.price - pos/k;
 			var lp = mp-inputs.max_pos/k;
@@ -416,7 +416,7 @@ App.prototype.fillForm = function (src, trg) {
 				{x.classList.toggle("mark",b);}.bind(null, pos > safe_pos) );
 		}
 		function linStrategy_recomended() {
-			var inputs = trg.readData(["cstep","neutral_pos","pl_baluse"]);
+			var inputs = trg.readData(["cstep","pl_posoffset","pl_baluse"]);
 			var value = pair.currency_balance*inputs.pl_baluse*0.01;
 			var invest = value / 20;
 			var k = invest / (pair.price*pair.price * 0.01);
@@ -429,7 +429,7 @@ App.prototype.fillForm = function (src, trg) {
 			linStrategy_recalc();
 		}
 		function linStrategy_recomended_maxpos() {			
-			var inputs = trg.readData(["cstep","neutral_pos","pl_baluse"]);
+			var inputs = trg.readData(["cstep","pl_posoffset","pl_baluse"]);
 			var value = pair.currency_balance*inputs.pl_baluse*0.01;
 			var invest = inputs.cstep;
 			var k = invest / (pair.price*pair.price * 0.01);
@@ -484,10 +484,10 @@ App.prototype.fillForm = function (src, trg) {
 		}
 		
 		function calcPosition(data) {
-			var v = trg.readData(["neutral_pos","report_position_offset"]);
+			var v = trg.readData(["pl_posoffset","report_position_offset"]);
 			var cpos = invSize((isFinite(v.report_position_offset)?v.report_position_offset:0) + state.position,pair.invert_price);
 			if (isFinite(cpos)) {
-				var apos = invSize(pair.asset_balance, pair.invert_price) - v.neutral_pos;
+				var apos = invSize(pair.asset_balance, pair.invert_price) - v.pl_posoffset;
 				data.hdr_position = adjNum(cpos);
 				data.sync_pos = {
 						".hidden":(Math.abs(cpos - apos) <= (Math.abs(cpos)+Math.abs(apos))*1e-8)
@@ -500,7 +500,7 @@ App.prototype.fillForm = function (src, trg) {
 		calcPosition(data);
 
 		if (first_fetch) {
-			data.max_pos = data.cstep = data.neutral_pos = {"!input": linStrategy_recalc};
+			data.max_pos = data.cstep = data.pl_posoffset = {"!input": linStrategy_recalc};
 			data.linear_suggest = {"!click":linStrategy_recomended};
 			data.linear_suggest_maxpos = {"!click":linStrategy_recomended_maxpos};
 			data.external_assets = {"!input": halfHalf_recalc};
@@ -520,15 +520,12 @@ App.prototype.fillForm = function (src, trg) {
 			}};
 			data.sync_pos["!click"] = function() {
 				var data = {};
-				var v = trg.readData(["neutral_pos","report_position_offset"]);
-				var s = pair.asset_balance - invSize(v.neutral_pos, pair.invert_price) - state.position;
+				var v = trg.readData(["pl_posoffset","report_position_offset"]);
+				var s = pair.asset_balance - invSize(v.pl_posoffset, pair.invert_price) - state.position;
 				trg.setData({report_position_offset:s});
 				calcPosition(data);
 				trg.setData(data);
 			}
-			trg.forEachElement("neutral_pos",function(x) {
-				x.parentNode.classList.toggle("adv", pair.leverage != 0);
-			});
 			if (!pair.leverage) {
 				var elm = trg.findElements("st_power")[0].querySelector("input[type=range]");
 				elm.setAttribute("max","199");
@@ -552,8 +549,7 @@ App.prototype.fillForm = function (src, trg) {
 	
 	data.strategy = (src.strategy && src.strategy.type) || "";
 	data.cstep = 0;
-	data.neutral_pos = 0;
-	data.pl_acum = 0;
+	data.pl_posoffset = 0;
 	data.acum_factor = 0;
 	data.external_assets = 0;
 	data.pl_mode_m = {".hidden":true};
@@ -587,8 +583,7 @@ App.prototype.fillForm = function (src, trg) {
 		data.st_tmode=filledval(src.strategy.mode, "auto");
 		data.st_sl=filledval(src.strategy.sl,false);
 	} else if (data.strategy == "plfrompos") {
-		data.pl_acum = filledval(defval(src.strategy.accum,0)*100,0);
-		data.neutral_pos = filledval(src.strategy.neutral_pos,0);		
+		data.pl_posoffset = filledval(src.strategy.pos_offset,0);		
 		data.cstep = filledval(src.strategy.cstep,0);
 		data.max_pos = filledval(src.strategy.maxpos,0);
 		data.pl_redfact = filledval(defval(Math.abs(src.strategy.reduce_factor),0.5)*100,50);
@@ -695,9 +690,8 @@ App.prototype.saveForm = function(form, src) {
 	trader.strategy = {};
 	trader.strategy.type = data.strategy;
 	if (data.strategy == "plfrompos") {
-		trader.strategy.accum = data.pl_acum/100.0;
 		trader.strategy.cstep = data.cstep;
-		trader.strategy.neutral_pos = data.neutral_pos;
+		trader.strategy.pos_offset = data.pl_posoffset;
 		trader.strategy.maxpos = data.max_pos;
 		trader.strategy.reduce_factor = data.pl_redfact/100;
 		trader.strategy.reduce_mode = data.pl_redmode;
@@ -1352,7 +1346,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 	var url = "api/backtest";
 	form.enableItem("show_backtest",false);		
 	var inputs = ["external_assets", "acum_factor","kv_valinc","pl_confmode","pl_power","pl_baluse","cstep",
-		"max_pos","neutral_pos","pl_redmode","pl_redfact","pl_acum","min_size","max_size","order_mult","alerts","delayed_alerts","linear_suggest","linear_suggest_maxpos","pl_redoninc",
+		"max_pos","pl_posoffset","pl_redmode","pl_redfact","min_size","max_size","order_mult","alerts","delayed_alerts","linear_suggest","linear_suggest_maxpos","pl_redoninc",
 		"st_power","st_reduction_step","st_sl","st_redmode","st_max_step","st_pattern","dynmult_sliding","accept_loss","spread_calc_sma_hours","st_tmode"];
 	var spread_inputs = ["spread_calc_stdev_hours", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode","dynmult_sliding","dynmult_mult"];
 	var balance = form._balance;
@@ -1488,6 +1482,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 	var frst = true;
 
 	var update;
+	var update_recalc;
 	var tm;
 	var config;
 	var opts
@@ -1497,7 +1492,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 
 	function swapshowpl() {
 		show_norm = !show_norm;
-		update();
+		update_recalc();
 	}
 
 	function progress_wait() {		
@@ -1638,6 +1633,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 				if (tm) clearTimeout(tm);
 				tm = setTimeout(draw.bind(this,cntr,v,offset), 1);
 			}
+			update_recalc = draw.bind(this,cntr,v,offset,bal);
 		}).then(cntr.hideSpinner,function(e){cntr.hideSpinner;throw e;});
 		
 

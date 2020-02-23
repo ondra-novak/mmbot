@@ -39,41 +39,28 @@ double Strategy_PLFromPos::calcK() const {
 	return calcK(st);
 }
 
-double Strategy_PLFromPos::reducedK(double k) const {
-/*	if (cfg.reduceMode == fixedReduce) k = k * (1+cfg.reduce_factor);*/
-	return k;
-}
-
-
-
 
 PStrategy Strategy_PLFromPos::onIdle(const IStockApi::MarketInfo &minfo,
 		const IStockApi::Ticker &curTicker, double assets,
 		double currency) const {
 
-	if (st.inited && st.valid_power && st.k && std::isfinite(st.a) && std::isfinite(st.p) && std::isfinite(st.k) && std::isfinite(st.acm) && std::isfinite(st.value) ) return this;
+	if (st.inited && st.valid_power && st.k && std::isfinite(st.a) && std::isfinite(st.p) && std::isfinite(st.k) && std::isfinite(st.value) ) return this;
 	double last = curTicker.last;
 	State newst = st;
-	if (!st.inited || !std::isfinite(st.p) || !std::isfinite(st.a)) {
+	if (!st.inited || !std::isfinite(st.p) || !std::isfinite(st.a) || !st.k) {
 		newst.p = last;
 		newst.a = assets;
 		logDebug("not inited");
-		calcPower(minfo, newst, last, assets, currency,true);
+		calcPower(minfo, newst, last, assets, currency);
 	}
 
-	if (!std::isfinite(st.value)) newst.value = 0;
-	if (!std::isfinite(st.acm)) newst.acm = 0;
+	newst.value = pow2(assets-newst.neutral_pos)/(2*newst.k);
 
 	newst.inited = true;
 
 	if (!st.valid_power || !cfg.power || st.k== 0) {
 		logDebug("not valid power");
-		calcPower(minfo, newst, last, assets, currency, true);
-	}
-
-	if (!st.inited) {
-		double pos = assetsToPos(minfo,assets);
-		newst.value = std::abs(pos)>minfo.asset_step/10?(pow2(pos) / (2* reducedK(calcK(newst)))):0;
+		calcPower(minfo, newst, last, assets, currency);
 	}
 
 
@@ -86,7 +73,7 @@ double Strategy_PLFromPos::calcNewPos(const IStockApi::MarketInfo &minfo, double
 	//double maxpos = st.maxpos?st.maxpos:std::numeric_limits<double>::max();
 	//calculate direction of the line defines position change per price change
 	double k = calcK();
-	double pos = assetsToPos(minfo,st.a);
+	double pos = assetsToPos(st.a);
 	if (k == 0) return pos;
 
 	//bool atmax = apos > maxpos;
@@ -216,38 +203,41 @@ std::pair<Strategy_PLFromPos::OnTradeResult, PStrategy> Strategy_PLFromPos::onTr
 	State newst = st;
 
 	double k = calcK();
-	double act_pos = assetsToPos(minfo,assetsLeft);
+	double act_pos = assetsToPos(assetsLeft);
 	double prev_pos = act_pos - tradeSize;
 	double new_pos = calcNewPos(minfo,tradePrice);
-	//realised profit/loss
-	double rpl = prev_pos * (tradePrice - st.p);
-	//position potential value (pos^2 / (2*k) - surface of a triangle)
-	double posVal = act_pos*act_pos/(2*reducedK(k));
-	//unrealised profit/loss change
-	double upl = posVal - st.value;
-	//potential change
-	double ef = rpl + upl;
-	//normalized profit
-	double np = ef * (1 - cfg.accum);
-	//normalized accumulated
-	double ap = (ef * cfg.accum)/tradePrice;
-	double p0 = new_pos/reducedK(k) + tradePrice;
 
-	newst.acm  = st.acm + ap;
 	newst.p = tradePrice;
-	newst.a = posToAssets(minfo,new_pos);
-	newst.value = posVal;
+	newst.a = posToAssets(new_pos);
 
-	double ppos = assetsToPos(minfo,st.a);
+	double ppos = assetsToPos(st.a);
 	double afpos = std::abs(new_pos);
 	double appos = std::abs(ppos);
 	bool reversal =  new_pos * ppos <= 0;
 
 	newst.avgsum = ( reversal || st.avgsum == 0)?(afpos * tradePrice):(st.avgsum + (afpos - appos) * tradePrice );
 
-	if (!st.maxpos || afpos < st.maxpos) {
-		calcPower(minfo, newst, newst.p, newst.a, currencyLeft,true);
+	if (!st.maxpos || afpos < st.maxpos || isExchange(minfo)) {
+		calcPower(minfo, newst, tradePrice, assetsLeft, currencyLeft);
 	}
+
+	//realised profit/loss
+	double rpl = prev_pos * (tradePrice - st.p);
+	//position potential value (pos^2 / (2*k) - surface of a triangle)
+	double posVal = pow2(assetsLeft - newst.neutral_pos)/(2*newst.k);
+	//unrealised profit/loss change
+	double upl = posVal - st.value;
+	//potential change
+	double ef = rpl + upl;
+	//normalized profit
+	double np = ef;
+	//normalized accumulated
+	double ap = 0;
+	double p0 = new_pos/k + tradePrice;
+
+	newst.value = posVal;
+
+
 	return {
 		OnTradeResult{np,ap,p0, afpos?newst.avgsum/afpos:newst.p},
 		new Strategy_PLFromPos(cfg,newst)
@@ -270,9 +260,9 @@ json::Value Strategy_PLFromPos::exportState() const {
 			("a",st.a)
 			("k",st.k)
 			("avg",st.avgsum)
-			("acm",st.acm)
 			("maxpos",st.maxpos)
 			("val", st.value)
+			("neutral_pos", st.neutral_pos)
 			("cfg",cfgStateHash());
 	else return json::undefined;
 }
@@ -286,9 +276,9 @@ PStrategy Strategy_PLFromPos::importState(json::Value src) const {
 			src["a"].getNumber(),
 			src["k"].getNumber(),
 			src["maxpos"].getNumber(),
-			src["acm"].getNumber(),
 			src["val"].getNumber(),
 			src["avg"].getNumber(),
+			src["neutral_pos"].getNumber(),
 		};
 		json::Value chash = src["cfg"];
 		newst.valid_power = chash == cfgStateHash();
@@ -301,23 +291,35 @@ PStrategy Strategy_PLFromPos::importState(json::Value src) const {
 Strategy_PLFromPos::OrderData Strategy_PLFromPos::getNewOrder(
 		const IStockApi::MarketInfo &minfo,
 		double cur_price, double new_price, double dir, double assets, double currency) const {
-	double pos = assetsToPos(minfo, st.a);
-	double act_pos = assetsToPos(minfo, assets);
-	bool atmaxpos = st.maxpos && std::abs(pos) > st.maxpos;
-	if (atmaxpos) {
-		double zeroPos = posToAssets(minfo, -sgn(pos)*cfg.stoploss_reverse*st.maxpos);
-		double osz = calcOrderSize(assets,assets,zeroPos);
-		if (dir * pos < 0 && act_pos * dir < 0) {
-			return OrderData{cur_price, osz, Alert::stoploss};
+	double pos = assetsToPos(st.a);
+	double act_pos = assetsToPos(assets);
+	if (isExchange(minfo)) {
+		double new_pos = calcNewPos(minfo, new_price);
+		double sz = calcOrderSize(st.a, assets, posToAssets(new_pos));
+		double szf = sz, prf = new_price;
+		minfo.addFees(szf, prf);
+		if (szf + assets <= 0 || currency-szf*prf <= 0) {
+			return OrderData{0, 0, Alert::forced};
 		} else {
-			return OrderData { 0, osz, Alert::stoploss};
+			return OrderData{0, sz};
 		}
+	} else {
+		bool atmaxpos = st.maxpos && std::abs(pos) > st.maxpos;
+		if (atmaxpos) {
+			double zeroPos = posToAssets(-sgn(pos)*cfg.stoploss_reverse*st.maxpos);
+			double osz = calcOrderSize(assets,assets,zeroPos);
+			if (dir * pos < 0 && act_pos * dir < 0) {
+				return OrderData{cur_price, osz, Alert::stoploss};
+			} else {
+				return OrderData { 0, osz, Alert::stoploss};
+			}
+		}
+		double new_pos = calcNewPos(minfo, new_price);
+		if (st.maxpos && std::abs(new_pos) > st.maxpos) {
+			return OrderData{0,0,Alert::forced};
+		}
+		else return OrderData {0, calcOrderSize(st.a, assets, posToAssets(new_pos))};
 	}
-	double new_pos = calcNewPos(minfo, new_price);
-	if (st.maxpos && std::abs(new_pos) > st.maxpos) {
-		return OrderData{0,0,Alert::forced};
-	}
-	else return OrderData {0, calcOrderSize(st.a, assets, posToAssets(minfo,new_pos))};
 }
 
 Strategy_PLFromPos::MinMax Strategy_PLFromPos::calcSafeRange(
@@ -325,7 +327,7 @@ Strategy_PLFromPos::MinMax Strategy_PLFromPos::calcSafeRange(
 		double assets,
 		double currencies) const {
 
-	double pos = assetsToPos(minfo,assets);
+	double pos = assetsToPos(assets);
 	double p = st.p;
 	double k = calcK();
 	double mp = pos / k + p;
@@ -358,27 +360,18 @@ bool Strategy_PLFromPos::isAuto() const {
 	return cfg.power != 0;
 }
 
-double Strategy_PLFromPos::getNeutralPos(
-		const IStockApi::MarketInfo &minfo) const {
-	return (minfo.invert_price?-1.0:1.0)*cfg.neutral_pos+st.acm;
+double Strategy_PLFromPos::assetsToPos(double assets) const {
+	return assets - st.neutral_pos;
 }
 
-double Strategy_PLFromPos::assetsToPos(const IStockApi::MarketInfo &minfo,
-	double assets) const {
-	return assets - getNeutralPos(minfo);
+double Strategy_PLFromPos::posToAssets(double pos) const {
+	return pos + st.neutral_pos;
 }
 
-double Strategy_PLFromPos::posToAssets(const IStockApi::MarketInfo &minfo,
-	double pos) const {
-	return pos + getNeutralPos(minfo);
-}
-
-void Strategy_PLFromPos::calcPower(const IStockApi::MarketInfo &minfo, State& st, double price, double assets, double currency, bool keepnp) const
+void Strategy_PLFromPos::calcPower(const IStockApi::MarketInfo &minfo, State& st, double price, double assets, double currency) const
 {
-	double pos = assetsToPos(minfo, assets);
-	double new_pos = pos;
-//	double neutral_price = pos/calcK(st) + price;
-//	double ref_price = std::isfinite(neutral_price)?neutral_price:price;
+	auto wp = calcNeutralBalance(minfo, assets, currency, price);
+	double pos = st.a - wp.neutral_pos;
 	if (cfg.power) {
 		double value = pos*pos/(2*calcK(st));
 		if (!std::isfinite(value)) value = 0;
@@ -388,29 +381,39 @@ void Strategy_PLFromPos::calcPower(const IStockApi::MarketInfo &minfo, State& st
 		double max_pos = sqrt(k * c);
 		st.maxpos = max_pos;
 		st.k= k;
-		logInfo("Strategy recalculated: step=$1, pos=$3, max_pos=$2, new_pos=$4", step, max_pos, pos, new_pos);
 	} else {
 		st.maxpos = cfg.maxpos;
 		st.k= cfg.step / (price * price* 0.01);
 	}
-/*	if (keepnp && std::isfinite(neutral_price)) {
-		logDebug("Position recalculated: $1 -> $2", pos, new_pos);
-		new_pos = st.k * (neutral_price - price);
-		st.a = posToAssets(minfo, new_pos);
-	}*/
+	st.neutral_pos = wp.neutral_pos;
 	st.valid_power = true;
 }
 
 json::Value Strategy_PLFromPos::dumpStatePretty(const IStockApi::MarketInfo &minfo) const {
-	double pos = assetsToPos(minfo, st.a);
+	double pos = assetsToPos(st.a);
 	double openPrice = st.avgsum/std::abs(pos);
 	return json::Object
 			("Last price",minfo.invert_price?1.0/st.p:st.p)
-			("Position",assetsToPos(minfo, st.a)*(minfo.invert_price?-1.0:1.0))
-			("Accumulated",st.acm?json::Value(st.acm):json::Value())
+			("Position",assetsToPos(st.a)*(minfo.invert_price?-1.0:1.0))
+			("Neutral position",minfo.invert_price?-st.neutral_pos:st.neutral_pos)
 			("Max allowed position",st.maxpos)
 			("Step",st.k*st.p*st.p*0.01)
 			("Open price", minfo.invert_price?1.0/openPrice:openPrice)
 			("Value of the position", st.value);
 
+}
+
+bool Strategy_PLFromPos::isExchange(const IStockApi::MarketInfo &minfo) const {
+	return !minfo.leverage;
+}
+
+Strategy_PLFromPos::CalcNeutralBalanceResult Strategy_PLFromPos::calcNeutralBalance(const IStockApi::MarketInfo &minfo, double assets, double currency, double price) const {
+	double offset = (minfo.invert_price?-1:1)*cfg.pos_offset;
+	if (minfo.leverage) return {offset, currency};
+	else {
+		double total_balance = assets*price + currency;
+		double np = total_balance/(2*price)+offset;
+		double balance = total_balance - np*price;
+		return {np, balance};
+	}
 }
