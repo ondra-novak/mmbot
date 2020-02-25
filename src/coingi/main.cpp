@@ -6,6 +6,7 @@
  */
 #include <imtjson/object.h>
 #include <imtjson/string.h>
+#include <imtjson/parser.h>
 #include <openssl/hmac.h>
 #include <cmath>
 #include <iomanip>
@@ -153,22 +154,26 @@ void Interface::createSigned(Object &payload) {
 }
 
 double Interface::getBalance(const std::string_view& symb, const std::string_view & pair) {
-	Object req;
-	createSigned(req);
-	req.set("currencies", toLowerCase(symb));
-	Value response = httpc.POST("/user/balance",req);
-	Value r = response[0];
-	return r["available"].getNumber()+r["inOrders"].getNumber();
+	try {
+		Object req;
+		createSigned(req);
+		req.set("currencies", toLowerCase(symb));
+		Value response = httpc.POST("/user/balance",req);
+		Value r = response[0];
+		return r["available"].getNumber()+r["inOrders"].getNumber();
+	} catch (...) {handleError();throw;}
 }
 
 inline Value Interface::readTradePage(unsigned int pageId, const std::string_view &pair) {
-	Object req;
-	createSigned(req);
-	req("pageNumber", pageId)
-	   ("pageSize",100)
-	   ("currencyPair", pair);
+	try {
+		Object req;
+		createSigned(req);
+		req("pageNumber", pageId)
+		   ("pageSize",100)
+		   ("currencyPair", pair);
 
-	return httpc.POST("/user/transactions", req);
+		return httpc.POST("/user/transactions", req);
+	} catch (...) {handleError();throw;}
 }
 
 
@@ -233,25 +238,28 @@ inline Interface::TradesSync Interface::syncTrades(json::Value lastId,
 }
 
 inline Interface::Orders Interface::getOpenOrders(const std::string_view& pair) {
-	Object obj;
-	createSigned(obj);
-	obj("pageNumber",1)
-	   ("pageSize",100)
-	   ("currencyPair",pair)
-	   ("status",0);
+	try {
+		Object obj;
+		createSigned(obj);
+		obj("pageNumber",1)
+		   ("pageSize",100)
+		   ("currencyPair",pair)
+		   ("status",0);
 
-	Value rp = httpc.POST("/user/orders",obj)["orders"];
-	orderdb.commit();
-	return mapJSON(rp, [&](Value o){
-		Value clientId = orderdb.getOrderData(o["id"]);
-		orderdb.storeOrderData(o["id"],clientId);
-		return Order {
-			o["id"],orderdb.getOrderData(o["id"]),(o["type"].getUInt()?-1:1)*o["baseAmount"].getNumber(),o["price"].getNumber()
-		};
-	}, Orders());
+		Value rp = httpc.POST("/user/orders",obj)["orders"];
+		orderdb.commit();
+		return mapJSON(rp, [&](Value o){
+			Value clientId = orderdb.getOrderData(o["id"]);
+			orderdb.storeOrderData(o["id"],clientId);
+			return Order {
+				o["id"],orderdb.getOrderData(o["id"]),(o["type"].getUInt()?-1:1)*o["baseAmount"].getNumber(),o["price"].getNumber()
+			};
+		}, Orders());
+	} catch (...) {handleError();throw;}
 }
 
 inline Interface::Ticker Interface::getTicker(const std::string_view& pair) {
+	try {
 	std::string url = "/current/order-book/";
 	url.append(pair);
 	url.append("/1/1/1");
@@ -262,6 +270,8 @@ inline Interface::Ticker Interface::getTicker(const std::string_view& pair) {
 	return Ticker {
 		bid,ask,std::sqrt(ask*bid),now()
 	};
+	} catch (...) {handleError();throw;}
+
 }
 
 inline json::Value Interface::placeOrder(const std::string_view& pair,
@@ -336,6 +346,7 @@ inline double Interface::getFees(const std::string_view& pair) {
 }
 
 json::Value Interface::getAllPairsJSON() {
+	try {
 	auto resp = httpc.GET("/current/currency-pairs");
 	Object items;
 	for (json::Value v: resp) {
@@ -343,6 +354,8 @@ json::Value Interface::getAllPairsJSON() {
 		items.set(id, v);
 	}
 	return items;
+	} catch (...) {handleError();throw;}
+
 
 }
 
