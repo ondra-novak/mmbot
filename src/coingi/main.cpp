@@ -75,6 +75,7 @@ public:
 
 
 	void createSigned(Object &payload);
+	Value readTradePage(unsigned int pageId, const std::string_view &pair);
 };
 
 std::string toUpperCase(std::string_view z) {
@@ -123,9 +124,69 @@ double Interface::getBalance(const std::string_view& symb, const std::string_vie
 	return r["available"].getNumber()+r["inOrders"].getNumber();
 }
 
+inline Value Interface::readTradePage(unsigned int pageId, const std::string_view &pair) {
+	Object req;
+	createSigned(req);
+	req("pageNumber", pageId)
+	   ("pageSize",100)
+	   ("currencyPair", pair);
+
+	return httpc.POST("/user/transactions", req);
+}
+
+
 inline Interface::TradesSync Interface::syncTrades(json::Value lastId,
 		const std::string_view& pair) {
-	return {};
+
+	unsigned int page = 1;
+	TradesSync resp;
+	Value tr = readTradePage(page++, pair);
+	Value trx = tr["transactions"];
+	resp.lastId = nullptr;
+	if (trx.size()) {
+		resp.lastId = trx[0]["timestamp"];
+	}
+	if (lastId.hasValue()) {
+		bool rep = true;
+		auto ltmn = lastId.getUIntLong();
+		while (rep) {
+			for (Value tx: trx ) {
+				Value tm = tx["timestamp"];
+				auto tmn = tm.getUIntLong();
+				if (tmn <= ltmn) {
+					rep = false;
+					break;
+				}
+				double base = tx["baseAmount"].getNumber();
+				double counter = tx["counterAmount"].getNumber();
+				double fee = tx["fee"].getNumber();
+				int type = tx["type"].getInt();
+				double size;
+				double price;
+				double eff_size;
+				double eff_price;
+				if (type == 1) {//sell
+					size = -base;
+					price = (counter+fee)/base;
+					eff_size = -base;
+					eff_price = counter/base;
+				} else {
+					size = base;
+					price = counter/(base+fee);
+					eff_size = base;
+					eff_price = counter/base;
+				}
+				resp.trades.push_back(Trade{
+					tx["id"],tmn,size,price,eff_size,eff_price
+				});
+			}
+			if (rep) {
+				tr = readTradePage(page++, pair);
+				trx = tr["transactions"];
+			}
+		}
+	}
+	return resp;
 }
 
 inline Interface::Orders Interface::getOpenOrders(const std::string_view& par) {
