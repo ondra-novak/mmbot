@@ -49,10 +49,10 @@ void StockSelector::loadBrokers(const ondra_shared::IniConfig::Section &ini, boo
 bool StockSelector::checkBrokerSubaccount(const std::string &name) {
 	auto f = stock_markets.find(name);
 	if (f == stock_markets.end()) {
-		auto n = name.rfind("#");
+		auto n = name.rfind("/");
 		if (n == name.npos) return false;
 		std::string baseName = name.substr(0,n);
-		std::string id = name.substr(n);
+		std::string id = name.substr(n+1);
 		f = stock_markets.find(baseName);
 		if (f == stock_markets.end()) return false;
 		IStockApi *k = f->second.get();

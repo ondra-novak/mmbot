@@ -145,9 +145,11 @@ ExtStockApi::BrokerInfo ExtStockApi::getBrokerInfo()  {
 
 	try {
 		auto resp = requestExchange("getBrokerInfo", json::Value());
+		std::string name = connection->getName();
+		if (!subaccount.empty()) name = name + "/" + subaccount;
 		return BrokerInfo {
 			resp["trading_enabled"].getBool(),
-			connection->getName()+subaccount,
+					name,
 			resp["name"].getString(),
 			resp["url"].getString(),
 			resp["version"].getString(),
@@ -248,7 +250,11 @@ json::Value ExtStockApi::requestExchange(json::String name, json::Value args, bo
 		}
 	}
 	if (subaccount.empty()) return connection->jsonRequestExchange(name, args, idle);
-	else return connection->jsonRequestExchange("subaccount", {subaccount, name, args}, idle);
+	else try {
+		return connection->jsonRequestExchange("subaccount", {subaccount, name, args}, idle);
+	} catch (std::exception &e) {
+		throw std::runtime_error(e.what()+std::string("(")+name.c_str()+")");
+	}
 }
 
 void ExtStockApi::stop() {

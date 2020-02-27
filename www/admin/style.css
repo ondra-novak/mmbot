@@ -139,7 +139,7 @@ div.trader.list .selected {
 div.trader.list {
 	display: flex;
 	justify-content:center;
-	flex-direction: column;
+	flex-wrap: wrap;
 }
 div.trader.list > * {
 	cursor: pointer;
@@ -159,21 +159,45 @@ div.trader.list > * {
 	position: relative;
 }
 
-div.trader.list .exclamation {position: absolute;right: 0;top: -5px;font-size: 0.7cm;/* font-weight: bold; */color: #F44;text-shadow: 0 0 10px black, 0 0 5px black, 0 0 2px black;}
+div.trader.list .exclamation {
+	position: absolute;
+	right: 0;
+	top: -5px;
+	font-size: 0.4cm;
+	/* font-weight: bold; */
+	color: #F44;
+	text-shadow: 0 0 10px black, 0 0 5px black, 0 0 2px black;
+	}
 .no_api_key {color: #F44;}
 
 div.trader.list img {
 	width: 1.2cm;
-	height: 1.2cm;	
-	vertical-align:middle;
-}
-
-div.trader.list div {
-	display: inline;
+	height: 1.2cm;
 }
 
 div.broker.pair img {
 	width: 2cm;
+}
+
+.broker.select div.trader.list {
+	flex-direction:column;
+	max-width: 30em;
+	margin: auto;
+	max-height: 50vh;
+	overflow-x: auto;
+	overflow-y:hidden;
+}
+.broker.select div.trader.list > * {
+	text-align:left;
+	margin: 0.1cm;
+}
+.broker.select div.trader.list > * > div:last-child {
+	display: inline;
+}
+.broker.select div.trader.list > * > img {
+	width: 0.7cm;
+	height: 0.7cm;
+	vertical-align: middle;
 }
 
 div.dialog > div {
@@ -364,7 +388,7 @@ a {
 	font-size: 2em;
 	color: red;
 }
-.security_form .apikeys [data-name=info_button], .security_form .apikeys [data-name=sub_button]{
+.security_form .apikeys [data-name=info_button] {
 	cursor: pointer;
 }
 
