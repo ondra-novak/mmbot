@@ -21,13 +21,13 @@ using namespace ondra_shared;
 
 
 ExtStockApi::ExtStockApi(const std::string_view & workingDir, const std::string_view & name, const std::string_view & cmdline)
-:AbstractExtern(workingDir, name, cmdline) {
+:connection(std::make_shared<Connection>(workingDir, name, cmdline)) {
 }
 
 
 
 double ExtStockApi::getBalance(const std::string_view & symb, const std::string_view & pair) {
-	return jsonRequestExchange("getBalance",
+	return requestExchange("getBalance",
 			json::Object("pair", pair)
 				  ("symbol", symb)).getNumber();
 
@@ -35,7 +35,7 @@ double ExtStockApi::getBalance(const std::string_view & symb, const std::string_
 
 
 ExtStockApi::TradesSync ExtStockApi::syncTrades(json::Value lastId, const std::string_view & pair) {
-	auto r = jsonRequestExchange("syncTrades",json::Object
+	auto r = requestExchange("syncTrades",json::Object
 			("lastId",lastId)
 			("pair",StrViewA(pair)));
 	TradeHistory  th;
@@ -48,7 +48,7 @@ ExtStockApi::TradesSync ExtStockApi::syncTrades(json::Value lastId, const std::s
 ExtStockApi::Orders ExtStockApi::getOpenOrders(const std::string_view & pair) {
 	Orders r;
 
-	auto v = jsonRequestExchange("getOpenOrders",StrViewA(pair));
+	auto v = requestExchange("getOpenOrders",StrViewA(pair));
 	for (json::Value x: v) {
 		Order ord {
 			x["id"],
@@ -62,7 +62,7 @@ ExtStockApi::Orders ExtStockApi::getOpenOrders(const std::string_view & pair) {
 }
 
 ExtStockApi::Ticker ExtStockApi::getTicker(const std::string_view & pair) {
-	auto resp =  jsonRequestExchange("getTicker", StrViewA(pair));
+	auto resp =  requestExchange("getTicker", StrViewA(pair));
 	return Ticker {
 		resp["bid"].getNumber(),
 		resp["ask"].getNumber(),
@@ -75,7 +75,7 @@ json::Value  ExtStockApi::placeOrder(const std::string_view & pair,
 		double size, double price,json::Value clientId,
 		json::Value replaceId,double replaceSize) {
 
-	return jsonRequestExchange("placeOrder",json::Object
+	return requestExchange("placeOrder",json::Object
 					("pair",StrViewA(pair))
 					("price",price)
 					("size",size)
@@ -86,23 +86,18 @@ json::Value  ExtStockApi::placeOrder(const std::string_view & pair,
 
 
 bool ExtStockApi::reset() {
-	Sync _(lock);
+	std::unique_lock _(connection->getLock());
 	//save housekeep counter to avoid reset treat as action
-	auto hs = this->houseKeepingCounter;
-	if (chldid != -1) try {
-		auto now = std::chrono::steady_clock::now();
-		if (std::chrono::duration_cast<std::chrono::seconds>(now - lastReset).count() < 13) return true;
-		lastReset = now;
-		jsonRequestExchange("reset",json::Value());
+	if (connection->isActive()) try {
+		requestExchange("reset",json::Value(),true);
 	} catch (...) {
-		jsonRequestExchange("reset",json::Value());
+		requestExchange("reset",json::Value(),true);
 	}
-	this->houseKeepingCounter = hs;
 	return true;
 }
 
 ExtStockApi::MarketInfo ExtStockApi::getMarketInfo(const std::string_view & pair) {
-	json::Value v = jsonRequestExchange("getInfo",StrViewA(pair));
+	json::Value v = requestExchange("getInfo",StrViewA(pair));
 
 	MarketInfo res;
 	res.asset_step = v["asset_step"].getNumber();
@@ -122,78 +117,75 @@ ExtStockApi::MarketInfo ExtStockApi::getMarketInfo(const std::string_view & pair
 }
 
 double ExtStockApi::getFees(const std::string_view& pair) {
-	json::Value v = jsonRequestExchange("getFees",pair);
+	json::Value v = requestExchange("getFees",pair);
 	return v.getNumber();
 
 }
 
 std::vector<std::string> ExtStockApi::getAllPairs() {
-	json::Value v = jsonRequestExchange("getAllPairs", json::Value());
+	json::Value v = requestExchange("getAllPairs", json::Value());
 	std::vector<std::string> res;
 	res.reserve(v.size());
 	for (json::Value x: v) res.push_back(x.toString().str());
 	return res;
 }
 
-void ExtStockApi::onConnect() {
+void ExtStockApi::Connection::onConnect() {
 	ondra_shared::LogObject lg("");
 	bool debug= lg.isLogLevelEnabled(ondra_shared::LogLevel::debug);
 	try {
-		jsonRequestExchange("enableDebug",debug);
+		jsonRequestExchange("enableDebug",debug, false);
 	} catch (IStockApi::Exception &) {
 
 	}
-	try {
-		if (broker_config.defined()) jsonRequestExchange("restoreSettings",broker_config);
-	} catch (IStockApi::Exception &) {
-
-	}
+	instance_counter++;
 }
 
 ExtStockApi::BrokerInfo ExtStockApi::getBrokerInfo()  {
 
 	try {
-		auto resp = jsonRequestExchange("getBrokerInfo", json::Value());
+		auto resp = requestExchange("getBrokerInfo", json::Value());
 		return BrokerInfo {
 			resp["trading_enabled"].getBool(),
-			this->name,
+			connection->getName()+subaccount,
 			resp["name"].getString(),
 			resp["url"].getString(),
 			resp["version"].getString(),
 			resp["licence"].getString(),
 			StrViewA(resp["favicon"].getBinary()),
-			resp["settings"].getBool()
+			resp["settings"].getBool(),
+			resp["subaccounts"].getBool()
 		};
 	} catch (IStockApi::Exception &) {
 		return BrokerInfo {
 			true,
-			this->name,
-			this->name,
+			connection->getName(),
+			connection->getName(),
 		};
 	}
 
 }
 
 void ExtStockApi::setApiKey(json::Value keyData) {
-	jsonRequestExchange("setApiKey",keyData);
+	requestExchange("setApiKey",keyData);
 }
 
 json::Value ExtStockApi::getApiKeyFields() const {
-	return const_cast<ExtStockApi *>(this)->jsonRequestExchange("getApiKeyFields",json::Value());
+	return const_cast<ExtStockApi *>(this)->requestExchange("getApiKeyFields",json::Value());
 }
 
 json::Value ExtStockApi::getSettings(const std::string_view & pairHint) const {
-	return const_cast<ExtStockApi *>(this)->jsonRequestExchange("getSettings",json::Value(pairHint));
+	return const_cast<ExtStockApi *>(this)->requestExchange("getSettings",json::Value(pairHint));
 }
 
 json::Value ExtStockApi::setSettings(json::Value v) {
-	return (broker_config = jsonRequestExchange("setSettings", v));
+	return (broker_config = requestExchange("setSettings", v));
 }
 
 void ExtStockApi::restoreSettings(json::Value v) {
 	broker_config = v;
-	if (chldid != -1) {
-		jsonRequestExchange("restoreSettings", v);
+	if (connection->isActive()) {
+		requestExchange("restoreSettings", v);
 	}
 }
 
@@ -202,7 +194,7 @@ void ExtStockApi::restoreSettings(json::Value v) {
 
 
 void ExtStockApi::saveIconToDisk(const std::string &path) const {
-	Sync _(lock);
+	std::unique_lock _(connection->getLock());
 
 	static std::set<std::string> files;
 	auto clean_call = []{
@@ -222,7 +214,7 @@ void ExtStockApi::saveIconToDisk(const std::string &path) const {
 }
 
 std::string ExtStockApi::getIconName() const {
-	return "fav_"+name+".png";
+	return "fav_"+connection->getName()+".png";
 }
 
 ExtStockApi::PageData ExtStockApi::fetchPage(const std::string_view &method,
@@ -234,7 +226,7 @@ ExtStockApi::PageData ExtStockApi::fetchPage(const std::string_view &method,
 					return json::Value(p.first, p.second);
 			}));
 
-	json::Value resp = jsonRequestExchange("fetchPage", v);
+	json::Value resp = requestExchange("fetchPage", v);
 	PageData presp;
 	presp.body = resp["body"].toString().str();
 	presp.code = resp["code"].getUInt();
@@ -242,4 +234,47 @@ ExtStockApi::PageData ExtStockApi::fetchPage(const std::string_view &method,
 		presp.headers.emplace_back(v.getKey(), v.toString().str());
 	}
 	return presp;
+}
+
+json::Value ExtStockApi::requestExchange(json::String name, json::Value args, bool idle) {
+	if (connection->wasRestarted(instance_counter)) {
+		try {
+			if (broker_config.defined()) {
+				if (subaccount.empty()) connection->jsonRequestExchange("restoreSettings", broker_config, idle);
+				else connection->jsonRequestExchange("subaccount", {subaccount, "restoreSettings", broker_config}, idle);
+			}
+		} catch (IStockApi::Exception &) {
+
+		}
+	}
+	if (subaccount.empty()) return connection->jsonRequestExchange(name, args, idle);
+	else return connection->jsonRequestExchange("subaccount", {subaccount, name, args}, idle);
+}
+
+void ExtStockApi::stop() {
+	connection->stop();
+}
+
+bool ExtStockApi::Connection::wasRestarted(int& counter) {
+	preload();
+	int z = instance_counter;
+	if (z != counter) {
+		counter = z;
+		return true;
+	} else {
+		return false;
+	}
+}
+
+bool ExtStockApi::isSubaccount() const {
+	return !subaccount.empty();
+}
+
+ExtStockApi::ExtStockApi(std::shared_ptr<Connection> connection, const std::string &subaccount)
+	:connection(connection),subaccount(subaccount) {}
+
+
+ExtStockApi *ExtStockApi::createSubaccount(const std::string &subaccount) const  {
+	ExtStockApi *copy = new ExtStockApi(connection,subaccount);
+	return copy;
 }

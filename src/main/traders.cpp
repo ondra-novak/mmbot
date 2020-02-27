@@ -45,6 +45,25 @@ void StockSelector::loadBrokers(const ondra_shared::IniConfig::Section &ini, boo
 	StockMarketMap map(std::move(data));
 	stock_markets.swap(map);
 }
+
+bool StockSelector::checkBrokerSubaccount(const std::string &name) {
+	auto f = stock_markets.find(name);
+	if (f == stock_markets.end()) {
+		auto n = name.rfind("#");
+		if (n == name.npos) return false;
+		std::string baseName = name.substr(0,n);
+		std::string id = name.substr(n);
+		f = stock_markets.find(baseName);
+		if (f == stock_markets.end()) return false;
+		IStockApi *k = f->second.get();
+		IBrokerSubaccounts *ek = dynamic_cast<IBrokerSubaccounts *>(k);
+		if (ek == nullptr) return false;
+		IStockApi *nk = ek->createSubaccount(id);
+		stock_markets.emplace(name, PStockApi(nk));
+	}
+	return true;
+}
+
 IStockApi *StockSelector::getStock(const std::string_view &stockName) const {
 	auto f = stock_markets.find(stockName);
 	if (f == stock_markets.cend()) return nullptr;
@@ -105,10 +124,15 @@ void Traders::addTrader(const MTrader::Config &mcfg ,ondra_shared::StrViewA n) {
 	LogObject::Swap swp(lg);
 	try {
 		logProgress("Started trader $1 (for $2)", n, mcfg.pairsymb);
-		auto t = std::make_unique<NamedMTrader>(stockSelector, sf->create(n),
+		if (stockSelector.checkBrokerSubaccount(mcfg.broker)) {
+			auto t = std::make_unique<NamedMTrader>(stockSelector, sf->create(n),
 				std::make_unique<StatsSvc>(n, rpt, &perfMod), mcfg, n);
-		loadIcon(*t);
-		traders.insert(std::pair(StrViewA(t->ident), std::move(t)));
+			loadIcon(*t);
+			traders.insert(std::pair(StrViewA(t->ident), std::move(t)));
+		} else {
+			throw std::runtime_error("Unable to load broker");
+		}
+
 	} catch (const std::exception &e) {
 		logFatal("Error: $1", e.what());
 		throw std::runtime_error(std::string("Unable to initialize trader: ").append(n).append(" - ").append(e.what()));
@@ -201,5 +225,12 @@ void Traders::loadIcons(const std::string &path) {
 		IStockApi &api = t.second->getBroker();
 		const IBrokerIcon *bicon = dynamic_cast<const IBrokerIcon *>(&api);
 		if (bicon) bicon->saveIconToDisk(path);
+	}
+}
+
+void StockSelector::eraseSubaccounts() {
+	for (auto iter = stock_markets.begin(); iter != stock_markets.end();) {
+		IBrokerSubaccounts *sb = dynamic_cast<IBrokerSubaccounts *>(iter->second.get());
+		if (sb && sb->isSubaccount()) iter = stock_markets.erase(iter); else ++iter;
 	}
 }

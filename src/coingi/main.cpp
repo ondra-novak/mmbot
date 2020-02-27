@@ -57,6 +57,9 @@ public:
 	virtual BrokerInfo getBrokerInfo() override;
 	virtual void onLoadApiKey(json::Value keyData) override;
 	virtual void onInit() override {}
+	virtual Interface *createSubaccount(const std::string &path) {
+		return new Interface(path);
+	}
 
 	static std::uint64_t now() {
 		return std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -329,7 +332,8 @@ OTHER DEALINGS IN THE SOFTWARE.)mit",
 "IziE9HyeKkyyqKVD8VwA9oX9kqafA8GUk+B0SbNfUtxQUzQaK/olx1Ga+XLNBFkCZNFZLTDUi/go"
 "40vdLzmvRYaCVfdpVAftisuHSvj1S3tzWSrfAO58buZrdk+dcNGucAA3l9YTsPcAa1MW3W/F8Tel"
 "4+t2xaOwHR6X9QFAgufhw/dw8BuAche8+3SLuK925c0ndocApueFprMv1J3T0xbH7Xr943vc3iVK"
-"sqfy3P4Z+z6RnVYxSvs/eRuZlYS2/xpAP3X4f/AAuURejdrVAAAAAElFTkSuQmCC"
+"sqfy3P4Z+z6RnVYxSvs/eRuZlYS2/xpAP3X4f/AAuURejdrVAAAAAElFTkSuQmCC",
+false,true
 	};
 }
 

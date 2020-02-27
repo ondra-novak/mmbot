@@ -74,6 +74,10 @@ public:
 	virtual BrokerInfo getBrokerInfo() override;
 	virtual void onLoadApiKey(json::Value keyData) override;
 	virtual void onInit() override;
+	virtual Interface *createSubaccount(const std::string &path) {
+		return new Interface(path);
+	}
+
 
 
 	struct SymbolInfo {
@@ -426,7 +430,7 @@ OTHER DEALINGS IN THE SOFTWARE.)mit",
 "/TcA8g9A/+P6P3UA+u8C6H+x/hsAuQeg/7H9H2PSfwVX63/FUy0BGIC3v9EA9D++/1MG4O9/FwAD"
 "0H8D0P9y/X97APrvAmAA+m8A+l+y/28NQP9dAAxA/w1A/8v2/+UB6L8LgAHovwHof+n+vzQA/XcB"
 "MAD9NwD9L9//wwPQfxcAA9B/A9D/Lfp/aAD67wJgAPpvAPq/Tf8BAAAAAAAAAAAA2MQ/A0e46eQ0"
-"zFcAAAAASUVORK5CYII=", true
+"zFcAAAAASUVORK5CYII=", true, true
 	};
 }
 

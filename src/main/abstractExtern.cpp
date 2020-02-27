@@ -299,10 +299,13 @@ json::Value AbstractExtern::readJSON(FD& fd) {
 }
 
 
-void AbstractExtern::preload() {
+bool AbstractExtern::preload() {
 	Sync _(lock);
 	if (chldid == -1) {
 		spawn();
+		return true;
+	} else {
+		return false;
 	}
 }
 
@@ -310,10 +313,10 @@ void AbstractExtern::stop() {
 	kill();
 }
 
-json::Value AbstractExtern::jsonExchange(json::Value request) {
+json::Value AbstractExtern::jsonExchange(json::Value request, bool idle) {
 	Sync _(lock);
 
-	houseKeepingCounter=0;
+	if (!idle) houseKeepingCounter=0;
 
 	std::string z;
 	std::string lastStdErr;
@@ -377,9 +380,9 @@ json::Value AbstractExtern::jsonExchange(json::Value request) {
 	while (true);
 }
 
-json::Value AbstractExtern::jsonRequestExchange(json::String name, json::Value args) {
+json::Value AbstractExtern::jsonRequestExchange(json::String name, json::Value args, bool idle) {
 	Sync _(lock);
-	auto resp = jsonExchange({name, args});
+	auto resp = jsonExchange({name, args}, idle);
 	if (resp[0].getBool() == true) {
 		auto result = resp[1];
 		return result;

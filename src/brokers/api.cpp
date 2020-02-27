@@ -141,6 +141,7 @@ static Value getBrokerInfo(AbstractBrokerAPI &handler, const Value &req) {
 				 ("licence",nfo.licence)
 				 ("trading_enabled", nfo.trading_enabled)
 				 ("settings",nfo.settings)
+				 ("subaccounts",nfo.subaccounts)
 				 ("favicon",Value(BinaryView(StrViewA(nfo.favicon)),base64));
 }
 
@@ -160,6 +161,7 @@ static Value getAllPairs(AbstractBrokerAPI &handler, const Value &req) {
 static Value getFees(AbstractBrokerAPI &handler, const Value &req) {
 	return  handler.getFees(req.getString());
 }
+
 
 
 static Value getInfo(AbstractBrokerAPI &handler, const Value &req) {
@@ -218,6 +220,59 @@ static Value fetchPage(AbstractBrokerAPI &handler, const Value &req) {
 			}));
 }
 
+
+
+
+Value handleSubaccount(AbstractBrokerAPI &handler, const Value &req) {
+	static std::unordered_map<Value, std::unique_ptr<AbstractBrokerAPI> > subList;
+	if (req.hasValue()) {
+		Value id = req[0];
+		Value cmd = req[1];
+		StrViewA cmdstr = cmd.getString();
+		Value args = req[2];
+		bool loadK = false;
+		if (cmdstr == "erase") {
+			subList.erase(id);
+			return Value();
+		} else {
+			auto iter = subList.find(id);
+			if (iter == subList.end()) {
+				std::unique_ptr<AbstractBrokerAPI> newptr(handler.createSubaccount(handler.secure_storage_path+"-"+id.toString().c_str()));
+				if (newptr == nullptr) throw std::runtime_error("Subaccounts are not supported");
+				iter = subList.emplace(id, std::move(newptr)).first;
+				loadK = true;
+			}
+
+			auto &p = iter->second;
+
+			class LogCleanup{
+			public:
+				decltype(p) z;
+				LogCleanup(decltype(p) z):z(z) {}
+				~LogCleanup() {z->logStream = nullptr;}
+			};
+
+			p->logStream = handler.logStream;
+			LogCleanup cleanUp(p);
+
+			p->flushMessages();
+			if (loadK) p->loadKeys();
+			if (cmdstr == "getBrokerInfo") {
+				Value v = getBrokerInfo(*iter->second, args);
+				return v.replace("subaccounts", false);
+			} else if (cmdstr == "subaccount") {
+				throw std::runtime_error("Can't access subaccount under subaccount");
+			} else {
+				Value v =  p->callMethod(cmdstr, args);
+				if (v[0].getBool()) return v[1]; else throw v[1];
+			}
+
+		}
+	} else {
+		return Value(json::array,subList.begin(), subList.end(), [&](const auto &p) {return p.first;});
+	}
+}
+
 ///Handler function
 using HandlerFn = Value (*)(AbstractBrokerAPI &handler, const Value &request);
 using MethodMap = ondra_shared::linear_map<std::string_view, HandlerFn> ;
@@ -239,7 +294,8 @@ static MethodMap methodMap ({
 			{"setSettings",&setSettings},
 			{"getSettings",&getSettings},
 			{"restoreSettings",&restoreSettings},
-			{"fetchPage",&fetchPage}
+			{"fetchPage",&fetchPage},
+			{"subaccount",&handleSubaccount}
 	});
 
 
@@ -254,6 +310,7 @@ Value AbstractBrokerAPI::callMethod(std::string_view name, Value args) {
 		return {false, e.what()};
 	}
 }
+
 
 
 void AbstractBrokerAPI::dispatch(std::istream& input, std::ostream& output, std::ostream &error, AbstractBrokerAPI &handler) {

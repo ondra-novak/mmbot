@@ -339,12 +339,13 @@ the same order, they are ordered by its ID - this is the default ordering. Modif
 </x-section>
 <x-section class="apikeys"><x-section-caption>API Keys</x-section-caption>
 <table>
-<tr><th>Broker</th><th>Exchange</th><th>State</th><th>Action</th><th>Info</th></tr>
+<tr><th>Broker</th><th>Exchange</th><th>State</th><th>Action</th><th>Sub</th><th>Info</th></tr>
 <tr data-name="brokers[]">
 <td><img src="" data-name="img"><span data-name="broker"></span></td>
 <td><a href="" data-name="exchange" target="_blank"></a></td>
 <td data-name="state"><div class="spinner fast inline"></div></td>
 <td><button data-name="bset" disabled="disabled">Set</button><button data-name="berase" disabled="disabled">Erase</button></td>
+<td><img  data-name="sub_button" src="../res/addsub.png"></td>
 <td data-name="info_button">🛈</td>
 </table>
 <span class="no_api_key" data-name="need_save" hidden="hidden">⚠️ - Remember to click on the Apply button to make settings take an effect</span>
@@ -376,6 +377,17 @@ the same order, they are ordered by its ID - this is the default ordering. Modif
 <label><span>Password:</span><input type="password" data-name="pwd"></label>
 <label><span>Retype password:</span><input type="password" data-name="pwd2"></label>
 <div class="error" data-name="errpwd">Passwords are not same</div>
+<button data-name="ok">OK</button>
+<button data-name="cancel">Cancel</button>
+</x-form>
+</div></div>
+</template>
+
+<template id="subaccount_dlg">
+<div class="dialog"><div class="subaccount_dlg">
+<x-form>
+<h2>Add sub-account:</h2>
+<p>Enter any short unique name:<br/><input type="text" data-name="name"></p>
 <button data-name="ok">OK</button>
 <button data-name="cancel">Cancel</button>
 </x-form>

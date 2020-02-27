@@ -74,6 +74,9 @@ public:
 	virtual BrokerInfo getBrokerInfo() override;
 	virtual void onLoadApiKey(json::Value keyData) override;
 	virtual void onInit() override;
+	virtual Interface *createSubaccount(const std::string &path) {
+		return new Interface(path);
+	}
 
 
 	ondra_shared::linear_map<std::string, double, std::less<std::string_view> > tick_cache;
@@ -349,7 +352,7 @@ OTHER DEALINGS IN THE SOFTWARE.)mit",
 "BAh47fpw/Gsn47XiAIA4AIgDIA6AOADiAOIA4gCIA4gDiAOIA4gDiAMQQBzAYIB33jbZ7APAvzhg"
 "i/ARoCoOWBV8Bqg4YE3wHaDigBoTwIeAigNKQBiwIhAgQIAAAT6MOgHoDui+LiAKyK8NWanL/gBZ"
 "ACQBbOVGZe+9Yrfru58ZdT837H523Hx+oPcMSe85oqogIDlL5kCjAAECBAgQIECAmR3sB12WHA4r"
-"Mg73AAAAAElFTkSuQmCC"
+"Mg73AAAAAElFTkSuQmCC",false,true
 	};
 }
 

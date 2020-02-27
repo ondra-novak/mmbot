@@ -15,7 +15,7 @@
 
 
 
-class ExtStockApi: public AbstractExtern, public IStockApi, public IApiKey, public IBrokerControl, public IBrokerIcon {
+class ExtStockApi: public IStockApi, public IApiKey, public IBrokerControl, public IBrokerIcon, public IBrokerSubaccounts {
 public:
 
 	ExtStockApi(const std::string_view & workingDir, const std::string_view & name, const std::string_view & cmdline);
@@ -34,8 +34,7 @@ public:
 	virtual MarketInfo getMarketInfo(const std::string_view & pair) override;
 	virtual double getFees(const std::string_view & pair) override;
 	virtual std::vector<std::string> getAllPairs() override;
-	virtual void testBroker() override {preload();}
-	virtual void onConnect() override;
+	virtual void testBroker() override {connection->preload();}
 	virtual BrokerInfo getBrokerInfo()  override;
 	virtual void setApiKey(json::Value keyData) override;
 	virtual json::Value getApiKeyFields() const override;
@@ -45,11 +44,31 @@ public:
 	virtual void saveIconToDisk(const std::string &path) const override;
 	virtual std::string getIconName() const override;
 	virtual PageData fetchPage(const std::string_view &method, const std::string_view &vpath, const PageData &pageData) override;
+	virtual json::Value requestExchange(json::String name, json::Value args,  bool idle = false);
+	void stop();
+	virtual ExtStockApi *createSubaccount(const std::string &subaccount) const override;
+	virtual bool isSubaccount() const override;
 
 
 protected:
+	class Connection: public AbstractExtern {
+	public:
+		using AbstractExtern::AbstractExtern;
+		virtual void onConnect() override;
+		bool wasRestarted(int &counter);
+		const std::string &getName() const {return this->name;}
+		std::recursive_mutex &getLock() const {return lock;}
+		bool isActive() const {return this->chldid != -1;}
+	protected:
+		std::atomic<int> instance_counter = 0;
+	};
+
 	json::Value broker_config;
-	std::chrono::steady_clock::time_point lastReset;
+	std::shared_ptr<Connection> connection;
+	int instance_counter = 0;
+	std::string subaccount;
+
+	ExtStockApi(std::shared_ptr<Connection> connection, const std::string &subaccid);
 };
 
 

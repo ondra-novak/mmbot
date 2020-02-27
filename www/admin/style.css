@@ -139,7 +139,7 @@ div.trader.list .selected {
 div.trader.list {
 	display: flex;
 	justify-content:center;
-	flex-wrap: wrap;
+	flex-direction: column;
 }
 div.trader.list > * {
 	cursor: pointer;
@@ -164,7 +164,12 @@ div.trader.list .exclamation {position: absolute;right: 0;top: -5px;font-size: 0
 
 div.trader.list img {
 	width: 1.2cm;
-	height: 1.2cm;
+	height: 1.2cm;	
+	vertical-align:middle;
+}
+
+div.trader.list div {
+	display: inline;
 }
 
 div.broker.pair img {
@@ -346,6 +351,11 @@ a {
 	vertical-align: inherit;
 	margin-right: 1em;
 }
+
+.security_form .apikeys td:nth-child(5) img {
+	width: 20px;
+}
+
 .security_form .apikeys td.set {
 	font-size: 2em;
 	color: green;
@@ -354,7 +364,7 @@ a {
 	font-size: 2em;
 	color: red;
 }
-.security_form .apikeys [data-name=info_button] {
+.security_form .apikeys [data-name=info_button], .security_form .apikeys [data-name=sub_button]{
 	cursor: pointer;
 }
 
@@ -698,6 +708,7 @@ input[type=range].thick:focus::-ms-fill-upper {
 	padding: 0.2cm;
 	border-bottom: 1px solid #222;
 }
+
 .security_form table td:first-child {
 	text-align:left;
 }

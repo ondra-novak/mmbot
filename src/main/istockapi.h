@@ -189,6 +189,8 @@ public:
 		std::string favicon;
 		///this option must be true,if the broker supports getSetting/setSettings
 		bool settings = false;
+		///this broker supports subaccounts
+		bool subaccounts = false;
 	};
 
 

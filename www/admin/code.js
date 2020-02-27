@@ -798,7 +798,7 @@ App.prototype.brokerSelect = function() {
 				return {
 					excl_info: {".hidden":ex},
 					image:_this.brokerImgURL(z.name),
-					capiton: z.name,
+					caption: z.name,
 					"":{"!click": function() {
 							form.close();
 							ok(z.name);
@@ -1081,7 +1081,23 @@ App.prototype.securityForm = function() {
 											}),
 										cancel:{".hidden":true}},"confirm")
 								}.bind(this)
-							},						
+							},
+						sub_button: {
+							    "!click": function() {
+                                    var dlg = TemplateJS.View.fromTemplate("subaccount_dlg");
+                                    dlg.openModal();
+                                    dlg.setCancelAction(function(){dlg.close();},"cancel");
+                                    dlg.setDefaultAction(function(){
+                                    	var d = dlg.readData();
+                                    	if (d.name) {
+                                    		fetch_with_error(this.brokerURL(z)+"/subaccount",{method:"POST",body:JSON.stringify(d.name)})
+                                    		.then(update.bind(this))
+                                    	}
+                                    	dlg.close();
+                                    }.bind(this),"ok");
+							    }.bind(this),
+							    ".hidden": !binfo.subaccounts
+						}						
 					}
 				}.bind(this));
 			}.bind(this));

@@ -160,10 +160,12 @@ bool WebCfg::reqConfig(simpleServer::HTTPRequest req) const {
 
 				dispatch([&traders, state, req, data, apikeys] {
 					try {
+						Sync _(state->lock);
 						state->applyConfig(traders);
 						if (apikeys.type() == json::object) {
 							for (Value v: apikeys) {
 								StrViewA broker = v.getKey();
+								traders.stockSelector.checkBrokerSubaccount(broker);
 								IStockApi *b = traders.stockSelector.getStock(broker);
 								if (b) {
 									IApiKey *apik = dynamic_cast<IApiKey *>(b);
@@ -221,7 +223,7 @@ static json::Value brokerToJSON(const IStockApi::BrokerInfo &binfo) {
 
 	Value res = Object("name", binfo.name)("trading_enabled",
 			binfo.trading_enabled)("exchangeName", binfo.exchangeName)(
-			"exchangeUrl", url)("version", binfo.version);
+			"exchangeUrl", url)("version", binfo.version)("subaccounts",binfo.subaccounts);
 			return res;
 }
 
@@ -331,7 +333,7 @@ bool WebCfg::reqBrokerSpec(simpleServer::HTTPRequest req,
 			if (!req.allowMethods( { "GET" }))
 				return true;
 			auto binfo = api->getBrokerInfo();
-			Value res = brokerToJSON(binfo).replace("entries", { "icon.png", "pairs","apikey","licence","page" });
+			Value res = brokerToJSON(binfo).replace("entries", { "icon.png", "pairs","apikey","licence","page","subaccount" });
 			req.sendResponse(std::move(hdr),res.stringify());
 			return true;
 		} else if (entry == "licence") {
@@ -359,6 +361,25 @@ bool WebCfg::reqBrokerSpec(simpleServer::HTTPRequest req,
 				return true;
 			req.sendResponse(std::move(hdr),
 					kk->getApiKeyFields().toString().str());
+			return true;
+		} else if (entry == "subaccount") {
+			if (!req.allowMethods( { "POST" }))
+				return true;
+			auto binfo = api->getBrokerInfo();
+			if (!binfo.subaccounts) {
+				req.sendErrorPage(403);
+			} else {
+				json::Value n = json::Value::parse(req.getBodyStream());
+				if (n.toString().length()>20) {
+					req.sendErrorPage(415);
+				} else {
+					dispatch([=]{
+						std::string newname = binfo.name + "#" + n.toString().c_str();
+						trlist.stockSelector.checkBrokerSubaccount(newname);
+						req.sendResponse("application/json", Value(newname).stringify());
+					});
+				}
+			}
 			return true;
 		}else if (entry == "page") {
 			IBrokerControl *bc = dynamic_cast<IBrokerControl *>(api);
@@ -626,22 +647,12 @@ void WebCfg::State::init(json::Value data) {
 void WebCfg::State::applyConfig(Traders &t) {
 	auto data = config->load();
 	init(data);
-	Value bc = data["brokers"];
-	broker_config = bc;
-	t.stockSelector.forEachStock([&](std::string_view name, IStockApi &api) {
-		Value b = bc[name];
-		if (b.defined()) {
-			IBrokerControl *eapi = dynamic_cast<IBrokerControl *>(&api);
-			if (eapi) {
-				eapi->restoreSettings(b);
-			}
-		}
-	});
 	for (auto &&n :traderNames) {
 		t.removeTrader(n, !data["traders"][n].defined());
 	}
 
 	traderNames.clear();
+	t.stockSelector.eraseSubaccounts();
 
 	for (Value v: data["traders"]) {
 		try {
@@ -653,6 +664,19 @@ void WebCfg::State::applyConfig(Traders &t) {
 			logError("Failed to initialized trader $1 - $2", v.getKey(), e.what());
 		}
 	}
+
+	Value bc = data["brokers"];
+	broker_config = bc;
+	t.stockSelector.forEachStock([&](std::string_view name, IStockApi &api) {
+		Value b = bc[name];
+		if (b.defined()) {
+			IBrokerControl *eapi = dynamic_cast<IBrokerControl *>(&api);
+			if (eapi) {
+				eapi->restoreSettings(b);
+			}
+		}
+	});
+
 	Value newInterval = data["report_interval"];
 	if (newInterval.defined()) {
 		t.rpt.setInterval(newInterval.getUInt());
@@ -751,6 +775,7 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req) const {
 				std::string p;
 
 				Sync _(state->lock);
+				trlist.stockSelector.checkBrokerSubaccount(broker.getString());
 				NamedMTrader *tr = trlist.find(trader.toString().str());
 				IStockApi *api = nullptr;
 				if (tr == nullptr) {

@@ -21,10 +21,20 @@ public:
 	AbstractExtern (const std::string_view & workingDir, const std::string_view & name, const std::string_view & cmdline);
 	~AbstractExtern ();
 
-	void preload();
+	bool preload();
 	virtual void onConnect() {}
 	void stop();
 	void housekeeping(int counter);
+
+	///Send request
+	/**
+	 * @param name command name
+	 * @param args arguments
+	 * @param idle set true if the command is called during idle, so it is not tread as action
+	 * @return result value
+	 */
+	json::Value jsonRequestExchange(json::String name, json::Value args, bool idle = false);
+
 protected:
 
 	static const int invval;
@@ -59,8 +69,7 @@ protected:
 	int houseKeepingCounter = 0;
 
 
-	json::Value jsonExchange(json::Value request);
-	json::Value jsonRequestExchange(json::String name, json::Value args);
+	json::Value jsonExchange(json::Value request, bool idle);
 	static bool writeJSON(json::Value v, FD &fd);
 	static json::Value readJSON(FD &fd);
 };

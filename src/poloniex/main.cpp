@@ -51,6 +51,9 @@ public:
 	virtual BrokerInfo getBrokerInfo() override;
 	virtual void onLoadApiKey(json::Value keyData) override;
 	virtual void onInit() override;
+	virtual Interface *createSubaccount(const std::string &path) {
+		return new Interface(path);
+	}
 
 	Value balanceCache;
 	Value tickerCache;
@@ -440,7 +443,8 @@ OTHER DEALINGS IN THE SOFTWARE.)mit",
 "g1PJw2L/AK+CRQT2owfwvl/BfMD7fgXz5oLYAbMB7/sVTJ9l432/gqnTgRIGguwFU4FK9AfKaOIU"
 "mxS3YCIQB3gVjBlnG68UQQNs46S4BaOAyugN5GhEzn31sHV3DgAqq5utq5wMBzJ0sXUWU00N7Fs6"
 "2Tp2EKs21dTI1L6dTagCCLQFAkOG2YTa2FrLNGiATaxNK5tMA4CYWgIZ+vazyUkLYOwDuWkOVFYf"
-"IEfNmjazNFUZvWx95KwJUKqetl7KoHEjk/4ihUKhUPgI3TlJWgiZwUMAAAAASUVORK5CYII="
+"IEfNmjazNFUZvWx95KwJUKqetl7KoHEjk/4ihUKhUPgI3TlJWgiZwUMAAAAASUVORK5CYII=",
+false,true
 
 	};
 }

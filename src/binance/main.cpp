@@ -61,6 +61,10 @@ public:
 	virtual BrokerInfo getBrokerInfo() override;
 	virtual void onLoadApiKey(json::Value keyData) override;
 	virtual void onInit() override;
+	virtual Interface *createSubaccount(const std::string &path) {
+		return new Interface(path);
+	}
+
 
 	using Symbols = ondra_shared::linear_map<std::string, MarketInfo, std::less<std::string_view> > ;
 	using Tickers = ondra_shared::linear_map<std::string, Ticker,  std::less<std::string_view> >;
@@ -461,7 +465,7 @@ Interface::BrokerInfo Interface::getBrokerInfo() {
 "PpVlMu+TeUbzupzJbN4WdMluXpa0mcz1+gD+Evib0D+GfiDSQ7GfjPx07Bckfkm2L0on86kF+MUX"
 "qxcT8GpmX07967kvUPgSjS9S+TKdL1TyUi0vVvNyvd6w0Fs2etNKb9vpjUu9das3r/X2vW9gwAl8"
 "E4tN8F8amVQC38xmE+h+Qt1R6ZtabQLf2GwT+OZ2m8AfcLAJ/CEXm8AfdLIJ/GE3m8AfeLQJ+KHX"
-"R48+XF9VnRBZ1a2+VQAAAABJRU5ErkJggg=="
+"R48+XF9VnRBZ1a2+VQAAAABJRU5ErkJggg==",false,true
 
 
 	};

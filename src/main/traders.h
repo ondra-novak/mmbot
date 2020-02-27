@@ -34,10 +34,12 @@ public:
 	StockMarketMap stock_markets;
 
 	void loadBrokers(const ondra_shared::IniConfig::Section &ini, bool test);
+	bool checkBrokerSubaccount(const std::string &name);
 	virtual IStockApi *getStock(const std::string_view &stockName) const override;
 //	void addStockMarket(ondra_shared::StrViewA name, PStockApi &&market);
 	virtual void forEachStock(EnumFn fn)  const override;
 	void clear();
+	void eraseSubaccounts();
 };
 
 
@@ -64,6 +66,7 @@ public:
 			Worker worker);
 	Traders(const Traders &&other) = delete;
 	void clear();
+
 
 	TMap::const_iterator begin() const;
 	TMap::const_iterator end() const;

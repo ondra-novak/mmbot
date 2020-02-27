@@ -50,4 +50,13 @@ public:
 	virtual std::string getIconName() const = 0;
 };
 
+class IStockApi;
+
+class IBrokerSubaccounts {
+public:
+	virtual IStockApi *createSubaccount(const std::string &subaccount) const= 0;
+	virtual bool isSubaccount() const = 0;
+	virtual ~IBrokerSubaccounts() {}
+};
+
 #endif /* SRC_MAIN_IBROKERCONTROL_H_ */
