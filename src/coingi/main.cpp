@@ -6,21 +6,35 @@
  */
 #include <imtjson/object.h>
 #include <imtjson/string.h>
+#include <imtjson/parser.h>
 #include <openssl/hmac.h>
 #include <cmath>
 #include <iomanip>
 #include <iostream>
 #include <sstream>
+#include <stack>
 
 #include <brokers/api.h>
 #include "../brokers/httpjson.h"
+#include "../brokers/orderdatadb.h"
+#include "../shared/logOutput.h"
 
+using ondra_shared::logDebug;
+
+
+static const std::unordered_map<std::string_view, double> minVolMap = {
+		{"btc",0.0001},
+		{"usd",1},
+		{"czk",10},
+		{"eur",1}
+};
 
 using namespace json;
 
 class Interface: public AbstractBrokerAPI {
 public:
 	HTTPJson httpc;
+	OrderDataDB orderdb;
 
 	Interface(const std::string &path)
 		:AbstractBrokerAPI(path,{Object
@@ -33,6 +47,7 @@ public:
 				("type", "string"),
 		})
 	,httpc(simpleServer::HttpClient("MMBot 2.0 coingi API client", simpleServer::newHttpsProvider(), nullptr, nullptr),"https://api.coingi.com")
+	,orderdb(path+".db")
 
 	{
 		nonce = now();
@@ -81,6 +96,29 @@ public:
 	Value readTradePage(unsigned int pageId, const std::string_view &pair);
 };
 
+static void handleError() {
+	try {
+		throw;
+	} catch (const HTTPJson::UnknownStatusException &exp) {
+		json::Value resp;
+		try {resp = json::Value::parse(exp.response.getBody());} catch (...) {}
+		if (resp.hasValue()) {
+			std::ostringstream buff;
+			Value e = resp["errors"];
+			if (e.hasValue()) {
+				for (Value v: e) {
+					buff << v["code"].getUIntLong() << " " << v["message"].getString() << std::endl;
+				}
+			} else {
+				e.toStream(buff);
+			}
+			throw std::runtime_error(buff.str());
+		} else {
+			throw;
+		}
+	}
+}
+
 std::string toUpperCase(std::string_view z) {
 	std::string r;
 	r.reserve(z.size());
@@ -119,22 +157,26 @@ void Interface::createSigned(Object &payload) {
 }
 
 double Interface::getBalance(const std::string_view& symb, const std::string_view & pair) {
-	Object req;
-	createSigned(req);
-	req.set("currencies", toLowerCase(symb));
-	Value response = httpc.POST("/user/balance",req);
-	Value r = response[0];
-	return r["available"].getNumber()+r["inOrders"].getNumber();
+	try {
+		Object req;
+		createSigned(req);
+		req.set("currencies", toLowerCase(symb));
+		Value response = httpc.POST("/user/balance",req);
+		Value r = response[0];
+		return r["available"].getNumber()+r["inOrders"].getNumber();
+	} catch (...) {handleError();throw;}
 }
 
 inline Value Interface::readTradePage(unsigned int pageId, const std::string_view &pair) {
-	Object req;
-	createSigned(req);
-	req("pageNumber", pageId)
-	   ("pageSize",100)
-	   ("currencyPair", pair);
+	try {
+		Object req;
+		createSigned(req);
+		req("pageNumber", pageId)
+		   ("pageSize",100)
+		   ("currencyPair", pair);
 
-	return httpc.POST("/user/transactions", req);
+		return httpc.POST("/user/transactions", req);
+	} catch (...) {handleError();throw;}
 }
 
 
@@ -152,7 +194,9 @@ inline Interface::TradesSync Interface::syncTrades(json::Value lastId,
 	if (lastId.hasValue()) {
 		bool rep = true;
 		auto ltmn = lastId.getUIntLong();
+		std::stack<Trade> stk;
 		while (rep) {
+			rep = false;
 			for (Value tx: trx ) {
 				Value tm = tx["timestamp"];
 				auto tmn = tm.getUIntLong();
@@ -163,40 +207,62 @@ inline Interface::TradesSync Interface::syncTrades(json::Value lastId,
 				double base = tx["baseAmount"].getNumber();
 				double counter = tx["counterAmount"].getNumber();
 				double fee = tx["fee"].getNumber();
-				int type = tx["type"].getInt();
+				double price = tx["price"].getNumber();
+				int type = tx["orderType"].getInt();
 				double size;
-				double price;
 				double eff_size;
 				double eff_price;
 				if (type == 1) {//sell
 					size = -base;
-					price = (counter+fee)/base;
 					eff_size = -base;
 					eff_price = counter/base;
 				} else {
 					size = base;
-					price = counter/(base+fee);
-					eff_size = base;
-					eff_price = counter/base;
+					eff_size = base-fee;
+					eff_price = counter/(base-fee);
 				}
-				resp.trades.push_back(Trade{
+				stk.push(Trade{
 					tx["id"],tmn,size,price,eff_size,eff_price
 				});
+				rep = true;
 			}
 			if (rep) {
 				tr = readTradePage(page++, pair);
 				trx = tr["transactions"];
 			}
 		}
+		while (!stk.empty()) {
+			const Trade &d = stk.top();
+			resp.trades.push_back(d);
+			stk.pop();
+		}
 	}
 	return resp;
 }
 
-inline Interface::Orders Interface::getOpenOrders(const std::string_view& par) {
-	return {};
+inline Interface::Orders Interface::getOpenOrders(const std::string_view& pair) {
+	try {
+		Object obj;
+		createSigned(obj);
+		obj("pageNumber",1)
+		   ("pageSize",100)
+		   ("currencyPair",pair)
+		   ("status",0);
+
+		Value rp = httpc.POST("/user/orders",obj)["orders"];
+		orderdb.commit();
+		return mapJSON(rp, [&](Value o){
+			Value clientId = orderdb.getOrderData(o["id"]);
+			orderdb.storeOrderData(o["id"],clientId);
+			return Order {
+				o["id"],orderdb.getOrderData(o["id"]),(o["type"].getUInt()?-1:1)*o["baseAmount"].getNumber(),o["price"].getNumber()
+			};
+		}, Orders());
+	} catch (...) {handleError();throw;}
 }
 
 inline Interface::Ticker Interface::getTicker(const std::string_view& pair) {
+	try {
 	std::string url = "/current/order-book/";
 	url.append(pair);
 	url.append("/1/1/1");
@@ -207,13 +273,41 @@ inline Interface::Ticker Interface::getTicker(const std::string_view& pair) {
 	return Ticker {
 		bid,ask,std::sqrt(ask*bid),now()
 	};
+	} catch (...) {handleError();throw;}
+
 }
 
 inline json::Value Interface::placeOrder(const std::string_view& pair,
 		double size, double price, json::Value clientId, json::Value replaceId,
 		double replaceSize) {
-	throw std::runtime_error("Trading is not implemented yet");
-	return nullptr;
+	try {
+
+		if (replaceId.hasValue()) {
+			Object obj;createSigned(obj);
+			obj("orderId", replaceId);
+			Value resp = httpc.POST("/user/cancel-order", obj);
+			double left = resp["baseAmount"].getNumber();
+			logDebug("left: $1, replaceSize: $2", left, replaceSize);
+			if (left*1.0001 < replaceSize) return nullptr;
+		}
+		if (size) {
+			Object obj;createSigned(obj);
+			obj("type",size < 0?1:0)
+			   ("volume", std::abs(size))
+			   ("price", price)
+			   ("currencyPair", pair);
+			Value resp = httpc.POST("/user/add-order", obj);
+			Value new_id = resp["result"];
+			orderdb.storeOrderData(new_id, clientId);
+			return new_id;
+		}
+		return nullptr;
+	} catch (...) {
+		handleError();throw;
+	}
+
+
+
 }
 
 inline bool Interface::reset() {
@@ -226,6 +320,12 @@ inline Interface::MarketInfo Interface::getMarketInfo(const std::string_view& pa
 	auto tp = pairs[pair];
 	if (tp.hasValue()) {
 
+		std::string_view curc = tp["counter"]["name"].getString();
+		auto iter = minVolMap.find(curc);
+		double minVol = 0;
+		if (iter != minVolMap.end()) minVol = iter->second;
+		else minVol = 1;
+
 		double price_step = std::pow(10,-tp["priceDecimals"].getNumber());
 		double asset_step = std::pow(10,-tp["base"]["volumeDecimals"].getNumber());
 		return MarketInfo {
@@ -234,7 +334,7 @@ inline Interface::MarketInfo Interface::getMarketInfo(const std::string_view& pa
 			asset_step,
 			price_step,
 			asset_step,
-			0,
+			minVol,
 			0,
 			income
 		};
@@ -249,6 +349,7 @@ inline double Interface::getFees(const std::string_view& pair) {
 }
 
 json::Value Interface::getAllPairsJSON() {
+	try {
 	auto resp = httpc.GET("/current/currency-pairs");
 	Object items;
 	for (json::Value v: resp) {
@@ -256,6 +357,8 @@ json::Value Interface::getAllPairsJSON() {
 		items.set(id, v);
 	}
 	return items;
+	} catch (...) {handleError();throw;}
+
 
 }
 

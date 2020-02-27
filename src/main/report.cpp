@@ -138,7 +138,7 @@ void Report::setTrades(StrViewA symb, StringView<IStatSvc::TradeRecord> trades) 
 				records.push_back(Object
 						("id", t.id)
 						("time", t.time)
-						("achg", (inverted?-1:1)*t.eff_size)
+						("achg", (inverted?-1:1)*t.size)
 						("gain", gain)
 						("norm", t.norm_profit)
 						("normch", normch)
