@@ -295,6 +295,7 @@ Returns general informations about the broker
 	"licence":<string>,
 	"trading_enabled":<boolean>,
 	"settings":<boolean>,
+	"subaccounts":<boolean>,
 	"favicon":<string>
 }
 ```
@@ -304,7 +305,8 @@ Returns general informations about the broker
 * **licence** - licence text
 * **trading_enabled** - set `true`, if the trading is enabled. Trading is disabled because
 the API key is not set.
-* **settings** - set `true`, if the broker has extra settings (getSettings, setSettings)
+* **settings** - set `true`, if the broker has extra settings (getSettings, setSettings, restoreSettings)
+* **subaccounts** - set `true`, if the broker has supports subaccounts (subaccount command)
 * **favicon** - icon in base64, content-type: image/png
 	 
 ### getApiKeyFields
@@ -380,6 +382,34 @@ Function can optionally return an object. If object is returned, then the object
 
 Restores complete settings from the JSON value. This function is called right after the
 broker is started. The JSON value is remembered after setSettings returns it as return value. This allows to store settings inside of broker's configuration
+
+###subaccount
+```
+["subaccount"]
+["subaccount", [<id>, <cmd>]]
+["subaccount", [<id>, <cmd>, <args>]]
+```
+
+Allows to handle multiple accounts by a single broker. There is always the main account, which is accessed directly, but there can be also unlimited number of 
+subaccounts that can be accessed through the command **subaccount**. Each subaccount has an **id**, which is string consists from alphanumberic characters (no other
+characters are allowed). 
+
+The subaccount is created everytime when a new **id** is used for the first time. The broker keeps state of each subaccount in the memory and don't need to store subaccounts to a file (except the api key, which must be stored separatedly for given **id**). If the broker is restarted, the Robot recreates all subaccounts that are being used by sending **reset** or **restoreSettings** for each of them
+
+* **id** - unique identifier of the subaccount
+* **cmd** - command to execute, any command from list above except the command **subaccount** itself.
+* **args** - arguments of the command
+
+If the command is called without arguments, it has to return list of created subaccounts 
+
+**examples** 
+
+```
+["subaccount",["test1","reset"]]
+["subaccount",["test1","getBalance",{"symbol":"btc", "pair":"btcusd"}]]  
+["subaccount",["test1","getOpenOrders",["btcusd"]]]
+```
+
 
 
 

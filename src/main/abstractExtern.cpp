@@ -84,14 +84,14 @@ void parseArgumentList(std::string_view args, Fn &&result) {
 }
 
 
-static void report_error(const char *desc) {
+void report_error(const char *desc) {
 	int e = errno;
 	std::ostringstream buff;
 	buff << "System exception: " << e << " " << strerror(e) << " while '" << desc << '"';
 	throw std::runtime_error(buff.str());
 }
 
-static void report_timeout(const char *desc) {
+void report_timeout(const char *desc) {
 	std::ostringstream buff;
 	buff << "TIMEOUT while '" << desc << '"';
 	throw std::runtime_error(buff.str());
@@ -300,12 +300,16 @@ json::Value AbstractExtern::readJSON(FD& fd) {
 
 
 bool AbstractExtern::preload() {
-	Sync _(lock);
-	if (chldid == -1) {
-		spawn();
-		return true;
-	} else {
-		return false;
+	try {
+		Sync _(lock);
+		if (chldid == -1) {
+			spawn();
+			return true;
+		} else {
+			return false;
+		}
+	} catch (std::exception &e) {
+		throw Exception(e.what(), this->name, "preload");
 	}
 }
 
@@ -382,13 +386,25 @@ json::Value AbstractExtern::jsonExchange(json::Value request, bool idle) {
 
 json::Value AbstractExtern::jsonRequestExchange(json::String name, json::Value args, bool idle) {
 	Sync _(lock);
-	auto resp = jsonExchange({name, args}, idle);
-	if (resp[0].getBool() == true) {
-		auto result = resp[1];
-		return result;
-	} else {
-		auto error = resp[1];
-		throw IStockApi::Exception(this->name+": "+error.toString().c_str()+" ("+name.c_str()+")");
+	try {
+		auto resp = jsonExchange({name, args}, idle);
+		if (resp[0].getBool() == true) {
+			auto result = resp[1];
+			return result;
+		} else {
+			auto error = resp[1];
+			throw std::runtime_error(error.getString());
+		}
+	} catch (const Exception &e) {
+		throw Exception(std::string(e.getMsg()), this->name, name.c_str());
+	} catch (const std::exception &e) {
+		throw Exception(e.what(), this->name, name.c_str());
 	}
 }
 
+AbstractExtern::Exception::Exception(std::string &&msg, const std::string &name, const std::string &command)
+	:whatmsg(name+": "+msg+ " ("+command+")"),msg(std::move(msg)),name(name),command(command) {}
+
+const char* AbstractExtern::Exception::what() const noexcept{
+	return whatmsg.c_str();
+}

@@ -35,6 +35,22 @@ public:
 	 */
 	json::Value jsonRequestExchange(json::String name, json::Value args, bool idle = false);
 
+	class Exception: public std::exception {
+	public:
+		Exception(std::string &&msg, const std::string &name, const std::string &command);
+		const std::string& getCommand() const {	return command;}
+		const std::string& getMsg() const {	return msg;}
+		const std::string& getName() const { return name;}
+		virtual const char *what() const noexcept override;
+
+	protected:
+		const std::string whatmsg;
+		const std::string msg;
+		const std::string name;
+		const std::string command;
+	};
+
+
 protected:
 
 	static const int invval;
@@ -72,6 +88,7 @@ protected:
 	json::Value jsonExchange(json::Value request, bool idle);
 	static bool writeJSON(json::Value v, FD &fd);
 	static json::Value readJSON(FD &fd);
+
 };
 
 
