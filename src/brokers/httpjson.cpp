@@ -96,7 +96,7 @@ json::Value HTTPJson::SEND(const std::string_view &path,
 
 	std::string url = baseUrl;
 	url.append(path);
-	auto sdata = data.toString();
+	auto sdata = data.defined()?data.toString():json::String("");
 
 	if (!headers["Content-Type"].defined()) {
 		if (data.type() != json::string ) {
@@ -133,4 +133,8 @@ json::Value HTTPJson::PUT(const std::string_view &path, const json::Value &data,
 json::Value HTTPJson::DELETE(const std::string_view &path,
 		const json::Value &data,json::Value &&headers,  unsigned int expectedCode) {
 	return SEND(path, "DELETE", data, std::move(headers), expectedCode);
+}
+
+void HTTPJson::setBaseUrl(const std::string &url) {
+	baseUrl = url;
 }

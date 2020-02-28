@@ -250,12 +250,12 @@ inline Interface::Orders Interface::getOpenOrders(const std::string_view& pair) 
 		   ("status",0);
 
 		Value rp = httpc.POST("/user/orders",obj)["orders"];
-		orderdb.commit();
 		return mapJSON(rp, [&](Value o){
-			Value clientId = orderdb.getOrderData(o["id"]);
-			orderdb.storeOrderData(o["id"],clientId);
+			Value id = o["id"];
+			orderdb.mark(id);
+			Value clientId = orderdb.get(id);
 			return Order {
-				o["id"],orderdb.getOrderData(o["id"]),(o["type"].getUInt()?-1:1)*o["baseAmount"].getNumber(),o["price"].getNumber()
+				o["id"],clientId,(o["type"].getUInt()?-1:1)*o["baseAmount"].getNumber(),o["price"].getNumber()
 			};
 		}, Orders());
 	} catch (...) {handleError();throw;}
@@ -298,7 +298,7 @@ inline json::Value Interface::placeOrder(const std::string_view& pair,
 			   ("currencyPair", pair);
 			Value resp = httpc.POST("/user/add-order", obj);
 			Value new_id = resp["result"];
-			orderdb.storeOrderData(new_id, clientId);
+			orderdb.store(new_id, clientId);
 			return new_id;
 		}
 		return nullptr;

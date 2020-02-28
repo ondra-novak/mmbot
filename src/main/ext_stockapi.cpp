@@ -156,7 +156,7 @@ ExtStockApi::BrokerInfo ExtStockApi::getBrokerInfo()  {
 			resp["licence"].getString(),
 			StrViewA(resp["favicon"].getBinary()),
 			resp["settings"].getBool(),
-			resp["subaccounts"].getBool()
+			subaccount.empty()?resp["subaccounts"].getBool():false
 		};
 	} catch (AbstractExtern::Exception &) {
 		return BrokerInfo {
