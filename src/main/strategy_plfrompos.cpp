@@ -375,7 +375,7 @@ void Strategy_PLFromPos::calcPower(const IStockApi::MarketInfo &minfo, State& st
 	if (cfg.power) {
 		double value = pos*pos/(2*calcK(st));
 		if (!std::isfinite(value)) value = 0;
-		double c = currency * cfg.baltouse + value;
+		double c = wp.balance * cfg.baltouse + value;
 		double step = c * std::pow(10, cfg.power)*0.01;
 		double k = step / (price * price* 0.01);
 		double max_pos = sqrt(k * c);
