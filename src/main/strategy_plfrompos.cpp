@@ -17,7 +17,6 @@ using ondra_shared::logDebug;
 using ondra_shared::logInfo;
 
 double Strategy_PLFromPos::sliding_zero_factor = 0.95;
-double Strategy_PLFromPos::min_rp_reduce = 0.1;
 
 std::string_view Strategy_PLFromPos::id = "plfrompos";
 
@@ -146,8 +145,6 @@ double Strategy_PLFromPos::calcNewPos(const IStockApi::MarketInfo &minfo, double
 						//result from first part is extra reduction powered by 2. Now sqare root of it
 					case reduceFromProfit: {
 						nnp = sgn(np) * sqrt(np2);
-						double nnp2 = pos + (np - pos) * (1 + min_rp_reduce*reduce_factor);
-						if (std::abs(nnp) > std::abs(nnp2)) nnp = nnp2;;
 						break;
 					}
 
