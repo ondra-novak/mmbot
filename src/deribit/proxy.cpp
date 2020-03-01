@@ -29,7 +29,7 @@ using namespace simpleServer;
 Proxy::Proxy()
 :httpc(HttpClient("MMBot Deribit broker",
 		newHttpsProvider(),
-		newNoProxyProvider()), "")
+		newNoProxyProvider(), newCachedDNSProvider(60)), "")
  {
 	setTestnet(false);
 }

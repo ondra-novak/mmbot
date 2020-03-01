@@ -28,7 +28,7 @@ using namespace simpleServer;
 static constexpr std::uint64_t start_time = 1557858896532;
 Proxy::Proxy():httpc(HttpClient("MMBot Poloniex broker",
 		newHttpsProvider(),
-		newNoProxyProvider()), "")
+		newNoProxyProvider(), newCachedDNSProvider(60)), "")
  {
 
 	apiPrivUrl="https://poloniex.com/tradingApi";
