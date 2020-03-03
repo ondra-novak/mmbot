@@ -374,7 +374,7 @@ bool WebCfg::reqBrokerSpec(simpleServer::HTTPRequest req,
 					req.sendErrorPage(415);
 				} else {
 					dispatch([=]{
-						std::string newname = binfo.name + "/";
+						std::string newname = binfo.name + "~";
 						for (auto &&k: n.getString()) if (isalnum(k)) newname.push_back(k);
 						trlist.stockSelector.checkBrokerSubaccount(newname);
 						req.sendResponse("application/json", Value(newname).stringify());

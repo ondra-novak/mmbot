@@ -567,7 +567,10 @@ MTrader::Order MTrader::calculateOrderFeeLess(
 			order.price = curPrice;
 		}
 		Strategy::adjustOrder(dir, mult, alerts, order);
-		if (order.alert == IStrategy::Alert::forced) return order;
+		if (order.alert == IStrategy::Alert::forced) {
+			logDebug("Calc order: alert is forced: op=$1, np=$2, osz=$3", order.price, newPrice, sz);
+			return order;
+		}
 
 		if (cfg.max_size && std::fabs(order.size) > cfg.max_size) {
 			order.size = cfg.max_size*dir;
