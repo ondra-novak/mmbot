@@ -1421,9 +1421,9 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 				if (x.pl < min_pl) {min_pl = x.pl;var downdraw = max_pl - min_pl; if (downdraw> max_downdraw) max_downdraw = downdraw;}
 				cost = cost + x.sz * x.pr;
 				if (cost > max_cost) max_cost = cost;
-				if (x.achg > 0) buys++;
-				if (x.achg < 0) sells++;
-				if (x.achg == 0) alerts++; else trades++;
+				if (x.sz > 0) buys++;
+				if (x.sz < 0) sells++;
+				if (x.sz == 0) alerts++; else trades++;
 				var dir = Math.sign(x.pr - lastp);
 				lastp = x.pr;
 				if (dir != last_dir) {
