@@ -16,7 +16,7 @@
 #include <cstring>
 using namespace json;
 
-OrderDataDB::OrderDataDB(std::string path):path(path),lock_path(path+".lock") {
+OrderDataDB::OrderDataDB(std::string path, unsigned int maxRows):lock_path(path+"-lock"),maxRows(maxRows) {
 	lockfile = ::open(lock_path.c_str(),O_TRUNC|O_CREAT|O_RDWR, 0666);
 	if (lockfile == -1) {
 		throw std::runtime_error("Unable to open: " + lock_path + " - " + strerror(errno));
@@ -26,6 +26,10 @@ OrderDataDB::OrderDataDB(std::string path):path(path),lock_path(path+".lock") {
 		close(lockfile);
 		throw std::runtime_error("Unable to lock: " + lock_path + " - The database file is locked");
 	}
+	backFile = path+"-back";
+	frontFile = path+"-front";
+	load(backFile);
+	curRows = load(frontFile);
 }
 
 OrderDataDB::~OrderDataDB() {
@@ -33,25 +37,6 @@ OrderDataDB::~OrderDataDB() {
 	remove(lock_path.c_str());
 }
 
-void OrderDataDB::storeOrderData(json::Value orderId, json::Value data) {
-	Value({orderId, data}).toStream(nextRev);
-	nextRev << std::endl;
-	nextRev.flush();
-	if (!nextRev) throw std::runtime_error(std::string("Database store failure"));
-}
-
-void OrderDataDB::commit() {
-		nextRev.close();
-		load();
-		nextRev.open(path, std::ios::out|std::ios::trunc);
-		if (!nextRev) throw std::runtime_error(std::string("Database open failure"));
-}
-
-json::Value OrderDataDB::getOrderData(const json::Value& orderId) {
-	auto iter = curMap.find(orderId);
-	if (iter == curMap.end()) return Value();
-	else return iter->second;
-}
 
 bool eatWhite(std::ifstream &in) {
 	int k = in.get();
@@ -63,19 +48,52 @@ bool eatWhite(std::ifstream &in) {
 	return true;
 }
 
-bool OrderDataDB::load() {
-	curMap.clear();
-	std::ifstream f(path, std::ios::in);
-	if (!f) return false;
 
-	while (eatWhite(f)) {
-		Value pr = Value::fromStream(f);
-		Value key = pr[0];
-		Value value = pr[1];
-		curMap[key] = value;
+void OrderDataDB::store(json::Value orderId, json::Value data) {
+	curMap[orderId] = data;
+	mark(orderId);
+}
+
+void OrderDataDB::mark(json::Value orderId) {
+	auto iter = curMap.find(orderId);
+	if (iter != curMap.end()) {
+		std::ofstream f(frontFile, std::ios::app);
+		Value({iter->first, iter->second}).toStream(f);
+		f<<std::endl;
+		curRows++;
+		if (curRows >= maxRows) {
+			curMap.clear();
+			load(backFile);
+			load(frontFile);
+			rename(frontFile.c_str(), backFile.c_str());
+			curRows = 0;
+		}
 	}
+}
 
-	return true;
+json::Value OrderDataDB::get( json::Value orderId) {
+	auto iter = curMap.find(orderId);
+	if (iter != curMap.end()) return iter->second;
+	else return Value();
 
 }
 
+unsigned int OrderDataDB::load(const std::string &file) {
+	std::ifstream in(file);
+	if (!in) return 0;
+	unsigned int cnt = 0;
+	while (!!in) {
+		try {
+			json::Value p = json::Value::fromStream(in);
+			curMap[p[0]] = p[1];
+			cnt++;
+		} catch (...) {
+
+		}
+		int c = in.get();
+		while (c != EOF && isspace(c)) c = in.get();
+		if (c == EOF) break;
+		in.putback(static_cast<char>(c));
+	}
+	return cnt;
+}

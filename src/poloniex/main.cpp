@@ -151,12 +151,10 @@ Interface::Orders Interface::getOpenOrders(const std::string_view & pair) {
 				 ("currencyPair","all")
 		 );
 
-		 orderdb.commit();
 		 for (Value p: orderCache) {
 			 for (Value o: p) {
 				 Value onum = o["orderNumber"];
-				 Value data = orderdb.getOrderData(onum);
-				 orderdb.storeOrderData(onum, data);
+				 orderdb.mark(onum);
 			 }
 		 }
 	 }
@@ -166,7 +164,7 @@ Interface::Orders Interface::getOpenOrders(const std::string_view & pair) {
 	 return mapJSON(ords, [&](Value order){
 		 return Order {
 			 order["orderNumber"],
-			 orderdb.getOrderData(order["orderNumber"]),
+			 orderdb.get(order["orderNumber"]),
 			 (order["type"].getString() == "sell"?-1.0:1.0)
 			 						 	 * order["amount"].getNumber(),
 			 order["rate"].getNumber()
@@ -248,7 +246,7 @@ json::Value Interface::placeOrder(const std::string_view & pair,
 	Value onum = res["orderNumber"];
 	if (!onum.defined()) throw std::runtime_error("Order was not placed (missing orderNUmber)");
 	if (clientId.defined())
-		orderdb.storeOrderData(onum, clientId);
+		orderdb.store(onum, clientId);
 
 	return res["orderNumber"];
 

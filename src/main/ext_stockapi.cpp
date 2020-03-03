@@ -135,7 +135,7 @@ void ExtStockApi::Connection::onConnect() {
 	bool debug= lg.isLogLevelEnabled(ondra_shared::LogLevel::debug);
 	try {
 		jsonRequestExchange("enableDebug",debug, false);
-	} catch (IStockApi::Exception &) {
+	} catch (AbstractExtern::Exception &) {
 
 	}
 	instance_counter++;
@@ -156,9 +156,9 @@ ExtStockApi::BrokerInfo ExtStockApi::getBrokerInfo()  {
 			resp["licence"].getString(),
 			StrViewA(resp["favicon"].getBinary()),
 			resp["settings"].getBool(),
-			resp["subaccounts"].getBool()
+			subaccount.empty()?resp["subaccounts"].getBool():false
 		};
-	} catch (IStockApi::Exception &) {
+	} catch (AbstractExtern::Exception &) {
 		return BrokerInfo {
 			true,
 			connection->getName(),
@@ -240,20 +240,18 @@ ExtStockApi::PageData ExtStockApi::fetchPage(const std::string_view &method,
 
 json::Value ExtStockApi::requestExchange(json::String name, json::Value args, bool idle) {
 	if (connection->wasRestarted(instance_counter)) {
-		try {
-			if (broker_config.defined()) {
-				if (subaccount.empty()) connection->jsonRequestExchange("restoreSettings", broker_config, idle);
-				else connection->jsonRequestExchange("subaccount", {subaccount, "restoreSettings", broker_config}, idle);
-			}
-		} catch (IStockApi::Exception &) {
-
+		if (broker_config.defined()) {
+			if (subaccount.empty()) connection->jsonRequestExchange("restoreSettings", broker_config, idle);
+			else connection->jsonRequestExchange("subaccount", {subaccount, "restoreSettings", broker_config}, idle);
 		}
 	}
 	if (subaccount.empty()) return connection->jsonRequestExchange(name, args, idle);
 	else try {
 		return connection->jsonRequestExchange("subaccount", {subaccount, name, args}, idle);
+	} catch (const AbstractExtern::Exception &e) {
+		throw AbstractExtern::Exception(std::string(e.getMsg()), connection->getName()+ "/" + subaccount, name.c_str());
 	} catch (std::exception &e) {
-		throw std::runtime_error(e.what()+std::string("(")+name.c_str()+")");
+		throw AbstractExtern::Exception(e.what(), connection->getName() + "/" + subaccount, name.c_str());
 	}
 }
 

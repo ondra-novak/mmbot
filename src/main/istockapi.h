@@ -291,11 +291,6 @@ public:
 	///used to probe broker - no broker implementation can be empty
 	virtual void testBroker() = 0;
 
-	class Exception: public std::runtime_error {
-	public:
-		using std::runtime_error::runtime_error;
-	};
-
 	virtual BrokerInfo getBrokerInfo()  = 0;
 
 	virtual ~IStockApi() {}
