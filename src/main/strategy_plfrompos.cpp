@@ -299,6 +299,7 @@ Strategy_PLFromPos::OrderData Strategy_PLFromPos::getNewOrder(
 		double szf = sz, prf = new_price;
 		minfo.addFees(szf, prf);
 		if (szf + assets <= 0 || currency-szf*prf <= 0) {
+			logDebug("Order skipped: $1<=0 or $2 <=0, szf=$3, prf=$4", szf + assets, currency-szf*prf, szf, prf);
 			return OrderData{0, 0, Alert::forced};
 		} else {
 			return OrderData{0, sz};
