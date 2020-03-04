@@ -187,15 +187,19 @@ std::pair<Strategy_PLFromPos::OnTradeResult, PStrategy> Strategy_PLFromPos::onTr
 	} else {
 		s = onIdle(minfo, IStockApi::Ticker{tradePrice,tradePrice,tradePrice}, assetsLeft, currencyLeft);
 	}
-	return static_cast<const Strategy_PLFromPos &>(*s).onTrade2(minfo,tradePrice, tradeSize,assetsLeft, currencyLeft);
+	return static_cast<const Strategy_PLFromPos &>(*s).onTrade2(minfo,tradePrice, tradeSize,assetsLeft, currencyLeft, false);
 
 }
 
+bool Strategy_PLFromPos::atMax(const IStockApi::MarketInfo &minfo, const State &st) const {
+	return st.maxpos && !isExchange(minfo) && std::abs(st.a - st.neutral_pos) > st.maxpos;
+}
 
 std::pair<Strategy_PLFromPos::OnTradeResult, PStrategy> Strategy_PLFromPos::onTrade2(
 		const IStockApi::MarketInfo &minfo,
 		double tradePrice, double tradeSize, double assetsLeft,
-		double currencyLeft) const {
+		double currencyLeft, bool sub) const {
+
 
 	State newst = st;
 
@@ -203,6 +207,20 @@ std::pair<Strategy_PLFromPos::OnTradeResult, PStrategy> Strategy_PLFromPos::onTr
 	double act_pos = assetsToPos(assetsLeft);
 	double prev_pos = act_pos - tradeSize;
 	double new_pos = calcNewPos(minfo,tradePrice);
+
+
+	if (st.suspended) {
+		auto sub = st.suspended->onTrade2(minfo, tradePrice, 0, assetsLeft, currencyLeft, true);
+		auto substr = PMyStrategy::staticCast(sub.second);
+		if (!substr->atMax(minfo, substr->st)) {
+			return sub;
+		}
+		else {
+			newst.suspended = substr;
+		}
+	}
+
+
 
 	newst.p = tradePrice;
 	newst.a = posToAssets(new_pos);
@@ -214,7 +232,8 @@ std::pair<Strategy_PLFromPos::OnTradeResult, PStrategy> Strategy_PLFromPos::onTr
 
 	newst.avgsum = ( reversal || st.avgsum == 0)?(afpos * tradePrice):(st.avgsum + (afpos - appos) * tradePrice );
 
-	if (!st.maxpos || afpos < st.maxpos || isExchange(minfo)) {
+	bool atmax = atMax(minfo,st);
+	if (atmax) {
 		calcPower(minfo, newst, tradePrice, assetsLeft, currencyLeft);
 	}
 
@@ -233,12 +252,16 @@ std::pair<Strategy_PLFromPos::OnTradeResult, PStrategy> Strategy_PLFromPos::onTr
 	double p0 = new_pos/k + tradePrice;
 
 	newst.value = posVal;
+	PMyStrategy newinst = new Strategy_PLFromPos(cfg,newst);
 
+	if (atmax && tradeSize == 0 && !sub) {
+		State nst2;
+		nst2.suspended = newinst;
+		nst2.inited = false;
+		newinst = new Strategy_PLFromPos(halfConfig(cfg), nst2);
+	}
 
-	return {
-		OnTradeResult{np,ap,p0, afpos?newst.avgsum/afpos:newst.p},
-		new Strategy_PLFromPos(cfg,newst)
-	};
+	return {OnTradeResult{np,ap,p0, afpos?newst.avgsum/afpos:newst.p}, PStrategy::staticCast(newinst)};
 }
 
 json::Value Strategy_PLFromPos::cfgStateHash() const {
@@ -260,6 +283,7 @@ json::Value Strategy_PLFromPos::exportState() const {
 			("maxpos",st.maxpos)
 			("val", st.value)
 			("neutral_pos", st.neutral_pos)
+			("suspended", st.suspended != nullptr?st.suspended->exportState():json::Value())
 			("cfg",cfgStateHash());
 	else return json::undefined;
 }
@@ -276,10 +300,12 @@ PStrategy Strategy_PLFromPos::importState(json::Value src) const {
 			src["val"].getNumber(),
 			src["avg"].getNumber(),
 			src["neutral_pos"].getNumber(),
+			PMyStrategy::staticCast(src["suspended"].hasValue()?importState(src["suspended"]):nullptr)
 		};
 		json::Value chash = src["cfg"];
 		newst.valid_power = chash == cfgStateHash();
-		return new Strategy_PLFromPos(cfg, newst);
+		Config ncfg(newst.suspended != nullptr?halfConfig(newst.suspended->cfg):cfg);
+		return new Strategy_PLFromPos(ncfg, newst);
 	} else {
 		return this;
 	}
@@ -304,7 +330,7 @@ Strategy_PLFromPos::OrderData Strategy_PLFromPos::getNewOrder(
 	} else {
 		bool atmaxpos = st.maxpos && std::abs(pos) > st.maxpos;
 		if (atmaxpos) {
-			double zeroPos = posToAssets(-sgn(pos)*cfg.stoploss_reverse*st.maxpos);
+			double zeroPos = posToAssets(0);
 			double osz = calcOrderSize(assets,assets,zeroPos);
 			if (dir * pos < 0 && act_pos * dir < 0) {
 				return OrderData{cur_price, osz, Alert::stoploss};
@@ -414,4 +440,12 @@ Strategy_PLFromPos::CalcNeutralBalanceResult Strategy_PLFromPos::calcNeutralBala
 		double balance = total_balance - np*price;
 		return {np, balance};
 	}
+}
+
+Strategy_PLFromPos::Config Strategy_PLFromPos::halfConfig(const Config &cfg) {
+	Config c(cfg);
+	c.maxpos*=0.5;
+	c.baltouse*=0.5;
+	c.step*=0.5;
+	return c;
 }

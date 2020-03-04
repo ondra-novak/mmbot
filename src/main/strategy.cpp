@@ -79,7 +79,6 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 		}
 		cfg.reduce_factor = std::abs(cfg.reduce_factor);
 		cfg.baltouse= config["balance_use"].defined()?config["balance_use"].getNumber():1;
-		cfg.stoploss_reverse=config["slreverse"].getNumber();
 		cfg.reduce_on_increase=config["reduce_on_inc"].getBool();
 		return Strategy(new Strategy_PLFromPos(cfg,{}));
 	} else if (id == Strategy_HalfHalf::id) {

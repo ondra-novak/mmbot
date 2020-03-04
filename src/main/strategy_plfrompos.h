@@ -36,9 +36,10 @@ public:
 		double power;
 		double baltouse;
 		ReduceMode reduceMode;
-		double stoploss_reverse;
 		bool reduce_on_increase;
 	};
+
+	using PMyStrategy = ondra_shared::RefCntPtr<const Strategy_PLFromPos>;
 
 	struct State {
 		bool inited = false;
@@ -50,6 +51,7 @@ public:
 		double value = 0;
 		double avgsum = 0;
 		double neutral_pos = 0;
+		PMyStrategy suspended;
 	};
 
 	Strategy_PLFromPos(const Config &cfg, const State &st);
@@ -81,11 +83,13 @@ public:
 
 	json::Value cfgStateHash() const;
 
+	bool atMax(const IStockApi::MarketInfo &minfo, const State &st) const;
+
 protected:
 	Config cfg;
 	State st;
 
-	std::pair<OnTradeResult,PStrategy > onTrade2(const IStockApi::MarketInfo &minfo, double tradePrice, double tradeSize, double assetsLeft, double currencyLeft) const;
+	std::pair<OnTradeResult,PStrategy > onTrade2(const IStockApi::MarketInfo &minfo, double tradePrice, double tradeSize, double assetsLeft, double currencyLeft, bool sub) const;
 
 private:
 	double calcNewPos(const IStockApi::MarketInfo &minfo, double tradePrice) const;
@@ -98,6 +102,8 @@ private:
 		double balance;
 	};
 	CalcNeutralBalanceResult calcNeutralBalance(const IStockApi::MarketInfo &minfo, double assets, double currency, double price) const;
+
+	static Config halfConfig(const Config &cfg);
 };
 
 
