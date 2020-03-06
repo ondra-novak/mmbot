@@ -14,21 +14,20 @@
 
 class OrderDataDB {
 public:
-	OrderDataDB(std::string path);
+	OrderDataDB(std::string path, unsigned int maxRows = 500);
 	~OrderDataDB();
 
-	void storeOrderData(json::Value orderId, json::Value data);
-	void commit();
-	json::Value getOrderData(const json::Value &orderId);
-	bool load();
-
-
+	void store(json::Value orderId, json::Value data);
+	void mark(json::Value orderId);
+	json::Value get(json::Value pair);
 protected:
-	std::string path;
+	std::string frontFile, backFile;
 	std::string lock_path;
-	int lockfile;
-	std::ofstream nextRev;
+	unsigned int curRows = 0;
+	unsigned int maxRows = 0;
 	std::unordered_map<json::Value, json::Value> curMap;
+	unsigned int load(const std::string &file);
+	int lockfile;
 
 };
 

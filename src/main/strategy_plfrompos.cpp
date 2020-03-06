@@ -17,7 +17,6 @@ using ondra_shared::logDebug;
 using ondra_shared::logInfo;
 
 double Strategy_PLFromPos::sliding_zero_factor = 0.95;
-double Strategy_PLFromPos::min_rp_reduce = 0.1;
 
 std::string_view Strategy_PLFromPos::id = "plfrompos";
 
@@ -146,8 +145,6 @@ double Strategy_PLFromPos::calcNewPos(const IStockApi::MarketInfo &minfo, double
 						//result from first part is extra reduction powered by 2. Now sqare root of it
 					case reduceFromProfit: {
 						nnp = sgn(np) * sqrt(np2);
-						double nnp2 = pos + (np - pos) * (1 + min_rp_reduce*reduce_factor);
-						if (std::abs(nnp) > std::abs(nnp2)) nnp = nnp2;;
 						break;
 					}
 
@@ -299,6 +296,7 @@ Strategy_PLFromPos::OrderData Strategy_PLFromPos::getNewOrder(
 		double szf = sz, prf = new_price;
 		minfo.addFees(szf, prf);
 		if (szf + assets <= 0 || currency-szf*prf <= 0) {
+//			logDebug("Order skipped: $1<=0 or $2 <=0, szf=$3, prf=$4, size=$5, price=$6", szf + assets, currency-szf*prf, szf, prf, sz, new_price);
 			return OrderData{0, 0, Alert::forced};
 		} else {
 			return OrderData{0, sz};
@@ -375,7 +373,7 @@ void Strategy_PLFromPos::calcPower(const IStockApi::MarketInfo &minfo, State& st
 	if (cfg.power) {
 		double value = pos*pos/(2*calcK(st));
 		if (!std::isfinite(value)) value = 0;
-		double c = currency * cfg.baltouse + value;
+		double c = wp.balance * cfg.baltouse + value;
 		double step = c * std::pow(10, cfg.power)*0.01;
 		double k = step / (price * price* 0.01);
 		double max_pos = sqrt(k * c);

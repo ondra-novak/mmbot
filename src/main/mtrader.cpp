@@ -471,8 +471,11 @@ MTrader::Status MTrader::getMarketStatus() const {
 	res.new_fees = stock.getFees(cfg.pairsymb);
 
 	auto ticker = stock.getTicker(cfg.pairsymb);
+	if (buy_alert.has_value() && *buy_alert > ticker.bid) ticker.bid = *buy_alert;
+	if (sell_alert.has_value() && *sell_alert < ticker.ask) ticker.ask = *sell_alert;
 	res.ticker = ticker;
 	res.curPrice = std::sqrt(ticker.ask*ticker.bid);
+
 
 	res.chartItem.time = ticker.time;
 	res.chartItem.bid = ticker.bid;
@@ -564,7 +567,10 @@ MTrader::Order MTrader::calculateOrderFeeLess(
 			order.price = curPrice;
 		}
 		Strategy::adjustOrder(dir, mult, alerts, order);
-		if (order.alert == IStrategy::Alert::forced) return order;
+		if (order.alert == IStrategy::Alert::forced) {
+			logDebug("Calc order: alert is forced: op=$1, np=$2, osz=$3", order.price, newPrice, sz);
+			return order;
+		}
 
 		if (cfg.max_size && std::fabs(order.size) > cfg.max_size) {
 			order.size = cfg.max_size*dir;

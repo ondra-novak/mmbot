@@ -618,8 +618,8 @@ App.prototype.fillForm = function (src, trg) {
 	data.min_size = filledval(src.min_size,0);
 	data.max_size = filledval(src.max_size,0);
 	data.internal_balance = filledval(src.internal_balance,0);
-	data.alerts = filledval(src.alerts,false);
-	data.delayed_alerts= filledval(src.delayed_alerts,true);
+	data.alerts = filledval(src.alerts,true);
+	data.delayed_alerts= filledval(src.delayed_alerts,false);
 	data.detect_manual_trades = filledval(src.detect_manual_trades,false);
 	data.report_position_offset = filledval(src.report_position_offset,0);
 	data.report_order = filledval(src.report_order,0);
@@ -1422,9 +1422,9 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 				if (x.pl < min_pl) {min_pl = x.pl;var downdraw = max_pl - min_pl; if (downdraw> max_downdraw) max_downdraw = downdraw;}
 				cost = cost + x.sz * x.pr;
 				if (cost > max_cost) max_cost = cost;
-				if (x.achg > 0) buys++;
-				if (x.achg < 0) sells++;
-				if (x.achg == 0) alerts++; else trades++;
+				if (x.sz > 0) buys++;
+				if (x.sz < 0) sells++;
+				if (x.sz == 0) alerts++; else trades++;
 				var dir = Math.sign(x.pr - lastp);
 				lastp = x.pr;
 				if (dir != last_dir) {
