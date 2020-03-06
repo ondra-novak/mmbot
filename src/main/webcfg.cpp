@@ -551,7 +551,7 @@ bool WebCfg::reqTraders(simpleServer::HTTPRequest req, ondra_shared::StrViewA vp
 						req.sendResponse(std::move(hdr), "true");
 					} else {
 						req.sendResponse(std::move(hdr),
-							Value(Object("entries",{"stop","reset","repair","broker","trading","spread"})).stringify());
+							Value(Object("entries",{"stop","reset","repair","broker","trading","strategy"})).stringify());
 					}
 				} else {
 					tr->init();
@@ -597,6 +597,23 @@ bool WebCfg::reqTraders(simpleServer::HTTPRequest req, ondra_shared::StrViewA vp
 						auto ibalance = MTrader::getInternalBalance(tr);
 						out.set("pair", getPairInfo(broker, tr->getConfig().pairsymb, ibalance));
 						req.sendResponse(std::move(hdr), Value(out).stringify());
+					} else if (cmd == "strategy") {
+						if (!req.allowMethods({"GET","PUT"})) return;
+						Strategy strategy = tr->getStrategy();
+						if (req.getMethod() == "GET") {
+							json::Value v = strategy.exportState();
+							req.sendResponse(std::move(hdr), v.stringify());
+						} else {
+							json::Value v = json::Value::parse(req.getBodyStream());
+							strategy.importState(v);
+							if (!strategy.isValid()) {
+								req.sendErrorPage(409,"","Settings was not accepted");
+							} else {
+								tr->setStrategy(strategy);
+								req.sendResponse("application/json","true",202);
+							}
+						}
+
 					}
 
 

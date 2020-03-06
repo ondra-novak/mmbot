@@ -10,8 +10,9 @@ body {
 	padding: 0;
 }
 
-a {color: yellow;}
+a,.link {color: yellow; text-decoration: underline; cursor: pointer;}
 a:visited {color: #ffa800;}
+
 
 [hidden] { display: none !important;}
 input,select,button,textarea {
@@ -938,6 +939,16 @@ x-form.trading .chart .spinner {
 	font-family: monospace;
 	overflow: auto;
 	height: 18em;
+}
+
+.adveditdlg textarea {
+	box-sizing: border-box;
+	width: 94%;
+	margin: 3%;
+	text-align: left;
+	font-family: monospace;
+	overflow: auto;
+	height: 18em;	
 }
 
 .upload_dialog > p:first-child{

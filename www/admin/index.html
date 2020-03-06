@@ -66,7 +66,7 @@
 <div><x-checkbox data-name="dry_run">Paper trade (simulation)</x-checkbox></div>
 <div><x-checkbox data-name="hidden">Hidden</x-checkbox></div>
 </div></div>
-<div class="label adv"><span>Strategy state</span><x-section>
+<div class="label adv"><span>Strategy state (<span class="link" data-name="advedit">modify</span>)</span><x-section>
 	<div class="label" data-name="strategy_fields[]"><span data-name="key"></span><input type="text" readonly="readonly" data-name="value"></div>
 	</x-section></div>
 </x-section>
@@ -640,6 +640,18 @@ the same order, they are ordered by its ID - this is the default ordering. Modif
 <button data-name="stop">Stop</button>
 </div>
 </div>
+</template>
+
+<template id="advedit_dlg">
+<div class="dialog"><div class="adveditdlg">
+<x-form>
+<h2>Modify strategy state</h2>
+<p>This feature is for advanced users. If you do not know what each value means, do not change it, because the change will probably result in a loss.</p>
+<textarea name="json_data"></textarea>
+<button data-name="ok">Apply</button>
+<button data-name="cancel">Close</button>
+</x-form>
+</div></div>
 </template>
 
 
