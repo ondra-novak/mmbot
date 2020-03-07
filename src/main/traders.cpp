@@ -198,7 +198,7 @@ void Traders::runTraders(bool manually) {
 		unsigned int c = chgcnt;
 		resetBrokers();
 		for (auto &&t : traders) {
-			ondra_shared::Scheduler::yield();
+			if (!ondra_shared::Scheduler::nested()) ondra_shared::Scheduler::yield();
 			//because yield can cause adding or removing the trader - detect and when happen, leave the cycle
 			if (c != chgcnt) break;
 			t.second->perform(manually);

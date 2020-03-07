@@ -226,7 +226,7 @@ std::pair<Strategy_PLFromPos::OnTradeResult, PStrategy> Strategy_PLFromPos::onTr
 	newst.avgsum = ( reversal || st.avgsum == 0)?(afpos * tradePrice):(st.avgsum + (afpos - appos) * tradePrice );
 
 	bool atmax = atMax(minfo,st);
-	if (atmax) {
+	if (!atmax) {
 		calcPower(minfo, newst, tradePrice, assetsLeft, currencyLeft);
 	}
 

@@ -422,7 +422,8 @@ int main(int argc, char **argv) {
 
 						cntr.dispatch();
 
-						sch.remove(id);
+						sch.removeAll();
+						logNote("---- Waiting to finish cycle ----");
 						sch.sync();
 						traders->clear();
 					}
