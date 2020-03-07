@@ -606,6 +606,10 @@ MTrader::Order MTrader::calculateOrder(
 		double mult,
 		bool alerts) const {
 
+		double fakeSize = -step;
+		//remove fees from curPrice to effectively put order inside of bid/ask spread
+		minfo.removeFees(fakeSize, curPrice);
+		//calculate order
 		Order order(calculateOrderFeeLess(lastTradePrice, step,dynmult,curPrice,balance,currency,mult,alerts));
 		//apply fees
 		if (order.alert != IStrategy::Alert::forced) minfo.addFees(order.size, order.price);

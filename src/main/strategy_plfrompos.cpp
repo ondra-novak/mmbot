@@ -143,11 +143,7 @@ double Strategy_PLFromPos::calcNewPos(const IStockApi::MarketInfo &minfo, double
 						//fixed reduction is easy
 					case fixedReduce: 	nnp = pos + (np - pos) * (dcrs?(1 + reduce_factor):1/(1 + reduce_factor)); break;
 						//result from first part is extra reduction powered by 2. Now sqare root of it
-					case reduceFromProfit: {
-						nnp = sgn(np) * sqrt(np2);
-						break;
-					}
-
+					case reduceFromProfit: nnp = sgn(np) * sqrt(np2);break;
 
 					case toOpenPrice: {
 						double openPrice = st.avgsum/std::abs(pos);
@@ -164,9 +160,6 @@ double Strategy_PLFromPos::calcNewPos(const IStockApi::MarketInfo &minfo, double
 						double neutral_price_ema = p*z + neutral_price*(1-z);
 						nnp = k * (neutral_price_ema - tradePrice);
 					} break;
-					case overload: {
-						nnp = ((p - pos/k - tradePrice) * k)*0.99;
-					}break;
 					}
 					np = nnp;
 				} //otherwise stick with original np

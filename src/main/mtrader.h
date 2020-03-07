@@ -181,6 +181,8 @@ public:
 
 
 	Strategy getStrategy() const {return strategy;}
+	void setStrategy(const Strategy &s) {strategy = s;}
+
 	IStockApi &getBroker() {return stock;}
 
 	struct VisRes {

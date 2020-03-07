@@ -25,7 +25,6 @@ public:
 		neutralMove,
 		toOpenPrice,
 		ema,
-		overload,
 	};
 
 	struct Config {

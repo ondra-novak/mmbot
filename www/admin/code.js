@@ -636,6 +636,7 @@ App.prototype.fillForm = function (src, trg) {
 	data.icon_undo={"!click": this.undoTrader.bind(this, src.id)};
 	data.icon_trading={"!click":this.tradingForm.bind(this, src.id)};
 	data.icon_share={"!click":this.shareForm.bind(this, src.id, trg)};
+	data.advedit = {"!click": this.editStrategyState.bind(this, src.id)};
 	
 	function refresh_hdr() {
 		if (trg.getRoot().isConnected) {
@@ -1994,5 +1995,26 @@ App.prototype.shareForm = function(id, form) {
 			}
 		}
 		this.dlgbox({"text":this.strtable.import_failed,"cancel":{hidden:true}},"confirm");
+	}.bind(this));
+}
+
+App.prototype.editStrategyState = function(id) {
+	var url = this.traderURL(id)+"/strategy";
+	this.waitScreen(fetch_with_error(url)).then(function(data){
+		var dlg = TemplateJS.View.fromTemplate("advedit_dlg");
+		dlg.setData({"json_data":JSON.stringify(data,null,"  ")});
+		dlg.openModal();		
+		dlg.setCancelAction(function(){
+			dlg.close();
+		},"cancel");
+		dlg.setDefaultAction(function(){
+			var data = dlg.readData().json_data;
+			var vald = JSON.parse(data);
+			this.waitScreen(fetch_with_error(url,{"method":"PUT","body":data}))
+			 .then(function() {
+				dlg.close();
+				this.undoTrader(id);
+			 }.bind(this));
+		}.bind(this),"ok");
 	}.bind(this));
 }
