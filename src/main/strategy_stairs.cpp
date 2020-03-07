@@ -8,8 +8,12 @@
 #include "strategy_stairs.h"
 
 #include <cmath>
-#include "../imtjson/src/imtjson/object.h"
+#include <imtjson/object.h>
+#include <imtjson/string.h>
+#include "../shared/logOutput.h"
 #include "sgn.h"
+
+using ondra_shared::logError;
 Strategy_Stairs::~Strategy_Stairs() {
 	// TODO Auto-generated destructor stub
 }
@@ -270,7 +274,10 @@ PStrategy Strategy_Stairs::onIdle(const IStockApi::MarketInfo &minfo,
 		nst.cfghash = getCfgHash();
 		g = new Strategy_Stairs(cfg, nst);
 		if (g->isValid()) return g;
-		else throw std::runtime_error("Stairs: Invalid settings - unable to initialize strategy");
+		else {
+			logError("Invalid state: $1, assets: $2, currencies: $2", g->exportState().toString(), assets, currency);
+			throw std::runtime_error("Stairs: Invalid settings - unable to initialize strategy");
+		}
 	}
 
 }

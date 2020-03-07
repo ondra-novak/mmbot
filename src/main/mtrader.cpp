@@ -822,7 +822,6 @@ void MTrader::processTrades(Status &st) {
 
 
 
-
 	for (auto &&t : new_trades) {
 
 		tempPr.tradeId = t.id.toString().str();
@@ -833,7 +832,11 @@ void MTrader::processTrades(Status &st) {
 		if (last_price) statsvc->reportPerformance(tempPr);
 		last_price = t.eff_price;
 		z.first += t.eff_size;
-		z.second -= t.eff_size * t.eff_price;
+		//don't calc currency balance on leveraged stocks
+		if (minfo.leverage)
+			z.second = st.currencyBalance;
+		else
+			z.second -= t.eff_size * t.eff_price;
 		auto norm = strategy.onTrade(minfo, t.eff_price, t.eff_size, z.first, z.second);
 		trades.push_back(TWBItem(t, last_np+=norm.normProfit, last_ap+=norm.normAccum, norm.neutralPrice));
 		lastPriceOffset = t.price - st.spreadCenter;

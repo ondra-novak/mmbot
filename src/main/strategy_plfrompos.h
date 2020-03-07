@@ -25,6 +25,7 @@ public:
 		neutralMove,
 		toOpenPrice,
 		ema,
+		stableProfit
 	};
 
 	struct Config {

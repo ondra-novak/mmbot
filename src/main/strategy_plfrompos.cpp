@@ -120,6 +120,7 @@ double Strategy_PLFromPos::calcNewPos(const IStockApi::MarketInfo &minfo, double
 
 
 			if ((dcrs || cfg.reduce_on_increase)  && np * pos > 0) {
+				double newK = k * (st.p * st.p) / (tradePrice * tradePrice);
 				//calculate profit made from moving price from p to tradePrice
 				//profit is defined by current position * difference of two prices
 				//also increas or decrease it by reduce factor, which can be configured (default 1)
@@ -159,6 +160,17 @@ double Strategy_PLFromPos::calcNewPos(const IStockApi::MarketInfo &minfo, double
 						double z = 2/(cfg.reduce_factor*1000+1);
 						double neutral_price_ema = p*z + neutral_price*(1-z);
 						nnp = k * (neutral_price_ema - tradePrice);
+					} break;
+					case stableProfit: {
+						double value = pos * pos / (2 * k);
+						double inr = 2*newK*(st.p * pos - pos * tradePrice + value);
+						if (inr > 0) {
+							double nnp2 = sgn(np) * std::sqrt(inr);
+							nnp = np + (nnp2-np) * reduce_factor * 2;
+						} else {
+							nnp = np;
+						}
+						// pos * (p - tp) + (np * np)/(2*k) - val
 					} break;
 					}
 					np = nnp;
