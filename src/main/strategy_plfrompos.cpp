@@ -194,6 +194,11 @@ double Strategy_PLFromPos::calcNewPos(const IStockApi::MarketInfo &minfo, double
 			}
 		}
 	}
+
+	if (st.suspended != nullptr && (st.suspended->st.a - st.suspended->st.neutral_pos) * np < 0) {
+		np = 0;
+	}
+
 	return np;
 }
 
