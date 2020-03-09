@@ -116,7 +116,7 @@ double Strategy_PLFromPos::calcNewPos(const IStockApi::MarketInfo &minfo, double
 			double nnp = np;
 			double value = pos * pos / (2 * k);
 			double profit = pos*(tradePrice - st.p);
-			double inr = 2*newK*(value - profit);
+			double inr = 2*k*(st.p * pos - pos * tradePrice + value);
 			if (inr > 0) {
 				double nnp2 = sgn(np) * std::sqrt(inr);
 				double diff = (nnp2-np);
@@ -198,6 +198,7 @@ double Strategy_PLFromPos::calcNewPos(const IStockApi::MarketInfo &minfo, double
 	if (st.suspended != nullptr && (st.suspended->st.a - st.suspended->st.neutral_pos) * np < 0) {
 		np = 0;
 	}
+	if (st.maxpos && std::abs(np) > st.maxpos) np = np * 0.95;
 
 	return np;
 }
