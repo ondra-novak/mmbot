@@ -198,7 +198,7 @@ double Strategy_PLFromPos::calcNewPos(const IStockApi::MarketInfo &minfo, double
 	if (st.suspended != nullptr && (st.suspended->st.a - st.suspended->st.neutral_pos) * np < 0) {
 		np = 0;
 	}
-	if (st.maxpos && std::abs(np) > st.maxpos) np = np * 0.95;
+
 
 	return np;
 }
