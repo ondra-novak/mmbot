@@ -259,7 +259,7 @@ void MTrader::perform(bool manually) {
 					try {
 						setOrder(orders.sell, sellorder, sell_alert);
 						if (!orders.sell.has_value()) {
-							acceptLoss(status, 1);
+							acceptLoss(status, -1);
 						}
 					} catch (std::exception &e) {
 						sell_order_error = e.what();
@@ -909,7 +909,8 @@ void MTrader::acceptLoss(const Status &st, double dir) {
 		if (dynmult.getBuyMult() <= 1.0 && dynmult.getSellMult() <= 1.0) {
 			std::size_t e = st.chartItem.time>ttm?(st.chartItem.time-ttm)/(3600000):0;
 			double lastTradePrice = trades.back().eff_price;
-			double limitPrice = lastTradePrice * std::exp( -2 * st.curStep * dir);
+			auto order = calculateOrder(lastTradePrice, -st.curStep * 2 * dir, 1, lastTradePrice, st.assetBalance, st.currencyBalance, 1.0, true);
+			double limitPrice = order.price;
 			if (e > cfg.accept_loss && (st.curPrice - limitPrice) * dir < 0) {
 				ondra_shared::logWarning("Accept loss in effect: price=$1, balance=$2", st.curPrice, st.assetBalance);
 				Status nest = st;

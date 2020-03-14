@@ -111,11 +111,11 @@ double Strategy_PLFromPos::calcNewPos(const IStockApi::MarketInfo &minfo, double
 
 		} else if (cfg.reduceMode == stableProfit) {
 
-			double newK = k * (st.p * st.p) / (tradePrice * tradePrice);
+//			double newK = k * (st.p * st.p) / (tradePrice * tradePrice);
 			np = pos + (p - tradePrice) * k;
 			double nnp = np;
 			double value = pos * pos / (2 * k);
-			double profit = pos*(tradePrice - st.p);
+//			double profit = pos*(tradePrice - st.p);
 			double inr = 2*k*(st.p * pos - pos * tradePrice + value);
 			if (inr > 0) {
 				double nnp2 = sgn(np) * std::sqrt(inr);

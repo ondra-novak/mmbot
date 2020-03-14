@@ -576,7 +576,7 @@ inline Interface::TradesSync Interface::syncTrades(json::Value lastId, const std
 		std::copy_if(p.trades.begin(), p.trades.end(), std::back_inserter(ret), [&](const Trade &x) {
 			return Value::compare(x.id, lastId) > 0;
 		});
-		return TradesSync{ret, p.trades.empty()? lastId: p.trades.back().id};
+		return TradesSync{ret, p.trades.empty()? 0: p.trades.back().id};
 	} else {
 		return TradesSync { {}, p.trades.empty()? Value(nullptr): p.trades.back().id};
 	}
