@@ -194,11 +194,7 @@ double Strategy_PLFromPos::calcNewPos(const IStockApi::MarketInfo &minfo, double
 			}
 		}
 	}
-
-	if (st.suspended != nullptr && (st.suspended->st.a - st.suspended->st.neutral_pos) * np < 0) {
-		np = 0;
-	}
-
+	if (st.maxpos && np * dir > st.maxpos) np = dir * st.maxpos*1.01;
 
 	return np;
 }
@@ -219,7 +215,7 @@ std::pair<Strategy_PLFromPos::OnTradeResult, PStrategy> Strategy_PLFromPos::onTr
 }
 
 bool Strategy_PLFromPos::atMax(const IStockApi::MarketInfo &minfo, const State &st) const {
-	return st.maxpos && !isExchange(minfo) && std::abs(st.a - st.neutral_pos) > st.maxpos;
+	return st.maxpos && !isExchange(minfo) && std::abs(st.a - st.neutral_pos) >= st.maxpos;
 }
 
 std::pair<Strategy_PLFromPos::OnTradeResult, PStrategy> Strategy_PLFromPos::onTrade2(
@@ -234,19 +230,6 @@ std::pair<Strategy_PLFromPos::OnTradeResult, PStrategy> Strategy_PLFromPos::onTr
 	double act_pos = assetsToPos(assetsLeft);
 	double prev_pos = act_pos - tradeSize;
 	double new_pos = calcNewPos(minfo,tradePrice);
-
-
-	if (st.suspended) {
-		auto sub = st.suspended->onTrade2(minfo, tradePrice, 0, assetsLeft, currencyLeft, true);
-		auto substr = PMyStrategy::staticCast(sub.second);
-		if (!substr->atMax(minfo, substr->st)) {
-			return sub;
-		}
-		else {
-			newst.suspended = substr;
-		}
-	}
-
 
 
 	newst.p = tradePrice;
@@ -281,12 +264,6 @@ std::pair<Strategy_PLFromPos::OnTradeResult, PStrategy> Strategy_PLFromPos::onTr
 	newst.value = posVal;
 	PMyStrategy newinst = new Strategy_PLFromPos(cfg,newst);
 
-	if (atmax && tradeSize == 0 && !sub) {
-		State nst2;
-		nst2.suspended = newinst;
-		nst2.inited = false;
-		newinst = new Strategy_PLFromPos(halfConfig(cfg), nst2);
-	}
 
 	return {OnTradeResult{np,ap,p0, afpos?newst.avgsum/afpos:newst.p}, PStrategy::staticCast(newinst)};
 }
@@ -310,7 +287,6 @@ json::Value Strategy_PLFromPos::exportState() const {
 			("maxpos",st.maxpos)
 			("val", st.value)
 			("neutral_pos", st.neutral_pos)
-			("suspended", st.suspended != nullptr?st.suspended->exportState():json::Value())
 			("cfg",cfgStateHash());
 	else return json::undefined;
 }
@@ -327,12 +303,10 @@ PStrategy Strategy_PLFromPos::importState(json::Value src) const {
 			src["val"].getNumber(),
 			src["avg"].getNumber(),
 			src["neutral_pos"].getNumber(),
-			PMyStrategy::staticCast(src["suspended"].hasValue()?importState(src["suspended"]):nullptr)
 		};
 		json::Value chash = src["cfg"];
 		newst.valid_power = chash == cfgStateHash();
-		Config ncfg(newst.suspended != nullptr?halfConfig(newst.suspended->cfg):cfg);
-		return new Strategy_PLFromPos(ncfg, newst);
+		return new Strategy_PLFromPos(cfg, newst);
 	} else {
 		return this;
 	}
@@ -355,8 +329,8 @@ Strategy_PLFromPos::OrderData Strategy_PLFromPos::getNewOrder(
 			return OrderData{0, sz};
 		}
 	} else {
-		bool atmaxpos = st.maxpos && std::abs(pos) > st.maxpos;
-		if (atmaxpos) {
+		bool atmaxpos = st.maxpos && std::abs(pos) >= st.maxpos;
+		if (atmaxpos && dir * pos < 0 && act_pos * dir < 0) {
 			double zeroPos = posToAssets(0);
 			double osz = calcOrderSize(assets,assets,zeroPos);
 			if (dir * pos < 0 && act_pos * dir < 0) {
@@ -366,8 +340,13 @@ Strategy_PLFromPos::OrderData Strategy_PLFromPos::getNewOrder(
 			}
 		}
 		double new_pos = calcNewPos(minfo, new_price);
-		if (st.maxpos && std::abs(new_pos) > st.maxpos) {
-			return OrderData{0,0,Alert::forced};
+		if (st.maxpos && std::abs(new_pos) >= st.maxpos) {
+			double new_pos2 = calcNewPos(minfo, cur_price);
+			if (std::abs(new_pos2) >= st.maxpos) {
+				return OrderData{cur_price,0,Alert::forced};
+			} else {
+				return OrderData{0,0,Alert::forced};
+			}
 		}
 		else return OrderData {0, calcOrderSize(st.a, assets, posToAssets(new_pos))};
 	}
@@ -467,12 +446,4 @@ Strategy_PLFromPos::CalcNeutralBalanceResult Strategy_PLFromPos::calcNeutralBala
 		double balance = total_balance - np*price;
 		return {np, balance};
 	}
-}
-
-Strategy_PLFromPos::Config Strategy_PLFromPos::halfConfig(const Config &cfg) {
-	Config c(cfg);
-	c.maxpos*=0.5;
-	c.baltouse*=0.5;
-	c.step*=0.5;
-	return c;
 }

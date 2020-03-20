@@ -71,7 +71,7 @@ void MTrader_Config::loadConfig(json::Value data, bool force_dry_run) {
 	spread_calc_stdev_hours = static_cast<unsigned int>(data["spread_calc_stdev_hours"].getValueOrDefault(4.0)*60.0);
 
 	dry_run = force_dry_run || data["dry_run"].getValueOrDefault(false);
-	internal_balance = data["internal_balance"].getValueOrDefault(false);
+	internal_balance = data["internal_balance"].getValueOrDefault(false) || dry_run;
 	detect_manual_trades= data["detect_manual_trades"].getValueOrDefault(false);
 	enabled= data["enabled"].getValueOrDefault(true);
 	hidden = data["hidden"].getValueOrDefault(false);
@@ -1094,6 +1094,10 @@ std::optional<double> MTrader::getInternalBalance(const MTrader *ptr) {
 	if (ptr && ptr->cfg.internal_balance) return ptr->internal_balance;
 	else return std::optional<double>();
 }
+std::optional<double> MTrader::getInternalCurrencyBalance(const MTrader *ptr) {
+	if (ptr && ptr->cfg.internal_balance) return ptr->currency_balance;
+	else return std::optional<double>();
+}
 
 
 MTrader::SpreadCalcResult MTrader::calcSpread() const {
@@ -1225,4 +1229,9 @@ double MTrader::limitOrderMinMaxBalance(double balance, double orderSize) const 
 		}
 	}
 	return orderSize;
+}
+
+void MTrader::setInternalBalancies(double assets, double currency) {
+	internal_balance = assets;
+	currency_balance = currency;
 }

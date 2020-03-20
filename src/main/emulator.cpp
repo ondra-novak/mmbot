@@ -121,6 +121,7 @@ json::Value EmulatorAPI::placeOrder(const std::string_view & pair,
 		}
 	} else {
 		if (price <= 0) throw std::runtime_error("Invalid order price");
+		if (order.size == 0) return nullptr;
 		orders.push_back(order);
 		return order.id;
 	}

@@ -182,6 +182,7 @@ public:
 
 	Strategy getStrategy() const {return strategy;}
 	void setStrategy(const Strategy &s) {strategy = s;}
+	void setInternalBalancies(double assets, double currency);
 
 	IStockApi &getBroker() {return stock;}
 
@@ -197,6 +198,7 @@ public:
 	static VisRes visualizeSpread(std::function<std::optional<ChartItem>()> &&source, double sma, double stdev, double mult, double dyn_raise, double dyn_fall, json::StrViewA dynMode, bool sliding, bool dyn_mult, bool strip, bool onlyTrades);
 
 	static std::optional<double> getInternalBalance(const MTrader *ptr);
+	static std::optional<double> getInternalCurrencyBalance(const MTrader *ptr);
 
 
 

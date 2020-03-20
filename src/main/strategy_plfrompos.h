@@ -51,7 +51,6 @@ public:
 		double value = 0;
 		double avgsum = 0;
 		double neutral_pos = 0;
-		PMyStrategy suspended;
 	};
 
 	Strategy_PLFromPos(const Config &cfg, const State &st);
@@ -103,7 +102,6 @@ private:
 	};
 	CalcNeutralBalanceResult calcNeutralBalance(const IStockApi::MarketInfo &minfo, double assets, double currency, double price) const;
 
-	static Config halfConfig(const Config &cfg);
 };
 
 

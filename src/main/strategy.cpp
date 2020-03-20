@@ -11,6 +11,7 @@
 #include <imtjson/namedEnum.h>
 #include <imtjson/object.h>
 #include "../shared/stringview.h"
+#include "sgn.h"
 #include "strategy_plfrompos.h"
 #include "strategy_halfhalf.h"
 #include "strategy_keepvalue.h"
@@ -118,9 +119,16 @@ void Strategy::importState(json::Value src) {
 }
 
 double IStrategy::calcOrderSize(double expectedAmount, double actualAmount, double newAmount) {
-	double middle = (actualAmount + expectedAmount)/2;
-	double size = newAmount - middle;
-	return size;
+	double chg = newAmount - expectedAmount;
+	double dir = sgn(chg);
+	double err = newAmount - actualAmount;
+	if (err * dir > 0) {
+		double middle = (actualAmount + expectedAmount)/2;
+		double size = newAmount - middle;
+		return size;
+	} else {
+		return chg/2.0;
+	}
 }
 
 void Strategy::setConfig(const ondra_shared::IniConfig::Section &cfg) {

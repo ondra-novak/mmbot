@@ -286,10 +286,11 @@ static Value getOpenOrders(IStockApi &api, const std::string_view &pair) {
 
 }
 
-static Value getPairInfo(IStockApi &api, const std::string_view &pair, const std::optional<double> &internalBalance = std::optional<double>()) {
+static Value getPairInfo(IStockApi &api, const std::string_view &pair, const std::optional<double> &internalBalance = std::optional<double>()
+		, const std::optional<double> &internalCurrencyBalance = std::optional<double>()) {
 	IStockApi::MarketInfo nfo = api.getMarketInfo(pair);
 	double ab = internalBalance.has_value()?*internalBalance:getSafeBalance(&api, nfo.asset_symbol, pair);
-	double cb = getSafeBalance(&api, nfo.currency_symbol, pair);
+	double cb = internalCurrencyBalance.has_value()?*internalCurrencyBalance:getSafeBalance(&api, nfo.currency_symbol, pair);
 	Value last;
 	try {
 		auto ticker = api.getTicker(pair);
@@ -601,11 +602,24 @@ bool WebCfg::reqTraders(simpleServer::HTTPRequest req, ondra_shared::StrViewA vp
 						if (!req.allowMethods({"GET","PUT"})) return;
 						Strategy strategy = tr->getStrategy();
 						if (req.getMethod() == "GET") {
+							auto st = tr->getMarketStatus();
 							json::Value v = strategy.exportState();
+							if (tr->getConfig().internal_balance) {
+								v = v.replace("internal_balance", Object
+										("assets", st.assetBalance)
+										("currency", st.currencyBalance)
+									);
+							}
 							req.sendResponse(std::move(hdr), v.stringify());
 						} else {
 							json::Value v = json::Value::parse(req.getBodyStream());
 							strategy.importState(v);
+							auto st = v["internal_balance"];
+							if (st.hasValue()) {
+								Value assets = st["assets"];
+								Value currency = st["currency"];
+								tr->setInternalBalancies(assets.getNumber(), currency.getNumber());
+							}
 							if (!strategy.isValid()) {
 								req.sendErrorPage(409,"","Settings was not accepted");
 							} else {
@@ -836,7 +850,7 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req) const {
 						("version", binfo.version)
 						("settings", binfo.settings)
 						("trading_enabled", binfo.trading_enabled));
-				result.set("pair", getPairInfo(*api, p, MTrader::getInternalBalance(tr)));
+				result.set("pair", getPairInfo(*api, p, MTrader::getInternalBalance(tr), MTrader::getInternalCurrencyBalance(tr)));
 				result.set("orders", getOpenOrders(*api, p));
 				result.set("strategy", strategy);
 				result.set("position", position);
