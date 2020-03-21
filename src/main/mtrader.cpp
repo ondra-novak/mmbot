@@ -542,20 +542,13 @@ MTrader::Order MTrader::calculateOrderFeeLess(
 
 	double min_size = std::max(cfg.min_size, minfo.min_size);
 	double dir = sgn(-step);
-	double offset = 0;
 
 	do {
 		prevSz = sz;
 
-		double newPrice = prevPrice * exp(step*dynmult*m) + offset;
+		double newPrice = prevPrice * exp(step*dynmult*m);
 		double newPriceNoScale= prevPrice * exp(step*m);
 
-		//if newPrice > curPrice when buy or newPrice < curPrice when sell, fix to curPrice
-		if ((newPrice - curPrice) * dir > 0) {
-			offset += curPrice - newPrice;
-			newPrice = curPrice;
-
-		}
 		order= strategy.getNewOrder(minfo,curPrice, cfg.dynmult_scale?newPrice:newPriceNoScale,dir, balance, currency);
 
 		sz = order.size;
