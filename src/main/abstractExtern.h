@@ -18,7 +18,7 @@
 class AbstractExtern {
 public:
 
-	AbstractExtern (const std::string_view & workingDir, const std::string_view & name, const std::string_view & cmdline);
+	AbstractExtern (const std::string_view & workingDir, const std::string_view & name, const std::string_view & cmdline, int timeout);
 	~AbstractExtern ();
 
 	bool preload();
@@ -71,6 +71,7 @@ protected:
 	std::string cmdline;
 	std::string workingDir;
 	ondra_shared::LogObject log;
+	int timeout;
 
 	mutable std::recursive_mutex lock;
 	using Sync = std::unique_lock<std::recursive_mutex>;
@@ -86,8 +87,8 @@ protected:
 
 
 	json::Value jsonExchange(json::Value request, bool idle);
-	static bool writeJSON(json::Value v, FD &fd);
-	static json::Value readJSON(FD &fd);
+	static bool writeJSON(json::Value v, FD &fd, int timeout);
+	static json::Value readJSON(FD &fd, int timeout);
 
 };
 

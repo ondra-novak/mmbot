@@ -33,7 +33,7 @@ public:
 
 	StockMarketMap stock_markets;
 
-	void loadBrokers(const ondra_shared::IniConfig::Section &ini, bool test);
+	void loadBrokers(const ondra_shared::IniConfig::Section &ini, bool test, int brk_timeout);
 	bool checkBrokerSubaccount(const std::string &name);
 	virtual IStockApi *getStock(const std::string_view &stockName) const override;
 //	void addStockMarket(ondra_shared::StrViewA name, PStockApi &&market);
@@ -63,7 +63,7 @@ public:
 			Report &rpt,
 			IDailyPerfModule &perfMod,
 			std::string iconPath,
-			Worker worker);
+			Worker worker, int brk_timeout);
 	Traders(const Traders &&other) = delete;
 	void clear();
 

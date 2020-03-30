@@ -244,6 +244,7 @@ int main(int argc, char **argv) {
 						auto storageVersions = servicesection["storage_versions"].getUInt(5);
 						auto listen = servicesection["listen"].getString();
 						auto socket = servicesection["socket"].getPath();
+						auto brk_timeout = servicesection["broker_timeout"].getInt(10000);
 						auto rptsect = app.config["report"];
 						auto rptpath = rptsect.mandatory["path"].getPath();
 						auto rptinterval = rptsect["interval"].getUInt(864000000);
@@ -264,7 +265,7 @@ int main(int argc, char **argv) {
 						if (!storageBroker.defined()) {
 							sf = PStorageFactory(new StorageFactory(storagePath,storageVersions,storageBinary?Storage::binjson:Storage::json));
 						} else {
-							sf = PStorageFactory(new ExtStorage(storageBroker.getCurPath(), "storage_broker", storageBroker.getString()));
+							sf = PStorageFactory(new ExtStorage(storageBroker.getCurPath(), "storage_broker", storageBroker.getString(), brk_timeout));
 							auto bl = servicesection["backup_locally"].getBool(false);
 							if (bl) {
 								PStorageFactory sf2 (new StorageFactory(storagePath,storageVersions,storageBinary?Storage::binjson:Storage::json));
@@ -284,7 +285,7 @@ int main(int argc, char **argv) {
 							std::string workdir;
 							cmdline = dr.getPath();
 							workdir = dr.getCurPath();
-							perfmod = std::make_unique<ExtDailyPerfMod>(workdir,"performance_module", cmdline, isim);
+							perfmod = std::make_unique<ExtDailyPerfMod>(workdir,"performance_module", cmdline, isim, brk_timeout);
 						} else {
 							perfmod = std::make_unique<LocalDailyPerfMonitor>(sf->create("_performance_daily"), storagePath+"/_performance_current",isim);
 						}
@@ -295,7 +296,7 @@ int main(int argc, char **argv) {
 
 
 						traders = std::make_unique<Traders>(
-								sch,app.config["brokers"], app.test,sf,rpt,*perfmod, rptpath, traderWorker
+								sch,app.config["brokers"], app.test,sf,rpt,*perfmod, rptpath, traderWorker, brk_timeout
 						);
 
 						RefCntPtr<AuthUserList> aul;
@@ -353,7 +354,7 @@ int main(int argc, char **argv) {
 								return 1;
 							} else {
 								StockSelector ss;
-								ss.loadBrokers(app.config["brokers"], true);
+								ss.loadBrokers(app.config["brokers"], true, brk_timeout);
 								IStockApi *stock = ss.getStock(args[0]);
 								if (stock) {
 									for (auto &&k : stock->getAllPairs()) {

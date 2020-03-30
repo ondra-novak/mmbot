@@ -18,7 +18,7 @@
 class ExtStockApi: public IStockApi, public IApiKey, public IBrokerControl, public IBrokerIcon, public IBrokerSubaccounts {
 public:
 
-	ExtStockApi(const std::string_view & workingDir, const std::string_view & name, const std::string_view & cmdline);
+	ExtStockApi(const std::string_view & workingDir, const std::string_view & name, const std::string_view & cmdline, int timeout);
 
 
 

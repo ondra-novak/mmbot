@@ -44,8 +44,8 @@ void ExtDailyPerfMod::sendItem(const PerformanceReport &report) {
 
 ExtDailyPerfMod::ExtDailyPerfMod(const std::string_view &workingDir,
 		const std::string_view &name, const std::string_view &cmdline,
-		bool ignore_simulator)
-:AbstractExtern(workingDir, name, cmdline),ignore_simulator(ignore_simulator)
+		bool ignore_simulator, int timeout)
+:AbstractExtern(workingDir, name, cmdline, timeout),ignore_simulator(ignore_simulator)
 {
 	std::random_device r;
 	rnd = r() % 1000; //avoid multiple robots requests the database at same time. This allows

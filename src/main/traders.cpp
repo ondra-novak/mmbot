@@ -34,13 +34,13 @@ void NamedMTrader::perform(bool manually) {
 
 
 
-void StockSelector::loadBrokers(const ondra_shared::IniConfig::Section &ini, bool test) {
+void StockSelector::loadBrokers(const ondra_shared::IniConfig::Section &ini, bool test, int brk_timeout) {
 	std::vector<StockMarketMap::value_type> data;
 	for (auto &&def: ini) {
 		ondra_shared::StrViewA name = def.first;
 		ondra_shared::StrViewA cmdline = def.second.getString();
 		ondra_shared::StrViewA workDir = def.second.getCurPath();
-		data.push_back(StockMarketMap::value_type(name,std::make_unique<ExtStockApi>(workDir, name, cmdline)));
+		data.push_back(StockMarketMap::value_type(name,std::make_unique<ExtStockApi>(workDir, name, cmdline, brk_timeout)));
 	}
 	StockMarketMap map(std::move(data));
 	stock_markets.swap(map);
@@ -90,7 +90,8 @@ Traders::Traders(ondra_shared::Scheduler sch,
 		Report &rpt,
 		IDailyPerfModule &perfMod,
 		std::string iconPath,
-		Worker worker)
+		Worker worker,
+		int brk_timeout)
 
 :
 test(test)
@@ -100,7 +101,7 @@ test(test)
 ,iconPath(iconPath)
 ,worker(worker)
 {
-	stockSelector.loadBrokers(ini, test);
+	stockSelector.loadBrokers(ini, test, brk_timeout);
 }
 
 void Traders::clear() {

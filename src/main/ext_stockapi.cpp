@@ -20,8 +20,8 @@ using namespace ondra_shared;
 
 
 
-ExtStockApi::ExtStockApi(const std::string_view & workingDir, const std::string_view & name, const std::string_view & cmdline)
-:connection(std::make_shared<Connection>(workingDir, name, cmdline)) {
+ExtStockApi::ExtStockApi(const std::string_view & workingDir, const std::string_view & name, const std::string_view & cmdline, int timeout)
+:connection(std::make_shared<Connection>(workingDir, name, cmdline, timeout)) {
 }
 
 

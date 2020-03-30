@@ -14,7 +14,7 @@
 class ExtStorage: public IStorageFactory {
 public:
 
-	ExtStorage(const std::string_view & workingDir, const std::string_view & name, const std::string_view & cmdline);
+	ExtStorage(const std::string_view & workingDir, const std::string_view & name, const std::string_view & cmdline, int timeout);
 
 	virtual PStorage create(std::string name) const;
 

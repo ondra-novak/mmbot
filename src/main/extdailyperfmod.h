@@ -13,7 +13,7 @@
 
 class ExtDailyPerfMod: public IDailyPerfModule, public AbstractExtern {
 public:
-	ExtDailyPerfMod(const std::string_view & workingDir, const std::string_view & name, const std::string_view & cmdline, bool ignore_simulator);
+	ExtDailyPerfMod(const std::string_view & workingDir, const std::string_view & name, const std::string_view & cmdline, bool ignore_simulator, int timeout);
 
 	virtual void sendItem(const PerformanceReport &report) override;
 	virtual json::Value getReport() override;

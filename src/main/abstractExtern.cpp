@@ -31,8 +31,8 @@
 
 const int AbstractExtern::invval = -1;
 
-AbstractExtern::AbstractExtern(const std::string_view & workingDir, const std::string_view & name, const std::string_view & cmdline)
-:name(name), cmdline(cmdline),workingDir(workingDir),log(name) {
+AbstractExtern::AbstractExtern(const std::string_view & workingDir, const std::string_view & name, const std::string_view & cmdline, int timeout)
+:name(name), cmdline(cmdline),workingDir(workingDir),log(name),timeout(timeout) {
 }
 
 
@@ -214,21 +214,21 @@ AbstractExtern::~AbstractExtern() {
 	kill();
 }
 
-static void waitForRead(int fd) {
+static void waitForRead(int fd, int timeout) {
 	struct pollfd fds = {fd, POLLIN|POLLHUP,0};
-	int r = poll(&fds, 1, 30000);
+	int r = poll(&fds, 1, timeout);
 	if (r != 1) throw std::runtime_error("Broker read timeout");
 }
-static void waitForWrite(int fd) {
+static void waitForWrite(int fd, int timeout) {
 	struct pollfd fds = {fd, POLLOUT,0};
-	int r = poll(&fds, 1, 30000);
+	int r = poll(&fds, 1, timeout);
 	if (r != 1) throw std::runtime_error("Broker write timeout");
 }
 
 
 class AbstractExtern::Reader {
 public:
-	Reader (FD &fd):fd(fd) {}
+	Reader (FD &fd, int timeout):fd(fd),timeout(timeout) {}
 	std::string_view read() {
 		if (buff.empty()) {
 			return readBuff();
@@ -255,9 +255,10 @@ protected:
 	std::string_view buff;
 	char data[1000];
 	FD &fd;
+	int timeout;
 
 	std::string_view readBuff() {
-		waitForRead(fd);
+		waitForRead(fd,timeout);
 		int i = ::read(fd, data, sizeof(data));
 		if (i < 1) return std::string_view();
 		else return std::string_view(data, i);
@@ -265,12 +266,12 @@ protected:
 };
 
 
-bool AbstractExtern::writeJSON(json::Value v, FD& fd) {
+bool AbstractExtern::writeJSON(json::Value v, FD& fd, int timeout) {
 	auto s = v.stringify();
 	s = s + "\n";
 	std::string_view ss(s.c_str(),s.length());
 	while (!ss.empty()) {
-		waitForWrite(fd);
+		waitForWrite(fd, timeout);
 		int i = write(fd, ss.data(), ss.length());
 		if (i < 1) {
 			return false;
@@ -293,8 +294,8 @@ void AbstractExtern::housekeeping(int counter) {
 	}
 }
 
-json::Value AbstractExtern::readJSON(FD& fd) {
-	return json::Value::parse(Reader(fd));
+json::Value AbstractExtern::readJSON(FD& fd, int timeout) {
+	return json::Value::parse(Reader(fd, timeout));
 
 }
 
@@ -330,7 +331,7 @@ json::Value AbstractExtern::jsonExchange(json::Value request, bool idle) {
 	}
 	bool verbose = log.isLogLevelEnabled(ondra_shared::LogLevel::debug);
 	if (verbose) log.debug("SEND: $1", request.toString().substr(0,512));
-	if (writeJSON(request, extin) == false) {
+	if (writeJSON(request, extin, timeout) == false) {
 		kill();
 	}
 	do {
@@ -342,11 +343,11 @@ json::Value AbstractExtern::jsonExchange(json::Value request, bool idle) {
 			fds[1].fd = exterr;
 			fds[1].events = POLLIN;
 			fds[1].revents = 0;
-			int r = poll(fds,2,30000);
+			int r = poll(fds,2,timeout);
 			if (r == 0) report_timeout("poll");
 			if (r < 0) report_error("poll");
 			if (fds[1].revents) {
-				Reader errrd(exterr);
+				Reader errrd(exterr, timeout);
 				bool rep;
 				do {
 					lastStdErr = std::move(z);
@@ -371,7 +372,7 @@ json::Value AbstractExtern::jsonExchange(json::Value request, bool idle) {
 				}while (rep);
 			}
 			if (fds[0].revents) {
-					auto ret = readJSON(extout);
+					auto ret = readJSON(extout, timeout);
 					if (verbose) log.debug("RECV: $1", ret.toString().substr(0,512));
 					return ret;
 

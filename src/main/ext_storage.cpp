@@ -8,8 +8,8 @@
 #include "ext_storage.h"
 
 ExtStorage::ExtStorage(const std::string_view &workingDir,
-		const std::string_view &name, const std::string_view &cmdline)
-:proxy(new Proxy(workingDir, name, cmdline))
+		const std::string_view &name, const std::string_view &cmdline, int timeout)
+:proxy(new Proxy(workingDir, name, cmdline, timeout))
 {}
 
 PStorage ExtStorage::create(std::string name) const {
