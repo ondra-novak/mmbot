@@ -32,6 +32,7 @@ bool Strategy_Hyperbolic::isValid() const {
 Strategy_Hyperbolic Strategy_Hyperbolic::init(const Config &cfg, double price, double pos, double currency) {
 	double mult = currency/price*cfg.power;
 	double neutral = calcNeutral(mult, cfg.asym, pos, price);
+	if (!std::isfinite(neutral) || neutral <= 0) neutral = price;
 	return Strategy_Hyperbolic(cfg, State{neutral, price, pos, mult});
 }
 
