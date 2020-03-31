@@ -94,6 +94,7 @@ App.prototype.createTraderForm = function() {
 		form.showItem("strategy_halfhalf",state.strategy == "halfhalf" || state.strategy == "keepvalue");
 		form.showItem("strategy_pl",state.strategy == "plfrompos");
 		form.showItem("strategy_stairs",state.strategy == "stairs");
+		form.showItem("strategy_hyperbolic",state.strategy == "hyperbolic");
 		form.showItem("kv_valinc_h",state.strategy == "keepvalue");
 		form.setData({"help_goal":{"class":state.strategy}});
 		form.getRoot().classList.toggle("no_adv", !state["advanced"]);
@@ -565,6 +566,10 @@ App.prototype.fillForm = function (src, trg) {
 	data.st_reduction_step=2;
 	data.st_pattern = "constant";
 	data.st_sl=false;
+	data.hp_reduction=25;
+	data.hp_asym=20;
+	data.hp_power=1;
+	data.hp_maxloss=0;
 
 	function powerCalc(x) {return adjNumN(Math.pow(10,x)*0.01);};
 
@@ -573,6 +578,11 @@ App.prototype.fillForm = function (src, trg) {
 		data.acum_factor = filledval(defval(src.strategy.accum,0)*100,0);
 		data.external_assets = filledval(src.strategy.ea,0);
 		data.kv_valinc = filledval(src.strategy.valinc,0);
+	} else if (data.strategy == "hyperbolic") {
+		data.hp_reduction = filledval(defval(src.strategy.reduction,0.25)*100,25);
+		data.hp_asym = filledval(defval(src.strategy.asym,0.2)*100,20);
+		data.hp_maxloss = filledval(src.strategy.max_loss,0);
+		data.hp_power = filledval(src.strategy.power,1);
 	} else if (data.strategy == "stairs") {
 		data.st_power = filledval(src.strategy.power,1.7);
 		data.st_show_factor = powerCalc(data.st_power.value)
@@ -606,12 +616,12 @@ App.prototype.fillForm = function (src, trg) {
 	data.dry_run = src.dry_run;
 	data.accept_loss = filledval(src.accept_loss,0);
 	data.spread_calc_stdev_hours = filledval(src.spread_calc_stdev_hours,3);
-	data.spread_calc_sma_hours = filledval(src.spread_calc_sma_hours,19);
+	data.spread_calc_sma_hours = filledval(src.spread_calc_sma_hours,23);
 	data.dynmult_raise = filledval(src.dynmult_raise,440);
 	data.dynmult_fall = filledval(src.dynmult_fall, 5);
 	data.dynmult_mode = filledval(src.dynmult_mode, "independent");
 	data.dynmult_scale = filledval(src.dynmult_scale,false);
-	data.dynmult_sliding = filledval(src.dynmult_sliding,true);
+	data.dynmult_sliding = filledval(src.dynmult_sliding,false);
 	data.dynmult_mult = filledval(src.dynmult_mult, true);
 	data.spread_mult = filledval(Math.log(defval(src.buy_step_mult,1))/Math.log(2)*100,0);
 	data.order_mult = filledval(defval(src.buy_mult,1)*100,100);
@@ -703,6 +713,14 @@ App.prototype.saveForm = function(form, src) {
 		trader.strategy.accum = data.acum_factor/100.0;
 		trader.strategy.ea = data.external_assets;
 		trader.strategy.valinc = data.kv_valinc;
+	} else 	if (data.strategy == "hyperbolic") {
+		trader.strategy = {
+				type: data.strategy,
+				power: data.hp_power,
+				max_loss: data.hp_maxloss,
+				asym: data.hp_asym / 100,
+				reduction: data.hp_reduction/100
+		};
 	} else 	if (data.strategy == "stairs") {
 		trader.strategy ={
 				type: data.strategy,
@@ -1364,7 +1382,9 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 	form.enableItem("show_backtest",false);		
 	var inputs = ["external_assets", "acum_factor","kv_valinc","pl_confmode","pl_power","pl_baluse","cstep",
 		"max_pos","pl_posoffset","pl_redmode","pl_redfact","min_size","max_size","order_mult","alerts","delayed_alerts","linear_suggest","linear_suggest_maxpos","pl_redoninc",
-		"st_power","st_reduction_step","st_sl","st_redmode","st_max_step","st_pattern","dynmult_sliding","accept_loss","spread_calc_sma_hours","st_tmode"];
+		"st_power","st_reduction_step","st_sl","st_redmode","st_max_step","st_pattern","dynmult_sliding","accept_loss","spread_calc_sma_hours","st_tmode",
+		"hp_power","hp_maxloss","hp_asym","hp_reduction"
+		];
 	var spread_inputs = ["spread_calc_stdev_hours", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode","dynmult_sliding","dynmult_mult"];
 	var balance = form._balance;
 	var days = 45*60*60*24*1000;

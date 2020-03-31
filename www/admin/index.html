@@ -52,6 +52,7 @@
 <label><span>Title</span><input type="text" data-name="title"></label>
 <label><span>Strategy</span><select data-name="strategy">
 <option value="plfrompos">Linear</option>
+<option value="hyperbolic">Hyperbolic</option>
 <option value="stairs">Stairs</option>
 <option value="halfhalf">Half-Half</option>
 <option value="keepvalue">Keep Value</option>
@@ -89,6 +90,15 @@ to enter a negative value and then the value of the assets held will decrease an
 </x-section>
 <div class="rightinfo"><button name="show_backtest" disabled="disabled">Backtest</button></div>
 </x-section>
+
+<x-section data-name="strategy_hyperbolic" class="goal" hidden="hidden"><x-section-caption>Hyperbolic</x-section-caption>
+<label><span>Power (balance mult.)</span><input data-name="hp_power" type="number" step="0.1" value="1.0"></label>
+<label><span>Asymetry</span><x-slider data-name="hp_asym" data-min="-100" data-max="100" data-mult="1" data-fixed="0"></label>
+<label><span>Reduction</span><x-slider data-name="hp_reduction" data-min="0" data-max="100" data-mult="1" data-fixed="0"></label>
+<label><span>Max loss (stoploss, 0=disabled)</span><input data-name="hp_maxloss" type="number" value="0"></label>
+<div class="rightinfo"><button name="show_backtest" disabled="disabled">Backtest</button></div>
+</x-section>
+
 <x-section data-name="strategy_stairs" class="goal" hidden="hidden"><x-section-caption>Stairs</x-section-caption>
 <label class="adv"><span>Trading mode</span><select data-name="st_tmode">
 <option value="auto" selected="selected">Auto</option>

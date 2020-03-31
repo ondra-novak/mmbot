@@ -16,6 +16,7 @@
 #include "strategy_halfhalf.h"
 #include "strategy_keepvalue.h"
 #include "strategy_stairs.h"
+#include "strategy_hyperbolic.h"
 
 static json::NamedEnum<Strategy_PLFromPos::CloseMode> strCloseMode ({
 		{Strategy_PLFromPos::always_close,"always_close"},
@@ -103,6 +104,13 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 		cfg.redmode = strStairsRedMode[config["redmode"].getString()];
 		cfg.sl = config["sl"].getBool();
 		return Strategy(new Strategy_Stairs(cfg));
+	} else if (id == Strategy_Hyperbolic::id) {
+		Strategy_Hyperbolic::Config cfg;
+		cfg.power = config["power"].getNumber();
+		cfg.max_loss = config["max_loss"].getNumber();
+		cfg.asym = config["asym"].getNumber();
+		cfg.reduction = config["reduction"].getNumber();
+		return Strategy(new Strategy_Hyperbolic(cfg));
 	} else {
 		throw std::runtime_error(std::string("Unknown strategy: ").append(id));
 	}

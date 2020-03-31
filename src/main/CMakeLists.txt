@@ -18,6 +18,7 @@ add_executable (mmbot
 	strategy_plfrompos.cpp
 	strategy_keepvalue.cpp
 	strategy_stairs.cpp
+	strategy_hyperbolic.cpp
 	localdailyperfmod.cpp
 	extdailyperfmod.cpp
 	ext_storage.cpp
