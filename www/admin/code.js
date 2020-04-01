@@ -583,6 +583,7 @@ App.prototype.fillForm = function (src, trg) {
 		data.hp_asym = filledval(defval(src.strategy.asym,0.2)*100,20);
 		data.hp_maxloss = filledval(src.strategy.max_loss,0);
 		data.hp_power = filledval(src.strategy.power,1);
+		data.hp_extbal = filledval(src.strategy.extbal,0);
 	} else if (data.strategy == "stairs") {
 		data.st_power = filledval(src.strategy.power,1.7);
 		data.st_show_factor = powerCalc(data.st_power.value)
@@ -717,6 +718,7 @@ App.prototype.saveForm = function(form, src) {
 		trader.strategy = {
 				type: data.strategy,
 				power: data.hp_power,
+				extbal: data.hp_extbal,
 				max_loss: data.hp_maxloss,
 				asym: data.hp_asym / 100,
 				reduction: data.hp_reduction/100
@@ -1383,7 +1385,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 	var inputs = ["external_assets", "acum_factor","kv_valinc","pl_confmode","pl_power","pl_baluse","cstep",
 		"max_pos","pl_posoffset","pl_redmode","pl_redfact","min_size","max_size","order_mult","alerts","delayed_alerts","linear_suggest","linear_suggest_maxpos","pl_redoninc",
 		"st_power","st_reduction_step","st_sl","st_redmode","st_max_step","st_pattern","dynmult_sliding","accept_loss","spread_calc_sma_hours","st_tmode",
-		"hp_power","hp_maxloss","hp_asym","hp_reduction"
+		"hp_power","hp_maxloss","hp_asym","hp_reduction","hp_extbal"
 		];
 	var spread_inputs = ["spread_calc_stdev_hours", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode","dynmult_sliding","dynmult_mult"];
 	var balance = form._balance;

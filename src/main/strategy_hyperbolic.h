@@ -19,6 +19,7 @@ public:
 		double asym;
 		double max_loss;
 		double reduction;
+		double external_balance;
 	};
 
 
@@ -26,7 +27,7 @@ public:
 		double neutral_price = 0;
 		double last_price =0;
 		double position = 0;
-		double mult = 0;
+		double bal = 0;
 		double val = 0;
 	};
 
@@ -68,6 +69,8 @@ protected:
 
 private:
 	double calcMaxLoss() const;
+	double calcMult() const;
+	static double calcMult(double bal, double price, const Config &cfg) ;
 };
 
 
