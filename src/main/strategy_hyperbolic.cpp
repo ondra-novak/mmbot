@@ -13,6 +13,13 @@
 #include <cmath>
 
 #include "sgn.h"
+
+namespace {
+
+const double accuracy = 1e-5;
+
+}
+
 using ondra_shared::logDebug;
 
 std::string_view Strategy_Hyperbolic::id = "hyperbolic";
@@ -30,19 +37,24 @@ bool Strategy_Hyperbolic::isValid() const {
 
 
 Strategy_Hyperbolic Strategy_Hyperbolic::init(const Config &cfg, double price, double pos, double currency) {
-	double mult = calcMult(currency, price, cfg);
+	double bal = (currency+ cfg.external_balance)/price;
+	double mult = calcMult(pos+bal,cfg);
 	double neutral = calcNeutral(mult, cfg.asym, pos, price);
 	if (!std::isfinite(neutral) || neutral <= 0) neutral = price;
-	return Strategy_Hyperbolic(cfg, State{neutral, price, pos, currency});
+	return Strategy_Hyperbolic(cfg, State{neutral, price, pos, bal, calcPosValue(mult,cfg.asym,neutral,price)});
 }
 
 
-double Strategy_Hyperbolic::calcMult(double bal, double price, const Config &cfg)  {
-	return (bal+cfg.external_balance)/price*cfg.power;
+double Strategy_Hyperbolic::calcMult(double pos, const Config &cfg)  {
+	return pos*cfg.power;
 }
 
 double Strategy_Hyperbolic::calcMult() const {
-	return calcMult(st.bal, st.last_price, cfg);
+	return calcMult(st.position+st.bal+st.pos_offset, cfg);
+}
+
+double Strategy_Hyperbolic::calcPosition(double power, double asym, double neutral, double price) {
+	return (neutral/price - 1 + asym) * power;
 }
 
 Strategy_Hyperbolic::PosCalcRes Strategy_Hyperbolic::calcPosition(double price) const {
@@ -50,9 +62,26 @@ Strategy_Hyperbolic::PosCalcRes Strategy_Hyperbolic::calcPosition(double price) 
 	bool lmt = false;
 	if (price < mm.min) {price = mm.min; lmt = true;}
 	if (price > mm.max) {price = mm.max; lmt = true;}
+	if (lmt) {
+		return {true,st.position};
+	} else {
+		/*double mult =calcMult();
+		double pos = calcPosition(mult, cfg.asym, st.neutral_price, price);
+		if (std::abs(pos) < std::abs(st.position)) {
+			double base = mult * cfg.asym;
+			double f = std::pow(0.5 * std::abs(pos - base)/mult,3) * cfg.reduction * 10;
+			pos = calcPosition(mult, cfg.asym, st.neutral_price + (price - st.neutral_price)*f, price);
+		}
+		return {false, pos};
+		*/
 
-	double pos = ((st.neutral_price/price) -1 + cfg.asym) * calcMult();
-	return {lmt,pos};
+
+
+		double profit = st.position * (price - st.last_price);
+		double new_neutral = cfg.reduction?calcNewNeutralFromProfit(profit, price):st.neutral_price;
+		double pos = calcPosition(calcMult(), cfg.asym, new_neutral, price);
+		return {false,pos};
+	}
 }
 
 PStrategy Strategy_Hyperbolic::onIdle(
@@ -70,6 +99,62 @@ PStrategy Strategy_Hyperbolic::onIdle(
 	else return new Strategy_Hyperbolic(init(cfg,ticker.last, assets, currency));
 }
 
+double Strategy_Hyperbolic::calcNewNeutralFromProfit(double profit, double price) const {
+	if ((st.last_price - st.neutral_price) * (price - st.neutral_price) <= 0 || profit == 0)
+			return st.neutral_price;
+
+	double mult = calcMult();
+	double middle = calcPrice0(st.neutral_price, cfg.asym);
+	double prev_val = st.val;//calcPosValue(mult, cfg.asym, st.neutral_price, st.last_price);
+	double cur_val = calcPosValue(mult, cfg.asym, st.neutral_price, price);
+	double new_val;
+	if (prev_val < 0 && (price - middle) * (st.neutral_price - middle)>0) {
+		new_val = 2*cur_val - (prev_val - profit);
+	} else {
+		new_val = prev_val - profit;
+	}
+/*
+	//calculate new value - we need use profit to move neutral price. so we need calculate desired new value
+	double reduce_dir = prev_val < 0 && (price - middle) * (st.neutral_price - middle) >= 1?0:-1;
+
+	double new_val = prev_val + reduce_dir*profit; //add profit to value (value reduces with profit, and increases with loss)
+	double nv = cur_val - st.val;
+	double pf = profit - nv;
+
+	logDebug("Hyperbolic: pos = $6, new_val=$1, prev_val=$2, cur_val=$3, pf=$4, reduce_dir=$5, mult=$7", new_val, prev_val, cur_val, pf, reduce_dir, st.position, mult);
+*/
+	double new_neutral = st.neutral_price + (calcNeutralFromValue(mult, cfg.asym, st.neutral_price, new_val, price) - st.neutral_price)* 2 * cfg.reduction;
+
+	double pos1 = calcPosition(mult, cfg.asym, st.neutral_price, price);
+	double pos2 = calcPosition(mult, cfg.asym, new_neutral, price);
+	if ((pos1 - st.position) * (pos2 - st.position) < 0) {
+		return calcNeutral(mult, cfg.asym, st.position, price);
+	} else {
+		return new_neutral;
+
+	}
+/*
+
+	//calculate price for new value (so on which price this value should happen)
+	double new_price = calcPriceFromValue(mult, cfg.asym, st.neutral_price, new_val, price);
+
+	logDebug("Hyperbolic: val_diff=$1", calcPosValue(mult,cfg.asym,st.neutral_price,new_price)-new_val);
+
+	auto roots = calcRoots();
+	if (roots.min < new_price && roots.max > new_price) {
+		//calculate position for the new price
+		double new_pos = calcPosition(mult, cfg.asym, st.neutral_price, new_price);
+		double sanity_pos = calcPosition(mult, cfg.asym, st.neutral_price, price);
+		if (std::isfinite(new_pos)) {
+			//calculate new neutral, if we have new position
+			double new_neutral = calcNeutral(mult, cfg.asym, new_pos, price);
+			//combine with cfg.reduction to for new neutral
+			return st.neutral_price + (new_neutral - st.neutral_price) * cfg.reduction * 2.0;
+		}
+	}
+	return st.neutral_price; */
+}
+
 std::pair<Strategy_Hyperbolic::OnTradeResult, PStrategy> Strategy_Hyperbolic::onTrade(
 		const IStockApi::MarketInfo &minfo,
 		double tradePrice, double tradeSize, double assetsLeft,
@@ -83,21 +168,26 @@ std::pair<Strategy_Hyperbolic::OnTradeResult, PStrategy> Strategy_Hyperbolic::on
 	State nwst = st;
 	auto cpos = calcPosition(tradePrice);
 	double mult = calcMult();
-	if (cpos.limited) {
-		nwst.neutral_price = calcNeutral(mult, cfg.asym, cpos.pos, tradePrice);
-	} else {
-		nwst.neutral_price = st.neutral_price + ((st.neutral_price * 199 + tradePrice)/200 - st.neutral_price) * cfg.reduction;
-	}
-	double val = calcPosValue(mult, cfg.asym, nwst.neutral_price, tradePrice);
 	double profit = (assetsLeft - tradeSize) * (tradePrice - st.last_price);
-	nwst.bal = currencyLeft;
+	nwst.neutral_price = calcNeutral(mult, cfg.asym, cpos.pos, tradePrice);
+	double val = calcPosValue(mult, cfg.asym, nwst.neutral_price, tradePrice);
+	//store last price
 	nwst.last_price = tradePrice;
+	//store current position
 	nwst.position = cpos.pos;
+	//calculate extra profit - we get change of value and add profit. This shows how effective is strategy. If extra is positive, it generates
+	//profit, if it is negative, is losses
 	double extra = (val - st.val) + profit;
+
+	//store val to calculate next profit (because strategy was adjusted)
 	nwst.val = val;
+	//store new balance
+	nwst.bal = st.bal + extra/tradePrice;
+
+	nwst.pos_offset = calcPosition(nwst.bal,cfg.asym,st.neutral_price,st.neutral_price);
 
 	return {
-		OnTradeResult{extra,0,st.neutral_price,0},
+		OnTradeResult{extra,0,calcPrice0(st.neutral_price, cfg.asym),0},
 		new Strategy_Hyperbolic(cfg,  std::move(nwst))
 	};
 
@@ -110,6 +200,7 @@ json::Value Strategy_Hyperbolic::exportState() const {
 			("position",st.position)
 			("bal",st.bal)
 			("val",st.val)
+			("ofs",st.pos_offset)
 			("asym", static_cast<int>(cfg.asym * 1000)) ;
 
 }
@@ -120,7 +211,8 @@ PStrategy Strategy_Hyperbolic::importState(json::Value src) const {
 			src["last_price"].getNumber(),
 			src["position"].getNumber(),
 			src["bal"].getNumber(),
-			src["val"].getNumber()
+			src["val"].getNumber(),
+			src["ofs"].getNumber(),
 		};
 		if (src["asym"].getInt() != static_cast<int>(cfg.asym * 1000)) {
 			newst.neutral_price = calcNeutral(calcMult(), cfg.asym, newst.position, newst.last_price);
@@ -131,13 +223,13 @@ PStrategy Strategy_Hyperbolic::importState(json::Value src) const {
 IStrategy::OrderData Strategy_Hyperbolic::getNewOrder(
 		const IStockApi::MarketInfo &,
 		double curPrice, double price, double dir, double assets, double /*currency*/) const {
-	auto cps = calcPosition(curPrice);
-	if (cps.limited) {
+	auto mm = calcRoots();
+	if (curPrice < mm.min || curPrice > mm.max) {
 		if (dir * assets > 0) return {0,0,Alert::stoploss};
 		else if (dir * assets < 0) return {0,-assets,Alert::stoploss};
 		else return {0,0,Alert::forced};
 	} else {
-		cps = calcPosition(price);
+		auto cps = calcPosition(price);
 		double diff = calcOrderSize(st.position, assets, cps.pos);
 		return {0, diff};
 	}
@@ -181,29 +273,56 @@ double Strategy_Hyperbolic::calcPosValue(double power, double asym, double neutr
 }
 
 template<typename Fn>
-static double numerical_search(double min, double max, Fn &&fn, int steps) {
+static double numeric_search_r1(double middle, Fn &&fn) {
+	double min = 0;
+	double max = middle;
+	double ref = fn(middle);
+	if (ref == 0) return middle;
 	double md = (min+max)/2;
-	double ref = fn(max);
-	while (steps) {
+	while (md > accuracy && (max - min) / md > accuracy) {
 		double v = fn(md);
 		double ml = v * ref;
 		if (ml > 0) max = md;
 		else if (ml < 0) min = md;
 		else return md;
 		md = (min+max)/2;
-		--steps;
 	}
 	return md;
+
 }
+
+template<typename Fn>
+static double numeric_search_r2(double middle, Fn &&fn) {
+	double min = 0;
+	double max = 1.0/middle;
+	double ref = fn(middle);
+	if (ref == 0) return middle;
+	double md = (min+max)/2;
+	while (md * (1.0 / min - 1.0 / max) > accuracy) {
+		double v = fn(1.0/md);
+		double ml = v * ref;
+		if (ml > 0) max = md;
+		else if (ml < 0) min = md;
+		else return md;
+		md = (min+max)/2;
+	}
+	return 1.0/md;
+
+}
+
 
 Strategy_Hyperbolic::MinMax Strategy_Hyperbolic::calcRoots(double power,
 		double asym, double neutral, double balance) {
 	auto fncalc = [&](double x) {
 		return calcPosValue(power,asym, neutral, x) - balance;
 	};
-	double r1 = numerical_search(0,neutral, fncalc,20);
-	double rawmax = numerical_search(neutral*10,neutral*1e10, fncalc,20);
-	double r2 = numerical_search(neutral,rawmax, fncalc,20);
+	double m = calcPrice0(neutral, asym);
+	double r1 = numeric_search_r1(m, fncalc);
+	double r2 = numeric_search_r2(m, fncalc);
+	//power * ((asym - 1) * (neutral - curPrice) + neutral * (log(neutral) - log(curPrice)));
+/*	logDebug("Hyperbolic calc roots formula: $1*(($2-1)*($3-x)+$3*(ln($3)-ln(x)))-$4=0", power, asym, neutral, balance);
+	logDebug("Hyperbolic calc roots: x1 = $1, x2 = $2 , V=[$3, $4]", r1,r2,m,fncalc(m));*/
+
 	return {r1,r2};
 }
 
@@ -225,24 +344,86 @@ Strategy_Hyperbolic::MinMax Strategy_Hyperbolic::calcRoots() const {
 	return *rootsCache;
 }
 
+double Strategy_Hyperbolic::calcPrice0(double neutral_price, double asym) {
+	double x = neutral_price/(1 -  asym);
+	if (!std::isfinite(x)) return std::numeric_limits<double>::max();
+	else return x;
+}
+
+double Strategy_Hyperbolic::calcNeutralFromPrice0(double price0, double asym) {
+	return (1 - asym) * price0;
+}
+
 double Strategy_Hyperbolic::adjNeutral(double price, double value) const {
 	double mult = calcMult();
 	auto fncalc = [&](double x) {
 		return calcPosValue(mult,cfg.asym, x, price) - value;
 	};
-	double dir = price - st.neutral_price;
-	if (fncalc(st.neutral_price) < 0)
-		return st.neutral_price;
-	if (dir > 0) {
-		return numerical_search(st.neutral_price, price*2, fncalc, 20);
-	} else if (dir < 0) {
-		return numerical_search(price/2, st.neutral_price, fncalc, 20);
+	double m = calcPrice0(st.neutral_price, cfg.asym);
+	double a = 0;
+	double r;
+	if (price < m) {
+		r = numeric_search_r1(m, fncalc);
+	} else if (price > m) {
+		r = numeric_search_r2(m, fncalc);
 	} else {
-		return st.neutral_price;
+		r = st.neutral_price;
 	}
+	logDebug("Hyperbolic adjNeutral: old_n = $1, new_n = $2 ($3 %), cur_price = $4, middle_price=$5", st.neutral_price, r, a*100, price, m);
+	return r;
 }
+
+double Strategy_Hyperbolic::calcValue0(double power, double asym, double neutral) {
+	return neutral * power * (std::log(1 - asym) + asym);
+}
+
 
 double Strategy_Hyperbolic::calcNeutral(double power, double asym,
 		double position, double curPrice) {
 	return (curPrice * (position + power - power *  asym))/power;
 }
+
+double Strategy_Hyperbolic::calcPriceFromPosition(double power, double asym, double neutral, double position) {
+	return (power * neutral)/(position + power - power *  asym);
+}
+
+double Strategy_Hyperbolic::calcPriceFromValue(double power, double asym,double neutral, double value, double curPrice) {
+	auto fncalc = [&](double x) {
+		return calcPosValue(power, asym, neutral, x) - value;
+	};
+	double m = calcPrice0(neutral, asym);
+	double mv = calcValue0(power, asym, neutral);
+
+	if (value <= mv) {
+		return m;
+	} else if (curPrice > m) {
+		return numeric_search_r2(m, fncalc);
+	} else if (curPrice < m) {
+		return numeric_search_r1(m, fncalc);
+	} else {
+		return m;
+	}
+}
+
+double Strategy_Hyperbolic::calcNeutralFromValue(double power, double asym, double neutral, double value, double curPrice) {
+	auto m = calcPrice0(neutral, asym);
+	auto fncalc = [&](double x) {
+		double neutral = calcNeutralFromPrice0(x, asym);
+		double v = calcPosValue(power, asym, neutral, curPrice);
+		return v - value;
+	};
+
+	if (fncalc(curPrice) > 0)
+		return neutral;
+
+	double res;
+	if (curPrice > m) {
+		res = numeric_search_r1(curPrice, fncalc);
+	} else if (curPrice < m) {
+		res = numeric_search_r2(curPrice, fncalc);
+	} else {
+		res = m;
+	}
+	return calcNeutralFromPrice0(res, asym);
+}
+

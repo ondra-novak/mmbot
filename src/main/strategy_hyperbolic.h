@@ -11,6 +11,8 @@
 
 #include "istrategy.h"
 
+
+
 class Strategy_Hyperbolic: public IStrategy {
 public:
 
@@ -29,6 +31,7 @@ public:
 		double position = 0;
 		double bal = 0;
 		double val = 0;
+		double pos_offset = 0;
 	};
 
 	Strategy_Hyperbolic(const Config &cfg, State &&st);
@@ -60,18 +63,85 @@ protected:
 
 	static Strategy_Hyperbolic init(const Config &cfg, double price, double pos, double currency);
 	PosCalcRes calcPosition(double price) const;
-	static double calcPosValue(double power, double asym, double neutral, double curPrice);
-	static MinMax calcRoots(double power, double asym, double neutral, double balance);
 
 	MinMax calcRoots() const;
 	double adjNeutral(double price, double value) const;
-	static double calcNeutral(double power, double asym, double position, double curPrice);
 
-private:
 	double calcMaxLoss() const;
 	double calcMult() const;
-	static double calcMult(double bal, double price, const Config &cfg) ;
+
+	///Calculate neutral price
+	/**
+	 * @param power power multiplier
+	 * @param asym asymmetry (-1;1)
+	 * @param position current position
+	 * @param curPrice current price
+	 * @return neutral price for given values
+	 */
+	static double calcNeutral(double power, double asym, double position, double curPrice);
+
+	static double calcPosValue(double power, double asym, double neutral, double curPrice);
+	///Calculate roots of value function (for maximum loss)
+	/**
+	 * @param power power multiplier
+	 * @param asym asymmetry (-1;1)
+	 * @param neutral neutral position
+	 * @param balance balance allocate to trade (max loss)
+	 * @return two roots which specifies tradable range
+	 */
+	static MinMax calcRoots(double power, double asym, double neutral, double balance);
+
+	///Calculate power multiplicator
+	/**
+	 * @param bal current balance
+	 * @param price current price
+	 * @param cfg configuration
+	 * @return
+	 */
+	static double calcMult(double bal, const Config &cfg) ;
+	///Calculate position for given price
+	/**
+	 * @param power power multiplier
+	 * @param asym asymmetry (-1;1)
+	 * @param neutral neutral price
+	 * @param price requested price
+	 * @return position at given price
+	 */
+	static double calcPosition(double power, double asym, double neutral, double price);
+	///Calculate price, where position is zero
+	/**
+	 * @param neutral_price neutral price
+	 * @param asym asymmetry
+	 * @return price where position is zero
+	 */
+	static double calcPrice0(double neutral_price, double asym);
+
+	static double calcValue0(double power, double asym, double neutral);
+
+	static double calcNeutralFromPrice0(double price0, double asym);
+
+	static double calcPriceFromPosition(double power, double asym, double neutral, double position);
+	///Calculates price from given value
+	/**
+	 * Position value is calculated using calcPosValue(). This function is inversed version if the function calcPosValue().
+	 *
+	 * @param power Power multiplier
+	 * @param asym asymmetry (-1,1)
+	 * @param neutral neutral price
+	 * @param value position value
+	 * @param curPrice on which price the value was retrieved. It is used to specify which side of the chart will be used, because there
+	 * are always two results.
+	 *
+	 * @return found price. If you need position, call calcPosition on price. If the value is above of maximum value, result is middle price. To
+	 * retrieve that value, call calcValue0()
+	 */
+	static double calcPriceFromValue(double power, double asym, double neutral, double value, double curPrice);
+
+	static double calcNeutralFromValue(double power, double asym, double neutral, double value, double curPrice);
+
+	double calcNewNeutralFromProfit(double profit, double price) const;
 };
 
 
 #endif /* SRC_MAIN_STRATEGY_HYPERBOLIC_H_ */
+

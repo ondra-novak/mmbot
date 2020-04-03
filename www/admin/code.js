@@ -566,8 +566,8 @@ App.prototype.fillForm = function (src, trg) {
 	data.st_reduction_step=2;
 	data.st_pattern = "constant";
 	data.st_sl=false;
-	data.hp_reduction=25;
-	data.hp_asym=20;
+	data.hp_reduction=40;
+	data.hp_asym=0;
 	data.hp_power=1;
 	data.hp_maxloss=0;
 
