@@ -31,26 +31,39 @@ Strategy_Hyperbolic::Strategy_Hyperbolic(const Config &cfg)
 
 
 bool Strategy_Hyperbolic::isValid() const {
-	return st.neutral_price > 0;
+	return st.neutral_price > 0 && st.bal > 0;
 }
 
-
+void Strategy_Hyperbolic::recalcNewState(const Config &cfg, State &nwst) {
+	if (!std::isfinite(nwst.neutral_price) || nwst.neutral_price<=0) nwst.neutral_price = nwst.last_price;
+	for (int i = 0; i < 16; i++) {
+		recalcPower(cfg,nwst);
+		recalcNeutral(cfg,nwst);
+	}
+	nwst.val = calcPosValue(nwst.power, cfg.asym, nwst.neutral_price,  nwst.last_price);
+}
 
 Strategy_Hyperbolic Strategy_Hyperbolic::init(const Config &cfg, double price, double pos, double currency) {
-	double bal = (currency+ cfg.external_balance)/price;
-	double mult = calcMult(pos+bal,cfg);
-	double neutral = calcNeutral(mult, cfg.asym, pos, price);
-	if (!std::isfinite(neutral) || neutral <= 0) neutral = price;
-	return Strategy_Hyperbolic(cfg, State{neutral, price, pos, bal, calcPosValue(mult,cfg.asym,neutral,price)});
+	State nwst {
+		/*neutral_price:*/ price,
+		/*last_price */ price,
+		/*position */ pos,
+		/*bal */ currency,
+		/* val */ 0,
+		/* power */ 0
+	};
+	if (nwst.bal <= 0) {
+		//we cannot calc with empty balance. In this case, use price for calculation (but this is  unreal, trading still impossible)
+		nwst.bal = price;
+	}
+	recalcNewState(cfg,nwst);
+	return Strategy_Hyperbolic(cfg, std::move(nwst));
 }
 
 
-double Strategy_Hyperbolic::calcMult(double pos, const Config &cfg)  {
-	return pos*cfg.power;
-}
 
 double Strategy_Hyperbolic::calcMult() const {
-	return calcMult(st.position+st.bal+st.pos_offset, cfg);
+	return st.power;
 }
 
 double Strategy_Hyperbolic::calcPosition(double power, double asym, double neutral, double price) {
@@ -65,17 +78,6 @@ Strategy_Hyperbolic::PosCalcRes Strategy_Hyperbolic::calcPosition(double price) 
 	if (lmt) {
 		return {true,st.position};
 	} else {
-		/*double mult =calcMult();
-		double pos = calcPosition(mult, cfg.asym, st.neutral_price, price);
-		if (std::abs(pos) < std::abs(st.position)) {
-			double base = mult * cfg.asym;
-			double f = std::pow(0.5 * std::abs(pos - base)/mult,3) * cfg.reduction * 10;
-			pos = calcPosition(mult, cfg.asym, st.neutral_price + (price - st.neutral_price)*f, price);
-		}
-		return {false, pos};
-		*/
-
-
 
 		double profit = st.position * (price - st.last_price);
 		double new_neutral = cfg.reduction?calcNewNeutralFromProfit(profit, price):st.neutral_price;
@@ -88,9 +90,9 @@ PStrategy Strategy_Hyperbolic::onIdle(
 		const IStockApi::MarketInfo &,
 		const IStockApi::Ticker &ticker, double assets, double currency) const {
 	if (isValid()) {
-		if (st.bal == 0) {
+		if (st.power <= 0) {
 			State nst = st;
-			nst.bal = currency;
+			recalcNewState(cfg, nst);
 			return new Strategy_Hyperbolic(cfg, std::move(nst));
 		} else {
 			return this;
@@ -123,7 +125,7 @@ double Strategy_Hyperbolic::calcNewNeutralFromProfit(double profit, double price
 
 	logDebug("Hyperbolic: pos = $6, new_val=$1, prev_val=$2, cur_val=$3, pf=$4, reduce_dir=$5, mult=$7", new_val, prev_val, cur_val, pf, reduce_dir, st.position, mult);
 */
-	double new_neutral = st.neutral_price + (calcNeutralFromValue(mult, cfg.asym, st.neutral_price, new_val, price) - st.neutral_price)* 2 * cfg.reduction;
+	double new_neutral = st.neutral_price + (calcNeutralFromValue(mult, cfg.asym, st.neutral_price, new_val, price) - st.neutral_price)* 2 * (cfg.reduction+cfg.dynred*std::abs(st.position*st.last_price/st.bal));
 
 	double pos1 = calcPosition(mult, cfg.asym, st.neutral_price, price);
 	double pos2 = calcPosition(mult, cfg.asym, new_neutral, price);
@@ -155,6 +157,23 @@ double Strategy_Hyperbolic::calcNewNeutralFromProfit(double profit, double price
 	return st.neutral_price; */
 }
 
+void Strategy_Hyperbolic::recalcPower(const Config &cfg, State &nwst) {
+	double offset = calcPosition(nwst.power, cfg.asym, nwst.neutral_price,
+			nwst.neutral_price);
+	double power = std::abs((nwst.bal+cfg.external_balance)/nwst.last_price + std::abs(nwst.position + offset) * cfg.powadj) * cfg.power;
+	if (std::isfinite(power)) {
+		nwst.power = power;
+	}
+}
+
+void Strategy_Hyperbolic::recalcNeutral(const Config &cfg,State &nwst)  {
+	double neutral_price = calcNeutral(nwst.power, cfg.asym, nwst.position,
+			nwst.last_price);
+	if (std::isfinite(neutral_price) && neutral_price > 0) {
+		nwst.neutral_price = neutral_price;
+	}
+}
+
 std::pair<Strategy_Hyperbolic::OnTradeResult, PStrategy> Strategy_Hyperbolic::onTrade(
 		const IStockApi::MarketInfo &minfo,
 		double tradePrice, double tradeSize, double assetsLeft,
@@ -169,12 +188,14 @@ std::pair<Strategy_Hyperbolic::OnTradeResult, PStrategy> Strategy_Hyperbolic::on
 	auto cpos = calcPosition(tradePrice);
 	double mult = calcMult();
 	double profit = (assetsLeft - tradeSize) * (tradePrice - st.last_price);
-	nwst.neutral_price = calcNeutral(mult, cfg.asym, cpos.pos, tradePrice);
-	double val = calcPosValue(mult, cfg.asym, nwst.neutral_price, tradePrice);
-	//store last price
-	nwst.last_price = tradePrice;
 	//store current position
 	nwst.position = cpos.pos;
+	//store last price
+	nwst.last_price = tradePrice;
+
+	recalcNeutral(cfg, nwst);
+
+	double val = calcPosValue(mult, cfg.asym, nwst.neutral_price, tradePrice);
 	//calculate extra profit - we get change of value and add profit. This shows how effective is strategy. If extra is positive, it generates
 	//profit, if it is negative, is losses
 	double extra = (val - st.val) + profit;
@@ -182,9 +203,9 @@ std::pair<Strategy_Hyperbolic::OnTradeResult, PStrategy> Strategy_Hyperbolic::on
 	//store val to calculate next profit (because strategy was adjusted)
 	nwst.val = val;
 	//store new balance
-	nwst.bal = st.bal + extra/tradePrice;
+	nwst.bal = st.bal + extra;
 
-	nwst.pos_offset = calcPosition(nwst.bal,cfg.asym,st.neutral_price,st.neutral_price);
+	recalcPower(cfg, nwst);
 
 	return {
 		OnTradeResult{extra,0,calcPrice0(st.neutral_price, cfg.asym),0},
@@ -193,15 +214,21 @@ std::pair<Strategy_Hyperbolic::OnTradeResult, PStrategy> Strategy_Hyperbolic::on
 
 }
 
+json::Value Strategy_Hyperbolic::storeCfgCmp() const {
+	return json::Object("asym", static_cast<int>(cfg.asym * 1000))("ebal",
+			static_cast<int>(cfg.external_balance * 1000))("power",
+			static_cast<int>(cfg.power * 1000));
+}
+
 json::Value Strategy_Hyperbolic::exportState() const {
 	return json::Object
 			("neutral_price",st.neutral_price)
 			("last_price",st.last_price)
 			("position",st.position)
-			("bal",st.bal)
+			("balance",st.bal)
 			("val",st.val)
-			("ofs",st.pos_offset)
-			("asym", static_cast<int>(cfg.asym * 1000)) ;
+			("power",st.power)
+			("cfg", storeCfgCmp());
 
 }
 
@@ -210,12 +237,14 @@ PStrategy Strategy_Hyperbolic::importState(json::Value src) const {
 			src["neutral_price"].getNumber(),
 			src["last_price"].getNumber(),
 			src["position"].getNumber(),
-			src["bal"].getNumber(),
+			src["balance"].getNumber(),
 			src["val"].getNumber(),
-			src["ofs"].getNumber(),
+			src["power"].getNumber(),
 		};
-		if (src["asym"].getInt() != static_cast<int>(cfg.asym * 1000)) {
-			newst.neutral_price = calcNeutral(calcMult(), cfg.asym, newst.position, newst.last_price);
+		json::Value cfgcmp = src["cfg"];
+		json::Value cfgcmp2 = storeCfgCmp();
+		if (cfgcmp != cfgcmp2) {
+			recalcNewState(cfg,newst);
 		}
 		return new Strategy_Hyperbolic(cfg, std::move(newst));
 }
@@ -225,8 +254,7 @@ IStrategy::OrderData Strategy_Hyperbolic::getNewOrder(
 		double curPrice, double price, double dir, double assets, double /*currency*/) const {
 	auto mm = calcRoots();
 	if (curPrice < mm.min || curPrice > mm.max) {
-		if (dir * assets > 0) return {0,0,Alert::stoploss};
-		else if (dir * assets < 0) return {0,-assets,Alert::stoploss};
+		if (dir * assets < 0) return {curPrice,-assets,Alert::stoploss};
 		else return {0,0,Alert::forced};
 	} else {
 		auto cps = calcPosition(price);
@@ -263,7 +291,8 @@ json::Value Strategy_Hyperbolic::dumpStatePretty(
 				  ("Last price", minfo.invert_price?1/st.last_price:st.last_price)
 				 ("Neutral price", minfo.invert_price?1/st.neutral_price:st.neutral_price)
 				 ("Value", st.val)
-				 ("Multiplier", calcMult());
+				 ("Last balance", st.bal)
+				 ("Multiplier", st.power);
 
 
 }

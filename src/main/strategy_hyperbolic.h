@@ -22,6 +22,8 @@ public:
 		double max_loss;
 		double reduction;
 		double external_balance;
+		double powadj;
+		double dynred;
 	};
 
 
@@ -31,7 +33,7 @@ public:
 		double position = 0;
 		double bal = 0;
 		double val = 0;
-		double pos_offset = 0;
+		double power = 0;
 	};
 
 	Strategy_Hyperbolic(const Config &cfg, State &&st);
@@ -91,14 +93,6 @@ protected:
 	 */
 	static MinMax calcRoots(double power, double asym, double neutral, double balance);
 
-	///Calculate power multiplicator
-	/**
-	 * @param bal current balance
-	 * @param price current price
-	 * @param cfg configuration
-	 * @return
-	 */
-	static double calcMult(double bal, const Config &cfg) ;
 	///Calculate position for given price
 	/**
 	 * @param power power multiplier
@@ -140,6 +134,12 @@ protected:
 	static double calcNeutralFromValue(double power, double asym, double neutral, double value, double curPrice);
 
 	double calcNewNeutralFromProfit(double profit, double price) const;
+
+private:
+	static void recalcPower(const Config &cfg, State &nwst) ;
+	static void recalcNeutral(const Config &cfg, State &nwst) ;
+	json::Value storeCfgCmp() const;
+	static void recalcNewState(const Config &cfg, State &nwst);
 };
 
 
