@@ -63,8 +63,8 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 				if (!minfo.leverage) {
 					double chg = order.size*p;
 					if (balance - chg < 0 || pos + order.size < 0) {
-						pl  -= pchange;
-						continue;
+						order.size = 0;
+						chg = 0;
 					}
 					balance -= chg;
 					pos += order.size;

@@ -63,7 +63,7 @@ protected:
 		double pos;
 	};
 
-	static Strategy_Hyperbolic init(const Config &cfg, double price, double pos, double currency);
+	static Strategy_Hyperbolic init(const Config &cfg, double price, double pos, double currency, bool futures);
 	PosCalcRes calcPosition(double price) const;
 
 	MinMax calcRoots() const;

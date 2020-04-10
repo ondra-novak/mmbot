@@ -43,12 +43,12 @@ void Strategy_Hyperbolic::recalcNewState(const Config &cfg, State &nwst) {
 	nwst.val = calcPosValue(nwst.power, cfg.asym, nwst.neutral_price,  nwst.last_price);
 }
 
-Strategy_Hyperbolic Strategy_Hyperbolic::init(const Config &cfg, double price, double pos, double currency) {
+Strategy_Hyperbolic Strategy_Hyperbolic::init(const Config &cfg, double price, double pos, double currency, bool futures) {
 	State nwst {
 		/*neutral_price:*/ price,
 		/*last_price */ price,
 		/*position */ pos,
-		/*bal */ currency,
+		/*bal */ futures?currency:(currency + pos * price),
 		/* val */ 0,
 		/* power */ 0
 	};
@@ -87,7 +87,7 @@ Strategy_Hyperbolic::PosCalcRes Strategy_Hyperbolic::calcPosition(double price) 
 }
 
 PStrategy Strategy_Hyperbolic::onIdle(
-		const IStockApi::MarketInfo &,
+		const IStockApi::MarketInfo &minfo,
 		const IStockApi::Ticker &ticker, double assets, double currency) const {
 	if (isValid()) {
 		if (st.power <= 0) {
@@ -98,7 +98,7 @@ PStrategy Strategy_Hyperbolic::onIdle(
 			return this;
 		}
 	}
-	else return new Strategy_Hyperbolic(init(cfg,ticker.last, assets, currency));
+	else return new Strategy_Hyperbolic(init(cfg,ticker.last, assets, currency, minfo.leverage != 0));
 }
 
 double Strategy_Hyperbolic::calcNewNeutralFromProfit(double profit, double price) const {
@@ -160,7 +160,7 @@ double Strategy_Hyperbolic::calcNewNeutralFromProfit(double profit, double price
 void Strategy_Hyperbolic::recalcPower(const Config &cfg, State &nwst) {
 	double offset = calcPosition(nwst.power, cfg.asym, nwst.neutral_price,
 			nwst.neutral_price);
-	double power = std::abs((nwst.bal+cfg.external_balance)/nwst.last_price + std::abs(nwst.position + offset) * cfg.powadj) * cfg.power;
+	double power = std::abs((nwst.bal+cfg.external_balance)/nwst.last_price + std::abs(nwst.position - offset) * cfg.powadj) * cfg.power;
 	if (std::isfinite(power)) {
 		nwst.power = power;
 	}
@@ -180,7 +180,7 @@ std::pair<Strategy_Hyperbolic::OnTradeResult, PStrategy> Strategy_Hyperbolic::on
 		double currencyLeft) const {
 
 	if (!isValid()) {
-		return init(cfg,tradePrice, assetsLeft, currencyLeft)
+		return init(cfg,tradePrice, assetsLeft, currencyLeft, minfo.leverage != 0)
 				.onTrade(minfo, tradePrice, tradeSize, assetsLeft, currencyLeft);
 	}
 
