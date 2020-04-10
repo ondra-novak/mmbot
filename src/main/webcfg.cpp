@@ -42,7 +42,8 @@ NamedEnum<WebCfg::Command> WebCfg::strCommand({
 	{WebCfg::editor, "editor"},
 	{WebCfg::backtest, "backtest"},
 	{WebCfg::spread, "spread"},
-	{WebCfg::upload_prices, "upload_prices"}
+	{WebCfg::upload_prices, "upload_prices"},
+	{WebCfg::upload_trades, "upload_trades"}
 });
 
 WebCfg::WebCfg(
@@ -90,6 +91,7 @@ bool WebCfg::operator ()(const simpleServer::HTTPRequest &req,
 		case backtest: return reqBacktest(req);
 		case spread: return reqSpread(req);
 		case upload_prices: return reqUploadPrices(req);
+		case upload_trades: return reqUploadTrades(req);
 		}
 	}
 	return false;
@@ -920,6 +922,7 @@ bool WebCfg::reqBacktest(simpleServer::HTTPRequest req) const {
 								("op",x.open_price)
 								("na",x.norm_accum)
 								("npl",x.norm_profit)
+								("npla",x.norm_profit_total)
 								("pl",x.pl)
 								("ps",x.pos)
 								("pr",x.price.price)
@@ -1118,6 +1121,39 @@ bool WebCfg::reqUploadPrices(simpleServer::HTTPRequest req) const {
 		});
 	});
 	}
+	return true;
+}
+bool WebCfg::reqUploadTrades(simpleServer::HTTPRequest req) const {
+	if (!req.allowMethods({"POST"})) return true;
+	req.readBodyAsync(10*1024*1024,[&trlist = this->trlist,state =  this->state, dispatch = this->dispatch](simpleServer::HTTPRequest req)mutable{
+		dispatch([&trlist, state, req]()mutable{
+			try {
+				Value args = Value::fromString(StrViewA(BinaryView(req.getUserBuffer())));
+				Value id = args["id"];
+				Value prices = args["prices"];
+				MTrader *tr = trlist.find(id.getString());
+				if (tr == nullptr) {
+					req.sendErrorPage(404);
+					return;
+				}
+				IStockApi::MarketInfo minfo = tr->getMarketInfo();
+				BacktestCacheSubj bt;
+				std::transform(prices.begin(), prices.end(), std::back_inserter(bt.prices), [&](const Value &itm) {
+						std::uint64_t tm = itm[0].getUIntLong();
+						double p = itm[1].getNumber();
+						if (minfo.invert_price) p = 1.0/p;
+						return BTPrice{tm, p};
+				});
+				bt.minfo = minfo;
+				Sync _(state->lock);
+				state->upload_progress = -1;
+				state->backtest_cache = BacktestCache(bt, id.toString().str());
+				req.sendResponse("application/json", "true");
+			} catch (std::exception &e) {
+				req.sendErrorPage(400,"",e.what());
+			}
+		});
+	});
 	return true;
 }
 bool WebCfg::generateTrades(Traders &trlist, ondra_shared::RefCntPtr<State> state, json::Value args) {

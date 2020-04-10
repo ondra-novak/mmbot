@@ -561,6 +561,7 @@ App.prototype.fillForm = function (src, trg) {
 	data.pl_redmode="rp";
 	data.pl_redoninc=true;
 	data.kv_valinc = 0;
+	data.kv_halfhalf=false;
 	data.st_power={"value":1.7};
 	data.st_max_step=1;
 	data.st_reduction_step=2;
@@ -580,6 +581,7 @@ App.prototype.fillForm = function (src, trg) {
 		data.acum_factor = filledval(defval(src.strategy.accum,0)*100,0);
 		data.external_assets = filledval(src.strategy.ea,0);
 		data.kv_valinc = filledval(src.strategy.valinc,0);
+		data.kv_halfhalf = filledval(src.strategy.halfhalf,false);
 	} else if (data.strategy == "hyperbolic") {
 		data.hp_reduction = filledval(defval(src.strategy.reduction,0.25)*100,25);
 		data.hp_asym = filledval(defval(src.strategy.asym,0.2)*100,20);
@@ -718,6 +720,7 @@ App.prototype.saveForm = function(form, src) {
 		trader.strategy.accum = data.acum_factor/100.0;
 		trader.strategy.ea = data.external_assets;
 		trader.strategy.valinc = data.kv_valinc;
+		trader.strategy.halfhalf = data.kv_halfhalf;
 	} else 	if (data.strategy == "hyperbolic") {
 		trader.strategy = {
 				type: data.strategy,
@@ -1355,7 +1358,7 @@ function createCSV(chart) {
 	
 	var rows = chart.map(function(rw){
 		return makeRow([
-			(new Date(rw.tm)).toLocaleString("en-GB"),
+			(new Date(rw.tm)).toJSON(),
 			rw.pr,
 			rw.sz,
 			rw.ps,
@@ -1388,7 +1391,7 @@ var show_op=false;
 App.prototype.init_backtest = function(form, id, pair, broker) {
 	var url = "api/backtest";
 	form.enableItem("show_backtest",false);		
-	var inputs = ["external_assets", "acum_factor","kv_valinc","pl_confmode","pl_power","pl_baluse","cstep",
+	var inputs = ["external_assets", "acum_factor","kv_valinc","kv_halfhalf","pl_confmode","pl_power","pl_baluse","cstep",
 		"max_pos","pl_posoffset","pl_redmode","pl_redfact","min_size","max_size","order_mult","alerts","delayed_alerts","linear_suggest","linear_suggest_maxpos","pl_redoninc",
 		"st_power","st_reduction_step","st_sl","st_redmode","st_max_step","st_pattern","dynmult_sliding","accept_loss","spread_calc_sma_hours","st_tmode",
 		"hp_power","hp_maxloss","hp_asym","hp_reduction","hp_extbal","hp_powadj","hp_dynred"
@@ -1440,7 +1443,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 				c.push(x);				
 			} else {
 				ilst = x;
-			}	
+			}				
 			acp = nacp;
 			if (balance!==undefined) {
 				var ap = Math.abs(x.ps);
@@ -1474,12 +1477,14 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		var lastnp;
 		var lastnpl;
 		var lastop;
+		var lastpl;
 		if (offset) {
 			var x = Object.assign({}, last);
 			x.time = imax;
 			lastnp = x.np;
-			lastnpl = x.npl;
+			lastnpl = x.npla;
 			lastop = x.op;
+			lastpl = x.pl;
 			c.push(x);
 		}
 
@@ -1487,8 +1492,8 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
         cntr.bt.setData({
         	"pl":adjNumBuySell(vlast.pl),
         	"ply":adjNumBuySell(vlast.pl*31536000000/interval),
-        	"npl":adjNumBuySell(vlast.npl),
-        	"nply":adjNumBuySell(vlast.npl*31536000000/interval),
+        	"npl":adjNumBuySell(vlast.npla),
+        	"nply":adjNumBuySell(vlast.npla*31536000000/interval),
         	"max_pos":adjNum(max_pos),
         	"max_cost":adjNum(max_cost),
         	"max_loss":adjNumBuySell(-max_downdraw),
@@ -1496,7 +1501,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
         	"max_profit":adjNumBuySell(max_pl),
         	"pr": adjNum(max_pl/max_downdraw),
         	"pc": adjNumBuySell(vlast.pl*3153600000000/(interval*balance),0),
-        	"npc": adjNumBuySell(vlast.npl*3153600000000/(interval*balance),1),
+        	"npc": adjNumBuySell(vlast.npla*3153600000000/(interval*balance),1),
         	"showpl":{".hidden":show_norm},
         	"shownorm":{".hidden":!show_norm},
         	"trades": trades,
@@ -1520,7 +1525,10 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		} else {
 		    drawChart(chart1,c,"pr",[{label:"neutral",pr:lastnp}],"np");			
 		}
-		drawChart(chart2,c,"pl",[{label:"norm",pl:lastnpl}],"npl");
+		if (show_norm)
+		    drawChart(chart2,c,"npla",[{label:"PL",npla:lastpl}],"pl");
+		else
+		    drawChart(chart2,c,"pl",[{label:"norm",pl:lastnpl}],"npla");
 	}
 
 
@@ -1592,6 +1600,21 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		});								
 	}
 	
+	function upload_trades(data, cntr) {
+		var req = {
+			id: id,
+			prices: data
+		}
+		cntr.showSpinner();
+		fetch_with_error("api/upload_trades", {method:"POST", body:JSON.stringify(req)}).then(function(){							
+			cntr.update();
+			cntr.hideSpinner();
+		}).catch(function(e) {
+			console.error(e);
+			cntr.hideSpinner();
+		});										
+	}
+	
 	this.gen_backtest(form,"backtest_anchor", "backtest_vis",inputs,function(cntr){
 
 		cntr.showSpinner();
@@ -1637,17 +1660,38 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 			cntr.bt.setItemEvent("select_file","click",function(){
 				var el = cntr.bt.findElements("price_file")[0];
 				el.value="";
+				el.dataset.mode="1min";
 				el.click();
 			});
 			cntr.bt.setItemEvent("export","click",function() {
 				doDownlaodFile(createCSV(res_data),id+".csv","text/plain");
 			})			
+			cntr.bt.setItemEvent("import","click",function() {
+				var el = cntr.bt.findElements("price_file")[0];
+				el.value="";
+				el.dataset.mode="prices";
+				el.click();
+			})			
 			cntr.bt.setItemEvent("price_file","change",function() {
 				if (this.files[0]) {
 					var reader = new FileReader();
+					var mode = this.dataset.mode;
 					reader.onload = function() {
-						var prices = reader.result.split("\n").map(function(x) {return parseFloat(x);}).filter(function(x) {return isFinite(x);});
-						recalc_spread(prices,cntr);
+						if (mode == "1min") {
+							var prices = reader.result.split("\n").map(function(x) {return parseFloat(x);}).filter(function(x) {return isFinite(x);});
+							recalc_spread(prices,cntr);
+						} else if (mode == "prices") {
+							var rows = reader.result.split("\n").map(function(x) {								
+								var jr = "["+x+"]";
+								try {
+									var rowdata = JSON.parse(jr);
+									return [(new Date(rowdata[0]))*1, (typeof rowdata[1] == "string"?parseFloat(rowdata[1]):rowdata[1])];
+								} catch (e) {
+									return null;
+								}
+							}).filter(function(x) {return x !== null && x[0] && isFinite(x[1])});
+							upload_trades(rows, cntr);							
+						}
 					}
 					reader.readAsText(this.files[0]);
 				}
@@ -1679,7 +1723,9 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 				tm = setTimeout(draw.bind(this,cntr,v,offset), 1);
 			}
 			update_recalc = draw.bind(this,cntr,v,offset,bal);
-		}).then(cntr.hideSpinner,function(e){cntr.hideSpinner;throw e;});
+		}).then(cntr.hideSpinner,function(e){
+			cntr.hideSpinner();throw e;
+		});
 		
 
         

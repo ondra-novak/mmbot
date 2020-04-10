@@ -80,6 +80,10 @@ fixed constant. The robot is forced to buy assets, but if the price of assets ri
 sell part of the assets and use the currency to buy assets at a better price. It is also possible
 to enter a negative value and then the value of the assets held will decrease and allow slower but more efficient sales.</span></span>
 <input type="number" step="any" data-name="kv_valinc"></label>
+<label class="adv" data-name="kv_valinc_h"><span>Achieve half/half on account<span class="tooltip">
+Controls accumulation and adjusts Keep to slovly achieve assets value equal to currency value at current price. You can control strength by "accumulation".
+Function will accumulate assets, if there is more currencies than assets. It will release assets if there is more assets then fiat. External assets are
+included, external currencies are counted in proportion to external assets</span></span><x-checkbox data-name="kv_halfhalf">Enabled</x-checkbox></label>
 <div class="warning" data-name="err_external_assets">Unable to trade - This strategy requies to fund account with some assets [<span data-name="asset"></span>].  You can also set the "external assets" field above <span data-name="external_assets_hint">0</span>. It is generally recommended to have ratio between the value of the assets [<span data-name="asset"></span>] (including external assets) and the currrency [<span data-name="currency"></span>] (including external currencies) at 1:1</div>
 <div class="warning" data-name="err_external_assets_margin">Unable to trade - This strategy needs to have a <b>long position</b> opened. You can also set external assets above <span data-name="external_assets_hint">0</span></div>
 <div class="warning" data-name="err_external_assets_inverse">Unable to trade - This strategy needs to have a <b>short position</b> opened. You can also set external assets above <span data-name="external_assets_hint">0</span></div>
@@ -555,6 +559,7 @@ the same order, they are ordered by its ID - this is the default ordering. Modif
 	<div class="icon" data-name="icon_internal"><img src="../res/internal_data.png" title="Use internal data"></div> 
 	<div class="icon" data-name="icon_recalc"><img src="../res/recalc_data.png" title="Recalculate spread" ></div>
 	<div class="icon" data-name="export"><img src="../res/export_csv.png" title="Export CSV" > </div>
+	<div class="icon" data-name="import"><img src="../res/import_csv.png" title="Import exported CSV (only date and price)" > </div>
 	<div class="icon" data-name="icon_reset"><img src="../res/repair.png" title="Reset data" ></div>
 </div>
 <input hidden="hidden" type="file"  data-name="price_file">

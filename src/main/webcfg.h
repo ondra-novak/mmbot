@@ -127,6 +127,7 @@ public:
 		backtest,
 		spread,
 		upload_prices,
+		upload_trades,
 	};
 
 	AuthMapper auth;
@@ -150,6 +151,7 @@ protected:
 	bool reqBacktest(simpleServer::HTTPRequest req) const;
 	bool reqSpread(simpleServer::HTTPRequest req) const;
 	bool reqUploadPrices(simpleServer::HTTPRequest req) const;
+	bool reqUploadTrades(simpleServer::HTTPRequest req) const;
 
 	using Sync = std::unique_lock<std::recursive_mutex>;
 

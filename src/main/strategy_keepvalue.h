@@ -18,6 +18,7 @@ public:
 		double ea;
 		double accum;
 		double chngtm;
+		bool keep_half;
 	};
 
 

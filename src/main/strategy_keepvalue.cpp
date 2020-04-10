@@ -52,16 +52,18 @@ std::pair<Strategy_KeepValue::OnTradeResult, PStrategy> Strategy_KeepValue::onTr
 	}
 
 	double p = st.p;
+	double k = calcK();
+	double neutral = (tradePrice*std::exp(-currencyLeft/k+1));
+	double autoaccum = cfg.keep_half?(tradePrice<neutral?0:cfg.accum):cfg.accum;
 
 	double cf = (assetsLeft-tradeSize+cfg.ea)*(tradePrice - p);
-	double k = calcK();
 	double nv = k * std::log(tradePrice/p);
 	double pf = cf - nv;
-	double ap = (pf / tradePrice) * cfg.accum;
-	double np = pf * (1.0 - cfg.accum);
+	double ap = (pf / tradePrice) * autoaccum;
+	double np = pf * (1.0 - autoaccum);
 	double new_a = (calcK() / tradePrice) - cfg.ea;
 	return {
-		OnTradeResult{np,ap,0},
+		OnTradeResult{np,ap,neutral},
 		new Strategy_KeepValue(cfg,  State{true,tradePrice, new_a+ap,std::chrono::system_clock::now()})
 	};
 

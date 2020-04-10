@@ -88,6 +88,7 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 			bt.price.time = price->time;
 			bt.pl = pl;
 			bt.pos = pos;
+			bt.norm_profit_total = bt.norm_profit + bt.norm_accum * p;
 			trades.push_back(bt);
 			if (checksl) {
 				if (fill_atprice) {

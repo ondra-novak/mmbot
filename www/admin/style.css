@@ -522,14 +522,13 @@ a {
 	margin: -0.5em -0.5em 0.5em -0.5em;
 }
 .backtesticons img {
-	width: 60%;
+	width: 70%;
 	display: block;
 	margin: auto;
-
 }
 .backtesticons > * {
-	padding: 0.5em;
-	width: 20%;	
+	padding: 0.4em;
+	width: 16%;
 	cursor: pointer;
 }
 
