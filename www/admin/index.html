@@ -555,11 +555,10 @@ the same order, they are ordered by its ID - this is the default ordering. Modif
 
 <x-form class="floating" hidden="hidden" data-name="options_form">
 <div class="backtesticons">
-	<div class="icon" data-name="select_file"><img src="../res/upload_data.png" title="Upload 1minute data" ></div>
+	<div class="icon" data-name="select_file"><img src="../res/upload_data.png" title="Upload 1minute data or exported trades in CSV" ></div>
 	<div class="icon" data-name="icon_internal"><img src="../res/internal_data.png" title="Use internal data"></div> 
 	<div class="icon" data-name="icon_recalc"><img src="../res/recalc_data.png" title="Recalculate spread" ></div>
 	<div class="icon" data-name="export"><img src="../res/export_csv.png" title="Export CSV" > </div>
-	<div class="icon" data-name="import"><img src="../res/import_csv.png" title="Import exported CSV (only date and price)" > </div>
 	<div class="icon" data-name="icon_reset"><img src="../res/repair.png" title="Reset data" ></div>
 </div>
 <input hidden="hidden" type="file"  data-name="price_file">
@@ -593,6 +592,7 @@ the same order, they are ordered by its ID - this is the default ordering. Modif
     data-trade_ask_stop="This trader is currently in auto trading mode. Do you want to stop automatic trading to allow manual trading? To re-enable trading, you have to click Apply button"
     data-please_login="Your session has expired. Please log in to contine"
     data-import_failed="Import failed. The code is probably damaged"
+    data-import_invalid_format="Unrecognized File Format"
     ></span>
 
 

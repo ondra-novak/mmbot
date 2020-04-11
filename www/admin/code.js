@@ -1615,6 +1615,10 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		});										
 	}
 	
+	var import_error = function() {
+		this.dlgbox({text:this.strtable.import_invalid_format,cancel:{".hidden":true}},"confirm");		
+	}.bind(this);
+	
 	this.gen_backtest(form,"backtest_anchor", "backtest_vis",inputs,function(cntr){
 
 		cntr.showSpinner();
@@ -1660,39 +1664,41 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 			cntr.bt.setItemEvent("select_file","click",function(){
 				var el = cntr.bt.findElements("price_file")[0];
 				el.value="";
-				el.dataset.mode="1min";
 				el.click();
 			});
 			cntr.bt.setItemEvent("export","click",function() {
 				doDownlaodFile(createCSV(res_data),id+".csv","text/plain");
-			})			
-			cntr.bt.setItemEvent("import","click",function() {
-				var el = cntr.bt.findElements("price_file")[0];
-				el.value="";
-				el.dataset.mode="prices";
-				el.click();
 			})			
 			cntr.bt.setItemEvent("price_file","change",function() {
 				if (this.files[0]) {
 					var reader = new FileReader();
 					var mode = this.dataset.mode;
 					reader.onload = function() {
-						if (mode == "1min") {
-							var prices = reader.result.split("\n").map(function(x) {return parseFloat(x);}).filter(function(x) {return isFinite(x);});
-							recalc_spread(prices,cntr);
-						} else if (mode == "prices") {
-							var rows = reader.result.split("\n").map(function(x) {								
-								var jr = "["+x+"]";
-								try {
-									var rowdata = JSON.parse(jr);
-									return [(new Date(rowdata[0]))*1, (typeof rowdata[1] == "string"?parseFloat(rowdata[1]):rowdata[1])];
-								} catch (e) {
+						var min=0;
+						var trs=0;
+						var prices = reader.result.split("\n").map(function(x) {
+							var jr = "["+x+"]";
+							try {
+								var rowdata = JSON.parse(jr);
+								if (rowdata.length == 1) {
+									min++;										
+									var out = typeof rowdata[0] == "number"?rowdata[0]:parseFloat(rowdata[0]);
+									return isFinite(out)?out:null;
+								} else if (rowdata.length > 1) {
+									trs++;
+									var out = [(new Date(rowdata[0]))*1, (typeof rowdata[1] == "string"?parseFloat(rowdata[1]):rowdata[1])];
+									return isFinite(out[1])?out:null;
+								} else {
 									return null;
 								}
-							}).filter(function(x) {return x !== null && x[0] && isFinite(x[1])});
-							upload_trades(rows, cntr);							
-						}
-					}
+							} catch(e) {
+								return null;
+							}
+						}).filter(function(x) {return x !== null});
+						if (min > trs && trs/min < 0.1) recalc_spread(prices,cntr);
+						else if (min < trs && min/trs < 0.1) upload_trades(prices, cntr);
+						else import_error();
+					}.bind(this);
 					reader.readAsText(this.files[0]);
 				}
 			});

@@ -463,6 +463,7 @@ a {
 .backtest input,.backtest button {
 	font-size: 0.9em;
 	margin: 0;
+	box-sizing: border-box;
 }
 
 .backtest th {
@@ -522,7 +523,7 @@ a {
 	margin: -0.5em -0.5em 0.5em -0.5em;
 }
 .backtesticons img {
-	width: 70%;
+	width: 60%;
 	display: block;
 	margin: auto;
 }
