@@ -163,7 +163,7 @@ public:
 			double mult,
 			bool alerts) const;
 
-	const Config &getConfig() {return cfg;}
+	Config getConfig() {return cfg;}
 
 	const IStockApi::MarketInfo getMarketInfo() const {return minfo;}
 
@@ -185,6 +185,7 @@ public:
 	void setInternalBalancies(double assets, double currency);
 
 	IStockApi &getBroker() {return stock;}
+	IStockApi &getBroker() const {return stock;}
 
 	struct VisRes {
 		struct Item {

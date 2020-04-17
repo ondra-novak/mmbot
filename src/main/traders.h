@@ -8,13 +8,14 @@
 #ifndef SRC_MAIN_TRADERS_H_
 #define SRC_MAIN_TRADERS_H_
 #include "../shared/scheduler.h"
+#include "../shared/shared_object.h"
 #include "../shared/worker.h"
 #include "istockapi.h"
 #include "mtrader.h"
 #include "stats2report.h"
 
 using ondra_shared::Worker;
-
+using ondra_shared::SharedObject;
 
 using StatsSvc = Stats2Report;
 
@@ -46,24 +47,23 @@ public:
 class Traders {
 public:
 
-	using TMap = ondra_shared::linear_map<json::StrViewA,std::unique_ptr<NamedMTrader> >;
+	using TMap = ondra_shared::linear_map<json::StrViewA, SharedObject<NamedMTrader> >;
 	TMap traders;
     StockSelector stockSelector;
 	bool test;
 	PStorageFactory &sf;
-	Report &rpt;
-	IDailyPerfModule &perfMod;
+	PReport rpt;
+	PPerfModule perfMod;
 	std::string iconPath;
-	Worker worker;
 
 	Traders(ondra_shared::Scheduler sch,
 			const ondra_shared::IniConfig::Section &ini,
 			bool test,
 			PStorageFactory &sf,
-			Report &rpt,
-			IDailyPerfModule &perfMod,
+			const PReport &rpt,
+			const PPerfModule &perfMod,
 			std::string iconPath,
-			Worker worker, int brk_timeout);
+			int brk_timeout);
 	Traders(const Traders &&other) = delete;
 	void clear();
 
@@ -78,13 +78,16 @@ public:
 	void loadIcons(const std::string &path);
 
 
-	void runTraders(bool manually);
+	template<typename Fn>
+	void enumTraders(Fn &&fn) const {
+		for (auto k: traders) fn(std::move(k));
+	}
+
 	void resetBrokers();
-	NamedMTrader *find(json::StrViewA id) const;
+	SharedObject<NamedMTrader> find(json::StrViewA id) const;
 
 private:
 	void loadIcon(MTrader &t);
-	unsigned int chgcnt=0;
 };
 
 

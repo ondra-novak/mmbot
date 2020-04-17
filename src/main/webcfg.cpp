@@ -46,12 +46,11 @@ NamedEnum<WebCfg::Command> WebCfg::strCommand({
 	{WebCfg::upload_trades, "upload_trades"}
 });
 
-WebCfg::WebCfg(
-		ondra_shared::RefCntPtr<State> state,
+WebCfg::WebCfg( const SharedObject<State> &state,
 		const std::string &realm,
-		Traders &traders,
+		const SharedObject<Traders> &traders,
 		Dispatch &&dispatch)
-	:auth(realm, state->admins)
+	:auth(realm, state.lock_shared()->admins)
 	,trlist(traders)
 	,dispatch(std::move(dispatch))
 	,state(state)
@@ -63,7 +62,7 @@ WebCfg::~WebCfg() {
 }
 
 bool WebCfg::operator ()(const simpleServer::HTTPRequest &req,
-		const ondra_shared::StrViewA &vpath) const {
+		const ondra_shared::StrViewA &vpath)  {
 
 	QueryParser qp(vpath);
 	StrViewA path = qp.getPath();
@@ -115,28 +114,24 @@ static Value hashPswds(Value data) {
 	return data.replace("users", o);
 }
 
-bool WebCfg::reqConfig(simpleServer::HTTPRequest req) const {
+bool WebCfg::reqConfig(simpleServer::HTTPRequest req)  {
 
 	if (!req.allowMethods({"GET","PUT"})) return true;
 	if (req.getMethod() == "GET") {
 
-		Sync _(state->lock);
-		json::Value data = state->config->load();
+		json::Value data = state.lock_shared()->config->load();
 		if (!data.defined()) data = Object("revision",0);
 		req.sendResponse("application/json",data.stringify());
 
 	} else {
-		Traders &traders = this->trlist;
-		RefCntPtr<State> state = this->state;
 
 
-		req.readBodyAsync(1024*1024, [state,&traders,dispatch = this->dispatch](simpleServer::HTTPRequest req) mutable {
+		req.readBodyAsync(1024*1024, [state=this->state,traders=this->trlist,dispatch = this->dispatch](simpleServer::HTTPRequest req) mutable {
 			try {
-				Sync _(state->lock);
-
+				auto lkst = state.lock();
 				Value data = Value::fromString(StrViewA(BinaryView(req.getUserBuffer())));
 				unsigned int serial = data["revision"].getUInt();
-				if (serial != state->write_serial) {
+				if (serial != lkst->write_serial) {
 					req.sendErrorPage(409);
 					return ;
 				}
@@ -154,38 +149,42 @@ bool WebCfg::reqConfig(simpleServer::HTTPRequest req) const {
 						return;
 					}
 				}
-				data = data.replace("revision", state->write_serial+1);
-				data = data.replace("brokers", state->broker_config);
+				data = data.replace("revision", lkst->write_serial+1);
+				data = data.replace("brokers", lkst->broker_config);
 				Value apikeys = data["apikeys"];
-				state->config->store(data.replace("apikeys", Value()));
-				state->write_serial = serial+1;;
+				lkst->config->store(data.replace("apikeys", Value()));
+				lkst->write_serial = serial+1;;
 
-				dispatch([&traders, state, req, data, apikeys] {
-					try {
-						Sync _(state->lock);
-						state->applyConfig(traders);
-						if (apikeys.type() == json::object) {
-							for (Value v: apikeys) {
-								StrViewA broker = v.getKey();
-								traders.stockSelector.checkBrokerSubaccount(broker);
-								IStockApi *b = traders.stockSelector.getStock(broker);
-								if (b) {
-									IApiKey *apik = dynamic_cast<IApiKey *>(b);
-									apik->setApiKey(v);
-								}
+				try {
+					lkst->applyConfig(traders);
+					if (apikeys.type() == json::object) {
+						for (Value v: apikeys) {
+							StrViewA broker = v.getKey();
+							auto trs = traders.lock();
+							trs->stockSelector.checkBrokerSubaccount(broker);
+							IStockApi *b = trs->stockSelector.getStock(broker);
+							if (b) {
+								IApiKey *apik = dynamic_cast<IApiKey *>(b);
+								apik->setApiKey(v);
 							}
 						}
-					} catch (std::exception &e) {
-						req.sendErrorPage(500,StrViewA(),e.what());
-						return;
 					}
-					try {
-						req.sendResponse(HTTPResponse(202).contentType("application/json"),data.stringify());
-						traders.runTraders(true);
-						traders.rpt.genReport();
-					} catch (std::exception &e) {
-						logError("%1", e.what());
-					}
+				} catch (std::exception &e) {
+					req.sendErrorPage(500,StrViewA(),e.what());
+					return;
+				}
+				req.sendResponse(HTTPResponse(202).contentType("application/json"),data.stringify());
+				traders.lock_shared()->enumTraders([&](const auto &trinfo){
+					dispatch([tr = trinfo.second]()mutable{
+						try {
+							tr.lock()->perform(true);
+						} catch (std::exception &e) {
+							logError("%1", e.what());
+						}
+					});
+				});
+				dispatch([rpt = traders.lock_shared()->rpt]()mutable{
+					rpt.lock()->genReport();
 				});
 
 
@@ -203,7 +202,7 @@ bool WebCfg::reqConfig(simpleServer::HTTPRequest req) const {
 }
 
 
-bool WebCfg::reqSerial(simpleServer::HTTPRequest req) const {
+bool WebCfg::reqSerial(simpleServer::HTTPRequest req) {
 	if (!req.allowMethods({"GET"})) return true;
 	req.sendResponse("text/plain") << serial << "\r\n";
 	return true;
@@ -230,11 +229,11 @@ static json::Value brokerToJSON(const IStockApi::BrokerInfo &binfo) {
 }
 
 
-bool WebCfg::reqBrokers(simpleServer::HTTPRequest req, ondra_shared::StrViewA rest) const {
+bool WebCfg::reqBrokers(simpleServer::HTTPRequest req, ondra_shared::StrViewA rest)  {
 	if (rest.empty()) {
 		if (!req.allowMethods({"GET"})) return true;
 		Array brokers;
-		trlist.stockSelector.forEachStock([&](const std::string_view &name,IStockApi &){
+		trlist.lock_shared()->stockSelector.forEachStock([&](const std::string_view &name,IStockApi &){
 			brokers.push_back(name);
 		});
 		Object obj("entries", brokers);
@@ -247,7 +246,7 @@ bool WebCfg::reqBrokers(simpleServer::HTTPRequest req, ondra_shared::StrViewA re
 		if (urlbroker == "_reload") {
 			if (!req.allowMethods({"POST"})) return true;
 			dispatch([=] {
-				trlist.stockSelector.forEachStock([&](const std::string_view &,IStockApi &x){
+				trlist.lock_shared()->stockSelector.forEachStock([&](const std::string_view &,IStockApi &x){
 					ExtStockApi *ex = dynamic_cast<ExtStockApi *>(&x);
 					ex->stop();
 				});
@@ -257,14 +256,15 @@ bool WebCfg::reqBrokers(simpleServer::HTTPRequest req, ondra_shared::StrViewA re
 		} else if (urlbroker == "_all") {
 			if (!req.allowMethods({"GET"})) return true;
 			Array res;
-			trlist.stockSelector.forEachStock([&](std::string_view n, IStockApi &api) {
+			trlist.lock_shared()->stockSelector.forEachStock([&](std::string_view n, IStockApi &api) {
 				res.push_back(brokerToJSON(api.getBrokerInfo()));
 			});
 			req.sendResponse("application/json",Value(res).stringify());
 			return true;
 		}
 		std::string broker = urlDecode(urlbroker);
-		IStockApi *api = trlist.stockSelector.getStock(broker);
+		auto trl = trlist.lock_shared();
+		IStockApi *api = trl->stockSelector.getStock(broker);
 
 		return reqBrokerSpec(req, splt, api,broker);
 	}
@@ -311,7 +311,7 @@ static Value getPairInfo(IStockApi &api, const std::string_view &pair, const std
 }
 
 bool WebCfg::reqBrokerSpec(simpleServer::HTTPRequest req,
-		ondra_shared::StrViewA vpath, IStockApi *api, ondra_shared::StrViewA broker_name) const {
+		ondra_shared::StrViewA vpath, IStockApi *api, ondra_shared::StrViewA broker_name)  {
 
 	if (api == nullptr) {
 		req.sendErrorPage(404);
@@ -376,12 +376,11 @@ bool WebCfg::reqBrokerSpec(simpleServer::HTTPRequest req,
 				if (n.toString().length()>20) {
 					req.sendErrorPage(415);
 				} else {
-					dispatch([=]{
-						std::string newname = binfo.name + "~";
-						for (auto &&k: n.getString()) if (isalnum(k)) newname.push_back(k);
-						trlist.stockSelector.checkBrokerSubaccount(newname);
-						req.sendResponse("application/json", Value(newname).stringify());
-					});
+					std::string newname = binfo.name + "~";
+					for (auto &&k: n.getString()) if (isalnum(k)) newname.push_back(k);
+					auto trl = trlist;
+					trl.lock()->stockSelector.checkBrokerSubaccount(newname);
+					req.sendResponse("application/json", Value(newname).stringify());
 				}
 			}
 			return true;
@@ -456,7 +455,7 @@ bool WebCfg::reqBrokerSpec(simpleServer::HTTPRequest req,
 							Value v = Value::parse(s);
 							Value res = bc->setSettings(v);
 							if (!res.defined()) res = true;
-							else state->setBrokerConfig(broker_name, res);
+							else state.lock()->setBrokerConfig(broker_name, res);
 							req.sendResponse("application/json", res.stringify(), 202);
 							return true;
 						}
@@ -527,120 +526,121 @@ bool WebCfg::reqBrokerSpec(simpleServer::HTTPRequest req,
 
 }
 
-bool WebCfg::reqTraders(simpleServer::HTTPRequest req, ondra_shared::StrViewA vpath) const {
+bool WebCfg::reqTraders(simpleServer::HTTPRequest req, ondra_shared::StrViewA vpath)  {
 	std::string path = vpath;
-	dispatch([path,req, this]() mutable {
-		HTTPResponse hdr(200);
-		hdr.contentType("application/json");
+	HTTPResponse hdr(200);
+	hdr.contentType("application/json");
 
-		try {
-			if (path.empty()) {
-				if (!req.allowMethods({"GET"})) return ;
-				Value res (json::array, trlist.begin(), trlist.end(), [&](auto &&x) {
-					return x.first;
-				});
-				res = Object("entries", res);
-				req.sendResponse(std::move(hdr), res.stringify());
-			} else {
-				auto splt = StrViewA(path).split("/");
-				std::string trid = urlDecode(StrViewA(splt()));
-				auto tr = trlist.find(trid);
-				if (tr == nullptr) {
-					req.sendErrorPage(404);
-				} else if (!splt) {
-					if (!req.allowMethods({"GET","DELETE"})) return ;
-					if (req.getMethod() == "DELETE") {
-						trlist.removeTrader(trid, false);
-						req.sendResponse(std::move(hdr), "true");
-					} else {
-						req.sendResponse(std::move(hdr),
-							Value(Object("entries",{"stop","reset","repair","broker","trading","strategy"})).stringify());
-					}
+	try {
+		if (path.empty()) {
+			if (!req.allowMethods({"GET"})) return true;
+			auto trl = trlist.lock_shared();
+			Value res (json::array, trl->begin(), trl->end(), [&](auto &&x) {
+				return x.first;
+			});
+			res = Object("entries", res);
+			req.sendResponse(std::move(hdr), res.stringify());
+		} else {
+			auto splt = StrViewA(path).split("/");
+			std::string trid = urlDecode(StrViewA(splt()));
+			auto trl = trlist.lock();
+			auto tr = trl->find(trid);
+			if (tr == nullptr) {
+				req.sendErrorPage(404);
+			} else if (!splt) {
+				if (!req.allowMethods({"GET","DELETE"})) return true;
+				if (req.getMethod() == "DELETE") {
+					trl->removeTrader(trid, false);
+					req.sendResponse(std::move(hdr), "true");
 				} else {
-					tr->init();
-					auto cmd = urlDecode(StrViewA(splt()));
-					if (cmd == "reset") {
-						if (!req.allowMethods({"POST"})) return ;
-						tr->reset();
-						req.sendResponse(std::move(hdr), "true");
-					} else if (cmd == "stop") {
-						if (!req.allowMethods({"POST"})) return ;
-						tr->stop();
-						req.sendResponse(std::move(hdr), "true");
-					} else if (cmd == "repair") {
-						if (!req.allowMethods({"POST"})) return ;
-						tr->repair();
-						req.sendResponse(std::move(hdr), "true");
-					} else if (cmd == "broker") {
-						StrViewA nx = splt();
-						StrViewA vpath = path;
-						StrViewA restpath = vpath.substr(nx.data - vpath.data);
-						std::string brokerName = tr->getConfig().broker;
-						reqBrokerSpec(req, restpath, &(tr->getBroker()), brokerName);
-					} else if (cmd == "trading") {
-						Object out;
-						auto chartx = tr->getChart();
-						StringView<MTrader::ChartItem> chart(chartx.data(), chartx.size());
-						auto &&broker = tr->getBroker();
-						broker.reset();
-						if (chart.length>600) chart = chart.substr(chart.length-600);
-						out.set("chart", Value(json::array,chart.begin(), chart.end(),[&](auto &&item) {
-							return Object("time", item.time)("last",item.last);
-						}));
-						std::size_t start = chart.empty()?0:chart[0].time;
-						auto trades = tr->getTrades();
-						out.set("trades", Value(json::array, trades.begin(), trades.end(),[&](auto &&item) {
-							if (item.time >= start) return item.toJSON(); else return Value();
-						}));
-						out.set("ticker", ([&](auto &&t) {
-							return Object("ask", t.ask)("bid", t.bid)("last", t.last)("time", t.time);
-						})(broker.getTicker(tr->getConfig().pairsymb)));
-						out.set("orders", getOpenOrders(broker, tr->getConfig().pairsymb));
-						out.set("broker", tr->getConfig().broker);
-						auto ibalance = MTrader::getInternalBalance(tr);
-						out.set("pair", getPairInfo(broker, tr->getConfig().pairsymb, ibalance));
-						req.sendResponse(std::move(hdr), Value(out).stringify());
-					} else if (cmd == "strategy") {
-						if (!req.allowMethods({"GET","PUT"})) return;
-						Strategy strategy = tr->getStrategy();
-						if (req.getMethod() == "GET") {
-							auto st = tr->getMarketStatus();
-							json::Value v = strategy.exportState();
-							if (tr->getConfig().internal_balance) {
-								v = v.replace("internal_balance", Object
-										("assets", st.assetBalance)
-										("currency", st.currencyBalance)
-									);
-							}
-							req.sendResponse(std::move(hdr), v.stringify());
-						} else {
-							json::Value v = json::Value::parse(req.getBodyStream());
-							strategy.importState(v);
-							auto st = v["internal_balance"];
-							if (st.hasValue()) {
-								Value assets = st["assets"];
-								Value currency = st["currency"];
-								tr->setInternalBalancies(assets.getNumber(), currency.getNumber());
-							}
-							if (!strategy.isValid()) {
-								req.sendErrorPage(409,"","Settings was not accepted");
-							} else {
-								tr->setStrategy(strategy);
-								req.sendResponse("application/json","true",202);
-							}
+					req.sendResponse(std::move(hdr),
+						Value(Object("entries",{"stop","reset","repair","broker","trading","strategy"})).stringify());
+				}
+			} else {
+				auto trl = tr.lock();
+				trl->init();
+				auto cmd = urlDecode(StrViewA(splt()));
+				if (cmd == "reset") {
+					if (!req.allowMethods({"POST"})) return true;
+					trl->reset();
+					req.sendResponse(std::move(hdr), "true");
+				} else if (cmd == "stop") {
+					if (!req.allowMethods({"POST"})) return true;
+					trl->stop();
+					req.sendResponse(std::move(hdr), "true");
+				} else if (cmd == "repair") {
+					if (!req.allowMethods({"POST"})) return true;
+					trl->repair();
+					req.sendResponse(std::move(hdr), "true");
+				} else if (cmd == "broker") {
+					StrViewA nx = splt();
+					StrViewA vpath = path;
+					StrViewA restpath = vpath.substr(nx.data - vpath.data);
+					std::string brokerName = trl->getConfig().broker;
+					reqBrokerSpec(req, restpath, &(trl->getBroker()), brokerName);
+				} else if (cmd == "trading") {
+					Object out;
+					auto chartx = trl->getChart();
+					StringView<MTrader::ChartItem> chart(chartx.data(), chartx.size());
+					auto &&broker = trl->getBroker();
+					broker.reset();
+					if (chart.length>600) chart = chart.substr(chart.length-600);
+					out.set("chart", Value(json::array,chart.begin(), chart.end(),[&](auto &&item) {
+						return Object("time", item.time)("last",item.last);
+					}));
+					std::size_t start = chart.empty()?0:chart[0].time;
+					auto trades = trl->getTrades();
+					out.set("trades", Value(json::array, trades.begin(), trades.end(),[&](auto &&item) {
+						if (item.time >= start) return item.toJSON(); else return Value();
+					}));
+					out.set("ticker", ([&](auto &&t) {
+						return Object("ask", t.ask)("bid", t.bid)("last", t.last)("time", t.time);
+					})(broker.getTicker(trl->getConfig().pairsymb)));
+					out.set("orders", getOpenOrders(broker, trl->getConfig().pairsymb));
+					out.set("broker", trl->getConfig().broker);
+					auto ibalance = MTrader::getInternalBalance(trl);
+					out.set("pair", getPairInfo(broker, trl->getConfig().pairsymb, ibalance));
+					req.sendResponse(std::move(hdr), Value(out).stringify());
+				} else if (cmd == "strategy") {
+					if (!req.allowMethods({"GET","PUT"})) return true;
+					Strategy strategy = trl->getStrategy();
+					if (req.getMethod() == "GET") {
+						auto st = trl->getMarketStatus();
+						json::Value v = strategy.exportState();
+						if (trl->getConfig().internal_balance) {
+							v = v.replace("internal_balance", Object
+									("assets", st.assetBalance)
+									("currency", st.currencyBalance)
+								);
 						}
-
+						req.sendResponse(std::move(hdr), v.stringify());
+					} else {
+						json::Value v = json::Value::parse(req.getBodyStream());
+						strategy.importState(v);
+						auto st = v["internal_balance"];
+						if (st.hasValue()) {
+							Value assets = st["assets"];
+							Value currency = st["currency"];
+							trl->setInternalBalancies(assets.getNumber(), currency.getNumber());
+						}
+						if (!strategy.isValid()) {
+							req.sendErrorPage(409,"","Settings was not accepted");
+						} else {
+							trl->setStrategy(strategy);
+							req.sendResponse("application/json","true",202);
+						}
 					}
-
 
 				}
+
+
 			}
-		} catch (std::exception &e) {
-			req.sendErrorPage(500, StrViewA(), e.what());
 		}
+	} catch (std::exception &e) {
+		req.sendErrorPage(500, StrViewA(), e.what());
+	}
 
 
-	});
 	return true;
 }
 
@@ -678,21 +678,22 @@ void WebCfg::State::init(json::Value data) {
 	}
 
 }
-void WebCfg::State::applyConfig(Traders &t) {
+void WebCfg::State::applyConfig(SharedObject<Traders>  &st) {
+	auto t = st.lock();
 	auto data = config->load();
 	init(data);
 	for (auto &&n :traderNames) {
-		t.removeTrader(n, !data["traders"][n].defined());
+		t->removeTrader(n, !data["traders"][n].defined());
 	}
 
 	traderNames.clear();
-	t.stockSelector.eraseSubaccounts();
+	t->stockSelector.eraseSubaccounts();
 
 	for (Value v: data["traders"]) {
 		try {
 			MTrader_Config cfg;
-			cfg.loadConfig(v, t.test);
-			t.addTrader(cfg,v.getKey());
+			cfg.loadConfig(v, t->test);
+			t->addTrader(cfg,v.getKey());
 			traderNames.push_back(v.getKey());
 		} catch (std::exception &e) {
 			logError("Failed to initialized trader $1 - $2", v.getKey(), e.what());
@@ -701,7 +702,7 @@ void WebCfg::State::applyConfig(Traders &t) {
 
 	Value bc = data["brokers"];
 	broker_config = bc;
-	t.stockSelector.forEachStock([&](std::string_view name, IStockApi &api) {
+	t->stockSelector.forEachStock([&](std::string_view name, IStockApi &api) {
 		Value b = bc[name];
 		if (b.defined()) {
 			IBrokerControl *eapi = dynamic_cast<IBrokerControl *>(&api);
@@ -713,7 +714,7 @@ void WebCfg::State::applyConfig(Traders &t) {
 
 	Value newInterval = data["report_interval"];
 	if (newInterval.defined()) {
-		t.rpt.setInterval(newInterval.getUInt());
+		t->rpt.lock()->setInterval(newInterval.getUInt());
 	}
 }
 
@@ -735,7 +736,7 @@ void WebCfg::State::init() {
 	init(config->load());
 }
 
-bool WebCfg::reqLogout(simpleServer::HTTPRequest req, bool commit) const {
+bool WebCfg::reqLogout(simpleServer::HTTPRequest req, bool commit) {
 
 	auto hdr = req["Authorization"];
 	auto hdr_splt = hdr.split(" ");
@@ -743,12 +744,12 @@ bool WebCfg::reqLogout(simpleServer::HTTPRequest req, bool commit) const {
 	StrViewA cred = hdr_splt();
 	auto credobj = AuthUserList::decodeBasicAuth(cred);
 	if (commit) {
-		if (state->logout_commit(std::move(credobj.first)))
+		if (state.lock()->logout_commit(std::move(credobj.first)))
 			auth.genError(req);
 		else
 			req.sendResponse("text/plain","");
 	} else {
-		state->logout_user(std::move(credobj.first));
+		state.lock()->logout_user(std::move(credobj.first));
 		std::string rndstr;
 		std::time_t t = std::time(nullptr);
 		rndstr = "?";
@@ -759,35 +760,37 @@ bool WebCfg::reqLogout(simpleServer::HTTPRequest req, bool commit) const {
 	return true;
 }
 
-bool WebCfg::reqStop(simpleServer::HTTPRequest req) const {
+bool WebCfg::reqStop(simpleServer::HTTPRequest req)  {
 	if (!req.allowMethods({"POST"})) return true;
 
-	dispatch([=]{
+	auto trl = trlist.lock();
 
-		HTTPResponse hdr(200);
-		hdr.contentType("application/json");
 
-		for (auto &&x: trlist) {
-			x.second->stop();
-		};
-		trlist.resetBrokers();
-		trlist.runTraders(true);
-		trlist.rpt.genReport();
-		trlist.resetBrokers();
-		req.sendResponse(std::move(hdr), "true");
+	HTTPResponse hdr(200);
+	hdr.contentType("application/json");
 
+	for (auto &&x: *trl) {
+		auto t = x.second;
+		t.lock()->stop();
+	};
+	trl->resetBrokers();
+	trl->enumTraders([&](const auto &inf)mutable{
+		auto tr = inf.second;
+		tr.lock()->perform(true);
 	});
+	trl->rpt.lock()->genReport();
+	trl->resetBrokers();
+	req.sendResponse(std::move(hdr), "true");
+
 
 	return true;
 }
 
 void WebCfg::State::logout_user(std::string &&user) {
-	Sync _(lock);
 	logout_users.insert(std::move(user));
 }
 
 bool WebCfg::State::logout_commit(std::string &&user) {
-	Sync _(lock);
 	if (logout_users.find(user) == logout_users.end()) {
 		return false;
 	} else {
@@ -796,10 +799,9 @@ bool WebCfg::State::logout_commit(std::string &&user) {
 	}
 }
 
-bool WebCfg::reqEditor(simpleServer::HTTPRequest req) const {
+bool WebCfg::reqEditor(simpleServer::HTTPRequest req)  {
 	if (!req.allowMethods({"POST"})) return true;
-	req.readBodyAsync(10000,[&trlist = this->trlist,state =  this->state, dispatch = this->dispatch](simpleServer::HTTPRequest req) {
-		dispatch([req,&trlist, state ]()mutable{
+	req.readBodyAsync(10000,[trlist = this->trlist,state =  this->state, dispatch = this->dispatch](simpleServer::HTTPRequest req) mutable {
 			try {
 
 				Value data = Value::fromString(StrViewA(BinaryView(req.getUserBuffer())));
@@ -808,20 +810,20 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req) const {
 				Value pair = data["pair"];
 				std::string p;
 
-				Sync _(state->lock);
-				trlist.stockSelector.checkBrokerSubaccount(broker.getString());
-				NamedMTrader *tr = trlist.find(trader.toString().str());
+				trlist.lock()->stockSelector.checkBrokerSubaccount(broker.getString());
+				auto tr = trlist.lock_shared()->find(trader.toString().str());
+				auto trl = tr.lock();
 				IStockApi *api = nullptr;
 				if (tr == nullptr) {
-					api = trlist.stockSelector.getStock(broker.toString().str());
+					api = trlist.lock_shared()->stockSelector.getStock(broker.toString().str());
 				} else {
-					api = &tr->getBroker();
+					api = &trl->getBroker();
 				}
 				if (api == nullptr) {
 					return req.sendErrorPage(404);
 				}
 				if (tr && !pair.hasValue()) {
-					p = tr->getConfig().pairsymb;
+					p = trl->getConfig().pairsymb;
 				} else {
 					p = pair.toString().str();
 				}
@@ -829,14 +831,13 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req) const {
 
 				api->reset();
 				auto binfo = api->getBrokerInfo();
-				auto pairinfo = api->getMarketInfo(p);
 
 
 				Value strategy;
 				Value position;
 				if (tr) {
-					strategy = tr->getStrategy().dumpStatePretty(tr->getMarketInfo());
-					auto trades = tr->getTrades();
+					strategy = trl->getStrategy().dumpStatePretty(trl->getMarketInfo());
+					auto trades = trl->getTrades();
 					auto pos = std::accumulate(trades.begin(), trades.end(),0.0,[&](
 							auto &&a, auto &&b
 					) {
@@ -852,7 +853,7 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req) const {
 						("version", binfo.version)
 						("settings", binfo.settings)
 						("trading_enabled", binfo.trading_enabled));
-				result.set("pair", getPairInfo(*api, p, MTrader::getInternalBalance(tr), MTrader::getInternalCurrencyBalance(tr)));
+				result.set("pair", getPairInfo(*api, p, MTrader::getInternalBalance(trl), MTrader::getInternalCurrencyBalance(trl)));
 				result.set("orders", getOpenOrders(*api, p));
 				result.set("strategy", strategy);
 				result.set("position", position);
@@ -862,32 +863,29 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req) const {
 				req.sendErrorPage(500, StrViewA(), e.what());
 			}
 		});
-	});
 	return true;
 }
 
-bool WebCfg::reqLogin(simpleServer::HTTPRequest req) const {
+bool WebCfg::reqLogin(simpleServer::HTTPRequest req)  {
 	req.redirect("../index.html", simpleServer::Redirect::temporary_repeat);
 	return true;
 }
 
 void WebCfg::State::setBrokerConfig(json::StrViewA name, json::Value config) {
-	Sync _(lock);
 	broker_config = broker_config.getValueOrDefault(Value(json::object)).replace(name,config);
 }
 
-bool WebCfg::reqBacktest(simpleServer::HTTPRequest req) const {
+bool WebCfg::reqBacktest(simpleServer::HTTPRequest req)  {
 	if (!req.allowMethods({"POST","DELETE"})) return true;
 	if (req.getMethod() == "DELETE") {
-		Sync _(state->lock);
-		state->backtest_cache.clear();
-		state->prices_cache.clear();
-		state->spread_cache.clear();
-		_.unlock();
+		auto lkst = state.lock();
+		lkst->backtest_cache.clear();
+		lkst->prices_cache.clear();
+		lkst->spread_cache.clear();
 		req.sendResponse("application/json","true");
 		return true;
 	} else  {
-		req.readBodyAsync(50000,[&trlist = this->trlist,state =  this->state, dispatch = this->dispatch](simpleServer::HTTPRequest req)mutable{
+		req.readBodyAsync(50000,[&trlist = this->trlist,state =  this->state](simpleServer::HTTPRequest req)mutable{
 			try {
 				Value data = Value::fromString(StrViewA(BinaryView(req.getUserBuffer())));
 				Value id = data["id"];
@@ -935,17 +933,14 @@ bool WebCfg::reqBacktest(simpleServer::HTTPRequest req) const {
 
 
 
-
-				Sync _(state->lock);
-				if (state->backtest_cache.available(id.toString().str())) {
-					auto t = state->backtest_cache.getSubject();
-					_.unlock();
-					process(trlist, t);
+				auto lkst = state.lock_shared();
+				if (lkst->backtest_cache.available(id.toString().str())) {
+					auto t = lkst->backtest_cache.getSubject();
+					process(*trlist.lock(), t);
 				} else {
-
-					dispatch([&trlist, state, req, id, process = std::move(process)]()mutable {
+					lkst.release();
 						try {
-							MTrader *tr = trlist.find(id.getString());
+							auto tr = trlist.lock_shared()->find(id.getString()).lock_shared();
 							if (tr == nullptr) {
 								req.sendErrorPage(404);
 								return;
@@ -958,15 +953,13 @@ bool WebCfg::reqBacktest(simpleServer::HTTPRequest req) const {
 								return BTPrice{r.time, r.price};
 							});
 							trs.minfo = tr->getMarketInfo();
+							tr.release();
 
-							Sync _(state->lock);
-							state->backtest_cache = BacktestCache(trs, id.toString().str());
-							_.unlock();
-							process(trlist, trs);
+							state.lock()->backtest_cache = BacktestCache(trs, id.toString().str());
+							process(*trlist.lock(), trs);
 						} catch (std::exception &e) {
 							req.sendErrorPage(400,"", e.what());
 						}
-					});
 				}
 			} catch (std::exception &e) {
 				req.sendErrorPage(400,"", e.what());
@@ -989,9 +982,9 @@ public:
 	}
 };
 
-bool WebCfg::reqSpread(simpleServer::HTTPRequest req) const {
+bool WebCfg::reqSpread(simpleServer::HTTPRequest req)  {
 	if (!req.allowMethods({"POST"})) return true;
-		req.readBodyAsync(50000,[&trlist = this->trlist,state =  this->state, dispatch = this->dispatch](simpleServer::HTTPRequest req)mutable{
+		req.readBodyAsync(50000,[trlist = this->trlist,state =  this->state](simpleServer::HTTPRequest req)mutable{
 		try {
 			Value args = Value::fromString(StrViewA(BinaryView(req.getUserBuffer())));
 			Value id = args["id"];
@@ -1033,31 +1026,28 @@ bool WebCfg::reqSpread(simpleServer::HTTPRequest req) const {
 				req.sendResponse("application/json", out.stringify());
 			};
 
-			Sync _(state->lock);
-			if (state->spread_cache.available(id.toString().str())) {
-				auto t = state->spread_cache.getSubject();
-				_.unlock();
+			auto lkst = state.lock_shared();
+			if (lkst->spread_cache.available(id.toString().str())) {
+				auto t = lkst->spread_cache.getSubject();
 				process(t);
 			} else {
-				dispatch([&trlist, state, req, id, process = std::move(process)]()mutable {
-					try {
-						MTrader *tr = trlist.find(id.getString());
-						if (tr == nullptr) {
-							req.sendErrorPage(404);
-							return;
-						}
-						SpreadCacheItem x;
-						x.chart = tr->getChart();
-						x.invert_price = tr->getMarketInfo().invert_price;
-						Sync _(state->lock);
-						state->spread_cache= SpreadCache(x, id.toString().str());
-						_.unlock();
-						process(x);
-					} catch (std::exception &e) {
-						req.sendErrorPage(400,"", e.what());
+				lkst.release();
+				try {
+					auto tr = trlist.lock_shared()->find(id.getString()).lock_shared();
+					if (tr == nullptr) {
+						req.sendErrorPage(404);
+						return;
 					}
+					SpreadCacheItem x;
+					x.chart = tr->getChart();
+					x.invert_price = tr->getMarketInfo().invert_price;
+					tr.release();
+					state.lock()->spread_cache= SpreadCache(x, id.toString().str());
+					process(x);
+				} catch (std::exception &e) {
+					req.sendErrorPage(400,"", e.what());
+				}
 
-				});
 			}
 
 
@@ -1068,70 +1058,68 @@ bool WebCfg::reqSpread(simpleServer::HTTPRequest req) const {
 	return true;
 }
 
-bool WebCfg::reqUploadPrices(simpleServer::HTTPRequest req) const {
+bool WebCfg::reqUploadPrices(simpleServer::HTTPRequest req)  {
 	if (!req.allowMethods({"POST","GET","DELETE"})) return true;
 	if (req.getMethod() == "GET") {
-		Sync _(state->lock);
-		req.sendResponse("application/json",Value(state->upload_progress).stringify());
+		req.sendResponse("application/json",Value(state.lock_shared()->upload_progress).stringify());
 		return true;
 	} else  if (req.getMethod() == "DELETE") {
-			Sync _(state->lock);
-			state->cancel_upload = true;
-			req.sendResponse("application/json",Value(state->upload_progress).stringify());
+			state.lock()->cancel_upload = true;
+			req.sendResponse("application/json",Value(state.lock_shared()->upload_progress).stringify());
 			return true;
 	} else {
 	req.readBodyAsync(10*1024*1024,[&trlist = this->trlist,state =  this->state, dispatch = this->dispatch](simpleServer::HTTPRequest req)mutable{
-		dispatch([&trlist, state, req]()mutable{
-			try {
-				Value args = Value::fromString(StrViewA(BinaryView(req.getUserBuffer())));
-				Value id = args["id"];
-				Value prices = args["prices"];
+		try {
+			Value args = Value::fromString(StrViewA(BinaryView(req.getUserBuffer())));
+			Value id = args["id"];
+			Value prices = args["prices"];
 
-				if (prices.getString() == "internal") {
-					Sync _(state->lock);
-					state->prices_cache.clear();
-					state->upload_progress = 0;
-				} else if (prices.getString() == "update") {
-					Sync _(state->lock);
-					state->upload_progress = 0;
-				} else {
+			if (prices.getString() == "internal") {
+				auto lkst = state.lock();
+				lkst->prices_cache.clear();
+				lkst->upload_progress = 0;
+			} else if (prices.getString() == "update") {
+				auto lkst = state.lock();
+				lkst->upload_progress = 0;
+			} else {
 
-					MTrader *tr = trlist.find(id.getString());
-					if (tr == nullptr) {
-						req.sendErrorPage(404);
-						return;
-					}
-					IStockApi::MarketInfo minfo = tr->getMarketInfo();
-					std::vector<double> chart;
-					std::transform(prices.begin(), prices.end(), std::back_inserter(chart),[&](Value itm){
-						double p = itm.getNumber();
-						if (minfo.invert_price) p = 1.0/p;
-						return p;
-					});
-					Sync _(state->lock);
-					state->prices_cache = PricesCache(chart, id.toString().str());
-					state->upload_progress = 0;
+				auto tr = trlist.lock_shared()->find(id.getString()).lock_shared();
+				if (tr == nullptr) {
+					req.sendErrorPage(404);
+					return;
 				}
-				req.sendResponse("application/json", "0");
-				req = nullptr;
-				generateTrades(trlist, state, args);
-			} catch (std::exception &e) {
-				req.sendErrorPage(400,"",e.what());
+				IStockApi::MarketInfo minfo = tr->getMarketInfo();
+				std::vector<double> chart;
+				std::transform(prices.begin(), prices.end(), std::back_inserter(chart),[&](Value itm){
+					double p = itm.getNumber();
+					if (minfo.invert_price) p = 1.0/p;
+					return p;
+				});
+				tr.release();
+				auto lkst = state.lock();
+				lkst->prices_cache = PricesCache(chart, id.toString().str());
+				lkst->upload_progress = 0;
 			}
-		});
+			req.sendResponse("application/json", "0");
+			req = nullptr;
+			dispatch ([trlist, state, args]() mutable {
+				generateTrades(trlist, state, args);
+			});
+		} catch (std::exception &e) {
+			req.sendErrorPage(400,"",e.what());
+		}
 	});
 	}
 	return true;
 }
-bool WebCfg::reqUploadTrades(simpleServer::HTTPRequest req) const {
+bool WebCfg::reqUploadTrades(simpleServer::HTTPRequest req)  {
 	if (!req.allowMethods({"POST"})) return true;
-	req.readBodyAsync(10*1024*1024,[&trlist = this->trlist,state =  this->state, dispatch = this->dispatch](simpleServer::HTTPRequest req)mutable{
-		dispatch([&trlist, state, req]()mutable{
+	req.readBodyAsync(10*1024*1024,[&trlist = this->trlist,state =  this->state](simpleServer::HTTPRequest req)mutable{
 			try {
 				Value args = Value::fromString(StrViewA(BinaryView(req.getUserBuffer())));
 				Value id = args["id"];
 				Value prices = args["prices"];
-				MTrader *tr = trlist.find(id.getString());
+				auto tr = trlist.lock_shared()->find(id.getString()).lock_shared();
 				if (tr == nullptr) {
 					req.sendErrorPage(404);
 					return;
@@ -1145,18 +1133,18 @@ bool WebCfg::reqUploadTrades(simpleServer::HTTPRequest req) const {
 						return BTPrice{tm, p};
 				});
 				bt.minfo = minfo;
-				Sync _(state->lock);
-				state->upload_progress = -1;
-				state->backtest_cache = BacktestCache(bt, id.toString().str());
+				tr.release();
+				auto lkst = state.lock();
+				lkst->upload_progress = -1;
+				lkst->backtest_cache = BacktestCache(bt, id.toString().str());
 				req.sendResponse("application/json", "true");
 			} catch (std::exception &e) {
 				req.sendErrorPage(400,"",e.what());
 			}
 		});
-	});
 	return true;
 }
-bool WebCfg::generateTrades(Traders &trlist, ondra_shared::RefCntPtr<State> state, json::Value args) {
+bool WebCfg::generateTrades(const SharedObject<Traders> &trlist, PState state, json::Value args) {
 	try {
 		Value id = args["id"];
 		Value sma = args["sma"];
@@ -1168,40 +1156,40 @@ bool WebCfg::generateTrades(Traders &trlist, ondra_shared::RefCntPtr<State> stat
 		Value dynmult_sliding = args["sliding"];
 		Value dynmult_mult = args["dyn_mult"];
 
+		auto lkst = state.lock();
 
-		MTrader *tr = trlist.find(id.getString());
+		auto tr = trlist.lock_shared()->find(id.getString()).lock_shared();
 		if (tr == nullptr) {
-			state->upload_progress = -1;
+			lkst->upload_progress = -1;
 			return false;
 		}
 
 		std::function<std::optional<MTrader::ChartItem>()> source;
-		Sync _(state->lock);
-		state->upload_progress = 0;
-		if (!state->prices_cache.available(id.getString())) {
+		lkst->upload_progress = 0;
+		if (!lkst->prices_cache.available(id.getString())) {
 			auto chart = tr->getChart();
 			source = [=,pos = std::size_t(0) ]() mutable {
-				if (state->cancel_upload || pos >= chart.size()) {
+				if (state.lock_shared()->cancel_upload || pos >= chart.size()) {
 					return std::optional<MTrader::ChartItem>();
 				}
-				state->upload_progress = (pos * 100)/chart.size();
+				state.lock()->upload_progress = (pos * 100)/chart.size();
 				return std::optional<MTrader::ChartItem>(chart[pos++]);
 			};
 		} else {
-			auto prc = state->prices_cache.getSubject();
+			auto prc = lkst->prices_cache.getSubject();
 			auto now = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 			source = [prc = std::move(prc), pos = std::size_t(0), state , now]() mutable {
 				std::size_t sz = prc.size();
-				if (state->cancel_upload || pos >= sz) {
+				if (state.lock_shared()->cancel_upload || pos >= sz) {
 					return std::optional<MTrader::ChartItem>();
 				}
 				double p = prc[pos++];
-				state->upload_progress = (pos * 100)/sz;
+				state.lock()->upload_progress = (pos * 100)/sz;
 				return std::optional<MTrader::ChartItem>(MTrader::ChartItem{now - (sz - pos)*60000,p,p,p});
 			};
 		}
-		state->cancel_upload = false;
-		_.unlock();
+		lkst->cancel_upload = false;
+		lkst.release();
 		MTrader::VisRes trades = MTrader::visualizeSpread(std::move(source),sma.getNumber(),stdev.getNumber(),mult.getNumber(),
 				dynmult_raise.getValueOrDefault(1.0),
 				dynmult_fall.getValueOrDefault(1.0),
@@ -1215,16 +1203,13 @@ bool WebCfg::generateTrades(Traders &trlist, ondra_shared::RefCntPtr<State> stat
 				return BTPrice{itm.time, itm.price};
 		});
 		bt.minfo = tr->getMarketInfo();
-		_.lock();
-		state->upload_progress = -1;
-		state->backtest_cache = BacktestCache(bt, id.toString().str());
-		_.unlock();
+		lkst = state.lock();
+		lkst->upload_progress = -1;
+		lkst->backtest_cache = BacktestCache(bt, id.toString().str());
 		return true;
 	} catch (std::exception &e) {
 		logError("Error: $1", e.what());
-		Sync _(state->lock);
-		state->upload_progress = -1;
-		_.unlock();
+		state.lock()->upload_progress = -1;
 		return false;
 	}
 

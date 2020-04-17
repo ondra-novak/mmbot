@@ -14,6 +14,7 @@
 #include "istockapi.h"
 #include "storage.h"
 #include "../shared/linear_map.h"
+#include "../shared/shared_object.h"
 #include "../shared/stdLogOutput.h"
 #include "../shared/stringview.h"
 #include "istatsvc.h"
@@ -59,8 +60,8 @@ public:
 
 	virtual void setError(StrViewA symb, const ErrorObj &errorObj);
 
-	ondra_shared::PStdLogProviderFactory captureLog(ondra_shared::PStdLogProviderFactory target);
-	Sync report_lock() const {return Sync(lock);}
+	static ondra_shared::PStdLogProviderFactory captureLog(const ondra_shared::SharedObject<Report> &rpt, ondra_shared::PStdLogProviderFactory target);
+
 
 protected:
 
@@ -96,7 +97,6 @@ protected:
 	json::Value perfRep;
 
 	StoragePtr report;
-	mutable std::recursive_mutex lock;
 
 
 	void exportCharts(json::Object&& out);

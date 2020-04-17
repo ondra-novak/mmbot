@@ -25,13 +25,11 @@ using namespace std::chrono;
 using namespace json;
 
 void Report::setInterval(std::uint64_t interval) {
-	Sync _(lock);
 	this->interval_in_ms = interval;
 }
 
 
 void Report::genReport() {
-	Sync _(lock);
 
 	Object st;
 	exportCharts(st.object("charts"));
@@ -58,7 +56,6 @@ struct ChartData {
 
 void Report::setOrders(StrViewA symb, const std::optional<IStockApi::Order> &buy,
 	  	  	  	  	  	  	  	     const std::optional<IStockApi::Order> &sell) {
-	Sync _(lock);
 	const json::Value &info = infoMap[symb];
 	bool inverted = info["inverted"].getBool();
 
@@ -84,7 +81,6 @@ void Report::setOrders(StrViewA symb, const std::optional<IStockApi::Order> &buy
 
 
 void Report::setTrades(StrViewA symb, StringView<IStatSvc::TradeRecord> trades) {
-	Sync _(lock);
 
 	using ondra_shared::range;
 
@@ -178,7 +174,6 @@ bool Report::OKeyCmp::operator ()(const OKey& a, const OKey& b) const {
 }
 
 void Report::setInfo(StrViewA symb, const InfoObj &infoObj) {
-	Sync _(lock);
 	infoMap[symb] = Object
 			("title",infoObj.title)
 			("currency", infoObj.currencySymb)
@@ -192,7 +187,6 @@ void Report::setInfo(StrViewA symb, const InfoObj &infoObj) {
 }
 
 void Report::setPrice(StrViewA symb, double price) {
-	Sync _(lock);
 
 	const json::Value &info = infoMap[symb];
 	bool inverted = info["inverted"].getBool();
@@ -228,7 +222,6 @@ void Report::exportPrices(json::Object &&out) {
 }
 
 void Report::setError(StrViewA symb, const ErrorObj &errorObj) {
-	Sync _(lock);
 
 	const json::Value &info = infoMap[symb];
 	bool inverted = info["inverted"].getBool();
@@ -249,7 +242,6 @@ void Report::exportMisc(json::Object &&out) {
 }
 
 void Report::addLogLine(StrViewA ln) {
-	Sync _(lock);
 	logLines.push_back(ln);
 }
 
@@ -257,19 +249,19 @@ using namespace ondra_shared;
 
 class CaptureLog: public ondra_shared::StdLogProviderFactory {
 public:
-	CaptureLog(Report &rpt, ondra_shared::PStdLogProviderFactory target):rpt(rpt),target(target) {}
+	CaptureLog(const ondra_shared::SharedObject<Report> &rpt, ondra_shared::PStdLogProviderFactory target):rpt(rpt),target(target) {}
 
 	virtual void writeToLog(const StrViewA &line, const std::time_t &, LogLevel level) override;
 	virtual bool isLogLevelEnabled(ondra_shared::LogLevel lev) const override;
 
 
 protected:
-	Report &rpt;
+	SharedObject<Report> rpt;
 	ondra_shared::PStdLogProviderFactory target;
 };
 
 inline void CaptureLog::writeToLog(const StrViewA& line, const std::time_t&tm, LogLevel level) {
-	if (level >= LogLevel::info) rpt.addLogLine(line);
+	if (level >= LogLevel::info) rpt.lock()->addLogLine(line);
 	target->sendToLog(line, tm, level);
 }
 
@@ -277,12 +269,11 @@ inline bool CaptureLog::isLogLevelEnabled(ondra_shared::LogLevel lev) const {
 	return target->isLogLevelEnabled(lev);
 }
 
-ondra_shared::PStdLogProviderFactory Report::captureLog(ondra_shared::PStdLogProviderFactory target) {
-	return new CaptureLog(*this, target);
+ondra_shared::PStdLogProviderFactory Report::captureLog(const ondra_shared::SharedObject<Report> &rpt, ondra_shared::PStdLogProviderFactory target) {
+	return new CaptureLog(rpt, target);
 }
 
 void Report::setMisc(StrViewA symb, const MiscData &miscData) {
-	Sync _(lock);
 
 	const json::Value &info = infoMap[symb];
 	bool inverted = info["inverted"].getBool();
@@ -322,7 +313,6 @@ void Report::setMisc(StrViewA symb, const MiscData &miscData) {
 }
 
 void Report::clear(StrViewA symb) {
-	Sync _(lock);
 	tradeMap.erase(symb);
 	infoMap.erase(symb);
 	priceMap.erase(symb);
@@ -332,7 +322,6 @@ void Report::clear(StrViewA symb) {
 }
 
 void Report::perfReport(json::Value report) {
-	Sync _(lock);
 	perfRep = report;
 }
 

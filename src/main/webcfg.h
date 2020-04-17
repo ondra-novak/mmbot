@@ -38,7 +38,7 @@ public:
 			:t(t),name(name) {}
 
 		const T getSubject() const {return t;}
-		bool available(const std::string_view &name) {
+		bool available(const std::string_view &name) const {
 			return name == this->name;
 		}
 		void clear() {
@@ -67,7 +67,6 @@ public:
 
 	class State : public ondra_shared::RefCntObj{
 	public:
-		std::recursive_mutex lock;
 		unsigned int write_serial = 0;
 		PStorage config;
 		ondra_shared::RefCntPtr<AuthUserList> users, admins;
@@ -86,14 +85,10 @@ public:
 				  users(users),
 				  admins(admins) {}
 
-		~State() {
-			lock.lock();
-			lock.unlock();
-		}
 
 		void init();
 		void init(json::Value v);
-		void applyConfig(Traders &t);
+		void applyConfig(SharedObject<Traders> &t);
 		void setAdminAuth(json::StrViewA auth);
 		void setAdminUser(const std::string &uname, const std::string &pwd);
 		ondra_shared::linear_set<std::string> logout_users;
@@ -104,14 +99,14 @@ public:
 	};
 
 
-	WebCfg( ondra_shared::RefCntPtr<State> state,
+	WebCfg( const SharedObject<State> &state,
 			const std::string &realm,
-			Traders &traders,
+			const SharedObject<Traders> &traders,
 			Dispatch &&dispatch);
 
 	~WebCfg();
 
-	bool operator()(const simpleServer::HTTPRequest &req,  const ondra_shared::StrViewA &vpath) const;
+	bool operator()(const simpleServer::HTTPRequest &req,  const ondra_shared::StrViewA &vpath);
 
 
 	enum Command {
@@ -131,7 +126,7 @@ public:
 	};
 
 	AuthMapper auth;
-	Traders &trlist;
+	SharedObject<Traders> trlist;
 	Dispatch dispatch;
 	unsigned int serial;
 
@@ -139,26 +134,26 @@ public:
 
 
 protected:
-	bool reqConfig(simpleServer::HTTPRequest req) const;
-	bool reqSerial(simpleServer::HTTPRequest req) const;
-	bool reqBrokers(simpleServer::HTTPRequest req, ondra_shared::StrViewA rest) const;
-	bool reqTraders(simpleServer::HTTPRequest req, ondra_shared::StrViewA rest) const;
-	bool reqLogout(simpleServer::HTTPRequest req, bool commit) const;
-	bool reqStop(simpleServer::HTTPRequest req) const;
-	bool reqLogin(simpleServer::HTTPRequest req) const;
-	bool reqBrokerSpec(simpleServer::HTTPRequest req, ondra_shared::StrViewA rest, IStockApi *api, ondra_shared::StrViewA broker_name) const;
-	bool reqEditor(simpleServer::HTTPRequest req) const;
-	bool reqBacktest(simpleServer::HTTPRequest req) const;
-	bool reqSpread(simpleServer::HTTPRequest req) const;
-	bool reqUploadPrices(simpleServer::HTTPRequest req) const;
-	bool reqUploadTrades(simpleServer::HTTPRequest req) const;
+	bool reqConfig(simpleServer::HTTPRequest req);
+	bool reqSerial(simpleServer::HTTPRequest req);
+	bool reqBrokers(simpleServer::HTTPRequest req, ondra_shared::StrViewA rest);
+	bool reqTraders(simpleServer::HTTPRequest req, ondra_shared::StrViewA rest);
+	bool reqLogout(simpleServer::HTTPRequest req, bool commit);
+	bool reqStop(simpleServer::HTTPRequest req);
+	bool reqLogin(simpleServer::HTTPRequest req);
+	bool reqBrokerSpec(simpleServer::HTTPRequest req, ondra_shared::StrViewA rest, IStockApi *api, ondra_shared::StrViewA broker_name);
+	bool reqEditor(simpleServer::HTTPRequest req);
+	bool reqBacktest(simpleServer::HTTPRequest req);
+	bool reqSpread(simpleServer::HTTPRequest req);
+	bool reqUploadPrices(simpleServer::HTTPRequest req);
+	bool reqUploadTrades(simpleServer::HTTPRequest req);
 
 	using Sync = std::unique_lock<std::recursive_mutex>;
 
+	using PState = SharedObject<State>;
 
-
-	ondra_shared::RefCntPtr<State> state;
-	static bool generateTrades(Traders &trlist, ondra_shared::RefCntPtr<State> state, json::Value args);
+	PState state;
+	static bool generateTrades(const SharedObject<Traders> &trlist, PState state, json::Value args);
 };
 
 

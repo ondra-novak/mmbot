@@ -56,7 +56,7 @@ using ondra_shared::RefCntObj;
 using ondra_shared::RefCntPtr;
 using ondra_shared::schedulerGetWorker;
 
-std::unique_ptr<Traders> traders;
+ondra_shared::SharedObject<Traders> traders;
 
 template<typename Fn>
 auto run_in_worker(Worker wrk, Fn &&fn) -> decltype(fn()) {
@@ -84,14 +84,14 @@ static int eraseTradeHandler(Worker &wrk, simpleServer::ArgList args, std::ostre
 		stream << "Needsd arguments: <trader_ident> <trade_id>" << std::endl;
 		return 1;
 	} else {
-		NamedMTrader *trader = traders->find(args[0]);
+		auto trader = traders.lock_shared()->find(args[0]);
 		if (trader == nullptr) {
 			stream << "Trader idenitification is invalid: " << args[0] << std::endl;
 			return 2;
 		} else {
 			try {
 				bool res = run_in_worker(wrk, [&] {
-					return trader->eraseTrade(args[1],trunc);
+					return trader.lock()->eraseTrade(args[1],trunc);
 				});
 				if (!res) {
 					stream << "Trade not found: " << args[1] << std::endl;
@@ -112,7 +112,7 @@ static int cmd_singlecmd(Worker &wrk, simpleServer::ArgList args, std::ostream &
 	if (args.empty()) {
 		stream << "Need argument: <trader_ident>\n"; return 1;
 	}
-	NamedMTrader *trader = traders->find(args[0]);
+	auto trader = traders.lock_shared()->find(args[0]).lock();
 	if (trader == nullptr) {
 		stream << "Trader idenitification is invalid: " << args[0] << "\n";
 		return 1;
@@ -220,7 +220,7 @@ public:
 
 
 				return simpleServer::ServiceControl::create(name, pidfile, cmd,
-					[&](simpleServer::ServiceControl cntr, ondra_shared::StrViewA name, simpleServer::ArgList arglist) {
+					[&](simpleServer::ServiceControl cntr, ondra_shared::StrViewA name, simpleServer::ArgList arglist) mutable {
 
 					{
 						if (app.verbose && cntr.isDaemon()) {
@@ -250,14 +250,10 @@ public:
 						auto rptinterval = rptsect["interval"].getUInt(864000000);
 						auto dr = rptsect["report_broker"];
 						auto isim = rptsect["include_simulators"].getBool(false);
-						auto threads = servicesection["thread_pool"].getInt(0);
-						auto asyncProvider = simpleServer::ThreadPoolAsync::create(std::max<int>(threads,1),1);
+						auto asyncProvider = simpleServer::ThreadPoolAsync::create(2,1);
 
 						Strategy::setConfig(app.config["strategy"]);
 
-						Worker traderWorker;
-
-						if (threads>1) traderWorker = asyncProvider;
 
 
 						PStorageFactory sf;
@@ -275,19 +271,19 @@ public:
 
 						StorageFactory rptf(rptpath,2,Storage::json);
 
-						Report rpt(rptf.create("report.json"), rptinterval);
+						PReport rpt = PReport::make(rptf.create("report.json"), rptinterval);
 
 
-						std::unique_ptr<IDailyPerfModule> perfmod;
+						PPerfModule perfmod;
 						if (dr.defined())
 						{
 							std::string cmdline;
 							std::string workdir;
 							cmdline = dr.getPath();
 							workdir = dr.getCurPath();
-							perfmod = std::make_unique<ExtDailyPerfMod>(workdir,"performance_module", cmdline, isim, brk_timeout);
+							perfmod = SharedObject<ExtDailyPerfMod>::make(workdir,"performance_module", cmdline, isim, brk_timeout).cast<IDailyPerfModule>();
 						} else {
-							perfmod = std::make_unique<LocalDailyPerfMonitor>(sf->create("_performance_daily"), storagePath+"/_performance_current",isim);
+							perfmod = SharedObject<LocalDailyPerfMonitor>::make(sf->create("_performance_daily"), storagePath+"/_performance_current",isim).cast<IDailyPerfModule>();
 						}
 
 
@@ -295,18 +291,18 @@ public:
 						Worker wrk = schedulerGetWorker(sch);
 
 
-						traders = std::make_unique<Traders>(
-								sch,app.config["brokers"], app.test,sf,rpt,*perfmod, rptpath, traderWorker, brk_timeout
+						traders = traders.make(
+								sch,app.config["brokers"], app.test,sf,rpt,perfmod, rptpath,  brk_timeout
 						);
 
 						RefCntPtr<AuthUserList> aul;
 
-						RefCntPtr<WebCfg::State> webcfgstate;
+						SharedObject<WebCfg::State> webcfgstate;
 						StrViewA webadmin_auth = servicesection["admin"].getString();
-						webcfgstate = new WebCfg::State(sf->create("web_admin_conf"),new AuthUserList, new AuthUserList);
-						webcfgstate->setAdminAuth(webadmin_auth);
-						webcfgstate->applyConfig(*traders);
-						aul = webcfgstate->users;
+						webcfgstate = SharedObject<WebCfg::State>::make(sf->create("web_admin_conf"),new AuthUserList, new AuthUserList);
+						webcfgstate.lock()->setAdminAuth(webadmin_auth);
+						webcfgstate.lock()->applyConfig(traders);
+						aul = webcfgstate.lock_shared()->users;
 
 						std::unique_ptr<simpleServer::MiniHttpServer> srv;
 
@@ -338,7 +334,7 @@ public:
 							paths.push_back({
 								"/admin",ondra_shared::shared_function<bool(simpleServer::HTTPRequest, ondra_shared::StrViewA)>(WebCfg(webcfgstate,
 										name,
-										*traders,
+										traders,
 										[=](WebCfg::Action &&a) mutable {sch.immediate() >> std::move(a);}))
 							});
 							(*srv)  >>=  simpleServer::HttpStaticPathMapperHandler(paths);
@@ -384,37 +380,46 @@ public:
 							std::ostringstream buff;
 							for (unsigned int i = 0; i < 16; i++) buff<<static_cast<char>(dist(rnd));
 							std::string lgn = buff.str();
-							webcfgstate->setAdminUser("admin",lgn);
+							webcfgstate.lock()->setAdminUser("admin",lgn);
 							out << "Username: admin" << std::endl << "Password: " << lgn << std::endl;
 							return 0;
 						};
-						std::size_t id = 0;
-						cntr.on_run() >> [&] {
+						cntr.on_run() >> [=]() mutable {
 
 							ondra_shared::PStdLogProviderFactory current =
 									&dynamic_cast<ondra_shared::StdLogProviderFactory &>(*ondra_shared::AbstractLogProviderFactory::getInstance());
-							ondra_shared::PStdLogProviderFactory logcap = rpt.captureLog(current);
+							ondra_shared::PStdLogProviderFactory logcap = Report::captureLog(rpt, current);
 
 							sch.immediate() >> [logcap]{
 								ondra_shared::AbstractLogProvider::getInstance() = logcap->create();
 							};
 
 
-							auto main_cycle = [&] {
 
-
-								try {
-									traders->runTraders(false);
-									rpt.perfReport(perfmod->getReport());
-									rpt.genReport();
-								} catch (std::exception &e) {
-									logError("Scheduler exception: $1", e.what());
-								}
+							auto report_cycle = [=]() mutable {
+								auto rptl = rpt.lock();
+								rptl->perfReport(perfmod.lock()->getReport());
+								rptl->genReport();
 							};
 
-							sch.after(std::chrono::seconds(1)) >> main_cycle;
+							auto trader_cycle = [=]() mutable {
+								traders.lock()->resetBrokers();
+								traders.lock_shared()->enumTraders([&](const auto & trinfo){
+									sch.immediate()>>[tr = trinfo.second]()mutable{
+										try {
+											tr.lock()->perform(false);
+										} catch (std::exception &e) {
+											logError("Scheduler exception: $1", e.what());
+										}
+									};
+								});
+								sch.after(std::chrono::seconds(1)) >> report_cycle;
 
-							id = sch.each(std::chrono::minutes(1)) >> main_cycle;
+							};
+
+
+							sch.after(std::chrono::seconds(1)) >> trader_cycle;
+							sch.each(std::chrono::minutes(1)) >> trader_cycle;
 
 
 							return 0;
@@ -426,7 +431,7 @@ public:
 						sch.removeAll();
 						logNote("---- Waiting to finish cycle ----");
 						sch.sync();
-						traders->clear();
+						traders.lock()->clear();
 					}
 					logNote("---- Exit ----");
 

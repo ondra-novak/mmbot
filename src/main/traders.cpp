@@ -87,10 +87,9 @@ Traders::Traders(ondra_shared::Scheduler sch,
 		const ondra_shared::IniConfig::Section &ini,
 		bool test,
 		PStorageFactory &sf,
-		Report &rpt,
-		IDailyPerfModule &perfMod,
+		const PReport &rpt,
+		const PPerfModule &perfMod,
 		std::string iconPath,
-		Worker worker,
 		int brk_timeout)
 
 :
@@ -99,13 +98,11 @@ test(test)
 ,rpt(rpt)
 ,perfMod(perfMod)
 ,iconPath(iconPath)
-,worker(worker)
 {
 	stockSelector.loadBrokers(ini, test, brk_timeout);
 }
 
 void Traders::clear() {
-	chgcnt++;
 	traders.clear();
 	stockSelector.clear();
 }
@@ -118,7 +115,6 @@ void Traders::loadIcon(MTrader &t) {
 }
 
 void Traders::addTrader(const MTrader::Config &mcfg ,ondra_shared::StrViewA n) {
-	chgcnt++;
 	using namespace ondra_shared;
 
 	LogObject lg(n);
@@ -126,10 +122,11 @@ void Traders::addTrader(const MTrader::Config &mcfg ,ondra_shared::StrViewA n) {
 	try {
 		logProgress("Started trader $1 (for $2)", n, mcfg.pairsymb);
 		if (stockSelector.checkBrokerSubaccount(mcfg.broker)) {
-			auto t = std::make_unique<NamedMTrader>(stockSelector, sf->create(n),
-				std::make_unique<StatsSvc>(n, rpt, &perfMod), mcfg, n);
-			loadIcon(*t);
-			traders.insert(std::pair(StrViewA(t->ident), std::move(t)));
+			auto t = SharedObject<NamedMTrader>::make(stockSelector, sf->create(n),
+				std::make_unique<StatsSvc>(n, rpt, perfMod), mcfg, n);
+			auto lt = t.lock();
+			loadIcon(*lt);
+			traders.insert(std::pair(StrViewA(lt->ident), std::move(t)));
 		} else {
 			throw std::runtime_error("Unable to load broker");
 		}
@@ -143,9 +140,8 @@ void Traders::addTrader(const MTrader::Config &mcfg ,ondra_shared::StrViewA n) {
 
 
 void Traders::removeTrader(ondra_shared::StrViewA n, bool including_state) {
-	chgcnt++;
-	NamedMTrader *t = find(n);
-	if (t) {
+	auto t = find(n).lock();
+	if (t != nullptr) {
 		if (including_state) {
 			//stop trader
 			t->stop();
@@ -175,7 +171,7 @@ void Traders::resetBrokers() {
 	});
 }
 
-void Traders::runTraders(bool manually) {
+/*void Traders::runTraders(bool manually) {
 
 	if (worker.defined()) {
 		Countdown cdn;
@@ -187,25 +183,23 @@ void Traders::runTraders(bool manually) {
 			};
 		});
 		for (auto &&t : traders) {
-			NamedMTrader *nt = t.second.get();
 			cdn.inc();
-			worker >> [nt,manually,&cdn] {
-				try {nt->perform(manually);} catch (...) {}
+			worker >> [t,manually,&cdn]() mutable {
+				auto lt = t.second.lock();
+				try {lt->perform(manually);} catch (...) {}
 				cdn.dec();
 			};
 		}
 		cdn.wait();
 	} else {
-		unsigned int c = chgcnt;
 		resetBrokers();
 		for (auto &&t : traders) {
-			if (!ondra_shared::Scheduler::nested()) ondra_shared::Scheduler::yield();
-			//because yield can cause adding or removing the trader - detect and when happen, leave the cycle
-			if (c != chgcnt) break;
-			t.second->perform(manually);
+			auto lt = t.second.lock();
+			lt->perform(manually);
 		}
 	}
 }
+*/
 
 Traders::TMap::const_iterator Traders::begin() const {
 	return traders.begin();
@@ -215,15 +209,16 @@ Traders::TMap::const_iterator Traders::end() const {
 	return traders.end();
 }
 
-NamedMTrader *Traders::find(json::StrViewA id) const {
+SharedObject<NamedMTrader> Traders::find(json::StrViewA id) const {
 	auto iter = traders.find(id);
 	if (iter == traders.end()) return nullptr;
-	else return iter->second.get();
+	else return iter->second;
 }
 
 void Traders::loadIcons(const std::string &path) {
 	for (auto &&t: traders) {
-		IStockApi &api = t.second->getBroker();
+		auto lt = t.second.lock_shared();
+		IStockApi &api = lt->getBroker();
 		const IBrokerIcon *bicon = dynamic_cast<const IBrokerIcon *>(&api);
 		if (bicon) bicon->saveIconToDisk(path);
 	}
