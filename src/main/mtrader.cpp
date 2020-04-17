@@ -1083,12 +1083,12 @@ MTrader::SpreadCalcResult MTrader::stCalcSpread(Iter beg, Iter end, unsigned int
 	};
 }
 
-std::optional<double> MTrader::getInternalBalance(const MTrader *ptr) {
-	if (ptr && ptr->cfg.internal_balance) return ptr->internal_balance;
+std::optional<double> MTrader::getInternalBalance() const {
+	if (cfg.internal_balance) return internal_balance;
 	else return std::optional<double>();
 }
-std::optional<double> MTrader::getInternalCurrencyBalance(const MTrader *ptr) {
-	if (ptr && ptr->cfg.internal_balance) return ptr->currency_balance;
+std::optional<double> MTrader::getInternalCurrencyBalance() const {
+	if (cfg.internal_balance) return currency_balance;
 	else return std::optional<double>();
 }
 

@@ -297,9 +297,8 @@ public:
 
 						RefCntPtr<AuthUserList> aul;
 
-						SharedObject<WebCfg::State> webcfgstate;
 						StrViewA webadmin_auth = servicesection["admin"].getString();
-						webcfgstate = SharedObject<WebCfg::State>::make(sf->create("web_admin_conf"),new AuthUserList, new AuthUserList);
+						SharedObject<WebCfg::State> webcfgstate = SharedObject<WebCfg::State>::make(sf->create("web_admin_conf"),new AuthUserList, new AuthUserList);
 						webcfgstate.lock()->setAdminAuth(webadmin_auth);
 						webcfgstate.lock()->applyConfig(traders);
 						aul = webcfgstate.lock_shared()->users;

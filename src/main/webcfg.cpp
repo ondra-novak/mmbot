@@ -598,7 +598,8 @@ bool WebCfg::reqTraders(simpleServer::HTTPRequest req, ondra_shared::StrViewA vp
 					})(broker.getTicker(trl->getConfig().pairsymb)));
 					out.set("orders", getOpenOrders(broker, trl->getConfig().pairsymb));
 					out.set("broker", trl->getConfig().broker);
-					auto ibalance = MTrader::getInternalBalance(trl);
+					std::optional<double> ibalance ;
+					if (trl != nullptr) ibalance = trl->getInternalBalance();
 					out.set("pair", getPairInfo(broker, trl->getConfig().pairsymb, ibalance));
 					req.sendResponse(std::move(hdr), Value(out).stringify());
 				} else if (cmd == "strategy") {
@@ -845,7 +846,11 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req)  {
 					});
 					position = pos;
 				}
-
+				std::optional<double> internalBalance, internalCurrencyBalance;
+				if (trl) {
+					internalBalance = trl->getInternalBalance();
+					internalCurrencyBalance = trl->getInternalCurrencyBalance();
+				}
 				Object result;
 				result.set("broker",Object
 						("name", binfo.name)
@@ -853,7 +858,7 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req)  {
 						("version", binfo.version)
 						("settings", binfo.settings)
 						("trading_enabled", binfo.trading_enabled));
-				result.set("pair", getPairInfo(*api, p, MTrader::getInternalBalance(trl), MTrader::getInternalCurrencyBalance(trl)));
+				result.set("pair", getPairInfo(*api, p, internalBalance, internalCurrencyBalance));
 				result.set("orders", getOpenOrders(*api, p));
 				result.set("strategy", strategy);
 				result.set("position", position);
