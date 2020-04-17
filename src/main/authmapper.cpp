@@ -94,12 +94,23 @@ bool AuthMapper::checkAuth(const simpleServer::HTTPRequest &req) const {
 	using namespace ondra_shared;
 	if (!users->empty()) {
 		auto hdr = req["Authorization"];
-		auto hdr_splt = hdr.split(" ");
-		StrViewA type = hdr_splt();
-		StrViewA cred = hdr_splt();
-		if (type != "Basic") {
-			genError(req);
-			return false;
+		StrViewA cred;
+		if (!hdr.defined()) {
+			hdr = req["Cookie"];
+			auto nps = hdr.indexOf("auth=");
+			if (nps != hdr.npos) {
+				nps+=5;
+				auto nps2 = hdr.indexOf(";", nps);
+				cred =  hdr.substr(nps, nps2 - nps);
+			}
+		} else {
+			auto hdr_splt = hdr.split(" ");
+			StrViewA type = hdr_splt();
+			cred = hdr_splt();
+			if (type != "Basic") {
+				genError(req);
+				return false;
+			}
 		}
 		auto credobj = AuthUserList::decodeBasicAuth(cred);
 		if (!users->findUser(credobj.first, credobj.second)) {

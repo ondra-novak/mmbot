@@ -755,7 +755,10 @@ bool WebCfg::reqLogout(simpleServer::HTTPRequest req, bool commit) {
 		std::time_t t = std::time(nullptr);
 		rndstr = "?";
 		ondra_shared::unsignedToString(t,[&](char c){rndstr.push_back(c);},16,8);
-		req.redirect(strCommand[logout_commit].data+rndstr,Redirect::temporary_GET);
+		HTTPResponse resp((int)Redirect::temporary_GET);
+		resp("Set-Cookie","auth=;Path=/;Max-Age=0");
+		resp("Location", strCommand[logout_commit].data+rndstr);
+		req.sendResponse(resp,StrViewA());
 	}
 
 	return true;

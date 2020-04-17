@@ -336,7 +336,31 @@ public:
 										traders,
 										[=](WebCfg::Action &&a) mutable {sch.immediate() >> std::move(a);}))
 							});
+							paths.push_back({
+								"/set_cookie",[](simpleServer::HTTPRequest req, const ondra_shared::StrViewA &) mutable {
+									if (!req.allowMethods({"POST"})) return true;
+									req.readBodyAsync(1000,[](const simpleServer::HTTPRequest &req){
+										json::BinaryView data(req.getUserBuffer().data(),req.getUserBuffer().size());
+										json::StrViewA strdata(data);
+										auto pos = strdata.indexOf("content=");
+										if (pos != strdata.npos) {
+											pos += 8;
+											auto pos2 = strdata.indexOf("&");
+											StrViewA cookie = strdata.substr(pos, pos2-pos);
+											std::string x = "auth=";
+											x.append(cookie.data, cookie.length);
+											x.append("; Path=/");
+											req.sendResponse(simpleServer::HTTPResponse(202)("Set-Cookie",x),StrViewA());
+										} else {
+											req.sendErrorPage(400);
+										}
+										return true;
+									});
+									return true;
+								}
+							});
 							(*srv)  >>=  simpleServer::HttpStaticPathMapperHandler(paths);
+
 						}
 
 
