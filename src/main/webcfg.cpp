@@ -49,8 +49,9 @@ NamedEnum<WebCfg::Command> WebCfg::strCommand({
 WebCfg::WebCfg( const SharedObject<State> &state,
 		const std::string &realm,
 		const SharedObject<Traders> &traders,
-		Dispatch &&dispatch)
-	:auth(realm, state.lock_shared()->admins)
+		Dispatch &&dispatch,
+		json::PJWTCrypto jwt)
+	:auth(realm, state.lock_shared()->admins,jwt)
 	,trlist(traders)
 	,dispatch(std::move(dispatch))
 	,state(state)
@@ -755,10 +756,7 @@ bool WebCfg::reqLogout(simpleServer::HTTPRequest req, bool commit) {
 		std::time_t t = std::time(nullptr);
 		rndstr = "?";
 		ondra_shared::unsignedToString(t,[&](char c){rndstr.push_back(c);},16,8);
-		HTTPResponse resp((int)Redirect::temporary_GET);
-		resp("Set-Cookie","auth=;Path=/;Max-Age=0");
-		resp("Location", strCommand[logout_commit].data+rndstr);
-		req.sendResponse(resp,StrViewA());
+		req.redirect(strCommand[logout_commit].data+rndstr,Redirect::temporary_GET);
 	}
 
 	return true;

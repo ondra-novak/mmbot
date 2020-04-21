@@ -251,6 +251,7 @@ public:
 						auto dr = rptsect["report_broker"];
 						auto isim = rptsect["include_simulators"].getBool(false);
 						auto asyncProvider = simpleServer::ThreadPoolAsync::create(2,1);
+						auto login_section = app.config["login"];
 
 						Strategy::setConfig(app.config["strategy"]);
 
@@ -297,7 +298,15 @@ public:
 
 						RefCntPtr<AuthUserList> aul;
 
-						StrViewA webadmin_auth = servicesection["admin"].getString();
+						StrViewA webadmin_auth = login_section["admin"].getString();
+						json::PJWTCrypto jwt;
+						{
+							auto jwt_type = login_section["jwt_type"].getString();
+							auto jwt_pubkey = login_section["jwt_pubkey"].getPath();
+							if (!jwt_type.empty() && !jwt_pubkey.empty()) {
+								jwt=AuthMapper::initJWT(jwt_type, jwt_pubkey);
+							}
+						}
 						SharedObject<WebCfg::State> webcfgstate = SharedObject<WebCfg::State>::make(sf->create("web_admin_conf"),new AuthUserList, new AuthUserList);
 						webcfgstate.lock()->setAdminAuth(webadmin_auth);
 						webcfgstate.lock()->applyConfig(traders);
@@ -327,36 +336,18 @@ public:
 
 							std::vector<simpleServer::HttpStaticPathMapper::MapRecord> paths;
 							paths.push_back(simpleServer::HttpStaticPathMapper::MapRecord{
-								"/",AuthMapper(name,aul) >>= simpleServer::HttpFileMapper(std::string(rptpath), "index.html")
+								"/",AuthMapper(name,aul,jwt) >>= simpleServer::HttpFileMapper(std::string(rptpath), "index.html")
 							});
 
 							paths.push_back({
 								"/admin",ondra_shared::shared_function<bool(simpleServer::HTTPRequest, ondra_shared::StrViewA)>(WebCfg(webcfgstate,
 										name,
 										traders,
-										[=](WebCfg::Action &&a) mutable {sch.immediate() >> std::move(a);}))
+										[=](WebCfg::Action &&a) mutable {sch.immediate() >> std::move(a);},jwt))
 							});
 							paths.push_back({
 								"/set_cookie",[](simpleServer::HTTPRequest req, const ondra_shared::StrViewA &) mutable {
-									if (!req.allowMethods({"POST"})) return true;
-									req.readBodyAsync(1000,[](const simpleServer::HTTPRequest &req){
-										json::BinaryView data(req.getUserBuffer().data(),req.getUserBuffer().size());
-										json::StrViewA strdata(data);
-										auto pos = strdata.indexOf("content=");
-										if (pos != strdata.npos) {
-											pos += 8;
-											auto pos2 = strdata.indexOf("&");
-											StrViewA cookie = strdata.substr(pos, pos2-pos);
-											std::string x = "auth=";
-											x.append(cookie.data, cookie.length);
-											x.append("; Path=/");
-											req.sendResponse(simpleServer::HTTPResponse(202)("Set-Cookie",x),StrViewA());
-										} else {
-											req.sendErrorPage(400);
-										}
-										return true;
-									});
-									return true;
+									return AuthMapper::setCookieHandler(req);
 								}
 							});
 							(*srv)  >>=  simpleServer::HttpStaticPathMapperHandler(paths);

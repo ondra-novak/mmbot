@@ -1241,11 +1241,22 @@ App.prototype.save = function() {
 App.prototype.logout = function() {
 	this.desktop.setData({menu:"",content:""});
 	this.config = null;
-	fetch("api/logout").then(function(resp) {
-		if (resp.status == 200) {
-			location.reload();
-		}
-	});
+	if (document.cookie.indexOf("auth=") != -1) {
+		fetch("../set_cookie",{
+			"method":"POST",
+			"body":"&auth=&opt=Max-Age=0"
+		}).then(function(resp) {
+			if (resp.status == 202) {
+				location.reload();
+			}
+		});
+	} else {
+		fetch("api/logout").then(function(resp) {
+			if (resp.status == 200) {
+				location.reload();
+			}
+		});
+	}
 }
 
 App.prototype.validate = function(cfg) {

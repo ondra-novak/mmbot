@@ -10,8 +10,11 @@
 #include <imtjson/binary.h>
 #include <openssl/evp.h>
 #include <openssl/hmac.h>
+#include <openssl/pem.h>
 #include <thread>
 
+#include "../imtjson/src/imtjson/jwtcrypto.h"
+#include "../server/src/simpleServer/query_parser.h"
 bool AuthUserList::findUser(const std::string &user, const std::string &pwdhash) const {
 	Sync _(lock);
 	auto iter = users.find(user);
@@ -84,37 +87,50 @@ std::vector<AuthUserList::LoginPwd> AuthUserList::decodeMultipleBasicAuth(
 	return res;
 }
 
-AuthMapper::AuthMapper(	std::string realm, ondra_shared::RefCntPtr<AuthUserList> users):users(users),realm(realm) {}
+AuthMapper::AuthMapper(	std::string realm, ondra_shared::RefCntPtr<AuthUserList> users, json::PJWTCrypto jwt):users(users),realm(realm),jwt(jwt) {}
 	AuthMapper &AuthMapper::operator >>= (simpleServer::HTTPHandler &&hndl) {
 		handler = std::move(hndl);
 		return *this;
 	}
 
+static StrViewA findAuthCookie(StrViewA cookie){
+	auto n = cookie.indexOf("auth=");
+	if (n != cookie.npos) {
+		n+=5;
+		auto m = cookie.indexOf(";", n);
+		return cookie.substr(n, m-n);
+	} else {
+		return StrViewA();
+	}
+}
+
 bool AuthMapper::checkAuth(const simpleServer::HTTPRequest &req) const {
 	using namespace ondra_shared;
 	if (!users->empty()) {
 		auto hdr = req["Authorization"];
-		StrViewA cred;
-		if (!hdr.defined()) {
-			hdr = req["Cookie"];
-			auto nps = hdr.indexOf("auth=");
-			if (nps != hdr.npos) {
-				nps+=5;
-				auto nps2 = hdr.indexOf(";", nps);
-				cred =  hdr.substr(nps, nps2 - nps);
-			}
+		StrViewA authhdr;
+		if (hdr.defined()) {
+			authhdr=hdr;
 		} else {
-			auto hdr_splt = hdr.split(" ");
-			StrViewA type = hdr_splt();
-			cred = hdr_splt();
-			if (type != "Basic") {
+			authhdr=findAuthCookie(req["Cookie"]);
+		}
+		auto hdr_splt = authhdr.split(" ");
+		StrViewA type = hdr_splt();
+		StrViewA cred = hdr_splt();
+		if (type == "Basic") {
+			auto credobj = AuthUserList::decodeBasicAuth(cred);
+			if (!users->findUser(credobj.first, credobj.second)) {
+				std::this_thread::sleep_for(std::chrono::seconds(1));
 				genError(req);
 				return false;
 			}
-		}
-		auto credobj = AuthUserList::decodeBasicAuth(cred);
-		if (!users->findUser(credobj.first, credobj.second)) {
-			std::this_thread::sleep_for(std::chrono::seconds(1));
+		} else if (type == "Bearer" && jwt != nullptr) {
+			json::Value v = json::checkJWTTime(json::parseJWT(cred, jwt));
+			if (!v.hasValue()) {
+				genError(req);
+				return false;
+			}
+		} else {
 			genError(req);
 			return false;
 		}
@@ -137,4 +153,67 @@ void AuthMapper::genError(simpleServer::HTTPRequest req) const {
 		("WWW-Authenticate","Basic realm=\""+realm+"\""),
 		"<html><body><h1>401 Unauthorized</h1></body></html>"
 		);
+}
+
+json::PJWTCrypto AuthMapper::initJWT(const std::string &type, const std::string &pubkeyfile) {
+	auto t = type.substr(0,2);
+	auto b = type.substr(2);
+	int bits = 0;
+	json::PJWTCrypto out;
+	for(char c: b) {
+		if (std::isdigit(c)) bits = bits * 10 + (c - '0'); else return out;
+	}
+	FILE *f = fopen(pubkeyfile.c_str(),"r");
+	if (f == nullptr) return out;
+	if (t == "RS") {
+		RSA *r = nullptr;
+		if (PEM_read_RSA_PUBKEY(f,&r,0,0) == nullptr) {
+			fclose(f);
+			throw std::runtime_error("Error parsing RSA public key file: "+ pubkeyfile);
+		}
+		out = new json::JWTCrypto_RS(r, bits);
+	} else if (t == "ES") {
+		EC_KEY *eck = nullptr;
+		if (PEM_read_EC_PUBKEY(f,&eck,0,0) == nullptr) {
+			fclose(f);
+			throw std::runtime_error("Error parsing ECDSA public key file: "+ pubkeyfile);
+		}
+		out = new json::JWTCrypto_ES(eck, bits);
+	}
+	fclose(f);
+	return out;
+
+}
+
+bool AuthMapper::setCookieHandler(simpleServer::HTTPRequest req) {
+	if (!req.allowMethods({"POST"})) return true;
+	req.readBodyAsync(1000,[](simpleServer::HTTPRequest req){
+		StrViewA body(BinaryView(req.getUserBuffer()));
+		simpleServer::QueryParser qp;
+		StrViewA redir;
+		StrViewA auth;
+		StrViewA opt;
+		qp.parse(body, true);
+		for (auto &&v : qp) {
+			if (v.first == "redir") {
+				redir = v.second;
+			} else if (v.first == "auth") {
+				auth = v.second;
+			} else if (v.first == "opt") {
+				opt = v.second;
+			}
+		}
+		std::string cookie = "auth=";
+		cookie.append(auth.data, auth.length);
+		if (!opt.empty()) {
+			cookie.append("; ");
+			cookie.append(opt.data, opt.length);
+		}
+		simpleServer::HTTPResponse resp(redir.empty()?202:302);
+		if (!redir.empty()) resp("Location", redir);
+		resp("Set-Cookie", cookie);
+		req.sendResponse(std::move(resp), StrViewA());
+	});
+	return true;
+
 }

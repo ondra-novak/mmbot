@@ -9,12 +9,13 @@
 #define SRC_MAIN_AUTHMAPPER_H_
 #include <shared/refcnt.h>
 #include <imtjson/stringview.h>
+#include <imtjson/jwt.h>
 #include <mutex>
 #include <string>
 #include <vector>
 
-#include "../server/src/simpleServer/http_parser.h"
-#include "../shared/linear_map.h"
+#include <simpleServer/http_parser.h>
+#include <shared/linear_map.h>
 
 class AuthUserList: public ondra_shared::RefCntObj {
 public:
@@ -45,7 +46,7 @@ protected:
 class AuthMapper {
 public:
 
-	AuthMapper(	std::string realm, ondra_shared::RefCntPtr<AuthUserList> users);
+	AuthMapper(	std::string realm, ondra_shared::RefCntPtr<AuthUserList> users, json::PJWTCrypto jwt);
 	AuthMapper &operator >>= (simpleServer::HTTPHandler &&hndl);
 	bool checkAuth(const simpleServer::HTTPRequest &req) const;
 	void operator()(const simpleServer::HTTPRequest &req) const;
@@ -53,11 +54,15 @@ public:
 	void genError(simpleServer::HTTPRequest req) const;
 	ondra_shared::RefCntPtr<AuthUserList> getUsers() const {return users;}
 
+	static json::PJWTCrypto initJWT(const std::string &type, const std::string &pubkeyfile);
+	static bool setCookieHandler(simpleServer::HTTPRequest req);
+
 protected:
 //	AuthMapper(	std::string users, std::string realm, simpleServer::HTTPHandler &&handler):users(users), handler(std::move(handler)) {}
 	ondra_shared::RefCntPtr<AuthUserList> users;
 	std::string realm;
 	simpleServer::HTTPHandler handler;
+	json::PJWTCrypto jwt;
 };
 
 

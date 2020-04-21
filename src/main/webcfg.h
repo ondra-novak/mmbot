@@ -102,7 +102,8 @@ public:
 	WebCfg( const SharedObject<State> &state,
 			const std::string &realm,
 			const SharedObject<Traders> &traders,
-			Dispatch &&dispatch);
+			Dispatch &&dispatch,
+			json::PJWTCrypto jwt);
 
 	~WebCfg();
 
