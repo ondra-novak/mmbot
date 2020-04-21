@@ -51,8 +51,9 @@ public:
 	bool checkAuth(const simpleServer::HTTPRequest &req) const;
 	void operator()(const simpleServer::HTTPRequest &req) const;
 	bool operator()(const simpleServer::HTTPRequest &req, const ondra_shared::StrViewA &) const;
-	void genError(simpleServer::HTTPRequest req) const;
+	static void genError(simpleServer::HTTPRequest req, const std::string &realm) ;
 	ondra_shared::RefCntPtr<AuthUserList> getUsers() const {return users;}
+	void genError(simpleServer::HTTPRequest req) const {genError(req, realm);}
 
 	static json::PJWTCrypto initJWT(const std::string &type, const std::string &pubkeyfile);
 	static bool setCookieHandler(simpleServer::HTTPRequest req);

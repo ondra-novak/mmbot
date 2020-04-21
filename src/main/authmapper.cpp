@@ -121,17 +121,17 @@ bool AuthMapper::checkAuth(const simpleServer::HTTPRequest &req) const {
 			auto credobj = AuthUserList::decodeBasicAuth(cred);
 			if (!users->findUser(credobj.first, credobj.second)) {
 				std::this_thread::sleep_for(std::chrono::seconds(1));
-				genError(req);
+				genError(req,realm);
 				return false;
 			}
 		} else if (type == "Bearer" && jwt != nullptr) {
 			json::Value v = json::checkJWTTime(json::parseJWT(cred, jwt));
 			if (!v.hasValue()) {
-				genError(req);
+				genError(req,realm);
 				return false;
 			}
 		} else {
-			genError(req);
+			genError(req,realm);
 			return false;
 		}
 	}
@@ -147,7 +147,7 @@ bool AuthMapper::operator()(const simpleServer::HTTPRequest &req, const ondra_sh
 	return true;
 }
 
-void AuthMapper::genError(simpleServer::HTTPRequest req) const {
+void AuthMapper::genError(simpleServer::HTTPRequest req, const std::string &realm)  {
 	req.sendResponse(simpleServer::HTTPResponse(401)
 		.contentType("text/html")
 		("WWW-Authenticate","Basic realm=\""+realm+"\""),
@@ -199,11 +199,26 @@ bool AuthMapper::setCookieHandler(simpleServer::HTTPRequest req) {
 				redir = v.second;
 			} else if (v.first == "auth") {
 				auth = v.second;
-			} else if (v.first == "opt") {
-				opt = v.second;
+			} else if (v.first == "permanent") {
+				opt = v.second == "true"?"Max-Age=34560000":"";
 			}
 		}
 		std::string cookie = "auth=";
+		if (auth == "auth") {
+			auto hdr = req["Authorization"];
+			StrViewA authhdr;
+			if (hdr.defined()) {
+				auth=hdr;
+			} else {
+				auth=findAuthCookie(req["Cookie"]);
+			}
+			if (auth.empty()) {
+				return genError(req,"mmbot");
+			}
+		}
+		if (auth.empty()) {
+			opt = "Max-Age=0";
+		}
 		cookie.append(auth.data, auth.length);
 		if (!opt.empty()) {
 			cookie.append("; ");

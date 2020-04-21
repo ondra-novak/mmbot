@@ -1132,7 +1132,7 @@ App.prototype.securityForm = function() {
 				}.bind(this));
 			}.bind(this));
 			
-		
+		var iscookie = document.cookie.indexOf("auth=") != -1;
 		var data = {
 			rows:rows,
 			brokers:brokers,
@@ -1151,6 +1151,7 @@ App.prototype.securityForm = function() {
 				
 			},
 			"logout":{"!click": this.logout.bind(this)},
+			"remember":{"!click": iscookie?this.logout.bind(this):this.remember.bind(this),"value":iscookie},
 			guest_role:{
 				"!change":function() {
 					this.config.guest = form.readData(["guest_role"]).guest_role == "viewer";
@@ -1244,7 +1245,7 @@ App.prototype.logout = function() {
 	if (document.cookie.indexOf("auth=") != -1) {
 		fetch("../set_cookie",{
 			"method":"POST",
-			"body":"&auth=&opt=Max-Age=0"
+			"body":"auth="
 		}).then(function(resp) {
 			if (resp.status == 202) {
 				location.reload();
@@ -1258,6 +1259,37 @@ App.prototype.logout = function() {
 		});
 	}
 }
+
+App.prototype.remember = function() {
+	
+	function post(path, params, method='post') {
+
+		  const form = document.createElement('form');
+		  form.method = method;
+		  form.action = path;
+
+		  for (const key in params) {
+		    if (params.hasOwnProperty(key)) {
+		      const hiddenField = document.createElement('input');
+		      hiddenField.type = 'hidden';
+		      hiddenField.name = key;
+		      hiddenField.value = params[key];
+
+		      form.appendChild(hiddenField);
+		    }
+		  }
+
+		  document.body.appendChild(form);
+		  form.submit();
+	}
+	
+	post("../set_cookie", {
+		"auth":"auth",
+		"permanent":"true",
+		"redir":"admin/index.html"
+	});
+}
+
 
 App.prototype.validate = function(cfg) {
 	return new Promise(function(ok, error) {
