@@ -153,7 +153,7 @@ Interface::Orders Interface::getOpenOrders(const std::string_view & pair) {
 
 		 for (Value p: orderCache) {
 			 for (Value o: p) {
-				 Value onum = o["orderNumber"];
+				 Value onum = o["orderNumber"].toString();
 				 orderdb.mark(onum);
 			 }
 		 }
@@ -243,7 +243,7 @@ json::Value Interface::placeOrder(const std::string_view & pair,
 			("postOnly", 1)
 	);
 
-	Value onum = res["orderNumber"];
+	Value onum = res["orderNumber"].toString();
 	if (!onum.defined()) throw std::runtime_error("Order was not placed (missing orderNUmber)");
 	if (clientId.defined())
 		orderdb.store(onum, clientId);
