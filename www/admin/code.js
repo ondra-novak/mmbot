@@ -1830,22 +1830,30 @@ App.prototype.tradingForm = function(id) {
 		form.enableItem("button_buy",q);
 		form.enableItem("button_sell",q);
 		form.enableItem("button_buybid",q);
-		form.enableItem("button_sellask",q);
+		form.enableItem("button_sellask",q)
 	} 
 	
-	form.setItemEvent("order_price","input",dialogRules);
+	form.setItemEvent("order_price","input",function(){
+	    form.setData({"order_size":{"placeholder":""}});
+		dialogRules();
+	});
 	form.setItemEvent("order_size","input",dialogRules);
 	form.setItemEvent("edit_order","change",dialogRules);
 	dialogRules();
 		
 	function update() {		
 		var traderURL = _this.traderURL(id);
-		var f = fetch_json(traderURL+"/trading").then(function(rs) {
+		var params="";
+		var data = form.readData(["order_price"]);		
+		var req_intrprice =data.order_price;
+		if (!isNaN(req_intrprice)) params="/"+req_intrprice;
+		var f = fetch_json(traderURL+"/trading"+params).then(function(rs) {
 				var pair = rs.pair;
 				var chartData = rs.chart;
 				var trades = rs.trades;
 				var orders = rs.orders;
 				var ticker = rs.ticker;
+				var strategy = rs.strategy || {};
 				var invp = function(x) {return pair.invert_price?1/x:x;}
 				var invs = function(x) {return pair.invert_price?-x:x;}				
 				var now = Date.now();
@@ -1910,6 +1918,11 @@ App.prototype.tradingForm = function(id) {
 				formdata.bal_assets = adjNumN(invs(pair.asset_balance)) + " "+pair.asset_symbol;
 				formdata.bal_currency = adjNumN(pair.currency_balance) + " "+pair.currency_symbol;
 				formdata.last_price = adjNumN(invp(ticker.last));
+				formdata.order_price = {"placeholder":adjNumN(invp(ticker.last))};
+				var data2 = form.readData(["order_price"]);
+				if (strategy.size && data2.order_price == req_intrprice || (isNaN(data2.order_price) && isNaN(req_intrprice))) { 
+					formdata.order_size={"placeholder":(strategy.size<0?"SELL":"BUY") +" " + adjNumN(Math.abs(strategy.size))};
+				}
 				var orderMap  = orders.map(function(x) {
 					return {"":{
 						".value":JSON.stringify(x.id),

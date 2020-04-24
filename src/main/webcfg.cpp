@@ -23,6 +23,7 @@
 #include "../shared/logOutput.h"
 #include "apikeys.h"
 #include "ext_stockapi.h"
+#include "sgn.h"
 
 using namespace json;
 using ondra_shared::StrViewA;
@@ -264,8 +265,7 @@ bool WebCfg::reqBrokers(simpleServer::HTTPRequest req, ondra_shared::StrViewA re
 			return true;
 		}
 		std::string broker = urlDecode(urlbroker);
-		auto trl = trlist.lock_shared();
-		IStockApi *api = trl->stockSelector.getStock(broker);
+		IStockApi *api = trlist.lock_shared()->stockSelector.getStock(broker);
 
 		return reqBrokerSpec(req, splt, api,broker);
 	}
@@ -594,14 +594,30 @@ bool WebCfg::reqTraders(simpleServer::HTTPRequest req, ondra_shared::StrViewA vp
 					out.set("trades", Value(json::array, trades.begin(), trades.end(),[&](auto &&item) {
 						if (item.time >= start) return item.toJSON(); else return Value();
 					}));
-					out.set("ticker", ([&](auto &&t) {
-						return Object("ask", t.ask)("bid", t.bid)("last", t.last)("time", t.time);
-					})(broker.getTicker(trl->getConfig().pairsymb)));
+					auto ticker = broker.getTicker(trl->getConfig().pairsymb);
+					double stprice = strtod(splt().data,0);
+					out.set("ticker", Object("ask", ticker.ask)("bid", ticker.bid)("last", ticker.last)("time", ticker.time));
 					out.set("orders", getOpenOrders(broker, trl->getConfig().pairsymb));
 					out.set("broker", trl->getConfig().broker);
 					std::optional<double> ibalance ;
-					if (trl != nullptr) ibalance = trl->getInternalBalance();
+					if (trl != nullptr) {
+						ibalance = trl->getInternalBalance();
+					}
 					out.set("pair", getPairInfo(broker, trl->getConfig().pairsymb, ibalance));
+					if (trl != nullptr) {
+						auto strategy = trl->getStrategy();
+						auto eq = strategy.getEquilibrium();
+						auto minfo = trl->getMarketInfo();
+						if (stprice) {
+							if (minfo.invert_price) stprice = 1.0/stprice;
+						}else {
+							stprice = ticker.last;
+						}
+						auto order = strategy.getNewOrder(minfo,ticker.last, stprice, sgn(ticker.last - eq),out["pair"]["asset_balance"].getNumber(), out["pair"]["currency_balance"].getNumber());
+						order.price = stprice;
+						minfo.addFees(order.size, order.price);
+						out.set("strategy",Object("size", (minfo.invert_price?-1:1)*order.size));
+					}
 					req.sendResponse(std::move(hdr), Value(out).stringify());
 				} else if (cmd == "strategy") {
 					if (!req.allowMethods({"GET","PUT"})) return true;
