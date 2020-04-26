@@ -39,8 +39,10 @@ void StockSelector::loadBrokers(const ondra_shared::IniConfig::Section &ini, boo
 	for (auto &&def: ini) {
 		ondra_shared::StrViewA name = def.first;
 		ondra_shared::StrViewA cmdline = def.second.getString();
-		ondra_shared::StrViewA workDir = def.second.getCurPath();
-		data.push_back(StockMarketMap::value_type(name,std::make_unique<ExtStockApi>(workDir, name, cmdline, brk_timeout)));
+		if (!cmdline.empty()) {
+			ondra_shared::StrViewA workDir = def.second.getCurPath();
+			data.push_back(StockMarketMap::value_type(name,std::make_unique<ExtStockApi>(workDir, name, cmdline, brk_timeout)));
+		}
 	}
 	StockMarketMap map(std::move(data));
 	stock_markets.swap(map);
