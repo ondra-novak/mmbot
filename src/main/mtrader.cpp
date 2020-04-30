@@ -192,7 +192,8 @@ void MTrader::perform(bool manually) {
 		double lastTradeSize = trades.empty()?0:trades.back().eff_size;
 		double lastTradePrice;
 		if (lastPriceOffset == 0) {
-			lastTradePrice = !trades.empty()?trades.back().eff_price:strategy.isValid()?strategy.getEquilibrium():status.curPrice;
+			lastTradePrice = !trades.empty()?trades.back().eff_price:strategy.isValid()?strategy.getEquilibrium(status.assetBalance):status.curPrice;
+			if (!std::isfinite(lastTradePrice)) lastTradePrice = status.curPrice;
 		} else {
 			lastTradePrice = lastPriceOffset+status.spreadCenter;
 		}
@@ -299,7 +300,7 @@ void MTrader::perform(bool manually) {
 
 			statsvc->reportMisc(IStatSvc::MiscData{
 				status.new_trades.trades.empty()?0:sgn(status.new_trades.trades.back().size),
-				strategy.getEquilibrium(),
+				strategy.getEquilibrium(status.assetBalance),
 				status.curPrice * (exp(status.curStep) - 1),
 				dynmult.getBuyMult(),
 				dynmult.getSellMult(),

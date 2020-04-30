@@ -90,8 +90,8 @@ public:
 	}
 
 	///Returns equilibrium
-	double getEquilibrium() const {
-		return ptr->getEquilibrium();
+	double getEquilibrium(double assets) const {
+		return ptr->getEquilibrium(assets);
 	}
 
 	///Resets strategy - remove any remembered internal state

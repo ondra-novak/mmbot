@@ -82,7 +82,7 @@ public:
 	virtual PStrategy onIdle(const IStockApi::MarketInfo &minfo,
 			const IStockApi::Ticker &curTicker, double assets,
 			double currency) const;
-	virtual double getEquilibrium() const;
+	virtual double getEquilibrium(double assets) const;
 	virtual PStrategy reset() const;
 	virtual std::string_view  getID() const;
 	virtual json::Value dumpStatePretty(

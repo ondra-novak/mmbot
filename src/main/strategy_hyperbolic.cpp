@@ -188,6 +188,7 @@ std::pair<Strategy_Hyperbolic::OnTradeResult, PStrategy> Strategy_Hyperbolic::on
 	auto cpos = calcPosition(tradePrice);
 	double mult = calcMult();
 	double profit = (assetsLeft - tradeSize) * (tradePrice - st.last_price);
+	double vprofit = (st.position) * (tradePrice - st.last_price);
 	//store current position
 	nwst.position = cpos.pos;
 	//store last price
@@ -199,11 +200,12 @@ std::pair<Strategy_Hyperbolic::OnTradeResult, PStrategy> Strategy_Hyperbolic::on
 	//calculate extra profit - we get change of value and add profit. This shows how effective is strategy. If extra is positive, it generates
 	//profit, if it is negative, is losses
 	double extra = (val - st.val) + profit;
+	double vextra = (val - st.val) + vprofit;
 
 	//store val to calculate next profit (because strategy was adjusted)
 	nwst.val = val;
 	//store new balance
-	nwst.bal = st.bal + extra;
+	nwst.bal = st.bal + vextra;
 
 	recalcPower(cfg, nwst);
 
@@ -258,8 +260,13 @@ IStrategy::OrderData Strategy_Hyperbolic::getNewOrder(
 		else return {0,0,Alert::forced};
 	} else {
 		auto cps = calcPosition(price);
-		double diff = calcOrderSize(st.position, assets, cps.pos);
-		return {0, diff};
+		double ch1 = cps.pos - st.position;
+		double ch2 = cps.pos - assets;
+		if (ch2 * dir < 0)
+			ch2 = ch1 / 2.0;
+		else if (ch2 * dir > 2 * ch1 * dir)
+			ch2 = ch1 * 2;
+		return {0, ch2};
 	}
 }
 
@@ -271,8 +278,8 @@ Strategy_Hyperbolic::MinMax Strategy_Hyperbolic::calcSafeRange(
 	return calcRoots();
 }
 
-double Strategy_Hyperbolic::getEquilibrium() const {
-	return  st.last_price;
+double Strategy_Hyperbolic::getEquilibrium(double assets) const {
+	return  calcPriceFromPosition(st.power, cfg.asym, st.neutral_price, assets);
 }
 
 std::string_view Strategy_Hyperbolic::getID() const {

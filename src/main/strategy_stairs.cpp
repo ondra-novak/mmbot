@@ -282,7 +282,7 @@ PStrategy Strategy_Stairs::onIdle(const IStockApi::MarketInfo &minfo,
 
 }
 
-double Strategy_Stairs::getEquilibrium() const {
+double Strategy_Stairs::getEquilibrium(double) const {
 	return st.price;
 }
 

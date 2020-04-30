@@ -374,7 +374,7 @@ Strategy_PLFromPos::MinMax Strategy_PLFromPos::calcSafeRange(
 	}
 }
 
-double Strategy_PLFromPos::getEquilibrium() const {
+double Strategy_PLFromPos::getEquilibrium(double) const {
 	return st.p;
 }
 
