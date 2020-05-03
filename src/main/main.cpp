@@ -336,7 +336,7 @@ public:
 
 							std::vector<simpleServer::HttpStaticPathMapper::MapRecord> paths;
 							paths.push_back(simpleServer::HttpStaticPathMapper::MapRecord{
-								"/",AuthMapper(name,aul,jwt) >>= simpleServer::HttpFileMapper(std::string(rptpath), "index.html")
+								"/",AuthMapper(name,aul,jwt, true) >>= simpleServer::HttpFileMapper(std::string(rptpath), "index.html")
 							});
 
 							paths.push_back({

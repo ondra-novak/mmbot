@@ -87,7 +87,7 @@ std::vector<AuthUserList::LoginPwd> AuthUserList::decodeMultipleBasicAuth(
 	return res;
 }
 
-AuthMapper::AuthMapper(	std::string realm, ondra_shared::RefCntPtr<AuthUserList> users, json::PJWTCrypto jwt):users(users),realm(realm),jwt(jwt) {}
+AuthMapper::AuthMapper(	std::string realm, ondra_shared::RefCntPtr<AuthUserList> users, json::PJWTCrypto jwt, bool allow_empty):users(users),realm(realm),jwt(jwt),allow_empty(allow_empty) {}
 	AuthMapper &AuthMapper::operator >>= (simpleServer::HTTPHandler &&hndl) {
 		handler = std::move(hndl);
 		return *this;
@@ -106,7 +106,7 @@ static StrViewA findAuthCookie(StrViewA cookie){
 
 bool AuthMapper::checkAuth(const simpleServer::HTTPRequest &req) const {
 	using namespace ondra_shared;
-	if (!users->empty()) {
+	if (!users->empty() || (jwt != nullptr && !allow_empty)) {
 		auto hdr = req["Authorization"];
 		StrViewA authhdr;
 		if (hdr.defined()) {

@@ -888,6 +888,7 @@ label span:hover span.tooltip, div.label span:hover span.tooltip {
 .strategygoal > div.halfhalf > div.halfhalf {display:block;}
 .strategygoal > div.stairs > div.stairs {display:block;}
 .strategygoal > div.keepvalue > div.keepvalue {display:block;}
+.strategygoal > div.hyperbolic > div.hyperbolic {display:block;}
 
 x-form.trading .buttons {text-align: center;}
 x-form.trading .buttons button {width: 40%}

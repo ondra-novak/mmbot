@@ -52,7 +52,7 @@ WebCfg::WebCfg( const SharedObject<State> &state,
 		const SharedObject<Traders> &traders,
 		Dispatch &&dispatch,
 		json::PJWTCrypto jwt)
-	:auth(realm, state.lock_shared()->admins,jwt)
+	:auth(realm, state.lock_shared()->admins,jwt, false)
 	,trlist(traders)
 	,dispatch(std::move(dispatch))
 	,state(state)

@@ -51,7 +51,7 @@
 <x-section><x-section-caption>General</x-section-caption>
 <label><span>Title</span><input type="text" data-name="title"></label>
 <label><span>Strategy</span><select data-name="strategy">
-<option value="plfrompos">Linear</option>
+<!--<option value="plfrompos">Linear</option>-->
 <option value="hyperbolic">Hyperbolic</option>
 <option value="stairs">Stairs</option>
 <option value="halfhalf">Half-Half</option>
@@ -61,6 +61,8 @@
 <div class="plfrompos">A simple strategy for trading on leveraged stock exchanges and futures, generally on stock exchanges with the ability to open long or short positions. This strategy is the only one that works well with a negative value in "assets" (meaning position)</div>
 <div class="halfhalf">This strategy keeps the value of assets and money on the stock exchange in a ratio 1:1. Whenever this ratio is disrupted, the strategy executes a trade in such a volume to achieve the defined ratio.</div>
 <div class="keepvalue">This strategy keeps the value of assets on the stock exchange at the same value. If the value of assets falls or rises (due to changing price), the strategy executes a trade in such a volume to achieve the same value of the assets as before.</div>
+<div class="hyperbolic">This strategy is designed for trading on leveraged exchanges and futures. It is specially adapted for inversed futures, such as Deribit or Bitmex USD pairs. However, it also works well on other markets and can be used on exchanges if it is set with a preference for long positions. The strategy is based on Keep Value, the calculation of the order size has a similar hyperbolic form </div>
+<div class="stairs">This strategy generates orders in predefined steps. The size of the next order is affected by the current position in steps. You can set the maximum number of steps or the way the strategy jumps between steps. </div>
 </div></div>
 <div class="label"><span>Options</span><div>
 <div><x-checkbox data-name="enabled">Enable automatic trading</x-checkbox></div>

@@ -571,7 +571,7 @@ App.prototype.fillForm = function (src, trg) {
 	data.hp_asym=0;
 	data.hp_power=1;
 	data.hp_powadj=0.5;
-	data.hp_dynred=-0.05;
+	data.hp_dynred=0;
 	data.hp_maxloss=0;
 
 	function powerCalc(x) {return adjNumN(Math.pow(10,x)*0.01);};
@@ -588,7 +588,7 @@ App.prototype.fillForm = function (src, trg) {
 		data.hp_maxloss = filledval(src.strategy.max_loss,0);
 		data.hp_power = filledval(src.strategy.power,1);
 		data.hp_powadj = filledval(src.strategy.powadj,0.5);
-		data.hp_dynred = filledval(src.strategy.dynred,-0.05);
+		data.hp_dynred = filledval(src.strategy.dynred,0);
 		data.hp_extbal = filledval(src.strategy.extbal,0);
 	} else if (data.strategy == "stairs") {
 		data.st_power = filledval(src.strategy.power,1.7);
@@ -1293,13 +1293,13 @@ App.prototype.remember = function() {
 
 App.prototype.validate = function(cfg) {
 	return new Promise(function(ok, error) {
-		var admin = cfg.users.find(function(x) {
+/*		var admin = cfg.users.find(function(x) {
 			return x.admin;
 		})
 		if (!admin) return error({
 				"trader":"!",
 				"message":this.strtable.need_admin
-			});	
+			});*/	
 		ok(cfg); 
 	}.bind(this));
 }

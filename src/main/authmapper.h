@@ -46,7 +46,7 @@ protected:
 class AuthMapper {
 public:
 
-	AuthMapper(	std::string realm, ondra_shared::RefCntPtr<AuthUserList> users, json::PJWTCrypto jwt);
+	AuthMapper(	std::string realm, ondra_shared::RefCntPtr<AuthUserList> users, json::PJWTCrypto jwt, bool allow_empty);
 	AuthMapper &operator >>= (simpleServer::HTTPHandler &&hndl);
 	bool checkAuth(const simpleServer::HTTPRequest &req) const;
 	void operator()(const simpleServer::HTTPRequest &req) const;
@@ -64,6 +64,7 @@ protected:
 	std::string realm;
 	simpleServer::HTTPHandler handler;
 	json::PJWTCrypto jwt;
+	bool allow_empty;
 };
 
 
