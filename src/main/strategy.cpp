@@ -109,7 +109,7 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 		Strategy_Hyperbolic::Config cfg;
 		cfg.power = config["power"].getNumber();
 		cfg.max_loss = config["max_loss"].getNumber();
-		cfg.asym = config["asym"].getNumber();
+		cfg.asym = config["asym"].getNumber()/cfg.power;
 		cfg.reduction = config["reduction"].getNumber();
 		cfg.external_balance = config["extbal"].getNumber();
 		cfg.powadj = config["powadj"].getNumber();
