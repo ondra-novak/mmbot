@@ -15,6 +15,7 @@
 #include <imtjson/object.h>
 #include <simpleServer/http_client.h>
 #include "../imtjson/src/imtjson/operations.h"
+#include "../imtjson/src/imtjson/parser.h"
 #include "../imtjson/src/imtjson/string.h"
 #include "../imtjson/src/imtjson/value.h"
 #include "../shared/stringview.h"
@@ -89,7 +90,7 @@ IStockApi::MarketInfo Interface::getMarketInfo(const std::string_view &pair) {
 		itr->second.min_size, /* double min_size;*/
 		0,				 	   /* double min_volume; */
 		getFees(pair),  	/*double fees;*/
-		income,				/* FeeScheme feeScheme = currency;*/
+		margin?currency:income,				/* FeeScheme feeScheme = currency;*/
 		margin?itr->second.leverage:0 /*double leverage = 0;*/
 	};
 }
@@ -257,7 +258,7 @@ IStockApi::TradesSync Interface::syncTrades(json::Value lastId, const std::strin
 		} else {
 			out.lastId = lastId;
 		}
-		double lastFees;
+		double lastFees = 0.001;
 		for (Value x: flt) {
 			double price = x[5].getNumber();
 			double size = x[4].getNumber();
