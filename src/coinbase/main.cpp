@@ -156,7 +156,6 @@ Value Interface::createHeaders(std::string_view method, std::string_view path, V
 	unsigned int digest_len = sizeof(digest);
 
 	HMAC(EVP_sha256(), privateKey.data(), privateKey.length(), reinterpret_cast<const unsigned char *>(message.data()), message.length(),digest,&digest_len);
-
 	/*
 	std::string sign;
 	base64->encodeBinaryValue(BinaryView(digest, digest_len), [&](StrViewA txt) {
