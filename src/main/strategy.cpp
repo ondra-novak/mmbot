@@ -115,6 +115,16 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 		cfg.powadj = config["powadj"].getNumber();
 		cfg.dynred = config["dynred"].getNumber();
 		return Strategy(new Strategy_Hyperbolic(cfg));
+	} else if (id == Strategy_Linear::id) {
+		Strategy_Linear::Config cfg;
+		cfg.power = config["power"].getNumber();
+		cfg.max_loss = config["max_loss"].getNumber();
+		cfg.asym = config["asym"].getNumber()/cfg.power;
+		cfg.reduction = config["reduction"].getNumber();
+		cfg.external_balance = config["extbal"].getNumber();
+		cfg.powadj = config["powadj"].getNumber();
+		cfg.dynred = config["dynred"].getNumber();
+		return Strategy(new Strategy_Linear(cfg));
 	} else {
 		throw std::runtime_error(std::string("Unknown strategy: ").append(id));
 	}
