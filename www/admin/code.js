@@ -94,7 +94,7 @@ App.prototype.createTraderForm = function() {
 		form.showItem("strategy_halfhalf",state.strategy == "halfhalf" || state.strategy == "keepvalue");
 		form.showItem("strategy_pl",state.strategy == "plfrompos");
 		form.showItem("strategy_stairs",state.strategy == "stairs");
-		form.showItem("strategy_hyperbolic",state.strategy == "hyperbolic");
+		form.showItem("strategy_hyperbolic",state.strategy == "hyperbolic"||state.strategy == "linear");
 		form.showItem("kv_valinc_h",state.strategy == "keepvalue");
 		form.setData({"help_goal":{"class":state.strategy}});
 		form.getRoot().classList.toggle("no_adv", !state["advanced"]);
@@ -582,7 +582,7 @@ App.prototype.fillForm = function (src, trg) {
 		data.external_assets = filledval(src.strategy.ea,0);
 		data.kv_valinc = filledval(src.strategy.valinc,0);
 		data.kv_halfhalf = filledval(src.strategy.halfhalf,false);
-	} else if (data.strategy == "hyperbolic") {
+	} else if (data.strategy == "hyperbolic"||data.strategy == "linear") {
 		data.hp_reduction = filledval(defval(src.strategy.reduction,0.25)*100,25);
 		data.hp_asym = filledval(defval(src.strategy.asym,0.2)*100,20);
 		data.hp_maxloss = filledval(src.strategy.max_loss,0);
@@ -721,7 +721,7 @@ App.prototype.saveForm = function(form, src) {
 		trader.strategy.ea = data.external_assets;
 		trader.strategy.valinc = data.kv_valinc;
 		trader.strategy.halfhalf = data.kv_halfhalf;
-	} else 	if (data.strategy == "hyperbolic") {
+	} else 	if (data.strategy == "hyperbolic"||data.strategy == "linear") {
 		trader.strategy = {
 				type: data.strategy,
 				power: data.hp_power,

@@ -128,11 +128,11 @@ double Hyperbolic_Calculus::calcNeutralFromValue(double power, double asym, doub
 }
 
 double Linear_Calculus::calcPosValue(double power, double asym, double neutral, 	double curPrice) {
-	return (power * (neutral - curPrice) * ((-1 + 2 * asym) * neutral + curPrice))/(2 * neutral);
+	return -(power * (neutral - curPrice) * ((-1 + 2 * asym) * neutral + curPrice))/(2 * neutral);
 }
 
 IStrategy::MinMax Linear_Calculus::calcRoots(double power, double asym, double neutral, double balance) {
-	double a = sqrt(neutral*power*(asym*asym*neutral*power - 2 * balance))/power;
+	double a = sqrt(neutral*power*(asym*asym*neutral*power + 2 * balance))/power;
 	double b = asym * neutral;
 	double x1 = - a - b + neutral;
 	double x2 = + a - b + neutral;
@@ -140,7 +140,7 @@ IStrategy::MinMax Linear_Calculus::calcRoots(double power, double asym, double n
 }
 
 double Linear_Calculus::calcNeutral(double power, double asym, double position, double price) {
-	return (power * price)/(asym * power + position + power);
+	return -(price * power)/(position + ( asym - 1) * power);
 }
 
 double Linear_Calculus::calcPosition(double power, double asym, double neutral, double price) {
@@ -161,6 +161,7 @@ double Linear_Calculus::calcPriceFromPosition(double power, double asym, double 
 }
 
 double Linear_Calculus::calcNeutralFromValue(double power, double asym, double neutral, double value, double curPrice) {
+	value = -value;
 	double r = (curPrice * power - asym * curPrice * power - value + sqrt(pow2(asym*curPrice*power) - 2 * curPrice* power * value + 2 * asym * curPrice * power * value + pow2(value)))/(power - 2 * asym * power);
 	if (!finite(r)) return neutral;
 	else return r;
