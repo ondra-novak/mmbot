@@ -80,3 +80,12 @@ TemplateJS.View.regCustomElement("X-CHECKBOX", new TemplateJS.CustomElement(
 		}
 		
 ));
+
+TemplateJS.View.regCustomElement("X-SWITCH", new TemplateJS.CustomElement(
+		function(elem, val) {
+			elem.hidden = (elem.dataset.value!=val);
+		},
+		function(elem) {
+			return undefined;
+		}
+));

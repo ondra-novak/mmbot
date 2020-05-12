@@ -114,6 +114,7 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 		cfg.external_balance = config["extbal"].getNumber();
 		cfg.powadj = config["powadj"].getNumber();
 		cfg.dynred = config["dynred"].getNumber();
+		cfg.detect_trend = config["dtrend"].getBool();
 		return Strategy(new Strategy_Hyperbolic(cfg));
 	} else if (id == Strategy_Linear::id) {
 		Strategy_Linear::Config cfg;
@@ -124,6 +125,7 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 		cfg.external_balance = config["extbal"].getNumber();
 		cfg.powadj = config["powadj"].getNumber();
 		cfg.dynred = config["dynred"].getNumber();
+		cfg.detect_trend = config["dtrend"].getBool();
 		return Strategy(new Strategy_Linear(cfg));
 	} else {
 		throw std::runtime_error(std::string("Unknown strategy: ").append(id));

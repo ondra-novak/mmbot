@@ -23,6 +23,8 @@ public:
 		double external_balance;
 		double powadj;
 		double dynred;
+		bool detect_trend;
+		int preference;
 	};
 
 
@@ -33,6 +35,7 @@ public:
 		double bal = 0;
 		double val = 0;
 		double power = 0;
+		long trend_cntr = 0;
 	};
 
 	Strategy_Leveraged(const Config &cfg, State &&st);
@@ -79,9 +82,10 @@ private:
 	static void recalcNeutral(const Config &cfg, State &nwst) ;
 	json::Value storeCfgCmp() const;
 	static void recalcNewState(const Config &cfg, State &nwst);
+	double calcAsym() const;
+	static double calcAsym(const Config &cfg, const State &st) ;
+	static double trendFactor(const State &st);
 };
-
-
 
 
 #endif /* SRC_MAIN_STRATEGY_LEVERAGED_BASE_H_ */

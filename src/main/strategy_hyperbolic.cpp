@@ -162,9 +162,15 @@ double Linear_Calculus::calcPriceFromPosition(double power, double asym, double 
 
 double Linear_Calculus::calcNeutralFromValue(double power, double asym, double neutral, double value, double curPrice) {
 	value = -value;
-	double r = (curPrice * power - asym * curPrice * power - value + sqrt(pow2(asym*curPrice*power) - 2 * curPrice* power * value + 2 * asym * curPrice * power * value + pow2(value)))/(power - 2 * asym * power);
-	if (!finite(r)) return neutral;
-	else return r;
+	double middle = calcPrice0(neutral, asym);
+	double r = curPrice < middle
+			?((curPrice * power - asym * curPrice * power - value + sqrt(pow2(asym*curPrice*power) - 2 * curPrice* power * value + 2 * asym * curPrice * power * value + pow2(value)))/(power - 2 * asym * power))
+			:(((-1 + asym)* curPrice * power + value + sqrt(pow2(asym* curPrice *power) - 2 * curPrice * power * value + 2 *asym * curPrice * power * value + pow2(value)))/((-1 + 2 * asym) * power));
+	if (!finite(r)) {
+		return neutral;
+	} else {
+		return r;
+	}
 
 
 }
