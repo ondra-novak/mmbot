@@ -573,7 +573,7 @@ App.prototype.fillForm = function (src, trg) {
 	data.hp_powadj=0.5;
 	data.hp_dynred=0;
 	data.hp_maxloss=0;
-	data.hp_dtrend=false;
+	data.hp_dtrend={value:false};
 	data.hp_lb_asym="asym";
 
 	function powerCalc(x) {return adjNumN(Math.pow(10,x)*0.01);};

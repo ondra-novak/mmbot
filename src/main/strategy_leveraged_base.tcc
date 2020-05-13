@@ -135,7 +135,7 @@ template<typename Calc>
 void Strategy_Leveraged<Calc>::recalcPower(const Config &cfg, State &nwst) {
 	double offset = Calc::calcPosition(nwst.power, cfg.asym, nwst.neutral_price,
 			nwst.neutral_price);
-	double power = std::abs((nwst.bal+cfg.external_balance)/nwst.last_price + std::abs(nwst.position - offset) * cfg.powadj) * cfg.power;
+	double power = std::abs((nwst.bal+cfg.external_balance)/nwst.neutral_price + std::abs(nwst.position - offset) * cfg.powadj) * cfg.power;
 	if (std::isfinite(power)) {
 		nwst.power = power;
 	}
