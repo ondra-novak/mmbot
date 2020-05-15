@@ -440,7 +440,7 @@ MTrader::Status MTrader::getMarketStatus() const {
 	res.new_trades.lastId = new_trades.lastId;
 	for (auto &&k : new_trades.trades) {
 		if (last_trade->price == k.price) {
-			last_trade->eff_price = (last_trade->eff_price * last_trade->size + k.eff_price)/(last_trade->size+k.size);
+			last_trade->eff_price = (last_trade->eff_price * last_trade->size + k.eff_price*k.size)/(last_trade->size+k.size);
 			last_trade->size += k.size;
 			last_trade->eff_size += k.eff_size;
 			last_trade->time = k.time;

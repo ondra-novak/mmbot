@@ -86,7 +86,7 @@ Strategy_HalfHalf::MinMax Strategy_HalfHalf::calcSafeRange(const IStockApi::Mark
 }
 
 double Strategy_HalfHalf::getEquilibrium(double assets) const {
-	return this->p * pow2(a/assets);
+	return this->p * pow2(a/assets+cfg.ea);
 }
 
 PStrategy Strategy_HalfHalf::reset() const {

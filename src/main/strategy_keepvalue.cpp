@@ -111,7 +111,7 @@ Strategy_KeepValue::MinMax Strategy_KeepValue::calcSafeRange(
 double Strategy_KeepValue::getEquilibrium(double assets) const {
 	//na = k / price
 	//price = k / na
-	return  calcK() / assets;
+	return  calcK() / (assets+cfg.ea);
 }
 
 std::string_view Strategy_KeepValue::getID() const {
