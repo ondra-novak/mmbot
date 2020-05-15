@@ -18,7 +18,7 @@ public:
 	~OrderDataDB();
 
 	void store(json::Value orderId, json::Value data);
-	void mark(json::Value orderId);
+	bool mark(json::Value orderId);
 	json::Value get(json::Value pair);
 protected:
 	std::string frontFile, backFile;

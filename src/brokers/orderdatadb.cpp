@@ -54,7 +54,7 @@ void OrderDataDB::store(json::Value orderId, json::Value data) {
 	mark(orderId);
 }
 
-void OrderDataDB::mark(json::Value orderId) {
+bool OrderDataDB::mark(json::Value orderId) {
 	auto iter = curMap.find(orderId);
 	if (iter != curMap.end()) {
 		std::ofstream f(frontFile, std::ios::app);
@@ -68,6 +68,9 @@ void OrderDataDB::mark(json::Value orderId) {
 			rename(frontFile.c_str(), backFile.c_str());
 			curRows = 0;
 		}
+		return true;
+	} else {
+		return false;
 	}
 }
 

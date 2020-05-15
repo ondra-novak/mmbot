@@ -7,12 +7,14 @@
 #include <imtjson/object.h>
 #include <imtjson/string.h>
 #include <imtjson/parser.h>
+#include <imtjson/operations.h>
 #include <openssl/hmac.h>
 #include <cmath>
 #include <iomanip>
 #include <iostream>
 #include <sstream>
 #include <stack>
+#include <thread>
 
 #include <brokers/api.h>
 #include "../brokers/httpjson.h"
@@ -250,9 +252,18 @@ inline Interface::Orders Interface::getOpenOrders(const std::string_view& pair) 
 		   ("status",0);
 
 		Value rp = httpc.POST("/user/orders",obj)["orders"];
+		rp = rp.filter([&](Value o){
+			Value id = o["id"];
+			if (orderdb.mark(id)) return true;
+			//delete unknown orders
+			Object obj;
+			createSigned(obj);
+			obj("orderId", o["id"]);
+			Value resp = httpc.POST("/user/cancel-order", obj);
+			return false;
+		});
 		return mapJSON(rp, [&](Value o){
 			Value id = o["id"];
-			orderdb.mark(id);
 			Value clientId = orderdb.get(id);
 			return Order {
 				o["id"],clientId,(o["type"].getUInt()?-1:1)*o["baseAmount"].getNumber(),o["price"].getNumber()
@@ -289,6 +300,8 @@ inline json::Value Interface::placeOrder(const std::string_view& pair,
 			double left = resp["baseAmount"].getNumber();
 			logDebug("left: $1, replaceSize: $2", left, replaceSize);
 			if (left*1.0001 < replaceSize) return nullptr;
+			//sleep for 1 second because coingi needs some time to process cancelation
+
 		}
 		if (size) {
 			Object obj;createSigned(obj);
@@ -296,9 +309,23 @@ inline json::Value Interface::placeOrder(const std::string_view& pair,
 			   ("volume", std::abs(size))
 			   ("price", price)
 			   ("currencyPair", pair);
-			Value resp = httpc.POST("/user/add-order", obj);
+			Value resp;
+			try {
+				resp = httpc.POST("/user/add-order", obj);
+			} catch (...) {
+				if (!replaceId.hasValue()) throw;
+				std::this_thread::sleep_for(std::chrono::seconds(1));
+				createSigned(obj);
+				try {
+					resp = httpc.POST("/user/add-order", obj);
+				} catch (...) {
+					std::this_thread::sleep_for(std::chrono::seconds(2));
+					createSigned(obj);
+					resp = httpc.POST("/user/add-order", obj);
+				}
+			}
 			Value new_id = resp["result"];
-			orderdb.store(new_id, clientId);
+			orderdb.store(new_id, clientId.hasValue()?clientId:Value(json::null));
 			return new_id;
 		}
 		return nullptr;

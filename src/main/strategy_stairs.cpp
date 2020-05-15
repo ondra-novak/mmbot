@@ -13,6 +13,7 @@
 #include "../shared/logOutput.h"
 #include "sgn.h"
 
+using ondra_shared::logDebug;
 using ondra_shared::logError;
 Strategy_Stairs::~Strategy_Stairs() {
 	// TODO Auto-generated destructor stub
@@ -28,9 +29,12 @@ intptr_t Strategy_Stairs::getNextStep(double dir, std::intptr_t prev_dir) const 
 			if (cfg.reduction>0) {
 				cs = cs + idir * cfg.reduction;
 			} else {
-				if (cs * idir == -cfg.reduction) cs = 0;
-				else cs = cs + idir;
+				if (cs * idir == cfg.reduction)
+					cs = 0;
+				else
+					cs = cs + idir;
 			}
+			break;
 		case reverse:
 			cs = idir*cfg.reduction; break;
 		case lockOnReduce:
@@ -190,15 +194,18 @@ std::pair<IStrategy::OnTradeResult, ondra_shared::RefCntPtr<const IStrategy> > S
 	double power = st.power;
 	double curpos = assetsToPos(assetsLeft);
 	double prevpos = curpos - tradeSize;
-	intptr_t step = getNextStep(dir,st.prevdir);
+	intptr_t calc_step = posToStep(curpos/st.power);
+	intptr_t next_step = getNextStep(dir,st.prevdir);
+	bool step_achieved = calc_step == next_step;
+	logDebug("Startegy stairs: cur_step=$1, calc_step=$2, new_step=$3, req_pos=$4, cur_pos=$5", st.step, calc_step, next_step, stepToPos(st.step)*st.power, curpos);
 	State nst = st;
 	nst.price = tradePrice;
-	nst.pos = stepToPos(step)*power;
 	nst.open = prevpos*curpos<=0 ? tradePrice:(st.open*prevpos + tradeSize*tradePrice)/curpos;
 	nst.enter = prevpos*curpos<=0 ? tradePrice:curpos * dir > 0?(st.enter*prevpos + tradeSize*tradePrice)/curpos:st.enter;
-	nst.step = step;
-	nst.prevdir = dir?dir:st.prevdir;
-	nst.sl = cfg.sl && step == st.step && std::abs(step) >= cfg.max_steps && tradeSize == 0;
+	nst.step = step_achieved? next_step: st.step;
+	nst.pos = stepToPos(nst.step)*power;
+	nst.prevdir = dir && step_achieved?dir:st.prevdir;
+	nst.sl = cfg.sl && nst.step == st.step && std::abs(nst.step) >= cfg.max_steps && tradeSize == 0;
 	double spread = std::abs(tradePrice - st.price);
 	double posChange = std::abs(tradeSize);
 	if (posChange) {
@@ -270,7 +277,7 @@ PStrategy Strategy_Stairs::onIdle(const IStockApi::MarketInfo &minfo,
 			double pos = assets-neutral_pos;
 			nst =  State {curTicker.last, pos, curTicker.last, curTicker.last, 0,neutral_pos, ps,  0};
 		}
-		nst.step = posToStep(assets/nst.power);
+		nst.step = posToStep(nst.pos/nst.power);
 		nst.cfghash = getCfgHash();
 		g = new Strategy_Stairs(cfg, nst);
 		if (g->isValid()) return g;

@@ -56,6 +56,7 @@ static Value settingsForm = {
 								("cryptowatch","Cryptowatch")
 								("urljson","Link to JSON url")
 								("manual","Manual enter prices")
+								("orders","Execute orders")
 						),
 					Object("name","src_asset")
 						("type","enum")
@@ -100,7 +101,7 @@ static Value settingsForm = {
 							("name","asset")
 							("type","string")
 							("label","Asset symbol")
-							("showif", Object("source", {"manual","urljson"}))
+							("showif", Object("source", {"manual","urljson","orders"}))
 							("default","TEST"),
 						Object
 							("name","asset_balance")
@@ -116,7 +117,7 @@ static Value settingsForm = {
 							("name","currency")
 							("type","string")
 							("label","Currency symbol")
-							("showif", Object("source", {"manual","urljson"}))
+							("showif", Object("source", {"manual","urljson","orders"}))
 							("default","FIAT"),
 						Object
 							("name","currency_balance")
@@ -223,6 +224,7 @@ public:
 
 
 		mutable double last_price = 0;
+		mutable double last_order_price = 0;
 		double getCurPrice() const;
 		std::string price_url;
 		std::string price_path;
@@ -230,6 +232,7 @@ public:
 		std::string src_asset;
 		std::string src_currency;
 		void updateLiq(double openPrice);
+		void addTrade(std::size_t &idcnt, double price, double size);
 	};
 
 
@@ -661,6 +664,8 @@ double Interface::TestPair::getCurPrice() const {
 			Value found = searchField(resp,price_path);
 			price = found.getNumber();
 		}
+	} else if (price_source == "orders") {
+		return last_order_price;
 	} else {
 		if (prices.empty()) return 0;
 
@@ -671,6 +676,7 @@ double Interface::TestPair::getCurPrice() const {
 	if (price == 0) return 0;
 	if (inverted) price = 1/price;
 	last_price = price;
+	last_order_price = price;
 	return price;
 
 }
@@ -678,8 +684,13 @@ double Interface::TestPair::getCurPrice() const {
 inline Interface::Ticker Interface::getTicker(const std::string_view &pair) {
 	TestPair &p = getPair(pair);
 	double price = p.getCurPrice();
-	if (price == 0)
-		 throw std::runtime_error("Trainer: Failed to get current price, check configuration");
+	if (price == 0) {
+		if (p.price_source == "orders") {
+				throw std::runtime_error("No last price defined - execute first order");
+		} else {
+			throw std::runtime_error("Failed to get current price, check configuration");
+		}
+	}
 
 	return Ticker{price,price,price,uintptr_t(time(nullptr))*1000};
 }
@@ -705,16 +716,22 @@ inline json::Value Interface::placeOrder(const std::string_view &pair,
 	}
 
 	Value id = idcnt++;
-	if (size) {
+	if (p.price_source == "orders" && !clientId.hasValue()) {
+		p.addTrade(idcnt, price, size);
+	} else {
 
-		if (((cp - price) / size) < 0) price = cp;
+		if (size) {
 
-		p.orders.push_back(Order{
-			id,clientId,
-			size,price
-		});
+			if (((cp - price) / size) < 0) price = cp;
+
+			p.orders.push_back(Order{
+				id,clientId,
+				size,price
+			});
+		} else if (p.price_source == "orders") {
+			p.last_order_price = price;
+		}
 	}
-
 	return id;
 }
 
@@ -739,6 +756,28 @@ inline void Interface::TestPair::updateLiq(double openPrice) {
 		high_liq = std::numeric_limits<double>::max();
 	}
 	logDebug("Liquidation prices: High $1, Low $2", inverted?1.0/low_liq:high_liq, inverted?1.0/high_liq:low_liq);
+}
+
+void Interface::TestPair::addTrade(std::size_t &idcnt, double price, double size) {
+	double pprice = trades.empty()?price:trades.back().price;
+	Value id = ++idcnt;
+	Trade tr {
+		id,
+		std::size_t(time(nullptr)*1000),
+		size,
+		price,
+		size,
+		price
+	};
+	trades.push_back(tr);
+	if (futures) {
+		currency_balance += asset_balance*(price - pprice);
+	}
+	asset_balance += size;
+	if (!futures) {
+		currency_balance -= size * price;
+	}
+	last_order_price = price;
 }
 
 inline bool Interface::reset() {
@@ -785,25 +824,10 @@ inline bool Interface::reset() {
 		for (auto o : p.orders) {
 			double dp = cp - o.price;
 			if (dp / o.size <= 0) {
-				double pprice = p.trades.empty()?cp:p.trades.back().price;
-				Value id = ++idcnt;
 				double s = o.size * (dp == 0?0.5:1);
-				Trade tr {
-					id,
-					std::size_t(time(nullptr)*1000),
-					s,
-					o.price,
-					s,
-					o.price
-				};
-				p.trades.push_back(tr);
-				if (p.futures) {
-					p.currency_balance += p.asset_balance*(o.price - pprice);
-				}
-				p.asset_balance += s;
-				if (!p.futures) {
-					p.currency_balance -= s * o.price;
-				}
+				if (std::abs(s) < p.asset_step) s = o.size;
+				double price = o.price;
+				p.addTrade(idcnt, price, s);
 				double remain = (o.size - s);
 				if (std::fabs(remain) > (p.asset_step+1e-20)) {
 					newOrders.push_back(Order {
@@ -953,6 +977,7 @@ inline void Interface::setSettings(json::Value keyData, bool loaded,  unsigned i
 			p.price_path = "price";
 		}
 	}
+	p.last_order_price=keyData["last_order_price"].getValueOrDefault(p.last_order_price);
 	p.prev_price = keyData["prev_price"].getNumber();
 	if (!loaded) {
 		saveSettings();
@@ -984,6 +1009,7 @@ json::Value Interface::TestPair::collectSettings() const {
 	  	  ("src_asset", src_asset)
 	  	  ("src_currency", src_currency)
 		  ("activityCounter", activityCounter)
+		  ("last_order_price", last_order_price)
 		  ("loaded",true);
 	return kv;
 }
