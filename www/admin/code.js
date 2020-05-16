@@ -531,6 +531,9 @@ App.prototype.fillForm = function (src, trg) {
 				var elm = trg.findElements("st_power")[0].querySelector("input[type=range]");
 				elm.setAttribute("max","199");
 			}
+			if (!src.strategy && typeof state.pair.price == "string" && state.pair.price.startsWith("trainer")){
+			    this.brokerConfig(src.broker, src.pair_symbol).then(updateHdr,updateHdr);
+			}
 			first_fetch = false;
 		}
 		

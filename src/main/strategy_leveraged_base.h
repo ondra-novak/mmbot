@@ -35,6 +35,7 @@ public:
 		double bal = 0;
 		double val = 0;
 		double power = 0;
+		double neutral_pos = 0;
 		long trend_cntr = 0;
 	};
 
@@ -85,6 +86,7 @@ private:
 	double calcAsym() const;
 	static double calcAsym(const Config &cfg, const State &st) ;
 	static double trendFactor(const State &st);
+
 };
 
 

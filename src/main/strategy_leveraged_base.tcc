@@ -45,13 +45,16 @@ void Strategy_Leveraged<Calc>::recalcNewState(const Config &cfg, State &nwst) {
 
 template<typename Calc>
 Strategy_Leveraged<Calc> Strategy_Leveraged<Calc>::init(const Config &cfg, double price, double pos, double currency, bool futures) {
+	double np = futures?0:(pos + currency/price)*0.5;
+	double bal = futures?currency:np * 2 * price;
 	State nwst {
 		/*neutral_price:*/ price,
 		/*last_price */ price,
-		/*position */ pos,
-		/*bal */ futures?currency:(currency + pos * price),
+		/*position */ pos - np,
+		/*bal */ bal,
 		/* val */ 0,
-		/* power */ 0
+		/* power */ 0,
+		/* neutral_pos */np
 	};
 	if (nwst.bal <= 0) {
 		//we cannot calc with empty balance. In this case, use price for calculation (but this is  unreal, trading still impossible)
@@ -98,7 +101,9 @@ PStrategy Strategy_Leveraged<Calc>::onIdle(
 			return this;
 		}
 	}
-	else return new Strategy_Leveraged<Calc>(init(cfg,ticker.last, assets, currency, minfo.leverage != 0));
+	else {
+		return new Strategy_Leveraged<Calc>(init(cfg,ticker.last, assets, currency, minfo.leverage != 0));
+	}
 }
 
 template<typename Calc>
@@ -156,6 +161,7 @@ std::pair<typename Strategy_Leveraged<Calc>::OnTradeResult, PStrategy> Strategy_
 		double tradePrice, double tradeSize, double assetsLeft,
 		double currencyLeft) const {
 
+
 	if (!isValid()) {
 		return init(cfg,tradePrice, assetsLeft, currencyLeft, minfo.leverage != 0)
 				.onTrade(minfo, tradePrice, tradeSize, assetsLeft, currencyLeft);
@@ -167,9 +173,10 @@ std::pair<typename Strategy_Leveraged<Calc>::OnTradeResult, PStrategy> Strategy_
 		nwst.trend_cntr += chg - nwst.trend_cntr/1000;
 
 	}
+	double apos = assetsLeft - st.neutral_pos;
 	auto cpos = calcPosition(tradePrice);
 	double mult = calcMult();
-	double profit = (assetsLeft - tradeSize) * (tradePrice - st.last_price);
+	double profit = (apos - tradeSize) * (tradePrice - st.last_price);
 	double vprofit = (st.position) * (tradePrice - st.last_price);
 	//store current position
 	nwst.position = cpos.pos;
@@ -177,6 +184,8 @@ std::pair<typename Strategy_Leveraged<Calc>::OnTradeResult, PStrategy> Strategy_
 	nwst.last_price = tradePrice;
 
 	recalcNeutral(cfg, nwst);
+
+	nwst.neutral_pos = minfo.leverage?0:(assetsLeft + currencyLeft / nwst.neutral_price)*0.5;
 
 	double val = Calc::calcPosValue(mult, calcAsym(), nwst.neutral_price, tradePrice);
 	//calculate extra profit - we get change of value and add profit. This shows how effective is strategy. If extra is positive, it generates
@@ -214,6 +223,7 @@ json::Value Strategy_Leveraged<Calc>::exportState() const {
 			("balance",st.bal)
 			("val",st.val)
 			("power",st.power)
+			("neutral_pos",st.neutral_pos)
 			("trend", st.trend_cntr)
 			("cfg", storeCfgCmp());
 
@@ -228,6 +238,7 @@ PStrategy Strategy_Leveraged<Calc>::importState(json::Value src) const {
 			src["balance"].getNumber(),
 			src["val"].getNumber(),
 			src["power"].getNumber(),
+			src["neutral_pos"].getNumber(),
 			src["trend"].getInt()
 		};
 		json::Value cfgcmp = src["cfg"];
@@ -240,16 +251,17 @@ PStrategy Strategy_Leveraged<Calc>::importState(json::Value src) const {
 
 template<typename Calc>
 IStrategy::OrderData Strategy_Leveraged<Calc>::getNewOrder(
-		const IStockApi::MarketInfo &,
-		double curPrice, double price, double dir, double assets, double /*currency*/) const {
+		const IStockApi::MarketInfo &minfo,
+		double curPrice, double price, double dir, double assets, double currency) const {
+	auto apos = assets - st.neutral_pos;
 	auto mm = calcRoots();
 	if (curPrice < mm.min || curPrice > mm.max) {
-		if (dir * assets < 0) return {curPrice,-assets,Alert::stoploss};
+		if (dir * apos < 0) return {curPrice,-apos,Alert::stoploss};
 		else return {0,0,Alert::forced};
 	} else {
 		auto cps = calcPosition(price);
 		double ch1 = cps.pos - st.position;
-		double ch2 = cps.pos - assets;
+		double ch2 = cps.pos - apos;
 		if (ch2 * dir < 0)
 			ch2 = ch1 / 2.0;
 		else if (ch2 * dir > 2 * ch1 * dir)
@@ -269,7 +281,7 @@ typename Strategy_Leveraged<Calc>::MinMax Strategy_Leveraged<Calc>::calcSafeRang
 
 template<typename Calc>
 double Strategy_Leveraged<Calc>::getEquilibrium(double assets) const {
-	return  Calc::calcPriceFromPosition(st.power, calcAsym(), st.neutral_price, assets);
+	return  Calc::calcPriceFromPosition(st.power, calcAsym(), st.neutral_price, assets-st.neutral_pos);
 }
 
 template<typename Calc>
@@ -287,7 +299,8 @@ json::Value Strategy_Leveraged<Calc>::dumpStatePretty(
 				 ("Value", st.val)
 				 ("Last balance", st.bal)
 				 ("Multiplier", st.power)
-	 	 	 	 ("Trend factor", trendFactor(st));
+				 ("Neutral pos", st.neutral_pos?json::Value(st.neutral_pos):json::Value())
+	 	 	 	 ("Trend factor", (minfo.invert_price?-1:1)*trendFactor(st));
 
 
 }
@@ -333,4 +346,5 @@ template<typename Calc>
 inline double Strategy_Leveraged<Calc>::trendFactor(const State &st) {
 	return st.trend_cntr*0.001;
 }
+
 
