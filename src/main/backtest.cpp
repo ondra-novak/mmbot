@@ -48,7 +48,7 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 			if (balance > 0) {
 				s.onIdle(minfo,tk,pos,balance);
 				double mult = dir>0?cfg.buy_mult:cfg.sell_mult;
-				Strategy::OrderData order = s.getNewOrder(minfo, bt.price.price, p, dir, pos, balance);
+				Strategy::OrderData order = s.getNewOrder(minfo, p, p, dir, pos, balance);
 				bool allowAlert = (cfg.alerts || (cfg.dynmult_sliding && price->time - bt.price.time > sliding_spread_wait))
 						|| (cfg.delayed_alerts &&  price->time - bt.price.time >delayed_alert_wait);
 				checksl = order.alert == IStrategy::Alert::forced || order.alert == IStrategy::Alert::stoploss;

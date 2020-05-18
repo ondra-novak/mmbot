@@ -256,8 +256,12 @@ IStrategy::OrderData Strategy_Leveraged<Calc>::getNewOrder(
 	auto apos = assets - st.neutral_pos;
 	auto mm = calcRoots();
 	if (curPrice < mm.min || curPrice > mm.max) {
-		if (dir * apos < 0) return {curPrice,-apos,Alert::stoploss};
-		else return {0,0,Alert::forced};
+		auto testStat = onTrade(minfo,curPrice,0,assets,currency);
+		auto mm2 = static_cast<const Strategy_Leveraged<Calc> *>((const IStrategy *)(testStat.second))->calcRoots();
+		if (dir * apos < 0 && (curPrice < mm2.min || curPrice > mm2.max))
+			return {curPrice,-apos,Alert::stoploss};
+		else
+			return {0,0,Alert::stoploss};
 	} else {
 		auto cps = calcPosition(price);
 		double ch1 = cps.pos - st.position;

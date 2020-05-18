@@ -380,6 +380,10 @@ void MTrader::setOrder(std::optional<IStockApi::Order> &orig, Order neworder, st
 			throw std::runtime_error("Order rejected - negative price");
 		}
 		if (neworder.alert == IStrategy::Alert::forced) {
+			if (orig.has_value()) {
+				//cancel current order
+				stock.placeOrder(cfg.pairsymb,0,0,nullptr,orig->id,0);
+			}
 			alert = neworder.price;
 			neworder.update(orig);
 			return;
