@@ -87,7 +87,6 @@ public:
 	void updateBalCache();
 	Value generateOrderId(Value clientId);
 
-	std::intptr_t time_diff;
 	std::uintptr_t idsrc;
 
 	void initSymbols();
@@ -342,9 +341,6 @@ void Interface::initSymbols() {
 	if (symbols.empty()) {
 		Value res = px.public_request("/api/v1/exchangeInfo",Value());
 
-		std::uint64_t srvtm = res["serverTime"].getUIntLong();
-		std::uint64_t localtm = now();
-		time_diff = srvtm - localtm;
 
 		using VT = Symbols::value_type;
 		std::vector<VT> bld;

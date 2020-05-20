@@ -36,13 +36,15 @@ public:
 
 	bool hasKey() const;
 	void setTimeDiff(std::intptr_t t);
-	static std::uint64_t now();
+	void setTime(std::uintptr_t t);
+	std::uint64_t now();
 
 	bool debug = false;
 
 
 private:
 	std::intptr_t time_diff = 0;
+	mutable std::uint64_t time_sync = 0;
 	void buildParams(const json::Value& params, std::ostream& data);
 };
 

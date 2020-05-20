@@ -37,15 +37,18 @@ Proxy::Proxy()
 	nonce = init_time * 100;
 }
 
-void Proxy::setTimeDiff(std::intptr_t t) {
-	this->time_diff = t;
-}
 
 std::uint64_t Proxy::now() {
 	return std::chrono::duration_cast<std::chrono::milliseconds>(
-						 std::chrono::system_clock::now().time_since_epoch()
-						 ).count();
+						 std::chrono::steady_clock::now().time_since_epoch()
+						 ).count() + this->time_diff;
 
+}
+
+void Proxy::setTime(std::uint64_t t ) {
+	this->time_diff = 0;
+	auto n = now();
+	this->time_diff = t - n;
 }
 
 void Proxy::buildParams(const json::Value& params, std::ostream& data) {
@@ -86,7 +89,18 @@ json::Value Proxy::private_request(Method method, std::string command, json::Val
 	if (!hasKey())
 		throw std::runtime_error("Function requires valid API keys");
 
-	data = data.replace("timestamp", now()+time_diff);
+	auto n = now();
+	if (n > time_sync) {
+		json::Value tdata = public_request("/api/v3/time",json::Value());
+		auto m = tdata["serverTime"].getUIntLong();
+		setTime(m);
+		n = now();
+		time_sync = n + (3600*1000); //- one hour
+		logDebug("Time sync: $1. Next sync at: $2", n, time_sync);
+
+	}
+	data = data.replace("timestamp", n);
+
 
 	std::ostringstream urlbuilder;
 	urlbuilder << command;
