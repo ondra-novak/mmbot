@@ -8,6 +8,7 @@
 #ifndef SRC_COINMATE_PROXY_H_
 #define SRC_COINMATE_PROXY_H_
 
+#include <cstdint>
 #include <imtjson/value.h>
 #include "../brokers/httpjson.h"
 
@@ -35,8 +36,8 @@ public:
 	json::Value private_request(Method method, std::string command, json::Value data);
 
 	bool hasKey() const;
-	void setTimeDiff(std::intptr_t t);
-	void setTime(std::uintptr_t t);
+	void setTimeDiff(std::int64_t t);
+	void setTime(std::uint64_t t);
 	std::uint64_t now();
 
 	bool debug = false;

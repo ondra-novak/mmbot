@@ -34,7 +34,7 @@ Proxy::Proxy()
 	setTestnet(false);
 }
 
-void Proxy::setTimeDiff(std::intptr_t t) {
+void Proxy::setTimeDiff(std::int64_t t) {
 	this->time_diff = t;
 }
 
