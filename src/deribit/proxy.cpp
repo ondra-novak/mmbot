@@ -34,9 +34,6 @@ Proxy::Proxy()
 	setTestnet(false);
 }
 
-void Proxy::setTimeDiff(std::int64_t t) {
-	this->time_diff = t;
-}
 
 bool Proxy::hasKey() const {
 	return !privKey.empty() && !pubKey.empty() && !scopes.empty();

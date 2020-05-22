@@ -1209,7 +1209,7 @@ bool WebCfg::generateTrades(const SharedObject<Traders> &trlist, PState state, j
 				}
 				double p = prc[pos++];
 				state.lock()->upload_progress = (pos * 100)/sz;
-				return std::optional<MTrader::ChartItem>(MTrader::ChartItem{now - (sz - pos)*60000,p,p,p});
+				return std::optional<MTrader::ChartItem>(MTrader::ChartItem{static_cast<uint64_t>(now - (sz - pos)*60000),p,p,p});
 			};
 		}
 		lkst->cancel_upload = false;

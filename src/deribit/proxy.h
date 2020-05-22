@@ -40,7 +40,6 @@ public:
 	bool hasKey() const;
 	bool debug = false;
 
-	void setTimeDiff(std::intptr_t t);
 	static std::uint64_t now();
 
 	void setTestnet(bool testnet);

@@ -36,7 +36,6 @@ public:
 	json::Value private_request(Method method, std::string command, json::Value data);
 
 	bool hasKey() const;
-	void setTimeDiff(std::int64_t t);
 	void setTime(std::uint64_t t);
 	std::uint64_t now();
 
