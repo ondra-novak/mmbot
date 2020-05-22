@@ -93,6 +93,7 @@ json::Value Proxy::private_request(Method method, std::string command, json::Val
 	if (n > time_sync) {
 		json::Value tdata = public_request("/api/v3/time",json::Value());
 		auto m = tdata["serverTime"].getUIntLong();
+		logDebug("Read time: $1", m);
 		setTime(m);
 		n = now();
 		time_sync = n + (3600*1000); //- one hour
