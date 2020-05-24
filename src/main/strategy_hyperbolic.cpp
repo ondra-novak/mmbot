@@ -5,6 +5,8 @@
  *      Author: ondra
  */
 
+//https://www.desmos.com/calculator/eyzyduumon
+
 #include "strategy_hyperbolic.h"
 
 #include <chrono>
@@ -69,11 +71,11 @@ static double numeric_search_r2(double middle, Fn &&fn) {
 
 
 double Hyperbolic_Calculus::calcNeutral(double power, double asym, double position, double curPrice) {
-	return (curPrice * (position + power - power *  asym))/power;
+	return curPrice * (std::exp(-asym) + position/power);
 }
 
 double Hyperbolic_Calculus::calcPosValue(double power, double asym, double neutral, double curPrice) {
-	return power * ((asym - 1) * (neutral - curPrice) + neutral * (log(neutral) - log(curPrice)));
+	return -(std::exp(-asym)* power * (neutral - curPrice) + neutral * power * std::log(curPrice/neutral));
 }
 
 
@@ -88,21 +90,21 @@ IStrategy::MinMax Hyperbolic_Calculus::calcRoots(double power, double asym, doub
 }
 
 double Hyperbolic_Calculus::calcPosition(double power, double asym, double neutral, double price) {
-	return (neutral/price - 1 + asym) * power;
+	return (neutral/price - std::exp(-asym)) * power;
 }
 
 double Hyperbolic_Calculus::calcPrice0(double neutral_price, double asym) {
-	double x = neutral_price/(1 -  asym);
-	if (!std::isfinite(x)) return std::numeric_limits<double>::max();
-	else return x;
+	double x = neutral_price*std::exp(asym);
+	return x;
 }
 
 double Hyperbolic_Calculus::calcPriceFromPosition(double power, double asym, double neutral, double position) {
-	return (power * neutral)/(position + power - power *  asym);
+	double ea = std::exp(asym);
+	return (ea*neutral * power)/(ea *  position + power);
 }
 
 double Hyperbolic_Calculus::calcNeutralFromPrice0(double price0, double asym) {
-	return (1 - asym) * price0;
+	return price0 / std::exp(asym);
 }
 
 double Hyperbolic_Calculus::calcNeutralFromValue(double power, double asym, double neutral, double value, double curPrice) {
