@@ -12,6 +12,7 @@
 #include "../shared/logOutput.h"
 #include <cmath>
 
+#include "../imtjson/src/imtjson/string.h"
 #include "sgn.h"
 
 
@@ -311,7 +312,8 @@ json::Value Strategy_Leveraged<Calc>::dumpStatePretty(
 				 ("Last balance", st.bal)
 				 ("Multiplier", st.power)
 				 ("Neutral pos", st.neutral_pos?json::Value(st.neutral_pos):json::Value())
-	 	 	 	 ("Trend factor", (minfo.invert_price?-1:1)*trendFactor(st));
+	 	 	 	 ("Trend factor", json::String({
+						json::Value((minfo.invert_price?-1:1)*trendFactor(st)*100).toString(),"%"}));
 
 
 }
