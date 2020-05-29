@@ -22,6 +22,7 @@
 #include "../shared/logOutput.h"
 
 #include "../shared/stringview.h"
+#include "../bitfinex/structs.h"
 
 using json::Object;
 using json::Value;
@@ -37,6 +38,8 @@ static Value setupForm = {};
 
 static Value showIfAuto = Object
 		("source",Value(json::array,{"cryptowatch"}));
+static Value showIfBfx= Object
+		("source",Value(json::array,{"bitfinex"}));
 static Value showIfUrl = Object
 		("source",Value(json::array,{"urljson"}));
 static Value showIfManual = Object
@@ -54,6 +57,7 @@ static Value settingsForm = {
 						("default","cryptowatch")
 						("options",Object
 								("cryptowatch","Cryptowatch")
+								("bitfinex","Bitfinex")
 								("urljson","Link to JSON url")
 								("manual","Manual enter prices")
 								("orders","Execute orders")
@@ -74,6 +78,14 @@ static Value settingsForm = {
 							("options",Object
 									("","---select---")
 							),
+					Object("name","bfx_src")
+						("type","enum")
+						("label","Symbol")
+						("default","")
+						("showif", showIfBfx)
+						("options",Object
+								("","---select---")
+						),
 					Object("name","src_url")
 						("type","string")
 						("label","URL")
@@ -87,7 +99,7 @@ static Value settingsForm = {
 						Object
 							("name","prices")
 							("type","textarea")
-							("label","Prices one per line\nor\nURL to JSON source,\nand name of the field at second line")
+							("label","Prices - one per line")
 							("showif", showIfManual)
 							("default",""),
 
@@ -156,11 +168,47 @@ static Value settingsForm = {
 							("default","cont"),
 };
 
+static Value presetSettingsForm = {
+		Object
+			("name","pair")
+			("type","string")
+			("label","Pair")
+			("showif",json::array),
+		Object
+			("name","asset_balance")
+			("type","number")
+			("default","0")
+			("label","Assets"),
+		Object
+			("name","currency_balance")
+			("type","number")
+			("default","0")
+			("label","Currency"),
+		Object
+			("name","type")
+			("type","enum")
+			("options",Object
+					("normal","Standard exchange")
+					("futures","Normal futures")
+					("inverted","Inverted futures")
+					("futures_liq","Futures with liquidation")
+					("inverted_liq","Inv Futures with liquidation"))
+			("label","Market type")
+			("default","normal"),
+		Object
+			("name","liq")
+			("type","string")
+			("label","Liquidation price")
+			("showif",Object("type",{"futures_liq","inverted_liq"})),
+};
 
 static std::size_t genIDCnt() {
 	return std::chrono::duration_cast<std::chrono::milliseconds>(
 				std::chrono::system_clock::now().time_since_epoch()).count();
 }
+
+static HTTPJson httpc(simpleServer::HttpClient("MMBot Trainer",newHttpsProvider(), newNoProxyProvider()),"");
+
 
 class Interface: public AbstractBrokerAPI {
 public:
@@ -200,6 +248,7 @@ public:
 		json::Value collectSettings() const;
 
 		bool inited = false;
+		bool preset = false;
 		time_t startTime = 0;
 		time_t activityTime = 0;
 		int activityCounter = 10;
@@ -217,6 +266,8 @@ public:
 		double prev_price = 0;
 		double low_liq = 0;
 		double high_liq = std::numeric_limits<double>::max();
+		mutable double last_fetch_price = 0;
+		mutable std::chrono::steady_clock::time_point last_fetch_price_exp;
 
 
 		Orders orders;
@@ -233,6 +284,8 @@ public:
 		std::string src_currency;
 		void updateLiq(double openPrice);
 		void addTrade(std::size_t &idcnt, double price, double size);
+		void init(const StrViewA &name);
+		void updateActivity();
 	};
 
 
@@ -251,6 +304,8 @@ public:
 
 
 
+
+
 };
 
 
@@ -266,6 +321,31 @@ int main(int argc, char **argv) {
 	ifc.dispatch();
 }
 
+class BitfinexSource {
+public:
+	BitfinexSource(HTTPJson &httpjson):httpc(httpjson) {}
+
+	mutable PairList pairList;
+
+	const PairList& getPairs() const;
+	mutable std::chrono::system_clock::time_point pairListExpire;
+	double getPrice(const std::string_view &tsymbol);
+	std::string getPriceURL(const std::string_view &tsymbol);
+
+	HTTPJson &httpc;
+
+};
+
+const PairList& BitfinexSource::getPairs() const {
+	auto now = std::chrono::system_clock::now();
+	if (now < pairListExpire) return pairList;
+	auto r = httpc.GET("https://api.bitfinex.com/v2/conf/pub:info:pair");
+	pairList =readPairs(r);
+	pairListExpire = now+std::chrono::hours(1);
+	return pairList;
+}
+
+
 class CWSource {
 public:
 
@@ -277,12 +357,12 @@ public:
 	std::unordered_map<std::string, json::Value>cache;
 	std::unordered_map<std::string, double> volumes;
 	std::chrono::system_clock::time_point expires;
-	HTTPJson httpc;
+	HTTPJson &httpc;
 
 
-	CWSource()
+	CWSource(HTTPJson &httpc)
 		:expires(std::chrono::system_clock::now())
-		, httpc(simpleServer::HttpClient("MMBot Trainer",newHttpsProvider(), newNoProxyProvider()),"") {}
+		,httpc(httpc) {}
 
 	void cleanIfExpired() {
 		auto now = std::chrono::system_clock::now();
@@ -380,7 +460,8 @@ public:
 
 };
 
-static CWSource cwsource;
+static CWSource cwsource(httpc);
+static BitfinexSource bfxsource(httpc);
 
 
 
@@ -581,7 +662,7 @@ inline Interface::TradesSync Interface::syncTrades(json::Value lastId, const std
 		});
 		return TradesSync{ret, p.trades.empty()? 0: p.trades.back().id};
 	} else {
-		return TradesSync { {}, p.trades.empty()? Value(nullptr): p.trades.back().id};
+		return TradesSync { {}, p.trades.empty()? 0: p.trades.back().id};
 	}
 }
 
@@ -656,13 +737,19 @@ static Value searchField(Value data, StrViewA path) {
 double Interface::TestPair::getCurPrice() const {
 	if (last_price) return last_price;
 	double price = 0;
+	auto now = std::chrono::steady_clock::now();
 
-	if (price_source == "urljson" || price_source == "cryptowatch") {
+	if (price_source == "urljson" || price_source == "cryptowatch" || price_source == "bitfinex") {
 		if (!price_url.empty()) {
-			HTTPJson httpc(simpleServer::HttpClient("MMBot Trainer",newHttpsProvider(), newNoProxyProvider()),"");
-			json::Value resp = httpc.GET(price_url);
-			Value found = searchField(resp,price_path);
-			price = found.getNumber();
+			if (now > last_fetch_price_exp) {
+				last_fetch_price_exp = now + std::chrono::seconds(30);
+				json::Value resp = httpc.GET(price_url);
+				Value found = searchField(resp,price_path);
+				price = found.getNumber();
+				last_fetch_price = price;
+			} else {
+				price = last_fetch_price;
+			}
 		}
 	} else if (price_source == "orders") {
 		return last_order_price;
@@ -800,8 +887,14 @@ inline bool Interface::reset() {
 		}
 
 
+		double cp;
+		double lp = p.last_price;
 		p.last_price = 0;
-		double cp = p.getCurPrice();
+		try {
+			cp = p.getCurPrice();
+		} catch (...) {
+			cp = lp;
+		}
 
 		if (cp < p.low_liq || cp > p.high_liq) {
 			Value id = ++idcnt;
@@ -879,11 +972,26 @@ inline double Interface::getFees(const std::string_view &pair) {
 
 inline std::vector<std::string> Interface::getAllPairs() {
 	unsigned int i = 0;
-	char buff[20];
+	static constexpr std::string_view testStr = "TEST";
+	char pairName[40];
+
 	do {
-		sprintf(buff,"TEST%04d",++i);
-	} while (getPairPtr(buff) != nullptr);
-	return {buff};
+		++i;
+		char *d = pairName;
+		std::copy(testStr.begin(),testStr.end(), d);
+		d+=4;
+		ondra_shared::unsignedToString(i,[&d](char z){*d++=z;},10,4);
+		*d = 0;
+	} while (getPairPtr(pairName) != nullptr);
+
+	std::vector<std::string> pairs;
+	pairs.push_back(pairName);
+
+	auto bfxpairs = bfxsource.getPairs();
+	for (const auto &p : bfxpairs) {
+		pairs.push_back(p.second.symbol.str());
+	}
+	return pairs;
 }
 
 
@@ -906,6 +1014,11 @@ inline void Interface::restoreSettings(json::Value keyData) {
 }
 inline void Interface::setSettings(json::Value keyData, bool loaded,  unsigned int pairId) {
 	auto &p = pairs[pairId];
+
+	if (p.preset && !loaded) {
+		keyData = p.collectSettings().merge(keyData);
+	}
+
 	p.activityTime = time(nullptr);
 	p.activityCounter = 10;
 
@@ -976,9 +1089,27 @@ inline void Interface::setSettings(json::Value keyData, bool loaded,  unsigned i
 			p.price_url = url;
 			p.price_path = "price";
 		}
+	} else if (p.price_source == "bitfinex") {
+		if (!keyData["loaded"].defined()) {
+			const auto &pairs = bfxsource.getPairs();
+			auto name = keyData["bfx_src"].getString();
+			auto iter = std::find_if(pairs.begin(), pairs.end(), [&](const auto &pair) {
+				return pair.second.symbol == name;
+			});
+			if (iter != pairs.end()) {
+				p.price_url = bfxsource.getPriceURL(iter->second.tsymbol.str());
+				p.price_path = "[6]";
+				p.asset = iter->second.asset.str();
+				p.currency = iter->second.currency.str();
+				p.asset_step = iter->second.min_size;
+			} else {
+					throw std::runtime_error("Unknown symbold");
+			}
+		}
 	}
 	p.last_order_price=keyData["last_order_price"].getValueOrDefault(p.last_order_price);
 	p.prev_price = keyData["prev_price"].getNumber();
+	p.preset = keyData["preset"].getBool();
 	if (!loaded) {
 		saveSettings();
 	}
@@ -1010,7 +1141,8 @@ json::Value Interface::TestPair::collectSettings() const {
 	  	  ("src_currency", src_currency)
 		  ("activityCounter", activityCounter)
 		  ("last_order_price", last_order_price)
-		  ("loaded",true);
+		  ("loaded",true)
+		  ("preset",preset);
 	return kv;
 }
 
@@ -1030,10 +1162,22 @@ inline json::Value Interface::getSettings(const std::string_view & pair) const {
 	const auto &pptr = getPairPtr(pair);
 	if (pptr == nullptr) return json::undefined;
 	const auto &p = *pptr;
+
+	Value opt_src;
+
+	if (p.preset) {
+
+		opt_src = presetSettingsForm;
+
+	} else {
+
+		opt_src = settingsForm;
+	}
+
 	Value kv = p.collectSettings();
 	CWSource::Pairs cwAssets = cwsource.getAssets();
 
-	return settingsForm.map([&](Value v) {
+	return opt_src.map([&](Value v) {
 		StrViewA n = v["name"].getString();
 		Value z = v.replace("default", kv[n]);
 		if (z["name"].getString() == "src_asset") {
@@ -1047,8 +1191,12 @@ inline json::Value Interface::getSettings(const std::string_view & pair) const {
 			} else if (p.asset_balance < 0) {
 				z = z.replace("default",p.inverted?1.0/p.high_liq:p.low_liq);
 			}
-		}
-		else if (z["name"].getString() == "pair") {
+		} else if (z["name"].getString() == "bfx_src") {
+			const auto &pairs = bfxsource.getPairs();
+			z = z.replace("options",Value(json::object, pairs.begin(), pairs.end(), [](const auto &p){
+				return Value(p.second.symbol, p.second.symbol);
+			}));
+		} else if (z["name"].getString() == "pair") {
 			z = z.replace("default", pair);
 		}
 		return z;
@@ -1204,10 +1352,20 @@ Interface::PageData Interface::fetchPage(const std::string_view &method, const s
 
 inline Interface::TestPair& Interface::getPair(const std::string_view &name) {
 	std::hash<std::string_view> h;
-	TestPair &p = pairs[h(name)];
+	auto hsh = h(name);
+	auto piter = pairs.find(hsh);
+	if (piter == pairs.end()) {
+		TestPair &p = pairs[hsh];
+		p.init(name);
+		return p;
+	} else {
+		piter->second.updateActivity();
+		return piter->second;
+	}
+/*	TestPair &p = pairs[h(name)];
 	p.activityTime = time(nullptr);
 	p.activityCounter = 10;
-	return p;
+	return p;*/
 }
 
 inline const Interface::TestPair* Interface::getPairPtr(const std::string_view &name) const {
@@ -1217,3 +1375,50 @@ inline const Interface::TestPair* Interface::getPairPtr(const std::string_view &
 	if (iter == pairs.end()) return nullptr;
 	return &iter->second;
 }
+
+void Interface::TestPair::init(const StrViewA &name) {
+	updateActivity();
+	preset = false;
+	if (!name.startsWith("TEST")) {
+		const auto &p = bfxsource.getPairs();
+		auto iter = std::find_if(p.begin(), p.end(), [&](const auto &pair) {
+			return pair.second.symbol == name;
+		});
+		if (iter != p.end()) {
+			double price = bfxsource.getPrice(iter->second.tsymbol.str());
+			double suggest_fiat = iter->second.min_size * price * 10000;
+			double l = std::floor(std::log10(suggest_fiat));
+			this->currency_balance = std::pow(10, l);
+			this->currency_step = std::pow(10,std::round(std::log10(price)-5));
+			this->asset = iter->second.asset.str();
+			this->currency = iter->second.currency.str();
+			this->asset_balance = 0;
+			this->asset_step = iter->second.min_size;
+			this->futures = false;
+			this->inverted = false;
+			this->inited = true;
+			this->price_source = "bitfinex";
+			this->price_url = bfxsource.getPriceURL(iter->second.tsymbol.str());
+			this->price_path = "[6]";
+			this->preset = true;
+		}
+	}
+}
+
+void Interface::TestPair::updateActivity() {
+	activityTime = time(nullptr);
+	activityCounter = 10;
+}
+
+double BitfinexSource::getPrice(const std::string_view &tsymbol) {
+	Value jprice = httpc.GET(getPriceURL(tsymbol));
+	return jprice[6].getNumber();
+}
+
+std::string BitfinexSource::getPriceURL(const std::string_view &tsymbol) {
+	std::string req("https://api.bitfinex.com/v2/ticker/");
+	req.append(tsymbol);
+	return req;
+
+}
+

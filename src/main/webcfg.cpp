@@ -329,6 +329,9 @@ bool WebCfg::reqBrokerSpec(simpleServer::HTTPRequest req,
 		StrViewA pair = splt();
 		StrViewA orders = splt();
 
+		std::string pairstr = urlDecode(pair);
+		pair = pairstr;
+
 		if (req.getPath().indexOf("reset=1") != StrViewA::npos) {
 			api->reset();
 		}
