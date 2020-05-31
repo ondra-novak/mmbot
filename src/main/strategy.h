@@ -104,6 +104,10 @@ public:
 		return ptr->dumpStatePretty(minfo);
 	}
 
+	auto getID() const {
+		return ptr->getID();
+	}
+
 	static Strategy create(std::string_view id, json::Value config);
 
 	static void setConfig(const ondra_shared::IniConfig::Section &cfg);

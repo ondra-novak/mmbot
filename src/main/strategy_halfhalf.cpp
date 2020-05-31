@@ -79,6 +79,7 @@ IStrategy::OrderData Strategy_HalfHalf::getNewOrder(const IStockApi::MarketInfo 
 Strategy_HalfHalf::MinMax Strategy_HalfHalf::calcSafeRange(const IStockApi::MarketInfo &,
 		double assets, double currencies) const {
 	MinMax r;
+	double a = this->a + cfg.ea;
 	double s = a * p - currencies;
 	r.max = cfg.ea<=0?std::numeric_limits<double>::infinity():p*pow2((assets + cfg.ea) / cfg.ea);
 	r.min = s<=0?0:pow2(s/a)/p;

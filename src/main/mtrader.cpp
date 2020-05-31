@@ -187,7 +187,7 @@ void MTrader::perform(bool manually) {
 		//update market fees
 		minfo.fees = status.new_fees;
 		//process all new trades
-		processTrades(status);
+		bool anytrades = processTrades(status);
 
 		double lastTradeSize = trades.empty()?0:trades.back().eff_size;
 		double lastTradePrice;
@@ -200,7 +200,7 @@ void MTrader::perform(bool manually) {
 
 
 		//only create orders, if there are no trades from previous run
-		if (status.new_trades.trades.empty()) {
+		if (!anytrades) {
 
 			if (recalc) {
 				update_dynmult(lastTradeSize > 0, lastTradeSize < 0);
@@ -299,7 +299,7 @@ void MTrader::perform(bool manually) {
 			auto minmax = strategy.calcSafeRange(minfo, status.assetBalance, status.currencyBalance);
 
 			statsvc->reportMisc(IStatSvc::MiscData{
-				status.new_trades.trades.empty()?0:sgn(status.new_trades.trades.back().size),
+				!anytrades?0:sgn(status.new_trades.trades.back().size),
 				strategy.getEquilibrium(status.assetBalance),
 				status.curPrice * (exp(status.curStep) - 1),
 				dynmult.getBuyMult(),
@@ -785,7 +785,7 @@ bool MTrader::eraseTrade(std::string_view id, bool trunc) {
 }
 
 
-void MTrader::processTrades(Status &st) {
+bool MTrader::processTrades(Status &st) {
 
 
 	StringView<IStockApi::Trade> new_trades(st.new_trades.trades);
@@ -800,7 +800,7 @@ void MTrader::processTrades(Status &st) {
 			new_trades = new_trades.substr(1);
 	}
 
-	if (new_trades.empty()) return;
+	if (new_trades.empty()) return false;
 
 
 
@@ -840,6 +840,7 @@ void MTrader::processTrades(Status &st) {
 		trades.push_back(TWBItem(t, last_np+=norm.normProfit, last_ap+=norm.normAccum, norm.neutralPrice));
 		lastPriceOffset = t.price - st.spreadCenter;
 	}
+	return true;
 }
 
 void MTrader::update_dynmult(bool buy_trade,bool sell_trade) {

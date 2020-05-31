@@ -91,7 +91,7 @@ App.prototype.createTraderForm = function() {
 	var pl = form.findElements("goal_pl")[0];
 	form.dlgRules = function() {
 		var state = this.readData(["strategy","advanced","check_unsupp"]);
-		form.showItem("strategy_halfhalf",state.strategy == "halfhalf" || state.strategy == "keepvalue");
+		form.showItem("strategy_halfhalf",state.strategy == "halfhalf" || state.strategy == "keepvalue" || state.strategy == "exponencial");
 		form.showItem("strategy_pl",state.strategy == "plfrompos");
 		form.showItem("strategy_stairs",state.strategy == "stairs");
 		form.showItem("strategy_hyperbolic",state.strategy == "hyperbolic"||state.strategy == "linear");
@@ -441,39 +441,6 @@ App.prototype.fillForm = function (src, trg) {
 			linStrategy_recalc();
 		}
 
-		function halfHalf_recalc() {
-			var inputs = trg.readData(["strategy","acum_factor","external_assets"]);
-			var p = pair.price;
-			var ea = inputs.external_assets;
-			var data = {};
-			var a = pair.asset_balance+ea;
-			if (inputs.strategy == "halfhalf") {				
-				var s = a * p - pair.currency_balance;				
-				if (pair.invert_price) {
-					data.halfhalf_max_price = adjNum(s <0?"∞":p/((s/a)*(s/a)));
-					data.halfhalf_min_price = ea <= 0?0:adjNum((ea*ea)/(p*a*a));
-				} else {
-					data.halfhalf_max_price = ea <= 0?"∞":adjNum(p*a*a/(ea*ea));
-					data.halfhalf_min_price = adjNum(s <0?0:(s/a)*(s/a)/p);
-				}
-			} else {
-				var k = p*a;
-				if (pair.invert_price) {
-				    data.halfhalf_min_price = ea > 0?adjNum(ea/k):0;
-				    data.halfhalf_max_price = adjNum(1.0/(p*Math.exp(-pair.currency_balance/k)));
-				} else {
-				    data.halfhalf_min_price = adjNum(p*Math.exp(-pair.currency_balance/k));
-				    data.halfhalf_max_price = ea > 0?adjNum(k/ea):"∞";
-				}
-			}
-
-			data.err_external_assets = {classList:{mark:!pair.leverage && !pair.invert_price && a <= 0}};
-			data.err_external_assets_margin = {classList:{mark:pair.leverage && !pair.invert_price && a <= 0}};
-			data.err_external_assets_inverse = {classList:{mark:pair.invert_price && a <= 0}};
-			data.external_assets_hint = -pair.asset_balance;
-			trg.setData(data);
-			
-		}
 		function linStrategy_recalc_power() {
 			var v = trg.readData(["pl_power","pl_confmode","pl_baluse"]);
 			if (v.pl_confmode == "m") return;
@@ -500,15 +467,55 @@ App.prototype.fillForm = function (src, trg) {
 		}
 		calcPosition(data);
 
+		function recalcStrategy() {
+			var data = trg.readData()
+			var strategy = getStrategyData(data);
+			var req = {
+					strategy:strategy,
+					price:pair.price,
+					assets:pair.asset_balance,
+					currency:pair.currency_balance,
+					leverage:pair.leverage,
+					inverted: pair.invert_price,
+					trader:src.id
+			};
+			if (recalcStrategy.ip) {
+				recalcStrategy.queued = true;
+			} else {
+				recalcStrategy.ip = true;
+				recalcStrategy.queued = false;
+				fetch_json("api/strategy", {method:"POST",body:JSON.stringify(req)})
+					.then(function(r){
+						recalcStrategy.ip = false;
+						trg.setData({range_min_price:r.min, range_max_price:r.max});
+						if (recalcStrategy.queued) {
+							recalcStrategy();
+						}
+					},function(e){
+						recalcStrategy.ip = false;
+						console.error(e);
+						if (recalcStrategy.queued) {
+							recalcStrategy();
+						}
+					})
+			}
+		}
+		
 		if (first_fetch) {
+			["strategy","external_assets", "hp_power", "hp_powadj", "hp_extbal", "asym", "trend","hp_reduction","hp_dynred"]
+			.forEach(function(item){
+				trg.findElements(item).forEach(function(elem){
+					elem.addEventListener("input", recalcStrategy.bind(this));
+				}.bind(this));
+			}.bind(this));
+			recalcStrategy.call(this);
+			
 			data.max_pos = data.cstep = data.pl_posoffset = {"!input": linStrategy_recalc};
 			data.linear_suggest = {"!click":linStrategy_recomended};
 			data.linear_suggest_maxpos = {"!click":linStrategy_recomended_maxpos};
-			data.external_assets = {"!input": halfHalf_recalc};
 			data.vis_spread = {"!click": this.init_spreadvis.bind(this, trg, src.id), ".disabled":false};
 			data.show_backtest= {"!click": this.init_backtest.bind(this, trg, src.id, src.pair_symbol, src.broker), ".disabled":false};
 			linStrategy_recalc();
-			halfHalf_recalc();
 			linStrategy_recalc_power();
 			var tmp = trg.readData(["cstep","max_pos"]);
 			if (!tmp.max_pos && !tmp.cstep) linStrategy_recomended();
@@ -582,7 +589,7 @@ App.prototype.fillForm = function (src, trg) {
 	function powerCalc(x) {return adjNumN(Math.pow(10,x)*0.01);};
 
 	
-	if (data.strategy == "halfhalf" || data.strategy == "keepvalue") {
+	if (data.strategy == "halfhalf" || data.strategy == "keepvalue" || data.strategy == "exponencial") {
 		data.acum_factor = filledval(defval(src.strategy.accum,0)*100,0);
 		data.external_assets = filledval(src.strategy.ea,0);
 		data.kv_valinc = filledval(src.strategy.valinc,0);
@@ -709,30 +716,25 @@ App.prototype.fillForm = function (src, trg) {
 	return trg.setData(data).catch(function(){}).then(unhide_changed.bind(this)).then(trg.dlgRules.bind(trg));
 }
 
-
-App.prototype.saveForm = function(form, src) {
-
-	var data = form.readData();
-	var trader = {}
-	var goal = data.goal;
-	trader.strategy = {};
-	trader.strategy.type = data.strategy;
+function getStrategyData(data) {
+	var strategy = {};
+	strategy.type = data.strategy;
 	if (data.strategy == "plfrompos") {
-		trader.strategy.cstep = data.cstep;
-		trader.strategy.pos_offset = data.pl_posoffset;
-		trader.strategy.maxpos = data.max_pos;
-		trader.strategy.reduce_factor = data.pl_redfact/100;
-		trader.strategy.reduce_mode = data.pl_redmode;
-		trader.strategy.balance_use = data.pl_baluse/100;		
-		trader.strategy.power = data.pl_confmode=="a"?data.pl_power:0;
-		trader.strategy.reduce_on_inc = data.pl_redoninc;
-	} else if (data.strategy == "halfhalf" || data.strategy == "keepvalue") {
-		trader.strategy.accum = data.acum_factor/100.0;
-		trader.strategy.ea = data.external_assets;
-		trader.strategy.valinc = data.kv_valinc;
-		trader.strategy.halfhalf = data.kv_halfhalf;
+		strategy.cstep = data.cstep;
+		strategy.pos_offset = data.pl_posoffset;
+		strategy.maxpos = data.max_pos;
+		strategy.reduce_factor = data.pl_redfact/100;
+		strategy.reduce_mode = data.pl_redmode;
+		strategy.balance_use = data.pl_baluse/100;		
+		strategy.power = data.pl_confmode=="a"?data.pl_power:0;
+		strategy.reduce_on_inc = data.pl_redoninc;
+	} else if (data.strategy == "halfhalf" || data.strategy == "keepvalue" || data.strategy == "exponencial") {
+		strategy.accum = data.acum_factor/100.0;
+		strategy.ea = data.external_assets;
+		strategy.valinc = data.kv_valinc;
+		strategy.halfhalf = data.kv_halfhalf;
 	} else 	if (data.strategy == "hyperbolic"||data.strategy == "linear") {
-		trader.strategy = {
+		strategy = {
 				type: data.strategy,
 				power: data.hp_power,
 				powadj: data.hp_powadj,
@@ -744,7 +746,7 @@ App.prototype.saveForm = function(form, src) {
 				reduction: data.hp_reduction/100
 		};
 	} else 	if (data.strategy == "stairs") {
-		trader.strategy ={
+		strategy ={
 				type: data.strategy,
 				power : data.st_power,
 				max_steps: data.st_max_step,
@@ -755,6 +757,15 @@ App.prototype.saveForm = function(form, src) {
 				sl:data.st_sl
 		}
 	}
+	return strategy;
+}
+
+App.prototype.saveForm = function(form, src) {
+
+	var data = form.readData();
+	var trader = {}
+	var goal = data.goal;
+	trader.strategy = getStrategyData(data);
 	trader.id = src.id;
 	trader.broker =src.broker;
 	trader.pair_symbol = src.pair_symbol;
@@ -1456,7 +1467,8 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
     var offset = 0;
     var offset_max = 0;
 	var start_date = "";
-    var show_norm=this.traders[id].strategy.type == "halfhalf" || this.traders[id].strategy.type == "keepvalue"; 
+    var show_norm=this.traders[id].strategy.type == "halfhalf" || this.traders[id].strategy.type == "keepvalue"
+    	|| this.traders[id].strategy.type == "exponencial"; 
 
 	function draw(cntr, v, offset, balance) {
 

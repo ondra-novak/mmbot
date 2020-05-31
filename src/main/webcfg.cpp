@@ -43,6 +43,7 @@ NamedEnum<WebCfg::Command> WebCfg::strCommand({
 	{WebCfg::editor, "editor"},
 	{WebCfg::backtest, "backtest"},
 	{WebCfg::spread, "spread"},
+	{WebCfg::strategy, "strategy"},
 	{WebCfg::upload_prices, "upload_prices"},
 	{WebCfg::upload_trades, "upload_trades"}
 });
@@ -91,6 +92,7 @@ bool WebCfg::operator ()(const simpleServer::HTTPRequest &req,
 		case editor: return reqEditor(req);
 		case backtest: return reqBacktest(req);
 		case spread: return reqSpread(req);
+		case strategy: return reqStrategy(req);
 		case upload_prices: return reqUploadPrices(req);
 		case upload_trades: return reqUploadTrades(req);
 		}
@@ -1242,3 +1244,49 @@ bool WebCfg::generateTrades(const SharedObject<Traders> &trlist, PState state, j
 
 }
 
+bool WebCfg::reqStrategy(simpleServer::HTTPRequest req) {
+	if (!req.allowMethods({"POST"})) return true;
+	Stream strm = req.getBodyStream();
+	Value jreq = Value::parse(strm);
+
+	Value strategy = jreq["strategy"];
+	Strategy s = Strategy::create(strategy["type"].getString(), strategy);
+	StrViewA trader = jreq["trader"].getString();
+	double assets = jreq["assets"].getNumber();
+	double currency = jreq["currency"].getNumber();
+	double price = jreq["price"].getNumber();
+	double leverage = jreq["leverage"].getNumber();
+	bool inverted = jreq["inverted"].getBool();
+
+	IStockApi::MarketInfo minfo{
+			"","",0,0,0,0,0,IStockApi::currency,leverage,inverted
+		};
+
+
+	if (!trader.empty()) {
+		auto tr = this->trlist.lock_shared()->find(trader);
+		if (tr != nullptr) {
+			Strategy trs = tr.lock_shared()->getStrategy();
+			if (trs.getID() == s.getID()) {
+				s.importState(trs.exportState());
+			}
+			minfo = tr.lock_shared()->getMarketInfo();
+		}
+	}
+
+
+
+	s.onIdle(minfo, IStockApi::Ticker{price,price,price,
+		static_cast<std::uint64_t>(
+				std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count()
+				)
+	},assets,currency);
+
+	auto range = s.calcSafeRange(minfo, assets, currency);
+	Value out = Object
+			("min", inverted?1.0/range.max:range.min)
+			("max", inverted?1.0/range.min:range.max);
+
+	req.sendResponse("application/json", out.toString());
+	return true;
+}

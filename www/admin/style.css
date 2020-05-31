@@ -890,6 +890,7 @@ label span:hover span.tooltip, div.label span:hover span.tooltip {
 .strategygoal > div.keepvalue > div.keepvalue {display:block;}
 .strategygoal > div.hyperbolic > div.hyperbolic {display:block;}
 .strategygoal > div.linear > div.linear {display:block;}
+.strategygoal > div.exponencial > div.exponencial {display:block;}
 
 x-form.trading .buttons {text-align: center;}
 x-form.trading .buttons button {width: 40%}

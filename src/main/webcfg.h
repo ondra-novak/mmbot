@@ -122,6 +122,7 @@ public:
 		login,
 		backtest,
 		spread,
+		strategy,
 		upload_prices,
 		upload_trades,
 	};
@@ -148,6 +149,7 @@ protected:
 	bool reqSpread(simpleServer::HTTPRequest req);
 	bool reqUploadPrices(simpleServer::HTTPRequest req);
 	bool reqUploadTrades(simpleServer::HTTPRequest req);
+	bool reqStrategy(simpleServer::HTTPRequest req);
 
 	using Sync = std::unique_lock<std::recursive_mutex>;
 
