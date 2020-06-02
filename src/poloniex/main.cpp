@@ -342,7 +342,7 @@ bool Interface::syncTradesCycle(std::size_t fromTime) {
 				auto fee = t["fee"].getNumber();
 				if (t["type"].getString() == "sell") size = -size;
 				double eff_size = size >= 0? size*(1-fee):size;
-				double eff_price = size < 0? price*(1-fee):price;
+				double eff_price = size < 0? price*(1-fee): size * price / eff_size;
 				loaded.push_back(Trade {
 					id,
 					time,

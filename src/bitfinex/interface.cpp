@@ -269,6 +269,7 @@ IStockApi::TradesSync Interface::syncTrades(json::Value lastId, const std::strin
 			lastFees = getFeeFromTrade(x, pinfo);
 			if (feecur == pinfo.asset && !m) {
 				eff_size = size + fee;
+				eff_price = size * price /eff_size;
 			} else if (feecur == pinfo.currency) {
 				eff_price = price - fee/size;
 			} else {

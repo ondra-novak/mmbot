@@ -77,20 +77,24 @@ static double rounded(double v) {
 
 
 void IStockApi::MarketInfo::addFees(double &assets, double &price) const {
+	//always shift price
+    price = price*(1 - sgn(assets)*fees);
 	switch (feeScheme) {
 	case IStockApi::currency:
-				   price = price*(1 - sgn(assets)*fees);
 				   break;
 	case IStockApi::assets:
 					assets = assets*(1+fees);
 					break;
 	case IStockApi::income:
-					if (assets>0 ) assets = assets*(1+fees);
-					else price = price*(1+fees);
+					if (assets>0 ) {
+						assets = assets*(1+fees);
+					}
 					break;
 	case IStockApi::outcome:
-					if (assets<0 ) assets = assets*(1-fees);
-					else price = price*(1-fees);
+					if (assets<0 ) {
+						assets = assets*(1-fees);
+					}
+					break;
 	}
 
 	if (invert_price) price = 1/(adjValue(1/price, currency_step, rounded));

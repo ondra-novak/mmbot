@@ -217,7 +217,7 @@ inline Interface::TradesSync Interface::syncTrades(json::Value lastId,
 				if (type == 1) {//sell
 					size = -base;
 					eff_size = -base;
-					eff_price = counter/base;
+					eff_price = (counter-fee)/base;
 				} else {
 					size = base;
 					eff_size = base-fee;

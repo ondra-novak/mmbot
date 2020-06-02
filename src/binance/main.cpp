@@ -163,6 +163,7 @@ void Interface::updateBalCache() {
 			 double eff_price = price;
 			 if (comass == StrViewA(minfo.asset_symbol)) {
 				 eff_size -= comms;
+				 eff_price =  std::abs(size * price) / eff_size;
 			 } else if (comass == StrViewA(minfo.currency_symbol)) {
 				 eff_price += comms/size;
 			 }
