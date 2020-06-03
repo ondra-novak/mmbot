@@ -316,9 +316,15 @@ inline json::Value Interface::placeOrder(const std::string_view &pair,
 					&& almostSame(toCancel["price"].getNumber() , price)) {
 				return toCancel["orderID"];
 			} else {
-				Value resp = px.request("DELETE","/api/v1/order",Object("orderID",replaceId));
-				Value remain = resp[0]["orderQty"].getNumber();
-				if (!almostSame(remain.getNumber(), replaceSize) && remain.getNumber() < replaceSize) {
+				if (size) {
+					Object order;
+					order.set("orderID", replaceId)
+							 ("orderQty", qty)
+							 ("price",price);
+					Value resp = px.request("PUT","/api/v1/order",Value(),order);
+					return resp["orderID"];
+				} else{
+					px.request("DELETE","/api/v1/order",Object("orderID",replaceId));
 					return nullptr;
 				}
 			}

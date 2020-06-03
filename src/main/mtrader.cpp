@@ -849,13 +849,7 @@ void MTrader::update_dynmult(bool buy_trade,bool sell_trade) {
 
 void MTrader::reset() {
 	init();
-	if (trades.size() > 1) {
-		trades.erase(trades.begin(), trades.end()-1);
-	}
-	if (!trades.empty()) {
-		trades.back().norm_accum = 0;
-		trades.back().norm_profit = 0;
-	}
+	trades.clear();
 	saveState();
 }
 
