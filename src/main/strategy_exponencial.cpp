@@ -118,7 +118,7 @@ IStrategy::OrderData Strategy_Exponencial::getNewOrder(
 		const IStockApi::MarketInfo &,
 		double, double price, double /*dir*/, double assets, double /*currency*/) const {
 
-	double ordsz = calcOrderSize(calcA(st, st.p)-cfg.ea, assets, calcA(st,price)-cfg.ea);
+	double ordsz = calcOrderSize(calcA(st, st.p), assets+cfg.ea, calcA(st,price));
 	return {0,ordsz};
 }
 

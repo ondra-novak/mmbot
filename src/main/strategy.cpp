@@ -149,16 +149,9 @@ void Strategy::importState(json::Value src) {
 }
 
 double IStrategy::calcOrderSize(double expectedAmount, double actualAmount, double newAmount) {
-	double chg = newAmount - expectedAmount;
-	double dir = sgn(chg);
-	double err = newAmount - actualAmount;
-	if (err * dir > 0) {
-		double middle = (actualAmount + expectedAmount)/2;
-		double size = newAmount - middle;
-		return size;
-	} else {
-		return chg/2.0;
-	}
+	double middle = (actualAmount + expectedAmount)/2;
+	double size = newAmount - middle;
+	return size;
 }
 
 void Strategy::setConfig(const ondra_shared::IniConfig::Section &cfg) {
