@@ -130,7 +130,7 @@ Strategy_Exponencial::MinMax Strategy_Exponencial::calcSafeRange(
 }
 
 double Strategy_Exponencial::getEquilibrium(double assets) const {
-	return  st.k*std::log(st.w/assets);
+	return  st.k*std::log(st.w/(assets+cfg.ea));
 }
 
 std::string_view Strategy_Exponencial::getID() const {
