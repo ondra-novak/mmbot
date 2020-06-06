@@ -178,7 +178,7 @@ std::pair<typename Strategy_Leveraged<Calc>::OnTradeResult, PStrategy> Strategy_
 	auto cpos = calcPosition(tradePrice);
 	double mult = calcMult();
 	double profit = (apos - tradeSize) * (tradePrice - st.last_price);
-	double vprofit = (st.position) * (tradePrice - st.last_price);
+	//double vprofit = (st.position) * (tradePrice - st.last_price);
 	//store current position
 	nwst.position = cpos.pos;
 	//store last price
@@ -192,12 +192,12 @@ std::pair<typename Strategy_Leveraged<Calc>::OnTradeResult, PStrategy> Strategy_
 	//calculate extra profit - we get change of value and add profit. This shows how effective is strategy. If extra is positive, it generates
 	//profit, if it is negative, is losses
 	double extra = (val - st.val) + profit;
-	double vextra = (val - st.val) + vprofit;
+	//double vextra = (val - st.val) + vprofit;
 
 	//store val to calculate next profit (because strategy was adjusted)
 	nwst.val = val;
 	//store new balance
-	nwst.bal = st.bal + vextra;
+	nwst.bal = currencyLeft + val;
 
 	recalcPower(cfg, nwst);
 

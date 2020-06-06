@@ -576,7 +576,10 @@ MTrader::Order MTrader::calculateOrderFeeLess(
 		}
 		if (std::fabs(order.size) < min_size) order.size = 0;
 		if (minfo.min_volume) {
-			double vol = std::fabs(order.size * order.price);
+			double op = order.price;
+			double os = order.size;
+			minfo.addFees(os,op);
+			double vol = std::fabs(op * os);
 			if (vol < minfo.min_volume) order.size = 0;
 		}
 
