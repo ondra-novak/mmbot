@@ -7,6 +7,7 @@
 
 #ifndef SRC_MAIN_STRATEGY_LEVERAGED_BASE_H_
 #define SRC_MAIN_STRATEGY_LEVERAGED_BASE_H_
+#include <memory>
 
 
 
@@ -14,6 +15,9 @@
 template<typename Calc>
 class Strategy_Leveraged: public IStrategy {
 public:
+
+	using TCalc = Calc;
+	using PCalc = std::shared_ptr<Calc>;
 
 	struct Config {
 		double power;
@@ -27,6 +31,8 @@ public:
 		int preference;
 	};
 
+	using PConfig = std::shared_ptr<const Config>;
+
 
 	struct State {
 		double neutral_price = 0;
@@ -39,8 +45,8 @@ public:
 		long trend_cntr = 0;
 	};
 
-	Strategy_Leveraged(const Config &cfg, State &&st);
-	Strategy_Leveraged(const Config &cfg);
+	Strategy_Leveraged(const PCalc &calc, const PConfig &cfg, State &&st);
+	Strategy_Leveraged(const PCalc &calc, const PConfig &cfg);
 
 	virtual bool isValid() const override;
 	virtual PStrategy  onIdle(const IStockApi::MarketInfo &minfo, const IStockApi::Ticker &curTicker, double assets, double currency) const override;
@@ -57,7 +63,8 @@ public:
 	static std::string_view id;
 
 protected:
-	Config cfg;
+	PCalc calc;
+	PConfig cfg;
 	State st;
 	mutable std::optional<MinMax> rootsCache;
 
@@ -66,7 +73,7 @@ protected:
 		double pos;
 	};
 
-	static Strategy_Leveraged init(const Config &cfg, double price, double pos, double currency, bool futures);
+	static Strategy_Leveraged init(const PCalc &calc, const PConfig &cfg, double price, double pos, double currency, bool futures);
 	PosCalcRes calcPosition(double price) const;
 
 	MinMax calcRoots() const;
@@ -79,14 +86,13 @@ protected:
 	double calcNewNeutralFromProfit(double profit, double price) const;
 
 private:
-	static void recalcPower(const Config &cfg, State &nwst) ;
-	static void recalcNeutral(const Config &cfg, State &nwst) ;
+	static void recalcPower(const PCalc &calc, const PConfig &cfg, State &nwst) ;
+	static void recalcNeutral(const PCalc &calc, const PConfig &cfg, State &nwst) ;
 	json::Value storeCfgCmp() const;
-	static void recalcNewState(const Config &cfg, State &nwst);
+	static void recalcNewState(const PCalc &calc, const PConfig &cfg, State &nwst);
 	double calcAsym() const;
-	static double calcAsym(const Config &cfg, const State &st) ;
+	static double calcAsym(const PConfig &cfg, const State &st) ;
 	static double trendFactor(const State &st);
-
 };
 
 

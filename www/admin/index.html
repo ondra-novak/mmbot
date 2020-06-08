@@ -51,13 +51,20 @@
 <x-section><x-section-caption>General</x-section-caption>
 <label><span>Title</span><input type="text" data-name="title"></label>
 <label><span>Strategy</span><select data-name="strategy">
+<optgroup label="Leveraged">
+<option value="elliptical">Elliptical</option>
 <option value="linear">Linear</option>
 <option value="hyperbolic">Hyperbolic</option>
 <option value="stairs">Stairs</option>
+</optgroup>
+<optgroup label="Exchanges">
 <option value="halfhalf">Half-Half</option>
 <option value="keepvalue">Keep Value</option>
 <option value="exponencial">Exponencial</option>
+</optgroup>
+<optgroup label="Deprecated">
 <option value="plfrompos">Linear (OLD)</option>
+</optgroup>
 </select></label>
 <div class="label strategygoal"><span>Startegy Goal:</span><div data-name="help_goal">
 <div class="plfrompos">A simple strategy for trading on leveraged stock exchanges and futures, generally on stock exchanges with the ability to open long or short positions. This strategy is the only one that works well with a negative value in "assets" (meaning position)</div>
@@ -101,17 +108,18 @@ included, external currencies are counted in proportion to external assets</span
 <div class="rightinfo"><button name="show_backtest" disabled="disabled">Backtest</button></div>
 </x-section>
 
-<x-section data-name="strategy_hyperbolic" class="goal" hidden="hidden"><x-section-caption>Linear/Hyperbolic</x-section-caption>
+<x-section data-name="strategy_hyperbolic" class="goal" hidden="hidden"><x-section-caption>Linear/Hyperbolic/Elliptical</x-section-caption>
 <label><span>Power<span class="tooltip">How balance is multiplied. Can boost profits and losses as well. Conservative value is 1</span></span><input data-name="hp_power" type="number" step="0.1" value="1.0"></label>
 <label class="adv"><span>Dynamic power<span class="tooltip">How much is power adjusted with increase of the position</span></span><input data-name="hp_powadj" type="number" step="0.1" value="1.0"></label>
 <label><span>External balance<span class="tooltip">Amount of balance held outside of stock. It allows to keep minimal amount of colateral on the leveraged stockmarket to prevent a large liquidations, but it still maintains  correct calculations with whole possible balance</span></span><input data-name="hp_extbal" type="number" value="0"></label>
+<label data-name="hp_range_label"><span>Range<span class="tooltip">Specifies tradable range - width in currency. This argument is mandatory</span></span><x-slider data-name="hp_width" data-min="0" data-max="200" data-mult="1" data-fixed="0"></label>
 <label><span>Trend detection</span><span class="tooltip">Tries to detect trend and adjust asymmetry according to detected trend</span><x-checkbox data-name="hp_dtrend">Detect trend</x-checkbox></label>
 <label><x-switch data-name="hp_lb_asym" data-value="asym">Asymmetry<span class="tooltip">Prefer one of sides. Positive value prefers LONGS on normal futures and SHORTS on inverted futures. Negative values vice versa. Note that negative values are more dangerous and can result in a liquidation.</span></x-switch>
 		<x-switch data-name="hp_lb_asym" data-value="trend">Trend strenght<span class="tooltip">Specifies how much the trend affects prefered side. Positive value - go with trend, negative value - go against trend</span></x-switch>
 		<x-slider data-name="hp_asym" data-min="-100" data-max="100" data-mult="1" data-fixed="0"></label>
 <label><span>Reduction</span><span class="tooltip">Reduction of current position, 0=no reduction, 100=large reduction</span><x-slider data-name="hp_reduction" data-min="0" data-max="100" data-mult="1" data-fixed="0"></label>
 <label class="adv"><span>Dynamic reduction<span class="tooltip">How much is reduction increased with increase of the position. The value 1 means by 100% when position is exact to internal multiplicator (advenced feature)</span></span><input data-name="hp_dynred" type="number" step="0.1" value="1.0"></label>
-<label><span>Max loss (stoploss, 0=disabled)<span class="tooltip">Specify maximum loss to execute stoploss order. By setting 0 can result in a liquidation. In this case consider to keep minimum amount of the avaiable assets on the stockmarket and set the External balance to achieve correct caulculations</span></span><input data-name="hp_maxloss" type="number" value="0"></label>
+<label data-name="hp_maxloss_label"><span>Max loss (stoploss, 0=disabled)<span class="tooltip">Specify maximum loss to execute stoploss order. By setting 0 can result in a liquidation. In this case consider to keep minimum amount of the avaiable assets on the stockmarket and set the External balance to achieve correct caulculations</span></span><input data-name="hp_maxloss" type="number" value="0"></label>
 <x-section>
 <div class="label"><span>Min price:</span><span data-name="range_min_price">---</span></div>
 <div class="label"><span>Max price:</span><span data-name="range_max_price">---</span></div>

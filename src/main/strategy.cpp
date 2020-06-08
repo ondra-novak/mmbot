@@ -12,6 +12,7 @@
 #include <imtjson/object.h>
 #include "../shared/stringview.h"
 #include "sgn.h"
+#include "strategy_elliptical.h"
 #include "strategy_plfrompos.h"
 #include "strategy_halfhalf.h"
 #include "strategy_keepvalue.h"
@@ -121,7 +122,8 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 		cfg.powadj = config["powadj"].getNumber();
 		cfg.dynred = config["dynred"].getNumber();
 		cfg.detect_trend = config["dtrend"].getBool();
-		return Strategy(new Strategy_Hyperbolic(cfg));
+		return Strategy(new Strategy_Hyperbolic(std::make_shared<Strategy_Hyperbolic::TCalc>(),
+											    std::make_shared<Strategy_Hyperbolic::Config>(cfg)));
 	} else if (id == Strategy_Linear::id) {
 		Strategy_Linear::Config cfg;
 		cfg.power = config["power"].getNumber();
@@ -132,7 +134,21 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 		cfg.powadj = config["powadj"].getNumber();
 		cfg.dynred = config["dynred"].getNumber();
 		cfg.detect_trend = config["dtrend"].getBool();
-		return Strategy(new Strategy_Linear(cfg));
+		return Strategy(new Strategy_Linear(std::make_shared<Strategy_Linear::TCalc>(),
+			    							std::make_shared<Strategy_Linear::Config>(cfg)));
+	} else if (id == Strategy_Elliptical::id) {
+		Strategy_Elliptical::Config cfg;
+		cfg.power = config["power"].getNumber();
+		cfg.max_loss = 0;
+		double width = config["width"].getNumber();
+		cfg.asym = config["asym"].getNumber()/cfg.power;
+		cfg.reduction = config["reduction"].getNumber();
+		cfg.external_balance = config["extbal"].getNumber();
+		cfg.powadj = config["powadj"].getNumber();
+		cfg.dynred = config["dynred"].getNumber();
+		cfg.detect_trend = config["dtrend"].getBool();
+		return Strategy(new Strategy_Elliptical(std::make_shared<Strategy_Elliptical::TCalc>(width),
+			    							std::make_shared<Strategy_Elliptical::Config>(cfg)));
 	} else {
 		throw std::runtime_error(std::string("Unknown strategy: ").append(id));
 	}

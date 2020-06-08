@@ -176,3 +176,11 @@ double Linear_Calculus::calcNeutralFromValue(double power, double asym, double n
 
 
 }
+
+double Hyperbolic_Calculus::calcPower(double neutral, double balance, double ) {
+	return balance/neutral;
+}
+
+double Linear_Calculus::calcPower(double neutral, double balance, double ) {
+	return balance/neutral;
+}

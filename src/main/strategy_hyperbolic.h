@@ -76,6 +76,8 @@ public:
 
 	static double calcNeutralFromValue(double power, double asym, double neutral, double value, double curPrice);
 
+	static double calcPower(double neutral, double balance, double asym);
+
 	static std::string_view id;
 };
 
@@ -143,6 +145,8 @@ public:
 	//static double calcPriceFromValue(double power, double asym, double neutral, double value, double curPrice);
 
 	static double calcNeutralFromValue(double power, double asym, double neutral, double value, double curPrice);
+
+	static double calcPower(double neutral, double balance, double asym);
 
 	static std::string_view id;
 };
