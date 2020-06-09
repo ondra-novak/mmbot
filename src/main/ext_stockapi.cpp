@@ -192,27 +192,36 @@ void ExtStockApi::restoreSettings(json::Value v) {
 }
 
 
+class IconFiles: public std::set<std::string> {
+public:
+    ~IconFiles() {
+        for (auto &&k: *this) {
+            std::remove(k.c_str());
+        }
+    }
+};
 
 
+static IconFiles iconFiles;
 
 void ExtStockApi::saveIconToDisk(const std::string &path) const {
-	std::unique_lock _(connection->getLock());
+        std::unique_lock _(connection->getLock());
 
-	static std::set<std::string> files;
-	auto clean_call = []{
-			for (auto &&k: files) std::remove(k.c_str());
-	};
-	static ondra_shared::FinallyImpl<decltype(clean_call)> finally(std::move(clean_call));
 
-	std::string name =getIconName();
-	std::string fullpath = path+"/"+name;
-	if (files.find(fullpath) == files.end()) {
-		std::ofstream f(fullpath, std::ios::out|std::ios::trunc|std::ios::binary);
-		BrokerInfo binfo = const_cast<ExtStockApi *>(this)->getBrokerInfo();
-		json::Binary b = json::base64->decodeBinaryValue(binfo.favicon).getBinary(json::base64);
-		f.write(reinterpret_cast<const char *>(b.data), b.length);
-		files.insert(fullpath);
-	}
+        std::string name =getIconName();
+        std::string fullpath = path+"/"+name;
+        if (iconFiles.find(fullpath) == iconFiles.end()) {
+                std::ofstream f(fullpath, std::ios::out|std::ios::trunc|std::ios::binary);
+                BrokerInfo binfo = const_cast<ExtStockApi *>(this)->getBrokerInfo();
+                json::Binary b = json::base64->decodeBinaryValue(binfo.favicon).getBinary(json::base64);
+                f.write(reinterpret_cast<const char *>(b.data), b.length);
+                if (!f) {
+                    logError("Failed to create icon: $1", fullpath);
+                } else {
+                    iconFiles.insert(fullpath);
+                    ondra_shared::logProgress("Created icon: $1", fullpath);
+                }
+        }
 }
 
 std::string ExtStockApi::getIconName() const {
