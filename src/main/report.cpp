@@ -110,6 +110,10 @@ void Report::setTrades(StrViewA symb, StringView<IStatSvc::TradeRecord> trades) 
 		double pnp = 0;
 		double pap = 0;
 
+		double enter_price = t.eff_price;
+		double rpln = 0;
+		bool normaccum = false;
+
 
 
 		while (iter != tend) {
@@ -117,16 +121,30 @@ void Report::setTrades(StrViewA symb, StringView<IStatSvc::TradeRecord> trades) 
 			auto &&t = *iter;
 
 			double gain = (t.eff_price - prev_price)*pos ;
-		//	double earn = -t.eff_price * t.eff_size;
 
 			prev_price = t.eff_price;
+			double prev_pos = pos;
 
 			cur_fromPos += gain;
 			pos += t.eff_size;
+			if (pos * t.eff_size > 0) {
+				enter_price = (enter_price*prev_pos + t.eff_price * t.eff_size)/pos;
+			} else {
+				double sz = t.eff_size;
+				double ep = enter_price;
+				if (pos * prev_pos <=0) {
+					enter_price = t.eff_price;
+					sz = -prev_pos;
+				}
+				rpln += sz * (ep - t.eff_price);
+			}
+
+
 
 			double normch = (t.norm_accum - pap) * t.eff_price + (t.norm_profit - pnp);
 			pap = t.norm_accum;
 			pnp = t.norm_profit;
+			normaccum = normaccum || t.norm_accum != 0;
 
 
 
@@ -138,9 +156,10 @@ void Report::setTrades(StrViewA symb, StringView<IStatSvc::TradeRecord> trades) 
 						("gain", gain)
 						("norm", t.norm_profit)
 						("normch", normch)
-						("nacum", Value((inverted?-1:1)*t.norm_accum))
+						("nacum", normaccum?Value((inverted?-1:1)*t.norm_accum):Value())
 						("pos", (inverted?-1:1)*pos)
 						("pl", cur_fromPos)
+						("rpl", rpln)
 						("price", (inverted?1.0/t.price:t.price))
 						("p0",t.neutral_price?Value(inverted?1.0/t.neutral_price:t.neutral_price):Value())
 						("volume", fabs(t.eff_price*t.eff_size))

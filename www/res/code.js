@@ -39,7 +39,7 @@ function app_start(){
 	}
 	
 	var donate_time = next_donate_time - donation_repeat;
-	var secondary_charts = {price:"p0"};
+	var secondary_charts = {price:"p0",pl:"rpl"};
 	
 	
 	
