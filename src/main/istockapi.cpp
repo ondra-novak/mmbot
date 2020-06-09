@@ -103,20 +103,19 @@ void IStockApi::MarketInfo::addFees(double &assets, double &price) const {
 }
 
 void IStockApi::MarketInfo::removeFees(double &assets, double &price) const {
+	   price = price/(1- sgn(assets)*fees);
 	switch (feeScheme) {
 	case IStockApi::currency:
-				   price = price/(1- sgn(assets)*fees);
 				   break;
 	case IStockApi::assets:
 					assets = assets/(1+fees);
 					break;
 	case IStockApi::income:
 					if (assets>0 ) assets = assets/(1+fees);
-					else price = price/(1+fees);
 					break;
 	case IStockApi::outcome:
 					if (assets<0 ) assets = assets/(1+fees);
-					else price = price/(1+fees);
+					break;
 	}
 }
 
