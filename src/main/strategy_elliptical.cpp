@@ -16,26 +16,6 @@ std::string_view Elliptical_Calculus::id = "elliptical";
 Elliptical_Calculus::Elliptical_Calculus(double width):_width(width) {
 }
 
-template<typename Fn>
-static double numeric_search(double anchor, double second, Fn &&fn) {
-	constexpr double accuracy = 1e-8;
-	double min = std::min(anchor,second);
-	double max = std::max(anchor,second);
-	double ref = fn(anchor);
-	if (ref == 0) return anchor;
-	double md = (min+max)/2;
-	while ((max - min) / md > accuracy) {
-		double v = fn(md);
-		double ml = v * ref;
-		if (ml > 0) max = md;
-		else if (ml < 0) min = md;
-		else return md;
-		md = (min+max)/2;
-	}
-	return md;
-}
-
-
 double Elliptical_Calculus::calcPosValue(double power, double asym, double neutral, double curPrice) {
 	double width = this->width(neutral);
 	double sq= pow2(width)-pow2(curPrice - neutral);
@@ -56,15 +36,14 @@ double Elliptical_Calculus::calcPower(double neutral, double balance, double asy
 
 
 double Elliptical_Calculus::calcNeutral(double power, double asym, double position, double curPrice) {
-	//neutral * (1 - width) = curPrice
-	//neutral = curPrice / (1+width);
-	//max = neutral
-
-	double min = _width>-1.0?curPrice/(1+_width):std::numeric_limits<double>::max();
-	double max = _width<1.0?curPrice/(1-_width):std::numeric_limits<double>::max();
-	return numeric_search(min,max,[=](double n){
-		return calcPosition(power, asym, n, curPrice) - position;
-	});
+	double neutral = curPrice;
+	double diff;
+	do {
+		double p = calcPriceFromPosition(power, asym, neutral, position);
+		diff = (p - curPrice);
+		neutral -= diff;
+	} while (std::abs(diff)/neutral > 0.0000001);
+	return neutral;
 }
 
 ///https://www.desmos.com/calculator/js57nrj2ou
@@ -112,17 +91,8 @@ double Elliptical_Calculus::calcNeutralFromValue(double power, double asym, doub
 		return neutral;
 }
 
-IStrategy::MinMax Elliptical_Calculus::calcRoots(double power, double asym, double neutral, double balance) {
-	double min = neutral - width(neutral);
-	double max = neutral + width(neutral);
-	double mid = calcPrice0(neutral, asym);
-	IStrategy::MinMax res;
-	auto fn = [=](double v) {
-		return calcPosValue(power, asym, neutral, v) - balance;
-	};
-	res.min = numeric_search(mid, min, fn);
-	res.max = numeric_search(mid, max, fn);
-	return res;
+IStrategy::MinMax Elliptical_Calculus::calcRoots(double , double, double neutral, double ) {
+	return {neutral - width(neutral), neutral + width(neutral)};
 }
 
 double Elliptical_Calculus::width(double neutral) const {
