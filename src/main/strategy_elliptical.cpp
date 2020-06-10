@@ -21,13 +21,12 @@ static double numeric_search(double anchor, double second, Fn &&fn) {
 	constexpr double accuracy = 1e-8;
 	double min = std::min(anchor,second);
 	double max = std::max(anchor,second);
-	double sd = anchor == min?-1:1;
 	double ref = fn(anchor);
 	if (ref == 0) return anchor;
 	double md = (min+max)/2;
 	while ((max - min) / md > accuracy) {
 		double v = fn(md);
-		double ml = v * ref * sd;
+		double ml = v * ref;
 		if (ml > 0) max = md;
 		else if (ml < 0) min = md;
 		else return md;
@@ -48,7 +47,6 @@ double Elliptical_Calculus::calcPosition(double power, double asym, double neutr
 	double width = this->width(neutral);
 	double sq = pow2(pow2(width)) - pow2(width)*pow2(price - neutral);
 	if (sq < 0) return 0;
-	sq = std::max(sq, (price-neutral)*1e-10);
 	return -power * ((price-neutral)/std::sqrt(sq) - asym/width);
 }
 
@@ -62,13 +60,11 @@ double Elliptical_Calculus::calcNeutral(double power, double asym, double positi
 	//neutral = curPrice / (1+width);
 	//max = neutral
 
-	double fmax = curPrice*curPrice;
-	double min = _width>-1.0?curPrice/(1+_width):fmax;
-	double max = _width<1.0?curPrice/(1-_width):fmax;
-	double n =  numeric_search(min,max,[=](double n){
+	double min = _width>-1.0?curPrice/(1+_width):std::numeric_limits<double>::max();
+	double max = _width<1.0?curPrice/(1-_width):std::numeric_limits<double>::max();
+	return numeric_search(min,max,[=](double n){
 		return calcPosition(power, asym, n, curPrice) - position;
 	});
-	return n;
 }
 
 ///https://www.desmos.com/calculator/js57nrj2ou
