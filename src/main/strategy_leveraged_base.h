@@ -52,7 +52,7 @@ public:
 	virtual PStrategy  onIdle(const IStockApi::MarketInfo &minfo, const IStockApi::Ticker &curTicker, double assets, double currency) const override;
 	virtual std::pair<OnTradeResult,PStrategy > onTrade(const IStockApi::MarketInfo &minfo, double tradePrice, double tradeSize, double assetsLeft, double currencyLeft) const override;;
 	virtual json::Value exportState() const override;
-	virtual PStrategy importState(json::Value src) const override;
+	virtual PStrategy importState(json::Value src,const IStockApi::MarketInfo &minfo) const override;
 	virtual OrderData getNewOrder(const IStockApi::MarketInfo &minfo,  double cur_price,double new_price, double dir, double assets, double currency) const override;
 	virtual MinMax calcSafeRange(const IStockApi::MarketInfo &minfo, double assets, double currencies) const override;
 	virtual double getEquilibrium(double assets) const override;
@@ -73,7 +73,7 @@ protected:
 		double pos;
 	};
 
-	static Strategy_Leveraged init(const PCalc &calc, const PConfig &cfg, double price, double pos, double currency, bool futures);
+	static Strategy_Leveraged init(const PCalc &calc, const PConfig &cfg, double price, double pos, double currency, const IStockApi::MarketInfo &minfo);
 	PosCalcRes calcPosition(double price) const;
 
 	MinMax calcRoots() const;
@@ -93,6 +93,9 @@ private:
 	double calcAsym() const;
 	static double calcAsym(const PConfig &cfg, const State &st) ;
 	static double trendFactor(const State &st);
+	static std::pair<double,double> getBalance(bool leveraged, double price, double assets, double currency);
+	virtual double calcInitialPosition(const IStockApi::MarketInfo &minfo, double price, double assets, double currency) const override;
+
 };
 
 

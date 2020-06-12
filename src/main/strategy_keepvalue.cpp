@@ -77,7 +77,7 @@ json::Value Strategy_KeepValue::exportState() const {
 			("lt",static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::seconds>(st.lt.time_since_epoch()).count()));
 }
 
-PStrategy Strategy_KeepValue::importState(json::Value src) const {
+PStrategy Strategy_KeepValue::importState(json::Value src,const IStockApi::MarketInfo &) const {
 	State newst;
 	newst.p = src["p"].getNumber();
 	newst.a = src["a"].getNumber();
@@ -130,6 +130,10 @@ json::Value Strategy_KeepValue::dumpStatePretty(
 				 ("Last price", st.p)
 				 ("Keep", calcK());
 
+}
+double Strategy_KeepValue::calcInitialPosition(const IStockApi::MarketInfo &minfo, double price, double assets, double currency) const {
+	if (minfo.leverage) return (currency/price)*0.5;
+	else return (assets + currency/price)*0.5;
 }
 
 

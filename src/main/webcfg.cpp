@@ -641,7 +641,7 @@ bool WebCfg::reqTraders(simpleServer::HTTPRequest req, ondra_shared::StrViewA vp
 						req.sendResponse(std::move(hdr), v.stringify());
 					} else {
 						json::Value v = json::Value::parse(req.getBodyStream());
-						strategy.importState(v);
+						strategy.importState(v,trl->getMarketInfo());
 						auto st = v["internal_balance"];
 						if (st.hasValue()) {
 							Value assets = st["assets"];
@@ -1267,10 +1267,10 @@ bool WebCfg::reqStrategy(simpleServer::HTTPRequest req) {
 		auto tr = this->trlist.lock_shared()->find(trader);
 		if (tr != nullptr) {
 			Strategy trs = tr.lock_shared()->getStrategy();
-			if (trs.getID() == s.getID()) {
-				s.importState(trs.exportState());
-			}
 			minfo = tr.lock_shared()->getMarketInfo();
+			if (trs.getID() == s.getID()) {
+				s.importState(trs.exportState(),minfo);
+			}
 		}
 	}
 
@@ -1283,9 +1283,11 @@ bool WebCfg::reqStrategy(simpleServer::HTTPRequest req) {
 	},assets,currency);
 
 	auto range = s.calcSafeRange(minfo, assets, currency);
+	auto initial = s.calcInitialPosition(minfo, price, assets, currency);
 	Value out = Object
 			("min", inverted?1.0/range.max:range.min)
-			("max", inverted?1.0/range.min:range.max);
+			("max", inverted?1.0/range.min:range.max)
+			("initial", (inverted?-1:1)*initial);
 
 	req.sendResponse("application/json", out.toString());
 	return true;

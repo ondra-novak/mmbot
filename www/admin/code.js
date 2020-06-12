@@ -96,7 +96,6 @@ App.prototype.createTraderForm = function() {
 		form.showItem("strategy_stairs",state.strategy == "stairs");
 		form.showItem("strategy_hyperbolic",state.strategy == "hyperbolic"||state.strategy == "linear"||state.strategy == "elliptical");
 		form.showItem("hp_range_label",state.strategy == "elliptical");
-		form.showItem("hp_maxloss_label",state.strategy != "elliptical");
 		form.showItem("kv_valinc_h",state.strategy == "keepvalue");
 		form.setData({"help_goal":{"class":state.strategy}});
 		form.getRoot().classList.toggle("no_adv", !state["advanced"]);
@@ -259,33 +258,6 @@ function filledval(v,w) {
 	}
 }
 
-
-
-function calc_range(a, ea, c, p, inv, leverage) {
-	a = a+ea;
-	var value = a * p;
-	var max_price = pow2((a * Math.sqrt(p))/ea);
-	var S = value - c
-	var min_price = S<=0?0:pow2(S/(a*Math.sqrt(p)));
-	if (leverage) {
-		var colateral = c* (1 - 1 / leverage); 
-		min_price = (ea*p - 2*Math.sqrt(ea*colateral*p) + colateral)/ea;
-		max_price = (ea*p + 2*Math.sqrt(ea*colateral*p) + colateral)/ea;
-
-	}
-	if (!isFinite(max_price)) max_price = "∞";
-	if (inv) {
-		var k = 1/min_price;
-		min_price = 1/max_price;
-		max_price =k;
-	}
-	return {
-		range_min_price: adjNumN(min_price),
-		range_max_price: adjNumN(max_price)
-	}
-
-	
-}
 
 App.prototype.fillForm = function (src, trg) {
 	var data = {};	
@@ -489,7 +461,7 @@ App.prototype.fillForm = function (src, trg) {
 				fetch_json("api/strategy", {method:"POST",body:JSON.stringify(req)})
 					.then(function(r){
 						recalcStrategy.ip = false;
-						trg.setData({range_min_price:r.min, range_max_price:r.max});
+						trg.setData({range_min_price:adjNum(r.min), range_max_price:adjNum(r.max), range_initial:adjNum(r.initial)});
 						if (recalcStrategy.queued) {
 							recalcStrategy();
 						}
@@ -504,10 +476,11 @@ App.prototype.fillForm = function (src, trg) {
 		}
 		
 		if (first_fetch) {
-			["strategy","external_assets", "hp_power",  "hp_width","hp_powadj", "hp_extbal", "asym", "trend","hp_reduction","hp_dynred"]
+			["strategy","external_assets", "hp_dtrend","hp_power", "hp_maxloss", "hp_asym", "hp_width","hp_powadj", "hp_extbal", "hp_reduction","hp_dynred"]
 			.forEach(function(item){
 				trg.findElements(item).forEach(function(elem){
 					elem.addEventListener("input", recalcStrategy.bind(this));
+					elem.addEventListener("change", recalcStrategy.bind(this));
 				}.bind(this));
 			}.bind(this));
 			recalcStrategy.call(this);
@@ -519,7 +492,7 @@ App.prototype.fillForm = function (src, trg) {
 			data.show_backtest= {"!click": this.init_backtest.bind(this, trg, src.id, src.pair_symbol, src.broker), ".disabled":false};
 			linStrategy_recalc();
 			linStrategy_recalc_power();
-			var tmp = trg.readData(["cstep","max_pos"]);
+			var tmp = trg.readData(["cstep","max_pos","hp_width"]);
 			if (!tmp.max_pos && !tmp.cstep) linStrategy_recomended();
 			data.pl_baluse = data.pl_power={"!input":function() {
 				linStrategy_recalc_power();
@@ -542,6 +515,9 @@ App.prototype.fillForm = function (src, trg) {
 			}
 			if (!src.strategy && typeof state.pair.price == "string" && state.pair.price.startsWith("trainer")){
 			    this.brokerConfig(src.broker, src.pair_symbol).then(updateHdr,updateHdr);
+			}
+			if (tmp.hp_width <= 0) {
+			    data.hp_width = invPrice(pair.price, pair.invert_price);
 			}
 			first_fetch = false;
 		}
@@ -582,9 +558,9 @@ App.prototype.fillForm = function (src, trg) {
 	data.hp_reduction=25;
 	data.hp_asym=0;
 	data.hp_power=1;
-	data.hp_powadj=0.5;
+	data.hp_powadj=0;
 	data.hp_dynred=0;
-	data.hp_width=100;
+	data.hp_width=0;
 	data.hp_maxloss=0;
 	data.hp_dtrend={value:false};
 	data.hp_lb_asym="asym";
@@ -602,7 +578,7 @@ App.prototype.fillForm = function (src, trg) {
 		data.hp_asym = filledval(defval(src.strategy.asym,0.2)*100,20);
 		data.hp_maxloss = filledval(src.strategy.max_loss,0);
 		data.hp_power = filledval(src.strategy.power,1);
-		data.hp_powadj = filledval(src.strategy.powadj,0.5);
+		data.hp_powadj = filledval(src.strategy.powadj,0);
 		data.hp_dynred = filledval(src.strategy.dynred,0);
 		data.hp_extbal = filledval(src.strategy.extbal,0);
 		data.hp_dtrend = filledval(src.strategy.dtrend,false);
@@ -612,11 +588,11 @@ App.prototype.fillForm = function (src, trg) {
 		data.hp_asym = filledval(defval(src.strategy.asym,0)*100,20);
 		data.hp_maxloss = 0
 		data.hp_power = filledval(src.strategy.power,1);
-		data.hp_powadj = filledval(src.strategy.powadj,0.5);
+		data.hp_powadj = filledval(src.strategy.powadj,0);
 		data.hp_dynred = filledval(src.strategy.dynred,0);
 		data.hp_extbal = filledval(src.strategy.extbal,0);
 		data.hp_dtrend = filledval(src.strategy.dtrend,false);
-		data.hp_width = filledval(defval(src.strategy.width,1)*100,100);		
+		data.hp_width = filledval(src.strategy.width,0);		
 		data.hp_lb_asym = src.strategy.dtrend?"trend":"asym"; 
 	} else if (data.strategy == "stairs") {
 		data.st_power = filledval(src.strategy.power,1.7);
@@ -767,7 +743,8 @@ function getStrategyData(data) {
 				dynred: data.hp_dynred,
 				extbal: data.hp_extbal,
 				dtrend: data.hp_dtrend,
-				width: data.hp_width / 100,
+				max_loss: data.hp_maxloss,
+				width: data.hp_width,
 				asym: data.hp_asym / 100,
 				reduction: data.hp_reduction/100
 		};

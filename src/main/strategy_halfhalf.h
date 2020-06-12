@@ -22,13 +22,14 @@ public:
 	virtual PStrategy onIdle(const IStockApi::MarketInfo &minfo, const IStockApi::Ticker &curTicker, double assets, double currency) const override;
 	virtual std::pair<OnTradeResult,PStrategy> onTrade(const IStockApi::MarketInfo &minfo, double tradePrice, double tradeSize, double assetsLeft, double currencyLeft) const override;;
 	virtual json::Value exportState() const override;
-	virtual PStrategy importState(json::Value src) const override;
+	virtual PStrategy importState(json::Value src,const IStockApi::MarketInfo &minfo) const override;
 	virtual OrderData getNewOrder(const IStockApi::MarketInfo &minfo,  double cur_price,double new_price, double dir, double assets, double currency) const override;
 	virtual MinMax calcSafeRange(const IStockApi::MarketInfo &minfo, double assets, double currencies) const override;
 	virtual double getEquilibrium(double assets) const override;
 	virtual PStrategy reset() const override;
 	virtual std::string_view getID() const override;
 	virtual json::Value dumpStatePretty(const IStockApi::MarketInfo &minfo) const override;
+	virtual double calcInitialPosition(const IStockApi::MarketInfo & , double price, double assets, double currency) const override;
 
 
 	static std::string_view id;

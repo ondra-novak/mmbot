@@ -139,7 +139,7 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 	} else if (id == Strategy_Elliptical::id) {
 		Strategy_Elliptical::Config cfg;
 		cfg.power = config["power"].getNumber();
-		cfg.max_loss = 0;
+		cfg.max_loss = config["max_loss"].getNumber();
 		double width = config["width"].getNumber();
 		cfg.asym = config["asym"].getNumber()/cfg.power;
 		cfg.reduction = config["reduction"].getNumber();
@@ -159,9 +159,9 @@ json::Value Strategy::exportState() const {
 	return json::Object(ptr->getID(), ptr->exportState());
 }
 
-void Strategy::importState(json::Value src) {
+void Strategy::importState(json::Value src, const IStockApi::MarketInfo &minfo) {
 	json::Value data = src[ptr->getID()];
-	ptr = ptr->importState(data);
+	ptr = ptr->importState(data, minfo);
 }
 
 double IStrategy::calcOrderSize(double expectedAmount, double actualAmount, double newAmount) {

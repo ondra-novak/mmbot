@@ -62,7 +62,7 @@ json::Value Strategy_HalfHalf::exportState() const {
 			("a",a);
 }
 
-PStrategy Strategy_HalfHalf::importState(json::Value src) const {
+PStrategy Strategy_HalfHalf::importState(json::Value src,const IStockApi::MarketInfo &) const {
 	double new_p = src["p"].getNumber();
 	double new_a = src["a"].getNumber();
 	return new Strategy_HalfHalf(cfg, new_p, new_a);
@@ -105,4 +105,9 @@ json::Value Strategy_HalfHalf::dumpStatePretty(
 				 ("Last price", p)
 				 ("Factor", (a+cfg.ea)*std::sqrt(p));
 
+}
+
+double Strategy_HalfHalf::calcInitialPosition(const IStockApi::MarketInfo &minfo, double price, double assets, double currency) const {
+	if (minfo.leverage) return (currency/price)*0.5;
+	else return (assets + currency/price)*0.5;
 }

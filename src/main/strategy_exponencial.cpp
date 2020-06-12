@@ -100,7 +100,7 @@ json::Value Strategy_Exponencial::exportState() const {
 			("valid",st.valid);
 }
 
-PStrategy Strategy_Exponencial::importState(json::Value src) const {
+PStrategy Strategy_Exponencial::importState(json::Value src,const IStockApi::MarketInfo &) const {
 	State newst {
 		src["valid"].getBool(),
 		src["w"].getNumber(),
@@ -233,4 +233,9 @@ double Strategy_Exponencial::findRoot(double w, double k, double p, double c) {
 	return numeric_search_r1(start, start*1e-6, std::move(fn));
 
 
+}
+
+double Strategy_Exponencial::calcInitialPosition(const IStockApi::MarketInfo &minfo, double price, double assets, double currency) const {
+	if (minfo.leverage) return (currency/price)*0.5;
+	else return (assets + currency/price)*0.5;
 }

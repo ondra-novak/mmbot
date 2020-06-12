@@ -87,7 +87,8 @@ public:
 	virtual std::string_view  getID() const;
 	virtual json::Value dumpStatePretty(
 			const IStockApi::MarketInfo &minfo) const;
-	virtual PStrategy importState(json::Value src) const;
+	virtual PStrategy importState(json::Value src,const IStockApi::MarketInfo &minfo) const;
+	virtual double calcInitialPosition(const IStockApi::MarketInfo &minfo, double price, double assets, double currency) const override;
 
 
 	static std::string_view id;

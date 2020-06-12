@@ -31,38 +31,38 @@ Strategy_Leveraged<Calc>::Strategy_Leveraged(const PCalc &calc, const PConfig &c
 
 template<typename Calc>
 bool Strategy_Leveraged<Calc>::isValid() const {
-	return st.neutral_price > 0 && st.bal > 0;
+	return st.neutral_price > 0;
 }
 
 template<typename Calc>
 void Strategy_Leveraged<Calc>::recalcNewState(const PCalc &calc, const PConfig &cfg, State &nwst) {
-	if (!std::isfinite(nwst.neutral_price) || nwst.neutral_price<=0) nwst.neutral_price = nwst.last_price;
-	for (int i = 0; i < 16; i++) {
-		recalcPower(calc,cfg,nwst);
-		recalcNeutral(calc,cfg,nwst);
-	}
+	double adjbalance = std::abs(nwst.bal + cfg->external_balance) * cfg->power;
+	nwst.power = calc->calcPower(nwst.last_price, adjbalance, cfg->asym);
+	recalcNeutral(calc,cfg,nwst);
 	nwst.val = calc->calcPosValue(nwst.power, calcAsym(cfg,nwst), nwst.neutral_price, nwst.last_price);
 }
 
 template<typename Calc>
-Strategy_Leveraged<Calc> Strategy_Leveraged<Calc>::init(const PCalc &calc, const PConfig &cfg, double price, double pos, double currency, bool futures) {
-	double np = futures?0:(pos + currency/price)*0.5;
-	double bal = futures?currency:np * 2 * price;
+Strategy_Leveraged<Calc> Strategy_Leveraged<Calc>::init(const PCalc &calc, const PConfig &cfg, double price, double pos, double currency, const IStockApi::MarketInfo &minfo) {
+	bool futures = minfo.leverage != 0;
+	auto bal = getBalance(futures, price, pos, currency);
 	State nwst {
 		/*neutral_price:*/ price,
 		/*last_price */ price,
-		/*position */ pos - np,
-		/*bal */ bal,
+		/*position */ pos - bal.second,
+		/*bal */ bal.first,
 		/* val */ 0,
 		/* power */ 0,
-		/* neutral_pos */np
+		/* neutral_pos */bal.second
 	};
 	if (nwst.bal <= 0) {
 		//we cannot calc with empty balance. In this case, use price for calculation (but this is  unreal, trading still impossible)
 		nwst.bal = price;
 	}
-	recalcNewState(calc, cfg,nwst);
-	return Strategy_Leveraged(calc, cfg, std::move(nwst));
+	PCalc newcalc = calc;
+	if (!newcalc->isValid(minfo)) newcalc = std::make_shared<Calc>(calc->init(minfo));
+	recalcNewState(newcalc, cfg,nwst);
+	return Strategy_Leveraged(newcalc, cfg, std::move(nwst));
 }
 
 
@@ -103,7 +103,7 @@ PStrategy Strategy_Leveraged<Calc>::onIdle(
 		}
 	}
 	else {
-		return new Strategy_Leveraged<Calc>(init(calc, cfg,ticker.last, assets, currency, minfo.leverage != 0));
+		return new Strategy_Leveraged<Calc>(init(calc, cfg,ticker.last, assets, currency, minfo));
 	}
 }
 
@@ -164,7 +164,7 @@ std::pair<typename Strategy_Leveraged<Calc>::OnTradeResult, PStrategy> Strategy_
 
 
 	if (!isValid()) {
-		return init(calc, cfg,tradePrice, assetsLeft, currencyLeft, minfo.leverage != 0)
+		return init(calc, cfg,tradePrice, assetsLeft, currencyLeft, minfo)
 				.onTrade(minfo, tradePrice, tradeSize, assetsLeft, currencyLeft);
 	}
 
@@ -186,18 +186,17 @@ std::pair<typename Strategy_Leveraged<Calc>::OnTradeResult, PStrategy> Strategy_
 
 	recalcNeutral(calc, cfg, nwst);
 
-	nwst.neutral_pos = minfo.leverage?0:(assetsLeft + currencyLeft / nwst.neutral_price)*0.5;
+	auto bal = getBalance(minfo.leverage, tradePrice, assetsLeft, currencyLeft);
+	nwst.neutral_pos = bal.second;
 
 	double val = calc->calcPosValue(mult, calcAsym(), nwst.neutral_price, tradePrice);
 	//calculate extra profit - we get change of value and add profit. This shows how effective is strategy. If extra is positive, it generates
 	//profit, if it is negative, is losses
 	double extra = (val - st.val) + profit;
-	//double vextra = (val - st.val) + vprofit;
-
 	//store val to calculate next profit (because strategy was adjusted)
 	nwst.val = val;
 	//store new balance
-	nwst.bal = currencyLeft + val;
+	nwst.bal = std::max(0.0, val) + bal.first;
 
 	recalcPower(calc, cfg, nwst);
 
@@ -231,7 +230,7 @@ json::Value Strategy_Leveraged<Calc>::exportState() const {
 }
 
 template<typename Calc>
-PStrategy Strategy_Leveraged<Calc>::importState(json::Value src) const {
+PStrategy Strategy_Leveraged<Calc>::importState(json::Value src,const IStockApi::MarketInfo &minfo) const {
 		State newst {
 			src["neutral_price"].getNumber(),
 			src["last_price"].getNumber(),
@@ -247,7 +246,9 @@ PStrategy Strategy_Leveraged<Calc>::importState(json::Value src) const {
 		if (cfgcmp != cfgcmp2) {
 			recalcNewState(calc, cfg,newst);
 		}
-		return new Strategy_Leveraged<Calc>(calc, cfg, std::move(newst));
+		PCalc newcalc = calc;
+		if (!newcalc->isValid(minfo)) newcalc = std::make_shared<Calc>(newcalc->init(minfo));
+		return new Strategy_Leveraged<Calc>(newcalc, cfg, std::move(newst));
 }
 
 template<typename Calc>
@@ -328,6 +329,8 @@ double Strategy_Leveraged<Calc>::calcMaxLoss() const {
 	else
 		lmt = cfg->max_loss;
 
+	if (st.val < 0)
+		lmt += st.val;
 	return lmt;
 }
 
@@ -360,4 +363,18 @@ inline double Strategy_Leveraged<Calc>::trendFactor(const State &st) {
 	return st.trend_cntr*0.001;
 }
 
+template<typename Calc>
+std::pair<double,double> Strategy_Leveraged<Calc>::getBalance(bool leveraged, double price, double assets, double currency) {
+	if (leveraged) return {currency, 0};
+	double md = assets + currency / price;
+	return {md * price, md / 2};
+}
+
+template<typename Calc>
+inline double Strategy_Leveraged<Calc>::calcInitialPosition(const IStockApi::MarketInfo &minfo, double price, double assets, double currency) const {
+	auto bal = getBalance(minfo.leverage != 0,price,assets,currency);
+	double asym = calcAsym(cfg, st);
+	double power = calc->calcPower(price, bal.first, calcAsym(cfg, st));
+	return calc->calcPosition(power, asym, price, price)+bal.second;
+}
 

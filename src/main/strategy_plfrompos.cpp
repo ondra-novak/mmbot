@@ -291,7 +291,7 @@ json::Value Strategy_PLFromPos::exportState() const {
 	else return json::undefined;
 }
 
-PStrategy Strategy_PLFromPos::importState(json::Value src) const {
+PStrategy Strategy_PLFromPos::importState(json::Value src,const IStockApi::MarketInfo &) const {
 	if (src.hasValue()) {
 		State newst {
 			src["a"].defined(),
@@ -446,4 +446,11 @@ Strategy_PLFromPos::CalcNeutralBalanceResult Strategy_PLFromPos::calcNeutralBala
 		double balance = total_balance - np*price;
 		return {np, balance};
 	}
+}
+
+double Strategy_PLFromPos::calcInitialPosition(
+		const IStockApi::MarketInfo &minfo, double price, double assets,
+		double currency) const {
+	auto bal = calcNeutralBalance(minfo,assets,currency,price);
+	return bal.neutral_pos;
 }

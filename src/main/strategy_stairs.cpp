@@ -322,7 +322,7 @@ json::Value Strategy_Stairs::dumpStatePretty(
 
 }
 
-PStrategy Strategy_Stairs::importState(json::Value src) const {
+PStrategy Strategy_Stairs::importState(json::Value src,const IStockApi::MarketInfo &minfo) const {
 	State newst{
 		src["price"].getNumber(),
 		src["pos"].getNumber(),
@@ -366,4 +366,9 @@ std::size_t Strategy_Stairs::getCfgHash() const {
 			(int)cfg.redmode
 	};
 	return std::hash<json::Value>()(data);
+}
+
+double Strategy_Stairs::calcInitialPosition(const IStockApi::MarketInfo &minfo,
+		double price, double assets, double currency) const {
+	return calcNeutralPos(assets, currency, price, minfo.leverage != 0);
 }

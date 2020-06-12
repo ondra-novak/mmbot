@@ -75,7 +75,7 @@ double Hyperbolic_Calculus::calcNeutral(double power, double asym, double positi
 }
 
 double Hyperbolic_Calculus::calcPosValue(double power, double asym, double neutral, double curPrice) {
-	return -(std::exp(-asym)* power * (neutral - curPrice) + neutral * power * std::log(curPrice/neutral));
+	return power * (std::exp(-asym)*(curPrice - neutral) - neutral*std::log(curPrice/neutral));
 }
 
 
@@ -130,23 +130,26 @@ double Hyperbolic_Calculus::calcNeutralFromValue(double power, double asym, doub
 }
 
 double Linear_Calculus::calcPosValue(double power, double asym, double neutral, 	double curPrice) {
-	return -(power * (neutral - curPrice) * ((-1 + 2 * asym) * neutral + curPrice))/(2 * neutral);
+	return power * (neutral - curPrice)*(neutral + 2*asym*neutral - curPrice)/(2*neutral);
 }
 
 IStrategy::MinMax Linear_Calculus::calcRoots(double power, double asym, double neutral, double balance) {
-	double a = sqrt(neutral*power*(asym*asym*neutral*power + 2 * balance))/power;
-	double b = asym * neutral;
-	double x1 = - a - b + neutral;
-	double x2 = + a - b + neutral;
-	return {x1,x2};
+	double s = balance/power;
+	double k = neutral;
+	double a = asym;
+	double sq = sqrt(k)*sqrt(a*a*k + 2*s);
+	double rest = k * (1+a);
+	double x1 = std::max(0.0,-sq+rest);
+	double x2 = std::max(0.0,sq+rest);
+	return {std::min(x1,x2),std::max(x1,x2)};
 }
 
 double Linear_Calculus::calcNeutral(double power, double asym, double position, double price) {
-	return -(price * power)/(position + ( asym - 1) * power);
+	return price / (asym + 1 - position/power);
 }
 
 double Linear_Calculus::calcPosition(double power, double asym, double neutral, double price) {
-	return -(price/neutral - 1 + asym) * power;
+	return -power*(price/neutral - 1 - asym);
 }
 
 double Linear_Calculus::calcPrice0(double neutral, double asym) {
@@ -163,17 +166,17 @@ double Linear_Calculus::calcPriceFromPosition(double power, double asym, double 
 }
 
 double Linear_Calculus::calcNeutralFromValue(double power, double asym, double neutral, double value, double curPrice) {
-	value = -value;
-	double middle = calcPrice0(neutral, asym);
-	double r = curPrice < middle
-			?((curPrice * power - asym * curPrice * power - value + sqrt(pow2(asym*curPrice*power) - 2 * curPrice* power * value + 2 * asym * curPrice * power * value + pow2(value)))/(power - 2 * asym * power))
-			:(((-1 + asym)* curPrice * power + value + sqrt(pow2(asym* curPrice *power) - 2 * curPrice * power * value + 2 *asym * curPrice * power * value + pow2(value)))/((-1 + 2 * asym) * power));
-	if (!finite(r)) {
-		return neutral;
-	} else {
-		return r;
-	}
-
+	double s = value / power;
+	double a = asym;
+	double p = curPrice;
+	double sq = std::sqrt(a*a*p*p + 2*a*p*s + 2*p*s + s*s);
+	if (!std::isfinite(sq)) return neutral;
+	double cmn = a*p  +p+ s;
+	double dnm = 2*a + 1;
+	double x1 = (-sq+cmn)/dnm;
+	double x2 = (sq+cmn)/dnm;
+	double x = (std::abs(neutral - x1) <std::abs(neutral-x2))?x1:x2;
+	return x;
 
 }
 

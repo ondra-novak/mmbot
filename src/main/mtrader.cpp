@@ -713,7 +713,7 @@ void MTrader::loadState() {
 				}
 			}
 		}
-		strategy.importState(st["strategy"]);
+		strategy.importState(st["strategy"], minfo);
 		if (cfg.dry_run) {
 			test_backup = st["test_backup"];
 			if (!test_backup.hasValue()) {

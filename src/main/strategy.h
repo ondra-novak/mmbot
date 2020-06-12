@@ -59,7 +59,11 @@ public:
 	json::Value exportState() const;
 
 	///Imports internal state from JSON
-	void importState(json::Value src);
+	/**
+	 * @param src source json
+	 * @param minfo market info - allows to correctly initialize calculated parts
+	 */
+	void importState(json::Value src, const IStockApi::MarketInfo &minfo);
 
 	///Requests the strategy to calculate order
 	/**
@@ -106,6 +110,10 @@ public:
 
 	auto getID() const {
 		return ptr->getID();
+	}
+
+	double calcInitialPosition(const IStockApi::MarketInfo &minfo, double price, double assets, double currency) const {
+		return ptr->calcInitialPosition(minfo, price, assets, currency);
 	}
 
 	static Strategy create(std::string_view id, json::Value config);

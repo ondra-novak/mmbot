@@ -78,6 +78,10 @@ public:
 
 	static double calcPower(double neutral, double balance, double asym);
 
+	static bool isValid(const IStockApi::MarketInfo &minfo)  {return true;}
+	static Hyperbolic_Calculus init(const IStockApi::MarketInfo &minfo) {return Hyperbolic_Calculus();}
+
+
 	static std::string_view id;
 };
 
@@ -147,6 +151,10 @@ public:
 	static double calcNeutralFromValue(double power, double asym, double neutral, double value, double curPrice);
 
 	static double calcPower(double neutral, double balance, double asym);
+
+	static bool isValid(const IStockApi::MarketInfo &minfo) {return true;}
+	static Linear_Calculus init(const IStockApi::MarketInfo &minfo) {return Linear_Calculus();}
+
 
 	static std::string_view id;
 };
