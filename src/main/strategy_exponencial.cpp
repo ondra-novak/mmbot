@@ -237,5 +237,5 @@ double Strategy_Exponencial::findRoot(double w, double k, double p, double c) {
 
 double Strategy_Exponencial::calcInitialPosition(const IStockApi::MarketInfo &minfo, double price, double assets, double currency) const {
 	if (minfo.leverage) return (currency/price)*0.5;
-	else return (assets + currency/price)*0.5;
+	else return (assets +cfg.ea+ currency/price)*0.5;
 }

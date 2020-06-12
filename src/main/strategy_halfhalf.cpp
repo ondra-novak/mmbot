@@ -109,5 +109,5 @@ json::Value Strategy_HalfHalf::dumpStatePretty(
 
 double Strategy_HalfHalf::calcInitialPosition(const IStockApi::MarketInfo &minfo, double price, double assets, double currency) const {
 	if (minfo.leverage) return (currency/price)*0.5;
-	else return (assets + currency/price)*0.5;
+	else return (assets + cfg.ea+currency/price)*0.5;
 }

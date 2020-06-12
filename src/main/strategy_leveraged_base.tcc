@@ -373,8 +373,9 @@ std::pair<double,double> Strategy_Leveraged<Calc>::getBalance(bool leveraged, do
 template<typename Calc>
 inline double Strategy_Leveraged<Calc>::calcInitialPosition(const IStockApi::MarketInfo &minfo, double price, double assets, double currency) const {
 	auto bal = getBalance(minfo.leverage != 0,price,assets,currency);
+	double adjbalance = std::abs(bal.first + cfg->external_balance) * cfg->power;
 	double asym = calcAsym(cfg, st);
-	double power = calc->calcPower(price, bal.first, calcAsym(cfg, st));
+	double power = calc->calcPower(price, adjbalance, calcAsym(cfg, st));
 	return calc->calcPosition(power, asym, price, price)+bal.second;
 }
 

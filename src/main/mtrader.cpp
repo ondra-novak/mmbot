@@ -188,6 +188,14 @@ void MTrader::perform(bool manually) {
 		minfo.fees = status.new_fees;
 		//process all new trades
 		bool anytrades = processTrades(status);
+		bool fast_trade = false;
+		if (anytrades && ((!orders.buy.has_value() && !buy_alert.has_value())
+				|| (!orders.sell.has_value() && !sell_alert.has_value()))) {
+			recalc = true;
+			fast_trade = true;
+			sell_alert.reset();
+			buy_alert.reset();
+		}
 
 		double lastTradeSize = trades.empty()?0:trades.back().eff_size;
 		double lastTradePrice;
@@ -200,7 +208,7 @@ void MTrader::perform(bool manually) {
 
 
 		//only create orders, if there are no trades from previous run
-		if (!anytrades) {
+		if (!anytrades || fast_trade) {
 
 			if (recalc) {
 				update_dynmult(lastTradeSize > 0, lastTradeSize < 0);
@@ -289,6 +297,11 @@ void MTrader::perform(bool manually) {
 		}
 
 		if (!cfg.hidden) {
+			int last_trade_dir = !anytrades?0:sgn(status.new_trades.trades.back().size);
+			if (fast_trade) {
+				if (last_trade_dir < 0) orders.sell.reset();
+				if (last_trade_dir > 0) orders.buy.reset();
+			}
 			//report orders to UI
 			statsvc->reportOrders(orders.buy,orders.sell);
 			//report trades to UI
@@ -299,7 +312,7 @@ void MTrader::perform(bool manually) {
 			auto minmax = strategy.calcSafeRange(minfo, status.assetBalance, status.currencyBalance);
 
 			statsvc->reportMisc(IStatSvc::MiscData{
-				!anytrades?0:sgn(status.new_trades.trades.back().size),
+				last_trade_dir,
 				strategy.getEquilibrium(status.assetBalance),
 				status.curPrice * (exp(status.curStep) - 1),
 				dynmult.getBuyMult(),
