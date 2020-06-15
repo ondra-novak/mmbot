@@ -604,8 +604,13 @@ MTrader::Order MTrader::calculateOrderFeeLess(
 		m = m*1.1;
 
 	} while (cnt < 1000 && order.size == 0 && ((sz - prevSz)*dir>0  || cnt < 10));
-	order.size = limitOrderMinMaxBalance(balance, order.size);
-	order.alert = !order.size && cfg.alerts?IStrategy::Alert::forced:IStrategy::Alert::disabled;
+	auto lmsz = limitOrderMinMaxBalance(balance, order.size);
+	if (lmsz.first) {
+		order.size = lmsz.second;
+		order.alert = IStrategy::Alert::forced;
+	} else {
+		order.alert = !order.size && cfg.alerts?IStrategy::Alert::forced:IStrategy::Alert::disabled;
+	}
 
 	return order;
 
@@ -1215,11 +1220,11 @@ void MTrader::DynMultControl::update(bool buy_trade, bool sell_trade) {
 }
 
 bool MTrader::checkMinMaxBalance(double balance, double orderSize) const {
-	double x = limitOrderMinMaxBalance(balance, orderSize);
-	return x == orderSize;
+	auto x = limitOrderMinMaxBalance(balance, orderSize);
+	return x.first;
 }
 
-double MTrader::limitOrderMinMaxBalance(double balance, double orderSize) const {
+std::pair<bool, double> MTrader::limitOrderMinMaxBalance(double balance, double orderSize) const {
 	const auto &min_balance = minfo.invert_price?cfg.max_balance:cfg.min_balance;
 	const auto &max_balance = minfo.invert_price?cfg.min_balance:cfg.max_balance;
 	double factor = minfo.invert_price?-1:1;
@@ -1227,18 +1232,18 @@ double MTrader::limitOrderMinMaxBalance(double balance, double orderSize) const 
 	if (orderSize < 0) {
 		if (min_balance.has_value()) {
 			double m = *min_balance * factor;
-			if (balance < m) return 0;
-			if (balance+orderSize < m) return m - balance;
+			if (balance < m) return {true,0};
+			if (balance+orderSize < m) return {true,m - balance};
 		}
 
 	} else {
 		if (max_balance.has_value()) {
 			double m = *max_balance * factor;
-			if (balance > m) return 0;
-			if (balance+orderSize > m) return m - balance;
+			if (balance > m) return {true,0};
+			if (balance+orderSize > m) return {true,m - balance};
 		}
 	}
-	return orderSize;
+	return {false,orderSize};
 }
 
 void MTrader::setInternalBalancies(double assets, double currency) {

@@ -115,7 +115,7 @@ double Strategy_Leveraged<Calc>::calcNewNeutralFromProfit(double profit, double 
 	double mult = calcMult();
 	double asym = calcAsym();
 	double middle = calc->calcPrice0(st.neutral_price, asym);
-	double prev_val = st.val;
+	double prev_val = calc->calcPosValue(mult, asym, st.neutral_price, st.last_price);
 	double cur_val = calc->calcPosValue(mult, asym, st.neutral_price, price);
 	double new_val;
 	if (prev_val < 0 && (price - middle) * (st.neutral_price - middle)>0) {

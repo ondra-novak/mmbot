@@ -278,7 +278,7 @@ protected:
 
 	SpreadCalcResult calcSpread() const;
 	bool checkMinMaxBalance(double newBalance, double dir) const;
-	double limitOrderMinMaxBalance(double balance, double orderSize) const;
+	std::pair<bool, double> limitOrderMinMaxBalance(double balance, double orderSize) const;
 private:
 	template<typename Iter>
 	static SpreadCalcResult stCalcSpread(Iter beg, Iter end, unsigned int input_sma, unsigned int input_stdev);
