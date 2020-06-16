@@ -155,7 +155,7 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 		double power = config["power"].getNumber();
 		cfg.max_loss = config["max_loss"].getNumber();
 		cfg.power = 1.0;
-		cfg.asym = config["asym"].getNumber()/cfg.power;
+		cfg.asym = config["asym"].getNumber();
 		cfg.reduction = config["reduction"].getNumber();
 		cfg.external_balance = config["extbal"].getNumber();
 		cfg.powadj = config["powadj"].getNumber();

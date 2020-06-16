@@ -21,10 +21,12 @@ double numeric_search_r1(double middle, Fn &&fn) {
 	double min = 0;
 	double max = middle;
 	double ref = fn(middle);
-	if (ref == 0) return middle;
+	if (ref == 0 || std::isnan(ref)) return middle;
 	double md = (min+max)/2;
-	while (md > accuracy && (max - min) / md > accuracy) {
+	int cnt = 1000;
+	while ((max - min) / md > accuracy && --cnt) {
 		double v = fn(md);
+		if (std::isnan(v)) break;
 		double ml = v * ref;
 		if (ml > 0) max = md;
 		else if (ml < 0) min = md;
@@ -40,10 +42,12 @@ double numeric_search_r2(double middle, Fn &&fn) {
 	double min = 0;
 	double max = 1.0/middle;
 	double ref = fn(middle);
-	if (ref == 0) return middle;
+	if (ref == 0|| std::isnan(ref)) return middle;
 	double md = (min+max)/2;
-	while (md * (1.0 / min - 1.0 / max) > accuracy) {
+	int cnt = 1000;
+	while (md * (1.0 / min - 1.0 / max) > accuracy && --cnt) {
 		double v = fn(1.0/md);
+		if (std::isnan(v)) break;
 		double ml = v * ref;
 		if (ml > 0) max = md;
 		else if (ml < 0) min = md;

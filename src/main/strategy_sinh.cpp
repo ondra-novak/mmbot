@@ -51,6 +51,7 @@ IStrategy::MinMax Sinh_Calculus::calcRoots(double power, double asym, double neu
 		return calcPosValue(power, asym, neutral, x) - balance;
 	};
 	double p0 = calcPrice0(neutral, asym);
+	if (p0<0) p0 = 0;
 	double mnval = numeric_search_r1(p0, fn);
 	double mxval = numeric_search_r2(p0, fn);
 	return {mnval, mxval};
