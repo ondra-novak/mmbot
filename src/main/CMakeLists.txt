@@ -19,6 +19,7 @@ add_executable (mmbot
 	strategy_keepvalue.cpp
 	strategy_exponencial.cpp
 	strategy_elliptical.cpp
+	strategy_sinh.cpp
 	strategy_stairs.cpp
 	strategy_hyperbolic.cpp
 	localdailyperfmod.cpp

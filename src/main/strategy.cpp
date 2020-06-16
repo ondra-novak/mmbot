@@ -19,6 +19,7 @@
 #include "strategy_stairs.h"
 #include "strategy_hyperbolic.h"
 #include "strategy_exponencial.h"
+#include "strategy_sinh.h"
 
 static json::NamedEnum<Strategy_PLFromPos::CloseMode> strCloseMode ({
 		{Strategy_PLFromPos::always_close,"always_close"},
@@ -149,6 +150,19 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 		cfg.detect_trend = config["dtrend"].getBool();
 		return Strategy(new Strategy_Elliptical(std::make_shared<Strategy_Elliptical::TCalc>(width),
 			    							std::make_shared<Strategy_Elliptical::Config>(cfg)));
+	} else if (id == Strategy_Sinh::id) {
+		Strategy_Sinh::Config cfg;
+		double power = config["power"].getNumber();
+		cfg.max_loss = config["max_loss"].getNumber();
+		cfg.power = 1.0;
+		cfg.asym = config["asym"].getNumber()/cfg.power;
+		cfg.reduction = config["reduction"].getNumber();
+		cfg.external_balance = config["extbal"].getNumber();
+		cfg.powadj = config["powadj"].getNumber();
+		cfg.dynred = config["dynred"].getNumber();
+		cfg.detect_trend = config["dtrend"].getBool();
+		return Strategy(new Strategy_Sinh(std::make_shared<Strategy_Sinh::TCalc>(power),
+			    							std::make_shared<Strategy_Sinh::Config>(cfg)));
 	} else {
 		throw std::runtime_error(std::string("Unknown strategy: ").append(id));
 	}

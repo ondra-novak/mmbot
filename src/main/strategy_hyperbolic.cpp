@@ -13,6 +13,7 @@
 #include <imtjson/object.h>
 #include "../shared/logOutput.h"
 #include <cmath>
+#include "numerical.h"
 
 #include "sgn.h"
 
@@ -24,50 +25,6 @@ std::string_view Linear_Calculus::id = "linear";
 template class Strategy_Leveraged<Hyperbolic_Calculus>;
 template class Strategy_Leveraged<Linear_Calculus>;
 
-namespace {
-
-const double accuracy = 1e-5;
-
-}
-
-
-template<typename Fn>
-static double numeric_search_r1(double middle, Fn &&fn) {
-	double min = 0;
-	double max = middle;
-	double ref = fn(middle);
-	if (ref == 0) return middle;
-	double md = (min+max)/2;
-	while (md > accuracy && (max - min) / md > accuracy) {
-		double v = fn(md);
-		double ml = v * ref;
-		if (ml > 0) max = md;
-		else if (ml < 0) min = md;
-		else return md;
-		md = (min+max)/2;
-	}
-	return md;
-
-}
-
-template<typename Fn>
-static double numeric_search_r2(double middle, Fn &&fn) {
-	double min = 0;
-	double max = 1.0/middle;
-	double ref = fn(middle);
-	if (ref == 0) return middle;
-	double md = (min+max)/2;
-	while (md * (1.0 / min - 1.0 / max) > accuracy) {
-		double v = fn(1.0/md);
-		double ml = v * ref;
-		if (ml > 0) max = md;
-		else if (ml < 0) min = md;
-		else return md;
-		md = (min+max)/2;
-	}
-	return 1.0/md;
-
-}
 
 
 double Hyperbolic_Calculus::calcNeutral(double power, double asym, double position, double curPrice) {
@@ -108,25 +65,25 @@ double Hyperbolic_Calculus::calcNeutralFromPrice0(double price0, double asym) {
 }
 
 double Hyperbolic_Calculus::calcNeutralFromValue(double power, double asym, double neutral, double value, double curPrice) {
-	auto m = calcPrice0(neutral, asym);
+	//m = maximum of calcPosValue for neutral
+	//m = root of  derivation of calcPosValue for neutral
+	//m = e^a * curPrice
+	//because calcPosValue has two roots, roots are searched from the vertex left end right
+	auto m = std::exp(-asym)*curPrice;
+
 	auto fncalc = [&](double x) {
-		double neutral = calcNeutralFromPrice0(x, asym);
-		double v = calcPosValue(power, asym, neutral, curPrice);
+		double v = calcPosValue(power, asym, x, curPrice);
 		return v - value;
 	};
 
-	if (fncalc(curPrice) > 0)
-		return neutral;
+	double ref = fncalc(m);
+	if (ref > 0) return neutral;
 
-	double res;
-	if (curPrice > m) {
-		res = numeric_search_r1(curPrice, fncalc);
-	} else if (curPrice < m) {
-		res = numeric_search_r2(curPrice, fncalc);
-	} else {
-		res = m;
-	}
-	return calcNeutralFromPrice0(res, asym);
+	double n1 = numeric_search_r1(m, fncalc);
+	double n2 = numeric_search_r2(m, fncalc);
+	double n = std::abs(n1 - neutral) < std::abs(n2 - neutral)?n1:n2;
+	return n;
+
 }
 
 double Linear_Calculus::calcPosValue(double power, double asym, double neutral, 	double curPrice) {
