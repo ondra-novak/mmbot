@@ -80,7 +80,6 @@ protected:
 	double adjNeutral(double price, double value) const;
 
 	double calcMaxLoss() const;
-	double calcMult() const;
 
 
 	double calcNewNeutralFromProfit(double profit, double price) const;
