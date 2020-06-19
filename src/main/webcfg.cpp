@@ -932,6 +932,8 @@ bool WebCfg::reqBacktest(simpleServer::HTTPRequest req)  {
 					mconfig.loadConfig(config,false);
 					auto piter = trades.prices.begin();
 					auto pend = trades.prices.end();
+					std::optional<double> m_init_pos;
+					if (init_pos.hasValue()) m_init_pos = init_pos.getNumber();
 
 					BTTrades rs = backtest_cycle(mconfig, [&]{
 						std::optional<BTPrice> x;
@@ -941,7 +943,7 @@ bool WebCfg::reqBacktest(simpleServer::HTTPRequest req)  {
 							++piter;
 						}
 						return x;
-					}, trades.minfo,init_pos.getNumber(), balance.getNumber(), fill_atprice.getBool());
+					}, trades.minfo,m_init_pos, balance.getNumber(), fill_atprice.getBool());
 
 					Value result (json::array, rs.begin(), rs.end(), [](const BTTrade &x) {
 						return Object

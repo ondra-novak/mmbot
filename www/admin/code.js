@@ -1699,7 +1699,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		req = {
 			config: config,
 			id: id,
-			init_pos:isFinite(opts.initial_pos)?opts.initial_pos:0,
+			init_pos:isFinite(opts.initial_pos)?opts.initial_pos:undefined,
 			balance:bal,
 			fill_atprice:fill_atprice,
 			start_date: start_date

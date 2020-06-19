@@ -10,20 +10,24 @@ using TradeRec=IStatSvc::TradeRecord;
 using Trade=IStockApi::Trade;
 using Ticker=IStockApi::Ticker;
 
-BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, const IStockApi::MarketInfo &minfo, double init_pos, double balance, bool fill_atprice) {
+BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, const IStockApi::MarketInfo &minfo, std::optional<double> init_pos, double balance, bool fill_atprice) {
 
 	std::optional<BTPrice> price = priceSource();
 	if (!price.has_value()) return {};
-	double pos = init_pos;
-	if (pos == 0 && !minfo.leverage) {
-		pos = balance / price->price;
-	}
 	BTTrades trades;
 
 	Strategy s = cfg.strategy;
 
 	BTTrade bt;
 	bt.price = *price;
+
+	double pos;
+	if (init_pos.has_value() ) {
+		pos = *init_pos;
+		if (minfo.invert_price) pos = -pos;
+	}else {
+		pos = s.calcInitialPosition(minfo,bt.price.price,0,balance);
+	}
 
 	trades.push_back(bt);
 
