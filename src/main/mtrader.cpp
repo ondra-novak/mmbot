@@ -66,6 +66,7 @@ void MTrader_Config::loadConfig(json::Value data, bool force_dry_run) {
 	force_spread = data["force_spread"].getValueOrDefault(0.0);
 	report_position_offset = data["report_position_offset"].getValueOrDefault(0.0);
 	report_order = data["report_order"].getValueOrDefault(0.0);
+	grant_trade_minutes = static_cast<unsigned int>(data["grant_trade_hours"].getValueOrDefault(0.0)*60);
 
 	spread_calc_sma_hours = static_cast<unsigned int>(data["spread_calc_sma_hours"].getValueOrDefault(24.0)*60.0);
 	spread_calc_stdev_hours = static_cast<unsigned int>(data["spread_calc_stdev_hours"].getValueOrDefault(4.0)*60.0);
@@ -210,9 +211,18 @@ void MTrader::perform(bool manually) {
 		//only create orders, if there are no trades from previous run
 		if (!anytrades || fast_trade) {
 
+			bool grant_trade = cfg.grant_trade_minutes
+					&& !trades.empty()
+					&& (status.ticker.time > trades.back().time
+					&& status.ticker.time - trades.back().time)/60000 > cfg.grant_trade_minutes;
+
+
 			if (recalc) {
 				update_dynmult(lastTradeSize > 0, lastTradeSize < 0);
+			} else if (grant_trade) {
+				dynmult.reset();
 			}
+
 
 			//process alerts
 			if (sell_alert.has_value() && status.ticker.last >= *sell_alert) {
@@ -240,21 +250,31 @@ void MTrader::perform(bool manually) {
 					if (!cfg.hidden) statsvc->reportError(IStatSvc::ErrorObj("Automatic trading is disabled"));
 				} else {
 
+
 						//calculate buy order
-					Order buyorder = calculateOrder(lastTradePrice,
-													  -status.curStep*cfg.buy_step_mult, dynmult.getBuyMult(),
-													   status.ticker.bid, status.assetBalance,
-													   status.currencyBalance,
-													   cfg.buy_mult, status.enable_alerts);
+					Order buyorder = calculateOrder(grant_trade?status.ticker.bid:lastTradePrice,
+													grant_trade?-status.curStep*1e-10:-status.curStep*cfg.buy_step_mult,
+													dynmult.getBuyMult(),
+													status.ticker.bid,
+													status.assetBalance,
+													status.currencyBalance,
+													cfg.buy_mult,
+													grant_trade?false:status.enable_alerts);
 						//calculate sell order
-					Order sellorder = calculateOrder(lastTradePrice,
-													   status.curStep*cfg.sell_step_mult, dynmult.getSellMult(),
-													   status.ticker.ask, status.assetBalance,
-													   status.currencyBalance,
-													   cfg.sell_mult, status.enable_alerts);
+					Order sellorder = calculateOrder(grant_trade?status.ticker.ask:lastTradePrice,
+													 grant_trade?status.curStep*1e-10:status.curStep*cfg.sell_step_mult,
+													 dynmult.getSellMult(),
+													 status.ticker.ask,
+													 status.assetBalance,
+													 status.currencyBalance,
+													 cfg.sell_mult,
+													 grant_trade?false:status.enable_alerts);
 
 
-
+					if (grant_trade) {
+						sellorder.alert = IStrategy::Alert::disabled;
+						buyorder.alert = IStrategy::Alert::disabled;
+					}
 
 					try {
 						setOrder(orders.buy, buyorder, buy_alert);
@@ -1249,4 +1269,10 @@ std::pair<bool, double> MTrader::limitOrderMinMaxBalance(double balance, double 
 void MTrader::setInternalBalancies(double assets, double currency) {
 	internal_balance = assets;
 	currency_balance = currency;
+}
+
+void MTrader::DynMultControl::reset() {
+	mult_buy = 1.0;
+	mult_sell = 1.0;
+
 }

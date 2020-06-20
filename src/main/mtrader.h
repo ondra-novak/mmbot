@@ -55,6 +55,7 @@ struct MTrader_Config {
 	double force_spread;
 	double report_position_offset;
 	double report_order;
+	unsigned int grant_trade_minutes;
 
 	unsigned int spread_calc_stdev_hours;
 	unsigned int spread_calc_sma_hours;
@@ -214,6 +215,7 @@ protected:
 
 		double raise_fall(double v, bool israise);
 		void update(bool buy_trade,bool sell_trade);
+		void reset();
 
 	protected:
 
