@@ -159,7 +159,7 @@ double Interface::getBalance(const std::string_view &symb, const std::string_vie
 		const AccountInfo &acc = getAccountInfo();
 		if (symb == iter->second.currency_symbol) return getAccountInfo().colateral;
 		else {
-			auto iter = acc.positions.find(symb);
+			auto iter = acc.positions.find(pair);
 			if (iter == acc.positions.end()) return 0.0;
 			else return iter->second;
 		}
