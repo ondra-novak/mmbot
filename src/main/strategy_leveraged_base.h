@@ -27,6 +27,7 @@ public:
 		double external_balance;
 		double powadj;
 		double dynred;
+		double initboost;
 		bool detect_trend;
 		int preference;
 	};

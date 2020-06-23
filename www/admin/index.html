@@ -121,6 +121,7 @@ included, external currencies are counted in proportion to external assets</span
 		<x-switch data-name="hp_lb_asym" data-value="trend">Trend strenght<span class="tooltip">Specifies how much the trend affects prefered side. Positive value - go with trend, negative value - go against trend</span></x-switch>
 		<x-slider data-name="hp_asym" data-min="-100" data-max="100" data-mult="1" data-fixed="0"></label>
 <label><span>Reduction</span><span class="tooltip">Reduction of current position, 0=no reduction, 100=large reduction</span><x-slider data-name="hp_reduction" data-min="0" data-max="100" data-mult="1" data-fixed="0"></label>
+<label class="adv"><span>Initial boost</span><span class="tooltip">Boost volume around neutral price</span><x-slider data-name="hp_initboost" data-min="0" data-max="2" data-mult="0.1" data-fixed="1"></label>
 <label class="adv"><span>Dynamic reduction<span class="tooltip">How much is reduction increased with increase of the position. The value 1 means by 100% when position is exact to internal multiplicator (advenced feature)</span></span><input data-name="hp_dynred" type="number" step="0.1" value="1.0"></label>
 <label data-name="hp_maxloss_label"><span>Max loss (stoploss, 0=disabled)<span class="tooltip">Specify maximum loss to execute stoploss order. By setting 0 can result in a liquidation. In this case consider to keep minimum amount of the avaiable assets on the stockmarket and set the External balance to achieve correct caulculations</span></span><input data-name="hp_maxloss" type="number" value="0"></label>
 <x-section>
