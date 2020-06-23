@@ -476,7 +476,7 @@ App.prototype.fillForm = function (src, trg) {
 		}
 		
 		if (first_fetch) {
-			["strategy","external_assets", "hp_dtrend","hp_power", "hp_maxloss", "hp_asym", "hp_width","hp_powadj", "hp_extbal", "hp_reduction","hp_dynred"]
+			["strategy","external_assets", "hp_dtrend","hp_power", "hp_maxloss", "hp_recalc", "hp_asym", "hp_width","hp_powadj", "hp_extbal", "hp_reduction","hp_dynred"]
 			.forEach(function(item){
 				trg.findElements(item).forEach(function(elem){
 					elem.addEventListener("input", recalcStrategy.bind(this));
@@ -577,6 +577,7 @@ App.prototype.fillForm = function (src, trg) {
 		data.hp_reduction = filledval(defval(src.strategy.reduction,0.25)*100,25);
 		data.hp_asym = filledval(defval(src.strategy.asym,0.2)*100,20);
 		data.hp_maxloss = filledval(src.strategy.max_loss,0);
+		data.hp_recalc= filledval(src.strategy.recalc_mode,"position");
 		data.hp_power = filledval(src.strategy.power,1);
 		data.hp_powadj = filledval(src.strategy.powadj,0);
 		data.hp_dynred = filledval(src.strategy.dynred,0);
@@ -587,6 +588,7 @@ App.prototype.fillForm = function (src, trg) {
 		data.hp_reduction = filledval(defval(src.strategy.reduction,0.25)*100,25);
 		data.hp_asym = filledval(defval(src.strategy.asym,0)*100,20);
 		data.hp_maxloss = 0
+		data.hp_recalc= filledval(src.strategy.recalc_mode,"position");
 		data.hp_power = filledval(src.strategy.power,1);
 		data.hp_powadj = filledval(src.strategy.powadj,0);
 		data.hp_dynred = filledval(src.strategy.dynred,0);
@@ -733,6 +735,7 @@ function getStrategyData(data) {
 				extbal: data.hp_extbal,
 				dtrend: data.hp_dtrend,
 				max_loss: data.hp_maxloss,
+				recalc_mode: data.hp_recalc,
 				asym: data.hp_asym / 100,
 				reduction: data.hp_reduction/100
 		};
@@ -744,6 +747,7 @@ function getStrategyData(data) {
 				dynred: data.hp_dynred,
 				extbal: data.hp_extbal,
 				dtrend: data.hp_dtrend,
+				recalc_mode: data.hp_recalc,
 				max_loss: data.hp_maxloss,
 				width: data.hp_width,
 				asym: data.hp_asym / 100,

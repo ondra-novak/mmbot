@@ -123,6 +123,7 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 		cfg.powadj = config["powadj"].getNumber();
 		cfg.dynred = config["dynred"].getNumber();
 		cfg.detect_trend = config["dtrend"].getBool();
+		cfg.recalc_keep_neutral = config["recalc_mode"].getString() == "neutral";
 		return Strategy(new Strategy_Hyperbolic(std::make_shared<Strategy_Hyperbolic::TCalc>(),
 											    std::make_shared<Strategy_Hyperbolic::Config>(cfg)));
 	} else if (id == Strategy_Linear::id) {
@@ -135,6 +136,7 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 		cfg.powadj = config["powadj"].getNumber();
 		cfg.dynred = config["dynred"].getNumber();
 		cfg.detect_trend = config["dtrend"].getBool();
+		cfg.recalc_keep_neutral = config["recalc_mode"].getString() == "neutral";
 		return Strategy(new Strategy_Linear(std::make_shared<Strategy_Linear::TCalc>(),
 			    							std::make_shared<Strategy_Linear::Config>(cfg)));
 	} else if (id == Strategy_Elliptical::id) {
@@ -148,19 +150,21 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 		cfg.powadj = config["powadj"].getNumber();
 		cfg.dynred = config["dynred"].getNumber();
 		cfg.detect_trend = config["dtrend"].getBool();
+		cfg.recalc_keep_neutral = config["recalc_mode"].getString() == "neutral";
 		return Strategy(new Strategy_Elliptical(std::make_shared<Strategy_Elliptical::TCalc>(width),
 			    							std::make_shared<Strategy_Elliptical::Config>(cfg)));
 	} else if (id == Strategy_Sinh::id) {
 		Strategy_Sinh::Config cfg;
 		double power = config["power"].getNumber();
 		cfg.max_loss = config["max_loss"].getNumber();
-		cfg.power = 1.0;
+		cfg.power = power;
 		cfg.asym = config["asym"].getNumber();
 		cfg.reduction = config["reduction"].getNumber();
 		cfg.external_balance = config["extbal"].getNumber();
 		cfg.powadj = config["powadj"].getNumber();
 		cfg.dynred = config["dynred"].getNumber();
 		cfg.detect_trend = config["dtrend"].getBool();
+		cfg.recalc_keep_neutral = config["recalc_mode"].getString() == "neutral";
 		return Strategy(new Strategy_Sinh(std::make_shared<Strategy_Sinh::TCalc>(power),
 			    							std::make_shared<Strategy_Sinh::Config>(cfg)));
 	} else {
@@ -179,9 +183,15 @@ void Strategy::importState(json::Value src, const IStockApi::MarketInfo &minfo) 
 }
 
 double IStrategy::calcOrderSize(double expectedAmount, double actualAmount, double newAmount) {
-	double middle = (actualAmount + expectedAmount)/2;
-	double size = newAmount - middle;
-	return size;
+	double org_diff = newAmount - expectedAmount;
+	double my_diff = newAmount - actualAmount;
+	if (std::abs(my_diff) > std::abs(org_diff)*2) {
+		double middle = (actualAmount + expectedAmount)/2;
+		double size = newAmount - middle;
+		return size;
+	} else {
+		return my_diff;
+	}
 }
 
 void Strategy::setConfig(const ondra_shared::IniConfig::Section &cfg) {

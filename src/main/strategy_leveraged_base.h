@@ -28,6 +28,7 @@ public:
 		double powadj;
 		double dynred;
 		bool detect_trend;
+		bool recalc_keep_neutral;
 		int preference;
 	};
 

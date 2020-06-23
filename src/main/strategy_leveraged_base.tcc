@@ -242,7 +242,17 @@ PStrategy Strategy_Leveraged<Calc>::importState(json::Value src,const IStockApi:
 		json::Value cfgcmp = src["cfg"];
 		json::Value cfgcmp2 = storeCfgCmp();
 		if (cfgcmp != cfgcmp2) {
-			recalcNewState(calc, cfg,newst);
+			if (cfg->recalc_keep_neutral) {
+				double last_price = newst.last_price;
+				newst.last_price = calc->calcPrice0(newst.neutral_price, calcAsym(cfg, newst));
+				newst.position = 0;
+				recalcNewState(calc, cfg,newst);
+				newst.last_price = last_price;
+				newst.position = calc->calcPosition(newst.power,calcAsym(cfg,newst),newst.neutral_price, last_price);
+				newst.val= calc->calcPosValue(newst.power,calcAsym(cfg,newst),newst.neutral_price, last_price);
+			} else {
+				recalcNewState(calc, cfg,newst);
+			}
 		}
 		PCalc newcalc = calc;
 		if (!newcalc->isValid(minfo)) newcalc = std::make_shared<Calc>(newcalc->init(minfo));
@@ -264,13 +274,8 @@ IStrategy::OrderData Strategy_Leveraged<Calc>::getNewOrder(
 			return {0,0,Alert::stoploss};
 	} else {
 		auto cps = calcPosition(price);
-		double ch1 = cps.pos - st.position;
-		double ch2 = cps.pos - apos;
-		if (ch2 * dir < 0)
-			ch2 = ch1 / 2.0;
-		else if (ch2 * dir > 2 * ch1 * dir)
-			ch2 = ch1 * 2;
-		return {0, ch2};
+		double df = calcOrderSize(st.position,apos,cps.pos);
+		return {0, df};
 	}
 }
 

@@ -123,6 +123,12 @@ included, external currencies are counted in proportion to external assets</span
 <label><span>Reduction</span><span class="tooltip">Reduction of current position, 0=no reduction, 100=large reduction</span><x-slider data-name="hp_reduction" data-min="0" data-max="100" data-mult="1" data-fixed="0"></label>
 <label class="adv"><span>Dynamic reduction<span class="tooltip">How much is reduction increased with increase of the position. The value 1 means by 100% when position is exact to internal multiplicator (advenced feature)</span></span><input data-name="hp_dynred" type="number" step="0.1" value="1.0"></label>
 <label data-name="hp_maxloss_label"><span>Max loss (stoploss, 0=disabled)<span class="tooltip">Specify maximum loss to execute stoploss order. By setting 0 can result in a liquidation. In this case consider to keep minimum amount of the avaiable assets on the stockmarket and set the External balance to achieve correct caulculations</span></span><input data-name="hp_maxloss" type="number" value="0"></label>
+<label class="adv"><span>Recalculation mode<span class="tooltip">How position is recalculated when values are changed. <br><br><b>Keep position</b> - calculate new neutral price to keep current position<br><b>Keep neutral</b> - keep neutral price. Position is traded to new calculated value (this can result to a loss)</span></span>
+<select data-name="hp_recalc">
+<option value="position" selected="selected">Keep position</option>
+<option value="neutral" selected="selected">Keep neutral</option>
+</select>
+</label>
 <x-section>
 <div class="label"><span>Min price:</span><span data-name="range_min_price">---</span></div>
 <div class="label"><span>Max price:</span><span data-name="range_max_price">---</span></div>
