@@ -81,6 +81,10 @@ typename Strategy_Leveraged<Calc>::PosCalcRes Strategy_Leveraged<Calc>::calcPosi
 		double profit = st.position * (price - st.last_price);
 		double new_neutral = cfg->reduction?calcNewNeutralFromProfit(profit, price):st.neutral_price;
 		double pos = calc->calcPosition(st.power, calcAsym(), new_neutral, price);
+		double initpos = calc->calcPosition(st.power,calcAsym(), new_neutral, new_neutral);
+		if ((initpos - st.position) * (initpos - pos) < 0) {
+				pos = (pos - initpos) * std::pow(2.0,cfg->initboost) + initpos;
+		}
 		return {false,pos};
 	}
 }

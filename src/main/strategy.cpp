@@ -122,6 +122,7 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 		cfg.external_balance = config["extbal"].getNumber();
 		cfg.powadj = config["powadj"].getNumber();
 		cfg.dynred = config["dynred"].getNumber();
+		cfg.initboost = config["initboost"].getNumber();
 		cfg.detect_trend = config["dtrend"].getBool();
 		cfg.recalc_keep_neutral = config["recalc_mode"].getString() == "neutral";
 		return Strategy(new Strategy_Hyperbolic(std::make_shared<Strategy_Hyperbolic::TCalc>(),
@@ -135,6 +136,7 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 		cfg.external_balance = config["extbal"].getNumber();
 		cfg.powadj = config["powadj"].getNumber();
 		cfg.dynred = config["dynred"].getNumber();
+		cfg.initboost = config["initboost"].getNumber();
 		cfg.detect_trend = config["dtrend"].getBool();
 		cfg.recalc_keep_neutral = config["recalc_mode"].getString() == "neutral";
 		return Strategy(new Strategy_Linear(std::make_shared<Strategy_Linear::TCalc>(),
@@ -149,6 +151,7 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 		cfg.external_balance = config["extbal"].getNumber();
 		cfg.powadj = config["powadj"].getNumber();
 		cfg.dynred = config["dynred"].getNumber();
+		cfg.initboost = config["initboost"].getNumber();
 		cfg.detect_trend = config["dtrend"].getBool();
 		cfg.recalc_keep_neutral = config["recalc_mode"].getString() == "neutral";
 		return Strategy(new Strategy_Elliptical(std::make_shared<Strategy_Elliptical::TCalc>(width),
@@ -163,6 +166,7 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 		cfg.external_balance = config["extbal"].getNumber();
 		cfg.powadj = config["powadj"].getNumber();
 		cfg.dynred = config["dynred"].getNumber();
+		cfg.initboost = config["initboost"].getNumber();
 		cfg.detect_trend = config["dtrend"].getBool();
 		cfg.recalc_keep_neutral = config["recalc_mode"].getString() == "neutral";
 		return Strategy(new Strategy_Sinh(std::make_shared<Strategy_Sinh::TCalc>(power),
