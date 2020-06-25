@@ -365,7 +365,7 @@ inline Interface::MarketInfo Interface::getMarketInfo(const std::string_view &pa
 			std::string(pair),
 			s.qtc.str(),
 			s.multiplier*s.lotSize,
-			0,
+			s.tickSize,
 			s.multiplier*s.lotSize,
 			allowSmallOrders?0:0.0101/s.quantoMult,
 			0,
