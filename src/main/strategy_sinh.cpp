@@ -87,7 +87,7 @@ double Sinh_Calculus::calcNeutralFromValue(double power, double asym, double neu
 }
 
 double Sinh_Calculus::calcPower(double neutral, double balance, double ) {
-	return balance/neutral;
+	return balance/(neutral*p);
 }
 
 template class Strategy_Leveraged<Sinh_Calculus>;

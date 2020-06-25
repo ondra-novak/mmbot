@@ -11,7 +11,8 @@
 
 enum class ParseTimeFormat {
 	iso = 0,
-	mysql = 1
+	mysql = 1,
+	iso_tm = 2,
 };
 
 
@@ -20,10 +21,12 @@ template<typename String>
 	static const char *formats[] = {
 			"%d-%d-%dT%d:%d:%fZ",
 			"%d-%d-%d %d:%d:%f",
+			"%d-%d-%dT%d:%d:%f%c%d:%d",
 	};
- 	 int y,M,d,h,m;
- 	 float s;
- 	 sscanf(date.c_str(), formats[static_cast<int>(format)], &y, &M, &d, &h, &m, &s);
+ 	 int y,M,d,h,m,tmh=0,tmm=0;
+ 	 float s = 0;
+ 	 char c = 0;
+ 	 sscanf(date.c_str(), formats[static_cast<int>(format)], &y, &M, &d, &h, &m, &s, &c, &tmh, &tmm);
  	 float sec;
  	 float msec = std::modf(s,&sec)*1000;
  	 std::tm t={0};

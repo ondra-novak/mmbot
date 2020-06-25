@@ -88,7 +88,7 @@
 </x-section>
 <x-section data-name="strategy_halfhalf" class="goal" hidden="hidden"><x-section-caption>Half-Half / Keep Value / Exponencial</x-section-caption>
 <label><span>External assets <span class="tooltip">Amount of assets held outside of exchange. They are included into calculations.</span></span><input type="number" step="any" data-name="external_assets"></label>
-<label  class="adv"><span>Accumulation <span class="tooltip">Amount of the profit used to buy extra assets</span></span><x-slider data-name="acum_factor" data-min="0" data-max="100" data-mult="1"></x-slider></label>
+<label><span>Accumulation <span class="tooltip">Amount of the profit used to buy extra assets</span></span><x-slider data-name="acum_factor" data-min="0" data-max="100" data-mult="1"></x-slider></label>
 <label class="adv" data-name="kv_valinc_h"><span>Change kept value over time <span style="white-space: nowrap">(<span data-name="currency"></span> monthly)</span><span class="tooltip">
 This option is designed for regular investments. The value of held assets is increased monthly by a
 fixed constant. The robot is forced to buy assets, but if the price of assets rises faster, it can
@@ -121,8 +121,15 @@ included, external currencies are counted in proportion to external assets</span
 		<x-switch data-name="hp_lb_asym" data-value="trend">Trend strenght<span class="tooltip">Specifies how much the trend affects prefered side. Positive value - go with trend, negative value - go against trend</span></x-switch>
 		<x-slider data-name="hp_asym" data-min="-100" data-max="100" data-mult="1" data-fixed="0"></label>
 <label><span>Reduction</span><span class="tooltip">Reduction of current position, 0=no reduction, 100=large reduction</span><x-slider data-name="hp_reduction" data-min="0" data-max="100" data-mult="1" data-fixed="0"></label>
+<label class="adv"><span>Initial boost</span><span class="tooltip">Boost volume around neutral price</span><x-slider data-name="hp_initboost" data-min="0" data-max="2" data-mult="0.1" data-fixed="1"></label>
 <label class="adv"><span>Dynamic reduction<span class="tooltip">How much is reduction increased with increase of the position. The value 1 means by 100% when position is exact to internal multiplicator (advenced feature)</span></span><input data-name="hp_dynred" type="number" step="0.1" value="1.0"></label>
 <label data-name="hp_maxloss_label"><span>Max loss (stoploss, 0=disabled)<span class="tooltip">Specify maximum loss to execute stoploss order. By setting 0 can result in a liquidation. In this case consider to keep minimum amount of the avaiable assets on the stockmarket and set the External balance to achieve correct caulculations</span></span><input data-name="hp_maxloss" type="number" value="0"></label>
+<label class="adv"><span>Recalculation mode<span class="tooltip">How position is recalculated when values are changed. <br><br><b>Keep position</b> - calculate new neutral price to keep current position<br><b>Keep neutral</b> - keep neutral price. Position is traded to new calculated value (this can result to a loss)</span></span>
+<select data-name="hp_recalc">
+<option value="position" selected="selected">Keep position</option>
+<option value="neutral" selected="selected">Keep neutral</option>
+</select>
+</label>
 <x-section>
 <div class="label"><span>Min price:</span><span data-name="range_min_price">---</span></div>
 <div class="label"><span>Max price:</span><span data-name="range_max_price">---</span></div>
@@ -225,7 +232,13 @@ Enable to the Bot accept partial loss, when trading is not possible due insuffic
 "Hard max position" is reached. The value specified amount of hours after last trade, when
 extra "virtual" trade with zero size is generated to shift the center of the spread. This can
 reenable trading, but it also finally costs some profit
-</span></span><input type="number" data-name="accept_loss" step="1"></x-slider></label>
+</span></span><input type="number" data-name="accept_loss" step="0.1"></label>
+<label class="adv"><span>Grant trade after (hours) (0&nbsp;=&nbsp;disabled)<span class="tooltip">
+If there is no trade after given hours, the bot tries to put an order to a top of the orderbook,
+which increases chance to execute a trade. The size of the order is calculated by the strategy. Not
+recommended with strategy "stairs". If the strategy cannot calculate the order for the current
+price, the order is not placed (alerts are disabled during this event) 
+</span></span><input type="number" data-name="grant_trade_hours" step="0.1"></label>
 <label  class="adv"><span>MIN asset balance/position<span class="tooltip">
 Specifies minimum allowed asset balance (or position, for short use negative value). When balance hits this value, no futher sells are allowed. In this situation 'Accept loss' rule can be applied
 </span></span><input type="number" data-name="min_balance" step="any"></label>

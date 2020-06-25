@@ -556,3 +556,4 @@ Value Interface::publicGET(StrViewA path) const {
 		}
 	}
 }
+

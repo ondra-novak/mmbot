@@ -127,7 +127,7 @@ void Report::setTrades(StrViewA symb, StringView<IStatSvc::TradeRecord> trades) 
 
 			cur_fromPos += gain;
 			pos += t.eff_size;
-			if (pos * t.eff_size > 0) {
+			if (prev_pos * t.eff_size > 0) {
 				enter_price = (enter_price*prev_pos + t.eff_price * t.eff_size)/pos;
 			} else {
 				double sz = t.eff_size;
