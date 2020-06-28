@@ -785,6 +785,7 @@ void MTrader::saveState() {
 		st.set("lastTradeId",lastTradeId);
 		st.set("lastPriceOffset",lastPriceOffset);
 		st.set("cfg_sliding_spread",cfg.dynmult_sliding);
+		st.set("private_chart", minfo.private_chart||minfo.simulator);
 	}
 	{
 		auto ch = obj.array("chart");

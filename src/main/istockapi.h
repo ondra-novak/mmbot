@@ -152,6 +152,12 @@ public:
 		/** Simulators are not included into daily performance */
 		bool simulator = false;
 
+		///Set this flag to disable of sharing chart data
+		/** Default settings is not shared, however if storage_broker is used, the chart data can
+		 * be shared with other users. This flag is copied into trader_state as "private_chat", which can
+		 * be read by the storage_broker to store chart data which prevents sharing
+		 */
+		bool private_chart = false;
 		///Adds fees to values
 		/**
 		 * @param assets reference to current asset change. Negative value is sell,

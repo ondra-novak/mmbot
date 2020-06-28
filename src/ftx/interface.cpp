@@ -369,7 +369,7 @@ double Interface::getFees(const std::string_view &pair) {
 IStockApi::Ticker Interface::getTicker(const std::string_view &pair) {
 	std::ostringstream uri;
 	uri << "/markets/" << simpleServer::urlEncode(pair) << "/orderbook?depth=1";
-	json::Value resp = requestGET(uri.str());
+	json::Value resp = api.GET(uri.str());
 	if (resp["success"].getBool()) {
 		auto result = resp["result"];
 		IStockApi::Ticker tkr;
@@ -392,17 +392,26 @@ bool Interface::hasKey() const {
 
 const Interface::AccountInfo& Interface::getAccountInfo() {
 	if (!curAccount.has_value()) {
-		Value req = requestGET("/account");
-		AccountInfo nfo;
-		req = req["result"];
-		nfo.colateral = req["totalAccountValue"].getNumber();
-		nfo.fees = req["makerFee"].getNumber();
-		nfo.leverage = req["leverage"].getNumber();
-		Positions::Set::VecT poslist = mapJSON(req["positions"], [](Value v){
-			return Positions::value_type(v["future"].getString(), v["netSize"].getNumber());
-		},Positions::Set::VecT());
-		nfo.positions.swap(poslist);
-		curAccount = std::move(nfo);
+		if (hasKey()) {
+			Value req = requestGET("/account");
+			AccountInfo nfo;
+			req = req["result"];
+			nfo.colateral = req["totalAccountValue"].getNumber();
+			nfo.fees = req["makerFee"].getNumber();
+			nfo.leverage = req["leverage"].getNumber();
+			Positions::Set::VecT poslist = mapJSON(req["positions"], [](Value v){
+				return Positions::value_type(v["future"].getString(), v["netSize"].getNumber());
+			},Positions::Set::VecT());
+			nfo.positions.swap(poslist);
+			curAccount = std::move(nfo);
+		} else {
+			AccountInfo nfo;
+			nfo.colateral = 10000;
+			nfo.fees = 0.2;
+			nfo.leverage=20;
+			nfo.positions = {};
+			curAccount = std::move(nfo);
+		}
 	}
 	return *curAccount;
 }
