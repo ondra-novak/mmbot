@@ -84,7 +84,7 @@ protected:
 	double calcMaxLoss() const;
 
 
-	double calcNewNeutralFromProfit(double profit, double price) const;
+	double calcNewNeutralFromProfit(double profit, double price, double reduction) const;
 
 private:
 	static void recalcPower(const PCalc &calc, const PConfig &cfg, State &nwst) ;

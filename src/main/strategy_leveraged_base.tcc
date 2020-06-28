@@ -78,11 +78,17 @@ typename Strategy_Leveraged<Calc>::PosCalcRes Strategy_Leveraged<Calc>::calcPosi
 		return {true,st.position};
 	} else {
 
+		double reduction = cfg->reduction;
+		double mprice = calc->calcPrice0(st.neutral_price, calcAsym());
+		double distance = std::abs(price - mprice)/(mm.max - mm.min);
+		reduction = reduction + 0.5*distance*cfg->dynred;
+
+
 		double profit = st.position * (price - st.last_price);
-		double new_neutral = cfg->reduction?calcNewNeutralFromProfit(profit, price):st.neutral_price;
+		double new_neutral = reduction?calcNewNeutralFromProfit(profit, price,reduction):st.neutral_price;
 		double pos = calc->calcPosition(st.power, calcAsym(), new_neutral, price);
 		double initpos = calc->calcPosition(st.power,calcAsym(), new_neutral, new_neutral);
-		if ((initpos - st.position) * (initpos - pos) < 0) {
+		if ((initpos - st.position) * (initpos - pos) <= 0) {
 				pos = (pos - initpos) * std::pow(2.0,cfg->initboost) + initpos;
 		}
 		return {false,pos};
@@ -108,7 +114,7 @@ PStrategy Strategy_Leveraged<Calc>::onIdle(
 }
 
 template<typename Calc>
-double Strategy_Leveraged<Calc>::calcNewNeutralFromProfit(double profit, double price) const {
+double Strategy_Leveraged<Calc>::calcNewNeutralFromProfit(double profit, double price, double reduction) const {
 
 	auto dir = sgn(st.last_price - price);
 	auto inrpos = dir * st.position > 0;
@@ -127,11 +133,10 @@ double Strategy_Leveraged<Calc>::calcNewNeutralFromProfit(double profit, double 
 	if (rev_shift) {
 		c_neutral = 2*st.neutral_price - c_neutral;
 	}
-	double reduction = cfg->reduction+cfg->dynred*std::abs(st.position*st.last_price/st.bal);
-	if (cfg->reduction < 0.25) {
+	if (reduction < 0.25) {
 		if (inrpos) reduction = reduction * 2;
 		else reduction = 0;
-	} else if (cfg->reduction < 0.5) {
+	} else if (reduction < 0.5) {
 		if (inrpos) reduction = 0.5;
 		else reduction = 2*(reduction-0.25);
 	}
