@@ -116,18 +116,18 @@ included, external currencies are counted in proportion to external assets</span
 <label class="adv"><span>Dynamic power<span class="tooltip">How much is power adjusted with increase of the position</span></span><input data-name="hp_powadj" type="number" step="0.1" value="1.0"></label>
 <label><span>External balance<span class="tooltip">Amount of balance held outside of stock. It allows to keep minimal amount of colateral on the leveraged stockmarket to prevent a large liquidations, but it still maintains  correct calculations with whole possible balance</span></span><input data-name="hp_extbal" type="number" value="0"></label>
 <label data-name="hp_range_label"><span>Tradable range (<span data-name="currency"></span>))<span class="tooltip">Specifies tradable range - width in currency. This argument is mandatory</span></span><input data-name="hp_width" step="1" type="number"></label>
-<label><span>Trend detection</span><span class="tooltip">Tries to detect trend and adjust asymmetry according to detected trend</span><x-checkbox data-name="hp_dtrend">Detect trend</x-checkbox></label>
-<label><x-switch data-name="hp_lb_asym" data-value="asym">Asymmetry<span class="tooltip">Prefer one of sides. Positive value prefers LONGS on normal futures and SHORTS on inverted futures. Negative values vice versa. Note that negative values are more dangerous and can result in a liquidation.</span></x-switch>
-		<x-switch data-name="hp_lb_asym" data-value="trend">Trend strenght<span class="tooltip">Specifies how much the trend affects prefered side. Positive value - go with trend, negative value - go against trend</span></x-switch>
+<label><span>Trend detection<span class="tooltip">Tries to detect trend and adjust asymmetry according to detected trend</span></span><x-checkbox data-name="hp_dtrend">Detect trend</x-checkbox></label>
+<label><x-switch data-name="hp_lb_asym" data-value="asym"><span>Asymmetry<span class="tooltip">Prefer one of sides. Positive value prefers LONGS on normal futures and SHORTS on inverted futures. Negative values vice versa. Note that negative values are more dangerous and can result in a liquidation.</span></span></x-switch>
+		<x-switch data-name="hp_lb_asym" data-value="trend"><span>Trend strenght<span class="tooltip">Specifies how much the trend affects prefered side. Positive value - go with trend, negative value - go against trend</span></span></x-switch>
 		<x-slider data-name="hp_asym" data-min="-100" data-max="100" data-mult="1" data-fixed="0"></label>
-<label><span>Reduction</span><span class="tooltip">Reduction of current position, 0=no reduction, 100=large reduction</span><x-slider data-name="hp_reduction" data-min="0" data-max="100" data-mult="1" data-fixed="0"></label>
-<label class="adv"><span>Initial boost</span><span class="tooltip">Boost volume around neutral price</span><x-slider data-name="hp_initboost" data-min="0" data-max="2" data-mult="0.1" data-fixed="1"></label>
+<label><span>Reduction<span class="tooltip">Reduction of current position, 0=no reduction, 100=use all profit to reduce, 200=reduce twice more (can generate loss)</span></span><x-slider data-name="hp_reduction" data-min="0" data-max="200" data-mult="1" data-fixed="0"></label>
+<label class="adv"><span>Initial boost<span class="tooltip">Boost volume around neutral price</span></span><x-slider data-name="hp_initboost" data-min="0" data-max="2" data-mult="0.1" data-fixed="1"></label>
 <label class="adv"><span>Dynamic reduction<span class="tooltip">How much is reduction increased with increase of the position. The value 1 means by 100% when position is exact to internal multiplicator (advenced feature)</span></span><input data-name="hp_dynred" type="number" step="0.1" value="1.0"></label>
 <label data-name="hp_maxloss_label"><span>Max loss (stoploss, 0=disabled)<span class="tooltip">Specify maximum loss to execute stoploss order. By setting 0 can result in a liquidation. In this case consider to keep minimum amount of the avaiable assets on the stockmarket and set the External balance to achieve correct caulculations</span></span><input data-name="hp_maxloss" type="number" value="0"></label>
 <label class="adv"><span>Recalculation mode<span class="tooltip">How position is recalculated when values are changed. <br><br><b>Keep position</b> - calculate new neutral price to keep current position<br><b>Keep neutral</b> - keep neutral price. Position is traded to new calculated value (this can result to a loss)</span></span>
 <select data-name="hp_recalc">
 <option value="position" selected="selected">Keep position</option>
-<option value="neutral" selected="selected">Keep neutral</option>
+<option value="neutral">Keep neutral</option>
 </select>
 </label>
 <x-section>

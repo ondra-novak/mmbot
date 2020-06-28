@@ -112,6 +112,7 @@ ExtStockApi::MarketInfo ExtStockApi::getMarketInfo(const std::string_view & pair
 	res.invert_price= v["invert_price"].getBool();
 	res.simulator= v["simulator"].getBool();
 	res.inverted_symbol= v["inverted_symbol"].getString();
+	res.private_chart = v["private_chart"].getBool();
 	return res;
 
 }

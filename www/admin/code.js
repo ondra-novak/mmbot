@@ -555,7 +555,7 @@ App.prototype.fillForm = function (src, trg) {
 	data.st_reduction_step=2;
 	data.st_pattern = "constant";
 	data.st_sl=false;
-	data.hp_reduction=25;
+	data.hp_reduction=50;
 	data.hp_initboost=0;
 	data.hp_asym=0;
 	data.hp_power=1;
@@ -575,7 +575,7 @@ App.prototype.fillForm = function (src, trg) {
 		data.kv_valinc = filledval(src.strategy.valinc,0);
 		data.kv_halfhalf = filledval(src.strategy.halfhalf,false);
 	} else if (data.strategy == "hyperbolic"||data.strategy == "linear"||data.strategy == "sinh") {
-		data.hp_reduction = filledval(defval(src.strategy.reduction,0.25)*100,25);
+		data.hp_reduction = filledval(defval(src.strategy.reduction,0.25)*200,50);
 		data.hp_initboost = filledval(src.strategy.initboost,0);
 		data.hp_asym = filledval(defval(src.strategy.asym,0.2)*100,20);
 		data.hp_maxloss = filledval(src.strategy.max_loss,0);
@@ -587,7 +587,7 @@ App.prototype.fillForm = function (src, trg) {
 		data.hp_dtrend = filledval(src.strategy.dtrend,false);
 		data.hp_lb_asym = src.strategy.dtrend?"trend":"asym"; 
 	} else if (data.strategy == "elliptical") {
-		data.hp_reduction = filledval(defval(src.strategy.reduction,0.25)*100,25);
+		data.hp_reduction = filledval(defval(src.strategy.reduction,0.25)*200,50);
 		data.hp_initboost = filledval(src.strategy.initboost,0);		
 		data.hp_asym = filledval(defval(src.strategy.asym,0)*100,20);
 		data.hp_maxloss = 0
@@ -740,7 +740,7 @@ function getStrategyData(data) {
 				max_loss: data.hp_maxloss,
 				recalc_mode: data.hp_recalc,
 				asym: data.hp_asym / 100,
-				reduction: data.hp_reduction/100,
+				reduction: data.hp_reduction/200,
 				initboost: data.hp_initboost
 		};
 	} else 	if (data.strategy == "elliptical") {
@@ -755,7 +755,7 @@ function getStrategyData(data) {
 				max_loss: data.hp_maxloss,
 				width: data.hp_width,
 				asym: data.hp_asym / 100,
-				reduction: data.hp_reduction/100,
+				reduction: data.hp_reduction/200,
 				initboost: data.hp_initboost
 		};
 	} else 	if (data.strategy == "stairs") {
