@@ -77,7 +77,8 @@ std::pair<Strategy_Exponencial::OnTradeResult, PStrategy> Strategy_Exponencial::
 	}
 
 	auto prof = calcNormalizedProfit(tradePrice, tradeSize);
-	double new_a = prof.na + calcA(st, tradePrice);
+	auto accum = calcAccumulation(st, cfg, tradePrice);
+	double new_a = accum + calcA(st, tradePrice);
 
 	State nst = st;
 	updateState(nst, new_a, tradePrice, currencyLeft);
@@ -85,7 +86,7 @@ std::pair<Strategy_Exponencial::OnTradeResult, PStrategy> Strategy_Exponencial::
 	double neutral = nst.k * to_balanced_factor;
 
 	return {
-		OnTradeResult{prof.np,prof.na,neutral},
+		OnTradeResult{prof,accum,neutral},
 		new Strategy_Exponencial(cfg, std::move(nst))
 	};
 }
@@ -118,7 +119,7 @@ IStrategy::OrderData Strategy_Exponencial::getNewOrder(
 		const IStockApi::MarketInfo &,
 		double, double price, double /*dir*/, double assets, double /*currency*/) const {
 
-	double ordsz = calcOrderSize(calcA(st, st.p), assets+cfg.ea, calcA(st,price));
+	double ordsz = calcOrderSize(calcA(st, st.p), assets+cfg.ea, calcA(st,price) + calcAccumulation(st, cfg, price));
 	return {0,ordsz};
 }
 
@@ -158,12 +159,7 @@ double Strategy_Exponencial::calcA(const State &st, double price) {
 	return st.w * std::exp(-price/st.k);
 }
 void Strategy_Exponencial::updateState(State &st, double new_a, double new_p, double new_f) {
-	double balanced = st.k * to_balanced_factor;
-	if (new_p < balanced) {
-		st.w = new_a * std::exp(new_p / st.k);
-	} else {
-		st.k = new_p / std::log(st.w / new_a);
-	}
+	st.w = new_a * std::exp(new_p / st.k);
 	st.p = new_p;
 	st.f = new_f;
 }
@@ -176,15 +172,32 @@ double Strategy_Exponencial::calcReqCurrency(const State &st, double price) {
 	return st.w * (st.k - std::exp(-price/st.k) * (st.k + price));
 }
 
-Strategy_Exponencial::NormProfit Strategy_Exponencial::calcNormalizedProfit(double tradePrice, double tradeSize) const {
+double Strategy_Exponencial::calcAccumulation(const State &st, const Config &cfg, double price) {
+	if (cfg.accum) {
+
+		double r1 = calcReqCurrency(st, st.p);
+		double r2 = calcReqCurrency(st, price);
+		double a = calcA(st,st.p);
+		double pl = a * (price - st.p);
+		double nl = r2 - r1;
+		double ex = pl -nl;
+		double acc = (ex/price)*cfg.accum;
+		return acc;
+	} else {
+		return 0;
+	}
+
+}
+
+
+double Strategy_Exponencial::calcNormalizedProfit(double tradePrice, double tradeSize) const {
 	double cashflow = -tradePrice*tradeSize;
 	double old_cash = calcReqCurrency(st, st.p);
 	double new_cash = calcReqCurrency(st, tradePrice);
 	double diff_cash = new_cash - old_cash;
-	double cp = cashflow - diff_cash;
-	double na = cp/tradePrice*cfg.accum;
-	double np = cp*(1-cfg.accum);
-	return {np,na};
+	double np = cashflow - diff_cash;
+
+	return np;
 }
 
 template<typename Fn>
