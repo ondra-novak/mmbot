@@ -118,8 +118,10 @@ std::pair<Strategy_KeepValue::OnTradeResult, PStrategy> Strategy_KeepValue::onTr
 	double norm = calcNormalizedProfit(st,cfg,tradePrice,tradeSize);
 	double neutral = k/(st.n+cfg.ea);
 
+	double err = (k/tradePrice - k/st.p) - tradeSize + accum;
+
 	State nst = st;
-	nst.a = k/tradePrice - cfg.ea + accum;
+	nst.a = assetsLeft + err;
 	nst.recalc_time = st.check_time;
 	nst.p = tradePrice;
 	nst.check_time = st.check_time;

@@ -78,7 +78,12 @@ std::pair<Strategy_Exponencial::OnTradeResult, PStrategy> Strategy_Exponencial::
 
 	auto prof = calcNormalizedProfit(tradePrice, tradeSize);
 	auto accum = calcAccumulation(st, cfg, tradePrice);
-	double new_a = accum + calcA(st, tradePrice);
+
+	double err = (calcA(st,tradePrice) - calcA(st,st.p)) - tradeSize + accum;
+
+
+	double new_a = assetsLeft + cfg.ea + err;
+
 
 	State nst = st;
 	updateState(nst, new_a, tradePrice, currencyLeft);

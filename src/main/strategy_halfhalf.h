@@ -39,6 +39,10 @@ protected:
 	Config cfg;
 	double p;
 	double a;
+
+	double calcAccumulation(double n) const;
+	double calcNormProfit(double s, double n) const;
+	double calcNewA(double n) const;
 };
 
 #endif /* SRC_MAIN_STRATEGY_HALFHALF_H_ */

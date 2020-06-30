@@ -21,7 +21,7 @@ Strategy_HalfHalf::Strategy_HalfHalf(const Config &cfg, double p, double a)
 
 
 bool Strategy_HalfHalf::isValid() const {
-	return (a+cfg.ea) * p > 0;
+	return p > 0;
 }
 
 
@@ -32,27 +32,51 @@ PStrategy Strategy_HalfHalf::onIdle(
 	else return new Strategy_HalfHalf(cfg, curTicker.last, assets);
 }
 
+double Strategy_HalfHalf::calcAccumulation(double n) const {
+	double a = this->a + cfg.ea;
+	double old_b = a * p;
+	double new_b = a * std::sqrt(p*n);
+	double b_diff = new_b - old_b;
+	double cashflow = (a - calcNewA(n)) * n;
+	double np = cashflow - b_diff;
+	double ap = np / n;
+	return ap * cfg.accum;
+
+}
+
+double Strategy_HalfHalf::calcNormProfit(double s, double n) const {
+	double a = this->a + cfg.ea;
+	double old_b = a * p;
+	double new_b = a * std::sqrt(p*n);
+	double b_diff = new_b - old_b;
+	double cashflow = -s * n;
+	double np = cashflow - b_diff;
+	return np;
+}
+
+double Strategy_HalfHalf::calcNewA(double n) const {
+	double new_a = (a+cfg.ea) * std::sqrt(p/n);
+	return new_a;
+}
+
 std::pair<Strategy_HalfHalf::OnTradeResult, PStrategy> Strategy_HalfHalf::onTrade(
 		const IStockApi::MarketInfo &minfo,
 		double tradePrice, double tradeSize, double assetsLeft, double currencyLeft) const {
 
-	if (p == 0) {
+	if (!isValid()) {
 		Strategy_HalfHalf tmp(cfg, tradePrice, assetsLeft-tradeSize);
 		return tmp.onTrade(minfo, tradePrice,tradeSize,assetsLeft, currencyLeft);
 	}
 
 
-	double a = this->a + cfg.ea;
-	double n = tradePrice;
-	double p = this->p;
-	//extra money earned by spread
-	double v = a*p + a*n-2*a*sqrt(p* n);
-	double na = a * sqrt(p/n);
-	double ap = (v / n) * cfg.accum;
-	double np = v * (1-cfg.accum);
+	double ap = calcAccumulation(tradePrice);
+	double np = calcNormProfit(tradeSize, tradePrice);
+	double err = calcNewA(tradePrice) - a - tradeSize + ap;
+	double new_a = assetsLeft + err;
+
 	return std::make_pair(
-			OnTradeResult {np, ap, 0},
-			new Strategy_HalfHalf(cfg,n,na+ap-cfg.ea)
+			OnTradeResult {np, ap, getEquilibrium(assetsLeft)},
+			new Strategy_HalfHalf(cfg,tradePrice,new_a)
 	);
 }
 
@@ -70,10 +94,8 @@ PStrategy Strategy_HalfHalf::importState(json::Value src,const IStockApi::Market
 
 IStrategy::OrderData Strategy_HalfHalf::getNewOrder(const IStockApi::MarketInfo &,
 		double, double n, double dir, double assets,double currency) const {
-	double a = this->a + cfg.ea;
-	double p = this->p;
-	double na = a * sqrt(p/n);
-	return {0,calcOrderSize(this->a, assets, na-cfg.ea)};
+	double new_a = calcNewA(n) + calcAccumulation(n);
+	return {0,calcOrderSize(this->a, assets, new_a-cfg.ea)};
 }
 
 Strategy_HalfHalf::MinMax Strategy_HalfHalf::calcSafeRange(const IStockApi::MarketInfo &,
