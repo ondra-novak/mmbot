@@ -119,7 +119,10 @@ IStrategy::OrderData Strategy_Exponencial::getNewOrder(
 		const IStockApi::MarketInfo &,
 		double, double price, double /*dir*/, double assets, double /*currency*/) const {
 
-	double ordsz = calcOrderSize(calcA(st, st.p), assets+cfg.ea, calcA(st,price) + calcAccumulation(st, cfg, price));
+	double curA = calcA(st, st.p);
+	double newA = calcA(st,price);
+	double extra = calcAccumulation(st, cfg, price);
+	double ordsz = calcOrderSize(curA, assets+cfg.ea, newA+extra);
 	return {0,ordsz};
 }
 
@@ -159,7 +162,12 @@ double Strategy_Exponencial::calcA(const State &st, double price) {
 	return st.w * std::exp(-price/st.k);
 }
 void Strategy_Exponencial::updateState(State &st, double new_a, double new_p, double new_f) {
-	st.w = new_a * std::exp(new_p / st.k);
+	double balanced = st.k * to_balanced_factor;
+	if (new_p < balanced) {
+		st.w = new_a * std::exp(new_p / st.k);
+	} else {
+		st.k = new_p / std::log(st.w / new_a);
+	}
 	st.p = new_p;
 	st.f = new_f;
 }
@@ -167,6 +175,10 @@ void Strategy_Exponencial::updateState(State &st, double new_a, double new_p, do
 double Strategy_Exponencial::calcAccountValue(const State &st) {
 	return st.k*st.w*(1 - std::exp(-st.p/st.k));
 }
+double Strategy_Exponencial::calcAccountValue(const State &st, double p) {
+	return st.k*st.w*(1 - std::exp(-p/st.k));
+}
+
 
 double Strategy_Exponencial::calcReqCurrency(const State &st, double price) {
 	return st.w * (st.k - std::exp(-price/st.k) * (st.k + price));
@@ -177,8 +189,7 @@ double Strategy_Exponencial::calcAccumulation(const State &st, const Config &cfg
 
 		double r1 = calcReqCurrency(st, st.p);
 		double r2 = calcReqCurrency(st, price);
-		double a = calcA(st,st.p);
-		double pl = a * (price - st.p);
+		double pl = -price*(calcA(st,price)-calcA(st,st.p));
 		double nl = r2 - r1;
 		double ex = pl -nl;
 		double acc = (ex/price)*cfg.accum;

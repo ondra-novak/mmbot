@@ -57,9 +57,9 @@ PStrategy Strategy_KeepValue::onIdle(
 	}
 }
 
-double Strategy_KeepValue::calcAccountValue(const State &st, const Config &cfg) {
+double Strategy_KeepValue::calcAccountValue(const State &st, const Config &cfg, double price) {
 	double k = calcK(st, cfg);
-	double v = k * std::log(st.p/k) + 2*k;
+	double v = k * std::log(price/k) + 2*k;
 	return v;
 }
 
@@ -78,8 +78,7 @@ double Strategy_KeepValue::calcAccumulation(const State &st, const Config &cfg, 
 
 		double r1 = calcReqCurrency(st,cfg, st.p);
 		double r2 = calcReqCurrency(st,cfg, price);
-		double a = calcA(st,cfg,st.p);
-		double pl = a * (price - st.p);
+		double pl = -price*(calcA(st,cfg,price)-calcA(st,cfg,st.p));
 		double nl = r2 - r1;
 		double ex = pl -nl;
 		double acc = (ex/price)*autoaccum;

@@ -55,7 +55,7 @@ protected:
 
 	double calcK() const;
 	static double calcK(const State &st, const Config &cfg);
-	static double calcAccountValue(const State &st, const Config &cfg);
+	static double calcAccountValue(const State &st, const Config &cfg, double price);
 	static double calcReqCurrency(const State &st, const Config &cfg, double price);
 	static double calcA(const State &st, const Config &cfg, double price);
 	static double calcAccumulation(const State &st, const Config &cfg, double price, double currencyLeft);

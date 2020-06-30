@@ -53,7 +53,7 @@ public:
 	static Strategy_Exponencial init(const Config &cfg, double price, double assets, double cur);
 	virtual double calcInitialPosition(const IStockApi::MarketInfo & , double price, double assets, double currency) const override;
 	static double calcAccumulation(const State &st, const Config &cfg, double price);
-
+	static double calcAccountValue(const State &st, double p);
 protected:
 	Config cfg;
 	State st;
