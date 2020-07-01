@@ -70,6 +70,7 @@ struct MTrader_Config {
 	bool dynmult_scale;
 	bool dynmult_sliding;
 	bool dynmult_mult;
+	bool zigzag;
 
 	Strategy strategy = Strategy(nullptr);
 
@@ -153,6 +154,7 @@ public:
 			double balance,
 			double currency,
 			double mult,
+			double prev_size,
 			bool alerts) const;
 	Order calculateOrderFeeLess(
 			double lastTradePrice,
@@ -162,6 +164,7 @@ public:
 			double balance,
 			double currency,
 			double mult,
+			double prev_size,
 			bool alerts) const;
 
 	Config getConfig() {return cfg;}

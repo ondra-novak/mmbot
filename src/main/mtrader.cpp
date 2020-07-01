@@ -81,6 +81,7 @@ void MTrader_Config::loadConfig(json::Value data, bool force_dry_run) {
 	dynmult_scale = data["dynmult_scale"].getValueOrDefault(true);
 	dynmult_sliding = data["dynmult_sliding"].getValueOrDefault(false);
 	dynmult_mult = data["dynmult_mult"].getValueOrDefault(false);
+	zigzag = data["zigzag"].getValueOrDefault(false);
 
 
 	if (dynmult_raise > 1e6) throw std::runtime_error("'dynmult_raise' is too big");
@@ -259,6 +260,7 @@ void MTrader::perform(bool manually) {
 													status.assetBalance,
 													status.currencyBalance,
 													cfg.buy_mult,
+													cfg.zigzag?lastTradeSize:0,
 													grant_trade?false:status.enable_alerts);
 						//calculate sell order
 					Order sellorder = calculateOrder(grant_trade?status.ticker.ask:lastTradePrice,
@@ -268,6 +270,7 @@ void MTrader::perform(bool manually) {
 													 status.assetBalance,
 													 status.currencyBalance,
 													 cfg.sell_mult,
+													 cfg.zigzag?lastTradeSize:0,
 													 grant_trade?false:status.enable_alerts);
 
 
@@ -570,6 +573,7 @@ MTrader::Order MTrader::calculateOrderFeeLess(
 		double balance,
 		double currency,
 		double mult,
+		double prev_size,
 		bool alerts) const {
 
 	double m = 1;
@@ -589,6 +593,10 @@ MTrader::Order MTrader::calculateOrderFeeLess(
 		double newPriceNoScale= prevPrice * exp(step*m);
 
 		order= strategy.getNewOrder(minfo,curPrice, cfg.dynmult_scale?newPrice:newPriceNoScale,dir, balance, currency);
+
+		if ((order.size * prev_size < 0) && std::abs(order.size) < std::abs(prev_size)) {
+			order.size = -prev_size;
+		}
 
 		sz = order.size;
 
@@ -644,13 +652,14 @@ MTrader::Order MTrader::calculateOrder(
 		double balance,
 		double currency,
 		double mult,
+		double prev_size,
 		bool alerts) const {
 
 		double fakeSize = -step;
 		//remove fees from curPrice to effectively put order inside of bid/ask spread
 		minfo.removeFees(fakeSize, curPrice);
 		//calculate order
-		Order order(calculateOrderFeeLess(lastTradePrice, step,dynmult,curPrice,balance,currency,mult,alerts));
+		Order order(calculateOrderFeeLess(lastTradePrice, step,dynmult,curPrice,balance,currency,mult,prev_size,alerts));
 		//apply fees
 		if (order.alert != IStrategy::Alert::forced) minfo.addFees(order.size, order.price);
 
@@ -945,7 +954,7 @@ void MTrader::acceptLoss(const Status &st, double dir) {
 		if (dynmult.getBuyMult() <= 1.0 && dynmult.getSellMult() <= 1.0) {
 			std::size_t e = st.chartItem.time>ttm?(st.chartItem.time-ttm)/(3600000):0;
 			double lastTradePrice = trades.back().eff_price;
-			auto order = calculateOrder(lastTradePrice, -st.curStep * 2 * dir, 1, lastTradePrice, st.assetBalance, st.currencyBalance, 1.0, true);
+			auto order = calculateOrder(lastTradePrice, -st.curStep * 2 * dir, 1, lastTradePrice, st.assetBalance, st.currencyBalance, 1.0, 0,true);
 			double limitPrice = order.price;
 			if (e > cfg.accept_loss && (st.curPrice - limitPrice) * dir < 0) {
 				ondra_shared::logWarning("Accept loss in effect: price=$1, balance=$2", st.curPrice, st.assetBalance);
