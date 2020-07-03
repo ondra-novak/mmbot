@@ -78,11 +78,14 @@ std::pair<Strategy_Exponencial::OnTradeResult, PStrategy> Strategy_Exponencial::
 
 	auto prof = calcNormalizedProfit(tradePrice, tradeSize);
 	auto accum = calcAccumulation(st, cfg, tradePrice);
-
-	double err = (calcA(st,tradePrice) - calcA(st,st.p)) - tradeSize + accum;
-
-
+	double optimal_size = calcA(st,tradePrice) - calcA(st,st.p);
+	double err = optimal_size - tradeSize + accum;
 	double new_a = assetsLeft + cfg.ea + err;
+
+	logDebug("Exponencial trade: price=$1, size=$2, norm=$3, accum=$4, opt_size=$5, opt_norm=$6, err=$7, new_a=$8",
+			tradePrice, tradeSize, prof, accum, optimal_size, calcNormalizedProfit(tradePrice, optimal_size), err, new_a);
+
+
 
 
 	State nst = st;

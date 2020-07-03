@@ -234,7 +234,7 @@ IStockApi::TradesSync Interface::syncTrades(json::Value lastId, const std::strin
 				if (v["feeCurrency"] == v["baseCurrency"]) {
 					eff_size -= side*fee;
 				} else {
-					eff_price += side*fee/size;
+					eff_price += fee/size;
 				}
 				out.trades.push_back({
 					id,
@@ -407,7 +407,7 @@ const Interface::AccountInfo& Interface::getAccountInfo() {
 		} else {
 			AccountInfo nfo;
 			nfo.colateral = 10000;
-			nfo.fees = 0.2;
+			nfo.fees = 0.002;
 			nfo.leverage=20;
 			nfo.positions = {};
 			curAccount = std::move(nfo);

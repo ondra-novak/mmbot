@@ -187,15 +187,16 @@ void Strategy::importState(json::Value src, const IStockApi::MarketInfo &minfo) 
 }
 
 double IStrategy::calcOrderSize(double expectedAmount, double actualAmount, double newAmount) {
-	double org_diff = newAmount - expectedAmount;
 	double my_diff = newAmount - actualAmount;
-	if (my_diff * org_diff > 0 && std::abs(my_diff) > std::abs(org_diff)*2) {
+/*	double org_diff = newAmount - expectedAmount;
+	double my_diff = newAmount - actualAmount;
+	if (my_diff * org_diff > 0) {
 		double middle = (actualAmount + expectedAmount)/2;
 		double size = newAmount - middle;
 		return size;
-	} else {
+	} else {*/
 		return my_diff;
-	}
+/*	}*/
 }
 
 void Strategy::setConfig(const ondra_shared::IniConfig::Section &cfg) {
