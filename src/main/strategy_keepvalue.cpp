@@ -94,6 +94,10 @@ double Strategy_KeepValue::calcA(const State &st, const Config &cfg, double pric
 	return k/price;
 }
 
+Strategy_KeepValue::BudgetInfo Strategy_KeepValue::getBudgetInfo() const {
+	return BudgetInfo{calcAccountValue(st, cfg, st.p), st.a+cfg.ea};
+}
+
 double Strategy_KeepValue::calcNormalizedProfit(const State &st, const Config &cfg, double tradePrice, double tradeSize) {
 	double cashflow = -tradePrice*tradeSize;
 	double old_cash = calcReqCurrency(st,cfg, st.p);

@@ -36,6 +36,8 @@ public:
 		double dynmult_sell;
 		double lowest_price;
 		double highest_price;
+		double budget_total;
+		double budget_assets;
 		std::size_t total_trades;
 		std::uint64_t total_time;
 	};

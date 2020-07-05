@@ -54,6 +54,11 @@ double Strategy_HalfHalf::calcNormProfit(double s, double n) const {
 	return np;
 }
 
+Strategy_HalfHalf::BudgetInfo Strategy_HalfHalf::getBudgetInfo() const {
+	double a= cfg.ea + this->a;
+	return BudgetInfo {2*a*p,a};
+}
+
 double Strategy_HalfHalf::calcNewA(double n) const {
 	double new_a = (a+cfg.ea) * std::sqrt(p/n);
 	return new_a;
@@ -123,9 +128,12 @@ std::string_view Strategy_HalfHalf::getID() const {
 json::Value Strategy_HalfHalf::dumpStatePretty(
 		const IStockApi::MarketInfo &minfo) const {
 
+	double a= cfg.ea + this->a;
+
 	return json::Object("Assets", a)
 				 ("Last price", p)
-				 ("Factor", (a+cfg.ea)*std::sqrt(p));
+				 ("Budget", 2*a*p)
+				 ("Factor", a*std::sqrt(p));
 
 }
 

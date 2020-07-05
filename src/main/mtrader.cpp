@@ -334,6 +334,7 @@ void MTrader::perform(bool manually) {
 			statsvc->reportPrice(status.curPrice);
 			//report misc
 			auto minmax = strategy.calcSafeRange(minfo, status.assetBalance, status.currencyBalance);
+			auto budget = strategy.getBudgetInfo();
 
 			statsvc->reportMisc(IStatSvc::MiscData{
 				last_trade_dir,
@@ -343,6 +344,8 @@ void MTrader::perform(bool manually) {
 				dynmult.getSellMult(),
 				minmax.min,
 				minmax.max,
+				budget.total,
+				budget.assets,
 				trades.size(),
 				trades.empty()?0:(trades.back().time-trades[0].time)
 			});

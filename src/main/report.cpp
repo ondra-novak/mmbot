@@ -304,31 +304,32 @@ void Report::setMisc(StrViewA symb, const MiscData &miscData) {
 		spread = miscData.spread;
 	}
 
+	Object output;
+	output	("ms", spread)
+		("mt",miscData.total_trades)
+		("tt",miscData.total_time)
+		("bt",miscData.budget_total)
+		("ba",miscData.budget_assets);
 
 	if (inverted) {
 
-		miscMap[symb] = Object
+		output
 				("t",-miscData.trade_dir)
 				("mcp", 1.0/miscData.calc_price)
-				("ms", spread)
-				("mdmb", miscData.dynmult_sell)
-				("mdms", miscData.dynmult_buy)
 				("ml",1.0/miscData.highest_price)
 				("mh",1.0/miscData.lowest_price)
-				("mt",miscData.total_trades)
-				("tt",miscData.total_time);
+				("mdmb", miscData.dynmult_sell)
+				("mdms", miscData.dynmult_buy);
 	} else {
-		miscMap[symb] = Object
+		output
 				("t",miscData.trade_dir)
 				("mcp", miscData.calc_price)
-				("ms", spread)
-				("mdmb", miscData.dynmult_buy)
-				("mdms", miscData.dynmult_sell)
 				("ml",miscData.lowest_price)
 				("mh",miscData.highest_price)
-				("mt",miscData.total_trades)
-				("tt",miscData.total_time);
+				("mdmb", miscData.dynmult_buy)
+				("mdms", miscData.dynmult_sell);
 	}
+	miscMap[symb] = output;
 }
 
 void Report::clear(StrViewA symb) {

@@ -237,6 +237,12 @@ static double numeric_search_r1(double start, double accuracy, Fn &&fn) {
 	return md;
 }
 
+Strategy_Exponencial::BudgetInfo Strategy_Exponencial::getBudgetInfo() const {
+	return BudgetInfo {
+		calcAccountValue(st),
+		calcA(st, st.p)
+	};
+}
 
 double Strategy_Exponencial::findRoot(double w, double k, double p, double c) {
 	auto base_fn = [=](double x) {
