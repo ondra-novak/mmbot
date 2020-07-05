@@ -16,29 +16,20 @@ function app_start(){
 	}
 	
 	var lastField="";	
-	var next_donate_time = 0;
 	var donation_repeat = (10*24*60*60*1000);
 	var last_ntf_time=Date.now();
 	var chart_padding = document.createElement("div");
 	var last_rev = [0,0]
-	var show_donate = true;
 	var mmbot_time = 0;
 	
 	try {
 		lastField = localStorage["markettrader_lastfield"];
-		next_donate_time = parseInt(localStorage["next_donate_time"]);
 		last_rev = JSON.parse(localStorage["last_rev"] || "[0,0]");
-		show_donate = !localStorage["donation_hidden"];
 		mmbot_time = localStorage["mmbot_time"];
 	} catch (e) {
 
 	}
-	if (isNaN(next_donate_time) || next_donate_time < Date.now()) {
-		next_donate_time = Date.now() + donation_repeat;
-		localStorage["next_donate_time"] = next_donate_time; 	
-	}
 	
-	var donate_time = next_donate_time - donation_repeat;
 	var secondary_charts = {price:"p0",pl:"rpl"};
 	
 	
@@ -485,12 +476,6 @@ function app_start(){
 		var sumchart = [];
 		for (var z in chart) {
 			sumchart = sumchart.concat(chart[z].slice(-20));			
-		}
-		if (donate_time &&  show_donate) {
-			sumchart.push({
-				time: donate_time,
-				donation: true
-			});
 		}
 		sumchart.sort(function(a,b){
 			return a.time - b.time; 
@@ -1003,11 +988,6 @@ function donate() {
 			var content = x.innerText;
 			x.innerHTML="<a href=\""+x.dataset.link+":"+content+"\">"+content+"</a>";
 		});
-		var hd = document.getElementById("hide_donation");
-		hd.addEventListener("change", function() {
-			localStorage["donation_hidden"] = hd.checked?hd.value:"";
-		});
-		hd.checked = localStorage["donation_hidden"] === hd.value;
 	}
 }
 function close_donate() {
