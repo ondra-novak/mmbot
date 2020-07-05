@@ -12,7 +12,6 @@
 #include <imtjson/object.h>
 #include "../shared/stringview.h"
 #include "sgn.h"
-#include "strategy_elliptical.h"
 #include "strategy_plfrompos.h"
 #include "strategy_halfhalf.h"
 #include "strategy_keepvalue.h"
@@ -141,21 +140,6 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 		cfg.recalc_keep_neutral = config["recalc_mode"].getString() == "neutral";
 		return Strategy(new Strategy_Linear(std::make_shared<Strategy_Linear::TCalc>(),
 			    							std::make_shared<Strategy_Linear::Config>(cfg)));
-	} else if (id == Strategy_Elliptical::id) {
-		Strategy_Elliptical::Config cfg;
-		cfg.power = config["power"].getNumber();
-		cfg.max_loss = config["max_loss"].getNumber();
-		double width = config["width"].getNumber();
-		cfg.asym = config["asym"].getNumber()/cfg.power;
-		cfg.reduction = config["reduction"].getNumber();
-		cfg.external_balance = config["extbal"].getNumber();
-		cfg.powadj = config["powadj"].getNumber();
-		cfg.dynred = config["dynred"].getNumber();
-		cfg.initboost = config["initboost"].getNumber();
-		cfg.detect_trend = config["dtrend"].getBool();
-		cfg.recalc_keep_neutral = config["recalc_mode"].getString() == "neutral";
-		return Strategy(new Strategy_Elliptical(std::make_shared<Strategy_Elliptical::TCalc>(width),
-			    							std::make_shared<Strategy_Elliptical::Config>(cfg)));
 	} else if (id == Strategy_Sinh::id) {
 		Strategy_Sinh::Config cfg;
 		double power = config["power"].getNumber();

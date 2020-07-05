@@ -94,8 +94,7 @@ App.prototype.createTraderForm = function() {
 		form.showItem("strategy_halfhalf",state.strategy == "halfhalf" || state.strategy == "keepvalue" || state.strategy == "exponencial");
 		form.showItem("strategy_pl",state.strategy == "plfrompos");
 		form.showItem("strategy_stairs",state.strategy == "stairs");
-		form.showItem("strategy_hyperbolic",state.strategy == "hyperbolic"||state.strategy == "linear"||state.strategy == "elliptical"||state.strategy == "sinh");
-		form.showItem("hp_range_label",state.strategy == "elliptical");
+		form.showItem("strategy_hyperbolic",state.strategy == "hyperbolic"||state.strategy == "linear"||state.strategy == "sinh");
 		form.showItem("kv_valinc_h",state.strategy == "keepvalue");
 		form.setData({"help_goal":{"class":state.strategy}});
 		form.getRoot().classList.toggle("no_adv", !state["advanced"]);
@@ -476,7 +475,7 @@ App.prototype.fillForm = function (src, trg) {
 		}
 		
 		if (first_fetch) {
-			["strategy","external_assets", "hp_dtrend","hp_power", "hp_maxloss", "hp_recalc", "hp_asym", "hp_width","hp_powadj", "hp_extbal", "hp_reduction","hp_dynred"]
+			["strategy","external_assets", "hp_dtrend","hp_power", "hp_maxloss", "hp_recalc", "hp_asym","hp_powadj", "hp_extbal", "hp_reduction","hp_dynred"]
 			.forEach(function(item){
 				trg.findElements(item).forEach(function(elem){
 					elem.addEventListener("input", recalcStrategy.bind(this));
@@ -492,7 +491,7 @@ App.prototype.fillForm = function (src, trg) {
 			data.show_backtest= {"!click": this.init_backtest.bind(this, trg, src.id, src.pair_symbol, src.broker), ".disabled":false};
 			linStrategy_recalc();
 			linStrategy_recalc_power();
-			var tmp = trg.readData(["cstep","max_pos","hp_width"]);
+			var tmp = trg.readData(["cstep","max_pos"]);
 			if (!tmp.max_pos && !tmp.cstep) linStrategy_recomended();
 			data.pl_baluse = data.pl_power={"!input":function() {
 				linStrategy_recalc_power();
@@ -515,9 +514,6 @@ App.prototype.fillForm = function (src, trg) {
 			}
 			if (!src.strategy && typeof state.pair.price == "string" && state.pair.price.startsWith("trainer")){
 			    this.brokerConfig(src.broker, src.pair_symbol).then(updateHdr,updateHdr);
-			}
-			if (tmp.hp_width <= 0) {
-			    data.hp_width = invPrice(pair.price, pair.invert_price);
 			}
 			first_fetch = false;
 		}
@@ -561,7 +557,6 @@ App.prototype.fillForm = function (src, trg) {
 	data.hp_power=1;
 	data.hp_powadj=0;
 	data.hp_dynred=0;
-	data.hp_width=0;
 	data.hp_maxloss=0;
 	data.hp_dtrend={value:false};
 	data.hp_lb_asym="asym";
@@ -585,19 +580,6 @@ App.prototype.fillForm = function (src, trg) {
 		data.hp_dynred = filledval(src.strategy.dynred,0);
 		data.hp_extbal = filledval(src.strategy.extbal,0);
 		data.hp_dtrend = filledval(src.strategy.dtrend,false);
-		data.hp_lb_asym = src.strategy.dtrend?"trend":"asym"; 
-	} else if (data.strategy == "elliptical") {
-		data.hp_reduction = filledval(defval(src.strategy.reduction,0.25)*200,50);
-		data.hp_initboost = filledval(src.strategy.initboost,0);		
-		data.hp_asym = filledval(defval(src.strategy.asym,0)*100,20);
-		data.hp_maxloss = 0
-		data.hp_recalc= filledval(src.strategy.recalc_mode,"position");
-		data.hp_power = filledval(src.strategy.power,1);
-		data.hp_powadj = filledval(src.strategy.powadj,0);
-		data.hp_dynred = filledval(src.strategy.dynred,0);
-		data.hp_extbal = filledval(src.strategy.extbal,0);
-		data.hp_dtrend = filledval(src.strategy.dtrend,false);
-		data.hp_width = filledval(src.strategy.width,0);		
 		data.hp_lb_asym = src.strategy.dtrend?"trend":"asym"; 
 	} else if (data.strategy == "stairs") {
 		data.st_power = filledval(src.strategy.power,1.7);
@@ -740,21 +722,6 @@ function getStrategyData(data) {
 				dtrend: data.hp_dtrend,
 				max_loss: data.hp_maxloss,
 				recalc_mode: data.hp_recalc,
-				asym: data.hp_asym / 100,
-				reduction: data.hp_reduction/200,
-				initboost: data.hp_initboost
-		};
-	} else 	if (data.strategy == "elliptical") {
-		strategy = {
-				type: data.strategy,
-				power: data.hp_power,
-				powadj: data.hp_powadj,
-				dynred: data.hp_dynred,
-				extbal: data.hp_extbal,
-				dtrend: data.hp_dtrend,
-				recalc_mode: data.hp_recalc,
-				max_loss: data.hp_maxloss,
-				width: data.hp_width,
 				asym: data.hp_asym / 100,
 				reduction: data.hp_reduction/200,
 				initboost: data.hp_initboost
@@ -1475,7 +1442,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 	var inputs = ["strategy","external_assets", "acum_factor","kv_valinc","kv_halfhalf","pl_confmode","pl_power","pl_baluse","cstep",
 		"max_pos","pl_posoffset","pl_redmode","pl_redfact","min_size","max_size","order_mult","alerts","delayed_alerts","linear_suggest","linear_suggest_maxpos","pl_redoninc",
 		"st_power","st_reduction_step","st_sl","st_redmode","st_max_step","st_pattern","dynmult_sliding","accept_loss","spread_calc_sma_hours","st_tmode","zigzag",
-		"hp_dtrend","hp_power","hp_width","hp_maxloss","hp_asym","hp_reduction","hp_initboost","hp_extbal","hp_powadj","hp_dynred"
+		"hp_dtrend","hp_power","hp_maxloss","hp_asym","hp_reduction","hp_initboost","hp_extbal","hp_powadj","hp_dynred"
 		];
 	var spread_inputs = ["spread_calc_stdev_hours", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode","dynmult_sliding","dynmult_mult"];
 	var balance = form._balance;
