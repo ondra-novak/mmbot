@@ -116,6 +116,10 @@ public:
 		return ptr->calcInitialPosition(minfo, price, assets, currency);
 	}
 
+	IStrategy::BudgetInfo getBudgetInfo() const {
+		return ptr->getBudgetInfo();
+	}
+
 	static Strategy create(std::string_view id, json::Value config);
 
 	static void setConfig(const ondra_shared::IniConfig::Section &cfg);

@@ -58,7 +58,7 @@ function app_start(){
 	var selMode = 0;
 	var curExport = null;
 	var cats = {}
-	var interval = 0;
+	var interval = 3;
 	var intervals = [
 		["h",3600],
 		["d",3600*24],
@@ -83,7 +83,9 @@ function app_start(){
 	function setField(root, name, value, classes) {
 		var info = root.querySelectorAll("[data-name="+name+"]");
 		Array.prototype.forEach.call(info,function(x) {
-			if (typeof value == "number") value = adjNum(value, x.dataset.decimals);
+			if (typeof value == "number") {
+				value = adjNum(value, x.dataset.decimals);
+			}
 			x.innerText = value;
 			if (classes) for (var k in classes) {
 				x.classList.toggle(k, classes[k]);
@@ -297,6 +299,9 @@ function app_start(){
 					misc.avgh = lt.norm/misc.tt*it;
 					misc.avgha = lt.nacum*it/misc.tt;
 					misc.avghpl = it*lt.pl/misc.tt;
+					misc.avgh_pp = misc.avgh/misc.bt*100;
+					misc.avgha_pp = misc.avgha/misc.ba*100;
+					misc.avghpl_pp = misc.avghpl/misc.bt*100;
 					misc.p0 = lastItem.p0 == undefined?"---":lastItem.p0
 					misc.pnorm = last_norm;
 					misc.pnormp = 100*last_norm/misc.mv;
@@ -311,6 +316,7 @@ function app_start(){
 						rate = "E";
 					}
 					setField(curchart,"rate",rate,{["rate"+rate]:true,rate:true});
+					curchart.classList.toggle("disable_na_p",isNaN(misc.avgha));
 					
 				} else {
 					misc.pnorm = 0;

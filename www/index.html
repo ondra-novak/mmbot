@@ -59,15 +59,23 @@
 <div>norm: <span data-name="norm" class="plusminus"></span><span data-name="curc"></span></div>
 </div>
 <table class="extended">
-<tr><th>Rating</th><td><b data-name="rate"></b></td><td></td></tr>
-<tr><th>Equilibrium</th><td><b data-name="mcp"></b></td><td><span data-name="pric"></span></td></tr>
-<tr><th>Neutral position</th><td><b data-name="p0"></b></td><td><span data-name="pric"></span></td></tr>
-<tr><th>Spread</th><td><b data-name="ms"></b></td><td><span data-name="pric"></span></td></tr>
-<tr><th>Spread multiplicator </th><td><b data-name="mdmb" data-decimals="2"></b>x</td><td>/ <b data-name="mdms" data-decimals="2"></b>x</td></tr>
-<tr onclick="changeinterval();"><th>Avg. income PL.</th><td><b data-name="avghpl" class="color"></b></td><td><span data-name="curc"></span>/<span data-name="interval"></span></td></tr>
-<tr onclick="changeinterval();"><th>Avg. income norm.</th><td><b data-name="avgh" class="color"></b><br><b data-name="avgha" class="color"></b></td><td><span data-name="curc"></span>/<span data-name="interval"></span><br><span data-name="assets"></span>/<span data-name="interval"></span></td></tr>
-<tr><th>Lowest tradable price</th><td><b data-name="ml"></b></td><td><span data-name="pric"></span></td></tr>
-<tr><th>Highest tradable price</th><td><b data-name="mh"></b></td><td><span data-name="pric"></span></td></tr>
+<tr><th>Rating</th><td><b data-name="rate"></b></td><td colspan="2"></td></tr>
+<tr><th>Equilibrium</th><td><b data-name="mcp"></b></td><td colspan="2"><span data-name="pric"></span></td></tr>
+<tr><th>Neutral position</th><td><b data-name="p0"></b></td><td colspan="2"><span data-name="pric"></span></td></tr>
+<tr><th>Spread</th><td><b data-name="ms"></b></td><td colspan="2"><span data-name="pric"></span></td></tr>
+<tr><th>Spread multiplicator </th><td><b data-name="mdmb" data-decimals="2"></b>x</td><td colspan="2">/ <b data-name="mdms" data-decimals="2"></b>x</td></tr>
+<tr onclick="changeinterval();"><th>Avg. income PL.</th>
+	<td><b data-name="avghpl" class="color"></b></td>
+	<td><span data-name="curc"></span>/<span data-name="interval"></span></td>
+	<td><b data-name="avghpl_pp" class="color" data-decimals="2"></b></td>
+</tr>
+<tr onclick="changeinterval();"><th>Avg. income norm.</th>
+	<td><b data-name="avgh" class="color"></b><br><b data-name="avgha" class="color disable_na"></b></td>
+	<td><span data-name="curc"></span>/<span data-name="interval"></span><br><span class="disable_na"><span data-name="assets"></span>/<span data-name="interval"></span></span></td>
+	<td ><b data-name="avgh_pp" class="color"  data-decimals="2"></b><br><b data-name="avgha_pp" class="color disable_na"  data-decimals="2"></b></td>
+</tr>
+<tr><th>Lowest tradable price</th><td><b data-name="ml"></b></td><td colspan="2"><span data-name="pric"></span></td></tr>
+<tr><th>Highest tradable price</th><td><b data-name="mh"></b></td><td colspan="2"><span data-name="pric"></span></td></tr>
 </table>
 </div>
 </template>

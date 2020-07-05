@@ -77,7 +77,16 @@ std::pair<Strategy_Exponencial::OnTradeResult, PStrategy> Strategy_Exponencial::
 	}
 
 	auto prof = calcNormalizedProfit(tradePrice, tradeSize);
-	double new_a = prof.na + calcA(st, tradePrice);
+	auto accum = calcAccumulation(st, cfg, tradePrice);
+	double optimal_size = calcA(st,tradePrice) - calcA(st,st.p);
+	double err = optimal_size - tradeSize + accum;
+	double new_a = assetsLeft + cfg.ea + err;
+
+	logDebug("Exponencial trade: price=$1, size=$2, norm=$3, accum=$4, opt_size=$5, opt_norm=$6, err=$7, new_a=$8",
+			tradePrice, tradeSize, prof, accum, optimal_size, calcNormalizedProfit(tradePrice, optimal_size), err, new_a);
+
+
+
 
 	State nst = st;
 	updateState(nst, new_a, tradePrice, currencyLeft);
@@ -85,7 +94,7 @@ std::pair<Strategy_Exponencial::OnTradeResult, PStrategy> Strategy_Exponencial::
 	double neutral = nst.k * to_balanced_factor;
 
 	return {
-		OnTradeResult{prof.np,prof.na,neutral},
+		OnTradeResult{prof,accum,neutral},
 		new Strategy_Exponencial(cfg, std::move(nst))
 	};
 }
@@ -118,7 +127,10 @@ IStrategy::OrderData Strategy_Exponencial::getNewOrder(
 		const IStockApi::MarketInfo &,
 		double, double price, double /*dir*/, double assets, double /*currency*/) const {
 
-	double ordsz = calcOrderSize(calcA(st, st.p), assets+cfg.ea, calcA(st,price));
+	double curA = calcA(st, st.p);
+	double newA = calcA(st,price);
+	double extra = calcAccumulation(st, cfg, price);
+	double ordsz = calcOrderSize(curA, assets+cfg.ea, newA+extra);
 	return {0,ordsz};
 }
 
@@ -171,20 +183,40 @@ void Strategy_Exponencial::updateState(State &st, double new_a, double new_p, do
 double Strategy_Exponencial::calcAccountValue(const State &st) {
 	return st.k*st.w*(1 - std::exp(-st.p/st.k));
 }
+double Strategy_Exponencial::calcAccountValue(const State &st, double p) {
+	return st.k*st.w*(1 - std::exp(-p/st.k));
+}
+
 
 double Strategy_Exponencial::calcReqCurrency(const State &st, double price) {
 	return st.w * (st.k - std::exp(-price/st.k) * (st.k + price));
 }
 
-Strategy_Exponencial::NormProfit Strategy_Exponencial::calcNormalizedProfit(double tradePrice, double tradeSize) const {
+double Strategy_Exponencial::calcAccumulation(const State &st, const Config &cfg, double price) {
+	if (cfg.accum) {
+
+		double r1 = calcReqCurrency(st, st.p);
+		double r2 = calcReqCurrency(st, price);
+		double pl = -price*(calcA(st,price)-calcA(st,st.p));
+		double nl = r2 - r1;
+		double ex = pl -nl;
+		double acc = (ex/price)*cfg.accum;
+		return acc;
+	} else {
+		return 0;
+	}
+
+}
+
+
+double Strategy_Exponencial::calcNormalizedProfit(double tradePrice, double tradeSize) const {
 	double cashflow = -tradePrice*tradeSize;
 	double old_cash = calcReqCurrency(st, st.p);
 	double new_cash = calcReqCurrency(st, tradePrice);
 	double diff_cash = new_cash - old_cash;
-	double cp = cashflow - diff_cash;
-	double na = cp/tradePrice*cfg.accum;
-	double np = cp*(1-cfg.accum);
-	return {np,na};
+	double np = cashflow - diff_cash;
+
+	return np;
 }
 
 template<typename Fn>
@@ -205,6 +237,12 @@ static double numeric_search_r1(double start, double accuracy, Fn &&fn) {
 	return md;
 }
 
+Strategy_Exponencial::BudgetInfo Strategy_Exponencial::getBudgetInfo() const {
+	return BudgetInfo {
+		calcAccountValue(st),
+		calcA(st, st.p)
+	};
+}
 
 double Strategy_Exponencial::findRoot(double w, double k, double p, double c) {
 	auto base_fn = [=](double x) {

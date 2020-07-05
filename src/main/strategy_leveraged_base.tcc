@@ -391,3 +391,8 @@ inline double Strategy_Leveraged<Calc>::calcInitialPosition(const IStockApi::Mar
 	return calc->calcPosition(power, asym, price, price)+bal.second;
 }
 
+template<typename Calc>
+typename Strategy_Leveraged<Calc>::BudgetInfo Strategy_Leveraged<Calc>::getBudgetInfo() const {
+	return {st.bal + cfg->external_balance, 0};
+}
+

@@ -56,6 +56,12 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 				bool allowAlert = (cfg.alerts || (cfg.dynmult_sliding && price->time - bt.price.time > sliding_spread_wait))
 						|| (cfg.delayed_alerts &&  price->time - bt.price.time >delayed_alert_wait);
 				checksl = order.alert == IStrategy::Alert::forced || order.alert == IStrategy::Alert::stoploss;
+				if (cfg.zigzag && !trades.empty()){
+					const auto &l = trades.back();
+					if (order.size * l.size < 0 && std::abs(order.size)<std::abs(l.size)) {
+						order.size = -l.size;
+					}
+				}
 				Strategy::adjustOrder(dir, mult, allowAlert, order);
 				order.size  = IStockApi::MarketInfo::adjValue(order.size,minfo.asset_step,round);
 				if (std::abs(order.size) < minsize) {

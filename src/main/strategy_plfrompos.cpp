@@ -454,3 +454,7 @@ double Strategy_PLFromPos::calcInitialPosition(
 	auto bal = calcNeutralBalance(minfo,assets,currency,price);
 	return bal.neutral_pos;
 }
+
+Strategy_PLFromPos::BudgetInfo Strategy_PLFromPos::getBudgetInfo() const {
+	return BudgetInfo {0,0};
+}

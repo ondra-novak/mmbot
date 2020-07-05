@@ -70,6 +70,7 @@ struct MTrader_Config {
 	bool dynmult_scale;
 	bool dynmult_sliding;
 	bool dynmult_mult;
+	bool zigzag;
 
 	Strategy strategy = Strategy(nullptr);
 
@@ -109,6 +110,21 @@ public:
 	struct OrderPair {
 		std::optional<IStockApi::Order> buy,sell;
 	};
+
+	struct ZigZagInfo {
+		//total amount covered by this level
+		double amount;
+		//average price on this level
+		double price;
+	};
+
+	struct ZigZagLevels {
+		//zigzag direction
+		double direction;
+		//levels
+		std::vector<ZigZagInfo> levels;
+	};
+
 
 
 	MTrader(IStockSelector &stock_selector,
@@ -153,6 +169,7 @@ public:
 			double balance,
 			double currency,
 			double mult,
+			const ZigZagLevels &zlev,
 			bool alerts) const;
 	Order calculateOrderFeeLess(
 			double lastTradePrice,
@@ -162,6 +179,7 @@ public:
 			double balance,
 			double currency,
 			double mult,
+			const ZigZagLevels &zlev,
 			bool alerts) const;
 
 	Config getConfig() {return cfg;}
@@ -281,6 +299,12 @@ protected:
 	SpreadCalcResult calcSpread() const;
 	bool checkMinMaxBalance(double newBalance, double dir) const;
 	std::pair<bool, double> limitOrderMinMaxBalance(double balance, double orderSize) const;
+
+	ZigZagLevels zigzaglevels;
+
+	void updateZigzagLevels();
+	void modifyOrder(const ZigZagLevels &zlevs, double dir, Order &order) const;
+
 private:
 	template<typename Iter>
 	static SpreadCalcResult stCalcSpread(Iter beg, Iter end, unsigned int input_sma, unsigned int input_stdev);

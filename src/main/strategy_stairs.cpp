@@ -372,3 +372,10 @@ double Strategy_Stairs::calcInitialPosition(const IStockApi::MarketInfo &minfo,
 		double price, double assets, double currency) const {
 	return calcNeutralPos(assets, currency, price, minfo.leverage != 0);
 }
+
+Strategy_Stairs::BudgetInfo Strategy_Stairs::getBudgetInfo() const {
+	double steps = stepToPos(cfg.max_steps);
+	double pw = std::pow(10,cfg.power)*0.01;
+	double currency = (st.power * steps) * st.price / pw;
+	return BudgetInfo {currency, 0};
+}

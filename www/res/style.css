@@ -75,6 +75,10 @@ select > option[disabled] {
 	justify-content: center;	
 }
 
+.disable_na_p .disable_na {
+	display: none;
+}
+
 #chartarea > div {
 	width: 16cm;
 	margin: 0.2cm 0.2cm 0 0.2cm;
@@ -82,6 +86,7 @@ select > option[disabled] {
 	flex-grow: 1;
 	/* min-width: 40%; */
 	overflow: auto;
+	scrollbar-width: none;
 }
 
 
@@ -438,6 +443,8 @@ x-trbgr.hdr {
 	height: 30em;
 	overflow-y: auto;
 	overflow-x: hidden;
+	scrollbar-width: none;
+	
 }
 
 #lastevents::-webkit-scrollbar{
@@ -830,6 +837,10 @@ table  tr > * {
 	white-space: nowrap;
 }
 table.extended td:nth-child(2) {text-align: right;padding-right:0.1em;}
+table.extended td:nth-child(4) {text-align: right;padding-right:0.1em;}
+table.extended td:nth-child(4) b::after {
+	content:" %";font-weight:normal; color:#CDCDCD;
+}
 table.extended td:nth-child(3) {padding: 0.1em;overflow: hidden;}
 table.extended td .color.neg {color: #C66;}
 table.extended td .color.pos {color: #6C6;}

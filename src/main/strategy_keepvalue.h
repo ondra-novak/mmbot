@@ -26,7 +26,9 @@ public:
 			bool valid = false;
 			double p = 0;
 			double a = 0;
-			std::chrono::system_clock::time_point lt;
+			double n = 0;
+			std::uint64_t recalc_time = 0;
+			std::uint64_t check_time = 0;
 		};
 
 	Strategy_KeepValue(const Config &cfg, State &&st);
@@ -43,6 +45,7 @@ public:
 	virtual std::string_view getID() const override;
 	virtual json::Value dumpStatePretty(const IStockApi::MarketInfo &minfo) const override;
 	virtual double calcInitialPosition(const IStockApi::MarketInfo & , double price, double assets, double currency) const override;
+	virtual BudgetInfo getBudgetInfo() const override;
 
 	static std::string_view id;
 
@@ -50,7 +53,15 @@ protected:
 	Config cfg;
 	State st;
 
+
 	double calcK() const;
+	static double calcK(const State &st, const Config &cfg);
+	static double calcAccountValue(const State &st, const Config &cfg, double price);
+	static double calcReqCurrency(const State &st, const Config &cfg, double price);
+	static double calcA(const State &st, const Config &cfg, double price);
+	static double calcAccumulation(const State &st, const Config &cfg, double price, double currencyLeft);
+	static double calcNormalizedProfit(const State &st, const Config &cfg, double tradePrice, double tradeSize);
+
 };
 
 

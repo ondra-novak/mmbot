@@ -111,7 +111,7 @@ public:
 	bool simulator = true;
 };
 
-int timeOffset = 0;
+std::int64_t timeOffset = 0;
 std::uint64_t timeOffsetValidity = 0;
 
 
@@ -362,8 +362,8 @@ inline bool Interface::reset() {
 	auto n = now();
 	if (n > timeOffsetValidity) {
 		Value tm = httpc.GET("/time");
-		time_t svtm = tm["epoch"].getIntLong();
-		time_t mytm = now();
+		auto svtm = tm["epoch"].getIntLong();
+		auto mytm = now();
 		timeOffset = svtm - mytm/1000;
 		timeOffsetValidity = mytm+300*1000;
 		logDebug("Time offset: $1", timeOffset);
