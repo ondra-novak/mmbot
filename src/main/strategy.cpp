@@ -170,7 +170,7 @@ void Strategy::importState(json::Value src, const IStockApi::MarketInfo &minfo) 
 	ptr = ptr->importState(data, minfo);
 }
 
-double IStrategy::calcOrderSize(double expectedAmount, double actualAmount, double newAmount) {
+double IStrategy::calcOrderSize(double , double actualAmount, double newAmount) {
 	double my_diff = newAmount - actualAmount;
 /*	double org_diff = newAmount - expectedAmount;
 	double my_diff = newAmount - actualAmount;
