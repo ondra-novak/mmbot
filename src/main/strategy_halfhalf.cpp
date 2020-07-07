@@ -76,8 +76,7 @@ std::pair<Strategy_HalfHalf::OnTradeResult, PStrategy> Strategy_HalfHalf::onTrad
 
 	double ap = calcAccumulation(tradePrice);
 	double np = calcNormProfit(tradeSize, tradePrice);
-	double err = calcNewA(tradePrice) - a - tradeSize + ap;
-	double new_a = assetsLeft + err;
+	double new_a = calcNewA(tradePrice)+ ap - cfg.ea;
 
 	return std::make_pair(
 			OnTradeResult {np, ap, getEquilibrium(assetsLeft)},

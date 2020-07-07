@@ -52,16 +52,14 @@ Strategy_Exponencial Strategy_Exponencial::init(const Config &cfg, double price,
 	double aa = cur/price;
 	double min_a = aa * 0.1; //minimum allowed assets is 10% of available currency
 	nst.valid = true;
-	nst.k = price / to_balanced_factor;
 	nst.p = price;
 	nst.f = cur;
-	if (a > min_a) { //initialize to 50:50 factor
+	if (a >= min_a) { //initialize to 50:50 factor
+		nst.k = price / to_balanced_factor;
 		nst.w = a * std::exp(to_balanced_factor);
 	} else {
-		//force a to be 50:50 factor at current k
-		double new_a = (a + aa)/2;
-		//calculate w to achieve this factor - will trade for new a
-		nst.w = new_a * std::exp(to_balanced_factor);
+		nst.k = (price / to_balanced_factor)/5;
+		nst.w = (cur+nst.k * min_a) / nst.k;
 	}
 	return Strategy_Exponencial(cfg, std::move(nst));
 }
@@ -78,15 +76,7 @@ std::pair<Strategy_Exponencial::OnTradeResult, PStrategy> Strategy_Exponencial::
 
 	auto prof = calcNormalizedProfit(tradePrice, tradeSize);
 	auto accum = calcAccumulation(st, cfg, tradePrice);
-	double optimal_size = calcA(st,tradePrice) - calcA(st,st.p);
-	double err = optimal_size - tradeSize + accum;
-	double new_a = assetsLeft + cfg.ea + err;
-
-	logDebug("Exponencial trade: price=$1, size=$2, norm=$3, accum=$4, opt_size=$5, opt_norm=$6, err=$7, new_a=$8",
-			tradePrice, tradeSize, prof, accum, optimal_size, calcNormalizedProfit(tradePrice, optimal_size), err, new_a);
-
-
-
+	auto new_a = calcA(st,tradePrice) + accum;
 
 	State nst = st;
 	updateState(nst, new_a, tradePrice, currencyLeft);
