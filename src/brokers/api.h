@@ -14,6 +14,8 @@
 #include "../main/apikeys.h"
 #include "../main/ibrokercontrol.h"
 #include "../main/istockapi.h"
+#include "../main/sgn.h"
+
 
 
 
