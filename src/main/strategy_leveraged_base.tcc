@@ -44,7 +44,7 @@ void Strategy_Leveraged<Calc>::recalcNewState(const PCalc &calc, const PConfig &
 
 template<typename Calc>
 Strategy_Leveraged<Calc> Strategy_Leveraged<Calc>::init(const PCalc &calc, const PConfig &cfg, double price, double pos, double currency, const IStockApi::MarketInfo &minfo) {
-	bool futures = minfo.leverage != 0;
+	bool futures = minfo.leverage != 0 || cfg->longonly;
 	auto bal = getBalance(futures, price, pos, currency);
 	State nwst {
 		/*neutral_price:*/ price,
@@ -193,7 +193,7 @@ std::pair<typename Strategy_Leveraged<Calc>::OnTradeResult, PStrategy> Strategy_
 
 	recalcNeutral(calc, cfg, nwst);
 
-	auto bal = getBalance(minfo.leverage, tradePrice, assetsLeft, currencyLeft);
+	auto bal = getBalance(minfo.leverage || cfg->longonly, tradePrice, assetsLeft, currencyLeft);
 	nwst.neutral_pos = bal.second;
 
 	double val = calc->calcPosValue(mult, calcAsym(), nwst.neutral_price, tradePrice);
@@ -218,7 +218,7 @@ template<typename Calc>
 json::Value Strategy_Leveraged<Calc>::storeCfgCmp() const {
 	return json::Object("asym", static_cast<int>(cfg->asym * 1000))("ebal",
 			static_cast<int>(cfg->external_balance * 1000))("power",
-			static_cast<int>(cfg->power * 1000));
+			static_cast<int>(cfg->power * 1000))("lo",cfg->longonly);
 }
 
 template<typename Calc>
@@ -351,6 +351,7 @@ typename Strategy_Leveraged<Calc>::MinMax Strategy_Leveraged<Calc>::calcRoots() 
 	if (!rootsCache.has_value()) {
 		double lmt = calcMaxLoss();
 		rootsCache = calc->calcRoots(st.power, calcAsym(),st.neutral_price,lmt);
+		if (cfg->longonly) rootsCache->max = calc->calcPrice0(st.neutral_price, calcAsym());
 	}
 	return *rootsCache;
 }
@@ -384,7 +385,7 @@ std::pair<double,double> Strategy_Leveraged<Calc>::getBalance(bool leveraged, do
 
 template<typename Calc>
 inline double Strategy_Leveraged<Calc>::calcInitialPosition(const IStockApi::MarketInfo &minfo, double price, double assets, double currency) const {
-	auto bal = getBalance(minfo.leverage != 0,price,assets,currency);
+	auto bal = getBalance(minfo.leverage != 0 || cfg->longonly,price,assets,currency);
 	double adjbalance = std::abs(bal.first + cfg->external_balance) * cfg->power;
 	double asym = calcAsym(cfg, st);
 	double power = calc->calcPower(price, adjbalance, calcAsym(cfg, st));

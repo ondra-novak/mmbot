@@ -30,6 +30,7 @@ public:
 		double initboost;
 		bool detect_trend;
 		bool recalc_keep_neutral;
+		bool longonly;
 		int preference;
 	};
 

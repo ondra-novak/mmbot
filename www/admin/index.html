@@ -52,7 +52,7 @@
 <label><span>Title</span><input type="text" data-name="title"></label>
 <label><span>Strategy</span><select data-name="strategy">
 <optgroup label="Leveraged">
-<option value="sinh">Sinh/exponencial (best)</option>
+<option value="sinh">Sinh/exponencial</option>
 <option value="linear">Linear</option>
 <option value="hyperbolic">Hyperbolic</option>
 <option value="stairs">Stairs</option>
@@ -128,6 +128,7 @@ included, external currencies are counted in proportion to external assets</span
 <option value="neutral">Keep neutral</option>
 </select>
 </label>
+<label class="adv"><span>Avoid <x-switch data-name="inverted_price" data-value="false">SHORT</x-switch><x-switch data-name="inverted_price" data-value="true">LONG</x-switch> position<span class="tooltip">Prevents to trade on dangerous side of the market. It is short for normal futures and long for inverted futures</span></span><x-checkbox data-name="hp_longonly"></x-checkbox></label>
 <x-section>
 <div class="label"><span>Min price:</span><span data-name="range_min_price">---</span></div>
 <div class="label"><span>Max price:</span><span data-name="range_max_price">---</span></div>
