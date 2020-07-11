@@ -1415,6 +1415,8 @@ function createCSV(chart) {
 			rw.na,
 			rw.np,
 			rw.op,
+			rw.rmn,
+			rw.rmx,
 		]);
 	})
 	
@@ -1428,6 +1430,8 @@ function createCSV(chart) {
 			"accumulation",
 			"neutral price",
 			"open price",
+			"range min",
+			"range max",
 		]));
 	return rows.join("\r\n");
 }

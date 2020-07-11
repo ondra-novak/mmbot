@@ -79,7 +79,7 @@ std::pair<Strategy_HalfHalf::OnTradeResult, PStrategy> Strategy_HalfHalf::onTrad
 	double new_a = calcNewA(tradePrice)+ ap - cfg.ea;
 
 	return std::make_pair(
-			OnTradeResult {np, ap, getEquilibrium(assetsLeft)},
+			OnTradeResult {np, ap, getEquilibrium(minfo,assetsLeft,currencyLeft)},
 			new Strategy_HalfHalf(cfg,tradePrice,new_a)
 	);
 }
@@ -112,7 +112,7 @@ Strategy_HalfHalf::MinMax Strategy_HalfHalf::calcSafeRange(const IStockApi::Mark
 	return r;
 }
 
-double Strategy_HalfHalf::getEquilibrium(double assets) const {
+double Strategy_HalfHalf::getEquilibrium(const IStockApi::MarketInfo &minfo, double assets, double currencies) const {
 	return this->p * pow2(a/assets+cfg.ea);
 }
 

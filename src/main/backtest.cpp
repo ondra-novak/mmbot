@@ -99,6 +99,9 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 			bt.pl = pl;
 			bt.pos = pos;
 			bt.norm_profit_total = bt.norm_profit + bt.norm_accum * p;
+			auto range = s.calcSafeRange(minfo, pos, balance);
+			bt.min_range = range.min;
+			bt.max_range = range.max;
 			trades.push_back(bt);
 			if (checksl) {
 				if (fill_atprice) {
@@ -134,6 +137,9 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 			x.pos = -x.pos;
 			x.price.price = 1.0/x.price.price;
 			x.size = -x.size;
+			double z = 1.0/x.min_range;
+			x.min_range = 1./x.max_range;
+			x.max_range = z;
 		}
 	}
 

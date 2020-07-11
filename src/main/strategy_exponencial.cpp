@@ -38,29 +38,41 @@ bool Strategy_Exponencial::isValid() const {
 
 
 PStrategy Strategy_Exponencial::onIdle(
-		const IStockApi::MarketInfo &,
+		const IStockApi::MarketInfo &minfo,
 		const IStockApi::Ticker &ticker, double assets, double cur) const {
 	if (isValid() || ticker.last<=0) return this;
 	else {
-		return new Strategy_Exponencial(init(cfg,ticker.last, assets,cur));
+		return new Strategy_Exponencial(init(cfg,ticker.last, assets,cur, minfo.leverage != 0));
 	}
 }
 
-Strategy_Exponencial Strategy_Exponencial::init(const Config &cfg, double price, double assets, double cur) {
+Strategy_Exponencial Strategy_Exponencial::init(const Config &cfg, double price, double assets, double cur, bool leverage) {
 	State nst;
-	double a = assets + cfg.ea;
-	double aa = cur/price;
-	double min_a = aa * 0.1; //minimum allowed assets is 10% of available currency
+	if (leverage) {
+		double a = assets;
+
+		if (a <= 0)  {
+			nst.w = 1/(1-std::exp(-1)) * (cur+cfg.ea)/price;
+		} else {
+			nst.w = a * std::exp(1);
+		}
+		nst.k = price;
+
+	} else {
+		double a = assets + cfg.ea;
+		double aa = cur/price;
+		double min_a = aa * 0.1; //minimum allowed assets is 10% of available currency
+		if (a >= min_a) { //initialize to 50:50 factor
+			nst.k = price / to_balanced_factor;
+			nst.w = a * std::exp(to_balanced_factor);
+		} else {
+			nst.k = (price / to_balanced_factor)/5;
+			nst.w = (cur+nst.k * min_a) / nst.k;
+		}
+	}
 	nst.valid = true;
 	nst.p = price;
 	nst.f = cur;
-	if (a >= min_a) { //initialize to 50:50 factor
-		nst.k = price / to_balanced_factor;
-		nst.w = a * std::exp(to_balanced_factor);
-	} else {
-		nst.k = (price / to_balanced_factor)/5;
-		nst.w = (cur+nst.k * min_a) / nst.k;
-	}
 	return Strategy_Exponencial(cfg, std::move(nst));
 }
 
@@ -70,18 +82,36 @@ std::pair<Strategy_Exponencial::OnTradeResult, PStrategy> Strategy_Exponencial::
 		double currencyLeft) const {
 
 	if (!isValid()) {
-		return init(cfg,tradePrice,assetsLeft,currencyLeft)
+		return init(cfg,tradePrice,assetsLeft,currencyLeft, minfo.leverage != 0)
 				.onTrade(minfo,tradePrice,tradeSize,assetsLeft,currencyLeft);
 	}
 
-	auto prof = calcNormalizedProfit(tradePrice, tradeSize);
-	auto accum = calcAccumulation(st, cfg, tradePrice);
-	auto new_a = calcA(st,tradePrice) + accum;
-
+	double prof;
+	double accum;
 	State nst = st;
-	updateState(nst, new_a, tradePrice, currencyLeft);
+	if (minfo.leverage) {
+		double e = std::exp(1);
+		double val = st.w * st.k * (std::exp(-tradePrice/st.k) - std::exp(-1));
+		double pval = st.w * st.k * (std::exp(-st.p/st.k) - std::exp(-1));
+		double b = currencyLeft + val;
+		double mult = 100 /(cfg.accum+1);
+		nst.p = tradePrice;
+		nst.f = b;
+		nst.k = (nst.p + st.k*(mult-1))/mult;
+		nst.w = -(b * std::exp((st.k * (-std::log(e * b + st.k * st.w) + std::log(st.k) + std::log(st.w) + 1))/nst.k + 1))
+				/(nst.k * (std::exp((st.k * (-std::log(e * b + st.k * st.w) + std::log(st.k) + std::log(st.w) + 1))/ nst.k) - e));
+		prof = (assetsLeft - tradeSize) * (tradePrice - st.p) - (pval - val);
+		accum = 0;
+	} else {
+		prof = calcNormalizedProfit(tradePrice, tradeSize);
+		accum = calcAccumulation(st, cfg, tradePrice);
+		auto new_a = calcA(st,tradePrice) + accum;
 
-	double neutral = nst.k * to_balanced_factor;
+		updateState(nst, new_a, tradePrice, currencyLeft);
+	}
+
+
+	double neutral = nst.k;
 
 	return {
 		OnTradeResult{prof,accum,neutral},
@@ -114,25 +144,41 @@ PStrategy Strategy_Exponencial::importState(json::Value src,const IStockApi::Mar
 }
 
 IStrategy::OrderData Strategy_Exponencial::getNewOrder(
-		const IStockApi::MarketInfo &,
+		const IStockApi::MarketInfo &minfo,
 		double, double price, double /*dir*/, double assets, double /*currency*/) const {
 
 	double curA = calcA(st, st.p);
 	double newA = calcA(st,price);
-	double extra = calcAccumulation(st, cfg, price);
-	double ordsz = calcOrderSize(curA, assets+cfg.ea, newA+extra);
+	double extra = minfo.leverage?0:calcAccumulation(st, cfg, price);
+	double a = minfo.leverage?assets:assets+cfg.ea;
+	double ordsz = calcOrderSize(curA, a, newA+extra);
 	return {0,ordsz};
 }
 
 Strategy_Exponencial::MinMax Strategy_Exponencial::calcSafeRange(
-		const IStockApi::MarketInfo &,double , double currencies) const {
-	double max = cfg.ea > 0? st.k * std::log(st.w/cfg.ea):std::numeric_limits<double>::infinity();
-	double min = findRoot(st.w,st.k,st.p, currencies);
+		const IStockApi::MarketInfo &minfo,double , double currencies) const {
+	double max;
+	double min;
+	if (minfo.leverage) {
+		double e = std::exp(1);
+		double val = st.w * st.k * (std::exp(-st.p/st.k) - std::exp(-1));
+		double b = currencies + val;
+		min = st.k * std::log((e * st.k * st.w)/(b * e + st.k * st.w));
+		if (min <0) min = 0;
+		max = std::numeric_limits<double>::infinity();
+	} else {
+		min= findRoot(st.w,st.k,st.p, currencies);
+		max = cfg.ea > 0? st.k * std::log(st.w/cfg.ea):std::numeric_limits<double>::infinity();
+	}
 	return MinMax {min,max};
 }
 
-double Strategy_Exponencial::getEquilibrium(double assets) const {
-	return  st.k*std::log(st.w/(assets+cfg.ea));
+double Strategy_Exponencial::getEquilibrium(const IStockApi::MarketInfo &minfo, double assets, double ) const {
+	if (minfo.leverage) {
+		return st.k*std::log(st.w/assets);
+	} else {
+		return  st.k*std::log(st.w/(assets+cfg.ea));
+	}
 }
 
 std::string_view Strategy_Exponencial::getID() const {
@@ -151,8 +197,10 @@ json::Value Strategy_Exponencial::dumpStatePretty(
 				 ("Last price ", minfo.invert_price?1.0/st.p:st.p)
 				 ("Power (w)", st.w)
 				 ("Anchor price (k)", minfo.invert_price?1.0/st.k:st.k)
-				 ("Budget", calcAccountValue(st))
-				 ("Budget Extra(+)/Debt(-)", minfo.leverage?Value():Value(st.f - calcReqCurrency(st,st.p)));
+				 ("Budget", minfo.leverage?st.f+cfg.ea:calcAccountValue(st))
+				 ("Budget Extra(+)/Debt(-)", minfo.leverage?
+						 Value(st.f - st.w * st.k * (1 - std::exp(-1))):
+						 Value(st.f - calcReqCurrency(st,st.p)));
 
 }
 
@@ -264,6 +312,6 @@ double Strategy_Exponencial::findRoot(double w, double k, double p, double c) {
 }
 
 double Strategy_Exponencial::calcInitialPosition(const IStockApi::MarketInfo &minfo, double price, double assets, double currency) const {
-	if (minfo.leverage) return (currency/price)*0.5;
+	if (minfo.leverage) return 0.581976706869 * (currency+cfg.ea)/price;
 	else return (assets +cfg.ea+ currency/price)*0.5;
 }

@@ -374,7 +374,7 @@ Strategy_PLFromPos::MinMax Strategy_PLFromPos::calcSafeRange(
 	}
 }
 
-double Strategy_PLFromPos::getEquilibrium(double) const {
+double Strategy_PLFromPos::getEquilibrium(const IStockApi::MarketInfo &, double , double ) const {
 	return st.p;
 }
 

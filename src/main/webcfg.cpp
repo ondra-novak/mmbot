@@ -613,8 +613,8 @@ bool WebCfg::reqTraders(simpleServer::HTTPRequest req, ondra_shared::StrViewA vp
 						auto strategy = trl->getStrategy();
 						double assets = out["pair"]["asset_balance"].getNumber();
 						double currencies = out["pair"]["currency_balance"].getNumber();
-						auto eq = strategy.getEquilibrium(assets);
 						auto minfo = trl->getMarketInfo();
+						auto eq = strategy.getEquilibrium(minfo, assets, currencies);
 						if (stprice) {
 							if (minfo.invert_price) stprice = 1.0/stprice;
 						}else {
@@ -956,7 +956,9 @@ bool WebCfg::reqBacktest(simpleServer::HTTPRequest req)  {
 								("ps",x.pos)
 								("pr",x.price.price)
 								("tm",x.price.time)
-								("sz",x.size);
+								("sz",x.size)
+								("rmn",x.min_range)
+								("rmx",x.max_range);
 					});
 					String resstr = result.toString();
 					req.sendResponse("application/json",resstr.str());

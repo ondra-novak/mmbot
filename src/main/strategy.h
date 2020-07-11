@@ -94,8 +94,8 @@ public:
 	}
 
 	///Returns equilibrium
-	double getEquilibrium(double assets) const {
-		return ptr->getEquilibrium(assets);
+	double getEquilibrium(const IStockApi::MarketInfo &minfo, double assets, double currencies) const {
+		return ptr->getEquilibrium(minfo,assets, currencies);
 	}
 
 	///Resets strategy - remove any remembered internal state

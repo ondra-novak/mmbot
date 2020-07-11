@@ -305,7 +305,7 @@ typename Strategy_Leveraged<Calc>::MinMax Strategy_Leveraged<Calc>::calcSafeRang
 }
 
 template<typename Calc>
-double Strategy_Leveraged<Calc>::getEquilibrium(double assets) const {
+double Strategy_Leveraged<Calc>::getEquilibrium(const IStockApi::MarketInfo &minfo, double assets, double currencies) const {
 	return  calc->calcPriceFromPosition(st.power, calcAsym(), st.neutral_price, assets-st.neutral_pos);
 }
 

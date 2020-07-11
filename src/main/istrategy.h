@@ -72,7 +72,7 @@ public:
 	virtual PStrategy importState(json::Value src, const IStockApi::MarketInfo &minfo) const = 0;
 	virtual OrderData getNewOrder(const IStockApi::MarketInfo &minfo, double cur_price, double new_price, double dir, double assets, double currency) const = 0;
 	virtual MinMax calcSafeRange(const IStockApi::MarketInfo &minfo, double assets, double currencies) const = 0;
-	virtual double getEquilibrium(double assets) const = 0;
+	virtual double getEquilibrium(const IStockApi::MarketInfo &minfo, double assets, double currencies) const = 0;
 	virtual PStrategy reset() const = 0;
 	virtual std::string_view getID() const = 0;
 	virtual double calcInitialPosition(const IStockApi::MarketInfo &minfo, double price, double assets, double currency) const = 0;

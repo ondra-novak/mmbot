@@ -181,7 +181,7 @@ Strategy_KeepValue::MinMax Strategy_KeepValue::calcSafeRange(
 	return MinMax {n,m};
 }
 
-double Strategy_KeepValue::getEquilibrium(double assets) const {
+double Strategy_KeepValue::getEquilibrium(const IStockApi::MarketInfo &, double assets, double ) const {
 	//na = k / price
 	//price = k / na
 	return  calcK() / (assets+cfg.ea);

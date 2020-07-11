@@ -29,6 +29,8 @@ struct BTTrade {
 	double pl = 0;
 	double pos = 0;
 	double norm_profit_total = 0;
+	double min_range = 0;
+	double max_range = 0;
 };
 
 using BTPriceSource = std::function<std::optional<BTPrice>()>;

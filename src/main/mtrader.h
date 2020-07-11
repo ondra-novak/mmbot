@@ -200,7 +200,7 @@ public:
 
 
 	Strategy getStrategy() const {return strategy;}
-	void setStrategy(const Strategy &s) {strategy = s;}
+	void setStrategy(const Strategy &s) {strategy = s;saveState();}
 	void setInternalBalancies(double assets, double currency);
 
 	IStockApi &getBroker() {return stock;}
