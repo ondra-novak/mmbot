@@ -97,7 +97,7 @@ private:
 	double calcAsym() const;
 	static double calcAsym(const PConfig &cfg, const State &st) ;
 	static double trendFactor(const State &st);
-	static std::pair<double,double> getBalance(bool leveraged, double price, double assets, double currency);
+	static std::pair<double,double> getBalance(const Config &cfg, bool leveraged, double price, double assets, double currency);
 	virtual double calcInitialPosition(const IStockApi::MarketInfo &minfo, double price, double assets, double currency) const override;
 
 };

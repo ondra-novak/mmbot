@@ -14,3 +14,4 @@ Makefile
 /.settings
 /www/fav_*.png
 generated
+/errors.log

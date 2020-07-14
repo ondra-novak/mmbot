@@ -39,23 +39,27 @@ void Strategy_Leveraged<Calc>::recalcNewState(const PCalc &calc, const PConfig &
 	double adjbalance = std::abs(nwst.bal + cfg->external_balance) * cfg->power;
 	nwst.power = calc->calcPower(nwst.last_price, adjbalance, cfg->asym);
 	recalcNeutral(calc,cfg,nwst);
+	nwst.power = calc->calcPower(nwst.neutral_price, adjbalance, cfg->asym);
+	recalcNeutral(calc,cfg,nwst);
+	nwst.power = calc->calcPower(nwst.neutral_price, adjbalance, cfg->asym);
+	recalcNeutral(calc,cfg,nwst);
 	nwst.val = calc->calcPosValue(nwst.power, calcAsym(cfg,nwst), nwst.neutral_price, nwst.last_price);
 }
 
 template<typename Calc>
 Strategy_Leveraged<Calc> Strategy_Leveraged<Calc>::init(const PCalc &calc, const PConfig &cfg, double price, double pos, double currency, const IStockApi::MarketInfo &minfo) {
 	bool futures = minfo.leverage != 0 || cfg->longonly;
-	auto bal = getBalance(futures, price, pos, currency);
+	auto bal = getBalance(*cfg,futures, price, pos, currency);
 	State nwst {
 		/*neutral_price:*/ price,
 		/*last_price */ price,
 		/*position */ pos - bal.second,
-		/*bal */ bal.first,
+		/*bal */ bal.first-cfg->external_balance,
 		/* val */ 0,
 		/* power */ 0,
 		/* neutral_pos */bal.second
 	};
-	if (nwst.bal <= 0) {
+	if (nwst.bal+cfg->external_balance<= 0) {
 		//we cannot calc with empty balance. In this case, use price for calculation (but this is  unreal, trading still impossible)
 		nwst.bal = price;
 	}
@@ -75,7 +79,11 @@ typename Strategy_Leveraged<Calc>::PosCalcRes Strategy_Leveraged<Calc>::calcPosi
 	if (price < mm.min) {price = mm.min; lmt = true;}
 	if (price > mm.max) {price = mm.max; lmt = true;}
 	if (lmt) {
-		return {true,st.position};
+		if (cfg->longonly && price >= mm.max) {
+			return {false,0};
+		} else {
+			return {true,st.position};
+		}
 	} else {
 
 		double reduction = cfg->reduction;
@@ -147,7 +155,7 @@ double Strategy_Leveraged<Calc>::calcNewNeutralFromProfit(double profit, double 
 template<typename Calc>
 void Strategy_Leveraged<Calc>::recalcPower(const PCalc &calc, const PConfig &cfg, State &nwst) {
 	double offset = calc->calcPosition(nwst.power, cfg->asym, nwst.neutral_price, nwst.neutral_price);
-	double adjbalance = std::abs(nwst.bal + cfg->external_balance + nwst.neutral_price * std::abs(nwst.position - offset) * cfg->powadj) * cfg->power;
+	double adjbalance = std::abs(nwst.bal  + cfg->external_balance + nwst.neutral_price * std::abs(nwst.position - offset) * cfg->powadj) * cfg->power;
 	double power = calc->calcPower(nwst.neutral_price, adjbalance, cfg->asym);
 	if (std::isfinite(power)) {
 		nwst.power = power;
@@ -193,9 +201,6 @@ std::pair<typename Strategy_Leveraged<Calc>::OnTradeResult, PStrategy> Strategy_
 
 	recalcNeutral(calc, cfg, nwst);
 
-	auto bal = getBalance(minfo.leverage || cfg->longonly, tradePrice, assetsLeft, currencyLeft);
-	nwst.neutral_pos = bal.second;
-
 	double val = calc->calcPosValue(mult, calcAsym(), nwst.neutral_price, tradePrice);
 	//calculate extra profit - we get change of value and add profit. This shows how effective is strategy. If extra is positive, it generates
 	//profit, if it is negative, is losses
@@ -203,7 +208,7 @@ std::pair<typename Strategy_Leveraged<Calc>::OnTradeResult, PStrategy> Strategy_
 	//store val to calculate next profit (because strategy was adjusted)
 	nwst.val = val;
 	//store new balance
-	nwst.bal = std::max(0.0, val) + bal.first;
+	nwst.bal += extra;
 
 	recalcPower(calc, cfg, nwst);
 
@@ -322,7 +327,7 @@ json::Value Strategy_Leveraged<Calc>::dumpStatePretty(
 				  ("Last price", minfo.invert_price?1/st.last_price:st.last_price)
 				 ("Neutral price", minfo.invert_price?1/st.neutral_price:st.neutral_price)
 				 ("Value", st.val)
-				 ("Last balance", st.bal)
+				 ("normalized PnL", st.bal)
 				 ("Multiplier", st.power)
 				 ("Neutral pos", st.neutral_pos?json::Value(st.neutral_pos):json::Value())
 	 	 	 	 ("Trend factor", json::String({
@@ -337,7 +342,7 @@ template<typename Calc>
 double Strategy_Leveraged<Calc>::calcMaxLoss() const {
 	double lmt;
 	if (cfg->max_loss == 0)
-		lmt = st.bal;
+		lmt = cfg->external_balance+st.bal;
 	else
 		lmt = cfg->max_loss;
 
@@ -377,19 +382,24 @@ inline double Strategy_Leveraged<Calc>::trendFactor(const State &st) {
 }
 
 template<typename Calc>
-std::pair<double,double> Strategy_Leveraged<Calc>::getBalance(bool leveraged, double price, double assets, double currency) {
-	if (leveraged) return {currency, 0};
-	double md = assets + currency / price;
-	return {md * price, md / 2};
+std::pair<double,double> Strategy_Leveraged<Calc>::getBalance(const Config &cfg, bool leveraged, double price, double assets, double currency) {
+	if (leveraged) {
+		if (cfg.external_balance) return {cfg.external_balance, 0};
+		else return {currency, 0};
+	} else {
+		double md = assets + currency / price;
+		double bal = cfg.external_balance?cfg.external_balance:(md * price)/2;
+		return {bal, md/2};
+	}
 }
 
 template<typename Calc>
 inline double Strategy_Leveraged<Calc>::calcInitialPosition(const IStockApi::MarketInfo &minfo, double price, double assets, double currency) const {
-	auto bal = getBalance(minfo.leverage != 0 || cfg->longonly,price,assets,currency);
-	double adjbalance = std::abs(bal.first + cfg->external_balance) * cfg->power;
-	double asym = calcAsym(cfg, st);
-	double power = calc->calcPower(price, adjbalance, calcAsym(cfg, st));
-	return calc->calcPosition(power, asym, price, price)+bal.second;
+	if (!isValid()) {
+		return init(calc, cfg, price, assets, currency, minfo).calcInitialPosition(minfo,price,assets,currency);
+	} else {
+		return calcPosition(st.neutral_price).pos;
+	}
 }
 
 template<typename Calc>
