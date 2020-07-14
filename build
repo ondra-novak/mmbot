@@ -25,6 +25,7 @@ zenity_feed () {
 			while read LINE; do
 				N=`echo $LINE | sed -E 's/(\[([ 0-9]+)%\])?.*/\2/'`
 				TXT=`echo $LINE | sed -E 's/(\[[ 0-9]+%\])?(.*)/\2/'`
+				N=$(($N-1))
 				echo $N
 				echo "# $TXT"
 			done
