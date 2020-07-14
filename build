@@ -39,8 +39,8 @@ if [ "$1" != "nodialog" ] ; then
 	if [ "$ZENITY" != "" ] ; then
 		echo 100 | $ZENITY --progress --auto-close
 		if [ "$?" = "0" ] ; then
-			$0 nodialog $* 2>errors.log | zenity_feed | $ZENITY --width=700 --progress --auto-kill --auto-close --title="Building, please wait..."
-			$ZENITY --text-info --filename=errors.log --title="Build result" --width=650 --height=350 --ok-label="Close" --cancel-label="Close" 
+			$0 nodialog $* 2>errors.log | zenity_feed | $ZENITY --width=750 --progress --auto-kill --auto-close --title="Building, please wait..."
+			$ZENITY --text-info --filename=errors.log --title="Build result" --width=750 --height=350 --ok-label="Close" --cancel-label="Close" 
 			exit $?
 		fi
 	fi
