@@ -39,10 +39,10 @@ void Strategy_Leveraged<Calc>::recalcNewState(const PCalc &calc, const PConfig &
 	double adjbalance = std::abs(nwst.bal + cfg->external_balance) * cfg->power;
 	nwst.power = calc->calcPower(nwst.last_price, adjbalance, cfg->asym);
 	recalcNeutral(calc,cfg,nwst);
-	nwst.power = calc->calcPower(nwst.neutral_price, adjbalance, cfg->asym);
-	recalcNeutral(calc,cfg,nwst);
-	nwst.power = calc->calcPower(nwst.neutral_price, adjbalance, cfg->asym);
-	recalcNeutral(calc,cfg,nwst);
+	for (int i = 0; i < 100; i++) {
+		nwst.power = calc->calcPower(nwst.neutral_price, adjbalance, cfg->asym);
+		recalcNeutral(calc,cfg,nwst);
+	}
 	nwst.val = calc->calcPosValue(nwst.power, calcAsym(cfg,nwst), nwst.neutral_price, nwst.last_price);
 }
 
