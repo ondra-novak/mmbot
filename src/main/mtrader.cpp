@@ -705,11 +705,17 @@ void MTrader::updateZigzagLevels() {
 
 void MTrader::modifyOrder(const ZigZagLevels &zlevs, double ,  Order &order) const {
 	if (sgn(order.size) * zlevs.direction < 0) {
+		int level = 1;
 		for (const auto &l : zlevs.levels) {
+			level++;
 			if ((l.price - order.price)* zlevs.direction < 0 && (std::abs(order.size) < std::abs(l.amount) )) {
-				logDebug("(Zigzag) Zigzag active: order_price/level_price=($1 => $3), order_size/new_size=($2 => $4)",
-						order.price, order.size, l.price, -l.amount	);
-				order.size = -l.amount;
+				double maxsize = std::abs(order.size * level);
+				if (maxsize < minfo.min_size) maxsize = minfo.min_size;
+				if (maxsize * order.price < minfo.min_volume) maxsize = minfo.min_volume / order.price;
+				double newsize = std::min(std::abs(l.amount), maxsize)*sgn(order.size);
+				logDebug("(Zigzag) Zigzag active: order_price/level_price=($1 => $3), order_size/new_size=($2 => $4), max $5",
+						order.price, order.size, l.price, newsize, maxsize);
+				order.size = newsize;
 			}
 		}
 	}
