@@ -47,7 +47,7 @@ if [ "$1" != "nodialog" ] ; then
 	if [ "$WHIPTAIL" != "" ] ; then
 		COLS=`tput cols`
 		COLS=$(($COLS*3/4))			
-		$0 nodialog $* 2>errors.log | dialog_feed | $WHIPTAIL --gauge Building 12 $COLS 0
+		$0 nodialog $* 2>errors.log | dialog_feed | $WHIPTAIL --gauge Building 6 $COLS 0
 		cat errors.log 
 		exit $? 	
 	fi 

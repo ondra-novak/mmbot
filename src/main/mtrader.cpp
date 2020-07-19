@@ -675,13 +675,22 @@ MTrader::Order MTrader::calculateOrder(
 void MTrader::updateZigzagLevels() {
 	zigzaglevels.levels.clear();
 	zigzaglevels.direction = 0;
+	if (trades.size()<4) return;
+	double sumTrades = std::accumulate(trades.begin(), trades.end(), 0.0, [](double x, const auto &z) {
+		return x + std::abs(z.eff_size);
+	});
+	double limit = sumTrades/trades.size();
+
+	logDebug("(Zigzag) Limit set $1", limit*2);
 
 	auto iter = trades.rbegin();
 	auto end = trades.rend();
 	while (iter != end && iter->size == 0) ++iter;
 	if (iter != end)  {
+		double sz = iter->eff_size;
+		if (std::abs(sz)>=limit*2) sz = 0;
 		zigzaglevels.levels.push_back({
-			iter->eff_size,
+			sz,
 			iter->eff_price,
 		});
 		{
@@ -690,14 +699,18 @@ void MTrader::updateZigzagLevels() {
 		}
 		zigzaglevels.direction = sgn(iter->size);
 		++iter;
+		int level = 2;
 		while (iter != end && iter->size * zigzaglevels.direction >= 0) {
+			level++;
 			const auto &b = zigzaglevels.levels.back();
-			zigzaglevels.levels.push_back({
-				iter->eff_size+b.amount,
-				(b.amount * b.price + iter->eff_size*iter->eff_price)/(b.amount + iter->eff_size)
-			});
-			const auto &bb = zigzaglevels.levels.back();
-			logDebug("(Zigzag) ZigZagLevels 2nd level update: amount=$1, price=$2", bb.amount, bb.price);
+			double sz = iter->eff_size+b.amount;
+			if (std::abs(sz) < limit*level) {
+				zigzaglevels.levels.push_back({
+					sz, (b.amount * b.price + iter->eff_size*iter->eff_price)/(b.amount + iter->eff_size)
+				});
+				const auto &bb = zigzaglevels.levels.back();
+				logDebug("(Zigzag) ZigZagLevels 2nd level update: amount=$1, price=$2", bb.amount, bb.price);
+			}
 			++iter;
 		}
 	}
