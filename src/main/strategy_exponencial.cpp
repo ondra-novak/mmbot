@@ -31,7 +31,7 @@ Strategy_Exponencial::Strategy_Exponencial(const Config &cfg, State &&st)
 
 
 bool Strategy_Exponencial::isValid() const {
-	return st.k > 0 && st.p > 0;
+	return st.k > 0 && st.p > 0 && st.a + cfg.ea > 0;
 }
 
 
@@ -40,19 +40,25 @@ PStrategy Strategy_Exponencial::onIdle(
 		const IStockApi::Ticker &ticker, double assets, double cur) const {
 	if (isValid()) return this;
 	else {
-		return init(m.invert_price,ticker.last, assets,cur);
+		return init(m,ticker.last, assets,cur);
 	}
 }
 
-PStrategy Strategy_Exponencial::init(bool inverted, double price, double assets, double cur) const {
+PStrategy Strategy_Exponencial::init(const IStockApi::MarketInfo &m, double price, double assets, double cur) const {
 	if (price <= 0) throw std::runtime_error("Strategy: invalid ticker price");
 	if (cfg.optp <=0) throw std::runtime_error("Strategy: Incomplete configuration");
 	State nst;
-	nst.k = inverted?(1.0 / cfg.optp):cfg.optp / to_balanced_factor;
-	if (st.p > 0) {
+	nst.k = m.invert_price?(1.0 / cfg.optp):cfg.optp / to_balanced_factor;
+	if (st.p > 0 && st.a + cfg.ea > 0) {
 		nst.a = st.a;
 		nst.p = st.p;
 	} else {
+		if (cfg.ea + assets <= 0) {
+			assets = calcInitialPosition(m,price,assets,cur);
+			if (cfg.ea + assets <= 0) {
+				 throw std::runtime_error("Strategy: Can't trade zero budget");
+			}
+		}
 		nst.a = assets;
 		nst.p = price;
 	}
@@ -66,7 +72,7 @@ std::pair<Strategy_Exponencial::OnTradeResult, PStrategy> Strategy_Exponencial::
 		double currencyLeft) const {
 
 	if (!isValid()) {
-		return init(minfo.invert_price, tradePrice, assetsLeft, currencyLeft)
+		return init(minfo, tradePrice, assetsLeft, currencyLeft)
 				->onTrade(minfo,tradePrice,tradeSize,assetsLeft,currencyLeft);
 	}
 
@@ -139,7 +145,7 @@ json::Value Strategy_Exponencial::dumpStatePretty(
 	return json::Object("Assets/Position", (minfo.invert_price?-1:1)*st.a)
 				 ("Last price ", minfo.invert_price?1.0/st.p:st.p)
 				 ("Power (w)", w)
-				 ("Anchor price (k)", cfg.optp)
+				 ("Anchor price (k)", minfo.invert_price?1.0/st.k:st.k)
 				 ("Budget", calcAccountValue(st, cfg.ea, st.p))
 				 ("Budget Extra(+)/Debt(-)", minfo.leverage?Value():Value(st.f - calcReqCurrency(st,cfg.ea,st.p)));
 

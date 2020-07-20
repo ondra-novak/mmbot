@@ -51,7 +51,7 @@ public:
 	double calcA(double price) const;
 	static double calcAccountValue(const State &st,double ea, double price);
 	static double calcReqCurrency(const State &st,double ea, double price);
-	PStrategy init(bool inverted, double price, double assets, double cur) const;
+	PStrategy init(const IStockApi::MarketInfo &m, double price, double assets, double cur) const;
 	virtual double calcInitialPosition(const IStockApi::MarketInfo & , double price, double assets, double currency) const override;
 	virtual BudgetInfo getBudgetInfo() const override;
 
