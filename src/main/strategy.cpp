@@ -94,6 +94,7 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 		Strategy_Exponencial::Config cfg;
 		cfg.ea = config["ea"].getNumber();
 		cfg.accum = config["accum"].getNumber();
+		cfg.optp = config["optp"].getNumber();
 		return Strategy(new Strategy_Exponencial(cfg));
 	} else if (id == Strategy_KeepValue::id) {
 		Strategy_KeepValue::Config cfg;

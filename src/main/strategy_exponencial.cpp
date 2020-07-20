@@ -17,9 +17,7 @@
 using json::Value;
 using ondra_shared::logDebug;
 
-//This number is ration between argument k and price where value of assets and currency is balanced to 1:1
-//p = to_balanced_factor * k
-static constexpr double to_balanced_factor = 1.25643;
+static constexpr double to_balanced_factor = 1.581976707;
 
 #include "../shared/logOutput.h"
 std::string_view Strategy_Exponencial::id = "exponencial";
@@ -33,35 +31,33 @@ Strategy_Exponencial::Strategy_Exponencial(const Config &cfg, State &&st)
 
 
 bool Strategy_Exponencial::isValid() const {
-	return st.valid && st.w > 0 && st.k > 0 && st.p > 0;
+	return st.k > 0 && st.p > 0;
 }
 
 
 PStrategy Strategy_Exponencial::onIdle(
-		const IStockApi::MarketInfo &,
+		const IStockApi::MarketInfo &m,
 		const IStockApi::Ticker &ticker, double assets, double cur) const {
-	if (isValid() || ticker.last<=0) return this;
+	if (isValid()) return this;
 	else {
-		return new Strategy_Exponencial(init(cfg,ticker.last, assets,cur));
+		return init(m.invert_price,ticker.last, assets,cur);
 	}
 }
 
-Strategy_Exponencial Strategy_Exponencial::init(const Config &cfg, double price, double assets, double cur) {
+PStrategy Strategy_Exponencial::init(bool inverted, double price, double assets, double cur) const {
+	if (price <= 0) throw std::runtime_error("Strategy: invalid ticker price");
+	if (cfg.optp <=0) throw std::runtime_error("Strategy: Incomplete configuration");
 	State nst;
-	double a = assets + cfg.ea;
-	double aa = cur/price;
-	double min_a = aa * 0.1; //minimum allowed assets is 10% of available currency
-	nst.valid = true;
-	nst.p = price;
-	nst.f = cur;
-	if (a >= min_a) { //initialize to 50:50 factor
-		nst.k = price / to_balanced_factor;
-		nst.w = a * std::exp(to_balanced_factor);
+	nst.k = inverted?(1.0 / cfg.optp):cfg.optp / to_balanced_factor;
+	if (st.p > 0) {
+		nst.a = st.a;
+		nst.p = st.p;
 	} else {
-		nst.k = (price / to_balanced_factor)/5;
-		nst.w = (cur+nst.k * min_a) / nst.k;
+		nst.a = assets;
+		nst.p = price;
 	}
-	return Strategy_Exponencial(cfg, std::move(nst));
+	nst.f = cur;
+	return new Strategy_Exponencial(cfg, std::move(nst));
 }
 
 std::pair<Strategy_Exponencial::OnTradeResult, PStrategy> Strategy_Exponencial::onTrade(
@@ -70,21 +66,20 @@ std::pair<Strategy_Exponencial::OnTradeResult, PStrategy> Strategy_Exponencial::
 		double currencyLeft) const {
 
 	if (!isValid()) {
-		return init(cfg,tradePrice,assetsLeft,currencyLeft)
-				.onTrade(minfo,tradePrice,tradeSize,assetsLeft,currencyLeft);
+		return init(minfo.invert_price, tradePrice, assetsLeft, currencyLeft)
+				->onTrade(minfo,tradePrice,tradeSize,assetsLeft,currencyLeft);
 	}
 
 	auto prof = calcNormalizedProfit(tradePrice, tradeSize);
 	auto accum = calcAccumulation(st, cfg, tradePrice);
-	auto new_a = calcA(st,tradePrice) + accum;
+	auto new_a = calcA(tradePrice) + accum ;
 
 	State nst = st;
-	updateState(nst, new_a, tradePrice, currencyLeft);
-
-	double neutral = nst.k * to_balanced_factor;
-
+	nst.a = new_a;
+	nst.p = tradePrice;
+	nst.f = currencyLeft;
 	return {
-		OnTradeResult{prof,accum,neutral},
+		OnTradeResult{prof,accum},
 		new Strategy_Exponencial(cfg, std::move(nst))
 	};
 }
@@ -92,24 +87,16 @@ std::pair<Strategy_Exponencial::OnTradeResult, PStrategy> Strategy_Exponencial::
 json::Value Strategy_Exponencial::exportState() const {
 	return json::Object
 			("p",st.p)
-			("w",st.w)
-			("k",st.k)
-			("f",st.f)
-			("ea", Value(cfg.ea).toString())
-			("valid",st.valid);
+			("a",st.a)
+			("f",st.f);
 }
 
 PStrategy Strategy_Exponencial::importState(json::Value src,const IStockApi::MarketInfo &) const {
 	State newst {
-		src["valid"].getBool(),
-		src["w"].getNumber(),
-		src["k"].getNumber(),
+		src["a"].getNumber(),
 		src["p"].getNumber(),
 		src["f"].getNumber()
 	};
-	if (Value(cfg.ea).toString() != src["ea"].toString()) {
-		newst.valid = false;
-	}
 	return new Strategy_Exponencial(cfg, std::move(newst));
 }
 
@@ -117,22 +104,23 @@ IStrategy::OrderData Strategy_Exponencial::getNewOrder(
 		const IStockApi::MarketInfo &,
 		double, double price, double /*dir*/, double assets, double /*currency*/) const {
 
-	double curA = calcA(st, st.p);
-	double newA = calcA(st,price);
+	double newA = calcA(price);
 	double extra = calcAccumulation(st, cfg, price);
-	double ordsz = calcOrderSize(curA, assets+cfg.ea, newA+extra);
+	double ordsz = calcOrderSize(st.a, assets, newA+extra);
 	return {0,ordsz};
 }
 
 Strategy_Exponencial::MinMax Strategy_Exponencial::calcSafeRange(
 		const IStockApi::MarketInfo &,double , double currencies) const {
-	double max = cfg.ea > 0? st.k * std::log(st.w/cfg.ea):std::numeric_limits<double>::infinity();
-	double min = findRoot(st.w,st.k,st.p, currencies);
+	double w = calcW(st.a + cfg.ea, st.k, st.p);
+	double max = cfg.ea > 0? st.k * std::log(w/cfg.ea):std::numeric_limits<double>::infinity();
+	double min = findRoot(w,st.k,st.p, currencies);
 	return MinMax {min,max};
 }
 
 double Strategy_Exponencial::getEquilibrium(double assets) const {
-	return  st.k*std::log(st.w/(assets+cfg.ea));
+	double w = calcW(st.a + cfg.ea, st.k, st.p);
+	return  st.k*std::log(w/(assets+cfg.ea));
 }
 
 std::string_view Strategy_Exponencial::getID() const {
@@ -147,47 +135,43 @@ PStrategy Strategy_Exponencial::reset() const {
 json::Value Strategy_Exponencial::dumpStatePretty(
 		const IStockApi::MarketInfo &minfo) const {
 
-	return json::Object("Assets/Position", (minfo.invert_price?-1:1)*calcA(st, st.p))
+	double w = calcW(st.a + cfg.ea, st.k, st.p);
+	return json::Object("Assets/Position", (minfo.invert_price?-1:1)*st.a)
 				 ("Last price ", minfo.invert_price?1.0/st.p:st.p)
-				 ("Power (w)", st.w)
-				 ("Anchor price (k)", minfo.invert_price?1.0/st.k:st.k)
-				 ("Budget", calcAccountValue(st))
-				 ("Budget Extra(+)/Debt(-)", minfo.leverage?Value():Value(st.f - calcReqCurrency(st,st.p)));
+				 ("Power (w)", w)
+				 ("Anchor price (k)", cfg.optp)
+				 ("Budget", calcAccountValue(st, cfg.ea, st.p))
+				 ("Budget Extra(+)/Debt(-)", minfo.leverage?Value():Value(st.f - calcReqCurrency(st,cfg.ea,st.p)));
 
 }
 
-double Strategy_Exponencial::calcA(const State &st, double price) {
-	return st.w * std::exp(-price/st.k);
-}
-void Strategy_Exponencial::updateState(State &st, double new_a, double new_p, double new_f) {
-	double balanced = st.k * to_balanced_factor;
-	if (new_p < balanced) {
-		st.w = new_a * std::exp(new_p / st.k);
-	} else {
-		st.k = new_p / std::log(st.w / new_a);
-	}
-	st.p = new_p;
-	st.f = new_f;
+double Strategy_Exponencial::calcA(double w, double k, double p) {
+	return w * std::exp(-p/k);
 }
 
-double Strategy_Exponencial::calcAccountValue(const State &st) {
-	return st.k*st.w*(1 - std::exp(-st.p/st.k));
+double Strategy_Exponencial::calcA(double price) const {
+	double w = calcW(st.a + cfg.ea, st.k, st.p);
+	double a = calcA(w, st.k, price) - cfg.ea;
+	return a;
 }
-double Strategy_Exponencial::calcAccountValue(const State &st, double p) {
-	return st.k*st.w*(1 - std::exp(-p/st.k));
+
+double Strategy_Exponencial::calcAccountValue(const State &st, double ea, double p) {
+	double w = calcW(st.a + ea, st.k, st.p);
+	return st.k*w*(1 - std::exp(-p/st.k));
 }
 
 
-double Strategy_Exponencial::calcReqCurrency(const State &st, double price) {
-	return st.w * (st.k - std::exp(-price/st.k) * (st.k + price));
+double Strategy_Exponencial::calcReqCurrency(const State &st, double ea, double price) {
+	double w = calcW(st.a + ea, st.k, st.p);
+	return w * (st.k - std::exp(-price/st.k) * (st.k + price));
 }
 
 double Strategy_Exponencial::calcAccumulation(const State &st, const Config &cfg, double price) {
 	if (cfg.accum) {
-
-		double r1 = calcReqCurrency(st, st.p);
-		double r2 = calcReqCurrency(st, price);
-		double pl = -price*(calcA(st,price)-calcA(st,st.p));
+		double w = calcW(st.a + cfg.ea, st.k, st.p);
+		double r1 = calcReqCurrency(st, cfg.ea, st.p);
+		double r2 = calcReqCurrency(st, cfg.ea, price);
+		double pl = -price*(calcA(w, st.k, price)-(st.a + cfg.ea));
 		double nl = r2 - r1;
 		double ex = pl -nl;
 		double acc = (ex/price)*cfg.accum;
@@ -201,8 +185,8 @@ double Strategy_Exponencial::calcAccumulation(const State &st, const Config &cfg
 
 double Strategy_Exponencial::calcNormalizedProfit(double tradePrice, double tradeSize) const {
 	double cashflow = -tradePrice*tradeSize;
-	double old_cash = calcReqCurrency(st, st.p);
-	double new_cash = calcReqCurrency(st, tradePrice);
+	double old_cash = calcReqCurrency(st,cfg.ea, st.p);
+	double new_cash = calcReqCurrency(st, cfg.ea, tradePrice);
 	double diff_cash = new_cash - old_cash;
 	double np = cashflow - diff_cash;
 
@@ -229,9 +213,13 @@ static double numeric_search_r1(double start, double accuracy, Fn &&fn) {
 
 Strategy_Exponencial::BudgetInfo Strategy_Exponencial::getBudgetInfo() const {
 	return BudgetInfo {
-		calcAccountValue(st),
-		calcA(st, st.p)
+		calcAccountValue(st,cfg.ea,st.p),
+		st.a + cfg.ea
 	};
+}
+
+double Strategy_Exponencial::calcW(double a, double k, double p) {
+	return a * std::exp(p/k);
 }
 
 double Strategy_Exponencial::findRoot(double w, double k, double p, double c) {
@@ -264,6 +252,10 @@ double Strategy_Exponencial::findRoot(double w, double k, double p, double c) {
 }
 
 double Strategy_Exponencial::calcInitialPosition(const IStockApi::MarketInfo &minfo, double price, double assets, double currency) const {
-	if (minfo.leverage) return (currency/price)*0.5;
-	else return (assets +cfg.ea+ currency/price)*0.5;
+	double budget = minfo.leverage?currency:(assets+cfg.ea)*price+currency;
+	double k = minfo.invert_price?1.0/cfg.optp:cfg.optp / to_balanced_factor;
+	double norm_val = k*(1 - std::exp(-price/k));
+	double w = budget / norm_val;
+	double a= calcA(w,k,price)-cfg.ea;
+	return a;
 }

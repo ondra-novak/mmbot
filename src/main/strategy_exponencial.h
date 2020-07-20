@@ -17,15 +17,15 @@ public:
 	struct Config {
 		double ea;
 		double accum;
+		double optp;
 	};
 
 
 	struct State {
-			bool valid = false;
-			double w = 0;
-			double k = 0;
+			double a = 0;
 			double p = 0;
 			double f = 0; //fiat
+			double k = 0;
 		};
 
 	Strategy_Exponencial(const Config &cfg, State &&st);
@@ -46,16 +46,16 @@ public:
 	static std::string_view id;
 
 
-	static double calcA(const State &st, double price);
-	static void updateState(State &st, double new_a, double new_p, double new_f);
-	static double calcAccountValue(const State &st);
-	static double calcReqCurrency(const State &st, double price);
-	static Strategy_Exponencial init(const Config &cfg, double price, double assets, double cur);
+	static double calcW(double a, double k, double p);
+	static double calcA(double w, double k, double p);
+	double calcA(double price) const;
+	static double calcAccountValue(const State &st,double ea, double price);
+	static double calcReqCurrency(const State &st,double ea, double price);
+	PStrategy init(bool inverted, double price, double assets, double cur) const;
 	virtual double calcInitialPosition(const IStockApi::MarketInfo & , double price, double assets, double currency) const override;
 	virtual BudgetInfo getBudgetInfo() const override;
 
 	static double calcAccumulation(const State &st, const Config &cfg, double price);
-	static double calcAccountValue(const State &st, double p);
 protected:
 	Config cfg;
 	State st;

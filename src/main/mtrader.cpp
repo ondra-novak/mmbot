@@ -375,7 +375,15 @@ void MTrader::perform(bool manually) {
 		saveState();
 
 	} catch (std::exception &e) {
-		statsvc->reportError(IStatSvc::ErrorObj(e.what()));
+		statsvc->reportTrades(trades);
+		std::string error("Stopped because error: ");
+		error.append(e.what());
+		statsvc->reportError(IStatSvc::ErrorObj(error.c_str()));
+		statsvc->reportMisc(IStatSvc::MiscData{
+			0,0,0,dynmult.getBuyMult(),dynmult.getSellMult(),0,0,0,0,
+			trades.size(),trades.empty()?0:(trades.back().time-trades[0].time)
+		});
+		statsvc->reportPrice(trades.empty()?1:trades.back().price);
 		throw;
 	}
 }

@@ -96,6 +96,7 @@ App.prototype.createTraderForm = function() {
 		form.showItem("strategy_stairs",state.strategy == "stairs");
 		form.showItem("strategy_hyperbolic",state.strategy == "hyperbolic"||state.strategy == "linear"||state.strategy == "sinh");
 		form.showItem("kv_valinc_h",state.strategy == "keepvalue");
+		form.showItem("exp_optp_h",state.strategy == "exponencial");
 		form.setData({"help_goal":{"class":state.strategy}});
 		form.getRoot().classList.toggle("no_adv", !state["advanced"]);
 		form.getRoot().classList.toggle("no_experimental", !state["check_unsupp"]);
@@ -475,14 +476,29 @@ App.prototype.fillForm = function (src, trg) {
 		}
 		
 		if (first_fetch) {
-			["strategy","external_assets", "hp_dtrend","hp_longonly","hp_power", "hp_maxloss", "hp_recalc", "hp_asym","hp_powadj", "hp_extbal", "hp_reduction","hp_dynred"]
+			["strategy","external_assets", "hp_dtrend","hp_longonly","hp_power", "hp_maxloss", "hp_recalc", "hp_asym","hp_powadj", "hp_extbal", "hp_reduction","hp_dynred","exp_optp"]
 			.forEach(function(item){
 				trg.findElements(item).forEach(function(elem){
 					elem.addEventListener("input", recalcStrategy.bind(this));
 					elem.addEventListener("change", recalcStrategy.bind(this));
 				}.bind(this));
 			}.bind(this));
-			recalcStrategy.call(this);
+            var optp = trg.readData(["exp_optp"]);
+           	var nprice = pair.invert_price?1.0/pair.price:pair.price;
+            if (isNaN(optp.exp_optp)) {
+           	var nstep = Math.pow(10,Math.round(Math.log10(nprice))-2);            	
+                data.exp_optp = {
+                	value:Math.floor(nprice/nstep)*nstep,
+                	step:nstep
+                }
+            } else{
+               	var nstep = Math.pow(10,Math.round(Math.log10(optp.exp_optp))-2);            	
+                data.exp_optp = {
+                	step:nstep
+                }            	
+            }
+
+			setTimeout(recalcStrategy.bind(this),1);
 			
 			data.max_pos = data.cstep = data.pl_posoffset = {"!input": linStrategy_recalc};
 			data.linear_suggest = {"!click":linStrategy_recomended};
@@ -572,6 +588,7 @@ App.prototype.fillForm = function (src, trg) {
 		data.external_assets = filledval(src.strategy.ea,0);
 		data.kv_valinc = filledval(src.strategy.valinc,0);
 		data.kv_halfhalf = filledval(src.strategy.halfhalf,false);
+		data.exp_optp = filledval(src.strategy.optp,"");
 	} else if (data.strategy == "hyperbolic"||data.strategy == "linear"||data.strategy == "sinh") {
 		data.hp_reduction = filledval(defval(src.strategy.reduction,0.25)*200,50);
 		data.hp_initboost = filledval(src.strategy.initboost,0);
@@ -716,6 +733,7 @@ function getStrategyData(data) {
 		strategy.ea = data.external_assets;
 		strategy.valinc = data.kv_valinc;
 		strategy.halfhalf = data.kv_halfhalf;
+		strategy.optp = data.exp_optp;
 	} else 	if (data.strategy == "hyperbolic"||data.strategy == "linear"||data.strategy == "sinh") {
 		strategy = {
 				type: data.strategy,
@@ -1447,7 +1465,8 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 	var inputs = ["strategy","external_assets", "acum_factor","kv_valinc","kv_halfhalf","pl_confmode","pl_power","pl_baluse","cstep",
 		"max_pos","pl_posoffset","pl_redmode","pl_redfact","min_size","max_size","order_mult","alerts","delayed_alerts","linear_suggest","linear_suggest_maxpos","pl_redoninc",
 		"st_power","st_reduction_step","st_sl","st_redmode","st_max_step","st_pattern","dynmult_sliding","accept_loss","spread_calc_sma_hours","st_tmode","zigzag",
-		"hp_dtrend","hp_longonly","hp_power","hp_maxloss","hp_asym","hp_reduction","hp_initboost","hp_extbal","hp_powadj","hp_dynred"
+		"hp_dtrend","hp_longonly","hp_power","hp_maxloss","hp_asym","hp_reduction","hp_initboost","hp_extbal","hp_powadj","hp_dynred",
+		"exp_optp"
 		];
 	var spread_inputs = ["spread_calc_stdev_hours", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode","dynmult_sliding","dynmult_mult"];
 	var balance = form._balance;
@@ -1575,9 +1594,9 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		var scale = 900000;
 		var drawChart = initChart(interval,ratio,scale);
 		if (show_op) {
-		    drawChart(chart1,c,"pr",[{label:"open",pr:lastop}],"op");
+		    drawChart(chart1,c,"pr",lastop?[{label:"open",pr:lastop}]:[],"op");
 		} else {
-		    drawChart(chart1,c,"pr",[{label:"neutral",pr:lastnp}],"np");			
+		    drawChart(chart1,c,"pr",lastnp?[{label:"neutral",pr:lastnp}]:[],"np");			
 		}
 		if (show_norm)
 		    drawChart(chart2,c,"npla",[{label:"PL",npla:lastpl}],"pl");
