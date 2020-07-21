@@ -233,11 +233,12 @@ Enable to the Bot accept partial loss, when trading is not possible due insuffic
 extra "virtual" trade with zero size is generated to shift the center of the spread. This can
 reenable trading, but it also finally costs some profit
 </span></span><input type="number" data-name="accept_loss" step="0.1"></label>
-<label class="adv"><span>Grant trade after (hours) (0&nbsp;=&nbsp;disabled)<span class="tooltip">
+<label class="adv"><span>Enforce a trade after (hours) (0&nbsp;=&nbsp;disabled)<span class="tooltip">
 If there is no trade after given hours, the bot tries to put an order to a top of the orderbook,
 which increases chance to execute a trade. The size of the order is calculated by the strategy. Not
 recommended with strategy "stairs". If the strategy cannot calculate the order for the current
-price, the order is not placed (alerts are disabled during this event) 
+price, the order is not placed (alerts are disabled during this event). In this case, order can be placed once the
+price moves. 
 </span></span><input type="number" data-name="grant_trade_hours" step="0.1"></label>
 <label  class="adv"><span>MIN asset balance/position<span class="tooltip">
 Specifies minimum allowed asset balance (or position, for short use negative value). When balance hits this value, no futher sells are allowed. In this situation 'Accept loss' rule can be applied
