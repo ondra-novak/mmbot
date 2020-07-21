@@ -214,8 +214,8 @@ void MTrader::perform(bool manually) {
 
 			bool grant_trade = cfg.grant_trade_minutes
 					&& !trades.empty()
-					&& (status.ticker.time > trades.back().time
-					&& status.ticker.time - trades.back().time)/60000 > cfg.grant_trade_minutes;
+					&& status.ticker.time > trades.back().time
+					&& (status.ticker.time - trades.back().time)/60000 > cfg.grant_trade_minutes;
 
 
 			if (recalc) {
@@ -621,7 +621,7 @@ MTrader::Order MTrader::calculateOrderFeeLess(
 
 
 		if (order.alert == IStrategy::Alert::forced) {
-			logDebug("Calc order: alert is forced: op=$1, np=$2, osz=$3", order.price, newPrice, sz);
+			logDebug("Calc order: alert is forced: op=$1, np=$2, osz=$3, curPrice=$4", order.price, newPrice, sz, curPrice);
 			return order;
 		}
 
@@ -650,7 +650,7 @@ MTrader::Order MTrader::calculateOrderFeeLess(
 		order.size = lmsz.second;
 		order.alert = IStrategy::Alert::forced;
 	} else {
-		order.alert = !order.size && cfg.alerts?IStrategy::Alert::forced:IStrategy::Alert::disabled;
+		order.alert = !order.size && alerts?IStrategy::Alert::forced:IStrategy::Alert::disabled;
 	}
 
 	return order;
