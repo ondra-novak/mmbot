@@ -14,6 +14,7 @@
 #include <cmath>
 
 #include "../imtjson/src/imtjson/value.h"
+#include "numerical.h"
 using json::Value;
 using ondra_shared::logDebug;
 
@@ -198,25 +199,6 @@ double Strategy_Exponencial::calcNormalizedProfit(double tradePrice, double trad
 
 	return np;
 }
-
-template<typename Fn>
-static double numeric_search_r1(double start, double accuracy, Fn &&fn) {
-	double min = 0;
-	double max = start;
-	double ref = fn(start);
-	if (ref == 0) return start;
-	double md = (min+max)/2;
-	while (md > accuracy && (max - min) / md > accuracy) {
-		double v = fn(md);
-		double ml = v * ref;
-		if (ml > 0) max = md;
-		else if (ml < 0) min = md;
-		else return md;
-		md = (min+max)/2;
-	}
-	return md;
-}
-
 Strategy_Exponencial::BudgetInfo Strategy_Exponencial::getBudgetInfo() const {
 	return BudgetInfo {
 		calcAccountValue(st,cfg.ea,st.p),
@@ -247,14 +229,17 @@ double Strategy_Exponencial::findRoot(double w, double k, double p, double c) {
 		return base_fn(x) + diff;
 	};
 
-	//assume starting point at current price
-	double start = p;
-	//double starting point unless result is positive
-	while (fn(start) < 0) start = start * 2;
-	//search root numerically between zero and start point
-	return numeric_search_r1(start, start*1e-6, std::move(fn));
+	double pp = fn(p);
+	double r;
+	if (pp > 0) {
+		r = numeric_search_r1(p, std::move(fn));
+	} else if (pp < 0) {
+		r = numeric_search_r2(p, std::move(fn));
+	} else {
+		r = p;
+	}
 
-
+	return r;
 }
 
 double Strategy_Exponencial::calcInitialPosition(const IStockApi::MarketInfo &minfo, double price, double assets, double currency) const {
