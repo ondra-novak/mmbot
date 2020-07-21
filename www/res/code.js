@@ -607,7 +607,7 @@ function app_start(){
   			 });  
   			 var ntf = document.getElementById("notify");
   			 ntf.classList.add("shown");
-  			 ntf.innerHTML =  text.replace("\n","<br>");
+  			 ntf.innerHTML =  text.replace(/\n/g,"<br>");
   			 setTimeout(function()  {
   			 	ntf.classList.remove("shown");
   			 },10000);
