@@ -221,7 +221,9 @@ void MTrader::perform(bool manually) {
 			if (recalc) {
 				update_dynmult(lastTradeSize > 0, lastTradeSize < 0);
 				if (cfg.zigzag) updateZigzagLevels();
-			} else if (grant_trade) {
+			}
+
+			if (grant_trade) {
 				dynmult.reset();
 			}
 
@@ -253,9 +255,10 @@ void MTrader::perform(bool manually) {
 				} else {
 
 
+
 						//calculate buy order
-					Order buyorder = calculateOrder(grant_trade?status.ticker.bid:lastTradePrice,
-													grant_trade?-status.curStep*1e-10:-status.curStep*cfg.buy_step_mult,
+					Order buyorder = calculateOrder(grant_trade?status.ticker.bid*1.5:lastTradePrice,
+													grant_trade?-0.1:-status.curStep*cfg.buy_step_mult,
 													dynmult.getBuyMult(),
 													status.ticker.bid,
 													status.assetBalance,
@@ -264,8 +267,8 @@ void MTrader::perform(bool manually) {
 													zigzaglevels,
 													grant_trade?false:status.enable_alerts);
 						//calculate sell order
-					Order sellorder = calculateOrder(grant_trade?status.ticker.ask:lastTradePrice,
-													 grant_trade?status.curStep*1e-10:status.curStep*cfg.sell_step_mult,
+					Order sellorder = calculateOrder(grant_trade?status.ticker.ask*0.85:lastTradePrice,
+													 grant_trade?0.1:status.curStep*cfg.sell_step_mult,
 													 dynmult.getSellMult(),
 													 status.ticker.ask,
 													 status.assetBalance,
@@ -603,6 +606,14 @@ MTrader::Order MTrader::calculateOrderFeeLess(
 
 		double newPrice = prevPrice * exp(step*dynmult*m);
 		double newPriceNoScale= prevPrice * exp(step*m);
+
+		if ((newPrice - curPrice) * dir > 0) {
+			newPrice = curPrice;
+		}
+		if ((newPriceNoScale - curPrice) * dir > 0) {
+			newPriceNoScale = curPrice;
+		}
+
 
 		order= strategy.getNewOrder(minfo,curPrice, cfg.dynmult_scale?newPrice:newPriceNoScale,dir, balance, currency);
 

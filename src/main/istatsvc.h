@@ -9,6 +9,8 @@
 #define SRC_MAIN_ISTATSVC_H_
 
 #include "istatsvc.h"
+
+#include <cmath>
 #include <memory>
 #include <optional>
 
@@ -76,7 +78,13 @@ public:
 			:IStockApi::Trade(t),norm_profit(norm_profit),norm_accum(norm_accum),neutral_price(neutral_price) {}
 
 	    static TradeRecord fromJSON(json::Value v) {
-	    	return TradeRecord(IStockApi::Trade::fromJSON(v), v["np"].getNumber(), v["ap"].getNumber(), v["p0"].getNumber());
+	    	double np = v["np"].getNumber();
+	    	double ap = v["ap"].getNumber();
+	    	double p0 = v["p0"].getNumber();
+	    	if (!std::isfinite(np)) np = 0;
+	    	if (!std::isfinite(ap)) ap = 0;
+	    	if (!std::isfinite(p0)) p0 = 0;
+	    	return TradeRecord(IStockApi::Trade::fromJSON(v), np, ap, p0);
 	    }
 	    json::Value toJSON() const {
 	    	return IStockApi::Trade::toJSON().merge(json::Value(json::object,{
