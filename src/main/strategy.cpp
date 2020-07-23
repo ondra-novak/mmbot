@@ -18,7 +18,9 @@
 #include "strategy_stairs.h"
 #include "strategy_hyperbolic.h"
 #include "strategy_exponencial.h"
+#include "strategy_hypersquare.h"
 #include "strategy_sinh.h"
+#include "strategy_keepvalue_limited.h"
 
 static json::NamedEnum<Strategy_PLFromPos::CloseMode> strCloseMode ({
 		{Strategy_PLFromPos::always_close,"always_close"},
@@ -96,6 +98,18 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 		cfg.accum = config["accum"].getNumber();
 		cfg.optp = config["optp"].getNumber();
 		return Strategy(new Strategy_Exponencial(cfg));
+	} else if (id == Strategy_HyperSquare::id) {
+		Strategy_HyperSquare::Config cfg;
+		cfg.ea = config["ea"].getNumber();
+		cfg.accum = config["accum"].getNumber();
+		cfg.optp = config["optp"].getNumber();
+		return Strategy(new Strategy_HyperSquare(cfg));
+	} else if (id == Strategy_KVLimited::id) {
+		Strategy_KVLimited::Config cfg;
+		cfg.ea = config["ea"].getNumber();
+		cfg.accum = config["accum"].getNumber();
+		cfg.optp = config["optp"].getNumber();
+		return Strategy(new Strategy_KVLimited(cfg));
 	} else if (id == Strategy_KeepValue::id) {
 		Strategy_KeepValue::Config cfg;
 		cfg.ea = config["ea"].getNumber();
