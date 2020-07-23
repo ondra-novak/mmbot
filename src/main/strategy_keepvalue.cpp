@@ -95,7 +95,7 @@ double Strategy_KeepValue::calcA(const State &st, const Config &cfg, double pric
 }
 
 Strategy_KeepValue::BudgetInfo Strategy_KeepValue::getBudgetInfo() const {
-	return BudgetInfo{calcAccountValue(st, cfg, st.p), st.a+cfg.ea};
+	return BudgetInfo{calcK(), st.a+cfg.ea};
 }
 
 double Strategy_KeepValue::calcNormalizedProfit(const State &st, const Config &cfg, double tradePrice, double tradeSize) {
