@@ -583,7 +583,7 @@ App.prototype.fillForm = function (src, trg) {
 	function powerCalc(x) {return adjNumN(Math.pow(10,x)*0.01);};
 
 	
-	if (data.strategy == "halfhalf" || data.strategy == "keepvalue" || data.strategy == "exponencial"|| data.strategy == "kvlimited"||state.strategy == "hypersquare") {
+	if (data.strategy == "halfhalf" || data.strategy == "keepvalue" || data.strategy == "exponencial"|| data.strategy == "kvlimited"||data.strategy == "hypersquare") {
 		data.acum_factor = filledval(defval(src.strategy.accum,0)*100,0);
 		data.external_assets = filledval(src.strategy.ea,0);
 		data.kv_valinc = filledval(src.strategy.valinc,0);

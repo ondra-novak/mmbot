@@ -73,7 +73,7 @@ public:
 		double norm_profit;
 		double norm_accum;
 		double neutral_price;
-		bool manual_trade;
+		bool manual_trade = false;
 
 		TradeRecord(const IStockApi::Trade &t, double norm_profit, double norm_accum, double neutral_price, bool manual = false)
 			:IStockApi::Trade(t),norm_profit(norm_profit),norm_accum(norm_accum),neutral_price(neutral_price),manual_trade(manual) {}
@@ -94,7 +94,7 @@ public:
 	    			json::Value("np",norm_profit),
 					json::Value("ap",norm_accum),
 					json::Value("p0",neutral_price),
-	    			json::Value("man",manual_trade?json::Value():json::Value(true))
+	    			json::Value("man",manual_trade?json::Value(true):json::Value())
 	    	}));
 	    }
 
