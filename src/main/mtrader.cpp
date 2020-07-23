@@ -376,6 +376,7 @@ void MTrader::perform(bool manually) {
 
 		//save state
 		saveState();
+		first_cycle = false;
 
 	} catch (std::exception &e) {
 		statsvc->reportTrades(trades);
@@ -955,6 +956,9 @@ bool MTrader::processTrades(Status &st) {
 
 	for (auto &&t : new_trades) {
 
+
+		if (t.eff_price <= 0 || t.price <= 0) throw std::runtime_error("Broker error - trade negative price");
+
 		tempPr.tradeId = t.id.toString().str();
 		tempPr.size = t.eff_size;
 		tempPr.price = t.eff_price;
@@ -968,9 +972,13 @@ bool MTrader::processTrades(Status &st) {
 			z.second = st.currencyBalance;
 		else
 			z.second -= t.eff_size * t.eff_price;
-		auto norm = strategy.onTrade(minfo, t.eff_price, t.eff_size, z.first, z.second);
-		trades.push_back(TWBItem(t, last_np+=norm.normProfit, last_ap+=norm.normAccum, norm.neutralPrice));
-		lastPriceOffset = t.price - st.spreadCenter;
+		if (cfg.enabled || first_cycle) {
+			auto norm = strategy.onTrade(minfo, t.eff_price, t.eff_size, z.first, z.second);
+			trades.push_back(TWBItem(t, last_np+=norm.normProfit, last_ap+=norm.normAccum, norm.neutralPrice));
+			lastPriceOffset = t.price - st.spreadCenter;
+		} else {
+			trades.push_back(TWBItem(t, last_np, last_ap, 0, true));
+		}
 	}
 	return true;
 }

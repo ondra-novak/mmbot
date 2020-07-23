@@ -57,11 +57,7 @@ PStrategy Strategy_KeepValue::onIdle(
 	}
 }
 
-double Strategy_KeepValue::calcAccountValue(const State &st, const Config &cfg, double price) {
-	double k = calcK(st, cfg);
-	double v = k * std::log(price/k) + 2*k;
-	return v;
-}
+
 
 double Strategy_KeepValue::calcReqCurrency(const State &st, const Config &cfg, double price) {
 	double k = calcK(st, cfg);

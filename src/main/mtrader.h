@@ -256,6 +256,7 @@ protected:
 	DynMultControl dynmult;
 	bool need_load = true;
 	bool recalc = true;
+	bool first_cycle = true;
 	double lastPriceOffset = 0;
 	json::Value test_backup;
 	json::Value lastTradeId = nullptr;
