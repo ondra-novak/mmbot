@@ -648,10 +648,13 @@ bool WebCfg::reqTraders(simpleServer::HTTPRequest req, ondra_shared::StrViewA vp
 							Value currency = st["currency"];
 							trl->setInternalBalancies(assets.getNumber(), currency.getNumber());
 						}
+						MTrader::Status mst = trl->getMarketStatus();
+						strategy.onIdle(trl->getMarketInfo(), mst.ticker, mst.assetBalance, mst.currencyBalance);
 						if (!strategy.isValid()) {
 							req.sendErrorPage(409,"","Settings was not accepted");
 						} else {
 							trl->setStrategy(strategy);
+							trl->saveState();
 							req.sendResponse("application/json","true",202);
 						}
 					}

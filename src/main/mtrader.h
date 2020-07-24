@@ -221,6 +221,8 @@ public:
 	std::optional<double> getInternalCurrencyBalance() const;
 
 
+	void saveState();
+
 
 protected:
 	class DynMultControl {
@@ -276,7 +278,6 @@ protected:
 	PerformanceReport tempPr;
 
 	void loadState();
-	void saveState();
 
 	double raise_fall(double v, bool raise) const;
 

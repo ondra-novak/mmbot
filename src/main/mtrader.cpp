@@ -860,7 +860,7 @@ void MTrader::loadState() {
 }
 
 void MTrader::saveState() {
-	if (storage == nullptr) return;
+	if (storage == nullptr || need_load) return;
 	json::Object obj;
 
 	{
