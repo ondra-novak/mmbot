@@ -218,6 +218,11 @@ void MTrader::perform(bool manually) {
 					&& (status.ticker.time - trades.back().time)/60000 > cfg.grant_trade_minutes;
 
 
+			if (achieve_mode) {
+				achieve_mode = !checkAchieveModeDone(status);
+				grant_trade |= achieve_mode;
+			}
+
 			if (recalc) {
 				update_dynmult(lastTradeSize > 0, lastTradeSize < 0);
 				if (cfg.zigzag) updateZigzagLevels();
@@ -818,6 +823,7 @@ void MTrader::loadState() {
 			bool cfg_sliding = state["cfg_sliding_spread"].getBool();
 			if (cfg_sliding != cfg.dynmult_sliding)
 				lastPriceOffset = 0;
+			achieve_mode = state["achieve_mode"].getBool();
 		}
 		auto chartSect = st["chart"];
 		if (chartSect.defined()) {
@@ -877,6 +883,7 @@ void MTrader::saveState() {
 		st.set("lastPriceOffset",lastPriceOffset);
 		st.set("cfg_sliding_spread",cfg.dynmult_sliding);
 		st.set("private_chart", minfo.private_chart||minfo.simulator);
+		st.set("achieve_mode", achieve_mode);
 	}
 	{
 		auto ch = obj.array("chart");
@@ -972,7 +979,7 @@ bool MTrader::processTrades(Status &st) {
 			z.second = st.currencyBalance;
 		else
 			z.second -= t.eff_size * t.eff_price;
-		if (cfg.enabled || first_cycle) {
+		if (!achieve_mode && (cfg.enabled || first_cycle)) {
 			auto norm = strategy.onTrade(minfo, t.eff_price, t.eff_size, z.first, z.second);
 			trades.push_back(TWBItem(t, last_np+=norm.normProfit, last_ap+=norm.normAccum, norm.neutralPrice));
 			lastPriceOffset = t.price - st.spreadCenter;
@@ -1010,6 +1017,7 @@ void MTrader::repair() {
 	}
 	currency_balance.reset();
 	strategy.reset();
+	achieve_mode = false;
 
 	if (!trades.empty()) {
 		stock.reset();
@@ -1373,5 +1381,22 @@ void MTrader::setInternalBalancies(double assets, double currency) {
 void MTrader::DynMultControl::reset() {
 	mult_buy = 1.0;
 	mult_sell = 1.0;
+}
+
+void MTrader::activateAchieveMode(double position) {
+	strategy.reset();
+	auto tk = stock.getTicker(cfg.pairsymb);
+	auto cur = stock.getBalance(minfo.currency_symbol, cfg.pairsymb);
+	strategy.onIdle(minfo, tk, position, cur);
+	achieve_mode = true;
+	saveState();
+}
+
+bool MTrader::checkAchieveModeDone(const Status &st) {
+	double eq = strategy.getEquilibrium(st.assetBalance);
+	if (!std::isfinite(eq)) return false;
+	double low = eq * std::exp(-st.curStep);
+	double hi = eq * std::exp(st.curStep);
+	return st.curPrice >= low && st.curPrice <=hi;
 
 }

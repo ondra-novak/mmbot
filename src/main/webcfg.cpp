@@ -576,8 +576,23 @@ bool WebCfg::reqTraders(simpleServer::HTTPRequest req, ondra_shared::StrViewA vp
 					req.sendResponse(std::move(hdr), "true");
 				} else if (cmd == "repair") {
 					if (!req.allowMethods({"POST"})) return true;
-					trl->repair();
-					req.sendResponse(std::move(hdr), "true");
+					trl.release();
+					req->readBodyAsync(1000,[tr, hdr=std::move(hdr)](HTTPRequest req) mutable {
+						BinaryView data = req.getUserBuffer();
+						auto trl = tr.lock();
+						if (data.empty()) {
+							trl->repair();
+						} else {
+							auto r = json::Value::fromString(StrViewA(data));
+							auto achieve = r["achieve"];
+							if (achieve.hasValue()) {
+								trl->activateAchieveMode(achieve.getNumber());
+							} else {
+								trl->repair();
+							}
+						}
+						req.sendResponse(std::move(hdr), "true");
+					});
 				} else if (cmd == "broker") {
 					StrViewA nx = splt();
 					StrViewA vpath = path;

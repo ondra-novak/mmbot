@@ -720,6 +720,23 @@ the same order, they are ordered by its ID - this is the default ordering. Modif
 </template>
 
 
+<template id="reset_strategy">
+<div class="dialog"><div class="reset_strategy">
+<h2>Reset strategy</h2>
+<p>This operation resets an internal state of the strategy. The purpose of this operation is to solve any strange behaviour of the strategy. However, this can also cause poor performance or loss, because the internal state of the strategy can hold important informations about your trading</p>
+<x-form>
+<label><span>Recommended initial position</span><input type="number" readonly="readonly" data-name="rpos" tabindex="-1"></label>
+<label><span>Set position</span><input type="number" placeholder="Do not change position" data-name="setpos"></label>
+<div class="note">Sends orders to achieve specified position</div>
+<div class="buttons">
+<button data-name="ok">Reset</button>
+<button data-name="cancel">Cancel</button>
+</div>
+</x-form>
+</div>
+</div>
+</template> 
+
 <script src="../res/template.js" type="text/javascript"></script>
 <script src="../res/common.js" type="text/javascript"></script>
 <script src="../res/ui.js" type="text/javascript"></script>

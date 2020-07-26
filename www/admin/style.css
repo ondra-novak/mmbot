@@ -973,6 +973,24 @@ x-form.trading .chart .spinner {
 
 .upload_dialog  div.progress > div {background: #00ff0073;height:  2em;transition: 1s all linear;position: absolute;left: 0;top: 0;}
 
+.reset_strategy {
+
+}
+
+.reset_strategy x-form {
+	margin: 2em 1em;
+	text-align: left;
+}
+.reset_strategy x-form div.note {
+	text-align: right;
+	font-style: italic;
+}
+.reset_strategy x-form div.buttons {
+	text-align: right;
+	margin: 1em 0;
+}
+
+
 @media all and (max-width: 15cm) { 
 
 .pairactions img {width: 1.3cm;height: 1.3cm;margin: -0.1cm;}
@@ -1058,6 +1076,7 @@ input,select,button,textarea {
 	flex-grow:0;
 	width: 11cm;
 }
+
 
 }
 

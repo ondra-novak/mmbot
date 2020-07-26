@@ -184,7 +184,7 @@ public:
 
 	Config getConfig() {return cfg;}
 
-	const IStockApi::MarketInfo getMarketInfo() const {return minfo;}
+	const IStockApi::MarketInfo &getMarketInfo() const {return minfo;}
 
 	bool eraseTrade(std::string_view id, bool trunc);
 	void reset();
@@ -222,6 +222,7 @@ public:
 
 
 	void saveState();
+	void activateAchieveMode(double position);
 
 
 protected:
@@ -259,6 +260,7 @@ protected:
 	bool need_load = true;
 	bool recalc = true;
 	bool first_cycle = true;
+	bool achieve_mode = false;
 	double lastPriceOffset = 0;
 	json::Value test_backup;
 	json::Value lastTradeId = nullptr;
@@ -314,6 +316,8 @@ private:
 
 	void initialize();
 	mutable std::uint64_t period_cache = 0;
+
+	bool checkAchieveModeDone(const Status &st);
 };
 
 

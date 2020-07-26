@@ -261,6 +261,7 @@ function filledval(v,w) {
 
 App.prototype.fillForm = function (src, trg) {
 	var data = {};	
+	var initial_pos;
 	data.id = src.id;
 	data.title = src.title;
 	data.symbol = src.pair_symbol;	
@@ -462,6 +463,7 @@ App.prototype.fillForm = function (src, trg) {
 					.then(function(r){
 						recalcStrategy.ip = false;
 						trg.setData({range_min_price:adjNum(r.min), range_max_price:adjNum(r.max), range_initial:adjNum(r.initial)});
+						initial_pos = adjNumN(r.initial);
 						if (recalcStrategy.queued) {
 							recalcStrategy();
 						}
@@ -664,7 +666,8 @@ App.prototype.fillForm = function (src, trg) {
 
 	
 	
-	data.icon_repair={"!click": this.repairTrader.bind(this, src.id)};
+	data.icon_repair={"!click": function() {
+		this.repairTrader(src.id,initial_pos)}.bind(this)};
 	data.icon_reset={"!click": this.resetTrader.bind(this, src.id)};
 	data.icon_delete={"!click": this.deleteTrader.bind(this, src.id)};
 	data.icon_undo={"!click": this.undoTrader.bind(this, src.id)};
@@ -983,18 +986,32 @@ App.prototype.resetTrader = function(id) {
 	}.bind(this));
 }
 
-App.prototype.repairTrader = function(id) {
-		this.dlgbox({"text":this.strtable.askrepair,
-		"ok":this.strtable.yes,
-		"cancel":this.strtable.no},"confirm").then(function(){
+App.prototype.repairTrader = function(id, initial) {
+		var form=TemplateJS.View.fromTemplate("reset_strategy");
+		var view;
+		var p = this.dlgbox({rpos:{
+			value:initial,
+            "!click":function(){
+                view.setItemValue("setpos",this.value);	
+            }}
+			},"reset_strategy");
 
-		var tr = this.traders[id];
-		this.waitScreen(fetch_with_error(
-			this.traderURL(tr.id)+"/repair",
-			{method:"POST"})).then(function() {
-						this.updateTopMenu(tr.id);				
-			}.bind(this));
+		p.then(function(){
+			var tr = this.traders[id];
+			var data = view.readData();
+			var req ="";
+			if (!isNaN(data.setpos)) {
+                req=JSON.stringify({
+                	"achieve":data.setpos
+                });
+			}
+			this.waitScreen(fetch_with_error(
+				this.traderURL(tr.id)+"/repair",
+				{method:"POST",body:req})).then(function() {
+							this.updateTopMenu(tr.id);				
+				}.bind(this));
 	}.bind(this));
+    view = p.view;
 }
 
 App.prototype.cancelAllOrders = function(id) {
