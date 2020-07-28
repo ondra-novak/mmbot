@@ -318,6 +318,7 @@ App.prototype.fillForm = function (src, trg) {
 		data.balance_asset= adjNum(invSize(pair.asset_balance,pair.invert_price));
 		data.balance_currency = adjNum(pair.currency_balance);
 		data.price= adjNum(invPrice(pair.price,pair.invert_price));
+		data.fees =adjNum(pair.fees*100,4);
 		data.leverage=pair.leverage?pair.leverage+"x":"n/a";
 		trg._balance = pair.currency_balance;
 

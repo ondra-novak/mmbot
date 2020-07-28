@@ -629,6 +629,9 @@ MTrader::Order MTrader::calculateOrderFeeLess(
 			order.price = curPrice;
 		}
 
+		logDebug("getNewOrder(curPrice=$1, newPrice=$2, dir=$3, assets=$4, currencies=$5, fee=$6) = (price=$7, size=$8, alert=$9)",
+				curPrice, cfg.dynmult_scale?newPrice:newPriceNoScale,dir, balance, currency, minfo.fees,order.price, order.size,(int)order.alert);
+
 		sz = order.size;
 
 

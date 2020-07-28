@@ -394,7 +394,7 @@ double Interface::getFees(const std::string_view &pair) {
 		iter = fees.find(pair);
 	}
 	if (iter == fees.end())	return 0.001;
-	return iter->second;
+	return std::min(iter->second,0.002);
 }
 
 

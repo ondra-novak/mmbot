@@ -362,7 +362,7 @@ inline Interface::MarketInfo Interface::getMarketInfo(const std::string_view& pa
 			price_step,
 			asset_step,
 			minVol,
-			0,
+			getFees(pair),
 			income
 		};
 	} else {
