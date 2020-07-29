@@ -478,6 +478,16 @@ App.prototype.fillForm = function (src, trg) {
 			}
 		}
 		
+		data.err_external_assets={
+			"classList":{mark:!pair.asset_balance && !pair.leverage}
+		};
+		data.err_external_assets_margin={
+			"classList":{mark:!pair.asset_balance && pair.leverage && !pair.invert_price}
+		};
+		data.err_external_assets_inverse={
+			"classList":{mark:!pair.asset_balance && pair.invert_price}
+		};
+		
 		if (first_fetch) {
 			["strategy","external_assets", "hp_dtrend","hp_longonly","hp_power", "hp_maxloss", "hp_recalc", "hp_asym","hp_powadj", "hp_extbal", "hp_reduction","hp_dynred","exp_optp"]
 			.forEach(function(item){
