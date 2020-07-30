@@ -120,6 +120,11 @@ public:
 		return ptr->getBudgetInfo();
 	}
 
+	auto getBudgetExtraInfo(double price, double currency) const {
+		return ptr->getBudgetExtraInfo(price, currency);
+	}
+
+
 	static Strategy create(std::string_view id, json::Value config);
 
 	static void setConfig(const ondra_shared::IniConfig::Section &cfg);

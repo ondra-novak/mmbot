@@ -91,7 +91,8 @@ double Strategy_KeepValue::calcA(const State &st, const Config &cfg, double pric
 }
 
 Strategy_KeepValue::BudgetInfo Strategy_KeepValue::getBudgetInfo() const {
-	return BudgetInfo{calcK(), st.a+cfg.ea};
+	double cur = calcReqCurrency(st,cfg,st.p);
+	return BudgetInfo{cur+calcK(), st.a+cfg.ea};
 }
 
 double Strategy_KeepValue::calcNormalizedProfit(const State &st, const Config &cfg, double tradePrice, double tradeSize) {
@@ -203,6 +204,12 @@ json::Value Strategy_KeepValue::dumpStatePretty(
 double Strategy_KeepValue::calcInitialPosition(const IStockApi::MarketInfo &minfo, double price, double assets, double currency) const {
 	if (minfo.leverage) return (currency/price)*0.5;
 	else return (assets +cfg.ea+ currency/price)*0.5;
+}
+
+std::optional<IStrategy::BudgetExtraInfo> Strategy_KeepValue::getBudgetExtraInfo(double price, double currency) const {
+	double b = calcK(st, cfg)+calcReqCurrency(st,cfg,price);
+	double e = (st.a+cfg.ea) * price + currency - b;
+	return BudgetExtraInfo {b, e};
 }
 
 

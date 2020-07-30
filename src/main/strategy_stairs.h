@@ -90,6 +90,10 @@ public:
 	virtual PStrategy importState(json::Value src,const IStockApi::MarketInfo &minfo) const;
 	virtual double calcInitialPosition(const IStockApi::MarketInfo &minfo, double price, double assets, double currency) const override;
 	virtual BudgetInfo getBudgetInfo() const override;
+	virtual std::optional<BudgetExtraInfo> getBudgetExtraInfo(double price, double currency) const {
+		return std::optional<BudgetExtraInfo>();
+	}
+
 
 
 	static std::string_view id;

@@ -850,7 +850,7 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req)  {
 				Value data = Value::fromString(StrViewA(BinaryView(req.getUserBuffer())));
 				Value broker = data["broker"];
 				Value trader = data["trader"];
-				Value pair = data["pair"];
+				Value symb = data["pair"];
 				std::string p;
 
 				trlist.lock()->stockSelector.checkBrokerSubaccount(broker.getString());
@@ -865,10 +865,10 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req)  {
 				if (api == nullptr) {
 					return req.sendErrorPage(404);
 				}
-				if (tr && !pair.hasValue()) {
+				if (tr && !symb.hasValue()) {
 					p = trl->getConfig().pairsymb;
 				} else {
-					p = pair.toString().str();
+					p = symb.toString().str();
 				}
 
 
@@ -878,8 +878,9 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req)  {
 
 				Value strategy;
 				Value position;
+				Strategy stratobj=trl->getStrategy();
 				if (tr) {
-					strategy = trl->getStrategy().dumpStatePretty(trl->getMarketInfo());
+					strategy = stratobj.dumpStatePretty(trl->getMarketInfo());
 					auto trades = trl->getTrades();
 					auto pos = std::accumulate(trades.begin(), trades.end(),0.0,[&](
 							auto &&a, auto &&b
@@ -900,10 +901,23 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req)  {
 						("version", binfo.version)
 						("settings", binfo.settings)
 						("trading_enabled", binfo.trading_enabled));
-				result.set("pair", getPairInfo(*api, p, internalBalance, internalCurrencyBalance));
+				Value pair = getPairInfo(*api, p, internalBalance, internalCurrencyBalance);
+				result.set("pair", pair);
 				result.set("orders", getOpenOrders(*api, p));
 				result.set("strategy", strategy);
 				result.set("position", position);
+				if (pair["leverage"].getNumber() == 0)
+				{
+					auto b = stratobj.getBudgetExtraInfo(
+							pair["price"].getNumber(),
+							pair["currency_balance"].getNumber());
+					if (b.has_value()) {
+						result.set("budget",Object
+								("total", b->total)
+								("extra",b->extra));
+					}
+				}
+
 
 				req.sendResponse("application/json", Value(result).stringify());
 			} catch (std::exception &e) {

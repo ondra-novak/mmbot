@@ -487,6 +487,13 @@ App.prototype.fillForm = function (src, trg) {
 		data.err_external_assets_inverse={
 			"classList":{mark:!pair.asset_balance && pair.invert_price}
 		};
+		if (state.budget) {
+		    data.calc_budget = adjNum(state.budget.total);
+		    data.calc_budget_extra = adjNum(state.budget.extra);
+		    data.l_budget = {".hidden":false};
+		} else {
+            data.l_budget = {".hidden":true};			
+		}
 		
 		if (first_fetch) {
 			["strategy","external_assets", "hp_dtrend","hp_longonly","hp_power", "hp_maxloss", "hp_recalc", "hp_asym","hp_powadj", "hp_extbal", "hp_reduction","hp_dynred","exp_optp"]

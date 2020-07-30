@@ -140,3 +140,9 @@ double Strategy_HalfHalf::calcInitialPosition(const IStockApi::MarketInfo &minfo
 	if (minfo.leverage) return (currency/price)*0.5;
 	else return (assets + cfg.ea+currency/price)*0.5;
 }
+
+std::optional<IStrategy::BudgetExtraInfo> Strategy_HalfHalf::getBudgetExtraInfo(double price, double currency) const {
+	double b = 2*price*(a+cfg.ea);
+	double e = (a+cfg.ea) * price + currency - b;
+	return BudgetExtraInfo {b, e};
+}

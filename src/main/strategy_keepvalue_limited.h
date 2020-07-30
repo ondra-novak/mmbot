@@ -54,6 +54,7 @@ public:
 	PStrategy init(const IStockApi::MarketInfo &m, double price, double assets, double cur) const;
 	virtual double calcInitialPosition(const IStockApi::MarketInfo & , double price, double assets, double currency) const override;
 	virtual BudgetInfo getBudgetInfo() const override;
+	virtual std::optional<IStrategy::BudgetExtraInfo> getBudgetExtraInfo(double price, double currency) const override;
 
 	static double calcAccumulation(const State &st, const Config &cfg, double price);
 	static double calcReqCurrency(double w, double k, double price);

@@ -259,3 +259,9 @@ double Strategy_KVLimited::calcInitialPosition(const IStockApi::MarketInfo &minf
 	double a= calcA(w,k,price)-cfg.ea;
 	return a;
 }
+
+std::optional<IStrategy::BudgetExtraInfo> Strategy_KVLimited::getBudgetExtraInfo(double price, double currency) const {
+	double b = calcAccountValue(st, cfg.ea, price);
+	double e = (st.a+cfg.ea) * price + currency - b;
+	return BudgetExtraInfo {b, e};
+}
