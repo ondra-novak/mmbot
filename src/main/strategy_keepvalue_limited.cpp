@@ -221,17 +221,13 @@ double Strategy_KVLimited::calcW(double a, double k, double p) {
 
 double Strategy_KVLimited::findRoot(double w, double k, double p, double c) {
 	auto base_fn = [=](double x) {
-		return calcReqCurrency(w, k, x) - c;
+		return calcReqCurrency(w, k, x);
 	};
 
 	//calculate difference between ideal balance and current balance (<0)
 	double diff = c - base_fn(p);
-	//calculate maximum balance - difference must be below maximum
-	double max = w * k;
 	//if difference is positive, we have more money than need, so return 0
 	if (diff >= 0) return 0;
-	//if difference is negative and below maximum, result is infinity - cannot be calculated
-	if (diff < -max) return std::numeric_limits<double>::infinity();
 
 	//function to find root (root = equal zero)
 	auto fn = [=](double x) {
