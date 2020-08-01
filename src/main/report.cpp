@@ -310,6 +310,8 @@ void Report::setMisc(StrViewA symb, const MiscData &miscData) {
 		("tt",miscData.total_time)
 		("bt",miscData.budget_total)
 		("ba",miscData.budget_assets);
+	if (miscData.budget_extra.has_value())
+		output("be", *miscData.budget_extra);
 
 	if (inverted) {
 

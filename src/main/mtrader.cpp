@@ -343,6 +343,7 @@ void MTrader::perform(bool manually) {
 			//report misc
 			auto minmax = strategy.calcSafeRange(minfo, status.assetBalance, status.currencyBalance);
 			auto budget = strategy.getBudgetInfo();
+			auto budget_extra = strategy.getBudgetExtraInfo(status.curPrice, status.currencyBalance);
 
 			statsvc->reportMisc(IStatSvc::MiscData{
 				last_trade_dir,
@@ -354,6 +355,7 @@ void MTrader::perform(bool manually) {
 				minmax.max,
 				budget.total,
 				budget.assets,
+				budget_extra.has_value() && minfo.leverage==0?std::optional<double>(budget_extra->extra):std::optional<double>(),
 				trades.size(),
 				trades.empty()?0:(trades.back().time-trades[0].time)
 			});

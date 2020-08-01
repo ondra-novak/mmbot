@@ -79,6 +79,15 @@ select > option[disabled] {
 	display: none;
 }
 
+.has_budget_extra .budgetextra {
+	display: table-row;
+}
+
+.budgetextra {
+	display: none;
+}
+
+
 #chartarea > div {
 	width: 16cm;
 	margin: 0.2cm 0.2cm 0 0.2cm;

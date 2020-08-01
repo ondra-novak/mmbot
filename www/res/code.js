@@ -306,8 +306,10 @@ function app_start(){
 					} else {
 						rate = "E";
 					}
+					if (misc.be !== undefined) misc.be_pp=misc.be/misc.bt*100;
 					setField(curchart,"rate",rate,{["rate"+rate]:true,rate:true});
 					curchart.classList.toggle("disable_na_p",isNaN(misc.avgha));
+					curchart.classList.toggle("has_budget_extra",misc.be!==undefined);
 					
 				} else {
 					misc.pnorm = 0;
