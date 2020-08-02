@@ -878,8 +878,8 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req)  {
 
 				Value strategy;
 				Value position;
-				Strategy stratobj=trl->getStrategy();
 				if (tr) {
+					Strategy stratobj=trl->getStrategy();
 					strategy = stratobj.dumpStatePretty(trl->getMarketInfo());
 					auto trades = trl->getTrades();
 					auto pos = std::accumulate(trades.begin(), trades.end(),0.0,[&](
@@ -906,8 +906,9 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req)  {
 				result.set("orders", getOpenOrders(*api, p));
 				result.set("strategy", strategy);
 				result.set("position", position);
-				if (pair["leverage"].getNumber() == 0)
+				if (pair["leverage"].getNumber() == 0 && tr)
 				{
+					Strategy stratobj=trl->getStrategy();
 					auto b = stratobj.getBudgetExtraInfo(
 							pair["price"].getNumber(),
 							pair["currency_balance"].getNumber());
