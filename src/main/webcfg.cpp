@@ -878,6 +878,7 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req)  {
 
 				Value strategy;
 				Value position;
+				Value tradeCnt;
 				if (tr) {
 					Strategy stratobj=trl->getStrategy();
 					strategy = stratobj.dumpStatePretty(trl->getMarketInfo());
@@ -888,6 +889,7 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req)  {
 						return a + b.eff_size;
 					});
 					position = pos;
+					tradeCnt = trades.size();
 				}
 				std::optional<double> internalBalance, internalCurrencyBalance;
 				if (trl) {
@@ -906,6 +908,7 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req)  {
 				result.set("orders", getOpenOrders(api, p));
 				result.set("strategy", strategy);
 				result.set("position", position);
+				result.set("trades", tradeCnt);
 				if (pair["leverage"].getNumber() == 0 && tr)
 				{
 					Strategy stratobj=trl->getStrategy();

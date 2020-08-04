@@ -17,6 +17,7 @@
 #include "emulator.h"
 #include "ibrokercontrol.h"
 #include "sgn.h"
+#include "swap_broker.h"
 
 using ondra_shared::logDebug;
 using ondra_shared::logInfo;
@@ -131,6 +132,9 @@ bool MTrader::Order::isSimilarTo(const IStockApi::Order& other, double step, boo
 PStockApi MTrader::selectStock(IStockSelector &stock_selector, const Config &conf) {
 	PStockApi s = stock_selector.getStock(conf.broker);
 	if (s == nullptr) throw std::runtime_error(std::string("Unknown stock market name: ")+std::string(conf.broker));
+	if (conf.swap_symbols) {
+		s = std::make_shared<SwapBroker>(s);
+	}
 	if (conf.dry_run) {
 		auto new_s = std::make_shared<EmulatorAPI>(s, 0);
 		return new_s;
@@ -814,6 +818,7 @@ void MTrader::loadState() {
 
 
 		auto state = st["state"];
+		bool swapped = cfg.swap_symbols;
 		if (state.defined()) {
 			dynmult.setMult(state["buy_dynmult"].getNumber(),state["sell_dynmult"].getNumber());
 			if (cfg.internal_balance) {
@@ -830,6 +835,7 @@ void MTrader::loadState() {
 			if (cfg_sliding != cfg.dynmult_sliding)
 				lastPriceOffset = 0;
 			achieve_mode = state["achieve_mode"].getBool();
+			swapped = state["swapped"].getBool();
 		}
 		auto chartSect = st["chart"];
 		if (chartSect.defined()) {
@@ -858,13 +864,17 @@ void MTrader::loadState() {
 				}
 			}
 		}
-		strategy.importState(st["strategy"], minfo);
+		if (cfg.swap_symbols == swapped) {
+			strategy.importState(st["strategy"], minfo);
+		}
+
 		if (cfg.dry_run) {
 			test_backup = st["test_backup"];
 			if (!test_backup.hasValue()) {
 				test_backup = st.replace("chart",json::Value());
 			}
 		}
+
 	}
 	tempPr.broker = cfg.broker;
 	tempPr.magic = magic;
@@ -893,9 +903,10 @@ void MTrader::saveState() {
 		st.set("lastTradeId",lastTradeId);
 		st.set("lastPriceOffset",lastPriceOffset);
 		st.set("cfg_sliding_spread",cfg.dynmult_sliding);
-//		st.set("private_chart", minfo.private_chart||minfo.simulator);
-		st.set("private_chart", minfo.private_chart||minfo.simulator||minfo.invert_price); //TODO temporary
+		st.set("private_chart", minfo.private_chart||minfo.simulator);
+//		st.set("private_chart", minfo.private_chart||minfo.simulator||minfo.invert_price); //TODO temporary
 		st.set("achieve_mode", achieve_mode);
+		st.set("swapped", cfg.swap_symbols);
 	}
 	{
 		auto ch = obj.array("chart");
@@ -1399,7 +1410,7 @@ void MTrader::activateAchieveMode(double position) {
 	strategy.reset();
 	auto tk = stock->getTicker(cfg.pairsymb);
 	auto cur = stock->getBalance(minfo.currency_symbol, cfg.pairsymb);
-	strategy.onIdle(minfo, tk, position, cur);
+	strategy.onIdle(minfo, tk, (minfo.invert_price?-1.0:1.0)*position, cur);
 	achieve_mode = true;
 	saveState();
 }

@@ -525,7 +525,8 @@ App.prototype.fillForm = function (src, trg) {
 			data.linear_suggest_maxpos = {"!click":linStrategy_recomended_maxpos};
 			data.vis_spread = {"!click": this.init_spreadvis.bind(this, trg, src.id), ".disabled":false};
 			data.show_backtest= {"!click": this.init_backtest.bind(this, trg, src.id, src.pair_symbol, src.broker), ".disabled":false};
-			data.inverted_price=pair.invert_price?"true":"false";			
+			data.inverted_price=pair.invert_price?"true":"false";
+			data.swap_symbols_hide = {".hidden":!!(pair.leverage || state.trades)};			
 			linStrategy_recalc();
 			linStrategy_recalc_power();
 			var tmp = trg.readData(["cstep","max_pos"]);
@@ -656,6 +657,7 @@ App.prototype.fillForm = function (src, trg) {
 	data.enabled = src.enabled;
 	data.hidden = !!src.hidden;
 	data.dry_run = src.dry_run;
+	data.swap_symbols = !!src.swap_symbols;
 	data.accept_loss = filledval(src.accept_loss,0);
 	data.grant_trade_hours= filledval(src.grant_trade_hours,0);
 	data.spread_calc_stdev_hours = filledval(src.spread_calc_stdev_hours,3);
@@ -798,6 +800,7 @@ App.prototype.saveForm = function(form, src) {
 	trader.enabled = data.enabled;
 	trader.dry_run = data.dry_run;
 	trader.hidden = data.hidden;
+	trader.swap_symbols = data.swap_symbols;
 	this.advanced = data.advanced;
 	trader.accept_loss = data.accept_loss;
 	trader.grant_trade_hours = data.grant_trade_hours;
