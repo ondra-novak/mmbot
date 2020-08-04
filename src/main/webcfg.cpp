@@ -603,8 +603,8 @@ bool WebCfg::reqTraders(simpleServer::HTTPRequest req, ondra_shared::StrViewA vp
 					Object out;
 					auto chartx = trl->getChart();
 					StringView<MTrader::ChartItem> chart(chartx.data(), chartx.size());
-					auto &&broker = trl->getBroker();
-					broker.reset();
+					PStockApi broker = trl->getBroker();
+					broker->reset();
 					if (chart.length>600) chart = chart.substr(chart.length-600);
 					out.set("chart", Value(json::array,chart.begin(), chart.end(),[&](auto &&item) {
 						return Object("time", item.time)("last",item.last);

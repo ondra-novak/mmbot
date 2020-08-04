@@ -204,7 +204,6 @@ public:
 	void setStrategy(const Strategy &s) {strategy = s;}
 	void setInternalBalancies(double assets, double currency);
 
-	PStockApi getBroker() {return stock;}
 	PStockApi getBroker() const {return stock;}
 
 	struct VisRes {
