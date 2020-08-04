@@ -13,6 +13,7 @@
 #include <string_view>
 
 #include <imtjson/namedEnum.h>
+#include <memory>
 
 ///Interface definition for accessing a stockmarket
 /** Contains minimal set of operations need to be implemented to access the stockmarket */
@@ -304,10 +305,14 @@ public:
 	static json::NamedEnum<IStockApi::FeeScheme> strFeeScheme;
 };
 
+using PStockApi = std::shared_ptr<IStockApi>;
+
 class IStockSelector{
 public:
-	using EnumFn = std::function<void(std::string_view, IStockApi &)>;
-	virtual IStockApi *getStock(const std::string_view &stockName) const = 0;
+
+	using EnumFn = std::function<void(std::string_view, const PStockApi &)>;
+
+	virtual PStockApi getStock(const std::string_view &stockName) const = 0;
 	virtual void forEachStock(EnumFn fn) const = 0;
 };
 

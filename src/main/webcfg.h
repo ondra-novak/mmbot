@@ -143,7 +143,7 @@ protected:
 	bool reqLogout(simpleServer::HTTPRequest req, bool commit);
 	bool reqStop(simpleServer::HTTPRequest req);
 	bool reqLogin(simpleServer::HTTPRequest req);
-	bool reqBrokerSpec(simpleServer::HTTPRequest req, ondra_shared::StrViewA rest, IStockApi *api, ondra_shared::StrViewA broker_name);
+	bool reqBrokerSpec(simpleServer::HTTPRequest req, ondra_shared::StrViewA rest, PStockApi api, ondra_shared::StrViewA broker_name);
 	bool reqEditor(simpleServer::HTTPRequest req);
 	bool reqBacktest(simpleServer::HTTPRequest req);
 	bool reqSpread(simpleServer::HTTPRequest req);

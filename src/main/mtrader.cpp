@@ -82,6 +82,7 @@ void MTrader_Config::loadConfig(json::Value data, bool force_dry_run) {
 	dynmult_sliding = data["dynmult_sliding"].getValueOrDefault(false);
 	dynmult_mult = data["dynmult_mult"].getValueOrDefault(false);
 	zigzag = data["zigzag"].getValueOrDefault(false);
+	swap_symbols= data["swap_symbols"].getValueOrDefault(false);
 
 
 	if (dynmult_raise > 1e6) throw std::runtime_error("'dynmult_raise' is too big");
@@ -95,7 +96,7 @@ MTrader::MTrader(IStockSelector &stock_selector,
 		StoragePtr &&storage,
 		PStatSvc &&statsvc,
 		Config config)
-:stock(selectStock(stock_selector,config,ownedStock))
+:stock(selectStock(stock_selector,config))
 ,cfg(config)
 ,storage(std::move(storage))
 ,statsvc(std::move(statsvc))
@@ -103,7 +104,7 @@ MTrader::MTrader(IStockSelector &stock_selector,
 ,dynmult(cfg.dynmult_raise,cfg.dynmult_fall, cfg.dynmult_mode, cfg.dynmult_mult)
 {
 	//probe that broker is valid configured
-	stock.testBroker();
+	stock->testBroker();
 	magic = this->statsvc->getHash() & 0xFFFFFFFF;
 	std::random_device rnd;
 	uid = 0;
@@ -127,14 +128,14 @@ bool MTrader::Order::isSimilarTo(const IStockApi::Order& other, double step, boo
 }
 
 
-IStockApi &MTrader::selectStock(IStockSelector &stock_selector, const Config &conf,	std::unique_ptr<IStockApi> &ownedStock) {
-	IStockApi *s = stock_selector.getStock(conf.broker);
+PStockApi MTrader::selectStock(IStockSelector &stock_selector, const Config &conf) {
+	PStockApi s = stock_selector.getStock(conf.broker);
 	if (s == nullptr) throw std::runtime_error(std::string("Unknown stock market name: ")+std::string(conf.broker));
 	if (conf.dry_run) {
-		ownedStock = std::make_unique<EmulatorAPI>(*s, 0);
-		return *ownedStock;
+		auto new_s = std::make_shared<EmulatorAPI>(s, 0);
+		return new_s;
 	} else {
-		return *s;
+		return s;
 	}
 }
 
@@ -253,9 +254,9 @@ void MTrader::perform(bool manually) {
 
 				if (!cfg.enabled)  {
 					if (orders.buy.has_value())
-						stock.placeOrder(cfg.pairsymb,0,0,magic,orders.buy->id,0);
+						stock->placeOrder(cfg.pairsymb,0,0,magic,orders.buy->id,0);
 					if (orders.sell.has_value())
-						stock.placeOrder(cfg.pairsymb,0,0,magic,orders.sell->id,0);
+						stock->placeOrder(cfg.pairsymb,0,0,magic,orders.sell->id,0);
 					if (!cfg.hidden) statsvc->reportError(IStatSvc::ErrorObj("Automatic trading is disabled"));
 				} else {
 
@@ -402,7 +403,7 @@ void MTrader::perform(bool manually) {
 
 MTrader::OrderPair MTrader::getOrders() {
 	OrderPair ret;
-	auto data = stock.getOpenOrders(cfg.pairsymb);
+	auto data = stock->getOpenOrders(cfg.pairsymb);
 	for (auto &&x: data) {
 		try {
 			if (x.client_id == magic) {
@@ -410,14 +411,14 @@ MTrader::OrderPair MTrader::getOrders() {
 				if (o.size<0) {
 					if (ret.sell.has_value()) {
 						ondra_shared::logWarning("Multiple sell orders (trying to cancel)");
-						stock.placeOrder(cfg.pairsymb,0,0,json::Value(),x.id);
+						stock->placeOrder(cfg.pairsymb,0,0,json::Value(),x.id);
 					} else {
 						ret.sell = o;
 					}
 				} else {
 					if (ret.buy.has_value()) {
 						ondra_shared::logWarning("Multiple buy orders (trying to cancel)");
-						stock.placeOrder(cfg.pairsymb,0,0,json::Value(),x.id);
+						stock->placeOrder(cfg.pairsymb,0,0,json::Value(),x.id);
 					} else {
 						ret.buy = o;
 					}
@@ -441,7 +442,7 @@ void MTrader::setOrder(std::optional<IStockApi::Order> &orig, Order neworder, st
 		if (neworder.alert == IStrategy::Alert::forced) {
 			if (orig.has_value() && orig->id.hasValue()) {
 				//cancel current order
-				stock.placeOrder(cfg.pairsymb,0,0,nullptr,orig->id,0);
+				stock->placeOrder(cfg.pairsymb,0,0,nullptr,orig->id,0);
 			}
 			alert = neworder.price;
 			neworder.update(orig);
@@ -459,7 +460,7 @@ void MTrader::setOrder(std::optional<IStockApi::Order> &orig, Order neworder, st
 				replaceid = orig->id;
 				replaceSize = std::fabs(orig->size);
 			}
-			json::Value placeid = stock.placeOrder(
+			json::Value placeid = stock->placeOrder(
 						cfg.pairsymb,
 						n.size,
 						n.price,
@@ -499,7 +500,7 @@ MTrader::Status MTrader::getMarketStatus() const {
 
 
 // merge trades here
-	auto new_trades = stock.syncTrades(lastTradeId, cfg.pairsymb);
+	auto new_trades = stock->syncTrades(lastTradeId, cfg.pairsymb);
 	res.new_trades.lastId = new_trades.lastId;
 	for (auto &&k : new_trades.trades) {
 		if (last_trade->price == k.price) {
@@ -523,8 +524,8 @@ MTrader::Status MTrader::getMarketStatus() const {
 			if (internal_balance.has_value()) res.assetBalance += *internal_balance;
 			if (currency_balance.has_value()) res.currencyBalance += *currency_balance;
 		} else {
-			res.assetBalance = stock.getBalance(minfo.asset_symbol, cfg.pairsymb);
-			res.currencyBalance = stock.getBalance(minfo.currency_symbol, cfg.pairsymb);
+			res.assetBalance = stock->getBalance(minfo.asset_symbol, cfg.pairsymb);
+			res.currencyBalance = stock->getBalance(minfo.currency_symbol, cfg.pairsymb);
 		}
 	} else {
 		res.currencyBalance = *currency_balance;
@@ -533,9 +534,9 @@ MTrader::Status MTrader::getMarketStatus() const {
 
 
 
-	res.new_fees = stock.getFees(cfg.pairsymb);
+	res.new_fees = stock->getFees(cfg.pairsymb);
 
-	auto ticker = stock.getTicker(cfg.pairsymb);
+	auto ticker = stock->getTicker(cfg.pairsymb);
 	if (buy_alert.has_value() && *buy_alert > ticker.bid) ticker.bid = *buy_alert;
 	if (sell_alert.has_value() && *sell_alert < ticker.ask) ticker.ask = *sell_alert;
 	res.ticker = ticker;
@@ -760,12 +761,12 @@ void MTrader::modifyOrder(const ZigZagLevels &zlevs, double ,  Order &order) con
 
 void MTrader::initialize() {
 	std::string brokerImg;
-	const IBrokerIcon *bicon = dynamic_cast<const IBrokerIcon*>(&stock);
+	const IBrokerIcon *bicon = dynamic_cast<const IBrokerIcon*>(stock.get());
 	if (bicon)
 		brokerImg = bicon->getIconName();
 
 	try {
-		minfo = stock.getMarketInfo(cfg.pairsymb);
+		minfo = stock->getMarketInfo(cfg.pairsymb);
 
 		if (!cfg.hidden) {
 			this->statsvc->setInfo(
@@ -837,6 +838,11 @@ void MTrader::loadState() {
 				double ask = v["ask"].getNumber();
 				double bid = v["bid"].getNumber();
 				double last = v["last"].getNumber();
+				if (minfo.invert_price) {
+					ask = 1.0/ask;
+					bid = 1.0/bid;
+					last = 1.0/last;
+				}
 				std::uint64_t tm = v["time"].getUIntLong();
 
 				chart.push_back({tm,ask,bid,last});
@@ -887,16 +893,17 @@ void MTrader::saveState() {
 		st.set("lastTradeId",lastTradeId);
 		st.set("lastPriceOffset",lastPriceOffset);
 		st.set("cfg_sliding_spread",cfg.dynmult_sliding);
-		st.set("private_chart", minfo.private_chart||minfo.simulator);
+//		st.set("private_chart", minfo.private_chart||minfo.simulator);
+		st.set("private_chart", minfo.private_chart||minfo.simulator||minfo.invert_price); //TODO temporary
 		st.set("achieve_mode", achieve_mode);
 	}
 	{
 		auto ch = obj.array("chart");
 		for (auto &&itm: chart) {
 			ch.push_back(json::Object("time", itm.time)
-				  ("ask",itm.ask)
-				  ("bid",itm.bid)
-				  ("last",itm.last));
+				  ("ask",minfo.invert_price?1.0/itm.ask:itm.ask)
+				  ("bid",minfo.invert_price?1.0/itm.bid:itm.bid)
+				  ("last",minfo.invert_price?1.0/itm.last:itm.last));
 		}
 	}
 	{
@@ -1025,7 +1032,7 @@ void MTrader::repair() {
 	achieve_mode = false;
 
 	if (!trades.empty()) {
-		stock.reset();
+		stock->reset();
 		lastTradeId = nullptr;
 	}
 	double lastPrice = 0;
@@ -1390,8 +1397,8 @@ void MTrader::DynMultControl::reset() {
 
 void MTrader::activateAchieveMode(double position) {
 	strategy.reset();
-	auto tk = stock.getTicker(cfg.pairsymb);
-	auto cur = stock.getBalance(minfo.currency_symbol, cfg.pairsymb);
+	auto tk = stock->getTicker(cfg.pairsymb);
+	auto cur = stock->getBalance(minfo.currency_symbol, cfg.pairsymb);
 	strategy.onIdle(minfo, tk, position, cur);
 	achieve_mode = true;
 	saveState();

@@ -166,9 +166,9 @@ bool WebCfg::reqConfig(simpleServer::HTTPRequest req)  {
 							StrViewA broker = v.getKey();
 							auto trs = traders.lock();
 							trs->stockSelector.checkBrokerSubaccount(broker);
-							IStockApi *b = trs->stockSelector.getStock(broker);
-							if (b) {
-								IApiKey *apik = dynamic_cast<IApiKey *>(b);
+							PStockApi b = trs->stockSelector.getStock(broker);
+							if (b != nullptr) {
+								IApiKey *apik = dynamic_cast<IApiKey *>(b.get());
 								apik->setApiKey(v);
 							}
 						}
@@ -213,7 +213,7 @@ bool WebCfg::reqSerial(simpleServer::HTTPRequest req) {
 }
 
 
-static double getSafeBalance(IStockApi *api, std::string_view symb,  std::string_view pair) {
+static double getSafeBalance(const PStockApi &api, std::string_view symb,  std::string_view pair) {
 	try {
 		return api->getBalance(symb,pair);
 	} catch (...) {
@@ -237,7 +237,7 @@ bool WebCfg::reqBrokers(simpleServer::HTTPRequest req, ondra_shared::StrViewA re
 	if (rest.empty()) {
 		if (!req.allowMethods({"GET"})) return true;
 		Array brokers;
-		trlist.lock_shared()->stockSelector.forEachStock([&](const std::string_view &name,IStockApi &){
+		trlist.lock_shared()->stockSelector.forEachStock([&](const std::string_view &name,const PStockApi &){
 			brokers.push_back(name);
 		});
 		Object obj("entries", brokers);
@@ -250,8 +250,8 @@ bool WebCfg::reqBrokers(simpleServer::HTTPRequest req, ondra_shared::StrViewA re
 		if (urlbroker == "_reload") {
 			if (!req.allowMethods({"POST"})) return true;
 			dispatch([=] {
-				trlist.lock_shared()->stockSelector.forEachStock([&](const std::string_view &,IStockApi &x){
-					ExtStockApi *ex = dynamic_cast<ExtStockApi *>(&x);
+				trlist.lock_shared()->stockSelector.forEachStock([&](const std::string_view &,const PStockApi &x){
+					ExtStockApi *ex = dynamic_cast<ExtStockApi *>(x.get());
 					ex->stop();
 				});
 				req.sendResponse("application/json","true");
@@ -260,23 +260,23 @@ bool WebCfg::reqBrokers(simpleServer::HTTPRequest req, ondra_shared::StrViewA re
 		} else if (urlbroker == "_all") {
 			if (!req.allowMethods({"GET"})) return true;
 			Array res;
-			trlist.lock_shared()->stockSelector.forEachStock([&](std::string_view n, IStockApi &api) {
-				res.push_back(brokerToJSON(api.getBrokerInfo()));
+			trlist.lock_shared()->stockSelector.forEachStock([&](std::string_view n, const PStockApi &api) {
+				res.push_back(brokerToJSON(api->getBrokerInfo()));
 			});
 			req.sendResponse("application/json",Value(res).stringify());
 			return true;
 		}
 		std::string broker = urlDecode(urlbroker);
-		IStockApi *api = trlist.lock_shared()->stockSelector.getStock(broker);
+		PStockApi api = trlist.lock_shared()->stockSelector.getStock(broker);
 
 		return reqBrokerSpec(req, splt, api,broker);
 	}
 }
 
-static Value getOpenOrders(IStockApi &api, const std::string_view &pair) {
+static Value getOpenOrders(const PStockApi &api, const std::string_view &pair) {
 	Value orders = json::array;
 	try {
-		auto ords = api.getOpenOrders(pair);
+		auto ords = api->getOpenOrders(pair);
 		orders = Value(json::array, ords.begin(),
 				ords.end(),
 				[&](const IStockApi::Order &ord) {
@@ -291,14 +291,14 @@ static Value getOpenOrders(IStockApi &api, const std::string_view &pair) {
 
 }
 
-static Value getPairInfo(IStockApi &api, const std::string_view &pair, const std::optional<double> &internalBalance = std::optional<double>()
+static Value getPairInfo(const PStockApi &api, const std::string_view &pair, const std::optional<double> &internalBalance = std::optional<double>()
 		, const std::optional<double> &internalCurrencyBalance = std::optional<double>()) {
-	IStockApi::MarketInfo nfo = api.getMarketInfo(pair);
-	double ab = internalBalance.has_value()?*internalBalance:getSafeBalance(&api, nfo.asset_symbol, pair);
-	double cb = internalCurrencyBalance.has_value()?*internalCurrencyBalance:getSafeBalance(&api, nfo.currency_symbol, pair);
+	IStockApi::MarketInfo nfo = api->getMarketInfo(pair);
+	double ab = internalBalance.has_value()?*internalBalance:getSafeBalance(api, nfo.asset_symbol, pair);
+	double cb = internalCurrencyBalance.has_value()?*internalCurrencyBalance:getSafeBalance(api, nfo.currency_symbol, pair);
 	Value last;
 	try {
-		auto ticker = api.getTicker(pair);
+		auto ticker = api->getTicker(pair);
 		last = ticker.last;
 	} catch (std::exception &e) {
 		last = e.what();
@@ -314,7 +314,7 @@ static Value getPairInfo(IStockApi &api, const std::string_view &pair, const std
 }
 
 bool WebCfg::reqBrokerSpec(simpleServer::HTTPRequest req,
-		ondra_shared::StrViewA vpath, IStockApi *api, ondra_shared::StrViewA broker_name)  {
+		ondra_shared::StrViewA vpath, PStockApi api, ondra_shared::StrViewA broker_name)  {
 
 	if (api == nullptr) {
 		req.sendErrorPage(404);
@@ -361,7 +361,7 @@ bool WebCfg::reqBrokerSpec(simpleServer::HTTPRequest req,
 					StrViewA(b));
 			return true;
 		} else if (entry == "apikey") {
-			IApiKey *kk = dynamic_cast<IApiKey*>(api);
+			IApiKey *kk = dynamic_cast<IApiKey*>(api.get());
 			if (kk == nullptr) {
 				req.sendErrorPage(403);
 				return true;
@@ -391,7 +391,7 @@ bool WebCfg::reqBrokerSpec(simpleServer::HTTPRequest req,
 			}
 			return true;
 		}else if (entry == "page") {
-			IBrokerControl *bc = dynamic_cast<IBrokerControl *>(api);
+			IBrokerControl *bc = dynamic_cast<IBrokerControl *>(api.get());
 			if (bc == nullptr) {
 				req.sendErrorPage(403);return true;
 			}
@@ -436,7 +436,7 @@ bool WebCfg::reqBrokerSpec(simpleServer::HTTPRequest req,
 					if (orders.empty()) {
 						if (!req.allowMethods( { "GET" }))
 							return true;
-						Value resp = getPairInfo(*api, p).replace("entries",{"orders", "ticker", "settings"});
+						Value resp = getPairInfo(api, p).replace("entries",{"orders", "ticker", "settings"});
 						req.sendResponse(std::move(hdr), resp.stringify());
 						return true;
 					} else if (orders == "ticker") {
@@ -449,7 +449,7 @@ bool WebCfg::reqBrokerSpec(simpleServer::HTTPRequest req,
 						return true;
 					}  else if (orders == "settings") {
 
-						IBrokerControl *bc = dynamic_cast<IBrokerControl *>(api);
+						IBrokerControl *bc = dynamic_cast<IBrokerControl *>(api.get());
 						if (bc == nullptr) {
 							req.sendErrorPage(403);return true;
 						}
@@ -469,7 +469,7 @@ bool WebCfg::reqBrokerSpec(simpleServer::HTTPRequest req,
 						if (!req.allowMethods( { "GET", "POST", "DELETE" }))
 							return true;
 						if (req.getMethod() == "GET") {
-							Value orders = getOpenOrders(*api, p);
+							Value orders = getOpenOrders(api, p);
 							req.sendResponse(std::move(hdr),
 									orders.stringify());
 							return true;
@@ -598,7 +598,7 @@ bool WebCfg::reqTraders(simpleServer::HTTPRequest req, ondra_shared::StrViewA vp
 					StrViewA vpath = path;
 					StrViewA restpath = vpath.substr(nx.data - vpath.data);
 					std::string brokerName = trl->getConfig().broker;
-					reqBrokerSpec(req, restpath, &(trl->getBroker()), brokerName);
+					reqBrokerSpec(req, restpath, (trl->getBroker()), brokerName);
 				} else if (cmd == "trading") {
 					Object out;
 					auto chartx = trl->getChart();
@@ -614,7 +614,7 @@ bool WebCfg::reqTraders(simpleServer::HTTPRequest req, ondra_shared::StrViewA vp
 					out.set("trades", Value(json::array, trades.begin(), trades.end(),[&](auto &&item) {
 						if (item.time >= start) return item.toJSON(); else return Value();
 					}));
-					auto ticker = broker.getTicker(trl->getConfig().pairsymb);
+					auto ticker = broker->getTicker(trl->getConfig().pairsymb);
 					double stprice = strtod(splt().data,0);
 					out.set("ticker", Object("ask", ticker.ask)("bid", ticker.bid)("last", ticker.last)("time", ticker.time));
 					out.set("orders", getOpenOrders(broker, trl->getConfig().pairsymb));
@@ -745,10 +745,10 @@ void WebCfg::State::applyConfig(SharedObject<Traders>  &st) {
 
 	Value bc = data["brokers"];
 	broker_config = bc;
-	t->stockSelector.forEachStock([&](std::string_view name, IStockApi &api) {
+	t->stockSelector.forEachStock([&](std::string_view name, const PStockApi &api) {
 		Value b = bc[name];
 		if (b.defined()) {
-			IBrokerControl *eapi = dynamic_cast<IBrokerControl *>(&api);
+			IBrokerControl *eapi = dynamic_cast<IBrokerControl *>(api.get());
 			if (eapi) {
 				eapi->restoreSettings(b);
 			}
@@ -856,11 +856,11 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req)  {
 				trlist.lock()->stockSelector.checkBrokerSubaccount(broker.getString());
 				auto tr = trlist.lock_shared()->find(trader.toString().str());
 				auto trl = tr.lock();
-				IStockApi *api = nullptr;
+				PStockApi api;
 				if (tr == nullptr) {
 					api = trlist.lock_shared()->stockSelector.getStock(broker.toString().str());
 				} else {
-					api = &trl->getBroker();
+					api = trl->getBroker();
 				}
 				if (api == nullptr) {
 					return req.sendErrorPage(404);
@@ -901,9 +901,9 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req)  {
 						("version", binfo.version)
 						("settings", binfo.settings)
 						("trading_enabled", binfo.trading_enabled));
-				Value pair = getPairInfo(*api, p, internalBalance, internalCurrencyBalance);
+				Value pair = getPairInfo(api, p, internalBalance, internalCurrencyBalance);
 				result.set("pair", pair);
-				result.set("orders", getOpenOrders(*api, p));
+				result.set("orders", getOpenOrders(api, p));
 				result.set("strategy", strategy);
 				result.set("position", position);
 				if (pair["leverage"].getNumber() == 0 && tr)

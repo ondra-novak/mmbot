@@ -71,6 +71,7 @@ struct MTrader_Config {
 	bool dynmult_sliding;
 	bool dynmult_mult;
 	bool zigzag;
+	bool swap_symbols;
 
 	Strategy strategy = Strategy(nullptr);
 
@@ -203,8 +204,8 @@ public:
 	void setStrategy(const Strategy &s) {strategy = s;}
 	void setInternalBalancies(double assets, double currency);
 
-	IStockApi &getBroker() {return stock;}
-	IStockApi &getBroker() const {return stock;}
+	PStockApi getBroker() {return stock;}
+	PStockApi getBroker() const {return stock;}
 
 	struct VisRes {
 		struct Item {
@@ -249,8 +250,7 @@ protected:
 
 	};
 
-	std::unique_ptr<IStockApi> ownedStock;
-	IStockApi &stock;
+	PStockApi stock;
 	Config cfg;
 	IStockApi::MarketInfo minfo;
 	StoragePtr storage;
@@ -283,7 +283,7 @@ protected:
 
 	double raise_fall(double v, bool raise) const;
 
-	static IStockApi &selectStock(IStockSelector &stock_selector, const Config &conf, std::unique_ptr<IStockApi> &ownedStock);
+	static PStockApi selectStock(IStockSelector &stock_selector, const Config &conf);
 
 	bool processTrades(Status &st);
 

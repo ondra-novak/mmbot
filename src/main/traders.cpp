@@ -41,7 +41,7 @@ void StockSelector::loadBrokers(const ondra_shared::IniConfig::Section &ini, boo
 		ondra_shared::StrViewA cmdline = def.second.getString();
 		if (!cmdline.empty()) {
 			ondra_shared::StrViewA workDir = def.second.getCurPath();
-			data.push_back(StockMarketMap::value_type(name,std::make_unique<ExtStockApi>(workDir, name, cmdline, brk_timeout)));
+			data.push_back(StockMarketMap::value_type(name,std::make_shared<ExtStockApi>(workDir, name, cmdline, brk_timeout)));
 		}
 	}
 	StockMarketMap map(std::move(data));
@@ -66,10 +66,10 @@ bool StockSelector::checkBrokerSubaccount(const std::string &name) {
 	return true;
 }
 
-IStockApi *StockSelector::getStock(const std::string_view &stockName) const {
+PStockApi StockSelector::getStock(const std::string_view &stockName) const {
 	auto f = stock_markets.find(stockName);
 	if (f == stock_markets.cend()) return nullptr;
-	return f->second.get();
+	return f->second;
 }
 /*
 void StockSelector::addStockMarket(ondra_shared::StrViewA name, PStockApi &&market) {
@@ -78,7 +78,7 @@ void StockSelector::addStockMarket(ondra_shared::StrViewA name, PStockApi &&mark
 
 void StockSelector::forEachStock(EnumFn fn)  const {
 	for(auto &&x: stock_markets) {
-		fn(x.first, *x.second);
+		fn(x.first, x.second);
 	}
 }
 void StockSelector::clear() {
@@ -110,8 +110,8 @@ void Traders::clear() {
 }
 
 void Traders::loadIcon(MTrader &t) {
-	IStockApi &api = t.getBroker();
-	const IBrokerIcon *bicon = dynamic_cast<const IBrokerIcon*>(&api);
+	PStockApi api = t.getBroker();
+	const IBrokerIcon *bicon = dynamic_cast<const IBrokerIcon*>(api.get());
 	if (bicon)
 		bicon->saveIconToDisk(iconPath);
 }
@@ -157,18 +157,18 @@ void Traders::removeTrader(ondra_shared::StrViewA n, bool including_state) {
 	}
 }
 
-static void resetBroker(IStockApi &api) {
-	AbstractExtern *extr = dynamic_cast<AbstractExtern *>(&api);
+static void resetBroker(const PStockApi &api) {
+	AbstractExtern *extr = dynamic_cast<AbstractExtern *>(api.get());
 	if (extr) extr->housekeeping(5);
 	try {
-		api.reset();
+		api->reset();
 	} catch (std::exception &e) {
 		logError("Exception when RESET: $1", e.what());
 	}
 }
 
 void Traders::resetBrokers() {
-	stockSelector.forEachStock([](json::StrViewA, IStockApi&api) {
+	stockSelector.forEachStock([](json::StrViewA, const PStockApi &api) {
 		resetBroker(api);
 	});
 }
@@ -220,8 +220,8 @@ SharedObject<NamedMTrader> Traders::find(json::StrViewA id) const {
 void Traders::loadIcons(const std::string &path) {
 	for (auto &&t: traders) {
 		auto lt = t.second.lock_shared();
-		IStockApi &api = lt->getBroker();
-		const IBrokerIcon *bicon = dynamic_cast<const IBrokerIcon *>(&api);
+		PStockApi api = lt->getBroker();
+		const IBrokerIcon *bicon = dynamic_cast<const IBrokerIcon *>(api.get());
 		if (bicon) bicon->saveIconToDisk(path);
 	}
 }

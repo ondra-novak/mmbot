@@ -14,7 +14,7 @@
 std::string_view EmulatorAPI::prefix = "$emulator_";
 
 #include "../shared/logOutput.h"
-EmulatorAPI::EmulatorAPI(IStockApi &datasrc, double initial_currency):datasrc(datasrc)
+EmulatorAPI::EmulatorAPI(PStockApi datasrc, double initial_currency):datasrc(datasrc)
 	,prevId(std::chrono::duration_cast<std::chrono::milliseconds>(
 				std::chrono::system_clock::now().time_since_epoch()
 				).count())
@@ -26,7 +26,7 @@ EmulatorAPI::EmulatorAPI(IStockApi &datasrc, double initial_currency):datasrc(da
 
 double EmulatorAPI::readBalance(const std::string_view &symb, const std::string_view & pair, double defval) {
 	try {
-		return datasrc.getBalance(symb,pair);
+		return datasrc->getBalance(symb,pair);
 	} catch (std::exception &e) {
 		log.warning("Balance for $1 is not available, setting to $2 - ", symb, defval, e.what());
 		return defval;
@@ -78,13 +78,13 @@ EmulatorAPI::TradesSync EmulatorAPI::syncTrades(json::Value lastId, const std::s
 }
 
 EmulatorAPI::Orders EmulatorAPI::getOpenOrders(const std::string_view & pair) {
-	simulation(datasrc.getTicker(pair));
+	simulation(datasrc->getTicker(pair));
 	return Orders(orders.begin(), orders.end());
 }
 
 EmulatorAPI::Ticker EmulatorAPI::getTicker(const std::string_view & pair) {
 	this->pair = pair;
-	Ticker tk = datasrc.getTicker(pair);
+	Ticker tk = datasrc->getTicker(pair);
 	simulation(tk);
 	lastTicker = tk;
 	return tk;
@@ -128,7 +128,7 @@ json::Value EmulatorAPI::placeOrder(const std::string_view & pair,
 }
 
 EmulatorAPI::MarketInfo EmulatorAPI::getMarketInfo(const std::string_view & pair) {
-	minfo = datasrc.getMarketInfo(pair);
+	minfo = datasrc->getMarketInfo(pair);
 	balance_symb = minfo.asset_symbol;
 	currency_symb = minfo.currency_symbol;
 	margin = minfo.leverage > 0;
@@ -138,25 +138,25 @@ EmulatorAPI::MarketInfo EmulatorAPI::getMarketInfo(const std::string_view & pair
 
 
 double EmulatorAPI::getFees(const std::string_view &pair) {
-	minfo.fees = datasrc.getFees(pair);
+	minfo.fees = datasrc->getFees(pair);
 	return minfo.fees;
 }
 
 std::vector<std::string> EmulatorAPI::getAllPairs() {
-	return datasrc.getAllPairs();
+	return datasrc->getAllPairs();
 }
 
 EmulatorAPI::BrokerInfo EmulatorAPI::getBrokerInfo() {
-	return datasrc.getBrokerInfo();
+	return datasrc->getBrokerInfo();
 }
 
 void EmulatorAPI::saveIconToDisk(const std::string &path) const {
-	const IBrokerIcon *icn = dynamic_cast<const IBrokerIcon *>(&datasrc);
+	const IBrokerIcon *icn = dynamic_cast<const IBrokerIcon *>(datasrc.get());
 	if (icn) icn->saveIconToDisk(path);
 }
 
 std::string EmulatorAPI::getIconName() const {
-	const IBrokerIcon *icn = dynamic_cast<const IBrokerIcon *>(&datasrc);
+	const IBrokerIcon *icn = dynamic_cast<const IBrokerIcon *>(datasrc.get());
 	if (icn) return icn->getIconName();
 	else return std::string();
 }
@@ -204,7 +204,7 @@ void EmulatorAPI::simulation(const Ticker &tk) {
 }
 
 bool EmulatorAPI::reset() {
-	if (!datasrc.reset()) return false;
+	if (!datasrc->reset()) return false;
 	if (!pair.empty()) getTicker(pair);
 	return true;
 }

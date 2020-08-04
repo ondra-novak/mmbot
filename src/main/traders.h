@@ -29,14 +29,13 @@ public:
 
 class StockSelector: public IStockSelector{
 public:
-	using PStockApi = std::unique_ptr<IStockApi>;
 	using StockMarketMap =  ondra_shared::linear_map<std::string, PStockApi, std::less<>>;
 
 	StockMarketMap stock_markets;
 
 	void loadBrokers(const ondra_shared::IniConfig::Section &ini, bool test, int brk_timeout);
 	bool checkBrokerSubaccount(const std::string &name);
-	virtual IStockApi *getStock(const std::string_view &stockName) const override;
+	virtual PStockApi getStock(const std::string_view &stockName) const override;
 //	void addStockMarket(ondra_shared::StrViewA name, PStockApi &&market);
 	virtual void forEachStock(EnumFn fn)  const override;
 	void clear();

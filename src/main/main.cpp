@@ -365,8 +365,8 @@ int main(int argc, char **argv) {
 							} else {
 								StockSelector ss;
 								ss.loadBrokers(app.config["brokers"], true, brk_timeout);
-								IStockApi *stock = ss.getStock(args[0]);
-								if (stock) {
+								PStockApi stock = ss.getStock(args[0]);
+								if (stock != nullptr) {
 									for (auto &&k : stock->getAllPairs()) {
 										stream << k << std::endl;
 									}

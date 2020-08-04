@@ -18,7 +18,7 @@
 class EmulatorAPI: public IStockApi, public IBrokerIcon {
 public:
 
-	EmulatorAPI(IStockApi &datasrc, double initial_currency);
+	EmulatorAPI(PStockApi datasrc, double initial_currency);
 
 
 	virtual double getBalance(const std::string_view & symb, const std::string_view & pair) override;
@@ -32,7 +32,7 @@ public:
 	virtual MarketInfo getMarketInfo(const std::string_view & pair) override;
 	virtual double getFees(const std::string_view &pair) override;
 	virtual std::vector<std::string> getAllPairs() override;
-	virtual void testBroker() override {datasrc.testBroker();}
+	virtual void testBroker() override {datasrc->testBroker();}
 	virtual BrokerInfo getBrokerInfo() override;
 	//saves image to disk to specified path
 	virtual void saveIconToDisk(const std::string &path) const override;
@@ -42,7 +42,7 @@ public:
 	static std::string_view prefix;
 
 protected:
-	IStockApi &datasrc;
+	PStockApi datasrc;
 	std::size_t prevId = 0;
 
 	std::size_t genID();
