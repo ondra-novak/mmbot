@@ -12,7 +12,7 @@
 #include "ibrokercontrol.h"
 #include "istockapi.h"
 
-class SwapBroker: public IStockApi, public IBrokerControl {
+class SwapBroker: public IStockApi, public IBrokerControl, public IBrokerIcon {
 public:
 	SwapBroker(PStockApi target);
 	virtual std::vector<std::string> getAllPairs() override;
@@ -33,6 +33,8 @@ public:
 			json::Value clientId, json::Value replaceId, double replaceSize) override;
 	virtual double getFees(const std::string_view &pair) override;
 	virtual IStockApi::Ticker getTicker(const std::string_view &piar) override;
+	virtual std::string getIconName() const override;
+	virtual void saveIconToDisk(const std::string &path) const override;
 
 protected:
 	PStockApi target;
