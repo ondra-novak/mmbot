@@ -15,6 +15,7 @@ add_executable (mmbot
 	traders.cpp
 	strategy.cpp
 	strategy_halfhalf.cpp
+	strategy_constantstep.cpp
 	strategy_plfrompos.cpp
 	strategy_keepvalue.cpp
 	strategy_keepvalue_limited.cpp
