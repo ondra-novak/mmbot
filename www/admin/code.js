@@ -91,12 +91,12 @@ App.prototype.createTraderForm = function() {
 	var pl = form.findElements("goal_pl")[0];
 	form.dlgRules = function() {
 		var state = this.readData(["strategy","advanced","check_unsupp"]);
-		form.showItem("strategy_halfhalf",state.strategy == "halfhalf" || state.strategy == "keepvalue" || state.strategy == "exponencial"||state.strategy == "kvlimited"||state.strategy == "hypersquare");
+		form.showItem("strategy_halfhalf",state.strategy == "halfhalf" || state.strategy == "keepvalue" || state.strategy == "exponencial"||state.strategy == "kvlimited"||state.strategy == "hypersquare"||state.strategy == "conststep");
 		form.showItem("strategy_pl",state.strategy == "plfrompos");
 		form.showItem("strategy_stairs",state.strategy == "stairs");
 		form.showItem("strategy_hyperbolic",state.strategy == "hyperbolic"||state.strategy == "linear"||state.strategy == "sinh");
 		form.showItem("kv_valinc_h",state.strategy == "keepvalue");
-		form.showItem("exp_optp_h",state.strategy == "exponencial"||state.strategy == "kvlimited"||state.strategy == "hypersquare");
+		form.showItem("exp_optp_h",state.strategy == "exponencial"||state.strategy == "kvlimited"||state.strategy == "hypersquare"||state.strategy == "conststep");
 		form.setData({"help_goal":{"class":state.strategy}});
 		form.getRoot().classList.toggle("no_adv", !state["advanced"]);
 		form.getRoot().classList.toggle("no_experimental", !state["check_unsupp"]);
@@ -604,7 +604,7 @@ App.prototype.fillForm = function (src, trg) {
 	function powerCalc(x) {return adjNumN(Math.pow(10,x)*0.01);};
 
 	
-	if (data.strategy == "halfhalf" || data.strategy == "keepvalue" || data.strategy == "exponencial"|| data.strategy == "kvlimited"||data.strategy == "hypersquare") {
+	if (data.strategy == "halfhalf" || data.strategy == "keepvalue" || data.strategy == "exponencial"|| data.strategy == "kvlimited"||data.strategy == "hypersquare"||data.strategy == "conststep") {
 		data.acum_factor = filledval(defval(src.strategy.accum,0)*100,0);
 		data.external_assets = filledval(src.strategy.ea,0);
 		data.kv_valinc = filledval(src.strategy.valinc,0);
@@ -751,7 +751,7 @@ function getStrategyData(data) {
 		strategy.balance_use = data.pl_baluse/100;		
 		strategy.power = data.pl_confmode=="a"?data.pl_power:0;
 		strategy.reduce_on_inc = data.pl_redoninc;
-	} else if (data.strategy == "halfhalf" || data.strategy == "keepvalue" || data.strategy == "exponencial"|| data.strategy == "kvlimited"||data.strategy == "hypersquare") {
+	} else if (data.strategy == "halfhalf" || data.strategy == "keepvalue" || data.strategy == "exponencial"|| data.strategy == "kvlimited"||data.strategy == "hypersquare"||data.strategy == "conststep") {
 		strategy.accum = data.acum_factor/100.0;
 		strategy.ea = data.external_assets;
 		strategy.valinc = data.kv_valinc;
@@ -1512,8 +1512,10 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
     var offset = 0;
     var offset_max = 0;
 	var start_date = "";
-    var show_norm=this.traders[id].strategy.type == "halfhalf" || this.traders[id].strategy.type == "keepvalue"
-    	|| this.traders[id].strategy.type == "exponencial"; 
+	var sttype =this.traders[id].strategy.type;
+    var show_norm= ["halfhalf","keepvalue","exponencial","hypersquare","kvlimited","conststep"].indexOf(sttype) != -1;
+    
+
 
 	function draw(cntr, v, offset, balance) {
 

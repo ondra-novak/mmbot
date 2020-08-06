@@ -44,8 +44,10 @@ std::pair<IStrategy::OnTradeResult, PStrategy> Strategy_ConstantStep::onTrade(
 		double assetsLeft, double currencyLeft) const {
 
 
+	double newA = calcA(tradePrice);
+
+
 	auto csts = calcConsts(st.a+cfg.ea, st.p, st.m);
-	double newA = calcA(csts, tradePrice);
 
 	double df = (tradePrice - st.p) * csts.k;
 	double cf = -tradeSize * tradePrice;
@@ -99,8 +101,8 @@ PStrategy Strategy_ConstantStep::importState(json::Value src,
 IStrategy::OrderData Strategy_ConstantStep::getNewOrder(const IStockApi::MarketInfo &minfo,
 		double cur_price, double new_price, double dir, double assets,
 		double currency) const {
-	double newA = calcA(currency);
-	double extra = calcAccumulation(st, cfg, cur_price);
+	double newA = calcA(new_price);
+	double extra = calcAccumulation(st, cfg, new_price);
 	double ordsz = calcOrderSize(st.a, assets, newA+extra);
 	return {0,ordsz};
 }
@@ -158,8 +160,8 @@ PStrategy Strategy_ConstantStep::init(const IStockApi::MarketInfo &m,
 	}
 
 	if (nst.m < nst.p) {
-		nst.m = nst.p;
-		nst.a = 0;
+		nst.m = nst.p*2;
+		nst.a = calcInitialPosition(m,price,assets, cur);
 	}
 
 	return PStrategy(new Strategy_ConstantStep(cfg, std::move(nst)));
@@ -169,6 +171,7 @@ PStrategy Strategy_ConstantStep::init(const IStockApi::MarketInfo &m,
 double Strategy_ConstantStep::calcInitialPosition(const IStockApi::MarketInfo& minfo,  double price, double assets, double currency) const {
 	double atot = cfg.ea + assets +  currency/price;
 	double mp = cfg.optp*2;
+	if (mp <price) mp = price * 2;
 	double m = minfo.invert_price?1.0/mp:mp;
 	double k = atot/(1 + std::log(m/price));
 	double c =  atot + k * std::log(price);
@@ -176,7 +179,7 @@ double Strategy_ConstantStep::calcInitialPosition(const IStockApi::MarketInfo& m
 	if (price > max) return 0;
 	//ratio - how much of budget is actually position;
 	double rt = 1-k/(c-k*std::log(price));
-	return atot * rt;
+	return atot * rt - cfg.ea;
 
 }
 
@@ -199,19 +202,20 @@ std::optional<IStrategy::BudgetExtraInfo> Strategy_ConstantStep::getBudgetExtraI
 }
 
 Strategy_ConstantStep::Consts Strategy_ConstantStep::calcConsts(double a, double p, double max) {
-	double k = a / std::log(max/p);
+	double k = max > p?a / std::log(max/p):a;
 	double c = a + k + k*std::log(p);
 	return {k,c};
 }
 
 double Strategy_ConstantStep::calcA(double price) const {
 	auto consts = calcConsts(st.a+cfg.ea, st.p, st.m);
-	return calcA(consts, price);
+	return calcA(consts, price) - cfg.ea;
 }
 
 double Strategy_ConstantStep::calcA(const Consts &cst, double price) {
 	double max = std::exp(cst.c/cst.k-1);
-	if (price > max) return 0;
+	if (price > max)
+		return 0;
 	else return cst.c - cst.k * (std::log(price) + 1);
 }
 
