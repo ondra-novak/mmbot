@@ -12,7 +12,6 @@
 #include <imtjson/object.h>
 #include "../shared/stringview.h"
 #include "sgn.h"
-#include "strategy_plfrompos.h"
 #include "strategy_halfhalf.h"
 #include "strategy_keepvalue.h"
 #include "strategy_stairs.h"
@@ -23,21 +22,7 @@
 #include "strategy_keepvalue_limited.h"
 #include "strategy_constantstep.h"
 
-static json::NamedEnum<Strategy_PLFromPos::CloseMode> strCloseMode ({
-		{Strategy_PLFromPos::always_close,"always_close"},
-		{Strategy_PLFromPos::prefer_close,"prefer_close"},
-		{Strategy_PLFromPos::prefer_reverse,"prefer_reverse"}
-});
 
-static json::NamedEnum<Strategy_PLFromPos::ReduceMode> strReduceMode ({
-		{Strategy_PLFromPos::reduceFromProfit,"rp"},
-		{Strategy_PLFromPos::reduceFromProfit,""},
-		{Strategy_PLFromPos::fixedReduce,"fixed"},
-		{Strategy_PLFromPos::neutralMove,"npmove"},
-		{Strategy_PLFromPos::toOpenPrice ,"openp"},
-		{Strategy_PLFromPos::ema,"ema"},
-		{Strategy_PLFromPos::stableProfit,"stableProfit"},
-});
 
 static json::NamedEnum<Strategy_Stairs::Pattern> strStairsPattern ({
 		{Strategy_Stairs::arithmetic,"arithmetic"},
@@ -72,23 +57,7 @@ static json::NamedEnum<Strategy_Stairs::TradingMode> strStairsTMode ({
 using ondra_shared::StrViewA;
 Strategy Strategy::create(std::string_view id, json::Value config) {
 
-	if (id== Strategy_PLFromPos::id) {
-		Strategy_PLFromPos::Config cfg;
-		cfg.step = config["cstep"].getNumber();
-		cfg.pos_offset = config["pos_offset"].getNumber();
-		cfg.maxpos = config["maxpos"].getNumber();
-		cfg.reduce_factor = config["reduce_factor"].getNumber();
-		cfg.power= config["power"].getNumber();
-		if (config["fixed_reduce"].getBool() || cfg.reduce_factor < 0) {
-			cfg.reduceMode = Strategy_PLFromPos::fixedReduce;
-		} else {
-			cfg.reduceMode = strReduceMode[config["reduce_mode"].getString()];
-		}
-		cfg.reduce_factor = std::abs(cfg.reduce_factor);
-		cfg.baltouse= config["balance_use"].defined()?config["balance_use"].getNumber():1;
-		cfg.reduce_on_increase=config["reduce_on_inc"].getBool();
-		return Strategy(new Strategy_PLFromPos(cfg,{}));
-	} else if (id == Strategy_HalfHalf::id) {
+	if (id == Strategy_HalfHalf::id) {
 		Strategy_HalfHalf::Config cfg;
 		cfg.ea = config["ea"].getNumber();
 		cfg.accum = config["accum"].getNumber();
@@ -208,9 +177,6 @@ double IStrategy::calcOrderSize(double , double actualAmount, double newAmount) 
 /*	}*/
 }
 
-void Strategy::setConfig(const ondra_shared::IniConfig::Section &cfg) {
-	Strategy_PLFromPos::sliding_zero_factor = cfg["sliding_zero_reverse"].getNumber(0.9);
-}
 
 void Strategy::adjustOrder(double dir, double mult,
 		bool enable_alerts, Strategy::OrderData &order) {

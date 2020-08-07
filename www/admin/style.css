@@ -884,7 +884,6 @@ label span:hover span.tooltip, div.label span:hover span.tooltip {
 }
 
 .strategygoal div {display:none;font-style:italic;margin-bottom: 1em;}
-.strategygoal > div.plfrompos > div.plfrompos {display:block;}
 .strategygoal > div.halfhalf > div.halfhalf {display:block;}
 .strategygoal > div.stairs > div.stairs {display:block;}
 .strategygoal > div.keepvalue > div.keepvalue {display:block;}
@@ -893,7 +892,6 @@ label span:hover span.tooltip, div.label span:hover span.tooltip {
 .strategygoal > div.exponencial > div.exponencial {display:block;}
 .strategygoal > div.sinh > div.sinh {display:block;}
 .strategygoal > div.hypersquare > div.hypersquare {display:block;}
-.strategygoal > div.kvlimited > div.kvlimited {display:block;}
 
 x-form.trading .buttons {text-align: center;}
 x-form.trading .buttons button {width: 40%}

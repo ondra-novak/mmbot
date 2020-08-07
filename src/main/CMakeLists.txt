@@ -16,7 +16,6 @@ add_executable (mmbot
 	strategy.cpp
 	strategy_halfhalf.cpp
 	strategy_constantstep.cpp
-	strategy_plfrompos.cpp
 	strategy_keepvalue.cpp
 	strategy_keepvalue_limited.cpp
 	strategy_hypersquare.cpp
