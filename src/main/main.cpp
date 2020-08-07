@@ -253,7 +253,6 @@ int main(int argc, char **argv) {
 						auto asyncProvider = simpleServer::ThreadPoolAsync::create(2,1);
 						auto login_section = app.config["login"];
 
-						Strategy::setConfig(app.config["strategy"]);
 
 
 
