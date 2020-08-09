@@ -194,10 +194,10 @@ Strategy_ErrorFn::Consts Strategy_ErrorFn::calcRebalance(double w, double k, dou
 		return Consts {w,k};
 	} else {
 		double new_k = k;
-		if (ratio < rebalance.lo_p && np < p) {
-			new_k *= rebalance.lo_a;
+		if (ratio < rebalance.lo_p && np < p ) {
+			new_k = k + (np/to_balanced_factor-k) * rebalance.lo_a;
 		} else if (ratio > rebalance.hi_p && np > p) {
-			new_k *= rebalance.hi_a;
+			new_k = k + (np/to_balanced_factor-k) * rebalance.hi_a;
 		}
 
 		double norm = calcAccountValue(1, new_k, p);

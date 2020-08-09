@@ -59,7 +59,7 @@
 <option value="keepvalue">Keep Value</option>
 <option value="hypersquare">Hypersquare</option>
 <option value="exponencial">Exponencial</option>
-<option value="errorfn">Gauss</option>
+<option value="errorfn">Gauss/error function+rebalance</option>
 </optgroup>
 <optgroup label="Leveraged (advanced traders)">
 <option value="sinh">Sinh/exponencial</option>
@@ -118,15 +118,15 @@ included, external currencies are counted in proportion to external assets</span
 <label><span>External assets <span class="tooltip">Amount of assets held outside of exchange. They are included into calculations.</span></span><input type="number" step="any" data-name="gs_external_assets"></label>
 <x-section class="adv"><x-section-caption>Rebalance settings</x-section-caption>
 <table width="100%">
-<thead><tr><th>Rebalance</th><th>Ratio [%]</th><th>Multiplier [x]</th></tr></thead>
+<thead><tr><th>Rebalance</th><th>Ratio [%]</th><th>Change [%]</th></tr></thead>
 <tbody>
 <tr><th><span class="tooltipanchor">Below ratio (high price)<span class="tooltip">Specifies how many times is total budget increased, if the value of the held assets drops below specified percent to overall budget. This happens, when the price raises too high outside of the optimal trading area. When triggered, the rebalancer executes trade to buy more assets</span></span></th>
 <td><x-slider data-name="gs_rb_lo_p" data-min="1" data-max="49" data-mult="1" data-fixed="0"></x-slider></td>
-<td><x-slider data-name="gs_rb_lo_a" data-min="1" data-max="4" data-mult="0.01" data-fixed="2"></x-slider></td>
+<td><x-slider data-name="gs_rb_lo_a" data-min="1" data-max="100" data-mult="1" data-fixed="0"></x-slider></td>
 </tr>
 <tr><th><span class="tooltipanchor">Above ratio (low price)<span class="tooltip">Specifies how many times is total budget reduced, if the value of the held assets is significantly high in compare to overall budget. This happens, when the price drops too low outside of the optimal trading area.  When triggered, the rebalancer executes trade to sell some assets</span></span></th>
 <td><x-slider data-name="gs_rb_hi_p" data-min="51" data-max="100" data-mult="1" data-fixed="0"></x-slider></td>
-<td><x-slider data-name="gs_rb_hi_a" data-min="0.1" data-max="1" data-mult="0.01" data-fixed="2"></x-slider></td>
+<td><x-slider data-name="gs_rb_hi_a" data-min="1" data-max="100" data-mult="1" data-fixed="0"></x-slider></td>
 </tr>
 </tbody>
 </table>

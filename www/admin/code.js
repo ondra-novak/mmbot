@@ -522,10 +522,10 @@ App.prototype.fillForm = function (src, trg) {
 	data.hp_lb_asym="asym";
 	data.inverted_price="false";
 	data.hp_longonly=false;
-	data.gs_rb_lo_p=10;
-	data.gs_rb_lo_a=2;
+	data.gs_rb_lo_p=20;
+	data.gs_rb_lo_a=85;
 	data.gs_rb_hi_p=95;
-	data.gs_rb_hi_a=0.5;
+	data.gs_rb_hi_a=100;
 
 	function powerCalc(x) {return adjNumN(Math.pow(10,x)*0.01);};
 
@@ -540,8 +540,8 @@ App.prototype.fillForm = function (src, trg) {
 		data.gs_external_assets = filledval(src.strategy.ea,0);
 		data.gs_rb_lo_p=filledval(defval(src.strategy.rb_lo_p,0.1)*100,10);
 		data.gs_rb_hi_p=filledval(defval(src.strategy.rb_hi_p,0.95)*100,95);
-		data.gs_rb_lo_a=filledval(src.strategy.rb_lo_a,2);
-		data.gs_rb_hi_a=filledval(src.strategy.rb_hi_a,0.5);
+		data.gs_rb_lo_a=filledval(defval(src.strategy.rb_lo_a,0.5)*100,50);
+		data.gs_rb_hi_a=filledval(defval(src.strategy.rb_hi_a,0.5)*100,50);
 	} else if (data.strategy == "hyperbolic"||data.strategy == "linear"||data.strategy == "sinh") {
 		data.hp_reduction = filledval(defval(src.strategy.reduction,0.25)*200,50);
 		data.hp_initboost = filledval(src.strategy.initboost,0);
@@ -669,8 +669,8 @@ function getStrategyData(data) {
 		strategy = {
 				type: data.strategy,
 				ea: data.gs_external_assets,
-				rb_hi_a: data.gs_rb_hi_a,
-				rb_lo_a: data.gs_rb_lo_a,
+				rb_hi_a: data.gs_rb_hi_a/100,
+				rb_lo_a: data.gs_rb_lo_a/100,
 				rb_hi_p: data.gs_rb_hi_p/100,
 				rb_lo_p: data.gs_rb_lo_p/100,
 		};

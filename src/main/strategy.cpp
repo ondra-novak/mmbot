@@ -85,7 +85,7 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 		cfg.ea = config["ea"].getNumber();
 		cfg.accum = config["accum"].getNumber();
 		cfg.rebalance.hi_a = config["rb_hi_a"].getValueOrDefault(0.5);
-		cfg.rebalance.lo_a = config["rb_lo_a"].getValueOrDefault(2.0);
+		cfg.rebalance.lo_a = config["rb_lo_a"].getValueOrDefault(0.5);
 		cfg.rebalance.hi_p = config["rb_hi_p"].getValueOrDefault(0.90);
 		cfg.rebalance.lo_p = config["rb_lo_p"].getValueOrDefault(0.20);
 		return Strategy(new Strategy_ErrorFn(cfg));
