@@ -439,7 +439,7 @@ App.prototype.fillForm = function (src, trg) {
 		}
 		
 		if (first_fetch) {
-			["strategy","external_assets", "hp_dtrend","hp_longonly","hp_power", "hp_maxloss", "hp_recalc", "hp_asym","hp_powadj", "hp_extbal", "hp_reduction","hp_dynred","exp_optp"]
+			["strategy","external_assets","gs_external_assets", "hp_dtrend","hp_longonly","hp_power", "hp_maxloss", "hp_recalc", "hp_asym","hp_powadj", "hp_extbal", "hp_reduction","hp_dynred","exp_optp"]
 			.forEach(function(item){
 				trg.findElements(item).forEach(function(elem){
 					elem.addEventListener("input", recalcStrategy.bind(this));
