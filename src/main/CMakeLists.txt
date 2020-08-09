@@ -18,6 +18,7 @@ add_executable (mmbot
 	strategy_constantstep.cpp
 	strategy_keepvalue.cpp
 	strategy_hypersquare.cpp
+	strategy_error_fn.cpp
 	strategy_exponencial.cpp
 	strategy_sinh.cpp
 	strategy_stairs.cpp

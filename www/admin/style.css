@@ -868,10 +868,16 @@ span.tooltip {
 	pointer-events: none;
 	opacity: 0;
 	transition: 1s all cubic-bezier(1, -2.49, 1, 0.97);
+	text-align: left;
+	font-weight: normal;
+}
+
+span.tooltipanchor span.tooltip {
+	width: 100%;
 }
 
 
-label span:hover span.tooltip, div.label span:hover span.tooltip {
+label span:hover span.tooltip, div.label span:hover span.tooltip, span.tooltipanchor:hover span.tooltip {
 	display: block;	
 	opacity:1;
 	

@@ -49,7 +49,7 @@ PStrategy Strategy_HyperSquare::init(const IStockApi::MarketInfo &m, double pric
 	if (price <= 0) throw std::runtime_error("Strategy: invalid ticker price");
 	if (cfg.optp <=0) throw std::runtime_error("Strategy: Incomplete configuration");
 	State nst;
-	nst.k = m.invert_price?(1.0 / cfg.optp):cfg.optp / to_balanced_factor;
+	nst.k = (m.invert_price?1.0 / cfg.optp:cfg.optp )/ to_balanced_factor;
 	if (st.p > 0 && st.a + cfg.ea > 0) {
 		nst.a = st.a;
 		nst.p = st.p;
@@ -254,7 +254,7 @@ double Strategy_HyperSquare::findRoot(double w, double k, double p, double c) {
 
 double Strategy_HyperSquare::calcInitialPosition(const IStockApi::MarketInfo &minfo, double price, double assets, double currency) const {
 	double budget = minfo.leverage?currency:(assets+cfg.ea)*price+currency;
-	double k = minfo.invert_price?1.0/cfg.optp:cfg.optp / to_balanced_factor;
+	double k = (minfo.invert_price?1.0/cfg.optp:cfg.optp) / to_balanced_factor;
 	double norm_val = calcAccountValue(1, k, price);
 	double w = budget / norm_val;
 	double a= calcA(w,k,price)-cfg.ea;

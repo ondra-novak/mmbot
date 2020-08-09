@@ -59,6 +59,7 @@
 <option value="keepvalue">Keep Value</option>
 <option value="hypersquare">Hypersquare</option>
 <option value="exponencial">Exponencial</option>
+<option value="errorfn">Gauss</option>
 </optgroup>
 <optgroup label="Leveraged (advanced traders)">
 <option value="sinh">Sinh/exponencial</option>
@@ -113,6 +114,34 @@ included, external currencies are counted in proportion to external assets</span
 </x-section>
 <div class="rightinfo"><button name="show_backtest" disabled="disabled">Backtest</button></div>
 </x-section>
+<x-section data-name="strategy_gauss" class="goal" hidden="hidden"><x-section-caption>Half-Half / Keep Value / Exponencial</x-section-caption>
+<label><span>External assets <span class="tooltip">Amount of assets held outside of exchange. They are included into calculations.</span></span><input type="number" step="any" data-name="gs_external_assets"></label>
+<x-section class="adv"><x-section-caption>Rebalance settings</x-section-caption>
+<table width="100%">
+<thead><tr><th>Rebalance</th><th>Ratio [%]</th><th>Multiplier [x]</th></tr></thead>
+<tbody>
+<tr><th><span class="tooltipanchor">Below ratio (high price)<span class="tooltip">Specifies how many times is total budget increased, if the value of the held assets drops below specified percent to overall budget. This happens, when the price raises too high outside of the optimal trading area. When triggered, the rebalancer executes trade to buy more assets</span></span></th>
+<td><x-slider data-name="gs_rb_lo_p" data-min="1" data-max="49" data-mult="1" data-fixed="0"></x-slider></td>
+<td><x-slider data-name="gs_rb_lo_a" data-min="1" data-max="4" data-mult="0.01" data-fixed="2"></x-slider></td>
+</tr>
+<tr><th><span class="tooltipanchor">Above ratio (low price)<span class="tooltip">Specifies how many times is total budget reduced, if the value of the held assets is significantly high in compare to overall budget. This happens, when the price drops too low outside of the optimal trading area.  When triggered, the rebalancer executes trade to sell some assets</span></span></th>
+<td><x-slider data-name="gs_rb_hi_p" data-min="51" data-max="100" data-mult="1" data-fixed="0"></x-slider></td>
+<td><x-slider data-name="gs_rb_hi_a" data-min="0.1" data-max="1" data-mult="0.01" data-fixed="2"></x-slider></td>
+</tr>
+</tbody>
+</table>
+</x-section>
+<div class="warning" data-name="err_external_assets">Unable to trade - This strategy requies to fund account with some assets [<span data-name="asset"></span>].  You can also set the "external assets" field above <span data-name="external_assets_hint">0</span>. You can use <b>Reset strategy</b> to perform initial buy.</div>
+<div class="warning" data-name="err_external_assets_margin">Unable to trade - This strategy needs to have a <b>long position</b> opened. You can also set external assets above <span data-name="external_assets_hint">0</span>. You can use <b>Reset strategy</b> to perform initial buy,</div>
+<div class="warning" data-name="err_external_assets_inverse">Unable to trade - This strategy needs to have a <b>short position</b> opened. You can also set external assets above <span data-name="external_assets_hint">0</span>. You can use <b>Reset strategy</b> to perform initial sell.</div>
+
+<x-section>
+<div class="label"><span>Min price:</span><span data-name="range_min_price">---</span></div>
+<div class="label"><span>Max price:</span><span data-name="range_max_price">---</span></div>
+<div class="label"><span>Recomended initial position:</span><span data-name="range_initial">---</span></div>
+</x-section>
+<div class="rightinfo"><button name="show_backtest" disabled="disabled">Backtest</button></div>
+</x-section>
 
 <x-section data-name="strategy_hyperbolic" class="goal" hidden="hidden"><x-section-caption>Linear/Hyperbolic/Elliptical</x-section-caption>
 <label><span>Power<span class="tooltip">How balance is multiplied. Can boost profits and losses as well. Conservative value is 1</span></span><input data-name="hp_power" type="number" step="0.1" value="1.0"></label>
@@ -141,7 +170,7 @@ included, external currencies are counted in proportion to external assets</span
 <div class="rightinfo"><button name="show_backtest" disabled="disabled">Backtest</button></div>
 </x-section>
 
-<x-section data-name="strategy_stairs" class="goal" hidden="hidden"><x-section-caption>Stairs</x-section-caption>
+<x-section data-name="strategy_stairs backtest_anchor" class="goal" hidden="hidden"><x-section-caption>Stairs</x-section-caption>
 <label class="adv"><span>Trading mode</span><select data-name="st_tmode">
 <option value="auto" selected="selected">Auto</option>
 <option value="exchange">Exchange</option>
@@ -172,7 +201,7 @@ included, external currencies are counted in proportion to external assets</span
 <div class="rightinfo"><button name="show_backtest" disabled="disabled">Backtest</button></div>
 </x-section>
 
-<x-section class="adv" ><x-section-caption>Common</x-section-caption>
+<x-section class="adv"  ><x-section-caption>Common</x-section-caption>
 <label  class="adv"><span>Order minimal size (0&nbsp;=&nbsp;disabled)<span class="tooltip">
 Specifies minimal order size. If disabled, minimal size is defined by the exchange. This also
 specifies size of the "dust order"
