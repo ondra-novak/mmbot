@@ -425,8 +425,9 @@ json::Value Interface::requestGET(std::string_view path) {
 			json::Value v = json::Value::parse(e.response.getBody());
 			throw std::runtime_error(v["error"].toString().str());
 		} catch (...) {
-			throw;
+
 		}
+		throw;
 	}
 }
 
