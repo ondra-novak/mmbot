@@ -79,6 +79,26 @@ void Report::setOrders(StrViewA symb, const std::optional<IStockApi::Order> &buy
 
 }
 
+static double wavg(double a, double wa, double b, double wb) {
+	double s = wa + wb;
+	if (s == 0) return 0;
+	return (a * wa + b * wb)/s;
+}
+
+static IStatSvc::TradeRecord sumTrades(const IStatSvc::TradeRecord &a, const IStatSvc::TradeRecord &b) {
+	return IStatSvc::TradeRecord(
+			IStockApi::Trade {
+				b.id,b.time,
+				a.size+b.size,
+				wavg(a.price,a.size,b.price,b.size),
+				a.eff_size+b.eff_size,
+				wavg(a.eff_price,a.eff_size,b.eff_price,b.eff_size),
+			},
+			b.norm_profit,
+			b.norm_accum,
+			b.neutral_price,b.manual_trade
+	);
+}
 
 void Report::setTrades(StrViewA symb, StringView<IStatSvc::TradeRecord> trades) {
 
@@ -114,62 +134,78 @@ void Report::setTrades(StrViewA symb, StringView<IStatSvc::TradeRecord> trades) 
 		double rpln = 0;
 		bool normaccum = false;
 
+		std::optional<IStatSvc::TradeRecord> tmpTrade;
+		const IStatSvc::TradeRecord *prevTrade = nullptr;
 
 
-		while (iter != tend) {
+		do {
+			if (iter == tend || (prevTrade && (std::abs(prevTrade->price - iter->price) > std::abs(iter->price*1e-8)
+												|| prevTrade->size * iter->size <= 0
+												|| prevTrade->manual_trade
+												|| iter->manual_trade)))
+				{
 
-			auto &&t = *iter;
+				auto &&t = *prevTrade;
 
-			double gain = (t.eff_price - prev_price)*pos ;
+				double gain = (t.eff_price - prev_price)*pos ;
 
-			prev_price = t.eff_price;
-			double prev_pos = pos;
+				prev_price = t.eff_price;
+				double prev_pos = pos;
 
-			cur_fromPos += gain;
-			pos += t.eff_size;
-			if (prev_pos * t.eff_size > 0) {
-				enter_price = (enter_price*prev_pos + t.eff_price * t.eff_size)/pos;
-			} else {
-				double sz = t.eff_size;
-				double ep = enter_price;
-				if (pos * prev_pos <=0) {
-					enter_price = t.eff_price;
-					sz = -prev_pos;
+				cur_fromPos += gain;
+				pos += t.eff_size;
+				if (prev_pos * t.eff_size > 0) {
+					enter_price = (enter_price*prev_pos + t.eff_price * t.eff_size)/pos;
+				} else {
+					double sz = t.eff_size;
+					double ep = enter_price;
+					if (pos * prev_pos <=0) {
+						enter_price = t.eff_price;
+						sz = -prev_pos;
+					}
+					rpln += sz * (ep - t.eff_price);
 				}
-				rpln += sz * (ep - t.eff_price);
+
+
+
+				double normch = (t.norm_accum - pap) * t.eff_price + (t.norm_profit - pnp);
+				pap = t.norm_accum;
+				pnp = t.norm_profit;
+				normaccum = normaccum || t.norm_accum != 0;
+
+
+
+				if (t.time >= first) {
+					records.push_back(Object
+							("id", t.id)
+							("time", t.time)
+							("achg", (inverted?-1:1)*t.size)
+							("gain", gain)
+							("norm", t.norm_profit)
+							("normch", normch)
+							("nacum", normaccum?Value((inverted?-1:1)*t.norm_accum):Value())
+							("pos", (inverted?-1:1)*pos)
+							("pl", cur_fromPos)
+							("rpl", rpln)
+							("price", (inverted?1.0/t.price:t.price))
+							("p0",t.neutral_price?Value(inverted?1.0/t.neutral_price:t.neutral_price):Value())
+							("volume", fabs(t.eff_price*t.eff_size))
+							("man",t.manual_trade)
+					);
+				}
+				prevTrade = nullptr;
+				if (iter == tend)
+					break;
 			}
-
-
-
-			double normch = (t.norm_accum - pap) * t.eff_price + (t.norm_profit - pnp);
-			pap = t.norm_accum;
-			pnp = t.norm_profit;
-			normaccum = normaccum || t.norm_accum != 0;
-
-
-
-			if (t.time >= first) {
-				records.push_back(Object
-						("id", t.id)
-						("time", t.time)
-						("achg", (inverted?-1:1)*t.size)
-						("gain", gain)
-						("norm", t.norm_profit)
-						("normch", normch)
-						("nacum", normaccum?Value((inverted?-1:1)*t.norm_accum):Value())
-						("pos", (inverted?-1:1)*pos)
-						("pl", cur_fromPos)
-						("rpl", rpln)
-						("price", (inverted?1.0/t.price:t.price))
-						("p0",t.neutral_price?Value(inverted?1.0/t.neutral_price:t.neutral_price):Value())
-						("volume", fabs(t.eff_price*t.eff_size))
-						("man",t.manual_trade)
-				);
+			if (prevTrade == nullptr) {
+				prevTrade = &(*iter);
+			} else {
+				tmpTrade = sumTrades(*prevTrade, *iter);
+				prevTrade = &(*tmpTrade);
 			}
-
 
 			++iter;
-		}
+		} while (true);
 
 	}
 	tradeMap[symb] = records;

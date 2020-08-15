@@ -376,6 +376,13 @@ function app_start(){
 			})
 		}
 		var p = table.firstElementChild.nextElementSibling;
+		while (p) {
+			var q = p;
+			p = p.nextSibling;
+            if (q.classList.contains("animout")) {
+			    q.parentElement.removeChild(q);	
+            }
+		}
 		
 
 		var delay=0;
@@ -388,33 +395,56 @@ function app_start(){
 				if (item) {
 					if (item.ident == r.ident && item.time == r.time) 
 						return true;
-				}
+				}				
 			}
 			return false;
 		}
 
+
+
+		var p = table.firstElementChild.nextElementSibling;
+
 		c.forEach(function(r) {
+			while (p && p.classList.contains("animout")) {
+				p = p.nextSibling;
+			}
 			if (hasRow(p,r)) {
 				p = p.nextSibling;
 				skips = true;
 				return;
+			} else if (p) {
+				var q = p.nextSibling;
+				if (q && hasRow(q,r)) {
+					skips = true;
+					p = q;
+					return;
+				}
 			}
 			delay++;
 		});
 		if (delay > 8) delay = 8;
 
-		var p = table.firstElementChild.nextElementSibling;
+		var p = table.firstElementChild.nextElementSibling;;
 		
 		c.forEach(function(r) {
 			if (hasRow(p,r)) {
 				p = p.nextSibling;
 				return;
+			} else if (p) {
+				var q = p.nextSibling;
+				if (q && hasRow(q, r)) {
+					p.classList.add("animout");							
+					p.firstElementChild.style.animationDelay="0";
+					p.firstElementChild.classList.remove("anim");
+					p = q.nextSibling;
+					return;
+				}
 			}
 			var trbgr = document.createElement("x-trbgr");
 			table.insertBefore(trbgr, p);
 			var tr = document.createElement("x-tr");
 			if (skips && delay >= 0) {
-				tr.classList = "anim"
+				tr.classList.add("anim");
 				tr.style.animationDelay=delay+"s";
 			}
 			newitems.push(tr);
