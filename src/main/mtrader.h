@@ -317,6 +317,7 @@ private:
 	mutable std::uint64_t period_cache = 0;
 
 	bool checkAchieveModeDone(const Status &st);
+	bool checkEquilibriumClose(const Status &st, double lastTradePrice);
 };
 
 

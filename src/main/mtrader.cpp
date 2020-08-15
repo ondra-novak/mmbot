@@ -226,6 +226,8 @@ void MTrader::perform(bool manually) {
 			if (achieve_mode) {
 				achieve_mode = !checkAchieveModeDone(status);
 				grant_trade |= achieve_mode;
+			} else  if (!cfg.alerts && !cfg.delayed_alerts && !grant_trade) {
+				grant_trade = !checkEquilibriumClose(status,lastTradePrice);
 			}
 
 			if (recalc) {
@@ -1423,3 +1425,12 @@ bool MTrader::checkAchieveModeDone(const Status &st) {
 	return st.curPrice >= low && st.curPrice <=hi;
 
 }
+bool MTrader::checkEquilibriumClose(const Status &st, double lastTradePrice) {
+	double eq = strategy.getEquilibrium(st.assetBalance);
+	if (!std::isfinite(eq)) return false;
+	double low = eq * std::exp(-st.curStep);
+	double hi = eq * std::exp(st.curStep);
+	return lastTradePrice >= low && lastTradePrice <=hi;
+
+}
+
