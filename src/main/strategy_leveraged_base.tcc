@@ -44,6 +44,7 @@ void Strategy_Leveraged<Calc>::recalcNewState(const PCalc &calc, const PConfig &
 		recalcNeutral(calc,cfg,nwst);
 	}
 	nwst.val = calc->calcPosValue(nwst.power, calcAsym(cfg,nwst), nwst.neutral_price, nwst.last_price);
+	nwst.redval = nwst.val;
 }
 
 template<typename Calc>
@@ -90,10 +91,17 @@ typename Strategy_Leveraged<Calc>::PosCalcRes Strategy_Leveraged<Calc>::calcPosi
 		double mprice = calc->calcPrice0(st.neutral_price, calcAsym());
 		double distance = std::abs(price - mprice)/(mm.max - mm.min);
 		reduction = reduction + 0.5*distance*cfg->dynred;
+		double new_neutral;
 
 
 		double profit = st.position * (price - st.last_price);
-		double new_neutral = reduction?calcNewNeutralFromProfit(profit, price,reduction):st.neutral_price;
+		if (cfg->rebalance_level) {
+			new_neutral = (price - st.last_price)*st.position > 0 && std::abs(price - st.neutral_price)/st.neutral_price > cfg->rebalance_level
+										?st.neutral_price + (price - st.neutral_price) * reduction * 2
+										:st.neutral_price;
+		} else {
+			new_neutral = reduction?calcNewNeutralFromProfit(profit, price,reduction):st.neutral_price;
+		}
 		double pos = calc->calcPosition(st.power, calcAsym(), new_neutral, price);
 		double initpos = calc->calcPosition(st.power,calcAsym(), new_neutral, new_neutral);
 		if ((initpos - st.position) * (initpos - pos) <= 0) {
@@ -127,7 +135,6 @@ double Strategy_Leveraged<Calc>::calcNewNeutralFromProfit(double profit, double 
 	auto dir = sgn(st.last_price - price);
 	auto inrpos = dir * st.position > 0;
 
-	double mult = st.power;
 	double asym = calcAsym();
 	double middle = calc->calcPrice0(st.neutral_price, asym);
 	if ((middle - st.last_price ) * (middle - price) <= 0)
@@ -135,7 +142,7 @@ double Strategy_Leveraged<Calc>::calcNewNeutralFromProfit(double profit, double 
 
 	double new_val;
 	bool rev_shift = ((price >= middle && price <= st.neutral_price) || (price <= middle && price >= st.neutral_price));
-	double prev_val = calc->calcPosValue(mult, asym, st.neutral_price, st.last_price);
+	double prev_val = st.val;
 	new_val = prev_val - profit;
 	double c_neutral = calc->calcNeutralFromValue(st.power, asym, st.neutral_price, new_val, price);
 	if (rev_shift) {
@@ -207,6 +214,10 @@ std::pair<typename Strategy_Leveraged<Calc>::OnTradeResult, PStrategy> Strategy_
 	double extra = (val - st.val) + profit;
 	//store val to calculate next profit (because strategy was adjusted)
 	nwst.val = val;
+
+	if (nwst.val < nwst.redval) {
+		nwst.redval = val;
+	}
 	//store new balance
 	nwst.bal += extra;
 
@@ -234,6 +245,7 @@ json::Value Strategy_Leveraged<Calc>::exportState() const {
 			("position",st.position)
 			("balance",st.bal)
 			("val",st.val)
+			("redval",st.redval)
 			("power",st.power)
 			("neutral_pos",st.neutral_pos)
 			("trend", st.trend_cntr)
@@ -249,6 +261,7 @@ PStrategy Strategy_Leveraged<Calc>::importState(json::Value src,const IStockApi:
 			src["position"].getNumber(),
 			src["balance"].getNumber(),
 			src["val"].getNumber(),
+			src["redval"].getNumber(),
 			src["power"].getNumber(),
 			src["neutral_pos"].getNumber(),
 			src["trend"].getInt()

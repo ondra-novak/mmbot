@@ -21,17 +21,18 @@ public:
 
 	struct Config {
 		double power;
-		double asym;
-		double max_loss;
-		double reduction;
-		double external_balance;
-		double powadj;
-		double dynred;
-		double initboost;
-		bool detect_trend;
-		bool recalc_keep_neutral;
-		bool longonly;
-		int preference;
+		double asym = 0;
+		double max_loss = 0;
+		double reduction = 0;
+		double external_balance = 0;
+		double powadj = 0;
+		double dynred = 0;
+		double initboost = 0;
+		double rebalance_level = 0;
+		bool detect_trend = false;
+		bool recalc_keep_neutral =false;
+		bool longonly = false;
+//		int preference = 0;
 	};
 
 	using PConfig = std::shared_ptr<const Config>;
@@ -43,6 +44,7 @@ public:
 		double position = 0;
 		double bal = 0;
 		double val = 0;
+		double redval = 0;
 		double power = 0;
 		double neutral_pos = 0;
 		long trend_cntr = 0;

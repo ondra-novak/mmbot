@@ -98,6 +98,7 @@ App.prototype.createTraderForm = function() {
 		form.showItem("strategy_hyperbolic",state.strategy == "hyperbolic"||state.strategy == "linear"||state.strategy == "sinh");
 		form.showItem("kv_valinc_h",state.strategy == "keepvalue");
 		form.showItem("exp_optp_h",state.strategy == "exponencial"||state.strategy == "hypersquare"||state.strategy == "conststep");
+		form.showItem("show_rebalance", state.strategy == "sinh")
 		form.setData({"help_goal":{"class":state.strategy}});
 		form.getRoot().classList.toggle("no_adv", !state["advanced"]);
 		form.getRoot().classList.toggle("no_experimental", !state["check_unsupp"]);
@@ -512,6 +513,7 @@ App.prototype.fillForm = function (src, trg) {
 	data.st_pattern = "constant";
 	data.st_sl=false;
 	data.hp_reduction=50;
+	data.sh_rebalance=0;
 	data.hp_initboost=0;
 	data.hp_asym=0;
 	data.hp_power=1;
@@ -554,6 +556,7 @@ App.prototype.fillForm = function (src, trg) {
 		data.hp_extbal = filledval(src.strategy.extbal,0);
 		data.hp_dtrend = filledval(src.strategy.dtrend,false);
 		data.hp_longonly = filledval(src.strategy.longonly,false);
+		data.sh_rebalance = filledval(defval(src.strategy.rebalance_level,0)*100,0);
 		data.hp_lb_asym = src.strategy.dtrend?"trend":"asym"; 
 	} else if (data.strategy == "stairs") {
 		data.st_power = filledval(src.strategy.power,1.7);
@@ -687,7 +690,9 @@ function getStrategyData(data) {
 				recalc_mode: data.hp_recalc,
 				asym: data.hp_asym / 100,
 				reduction: data.hp_reduction/200,
-				initboost: data.hp_initboost
+				initboost: data.hp_initboost,
+				rebalance_level: data.sh_rebalance/100,
+				
 		};
 	} else 	if (data.strategy == "stairs") {
 		strategy ={
@@ -1419,7 +1424,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 	form.enableItem("show_backtest",false);		
 	var inputs = ["strategy","external_assets", "acum_factor","kv_valinc","kv_halfhalf","min_size","max_size","order_mult","alerts","delayed_alerts","linear_suggest","linear_suggest_maxpos",
 		"st_power","st_reduction_step","st_sl","st_redmode","st_max_step","st_pattern","dynmult_sliding","accept_loss","spread_calc_sma_hours","st_tmode","zigzag",
-		"hp_dtrend","hp_longonly","hp_power","hp_maxloss","hp_asym","hp_reduction","hp_initboost","hp_extbal","hp_powadj","hp_dynred",
+		"hp_dtrend","hp_longonly","hp_power","hp_maxloss","hp_asym","hp_reduction","sh_rebalance","hp_initboost","hp_extbal","hp_powadj","hp_dynred",
 		"exp_optp","gs_external_assets","gs_rb_hi_a","gs_rb_lo_a","gs_rb_hi_p","gs_rb_lo_p"
 		];
 	var spread_inputs = ["spread_calc_stdev_hours", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode","dynmult_sliding","dynmult_mult"];

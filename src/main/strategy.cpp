@@ -149,6 +149,7 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 		cfg.initboost = config["initboost"].getNumber();
 		cfg.detect_trend = config["dtrend"].getBool();
 		cfg.longonly = config["longonly"].getBool();
+		cfg.rebalance_level = config["rebalance_level"].getNumber();
 		cfg.recalc_keep_neutral = config["recalc_mode"].getString() == "neutral";
 		return Strategy(new Strategy_Sinh(std::make_shared<Strategy_Sinh::TCalc>(power),
 			    							std::make_shared<Strategy_Sinh::Config>(cfg)));
