@@ -44,7 +44,7 @@ void Strategy_Leveraged<Calc>::recalcNewState(const PCalc &calc, const PConfig &
 		recalcNeutral(calc,cfg,nwst);
 	}
 	nwst.val = calc->calcPosValue(nwst.power, calcAsym(cfg,nwst), nwst.neutral_price, nwst.last_price);
-	nwst.redval = nwst.val;
+	nwst.redbal = nwst.bal;
 }
 
 template<typename Calc>
@@ -57,6 +57,7 @@ Strategy_Leveraged<Calc> Strategy_Leveraged<Calc>::init(const PCalc &calc, const
 		/*position */ pos - bal.second,
 		/*bal */ bal.first-cfg->external_balance,
 		/* val */ 0,
+		/*redbal*/ bal.first-cfg->external_balance,
 		/* power */ 0,
 		/* neutral_pos */bal.second
 	};
@@ -90,7 +91,7 @@ typename Strategy_Leveraged<Calc>::PosCalcRes Strategy_Leveraged<Calc>::calcPosi
 		double reduction = cfg->reduction;
 		double mprice = calc->calcPrice0(st.neutral_price, calcAsym());
 		double distance = std::abs(price - mprice)/(mm.max - mm.min);
-		reduction = reduction + 0.5*distance*cfg->dynred;
+		reduction = std::sqrt(pow2(reduction) + 0.5*pow2(distance*cfg->dynred));
 		double new_neutral;
 
 
@@ -100,7 +101,12 @@ typename Strategy_Leveraged<Calc>::PosCalcRes Strategy_Leveraged<Calc>::calcPosi
 										?st.neutral_price + (price - st.neutral_price) * reduction * 2
 										:st.neutral_price;
 		} else {
-			new_neutral = reduction?calcNewNeutralFromProfit(profit, price,reduction):st.neutral_price;
+			if ((price - st.last_price)*st.position > 0) {
+				profit += st.bal - st.redbal;
+				new_neutral = reduction?calcNewNeutralFromProfit(profit, price,reduction):st.neutral_price;
+			} else {
+				new_neutral = st.neutral_price;
+			}
 		}
 		double pos = calc->calcPosition(st.power, calcAsym(), new_neutral, price);
 		double initpos = calc->calcPosition(st.power,calcAsym(), new_neutral, new_neutral);
@@ -116,7 +122,7 @@ PStrategy Strategy_Leveraged<Calc>::onIdle(
 		const IStockApi::MarketInfo &minfo,
 		const IStockApi::Ticker &ticker, double assets, double currency) const {
 	if (isValid()) {
-		if (st.power <= 0) {
+		if (st.power <= 0 || st.redbal == 0) {
 			State nst = st;
 			recalcNewState(calc, cfg, nst);
 			return new Strategy_Leveraged<Calc>(calc, cfg, std::move(nst));
@@ -132,9 +138,6 @@ PStrategy Strategy_Leveraged<Calc>::onIdle(
 template<typename Calc>
 double Strategy_Leveraged<Calc>::calcNewNeutralFromProfit(double profit, double price, double reduction) const {
 
-	auto dir = sgn(st.last_price - price);
-	auto inrpos = dir * st.position > 0;
-
 	double asym = calcAsym();
 	double middle = calc->calcPrice0(st.neutral_price, asym);
 	if ((middle - st.last_price ) * (middle - price) <= 0)
@@ -147,13 +150,6 @@ double Strategy_Leveraged<Calc>::calcNewNeutralFromProfit(double profit, double 
 	double c_neutral = calc->calcNeutralFromValue(st.power, asym, st.neutral_price, new_val, price);
 	if (rev_shift) {
 		c_neutral = 2*st.neutral_price - c_neutral;
-	}
-	if (reduction < 0.25) {
-		if (inrpos) reduction = reduction * 2;
-		else reduction = 0;
-	} else if (reduction < 0.5) {
-		if (inrpos) reduction = 0.5;
-		else reduction = 2*(reduction-0.25);
 	}
 	double new_neutral = st.neutral_price + (c_neutral - st.neutral_price)* 2 * (reduction);
 	return new_neutral;
@@ -215,11 +211,13 @@ std::pair<typename Strategy_Leveraged<Calc>::OnTradeResult, PStrategy> Strategy_
 	//store val to calculate next profit (because strategy was adjusted)
 	nwst.val = val;
 
-	if (nwst.val < nwst.redval) {
-		nwst.redval = val;
-	}
 	//store new balance
 	nwst.bal += extra;
+
+	if (st.position * tradeSize < 0) {
+		nwst.redbal = nwst.bal;
+	}
+
 
 	recalcPower(calc, cfg, nwst);
 
@@ -245,7 +243,7 @@ json::Value Strategy_Leveraged<Calc>::exportState() const {
 			("position",st.position)
 			("balance",st.bal)
 			("val",st.val)
-			("redval",st.redval)
+			("redbal",st.redbal)
 			("power",st.power)
 			("neutral_pos",st.neutral_pos)
 			("trend", st.trend_cntr)
@@ -261,7 +259,7 @@ PStrategy Strategy_Leveraged<Calc>::importState(json::Value src,const IStockApi:
 			src["position"].getNumber(),
 			src["balance"].getNumber(),
 			src["val"].getNumber(),
-			src["redval"].getNumber(),
+			src["redbal"].getNumber(),
 			src["power"].getNumber(),
 			src["neutral_pos"].getNumber(),
 			src["trend"].getInt()
@@ -340,7 +338,8 @@ json::Value Strategy_Leveraged<Calc>::dumpStatePretty(
 				  ("Last price", minfo.invert_price?1/st.last_price:st.last_price)
 				 ("Neutral price", minfo.invert_price?1/st.neutral_price:st.neutral_price)
 				 ("Value", st.val)
-				 ("normalized PnL", st.bal)
+				 ("Normalized PnL", st.bal)
+				 ("Normalized unused PnL", st.redbal - st.bal)
 				 ("Multiplier", st.power)
 				 ("Neutral pos", st.neutral_pos?json::Value(st.neutral_pos):json::Value())
 	 	 	 	 ("Trend factor", json::String({

@@ -44,7 +44,7 @@ public:
 		double position = 0;
 		double bal = 0;
 		double val = 0;
-		double redval = 0;
+		double redbal = 0;
 		double power = 0;
 		double neutral_pos = 0;
 		long trend_cntr = 0;
