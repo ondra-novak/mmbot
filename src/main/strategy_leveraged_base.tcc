@@ -346,7 +346,7 @@ json::Value Strategy_Leveraged<Calc>::dumpStatePretty(
 				 ("Neutral price", minfo.invert_price?1/st.neutral_price:st.neutral_price)
 				 ("Value", st.val)
 				 ("Normalized PnL", st.bal)
-				 ("Normalized unused PnL", st.redbal - st.bal)
+				 ("Normalized unused PnL", st.bal - st.redbal)
 				 ("Multiplier", st.power)
 				 ("Neutral pos", st.neutral_pos?json::Value(st.neutral_pos):json::Value())
 	 	 	 	 ("Trend factor", json::String({
