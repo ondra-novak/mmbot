@@ -143,13 +143,20 @@ double Strategy_Leveraged<Calc>::calcNewNeutralFromProfit(double profit, double 
 	if ((middle - st.last_price ) * (middle - price) <= 0)
 		return st.neutral_price;
 
+
 	double new_val;
 	bool rev_shift = ((price >= middle && price <= st.neutral_price) || (price <= middle && price >= st.neutral_price));
 	double prev_val = st.val;
 	new_val = prev_val - profit;
-	double c_neutral = calc->calcNeutralFromValue(st.power, asym, st.neutral_price, new_val, price);
-	if (rev_shift) {
-		c_neutral = 2*st.neutral_price - c_neutral;
+	double c_neutral;
+	double neutral_from_price = calc->calcNeutralFromPrice0(price, asym);
+	if (calc->calcPosValue(st.power, asym, neutral_from_price, price) > new_val) {
+		c_neutral = neutral_from_price;
+	} else {
+		c_neutral = calc->calcNeutralFromValue(st.power, asym, st.neutral_price, new_val, price);
+		if (rev_shift) {
+			c_neutral = 2*st.neutral_price - c_neutral;
+		}
 	}
 	double new_neutral = st.neutral_price + (c_neutral - st.neutral_price)* 2 * (reduction);
 	return new_neutral;
@@ -214,7 +221,7 @@ std::pair<typename Strategy_Leveraged<Calc>::OnTradeResult, PStrategy> Strategy_
 	//store new balance
 	nwst.bal += extra;
 
-	if (st.position * tradeSize < 0) {
+	if  (st.position * nwst.position <= 0) {
 		nwst.redbal = nwst.bal;
 	}
 
