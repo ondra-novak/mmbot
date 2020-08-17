@@ -15,9 +15,11 @@
 
 std::string_view Sinh_Calculus::id = "sinh";
 
+constexpr auto power_mult=5;
+
 #include "numerical.h"
 Sinh_Calculus::Sinh_Calculus(double p) :
-		p(p) {}
+		p(p*power_mult) {}
 
 
 //pos = w * (sinh(p - p * x / k ) + a);
@@ -87,7 +89,8 @@ double Sinh_Calculus::calcNeutralFromValue(double power, double asym, double neu
 }
 
 double Sinh_Calculus::calcPower(double neutral, double balance, double ) {
-	return balance/(neutral*p);
+	double f = power_mult / (std::cosh(power_mult)-1);
+	return balance/(neutral*p)*f;
 }
 
 template class Strategy_Leveraged<Sinh_Calculus>;
