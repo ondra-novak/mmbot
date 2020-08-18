@@ -96,11 +96,7 @@ typename Strategy_Leveraged<Calc>::PosCalcRes Strategy_Leveraged<Calc>::calcPosi
 
 
 		double profit = st.position * (price - st.last_price);
-		if (cfg->rebalance_level) {
-			new_neutral = (price - st.last_price)*st.position > 0 && std::abs(price - st.neutral_price)/st.neutral_price > cfg->rebalance_level
-										?st.neutral_price + (price - st.neutral_price) * reduction * 2
-										:st.neutral_price;
-		} else {
+		{
 			if ((price - st.last_price)*st.position > 0) {
 				profit += st.bal - st.redbal;
 				new_neutral = reduction?calcNewNeutralFromProfit(profit, price,reduction):st.neutral_price;

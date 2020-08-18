@@ -15,11 +15,10 @@
 
 std::string_view Sinh_Calculus::id = "sinh";
 
-constexpr auto power_mult=5;
 
 #include "numerical.h"
-Sinh_Calculus::Sinh_Calculus(double p) :
-		p(p*power_mult) {}
+Sinh_Calculus::Sinh_Calculus(double p, double curv) :
+		p(p*curv),curv(curv) {}
 
 
 //pos = w * (sinh(p - p * x / k ) + a);
@@ -89,7 +88,7 @@ double Sinh_Calculus::calcNeutralFromValue(double power, double asym, double neu
 }
 
 double Sinh_Calculus::calcPower(double neutral, double balance, double ) {
-	double f = power_mult / (std::cosh(power_mult)-1);
+	double f = curv / (std::cosh(curv)-1);
 	return balance/(neutral*p)*f;
 }
 

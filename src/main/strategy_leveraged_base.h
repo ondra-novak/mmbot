@@ -28,7 +28,6 @@ public:
 		double powadj = 0;
 		double dynred = 0;
 		double initboost = 0;
-		double rebalance_level = 0;
 		bool detect_trend = false;
 		bool recalc_keep_neutral =false;
 		bool longonly = false;
