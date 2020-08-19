@@ -48,7 +48,7 @@ void Strategy_Leveraged<Calc>::recalcNewState(const PCalc &calc, const PConfig &
 }
 
 template<typename Calc>
-Strategy_Leveraged<Calc> Strategy_Leveraged<Calc>::init(const PCalc &calc, const PConfig &cfg, double price, double pos, double currency, const IStockApi::MarketInfo &minfo) {
+PStrategy Strategy_Leveraged<Calc>::init(const PCalc &calc, const PConfig &cfg, double price, double pos, double currency, const IStockApi::MarketInfo &minfo) {
 	bool futures = minfo.leverage != 0 || cfg->longonly;
 	auto bal = getBalance(*cfg,futures, price, pos, currency);
 	State nwst {
@@ -68,7 +68,12 @@ Strategy_Leveraged<Calc> Strategy_Leveraged<Calc>::init(const PCalc &calc, const
 	PCalc newcalc = calc;
 	if (!newcalc->isValid(minfo)) newcalc = std::make_shared<Calc>(calc->init(minfo));
 	recalcNewState(newcalc, cfg,nwst);
-	return Strategy_Leveraged(newcalc, cfg, std::move(nwst));
+
+	auto res = PStrategy(new Strategy_Leveraged (newcalc, cfg, std::move(nwst)));
+	if (!res->isValid())  {
+		throw std::runtime_error("Unable to initialize strategy - invalid configuration");
+	}
+	return res;
 }
 
 
@@ -127,7 +132,7 @@ PStrategy Strategy_Leveraged<Calc>::onIdle(
 		}
 	}
 	else {
-		return new Strategy_Leveraged<Calc>(init(calc, cfg,ticker.last, assets, currency, minfo));
+		return init(calc, cfg,ticker.last, assets, currency, minfo);
 	}
 }
 
@@ -186,7 +191,7 @@ std::pair<typename Strategy_Leveraged<Calc>::OnTradeResult, PStrategy> Strategy_
 
 	if (!isValid()) {
 		return init(calc, cfg,tradePrice, assetsLeft, currencyLeft, minfo)
-				.onTrade(minfo, tradePrice, tradeSize, assetsLeft, currencyLeft);
+				->onTrade(minfo, tradePrice, tradeSize, assetsLeft, currencyLeft);
 	}
 
 	State nwst = st;
@@ -411,7 +416,7 @@ std::pair<double,double> Strategy_Leveraged<Calc>::getBalance(const Config &cfg,
 template<typename Calc>
 inline double Strategy_Leveraged<Calc>::calcInitialPosition(const IStockApi::MarketInfo &minfo, double price, double assets, double currency) const {
 	if (!isValid()) {
-		return init(calc, cfg, price, assets, currency, minfo).calcInitialPosition(minfo,price,assets,currency);
+		return init(calc, cfg, price, assets, currency, minfo)->calcInitialPosition(minfo,price,assets,currency);
 	} else {
 		return calcPosition(st.neutral_price).pos;
 	}

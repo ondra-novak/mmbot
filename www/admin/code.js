@@ -286,6 +286,14 @@ App.prototype.fillForm = function (src, trg) {
 			var data = {};
 			fillHeader(st,data);
 			trg.setData(data);
+			trg.setData({
+				err_failed_to_fetch: {
+					classList:{
+						mark:false
+					},
+					value:""
+				}
+			});
 		},function(err) {
 			var ep = parse_fetch_error(err);
 			ep.then(function(x) {

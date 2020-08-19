@@ -339,10 +339,15 @@ public:
 const PairList& BitfinexSource::getPairs() const {
 	auto now = std::chrono::system_clock::now();
 	if (now < pairListExpire) return pairList;
-	auto r = httpc.GET("https://api.bitfinex.com/v2/conf/pub:info:pair");
-	pairList =readPairs(r);
-	pairListExpire = now+std::chrono::hours(1);
-	return pairList;
+	try {
+		auto r = httpc.GET("https://api.bitfinex.com/v2/conf/pub:info:pair");
+		pairList =readPairs(r);
+		pairListExpire = now+std::chrono::hours(1);
+		return pairList;
+	} catch (...) {
+		pairListExpire = now;
+		return pairList;
+	}
 }
 
 
@@ -987,9 +992,13 @@ inline std::vector<std::string> Interface::getAllPairs() {
 	std::vector<std::string> pairs;
 	pairs.push_back(pairName);
 
-	auto bfxpairs = bfxsource.getPairs();
-	for (const auto &p : bfxpairs) {
-		pairs.push_back(p.second.symbol.str());
+	try {
+		auto bfxpairs = bfxsource.getPairs();
+		for (const auto &p : bfxpairs) {
+			pairs.push_back(p.second.symbol.str());
+		}
+	} catch (...) {
+
 	}
 	return pairs;
 }

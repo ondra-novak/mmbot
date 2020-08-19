@@ -82,7 +82,7 @@ protected:
 		double pos;
 	};
 
-	static Strategy_Leveraged init(const PCalc &calc, const PConfig &cfg, double price, double pos, double currency, const IStockApi::MarketInfo &minfo);
+	static PStrategy init(const PCalc &calc, const PConfig &cfg, double price, double pos, double currency, const IStockApi::MarketInfo &minfo);
 	PosCalcRes calcPosition(double price) const;
 
 	MinMax calcRoots() const;

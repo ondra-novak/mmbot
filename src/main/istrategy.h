@@ -85,6 +85,7 @@ public:
 	virtual std::optional<BudgetExtraInfo> getBudgetExtraInfo(double price, double currency) const = 0;
 	virtual ~IStrategy() {}
 
+
 protected:
 	///Calculates order size
 	/**
