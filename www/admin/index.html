@@ -147,8 +147,8 @@ included, external currencies are counted in proportion to external assets</span
 <label><span>Power<span class="tooltip">How balance is multiplied. Can boost profits and losses as well. Conservative value is 1</span></span><input data-name="hp_power" type="number" step="0.1" value="1.0"></label>
 <label class="adv"><span>Dynamic power<span class="tooltip">How much is power adjusted with increase of the position</span></span><input data-name="hp_powadj" type="number" step="0.1" value="1.0"></label>
 <label><span>Collateral (0=use balance)<span class="tooltip">Specify total amount of collateral used to calculate power including collateral held on stockmarket and also held out of stockmarket. If this field is zero, then strategy is initialized with collateral currently available on stockmarket.</span></span><input data-name="hp_extbal" type="number" value="0"></label>
-<label><span>Trend detection<span class="tooltip">Tries to detect trend and adjust asymmetry according to detected trend</span></span><x-checkbox data-name="hp_dtrend">Detect trend</x-checkbox></label>
-<label><x-switch data-name="hp_lb_asym" data-value="asym"><span>Asymmetry<span class="tooltip">Prefer one of sides. Positive value prefers LONGS on normal futures and SHORTS on inverted futures. Negative values vice versa. Note that negative values are more dangerous and can result in a liquidation.</span></span></x-switch>
+<label class="adv"><span>Trend detection<span class="tooltip">Tries to detect trend and adjust asymmetry according to detected trend</span></span><x-checkbox data-name="hp_dtrend">Detect trend</x-checkbox></label>
+<label class="adv"><x-switch data-name="hp_lb_asym" data-value="asym"><span>Asymmetry<span class="tooltip">Prefer one of sides. Positive value prefers LONGS on normal futures and SHORTS on inverted futures. Negative values vice versa. Note that negative values are more dangerous and can result in a liquidation.</span></span></x-switch>
 		<x-switch data-name="hp_lb_asym" data-value="trend"><span>Trend strenght<span class="tooltip">Specifies how much the trend affects prefered side. Positive value - go with trend, negative value - go against trend</span></span></x-switch>
 		<x-slider data-name="hp_asym" data-min="-100" data-max="100" data-mult="1" data-fixed="0"></label>
 <label><span>Reduction<span class="tooltip">Reduction of current position, 0=no reduction, 100=use all profit to reduce, 200=reduce twice more (can generate loss)</span></span><x-slider data-name="hp_reduction" data-min="0" data-max="200" data-mult="1" data-fixed="0"></label>
@@ -162,7 +162,7 @@ included, external currencies are counted in proportion to external assets</span
 <option value="neutral">Keep neutral</option>
 </select>
 </label>
-<label class="adv"><span>Avoid <x-switch data-name="inverted_price" data-value="false">SHORT</x-switch><x-switch data-name="inverted_price" data-value="true">LONG</x-switch> position<span class="tooltip">Prevents to trade on dangerous side of the market. It is short for normal futures and long for inverted futures</span></span><x-checkbox data-name="hp_longonly"></x-checkbox></label>
+<label><span>Avoid <x-switch data-name="inverted_price" data-value="false">SHORT</x-switch><x-switch data-name="inverted_price" data-value="true">LONG</x-switch> position<span class="tooltip">Prevents to trade on dangerous side of the market. It is short for normal futures and long for inverted futures</span></span><x-checkbox data-name="hp_longonly"></x-checkbox></label>
 <x-section>
 <div class="label"><span>Min price:</span><span data-name="range_min_price">---</span></div>
 <div class="label"><span>Max price:</span><span data-name="range_max_price">---</span></div>
