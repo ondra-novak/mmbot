@@ -844,6 +844,10 @@ bool WebCfg::State::logout_commit(std::string &&user) {
 
 bool WebCfg::reqEditor(simpleServer::HTTPRequest req)  {
 	if (!req.allowMethods({"POST"})) return true;
+	if (state.lock_shared()->upload_progress != -1) {
+		req.sendErrorPage(503);
+		return true;
+	}
 	req.readBodyAsync(10000,[trlist = this->trlist,state =  this->state, dispatch = this->dispatch](simpleServer::HTTPRequest req) mutable {
 			try {
 
@@ -852,6 +856,8 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req)  {
 				Value trader = data["trader"];
 				Value symb = data["pair"];
 				std::string p;
+
+
 
 				trlist.lock()->stockSelector.checkBrokerSubaccount(broker.getString());
 				auto tr = trlist.lock_shared()->find(trader.toString().str());
