@@ -884,6 +884,7 @@ void MTrader::loadState() {
 	tempPr.currency = minfo.currency_symbol;
 	tempPr.asset = minfo.asset_symbol;
 	tempPr.simulator = minfo.simulator;
+	tempPr.invert_price = minfo.invert_price;
 	if (cfg.zigzag) updateZigzagLevels();
 
 }

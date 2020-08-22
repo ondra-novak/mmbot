@@ -24,6 +24,9 @@
 		double change;
 		///set true, if the record is from simulator
 		bool simulator;
+		///set true, if the price is inverted
+		bool invert_price;
+		///time of execution
 		uint64_t time;
 	};
 

@@ -34,6 +34,7 @@ void ExtDailyPerfMod::sendItem(const PerformanceReport &report) {
 			jrep.set("uid",report.uid);
 			jrep.set("change",report.change);
 			jrep.set("time", report.time);
+			jrep.set("invert_price",report.invert_price);
 			jsonRequestExchange("sendItem", jrep);
 
 		} catch (std::exception &e) {
