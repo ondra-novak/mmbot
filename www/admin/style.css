@@ -766,6 +766,8 @@ x-form.pair table.orders td,x-form.pair table th {
     position:relative;
 }
 
+x-form.pair table.orders td,x-form.pair table th[data-name=options] {text-align: right;padding-right: 1em;}
+
 x-form.pair table.orders td:nth-child(4) {
 	width: 5em;
 }

@@ -1577,7 +1577,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 	var frst = true;
 
 	var update;
-	var update_recalc;
+	var update_recalc = function() {}
 	var tm;
 	var config;
 	var opts
