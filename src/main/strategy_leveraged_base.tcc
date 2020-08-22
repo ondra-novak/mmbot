@@ -85,12 +85,8 @@ typename Strategy_Leveraged<Calc>::PosCalcRes Strategy_Leveraged<Calc>::calcPosi
 	bool lmt = false;
 	if (price < mm.min) {price = mm.min; lmt = true;}
 	if (price > mm.max) {price = mm.max; lmt = true;}
-	if (lmt) {
-		if (cfg->longonly && price >= mm.max) {
-			return {false,0};
-		} else {
+	if (lmt && cfg->max_loss != 0) {
 			return {true,st.position};
-		}
 	} else {
 
 		double reduction = cfg->reduction;
@@ -114,6 +110,7 @@ typename Strategy_Leveraged<Calc>::PosCalcRes Strategy_Leveraged<Calc>::calcPosi
 		if ((initpos - st.position) * (initpos - pos) <= 0) {
 				pos = (pos - initpos) * std::pow(2.0,cfg->initboost) + initpos;
 		}
+		if (cfg->longonly && pos < 0) pos = 0;
 		return {false,pos};
 	}
 }
@@ -308,7 +305,7 @@ IStrategy::OrderData Strategy_Leveraged<Calc>::getNewOrder(
 	} else {
 		auto cps = calcPosition(price);
 		double df = calcOrderSize(st.position,apos,cps.pos);
-		return {0, df};
+		return {0, df,  cps.pos == st.position?Alert::forced:Alert::enabled};
 	}
 }
 
@@ -322,6 +319,7 @@ typename Strategy_Leveraged<Calc>::MinMax Strategy_Leveraged<Calc>::calcSafeRang
 		return calcRoots();
 	} else {
 		auto r = calcRoots();
+		if (cfg->longonly) r.max = calc->calcPrice0(st.neutral_price, calcAsym());
 		double maxp = calc->calcPriceFromPosition(st.power, calcAsym(), st.neutral_price, -st.neutral_pos);
 		double minp = calc->calcRoots(st.power, calcAsym(),st.neutral_price, currencies).min;
 		return {std::max(r.min,minp),std::min(r.max,maxp)};
@@ -376,7 +374,6 @@ typename Strategy_Leveraged<Calc>::MinMax Strategy_Leveraged<Calc>::calcRoots() 
 	if (!rootsCache.has_value()) {
 		double lmt = calcMaxLoss();
 		rootsCache = calc->calcRoots(st.power, calcAsym(),st.neutral_price,lmt);
-		if (cfg->longonly) rootsCache->max = calc->calcPrice0(st.neutral_price, calcAsym());
 	}
 	return *rootsCache;
 }
