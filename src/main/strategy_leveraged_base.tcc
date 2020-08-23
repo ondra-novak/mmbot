@@ -295,7 +295,7 @@ IStrategy::OrderData Strategy_Leveraged<Calc>::getNewOrder(
 		double curPrice, double price, double dir, double assets, double currency) const {
 	auto apos = assets - st.neutral_pos;
 	auto mm = calcRoots();
-	if (curPrice < mm.min || curPrice > mm.max) {
+	if (cfg->max_loss && (curPrice < mm.min || curPrice > mm.max)) {
 		auto testStat = onTrade(minfo,curPrice,0,assets,currency);
 		auto mm2 = static_cast<const Strategy_Leveraged<Calc> *>((const IStrategy *)(testStat.second))->calcRoots();
 		if (dir * apos < 0 && (curPrice < mm2.min || curPrice > mm2.max))

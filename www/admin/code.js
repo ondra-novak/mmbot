@@ -241,6 +241,7 @@ App.prototype.traderURL = function(trader) {
 App.prototype.traderPairURL = function(trader, pair) {
 	return "api/traders/"+encodeURIComponent(trader)+"/broker/pairs/" + encodeURIComponent(pair);	
 }
+App.reload_trader_header=function() {}
 
 function defval(v,w) {
 	if (v === undefined) return w;
@@ -264,6 +265,7 @@ function filledval(v,w) {
 App.prototype.fillForm = function (src, trg) {
 	var data = {};	
 	var initial_pos;
+	var recalc_strategy_fn= function(){};
 	data.id = src.id;
 	data.title = src.title;
 	data.symbol = src.pair_symbol;	
@@ -282,7 +284,7 @@ App.prototype.fillForm = function (src, trg) {
 				pair: src.pair_symbol
 			})
 		});
-		state.then(function(st) {
+		return state.then(function(st) {
 			var data = {};
 			fillHeader(st,data);
 			trg.setData(data);
@@ -297,7 +299,7 @@ App.prototype.fillForm = function (src, trg) {
 		},function(err) {
 			var ep = parse_fetch_error(err);
 			ep.then(function(x) {
-				trg.setData({
+				var data = {
 					err_failed_to_fetch:{
 						value:x.msg+" - "+x.t,
 						classList:{
@@ -305,7 +307,11 @@ App.prototype.fillForm = function (src, trg) {
 						}
 					},
 					broker:"error"
-				});
+				};				
+				if (x.t.indexOf("swap assets") != -1) {
+				    data.swap_symbols_hide={".hidden":false};
+				}
+				trg.setData(data);
 			});
 		});			
 	}.bind(this);
@@ -429,6 +435,8 @@ App.prototype.fillForm = function (src, trg) {
 					})
 			}
 		}
+
+		recalc_strategy_fn = recalcStrategy.bind(this);
 		
 		data.err_external_assets={
 			"classList":{mark:!pair.asset_balance && !pair.leverage}
@@ -451,8 +459,8 @@ App.prototype.fillForm = function (src, trg) {
 			["strategy","external_assets","gs_external_assets", "hp_dtrend","hp_longonly","hp_power", "hp_maxloss", "hp_recalc", "hp_asym","hp_powadj", "hp_extbal", "hp_reduction","hp_dynred","exp_optp","sh_curv"]
 			.forEach(function(item){
 				trg.findElements(item).forEach(function(elem){
-					elem.addEventListener("input", recalcStrategy.bind(this));
-					elem.addEventListener("change", recalcStrategy.bind(this));
+					elem.addEventListener("input", function(){recalc_strategy_fn();});
+					elem.addEventListener("change", function(){recalc_strategy_fn();});
 				}.bind(this));
 			}.bind(this));
             var optp = trg.readData(["exp_optp"]);
@@ -470,12 +478,11 @@ App.prototype.fillForm = function (src, trg) {
                 }            	
             }
 
-			setTimeout(recalcStrategy.bind(this),1);
+			setTimeout(recalc_strategy_fn,1);
 			
 			data.vis_spread = {"!click": this.init_spreadvis.bind(this, trg, src.id), ".disabled":false};
 			data.show_backtest= {"!click": this.init_backtest.bind(this, trg, src.id, src.pair_symbol, src.broker), ".disabled":false};
 			data.inverted_price=pair.invert_price?"true":"false";
-			data.swap_symbols_hide = {".hidden":!!(pair.leverage || state.trades)};			
 			var tmp = trg.readData(["cstep","max_pos"]);
 			data.sync_pos["!click"] = function() {
 				var data = {};
@@ -494,6 +501,7 @@ App.prototype.fillForm = function (src, trg) {
 			}
 			first_fetch = false;
 		}
+		data.swap_symbols_hide = {".hidden":!!(pair.leverage || state.trades) && !src.swap_symbols};			
 		
 		
 	}.bind(this);
@@ -623,12 +631,23 @@ App.prototype.fillForm = function (src, trg) {
 	data.icon_share={"!click":this.shareForm.bind(this, src.id, trg)};
 	data.advedit = {"!click": this.editStrategyState.bind(this, src.id)};
 	
+    var timeout_id = null;
+
 	function refresh_hdr() {
 		if (trg.getRoot().isConnected) {
-			updateHdr();
-			setTimeout(refresh_hdr,60000);
+			var x = updateHdr().catch(function(){});
+			timeout_id = setTimeout(refresh_hdr,60000);
+			return x;
+		} else {
+			return Promise.reject();
 		}
 	}
+	this.reload_trader_header = function(){
+		if (timeout_id) clearTimeout(timeout_id);
+		refresh_hdr().then(function() {
+			recalc_strategy_fn();
+		},function(){})
+	};
 
 	function unhide_changed(x) {
 
@@ -1211,8 +1230,9 @@ App.prototype.save = function() {
 			top.showItem("saveprogress",false);
 			top.showItem("saveok",true);
 			this.processConfig(x);
-			this.updateTopMenu
+			this.updateTopMenu();
 			this.stopped = {};
+			this.reload_trader_header();
 		}.bind(this),function(e){			
 			top.showItem("saveprogress",false);
 			if (e.status == 409) {
@@ -2067,7 +2087,10 @@ App.prototype.brokerConfig = function(id, pair) {
 	return this.dlgbox({form:form}, "broker_options_dlg").then(function() {
 		form.then(function(f) {
 			var d = f.readData();
-			return fetch_with_error(burl, {method:"PUT",body:JSON.stringify(d)});				
+			return fetch_with_error(burl, {method:"PUT",body:JSON.stringify(d)})
+			.then(function(a){
+				this.reload_trader_header();return a;
+			}.bind(this));				
 		}.bind(this))
 	}.bind(this))
 }
