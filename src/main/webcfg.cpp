@@ -958,34 +958,82 @@ bool WebCfg::reqBacktest(simpleServer::HTTPRequest req)  {
 	} else  {
 		req.readBodyAsync(50000,[&trlist = this->trlist,state =  this->state](simpleServer::HTTPRequest req)mutable{
 			try {
-				Value data = Value::fromString(StrViewA(BinaryView(req.getUserBuffer())));
-				Value id = data["id"];
+				Value orgdata = Value::fromString(StrViewA(BinaryView(req.getUserBuffer())));
+				Value id = orgdata["id"];
+
+				Value reverse=orgdata["reverse"];
+				Value invert=orgdata["invert"];
 
 
-				auto process=[=](Traders &trlist, const BacktestCache::Subj &trades) {
+				auto process=[=](Traders &trlist, const BacktestCache::Subj &trades, bool inv, bool rev) {
 
+					Value data = orgdata;
 					Value config = data["config"];
 					Value init_pos = data["init_pos"];
 					Value balance = data["balance"];
+					Value init_price = data["init_price"];
 					Value fill_atprice= data["fill_atprice"];
+
 					std::uint64_t start_date=data["start_date"].getUIntLong();
 
 					MTrader_Config mconfig;
 					mconfig.loadConfig(config,false);
-					auto piter = trades.prices.begin();
-					auto pend = trades.prices.end();
 					std::optional<double> m_init_pos;
 					if (init_pos.hasValue()) m_init_pos = init_pos.getNumber();
 
-					BTTrades rs = backtest_cycle(mconfig, [&]{
-						std::optional<BTPrice> x;
-						while (piter != pend && piter->time < start_date) ++piter;
-						if (piter != pend) {
-							x = *piter;
-							++piter;
+					auto piter = trades.prices.begin();
+					auto pend = trades.prices.end();
+					double mlt = 1.0;
+					double avg = std::accumulate(trades.prices.begin(), trades.prices.end(),0.0,[](double a, const BTPrice &b){return a + b.price;})/trades.prices.size();
+					double ip = init_price.getNumber();
+					if (ip && !trades.prices.empty()) {
+						double fv = trades.prices[rev?trades.prices.size()-1:0].price;
+						if (inv) fv = 2*avg - fv;
+						if (trades.minfo.invert_price) {
+							mlt = (1.0/ip)/fv;
+						} else {
+							mlt = ip/fv;
 						}
-						return x;
-					}, trades.minfo,m_init_pos, balance.getNumber(), fill_atprice.getBool());
+					}
+
+					BTPriceSource source;
+					if (rev) {
+						auto priter = trades.prices.rbegin();
+
+						source = [&, priter]() mutable {
+							std::optional<BTPrice> x;
+							while (piter != pend && piter->time < start_date) {++piter; ++priter;}
+							if (piter != pend) {
+								x=BTPrice {piter->time,priter->price*mlt};
+								++piter;
+								++priter;
+							};
+							return x;
+						};
+
+
+					} else {
+						source = [&]{
+							std::optional<BTPrice> x;
+							while (piter != pend && piter->time < start_date) ++piter;
+							if (piter != pend) {
+								x=BTPrice {piter->time,piter->price*mlt};
+								++piter;
+							};
+							return x;
+						};
+					}
+
+					if (inv) {
+						source = [src = std::move(source),avg,mlt](){
+							auto r = src();
+							if (r.has_value()) r->price = 2*avg*mlt - r->price;
+							return r;
+						};
+					}
+
+					BTTrades rs = backtest_cycle(mconfig,std::move(source),
+							trades.minfo,m_init_pos, balance.getNumber(), fill_atprice.getBool());
 
 					Value result (json::array, rs.begin(), rs.end(), [](const BTTrade &x) {
 						return Object
@@ -1009,7 +1057,9 @@ bool WebCfg::reqBacktest(simpleServer::HTTPRequest req)  {
 				auto lkst = state.lock_shared();
 				if (lkst->backtest_cache.available(id.toString().str())) {
 					auto t = lkst->backtest_cache.getSubject();
-					process(*trlist.lock(), t);
+					bool inv = t.inverted != invert.getBool();
+					bool rev = t.reversed != reverse.getBool();
+					process(*trlist.lock(), t, inv, rev);
 				} else {
 					lkst.release();
 						try {
@@ -1026,10 +1076,12 @@ bool WebCfg::reqBacktest(simpleServer::HTTPRequest req)  {
 								return BTPrice{r.time, r.price};
 							});
 							trs.minfo = tr->getMarketInfo();
+							trs.inverted = false;
+							trs.reversed = false;
 							tr.release();
 
 							state.lock()->backtest_cache = BacktestCache(trs, id.toString().str());
-							process(*trlist.lock(), trs);
+							process(*trlist.lock(), trs, invert.getBool(), reverse.getBool());
 						} catch (std::exception &e) {
 							req.sendErrorPage(400,"", e.what());
 						}
@@ -1147,6 +1199,8 @@ bool WebCfg::reqUploadPrices(simpleServer::HTTPRequest req)  {
 			Value id = args["id"];
 			Value prices = args["prices"];
 
+
+
 			if (prices.getString() == "internal") {
 				auto lkst = state.lock();
 				lkst->prices_cache.clear();
@@ -1161,8 +1215,10 @@ bool WebCfg::reqUploadPrices(simpleServer::HTTPRequest req)  {
 					req.sendErrorPage(404);
 					return;
 				}
+
 				IStockApi::MarketInfo minfo = tr->getMarketInfo();
-				std::vector<double> chart;
+
+								std::vector<double> chart;
 				std::transform(prices.begin(), prices.end(), std::back_inserter(chart),[&](Value itm){
 					double p = itm.getNumber();
 					if (minfo.invert_price) p = 1.0/p;
@@ -1206,6 +1262,8 @@ bool WebCfg::reqUploadTrades(simpleServer::HTTPRequest req)  {
 						return BTPrice{tm, p};
 				});
 				bt.minfo = minfo;
+				bt.reversed = false;
+				bt.inverted = false;
 				tr.release();
 				auto lkst = state.lock();
 				lkst->upload_progress = -1;
@@ -1228,6 +1286,9 @@ bool WebCfg::generateTrades(const SharedObject<Traders> &trlist, PState state, j
 		Value dynmult_mode = args["mode"];
 		Value dynmult_sliding = args["sliding"];
 		Value dynmult_mult = args["dyn_mult"];
+		Value reverse=args["reverse"];
+		Value invert=args["invert"];
+
 
 		auto lkst = state.lock();
 
@@ -1237,30 +1298,47 @@ bool WebCfg::generateTrades(const SharedObject<Traders> &trlist, PState state, j
 			return false;
 		}
 
+		bool rev = reverse.getBool();
+		double avg;
+
 		std::function<std::optional<MTrader::ChartItem>()> source;
 		lkst->upload_progress = 0;
 		if (!lkst->prices_cache.available(id.getString())) {
 			auto chart = tr->getChart();
-			source = [=,pos = std::size_t(0) ]() mutable {
-				if (state.lock_shared()->cancel_upload || pos >= chart.size()) {
-					return std::optional<MTrader::ChartItem>();
-				}
-				state.lock()->upload_progress = (pos * 100)/chart.size();
-				return std::optional<MTrader::ChartItem>(chart[pos++]);
-			};
-		} else {
-			auto prc = lkst->prices_cache.getSubject();
-			auto now = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-			source = [prc = std::move(prc), pos = std::size_t(0), state , now]() mutable {
-				std::size_t sz = prc.size();
+			avg = std::accumulate(chart.begin(), chart.end(), 0.0,[](double a, const MTrader::ChartItem &b){return a + b.last;})/chart.size();
+			source = [=,pos = std::size_t(0),sz = chart.size() ]() mutable {
 				if (state.lock_shared()->cancel_upload || pos >= sz) {
 					return std::optional<MTrader::ChartItem>();
 				}
-				double p = prc[pos++];
+				state.lock()->upload_progress = (pos * 100)/sz;
+				auto ps = rev?sz-pos-1:pos; ++pos;
+				return std::optional<MTrader::ChartItem>(chart[ps]);
+			};
+		} else {
+			auto prc = lkst->prices_cache.getSubject();
+			avg = std::accumulate(prc.begin(), prc.end(), 0.0,[](double a, double b){return a + b;})/prc.size();
+			auto now = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+			source = [pos = std::size_t(0), sz = prc.size(), prc = std::move(prc), state , now,rev]() mutable {
+				if (state.lock_shared()->cancel_upload || pos >= sz) {
+					return std::optional<MTrader::ChartItem>();
+				}
+				auto ps = rev?sz-pos-1:pos; ++pos;
+				double p = prc[ps];
 				state.lock()->upload_progress = (pos * 100)/sz;
 				return std::optional<MTrader::ChartItem>(MTrader::ChartItem{static_cast<uint64_t>(now - (sz - pos)*60000),p,p,p});
 			};
 		}
+		if (invert.getBool()) {
+			source = [src = std::move(source), avg]() {
+				std::optional<MTrader::ChartItem> v = src();
+				if (v.has_value()) {
+					return std::optional<MTrader::ChartItem>(MTrader::ChartItem{v->time,2*avg - v->bid,2*avg - v->ask,2*avg - v->last});
+				} else {
+					return v;
+				}
+			};
+		}
+
 		lkst->cancel_upload = false;
 		lkst.release();
 		MTrader::VisRes trades = MTrader::visualizeSpread(std::move(source),sma.getNumber(),stdev.getNumber(),mult.getNumber(),
@@ -1276,6 +1354,8 @@ bool WebCfg::generateTrades(const SharedObject<Traders> &trlist, PState state, j
 				return BTPrice{itm.time, itm.price};
 		});
 		bt.minfo = tr->getMarketInfo();
+		bt.reversed = rev;
+		bt.inverted = invert.getBool();
 		lkst = state.lock();
 		lkst->upload_progress = -1;
 		lkst->backtest_cache = BacktestCache(bt, id.toString().str());

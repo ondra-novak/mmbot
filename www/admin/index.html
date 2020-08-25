@@ -592,10 +592,11 @@ the same order, they are ordered by its ID - this is the default ordering. Modif
 </div>
 <input hidden="hidden" type="file"  data-name="price_file">
 <label><span>Start date</span><input type="date" data-name="start_date"></label>
-<label><span>Currency</span><input type="number" step="any" data-name="initial_balance"></label>
 <label><span>Assets/Position</span><input type="number" step="any" data-name="initial_pos"></label>
+<label><span>Currency</span><input type="number" step="any" data-name="initial_balance"></label>
+<label><span>Initial price</span><input type="number" step="any" data-name="initial_price"></label>
+<label><span>Reverse/Invert chart</span><span><x-checkbox data-name="reverse_chart">Rev</x-checkbox> <x-checkbox data-name="invert_chart">Inv</x-checkbox></span></label>
 <label><span>Show: neutral price</span><x-checkbox data-name="show_op">open price</x-checkbox></label>
-<label><span>No slippage on stoploss</span><x-checkbox data-name="fill_atprice"></x-checkbox></label>
 </x-form>
 </x-section>
 </template>

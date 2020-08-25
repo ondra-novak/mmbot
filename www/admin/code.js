@@ -337,6 +337,7 @@ App.prototype.fillForm = function (src, trg) {
 		data.fees =adjNum(pair.fees*100,4);
 		data.leverage=pair.leverage?pair.leverage+"x":"n/a";
 		trg._balance = pair.currency_balance;
+		trg._price = invPrice(pair.price, pair.invert_price);
 
 		var mp = orders?orders.map(function(z) {
 			return {
@@ -1445,6 +1446,8 @@ function createCSV(chart) {
 
 var fill_atprice=true;
 var show_op=false;
+var invert_chart = false;
+var reverse_chart = false;
 
 
 App.prototype.init_backtest = function(form, id, pair, broker) {
@@ -1457,6 +1460,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		];
 	var spread_inputs = ["spread_calc_stdev_hours", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode","dynmult_sliding","dynmult_mult"];
 	var balance = form._balance;
+	var init_def_price = form._price;
 	var days = 45*60*60*24*1000;
     var offset = 0;
     var offset_max = 0;
@@ -1651,7 +1655,9 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 			sliding:data.dynmult_sliding,
 			dyn_mult:data.dynmult_mult,
 			id: id,
-			prices: prices
+			prices: prices,
+			reverse: reverse_chart,
+			invert: invert_chart,
 		}
 		var w = progress_wait();
 		fetch_with_error("api/upload_prices", {method:"POST", body:JSON.stringify(req)}).then(function(){							
@@ -1685,7 +1691,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 
 		cntr.showSpinner();
 		config = this.saveForm(form,{});
-         opts = cntr.bt.readData(["initial_balance", "initial_pos"]);
+        opts = cntr.bt.readData(["initial_balance", "initial_pos","initial_price"]);
 		config.broker = broker;
 		config.pair_symbol = pair;
 		bal = isFinite(opts.initial_balance)?opts.initial_balance:balance;
@@ -1693,9 +1699,12 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 			config: config,
 			id: id,
 			init_pos:isFinite(opts.initial_pos)?opts.initial_pos:undefined,
+			init_price:isFinite(opts.initial_price)?opts.initial_price:init_def_price,
 			balance:bal,
 			fill_atprice:fill_atprice,
-			start_date: start_date
+			start_date: start_date,
+			reverse: reverse_chart,
+			invert: invert_chart,
 		};
 
 
@@ -1707,8 +1716,19 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 			});
 			cntr.bt.setItemEvent("initial_balance","input",cntr.update);
 			cntr.bt.setItemEvent("initial_pos","input",cntr.update);
+			cntr.bt.setItemEvent("initial_price","input",cntr.update);
+			cntr.bt.setItemEvent("reverse_chart","change",function() {
+				reverse_chart = cntr.bt.readData(["reverse_chart"]).reverse_chart;
+				cntr.update();				
+			});
+			cntr.bt.setItemEvent("invert_chart","change",function() {
+				invert_chart = cntr.bt.readData(["invert_chart"]).invert_chart;
+				cntr.update();				
+			});
 			cntr.bt.setItemValue("show_op", show_op);
 			cntr.bt.setItemValue("fill_atprice",fill_atprice);
+			cntr.bt.setItemValue("reverse_chart",reverse_chart);
+			cntr.bt.setItemValue("invert_chart",invert_chart);
 			cntr.bt.setItemEvent("show_op","change", function() {
 				show_op = cntr.bt.readData(["show_op"]).show_op;
 				update();

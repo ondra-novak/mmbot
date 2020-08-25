@@ -59,6 +59,8 @@ public:
 	struct BacktestCacheSubj {
 		std::vector<BTPrice> prices;
 		IStockApi::MarketInfo minfo;
+		bool reversed;
+		bool inverted;
 	};
 
 	using BacktestCache = Cache<BacktestCacheSubj>;
