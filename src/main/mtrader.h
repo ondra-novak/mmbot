@@ -138,6 +138,7 @@ public:
 	void perform(bool manually);
 
 	void init();
+	bool need_init() const;
 
 	OrderPair getOrders();
 	void setOrder(std::optional<IStockApi::Order> &orig, Order neworder, std::optional<double> &alert);

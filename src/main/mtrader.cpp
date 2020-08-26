@@ -153,6 +153,10 @@ double MTrader::raise_fall(double v, bool raise) const {
 	}
 }
 
+bool MTrader::need_init() const {
+	return need_load;
+}
+
 void MTrader::init() {
 	if (need_load){
 		initialize();

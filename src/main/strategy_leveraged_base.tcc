@@ -219,7 +219,7 @@ std::pair<typename Strategy_Leveraged<Calc>::OnTradeResult, PStrategy> Strategy_
 	//store new balance
 	nwst.bal += extra;
 
-	if  (st.position * nwst.position <= 0) {
+	if  (st.position * tradeSize <= 0) {
 		nwst.redbal = nwst.bal;
 	}
 

@@ -1210,7 +1210,9 @@ bool WebCfg::reqUploadPrices(simpleServer::HTTPRequest req)  {
 				lkst->upload_progress = 0;
 			} else {
 
-				auto tr = trlist.lock_shared()->find(id.getString()).lock_shared();
+				auto trp = trlist.lock_shared()->find(id.getString());
+				if (trp.lock_shared()->need_init()) trp.lock()->init();
+				auto tr = trp.lock_shared();
 				if (tr == nullptr) {
 					req.sendErrorPage(404);
 					return;
@@ -1248,7 +1250,9 @@ bool WebCfg::reqUploadTrades(simpleServer::HTTPRequest req)  {
 				Value args = Value::fromString(StrViewA(BinaryView(req.getUserBuffer())));
 				Value id = args["id"];
 				Value prices = args["prices"];
-				auto tr = trlist.lock_shared()->find(id.getString()).lock_shared();
+				auto trp = trlist.lock_shared()->find(id.getString());
+				if (trp.lock_shared()->need_init()) trp.lock()->init();
+				auto tr = trp.lock_shared();
 				if (tr == nullptr) {
 					req.sendErrorPage(404);
 					return;
