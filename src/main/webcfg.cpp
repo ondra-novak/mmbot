@@ -1046,6 +1046,7 @@ bool WebCfg::reqBacktest(simpleServer::HTTPRequest req)  {
 								("ps",x.pos)
 								("pr",x.price.price)
 								("tm",x.price.time)
+								("info",x.info)
 								("sz",x.size);
 					});
 					String resstr = result.toString();

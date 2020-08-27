@@ -65,6 +65,17 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 				}
 				Strategy::adjustOrder(dir, mult, allowAlert, order);
 				order.size  = IStockApi::MarketInfo::adjValue(order.size,minfo.asset_step,round);
+				auto min_pos = cfg.min_balance;
+				auto max_pos = cfg.max_balance;
+				if (minfo.leverage) {
+					double max_abs_pos = (balance * minfo.leverage)/bt.price.price;
+					if (!max_pos.has_value() || max_abs_pos < *max_pos) max_pos = max_abs_pos;
+					if (!min_pos.has_value() || -max_abs_pos > *min_pos) min_pos = -max_abs_pos;
+				}
+				if (max_pos.has_value() && pos+order.size > max_pos)
+					order.size = std::max(0.0, *max_pos - pos);
+				if (min_pos.has_value() && pos+order.size < min_pos)
+					order.size = std::min(0.0, *min_pos - pos);
 				if (std::abs(order.size) < minsize) {
 					order.size = 0;
 				}
@@ -100,6 +111,7 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 			bt.pl = pl;
 			bt.pos = pos;
 			bt.norm_profit_total = bt.norm_profit + bt.norm_accum * p;
+			bt.info = s.dumpStatePretty(minfo);
 			trades.push_back(bt);
 			if (checksl) {
 				if (fill_atprice) {

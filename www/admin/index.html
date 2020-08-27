@@ -728,3 +728,17 @@ the same order, they are ordered by its ID - this is the default ordering. Modif
 <script src="code.js" type="text/javascript"></script>
 </body>
 </html>
+
+<template id="backtest_info">
+<div class="float_info">
+<table>
+<tr><th>Price</th><td data-name="pr"></td></tr>
+<tr><th>Size</th><td class="colornumb" data-name="sz"></td></tr>
+<tr><th>Position</th><td class="colornumb" data-name="ps"></td></tr>
+<tr><th>PnL</th><td class="colornumb" data-name="pl"></td></tr>
+<tr><th>Norm PnL</th><td class="colornumb" data-name="npl"></td></tr>
+<tr><td colspan="2"><hr></td></tr>
+<tr data-name="info[]" class="strategy_info"><th data-name="key"><td data-name="value"></tr>
+</table>
+</div>
+</template>

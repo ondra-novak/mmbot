@@ -1456,8 +1456,8 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 	var inputs = ["strategy","external_assets", "acum_factor","kv_valinc","kv_halfhalf","min_size","max_size","order_mult","alerts","delayed_alerts","linear_suggest","linear_suggest_maxpos",
 		"st_power","st_reduction_step","st_sl","st_redmode","st_max_step","st_pattern","dynmult_sliding","accept_loss","spread_calc_sma_hours","st_tmode","zigzag",
 		"hp_dtrend","hp_longonly","hp_power","hp_maxloss","hp_asym","hp_reduction","sh_curv","hp_initboost","hp_extbal","hp_powadj","hp_dynred",
-		"exp_optp","gs_external_assets","gs_rb_hi_a","gs_rb_lo_a","gs_rb_hi_p","gs_rb_lo_p"
-		];
+		"exp_optp","gs_external_assets","gs_rb_hi_a","gs_rb_lo_a","gs_rb_hi_p","gs_rb_lo_p",
+		"min_balance","max_balance"];
 	var spread_inputs = ["spread_calc_stdev_hours", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode","dynmult_sliding","dynmult_mult"];
 	var balance = form._balance;
 	var init_def_price = form._price;
@@ -1467,7 +1467,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 	var start_date = "";
 	var sttype =this.traders[id].strategy.type;
     var show_norm= ["halfhalf","keepvalue","exponencial","errorfn","hypersquare","conststep"].indexOf(sttype) != -1;
-    
+	var infoElm;
 
 
 	function draw(cntr, v, offset, balance) {
@@ -1585,16 +1585,93 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		if (interval > days) interval = days;
 		var ratio = 4;		
 		var scale = 900000;
-		var drawChart = initChart(interval,ratio,scale);
+		var drawChart = initChart(interval,ratio,scale,true);
+		var drawMap1;
+		var drawMap2;
 		if (show_op) {
-		    drawChart(chart1,c,"pr",lastop?[{label:"open",pr:lastop}]:[],"op");
+		    drawMap1=drawChart(chart1,c,"pr",lastop?[{label:"open",pr:lastop}]:[],"op");
 		} else {
-		    drawChart(chart1,c,"pr",lastnp?[{label:"neutral",pr:lastnp}]:[],"np");			
+		    drawMap1=drawChart(chart1,c,"pr",lastnp?[{label:"neutral",pr:lastnp}]:[],"np");			
 		}
-		if (show_norm)
-		    drawChart(chart2,c,"npla",[{label:"PL",npla:lastpl}],"pl");
-		else
-		    drawChart(chart2,c,"pl",[{label:"norm",pl:lastnpl}],"npla");
+		if (show_norm) {
+		    drawMap2=drawChart(chart2,c,"npla",[{label:"PL",npla:lastpl}],"pl");
+		} else {
+		    drawMap2=drawChart(chart2,c,"pl",[{label:"norm",pl:lastnpl}],"npla");
+		}
+		var tm;
+		if (infoElm)  {
+		    infoElm.close();
+		    infoElm = null;
+		}
+
+        show_info_fn = function(ev) {
+        	if (tm) clearTimeout(tm);
+        	tm = setTimeout(function() {
+				tm = undefined;
+        		var selmap;
+        		if (drawMap1.msin(ev.clientX, ev.clientY)) selmap = drawMap1;
+        		else if (drawMap2.msin(ev.clientX, ev.clientY)) selmap = drawMap2;
+        		else {
+        			if (infoElm) infoElm.close();
+        			infoElm = null;
+                    return;        			
+        		}
+                var bb = selmap.box();
+                var ofsx = ev.clientX - bb.left;
+                var ofsy = ev.clientY - bb.top;
+                var cont = chart1.parentNode;
+                var contBox = cont.getBoundingClientRect();
+                if (!infoElm) {
+                	infoElm = TemplateJS.View.fromTemplate("backtest_info");
+					infoElm.getRoot().style.position="absolute";
+					cont.appendChild(infoElm.getRoot());
+                }
+				cont.style.position="relative";                
+                var infoElmElm = infoElm.getRoot();
+                var bestItem ;
+                var bestTime = Date.now();
+                var symb = selmap.symb();
+                c.forEach(function(v){
+                	var val = v[symb];
+                	if (val !== undefined) {
+						var ptx = selmap.point_x(v.time);
+						var pty = selmap.point_y(val);
+						var d = Math.sqrt(Math.pow(ptx - ofsx,2)+Math.pow(pty - ofsy,2));
+						if (d < bestTime) {
+							bestTime = d;
+							bestItem = v;
+						};
+                	}
+                });
+                if (bestItem) {
+                	infoElm.setData({
+                		pr:adjNum(bestItem.pr),
+                		ps:adjNumBuySell(bestItem.ps),
+                		pl:adjNumBuySell(bestItem.pl),
+                		npl:adjNumBuySell(bestItem.npl),
+                		sz:adjNumBuySell(bestItem.sz),
+                		info:Object.keys(bestItem.info)
+                		    .map(function(n) {
+                		    	var v = bestItem.info[n];
+                		    	return {
+                		    		key:n,
+                		    		value:adjNum(v),
+                		    	}
+                		    })
+                	});
+					var val = bestItem[symb];
+					if (val !== undefined) {
+						var ptx = selmap.point_x(bestItem.time);
+						var pty = selmap.point_y(val);
+						ptx = ptx + bb.left - contBox.left;
+						pty = pty + bb.top - contBox.top;
+						infoElmElm.style.right = (contBox.width - ptx+7)+"px";
+						infoElmElm.style.bottom = (contBox.height - pty+7)+"px";
+					}
+                }
+        	},600);
+        }
+
 	}
 
 
@@ -1687,6 +1764,11 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		this.dlgbox({text:this.strtable.import_invalid_format,cancel:{".hidden":true}},"confirm");		
 	}.bind(this);
 	
+    var show_info_fn = function(ev) {
+    	console.log("Mouse at: ",ev);
+    }    
+
+    	
 	this.gen_backtest(form,"backtest_anchor", "backtest_vis",inputs,function(cntr){
 
 		cntr.showSpinner();
@@ -1748,6 +1830,8 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 				el.value="";
 				el.click();
 			});
+			cntr.bt.setItemEvent("chart1","mousemove", function(ev){show_info_fn(ev);});
+			cntr.bt.setItemEvent("chart2","mousemove", function(ev){show_info_fn(ev);});
 			cntr.bt.setItemEvent("export","click",function() {
 				doDownlaodFile(createCSV(res_data),id+".csv","text/plain");
 			})			
