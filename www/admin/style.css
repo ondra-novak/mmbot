@@ -147,6 +147,10 @@ div.float_info {
 	z-index: 10000;
 }
 
+div.float_info table {
+	width: fit-content;
+}
+
 div.float_info::after {
     	content: "";
     	display:  block;
@@ -160,7 +164,7 @@ div.float_info::after {
 }
 
 
-div.float_info th {text-align: left !important;padding:  0 !important;/* white-space: normal; */}
+div.float_info th {text-align: left !important;padding:  0 !important;/* white-space: normal; */width: auto;}
 
 div.float_info tr.strategy_info > * {color: #CCC;}
 
@@ -485,7 +489,7 @@ a {
 		margin: 0.5em -0.5em -0.5em -0.5em;
 }
 .backtest table{
-	width: 100%;
+	/* width: 100%; */
 	border-collapse:collapse;
 	padding:0;
 }
