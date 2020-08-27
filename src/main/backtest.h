@@ -29,6 +29,7 @@ struct BTTrade {
 	double pl = 0;
 	double pos = 0;
 	double norm_profit_total = 0;
+	json::Value info;
 };
 
 using BTPriceSource = std::function<std::optional<BTPrice>()>;

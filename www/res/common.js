@@ -167,7 +167,7 @@ return {
 }
 
 
-function initChart(chart_interval, ratio, base_interval) {
+function initChart(chart_interval, ratio, base_interval, objret) {
 
 	if (!ratio) ratio = 3;
 	if (!base_interval) base_interval=1200000;
@@ -308,6 +308,43 @@ function initChart(chart_interval, ratio, base_interval) {
 				new_svg_el("text",{x:axis,y:y,class:"textorderline "+x.class},svg).appendChild(document.createTextNode(x.label + " "+adjNum(v)));
 			}
 		});
+	}
+	if (objret) {
+	return {
+		map_x: function(x) {
+			var w1 = elem.getBoundingClientRect().width;
+			var w2 = activewidth+axis;			
+			return (((w2/w1*x - axis)/step)+tmstart)*base_interval;
+		},
+		map_y: function(y) {
+			var h1 = elem.getBoundingClientRect().height;
+			var h2 = activeheight+axis+label;
+			return ((activeheight - h2/h1*y)/priceStep)+minmax.min;
+		},
+		point_x: function(time) {
+			var w1 = elem.getBoundingClientRect().width;
+			var w2 = activewidth+axis;			
+			return map_x(time/base_interval-tmstart)*w1/w2;
+		},
+		point_y: function(val) {
+			var h1 = elem.getBoundingClientRect().height;
+			var h2 = activeheight+axis+label;
+			return map_y(val)*h1/h2;
+		},
+		box: function() {
+			return elem.getBoundingClientRect();
+		},
+		msin: function(clientX, clientY) {
+			var b = elem.getBoundingClientRect();
+			return clientX >= b.left && clientX <= b.right &&
+			        clientY >= b.top && clientY <= b.bottom;
+		},
+		symb: function() {
+			return fld;
+		}
+		
+	}} else {
+		return;
 	}
 	
 };

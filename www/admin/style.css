@@ -137,6 +137,46 @@ div.trader.list .selected {
 	background-color: #333;
 }
 
+div.float_info {
+	background-color: #000000ad;
+	border: 1px solid #AAA;
+	padding: 5px;
+	border-radius: 1em 1em 0 1em;
+	transition: 0.3s all;
+	color: #fefefe;
+	z-index: 10000;
+}
+
+div.float_info table {
+	width: fit-content;
+}
+
+div.float_info::after {
+    	content: "";
+    	display:  block;
+    	position: absolute;
+    	right: -5px;
+    	bottom: -5px;
+    	width:  10px;
+    	height:  10px;
+    	border-bottom: 2px solid;
+    	border-right: 2px solid;
+}
+
+
+div.float_info th {text-align: left !important;padding:  0 !important;/* white-space: normal; */width: auto;}
+
+div.float_info tr.strategy_info > * {color: #CCC;}
+
+
+div.float_info td {
+	text-align: right;
+}
+
+div.float_info td hr {
+	margin: 3px 0;
+}
+
 div.trader.list {
 	display: flex;
 	justify-content:center;
@@ -418,7 +458,7 @@ a {
 }
 
 .backtest .charts {
-	overflow: auto;
+	/* overflow: auto; */
 }
 .backtest .charts.spread_vis {
 	position: relative;
@@ -449,7 +489,7 @@ a {
 		margin: 0.5em -0.5em -0.5em -0.5em;
 }
 .backtest table{
-	width: 100%;
+	/* width: 100%; */
 	border-collapse:collapse;
 	padding:0;
 }
@@ -764,6 +804,7 @@ x-form.pair table.orders td,x-form.pair table th {
     text-align: center;
     padding: 5px;
     position:relative;
+    vertical-align: top;
 }
 
 x-form.pair table.orders td,x-form.pair table th[data-name=options] {text-align: right;padding-right: 1em;}
