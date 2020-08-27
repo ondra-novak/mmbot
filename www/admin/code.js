@@ -1609,7 +1609,11 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
         	tm = setTimeout(function() {
 				tm = undefined;
         		var selmap;
-        		if (drawMap1.msin(ev.clientX, ev.clientY)) selmap = drawMap1;
+        		if (cntr.bt.findElements("options")[0].classList.contains("sel")) {
+        			if (infoElm) infoElm.close();
+        			infoElm = null;
+                    return;        			
+        		} else if (drawMap1.msin(ev.clientX, ev.clientY)) selmap = drawMap1;
         		else if (drawMap2.msin(ev.clientX, ev.clientY)) selmap = drawMap2;
         		else {
         			if (infoElm) infoElm.close();
@@ -1795,6 +1799,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 			cntr.bt.setItemEvent("options", "click", function() {
 				this.classList.toggle("sel");
 				cntr.bt.showItem("options_form", this.classList.contains("sel"));
+				if (infoElm) {infoElm.close(); infoElm = null;}
 			});
 			cntr.bt.setItemEvent("initial_balance","input",cntr.update);
 			cntr.bt.setItemEvent("initial_pos","input",cntr.update);
