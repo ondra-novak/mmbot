@@ -10,20 +10,19 @@
 
 #include <cstdint>
 #include <imtjson/value.h>
+#include <imtjson/string.h>
 #include "../httpjson.h"
 
 class Proxy {
 public:
 
-	Proxy();
+	Proxy(const std::string &apiUrl, const std::string &timeUri);
 
 	std::string apiUrl;
-	std::string privKey;
-	std::string pubKey;
+	json::String privKey;
+	json::String pubKey;
 
 	HTTPJson httpc;
-
-	std::uint64_t nonce;
 
 	enum Method {
 		GET,
@@ -40,6 +39,8 @@ public:
 	std::uint64_t now();
 
 	bool debug = false;
+
+	std::string timeUri;
 
 
 private:

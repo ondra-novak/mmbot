@@ -27,14 +27,13 @@ using ondra_shared::logDebug;
 using namespace simpleServer;
 
 
-Proxy::Proxy()
-:httpc(HttpClient("MMBot Binance broker",
+Proxy::Proxy(const std::string &apiUrl, const std::string &timeUri)
+:httpc(HttpClient("+https://mmbot.trade",
 		newHttpsProvider(),
-		newNoProxyProvider()), "https://api.binance.com")
+		newNoProxyProvider()), apiUrl)
+,timeUri(timeUri)
 
 {
-	auto  init_time = now();
-	nonce = init_time * 100;
 }
 
 
@@ -91,7 +90,7 @@ json::Value Proxy::private_request(Method method, std::string command, json::Val
 
 	auto n = now();
 	if (n > time_sync) {
-		json::Value tdata = public_request("/api/v3/time",json::Value());
+		json::Value tdata = public_request(timeUri,json::Value());
 		auto m = tdata["serverTime"].getUIntLong();
 		setTime(m);
 		n = now();
@@ -109,7 +108,7 @@ json::Value Proxy::private_request(Method method, std::string command, json::Val
 	buildParams(data, databld);
 
 	std::string request = databld.str().substr(1);
-	std::string sign = signData(privKey,request);
+	std::string sign = signData(privKey.str(),request);
 	std::string url = urlbuilder.str();
 	request.append("&signature=").append(sign);
 
