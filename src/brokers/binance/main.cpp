@@ -37,7 +37,7 @@ static Value keyFormat = {Object
 							("type","string")
 							("label","Private key")};
 
-static std::string COIN_M_FUTURES_PREFIX = "coin-m/";
+static std::string COIN_M_FUTURES_PREFIX = "COIN-Ⓜ:";
 
 
 class Interface: public AbstractBrokerAPI {
@@ -174,63 +174,124 @@ void Interface::updateBalCache() {
 
 	 const MarketInfo &minfo = iter->second;
 
-	 if (lastId.hasValue()) {
+	 if (dapi_isSymbol(pair)) {
+		 auto cpair = pair.substr(COIN_M_FUTURES_PREFIX.length());
 
+		 if (lastId.hasValue()) {
+			 auto pair = cpair;
 
-		 Value r = px.private_request(Proxy::GET,"/api/v3/myTrades", Object
-				 ("fromId", lastId)
-				 ("symbol", pair)
-				 );
+			 Value r = dapi.private_request(Proxy::GET,"/dapi/v1/userTrades", Object
+					 ("fromId", lastId)
+					 ("symbol", pair)
+					 );
 
-		 r = r.map([&](Value x) ->Value{
-			if (x["id"] == lastId) return json::undefined;
-			else return x;
-		  });
+			 r = r.map([&](Value x) ->Value{
+				if (x["id"] == lastId) return json::undefined;
+				else return x;
+			  });
 
-		 TradeHistory h(mapJSON(r,[&](Value x){
-			 double size = x["qty"].getNumber();
-			 double price = x["price"].getNumber();
-			 StrViewA comass = x["commissionAsset"].getString();
-			 if (!x["isBuyer"].getBool()) size = -size;
-			 double comms = x["commission"].getNumber();
-			 double eff_size = size;
-			 double eff_price = price;
-			 if (comass == StrViewA(minfo.asset_symbol)) {
-				 eff_size -= comms;
-				 eff_price =  std::abs(size * price / eff_size);
-			 } else if (comass == StrViewA(minfo.currency_symbol)) {
+			 TradeHistory h(mapJSON(r,[&](Value x){
+				 double size = -x["qty"].getNumber()*minfo.asset_step;
+				 double price = 1.0/x["price"].getNumber();
+				 if (!x["buyer"].getBool()) size = -size;
+				 double comms = x["commission"].getNumber();
+				 double eff_size = size;
+				 double eff_price = price;
 				 eff_price += comms/size;
-			 }
 
-			 return Trade {
-				 x["id"],
-				 x["time"].getUIntLong(),
-				 size,
-				 price,
-				 eff_size,
-				 eff_price
+				 return Trade {
+					 x["id"],
+					 x["time"].getUIntLong(),
+					 size,
+					 price,
+					 eff_size,
+					 eff_price
+				 };
+			 }, TradeHistory()));
+
+			 std::sort(h.begin(), h.end(),[&](const Trade &a, const Trade &b) {
+				 return Value::compare(a.id,b.id) < 0;
+			 });
+			 if (!h.empty()) lastId = h.back().id;
+			 return TradesSync{
+				 h,
+				 lastId
 			 };
-		 }, TradeHistory()));
+		 } else {
+			 auto pair = cpair;
+			 Value r = dapi.private_request(Proxy::GET,"/dapi/v1/userTrades", Object
+					 ("symbol", pair)("limit",1));
+			 Value id = r.reduce([](Value l, Value itm) {
+				 Value id = itm["id"];
+				 return id.getUIntLong() > l.getUIntLong()?id:l;
+			 }, Value(0));
+			 return TradesSync {
+				 {},
+				 id
+			 };
+		 }
 
-		 std::sort(h.begin(), h.end(),[&](const Trade &a, const Trade &b) {
-			 return Value::compare(a.id,b.id) < 0;
-		 });
-		 if (!h.empty()) lastId = h.back().id;
-		 return TradesSync{
-			 h,
-			 lastId
-		 };
+
 	 } else {
-		 Value r = px.private_request(Proxy::GET,"/api/v3/myTrades", Object
-				 ("symbol", pair));
-		 Value id = r.reduce([](Value l, Value itm) {
-			 Value id = itm["id"];
-			 return id.getUIntLong() > l.getUIntLong()?id:l;
-		 }, Value(0));
-		 return TradesSync {
-			 {},
-			 id
-		 };
+
+		 if (lastId.hasValue()) {
+
+
+			 Value r = px.private_request(Proxy::GET,"/api/v3/myTrades", Object
+					 ("fromId", lastId)
+					 ("symbol", pair)
+					 );
+
+			 r = r.map([&](Value x) ->Value{
+				if (x["id"] == lastId) return json::undefined;
+				else return x;
+			  });
+
+			 TradeHistory h(mapJSON(r,[&](Value x){
+				 double size = x["qty"].getNumber();
+				 double price = x["price"].getNumber();
+				 StrViewA comass = x["commissionAsset"].getString();
+				 if (!x["isBuyer"].getBool()) size = -size;
+				 double comms = x["commission"].getNumber();
+				 double eff_size = size;
+				 double eff_price = price;
+				 if (comass == StrViewA(minfo.asset_symbol)) {
+					 eff_size -= comms;
+					 eff_price =  std::abs(size * price / eff_size);
+				 } else if (comass == StrViewA(minfo.currency_symbol)) {
+					 eff_price += comms/size;
+				 }
+
+				 return Trade {
+					 x["id"],
+					 x["time"].getUIntLong(),
+					 size,
+					 price,
+					 eff_size,
+					 eff_price
+				 };
+			 }, TradeHistory()));
+
+			 std::sort(h.begin(), h.end(),[&](const Trade &a, const Trade &b) {
+				 return Value::compare(a.id,b.id) < 0;
+			 });
+			 if (!h.empty()) lastId = h.back().id;
+			 return TradesSync{
+				 h,
+				 lastId
+			 };
+		 } else {
+			 Value r = px.private_request(Proxy::GET,"/api/v3/myTrades", Object
+					 ("symbol", pair));
+			 Value id = r.reduce([](Value l, Value itm) {
+				 Value id = itm["id"];
+				 return id.getUIntLong() > l.getUIntLong()?id:l;
+			 }, Value(0));
+			 return TradesSync {
+				 {},
+				 id
+			 };
+		 }
 	 }
 }
 
@@ -256,7 +317,11 @@ static Value extractOrderID(StrViewA id) {
 
 Interface::Orders Interface::getOpenOrders(const std::string_view & pair) {
 	if (dapi_isSymbol(pair)) {
+		initSymbols();
 		auto cpair = pair.substr(COIN_M_FUTURES_PREFIX.length());
+		auto iter = symbols.find(pair);
+		if (iter == symbols.end()) throw std::runtime_error("Unknown symbol");
+		const MarketInfo &minfo = iter->second;
 		Value resp = dapi.private_request(Proxy::GET,"/dapi/v1/openOrders", Object("symbol",cpair));
 		return mapJSON(resp, [&](Value x) {
 			Value id = x["clientOrderId"];
@@ -264,7 +329,7 @@ Interface::Orders Interface::getOpenOrders(const std::string_view & pair) {
 			return Order {
 				x["orderId"],
 				eoid,
-				(x["side"].getString() == "SELL"?1:-1)*(x["origQty"].getNumber() - x["executedQty"].getNumber()),
+				(x["side"].getString() == "SELL"?1:-1)*(x["origQty"].getNumber() - x["executedQty"].getNumber())*minfo.asset_step,
 				1.0/x["price"].getNumber()
 			};
 		}, Orders());
@@ -504,7 +569,7 @@ void Interface::initSymbols() {
 						nfo.currency_step = f["tickSize"].getNumber();
 					}
 				}
-				nfo.leverage = dapi_getLeverage(smb["pair"].getString());
+				nfo.leverage = dapi_getLeverage(smb["symbol"].getString());
 				nfo.invert_price = true;
 				nfo.inverted_symbol = smb["quoteAsset"].getString();
 				bld.push_back(VT(symbol, nfo));
@@ -529,6 +594,9 @@ inline Interface::MarketInfo Interface::getMarketInfo(const std::string_view &pa
 	if (iter == symbols.end())
 		throw std::runtime_error("Unknown trading pair symbol");
 	MarketInfo res = iter->second;
+	if (dapi_isSymbol(pair)) {
+		res.leverage = dapi_getLeverage(pair.substr(COIN_M_FUTURES_PREFIX.length()));
+	}
 	return res;
 }
 
@@ -651,16 +719,14 @@ int main(int argc, char **argv) {
 inline Value Interface::dapi_readAccount() {
 	if (!dapi_account.defined()) {
 		Value account = dapi.private_request(Proxy::GET, "/dapi/v1/account", Value());
-		Value brackets = dapi.private_request(Proxy::GET, "/dapi/v1/leverageBracket", Value());
-		dapi_account = Object("account", account)
-			("brackets",brackets);
+		dapi_account = account;
 	}
 	return dapi_account;
 }
 
 inline double Interface::dapi_getFees() {
 	Value account = dapi_readAccount();
-	unsigned int tier = account["account"]["feeTier"].getNumber();
+	unsigned int tier = account["feeTier"].getNumber();
 	if (tier >= 4) return 0.0;
 	double fees[] = {0.00015, 0.00013, 0.00011, 0.00010};
 	return fees[tier];
@@ -668,11 +734,11 @@ inline double Interface::dapi_getFees() {
 
 inline double Interface::dapi_getLeverage(const json::StrViewA &pair) {
 	Value a = dapi_readAccount();
-	Value b = a["brackets"];
+	Value b = a["positions"];
 	Value z = b.find([&](Value itm){
-		return itm["pair"] == pair;
+		return itm["symbol"] == pair;
 	});
-	return z["brackets"][0]["initialLeverage"].getNumber();
+	return z["leverage"].getNumber();
 }
 
 inline double Interface::dapi_getPosition(const json::StrViewA &pair) {
@@ -685,7 +751,7 @@ inline double Interface::dapi_getPosition(const json::StrViewA &pair) {
 
 inline double Interface::dapi_getCollateral(const json::StrViewA &pair) {
 	Value a = dapi_readAccount();
-	Value ass = a["account"]["assets"];
+	Value ass = a["assets"];
 	Value z = ass.find([&](Value item){return item["asset"].getString() == pair;});
 	return z["availableBalance"].getNumber();
 }
