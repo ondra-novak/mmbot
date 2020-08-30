@@ -148,7 +148,7 @@ inline Interface::TradesSync Interface::syncTrades(json::Value lastId,  const st
 			double fee = itm["fee"].getNumber();
 			double eff_price = price;
 			if (fee > 0) {
-				eff_price += -price/amount;
+				eff_price += -fee/amount;
 			}
 			lastId = itm["trade_seq"];
 			return Trade{

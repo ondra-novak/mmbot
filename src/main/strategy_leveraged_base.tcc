@@ -91,8 +91,10 @@ typename Strategy_Leveraged<Calc>::PosCalcRes Strategy_Leveraged<Calc>::calcPosi
 
 		double reduction = cfg->reduction;
 		double mprice = calc->calcPrice0(st.neutral_price, calcAsym());
-		double distance = std::abs(price - mprice)/(mm.max - mm.min);
-		reduction = std::sqrt(pow2(reduction) + 0.5*pow2(distance*cfg->dynred));
+		double distance = pow2((price - mprice)/(mm.max - mm.min));
+		double dynred = pow2(distance*cfg->dynred);
+		if (dynred > 1.0) dynred = 1.0;
+		reduction = std::sqrt(pow2(reduction) + 0.5*dynred);
 		double new_neutral;
 
 

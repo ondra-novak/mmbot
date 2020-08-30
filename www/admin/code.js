@@ -1604,12 +1604,12 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		    infoElm = null;
 		}
 
-        show_info_fn = function(ev) {
+        show_info_fn = function(ev,clear) {
         	if (tm) clearTimeout(tm);
         	tm = setTimeout(function() {
 				tm = undefined;
         		var selmap;
-        		if (cntr.bt.findElements("options")[0].classList.contains("sel")) {
+        		if (cntr.bt.findElements("options")[0].classList.contains("sel") || clear) {
         			if (infoElm) infoElm.close();
         			infoElm = null;
                     return;        			
@@ -1769,7 +1769,6 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 	}.bind(this);
 	
     var show_info_fn = function(ev) {
-    	console.log("Mouse at: ",ev);
     }    
 
     	
@@ -1837,6 +1836,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 			});
 			cntr.bt.setItemEvent("chart1","mousemove", function(ev){show_info_fn(ev);});
 			cntr.bt.setItemEvent("chart2","mousemove", function(ev){show_info_fn(ev);});
+			cntr.bt.setItemEvent("","mouseout",function(ev){show_info_fn(ev,true);});
 			cntr.bt.setItemEvent("export","click",function() {
 				doDownlaodFile(createCSV(res_data),id+".csv","text/plain");
 			})			
