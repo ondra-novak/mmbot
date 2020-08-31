@@ -216,6 +216,21 @@ void MTrader::perform(bool manually) {
 		} else {
 			lastTradePrice = lastPriceOffset+status.spreadCenter;
 		}
+		if (cfg.dynmult_sliding) {
+			double prevLTP = lastTradePrice;
+			double low = lastTradePrice * std::exp(-status.curStep*cfg.buy_step_mult);
+			double high = lastTradePrice * std::exp(status.curStep*cfg.sell_step_mult);
+			double eq = strategy.getEquilibrium(status.assetBalance);
+			if (high < eq) {
+				lastTradePrice = eq/std::exp(status.curStep*cfg.sell_step_mult);
+				logDebug("Sliding - high < eq - $1 < $2, old_center = $4, new center = $3", high, eq, lastTradePrice, prevLTP);
+			} else if (low > eq) {
+				lastTradePrice = eq/std::exp(-status.curStep*cfg.buy_step_mult);
+				logDebug("Sliding - low > eq - $1 > $2, old_center = $4, new center = $3", low, eq, lastTradePrice, prevLTP);
+			}
+
+		}
+
 
 
 		//only create orders, if there are no trades from previous run
@@ -595,17 +610,6 @@ MTrader::Status MTrader::getMarketStatus() const {
 	res.curStep = cfg.force_spread>0?cfg.force_spread:step.spread;
 	if (cfg.dynmult_sliding) {
 		res.spreadCenter = step.center;
-		double low = res.spreadCenter * std::exp(-res.curStep*cfg.buy_step_mult);
-		double high = res.spreadCenter * std::exp(res.curStep*cfg.sell_step_mult);
-		double eq = strategy.getEquilibrium(res.assetBalance);
-		if (high < eq) {
-			res.spreadCenter = eq/std::exp(res.curStep*cfg.sell_step_mult);
-			logDebug("Sliding - high < eq - $1 < $2, old_center = $4, new center = $3", high, eq, res.spreadCenter, step.center);
-		} else if (low > eq) {
-			res.spreadCenter = eq/std::exp(-res.curStep*cfg.buy_step_mult);
-			logDebug("Sliding - low > eq - $1 > $2, old_center = $4, new center = $3", high, eq, res.spreadCenter, step.center);
-		}
-
 	} else {
 		res.spreadCenter = 0;
 	}
