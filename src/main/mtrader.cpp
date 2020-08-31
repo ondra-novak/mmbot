@@ -593,7 +593,21 @@ MTrader::Status MTrader::getMarketStatus() const {
 
 	auto step = calcSpread();
 	res.curStep = cfg.force_spread>0?cfg.force_spread:step.spread;
-	res.spreadCenter = cfg.dynmult_sliding?step.center:0;
+	if (cfg.dynmult_sliding) {
+		res.spreadCenter = step.center;
+		double low = res.spreadCenter * std::exp(-res.curStep*cfg.buy_step_mult);
+		double high = res.spreadCenter * std::exp(res.curStep*cfg.sell_step_mult);
+		double eq = strategy.getEquilibrium(res.assetBalance);
+		if (high < eq) {
+			res.spreadCenter = eq/std::exp(res.curStep*cfg.sell_step_mult);
+		} else if (low > eq) {
+			res.spreadCenter = eq/std::exp(-res.curStep*cfg.buy_step_mult);
+		}
+
+	} else {
+		res.spreadCenter = 0;
+	}
+
 
 	return res;
 }
@@ -911,7 +925,6 @@ void MTrader::saveState() {
 		st.set("lastPriceOffset",lastPriceOffset);
 		st.set("cfg_sliding_spread",cfg.dynmult_sliding);
 		st.set("private_chart", minfo.private_chart||minfo.simulator);
-//		st.set("private_chart", minfo.private_chart||minfo.simulator||minfo.invert_price); //TODO temporary
 		st.set("achieve_mode", achieve_mode);
 		st.set("swapped", cfg.swap_symbols);
 	}
@@ -1291,6 +1304,7 @@ MTrader::VisRes MTrader::visualizeSpread(std::function<std::optional<ChartItem>(
 	DynMultControl dynmult(dyn_raise, dyn_fall, strDynmult_mode[dynMode], dyn_mult);
 	VisRes res;
 	double last = 0;
+	double last_price = 0;
 	std::vector<double> prices;
 	std::size_t isma = sma*60;
 	std::size_t istdev = stdev * 60;
@@ -1305,11 +1319,28 @@ MTrader::VisRes MTrader::visualizeSpread(std::function<std::optional<ChartItem>(
 			double center = sliding?spread_info.center:0;
 			double low = (center+last) * std::exp(-spread*mult*dynmult.getBuyMult());
 			double high = (center+last) * std::exp(spread*mult*dynmult.getSellMult());
+			if (sliding && last_price) {
+				double low_max = last_price*std::exp(-spread*0.01);
+				double high_min = last_price*std::exp(spread*0.01);
+				if (low > low_max) {
+					high = low_max + (high-low);
+					low = low_max;
+				}
+				if (high < high_min) {
+					low = high_min - (high-low);
+					high = high_min;
+
+				}
+				low = std::min(low_max, low);
+				high = std::max(high_min, high);
+			}
 			double size = 0;
 			if (p > high) {
+				last_price = high;
 				last = high-center; size = -1;dynmult.update(false,true);
 			}
 			else if (p < low) {
+				last_price = low;
 				last = low-center; size = 1;dynmult.update(true,false);
 			}
 			else {
