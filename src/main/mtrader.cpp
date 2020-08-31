@@ -600,8 +600,10 @@ MTrader::Status MTrader::getMarketStatus() const {
 		double eq = strategy.getEquilibrium(res.assetBalance);
 		if (high < eq) {
 			res.spreadCenter = eq/std::exp(res.curStep*cfg.sell_step_mult);
+			logDebug("Sliding - high < eq - $1 < $2, old_center = $4, new center = $3", high, eq, res.spreadCenter, step.center);
 		} else if (low > eq) {
 			res.spreadCenter = eq/std::exp(-res.curStep*cfg.buy_step_mult);
+			logDebug("Sliding - low > eq - $1 > $2, old_center = $4, new center = $3", high, eq, res.spreadCenter, step.center);
 		}
 
 	} else {
