@@ -91,9 +91,9 @@ void report_error(const char *desc) {
 	throw std::runtime_error(buff.str());
 }
 
-void report_timeout(const char *desc) {
+void report_timeout() {
 	std::ostringstream buff;
-	buff << "TIMEOUT while '" << desc << '"';
+	buff << "Response timeout";
 	throw std::runtime_error(buff.str());
 
 }
@@ -344,7 +344,7 @@ json::Value AbstractExtern::jsonExchange(json::Value request, bool idle) {
 			fds[1].events = POLLIN;
 			fds[1].revents = 0;
 			int r = poll(fds,2,timeout);
-			if (r == 0) report_timeout("poll");
+			if (r == 0) report_timeout();
 			if (r < 0) report_error("poll");
 			if (fds[1].revents) {
 				Reader errrd(exterr, timeout);

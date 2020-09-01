@@ -168,3 +168,9 @@ void SwapBroker::saveIconToDisk(const std::string &path) const {
 	auto sub = dynamic_cast<const IBrokerIcon *>(target.get());
 	if (sub) sub->saveIconToDisk(path);
 }
+
+json::Value SwapBroker::getMarkets() const {
+	auto sub = dynamic_cast<IBrokerControl *>(target.get());
+	if (sub == nullptr) return json::object;
+	return sub->getMarkets();
+}

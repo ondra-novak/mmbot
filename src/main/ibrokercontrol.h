@@ -39,6 +39,9 @@ public:
 	 */
 	virtual PageData fetchPage(const std::string_view &method, const std::string_view &vpath, const PageData &pageData) = 0;
 
+	///Replacement of getAllPairs() - returns structured object
+	virtual json::Value getMarkets() const = 0;
+
 	virtual ~IBrokerControl() {}
 };
 

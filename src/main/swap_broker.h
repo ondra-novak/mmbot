@@ -35,6 +35,7 @@ public:
 	virtual IStockApi::Ticker getTicker(const std::string_view &piar) override;
 	virtual std::string getIconName() const override;
 	virtual void saveIconToDisk(const std::string &path) const override;
+	virtual json::Value getMarkets() const override;
 
 protected:
 	PStockApi target;

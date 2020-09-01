@@ -36,6 +36,8 @@ public:
 	virtual double getFees(const std::string_view &pair) override;
 	virtual double getBalance(const std::string_view &symb) override {return 0;}
 	virtual IStockApi::Ticker getTicker(const std::string_view &piar) override;
+	virtual json::Value getMarkets() const;
+
 protected:
 	mutable HTTPJson api_pub;
 	mutable HTTPJson api;

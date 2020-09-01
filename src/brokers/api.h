@@ -57,6 +57,8 @@ public:
 
 	virtual void restoreSettings(json::Value v) override;
 
+	virtual json::Value getMarkets() const override;
+
 	void dispatch();
 
 	virtual double getBalance(const std::string_view & symb) = 0;

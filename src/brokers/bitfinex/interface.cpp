@@ -11,6 +11,7 @@
 #include <openssl/evp.h>
 #include <openssl/hmac.h>
 #include <cmath>
+#include <map>
 
 #include <imtjson/object.h>
 #include <simpleServer/http_client.h>
@@ -557,3 +558,41 @@ Value Interface::publicGET(StrViewA path) const {
 	}
 }
 
+json::Value Interface::getMarkets() const {
+	auto pairs = getPairs();
+	using Map = std::map<std::pair<std::string_view, std::string_view>, String>;
+	Map margin, spot;
+
+	Object margin_pairs;
+	Object spot_pairs;
+
+	for (auto &&p: pairs) {
+		auto &t = p.second.leverage ? margin: spot;
+		String symbol {p.second.symbol, p.second.leverage?" (m)":""};
+		t.insert({std::pair<std::string_view,std::string_view>(p.second.asset.str(), p.second.currency.str()), symbol});
+		t.insert({std::pair<std::string_view,std::string_view>(p.second.currency.str(), p.second.asset.str()), symbol});
+	}
+
+	auto loadObj = [](Object &target, const Map &m) {
+		std::string_view prev;
+		Object sub;
+		for (const auto &c: m) {
+			if (c.first.first != prev) {
+				if (sub.dirty()) {
+					target.set(prev, sub);
+					sub.clear();
+				}
+				prev = c.first.first;
+			}
+			sub.set(c.first.second, c.second);
+		}
+		if (sub.dirty()) {
+			target.set(prev, sub);
+		}
+	};
+	loadObj(margin_pairs, margin);
+	loadObj(spot_pairs, spot);
+	return Object
+		("Exchange", spot_pairs)
+		("Margin", margin_pairs);
+}

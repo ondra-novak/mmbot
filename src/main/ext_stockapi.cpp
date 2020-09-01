@@ -284,6 +284,10 @@ bool ExtStockApi::isSubaccount() const {
 	return !subaccount.empty();
 }
 
+json::Value ExtStockApi::getMarkets() const {
+
+}
+
 ExtStockApi::ExtStockApi(std::shared_ptr<Connection> connection, const std::string &subaccount)
 	:connection(connection),subaccount(subaccount) {}
 

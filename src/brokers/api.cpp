@@ -158,6 +158,10 @@ static Value getAllPairs(AbstractBrokerAPI &handler, const Value &req) {
 	return response;
 }
 
+static Value getMarkets(AbstractBrokerAPI &handler, const Value &req) {
+	return handler.getMarkets();
+}
+
 static Value getFees(AbstractBrokerAPI &handler, const Value &req) {
 	return  handler.getFees(req.getString());
 }
@@ -296,7 +300,8 @@ static MethodMap methodMap ({
 			{"getSettings",&getSettings},
 			{"restoreSettings",&restoreSettings},
 			{"fetchPage",&fetchPage},
-			{"subaccount",&handleSubaccount}
+			{"subaccount",&handleSubaccount},
+			{"getMarkets",&getMarkets}
 	});
 
 
@@ -426,4 +431,8 @@ AbstractBrokerAPI::PageData AbstractBrokerAPI::fetchPage(const std::string_view 
 void AbstractBrokerAPI::enable_debug(bool enable) {
 	logProvider->setEnabledLogLevel(enable?ondra_shared::LogLevel::debug:ondra_shared::LogLevel::error);
 	debug_mode = enable;
+}
+
+json::Value AbstractBrokerAPI::getMarkets() const  {
+	throw std::runtime_error("Unsupported");
 }

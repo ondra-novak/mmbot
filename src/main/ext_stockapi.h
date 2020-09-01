@@ -48,7 +48,7 @@ public:
 	void stop();
 	virtual ExtStockApi *createSubaccount(const std::string &subaccount) const override;
 	virtual bool isSubaccount() const override;
-
+	virtual json::Value getMarkets() const override;
 
 
 protected:

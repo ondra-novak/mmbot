@@ -422,6 +422,30 @@ bool WebCfg::reqBrokerSpec(simpleServer::HTTPRequest req,
 			if (pair.empty()) {
 				if (!req.allowMethods( { "GET" }))
 					return true;
+				try {
+					auto bk = dynamic_cast<const IBrokerControl *>(api.get());
+					if (bk) {
+						Value v = bk->getMarkets();
+						Value entries; {
+							Array p;
+							v.walk([&](Value z) {
+								if (z.type() == json::string) {
+									p.push_back(z.stripKey());
+								}
+								return true;
+							});
+							entries = p;
+						}
+						Value result(json::object,{
+								Value("entries", entries.sort(Value::compare).uniq()),
+								Value("struct", v)
+						});
+						req.sendResponse(std::move(hdr), Value(result).stringify());
+						return true;
+					}
+				} catch (...) {
+
+				}
 				Array p;
 				auto pairs = api->getAllPairs();
 				for (auto &&k : pairs)
