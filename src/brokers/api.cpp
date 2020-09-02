@@ -434,5 +434,8 @@ void AbstractBrokerAPI::enable_debug(bool enable) {
 }
 
 json::Value AbstractBrokerAPI::getMarkets() const  {
-	throw std::runtime_error("Unsupported");
+	auto pairs = const_cast<AbstractBrokerAPI *>(this)->getAllPairs();
+	return json::Value(json::object, pairs.begin(), pairs.end(), [](const auto &x){
+		return json::Value(x, x);
+	});
 }
