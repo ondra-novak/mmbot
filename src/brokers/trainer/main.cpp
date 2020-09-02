@@ -302,10 +302,7 @@ public:
 	std::string fname;
 	std::size_t idcnt;
 
-
-
-
-
+	virtual json::Value getMarkets() const;
 };
 
 
@@ -1385,10 +1382,14 @@ inline const Interface::TestPair* Interface::getPairPtr(const std::string_view &
 	return &iter->second;
 }
 
+bool isTestPair(StrViewA pair) {
+	return pair.startsWith("TEST") && pair.indexOf("/") == pair.npos;
+}
+
 void Interface::TestPair::init(const StrViewA &name) {
 	updateActivity();
 	preset = false;
-	if (!name.startsWith("TEST")) {
+	if (!isTestPair(name)) {
 		const auto &p = bfxsource.getPairs();
 		auto iter = std::find_if(p.begin(), p.end(), [&](const auto &pair) {
 			return pair.second.symbol == name;
@@ -1431,3 +1432,19 @@ std::string BitfinexSource::getPriceURL(const std::string_view &tsymbol) {
 
 }
 
+inline json::Value Interface::getMarkets() const {
+	auto rs = const_cast<Interface *>(this)->getAllPairs();
+	Object out;
+	Object bfx;
+	for (const auto &x:rs) {
+		if (isTestPair(x)) {
+			out.set("Blank", x);
+		} else {
+			auto splt = StrViewA(x).split("/");
+			auto obj = bfx.object(splt());
+			obj.set(splt(),x);
+		}
+	}
+	out.set("Pre-made", bfx);
+	return out;
+}
