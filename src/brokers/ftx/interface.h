@@ -40,7 +40,13 @@ public:
 protected:
 	mutable HTTPJson api;
 
-	using SymbolMap = ondra_shared::linear_map<std::string, MarketInfo, std::less<std::string_view> >;
+
+	struct MarketInfoEx: MarketInfo {
+		std::string type;
+		std::string expiration;
+		std::string name;
+	};
+	using SymbolMap = ondra_shared::linear_map<std::string, MarketInfoEx, std::less<std::string_view> >;
 	using Positions = ondra_shared::linear_map<std::string, double, std::less<std::string_view> >;
 	SymbolMap smap;
 
@@ -84,6 +90,7 @@ protected:
 
 	static json::Value parseClientId(json::Value v);
 	json::Value buildClientId(json::Value v);
+	json::Value getMarkets() const override ;
 };
 
 

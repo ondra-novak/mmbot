@@ -59,28 +59,47 @@ void Interface::updatePairs() {
 	const AccountInfo &account = getAccountInfo();
 	SymbolMap::Set::VecT newsmap;
 	for (Value symbol: result) {
-		if (symbol["enabled"].getBool()) {
-			MarketInfo minfo;
+		if (symbol["enabled"].getBool() && symbol["type"] == "spot") {
+			MarketInfoEx minfo;
 			String name = symbol["name"].toString();
-			StrViewA type = symbol["type"].getString();
-			bool isfuture;
-			if (type == "future") isfuture = true;
-			else if (type == "spot") isfuture = false;
-			else continue;
 
 			minfo.asset_step = symbol["sizeIncrement"].getNumber();
-			minfo.asset_symbol = isfuture?symbol["underlying"].getString():symbol["baseCurrency"].getString();
+			minfo.asset_symbol = symbol["baseCurrency"].getString();
 			minfo.currency_step = symbol["priceIncrement"].getNumber();
-			minfo.currency_symbol = isfuture?StrViewA("USD"):symbol["quoteCurrency"].getString();
-			minfo.feeScheme = isfuture?currency:income;
+			minfo.currency_symbol = symbol["quoteCurrency"].getString();
+			minfo.feeScheme = income;
 			minfo.fees = account.fees;
 			minfo.invert_price = false;
-			minfo.leverage = isfuture?account.leverage:0;
+			minfo.leverage = 0;
 			minfo.min_size = symbol["minProvideSize"].getNumber();
 			minfo.min_volume = 0;
 			newsmap.emplace_back(name.str(), std::move(minfo));
 		}
 	}
+	mres = api.GET("/futures");
+	result = mres["result"];
+	for (Value symbol: result) {
+		if (symbol["enabled"].getBool() && !symbol["expired"].getBool()) {
+			MarketInfoEx minfo;
+			String name = symbol["name"].toString();
+
+			minfo.asset_step = symbol["sizeIncrement"].getNumber();
+			minfo.asset_symbol = symbol["underlying"].getString();
+			minfo.currency_step = symbol["priceIncrement"].getNumber();
+			minfo.currency_symbol = "USD";
+			minfo.feeScheme = currency;
+			minfo.fees = account.fees;
+			minfo.invert_price = false;
+			minfo.leverage = account.leverage;
+			minfo.min_size = minfo.asset_step;
+			minfo.min_volume = 0;
+			minfo.type = symbol["type"].getString();
+			minfo.expiration = symbol["expiryDescription"].getString();
+			minfo.name = symbol["underlyingDescription"].getString();
+			newsmap.emplace_back(name.str(), std::move(minfo));
+		}
+	}
+
 	smap.swap(newsmap);
 }
 
@@ -520,4 +539,28 @@ void Interface::setTime(std::int64_t t ) {
 int Interface::genOrderNonce() {
 	order_nonce = (order_nonce+1) & 0xFFFFFFF;
 	return order_nonce;
+}
+
+json::Value Interface::getMarkets() const {
+	const_cast<Interface *>(this)->updatePairs();
+	Object spot;
+	Object futures;
+	Object move;
+	Object prediction;
+	for (const auto &k: smap) {
+		if (k.second.type.empty()) {
+			auto obj = spot.object(k.second.asset_symbol);
+			obj.set(k.second.currency_symbol, k.first);
+		} else if (k.second.type == "move") {
+			auto obj = move.object(k.second.name);
+			obj.set(k.second.expiration, k.first);
+		} else if (k.second.type == "prediction") {
+			auto obj = prediction.object(k.second.expiration);
+			obj.set(k.first, k.first);
+		} else {
+			auto obj = futures.object(k.second.name);
+			obj.set(k.second.expiration, k.first);
+		}
+	}
+	return Object("Spot", spot)("Futures",futures)("Move",move)("Prediction",prediction);
 }
