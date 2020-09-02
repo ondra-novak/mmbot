@@ -285,6 +285,7 @@ bool ExtStockApi::isSubaccount() const {
 }
 
 json::Value ExtStockApi::getMarkets() const {
+	return const_cast<ExtStockApi *>(this)->requestExchange("getMarkets",json::Value());
 
 }
 

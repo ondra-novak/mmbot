@@ -867,12 +867,57 @@ App.prototype.pairSelect = function(broker) {
 			ok([broker, d.pair, name]);
 		},"ok");
 		fetch_with_error(_this.pairURL(broker,"")).then(function(data) {
-			var pairs = [{"":{"value":"----",".value":""}}].concat(data["entries"].map(function(x) {
-				return {"":{"value":x,".value":x}};
-			}));			
-			form.setItemValue("item",pairs);
-			form.showItem("spinner",false);
-			dlgRules();
+		    var m;
+            if (data.struct) m = data.struct;
+            else 
+                m = data.entries.reduce(function(a,b){
+                	a[b] = b;return a;},{}
+                );
+
+            function refreshItems() {
+            	var cur = form.readData(["sect"]).sect;
+            	var path = cur?cur.map(function(z) {
+            		return z["pair"];
+            	}):[]
+            	var sect = [];
+            	var p =m;
+            	var nxt;
+            	for (var i = 0; i < path.length; i++) {
+            		if (p[path[i]] === undefined) break;
+            		sect.push ({
+            			pair: {
+            				"value":path[i],
+            				"!change": refreshItems
+            			},
+            			item: Object.keys(p).map(function(k) {
+            				return {"":{".value": k, ".label":k,".selected":path[i] == k}}
+            			})});
+            		p = p[path[i]];
+            		if (typeof p != "object") break;
+            	}
+            	if (typeof p == "object") {
+            		sect.push ({
+            			pair: {
+            				"value":"",
+            				"!change": refreshItems
+            			},
+            			item: [{"":{".value":"",".label":"---",".selected":true}}].concat(Object.keys(p).map(function(k) {
+            				return {"":{".value": k, ".label":k}} 
+            			}))});
+            		p = p[path[i]];            		
+            	}
+            	form.setData({"sect":sect});
+            	if (typeof p == "string") {
+                    form.setItemValue("pair", p);
+            	} else {
+                    form.setItemValue("pair", "");
+            	}
+            	dlgRules();
+            }
+
+            refreshItems();
+
+            form.showItem("spinner",false);
 		},function() {form.close();cancel();});
 		form.setItemValue("image", _this.brokerImgURL(broker));
 		var last_gen_name="";

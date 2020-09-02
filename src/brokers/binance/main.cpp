@@ -73,9 +73,19 @@ public:
 	virtual Interface *createSubaccount(const std::string &path) {
 		return new Interface(path);
 	}
+	virtual json::Value getMarkets() const override;
 
+	enum class Category {
+		spot, coin_m, usdt_m
+	};
 
-	using Symbols = ondra_shared::linear_map<std::string, MarketInfo, std::less<std::string_view> > ;
+	struct MarketInfoEx: MarketInfo {
+		Category cat;
+		std::string label; //for futures
+		std::string type; //for futures
+	};
+
+	using Symbols = ondra_shared::linear_map<std::string, MarketInfoEx, std::less<std::string_view> > ;
 	using Tickers = ondra_shared::linear_map<std::string, Ticker,  std::less<std::string_view> >;
 
 	Value balanceCache;
@@ -102,6 +112,7 @@ public:
 
 	Value dapi_readAccount();
 	std::chrono::steady_clock::time_point symbolsExpire;
+
 
 protected:
 	bool dapi_isSymbol(const std::string_view &pair);
@@ -526,7 +537,7 @@ void Interface::initSymbols() {
 		std::vector<VT> bld;
 		for (Value smb: res["symbols"]) {
 			std::string symbol = smb["symbol"].getString();
-			MarketInfo nfo;
+			MarketInfoEx nfo;
 			nfo.asset_symbol = smb["baseAsset"].getString();
 			nfo.currency_symbol = smb["quoteAsset"].getString();
 			nfo.currency_step = std::pow(10,-smb["quotePrecision"].getNumber());
@@ -546,15 +557,16 @@ void Interface::initSymbols() {
 					nfo.min_volume = f["minNotional"].getNumber();
 				}
 			}
+			nfo.cat = Category::spot;
 			bld.push_back(VT(symbol, nfo));
 		}
 		try {
 			res = dapi.public_request("/dapi/v1/exchangeInfo",Value());
 			for (Value smb: res["symbols"]) {
 				std::string symbol = COIN_M_FUTURES_PREFIX + std::string(smb["symbol"].getString());
-				MarketInfo nfo;
-				nfo.asset_symbol = "USD";
-				nfo.currency_symbol = smb["baseAsset"].getString();
+				MarketInfoEx nfo;
+				nfo.asset_symbol = smb["quoteAsset"].getString();
+				nfo.currency_symbol = smb["marginAsset"].getString();
 				nfo.currency_step = std::pow(10,-smb["pricePrecision"].getNumber());
 				nfo.asset_step = smb["contractSize"].getNumber();
 				nfo.feeScheme = currency;
@@ -572,6 +584,10 @@ void Interface::initSymbols() {
 				nfo.leverage = dapi_getLeverage(smb["symbol"].getString());
 				nfo.invert_price = true;
 				nfo.inverted_symbol = smb["quoteAsset"].getString();
+				nfo.cat = Category::coin_m;
+				nfo.label = nfo.currency_symbol+"/"+nfo.asset_symbol;
+				nfo.type = smb["contractType"].getString();
+
 				bld.push_back(VT(symbol, nfo));
 			}
 		} catch (std::exception &e) {
@@ -754,4 +770,47 @@ inline double Interface::dapi_getCollateral(const json::StrViewA &pair) {
 	Value ass = a["assets"];
 	Value z = ass.find([&](Value item){return item["asset"].getString() == pair;});
 	return z["availableBalance"].getNumber();
+}
+
+inline json::Value Interface::getMarkets() const {
+	const_cast<Interface *>(this)->initSymbols();
+	using Map = std::map<std::pair<std::string_view, std::string_view>, std::string_view>;
+	auto loadToMap = [](const auto &map) {
+		Object lst;
+		Object sub;
+		std::string_view p;
+		for (auto &&c: map) {
+			if (c.first.first != p) {
+				if (!p.empty()) {
+					lst.set(p, sub);
+					sub.clear();
+				}
+				p = c.first.first ;
+			}
+			sub.set(c.first.second, c.second);
+		}
+		if (!p.empty()) {
+			lst.set(p, sub);
+		}
+		return lst;
+	};
+	Object res;
+	{
+		Map map;
+		for (auto &&v: symbols) if (v.second.cat == Category::spot) {
+			map.emplace(std::pair(std::string_view(v.second.asset_symbol), std::string_view(v.second.currency_symbol)), v.first);
+		}
+		res.set("Spot",loadToMap(map));
+	}
+	{
+		Map map;
+		for (auto &&v: symbols) if (v.second.cat == Category::coin_m) {
+			map.emplace(std::pair(std::string_view(v.second.label), std::string_view(v.second.type)), v.first);
+		}
+		res.set("COIN-Ⓜ Futures",loadToMap(map));
+	}
+
+
+
+	return res;
 }

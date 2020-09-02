@@ -567,10 +567,11 @@ json::Value Interface::getMarkets() const {
 	Object spot_pairs;
 
 	for (auto &&p: pairs) {
-		auto &t = p.second.leverage ? margin: spot;
-		String symbol {p.second.symbol, p.second.leverage?" (m)":""};
-		t.insert({std::pair<std::string_view,std::string_view>(p.second.asset.str(), p.second.currency.str()), symbol});
-		t.insert({std::pair<std::string_view,std::string_view>(p.second.currency.str(), p.second.asset.str()), symbol});
+		if (p.second.leverage) {
+			String symbol {p.second.symbol, p.second.leverage?" (m)":""};
+			margin.insert({std::pair<std::string_view,std::string_view>(p.second.asset.str(), p.second.currency.str()), symbol});
+		}
+		spot.insert({std::pair<std::string_view,std::string_view>(p.second.asset.str(), p.second.currency.str()), p.second.symbol});
 	}
 
 	auto loadObj = [](Object &target, const Map &m) {
