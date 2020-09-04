@@ -77,13 +77,9 @@ protected:
 	State st;
 	mutable std::optional<MinMax> rootsCache;
 
-	struct PosCalcRes {
-		bool limited;
-		double pos;
-	};
 
 	static PStrategy init(const PCalc &calc, const PConfig &cfg, double price, double pos, double currency, const IStockApi::MarketInfo &minfo);
-	PosCalcRes calcPosition(double price) const;
+	double calcPosition(double price) const;
 
 	MinMax calcRoots() const;
 	double adjNeutral(double price, double value) const;
