@@ -309,7 +309,7 @@ IStrategy::OrderData Strategy_Leveraged<Calc>::getNewOrder(
 	} else {
 		auto cps = calcPosition(price);
 		double df = calcOrderSize(st.position,apos,cps);
-		return {0, df,  cps == st.position?Alert::forced:Alert::enabled};
+		return {0, df,  cps == 0?Alert::forced:Alert::enabled};
 	}
 }
 
