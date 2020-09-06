@@ -886,27 +886,38 @@ App.prototype.pairSelect = function(broker) {
             	var nxt;
             	for (var i = 0; i < path.length; i++) {
             		if (p[path[i]] === undefined) break;
+            		var keys = Object.keys(p); 
             		sect.push ({
             			pair: {
+            				"classList":{"noarrow":keys.length < 2},
             				"value":path[i],
             				"!change": refreshItems
             			},
-            			item: Object.keys(p).map(function(k) {
+            			item: keys.map(function(k) {
             				return {"":{".value": k, ".label":k,".selected":path[i] == k}}
             			})});
             		p = p[path[i]];
             		if (typeof p != "object") break;
             	}
-            	if (typeof p == "object") {
+            	while (typeof p == "object" && Object.keys(p).length == 1) {
+            		var k = Object.keys(p)[0];
+            		var v = p[k];
+            		sect.push({
+            			item: [{"":{".value":k, ".label": k, ".selected":true}}],
+            			pair:{"classList":{"noarrow":true}}
+            		});
+            		p = p[k];
+            	}
+            	if (typeof p == "object") {            		
             		sect.push ({
             			pair: {
+            				"classList":{"noarrow":false},
             				"value":"",
             				"!change": refreshItems
             			},
             			item: [{"":{".value":"",".label":"---",".selected":true}}].concat(Object.keys(p).map(function(k) {
             				return {"":{".value": k, ".label":k}} 
-            			}))});
-            		p = p[path[i]];            		
+            			}))});           		
             	}
             	form.setData({"sect":sect});
             	if (typeof p == "string") {

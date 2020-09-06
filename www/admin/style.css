@@ -40,6 +40,25 @@ input[disabled],select[disabled],button[disabled],button[disabled]:hover {
 	
 }
 
+input[type=number] {
+        -moz-appearance: textfield;
+}
+select {
+    appearance: none;
+    background-image: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABYAAAAgCAQAAAC8nkAAAAAAnElEQVQ4y2NgGAXDBPxX/2+ERZTtv9l/SUxh1////ydhiE76//q/CDazZ/9//V8CRcT8/+//odgdwvf//v81SHzO/5f+L8Ptbof/v/5HwHnt/5/+58fnzZb/X/+LMjAwMPy3/P/7vz3+MGH8f/T/AQaG/+z/X/6vR5dlxFAuzHCNYR6DIcNfBn/GP4RD3Oj/9/83/guOpr1RQCMAALnoRw41qoTsAAAAAElFTkSuQmCC);
+    background-repeat: no-repeat;
+    background-position-x: right;
+    background-position-y: center;
+    background-size: 1em;
+    background-origin: padding-box;
+    padding-right: 1em;
+    box-sizing: border-box;
+}
+
+select.noarrow {
+	background-image: none;
+}
+
 p.textdoc {white-space: pre-wrap;text-align: justify;font-family: monospace;}
 
 button {
