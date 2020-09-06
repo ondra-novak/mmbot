@@ -565,6 +565,10 @@ the same order, they are ordered by its ID - this is the default ordering. Modif
 </div>
 <div class="tablecont bottom"><table>
 <tr>
+<th data-name="ev_liq_hid" class="mark_crit" hidden="hidden">Liquidations</th>
+<th data-name="ev_mcall_hid" class="mark_warn" hidden="hidden">Mrg.calls</th>
+<th data-name="ev_nobal_hid" class="mark_warn" hidden="hidden">No bal.</th>
+<th data-name="ev_aclos_hid" class="mark_warn" hidden="hidden">Acpt.loss</th>
 <th>Trades</th>
 <th>Buys</th>
 <th>Sells</th>
@@ -573,6 +577,10 @@ the same order, they are ordered by its ID - this is the default ordering. Modif
 <th>Descents</th>
 <th>Max streak</th>
 <tr>
+<td data-name="ev_liq ev_liq_hid" class="mark_crit" hidden="hidden"></td>
+<td data-name="ev_mcall ev_mcall_hid" class="mark_warn" hidden="hidden"></td>
+<td data-name="ev_nobal ev_nobal_hid" class="mark_warn" hidden="hidden"></td>
+<td data-name="ev_aclos ev_aclos_hid" class="mark_warn" hidden="hidden"></td>
 <td data-name="trades"></td>
 <td data-name="buys"></td>
 <td data-name="sells"></td>
@@ -598,7 +606,7 @@ the same order, they are ordered by its ID - this is the default ordering. Modif
 <label><span>Currency</span><input type="number" step="any" data-name="initial_balance"></label>
 <label><span>Initial price</span><input type="number" step="any" data-name="initial_price"></label>
 <label><span>Reverse/Invert chart</span><span><x-checkbox data-name="reverse_chart">Rev</x-checkbox> <x-checkbox data-name="invert_chart">Inv</x-checkbox></span></label>
-<label><span>Show: neutral price</span><x-checkbox data-name="show_op">open price</x-checkbox></label>
+<label><span>Neg.balance</span><x-checkbox data-name="allow_neg_bal">Enabled</x-checkbox></label>
 </x-form>
 </x-section>
 </template>
@@ -625,6 +633,10 @@ the same order, they are ordered by its ID - this is the default ordering. Modif
     data-please_login="Your session has expired. Please log in to contine"
     data-import_failed="Import failed. The code is probably damaged"
     data-import_invalid_format="Unrecognized File Format"
+    data-btev_liquidation="Liquidation!"
+    data-btev_no_balance="No balance (need funding)"
+    data-btev_accept_loss="Accept loss"
+    data-btev_margin_call="Margin call!"
     ></span>
 
 
@@ -739,6 +751,13 @@ the same order, they are ordered by its ID - this is the default ordering. Modif
 <tr><th>Position</th><td class="colornumb" data-name="ps"></td></tr>
 <tr><th>PnL</th><td class="colornumb" data-name="pl"></td></tr>
 <tr><th>Norm PnL</th><td class="colornumb" data-name="npl"></td></tr>
+<tr data-name="bt_event_row"><th>Event</th><td>
+<x-switch data-name="bt_event" data-value="liquidation" class="mark_crit">Liquidation!</x-switch>
+<x-switch data-name="bt_event" data-value="margin_call" class="mark_warn">Margin&nbsp;call!</x-switch>
+<x-switch data-name="bt_event" data-value="no_balance" class="mark_warn">No&nbsp;balance</x-switch>
+<x-switch data-name="bt_event" data-value="accept_loss" class="accept_loss">Accept&nbsp;loss</x-switch>
+</td></tr>
+
 <tr><td colspan="2"><hr></td></tr>
 <tr data-name="info[]" class="strategy_info"><th data-name="key"><td data-name="value"></tr>
 </table>

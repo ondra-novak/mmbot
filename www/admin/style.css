@@ -14,7 +14,7 @@ a,.link {color: yellow; text-decoration: underline; cursor: pointer;}
 a:visited {color: #ffa800;}
 
 
-[hidden] { display: none !important;}
+[hidden] {display: none !important;}
 input,select,button,textarea {
 	background-color: black;
 	border: 1px solid #888;
@@ -145,6 +145,7 @@ div.float_info {
 	transition: 0.3s all;
 	color: #fefefe;
 	z-index: 10000;
+	pointer-events: none;
 }
 
 div.float_info table {
@@ -688,6 +689,14 @@ input[type=range].thick:focus::-ms-fill-upper {
 .trouble_sect > * > div > button {
 	width: 50%;
 	height: 3em;
+}
+
+.mark_warn {
+	color: #c7c750;
+}
+
+.mark_crit {
+	color: #ff4141;
 }
 
 

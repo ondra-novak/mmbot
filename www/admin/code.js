@@ -337,7 +337,9 @@ App.prototype.fillForm = function (src, trg) {
 		data.fees =adjNum(pair.fees*100,4);
 		data.leverage=pair.leverage?pair.leverage+"x":"n/a";
 		trg._balance = pair.currency_balance;
+		trg._assets = pair.asset_balance;
 		trg._price = invPrice(pair.price, pair.invert_price);
+		trg._leverage = data.leverage;
 
 		var mp = orders?orders.map(function(z) {
 			return {
@@ -1472,6 +1474,7 @@ function createCSV(chart) {
 			rw.na,
 			rw.np,
 			rw.op,
+			rw.event?rw.event:""
 		]);
 	})
 	
@@ -1485,6 +1488,7 @@ function createCSV(chart) {
 			"accumulation",
 			"neutral price",
 			"open price",
+			"event"
 		]));
 	return rows.join("\r\n");
 }
@@ -1493,6 +1497,7 @@ var fill_atprice=true;
 var show_op=false;
 var invert_chart = false;
 var reverse_chart = false;
+var allow_neg_balance = false;
 
 
 App.prototype.init_backtest = function(form, id, pair, broker) {
@@ -1505,6 +1510,8 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		"min_balance","max_balance"];
 	var spread_inputs = ["spread_calc_stdev_hours", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode","dynmult_sliding","dynmult_mult"];
 	var balance = form._balance;
+	var assets = form._assets;
+	var leverage = form._leverage != "n/a";	
 	var init_def_price = form._price;
 	var days = 45*60*60*24*1000;
     var offset = 0;
@@ -1537,6 +1544,10 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		var descents = 0;
 		var max_streak = 0;
 		var cur_streak = 0;
+		var cnt_liq = 0;
+		var cnt_mgc = 0;
+		var cnt_nbl = 0;
+		var cnt_als = 0;
 		var last_dir = 0;
 		var lastp = v[0].pr;
 
@@ -1547,6 +1558,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 			if (nacp || acp) {
 				x.achg = x.sz;
 				x.time = x.tm;
+				x.man = x.event !== undefined;
 				if (ilst) {
 				    c.push(ilst);
 					ilst = null;
@@ -1577,7 +1589,15 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 					cur_streak++;
 				}
 				if (dir > 0) ascents++;
-				if (dir < 0) descents++;
+				if (dir < 0) descents++;			
+				if (x.event) {
+					switch (x.event) {
+						case "liquidation": cnt_liq++;break;
+						case "margin_call": cnt_mgc++;break;
+						case "no_balance": cnt_nbl++;break;
+						case "accept_loss": cnt_als++;break;
+					}
+				}
 			}
 		});
 		if (cur_streak > max_streak) max_streak = cur_streak;
@@ -1621,7 +1641,15 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
         	"alerts": alerts,
         	"ascents": ascents,
         	"descents": descents,
-        	"streak": max_streak        
+        	"streak": max_streak,
+        	"ev_liq": cnt_liq,
+        	"ev_mcall": cnt_mgc,
+        	"ev_nobal": cnt_nbl,
+        	"ev_aclos": cnt_als,
+        	"ev_liq_hid": {".hidden":!cnt_liq},
+        	"ev_mcall_hid": {".hidden":!cnt_mgc},
+        	"ev_nobal_hid": {".hidden":!cnt_nbl},
+        	"ev_aclos_hid": {".hidden":!cnt_als}
         });
 		}
 
@@ -1629,7 +1657,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		var chart2 = cntr.bt.findElements('chart2')[0];
 		if (interval > days) interval = days;
 		var ratio = 4;		
-		var scale = 900000;
+		var scale = 1000000;
 		var drawChart = initChart(interval,ratio,scale,true);
 		var drawMap1;
 		var drawMap2;
@@ -1699,6 +1727,8 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
                 		pl:adjNumBuySell(bestItem.pl),
                 		npl:adjNumBuySell(bestItem.npl),
                 		sz:adjNumBuySell(bestItem.sz),
+                		bt_event: bestItem.event,
+                		bt_event_row: {".hidden": bestItem.event === undefined},
                 		info:Object.keys(bestItem.info)
                 		    .map(function(n) {
                 		    	var v = bestItem.info[n];
@@ -1784,6 +1814,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 			prices: prices,
 			reverse: reverse_chart,
 			invert: invert_chart,
+			neg_bal: allow_neg_balance
 		}
 		var w = progress_wait();
 		fetch_with_error("api/upload_prices", {method:"POST", body:JSON.stringify(req)}).then(function(){							
@@ -1824,17 +1855,20 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
         opts = cntr.bt.readData(["initial_balance", "initial_pos","initial_price"]);
 		config.broker = broker;
 		config.pair_symbol = pair;
-		bal = isFinite(opts.initial_balance)?opts.initial_balance:balance;
-		req = {
+		var init_price = isFinite(opts.initial_price)?opts.initial_price:init_def_price;
+        bal =( isFinite(opts.initial_balance)?opts.initial_balance:balance)
+                    + (leverage?0:(isFinite(opts.initial_pos)?opts.initial_pos:assets)*init_price);                        
+       	req = {
 			config: config,
 			id: id,
 			init_pos:isFinite(opts.initial_pos)?opts.initial_pos:undefined,
-			init_price:isFinite(opts.initial_price)?opts.initial_price:init_def_price,
-			balance:bal,
+			init_price:init_price,
+			balance:isFinite(opts.initial_balance)?opts.initial_balance:balance,
 			fill_atprice:fill_atprice,
 			start_date: start_date,
 			reverse: reverse_chart,
 			invert: invert_chart,
+			neg_bal: allow_neg_balance,
 		};
 
 
@@ -1858,8 +1892,13 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 			});
 			cntr.bt.setItemValue("show_op", show_op);
 			cntr.bt.setItemValue("fill_atprice",fill_atprice);
+			cntr.bt.setItemValue("allow_neg_bal",allow_neg_balance);
 			cntr.bt.setItemValue("reverse_chart",reverse_chart);
 			cntr.bt.setItemValue("invert_chart",invert_chart);
+			cntr.bt.setItemEvent("allow_neg_bal","change", function() {
+				allow_neg_balance = cntr.bt.readData(["allow_neg_bal"]).allow_neg_bal;
+				cntr.update();
+			})
 			cntr.bt.setItemEvent("show_op","change", function() {
 				show_op = cntr.bt.readData(["show_op"]).show_op;
 				update();
