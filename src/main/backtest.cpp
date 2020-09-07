@@ -49,24 +49,8 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 			double dprice = (p - bt.price.price);
 			double pchange = pos * dprice;
 			pl = pl + pchange;
-			if (minfo.leverage) {
-				double nb = balance + pchange;
-				if (nb < 0 && balance > 0) {
-					bt.event = BTEvent::liquidation;
-					pos = 0;
-				} else {
-					if (balance <= 0) {
-						bt.event = BTEvent::no_balance;
-					}
-					else {
-						double mb = balance + pchange;
-						if (mb < 0) {
-							bt.event = BTEvent::margin_call;
-						}
-					}
-				}
-				balance = nb;
-			}
+			double prev_bal = balance;
+			if (minfo.leverage) balance += pchange;
 
 			double dir = p>bt.price.price?-1:1;
 			s.onIdle(minfo,tk,pos,balance);
@@ -82,6 +66,7 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 				}
 			}
 			Strategy::adjustOrder(dir, mult, allowAlert, order);
+
 			order.size  = IStockApi::MarketInfo::adjValue(order.size,minfo.asset_step,round);
 			auto min_pos = cfg.min_balance;
 			auto max_pos = cfg.max_balance;
@@ -126,6 +111,20 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 				balance -= chg;
 				pos += order.size;
 			} else {
+				if (balance <= 0 && prev_bal > 0) {
+					bt.event = BTEvent::liquidation;
+					order.size -= pos;
+				} else {
+					if (balance <= 0) {
+						bt.event = BTEvent::no_balance;
+					}
+					else {
+						double mb = balance + dprice * (pos + order.size);
+						if (mb < 0) {
+							bt.event = BTEvent::margin_call;
+						}
+					}
+				}
 				pos += order.size;
 			}
 			auto tres = s.onTrade(minfo, p, order.size, pos, balance);
