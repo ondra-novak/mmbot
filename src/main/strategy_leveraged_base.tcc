@@ -167,7 +167,7 @@ double Strategy_Leveraged<Calc>::calcNewNeutralFromProfit(double profit, double 
 template<typename Calc>
 void Strategy_Leveraged<Calc>::recalcPower(const PCalc &calc, const PConfig &cfg, State &nwst) {
 	double offset = calc->calcPosition(nwst.power, cfg->asym, nwst.neutral_price, nwst.neutral_price);
-	double adjbalance = std::abs(nwst.bal  + cfg->external_balance + nwst.neutral_price * std::abs(nwst.position - offset) * cfg->powadj) * cfg->power;
+	double adjbalance = std::abs(nwst.redbal  + cfg->external_balance + nwst.neutral_price * std::abs(nwst.position - offset) * cfg->powadj) * cfg->power;
 	double power = calc->calcPower(nwst.neutral_price, adjbalance, cfg->asym);
 	if (std::isfinite(power)) {
 		nwst.power = power;
@@ -309,7 +309,7 @@ IStrategy::OrderData Strategy_Leveraged<Calc>::getNewOrder(
 	} else {
 		auto cps = calcPosition(price);
 		double df = calcOrderSize(st.position,apos,cps);
-		return {0, df,  cps == st.position?Alert::forced:Alert::enabled};
+		return {0, df,  cps == 0?Alert::forced:Alert::enabled};
 	}
 }
 

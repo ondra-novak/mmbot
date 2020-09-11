@@ -14,7 +14,7 @@ a,.link {color: yellow; text-decoration: underline; cursor: pointer;}
 a:visited {color: #ffa800;}
 
 
-[hidden] { display: none !important;}
+[hidden] {display: none !important;}
 input,select,button,textarea {
 	background-color: black;
 	border: 1px solid #888;
@@ -38,6 +38,25 @@ input[disabled],select[disabled],button[disabled],button[disabled]:hover {
 	background-color: #444;
 	color: #888;
 	
+}
+
+input[type=number] {
+        -moz-appearance: textfield;
+}
+select {
+    appearance: none;
+    background-image: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABYAAAAgCAQAAAC8nkAAAAAAnElEQVQ4y2NgGAXDBPxX/2+ERZTtv9l/SUxh1////ydhiE76//q/CDazZ/9//V8CRcT8/+//odgdwvf//v81SHzO/5f+L8Ptbof/v/5HwHnt/5/+58fnzZb/X/+LMjAwMPy3/P/7vz3+MGH8f/T/AQaG/+z/X/6vR5dlxFAuzHCNYR6DIcNfBn/GP4RD3Oj/9/83/guOpr1RQCMAALnoRw41qoTsAAAAAElFTkSuQmCC);
+    background-repeat: no-repeat;
+    background-position-x: right;
+    background-position-y: center;
+    background-size: 1em;
+    background-origin: padding-box;
+    padding-right: 1em;
+    box-sizing: border-box;
+}
+
+select.noarrow {
+	background-image: none;
 }
 
 p.textdoc {white-space: pre-wrap;text-align: justify;font-family: monospace;}
@@ -145,6 +164,7 @@ div.float_info {
 	transition: 0.3s all;
 	color: #fefefe;
 	z-index: 10000;
+	pointer-events: none;
 }
 
 div.float_info table {
@@ -688,6 +708,14 @@ input[type=range].thick:focus::-ms-fill-upper {
 .trouble_sect > * > div > button {
 	width: 50%;
 	height: 3em;
+}
+
+.mark_warn {
+	color: #c7c750;
+}
+
+.mark_crit {
+	color: #ff4141;
 }
 
 

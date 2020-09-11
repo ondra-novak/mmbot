@@ -560,40 +560,18 @@ Value Interface::publicGET(StrViewA path) const {
 
 json::Value Interface::getMarkets() const {
 	auto pairs = getPairs();
-	using Map = std::map<std::pair<std::string_view, std::string_view>, String>;
-	Map margin, spot;
-
-	Object margin_pairs;
-	Object spot_pairs;
+	Object res;
 
 	for (auto &&p: pairs) {
+		auto sub = res.object(p.second.asset);
 		if (p.second.leverage) {
 			String symbol {p.second.symbol, p.second.leverage?" (m)":""};
-			margin.insert({std::pair<std::string_view,std::string_view>(p.second.asset.str(), p.second.currency.str()), symbol});
+			sub.set(p.second.currency, Object
+					("Exchange",p.second.symbol)
+					("Margin", symbol));
+		} else {
+			sub.set(p.second.currency, Object("Exchange",p.second.symbol));
 		}
-		spot.insert({std::pair<std::string_view,std::string_view>(p.second.asset.str(), p.second.currency.str()), p.second.symbol});
 	}
-
-	auto loadObj = [](Object &target, const Map &m) {
-		std::string_view prev;
-		Object sub;
-		for (const auto &c: m) {
-			if (c.first.first != prev) {
-				if (sub.dirty()) {
-					target.set(prev, sub);
-					sub.clear();
-				}
-				prev = c.first.first;
-			}
-			sub.set(c.first.second, c.second);
-		}
-		if (sub.dirty()) {
-			target.set(prev, sub);
-		}
-	};
-	loadObj(margin_pairs, margin);
-	loadObj(spot_pairs, spot);
-	return Object
-		("Exchange", spot_pairs)
-		("Margin", margin_pairs);
+	return res;
 }

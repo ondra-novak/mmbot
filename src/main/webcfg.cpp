@@ -890,6 +890,7 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req)  {
 				if (tr == nullptr) {
 					api = trlist.lock_shared()->stockSelector.getStock(broker.toString().str());
 				} else {
+					trl->init();
 					api = trl->getBroker();
 				}
 				if (api == nullptr) {
@@ -970,6 +971,12 @@ void WebCfg::State::setBrokerConfig(json::StrViewA name, json::Value config) {
 	broker_config = broker_config.getValueOrDefault(Value(json::object)).replace(name,config);
 }
 
+static Value btevent_no_event;
+static Value btevent_margin_call("margin_call");
+static Value btevent_liquidation("liquidation");
+static Value btevent_no_balance("no_balance");
+static Value btevent_accept_loss("accept_loss");
+
 bool WebCfg::reqBacktest(simpleServer::HTTPRequest req)  {
 	if (!req.allowMethods({"POST","DELETE"})) return true;
 	if (req.getMethod() == "DELETE") {
@@ -997,6 +1004,7 @@ bool WebCfg::reqBacktest(simpleServer::HTTPRequest req)  {
 					Value balance = data["balance"];
 					Value init_price = data["init_price"];
 					Value fill_atprice= data["fill_atprice"];
+					Value negbal= data["neg_bal"];
 
 					std::uint64_t start_date=data["start_date"].getUIntLong();
 
@@ -1057,9 +1065,19 @@ bool WebCfg::reqBacktest(simpleServer::HTTPRequest req)  {
 					}
 
 					BTTrades rs = backtest_cycle(mconfig,std::move(source),
-							trades.minfo,m_init_pos, balance.getNumber(), fill_atprice.getBool());
+							trades.minfo,m_init_pos, balance.getNumber(), negbal.getBool());
+
+
 
 					Value result (json::array, rs.begin(), rs.end(), [](const BTTrade &x) {
+						Value event;
+						switch (x.event) {
+						default: event = btevent_no_event;break;
+						case BTEvent::accept_loss: event = btevent_accept_loss;break;
+						case BTEvent::liquidation: event = btevent_liquidation;break;
+						case BTEvent::margin_call: event = btevent_margin_call;break;
+						case BTEvent::no_balance: event = btevent_no_balance;break;
+						}
 						return Object
 								("np",x.neutral_price)
 								("op",x.open_price)
@@ -1071,7 +1089,8 @@ bool WebCfg::reqBacktest(simpleServer::HTTPRequest req)  {
 								("pr",x.price.price)
 								("tm",x.price.time)
 								("info",x.info)
-								("sz",x.size);
+								("sz",x.size)
+								("event", event);
 					});
 					String resstr = result.toString();
 					req.sendResponse("application/json",resstr.str());
@@ -1276,12 +1295,12 @@ bool WebCfg::reqUploadTrades(simpleServer::HTTPRequest req)  {
 				Value id = args["id"];
 				Value prices = args["prices"];
 				auto trp = trlist.lock_shared()->find(id.getString());
+				if (trp == nullptr) {
+						req.sendErrorPage(404);
+						return;
+				}
 				if (trp.lock_shared()->need_init()) trp.lock()->init();
 				auto tr = trp.lock_shared();
-				if (tr == nullptr) {
-					req.sendErrorPage(404);
-					return;
-				}
 				IStockApi::MarketInfo minfo = tr->getMarketInfo();
 				BacktestCacheSubj bt;
 				std::transform(prices.begin(), prices.end(), std::back_inserter(bt.prices), [&](const Value &itm) {
