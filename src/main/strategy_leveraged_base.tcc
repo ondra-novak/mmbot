@@ -115,6 +115,17 @@ double Strategy_Leveraged<Calc>::calcPosition(double price) const {
 	}
 	if (cfg->longonly && pos < 0) pos = 0;
 
+	if (st.position * (pos-st.position) > 0 && cfg->position_limit) {
+		double val = st.val;
+		double spread = std::abs(price - st.neutral_price)*cfg->position_limit/10.0;
+		if (spread > 0) {
+			double npos = val / spread;
+			double acps = std::abs(pos);
+			if (npos < acps)
+				pos = acps * npos / pos;
+		}
+	}
+
 	return pos;
 
 }

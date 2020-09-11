@@ -1294,12 +1294,12 @@ bool WebCfg::reqUploadTrades(simpleServer::HTTPRequest req)  {
 				Value id = args["id"];
 				Value prices = args["prices"];
 				auto trp = trlist.lock_shared()->find(id.getString());
-				if (trp.lock_shared()->need_init()) trp.lock()->init();
-				auto tr = trp.lock_shared();
-				if (tr == nullptr) {
+				if (trp == nullptr) {
 					req.sendErrorPage(404);
 					return;
 				}
+				if (trp.lock_shared()->need_init()) trp.lock()->init();
+				auto tr = trp.lock_shared();
 				IStockApi::MarketInfo minfo = tr->getMarketInfo();
 				BacktestCacheSubj bt;
 				std::transform(prices.begin(), prices.end(), std::back_inserter(bt.prices), [&](const Value &itm) {

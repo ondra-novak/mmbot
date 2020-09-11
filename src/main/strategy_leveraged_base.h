@@ -31,7 +31,7 @@ public:
 		bool detect_trend = false;
 		bool recalc_keep_neutral =false;
 		bool longonly = false;
-//		int preference = 0;
+		double position_limit = 0;
 	};
 
 	using PConfig = std::shared_ptr<const Config>;

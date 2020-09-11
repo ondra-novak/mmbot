@@ -541,6 +541,7 @@ App.prototype.fillForm = function (src, trg) {
 	data.hp_maxloss=0;
 	data.hp_dtrend={value:false};
 	data.hp_lb_asym="asym";
+	data.sh_poslimit=0;
 	data.inverted_price="false";
 	data.hp_longonly=false;
 	data.gs_rb_lo_p=20;
@@ -577,6 +578,7 @@ App.prototype.fillForm = function (src, trg) {
 		data.hp_longonly = filledval(src.strategy.longonly,false);
 		data.sh_curv = filledval(src.strategy.curv,5);
 		data.hp_lb_asym = src.strategy.dtrend?"trend":"asym"; 
+		data.sh_poslimit = filledval(src.strategy.poslimit,0);
 	} else if (data.strategy == "stairs") {
 		data.st_power = filledval(src.strategy.power,1.7);
 		data.st_show_factor = powerCalc(data.st_power.value)
@@ -722,6 +724,7 @@ function getStrategyData(data) {
 				reduction: data.hp_reduction/200,
 				initboost: data.hp_initboost,
 				curv: data.sh_curv,
+				poslimit: data.sh_poslimit
 				
 		};
 	} else 	if (data.strategy == "stairs") {
@@ -1516,7 +1519,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 	form.enableItem("show_backtest",false);		
 	var inputs = ["strategy","external_assets", "acum_factor","kv_valinc","kv_halfhalf","min_size","max_size","order_mult","alerts","delayed_alerts","linear_suggest","linear_suggest_maxpos",
 		"st_power","st_reduction_step","st_sl","st_redmode","st_max_step","st_pattern","dynmult_sliding","accept_loss","spread_calc_sma_hours","st_tmode","zigzag",
-		"hp_dtrend","hp_longonly","hp_power","hp_maxloss","hp_asym","hp_reduction","sh_curv","hp_initboost","hp_extbal","hp_powadj","hp_dynred",
+		"hp_dtrend","hp_longonly","hp_power","hp_maxloss","hp_asym","hp_reduction","sh_curv","sh_poslimit","hp_initboost","hp_extbal","hp_powadj","hp_dynred",
 		"exp_optp","gs_external_assets","gs_rb_hi_a","gs_rb_lo_a","gs_rb_hi_p","gs_rb_lo_p",
 		"min_balance","max_balance"];
 	var spread_inputs = ["spread_calc_stdev_hours", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode","dynmult_sliding","dynmult_mult"];
