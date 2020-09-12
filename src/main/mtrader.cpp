@@ -416,7 +416,7 @@ void MTrader::perform(bool manually) {
 
 	} catch (std::exception &e) {
 		statsvc->reportTrades(trades);
-		std::string error("Stopped because error: ");
+		std::string error;
 		error.append(e.what());
 		statsvc->reportError(IStatSvc::ErrorObj(error.c_str()));
 		statsvc->reportMisc(IStatSvc::MiscData{

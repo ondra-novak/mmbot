@@ -206,21 +206,21 @@ included, external currencies are counted in proportion to external assets</span
 </x-section>
 
 <x-section class="adv"  ><x-section-caption>Common</x-section-caption>
-<label  class="adv"><span>Order minimal size (0&nbsp;=&nbsp;disabled)<span class="tooltip">
+<label  class="adv"><span>Minimum order size (0&nbsp;=&nbsp;disabled)<span class="tooltip">
 Specifies minimal order size. If disabled, minimal size is defined by the exchange. This also
 specifies size of the "dust order"
 </span></span><input type="number" data-name="min_size" step="any"></label>
-<label  class="adv"><span>Order maximal size (0&nbsp;=&nbsp;disabled)<span class="tooltip">
+<label  class="adv"><span>Maximum order size (0&nbsp;=&nbsp;disabled)<span class="tooltip">
 Specifies maximal order size. 
 </span></span><input type="number" data-name="max_size" step="any"></label>
-<label  class="adv"><span>Maximal leverage (0&nbsp;=&nbsp;disabled)<span class="tooltip">
-Specifies maximal allowed leverage. If the size of the order is larger then specified leverage, then the order is not placed. This can also trigger <b>Accept loss</b> feature when it is enabled  
-</span></span><input type="number" data-name="max_leverage" step="1"></label>
 <label  class="adv"><span>Order size modifier [%]<span class="tooltip">It is recomended to set values below
 100. This makes orders smaller but also causes that order will be split into smaller orders. For
 example if you specify value 50, the order 24 may be split to orders 12, 6, 3, 2, 1 = 24. This can
 help to push the "average open price" near to the current price
 </span></span><x-slider data-name="order_mult" data-min="1" data-max="199" data-mult="1" data-fixed="0"></x-slider></label>
+<label  class="adv"><span>Maximum leverage (0&nbsp;=&nbsp;disabled)<span class="tooltip">
+Specifies maximal allowed leverage. If the size of the order is larger then specified leverage, then the order is not placed. This can also trigger <b>Accept loss</b> feature when it is enabled  
+</span></span><input type="number" data-name="max_leverage" step="1"></label>
 <label class="adv"><span>Accept loss after hours (0&nbsp;=&nbsp;disabled)<span class="tooltip">
 Enable to the Bot accept partial loss, when trading is not possible due insufficient balance or when
 "Hard max position" is reached. The value specified amount of hours after last trade, when
