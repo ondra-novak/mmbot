@@ -55,6 +55,7 @@ struct MTrader_Config {
 	double force_spread;
 	double report_position_offset;
 	double report_order;
+	double max_leverage;
 	unsigned int grant_trade_minutes;
 
 	unsigned int spread_calc_stdev_hours;
@@ -309,6 +310,7 @@ protected:
 	void updateZigzagLevels();
 	void modifyOrder(const ZigZagLevels &zlevs, double dir, Order &order) const;
 
+	void checkLeverage(const Order &order);
 private:
 	template<typename Iter>
 	static SpreadCalcResult stCalcSpread(Iter beg, Iter end, unsigned int input_sma, unsigned int input_stdev);

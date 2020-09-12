@@ -14,6 +14,7 @@
 // https://www.desmos.com/calculator/r2qiezykq8
 
 std::string_view Sinh_Calculus::id = "sinh";
+std::string_view Sinh2_Calculus::id = "sinh2";
 
 
 #include "numerical.h"
@@ -92,4 +93,8 @@ double Sinh_Calculus::calcPower(double neutral, double balance, double ) {
 	return balance/(neutral*p)*f;
 }
 
-template class Strategy_Leveraged<Sinh_Calculus>;
+template class Strategy_Leveraged<Sinh_Calculus> ;
+template class Strategy_Leveraged<Sinh2_Calculus> ;
+
+Sinh2_Calculus::Sinh2_Calculus(double curv):Sinh_Calculus(1,curv) {
+}

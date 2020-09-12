@@ -63,6 +63,7 @@ void MTrader_Config::loadConfig(json::Value data, bool force_dry_run) {
 	dynmult_mode = strDynmult_mode[data["dynmult_mode"].getValueOrDefault("half_alternate")];
 
 	accept_loss = data["accept_loss"].getValueOrDefault(1);
+	max_leverage = data["max_leverage"].getValueOrDefault(0);
 
 	force_spread = data["force_spread"].getValueOrDefault(0.0);
 	report_position_offset = data["report_position_offset"].getValueOrDefault(0.0);
@@ -194,6 +195,10 @@ void MTrader::perform(bool manually) {
 
 		std::string buy_order_error;
 		std::string sell_order_error;
+
+		internal_balance = status.assetBalance;
+		currency_balance = status.currencyBalance;
+
 
 		//update market fees
 		minfo.fees = status.new_fees;
@@ -401,8 +406,6 @@ void MTrader::perform(bool manually) {
 			}
 		}
 
-		internal_balance = status.assetBalance;
-		currency_balance = status.currencyBalance;
 		lastTradeId  = status.new_trades.lastId;
 
 
@@ -478,6 +481,7 @@ void MTrader::setOrder(std::optional<IStockApi::Order> &orig, Order neworder, st
 		}
 		IStockApi::Order n {json::undefined, magic, neworder.size, neworder.price};
 		try {
+			checkLeverage(neworder);
 			json::Value replaceid;
 			double replaceSize = 0;
 			if (orig.has_value()) {
@@ -1475,4 +1479,21 @@ bool MTrader::checkEquilibriumClose(const Status &st, double lastTradePrice) {
 	return lastTradePrice >= low && lastTradePrice <=hi;
 
 }
+
+void MTrader::checkLeverage(const Order &order) {
+	if (minfo.leverage && cfg.max_leverage
+			&& currency_balance.has_value()) {
+		double bal = *currency_balance;
+		if (!trades.empty()) {
+			double chng = (order.price - trades.back().eff_price);
+			bal += chng * *internal_balance;
+			double max_bal = bal * cfg.max_leverage;
+			double cash_flow = *internal_balance * order.size < 0?
+					std::abs((order.size + *internal_balance)  * order.price)
+					:std::abs(order.size  * order.price);
+			if (cash_flow > max_bal) throw std::runtime_error("Over max leverage");
+		}
+	}
+}
+
 

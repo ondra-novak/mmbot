@@ -95,10 +95,10 @@ App.prototype.createTraderForm = function() {
 		form.showItem("strategy_pl",state.strategy == "plfrompos");
 		form.showItem("strategy_stairs",state.strategy == "stairs");
 		form.showItem("strategy_gauss",state.strategy == "errorfn");
-		form.showItem("strategy_hyperbolic",state.strategy == "hyperbolic"||state.strategy == "linear"||state.strategy == "sinh");
+		form.showItem("strategy_hyperbolic",state.strategy == "hyperbolic"||state.strategy == "linear"||state.strategy == "sinh"||state.strategy == "sinh2");
 		form.showItem("kv_valinc_h",state.strategy == "keepvalue");
 		form.showItem("exp_optp_h",state.strategy == "exponencial"||state.strategy == "hypersquare"||state.strategy == "conststep");
-		form.showItem("show_curvature", state.strategy == "sinh")
+		form.showItem("show_curvature", state.strategy == "sinh"||state.strategy == "sinh2")
 		form.setData({"help_goal":{"class":state.strategy}});
 		form.getRoot().classList.toggle("no_adv", !state["advanced"]);
 		form.getRoot().classList.toggle("no_experimental", !state["check_unsupp"]);
@@ -547,6 +547,7 @@ App.prototype.fillForm = function (src, trg) {
 	data.gs_rb_lo_a=85;
 	data.gs_rb_hi_p=95;
 	data.gs_rb_hi_a=100;
+	data.max_leverage = 0;
 
 	function powerCalc(x) {return adjNumN(Math.pow(10,x)*0.01);};
 
@@ -563,7 +564,7 @@ App.prototype.fillForm = function (src, trg) {
 		data.gs_rb_hi_p=filledval(defval(src.strategy.rb_hi_p,0.95)*100,95);
 		data.gs_rb_lo_a=filledval(defval(src.strategy.rb_lo_a,0.5)*100,50);
 		data.gs_rb_hi_a=filledval(defval(src.strategy.rb_hi_a,0.5)*100,50);
-	} else if (data.strategy == "hyperbolic"||data.strategy == "linear"||data.strategy == "sinh") {
+	} else if (data.strategy == "hyperbolic"||data.strategy == "linear"||data.strategy == "sinh"||data.strategy == "sinh2") {
 		data.hp_reduction = filledval(defval(src.strategy.reduction,0.25)*200,50);
 		data.hp_initboost = filledval(src.strategy.initboost,0);
 		data.hp_asym = filledval(defval(src.strategy.asym,0.2)*100,20);
@@ -621,6 +622,7 @@ App.prototype.fillForm = function (src, trg) {
 	data.max_balance = filledval(src.max_balance,"");
 	data.min_balance = filledval(src.min_balance,"");
 	data.zigzag = filledval(src.zigzag,false);
+	data.max_leverage = filledval(src.max_leverage,0);
 		
 
 	
@@ -707,7 +709,7 @@ function getStrategyData(data) {
 				rb_hi_p: data.gs_rb_hi_p/100,
 				rb_lo_p: data.gs_rb_lo_p/100,
 		};
-	} else 	if (data.strategy == "hyperbolic"||data.strategy == "linear"||data.strategy == "sinh") {
+	} else 	if (data.strategy == "hyperbolic"||data.strategy == "linear"||data.strategy == "sinh"||data.strategy == "sinh2") {
 		strategy = {
 				type: data.strategy,
 				power: data.hp_power,
@@ -771,6 +773,7 @@ App.prototype.saveForm = function(form, src) {
 	trader.sell_step_mult = Math.pow(2,data.spread_mult*0.01)
 	trader.min_size = data.min_size;
 	trader.max_size = data.max_size;
+	trader.max_leverage = data.max_leverage;
 	trader.internal_balance = data.internal_balance;
 	trader.alerts = data.alerts;
 	trader.delayed_alerts= data.delayed_alerts;
@@ -1518,7 +1521,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		"st_power","st_reduction_step","st_sl","st_redmode","st_max_step","st_pattern","dynmult_sliding","accept_loss","spread_calc_sma_hours","st_tmode","zigzag",
 		"hp_dtrend","hp_longonly","hp_power","hp_maxloss","hp_asym","hp_reduction","sh_curv","hp_initboost","hp_extbal","hp_powadj","hp_dynred",
 		"exp_optp","gs_external_assets","gs_rb_hi_a","gs_rb_lo_a","gs_rb_hi_p","gs_rb_lo_p",
-		"min_balance","max_balance"];
+		"min_balance","max_balance","max_leverage"];
 	var spread_inputs = ["spread_calc_stdev_hours", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode","dynmult_sliding","dynmult_mult"];
 	var balance = form._balance;
 	var assets = form._assets;

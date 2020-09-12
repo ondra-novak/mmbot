@@ -27,10 +27,19 @@ public:
 
 
 	static std::string_view id;
-private:
+protected:
 	double p;
 	double curv;
 };
 
+class Sinh2_Calculus: public Sinh_Calculus {
+public:
+	static std::string_view id;
+	Sinh2_Calculus(double curv);
+	Sinh2_Calculus init(const IStockApi::MarketInfo &minfo) {return Sinh2_Calculus(curv);}
+};
+
+
 using Strategy_Sinh = Strategy_Leveraged<Sinh_Calculus>;
+using Strategy_Sinh2 = Strategy_Leveraged<Sinh2_Calculus>;
 

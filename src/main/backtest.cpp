@@ -68,24 +68,28 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 			Strategy::adjustOrder(dir, mult, allowAlert, order);
 
 			order.size  = IStockApi::MarketInfo::adjValue(order.size,minfo.asset_step,round);
-			auto min_pos = cfg.min_balance;
-			auto max_pos = cfg.max_balance;
+			if (cfg.max_balance.has_value()) {
+				if (pos > *cfg.max_balance) order.size = 0;
+				else if (order.size + pos > *cfg.max_balance) order.size = *cfg.max_balance - pos;
+			}
+			if (cfg.min_balance.has_value()) {
+				if (pos < *cfg.max_balance) order.size = 0;
+				else if (order.size + pos < *cfg.max_balance) order.size = *cfg.min_balance - pos;
+			}
 			if (minfo.leverage) {
-				double max_abs_pos = (adjbal * minfo.leverage)/bt.price.price;
-				if (!max_pos.has_value() || max_abs_pos < *max_pos) max_pos = max_abs_pos;
-				if (!min_pos.has_value() || -max_abs_pos > *min_pos) min_pos = -max_abs_pos;
-			}
-			if (max_pos.has_value() && pos+order.size > max_pos) {
-				if (!neg_bal || balance > 0) {
-					order.size = std::max(0.0, *max_pos - pos);
+				double max_lev = cfg.max_leverage?std::min(cfg.max_leverage,minfo.leverage):minfo.leverage;
+				double max_abs_pos = (adjbal * max_lev)/bt.price.price;
+				double new_pos = std::abs(pos + order.size);
+				if (new_pos > max_abs_pos) {
+					if (cfg.accept_loss) {
+						s.reset();
+						s.onIdle(minfo, tk, pos, adjbal);
+						bt.event = BTEvent::accept_loss;
+					} else {
+						bt.event = BTEvent::margin_call;
+					}
+					order.size = 0;
 				}
-				if (bt.event == BTEvent::no_event) bt.event = BTEvent::margin_call;
-			}
-			if (min_pos.has_value() && pos+order.size < min_pos) {
-				if (!neg_bal || balance > 0) {
-					order.size = std::min(0.0, *min_pos - pos);
-				}
-				if (bt.event == BTEvent::no_event) bt.event = BTEvent::margin_call;
 			}
 			if (std::abs(order.size) < minsize) {
 				order.size = 0;
