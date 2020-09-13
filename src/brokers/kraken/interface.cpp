@@ -1,0 +1,537 @@
+/*
+ * interface.cpp
+ *
+ *  Created on: 3. 9. 2020
+ *      Author: ondra
+ */
+
+#include <openssl/sha.h>
+#include <openssl/hmac.h>
+#include <imtjson/object.h>
+#include <imtjson/string.h>
+#include <imtjson/parser.h>
+#include <imtjson/operations.h>
+#include <imtjson/binary.h>
+#include "interface.h"
+
+#include <iomanip>
+using json::Object;
+using json::Value;
+using json::String;
+
+static const StrViewA userAgent("+https://mmbot.trade");
+
+
+
+IStockApi::BrokerInfo Interface::getBrokerInfo() {
+	return BrokerInfo{
+		hasKey(),
+		"kraken",
+		"Kraken",
+		"https://www.kraken.com/",
+		"1.0",
+		R"mit(Copyright (c) 2019 Ondřej Novák
+
+Permission is hereby granted, free of charge, to any person
+obtaining a copy of this software and associated documentation
+files (the "Software"), to deal in the Software withourestriction, including without limitation the rights to use,
+copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the
+Software is furnished to do so, subject to the following
+conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+OTHER DEALINGS IN THE SOFTWARE.)mit",
+"iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAMAAAD04JH5AAAAM1BMVEVAAAA2ANE/F9dDItpMItZG"
+"KdhCLtZLLNtPM9pKOdxSOddXPNtRQd1YQdhXQ9JaQtlbQ9r89RaIAAAAAXRSTlMAQObYZgAAAjZJ"
+"REFUeNrtmtlywyAMRZ04jm0kWfz/1zaTtpM6Aa4XlpmOzmscdEFCLKLrDMMwDMMwDjI4IpVflNw0"
+"VLN9GUkfyBr1TNOluPHekaR4iLgVND+rbECpkDdIN9l/DkQB68Kyi7wanJfdqM9m/q5yCD/nsb/I"
+"cTKYZ5Uz6Fn7cpZzwciSAW3Y/Z9gbGyf6WAsCudSIEIH7KvkxDXr/tGUIPlpOP7fUNv+75qOUgjX"
+"cPz3hIEvZn9bVnZSEG4YAE8W19IBm5ygUhjf0gEbpkIF+5ze/UvbIdAa9rWx/ZQCqYRrkQO3RIE2"
+"FkDV7Ef2JvUGIJwOJ6kIlzqGnZmJVFOATO2SQCwVzHUFUO2NCAyCm9YVIPdmaTjig9r2P3JRbQ+I"
+"ru9z++oC3nwwhu86mSk5O1SZOfmF96xe8ZI4xfO1Y9QJgjmfGAn4TEMzilB1MIvMySBLz0IcojCP"
+"LWCeJVcivFdwcB6jxWZIrcVos8ALXM0ZrTa3hLoRrZWKT7Vwve3/FsJg8wR3NLS3jWtcAMENW6AU"
+"0e9tIzECgeGbFG1oLqsvdDojgGHZJlCYW7cREjDqVgGB4RuwADUBJsAEmAATYAJMgAkwASbABPxv"
+"AfeyAjp4NMshYEoI4MQNWuj0fUUlL8UlkfgVjccFHVjz8jsFdODo+/ZvhlU/XBaL/8awqqjg5R9H"
+"C3OvJiSqLlrXdArLz0kHrBwZauN5I5l84bDtC3bwhUj0C/wyOsfb6WtnGIZhGIZhGC++AKuyWLMB"
+"sxKhAAAAAElFTkSuQmCC",
+false,true
+	};
+}
+
+Interface::Interface(const std::string &secure_storage_path)
+	:AbstractBrokerAPI(secure_storage_path,
+			{
+						Object
+							("name","key")
+							("label","API Key")
+							("type","string"),
+						Object
+							("name","secret")
+							("label","API secret")
+							("type","string")
+			})
+
+	,api(simpleServer::HttpClient(userAgent,simpleServer::newHttpsProvider(), nullptr,simpleServer::newCachedDNSProvider(60)),
+			"https://api.kraken.com"),
+	orderDB(secure_storage_path+".db")
+{
+	json::enableParsePreciseNumbers=true;
+	nonce = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+}
+
+json::Value Interface::getMarkets() const {
+	const_cast<Interface *>(this)->updateSymbols();
+	Object res;
+	for (Value row: pairMap) {
+		auto pairName = row.getKey();
+		auto base = row["base"].getString();
+		auto quote = row["quote"].getString();
+		auto altbase = symbolMap[base].getString();
+		auto altquote = symbolMap[quote].getString();
+		auto exsub = res.object(altbase);
+		if (!row["leverage_buy"].empty() && !row["leverage_sell"].empty())  {
+			exsub.set(altquote, Object
+					("Exchange",String({"ex_",pairName}))
+					("Leveraged",String({"lv_",pairName}))
+			);
+		} else {
+			exsub.set(altquote, String({"ex_",pairName}));
+		}
+	}
+	return res;
+}
+
+std::vector<std::string> Interface::getAllPairs() {
+	updateSymbols();
+	std::vector<std::string> res;
+	for (Value row: pairMap) {
+		res.push_back(String({"ex_",row.getKey()}).str());
+		if (!row["leverage_buy"].empty() && !row["leverage_sell"].empty())  {
+			res.push_back(String({"lv_",row.getKey()}).str());
+		}
+	}
+	return res;
+}
+
+
+void Interface::updateSymbols() {
+	auto now = std::chrono::system_clock::now();
+	if (mapExpire > now) return;
+
+	Value assets = public_GET("/0/public/Assets");
+	assets = assets["result"];
+	Object assetsMap;
+	Object iassetsMap;
+	for (Value row: assets) {
+		Value alt = row["altname"];
+		assetsMap.set(row.getKey(), alt);
+		iassetsMap.set(alt.getString(), row.getKey());
+	}
+	assetsMap.set("XXBT","BTC");
+	iassetsMap.set("BTC","XXBT");
+	this->symbolMap = assetsMap;
+	this->isymbolMap = iassetsMap;
+
+	this->pairMap = public_GET("/0/public/AssetPairs")["result"];
+	this->pairMap = this->pairMap.filter([&](Value row){
+		return row["lot"].getString() == "unit"
+				&& row["lot_multiplier"].getNumber() == 1 && !row.getKey().endsWith(".d");
+	});
+
+
+	mapExpire = now+std::chrono::hours(1);
+}
+
+json::Value Interface::checkError(json::Value v) {
+	if (v["error"].empty()) return v;
+	else throw std::runtime_error(v["error"].join(" ").str());
+}
+
+json::Value Interface::public_GET(std::string_view path) {
+	try {
+		return checkError(api.GET(path));
+	} catch (HTTPJson::UnknownStatusException &e) {
+		processError(e);
+		throw;
+	}
+}
+
+json::Value Interface::public_POST(std::string_view path, json::Value req) {
+	try {
+		return checkError(api.POST(path, req));
+	} catch (HTTPJson::UnknownStatusException &e) {
+		processError(e);
+		throw;
+	}
+}
+
+json::Value Interface::private_POST(std::string_view path, json::Value req) {
+	auto nonce = this->nonce++;
+
+	std::ostringstream buff;
+	buff << "nonce="<<nonce;
+	for (Value v: req) {
+		buff << "&" << v.getKey() << "=" << v.toString();
+	}
+	std::string sreq = buff.str();
+
+	buff.str("");buff.clear();
+	buff << nonce;
+	buff << sreq;
+	std::string noncepost = buff.str();
+
+	unsigned char sha256_digest[SHA256_DIGEST_LENGTH];
+	unsigned char hmac_digest[256];
+	SHA256(reinterpret_cast<const unsigned char *>(noncepost.data()), noncepost.size(),sha256_digest);
+
+	buff.str("");buff.clear();
+	buff << path;
+	buff.write(reinterpret_cast<const char *>(sha256_digest), SHA256_DIGEST_LENGTH);
+	std::string toSign = buff.str();
+
+	unsigned int hmac_digest_len = sizeof (hmac_digest);
+	HMAC(EVP_sha512(), apiSecret.data, apiSecret.length, reinterpret_cast<const unsigned char *>(toSign.data()), toSign.length(), hmac_digest, &hmac_digest_len);
+	Value sign = json::base64->encodeBinaryValue(BinaryView(hmac_digest, hmac_digest_len));
+	Value headers = Object
+			("API-Key", apiKey)
+			("API-Sign", sign)
+			("Content-Type", "application/x-www-form-urlencoded");
+	try {
+		return checkError(api.POST(path, sreq, std::move(headers)));
+	} catch (HTTPJson::UnknownStatusException &e) {
+		processError(e);
+		throw;
+	}
+}
+
+void Interface::processError(HTTPJson::UnknownStatusException &e) {
+	json::Value resp = json::Value::parse(e.response.getBody());
+	json::Value err = resp["error"];
+	if (err.hasValue()) throw std::runtime_error(err.join(" ").str());
+	throw e;
+}
+
+void Interface::onLoadApiKey(json::Value keyData) {
+	apiKey = keyData["key"].getString();
+	apiSecret = keyData["secret"].getBinary(json::base64);
+}
+
+bool Interface::hasKey() const {
+	return !apiKey.empty() && !apiSecret.empty();
+}
+
+IStockApi::MarketInfo Interface::getMarketInfo(const std::string_view &pair) {
+	updateSymbols();
+	std::string_view psymb = stripPrefix(pair);
+	Value symbinfo = pairMap[psymb];
+	if (!symbinfo.hasValue())
+		throw std::runtime_error("Unknown symbol");
+
+	MarketInfo minfo;
+	minfo.asset_symbol = symbolMap[symbinfo["base"].getString()].getString();
+	minfo.currency_symbol = symbolMap[symbinfo["quote"].getString()].getString();
+	minfo.asset_step = std::pow(10,-symbinfo["lot_decimals"].getInt());
+	minfo.currency_step = std::pow(10,-symbinfo["pair_decimals"].getInt());
+	minfo.feeScheme = currency;
+	minfo.fees=getFees(pair);//todo
+	minfo.invert_price = false;
+	minfo.leverage = 0;
+	minfo.min_size = symbinfo["ordermin"].getNumber();
+	minfo.min_volume = 0;
+	minfo.private_chart =false;
+	minfo.simulator = false;
+
+
+	if (isLeveraged(pair)) {
+		int lev_buy = symbinfo["leverage_buy"].reduce([](int l, Value v){
+			return std::max<int>(l, v.getInt());
+		},0);
+		int lev_sell = symbinfo["leverage_sell"].reduce([](int l, Value v){
+			return std::max<int>(l, v.getInt());
+		},0);
+		minfo.leverage = std::min(lev_buy, lev_sell);
+	}
+	return minfo;
+}
+
+AbstractBrokerAPI* Interface::createSubaccount(const std::string &secure_storage_path) {
+	return new Interface(secure_storage_path);
+}
+
+double Interface::getBalance(const std::string_view &symb, const std::string_view &pair) {
+	updateSymbols();
+	StrViewA tsymb = isymbolMap[symb].getString();
+	if (isExchange(pair)) {
+		if (!balanceMap.defined()) {
+			balanceMap = private_POST("/0/private/Balance",Value());
+		}
+		return balanceMap["result"][tsymb].getNumber();
+	} else {
+		Value pinfo = pairMap[stripPrefix(pair)];
+		if (pinfo.hasValue()) {
+			if (pinfo["base"].getString() == tsymb) {
+				if (!positionMap.defined()) {
+					positionMap = private_POST("/0/private/OpenPositions",Value());
+				}
+			} else {
+				Value bal = private_POST("/0/private/TradeBalance",Object("asset",tsymb));
+				return bal["result"]["e"].getNumber();
+			}
+		}
+	}
+	return 0;
+}
+
+IStockApi::TradesSync Interface::syncTrades(json::Value lastId, const std::string_view &pair) {
+	if (lastId.hasValue()) {
+
+		updateSymbols();
+
+		auto symb = stripPrefix(pair);
+		bool lev = isLeveraged(pair);
+		StrViewA altname = pairMap[symb]["altname"].getString();
+
+		Value result;
+		if (lastId == trades_cachedLastId) {
+			result = trades_cachedResponse;
+		} else {
+			result = private_POST("/0/private/TradesHistory",
+					Object("start", lastId[0].getUIntLong())
+						 ("trades", true)
+			);
+			trades_cachedResponse = result;
+			trades_cachedLastId = lastId;
+		}
+		Value trades = result["result"]["trades"];
+		if (!trades.empty()) {
+			std::uint64_t bestTime = 0;
+			auto res = mapJSON(trades.filter([&](Value row){
+				auto tm = static_cast<std::uint64_t>(std::floor(row["time"].getNumber()));
+				if (tm > bestTime) {
+					bestTime = tm;
+					fees = row["fee"].getNumber()/row["cost"].getNumber();
+				}
+				if (lastId[1].indexOf(row.getKey()) != Value::npos) return false;
+				StrViewA pair = row["pair"].getString();
+				return (pair == symb || pair == altname) && lev == row["postxid"].defined();
+			}),[&](Value row){
+				double price = row["price"].getNumber();
+				Value id = row.getKey();
+				double size = row["vol"].getNumber();
+				if (row["type"].getString() == "sell") size = -size;
+				double fee = row["fee"].getNumber();
+				double eff_price = price + fee/size;
+				auto tm = row["time"].getUIntLong()*1000;
+				return Trade{id,tm,size,price,size,eff_price};
+			}, TradeHistory());
+
+			if (res.empty()) {
+				lastId = {bestTime+1,json::array};
+			} else {
+				std::sort(res.begin(), res.end(), [&](const Trade &a, const Trade &b){
+					if (a.time == b.time) return a.id.getString().compare(b.id.getString()) < 0;
+					return a.time < b.time;
+				});
+				json::Array masked;
+				auto tmm =bestTime*1000;
+				for (const auto &k : res) if (k.time >= tmm) {
+					masked.push_back(k.id);
+				}
+				lastId = {bestTime, masked};
+			}
+			return {
+				res, lastId
+			};
+
+		} else {
+			return {{},lastId};
+		}
+	} else {
+		return TradesSync{
+			{},{std::chrono::system_clock::to_time_t(std::chrono::system_clock::now()),json::array}
+		};
+	}
+
+
+
+	return {}; //todo
+}
+
+void Interface::onInit() {}
+
+bool Interface::reset() {
+	tickerValid = false;
+	balanceMap = Value();
+	positionMap = Value();
+	orderMap = Value();
+	trades_cachedLastId = Value();
+	return true;
+}
+
+IStockApi::Orders Interface::getOpenOrders(const std::string_view &pair) {
+
+	updateSymbols();
+
+	auto symb = stripPrefix(pair);
+	bool lev = isLeveraged(pair);
+	if (!orderMap.defined()) {
+		orderMap =  private_POST("/0/private/OpenOrders",Value());
+	}
+	StrViewA altname = pairMap[symb]["altname"].getString();
+	Value data = orderMap["result"]["open"];
+	data = data.filter([&](Value row) {
+		Value descr = row["descr"];
+		StrViewA pair = descr["pair"].getString();
+		return (symb == pair || altname ==  pair) && lev != (descr["leverage"].getString() == "none")
+				&& descr["ordertype"].getString() == "limit";
+	});
+	return mapJSON(data, [&](const Value row){
+		Order ord;
+		Value descr = row["descr"];
+		ord.client_id = orderDB.get({pair,row["userref"].getIntLong()});
+		ord.id = row.getKey();
+		ord.price = descr["price"].getNumber();
+		ord.size = row["vol"].getNumber() - row["vol_exec"].getNumber();
+		if (descr["type"].getString() == "sell")
+			ord.size = -ord.size;
+		return ord;
+	}, Orders());
+}
+
+std::string double2string(double x) {
+	std::ostringstream buff;
+	buff << std::fixed << std::setprecision(15) << x;
+	return buff.str();
+}
+
+json::Value Interface::placeOrder(const std::string_view &pair, double size, double price,
+		json::Value clientId, json::Value replaceId, double replaceSize) {
+
+	updateSymbols();
+
+	auto symb = stripPrefix(pair);
+	bool lev = isLeveraged(pair);
+
+	Value symbinfo = pairMap[symb];
+	if (!symbinfo.defined()) throw std::runtime_error("unknown symbol");
+
+	if (replaceId.defined()) {
+		Value resp = private_POST("/0/private/CancelOrder", Object
+				("txid", replaceId));
+		if (resp["result"]["count"].getUInt() == 0) {
+			return nullptr;
+		}
+	}
+
+
+
+	if (size) {
+		Object req;
+		req("pair",symb)
+		   ("type",size<0?"sell":"buy")
+		   ("ordertype","limit")
+		   ("price",double2string(price))
+		   ("volume",double2string(std::abs(size)))
+		   ("oflags","fciq,post");
+		if (lev) {
+			double levlev = symbinfo[size<0?"leverage_sell":"leverage_buy"]
+					.reduce([&](double a, Value b){
+				return std::max(a, b.getNumber());
+			},0.0);
+			req("leverage", levlev);
+		}
+		if (clientId.defined()) {
+			std::hash<json::Value> h;
+			std::int32_t userref = ((h(clientId) & 0x7FFFFFFE) + 1);
+			Value key = {pair,userref};
+			Value cc = orderDB.get(key);
+			if (!cc.defined()) {
+				orderDB.store(key, clientId);
+			}
+			req("userref", userref);
+		}
+		Value resp = private_POST("/0/private/AddOrder", req);
+		return resp["result"]["txid"][0];
+	}
+
+	return nullptr; //todo
+}
+
+/*
+["enableDebug",true]
+["getBalance",{"pair":"lv_XBTUSDT","symbol":"USDT"}]
+*/
+double Interface::getFees(const std::string_view &pair) {
+
+	if (fees < 0) {
+		Value result = private_POST("/0/private/TradesHistory",Value());
+		double bestTime = 0;
+		for (Value v : result["result"]["trades"]) {
+			double tm = v["time"].getNumber();
+			if (tm > bestTime) {
+				bestTime = tm;
+				fees = v["fee"].getNumber()/v["cost"].getNumber();
+			}
+		}
+
+	}
+	if (fees < 0) fees = 0.16;
+	return fees;
+}
+
+IStockApi::Ticker Interface::getTicker(const std::string_view &pair) {
+
+	auto symb = stripPrefix(pair);
+
+	std::ostringstream tickers;
+	if (!tickerValid && tickerMap.hasValue()) {
+		tickers << "/0/public/Ticker?pair=" << tickerMap.map([](Value v){return v.getKey();}).join(",").str();
+		tickerMap = public_GET(tickers.str())["result"];
+		tickerValid = true;
+	}
+	Value t = tickerMap[symb];
+	if (!t.hasValue()) {
+		tickers.clear();
+		tickers.str("");
+		tickers << "/0/public/Ticker?pair=" << symb;
+		Value t = public_GET(tickers.str())["result"];
+		if (!tickerMap.hasValue()) {
+			tickerMap = t;
+		} else {
+			tickerMap = tickerMap.merge(t);
+		}
+	}
+	t = tickerMap[symb];
+	if (!t.hasValue()) throw std::runtime_error("Unknown symbol");
+
+	return Ticker {
+		t["b"][0].getNumber(),
+		t["a"][0].getNumber(),
+		t["c"][0].getNumber(),
+		static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
+				std::chrono::system_clock::now().time_since_epoch()).count())
+	};
+
+}
+
+std::string_view Interface::stripPrefix(std::string_view pair) {
+	return pair.substr(3);
+}
+
+bool Interface::isLeveraged(std::string_view pair) {
+	return pair.substr(0,3) == "lv_";
+}
+
+bool Interface::isExchange(std::string_view pair) {
+	return pair.substr(0,3) == "ex_";
+}
