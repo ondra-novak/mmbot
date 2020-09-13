@@ -408,9 +408,9 @@ IStockApi::Orders Interface::getOpenOrders(const std::string_view &pair) {
 	}, Orders());
 }
 
-std::string double2string(double x) {
+std::string double2string(double x, unsigned int decimals) {
 	std::ostringstream buff;
-	buff << std::fixed << std::setprecision(15) << x;
+	buff << std::fixed << std::setprecision(decimals) << x;
 	return buff.str();
 }
 
@@ -440,8 +440,8 @@ json::Value Interface::placeOrder(const std::string_view &pair, double size, dou
 		req("pair",symb)
 		   ("type",size<0?"sell":"buy")
 		   ("ordertype","limit")
-		   ("price",double2string(price))
-		   ("volume",double2string(std::abs(size)))
+		   ("price",double2string(price, symbinfo["pair_decimals"].getUInt()))
+		   ("volume",double2string(std::abs(size), symbinfo["lot_decimals"].getUInt()))
 		   ("oflags","fciq,post");
 		if (lev) {
 			double levlev = symbinfo[size<0?"leverage_sell":"leverage_buy"]
