@@ -277,12 +277,22 @@ double Interface::getBalance(const std::string_view &symb, const std::string_vie
 		}
 		return balanceMap["result"][tsymb].getNumber();
 	} else {
-		Value pinfo = pairMap[stripPrefix(pair)];
+		auto market = stripPrefix(pair);
+		Value pinfo = pairMap[market];
 		if (pinfo.hasValue()) {
 			if (pinfo["base"].getString() == tsymb) {
 				if (!positionMap.defined()) {
 					positionMap = private_POST("/0/private/OpenPositions",Value());
 				}
+
+				double pos = positionMap["result"].reduce([&](double a, Value z) {
+					if (z["pair"].getString() == market) {
+						return a + z["vol"].getNumber()*(z["type"].getString() == "sell"?-1.0:1.0);
+					} else {
+						return a;
+					}
+				},0.0);
+				return pos;
 			} else {
 				Value bal = private_POST("/0/private/TradeBalance",Object("asset",tsymb));
 				return bal["result"]["e"].getNumber();
