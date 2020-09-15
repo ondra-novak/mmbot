@@ -22,6 +22,14 @@ using json::String;
 static const StrViewA userAgent("+https://mmbot.trade");
 
 
+Interface::MarketType Interface::getMarketType(std::string_view pair) {
+	std::string_view pfx = pair.substr(0,3);
+	if (pfx == "lv_") return MarketType::leveraged;
+	else if (pfx == "hb_") return MarketType::hybrid;
+	else return MarketType::exchange;
+}
+
+
 
 IStockApi::BrokerInfo Interface::getBrokerInfo() {
 	return BrokerInfo{
@@ -103,6 +111,7 @@ json::Value Interface::getMarkets() const {
 			exsub.set(altquote, Object
 					("Exchange",String({"ex_",pairName}))
 					("Leveraged",String({"lv_",pairName}))
+					("Hybrid",String({"hb_",pairName}))
 			);
 		} else {
 			exsub.set(altquote, String({"ex_",pairName}));
@@ -251,8 +260,9 @@ IStockApi::MarketInfo Interface::getMarketInfo(const std::string_view &pair) {
 	minfo.private_chart =false;
 	minfo.simulator = false;
 
+	auto t = getMarketType(pair);
 
-	if (isLeveraged(pair)) {
+	if (t == MarketType::leveraged || t==MarketType::hybrid) {
 		int lev_buy = symbinfo["leverage_buy"].reduce([](int l, Value v){
 			return std::max<int>(l, v.getInt());
 		},0);
@@ -268,38 +278,50 @@ AbstractBrokerAPI* Interface::createSubaccount(const std::string &secure_storage
 	return new Interface(secure_storage_path);
 }
 
+double Interface::getSpotBalance(const std::string_view &symb) {
+	if (!balanceMap.defined()) {
+		balanceMap = private_POST("/0/private/Balance",Value());
+	}
+	return balanceMap["result"][symb].getNumber();
+}
+
+
+double Interface::getCollateral(const std::string_view &symb)  {
+	Value bal = private_POST("/0/private/TradeBalance",Object("asset",symb));
+	return bal["result"]["e"].getNumber();
+}
+
+double Interface::getPosition(const std::string_view &market) {
+	if (!positionMap.defined()) {
+		positionMap = private_POST("/0/private/OpenPositions",Value());
+	}
+
+	double pos = positionMap["result"].reduce([&](double a, Value z) {
+		if (z["pair"].getString() == market) {
+			return a + z["vol"].getNumber()*(z["type"].getString() == "sell"?-1.0:1.0);
+		} else {
+			return a;
+		}
+	},0.0);
+	return pos;
+
+}
+
 double Interface::getBalance(const std::string_view &symb, const std::string_view &pair) {
 	updateSymbols();
 	StrViewA tsymb = isymbolMap[symb].getString();
-	if (isExchange(pair)) {
-		if (!balanceMap.defined()) {
-			balanceMap = private_POST("/0/private/Balance",Value());
-		}
-		return balanceMap["result"][tsymb].getNumber();
-	} else {
-		auto market = stripPrefix(pair);
-		Value pinfo = pairMap[market];
-		if (pinfo.hasValue()) {
-			if (pinfo["base"].getString() == tsymb) {
-				if (!positionMap.defined()) {
-					positionMap = private_POST("/0/private/OpenPositions",Value());
-				}
-
-				double pos = positionMap["result"].reduce([&](double a, Value z) {
-					if (z["pair"].getString() == market) {
-						return a + z["vol"].getNumber()*(z["type"].getString() == "sell"?-1.0:1.0);
-					} else {
-						return a;
-					}
-				},0.0);
-				return pos;
-			} else {
-				Value bal = private_POST("/0/private/TradeBalance",Object("asset",tsymb));
-				return bal["result"]["e"].getNumber();
-			}
-		}
+	StrViewA market = stripPrefix(pair);
+	switch (getMarketType(pair)) {
+	case MarketType::exchange:  return getSpotBalance(tsymb);
+	case MarketType::leveraged:
+		if (pairMap[market]["base"].getString() == tsymb) return getPosition(market);
+		else return getCollateral(tsymb);
+	case MarketType::hybrid:
+		if (pairMap[market]["base"].getString() == tsymb) return getSpotBalance(tsymb)+getPosition(market);
+		else return getCollateral(tsymb);
 	}
 	return 0;
+
 }
 
 IStockApi::TradesSync Interface::syncTrades(json::Value lastId, const std::string_view &pair) {
@@ -308,7 +330,7 @@ IStockApi::TradesSync Interface::syncTrades(json::Value lastId, const std::strin
 		updateSymbols();
 
 		auto symb = stripPrefix(pair);
-		bool lev = isLeveraged(pair);
+		auto mt = getMarketType(pair);
 		StrViewA altname = pairMap[symb]["altname"].getString();
 
 		Value result;
@@ -333,7 +355,8 @@ IStockApi::TradesSync Interface::syncTrades(json::Value lastId, const std::strin
 				}
 				if (lastId[1].indexOf(row.getKey()) != Value::npos) return false;
 				StrViewA pair = row["pair"].getString();
-				return (pair == symb || pair == altname) && lev == row["postxid"].defined();
+				return (pair == symb || pair == altname) &&
+						(mt == MarketType::hybrid || (mt == MarketType::leveraged) == row["postxid"].defined());
 			}),[&](Value row){
 				double price = row["price"].getNumber();
 				Value id = row.getKey();
@@ -393,7 +416,7 @@ IStockApi::Orders Interface::getOpenOrders(const std::string_view &pair) {
 	updateSymbols();
 
 	auto symb = stripPrefix(pair);
-	bool lev = isLeveraged(pair);
+	auto mt = getMarketType(pair);
 	if (!orderMap.defined()) {
 		orderMap =  private_POST("/0/private/OpenOrders",Value());
 	}
@@ -402,7 +425,8 @@ IStockApi::Orders Interface::getOpenOrders(const std::string_view &pair) {
 	data = data.filter([&](Value row) {
 		Value descr = row["descr"];
 		StrViewA pair = descr["pair"].getString();
-		return (symb == pair || altname ==  pair) && lev != (descr["leverage"].getString() == "none")
+		return (symb == pair || altname ==  pair)
+				&& (mt == MarketType::hybrid || (mt == MarketType::exchange) == (descr["leverage"].getString() == "none"))
 				&& descr["ordertype"].getString() == "limit";
 	});
 	return mapJSON(data, [&](const Value row){
@@ -430,7 +454,7 @@ json::Value Interface::placeOrder(const std::string_view &pair, double size, dou
 	updateSymbols();
 
 	auto symb = stripPrefix(pair);
-	bool lev = isLeveraged(pair);
+	auto mt = getMarketType(pair);
 
 	Value symbinfo = pairMap[symb];
 	if (!symbinfo.defined()) throw std::runtime_error("unknown symbol");
@@ -446,6 +470,35 @@ json::Value Interface::placeOrder(const std::string_view &pair, double size, dou
 
 
 	if (size) {
+		bool lev = false;
+		switch (mt) {
+		case MarketType::exchange: lev = false;break;
+		case MarketType::leveraged: lev = true;break;
+		case MarketType::hybrid: {
+			double pos = getPosition(symb);
+			StrViewA base = symbinfo["base"].getString();
+			StrViewA quote = symbinfo["quote"].getString();
+			/*
+			 * If position is opened, and can be closed or reduced, then close or reduce position
+			 * If position is not opened, and order can be placed on spot, then place order on spot
+			 * If order cannot be placed on spot, thne place it using leverage
+			 */
+			if (size > 0) {
+				if (pos < 0 && pos + size < 0) {
+					lev = true;
+				} else {
+					lev = getSpotBalance(quote) < size * price * 1.002;
+				}
+			} else {
+				if (pos > 0 && pos + size > 0) {
+					lev = true;
+				} else {
+					lev = getSpotBalance(base) < size;
+				}
+			}
+			break;}
+		}
+
 		Object req;
 		req("pair",symb)
 		   ("type",size<0?"sell":"buy")
@@ -538,10 +591,3 @@ std::string_view Interface::stripPrefix(std::string_view pair) {
 	return pair.substr(3);
 }
 
-bool Interface::isLeveraged(std::string_view pair) {
-	return pair.substr(0,3) == "lv_";
-}
-
-bool Interface::isExchange(std::string_view pair) {
-	return pair.substr(0,3) == "ex_";
-}

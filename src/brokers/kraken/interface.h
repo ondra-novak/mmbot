@@ -69,10 +69,19 @@ protected:
 	void processError(HTTPJson::UnknownStatusException &e);
 	static json::Value checkError(json::Value v);
 
-	static std::string_view stripPrefix(std::string_view pair);
-	static bool isLeveraged(std::string_view pair);
-	static bool isExchange(std::string_view pair);
+	enum class MarketType {
+		exchange,
+		leveraged,
+		hybrid
+	};
 
+
+	static std::string_view stripPrefix(std::string_view pair);
+	static MarketType getMarketType(std::string_view pair);
+
+	double getSpotBalance(const std::string_view &symb) ;
+	double getCollateral(const std::string_view &symb) ;
+	double getPosition(const std::string_view &market) ;
 };
 
 #endif
