@@ -10,6 +10,7 @@
 #include <sstream>
 #include <cmath>
 #include <queue>
+#include <random>
 #include <unordered_set>
 
 #include <imtjson/value.h>
@@ -61,6 +62,7 @@ static Value settingsForm = {
 								("urljson","Link to JSON url")
 								("manual","Manual enter prices")
 								("orders","Execute orders")
+								("randomwalk","Random walk")
 						),
 					Object("name","src_asset")
 						("type","enum")
@@ -107,13 +109,13 @@ static Value settingsForm = {
 							("name","timeframe")
 							("type","number")
 							("label","Time frame in minutes")
-							("showif", showIfManual)
+							("showif", Object("source",{"manual","randomwalk"}))
 							("default",1),
 						Object
 							("name","asset")
 							("type","string")
 							("label","Asset symbol")
-							("showif", Object("source", {"manual","urljson","orders"}))
+							("showif", Object("source", {"manual","urljson","orders","randomwalk"}))
 							("default","TEST"),
 						Object
 							("name","asset_balance")
@@ -129,7 +131,7 @@ static Value settingsForm = {
 							("name","currency")
 							("type","string")
 							("label","Currency symbol")
-							("showif", Object("source", {"manual","urljson","orders"}))
+							("showif", Object("source", {"manual","urljson","orders","randomwalk"}))
 							("default","FIAT"),
 						Object
 							("name","currency_balance")
@@ -268,6 +270,9 @@ public:
 		double high_liq = std::numeric_limits<double>::max();
 		mutable double last_fetch_price = 0;
 		mutable std::chrono::steady_clock::time_point last_fetch_price_exp;
+		mutable double evodd_price = 1000;
+		mutable time_t evodd_time = 0;
+		mutable bool evodd_swap = false;
 
 
 		Orders orders;
@@ -736,6 +741,8 @@ static Value searchField(Value data, StrViewA path) {
 
 }
 
+static std::mt19937 rndgen((std::random_device()()));
+
 double Interface::TestPair::getCurPrice() const {
 	if (last_price) return last_price;
 	double price = 0;
@@ -753,6 +760,21 @@ double Interface::TestPair::getCurPrice() const {
 				price = last_fetch_price;
 			}
 		}
+	} else if (price_source == "randomwalk") {
+		time_t t = time(nullptr);
+		if ((t- evodd_time) > timeDivisor) {
+			double pp = evodd_price;
+			if (pp == 0) pp = 100;
+			std::uniform_int_distribution<> unif(0,1);
+			auto numb = unif(rndgen);
+			auto v = numb == 0;
+			double bet = std::round(pp * 0.01);
+			if (v == evodd_swap) evodd_price = std::round(pp+bet); else evodd_price = std::round(pp-bet);
+			std::cerr << "[bet] numb=" << numb << ",side=" << ((v == evodd_swap)?"T":"F") << ",bet=" << bet << ", swap=" << (evodd_swap?"T":"F") << std::endl;
+			evodd_swap = !evodd_swap;
+			evodd_time = t;
+		}
+		price = evodd_price;
 	} else if (price_source == "orders") {
 		return last_order_price;
 	} else {
@@ -1116,6 +1138,9 @@ inline void Interface::setSettings(json::Value keyData, bool loaded,  unsigned i
 	p.last_order_price=keyData["last_order_price"].getValueOrDefault(p.last_order_price);
 	p.prev_price = keyData["prev_price"].getNumber();
 	p.preset = keyData["preset"].getBool();
+	if (keyData["evodd_price"].defined()) {
+		p.evodd_price = keyData["evodd_price"].getNumber();
+	}
 	if (!loaded) {
 		saveSettings();
 	}
@@ -1148,7 +1173,8 @@ json::Value Interface::TestPair::collectSettings() const {
 		  ("activityCounter", activityCounter)
 		  ("last_order_price", last_order_price)
 		  ("loaded",true)
-		  ("preset",preset);
+		  ("preset",preset)
+		  ("evodd_price", evodd_price);
 	return kv;
 }
 

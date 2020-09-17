@@ -159,7 +159,7 @@ PStrategy Strategy_KeepValue::importState(json::Value src,const IStockApi::Marke
 
 IStrategy::OrderData Strategy_KeepValue::getNewOrder(
 		const IStockApi::MarketInfo &,
-		double, double price, double /*dir*/, double assets, double currency) const {
+		double, double price, double /*dir*/, double assets, double currency, bool ) const {
 	double k = calcK();
 	double na = k / price + calcAccumulation(st,cfg,price, currency);
 	return {

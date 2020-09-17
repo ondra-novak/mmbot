@@ -109,7 +109,7 @@ PStrategy Strategy_Exponencial::importState(json::Value src,const IStockApi::Mar
 
 IStrategy::OrderData Strategy_Exponencial::getNewOrder(
 		const IStockApi::MarketInfo &,
-		double, double price, double /*dir*/, double assets, double /*currency*/) const {
+		double, double price, double /*dir*/, double assets, double /*currency*/, bool /*rej*/) const {
 
 	double newA = calcA(price);
 	double extra = calcAccumulation(st, cfg, price);

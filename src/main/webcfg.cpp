@@ -659,7 +659,7 @@ bool WebCfg::reqTraders(simpleServer::HTTPRequest req, ondra_shared::StrViewA vp
 						}else {
 							stprice = ticker.last;
 						}
-						auto order = strategy.getNewOrder(minfo,ticker.last, stprice, sgn(eq - stprice),assets, currencies);
+						auto order = strategy.getNewOrder(minfo,ticker.last, stprice, sgn(eq - stprice),assets, currencies, false);
 						order.price = stprice;
 						minfo.addFees(order.size, order.price);
 						out.set("strategy",Object("size", (minfo.invert_price?-1:1)*order.size));

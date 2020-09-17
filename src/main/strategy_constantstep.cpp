@@ -100,7 +100,7 @@ PStrategy Strategy_ConstantStep::importState(json::Value src,
 
 IStrategy::OrderData Strategy_ConstantStep::getNewOrder(const IStockApi::MarketInfo &minfo,
 		double cur_price, double new_price, double dir, double assets,
-		double currency) const {
+		double currency, bool rej) const {
 	double newA = calcA(new_price);
 	double extra = calcAccumulation(st, cfg, new_price);
 	double ordsz = calcOrderSize(st.a, assets, newA+extra);

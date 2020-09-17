@@ -162,7 +162,7 @@ std::intptr_t Strategy_Stairs::posToStep(double pos) const {
 
 IStrategy::OrderData Strategy_Stairs::getNewOrder(
 		const IStockApi::MarketInfo &minfo, double cur_price, double new_price,
-		double dir, double assets, double currency) const {
+		double dir, double assets, double currency, bool rej) const {
 
 	double power = st.power;
 	auto step = getNextStep(dir, st.prevdir);

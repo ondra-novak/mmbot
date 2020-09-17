@@ -77,10 +77,11 @@ public:
 	 * @param dir specified expected direction. +1 = buy, -1 = sell. If the strategy generates
 	 * oposite direction, the next behaviour depends on the option "dust orders". If this
 	 * option is turned on, a dust order is issued instead atd given price. If the option is turned off no order is issued
+	 * @param rej is set to true, if the function is called repeatedly, because prevous order has been rejected
 	 * @return data used to create new order
 	 */
-	OrderData getNewOrder(const IStockApi::MarketInfo &minfo, double cur_price, double new_price, double dir, double assets, double currency) const {
-		return ptr->getNewOrder(minfo, cur_price, new_price, dir, assets, currency);
+	OrderData getNewOrder(const IStockApi::MarketInfo &minfo, double cur_price, double new_price, double dir, double assets, double currency, bool rej) const {
+		return ptr->getNewOrder(minfo, cur_price, new_price, dir, assets, currency, rej);
 	}
 	///Calculates safe range
 	/**

@@ -70,7 +70,7 @@ public:
 	virtual ~Strategy_Stairs();
 	virtual IStrategy::OrderData getNewOrder(const IStockApi::MarketInfo &minfo,
 			double cur_price, double new_price, double dir, double assets,
-			double currency) const;
+			double currency, bool rej) const;
 	virtual std::pair<IStrategy::OnTradeResult,
 			ondra_shared::RefCntPtr<const IStrategy> > onTrade(
 			const IStockApi::MarketInfo &minfo, double tradePrice,

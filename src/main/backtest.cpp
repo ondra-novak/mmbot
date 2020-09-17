@@ -56,7 +56,7 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 			s.onIdle(minfo,tk,pos,balance);
 			double mult = dir>0?cfg.buy_mult:cfg.sell_mult;
 			double adjbal = std::max(balance,0.0);
-			Strategy::OrderData order = s.getNewOrder(minfo, p, p, dir, pos, adjbal);
+			Strategy::OrderData order = s.getNewOrder(minfo, p, p, dir, pos, adjbal,false);
 			bool allowAlert = (cfg.alerts || (cfg.dynmult_sliding && price->time - bt.price.time > sliding_spread_wait))
 					|| (cfg.delayed_alerts &&  price->time - bt.price.time >delayed_alert_wait);
 			if (cfg.zigzag && !trades.empty()){

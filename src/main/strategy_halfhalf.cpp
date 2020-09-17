@@ -97,7 +97,7 @@ PStrategy Strategy_HalfHalf::importState(json::Value src,const IStockApi::Market
 }
 
 IStrategy::OrderData Strategy_HalfHalf::getNewOrder(const IStockApi::MarketInfo &,
-		double, double n, double dir, double assets,double currency) const {
+		double, double n, double dir, double assets,double currency, bool ) const {
 	double new_a = calcNewA(n) + calcAccumulation(n);
 	return {0,calcOrderSize(this->a, assets, new_a-cfg.ea)};
 }

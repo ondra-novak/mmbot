@@ -36,7 +36,7 @@ public:
 	virtual std::pair<OnTradeResult,PStrategy > onTrade(const IStockApi::MarketInfo &minfo, double tradePrice, double tradeSize, double assetsLeft, double currencyLeft) const override;;
 	virtual json::Value exportState() const override;
 	virtual PStrategy importState(json::Value src, const IStockApi::MarketInfo &minfo) const override;
-	virtual OrderData getNewOrder(const IStockApi::MarketInfo &minfo,  double cur_price,double new_price, double dir, double assets, double currency) const override;
+	virtual OrderData getNewOrder(const IStockApi::MarketInfo &minfo,  double cur_price,double new_price, double dir, double assets, double currency, bool rej) const override;
 	virtual MinMax calcSafeRange(const IStockApi::MarketInfo &minfo, double assets, double currencies) const override;
 	virtual double getEquilibrium(double assets) const override;
 	virtual PStrategy reset() const override;

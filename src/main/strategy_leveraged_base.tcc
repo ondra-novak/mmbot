@@ -296,7 +296,7 @@ PStrategy Strategy_Leveraged<Calc>::importState(json::Value src,const IStockApi:
 template<typename Calc>
 IStrategy::OrderData Strategy_Leveraged<Calc>::getNewOrder(
 		const IStockApi::MarketInfo &minfo,
-		double curPrice, double price, double dir, double assets, double currency) const {
+		double curPrice, double price, double dir, double assets, double currency, bool rej) const {
 	auto apos = assets - st.neutral_pos;
 	auto mm = calcRoots();
 	if (cfg->max_loss && (curPrice < mm.min || curPrice > mm.max)) {
@@ -307,9 +307,23 @@ IStrategy::OrderData Strategy_Leveraged<Calc>::getNewOrder(
 		else
 			return {0,0,Alert::stoploss};
 	} else {
+		//fast close feature - currently cannot be simulated by backtest
+		if (!rej && dir * st.position < 0 && st.val > 0) {
+			double fastclose_delta = st.val/st.position;
+			double close_price = fastclose_delta+st.last_price;
+			if (close_price * dir < curPrice * dir && close_price * dir > price * dir) {
+				price = close_price;
+				logDebug("Fastclose order used");
+			} else {
+				logDebug("Fastclose order not used: close_price=$1, cur_price=$2, suggest_price=$3",
+						close_price, curPrice, price);
+
+			}
+		}
+
 		auto cps = calcPosition(price);
 		double df = calcOrderSize(st.position,apos,cps);
-		return {0, df,  cps == 0?Alert::forced:Alert::enabled};
+		return {price, df,  cps == 0?Alert::forced:Alert::enabled};
 	}
 }
 
