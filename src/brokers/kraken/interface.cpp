@@ -349,9 +349,11 @@ IStockApi::TradesSync Interface::syncTrades(json::Value lastId, const std::strin
 			std::uint64_t bestTime = 0;
 			auto res = mapJSON(trades.filter([&](Value row){
 				auto tm = static_cast<std::uint64_t>(std::floor(row["time"].getNumber()));
-				if (tm > bestTime) {
+				double cost = row["cost"].getNumber();
+				Value fee = row["fee"];
+				if (tm > bestTime && fee.defined() && cost) {
 					bestTime = tm;
-					fees = row["fee"].getNumber()/row["cost"].getNumber();
+					fees = fee.getNumber()/cost;
 				}
 				if (lastId[1].indexOf(row.getKey()) != Value::npos) return false;
 				StrViewA pair = row["pair"].getString();
