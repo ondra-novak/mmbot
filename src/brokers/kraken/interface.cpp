@@ -429,7 +429,8 @@ IStockApi::Orders Interface::getOpenOrders(const std::string_view &pair) {
 		StrViewA pair = descr["pair"].getString();
 		return (symb == pair || altname ==  pair)
 				&& (mt == MarketType::hybrid || (mt == MarketType::exchange) == (descr["leverage"].getString() == "none"))
-				&& descr["ordertype"].getString() == "limit";
+				&& descr["ordertype"].getString() == "limit"
+				&& row["status"].getString() !=  "canceled" ;
 	});
 	return mapJSON(data, [&](const Value row){
 		Order ord;
