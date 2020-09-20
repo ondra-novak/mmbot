@@ -101,7 +101,12 @@ double Strategy_Leveraged<Calc>::calcPosition(double price) const {
 
 	double profit = st.position * (price - st.last_price);
 	{
-		if (reduction && (price - st.last_price)*st.position > 0) {
+		//NOTE: always reduce when price is going up
+		//because we need to reduce risk from short (so reduce when opening short position)
+		//and we reduce opened long position as well
+		//
+		//for inverted futures, short and long is swapped
+		if (reduction && price > st.last_price) {
 			profit += st.bal - st.redbal;
 			new_neutral = calcNewNeutralFromProfit(profit, price,reduction);
 		} else {
@@ -298,6 +303,7 @@ IStrategy::OrderData Strategy_Leveraged<Calc>::getNewOrder(
 		const IStockApi::MarketInfo &minfo,
 		double curPrice, double price, double dir, double assets, double currency, bool rej) const {
 	auto apos = assets - st.neutral_pos;
+	double asym = calcAsym(cfg,st);
 	auto mm = calcRoots();
 	if (cfg->max_loss && (curPrice < mm.min || curPrice > mm.max)) {
 		auto testStat = onTrade(minfo,curPrice,0,assets,currency);
@@ -308,16 +314,20 @@ IStrategy::OrderData Strategy_Leveraged<Calc>::getNewOrder(
 			return {0,0,Alert::stoploss};
 	} else {
 		//fast close feature - currently cannot be simulated by backtest
-		if (!rej && dir * st.position < 0 && st.val > 0) {
-			double fastclose_delta = st.val/st.position;
-			double close_price = fastclose_delta+st.last_price;
-			if (close_price * dir < curPrice * dir && close_price * dir > price * dir) {
-				price = close_price;
-				logDebug("Fastclose order used");
-			} else {
-				logDebug("Fastclose order not used: close_price=$1, cur_price=$2, suggest_price=$3",
-						close_price, curPrice, price);
+		if (!rej && dir * st.position < 0 && st.val > 0 && std::abs(st.position) * price > (st.bal+cfg->external_balance)*0.5) {
+			double midl = calc->calcPrice0(st.neutral_price, asym);
+			double calc_price = (price - midl) * (st.last_price - midl) < 0?midl:price;
+			double newval = calc->calcPosValue(st.power, asym,st.neutral_price, calc_price);
+			double valdiff = st.val - newval;
+			if (valdiff > 0) {
+				double fastclose_delta = valdiff/st.position;
+				double close_price = fastclose_delta+st.last_price;
+				if (close_price * dir < curPrice * dir && close_price * dir > price * dir) {
+					logDebug("Fast close active: valdiff=$1, delta=$2, spread=$3",
+							valdiff, fastclose_delta, price-st.last_price);
+					price = close_price;
 
+				}
 			}
 		}
 

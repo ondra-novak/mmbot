@@ -542,8 +542,12 @@ double Interface::getFees(const std::string_view &pair) {
 		for (Value v : result["result"]["trades"]) {
 			double tm = v["time"].getNumber();
 			if (tm > bestTime) {
-				bestTime = tm;
-				fees = v["fee"].getNumber()/v["cost"].getNumber();
+				double cost = v["cost"].getNumber();
+				Value fee = v["fee"];
+				if (cost && fee.defined()) {
+					bestTime = tm;
+					fees = fee.getNumber()/cost;
+				}
 			}
 		}
 

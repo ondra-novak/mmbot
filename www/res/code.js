@@ -124,7 +124,7 @@ function app_start(){
 			while (info.firstChild) info.removeChild(info.firstChild);
 			["buy","last","sell", "pos"].forEach(function(n) {
 				var r = ranges[n];
-				var er = misc && misc.error && misc.error[n];
+				var er = misc && misc.error && !misc.t && misc.error[n] ;
 				var l1, l2, er;
 				if (!r) {
 					l1 = pricet;
