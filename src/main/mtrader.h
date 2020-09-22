@@ -225,6 +225,7 @@ public:
 
 	void saveState();
 	void activateAchieveMode(double position);
+	void addAcceptLossAlert();
 
 
 protected:

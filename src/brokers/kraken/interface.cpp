@@ -487,14 +487,16 @@ json::Value Interface::placeOrder(const std::string_view &pair, double size, dou
 			 * If order cannot be placed on spot, thne place it using leverage
 			 */
 			if (size > 0) {
-				if (pos < 0 && pos + size < 0) {
+				if (pos < 0) {
 					lev = true;
+					if (pos + size > 0) size = -pos;
 				} else {
 					lev = getSpotBalance(quote) < size * price * 1.002;
 				}
 			} else {
-				if (pos > 0 && pos + size > 0) {
+				if (pos > 0) {
 					lev = true;
+					if (pos + size < 0) size = -pos;
 				} else {
 					lev = getSpotBalance(base) < size;
 				}

@@ -608,6 +608,9 @@ bool WebCfg::reqTraders(simpleServer::HTTPRequest req, ondra_shared::StrViewA vp
 							trl->repair();
 						} else {
 							auto r = json::Value::fromString(StrViewA(data));
+							if  (r["alert"].getBool()) {
+								trl->addAcceptLossAlert();
+							}
 							auto achieve = r["achieve"];
 							if (achieve.hasValue()) {
 								trl->activateAchieveMode(achieve.getNumber());

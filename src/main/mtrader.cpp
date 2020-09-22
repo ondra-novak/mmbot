@@ -1098,6 +1098,20 @@ MTrader::Chart MTrader::getChart() const {
 }
 
 
+void MTrader::addAcceptLossAlert() {
+	Status st = getMarketStatus();
+	st.new_trades.trades.push_back(IStockApi::Trade {
+		json::Value(json::String({"LOSS:", std::to_string(st.ticker.time)})),
+		st.ticker.time,
+		0,
+		st.ticker.last,
+		0,
+		st.ticker.last,
+	});
+	processTrades(st);
+}
+
+
 void MTrader::acceptLoss(const Status &st, double dir) {
 
 	if (cfg.accept_loss && cfg.enabled && !trades.empty()) {

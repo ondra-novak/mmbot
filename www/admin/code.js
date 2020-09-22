@@ -1022,24 +1022,24 @@ App.prototype.repairTrader = function(id, initial) {
 		var form=TemplateJS.View.fromTemplate("reset_strategy");
 		var view;
 		var p = this.dlgbox({rpos:{
-			value:initial,
+			value:initial,			
             "!click":function(){
                 view.setItemValue("setpos",this.value);	
-            }}
+            }},
+            accept_loss:false            
 			},"reset_strategy");
 
 		p.then(function(){
 			var tr = this.traders[id];
 			var data = view.readData();
-			var req ="";
-			if (!isNaN(data.setpos)) {
-                req=JSON.stringify({
-                	"achieve":data.setpos
-                });
-			}
+			var req = {
+                "achieve":data.setpos,
+                "alert":data.accept_loss
+            }
+				
 			this.waitScreen(fetch_with_error(
 				this.traderURL(tr.id)+"/repair",
-				{method:"POST",body:req})).then(function() {
+				{method:"POST",body:JSON.stringify(req)})).then(function() {
 							this.updateTopMenu(tr.id);				
 				}.bind(this));
 	}.bind(this));
