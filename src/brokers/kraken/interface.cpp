@@ -298,7 +298,7 @@ double Interface::getPosition(const std::string_view &market) {
 
 	double pos = positionMap["result"].reduce([&](double a, Value z) {
 		if (z["pair"].getString() == market) {
-			return a + z["vol"].getNumber()*(z["type"].getString() == "sell"?-1.0:1.0);
+			return a + (z["vol"].getNumber()-z["vol_closed"].getNumber())*(z["type"].getString() == "sell"?-1.0:1.0);
 		} else {
 			return a;
 		}
