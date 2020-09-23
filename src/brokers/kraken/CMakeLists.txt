@@ -9,4 +9,3 @@ add_executable (kraken main.cpp
 					
 )
 target_link_libraries (kraken LINK_PUBLIC brokers_common simpleServer imtjson )
-install(TARGETS kraken DESTINATION "bin/brokers") 

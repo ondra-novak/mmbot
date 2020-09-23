@@ -1,0 +1,16 @@
+[Unit]
+Description=MMBot
+After=network-online.target
+
+[Service]
+Type=simple
+User=mmbot
+ExecStart=/opt/mmbot/bin/mmbot -f /opt/mmbot/conf/local.conf run
+ExecStop=/opt/mmbot/bin/mmbot -f /opt/mmbot/conf/local.conf stop
+RemainAfterExit=no
+Restart=on-abnormal
+RestartSec=1s
+
+
+[Install]
+WantedBy=multi-user.target

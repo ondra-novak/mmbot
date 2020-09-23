@@ -8,4 +8,3 @@ add_custom_command(OUTPUT generated/index.html.cpp COMMAND ./txt2cpp.sh index.ht
 
 add_executable (trainer main.cpp ../bitfinex/structs.cpp generated/index.html.cpp)
 target_link_libraries (trainer LINK_PUBLIC brokers_common imtjson simpleServer)
-install(TARGETS trainer DESTINATION "bin/trainer") 

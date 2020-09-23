@@ -30,4 +30,3 @@ add_executable (mmbot
 	swap_broker.cpp
 	)
 target_link_libraries (mmbot LINK_PUBLIC simpleServer imtjson )
-install(TARGETS mmbot DESTINATION "bin") 

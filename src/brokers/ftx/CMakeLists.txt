@@ -8,4 +8,3 @@ add_executable (ftx main.cpp
 					interface.cpp					
 )
 target_link_libraries (ftx LINK_PUBLIC brokers_common simpleServer imtjson )
-install(TARGETS ftx DESTINATION "bin/brokers") 

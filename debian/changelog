@@ -1,0 +1,11 @@
+mmbot (2:20.9) unstable; urgency=medium
+
+  * Final release debian package
+
+ -- Ondra Novak <nov.ondrej@gmail.com>  Wed, 23 Sep 2020 20:03:00 +0200
+
+mmbot (1.0.0) unstable; urgency=medium
+
+  * Initial Release.
+
+ -- Ondra Novak <nov.ondrej@gmail.com>  Wed, 23 Sep 2020 11:22:33 +0200

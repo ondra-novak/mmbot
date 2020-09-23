@@ -7,4 +7,3 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin/brokers/)
 
 add_executable (coinmate main.cpp proxy.cpp )
 target_link_libraries (coinmate LINK_PUBLIC brokers_common simpleServer imtjson)
-install(TARGETS coinmate DESTINATION "bin/brokers") 

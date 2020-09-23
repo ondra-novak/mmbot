@@ -9,4 +9,3 @@ add_executable (bitfinex main.cpp
 					structs.cpp
 )
 target_link_libraries (bitfinex LINK_PUBLIC brokers_common simpleServer imtjson )
-install(TARGETS bitfinex DESTINATION "bin/brokers") 

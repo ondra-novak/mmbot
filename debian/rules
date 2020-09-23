@@ -1,0 +1,13 @@
+#!/usr/bin/make -f
+
+
+%:
+	dh $@
+
+override_dh_auto_configure:
+	echo disabled
+override_dh_auto_build:
+	./build nodialog
+override_dh_strip:
+	echo no_strip
+	

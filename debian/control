@@ -1,0 +1,14 @@
+Source: mmbot
+Section: unbound
+Priority: optional
+Maintainer: Ondrej Novak <nov.ondrej@gmail.com>
+Standards-Version: 4.4.1
+Homepage: https://github.com/ondra-novak/mmbot
+
+Package: mmbot
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: mmbot - market making trading bot 
+ After installation, open a browser at: 
+ http://localhost:11223/ 
+
