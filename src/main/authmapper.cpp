@@ -113,35 +113,37 @@ static StrViewA findAuthCookie(StrViewA cookie){
 bool AuthMapper::checkAuth(const simpleServer::HTTPRequest &req) const {
 	using namespace ondra_shared;
 	if (!users->empty() || (jwt != nullptr && !allow_empty)) {
-		auto hdr = req["Authorization"];
-		StrViewA authhdr;
-		if (hdr.defined()) {
-			authhdr=hdr;
-		} else {
-			authhdr=findAuthCookie(req["Cookie"]);
-		}
-		auto hdr_splt = authhdr.split(" ");
-		StrViewA type = hdr_splt();
-		StrViewA cred = hdr_splt();
-		if (type == "Basic") {
-			auto credobj = AuthUserList::decodeBasicAuth(cred);
-			if (!users->findUser(credobj.first, credobj.second)) {
-				std::this_thread::sleep_for(std::chrono::seconds(1));
-				genError(req,realm);
-				return false;
+		StrViewA auths[2] = {
+				req["Authorization"],
+				findAuthCookie(req["Cookie"])
+		};
+
+		for (StrViewA authhdr: auths) {
+			if (!authhdr.empty()) {
+				auto hdr_splt = authhdr.split(" ");
+				StrViewA type = hdr_splt();
+				StrViewA cred = hdr_splt();
+				if (type == "Basic") {
+					auto credobj = AuthUserList::decodeBasicAuth(cred);	std::this_thread::sleep_for(std::chrono::seconds(1));
+					if (users->findUser(credobj.first, credobj.second)) {
+						return true;
+					}
+				} else if (type == "Bearer" && jwt != nullptr) {
+					json::Value v = json::checkJWTTime(json::parseJWT(cred, jwt));
+					if (v.hasValue()) {
+						return true;
+					}
+				}
 			}
-		} else if (type == "Bearer" && jwt != nullptr) {
-			json::Value v = json::checkJWTTime(json::parseJWT(cred, jwt));
-			if (!v.hasValue()) {
-				genError(req,realm);
-				return false;
-			}
-		} else {
-			genError(req,realm);
-			return false;
 		}
+
+		std::this_thread::sleep_for(std::chrono::seconds(1));
+		genError(req,realm);
+		return false;
 	}
 	return true;
+
+
 }
 
 
