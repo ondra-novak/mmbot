@@ -22,12 +22,26 @@
 #include <simpleServer/urlencode.h>
 #include <shared/logOutput.h>
 #include <shared/stringview.h>
+#include "shared/worker.h"
 using json::Object;
 using json::String;
 using json::Value;
 using ondra_shared::logDebug;
+using ondra_shared::logError;
+
+//static ondra_shared::Worker worker;
+
+
 
 static const StrViewA userAgent("+https://mmbot.trade");
+
+Interface::Connection::Connection()
+	:api(simpleServer::HttpClient(userAgent,simpleServer::newHttpsProvider(), nullptr,simpleServer::newCachedDNSProvider(60)),
+		"https://ftx.com/api") {
+	auto nonce = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now())*10;
+	order_nonce = nonce & 0xFFFFFFF;
+
+}
 
 Interface::Interface(const std::string &secure_storage_path)
 	:AbstractBrokerAPI(secure_storage_path,
@@ -44,17 +58,15 @@ Interface::Interface(const std::string &secure_storage_path)
 							("name","subaccount")
 							("label","Subaccount (optional)")
 							("type","string")
-			}),
-	api(simpleServer::HttpClient(userAgent,simpleServer::newHttpsProvider(), nullptr,simpleServer::newCachedDNSProvider(60)),
-			"https://ftx.com/api")
+			})
 {
-	auto nonce = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now())*10;
-	order_nonce = nonce & 0xFFFFFFF;
+	connection=PConnection::make();
+
 }
 
 
 void Interface::updatePairs() {
-	Value mres = api.GET("/markets");
+	Value mres = publicGET("/markets");
 	Value result = mres["result"];
 	const AccountInfo &account = getAccountInfo();
 	SymbolMap::Set::VecT newsmap;
@@ -76,7 +88,7 @@ void Interface::updatePairs() {
 			newsmap.emplace_back(name.str(), std::move(minfo));
 		}
 	}
-	mres = api.GET("/futures");
+	mres = publicGET("/futures");
 	result = mres["result"];
 	for (Value symbol: result) {
 		if (symbol["enabled"].getBool() && !symbol["expired"].getBool()) {
@@ -164,9 +176,10 @@ false,true
 }
 
 void Interface::onLoadApiKey(json::Value keyData) {
-	api_key=keyData["key"].getString();
-	api_secret=keyData["secret"].getString();
-	api_subaccount=keyData["subaccount"].getString();
+	auto c = connection.lock();
+	c->api_key=keyData["key"].getString();
+	c->api_secret=keyData["secret"].getString();
+	c->api_subaccount=keyData["subaccount"].getString();
 }
 
 double Interface::getBalance(const std::string_view &symb, const std::string_view &pair) {
@@ -280,6 +293,7 @@ IStockApi::TradesSync Interface::syncTrades(json::Value lastId, const std::strin
 }
 
 void Interface::onInit() {
+//	if (!worker.defined()) worker = ondra_shared::Worker::create(1);
 }
 
 bool Interface::reset() {
@@ -294,7 +308,7 @@ Value Interface::parseClientId(Value v) {
 }
 
 Value Interface::buildClientId(Value v) {
-	if (v.defined()) return Value({v, genOrderNonce()}).stringify();
+	if (v.defined()) return Value({v, connection.lock()->genOrderNonce()}).stringify();
 	else return v;
 }
 
@@ -326,57 +340,78 @@ std::string numberToFixed(double numb, int fx) {
 	return str.str();
 }
 
-json::Value Interface::placeOrder(const std::string_view &pair, double size, double price, json::Value clientId, json::Value replaceId, double replaceSize) {
-	try {
-		std::ostringstream uri;
-		if (replaceId.hasValue()) {
-			if (size == 0) {
-				uri << "/orders/" << simpleServer::urlEncode(replaceId.toString());
-				Value resp = requestDELETE(uri.str());
-				if (resp["success"].getBool()) {
-					return nullptr;
-				} else {
-					throw std::runtime_error(resp.stringify().str());
-				}
-			} else {
-				Value req = Object
-						("size", std::abs(size))
-						("price", price)
-						("clientId", buildClientId(clientId));
-				uri << "/orders/" << simpleServer::urlEncode(replaceId.toString()) << "/modify";
-				Value resp = requestPOST(uri.str(), req);
-				if (resp["success"].getBool()) {
-					return resp["result"]["id"];
-				} else {
-					throw std::runtime_error(resp.stringify().str());
-				}
-			}
-		}
-		if (size) {
-			Value req = Object
-					("market", pair)
-					("side", size > 0?"buy":"sell")
-					("price", price)
-					("type","limit")
-					("size", std::abs(size))
-					("postOnly",true)
-					("clientId", buildClientId(clientId));
-			Value resp = requestPOST("/orders", req);
-			if (resp["success"].getBool()) {
-				return resp["result"]["id"];
-			} else {
-				throw std::runtime_error(resp.stringify().str());
-			}
-		}
-		return nullptr;
-	} catch (HTTPJson::UnknownStatusException &e) {
-		try {
-			json::Value v = json::Value::parse(e.response.getBody());
-			throw std::runtime_error(v.toString().str());
-		} catch (...) {
-			throw;
+json::Value Interface::placeOrderImpl(PConnection conn, const std::string_view &pair, double size, double price, json::Value ordId) {
+	Value req = Object
+			("market", pair)
+			("side", size > 0?"buy":"sell")
+			("price", price)
+			("type","limit")
+			("size", std::abs(size))
+			("postOnly",true)
+			("clientId", ordId);
+	Value resp = conn.lock()->requestPOST("/orders", req);
+	if (resp["success"].getBool()) {
+		return resp["result"]["id"];
+	} else {
+		throw std::runtime_error(resp.stringify().str());
+	}
+}
+
+bool Interface::cancelOrderImpl(PConnection conn, json::Value cancelId) {
+	std::ostringstream uri;
+	if (cancelId.hasValue()) {
+		uri << "/orders/" << simpleServer::urlEncode(cancelId.toString());
+		Value resp = conn.lock()->requestDELETE(uri.str());
+		if (!resp["success"].getBool()) {
+			throw std::runtime_error(resp.stringify().str());
 		}
 	}
+	return true;
+
+}
+
+json::Value Interface::checkCancelAndPlace(PConnection conn, json::String pair,
+		double size, double price, json::Value ordId,
+		json::Value replaceId, double replaceSize) {
+
+	while(true) {
+		std::ostringstream uri;
+		uri << "/orders/" << simpleServer::urlEncode(replaceId.toString());
+		json::Value ordStatus = conn.lock()->requestGET(uri.str());
+		if (ordStatus["success"].getBool()) {
+			Value info = ordStatus["result"];
+			if (info["status"].getString() == "closed") {
+				double remain = info["size"].getNumber()-info["filledSize"].getNumber();
+				if (remain >= replaceSize*0.95) {
+					return placeOrderImpl(conn, pair.str(), size, price, ordId);
+				} else {
+					return nullptr;
+				}
+			} else {
+				std::this_thread::sleep_for(std::chrono::seconds(1));
+				checkCancelAndPlace(conn,pair,size,price,ordId,replaceId, replaceSize);
+			}
+		}
+	}
+}
+
+
+json::Value Interface::placeOrder(const std::string_view &pair, double size, double price, json::Value clientId, json::Value replaceId, double replaceSize) {
+	if (size == 0) {
+		if (replaceId.defined()) {
+			cancelOrderImpl(connection,replaceId);
+		}
+		return nullptr;
+	} else if (!replaceId.defined()) {
+		auto ordId = buildClientId(clientId);
+		return placeOrderImpl(connection, pair,size, price, ordId);
+	} else {
+		cancelOrderImpl(connection,replaceId);
+		auto ordId = buildClientId(clientId);
+		return checkCancelAndPlace(connection, json::String(StrViewA(pair)), size,price,ordId,replaceId,replaceSize);
+	}
+
+
 }
 
 double Interface::getFees(const std::string_view &pair) {
@@ -388,7 +423,7 @@ double Interface::getFees(const std::string_view &pair) {
 IStockApi::Ticker Interface::getTicker(const std::string_view &pair) {
 	std::ostringstream uri;
 	uri << "/markets/" << simpleServer::urlEncode(pair) << "/orderbook?depth=1";
-	json::Value resp = api.GET(uri.str());
+	json::Value resp = publicGET(uri.str());
 	if (resp["success"].getBool()) {
 		auto result = resp["result"];
 		IStockApi::Ticker tkr;
@@ -405,7 +440,8 @@ IStockApi::Ticker Interface::getTicker(const std::string_view &pair) {
 
 
 bool Interface::hasKey() const {
-	return !api_key.empty() && !api_secret.empty();
+	auto c = connection.lock();
+	return !c->api_key.empty() && !c->api_secret.empty();
 }
 
 
@@ -435,8 +471,13 @@ const Interface::AccountInfo& Interface::getAccountInfo() {
 	return *curAccount;
 }
 
-
+json::Value Interface::publicGET(std::string_view path) {
+	return connection.lock()->api.GET(path);
+}
 json::Value Interface::requestGET(std::string_view path) {
+	return connection.lock()->requestGET(path);
+}
+json::Value Interface::Connection::requestGET(std::string_view path) {
 	try {
 		return api.GET(path, signHeaders("GET",path, Value()));
 	} catch (HTTPJson::UnknownStatusException &e) {
@@ -451,6 +492,10 @@ json::Value Interface::requestGET(std::string_view path) {
 }
 
 json::Value Interface::requestPOST(std::string_view path, json::Value params) {
+	return connection.lock()->requestPOST(path, params);
+}
+
+json::Value Interface::Connection::requestPOST(std::string_view path, json::Value params) {
 	try {
 		return api.POST(path, params, signHeaders("POST",path, params));
 	} catch (HTTPJson::UnknownStatusException &e) {
@@ -463,8 +508,11 @@ json::Value Interface::requestPOST(std::string_view path, json::Value params) {
 	}
 }
 
-
 json::Value Interface::requestDELETE(std::string_view path) {
+	return connection.lock()->requestDELETE(path);
+}
+
+json::Value Interface::Connection::requestDELETE(std::string_view path) {
 	try {
 		return api.DELETE(path, Value(), signHeaders("DELETE",path, Value()));
 	} catch (HTTPJson::UnknownStatusException &e) {
@@ -477,7 +525,7 @@ json::Value Interface::requestDELETE(std::string_view path) {
 	}
 }
 
-json::Value Interface::signHeaders(const std::string_view &method, const std::string_view &path, const Value &body) {
+json::Value Interface::Connection::signHeaders(const std::string_view &method, const std::string_view &path, const Value &body) {
 	if (api_key.empty() || api_secret.empty()) throw std::runtime_error("Need API key");
 
 	std::ostringstream buff;
@@ -507,11 +555,16 @@ json::Value Interface::signHeaders(const std::string_view &method, const std::st
 	logDebug("$1", req.toString());
 	return req;
 
-
-
 }
 
-std::int64_t Interface::now() {
+json::Value Interface::signHeaders(const std::string_view &method,
+					    const std::string_view &path,
+						const json::Value &body)  {
+	return connection.lock()->signHeaders(method, path, body);
+}
+
+
+std::int64_t Interface::Connection::now() {
 	auto n =  std::chrono::duration_cast<std::chrono::milliseconds>(
 						 std::chrono::steady_clock::now().time_since_epoch()
 						 ).count() + this->time_diff;
@@ -529,17 +582,19 @@ std::int64_t Interface::now() {
 
 }
 
-void Interface::setTime(std::int64_t t ) {
+void Interface::Connection::setTime(std::int64_t t ) {
 	this->time_diff = 0;
 	auto n = now();
 	this->time_diff = t - n;
 }
 
 
-int Interface::genOrderNonce() {
+int Interface::Connection::genOrderNonce() {
 	order_nonce = (order_nonce+1) & 0xFFFFFFF;
 	return order_nonce;
 }
+
+
 
 json::Value Interface::getMarkets() const {
 	const_cast<Interface *>(this)->updatePairs();

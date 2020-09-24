@@ -11,10 +11,13 @@
 #include <optional>
 
 #include <imtjson/string.h>
+#include "../../shared/shared_object.h"
 
 #include "../api.h"
 #include "../httpjson.h"
 #include "../orderdatadb.h"
+
+
 
 
 class Interface:public AbstractBrokerAPI  {
@@ -38,8 +41,36 @@ public:
 	virtual double getBalance(const std::string_view &symb) override {return 0;}
 	virtual IStockApi::Ticker getTicker(const std::string_view &piar) override;
 protected:
-	mutable HTTPJson api;
 
+	class Connection {
+	public:
+		Connection ();
+
+		mutable HTTPJson api;
+		std::string api_key;
+		std::string api_secret;
+		std::string api_subaccount;
+
+		json::Value signHeaders(const std::string_view &method,
+							    const std::string_view &path,
+								const json::Value &body) ;
+
+		std::int64_t time_diff = 0;
+		std::int64_t time_sync = 0;
+		int order_nonce;
+		void setTime(std::int64_t t);
+		std::int64_t now();
+		int genOrderNonce();
+
+		json::Value requestGET(std::string_view path);
+		json::Value requestPOST(std::string_view path, json::Value params);
+		json::Value requestDELETE(std::string_view path);
+
+
+	};
+
+	using PConnection = ondra_shared::SharedObject<Connection>;
+	PConnection connection;
 
 	struct MarketInfoEx: MarketInfo {
 		std::string type;
@@ -64,7 +95,6 @@ protected:
 
 	bool hasKey() const;
 
-	std::string api_key, api_secret, api_subaccount;
 
 	std::optional<AccountInfo> curAccount;
 	using BalanceMap = ondra_shared::linear_map<std::string, double, std::less<std::string_view> >;
@@ -72,25 +102,28 @@ protected:
 
 
 
+	json::Value publicGET(std::string_view path);
 	json::Value requestGET(std::string_view path);
 	json::Value requestPOST(std::string_view path, json::Value params);
 	json::Value requestDELETE(std::string_view path);
 
 	json::Value signHeaders(const std::string_view &method,
 						    const std::string_view &path,
-							const json::Value &body);
+							const json::Value &body) ;
 
-	std::int64_t time_diff = 0;
-	std::int64_t time_sync = 0;
-	int order_nonce;
-	void setTime(std::int64_t t);
-	std::int64_t now();
 
-	int genOrderNonce();
 
 	static json::Value parseClientId(json::Value v);
 	json::Value buildClientId(json::Value v);
 	json::Value getMarkets() const override ;
+
+	static json::Value placeOrderImpl(PConnection conn, const std::string_view &pair, double size, double price, json::Value ordId);
+	static bool cancelOrderImpl(PConnection conn, json::Value cancelId);
+	static json::Value checkCancelAndPlace(PConnection conn, json::String pair,
+			double size, double price, json::Value ordId,
+			json::Value replaceId, double replaceSize);
+
+
 };
 
 
