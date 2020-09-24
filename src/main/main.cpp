@@ -30,6 +30,7 @@
 #include <random>
 
 #include "../imtjson/src/imtjson/binary.h"
+#include "../server/src/simpleServer/http_hostmapping.h"
 #include "../server/src/simpleServer/threadPoolAsync.h"
 #include "ext_storage.h"
 #include "extdailyperfmod.h"
@@ -335,7 +336,7 @@ int main(int argc, char **argv) {
 
 							std::vector<simpleServer::HttpStaticPathMapper::MapRecord> paths;
 							paths.push_back(simpleServer::HttpStaticPathMapper::MapRecord{
-								"/",AuthMapper(name,aul,jwt, true) >>= simpleServer::HttpFileMapper(std::string(rptpath), "index.html")
+								"/",AuthMapper(name,aul,jwt, true) >>= simpleServer::HTTPMappedHandler(simpleServer::HttpFileMapper(std::string(rptpath), "index.html"))
 							});
 
 							paths.push_back({
@@ -349,7 +350,7 @@ int main(int argc, char **argv) {
 									return AuthMapper::setCookieHandler(req);
 								}
 							});
-							(*srv)  >>=  simpleServer::HttpStaticPathMapperHandler(paths);
+							(*srv)  >>=  (simpleServer::AutoHostMappingHandler() >> simpleServer::HttpStaticPathMapperHandler(paths));
 
 						}
 

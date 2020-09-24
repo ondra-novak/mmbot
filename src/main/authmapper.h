@@ -16,6 +16,7 @@
 
 #include <simpleServer/http_parser.h>
 #include <shared/linear_map.h>
+#include "../server/src/simpleServer/http_pathmapper.h"
 
 class AuthUserList: public ondra_shared::RefCntObj {
 public:
@@ -48,6 +49,7 @@ public:
 
 	AuthMapper(	std::string realm, ondra_shared::RefCntPtr<AuthUserList> users, json::PJWTCrypto jwt, bool allow_empty);
 	AuthMapper &operator >>= (simpleServer::HTTPHandler &&hndl);
+	AuthMapper &operator >>= (simpleServer::HTTPMappedHandler &&hndl);
 	bool checkAuth(const simpleServer::HTTPRequest &req) const;
 	void operator()(const simpleServer::HTTPRequest &req) const;
 	bool operator()(const simpleServer::HTTPRequest &req, const ondra_shared::StrViewA &) const;
@@ -63,6 +65,7 @@ protected:
 	ondra_shared::RefCntPtr<AuthUserList> users;
 	std::string realm;
 	simpleServer::HTTPHandler handler;
+	simpleServer::HTTPMappedHandler mphandler;
 	json::PJWTCrypto jwt;
 	bool allow_empty;
 };

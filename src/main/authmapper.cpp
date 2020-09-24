@@ -88,10 +88,16 @@ std::vector<AuthUserList::LoginPwd> AuthUserList::decodeMultipleBasicAuth(
 }
 
 AuthMapper::AuthMapper(	std::string realm, ondra_shared::RefCntPtr<AuthUserList> users, json::PJWTCrypto jwt, bool allow_empty):users(users),realm(realm),jwt(jwt),allow_empty(allow_empty) {}
-	AuthMapper &AuthMapper::operator >>= (simpleServer::HTTPHandler &&hndl) {
-		handler = std::move(hndl);
-		return *this;
-	}
+
+AuthMapper &AuthMapper::operator >>= (simpleServer::HTTPHandler &&hndl) {
+	handler = std::move(hndl);
+	return *this;
+}
+
+AuthMapper &AuthMapper::operator >>= (simpleServer::HTTPMappedHandler &&hndl) {
+	mphandler = std::move(hndl);
+	return *this;
+}
 
 static StrViewA findAuthCookie(StrViewA cookie){
 	auto n = cookie.indexOf("auth=");
@@ -140,10 +146,21 @@ bool AuthMapper::checkAuth(const simpleServer::HTTPRequest &req) const {
 
 
 void AuthMapper::operator()(const simpleServer::HTTPRequest &req) const {
-	if (checkAuth(req)) handler(req);
+	if (checkAuth(req)) {
+		if (mphandler != nullptr) {
+			if (!mphandler(req, req.getPath())) req.sendErrorPage(404);
+			else handler(req);
+		}
+	}
 }
-bool AuthMapper::operator()(const simpleServer::HTTPRequest &req, const ondra_shared::StrViewA &) const {
-	if (checkAuth(req)) handler(req);
+bool AuthMapper::operator()(const simpleServer::HTTPRequest &req, const ondra_shared::StrViewA &vpath) const {
+	if (checkAuth(req)) {
+		if (mphandler != nullptr) {
+			return mphandler(req, vpath);
+		} else {
+			handler(req);
+		}
+	}
 	return true;
 }
 
