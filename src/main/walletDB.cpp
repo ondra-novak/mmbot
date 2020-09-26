@@ -42,15 +42,32 @@ WalletDB::Allocation WalletDB::query(const KeyQuery &key) const {
 	auto iend = allocTable.upper_bound(end);
 	double otherTraders = 0;
 	double thisTrader = 0;
+	unsigned int count = 0;
 	while (iter != iend) {
 		if (iter->first.traderUID != key.traderUID) {
 			otherTraders+=iter->second;
+			++count;
 		} else {
 			thisTrader+=iter->second;;
 		}
 		++iter;
 	}
-	return Allocation{thisTrader, otherTraders};
+	return Allocation{thisTrader, otherTraders, count};
+}
+
+double WalletDB::adjBalance(const KeyQuery &key, double balance) const {
+	auto r = query(key);
+	double total = r.otherTraders+r.thisTrader;
+	if (balance<total) {
+		if (r.thisTrader == 0 || total == 0) {
+			return balance/(r.traders+1);
+		} else {
+			double part = r.thisTrader/total;
+			return part * balance;
+		}
+	} else {
+		return balance - r.otherTraders;
+	}
 }
 
 void WalletDB::clear() {

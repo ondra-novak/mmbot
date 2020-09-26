@@ -558,10 +558,8 @@ MTrader::Status MTrader::getMarketStatus() const {
 			res.assetBalance = stock->getBalance(minfo.asset_symbol, cfg.pairsymb);
 			res.currencyBalance = stock->getBalance(minfo.currency_symbol, cfg.pairsymb);
 			auto wdb = walletDB.lock_shared();
-			auto assAlloc= wdb->query(WalletDB::KeyQuery(cfg.broker,minfo.wallet_id,minfo.asset_symbol,uid));
-			auto curAlloc= wdb->query(WalletDB::KeyQuery(cfg.broker,minfo.wallet_id,minfo.currency_symbol,uid));
-			res.assetBalance -= assAlloc.otherTraders;
-			res.currencyBalance -= curAlloc.otherTraders;
+			res.assetBalance = wdb->adjBalance(WalletDB::KeyQuery(cfg.broker,minfo.wallet_id,minfo.asset_symbol,uid), res.assetBalance);
+			res.currencyBalance = wdb->adjBalance(WalletDB::KeyQuery(cfg.broker,minfo.wallet_id,minfo.currency_symbol,uid), res.currencyBalance);
 		}
 	} else {
 		res.currencyBalance = *currency_balance;

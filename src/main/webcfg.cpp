@@ -912,12 +912,7 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req)  {
 				}
 
 				auto walletDB = trlist.lock_shared()->walletDB;
-				auto allocAsset = walletDB.lock_shared()->query(WalletDB::KeyQuery(
-					broker.getString(),minfo.wallet_id,minfo.asset_symbol,uid
-				));
-				auto allocCurrency = walletDB.lock_shared()->query(WalletDB::KeyQuery(
-					broker.getString(),minfo.wallet_id,minfo.currency_symbol,uid
-				));
+
 
 				api->reset();
 				auto binfo = api->getBrokerInfo();
@@ -951,10 +946,20 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req)  {
 						("settings", binfo.settings)
 						("trading_enabled", binfo.trading_enabled));
 				Value pair = getPairInfo(api, p, internalBalance, internalCurrencyBalance);
+				double avail_cur = walletDB.lock_shared()->adjBalance(WalletDB::KeyQuery(
+						broker.getString(),minfo.wallet_id,minfo.currency_symbol,uid
+					),pair["currency_balance"].getNumber());
 				result.set("pair", pair);
 				result.set("available_balance", Object
-						("asset",pair["asset_balance"].getNumber() - allocAsset.otherTraders)
-						("currency",pair["currency_balance"].getNumber() - allocCurrency.otherTraders));
+
+						("asset",walletDB.lock_shared()->adjBalance(
+								WalletDB::KeyQuery(
+													broker.getString(),minfo.wallet_id,minfo.asset_symbol,uid
+												),pair["asset_balance"].getNumber()))
+						("currency",avail_cur)
+						("budget",walletDB.lock_shared()->query(WalletDB::KeyQuery(
+												broker.getString(),minfo.wallet_id,minfo.currency_symbol,uid
+											)).otherTraders));
 				result.set("orders", getOpenOrders(api, p));
 				result.set("strategy", strategy);
 				result.set("position", position);
@@ -964,7 +969,7 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req)  {
 					Strategy stratobj=trl->getStrategy();
 					auto b = stratobj.getBudgetExtraInfo(
 							pair["price"].getNumber(),
-							pair["currency_balance"].getNumber());
+							avail_cur);
 					if (b.has_value()) {
 						result.set("budget",Object
 								("total", b->total)

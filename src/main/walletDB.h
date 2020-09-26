@@ -53,6 +53,7 @@ public:
 	struct Allocation {
 		double thisTrader;
 		double otherTraders;
+		unsigned int traders;
 	};
 
 	using AllocTable = std::map<Key, double, KeyLess>;
@@ -70,6 +71,7 @@ public:
 	 */
 	Allocation query(const KeyQuery &key) const;
 
+	double adjBalance(const KeyQuery &key, double balance) const;
 
 	void clear();
 

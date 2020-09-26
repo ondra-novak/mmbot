@@ -83,10 +83,12 @@ IStockApi::MarketInfo Interface::getMarketInfo(const std::string_view &pair) {
 		csit = curStep.emplace(std::string(pair),step).first;
 	}
 
+	double minstep = std::pow(10,std::floor(std::log10(itr->second.min_size))-4);
+
 	return MarketInfo{
 		itr->second.asset.str(), /* asset_symbol; */
 		itr->second.currency.str(), /* std::string currency_symbol;*/
-		itr->second.min_size, /* double asset_step;*/
+		minstep, /* double asset_step;*/
 		csit->second,                    /*double currency_step;*/
 		itr->second.min_size, /* double min_size;*/
 		0,				 	   /* double min_volume; */
