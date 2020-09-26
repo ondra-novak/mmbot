@@ -31,6 +31,8 @@ public:
 		bool detect_trend = false;
 		bool recalc_keep_neutral =false;
 		bool longonly = false;
+		bool fastclose = false;
+		bool slowopen = false;
 //		int preference = 0;
 	};
 
@@ -64,6 +66,7 @@ public:
 	virtual json::Value dumpStatePretty(const IStockApi::MarketInfo &minfo) const override;
 	virtual std::string_view getID() const override {return id;}
 	virtual BudgetInfo getBudgetInfo() const override;
+	virtual double calcCurrencyAllocation() const override;
 	virtual std::optional<BudgetExtraInfo> getBudgetExtraInfo(double price, double currency) const {
 		return std::optional<BudgetExtraInfo>();
 	}
@@ -101,6 +104,5 @@ private:
 	virtual double calcInitialPosition(const IStockApi::MarketInfo &minfo, double price, double assets, double currency) const override;
 
 };
-
 
 #endif /* SRC_MAIN_STRATEGY_LEVERAGED_BASE_H_ */

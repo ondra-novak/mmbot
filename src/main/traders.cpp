@@ -16,8 +16,8 @@
 
 using ondra_shared::Countdown;
 using ondra_shared::logError;
-NamedMTrader::NamedMTrader(IStockSelector &sel, StoragePtr &&storage, PStatSvc statsvc, Config cfg, std::string &&name)
-		:MTrader(sel, std::move(storage), std::move(statsvc), cfg), ident(std::move(name)) {
+NamedMTrader::NamedMTrader(IStockSelector &sel, StoragePtr &&storage, PStatSvc statsvc, PWalletDB wdb, Config cfg, std::string &&name)
+		:MTrader(sel, std::move(storage), std::move(statsvc), wdb, cfg), ident(std::move(name)) {
 }
 
 void NamedMTrader::perform(bool manually) {
@@ -102,11 +102,13 @@ test(test)
 ,iconPath(iconPath)
 {
 	stockSelector.loadBrokers(ini, test, brk_timeout);
+	walletDB = PWalletDB::make();
 }
 
 void Traders::clear() {
 	traders.clear();
 	stockSelector.clear();
+	walletDB.lock()->clear();
 }
 
 void Traders::loadIcon(MTrader &t) {
@@ -125,7 +127,7 @@ void Traders::addTrader(const MTrader::Config &mcfg ,ondra_shared::StrViewA n) {
 		logProgress("Started trader $1 (for $2)", n, mcfg.pairsymb);
 		if (stockSelector.checkBrokerSubaccount(mcfg.broker)) {
 			auto t = SharedObject<NamedMTrader>::make(stockSelector, sf->create(n),
-				std::make_unique<StatsSvc>(n, rpt, perfMod), mcfg, n);
+				std::make_unique<StatsSvc>(n, rpt, perfMod), walletDB, mcfg, n);
 			auto lt = t.lock();
 			loadIcon(*lt);
 			traders.insert(std::pair(StrViewA(lt->ident), std::move(t)));

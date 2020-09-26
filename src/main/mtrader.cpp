@@ -97,11 +97,13 @@ void MTrader_Config::loadConfig(json::Value data, bool force_dry_run) {
 MTrader::MTrader(IStockSelector &stock_selector,
 		StoragePtr &&storage,
 		PStatSvc &&statsvc,
+		PWalletDB walletDB,
 		Config config)
 :stock(selectStock(stock_selector,config))
 ,cfg(config)
 ,storage(std::move(storage))
 ,statsvc(std::move(statsvc))
+,walletDB(walletDB)
 ,strategy(config.strategy)
 ,dynmult(cfg.dynmult_raise,cfg.dynmult_fall, cfg.dynmult_mode, cfg.dynmult_mult)
 {
@@ -555,6 +557,11 @@ MTrader::Status MTrader::getMarketStatus() const {
 		} else {
 			res.assetBalance = stock->getBalance(minfo.asset_symbol, cfg.pairsymb);
 			res.currencyBalance = stock->getBalance(minfo.currency_symbol, cfg.pairsymb);
+			auto wdb = walletDB.lock_shared();
+			auto assAlloc= wdb->query(WalletDB::KeyQuery(cfg.broker,minfo.wallet_id,minfo.asset_symbol,uid));
+			auto curAlloc= wdb->query(WalletDB::KeyQuery(cfg.broker,minfo.wallet_id,minfo.currency_symbol,uid));
+			res.assetBalance -= assAlloc.otherTraders;
+			res.currencyBalance -= curAlloc.otherTraders;
 		}
 	} else {
 		res.currencyBalance = *currency_balance;
@@ -916,6 +923,9 @@ void MTrader::loadState() {
 	tempPr.simulator = minfo.simulator;
 	tempPr.invert_price = minfo.invert_price;
 	if (cfg.zigzag) updateZigzagLevels();
+	if (strategy.isValid()) {
+		walletDB.lock()->alloc(getWalletKey(), strategy.calcCurrencyAllocation());
+	}
 
 }
 
@@ -1042,6 +1052,7 @@ bool MTrader::processTrades(Status &st) {
 			trades.push_back(TWBItem(t, last_np, last_ap, 0, true));
 		}
 	}
+	walletDB.lock()->alloc(getWalletKey(), strategy.calcCurrencyAllocation());
 	return true;
 }
 
@@ -1487,6 +1498,13 @@ bool MTrader::checkAchieveModeDone(const Status &st) {
 	return st.curPrice >= low && st.curPrice <=hi;
 
 }
+
+WalletDB::Key MTrader::getWalletKey() const {
+	return WalletDB::Key{
+		cfg.broker, minfo.wallet_id, minfo.currency_symbol, uid
+	};
+}
+
 bool MTrader::checkEquilibriumClose(const Status &st, double lastTradePrice) {
 	double eq = strategy.getEquilibrium(st.assetBalance);
 	if (!std::isfinite(eq)) return false;

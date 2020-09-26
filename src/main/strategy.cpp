@@ -118,6 +118,8 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 		cfg.initboost = config["initboost"].getNumber();
 		cfg.detect_trend = config["dtrend"].getBool();
 		cfg.longonly = config["longonly"].getBool();
+		cfg.fastclose = config["fastclose"].getValueOrDefault(true);
+		cfg.slowopen = config["slowopen"].getValueOrDefault(true);
 		cfg.recalc_keep_neutral = config["recalc_mode"].getString() == "neutral";
 		return Strategy(new Strategy_Hyperbolic(std::make_shared<Strategy_Hyperbolic::TCalc>(),
 											    std::make_shared<Strategy_Hyperbolic::Config>(cfg)));
@@ -134,6 +136,8 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 		cfg.detect_trend = config["dtrend"].getBool();
 		cfg.longonly = config["longonly"].getBool();
 		cfg.recalc_keep_neutral = config["recalc_mode"].getString() == "neutral";
+		cfg.fastclose = config["fastclose"].getValueOrDefault(true);
+		cfg.slowopen = config["slowopen"].getValueOrDefault(true);
 		return Strategy(new Strategy_Linear(std::make_shared<Strategy_Linear::TCalc>(),
 			    							std::make_shared<Strategy_Linear::Config>(cfg)));
 	} else if (id == Strategy_Sinh::id) {
@@ -151,6 +155,8 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 		cfg.longonly = config["longonly"].getBool();
 		double curv = config["curv"].getValueOrDefault(5.0);
 		cfg.recalc_keep_neutral = config["recalc_mode"].getString() == "neutral";
+		cfg.fastclose = config["fastclose"].getValueOrDefault(true);
+		cfg.slowopen = config["slowopen"].getValueOrDefault(true);
 		return Strategy(new Strategy_Sinh(std::make_shared<Strategy_Sinh::TCalc>(power, curv),
 			    							std::make_shared<Strategy_Sinh::Config>(cfg)));
 	} else if (id == Strategy_Sinh2::id) {
@@ -168,6 +174,8 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 		cfg.longonly = config["longonly"].getBool();
 		double curv = config["curv"].getValueOrDefault(5.0);
 		cfg.recalc_keep_neutral = config["recalc_mode"].getString() == "neutral";
+		cfg.fastclose = config["fastclose"].getValueOrDefault(true);
+		cfg.slowopen = config["slowopen"].getValueOrDefault(true);
 		return Strategy(new Strategy_Sinh2(std::make_shared<Strategy_Sinh2::TCalc>(curv),
 			    							std::make_shared<Strategy_Sinh2::Config>(cfg)));
 	} else {

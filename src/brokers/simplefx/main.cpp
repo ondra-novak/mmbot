@@ -331,7 +331,9 @@ inline Interface::MarketInfo Interface::getMarketInfo(const std::string_view &pa
 		100,
 		false,
 		"",
-		isdemo
+		isdemo,
+		isdemo,
+		std::string(pair)
 	};
 }
 

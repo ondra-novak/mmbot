@@ -379,3 +379,7 @@ Strategy_Stairs::BudgetInfo Strategy_Stairs::getBudgetInfo() const {
 	double currency = (st.power * steps) * st.price / pw;
 	return BudgetInfo {currency, 0};
 }
+
+double Strategy_Stairs::calcCurrencyAllocation() const {
+	return 0;//not applicable
+}

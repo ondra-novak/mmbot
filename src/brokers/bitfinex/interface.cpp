@@ -92,7 +92,8 @@ IStockApi::MarketInfo Interface::getMarketInfo(const std::string_view &pair) {
 		0,				 	   /* double min_volume; */
 		getFees(pair),  	/*double fees;*/
 		margin?currency:income,				/* FeeScheme feeScheme = currency;*/
-		margin?itr->second.leverage:0 /*double leverage = 0;*/
+		margin?itr->second.leverage:0, /*double leverage = 0;*/
+		false,std::string(),false,false,margin?"margin":"exchange"
 	};
 }
 

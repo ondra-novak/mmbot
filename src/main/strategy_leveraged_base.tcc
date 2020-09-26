@@ -313,23 +313,39 @@ IStrategy::OrderData Strategy_Leveraged<Calc>::getNewOrder(
 		else
 			return {0,0,Alert::stoploss};
 	} else {
-		//fast close feature - currently cannot be simulated by backtest
-		if (!rej && dir * st.position < 0 && st.val > 0 && std::abs(st.position) * price > (st.bal+cfg->external_balance)*0.5) {
-			double midl = calc->calcPrice0(st.neutral_price, asym);
-			double calc_price = (price - midl) * (st.last_price - midl) < 0?midl:price;
-			double newval = calc->calcPosValue(st.power, asym,st.neutral_price, calc_price);
-			double valdiff = st.val - newval;
-			if (valdiff > 0) {
-				double fastclose_delta = valdiff/st.position;
-				double close_price = fastclose_delta+st.last_price;
-				if (close_price * dir < curPrice * dir && close_price * dir > price * dir) {
-					logDebug("Fast close active: valdiff=$1, delta=$2, spread=$3",
-							valdiff, fastclose_delta, price-st.last_price);
-					price = close_price;
+		if (!rej && std::abs(st.position) * price > (st.bal+cfg->external_balance)*0.5 && st.val > 0) {
+			if (cfg->fastclose && dir * st.position < 0) {
+				double midl = calc->calcPrice0(st.neutral_price, asym);
+				double calc_price = (price - midl) * (st.last_price - midl) < 0?midl:price;
+				double newval = calc->calcPosValue(st.power, asym,st.neutral_price, calc_price);
+				double valdiff = st.val - newval;
+				if (valdiff > 0) {
+					double fastclose_delta = valdiff/st.position;
+					double close_price = fastclose_delta+st.last_price;
+					if (close_price * dir < curPrice * dir && close_price * dir > price * dir) {
+						logDebug("Fast close active: valdiff=$1, delta=$2, spread=$3",
+								valdiff, fastclose_delta, price-st.last_price);
+						price = close_price;
+
+					}
+				}
+			}
+			if (cfg->slowopen && dir * st.position > 0) {
+				double newval = calc->calcPosValue(st.power, asym,st.neutral_price, price);
+				double valdiff = newval - st.val;
+				if (valdiff > 0) {
+					double delta = -valdiff/st.position;
+					double open_price = delta + st.last_price;
+					if (open_price * dir < price * dir &&  price > 0) {
+						logDebug("Slow open active: valdiff=$1, delta=$2, spread=$3",
+								valdiff, delta, price-st.last_price);
+						price = open_price;
+					}
 
 				}
 			}
 		}
+
 
 		auto cps = calcPosition(price);
 		double df = calcOrderSize(st.position,apos,cps);
@@ -451,4 +467,11 @@ template<typename Calc>
 typename Strategy_Leveraged<Calc>::BudgetInfo Strategy_Leveraged<Calc>::getBudgetInfo() const {
 	return {st.bal + cfg->external_balance, 0};
 }
+
+
+template<typename Calc>
+inline double Strategy_Leveraged<Calc>::calcCurrencyAllocation() const {
+	return 0; //not applicable for leveraged strategy
+}
+
 

@@ -320,6 +320,7 @@ App.prototype.fillForm = function (src, trg) {
 				
 	
 		var broker = state.broker;
+		var avail = state.available_balance;
 		var pair = state.pair;
 		var orders = state.orders;
 		this.fillFormCache[src.id] = state;
@@ -331,8 +332,9 @@ App.prototype.fillForm = function (src, trg) {
 		data.broker_ver = broker.version;
 		data.asset = pair.asset_symbol;
 		data.currency = pair.currency_symbol;
-		data.balance_asset= adjNum(invSize(pair.asset_balance,pair.invert_price));
+		data.balance_asset= adjNum(invSize(pair.asset_balance,pair.invert_price));		
 		data.balance_currency = adjNum(pair.currency_balance);
+		data.balance_currency_free = adjNum(avail.currency);
 		data.price= adjNum(invPrice(pair.price,pair.invert_price));
 		data.fees =adjNum(pair.fees*100,4);
 		data.leverage=pair.leverage?pair.leverage+"x":"n/a";
@@ -410,8 +412,8 @@ App.prototype.fillForm = function (src, trg) {
 			var req = {
 					strategy:strategy,
 					price:pair.price,
-					assets:pair.asset_balance,
-					currency:pair.currency_balance,
+					assets:avail.asset,
+					currency:avail.currency,
 					leverage:pair.leverage,
 					inverted: pair.invert_price,
 					trader:src.id
@@ -547,6 +549,8 @@ App.prototype.fillForm = function (src, trg) {
 	data.gs_rb_lo_a=85;
 	data.gs_rb_hi_p=95;
 	data.gs_rb_hi_a=100;
+	data.hp_fastclose=true;
+	data.hp_slowopen=true;
 	data.max_leverage = 0;
 
 	function powerCalc(x) {return adjNumN(Math.pow(10,x)*0.01);};
@@ -578,6 +582,8 @@ App.prototype.fillForm = function (src, trg) {
 		data.hp_longonly = filledval(src.strategy.longonly,false);
 		data.sh_curv = filledval(src.strategy.curv,5);
 		data.hp_lb_asym = src.strategy.dtrend?"trend":"asym"; 
+		data.hp_fastclose = filledval(src.strategy.fastclose,true);
+		data.hp_slowopen = filledval(src.strategy.slowopen,true);
 	} else if (data.strategy == "stairs") {
 		data.st_power = filledval(src.strategy.power,1.7);
 		data.st_show_factor = powerCalc(data.st_power.value)
@@ -724,6 +730,8 @@ function getStrategyData(data) {
 				reduction: data.hp_reduction/200,
 				initboost: data.hp_initboost,
 				curv: data.sh_curv,
+				slowopen: data.hp_slowopen,
+				fastclose: data.hp_fastclose,
 				
 		};
 	} else 	if (data.strategy == "stairs") {

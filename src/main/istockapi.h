@@ -159,6 +159,15 @@ public:
 		 * be read by the storage_broker to store chart data which prevents sharing
 		 */
 		bool private_chart = false;
+
+		///Specifies wallet identifier for this pair
+		/**This allows to broker to expose how balance is shared between traders.
+		 * Each pair can use different wallet, so their balances are not shared. If
+		 * the symbols are from the same wallet, the balance is shared between traders
+		 * and each trader can allocate part of balance. Default value is "", which is
+		 * also identified as single wallet
+		 */
+		std::string wallet_id;
 		///Adds fees to values
 		/**
 		 * @param assets reference to current asset change. Negative value is sell,

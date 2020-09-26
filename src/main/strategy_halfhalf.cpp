@@ -146,3 +146,7 @@ std::optional<IStrategy::BudgetExtraInfo> Strategy_HalfHalf::getBudgetExtraInfo(
 	double e = (a+cfg.ea) * price + currency - b;
 	return BudgetExtraInfo {b, e};
 }
+
+double Strategy_HalfHalf::calcCurrencyAllocation() const {
+	return p*a;
+}

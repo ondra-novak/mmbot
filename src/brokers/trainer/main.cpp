@@ -985,7 +985,9 @@ inline Interface::MarketInfo Interface::getMarketInfo(const std::string_view &pa
 		p.futures?1000000.0:0.0,
 		p.inverted,
 		p.currency,
-		true
+		true,
+		true,
+		std::string(pair)
 	};
 }
 

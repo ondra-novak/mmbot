@@ -18,6 +18,7 @@
 #include "storage.h"
 #include "report.h"
 #include "strategy.h"
+#include "walletDB.h"
 
 class IStockApi;
 
@@ -132,6 +133,7 @@ public:
 	MTrader(IStockSelector &stock_selector,
 			StoragePtr &&storage,
 			PStatSvc &&statsvc,
+			PWalletDB walletDB,
 			Config config);
 
 
@@ -227,6 +229,7 @@ public:
 	void activateAchieveMode(double position);
 	void addAcceptLossAlert();
 
+	auto getUID() const {return uid;}
 
 protected:
 	class DynMultControl {
@@ -257,6 +260,7 @@ protected:
 	IStockApi::MarketInfo minfo;
 	StoragePtr storage;
 	PStatSvc statsvc;
+	PWalletDB walletDB;
 	Strategy strategy;
 	DynMultControl dynmult;
 	bool need_load = true;
@@ -312,6 +316,8 @@ protected:
 	void modifyOrder(const ZigZagLevels &zlevs, double dir, Order &order) const;
 
 	void checkLeverage(const Order &order);
+
+	WalletDB::Key getWalletKey() const;
 private:
 	template<typename Iter>
 	static SpreadCalcResult stCalcSpread(Iter beg, Iter end, unsigned int input_sma, unsigned int input_stdev);

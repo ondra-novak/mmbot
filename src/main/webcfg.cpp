@@ -883,6 +883,7 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req)  {
 				Value trader = data["trader"];
 				Value symb = data["pair"];
 				std::string p;
+				std::size_t uid;
 
 
 
@@ -890,11 +891,16 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req)  {
 				auto tr = trlist.lock_shared()->find(trader.toString().str());
 				auto trl = tr.lock();
 				PStockApi api;
+				IStockApi::MarketInfo minfo;
 				if (tr == nullptr) {
 					api = trlist.lock_shared()->stockSelector.getStock(broker.toString().str());
+					minfo = api->getMarketInfo(symb.getString());
+					uid = 0;
 				} else {
 					trl->init();
 					api = trl->getBroker();
+					minfo = trl->getMarketInfo();
+					uid = trl->getUID();
 				}
 				if (api == nullptr) {
 					return req.sendErrorPage(404);
@@ -905,6 +911,13 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req)  {
 					p = symb.toString().str();
 				}
 
+				auto walletDB = trlist.lock_shared()->walletDB;
+				auto allocAsset = walletDB.lock_shared()->query(WalletDB::KeyQuery(
+					broker.getString(),minfo.wallet_id,minfo.asset_symbol,uid
+				));
+				auto allocCurrency = walletDB.lock_shared()->query(WalletDB::KeyQuery(
+					broker.getString(),minfo.wallet_id,minfo.currency_symbol,uid
+				));
 
 				api->reset();
 				auto binfo = api->getBrokerInfo();
@@ -939,6 +952,9 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req)  {
 						("trading_enabled", binfo.trading_enabled));
 				Value pair = getPairInfo(api, p, internalBalance, internalCurrencyBalance);
 				result.set("pair", pair);
+				result.set("available_balance", Object
+						("asset",pair["asset_balance"].getNumber() - allocAsset.otherTraders)
+						("currency",pair["currency_balance"].getNumber() - allocCurrency.otherTraders));
 				result.set("orders", getOpenOrders(api, p));
 				result.set("strategy", strategy);
 				result.set("position", position);

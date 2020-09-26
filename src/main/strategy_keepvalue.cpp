@@ -210,4 +210,6 @@ std::optional<IStrategy::BudgetExtraInfo> Strategy_KeepValue::getBudgetExtraInfo
 	return std::optional<IStrategy::BudgetExtraInfo>();
 }
 
-
+double Strategy_KeepValue::calcCurrencyAllocation() const {
+	return calcReqCurrency(st, cfg, st.p);
+}

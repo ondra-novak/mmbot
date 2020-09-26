@@ -36,9 +36,8 @@
 
 
 <label><span>Symbol</span><span data-name="symbol" ></span></label>
-<div class="label"><span>Balance:</span><div><span data-name="balance_asset"></span> <span data-name="asset" ></span><br>
-                                             <span data-name="balance_currency"></span> <span data-name="currency" ></span>
-                                             </div></div>
+<div class="label"><span>Asset balance (position):</span><span><span data-name="balance_asset"></span> <span data-name="asset" ></span></span></div>
+<div class="label"><span>Currency balance (free/total):</span><span><span data-name="balance_currency_free"></span>&nbsp;/&nbsp;<span data-name="balance_currency"></span> <span data-name="currency" ></span></span></div>
 <div class="label"><span>Calculated position:</span><div><span data-name="hdr_position"></span> <span data-name="asset" ></span> <button data-name="sync_pos" hidden="hidden">Sync</button></div></div>
 <div class="label" data-name="l_budget"><span>Strategy budget (extra):</span><span><span data-name="calc_budget"></span>&nbsp;<span data-name="currency" ></span>&nbsp;(<span data-name="calc_budget_extra"></span>&nbsp;<span data-name="currency" ></span>)</span></div>
 <div class="label"><span>Price</span><span data-name="price"></span></div>
@@ -165,6 +164,7 @@ included, external currencies are counted in proportion to external assets</span
 <option value="neutral">Keep neutral</option>
 </select>
 </label>
+<div class="label adv"><span>Spread control</span><span><x-checkbox data-name="hp_fastclose">Close position faster</x-checkbox><br><x-checkbox data-name="hp_slowopen">Open position slower</x-checkbox></span></div>
 <label><span>Avoid <x-switch data-name="inverted_price" data-value="false">SHORT</x-switch><x-switch data-name="inverted_price" data-value="true">LONG</x-switch> position<span class="tooltip">Prevents to trade on dangerous side of the market. It is short for normal futures and long for inverted futures</span></span><x-checkbox data-name="hp_longonly"></x-checkbox></label>
 <x-section>
 <div class="label"><span>Min price:</span><span data-name="range_min_price">---</span></div>

@@ -222,3 +222,7 @@ double Strategy_ConstantStep::calcA(const Consts &cst, double price) {
 double Strategy_ConstantStep::calcAccountValue(const Consts &cst, double price) {
 	return price*(cst.c-cst.k*std::log(price));
 }
+
+double Strategy_ConstantStep::calcCurrencyAllocation() const {
+	return st.a * st.p / std::log(st.m/st.p);
+}

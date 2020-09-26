@@ -50,6 +50,7 @@ public:
 	virtual PStrategy reset() const override;
 	virtual std::string_view getID() const override;
 	virtual json::Value dumpStatePretty(const IStockApi::MarketInfo &minfo) const override;
+	virtual double calcCurrencyAllocation() const override;
 
 
 	static std::string_view id;
@@ -71,6 +72,7 @@ public:
 	static double calcReqCurrency(double w, double k, double price);
 	static double calcAccountValue(double w, double k, double p);
 	static double calcEquilibrium(double w, double k, double c) ;
+
 
 	struct Consts {
 		double w;

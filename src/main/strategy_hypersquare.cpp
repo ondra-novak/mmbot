@@ -267,3 +267,6 @@ std::optional<IStrategy::BudgetExtraInfo> Strategy_HyperSquare::getBudgetExtraIn
 	return BudgetExtraInfo {b, e};
 }
 
+double Strategy_HyperSquare::calcCurrencyAllocation() const {
+	return calcReqCurrency(st, cfg.ea, st.p);
+}

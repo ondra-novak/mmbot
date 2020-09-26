@@ -305,3 +305,6 @@ std::optional<IStrategy::BudgetExtraInfo> Strategy_ErrorFn::getBudgetExtraInfo(d
 	return BudgetExtraInfo {b, e};
 }
 
+double Strategy_ErrorFn::calcCurrencyAllocation() const {
+	return calcReqCurrency(st,cfg.ea,st.p,cfg.rebalance);
+}

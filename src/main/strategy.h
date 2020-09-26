@@ -125,6 +125,14 @@ public:
 		return ptr->getBudgetExtraInfo(price, currency);
 	}
 
+	///Calculates how much currency is allocated for strategy
+	/** Function is used to allocate budget from currency pool
+	 * This helps to share budget between traders
+	 * @return amount of currency to allocate, or 0 if the operation is not meaningfull - for leverage markes for example
+	 */
+	double calcCurrencyAllocation() const {
+		return ptr->calcCurrencyAllocation();
+	}
 
 	static Strategy create(std::string_view id, json::Value config);
 

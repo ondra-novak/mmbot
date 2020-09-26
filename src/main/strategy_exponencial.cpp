@@ -257,3 +257,6 @@ std::optional<IStrategy::BudgetExtraInfo> Strategy_Exponencial::getBudgetExtraIn
 	return BudgetExtraInfo {b, e};
 }
 
+double Strategy_Exponencial::calcCurrencyAllocation() const {
+	return calcReqCurrency(st, cfg.ea, st.p);
+}

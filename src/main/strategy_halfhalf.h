@@ -31,6 +31,7 @@ public:
 	virtual json::Value dumpStatePretty(const IStockApi::MarketInfo &minfo) const override;
 	virtual double calcInitialPosition(const IStockApi::MarketInfo & , double price, double assets, double currency) const override;
 	virtual BudgetInfo getBudgetInfo() const override;
+	virtual double calcCurrencyAllocation() const override;
 	virtual std::optional<IStrategy::BudgetExtraInfo> getBudgetExtraInfo(double price, double currency) const override;
 
 

@@ -558,6 +558,7 @@ void Interface::initSymbols() {
 				}
 			}
 			nfo.cat = Category::spot;
+			nfo.wallet_id="spot";
 			bld.push_back(VT(symbol, nfo));
 		}
 		try {
@@ -587,7 +588,7 @@ void Interface::initSymbols() {
 				nfo.cat = Category::coin_m;
 				nfo.label = nfo.currency_symbol+"/"+nfo.asset_symbol;
 				nfo.type = smb["contractType"].getString();
-
+				nfo.wallet_id = symbol;
 				bld.push_back(VT(symbol, nfo));
 			}
 		} catch (std::exception &e) {

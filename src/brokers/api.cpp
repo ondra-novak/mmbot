@@ -183,7 +183,8 @@ static Value getInfo(AbstractBrokerAPI &handler, const Value &req) {
 			("invert_price", nfo.invert_price)
 			("inverted_symbol", nfo.inverted_symbol)
 			("simulator", nfo.simulator)
-			("private_chart", nfo.private_chart);
+			("private_chart", nfo.private_chart)
+			("wallet_id", nfo.wallet_id);
 }
 
 static Value setApiKey(AbstractBrokerAPI &handler, const Value &req) {
