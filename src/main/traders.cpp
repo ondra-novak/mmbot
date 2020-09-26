@@ -130,6 +130,7 @@ void Traders::addTrader(const MTrader::Config &mcfg ,ondra_shared::StrViewA n) {
 				std::make_unique<StatsSvc>(n, rpt, perfMod), walletDB, mcfg, n);
 			auto lt = t.lock();
 			loadIcon(*lt);
+			lt->init();
 			traders.insert(std::pair(StrViewA(lt->ident), std::move(t)));
 		} else {
 			throw std::runtime_error("Unable to load broker");

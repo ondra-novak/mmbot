@@ -756,6 +756,7 @@ void WebCfg::State::applyConfig(SharedObject<Traders>  &st) {
 		t->removeTrader(n, !data["traders"][n].defined());
 	}
 
+	t->walletDB.lock()->clear();
 	traderNames.clear();
 	t->stockSelector.eraseSubaccounts();
 
