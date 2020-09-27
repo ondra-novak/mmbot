@@ -82,8 +82,7 @@ public:
 	virtual std::string_view getID() const = 0;
 	virtual double calcInitialPosition(const IStockApi::MarketInfo &minfo, double price, double assets, double currency) const = 0;
 	virtual BudgetInfo getBudgetInfo() const = 0;
-	virtual std::optional<BudgetExtraInfo> getBudgetExtraInfo(double price, double currency) const = 0;
-	virtual double calcCurrencyAllocation() const = 0;
+	virtual double calcCurrencyAllocation(double price) const = 0;
 	virtual ~IStrategy() {}
 
 

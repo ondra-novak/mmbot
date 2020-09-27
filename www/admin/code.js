@@ -413,7 +413,7 @@ App.prototype.fillForm = function (src, trg) {
 					strategy:strategy,
 					price:pair.price,
 					assets:avail.asset,
-					currency:avail.currency,
+					currency:avail.currency+data.ext_bal,
 					leverage:pair.leverage,
 					inverted: pair.invert_price,
 					trader:src.id
@@ -452,16 +452,9 @@ App.prototype.fillForm = function (src, trg) {
 		data.err_external_assets_inverse={
 			"classList":{mark:!pair.asset_balance && pair.invert_price}
 		};
-		if (state.budget) {
-		    data.calc_budget = adjNum(state.budget.total);
-		    data.calc_budget_extra = adjNum(state.budget.extra);
-		    data.l_budget = {".hidden":false};
-		} else {
-            data.l_budget = {".hidden":true};			
-		}
 		
 		if (first_fetch) {
-			["strategy","external_assets","gs_external_assets", "hp_dtrend","hp_longonly","hp_power", "hp_maxloss", "hp_recalc", "hp_asym","hp_powadj", "hp_extbal", "hp_reduction","hp_dynred","exp_optp","sh_curv"]
+			["strategy","external_assets","gs_external_assets", "hp_dtrend","hp_longonly","hp_power", "hp_maxloss", "hp_recalc", "hp_asym","hp_powadj", "hp_extbal", "hp_reduction","hp_dynred","exp_optp","sh_curv","ext_bal"]
 			.forEach(function(item){
 				trg.findElements(item).forEach(function(elem){
 					elem.addEventListener("input", function(){recalc_strategy_fn();});
@@ -629,6 +622,7 @@ App.prototype.fillForm = function (src, trg) {
 	data.min_balance = filledval(src.min_balance,"");
 	data.zigzag = filledval(src.zigzag,false);
 	data.max_leverage = filledval(src.max_leverage,0);
+	data.ext_bal = filledval(src.ext_bal,0);
 		
 
 	
@@ -789,6 +783,7 @@ App.prototype.saveForm = function(form, src) {
 	trader.report_position_offset = data.report_position_offset;
 	trader.report_order = data.report_order;
 	trader.force_spread = Math.log(data.force_spread/100+1);
+	trader.ext_bal = data.ext_bal;
 	if (isFinite(data.min_balance)) trader.min_balance = data.min_balance;
 	if (isFinite(data.max_balance)) trader.max_balance = data.max_balance;
 	return trader;

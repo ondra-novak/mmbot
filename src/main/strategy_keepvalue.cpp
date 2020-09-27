@@ -206,10 +206,8 @@ double Strategy_KeepValue::calcInitialPosition(const IStockApi::MarketInfo &minf
 	else return (assets +cfg.ea+ currency/price)*0.5;
 }
 
-std::optional<IStrategy::BudgetExtraInfo> Strategy_KeepValue::getBudgetExtraInfo(double price, double currency) const {
-	return std::optional<IStrategy::BudgetExtraInfo>();
-}
 
-double Strategy_KeepValue::calcCurrencyAllocation() const {
-	return calcReqCurrency(st, cfg, st.p);
+
+double Strategy_KeepValue::calcCurrencyAllocation(double price) const {
+	return calcReqCurrency(st, cfg, price);
 }

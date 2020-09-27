@@ -124,7 +124,7 @@ bool AuthMapper::checkAuth(const simpleServer::HTTPRequest &req) const {
 				StrViewA type = hdr_splt();
 				StrViewA cred = hdr_splt();
 				if (type == "Basic") {
-					auto credobj = AuthUserList::decodeBasicAuth(cred);	std::this_thread::sleep_for(std::chrono::seconds(1));
+					auto credobj = AuthUserList::decodeBasicAuth(cred);
 					if (users->findUser(credobj.first, credobj.second)) {
 						return true;
 					}

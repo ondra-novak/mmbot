@@ -64,6 +64,7 @@ void MTrader_Config::loadConfig(json::Value data, bool force_dry_run) {
 
 	accept_loss = data["accept_loss"].getValueOrDefault(1);
 	max_leverage = data["max_leverage"].getValueOrDefault(0);
+	external_balance= data["ext_bal"].getValueOrDefault(0.0);
 
 	force_spread = data["force_spread"].getValueOrDefault(0.0);
 	report_position_offset = data["report_position_offset"].getValueOrDefault(0.0);
@@ -376,7 +377,10 @@ void MTrader::perform(bool manually) {
 			//report misc
 			auto minmax = strategy.calcSafeRange(minfo, status.assetBalance, status.currencyBalance);
 			auto budget = strategy.getBudgetInfo();
-			auto budget_extra = strategy.getBudgetExtraInfo(status.curPrice, status.currencyBalance);
+			std::optional<double> budget_extra;
+			if (minfo.leverage == 0)
+				budget_extra =  status.currencyBalance - walletDB.lock_shared()->query(WalletDB::KeyQuery(
+												cfg.broker,minfo.wallet_id,minfo.currency_symbol,uid)).total()+cfg.external_balance;
 
 			statsvc->reportMisc(IStatSvc::MiscData{
 				last_trade_dir,
@@ -388,7 +392,7 @@ void MTrader::perform(bool manually) {
 				minmax.max,
 				budget.total,
 				budget.assets,
-				budget_extra.has_value() && minfo.leverage==0?std::optional<double>(budget_extra->extra):std::optional<double>(),
+				budget_extra,
 				trades.size(),
 				trades.empty()?0:(trades.back().time-trades[0].time)
 			});
@@ -921,8 +925,8 @@ void MTrader::loadState() {
 	tempPr.simulator = minfo.simulator;
 	tempPr.invert_price = minfo.invert_price;
 	if (cfg.zigzag) updateZigzagLevels();
-	if (strategy.isValid()) {
-		walletDB.lock()->alloc(getWalletKey(), strategy.calcCurrencyAllocation());
+	if (strategy.isValid() && !trades.empty()) {
+		walletDB.lock()->alloc(getWalletKey(), strategy.calcCurrencyAllocation(trades.back().eff_price));
 	}
 
 }
@@ -1050,7 +1054,7 @@ bool MTrader::processTrades(Status &st) {
 			trades.push_back(TWBItem(t, last_np, last_ap, 0, true));
 		}
 	}
-	walletDB.lock()->alloc(getWalletKey(), strategy.calcCurrencyAllocation());
+	walletDB.lock()->alloc(getWalletKey(), strategy.calcCurrencyAllocation(last_price));
 	return true;
 }
 

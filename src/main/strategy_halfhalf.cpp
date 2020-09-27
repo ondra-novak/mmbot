@@ -141,12 +141,7 @@ double Strategy_HalfHalf::calcInitialPosition(const IStockApi::MarketInfo &minfo
 	else return (assets + cfg.ea+currency/price)*0.5;
 }
 
-std::optional<IStrategy::BudgetExtraInfo> Strategy_HalfHalf::getBudgetExtraInfo(double price, double currency) const {
-	double b = 2*price*(a+cfg.ea);
-	double e = (a+cfg.ea) * price + currency - b;
-	return BudgetExtraInfo {b, e};
-}
 
-double Strategy_HalfHalf::calcCurrencyAllocation() const {
-	return p*a;
+double Strategy_HalfHalf::calcCurrencyAllocation(double price) const {
+	return price*a;
 }

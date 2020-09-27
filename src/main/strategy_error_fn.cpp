@@ -299,12 +299,7 @@ double Strategy_ErrorFn::calcInitialPosition(const IStockApi::MarketInfo &minfo,
 	return a;
 }
 
-std::optional<IStrategy::BudgetExtraInfo> Strategy_ErrorFn::getBudgetExtraInfo(double price, double currency) const {
-	double b = calcAccountValue(st, cfg.ea, price);
-	double e = (st.a+cfg.ea) * price + currency - b;
-	return BudgetExtraInfo {b, e};
-}
 
-double Strategy_ErrorFn::calcCurrencyAllocation() const {
-	return calcReqCurrency(st,cfg.ea,st.p,cfg.rebalance);
+double Strategy_ErrorFn::calcCurrencyAllocation(double price) const {
+	return calcReqCurrency(st,cfg.ea,price,cfg.rebalance);
 }

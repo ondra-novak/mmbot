@@ -191,15 +191,6 @@ IStrategy::BudgetInfo Strategy_ConstantStep::getBudgetInfo() const {
 	};
 }
 
-std::optional<IStrategy::BudgetExtraInfo> Strategy_ConstantStep::getBudgetExtraInfo(
-		double price, double currency) const {
-	auto consts = calcConsts(st.a+cfg.ea, st.p, st.m);
-	return BudgetExtraInfo {
-		calcAccountValue(consts, price),
-		currency - price * consts.k
-	};
-
-}
 
 Strategy_ConstantStep::Consts Strategy_ConstantStep::calcConsts(double a, double p, double max) {
 	double k = max > p?a / std::log(max/p):a;
@@ -223,6 +214,6 @@ double Strategy_ConstantStep::calcAccountValue(const Consts &cst, double price) 
 	return price*(cst.c-cst.k*std::log(price));
 }
 
-double Strategy_ConstantStep::calcCurrencyAllocation() const {
-	return st.a * st.p / std::log(st.m/st.p);
+double Strategy_ConstantStep::calcCurrencyAllocation(double price) const {
+	return st.a * price / std::log(st.m/price);
 }

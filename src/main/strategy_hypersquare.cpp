@@ -261,12 +261,8 @@ double Strategy_HyperSquare::calcInitialPosition(const IStockApi::MarketInfo &mi
 	return a;
 }
 
-std::optional<IStrategy::BudgetExtraInfo> Strategy_HyperSquare::getBudgetExtraInfo(double price, double currency) const {
-	double b = calcAccountValue(st, cfg.ea, price);
-	double e = (st.a+cfg.ea) * price + currency - b;
-	return BudgetExtraInfo {b, e};
-}
 
-double Strategy_HyperSquare::calcCurrencyAllocation() const {
-	return calcReqCurrency(st, cfg.ea, st.p);
+
+double Strategy_HyperSquare::calcCurrencyAllocation(double price) const {
+	return calcReqCurrency(st, cfg.ea, price);
 }

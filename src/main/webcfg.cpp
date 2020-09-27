@@ -965,18 +965,6 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req)  {
 				result.set("strategy", strategy);
 				result.set("position", position);
 				result.set("trades", tradeCnt);
-				if (pair["leverage"].getNumber() == 0 && tr)
-				{
-					Strategy stratobj=trl->getStrategy();
-					auto b = stratobj.getBudgetExtraInfo(
-							pair["price"].getNumber(),
-							avail_cur);
-					if (b.has_value()) {
-						result.set("budget",Object
-								("total", b->total)
-								("extra",b->extra));
-					}
-				}
 
 
 				req.sendResponse("application/json", Value(result).stringify());

@@ -93,7 +93,7 @@ public:
 	virtual std::optional<BudgetExtraInfo> getBudgetExtraInfo(double price, double currency) const {
 		return std::optional<BudgetExtraInfo>();
 	}
-	virtual double calcCurrencyAllocation() const override;
+	virtual double calcCurrencyAllocation(double price) const override;
 
 
 

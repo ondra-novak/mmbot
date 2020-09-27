@@ -54,6 +54,7 @@ public:
 		double thisTrader;
 		double otherTraders;
 		unsigned int traders;
+		double total() const {return thisTrader+otherTraders;}
 	};
 
 	using AllocTable = std::map<Key, double, KeyLess>;

@@ -39,7 +39,6 @@
 <div class="label"><span>Asset balance (position):</span><span><span data-name="balance_asset"></span> <span data-name="asset" ></span></span></div>
 <div class="label"><span>Currency balance (free/total):</span><span><span data-name="balance_currency_free"></span>&nbsp;/&nbsp;<span data-name="balance_currency"></span> <span data-name="currency" ></span></span></div>
 <div class="label"><span>Calculated position:</span><div><span data-name="hdr_position"></span> <span data-name="asset" ></span> <button data-name="sync_pos" hidden="hidden">Sync</button></div></div>
-<div class="label" data-name="l_budget"><span>Strategy budget (extra):</span><span><span data-name="calc_budget"></span>&nbsp;<span data-name="currency" ></span>&nbsp;(<span data-name="calc_budget_extra"></span>&nbsp;<span data-name="currency" ></span>)</span></div>
 <div class="label"><span>Price</span><span data-name="price"></span></div>
 <div class="label"><span>Fees</span><span><span data-name="fees"></span>%</span></div>
 <div class="label" data-name="l_leverage"><span>Leverage</span><span data-name="leverage"></span></div>
@@ -281,6 +280,7 @@ Specifies maximum allowed asset balance (or position, for short use negative val
 <label class="adv"><span>Report - position offset<span class="tooltip">Allows to sync the position on the report page with the actual state on the echange.<br>
 The position is not generally in the sync due to various issues. You need to specify a difference between the calculated position presented on the report page and the actual position on the exchhange
 </span></span><input type="number" step="any" data-name="report_position_offset"></label>
+<label class="adv"><span>External currency balance (<span data-name="currency"></span>)<span class="tooltip">If you doesn't keep all money on the exchange, you can specify amount of money held outside of the exchange. This only affect some statistics, but not the strategy itself.</span></span><input type="number" step="any" data-name="ext_bal"></label>
 <label class="adv"><span>Ordering (position in the report)<span class="tooltip">Specifies order in report page. The traders are ordered by this ascending number. If there are two traders with
 the same order, they are ordered by its ID - this is the default ordering. Modifying this number you can change the default ordering.
 </span></span><input type="number" step="any" data-name="report_order"></label>
