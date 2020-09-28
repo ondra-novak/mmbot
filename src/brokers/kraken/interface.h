@@ -82,6 +82,7 @@ protected:
 	double getSpotBalance(const std::string_view &symb) ;
 	double getCollateral(const std::string_view &symb) ;
 	double getPosition(const std::string_view &market) ;
+	json::Value placeOrderImp(const std::string_view & pair, double size, double price, json::Value clientId, bool lev);
 };
 
 #endif

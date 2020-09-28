@@ -127,6 +127,7 @@ std::vector<std::string> Interface::getAllPairs() {
 		res.push_back(String({"ex_",row.getKey()}).str());
 		if (!row["leverage_buy"].empty() && !row["leverage_sell"].empty())  {
 			res.push_back(String({"lv_",row.getKey()}).str());
+			res.push_back(String({"hb_",row.getKey()}).str());
 		}
 	}
 	return res;
@@ -451,6 +452,40 @@ std::string double2string(double x, unsigned int decimals) {
 	return buff.str();
 }
 
+json::Value Interface::placeOrderImp(const std::string_view &pair, double size, double price, json::Value clientId, bool lev) {
+
+	auto symb = stripPrefix(pair);
+	Value symbinfo = pairMap[symb];
+
+	Object req;
+	req("pair",symb)
+	   ("type",size<0?"sell":"buy")
+	   ("ordertype","limit")
+	   ("price",double2string(price, symbinfo["pair_decimals"].getUInt()))
+	   ("volume",double2string(std::abs(size), symbinfo["lot_decimals"].getUInt()))
+	   ("oflags","fciq,post");
+	if (lev) {
+		double levlev = symbinfo[size<0?"leverage_sell":"leverage_buy"]
+				.reduce([&](double a, Value b){
+			return std::max(a, b.getNumber());
+		},0.0);
+		req("leverage", levlev);
+	}
+	if (clientId.defined()) {
+		std::hash<json::Value> h;
+		std::int32_t userref = ((h(clientId) & 0x7FFFFFFE) + 1);
+		Value key = {pair,userref};
+		Value cc = orderDB.get(key);
+		if (!cc.defined()) {
+			orderDB.store(key, clientId);
+		}
+		req("userref", userref);
+	}
+	Value resp = private_POST("/0/private/AddOrder", req);
+	return resp["result"]["txid"][0];
+
+}
+
 json::Value Interface::placeOrder(const std::string_view &pair, double size, double price,
 		json::Value clientId, json::Value replaceId, double replaceSize) {
 
@@ -469,6 +504,7 @@ json::Value Interface::placeOrder(const std::string_view &pair, double size, dou
 			return nullptr;
 		}
 	}
+
 
 
 
@@ -498,39 +534,25 @@ json::Value Interface::placeOrder(const std::string_view &pair, double size, dou
 					lev = true;
 					if (pos + size < 0) size = -pos;
 				} else {
-					lev = getSpotBalance(base) < size;
+					lev = getSpotBalance(base) < -size;
 				}
 			}
 			break;}
 		}
-
-		Object req;
-		req("pair",symb)
-		   ("type",size<0?"sell":"buy")
-		   ("ordertype","limit")
-		   ("price",double2string(price, symbinfo["pair_decimals"].getUInt()))
-		   ("volume",double2string(std::abs(size), symbinfo["lot_decimals"].getUInt()))
-		   ("oflags","fciq,post");
-		if (lev) {
-			double levlev = symbinfo[size<0?"leverage_sell":"leverage_buy"]
-					.reduce([&](double a, Value b){
-				return std::max(a, b.getNumber());
-			},0.0);
-			req("leverage", levlev);
-		}
-		if (clientId.defined()) {
-			std::hash<json::Value> h;
-			std::int32_t userref = ((h(clientId) & 0x7FFFFFFE) + 1);
-			Value key = {pair,userref};
-			Value cc = orderDB.get(key);
-			if (!cc.defined()) {
-				orderDB.store(key, clientId);
+		try {
+			return placeOrderImp(pair, size, price, clientId, lev);
+		} catch (const std::exception &e) {
+			StrViewA msg(e.what());
+			if (msg.indexOf("Insufficient funds") != msg.npos && mt == MarketType::hybrid && !lev) {
+				return placeOrderImp(pair, size, price, clientId, true);
+			} else {
+				throw;
 			}
-			req("userref", userref);
 		}
-		Value resp = private_POST("/0/private/AddOrder", req);
-		return resp["result"]["txid"][0];
+
+
 	}
+
 
 	return nullptr; //todo
 }
