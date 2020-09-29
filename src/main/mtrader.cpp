@@ -253,7 +253,8 @@ void MTrader::perform(bool manually) {
 			if (achieve_mode) {
 				achieve_mode = !checkAchieveModeDone(status);
 				grant_trade |= achieve_mode;
-			} else  if (!cfg.alerts && !cfg.delayed_alerts && !grant_trade) {
+			} else  if (!cfg.alerts && !cfg.delayed_alerts && !grant_trade
+					&& (trades.empty() || trades.back().size != 0)) {
 				grant_trade = !checkEquilibriumClose(status,lastTradePrice);
 			}
 
@@ -631,6 +632,42 @@ MTrader::Status MTrader::getMarketStatus() const {
 	return res;
 }
 
+bool MTrader::calculateOrderFeeLessAdjust(Order &order, int dir, double mult, bool alerts, double min_size, const ZigZagLevels &zlev) const {
+
+	Strategy::adjustOrder(dir, mult, alerts, order);
+
+	modifyOrder(zlev,dir, order);
+
+
+
+	if (order.alert == IStrategy::Alert::forced) {
+		return true;
+	}
+
+	double d;
+	if (!checkLeverage(order, d))  {
+		order.size = d;
+		if (d == 0) {
+			order.alert = IStrategy::Alert::forced;
+			return true;
+		}
+	}
+
+	if (cfg.max_size && std::fabs(order.size) > cfg.max_size) {
+		order.size = cfg.max_size*dir;
+	}
+	if (std::fabs(order.size) < min_size) order.size = 0;
+	if (minfo.min_volume) {
+		double op = order.price;
+		double os = order.size;
+		minfo.addFees(os,op);
+		double vol = std::fabs(op * os);
+		if (vol < minfo.min_volume) order.size = 0;
+	}
+
+	return false;
+
+}
 
 MTrader::Order MTrader::calculateOrderFeeLess(
 		double prevPrice,
@@ -652,13 +689,25 @@ MTrader::Order MTrader::calculateOrderFeeLess(
 
 	double min_size = std::max(cfg.min_size, minfo.min_size);
 	double dir = sgn(-step);
-	bool rej = false;
+
+	double newPrice = prevPrice * exp(step*dynmult*m);
+	double newPriceNoScale= prevPrice * exp(step*m);
+
+	order= strategy.getNewOrder(minfo,curPrice, cfg.dynmult_scale?newPrice:newPriceNoScale,dir, balance, currency, false);
+
+	if (order.price <= 0) order.price = newPrice;
+	if ((order.price - curPrice) * dir < 0) {
+		if (calculateOrderFeeLessAdjust(order, dir, mult, alerts, min_size, zlev)) return order;
+		if (order.size != 0) return order;
+	}
+
+
 
 	do {
 		prevSz = sz;
 
-		double newPrice = prevPrice * exp(step*dynmult*m);
-		double newPriceNoScale= prevPrice * exp(step*m);
+		newPrice = prevPrice * exp(step*dynmult*m);
+		newPriceNoScale= prevPrice * exp(step*m);
 
 		if ((newPrice - curPrice) * dir > 0) {
 			newPrice = curPrice;
@@ -667,9 +716,8 @@ MTrader::Order MTrader::calculateOrderFeeLess(
 			newPriceNoScale = curPrice;
 		}
 
+		order= strategy.getNewOrder(minfo,curPrice, cfg.dynmult_scale?newPrice:newPriceNoScale,dir, balance, currency, true);
 
-		order= strategy.getNewOrder(minfo,curPrice, cfg.dynmult_scale?newPrice:newPriceNoScale,dir, balance, currency, rej);
-		rej = true;
 
 
 		if (order.price <= 0) order.price = newPrice;
@@ -677,37 +725,9 @@ MTrader::Order MTrader::calculateOrderFeeLess(
 			order.price = curPrice;
 		}
 
-		logDebug("getNewOrder(curPrice=$1, newPrice=$2, dir=$3, assets=$4, currencies=$5, fee=$6) = (price=$7, size=$8, alert=$9)",
-				curPrice, cfg.dynmult_scale?newPrice:newPriceNoScale,dir, balance, currency, minfo.fees,order.price, order.size,(int)order.alert);
-
 		sz = order.size;
 
-
-		Strategy::adjustOrder(dir, mult, alerts, order);
-
-		modifyOrder(zlev,dir, order);
-
-
-		if (order.alert == IStrategy::Alert::forced) {
-			logDebug("Calc order: alert is forced: op=$1, np=$2, osz=$3, curPrice=$4", order.price, newPrice, sz, curPrice);
-			return order;
-		}
-
-		if (cfg.max_size && std::fabs(order.size) > cfg.max_size) {
-			order.size = cfg.max_size*dir;
-		}
-		if (std::fabs(order.size) < min_size) order.size = 0;
-		if (minfo.min_volume) {
-			double op = order.price;
-			double os = order.size;
-			minfo.addFees(os,op);
-			double vol = std::fabs(op * os);
-			if (vol < minfo.min_volume) order.size = 0;
-		}
-
-		if (order.size == 0) {
-			logDebug("Calc order: size = 0, sz = $1, prevsz = $2, cnt = $3, m = $4, op=$5, np=$6", sz, prevSz, cnt, m, order.price, newPrice);
-		}
+		if (calculateOrderFeeLessAdjust(order, dir, mult, alerts, min_size, zlev)) return order;
 
 		cnt++;
 		m = m*1.1;
@@ -1516,20 +1536,33 @@ bool MTrader::checkEquilibriumClose(const Status &st, double lastTradePrice) {
 
 }
 
-void MTrader::checkLeverage(const Order &order) {
+bool MTrader::checkLeverage(const Order &order, double &maxSize) const {
 	if (minfo.leverage && cfg.max_leverage
 			&& currency_balance.has_value()) {
 		double bal = *currency_balance;
+
 		if (!trades.empty()) {
-			double chng = (order.price - trades.back().eff_price);
+			double chng = order.price - trades.back().eff_price;
 			bal += chng * *internal_balance;
-			double max_bal = bal * cfg.max_leverage;
-			double cash_flow = *internal_balance * order.size < 0?
-					std::abs((order.size + *internal_balance)  * order.price)
-					:std::abs(order.size  * order.price);
-			if (cash_flow > max_bal) throw std::runtime_error("Over max leverage");
+		}
+		double max_bal = bal * cfg.max_leverage;
+		double cash_flow = *internal_balance * order.size < 0?
+				std::abs((order.size + *internal_balance)  * order.price)
+				:std::abs(order.size  * order.price);
+		if (cash_flow > max_bal) {
+			maxSize = (max_bal / order.price - std::abs(*internal_balance));
+			if (maxSize < 0) maxSize = 0;
+			maxSize *= sgn(order.size);
+			return false;
 		}
 	}
+	return true;
+
+}
+
+void MTrader::checkLeverage(const Order &order) const {
+	double d;
+	if (!checkLeverage(order, d)) throw std::runtime_error("Over max leverage");
 }
 
 
