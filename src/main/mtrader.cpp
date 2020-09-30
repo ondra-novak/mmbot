@@ -1538,7 +1538,7 @@ bool MTrader::checkEquilibriumClose(const Status &st, double lastTradePrice) {
 
 bool MTrader::checkLeverage(const Order &order, double &maxSize) const {
 	if (minfo.leverage && cfg.max_leverage
-			&& currency_balance.has_value()) {
+			&& currency_balance.has_value() && order.size * *internal_balance > 0) {
 		double bal = *currency_balance;
 
 		if (!trades.empty()) {
