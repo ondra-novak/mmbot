@@ -313,7 +313,9 @@ IStrategy::OrderData Strategy_Leveraged<Calc>::getNewOrder(
 		else
 			return {0,0,Alert::stoploss};
 	} else {
-		if (!rej && std::abs(st.position) * price > (st.bal+cfg->external_balance)*0.5 && st.val > 0) {
+		double bal = (st.bal+cfg->external_balance);;
+		double lev = std::abs(st.position) * st.last_price / bal;
+		if (!rej && lev > 0.5 && st.val > 0) {
 			if (cfg->fastclose && dir * st.position < 0) {
 				double midl = calc->calcPrice0(st.neutral_price, asym);
 				double calc_price = (price - midl) * (st.last_price - midl) < 0?midl:price;
@@ -323,9 +325,23 @@ IStrategy::OrderData Strategy_Leveraged<Calc>::getNewOrder(
 					double fastclose_delta = valdiff/st.position;
 					double close_price = fastclose_delta+st.last_price;
 					if (close_price * dir < curPrice * dir && close_price * dir > price * dir) {
-						logDebug("Fast close active: valdiff=$1, delta=$2, spread=$3",
-								valdiff, fastclose_delta, price-st.last_price);
 						price = close_price;
+
+						auto cps = calcPosition(close_price);
+						double newlev = std::abs(cps)*close_price / bal;
+						if (lev > 2) {
+							int cnt = 20;
+							 while (newlev < lev - 1 && cnt) {
+								 close_price = (close_price + st.last_price)*0.5;
+								auto cps = calcPosition(close_price);
+								 newlev = std::abs(cps)*close_price / bal;
+								 cnt --;
+							 }
+							 if (cnt) {
+								 price = close_price;
+							 }
+
+						}
 
 					}
 				}
@@ -344,6 +360,7 @@ IStrategy::OrderData Strategy_Leveraged<Calc>::getNewOrder(
 
 				}
 			}
+
 		}
 
 
