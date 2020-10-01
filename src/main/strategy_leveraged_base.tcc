@@ -315,7 +315,7 @@ IStrategy::OrderData Strategy_Leveraged<Calc>::getNewOrder(
 	} else {
 		double bal = (st.bal+cfg->external_balance);;
 		double lev = std::abs(st.position) * st.last_price / bal;
-		if (!rej && lev > 0.5 && st.val > 0) {
+		if (!rej && ((lev > 0.5 && st.redbal != st.bal) || lev>2)  && st.val > 0) {
 			if (cfg->fastclose && dir * st.position < 0) {
 				double midl = calc->calcPrice0(st.neutral_price, asym);
 				double calc_price = (price - midl) * (st.last_price - midl) < 0?midl:price;
@@ -329,7 +329,7 @@ IStrategy::OrderData Strategy_Leveraged<Calc>::getNewOrder(
 
 						auto cps = calcPosition(close_price);
 						double newlev = std::abs(cps)*close_price / bal;
-						if (lev > 2) {
+						if (lev > 2 && st.bal != st.redbal) {
 							int cnt = 20;
 							 while (newlev < lev - 1 && cnt) {
 								 close_price = (close_price + st.last_price)*0.5;
