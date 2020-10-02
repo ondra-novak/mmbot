@@ -18,7 +18,7 @@
 using json::Value;
 using ondra_shared::logDebug;
 
-static constexpr double to_balanced_factor = 1.260761765;
+static constexpr double to_balanced_factor = 1.7321;
 
 #include "../shared/logOutput.h"
 std::string_view Strategy_HyperSquare::id = "hypersquare";
@@ -47,21 +47,30 @@ PStrategy Strategy_HyperSquare::onIdle(
 
 PStrategy Strategy_HyperSquare::init(const IStockApi::MarketInfo &m, double price, double assets, double cur) const {
 	if (price <= 0) throw std::runtime_error("Strategy: invalid ticker price");
-	if (cfg.optp <=0) throw std::runtime_error("Strategy: Incomplete configuration");
 	State nst;
-	nst.k = (m.invert_price?1.0 / cfg.optp:cfg.optp )/ to_balanced_factor;
-	if (st.p > 0 && st.a + cfg.ea > 0) {
-		nst.a = st.a;
-		nst.p = st.p;
-	} else {
-		if (cfg.ea + assets <= 0) {
-			assets = calcInitialPosition(m,price,assets,cur);
+	double ratio = assets * price / (cur+assets * price);
+	if (!std::isfinite(ratio) || ratio <=0) {
+		nst.k = price/ to_balanced_factor;
+		if (st.p > 0 && st.a + cfg.ea > 0) {
+			nst.a = st.a;
+			nst.p = st.p;
+		} else {
 			if (cfg.ea + assets <= 0) {
-				 throw std::runtime_error("Strategy: Can't trade zero budget");
+				assets = calcInitialPosition(m,price,assets,cur);
+				if (cfg.ea + assets <= 0) {
+					 throw std::runtime_error("Strategy: Can't trade zero budget");
+				}
 			}
+			nst.a = assets;
+			nst.p = price;
 		}
-		nst.a = assets;
+	} else {
+		double k = numeric_search_r2(price/100.0,[&](double x){
+			return price*calcA(1,x,price)/calcAccountValue(1,x,price)-ratio;
+		});
+		nst.k = k;
 		nst.p = price;
+		nst.a = assets;
 	}
 	nst.f = cur;
 	return new Strategy_HyperSquare(cfg, std::move(nst));
@@ -95,6 +104,7 @@ json::Value Strategy_HyperSquare::exportState() const {
 	return json::Object
 			("p",st.p)
 			("a",st.a)
+			("k",st.k)
 			("f",st.f);
 }
 
@@ -102,7 +112,8 @@ PStrategy Strategy_HyperSquare::importState(json::Value src,const IStockApi::Mar
 	State newst {
 		src["a"].getNumber(),
 		src["p"].getNumber(),
-		src["f"].getNumber()
+		src["f"].getNumber(),
+		src["k"].getNumber()
 	};
 	return new Strategy_HyperSquare(cfg, std::move(newst));
 }
@@ -253,11 +264,11 @@ double Strategy_HyperSquare::findRoot(double w, double k, double p, double c) {
 }
 
 double Strategy_HyperSquare::calcInitialPosition(const IStockApi::MarketInfo &minfo, double price, double assets, double currency) const {
-	double budget = minfo.leverage?currency:(assets+cfg.ea)*price+currency;
-	double k = (minfo.invert_price?1.0/cfg.optp:cfg.optp) / to_balanced_factor;
+	double budget = minfo.leverage?currency:assets*price+currency;
+	double k = price/ to_balanced_factor;
 	double norm_val = calcAccountValue(1, k, price);
 	double w = budget / norm_val;
-	double a= calcA(w,k,price)-cfg.ea;
+	double a= calcA(w,k,price);
 	return a;
 }
 

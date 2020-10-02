@@ -61,12 +61,14 @@
 </optgroup>
 <optgroup label="Leveraged (advanced traders)">
 <option value="sinh">Sinh/exponencial</option>
-<option value="linear">Linear</option>
-<option value="hyperbolic">Hyperbolic</option>
-<option value="stairs">Stairs</option>
 </optgroup>
 <optgroup label="Experimental">
 <option value="sinh2">Sinh - new version</option>
+</optgroup>
+<optgroup label="Old and obsolete">
+<option value="linear">Linear</option>
+<option value="hyperbolic">Hyperbolic</option>
+<option value="stairs">Stairs</option>
 </optgroup>
 </select></label>
 <div class="label strategygoal"><span>Startegy Goal:</span><div data-name="help_goal">
@@ -79,6 +81,7 @@
 <div class="sinh">The strategy uses hyperbolic function <b>sinh</b> to calculate position. It starts as <b>linear</b> however it increases position when price goes far away from neutral price. This increases chance to reduce position. Strategy is tuned to acheieve overall range between 0 and 2x of initial price. You can increase power to reduce tradable range to receive significant profit for less volatile markets. On inverse futures, basic settings allows to increase high of the range to the infinity.</div>
 <div class="stairs">This strategy generates orders in predefined steps. The size of the next order is affected by the current position in steps. You can set the maximum number of steps or the way the strategy jumps between steps. </div>
 <div class="hypersquare">This strategi is similar to Exponencial, but it is based on square hyperbolic function. Area for target average price is much wider then exponencial. <a href="https://www.desmos.com/calculator/pbfisabvcm" target="_blank">Interactive graph</a></div>
+<div class="errorfn">The best strategy for exchanges, can reach highest normalized profit. The core of the strategy is based on Gauss Error Function. The optimal range between -50% to +50%. If the price goes out of the optimal range, the Rebalance is performed to keep price in the optimal range<a href="https://www.desmos.com/calculator/uhkqt4ajvp">Interactive graph</a></div>
 </div></div>
 <div class="label"><span>Options</span><div>
 <div><x-checkbox data-name="enabled">Enable automatic trading</x-checkbox></div>
@@ -103,7 +106,6 @@ to enter a negative value and then the value of the assets held will decrease an
 Controls accumulation and adjusts Keep to slovly achieve assets value equal to currency value at current price. You can control strength by "accumulation".
 Function will accumulate assets, if there is more currencies than assets. It will release assets if there is more assets then fiat. External assets are
 included, external currencies are counted in proportion to external assets</span></span><x-checkbox data-name="kv_halfhalf">Enabled</x-checkbox></label>
-<label data-name="exp_optp_h"><span>Target average price<span class="tooltip">Specify expected target price where the strategy will be the most effective.</span></span><input type="number" step="any" data-name="exp_optp"></label>
 <div class="warning" data-name="err_external_assets">Unable to trade - This strategy requies to fund account with some assets [<span data-name="asset"></span>].  You can also set the "external assets" field above <span data-name="external_assets_hint">0</span>. You can use <b>Reset strategy</b> to perform initial buy.</div>
 <div class="warning" data-name="err_external_assets_margin">Unable to trade - This strategy needs to have a <b>long position</b> opened. You can also set external assets above <span data-name="external_assets_hint">0</span>. You can use <b>Reset strategy</b> to perform initial buy,</div>
 <div class="warning" data-name="err_external_assets_inverse">Unable to trade - This strategy needs to have a <b>short position</b> opened. You can also set external assets above <span data-name="external_assets_hint">0</span>. You can use <b>Reset strategy</b> to perform initial sell.</div>

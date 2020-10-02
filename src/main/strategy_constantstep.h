@@ -15,7 +15,6 @@ public:
 	struct Config {
 			double ea;
 			double accum;
-			double optp;
 		};
 
 	struct State {

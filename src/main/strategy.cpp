@@ -66,19 +66,16 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 		Strategy_Exponencial::Config cfg;
 		cfg.ea = config["ea"].getNumber();
 		cfg.accum = config["accum"].getNumber();
-		cfg.optp = config["optp"].getNumber();
 		return Strategy(new Strategy_Exponencial(cfg));
 	} else if (id == Strategy_HyperSquare::id) {
 		Strategy_HyperSquare::Config cfg;
 		cfg.ea = config["ea"].getNumber();
 		cfg.accum = config["accum"].getNumber();
-		cfg.optp = config["optp"].getNumber();
 		return Strategy(new Strategy_HyperSquare(cfg));
 	} else if (id == Strategy_ConstantStep::id) {
 		Strategy_ConstantStep::Config cfg;
 		cfg.ea = config["ea"].getNumber();
 		cfg.accum = config["accum"].getNumber();
-		cfg.optp = config["optp"].getNumber();
 		return Strategy(new Strategy_ConstantStep(cfg));
 	} else if (id == Strategy_ErrorFn::id) {
 		Strategy_ErrorFn::Config cfg;

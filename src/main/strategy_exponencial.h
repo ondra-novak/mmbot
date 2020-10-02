@@ -17,7 +17,6 @@ public:
 	struct Config {
 		double ea;
 		double accum;
-		double optp;
 	};
 
 
@@ -51,6 +50,7 @@ public:
 	static double calcA(double w, double k, double p);
 	double calcA(double price) const;
 	static double calcAccountValue(const State &st,double ea, double price);
+	static double calcAccountValue(double w, double k, double p);
 	static double calcReqCurrency(const State &st,double ea, double price);
 	PStrategy init(const IStockApi::MarketInfo &m, double price, double assets, double cur) const;
 	virtual double calcInitialPosition(const IStockApi::MarketInfo & , double price, double assets, double currency) const override;

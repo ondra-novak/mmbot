@@ -10,6 +10,7 @@
 #include <cmath>
 #include "../imtjson/src/imtjson/object.h"
 #include "../imtjson/src/imtjson/value.h"
+#include "numerical.h"
 
 using json::Value;
 
@@ -146,23 +147,38 @@ PStrategy Strategy_ConstantStep::init(const IStockApi::MarketInfo &m,
 		double price, double assets, double cur) const {
 
 	State nst = st;
-	if (nst.p <= 0) {
+	double ratio = assets * price / (cur+assets * price);
+	if (!std::isfinite(ratio) || ratio <=0) {
+		if (nst.p <= 0) {
+			nst.p = price;
+			nst.a = assets;
+		}
+		double mp = price * 2;
+		if (nst.m <= 0) {
+			if (m.invert_price)
+				nst.m = 1.0/mp;
+			else
+				nst.m = mp;
+		}
+
+		if (nst.m < nst.p) {
+			nst.m = nst.p*2;
+			nst.a = calcInitialPosition(m,price,assets, cur);
+		}
+	} else {
+		double m = numeric_search_r2(price,[&](double x){
+			auto consts = calcConsts(assets, price, x);
+			if (x <= price) return -10.0;
+			double r = price*calcA(consts,price)/calcAccountValue(consts,price);
+			return r - ratio;
+		});
+		nst.m = m;
 		nst.p = price;
 		nst.a = assets;
-	}
-	nst.f = cur;
-	double mp = cfg.optp * 2;
-	if (nst.m <= 0) {
-		if (m.invert_price)
-			nst.m = 1.0/mp;
-		else
-			nst.m = mp;
+
 	}
 
-	if (nst.m < nst.p) {
-		nst.m = nst.p*2;
-		nst.a = calcInitialPosition(m,price,assets, cur);
-	}
+	nst.f = cur;
 
 	return PStrategy(new Strategy_ConstantStep(cfg, std::move(nst)));
 
@@ -170,7 +186,7 @@ PStrategy Strategy_ConstantStep::init(const IStockApi::MarketInfo &m,
 
 double Strategy_ConstantStep::calcInitialPosition(const IStockApi::MarketInfo& minfo,  double price, double assets, double currency) const {
 	double atot = cfg.ea + assets +  currency/price;
-	double mp = cfg.optp*2;
+	double mp = price*2;
 	if (mp <price) mp = price * 2;
 	double m = minfo.invert_price?1.0/mp:mp;
 	double k = atot/(1 + std::log(m/price));
