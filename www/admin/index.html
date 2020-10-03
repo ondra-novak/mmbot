@@ -600,6 +600,7 @@ the same order, they are ordered by its ID - this is the default ordering. Modif
 <x-form class="floating" hidden="hidden" data-name="options_form">
 <div class="backtesticons">
 	<div class="icon" data-name="select_file"><img src="../res/upload_data.png" title="Upload 1minute data or exported trades in CSV" ></div>
+	<div class="icon" data-name="random_chart"><img src="../res/random_chart.png" title="Generate random chart" ></div>
 	<div class="icon" data-name="icon_internal"><img src="../res/internal_data.png" title="Use internal data"></div> 
 	<div class="icon" data-name="icon_recalc"><img src="../res/recalc_data.png" title="Recalculate spread" ></div>
 	<div class="icon" data-name="export"><img src="../res/export_csv.png" title="Export CSV" > </div>
@@ -768,4 +769,17 @@ the same order, they are ordered by its ID - this is the default ordering. Modif
 <tr data-name="info[]" class="strategy_info"><th data-name="key"><td data-name="value"></tr>
 </table>
 </div>
+</template>
+
+<template id="random_dlg">
+<div class="dialog"><div class="randomdlg">
+<x-form>
+<h2>Generate random chart</h2>
+<label><span>Volatility [%]</span><input type="number" step="0.1" data-name="volatility"></label>
+<label><span>Noise [%]</span><input type="number" step="0.1" data-name="noise"></label>
+<label><span>Seed</span><input type="number" step="1" data-name="seed"></label>
+<button data-name="ok">Generate</button>
+<button data-name="cancel">Close</button>
+</x-form>
+</div></div>
 </template>

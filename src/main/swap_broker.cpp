@@ -35,6 +35,7 @@ IStockApi::MarketInfo SwapBroker::getMarketInfo(const std::string_view &pair) {
 		minfo.currency_symbol,
 		minfo.simulator,
 		minfo.private_chart,
+		minfo.wallet_id
 	};
 }
 
