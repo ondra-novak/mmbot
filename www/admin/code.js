@@ -413,6 +413,7 @@ App.prototype.fillForm = function (src, trg) {
 					price:pair.price,
 					assets:avail.asset,
 					currency:avail.currency,
+					extra_balance:data.ext_bal,
 					leverage:pair.leverage,
 					inverted: pair.invert_price,
 					trader:src.id
@@ -442,18 +443,9 @@ App.prototype.fillForm = function (src, trg) {
 
 		recalc_strategy_fn = recalcStrategy.bind(this);
 		
-		data.err_external_assets={
-			"classList":{mark:!pair.asset_balance && !pair.leverage}
-		};
-		data.err_external_assets_margin={
-			"classList":{mark:!pair.asset_balance && pair.leverage && !pair.invert_price}
-		};
-		data.err_external_assets_inverse={
-			"classList":{mark:!pair.asset_balance && pair.invert_price}
-		};
 		
 		if (first_fetch) {
-			["strategy","external_assets","gs_external_assets", "hp_dtrend","hp_longonly","hp_power", "hp_maxloss", "hp_recalc", "hp_asym","hp_powadj", "hp_extbal", "hp_reduction","hp_dynred","sh_curv"]
+			["strategy","external_assets","gs_external_assets", "hp_dtrend","hp_longonly","hp_power", "hp_maxloss", "hp_recalc", "hp_asym","hp_powadj", "hp_extbal", "hp_reduction","hp_dynred","sh_curv","ext_bal"]
 			.forEach(function(item){
 				trg.findElements(item).forEach(function(elem){
 					elem.addEventListener("input", function(){recalc_strategy_fn();});

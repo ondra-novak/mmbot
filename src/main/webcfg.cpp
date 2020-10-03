@@ -1439,6 +1439,7 @@ bool WebCfg::reqStrategy(simpleServer::HTTPRequest req) {
 	StrViewA trader = jreq["trader"].getString();
 	double assets = jreq["assets"].getNumber();
 	double currency = jreq["currency"].getNumber();
+	double extra_bal = jreq["extra_balance"].getNumber();
 	double price = jreq["price"].getNumber();
 	double leverage = jreq["leverage"].getNumber();
 	bool inverted = jreq["inverted"].getBool();
@@ -1465,10 +1466,10 @@ bool WebCfg::reqStrategy(simpleServer::HTTPRequest req) {
 		static_cast<std::uint64_t>(
 				std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count()
 				)
-	},assets,currency);
+	},assets,currency+extra_bal);
 
 	auto range = s.calcSafeRange(minfo, assets, currency);
-	auto initial = s.calcInitialPosition(minfo, price, assets, currency);
+	auto initial = s.calcInitialPosition(minfo, price, assets, currency+extra_bal);
 	Value out = Object
 			("min", inverted?1.0/range.max:range.min)
 			("max", inverted?1.0/range.min:range.max)

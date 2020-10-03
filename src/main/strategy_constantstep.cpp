@@ -52,7 +52,7 @@ std::pair<IStrategy::OnTradeResult, PStrategy> Strategy_ConstantStep::onTrade(
 
 	double df = (tradePrice - st.p) * csts.k;
 	double cf = -tradeSize * tradePrice;
-	double na = cf - df;
+	double na = tradeSize == assetsLeft?0:(cf - df);
 
 	double accum = calcAccumulation(st, cfg, tradePrice);
 
@@ -147,7 +147,8 @@ PStrategy Strategy_ConstantStep::init(const IStockApi::MarketInfo &m,
 		double price, double assets, double cur) const {
 
 	State nst = st;
-	double ratio = assets * price / (cur+assets * price);
+	double a = assets+cfg.ea;
+	double ratio = a * price / (cur+a * price);
 	if (!std::isfinite(ratio) || ratio <=0) {
 		if (nst.p <= 0) {
 			nst.p = price;

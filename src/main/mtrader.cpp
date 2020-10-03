@@ -282,7 +282,7 @@ void MTrader::perform(bool manually) {
 			}
 
 
-			strategy.onIdle(minfo, status.ticker, status.assetBalance, status.currencyBalance);
+			strategy.onIdle(minfo, status.ticker, status.assetBalance, status.currencyBalance+cfg.external_balance);
 
 			if (status.curStep) {
 
@@ -302,7 +302,7 @@ void MTrader::perform(bool manually) {
 													dynmult.getBuyMult(),
 													status.ticker.bid,
 													status.assetBalance,
-													status.currencyBalance,
+													status.currencyBalance+cfg.external_balance,
 													cfg.buy_mult,
 													zigzaglevels,
 													grant_trade?false:status.enable_alerts);
@@ -312,7 +312,7 @@ void MTrader::perform(bool manually) {
 													 dynmult.getSellMult(),
 													 status.ticker.ask,
 													 status.assetBalance,
-													 status.currencyBalance,
+													 status.currencyBalance+cfg.external_balance,
 													 cfg.sell_mult,
 													 zigzaglevels,
 													 grant_trade?false:status.enable_alerts);
@@ -1031,7 +1031,7 @@ bool MTrader::processTrades(Status &st) {
 
 
 
-	auto z = std::accumulate(new_trades.begin(), new_trades.end(),std::pair<double,double>(st.assetBalance,st.currencyBalance),
+	auto z = std::accumulate(new_trades.begin(), new_trades.end(),std::pair<double,double>(st.assetBalance,st.currencyBalance+cfg.external_balance),
 			[](const std::pair<double,double> &x, const IStockApi::Trade &y) {
 		return std::pair<double,double>(x.first - y.eff_size, x.second + y.eff_size*y.eff_price);}
 	);
@@ -1063,7 +1063,7 @@ bool MTrader::processTrades(Status &st) {
 		z.first += t.eff_size;
 		//don't calc currency balance on leveraged stocks
 		if (minfo.leverage)
-			z.second = st.currencyBalance;
+			z.second = st.currencyBalance+cfg.external_balance;
 		else
 			z.second -= t.eff_size * t.eff_price;
 		if (!achieve_mode && (cfg.enabled || first_cycle)) {
@@ -1506,8 +1506,11 @@ void MTrader::DynMultControl::reset() {
 void MTrader::activateAchieveMode(double position) {
 	strategy.reset();
 	auto tk = stock->getTicker(cfg.pairsymb);
-	auto cur = stock->getBalance(minfo.currency_symbol, cfg.pairsymb);
-	strategy.onIdle(minfo, tk, (minfo.invert_price?-1.0:1.0)*position, cur);
+	auto cur = stock->getBalance(minfo.currency_symbol, cfg.pairsymb)+cfg.external_balance;
+	auto ass = stock->getBalance(minfo.asset_symbol, cfg.pairsymb);
+	double diff = position - ass;
+	double vol = diff * tk.last;
+	strategy.onIdle(minfo, tk, (minfo.invert_price?-1.0:1.0)*position, cur-vol);
 	achieve_mode = true;
 	saveState();
 }
