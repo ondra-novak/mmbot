@@ -29,5 +29,6 @@ add_executable (mmbot
 	backtest.cpp
 	swap_broker.cpp
 	walletDB.cpp
+	random_chart.cpp
 	)
 target_link_libraries (mmbot LINK_PUBLIC simpleServer imtjson )

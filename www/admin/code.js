@@ -1498,6 +1498,10 @@ var show_op=false;
 var invert_chart = false;
 var reverse_chart = false;
 var allow_neg_balance = false;
+var rnd_preset={
+		"volatility":1,
+		"noise":1,		
+};
 
 
 App.prototype.init_backtest = function(form, id, pair, broker) {
@@ -1798,7 +1802,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		return dlg;		
 	}
 
-	function recalc_spread(prices, cntr) {
+	function recalc_spread(prices, cntr, extra) {
 		var data = form.readData(spread_inputs);
 		var mult = Math.pow(2,data.spread_mult*0.01);
 		var req = {
@@ -1815,6 +1819,9 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 			reverse: reverse_chart,
 			invert: invert_chart,
 			neg_bal: allow_neg_balance
+		}
+		if (extra !== undefined) {
+			req = Object.assign(req, extra);
 		}
 		var w = progress_wait();
 		fetch_with_error("api/upload_prices", {method:"POST", body:JSON.stringify(req)}).then(function(){							
@@ -1918,6 +1925,17 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 				el.value="";
 				el.click();
 			});
+			cntr.bt.setItemEvent("random_chart","click",function(){
+				if (rnd_preset.seed === undefined) {
+				    rnd_preset.seed = (Math.random()*32768*65536)|0;
+				}
+				var d;
+				(d = this.dlgbox(rnd_preset,"random_dlg")).then(function(){
+					rnd_preset = d.view.readData();
+					recalc_spread("random", cntr, rnd_preset);
+				});
+			}.bind(this));
+
 			cntr.bt.setItemEvent("chart1","mousemove", function(ev){show_info_fn(ev);});
 			cntr.bt.setItemEvent("chart2","mousemove", function(ev){show_info_fn(ev);});
 			cntr.bt.setItemEvent("","mouseout",function(ev){show_info_fn(ev,true);});

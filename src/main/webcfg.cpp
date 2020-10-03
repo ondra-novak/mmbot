@@ -23,6 +23,7 @@
 #include "../shared/logOutput.h"
 #include "apikeys.h"
 #include "ext_stockapi.h"
+#include "random_chart.h"
 #include "sgn.h"
 
 using namespace json;
@@ -1265,6 +1266,7 @@ bool WebCfg::reqUploadPrices(simpleServer::HTTPRequest req)  {
 			} else if (prices.getString() == "update") {
 				auto lkst = state.lock();
 				lkst->upload_progress = 0;
+
 			} else {
 
 				auto trp = trlist.lock_shared()->find(id.getString());
@@ -1276,13 +1278,28 @@ bool WebCfg::reqUploadPrices(simpleServer::HTTPRequest req)  {
 				}
 
 				IStockApi::MarketInfo minfo = tr->getMarketInfo();
+				std::vector<double> chart;
 
-								std::vector<double> chart;
-				std::transform(prices.begin(), prices.end(), std::back_inserter(chart),[&](Value itm){
-					double p = itm.getNumber();
-					if (minfo.invert_price) p = 1.0/p;
-					return p;
-				});
+				if (prices.getString() == "random") {
+
+
+					std::size_t seed = args["seed"].getUInt();
+					double volatility = args["volatility"].getValueOrDefault(0.1);
+					double noise = args["noise"].getValueOrDefault(0.0);
+					generate_random_chart(volatility*0.01, noise*0.01, 525600, seed, chart);
+
+
+				} else {
+
+					std::transform(prices.begin(), prices.end(), std::back_inserter(chart),[&](Value itm){
+						double p = itm.getNumber();
+						if (minfo.invert_price) p = 1.0/p;
+						return p;
+					});
+
+				}
+
+
 				tr.release();
 				auto lkst = state.lock();
 				lkst->prices_cache = PricesCache(chart, id.toString().str());
