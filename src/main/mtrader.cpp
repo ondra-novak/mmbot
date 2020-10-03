@@ -379,9 +379,13 @@ void MTrader::perform(bool manually) {
 			auto minmax = strategy.calcSafeRange(minfo, status.assetBalance, status.currencyBalance);
 			auto budget = strategy.getBudgetInfo();
 			std::optional<double> budget_extra;
-			if (minfo.leverage == 0)
-				budget_extra =  status.currencyBalance - walletDB.lock_shared()->query(WalletDB::KeyQuery(
-												cfg.broker,minfo.wallet_id,minfo.currency_symbol,uid)).total()+cfg.external_balance;
+			if (minfo.leverage == 0) {
+				double budget = walletDB.lock_shared()->query(WalletDB::KeyQuery(
+						cfg.broker,minfo.wallet_id,minfo.currency_symbol,uid)).total();
+				if (budget) {
+					budget_extra =  status.currencyBalance - budget+cfg.external_balance;
+				}
+			}
 
 			statsvc->reportMisc(IStatSvc::MiscData{
 				last_trade_dir,
