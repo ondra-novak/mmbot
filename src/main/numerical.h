@@ -8,6 +8,7 @@
 #ifndef SRC_MAIN_NUMERICAL_H_
 #define SRC_MAIN_NUMERICAL_H_
 
+#include <type_traits>
 
 namespace {
 
@@ -58,6 +59,67 @@ double numeric_search_r2(double middle, Fn &&fn) {
 
 }
 
+///Calculate quadrature of given function in given range
+/**
+ * calculates ∫ fn(x) dx  in range (a,b)
+ * @param fn function to calculate
+ * @param a range from
+ * @param b range to
+ * @param steps number of steps. Function takes 3 values for each step + one extra step at the beginning.
+ * @return value of quadrature
+ *
+ * @note Uses Simpson rule 3/8
+ */
+
+template<typename Fn>
+double numeric_integral(Fn &&fn, double a, double b, unsigned int steps=33) {
+	if (a == b) return 0;
+	double fna = fn(a);
+	double res = 0;
+	double ia = a;
+	for (unsigned int i = 0; i < steps; i++) {
+		double ib = a+(b-a)*(i+1)/steps;
+		double fnb = fn(ib);
+		double fnc = fn((2*ia+ib)/3.0);
+		double fnd = fn((ia+2*ib)/3.0);
+		double r = (ib - ia)*(fna+3*fnc+3*fnd+fnb)/8.0;
+		ia = ib;
+		fna = fnb;
+		res += r;
+	}
+	return res;
+
+}
+
+template<typename Fn, typename dFn>
+double newtonRoot(Fn &&fn, dFn &&dfn, double ofs, double initg) {
+	auto oneiter = [&](double v) {
+		double j = dfn(v);
+		if (j == 0) {
+			v = v*1.0001;
+			j = dfn(v);
+			if (j == 0) {
+				v = v*1.0001;
+				j = dfn(v);
+				if (j == 0) {
+					v = v*1.0001;
+					j = dfn(v);
+				}
+			}
+		}
+		double i = fn(v);
+		double r = (i+ofs)/j;
+		return v - r;
+	};
+
+	double v0 = oneiter(initg);
+	double v1 = oneiter(v0);
+	while (std::isfinite(v1) && std::fabs(v1-v0)/v0 > accuracy) {
+		v0 = v1;
+		v1 = oneiter(v0);
+	}
+	return v1;
+}
 
 
 #endif /* SRC_MAIN_NUMERICAL_H_ */

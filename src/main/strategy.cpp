@@ -21,6 +21,7 @@
 #include "strategy_sinh.h"
 #include "strategy_constantstep.h"
 #include "strategy_error_fn.h"
+#include "strategy_sinh_val.h"
 
 
 
@@ -175,6 +176,25 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 		cfg.slowopen = config["slowopen"].getValueOrDefault(true);
 		return Strategy(new Strategy_Sinh2(std::make_shared<Strategy_Sinh2::TCalc>(curv),
 			    							std::make_shared<Strategy_Sinh2::Config>(cfg)));
+	} else if (id == Strategy_SinhVal::id) {
+		Strategy_SinhVal::Config cfg;
+		double power = config["power"].getNumber();
+		cfg.max_loss = config["max_loss"].getNumber();
+		cfg.power = power;
+		cfg.asym = 0;
+		cfg.reduction = config["reduction"].getNumber();
+		cfg.external_balance = config["extbal"].getNumber();
+		cfg.powadj = config["powadj"].getNumber();
+		cfg.dynred = config["dynred"].getNumber();
+		cfg.initboost = config["initboost"].getNumber();
+		cfg.detect_trend = false;
+		cfg.longonly = config["longonly"].getBool();
+		double curv = config["curv"].getValueOrDefault(5.0);
+		cfg.recalc_keep_neutral = config["recalc_mode"].getString() == "neutral";
+		cfg.fastclose = config["fastclose"].getValueOrDefault(true);
+		cfg.slowopen = config["slowopen"].getValueOrDefault(true);
+		return Strategy(new Strategy_SinhVal(std::make_shared<Strategy_SinhVal::TCalc>(power, curv),
+			    							std::make_shared<Strategy_SinhVal::Config>(cfg)));
 	} else {
 		throw std::runtime_error(std::string("Unknown strategy: ").append(id));
 	}
