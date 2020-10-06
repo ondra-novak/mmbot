@@ -81,7 +81,6 @@ void MTrader_Config::loadConfig(json::Value data, bool force_dry_run) {
 	hidden = data["hidden"].getValueOrDefault(false);
 	alerts= data["alerts"].getValueOrDefault(true);
 	delayed_alerts= data["delayed_alerts"].getValueOrDefault(true);
-	dynmult_scale = data["dynmult_scale"].getValueOrDefault(true);
 	dynmult_sliding = data["dynmult_sliding"].getValueOrDefault(false);
 	dynmult_mult = data["dynmult_mult"].getValueOrDefault(false);
 	zigzag = data["zigzag"].getValueOrDefault(false);
@@ -237,6 +236,11 @@ void MTrader::perform(bool manually) {
 				logDebug("Sliding - low > eq - $1 > $2, old_center = $4, new center = $3", low, eq, lastTradePrice, prevLTP);
 			}
 
+		} else if (cfg.alerts == false && cfg.delayed_alerts == false && !trades.empty() && trades.back().size != 0) {
+			double eq = strategy.getEquilibrium(status.assetBalance);
+			if (std::isfinite(eq)) {
+				lastTradePrice = eq;
+			}
 		}
 
 
@@ -253,9 +257,6 @@ void MTrader::perform(bool manually) {
 			if (achieve_mode) {
 				achieve_mode = !checkAchieveModeDone(status);
 				grant_trade |= achieve_mode;
-			} else  if (!cfg.alerts && !cfg.delayed_alerts && !grant_trade
-					&& (trades.empty() || trades.back().size != 0)) {
-				grant_trade = !checkEquilibriumClose(status,lastTradePrice);
 			}
 
 			if (recalc) {
@@ -389,6 +390,7 @@ void MTrader::perform(bool manually) {
 
 			statsvc->reportMisc(IStatSvc::MiscData{
 				last_trade_dir,
+				achieve_mode,
 				strategy.getEquilibrium(status.assetBalance),
 				status.curPrice * (exp(status.curStep) - 1),
 				dynmult.getBuyMult(),
@@ -431,7 +433,7 @@ void MTrader::perform(bool manually) {
 		error.append(e.what());
 		statsvc->reportError(IStatSvc::ErrorObj(error.c_str()));
 		statsvc->reportMisc(IStatSvc::MiscData{
-			0,0,0,dynmult.getBuyMult(),dynmult.getSellMult(),0,0,0,0,
+			0,true,0,0,dynmult.getBuyMult(),dynmult.getSellMult(),0,0,0,0,
 			trades.size(),trades.empty()?0:(trades.back().time-trades[0].time)
 		});
 		statsvc->reportPrice(trades.empty()?1:trades.back().price);
@@ -477,6 +479,14 @@ void MTrader::setOrder(std::optional<IStockApi::Order> &orig, Order neworder, st
 		if (neworder.price < 0) {
 			if (orig.has_value()) return;
 			throw std::runtime_error("Order rejected - negative price");
+		}
+		if (!std::isfinite(neworder.price)) {
+			if (orig.has_value()) return;
+			throw std::runtime_error("Order rejected - Price is not finite");
+		}
+		if (!std::isfinite(neworder.size)) {
+			if (orig.has_value()) return;
+			throw std::runtime_error("Order rejected - Size is not finite");
 		}
 		if (neworder.alert == IStrategy::Alert::forced) {
 			if (orig.has_value() && orig->id.hasValue()) {
@@ -567,7 +577,7 @@ MTrader::Status MTrader::getMarketStatus() const {
 			res.assetBalance = stock->getBalance(minfo.asset_symbol, cfg.pairsymb);
 			res.currencyBalance = stock->getBalance(minfo.currency_symbol, cfg.pairsymb);
 			auto wdb = walletDB.lock_shared();
-			res.assetBalance = wdb->adjBalance(WalletDB::KeyQuery(cfg.broker,minfo.wallet_id,minfo.asset_symbol,uid), res.assetBalance);
+//			res.assetBalance = wdb->adjBalance(WalletDB::KeyQuery(cfg.broker,minfo.wallet_id,minfo.asset_symbol,uid), res.assetBalance);
 			res.currencyBalance = wdb->adjBalance(WalletDB::KeyQuery(cfg.broker,minfo.wallet_id,minfo.currency_symbol,uid), res.currencyBalance);
 		}
 	} else {
@@ -695,9 +705,8 @@ MTrader::Order MTrader::calculateOrderFeeLess(
 	double dir = sgn(-step);
 
 	double newPrice = prevPrice * exp(step*dynmult*m);
-	double newPriceNoScale= prevPrice * exp(step*m);
 
-	order= strategy.getNewOrder(minfo,curPrice, cfg.dynmult_scale?newPrice:newPriceNoScale,dir, balance, currency, false);
+	order= strategy.getNewOrder(minfo,curPrice, newPrice,dir, balance, currency, false);
 
 	if (order.price <= 0) order.price = newPrice;
 	if ((order.price - curPrice) * dir < 0) {
@@ -711,16 +720,12 @@ MTrader::Order MTrader::calculateOrderFeeLess(
 		prevSz = sz;
 
 		newPrice = prevPrice * exp(step*dynmult*m);
-		newPriceNoScale= prevPrice * exp(step*m);
 
 		if ((newPrice - curPrice) * dir > 0) {
 			newPrice = curPrice;
 		}
-		if ((newPriceNoScale - curPrice) * dir > 0) {
-			newPriceNoScale = curPrice;
-		}
 
-		order= strategy.getNewOrder(minfo,curPrice, cfg.dynmult_scale?newPrice:newPriceNoScale,dir, balance, currency, true);
+		order= strategy.getNewOrder(minfo,curPrice, newPrice,dir, balance, currency, true);
 
 
 

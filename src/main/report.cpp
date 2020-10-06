@@ -353,6 +353,7 @@ void Report::setMisc(StrViewA symb, const MiscData &miscData) {
 
 		output
 				("t",-miscData.trade_dir)
+				("a",miscData.achieve_mode)
 				("mcp", 1.0/miscData.calc_price)
 				("ml",1.0/miscData.highest_price)
 				("mh",1.0/miscData.lowest_price)
@@ -361,6 +362,7 @@ void Report::setMisc(StrViewA symb, const MiscData &miscData) {
 	} else {
 		output
 				("t",miscData.trade_dir)
+				("a",miscData.achieve_mode)
 				("mcp", miscData.calc_price)
 				("ml",miscData.lowest_price)
 				("mh",miscData.highest_price)

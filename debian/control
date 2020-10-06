@@ -10,5 +10,5 @@ Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: mmbot - market making trading bot 
  After installation, open a browser at: 
- http://localhost:11223/ 
+ http://localhost:33801/ 
 
