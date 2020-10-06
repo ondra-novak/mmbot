@@ -24,6 +24,7 @@
 
 #include <shared/stringview.h>
 #include "../bitfinex/structs.h"
+#include "cryptowatch.h"
 
 using json::Object;
 using json::Value;
@@ -215,7 +216,10 @@ static HTTPJson httpc(simpleServer::HttpClient("MMBot Trainer",newHttpsProvider(
 class Interface: public AbstractBrokerAPI {
 public:
 
-	Interface(const std::string &path):AbstractBrokerAPI(path, setupForm),fname(path+".jconf"),idcnt(genIDCnt()) {}
+	Interface(const std::string &path):AbstractBrokerAPI(path, setupForm),fname(path+".jconf"),idcnt(genIDCnt())
+		,cryptowatch(httpc) {
+
+	}
 
 	virtual BrokerInfo getBrokerInfo()  override;
 	virtual void onLoadApiKey(json::Value) override {}
@@ -246,6 +250,7 @@ public:
 	class TestPair {
 	public:
 
+		TestPair(CryptowatchPairs &cryptowatch);
 
 		json::Value collectSettings() const;
 
@@ -275,6 +280,7 @@ public:
 		mutable bool evodd_swap = false;
 
 
+		CryptowatchPairs &cryptowatch;
 		Orders orders;
 		TradeHistory trades;
 
@@ -308,6 +314,9 @@ public:
 	std::size_t idcnt;
 
 	virtual json::Value getMarkets() const;
+
+	CryptowatchPairs cryptowatch;
+	TestPair &getPair(unsigned int id);
 };
 
 
@@ -748,7 +757,7 @@ double Interface::TestPair::getCurPrice() const {
 	double price = 0;
 	auto now = std::chrono::steady_clock::now();
 
-	if (price_source == "urljson" || price_source == "cryptowatch" || price_source == "bitfinex") {
+	if (price_source == "urljson"  || price_source == "bitfinex") {
 		if (!price_url.empty()) {
 			if (now > last_fetch_price_exp) {
 				last_fetch_price_exp = now + std::chrono::seconds(30);
@@ -760,6 +769,9 @@ double Interface::TestPair::getCurPrice() const {
 				price = last_fetch_price;
 			}
 		}
+	} else if (price_source == "cryptowatch") {
+		return cryptowatch.getPrice(asset, currency);
+
 	} else if (price_source == "randomwalk") {
 		time_t t = time(nullptr);
 		if ((t- evodd_time) > timeDivisor) {
@@ -893,6 +905,7 @@ void Interface::TestPair::addTrade(std::size_t &idcnt, double price, double size
 
 inline bool Interface::reset() {
 
+	cryptowatch.reset();
 	time_t now = time(nullptr);
 	time_t exp = now - 60;
 	std::vector<std::size_t> remove;
@@ -1042,8 +1055,16 @@ inline void Interface::restoreSettings(json::Value keyData) {
 		}
 	}
 }
+Interface::TestPair &Interface::getPair(unsigned int id) {
+	auto iter = pairs.find(id);
+	if (iter == pairs.end()) {
+		iter = pairs.emplace(id, TestPair(cryptowatch)).first;
+	}
+	return iter->second;
+}
+
 inline void Interface::setSettings(json::Value keyData, bool loaded,  unsigned int pairId) {
-	auto &p = pairs[pairId];
+	auto &p = getPair(pairId);
 
 	if (p.preset && !loaded) {
 		keyData = p.collectSettings().merge(keyData);
@@ -1110,14 +1131,8 @@ inline void Interface::setSettings(json::Value keyData, bool loaded,  unsigned i
 	}
 	if (p.price_source == "cryptowatch") {
 		if (!keyData["loaded"].defined()) {
-			std::string url = cwsource.createUrl(p.src_asset, p.src_currency,"price");
-			if (url.empty()) throw std::runtime_error("Unable to find market for selected combination");
 			p.asset = p.src_asset;
 			p.currency = p.src_currency;
-			std::transform(p.asset.begin(), p.asset.end(), p.asset.begin(), toupper);
-			std::transform(p.currency.begin(), p.currency.end(), p.currency.begin(), toupper);
-			p.price_url = url;
-			p.price_path = "price";
 		}
 	} else if (p.price_source == "bitfinex") {
 		if (!keyData["loaded"].defined()) {
@@ -1215,10 +1230,10 @@ inline json::Value Interface::getSettings(const std::string_view & pair) const {
 		StrViewA n = v["name"].getString();
 		Value z = v.replace("default", kv[n]);
 		if (z["name"].getString() == "src_asset") {
-			z = z.replace("options", mergeAssets(z["options"], cwAssets.assets));
+			z = z.replace("options", mergeAssets(z["options"], cryptowatch.getAllPairs()));
 		}
 		else if (z["name"].getString() == "src_currency") {
-			z = z.replace("options", mergeAssets(z["options"], cwAssets.currencies));
+			z = z.replace("options", mergeAssets(z["options"], cryptowatch.getAllPairs()));
 		} else if (z["name"].getString() == "liq") {
 			if (p.asset_balance > 0) {
 				z = z.replace("default",p.inverted?1.0/p.low_liq:p.high_liq);
@@ -1389,7 +1404,7 @@ inline Interface::TestPair& Interface::getPair(const std::string_view &name) {
 	auto hsh = h(name);
 	auto piter = pairs.find(hsh);
 	if (piter == pairs.end()) {
-		TestPair &p = pairs[hsh];
+		TestPair &p = getPair(hsh);
 		p.init(name);
 		return p;
 	} else {
@@ -1475,4 +1490,9 @@ inline json::Value Interface::getMarkets() const {
 	}
 	out.set("Pre-made", bfx);
 	return out;
+}
+
+inline Interface::TestPair::TestPair(CryptowatchPairs &cryptowatch)
+	:cryptowatch(cryptowatch)
+{
 }
