@@ -214,7 +214,7 @@ std::pair<typename Strategy_Leveraged<Calc>::OnTradeResult, PStrategy> Strategy_
 	auto cpos = calcPosition(tradePrice);
 	double mult = st.power;
 	double profit = (apos - tradeSize) * (tradePrice - st.last_price);
-	//double vprofit = (st.position) * (tradePrice - st.last_price);
+	double vprofit = (st.position) * (tradePrice - st.last_price);
 	//store current position
 	nwst.position = cpos;
 	//store last price
@@ -230,7 +230,7 @@ std::pair<typename Strategy_Leveraged<Calc>::OnTradeResult, PStrategy> Strategy_
 	nwst.val = val;
 
 	//store new balance
-	nwst.bal += extra;
+	nwst.bal += (val - st.val) + vprofit;
 
 	if  (nwst.last_price > st.last_price) {
 		nwst.redbal = nwst.bal;
