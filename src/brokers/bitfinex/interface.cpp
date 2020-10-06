@@ -262,7 +262,9 @@ IStockApi::TradesSync Interface::syncTrades(json::Value lastId, const std::strin
 		} else {
 			out.lastId = lastId;
 		}
-		double lastFees = 0.001;
+		std::string spair(pair);
+		auto fiter = fees.find(spair);
+		double lastFees =fiter == fees.end()?0.002:fiter->second;
 		for (Value x: flt) {
 			double price = x[5].getNumber();
 			double size = x[4].getNumber();
@@ -270,12 +272,10 @@ IStockApi::TradesSync Interface::syncTrades(json::Value lastId, const std::strin
 			double eff_price = price;
 			double eff_size = size;
 			double fee = x[9].getNumber();
-			lastFees = getFeeFromTrade(x, pinfo);
+			lastFees = (lastFees+getFeeFromTrade(x, pinfo))/2.0;
 			if (feecur == pinfo.asset && !m) {
 				eff_size = size + fee;
 				eff_price = size * price /eff_size;
-			} else if (feecur == pinfo.currency) {
-				eff_price = price - fee/size;
 			} else {
 				eff_price = price + lastFees*price*(size>0?1:-1);
 			}
@@ -513,26 +513,28 @@ double Interface::getFeeFromTrade(Value trade, const PairInfo &pair) {
 	double size = trade[4].getNumber();
 	StrViewA feecur = trade[10].getString();
 	double fee = trade[9].getNumber();
+	double res;
 	if (feecur == pair.asset) {
-		return std::abs(fee/size);
+		res =  std::abs(fee/size);
 	} else if (feecur == pair.currency) {
-		return std::abs(fee/(size * price));
+		res = std::abs(fee/(size * price));
 	} else {
 		const auto &p = getPairs();
 		auto conv = findConversion(p, feecur, pair.currency);
 		if (conv.empty()) {
 			conv = findConversion(p, pair.currency, feecur);
-			if (conv.empty()) return 0.001;
+			if (conv.empty()) return 0.002;
 			auto tk = getTicker(conv.str());
 			fee = fee / tk.last;
-			return std::abs(fee/(size * price));
+			res = std::abs(fee/(size * price));
 		} else {
 			auto tk = getTicker(conv.str());
 			fee = fee * tk.last;
-			return std::abs(fee/(size * price));
+			res =  std::abs(fee/(size * price));
 		}
 	}
-
+	res = std::min(0.002, res); //limit fee max to 0.2% (highest Bitfinex fee)
+	return res;
 }
 
 Value Interface::signedPOST(StrViewA path, Value body) const {

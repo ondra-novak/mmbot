@@ -48,7 +48,8 @@ PStrategy Strategy_Exponencial::onIdle(
 PStrategy Strategy_Exponencial::init(const IStockApi::MarketInfo &m, double price, double assets, double cur) const {
 	if (price <= 0) throw std::runtime_error("Strategy: invalid ticker price");
 	State nst;
-	double ratio = assets * price / (cur+assets * price);
+	double a = assets+cfg.ea;
+	double ratio = a * price / (cur+a* price);
 	if (!std::isfinite(ratio) || ratio <=0) {
 		nst.k =price / to_balanced_factor;
 		if (st.p > 0 && st.a + cfg.ea > 0) {
@@ -87,7 +88,7 @@ std::pair<Strategy_Exponencial::OnTradeResult, PStrategy> Strategy_Exponencial::
 				->onTrade(minfo,tradePrice,tradeSize,assetsLeft,currencyLeft);
 	}
 
-	auto prof = calcNormalizedProfit(tradePrice, tradeSize);
+	auto prof = tradeSize == assetsLeft?0:calcNormalizedProfit(tradePrice, tradeSize);
 	auto accum = calcAccumulation(st, cfg, tradePrice);
 	auto new_a = calcA(tradePrice) + accum ;
 

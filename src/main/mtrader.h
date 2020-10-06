@@ -70,7 +70,6 @@ struct MTrader_Config {
 	bool hidden;
 	bool alerts;
 	bool delayed_alerts;
-	bool dynmult_scale;
 	bool dynmult_sliding;
 	bool dynmult_mult;
 	bool zigzag;

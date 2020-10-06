@@ -29,7 +29,12 @@ PStrategy Strategy_HalfHalf::onIdle(
 		const IStockApi::MarketInfo &,
 		const IStockApi::Ticker &curTicker, double assets, double currency) const {
 	if (isValid()) return this;
-	else return new Strategy_HalfHalf(cfg, curTicker.last, assets);
+	else {
+		if (assets+cfg.ea <=0) {
+			assets = currency/(2*curTicker.last) - cfg.ea;
+		}
+		return new Strategy_HalfHalf(cfg, curTicker.last, assets);
+	}
 }
 
 double Strategy_HalfHalf::calcAccumulation(double n) const {
@@ -75,7 +80,7 @@ std::pair<Strategy_HalfHalf::OnTradeResult, PStrategy> Strategy_HalfHalf::onTrad
 
 
 	double ap = calcAccumulation(tradePrice);
-	double np = calcNormProfit(tradeSize, tradePrice);
+	double np = tradeSize == assetsLeft?0:calcNormProfit(tradeSize, tradePrice);
 	double new_a = calcNewA(tradePrice)+ ap - cfg.ea;
 
 	return std::make_pair(

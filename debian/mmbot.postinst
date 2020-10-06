@@ -7,7 +7,7 @@ case "$1" in
     configure)
     	adduser --system --no-create-home mmbot
     	chown -R mmbot /opt/mmbot
-    	echo "Configuration interface is available at url: http://localhost:11223/ (if not changed)"    	
+    	echo "Configuration interface is available at url: http://localhost:33801/ (if not changed)"    	
     ;;
 
     abort-upgrade|abort-remove|abort-deconfigure)

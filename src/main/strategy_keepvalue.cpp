@@ -40,7 +40,7 @@ double Strategy_KeepValue::calcK() const {
 
 PStrategy Strategy_KeepValue::onIdle(
 		const IStockApi::MarketInfo &,
-		const IStockApi::Ticker &ticker, double assets, double) const {
+		const IStockApi::Ticker &ticker, double assets, double cur) const {
 	if (isValid()) {
 		if (cfg.chngtm) {
 			State nst = st;
@@ -52,6 +52,9 @@ PStrategy Strategy_KeepValue::onIdle(
 		}
 	}
 	else {
+		if (assets+cfg.ea <= 0) {
+			assets = cur/(2 * ticker.last) - cfg.ea;
+		}
 		return new Strategy_KeepValue(cfg,
 				State{true,ticker.last, assets,assets,ticker.time, ticker.time});
 	}
@@ -116,7 +119,7 @@ std::pair<Strategy_KeepValue::OnTradeResult, PStrategy> Strategy_KeepValue::onTr
 	double k = calcK();
 
 	double accum = calcAccumulation(st,cfg,tradePrice, currencyLeft);
-	double norm = calcNormalizedProfit(st,cfg,tradePrice,tradeSize);
+	double norm = tradeSize == assetsLeft?0:calcNormalizedProfit(st,cfg,tradePrice,tradeSize);
 	double neutral = k/(st.n+cfg.ea);
 
 

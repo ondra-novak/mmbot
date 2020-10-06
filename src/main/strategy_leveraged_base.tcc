@@ -81,8 +81,8 @@ PStrategy Strategy_Leveraged<Calc>::init(const PCalc &calc, const PConfig &cfg, 
 
 template<typename Calc>
 double Strategy_Leveraged<Calc>::calcPosition(double price) const {
-	auto mm = calcRoots();
 	if (cfg->max_loss) {
+		auto mm = calcRoots();
 		if (price < mm.min) {
 			price = mm.min;
 		}
@@ -93,8 +93,12 @@ double Strategy_Leveraged<Calc>::calcPosition(double price) const {
 
 	double reduction = cfg->reduction;
 	double mprice = calc->calcPrice0(st.neutral_price, calcAsym());
-	double distance = pow2((price - mprice)/(mm.max - mm.min));
-	double dynred = pow2(distance*cfg->dynred);
+	double dynred = 0;
+	if (cfg->dynred) {
+		auto mm = calcRoots();
+		double distance = pow2((price - mprice)/(mm.max - mm.min));
+		dynred = pow2(distance*cfg->dynred);
+	}
 	if (dynred > 1.0) dynred = 1.0;
 	reduction = std::sqrt(pow2(reduction) + 0.5*dynred);
 	double new_neutral;
@@ -210,7 +214,7 @@ std::pair<typename Strategy_Leveraged<Calc>::OnTradeResult, PStrategy> Strategy_
 	auto cpos = calcPosition(tradePrice);
 	double mult = st.power;
 	double profit = (apos - tradeSize) * (tradePrice - st.last_price);
-	//double vprofit = (st.position) * (tradePrice - st.last_price);
+	double vprofit = (st.position) * (tradePrice - st.last_price);
 	//store current position
 	nwst.position = cpos;
 	//store last price
@@ -226,7 +230,7 @@ std::pair<typename Strategy_Leveraged<Calc>::OnTradeResult, PStrategy> Strategy_
 	nwst.val = val;
 
 	//store new balance
-	nwst.bal += extra;
+	nwst.bal += (val - st.val) + vprofit;
 
 	if  (nwst.last_price > st.last_price) {
 		nwst.redbal = nwst.bal;
@@ -304,8 +308,7 @@ IStrategy::OrderData Strategy_Leveraged<Calc>::getNewOrder(
 		double curPrice, double price, double dir, double assets, double currency, bool rej) const {
 	auto apos = assets - st.neutral_pos;
 	double asym = calcAsym(cfg,st);
-	auto mm = calcRoots();
-	if (cfg->max_loss && (curPrice < mm.min || curPrice > mm.max)) {
+	if (cfg->max_loss && (curPrice < calcRoots().min || curPrice > calcRoots().max)) {
 		auto testStat = onTrade(minfo,curPrice,0,assets,currency);
 		auto mm2 = static_cast<const Strategy_Leveraged<Calc> *>((const IStrategy *)(testStat.second))->calcRoots();
 		if (dir * apos < 0 && (curPrice < mm2.min || curPrice > mm2.max))

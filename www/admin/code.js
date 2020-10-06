@@ -95,9 +95,11 @@ App.prototype.createTraderForm = function() {
 		form.showItem("strategy_pl",state.strategy == "plfrompos");
 		form.showItem("strategy_stairs",state.strategy == "stairs");
 		form.showItem("strategy_gauss",state.strategy == "errorfn");
-		form.showItem("strategy_hyperbolic",state.strategy == "hyperbolic"||state.strategy == "linear"||state.strategy == "sinh"||state.strategy == "sinh2");
+		form.showItem("strategy_hyperbolic",["hyperbolic","linear","sinh","sinh_val","sinh2"].indexOf(state.strategy) != -1);
 		form.showItem("kv_valinc_h",state.strategy == "keepvalue");
-		form.showItem("show_curvature", state.strategy == "sinh"||state.strategy == "sinh2")
+		form.showItem("show_curvature",["sinh","sinh_val","sinh2"].indexOf(state.strategy) != -1);
+		form.showItem("item_trend", ["sinh","sinh_val","sinh2"].indexOf(state.strategy) == -1);
+		form.showItem("item_asym", ["sinh","sinh_val","sinh2"].indexOf(state.strategy) == -1);
 		form.setData({"help_goal":{"class":state.strategy}});
 		form.getRoot().classList.toggle("no_adv", !state["advanced"]);
 		form.getRoot().classList.toggle("no_experimental", !state["check_unsupp"]);
@@ -413,6 +415,7 @@ App.prototype.fillForm = function (src, trg) {
 					price:pair.price,
 					assets:avail.asset,
 					currency:avail.currency,
+					extra_balance:data.ext_bal,
 					leverage:pair.leverage,
 					inverted: pair.invert_price,
 					trader:src.id
@@ -442,18 +445,9 @@ App.prototype.fillForm = function (src, trg) {
 
 		recalc_strategy_fn = recalcStrategy.bind(this);
 		
-		data.err_external_assets={
-			"classList":{mark:!pair.asset_balance && !pair.leverage}
-		};
-		data.err_external_assets_margin={
-			"classList":{mark:!pair.asset_balance && pair.leverage && !pair.invert_price}
-		};
-		data.err_external_assets_inverse={
-			"classList":{mark:!pair.asset_balance && pair.invert_price}
-		};
 		
 		if (first_fetch) {
-			["strategy","external_assets","gs_external_assets", "hp_dtrend","hp_longonly","hp_power", "hp_maxloss", "hp_recalc", "hp_asym","hp_powadj", "hp_extbal", "hp_reduction","hp_dynred","sh_curv"]
+			["strategy","external_assets","gs_external_assets", "hp_dtrend","hp_longonly","hp_power", "hp_maxloss", "hp_recalc", "hp_asym","hp_powadj", "hp_extbal", "hp_reduction","hp_dynred","sh_curv","ext_bal"]
 			.forEach(function(item){
 				trg.findElements(item).forEach(function(elem){
 					elem.addEventListener("input", function(){recalc_strategy_fn();});
@@ -545,7 +539,7 @@ App.prototype.fillForm = function (src, trg) {
 		data.gs_rb_hi_p=filledval(defval(src.strategy.rb_hi_p,0.95)*100,95);
 		data.gs_rb_lo_a=filledval(defval(src.strategy.rb_lo_a,0.5)*100,50);
 		data.gs_rb_hi_a=filledval(defval(src.strategy.rb_hi_a,0.5)*100,50);
-	} else if (data.strategy == "hyperbolic"||data.strategy == "linear"||data.strategy == "sinh"||data.strategy == "sinh2") {
+	} else if (["hyperbolic","linear","sinh","sinh_val","sinh2"].indexOf(data.strategy) != -1) {
 		data.hp_reduction = filledval(defval(src.strategy.reduction,0.25)*200,50);
 		data.hp_initboost = filledval(src.strategy.initboost,0);
 		data.hp_asym = filledval(defval(src.strategy.asym,0.2)*100,20);
@@ -588,7 +582,6 @@ App.prototype.fillForm = function (src, trg) {
 	data.dynmult_raise = filledval(src.dynmult_raise,440);
 	data.dynmult_fall = filledval(src.dynmult_fall, 5);
 	data.dynmult_mode = filledval(src.dynmult_mode, "independent");
-	data.dynmult_scale = filledval(src.dynmult_scale,true);
 	data.dynmult_sliding = filledval(src.dynmult_sliding,false);
 	data.dynmult_mult = filledval(src.dynmult_mult, true);
 	data.spread_mult = filledval(Math.log(defval(src.buy_step_mult,1))/Math.log(2)*100,0);
@@ -692,7 +685,7 @@ function getStrategyData(data) {
 				rb_hi_p: data.gs_rb_hi_p/100,
 				rb_lo_p: data.gs_rb_lo_p/100,
 		};
-	} else 	if (data.strategy == "hyperbolic"||data.strategy == "linear"||data.strategy == "sinh"||data.strategy == "sinh2") {
+	} else 	if (["hyperbolic","linear","sinh","sinh_val","sinh2"].indexOf(data.strategy) != -1) {
 		strategy = {
 				type: data.strategy,
 				power: data.hp_power,
@@ -748,7 +741,6 @@ App.prototype.saveForm = function(form, src) {
 	trader.dynmult_raise = data.dynmult_raise;
 	trader.dynmult_fall = data.dynmult_fall;
 	trader.dynmult_mode = data.dynmult_mode;
-	trader.dynmult_scale = data.dynmult_scale; 
 	trader.dynmult_sliding = data.dynmult_sliding;
 	trader.dynmult_mult = data.dynmult_mult;
 	trader.zigzag = data.zigzag;

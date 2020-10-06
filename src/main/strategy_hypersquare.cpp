@@ -48,7 +48,8 @@ PStrategy Strategy_HyperSquare::onIdle(
 PStrategy Strategy_HyperSquare::init(const IStockApi::MarketInfo &m, double price, double assets, double cur) const {
 	if (price <= 0) throw std::runtime_error("Strategy: invalid ticker price");
 	State nst;
-	double ratio = assets * price / (cur+assets * price);
+	double a = assets+cfg.ea;
+	double ratio = a * price / (cur+a * price);
 	if (!std::isfinite(ratio) || ratio <=0) {
 		nst.k = price/ to_balanced_factor;
 		if (st.p > 0 && st.a + cfg.ea > 0) {
@@ -86,7 +87,7 @@ std::pair<Strategy_HyperSquare::OnTradeResult, PStrategy> Strategy_HyperSquare::
 				->onTrade(minfo,tradePrice,tradeSize,assetsLeft,currencyLeft);
 	}
 
-	auto prof = calcNormalizedProfit(tradePrice, tradeSize);
+	auto prof = tradeSize == assetsLeft?0:calcNormalizedProfit(tradePrice, tradeSize);
 	auto accum = calcAccumulation(st, cfg, tradePrice);
 	auto new_a = calcA(tradePrice) + accum ;
 
@@ -264,11 +265,11 @@ double Strategy_HyperSquare::findRoot(double w, double k, double p, double c) {
 }
 
 double Strategy_HyperSquare::calcInitialPosition(const IStockApi::MarketInfo &minfo, double price, double assets, double currency) const {
-	double budget = minfo.leverage?currency:assets*price+currency;
+	double budget = minfo.leverage?currency:(cfg.ea+assets)*price+currency;
 	double k = price/ to_balanced_factor;
 	double norm_val = calcAccountValue(1, k, price);
 	double w = budget / norm_val;
-	double a= calcA(w,k,price);
+	double a= calcA(w,k,price)-cfg.ea;
 	return a;
 }
 
