@@ -19,6 +19,7 @@ class CryptowatchPairs {
 public:
 
 	CryptowatchPairs(HTTPJson &httpc);
+	~CryptowatchPairs();
 
 	double getPrice(std::string_view asset, std::string_view currency) const;
 	void reset();
@@ -36,6 +37,10 @@ protected:
 	mutable SymbolMap symbolMap;
 	mutable bool reseted = true;
 
+	mutable int lkfile = -1;
+
+private:
+	json::Value do_download() const;
 };
 
 

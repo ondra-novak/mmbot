@@ -708,44 +708,48 @@ MTrader::Order MTrader::calculateOrderFeeLess(
 
 	order= strategy.getNewOrder(minfo,curPrice, newPrice,dir, balance, currency, false);
 
+	bool skipcycle = false;
+
 	if (order.price <= 0) order.price = newPrice;
 	if ((order.price - curPrice) * dir < 0) {
 		if (calculateOrderFeeLessAdjust(order, dir, mult, alerts, min_size, zlev)) return order;
-		if (order.size != 0) return order;
+		if (order.size != 0)
+			skipcycle = true;
 	}
 
 
+	if (!skipcycle) {
+		do {
+			prevSz = sz;
 
-	do {
-		prevSz = sz;
+			newPrice = prevPrice * exp(step*dynmult*m);
 
-		newPrice = prevPrice * exp(step*dynmult*m);
+			if ((newPrice - curPrice) * dir > 0) {
+				newPrice = curPrice;
+			}
 
-		if ((newPrice - curPrice) * dir > 0) {
-			newPrice = curPrice;
-		}
-
-		order= strategy.getNewOrder(minfo,curPrice, newPrice,dir, balance, currency, true);
+			order= strategy.getNewOrder(minfo,curPrice, newPrice,dir, balance, currency, true);
 
 
 
-		if (order.price <= 0) order.price = newPrice;
-		if ((order.price - curPrice) * dir > 0) {
-			order.price = curPrice;
-		}
+			if (order.price <= 0) order.price = newPrice;
+			if ((order.price - curPrice) * dir > 0) {
+				order.price = curPrice;
+			}
 
-		sz = order.size;
+			sz = order.size;
 
-		if (calculateOrderFeeLessAdjust(order, dir, mult, alerts, min_size, zlev)) return order;
+			if (calculateOrderFeeLessAdjust(order, dir, mult, alerts, min_size, zlev)) return order;
 
-		cnt++;
-		m = m*1.1;
+			cnt++;
+			m = m*1.1;
 
-	} while (cnt < 1000 && order.size == 0 && ((sz - prevSz)*dir>0  || cnt < 10));
+		} while (cnt < 1000 && order.size == 0 && ((sz - prevSz)*dir>0  || cnt < 10));
+	}
 	auto lmsz = limitOrderMinMaxBalance(balance, order.size);
 	if (lmsz.first) {
 		order.size = lmsz.second;
-		order.alert = IStrategy::Alert::forced;
+		order.alert = !order.size?IStrategy::Alert::forced:IStrategy::Alert::disabled;
 	} else {
 		order.alert = !order.size && alerts?IStrategy::Alert::forced:IStrategy::Alert::disabled;
 	}

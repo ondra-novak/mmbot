@@ -782,7 +782,6 @@ double Interface::TestPair::getCurPrice() const {
 			auto v = numb == 0;
 			double bet = std::round(pp * 0.01);
 			if (v == evodd_swap) evodd_price = std::round(pp+bet); else evodd_price = std::round(pp-bet);
-			std::cerr << "[bet] numb=" << numb << ",side=" << ((v == evodd_swap)?"T":"F") << ",bet=" << bet << ", swap=" << (evodd_swap?"T":"F") << std::endl;
 			evodd_swap = !evodd_swap;
 			evodd_time = t;
 		}
