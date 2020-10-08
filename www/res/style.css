@@ -20,7 +20,7 @@ a {
 	top: 0;
 	left: 0;
 	background-color: #222;
-	padding: 0.2cm 2.7cm 0.2cm 1cm;
+	padding: 0.1cm 3.6cm 0.1cm 1cm;
 	text-align: center;
 	z-index: 10;
 }
@@ -62,6 +62,7 @@ select {
 	color: #91a3b7;
 	font-family: Ruda;
 	border: 1px solid #FFF4;
+	padding: 3px;
 }
 
 select > option[disabled] {
@@ -750,7 +751,17 @@ form button {
 
 #calculator_icon {width: 0.5cm;height:  0.5cm;position: absolute;right: 1.72cm;top: 0.3cm;background-image: url(calculator.svg);background-size: cover;cursor: pointer;}
 #setup_icon {width: 0.5cm;height:  0.5cm;position: absolute;right: 0.95cm;top: 0.3cm;background-image: url(setup.png);background-size: cover;cursor: pointer;}
-#donate_icon {width: 0.8cm;height: 0.8cm;position: absolute;right: 1.7cm;top: 0.15cm;background-image: url(donate_sml.svg);background-size: cover;cursor: pointer;}
+#donate_icon {width: 0.8cm;height: 0.8cm;position: absolute;right: 1.6cm;top: 0.15cm;background-image: url(donate_sml.svg);background-size: cover;cursor: pointer;}
+#skin_icon {
+	width: 0.6cm;
+	height: 0.6cm;
+	position: absolute;
+	right: 2.6cm;
+	top: 0.25cm;
+	background-image: url(mode_day.png);
+	background-size: cover;
+	cursor: pointer;
+}
 
 #calculator {
 	transition: all 0.3s;
@@ -857,6 +868,7 @@ table.extended th {
     font-weight: normal;
     vertical-align: top;
 }
+
 table  tr > * {
 	/* padding: 2px 0.5em; */
 	border: 1px solid #222222;
@@ -866,7 +878,9 @@ table  tr > * {
 table.extended td:nth-child(2) {text-align: right;padding-right:0.1em;}
 table.extended td:nth-child(4) {text-align: right;padding-right:0.1em;}
 table.extended td:nth-child(4) b::after {
-	content:" %";font-weight:normal; color:#CDCDCD;
+	content:" %";
+	font-weight:normal;
+	color: #cdcdcd;
 }
 table.extended td:nth-child(3) {padding: 0.1em;overflow: hidden;}
 table.extended td .color.neg {color: #C66;}
@@ -1013,4 +1027,134 @@ table.perfmod tr.ital > td{font-size: 0.9em;}
 	color: #afdeff;
 }
 
+/* --------------- day mode --------------*/
 
+body.daymode {
+	color: #3c3c3c;
+	background-color: #f0f0f0;
+} 
+
+body.daymode #skin_icon{
+	background-image: url(mode_night.png);
+}
+
+body.daymode .selchart {
+	background-color: #f0f0f0;
+} 
+
+body.daymode select {
+	background-color: white;
+	color: #222;
+} 
+body.daymode x-trbgr {
+	background: linear-gradient(#ffffff,#eeeeee);
+}
+
+body.daymode table  tr > * {
+    background-color: #ffffff;
+    border-color: #ffffff;
+}
+
+body.daymode .color.pos {color: green !important;}
+
+body.daymode .color.neg {
+	color: red !important;
+}
+
+body.daymode x-tr.sell x-td {color: red;}
+
+body.daymode x-tr.buy x-td {
+	color: green;
+}
+
+body.daymode x-tr x-td.neg:nth-child(7) {
+    color: #ff0074;
+}
+
+body.daymode x-tr x-td.pos:nth-child(7) {
+    color: #005c80;
+}
+
+body.daymode x-tr x-td.neg:nth-child(8) {
+    color: red;	
+}
+
+body.daymode x-tr x-td.pos:nth-child(8) {
+    color: green;	
+}
+
+body.daymode .stdline {
+	stroke: #21642a;
+}
+body.daymode .stdline2 {
+	stroke: #757eff;
+}
+body.daymode .orderline.buy {stroke: #00b000;}
+body.daymode .orderline.sell {
+	stroke: red;
+}
+body.daymode .orderline.last {stroke: blue;}
+body.daymode .orderline.current {stroke: #888;}
+body.daymode .textorderline {
+    fill: #000;
+    text-shadow: -2px 0px 2px white, 2px 0px 2px white, 0px -2px 2px white, 0px 2px 2px white;
+}
+body.daymode .info > div.buy {
+    color: green;
+}
+body.daymode .info > div.sell {color: red;}
+body.daymode .info > div.last {color: #002aff;}
+body.daymode .info > div.pos {color: #a800de;}
+body.daymode .info > div.error > div {color: #4f4c50;}
+body.daymode .info >div > div.error_popup {background-color:white;}
+body.daymode .info > div.error::before {color: #ff0000;}
+body.daymode .info > div.last > .size {
+	background-color: #eae6e6;
+}
+body.daymode .emulated {color: #816600;}
+body.daymode .head >.title.emulated > img {
+	filter: sepia(1) brightness(0.5);
+}
+body.daymode .title:hover, #home:hover {
+	background-color: #d7d7d7;
+}
+body.daymode table.perfmod td.neg {
+	color: red;
+}
+body.daymode table.perfmod td.pos {
+	color: green;
+}
+body.daymode table.perfmod td:first-child {
+	color: black;
+}
+body.daymode table.perfmod tr.bold > td {
+	background-color: white;
+}
+body.daymode #donate_window {
+	background: white;
+}
+body.daymode a{
+	color: blue;
+}
+
+body.daymode select > option[disabled] {
+	font-size: 1px;
+	background-color: #dcdcdc;
+}
+body.daymode #logfileactivate {background-color: #aaa;}
+
+
+body.daymode .summary .daystats > div > span.pos.plusminus {
+	color: #008d00;
+}
+
+body.daymode .summary .daystats > div > span.neg.plusminus {
+	color: #ec0000;
+}
+
+body.daymode .summary .daystats > div > span:first-child {
+	color: #626262;
+}
+body.daymode table.extended td:nth-child(4) b::after {
+    color: #3c3c3c;
+}

@@ -760,6 +760,7 @@ void WebCfg::State::applyConfig(SharedObject<Traders>  &st) {
 	t->walletDB.lock()->clear();
 	traderNames.clear();
 	t->stockSelector.eraseSubaccounts();
+	t->rpt.lock()->clear();
 
 	for (Value v: data["traders"]) {
 		try {

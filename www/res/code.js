@@ -26,6 +26,10 @@ function app_start(){
 		lastField = localStorage["markettrader_lastfield"];
 		last_rev = JSON.parse(localStorage["last_rev"] || "[0,0]");
 		mmbot_time = localStorage["mmbot_time"];
+		if (localStorage["mmbot_skin"] == "day") {
+			document.body.classList.toggle("daymode");
+			updateThemeColor();
+		}
 	} catch (e) {
 
 	}
@@ -678,7 +682,7 @@ function app_start(){
 			
 			var charts = stats["charts"];
 			var newTrades = [];
-			for (var n in charts) {
+			for (var n in charts) if (infoMap[n]) {
 				var ch = charts[n];				
 				orders[n] = [];
 				ranges[n] = {};
@@ -731,7 +735,7 @@ function app_start(){
 				ranges[o.symb][dir] = [o.price,o.size];
 			}) 
 			
-			for (var sm in stats.prices) {
+			for (var sm in stats.prices) if (infoMap[sm]) {
 				var s = orders[sm];
 				var ch =  charts[sm];
 				var inv = infoMap[sm].inverted;
@@ -1025,4 +1029,26 @@ function donate() {
 function close_donate() {
 	var w = document.getElementById("donate_window");
 	w.classList.remove("shown");
+}
+
+function change_skin() {
+	document.body.classList.toggle("daymode");
+	updateThemeColor();
+	try {
+		localStorage["mmbot_skin"] = localStorage["mmbot_skin"] == "day"?"night":"day";
+	} catch (e) {}
+}
+
+function updateThemeColor() {
+	var metaThemeColor = document.querySelector("meta[name=theme-color]");
+	if (!metaThemeColor) {
+		metaThemeColor = document.createElement("meta");
+		metaThemeColor.setAttribute("name","theme-color");
+		document.head.appendChild(metaThemeColor);
+	}
+	if (document.body.classList.contains("daymode")) {
+		metaThemeColor.setAttribute("content", "#cdcdcd");
+	} else {
+		metaThemeColor.setAttribute("content", "#202020");
+	}
 }
