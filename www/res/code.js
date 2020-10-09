@@ -1035,7 +1035,8 @@ function change_skin() {
 	document.body.classList.toggle("daymode");
 	updateThemeColor();
 	try {
-		localStorage["mmbot_skin"] = localStorage["mmbot_skin"] == "day"?"night":"day";
+		localStorage["mmbot_skin"] = 
+			document.body.classList.contains("daymode")?"day":"night";
 	} catch (e) {}
 }
 

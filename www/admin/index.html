@@ -16,10 +16,10 @@
 <div class="toppanel">
 <div class="pairactions">
 	<div class="icon" data-name="icon_undo"><img src="../res/undo.png" title="Undo changes" ></div>
-	<div class="icon" data-name="icon_trading"><img src="../res/trading.png" title="Trading UI" ></div>
+	<div class="icon" data-name="icon_trading hide_on_new" hidden="hidden"><img src="../res/trading.png" title="Trading UI" ></div>
 	<div class="icon" data-name="icon_broker" hidden="hidden"><img src="../res/broker_settings.png" title="Broker settings" ></div>
-	<div class="icon" data-name="icon_reset"><img src="../res/reset_stats.png" title="Clear statistics"></div> 
-	<div class="icon" data-name="icon_repair"><img src="../res/repair.png" title="Restart strategy" > </div>
+	<div class="icon" data-name="icon_clearStats hide_on_new" hidden="hidden"><img src="../res/reset_stats.png" title="Clear statistics"></div> 
+	<div class="icon" data-name="icon_reset hide_on_new" hidden="hidden"><img src="../res/repair.png" title="Restart strategy" > </div>
 	<div class="icon" data-name="icon_share"><img src="../res/share.png" title="Share settings" > </div>
 	<div class="icon red" data-name="icon_delete"><img src="../res/delete.png" title="Delete trader"></div></div>
 <div>
@@ -113,7 +113,7 @@ included, external currencies are counted in proportion to external assets</span
 <div class="label"><span>Max price:</span><span data-name="range_max_price">---</span></div>
 <div class="label"><span>Recomended initial position:</span><span data-name="range_initial">---</span></div>
 </x-section>
-<div class="rightinfo"><button name="show_backtest" disabled="disabled">Backtest</button></div>
+<div class="rightinfo"><button name="show_backtest hide_on_new" disabled="disabled">Backtest</button></div>
 </x-section>
 <x-section data-name="strategy_gauss" class="goal" hidden="hidden"><x-section-caption>Gauss error function</x-section-caption>
 <label><span>External assets <span class="tooltip">Amount of assets held outside of exchange. They are included into calculations.</span></span><input type="number" step="any" data-name="gs_external_assets"></label>
@@ -141,7 +141,7 @@ included, external currencies are counted in proportion to external assets</span
 <div class="label"><span>Max price:</span><span data-name="range_max_price">---</span></div>
 <div class="label"><span>Recomended initial position:</span><span data-name="range_initial">---</span></div>
 </x-section>
-<div class="rightinfo"><button name="show_backtest" disabled="disabled">Backtest</button></div>
+<div class="rightinfo"><button name="show_backtest  hide_on_new" disabled="disabled">Backtest</button></div>
 </x-section>
 
 <x-section data-name="strategy_hyperbolic" class="goal" hidden="hidden"><x-section-caption>Linear/Hyperbolic/Sinh</x-section-caption>
@@ -163,14 +163,16 @@ included, external currencies are counted in proportion to external assets</span
 <option value="neutral">Keep neutral</option>
 </select>
 </label>
-<div class="label adv"><span>Spread control</span><span><x-checkbox data-name="hp_fastclose">Close position faster</x-checkbox><br><x-checkbox data-name="hp_slowopen">Open position slower</x-checkbox></span></div>
+<div class="label adv"><span>Close position faster<span class="tooltip">Reduce spread for reduction orders, so they are likely executed</span></span><x-checkbox data-name="hp_fastclose"></x-checkbox></div>
+<div class="label adv"><span>Open position slower<span class="tooltip">Increase spread for opening orders, so they should be executed after the market performs a significant move</span></span><x-checkbox data-name="hp_slowopen"></x-checkbox></div>
 <label><span>Avoid <x-switch data-name="inverted_price" data-value="false">SHORT</x-switch><x-switch data-name="inverted_price" data-value="true">LONG</x-switch> position<span class="tooltip">Prevents to trade on dangerous side of the market. It is short for normal futures and long for inverted futures</span></span><x-checkbox data-name="hp_longonly"></x-checkbox></label>
+<div class="label adv"><span>Reinvest profit<span class="tooltip">Increase the collateral by realized profit</span></span><x-checkbox data-name="hp_reinvest"></x-checkbox></div>
 <x-section>
 <div class="label"><span>Min price:</span><span data-name="range_min_price">---</span></div>
 <div class="label"><span>Max price:</span><span data-name="range_max_price">---</span></div>
 <div class="label"><span>Recomended initial position:</span><span data-name="range_initial">---</span></div>
 </x-section>
-<div class="rightinfo"><button name="show_backtest" disabled="disabled">Backtest</button></div>
+<div class="rightinfo"><button name="show_backtest  hide_on_new" disabled="disabled">Backtest</button></div>
 </x-section>
 
 <x-section data-name="strategy_stairs backtest_anchor" class="goal" hidden="hidden"><x-section-caption>Stairs</x-section-caption>
@@ -201,7 +203,7 @@ included, external currencies are counted in proportion to external assets</span
 <option value="poisson5">Poisson μ=11</option>
 </select></label>
 <label class="adv"><span>Options</span><span><x-checkbox data-name="st_sl">Stoploss</x-checkbox></span></label>
-<div class="rightinfo"><button name="show_backtest" disabled="disabled">Backtest</button></div>
+<div class="rightinfo"><button name="show_backtest hide_on_new" disabled="disabled">Backtest</button></div>
 </x-section>
 
 <x-section class="adv"  ><x-section-caption>Common</x-section-caption>

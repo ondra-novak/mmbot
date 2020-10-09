@@ -287,12 +287,18 @@ void MTrader::perform(bool manually) {
 
 			if (status.curStep) {
 
-				if (!cfg.enabled)  {
+				if (!cfg.enabled || need_initial_reset)  {
 					if (orders.buy.has_value())
 						stock->placeOrder(cfg.pairsymb,0,0,magic,orders.buy->id,0);
 					if (orders.sell.has_value())
 						stock->placeOrder(cfg.pairsymb,0,0,magic,orders.sell->id,0);
-					if (!cfg.hidden) statsvc->reportError(IStatSvc::ErrorObj("Automatic trading is disabled"));
+					if (!cfg.hidden) {
+						if (!cfg.enabled) {
+							statsvc->reportError(IStatSvc::ErrorObj("Automatic trading is disabled"));
+						} else {
+							statsvc->reportError(IStatSvc::ErrorObj("Reset required"));
+						}
+					}
 				} else {
 
 
@@ -909,6 +915,7 @@ void MTrader::loadState() {
 			if (cfg_sliding != cfg.dynmult_sliding)
 				lastPriceOffset = 0;
 			achieve_mode = state["achieve_mode"].getBool();
+			need_initial_reset = state["need_initial_reset"].getBool();
 			swapped = state["swapped"].getBool();
 		}
 		auto chartSect = st["chart"];
@@ -982,8 +989,9 @@ void MTrader::saveState() {
 		st.set("lastPriceOffset",lastPriceOffset);
 		st.set("cfg_sliding_spread",cfg.dynmult_sliding);
 		st.set("private_chart", minfo.private_chart||minfo.simulator);
-		st.set("achieve_mode", achieve_mode);
-		st.set("swapped", cfg.swap_symbols);
+		if (achieve_mode) st.set("achieve_mode", achieve_mode);
+		if (cfg.swap_symbols) st.set("swapped", cfg.swap_symbols);
+		if (need_initial_reset) st.set("need_initial_reset", need_initial_reset);
 	}
 	{
 		auto ch = obj.array("chart");
@@ -1095,7 +1103,7 @@ void MTrader::update_dynmult(bool buy_trade,bool sell_trade) {
 	dynmult.update(buy_trade, sell_trade);
 }
 
-void MTrader::reset() {
+void MTrader::clearStats() {
 	init();
 	trades.clear();
 	saveState();
@@ -1106,7 +1114,7 @@ void MTrader::stop() {
 }
 
 
-void MTrader::repair() {
+void MTrader::reset(std::optional<double> achieve_pos) {
 	init();
 	dynmult.setMult(1,1);
 	if (cfg.internal_balance) {
@@ -1117,7 +1125,6 @@ void MTrader::repair() {
 		currency_balance.reset();
 	}
 	currency_balance.reset();
-	strategy.reset();
 	achieve_mode = false;
 
 	if (!trades.empty()) {
@@ -1136,6 +1143,21 @@ void MTrader::repair() {
 		}
 
 	}
+
+	strategy.reset();
+	if (achieve_pos.has_value()) {
+		double position = *achieve_pos;
+		auto tk = stock->getTicker(cfg.pairsymb);
+		auto cur = stock->getBalance(minfo.currency_symbol, cfg.pairsymb)+cfg.external_balance;
+		auto ass = stock->getBalance(minfo.asset_symbol, cfg.pairsymb);
+		double diff = position - ass;
+		double vol = diff * tk.last;
+		strategy.onIdle(minfo, tk, (minfo.invert_price?-1.0:1.0)*position, cur-vol);
+		achieve_mode = true;
+	}
+
+
+	need_initial_reset = false;
 	saveState();
 }
 
@@ -1516,17 +1538,6 @@ void MTrader::DynMultControl::reset() {
 	mult_sell = 1.0;
 }
 
-void MTrader::activateAchieveMode(double position) {
-	strategy.reset();
-	auto tk = stock->getTicker(cfg.pairsymb);
-	auto cur = stock->getBalance(minfo.currency_symbol, cfg.pairsymb)+cfg.external_balance;
-	auto ass = stock->getBalance(minfo.asset_symbol, cfg.pairsymb);
-	double diff = position - ass;
-	double vol = diff * tk.last;
-	strategy.onIdle(minfo, tk, (minfo.invert_price?-1.0:1.0)*position, cur-vol);
-	achieve_mode = true;
-	saveState();
-}
 
 bool MTrader::checkAchieveModeDone(const Status &st) {
 	double eq = strategy.getEquilibrium(st.assetBalance);

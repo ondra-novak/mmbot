@@ -14,7 +14,7 @@
 // https://www.desmos.com/calculator/r2qiezykq8
 
 std::string_view SinhVal_Calculus::id = "sinh_val";
-static const unsigned int int_steps = 10;
+static const unsigned int int_steps = 20;
 
 #include "numerical.h"
 SinhVal_Calculus::SinhVal_Calculus(double p, double curv) :

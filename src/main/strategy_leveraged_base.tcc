@@ -31,7 +31,8 @@ Strategy_Leveraged<Calc>::Strategy_Leveraged(const PCalc &calc, const PConfig &c
 
 template<typename Calc>
 bool Strategy_Leveraged<Calc>::isValid() const {
-	return st.neutral_price > 0;
+	return st.neutral_price > 0 && st.power > 0 && st.last_price > 0 && st.bal+cfg->external_balance > 0 && cfg->external_balance+st.redbal > 0
+			&& std::isfinite(st.val) && std::isfinite(st.neutral_price) && std::isfinite(st.power) && std::isfinite(st.bal) && std::isfinite(st.redbal) && std::isfinite(st.last_price) && std::isfinite(st.neutral_pos);
 }
 
 template<typename Calc>
@@ -133,7 +134,7 @@ PStrategy Strategy_Leveraged<Calc>::onIdle(
 		const IStockApi::MarketInfo &minfo,
 		const IStockApi::Ticker &ticker, double assets, double currency) const {
 	if (isValid()) {
-		if (st.power <= 0 || st.redbal == 0) {
+		if (st.power <= 0) {
 			State nst = st;
 			recalcNewState(calc, cfg, nst);
 			return new Strategy_Leveraged<Calc>(calc, cfg, std::move(nst));
@@ -229,11 +230,16 @@ std::pair<typename Strategy_Leveraged<Calc>::OnTradeResult, PStrategy> Strategy_
 	//store val to calculate next profit (because strategy was adjusted)
 	nwst.val = val;
 
+
 	//store new balance
 	nwst.bal += (val - st.val) + vprofit;
 
 	if  (nwst.last_price > st.last_price) {
-		nwst.redbal = nwst.bal;
+		if (cfg->reinvest_profit) {
+			nwst.redbal = nwst.bal;
+		} else {
+			nwst.bal = nwst.redbal;
+		}
 	}
 
 
