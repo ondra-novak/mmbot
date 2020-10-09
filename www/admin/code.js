@@ -1001,7 +1001,7 @@ App.prototype.clearStatsTrader = function(id) {
 
 		var tr = this.traders[id];
 		this.waitScreen(fetch_with_error(
-			this.traderURL(tr.id)+"/clearStats",
+			this.traderURL(tr.id)+"/clear_stats",
 			{method:"POST"})).then(function() {				
 						this.updateTopMenu(tr.id);				
 			}.bind(this));
