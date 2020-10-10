@@ -528,8 +528,8 @@ App.prototype.fillForm = function (src, trg) {
 	data.hp_reinvest=false;
 	data.gs_rb_lo_p=20;
 	data.gs_rb_lo_a=85;
-	data.gs_rb_hi_p=50;
-	data.gs_rb_hi_a=85;
+	data.gs_rb_hi_p=75;
+	data.gs_rb_hi_a=50;
 	data.hp_fastclose=true;
 	data.hp_slowopen=true;
 	data.max_leverage = 0;
@@ -1876,7 +1876,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 			id: id,
 			init_pos:isFinite(opts.initial_pos)?opts.initial_pos:undefined,
 			init_price:init_price,
-			balance:isFinite(opts.initial_balance)?opts.initial_balance:balance,
+			balance:isFinite(opts.initial_balance)?opts.initial_balance:bal,
 			fill_atprice:fill_atprice,
 			start_date: start_date,
 			reverse: reverse_chart,
