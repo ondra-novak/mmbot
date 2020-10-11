@@ -6,7 +6,7 @@ Market Making trading bot for cryptomarkets
 Sorry, english documentation is not complete
 
 * [Install](doc/install.md)
-* [Proxy protocol](doc/proxy.md)
+* [Broker protocol](doc/broker_protocol.md)
 * [Command line interface](doc/cli.md)
 
 ## CZECH
