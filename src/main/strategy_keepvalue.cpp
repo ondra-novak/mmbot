@@ -212,5 +212,5 @@ double Strategy_KeepValue::calcInitialPosition(const IStockApi::MarketInfo &minf
 
 
 double Strategy_KeepValue::calcCurrencyAllocation(double price) const {
-	return calcReqCurrency(st, cfg, price);
+	return st.c;
 }
