@@ -1,5 +1,10 @@
 "use strict";
 
+window.addEventListener('DOMContentLoaded', (event) => {
+	   app_start();
+	});
+
+
 var changeinterval=null;
 var source_data=null;
 var drawChart=null;

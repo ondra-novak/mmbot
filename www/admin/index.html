@@ -9,7 +9,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <link rel="icon" type="image/png" href="../res/icon64.png" />
 </head>
-<body onload="app_start();">
+<body>
 <template id="trader_form">
 <x-form class="pair no_adv sections">
 <x-section><x-section-caption>Info</x-section-caption>
@@ -650,8 +650,7 @@ the same order, they are ordered by its ID - this is the default ordering. Modif
 <template id="options_form">
 <x-form  class="pair options_form sections">
 <x-section><x-section-caption>Options</x-section-caption>
-<label><span>How many days of history to show in charts: </span><x-slider data-min="1" data-max="60" data-mult="1" data-name="report_interval"></x-slider></label>
-<!-- <label><span>Size of backtest [days]: </span><x-slider data-min="1" data-max="60" data-mult="1" data-name="backtest_interval"></x-slider></label> -->
+<label><span>Graph for last days: </span><x-slider data-min="1" data-max="60" data-mult="1" data-name="report_interval"></x-slider></label>
 </x-section>
 <x-section><x-section-caption>Troubleshoting</x-section-caption>
 <div class="trouble_sect"><div>Temporarily stops trading for all configured traders  and cancels all their orders. To re-enable trading, you have to click Apply button<div><button data-name="stop">Global Stop</button></div></div>

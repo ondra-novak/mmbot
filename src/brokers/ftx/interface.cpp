@@ -389,7 +389,6 @@ json::Value Interface::checkCancelAndPlace(PConnection conn, json::String pair,
 				}
 			} else {
 				std::this_thread::sleep_for(std::chrono::seconds(1));
-				checkCancelAndPlace(conn,pair,size,price,ordId,replaceId, replaceSize);
 			}
 		}
 	}
@@ -552,7 +551,6 @@ json::Value Interface::Connection::signHeaders(const std::string_view &method, c
 			("FTX-SIGN", hexDigest)
 			("FTX-SUBACCOUNT", api_subaccount.empty()?Value():Value(api_subaccount));
 
-	logDebug("$1", req.toString());
 	return req;
 
 }

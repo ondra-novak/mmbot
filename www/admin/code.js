@@ -1,5 +1,9 @@
 "use strict";
 
+window.addEventListener('DOMContentLoaded', (event) => {
+   app_start();
+});
+
 function app_start() {
 	TemplateJS.View.lightbox_class = "lightbox";
 	window.app = new App();
