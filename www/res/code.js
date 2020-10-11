@@ -464,7 +464,7 @@ function app_start(){
 			} else {
 				var data = [				
 					dr.toLocaleString("default",{"day":"numeric","month":"2-digit"}),
-					dr.toLocaleString("default",{"hour":"2-digit","minute":"2-digit","second":"2-digit"}),
+					dr.toLocaleString("default",{"hour":"2-digit","minute":"2-digit","second":"2-digit","hour12":false}),
 					r.ident?infoMap[r.ident].title:"",
 					r.achg < 0?"↘":r.achg?"↗":"!",
 					r.achg?Math.abs(r.achg):"alert",
