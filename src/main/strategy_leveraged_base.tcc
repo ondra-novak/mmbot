@@ -497,7 +497,7 @@ typename Strategy_Leveraged<Calc>::BudgetInfo Strategy_Leveraged<Calc>::getBudge
 
 template<typename Calc>
 inline double Strategy_Leveraged<Calc>::calcCurrencyAllocation(double) const {
-	return 0; //not applicable for leveraged strategy
+	return cfg->external_balance + st.redbal - st.val;
 }
 
 

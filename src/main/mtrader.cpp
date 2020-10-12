@@ -386,7 +386,7 @@ void MTrader::perform(bool manually) {
 			auto minmax = strategy.calcSafeRange(minfo, status.assetBalance, status.currencyBalance);
 			auto budget = strategy.getBudgetInfo();
 			std::optional<double> budget_extra;
-			if (minfo.leverage == 0) {
+			{
 				double budget = walletDB.lock_shared()->query(WalletDB::KeyQuery(
 						cfg.broker,minfo.wallet_id,minfo.currency_symbol,uid)).total();
 				if (budget) {
@@ -1208,133 +1208,10 @@ void MTrader::acceptLoss(const Status &st, double dir) {
 	}
 }
 
-class ConfigOuput {
-public:
-
-
-	class Mandatory:public ondra_shared::VirtualMember<ConfigOuput> {
-	public:
-		using ondra_shared::VirtualMember<ConfigOuput>::VirtualMember;
-		auto operator[](StrViewA name) const {
-			return getMaster()->getMandatory(name);
-		}
-	};
-
-	Mandatory mandatory;
-
-	class Item {
-	public:
-
-		Item(StrViewA name, const ondra_shared::IniConfig::Value &value, std::ostream &out, bool mandatory):
-			name(name), value(value), out(out), mandatory(mandatory) {}
-
-		template<typename ... Args>
-		auto getString(Args && ... args) const {
-			auto res = value.getString(std::forward<Args>(args)...);
-			out << name << "=" << res ;trailer();
-			return res;
-		}
-
-		template<typename ... Args>
-		auto getUInt(Args && ... args) const {
-			auto res = value.getUInt(std::forward<Args>(args)...);
-			out << name << "=" << res;trailer();
-			return res;
-		}
-		template<typename ... Args>
-		auto getNumber(Args && ... args) const {
-			auto res = value.getNumber(std::forward<Args>(args)...);
-			out << name << "=" << res;trailer();
-			return res;
-		}
-		template<typename ... Args>
-		auto getBool(Args && ... args) const {
-			auto res = value.getBool(std::forward<Args>(args)...);
-			out << name << "=" << (res?"on":"off");trailer();
-			return res;
-		}
-		bool defined() const {
-			return value.defined();
-		}
-
-		void trailer() const {
-			if (mandatory) out << " (mandatory)";
-			out << std::endl;
-		}
-
-	protected:
-		StrViewA name;
-		const ondra_shared::IniConfig::Value &value;
-		std::ostream &out;
-		bool mandatory;
-	};
-
-	Item operator[](ondra_shared::StrViewA name) const {
-		return Item(name, ini[name], out, false);
-	}
-	Item getMandatory(ondra_shared::StrViewA name) const {
-		return Item(name, ini[name], out, true);
-	}
-
-	ConfigOuput(const ondra_shared::IniConfig::Section &ini, std::ostream &out)
-	:mandatory(this),ini(ini),out(out) {}
-
-protected:
-	const ondra_shared::IniConfig::Section &ini;
-	std::ostream &out;
-};
-
 void MTrader::dropState() {
 	storage->erase();
 	statsvc->clear();
 }
-
-class ConfigFromJSON {
-public:
-
-	class Mandatory:public ondra_shared::VirtualMember<ConfigFromJSON> {
-	public:
-		using ondra_shared::VirtualMember<ConfigFromJSON>::VirtualMember;
-		auto operator[](StrViewA name) const {
-			return getMaster()->getMandatory(name);
-		}
-	};
-
-	class Item {
-	public:
-
-		json::Value v;
-
-		Item(json::Value v):v(v) {}
-
-		auto getString() const {return v.getString();}
-		auto getString(json::StrViewA d) const {return v.defined()?v.getString():d;}
-		auto getUInt() const {return v.getUInt();}
-		auto getUInt(std::size_t d) const {return v.defined()?v.getUInt():d;}
-		auto getNumber() const {return v.getNumber();}
-		auto getNumber(double d) const {return v.defined()?v.getNumber():d;}
-		auto getBool() const {return v.getBool();}
-		auto getBool(bool d) const {return v.defined()?v.getBool():d;}
-		bool defined() const {return v.defined();}
-
-	};
-
-	Item operator[](ondra_shared::StrViewA name) const {
-		return Item(config[name]);
-	}
-	Item getMandatory(ondra_shared::StrViewA name) const {
-		json::Value v = config[name];
-		if (v.defined()) return Item(v);
-		else throw std::runtime_error(std::string(name).append(" is mandatory"));
-	}
-
-	Mandatory mandatory;
-
-	ConfigFromJSON(json::Value config):mandatory(this),config(config) {}
-protected:
-	json::Value config;
-};
-
 
 
 template<typename Iter>
