@@ -1,3 +1,45 @@
+mmbot (2:20.10) unstable; urgency=medium
+
+  * 7f08a16 increase accuracy of numeric calculations
+  * 7ad948a display budget extra of leveraged markets
+  * 1be0cf5 doc: broker protocol
+  * 42d072f FTX: fix duplicate client id
+  * dfff1e7 fix KeepValue strategy reported wrong budget allocation
+  * 8b4c132 disable 12hour time format for US region (breaks design)
+  * 0135f9d improve Keep Value strategy
+  * 5bb9426 cache static pages
+  * 6892796 mandatory reset, reinvest profit option
+  * e7cc659 day night mode
+  * e1d9729 sharing trainer cryptowatch prices
+  * 1e4e360 Merge branch 'master' into mmbot.trade
+  * 6a986dd change method to receive market prices from cryptowatch
+  * f1db728 fix calculation of position when strategy sinh is on max leverage
+  * 58cf926 use equilibrium instead of last trade price in standard trading
+  * a187100 value based sinh
+  * fd645b5 fix bitfinex reported too high fees
+  * 1788759 hide budget_extra if strategy doesn't report any budget
+  * de9ef5a Merge branch 'mmbot.trade'
+  * 3ca13eb improved strategy startup and calculation of initial position
+  * 9ad1e7b generate random chart
+  * 2afa261 fix wallet_id proxy on swap_broker
+  * 3b3279b remove confusing target price from various strategies
+  * b329aa6 improve fast_close_more
+  * 51468bd fix max leverage behaviour
+  * 42db7ba more fastclose
+  * b75cbf1 improve placing orders and overleverage orders
+  * 3b4fcfb kraken fix hybrid mode Insufficient funds error on short
+  * 28f26b2 improve budget calculation
+  * 485c32e clear wallet db on "apply changes"
+  * 8157b61 when balance is less then budget, split balance evently
+  * 6f5622d wallet database - track for shared resources
+  * 4b56758 FTX: try to avoid double executions
+  * 69f290d fix authorization
+  * ccbd8a3 update submodules
+  * 8397fcb improved mapping to external paths
+  * 7f41c96 fix kraken calculation of current position
+
+ -- Ondra Novak <nov.ondrej@gmail.com>  Tue, 13 Oct 2020 18:48:00 +0200
+
 mmbot (2:20.9) unstable; urgency=medium
 
   * Final release debian package
