@@ -46,7 +46,8 @@ NamedEnum<WebCfg::Command> WebCfg::strCommand({
 	{WebCfg::spread, "spread"},
 	{WebCfg::strategy, "strategy"},
 	{WebCfg::upload_prices, "upload_prices"},
-	{WebCfg::upload_trades, "upload_trades"}
+	{WebCfg::upload_trades, "upload_trades"},
+	{WebCfg::wallet, "wallet"}
 });
 
 WebCfg::WebCfg( const SharedObject<State> &state,
@@ -96,6 +97,7 @@ bool WebCfg::operator ()(const simpleServer::HTTPRequest &req,
 		case strategy: return reqStrategy(req);
 		case upload_prices: return reqUploadPrices(req);
 		case upload_trades: return reqUploadTrades(req);
+		case wallet: return reqDumpWallet(req);
 		}
 	}
 	return false;
@@ -1501,5 +1503,17 @@ bool WebCfg::reqStrategy(simpleServer::HTTPRequest req) {
 			("initial", (inverted?-1:1)*initial);
 
 	req.sendResponse("application/json", out.toString());
+	return true;
+}
+
+bool WebCfg::reqDumpWallet(simpleServer::HTTPRequest req) {
+	if (!req.allowMethods({"GET"})) return true;
+
+	auto wallet = trlist.lock_shared()->walletDB;
+	auto lkwallet = wallet.lock_shared();
+	json::Value jsn = lkwallet->dumpJSON();
+
+	Stream stream = req.sendResponse("application/json");
+	jsn.serialize(stream);
 	return true;
 }

@@ -7,6 +7,7 @@
 
 #include "walletDB.h"
 
+#include "../imtjson/src/imtjson/value.h"
 WalletDB::WalletDB() {
 	// TODO Auto-generated constructor stub
 }
@@ -74,3 +75,14 @@ void WalletDB::clear() {
 	allocTable.clear();
 }
 
+json::Value WalletDB::dumpJSON() const {
+	return json::Value(json::array, allocTable.begin(), allocTable.end(), [](const AllocTable::value_type &itm){
+		return json::Value({
+			itm.first.broker,
+			itm.first.wallet,
+			itm.first.symbol,
+			itm.first.traderUID,
+			itm.second
+		});
+	});
+}
