@@ -536,7 +536,7 @@ App.prototype.fillForm = function (src, trg) {
 	data.gs_rb_hi_a=50;
 	data.hp_fastclose=true;
 	data.hp_slowopen=true;
-	data.max_leverage = 0;
+	data.max_leverage = 10;
 
 	function powerCalc(x) {return adjNumN(Math.pow(10,x)*0.01);};
 
@@ -612,7 +612,7 @@ App.prototype.fillForm = function (src, trg) {
 	data.max_balance = filledval(src.max_balance,"");
 	data.min_balance = filledval(src.min_balance,"");
 	data.zigzag = filledval(src.zigzag,false);
-	data.max_leverage = filledval(src.max_leverage,0);
+	data.max_leverage = filledval(src.max_leverage,10);
 	data.ext_bal = filledval(src.ext_bal,0);
 		
 
