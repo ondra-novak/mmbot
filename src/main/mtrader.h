@@ -157,6 +157,7 @@ public:
 		double curStep;
 		double assetBalance;
 		double currencyBalance;
+		double currencyUnadjustedBalance;
 		double new_fees;
 		double spreadCenter;
 		IStockApi::TradesSync new_trades;
@@ -285,6 +286,7 @@ protected:
 
 	std::optional<double> internal_balance;
 	std::optional<double> currency_balance;
+	std::optional<double> currency_unadjusted_balance;
 
 	size_t magic = 0;
 	size_t uid = 0;

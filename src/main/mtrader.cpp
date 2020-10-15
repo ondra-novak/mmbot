@@ -200,7 +200,7 @@ void MTrader::perform(bool manually) {
 
 		internal_balance = status.assetBalance;
 		currency_balance = status.currencyBalance;
-
+		currency_unadjusted_balance = status.currencyUnadjustedBalance;
 
 		//update market fees
 		minfo.fees = status.new_fees;
@@ -385,19 +385,20 @@ void MTrader::perform(bool manually) {
 			//report misc
 			auto minmax = strategy.calcSafeRange(minfo, status.assetBalance, status.currencyBalance);
 			auto budget = strategy.getBudgetInfo();
+			auto equil = strategy.getEquilibrium(status.assetBalance);
 			std::optional<double> budget_extra;
 			{
-				double budget = walletDB.lock_shared()->query(WalletDB::KeyQuery(
-						cfg.broker,minfo.wallet_id,minfo.currency_symbol,uid)).total();
+				double locked = cfg.internal_balance?0:walletDB.lock_shared()->query(WalletDB::KeyQuery(cfg.broker, minfo.wallet_id, minfo.currency_symbol, uid)).otherTraders;
+				double budget = strategy.calcCurrencyAllocation(std::isfinite(equil)?equil:status.curPrice);
 				if (budget) {
-					budget_extra =  status.currencyBalance - budget+cfg.external_balance;
+					budget_extra =  status.currencyUnadjustedBalance - locked - budget + cfg.external_balance;
 				}
 			}
 
 			statsvc->reportMisc(IStatSvc::MiscData{
 				last_trade_dir,
 				achieve_mode,
-				strategy.getEquilibrium(status.assetBalance),
+				equil,
 				status.curPrice * (exp(status.curStep) - 1),
 				dynmult.getBuyMult(),
 				dynmult.getSellMult(),
@@ -570,7 +571,7 @@ MTrader::Status MTrader::getMarketStatus() const {
 		}
 	}
 
-	if (!res.new_trades.trades.empty() || !internal_balance.has_value() || !currency_balance.has_value())
+	if (!res.new_trades.trades.empty() || !internal_balance.has_value() || !currency_balance.has_value() || !currency_unadjusted_balance.has_value())
 	{
 		if (cfg.internal_balance && internal_balance.has_value() && currency_balance.has_value()) {
 			auto sumt = std::accumulate(res.new_trades.trades.begin(),
@@ -579,16 +580,18 @@ MTrader::Status MTrader::getMarketStatus() const {
 			res.currencyBalance = minfo.leverage?0:sumt.second;
 			if (internal_balance.has_value()) res.assetBalance += *internal_balance;
 			if (currency_balance.has_value()) res.currencyBalance += *currency_balance;
+			res.currencyUnadjustedBalance = res.currencyBalance;
 		} else {
 			res.assetBalance = stock->getBalance(minfo.asset_symbol, cfg.pairsymb);
-			res.currencyBalance = stock->getBalance(minfo.currency_symbol, cfg.pairsymb);
+			res.currencyUnadjustedBalance = stock->getBalance(minfo.currency_symbol, cfg.pairsymb);
 			auto wdb = walletDB.lock_shared();
 //			res.assetBalance = wdb->adjBalance(WalletDB::KeyQuery(cfg.broker,minfo.wallet_id,minfo.asset_symbol,uid), res.assetBalance);
-			res.currencyBalance = wdb->adjBalance(WalletDB::KeyQuery(cfg.broker,minfo.wallet_id,minfo.currency_symbol,uid), res.currencyBalance);
+			res.currencyBalance = wdb->adjBalance(WalletDB::KeyQuery(cfg.broker,minfo.wallet_id,minfo.currency_symbol,uid), res.currencyUnadjustedBalance);
 		}
 	} else {
 		res.currencyBalance = *currency_balance;
 		res.assetBalance = *internal_balance;
+		res.currencyUnadjustedBalance = *currency_unadjusted_balance;
 	}
 
 
