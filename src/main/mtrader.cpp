@@ -1149,13 +1149,16 @@ void MTrader::reset(std::optional<double> achieve_pos) {
 
 	strategy.reset();
 	if (achieve_pos.has_value()) {
-		double position = *achieve_pos;
+		double position = (minfo.invert_price?-1.0:1.0)*(*achieve_pos);
 		auto tk = stock->getTicker(cfg.pairsymb);
-		auto cur = stock->getBalance(minfo.currency_symbol, cfg.pairsymb)+cfg.external_balance;
+		auto alloc = walletDB.lock_shared()->query(WalletDB::KeyQuery(cfg.broker, minfo.wallet_id, minfo.currency_symbol, uid));
+		auto cur = stock->getBalance(minfo.currency_symbol, cfg.pairsymb)+cfg.external_balance-alloc.otherTraders;
 		auto ass = stock->getBalance(minfo.asset_symbol, cfg.pairsymb);
 		double diff = position - ass;
 		double vol = diff * tk.last;
-		strategy.onIdle(minfo, tk, (minfo.invert_price?-1.0:1.0)*position, cur-vol);
+		double remain = minfo.leverage?cur:std::max(cur - vol,0.0);
+		logInfo("RESET strategy: price=$1, cur_pos=$2, new_pos=$3, diff=$4, volume=$5, remain=$6", tk.last, ass, position, diff, vol, remain);
+		strategy.onIdle(minfo, tk, position, remain);
 		achieve_mode = true;
 	}
 
