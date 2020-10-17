@@ -56,6 +56,26 @@ static json::NamedEnum<Strategy_Stairs::TradingMode> strStairsTMode ({
 });
 
 using ondra_shared::StrViewA;
+
+template<typename Cfg>
+void initConfig(Cfg &cfg, json::Value config,
+		double power) {
+	cfg.max_loss = config["max_loss"].getNumber();
+	cfg.power = power;
+	cfg.asym = config["asym"].getNumber();
+	cfg.reduction = config["reduction"].getNumber();
+	cfg.external_balance = config["extbal"].getNumber();
+	cfg.powadj = config["powadj"].getNumber();
+	cfg.dynred = config["dynred"].getNumber();
+	cfg.initboost = config["initboost"].getNumber();
+	cfg.detect_trend = config["dtrend"].getBool();
+	cfg.longonly = config["longonly"].getBool();
+	cfg.recalc_keep_neutral = config["recalc_mode"].getString() == "neutral";
+	cfg.fastclose = config["fastclose"].getValueOrDefault(true);
+	cfg.slowopen = config["slowopen"].getValueOrDefault(true);
+	cfg.reinvest_profit = config["reinvest_profit"].getValueOrDefault(false);
+}
+
 Strategy Strategy::create(std::string_view id, json::Value config) {
 
 	if (id == Strategy_HalfHalf::id) {
@@ -92,7 +112,6 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 		cfg.ea = config["ea"].getNumber();
 		cfg.accum = config["accum"].getNumber();
 		cfg.chngtm = config["valinc"].getNumber();
-		cfg.keep_half=config["halfhalf"].getBool();
 		return Strategy(new Strategy_KeepValue(cfg,{}));
 	} else if (id == Strategy_Stairs::id) {
 		Strategy_Stairs::Config cfg;
@@ -106,93 +125,35 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 		return Strategy(new Strategy_Stairs(cfg));
 	} else if (id == Strategy_Hyperbolic::id) {
 		Strategy_Hyperbolic::Config cfg;
-		cfg.power = config["power"].getNumber();
-		cfg.max_loss = config["max_loss"].getNumber();
-		cfg.asym = config["asym"].getNumber()/cfg.power;
-		cfg.reduction = config["reduction"].getNumber();
-		cfg.external_balance = config["extbal"].getNumber();
-		cfg.powadj = config["powadj"].getNumber();
-		cfg.dynred = config["dynred"].getNumber();
-		cfg.initboost = config["initboost"].getNumber();
-		cfg.detect_trend = config["dtrend"].getBool();
-		cfg.longonly = config["longonly"].getBool();
-		cfg.fastclose = config["fastclose"].getValueOrDefault(true);
-		cfg.slowopen = config["slowopen"].getValueOrDefault(true);
-		cfg.recalc_keep_neutral = config["recalc_mode"].getString() == "neutral";
+		initConfig(cfg, config, config["power"].getNumber());
 		return Strategy(new Strategy_Hyperbolic(std::make_shared<Strategy_Hyperbolic::TCalc>(),
 											    std::make_shared<Strategy_Hyperbolic::Config>(cfg)));
 	} else if (id == Strategy_Linear::id) {
 		Strategy_Linear::Config cfg;
-		cfg.power = config["power"].getNumber();
-		cfg.max_loss = config["max_loss"].getNumber();
-		cfg.asym = config["asym"].getNumber()/cfg.power;
-		cfg.reduction = config["reduction"].getNumber();
-		cfg.external_balance = config["extbal"].getNumber();
-		cfg.powadj = config["powadj"].getNumber();
-		cfg.dynred = config["dynred"].getNumber();
-		cfg.initboost = config["initboost"].getNumber();
-		cfg.detect_trend = config["dtrend"].getBool();
-		cfg.longonly = config["longonly"].getBool();
-		cfg.recalc_keep_neutral = config["recalc_mode"].getString() == "neutral";
-		cfg.fastclose = config["fastclose"].getValueOrDefault(true);
-		cfg.slowopen = config["slowopen"].getValueOrDefault(true);
+		initConfig(cfg, config, config["power"].getNumber());
 		return Strategy(new Strategy_Linear(std::make_shared<Strategy_Linear::TCalc>(),
 			    							std::make_shared<Strategy_Linear::Config>(cfg)));
 	} else if (id == Strategy_Sinh::id) {
 		Strategy_Sinh::Config cfg;
 		double power = config["power"].getNumber();
-		cfg.max_loss = config["max_loss"].getNumber();
-		cfg.power = power;
-		cfg.asym = config["asym"].getNumber();
-		cfg.reduction = config["reduction"].getNumber();
-		cfg.external_balance = config["extbal"].getNumber();
-		cfg.powadj = config["powadj"].getNumber();
-		cfg.dynred = config["dynred"].getNumber();
-		cfg.initboost = config["initboost"].getNumber();
-		cfg.detect_trend = config["dtrend"].getBool();
-		cfg.longonly = config["longonly"].getBool();
+		initConfig(cfg, config, power);
 		double curv = config["curv"].getValueOrDefault(5.0);
-		cfg.recalc_keep_neutral = config["recalc_mode"].getString() == "neutral";
-		cfg.fastclose = config["fastclose"].getValueOrDefault(true);
-		cfg.slowopen = config["slowopen"].getValueOrDefault(true);
 		return Strategy(new Strategy_Sinh(std::make_shared<Strategy_Sinh::TCalc>(power, curv),
 			    							std::make_shared<Strategy_Sinh::Config>(cfg)));
 	} else if (id == Strategy_Sinh2::id) {
 		Strategy_Sinh2::Config cfg;
-		double power = config["power"].getNumber();
-		cfg.max_loss = config["max_loss"].getNumber();
-		cfg.power = std::exp(power);
-		cfg.asym = config["asym"].getNumber();
-		cfg.reduction = config["reduction"].getNumber();
-		cfg.external_balance = config["extbal"].getNumber();
-		cfg.powadj = config["powadj"].getNumber();
-		cfg.dynred = config["dynred"].getNumber();
-		cfg.initboost = config["initboost"].getNumber();
-		cfg.detect_trend = config["dtrend"].getBool();
-		cfg.longonly = config["longonly"].getBool();
+		double power = std::exp(config["power"].getNumber());
+		initConfig(cfg, config, power);
 		double curv = config["curv"].getValueOrDefault(5.0);
-		cfg.recalc_keep_neutral = config["recalc_mode"].getString() == "neutral";
-		cfg.fastclose = config["fastclose"].getValueOrDefault(true);
-		cfg.slowopen = config["slowopen"].getValueOrDefault(true);
 		return Strategy(new Strategy_Sinh2(std::make_shared<Strategy_Sinh2::TCalc>(curv),
 			    							std::make_shared<Strategy_Sinh2::Config>(cfg)));
 	} else if (id == Strategy_SinhVal::id) {
 		Strategy_SinhVal::Config cfg;
 		double power = config["power"].getNumber();
-		cfg.max_loss = config["max_loss"].getNumber();
-		cfg.power = power;
+		initConfig(cfg,config,power);
 		cfg.asym = 0;
-		cfg.reduction = config["reduction"].getNumber();
-		cfg.external_balance = config["extbal"].getNumber();
-		cfg.powadj = config["powadj"].getNumber();
-		cfg.dynred = config["dynred"].getNumber();
-		cfg.initboost = config["initboost"].getNumber();
 		cfg.detect_trend = false;
-		cfg.longonly = config["longonly"].getBool();
 		double curv = config["curv"].getValueOrDefault(5.0);
-		cfg.recalc_keep_neutral = config["recalc_mode"].getString() == "neutral";
-		cfg.fastclose = config["fastclose"].getValueOrDefault(true);
-		cfg.slowopen = config["slowopen"].getValueOrDefault(true);
 		return Strategy(new Strategy_SinhVal(std::make_shared<Strategy_SinhVal::TCalc>(power, curv),
 			    							std::make_shared<Strategy_SinhVal::Config>(cfg)));
 	} else {

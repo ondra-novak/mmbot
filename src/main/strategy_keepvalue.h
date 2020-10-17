@@ -18,7 +18,6 @@ public:
 		double ea;
 		double accum;
 		double chngtm;
-		bool keep_half;
 	};
 
 
@@ -26,7 +25,8 @@ public:
 			bool valid = false;
 			double p = 0;
 			double a = 0;
-			double n = 0;
+			double c = 0;
+			double f = 0;
 			std::uint64_t recalc_time = 0;
 			std::uint64_t check_time = 0;
 		};

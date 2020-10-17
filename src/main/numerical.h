@@ -12,7 +12,7 @@
 
 namespace {
 
-const double accuracy = 1e-5;
+const double accuracy = 1e-6;
 
 }
 

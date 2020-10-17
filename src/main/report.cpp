@@ -381,6 +381,16 @@ void Report::clear(StrViewA symb) {
 	orderMap.clear();
 }
 
+void Report::clear() {
+	tradeMap.clear();
+	infoMap.clear();
+	priceMap.clear();
+	miscMap.clear();
+	errorMap.clear();
+	orderMap.clear();
+	logLines.clear();
+}
+
 void Report::perfReport(json::Value report) {
 	perfRep = report;
 }

@@ -127,6 +127,7 @@ public:
 		strategy,
 		upload_prices,
 		upload_trades,
+		wallet,
 	};
 
 	AuthMapper auth;
@@ -152,6 +153,7 @@ protected:
 	bool reqUploadPrices(simpleServer::HTTPRequest req);
 	bool reqUploadTrades(simpleServer::HTTPRequest req);
 	bool reqStrategy(simpleServer::HTTPRequest req);
+	bool reqDumpWallet(simpleServer::HTTPRequest req);
 
 	using Sync = std::unique_lock<std::recursive_mutex>;
 

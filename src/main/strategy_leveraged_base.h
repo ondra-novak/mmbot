@@ -33,6 +33,7 @@ public:
 		bool longonly = false;
 		bool fastclose = false;
 		bool slowopen = false;
+		bool reinvest_profit = false;
 //		int preference = 0;
 	};
 

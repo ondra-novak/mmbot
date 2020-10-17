@@ -1,5 +1,9 @@
 "use strict";
 
+window.addEventListener('DOMContentLoaded', (event) => {
+   app_start();
+});
+
 function app_start() {
 	TemplateJS.View.lightbox_class = "lightbox";
 	window.app = new App();
@@ -386,7 +390,15 @@ App.prototype.fillForm = function (src, trg) {
 		data.icon_broker = {
 					".hidden":!broker.settings,
 					"!click":this.brokerConfig.bind(this, src.broker, src.pair_symbol)
-				}					
+				};					
+		data.hide_on_new = {
+				".hidden":!state.exists,
+			};
+		data.icon_reset = {
+				classList:{
+					blink:state.need_initial_reset
+				}
+		};
 		data.open_orders_sect = {".hidden":!mp.length};
 
 
@@ -517,13 +529,14 @@ App.prototype.fillForm = function (src, trg) {
 	data.hp_lb_asym="asym";
 	data.inverted_price="false";
 	data.hp_longonly=false;
+	data.hp_reinvest=false;
 	data.gs_rb_lo_p=20;
 	data.gs_rb_lo_a=85;
-	data.gs_rb_hi_p=50;
-	data.gs_rb_hi_a=85;
+	data.gs_rb_hi_p=75;
+	data.gs_rb_hi_a=50;
 	data.hp_fastclose=true;
 	data.hp_slowopen=true;
-	data.max_leverage = 0;
+	data.max_leverage = 10;
 
 	function powerCalc(x) {return adjNumN(Math.pow(10,x)*0.01);};
 
@@ -551,6 +564,7 @@ App.prototype.fillForm = function (src, trg) {
 		data.hp_extbal = filledval(src.strategy.extbal,0);
 		data.hp_dtrend = filledval(src.strategy.dtrend,false);
 		data.hp_longonly = filledval(src.strategy.longonly,false);
+		data.hp_reinvest= filledval(src.strategy.reinvest_profit,false);
 		data.sh_curv = filledval(src.strategy.curv,5);
 		data.hp_lb_asym = src.strategy.dtrend?"trend":"asym"; 
 		data.hp_fastclose = filledval(src.strategy.fastclose,true);
@@ -598,15 +612,16 @@ App.prototype.fillForm = function (src, trg) {
 	data.max_balance = filledval(src.max_balance,"");
 	data.min_balance = filledval(src.min_balance,"");
 	data.zigzag = filledval(src.zigzag,false);
-	data.max_leverage = filledval(src.max_leverage,0);
+	data.max_leverage = filledval(src.max_leverage,10);
 	data.ext_bal = filledval(src.ext_bal,0);
 		
 
 	
 	
-	data.icon_repair={"!click": function() {
-		this.repairTrader(src.id,initial_pos)}.bind(this)};
-	data.icon_reset={"!click": this.resetTrader.bind(this, src.id)};
+	data.icon_reset={"!click": function() {
+		this.resetTrader(src.id,initial_pos);
+		}.bind(this)};
+	data.icon_clearStats={"!click": this.clearStatsTrader.bind(this, src.id)};
 	data.icon_delete={"!click": this.deleteTrader.bind(this, src.id)};
 	data.icon_undo={"!click": this.undoTrader.bind(this, src.id)};
 	data.icon_trading={"!click":this.tradingForm.bind(this, src.id)};
@@ -694,6 +709,7 @@ function getStrategyData(data) {
 				extbal: data.hp_extbal,
 				dtrend: data.hp_dtrend,
 				longonly: data.hp_longonly,
+				reinvest_profit: data.hp_reinvest,
 				max_loss: data.hp_maxloss,
 				recalc_mode: data.hp_recalc,
 				asym: data.hp_asym / 100,
@@ -982,21 +998,21 @@ App.prototype.undoTrader = function(id) {
 	this.updateTopMenu(id);
 }
 
-App.prototype.resetTrader = function(id) {
+App.prototype.clearStatsTrader = function(id) {
 	this.dlgbox({"text":this.strtable.askreset,
 		"ok":this.strtable.yes,
 		"cancel":this.strtable.no},"confirm").then(function(){
 
 		var tr = this.traders[id];
 		this.waitScreen(fetch_with_error(
-			this.traderURL(tr.id)+"/reset",
+			this.traderURL(tr.id)+"/clear_stats",
 			{method:"POST"})).then(function() {				
 						this.updateTopMenu(tr.id);				
 			}.bind(this));
 	}.bind(this));
 }
 
-App.prototype.repairTrader = function(id, initial) {
+App.prototype.resetTrader = function(id, initial) {
 		var form=TemplateJS.View.fromTemplate("reset_strategy");
 		var view;
 		var p = this.dlgbox({rpos:{
@@ -1016,12 +1032,14 @@ App.prototype.repairTrader = function(id, initial) {
             }
 				
 			this.waitScreen(fetch_with_error(
-				this.traderURL(tr.id)+"/repair",
+				this.traderURL(tr.id)+"/reset",
 				{method:"POST",body:JSON.stringify(req)})).then(function() {
 							this.updateTopMenu(tr.id);				
 				}.bind(this));
 	}.bind(this));
     view = p.view;
+    return p;
+    
 }
 
 App.prototype.cancelAllOrders = function(id) {
@@ -1501,7 +1519,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 	form.enableItem("show_backtest",false);		
 	var inputs = ["strategy","external_assets", "acum_factor","kv_valinc","kv_halfhalf","min_size","max_size","order_mult","alerts","delayed_alerts","linear_suggest","linear_suggest_maxpos",
 		"st_power","st_reduction_step","st_sl","st_redmode","st_max_step","st_pattern","dynmult_sliding","accept_loss","spread_calc_sma_hours","st_tmode","zigzag",
-		"hp_dtrend","hp_longonly","hp_power","hp_maxloss","hp_asym","hp_reduction","sh_curv","hp_initboost","hp_extbal","hp_powadj","hp_dynred",
+		"hp_dtrend","hp_longonly","hp_reinvest","hp_power","hp_maxloss","hp_asym","hp_reduction","sh_curv","hp_initboost","hp_extbal","hp_powadj","hp_dynred",
 		"gs_external_assets","gs_rb_hi_a","gs_rb_lo_a","gs_rb_hi_p","gs_rb_lo_p",
 		"min_balance","max_balance","max_leverage"];
 	var spread_inputs = ["spread_calc_stdev_hours", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode","dynmult_sliding","dynmult_mult"];
@@ -1862,7 +1880,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 			id: id,
 			init_pos:isFinite(opts.initial_pos)?opts.initial_pos:undefined,
 			init_price:init_price,
-			balance:isFinite(opts.initial_balance)?opts.initial_balance:balance,
+			balance:isFinite(opts.initial_balance)?opts.initial_balance:bal,
 			fill_atprice:fill_atprice,
 			start_date: start_date,
 			reverse: reverse_chart,

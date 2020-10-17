@@ -59,79 +59,6 @@ using ondra_shared::schedulerGetWorker;
 
 ondra_shared::SharedObject<Traders> traders;
 
-template<typename Fn>
-auto run_in_worker(Worker wrk, Fn &&fn) -> decltype(fn()) {
-	using Ret = decltype(fn());
-	ondra_shared::Countdown c(1);
-	std::exception_ptr exp;
-	std::optional<Ret> ret;
-	wrk >> [&] {
-		try {
-			ret = fn();
-		} catch (...) {
-			exp = std::current_exception();
-		}
-		c.dec();
-	};
-	c.wait();
-	if (exp != nullptr) {
-		std::rethrow_exception(exp);
-	}
-	return *ret;
-}
-
-static int eraseTradeHandler(Worker &wrk, simpleServer::ArgList args, std::ostream &stream, bool trunc) {
-	if (args.length<2) {
-		stream << "Needsd arguments: <trader_ident> <trade_id>" << std::endl;
-		return 1;
-	} else {
-		auto trader = traders.lock_shared()->find(args[0]);
-		if (trader == nullptr) {
-			stream << "Trader idenitification is invalid: " << args[0] << std::endl;
-			return 2;
-		} else {
-			try {
-				bool res = run_in_worker(wrk, [&] {
-					return trader.lock()->eraseTrade(args[1],trunc);
-				});
-				if (!res) {
-					stream << "Trade not found: " << args[1] << std::endl;
-					return 2;
-				} else {
-					stream << "OK" << std::endl;
-					return 0;
-				}
-			} catch (std::exception &e) {
-				stream << e.what() << std::endl;;
-				return 3;
-			}
-		}
-	}
-}
-
-static int cmd_singlecmd(Worker &wrk, simpleServer::ArgList args, std::ostream &stream, void (MTrader::*fn)()) {
-	if (args.empty()) {
-		stream << "Need argument: <trader_ident>\n"; return 1;
-	}
-	auto trader = traders.lock_shared()->find(args[0]).lock();
-	if (trader == nullptr) {
-		stream << "Trader idenitification is invalid: " << args[0] << "\n";
-		return 1;
-	}
-	try {
-		run_in_worker(wrk, [&]{
-			(trader->*fn)();return true;
-		});
-		stream << "OK\n";
-		return 0;
-	} catch (std::exception &e) {
-		stream << e.what() << "\n";
-		return 3;
-	}
-}
-
-
-
 
 static ondra_shared::CrashHandler report_crash([](const char *line) {
 	ondra_shared::logFatal("CrashReport: $1", line);
@@ -336,7 +263,7 @@ int main(int argc, char **argv) {
 
 							std::vector<simpleServer::HttpStaticPathMapper::MapRecord> paths;
 							paths.push_back(simpleServer::HttpStaticPathMapper::MapRecord{
-								"/",AuthMapper(name,aul,jwt, true) >>= simpleServer::HTTPMappedHandler(simpleServer::HttpFileMapper(std::string(rptpath), "index.html"))
+								"/",AuthMapper(name,aul,jwt, true) >>= simpleServer::HTTPMappedHandler(simpleServer::HttpFileMapper(std::string(rptpath), "index.html", 600))
 							});
 
 							paths.push_back({
@@ -379,15 +306,6 @@ int main(int argc, char **argv) {
 
 						};
 
-						cntr.on("erase_trade") >> [&](auto &&args, std::ostream &out){
-							return eraseTradeHandler(wrk, args,out,false);
-						};
-						cntr.on("reset") >> [&](auto &&args, std::ostream &out){
-							return cmd_singlecmd(wrk, args,out,&MTrader::reset);
-						};
-						cntr.on("repair") >> [&](auto &&args, std::ostream &out){
-							return cmd_singlecmd(wrk, args,out,&MTrader::repair);
-						};
 						cntr.on("admin") >> [&](auto &&, std::ostream &out){
 							std::random_device rnd;
 							std::uniform_int_distribution<int> dist(33,126);

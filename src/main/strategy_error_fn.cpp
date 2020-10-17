@@ -76,7 +76,9 @@ PStrategy Strategy_ErrorFn::init(const IStockApi::MarketInfo &m, double price, d
 		nst.a = assets;
 	}
 	nst.f = cur;
-	return new Strategy_ErrorFn(cfg, std::move(nst));
+	PStrategy x = new Strategy_ErrorFn(cfg, std::move(nst));
+	if (!x->isValid()) throw std::runtime_error("Strategy: failed to initialize");
+	return x;
 }
 
 Strategy_ErrorFn::State Strategy_ErrorFn::calcNewState(double new_a, double new_p, double new_f, double accum) const {

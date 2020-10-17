@@ -200,7 +200,7 @@ void MTrader::perform(bool manually) {
 
 		internal_balance = status.assetBalance;
 		currency_balance = status.currencyBalance;
-
+		currency_unadjusted_balance = status.currencyUnadjustedBalance;
 
 		//update market fees
 		minfo.fees = status.new_fees;
@@ -287,12 +287,18 @@ void MTrader::perform(bool manually) {
 
 			if (status.curStep) {
 
-				if (!cfg.enabled)  {
+				if (!cfg.enabled || need_initial_reset)  {
 					if (orders.buy.has_value())
 						stock->placeOrder(cfg.pairsymb,0,0,magic,orders.buy->id,0);
 					if (orders.sell.has_value())
 						stock->placeOrder(cfg.pairsymb,0,0,magic,orders.sell->id,0);
-					if (!cfg.hidden) statsvc->reportError(IStatSvc::ErrorObj("Automatic trading is disabled"));
+					if (!cfg.hidden) {
+						if (!cfg.enabled) {
+							statsvc->reportError(IStatSvc::ErrorObj("Automatic trading is disabled"));
+						} else {
+							statsvc->reportError(IStatSvc::ErrorObj("Reset required"));
+						}
+					}
 				} else {
 
 
@@ -379,19 +385,20 @@ void MTrader::perform(bool manually) {
 			//report misc
 			auto minmax = strategy.calcSafeRange(minfo, status.assetBalance, status.currencyBalance);
 			auto budget = strategy.getBudgetInfo();
+			auto equil = strategy.getEquilibrium(status.assetBalance);
 			std::optional<double> budget_extra;
-			if (minfo.leverage == 0) {
-				double budget = walletDB.lock_shared()->query(WalletDB::KeyQuery(
-						cfg.broker,minfo.wallet_id,minfo.currency_symbol,uid)).total();
+			{
+				double locked = cfg.internal_balance?0:walletDB.lock_shared()->query(WalletDB::KeyQuery(cfg.broker, minfo.wallet_id, minfo.currency_symbol, uid)).otherTraders;
+				double budget = strategy.calcCurrencyAllocation(std::isfinite(equil)?equil:status.curPrice);
 				if (budget) {
-					budget_extra =  status.currencyBalance - budget+cfg.external_balance;
+					budget_extra =  status.currencyUnadjustedBalance - locked - budget + cfg.external_balance;
 				}
 			}
 
 			statsvc->reportMisc(IStatSvc::MiscData{
 				last_trade_dir,
 				achieve_mode,
-				strategy.getEquilibrium(status.assetBalance),
+				equil,
 				status.curPrice * (exp(status.curStep) - 1),
 				dynmult.getBuyMult(),
 				dynmult.getSellMult(),
@@ -564,7 +571,7 @@ MTrader::Status MTrader::getMarketStatus() const {
 		}
 	}
 
-	if (!res.new_trades.trades.empty() || !internal_balance.has_value() || !currency_balance.has_value())
+	if (!res.new_trades.trades.empty() || !internal_balance.has_value() || !currency_balance.has_value() || !currency_unadjusted_balance.has_value())
 	{
 		if (cfg.internal_balance && internal_balance.has_value() && currency_balance.has_value()) {
 			auto sumt = std::accumulate(res.new_trades.trades.begin(),
@@ -573,16 +580,18 @@ MTrader::Status MTrader::getMarketStatus() const {
 			res.currencyBalance = minfo.leverage?0:sumt.second;
 			if (internal_balance.has_value()) res.assetBalance += *internal_balance;
 			if (currency_balance.has_value()) res.currencyBalance += *currency_balance;
+			res.currencyUnadjustedBalance = res.currencyBalance;
 		} else {
 			res.assetBalance = stock->getBalance(minfo.asset_symbol, cfg.pairsymb);
-			res.currencyBalance = stock->getBalance(minfo.currency_symbol, cfg.pairsymb);
+			res.currencyUnadjustedBalance = stock->getBalance(minfo.currency_symbol, cfg.pairsymb);
 			auto wdb = walletDB.lock_shared();
 //			res.assetBalance = wdb->adjBalance(WalletDB::KeyQuery(cfg.broker,minfo.wallet_id,minfo.asset_symbol,uid), res.assetBalance);
-			res.currencyBalance = wdb->adjBalance(WalletDB::KeyQuery(cfg.broker,minfo.wallet_id,minfo.currency_symbol,uid), res.currencyBalance);
+			res.currencyBalance = wdb->adjBalance(WalletDB::KeyQuery(cfg.broker,minfo.wallet_id,minfo.currency_symbol,uid), res.currencyUnadjustedBalance);
 		}
 	} else {
 		res.currencyBalance = *currency_balance;
 		res.assetBalance = *internal_balance;
+		res.currencyUnadjustedBalance = *currency_unadjusted_balance;
 	}
 
 
@@ -909,6 +918,7 @@ void MTrader::loadState() {
 			if (cfg_sliding != cfg.dynmult_sliding)
 				lastPriceOffset = 0;
 			achieve_mode = state["achieve_mode"].getBool();
+			need_initial_reset = state["need_initial_reset"].getBool();
 			swapped = state["swapped"].getBool();
 		}
 		auto chartSect = st["chart"];
@@ -982,8 +992,9 @@ void MTrader::saveState() {
 		st.set("lastPriceOffset",lastPriceOffset);
 		st.set("cfg_sliding_spread",cfg.dynmult_sliding);
 		st.set("private_chart", minfo.private_chart||minfo.simulator);
-		st.set("achieve_mode", achieve_mode);
-		st.set("swapped", cfg.swap_symbols);
+		if (achieve_mode) st.set("achieve_mode", achieve_mode);
+		if (cfg.swap_symbols) st.set("swapped", cfg.swap_symbols);
+		if (need_initial_reset) st.set("need_initial_reset", need_initial_reset);
 	}
 	{
 		auto ch = obj.array("chart");
@@ -1095,7 +1106,7 @@ void MTrader::update_dynmult(bool buy_trade,bool sell_trade) {
 	dynmult.update(buy_trade, sell_trade);
 }
 
-void MTrader::reset() {
+void MTrader::clearStats() {
 	init();
 	trades.clear();
 	saveState();
@@ -1106,7 +1117,7 @@ void MTrader::stop() {
 }
 
 
-void MTrader::repair() {
+void MTrader::reset(std::optional<double> achieve_pos) {
 	init();
 	dynmult.setMult(1,1);
 	if (cfg.internal_balance) {
@@ -1117,7 +1128,6 @@ void MTrader::repair() {
 		currency_balance.reset();
 	}
 	currency_balance.reset();
-	strategy.reset();
 	achieve_mode = false;
 
 	if (!trades.empty()) {
@@ -1136,6 +1146,24 @@ void MTrader::repair() {
 		}
 
 	}
+
+	strategy.reset();
+	if (achieve_pos.has_value()) {
+		double position = (minfo.invert_price?-1.0:1.0)*(*achieve_pos);
+		auto tk = stock->getTicker(cfg.pairsymb);
+		auto alloc = walletDB.lock_shared()->query(WalletDB::KeyQuery(cfg.broker, minfo.wallet_id, minfo.currency_symbol, uid));
+		auto cur = stock->getBalance(minfo.currency_symbol, cfg.pairsymb)+cfg.external_balance-alloc.otherTraders;
+		auto ass = stock->getBalance(minfo.asset_symbol, cfg.pairsymb);
+		double diff = position - ass;
+		double vol = diff * tk.last;
+		double remain = minfo.leverage?cur:std::max(cur - vol,0.0);
+		logInfo("RESET strategy: price=$1, cur_pos=$2, new_pos=$3, diff=$4, volume=$5, remain=$6", tk.last, ass, position, diff, vol, remain);
+		strategy.onIdle(minfo, tk, position, remain);
+		achieve_mode = true;
+	}
+
+
+	need_initial_reset = false;
 	saveState();
 }
 
@@ -1186,133 +1214,10 @@ void MTrader::acceptLoss(const Status &st, double dir) {
 	}
 }
 
-class ConfigOuput {
-public:
-
-
-	class Mandatory:public ondra_shared::VirtualMember<ConfigOuput> {
-	public:
-		using ondra_shared::VirtualMember<ConfigOuput>::VirtualMember;
-		auto operator[](StrViewA name) const {
-			return getMaster()->getMandatory(name);
-		}
-	};
-
-	Mandatory mandatory;
-
-	class Item {
-	public:
-
-		Item(StrViewA name, const ondra_shared::IniConfig::Value &value, std::ostream &out, bool mandatory):
-			name(name), value(value), out(out), mandatory(mandatory) {}
-
-		template<typename ... Args>
-		auto getString(Args && ... args) const {
-			auto res = value.getString(std::forward<Args>(args)...);
-			out << name << "=" << res ;trailer();
-			return res;
-		}
-
-		template<typename ... Args>
-		auto getUInt(Args && ... args) const {
-			auto res = value.getUInt(std::forward<Args>(args)...);
-			out << name << "=" << res;trailer();
-			return res;
-		}
-		template<typename ... Args>
-		auto getNumber(Args && ... args) const {
-			auto res = value.getNumber(std::forward<Args>(args)...);
-			out << name << "=" << res;trailer();
-			return res;
-		}
-		template<typename ... Args>
-		auto getBool(Args && ... args) const {
-			auto res = value.getBool(std::forward<Args>(args)...);
-			out << name << "=" << (res?"on":"off");trailer();
-			return res;
-		}
-		bool defined() const {
-			return value.defined();
-		}
-
-		void trailer() const {
-			if (mandatory) out << " (mandatory)";
-			out << std::endl;
-		}
-
-	protected:
-		StrViewA name;
-		const ondra_shared::IniConfig::Value &value;
-		std::ostream &out;
-		bool mandatory;
-	};
-
-	Item operator[](ondra_shared::StrViewA name) const {
-		return Item(name, ini[name], out, false);
-	}
-	Item getMandatory(ondra_shared::StrViewA name) const {
-		return Item(name, ini[name], out, true);
-	}
-
-	ConfigOuput(const ondra_shared::IniConfig::Section &ini, std::ostream &out)
-	:mandatory(this),ini(ini),out(out) {}
-
-protected:
-	const ondra_shared::IniConfig::Section &ini;
-	std::ostream &out;
-};
-
 void MTrader::dropState() {
 	storage->erase();
 	statsvc->clear();
 }
-
-class ConfigFromJSON {
-public:
-
-	class Mandatory:public ondra_shared::VirtualMember<ConfigFromJSON> {
-	public:
-		using ondra_shared::VirtualMember<ConfigFromJSON>::VirtualMember;
-		auto operator[](StrViewA name) const {
-			return getMaster()->getMandatory(name);
-		}
-	};
-
-	class Item {
-	public:
-
-		json::Value v;
-
-		Item(json::Value v):v(v) {}
-
-		auto getString() const {return v.getString();}
-		auto getString(json::StrViewA d) const {return v.defined()?v.getString():d;}
-		auto getUInt() const {return v.getUInt();}
-		auto getUInt(std::size_t d) const {return v.defined()?v.getUInt():d;}
-		auto getNumber() const {return v.getNumber();}
-		auto getNumber(double d) const {return v.defined()?v.getNumber():d;}
-		auto getBool() const {return v.getBool();}
-		auto getBool(bool d) const {return v.defined()?v.getBool():d;}
-		bool defined() const {return v.defined();}
-
-	};
-
-	Item operator[](ondra_shared::StrViewA name) const {
-		return Item(config[name]);
-	}
-	Item getMandatory(ondra_shared::StrViewA name) const {
-		json::Value v = config[name];
-		if (v.defined()) return Item(v);
-		else throw std::runtime_error(std::string(name).append(" is mandatory"));
-	}
-
-	Mandatory mandatory;
-
-	ConfigFromJSON(json::Value config):mandatory(this),config(config) {}
-protected:
-	json::Value config;
-};
-
 
 
 template<typename Iter>
@@ -1516,17 +1421,6 @@ void MTrader::DynMultControl::reset() {
 	mult_sell = 1.0;
 }
 
-void MTrader::activateAchieveMode(double position) {
-	strategy.reset();
-	auto tk = stock->getTicker(cfg.pairsymb);
-	auto cur = stock->getBalance(minfo.currency_symbol, cfg.pairsymb)+cfg.external_balance;
-	auto ass = stock->getBalance(minfo.asset_symbol, cfg.pairsymb);
-	double diff = position - ass;
-	double vol = diff * tk.last;
-	strategy.onIdle(minfo, tk, (minfo.invert_price?-1.0:1.0)*position, cur-vol);
-	achieve_mode = true;
-	saveState();
-}
 
 bool MTrader::checkAchieveModeDone(const Status &st) {
 	double eq = strategy.getEquilibrium(st.assetBalance);

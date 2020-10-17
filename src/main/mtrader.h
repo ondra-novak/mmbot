@@ -157,6 +157,7 @@ public:
 		double curStep;
 		double assetBalance;
 		double currencyBalance;
+		double currencyUnadjustedBalance;
 		double new_fees;
 		double spreadCenter;
 		IStockApi::TradesSync new_trades;
@@ -196,8 +197,8 @@ public:
 	const IStockApi::MarketInfo &getMarketInfo() const {return minfo;}
 
 	bool eraseTrade(std::string_view id, bool trunc);
-	void reset();
-	void repair();
+	void clearStats();
+	void reset(std::optional<double> achieve_pos = std::optional<double>());
 
 	Chart getChart() const;
 	void dropState();
@@ -230,10 +231,10 @@ public:
 
 
 	void saveState();
-	void activateAchieveMode(double position);
 	void addAcceptLossAlert();
 
 	auto getUID() const {return uid;}
+	bool isInitialResetRequired() const {return need_initial_reset;}
 
 protected:
 	class DynMultControl {
@@ -271,6 +272,7 @@ protected:
 	bool recalc = true;
 	bool first_cycle = true;
 	bool achieve_mode = false;
+	bool need_initial_reset = true;
 	double lastPriceOffset = 0;
 	json::Value test_backup;
 	json::Value lastTradeId = nullptr;
@@ -284,6 +286,7 @@ protected:
 
 	std::optional<double> internal_balance;
 	std::optional<double> currency_balance;
+	std::optional<double> currency_unadjusted_balance;
 
 	size_t magic = 0;
 	size_t uid = 0;

@@ -46,7 +46,8 @@ NamedEnum<WebCfg::Command> WebCfg::strCommand({
 	{WebCfg::spread, "spread"},
 	{WebCfg::strategy, "strategy"},
 	{WebCfg::upload_prices, "upload_prices"},
-	{WebCfg::upload_trades, "upload_trades"}
+	{WebCfg::upload_trades, "upload_trades"},
+	{WebCfg::wallet, "wallet"}
 });
 
 WebCfg::WebCfg( const SharedObject<State> &state,
@@ -96,6 +97,7 @@ bool WebCfg::operator ()(const simpleServer::HTTPRequest &req,
 		case strategy: return reqStrategy(req);
 		case upload_prices: return reqUploadPrices(req);
 		case upload_trades: return reqUploadTrades(req);
+		case wallet: return reqDumpWallet(req);
 		}
 	}
 	return false;
@@ -585,28 +587,28 @@ bool WebCfg::reqTraders(simpleServer::HTTPRequest req, ondra_shared::StrViewA vp
 					req.sendResponse(std::move(hdr), "true");
 				} else {
 					req.sendResponse(std::move(hdr),
-						Value(Object("entries",{"stop","reset","repair","broker","trading","strategy"})).stringify());
+						Value(Object("entries",{"stop","clear_stats","reset","broker","trading","strategy"})).stringify());
 				}
 			} else {
 				auto trl = tr.lock();
 				trl->init();
 				auto cmd = urlDecode(StrViewA(splt()));
-				if (cmd == "reset") {
+				if (cmd == "clear_stats") {
 					if (!req.allowMethods({"POST"})) return true;
-					trl->reset();
+					trl->clearStats();
 					req.sendResponse(std::move(hdr), "true");
 				} else if (cmd == "stop") {
 					if (!req.allowMethods({"POST"})) return true;
 					trl->stop();
 					req.sendResponse(std::move(hdr), "true");
-				} else if (cmd == "repair") {
+				} else if (cmd == "reset") {
 					if (!req.allowMethods({"POST"})) return true;
 					trl.release();
 					req->readBodyAsync(1000,[tr, hdr=std::move(hdr)](HTTPRequest req) mutable {
 						BinaryView data = req.getUserBuffer();
 						auto trl = tr.lock();
 						if (data.empty()) {
-							trl->repair();
+							req.sendErrorPage(400);
 						} else {
 							auto r = json::Value::fromString(StrViewA(data));
 							if  (r["alert"].getBool()) {
@@ -614,9 +616,9 @@ bool WebCfg::reqTraders(simpleServer::HTTPRequest req, ondra_shared::StrViewA vp
 							}
 							auto achieve = r["achieve"];
 							if (achieve.hasValue()) {
-								trl->activateAchieveMode(achieve.getNumber());
+								trl->reset(achieve.getNumber());
 							} else {
-								trl->repair();
+								trl->reset();
 							}
 						}
 						req.sendResponse(std::move(hdr), "true");
@@ -760,6 +762,7 @@ void WebCfg::State::applyConfig(SharedObject<Traders>  &st) {
 	t->walletDB.lock()->clear();
 	traderNames.clear();
 	t->stockSelector.eraseSubaccounts();
+	t->rpt.lock()->clear();
 
 	for (Value v: data["traders"]) {
 		try {
@@ -886,7 +889,8 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req)  {
 				Value symb = data["pair"];
 				std::string p;
 				std::size_t uid;
-
+				bool exists = false;
+				bool need_initial_reset = true;
 
 
 				trlist.lock()->stockSelector.checkBrokerSubaccount(broker.getString());
@@ -898,11 +902,14 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req)  {
 					api = trlist.lock_shared()->stockSelector.getStock(broker.toString().str());
 					minfo = api->getMarketInfo(symb.getString());
 					uid = 0;
+					exists=false;
 				} else {
 					trl->init();
 					api = trl->getBroker();
 					minfo = trl->getMarketInfo();
 					uid = trl->getUID();
+					exists = true;
+					need_initial_reset = trl->isInitialResetRequired();
 				}
 				if (api == nullptr) {
 					return req.sendErrorPage(404);
@@ -966,6 +973,9 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req)  {
 				result.set("strategy", strategy);
 				result.set("position", position);
 				result.set("trades", tradeCnt);
+				result.set("exists", exists);
+				result.set("need_initial_reset",need_initial_reset);
+
 
 
 				req.sendResponse("application/json", Value(result).stringify());
@@ -1493,5 +1503,17 @@ bool WebCfg::reqStrategy(simpleServer::HTTPRequest req) {
 			("initial", (inverted?-1:1)*initial);
 
 	req.sendResponse("application/json", out.toString());
+	return true;
+}
+
+bool WebCfg::reqDumpWallet(simpleServer::HTTPRequest req) {
+	if (!req.allowMethods({"GET"})) return true;
+
+	auto wallet = trlist.lock_shared()->walletDB;
+	auto lkwallet = wallet.lock_shared();
+	json::Value jsn = lkwallet->dumpJSON();
+
+	Stream stream = req.sendResponse("application/json");
+	jsn.serialize(stream);
 	return true;
 }

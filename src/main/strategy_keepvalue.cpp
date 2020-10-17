@@ -56,7 +56,7 @@ PStrategy Strategy_KeepValue::onIdle(
 			assets = cur/(2 * ticker.last) - cfg.ea;
 		}
 		return new Strategy_KeepValue(cfg,
-				State{true,ticker.last, assets,assets,ticker.time, ticker.time});
+				State{true,ticker.last, assets, cur, cur, ticker.time, ticker.time});
 	}
 }
 
@@ -64,23 +64,19 @@ PStrategy Strategy_KeepValue::onIdle(
 
 double Strategy_KeepValue::calcReqCurrency(const State &st, const Config &cfg, double price) {
 	double k = calcK(st, cfg);
-	double v = k * std::log(price/k) + k;
+	double v = k * std::log(price/k) + st.c;
 	return v;
 }
 
 
 double Strategy_KeepValue::calcAccumulation(const State &st, const Config &cfg, double price, double currencyLeft) {
 	if (cfg.accum) {
-		double k = calcK(st,cfg);
-		double neutral = k/(st.n+cfg.ea);
-		double autoaccum = cfg.keep_half?(price<neutral?0:cfg.accum):cfg.accum;
-
 		double r1 = calcReqCurrency(st,cfg, st.p);
 		double r2 = calcReqCurrency(st,cfg, price);
 		double pl = -price*(calcA(st,cfg,price)-calcA(st,cfg,st.p));
 		double nl = r2 - r1;
 		double ex = pl -nl;
-		double acc = (ex/price)*autoaccum;
+		double acc = (ex/price)*cfg.accum;
 		return acc;
 	} else {
 		return 0;
@@ -120,7 +116,6 @@ std::pair<Strategy_KeepValue::OnTradeResult, PStrategy> Strategy_KeepValue::onTr
 
 	double accum = calcAccumulation(st,cfg,tradePrice, currencyLeft);
 	double norm = tradeSize == assetsLeft?0:calcNormalizedProfit(st,cfg,tradePrice,tradeSize);
-	double neutral = k/(st.n+cfg.ea);
 
 
 	State nst = st;
@@ -129,11 +124,12 @@ std::pair<Strategy_KeepValue::OnTradeResult, PStrategy> Strategy_KeepValue::onTr
 	nst.p = tradePrice;
 	nst.check_time = st.check_time;
 	nst.valid = true;
+	nst.f = currencyLeft;
+	nst.c = std::max(st.c + calcReqCurrency(st,cfg,tradePrice)-calcReqCurrency(st,cfg,st.p),0.0);
 
-//	norm -= accum * tradePrice;
 
 	return {
-		OnTradeResult{norm,accum,neutral},
+		OnTradeResult{norm,accum},
 		new Strategy_KeepValue(cfg,  std::move(nst))
 	};
 
@@ -142,8 +138,9 @@ std::pair<Strategy_KeepValue::OnTradeResult, PStrategy> Strategy_KeepValue::onTr
 json::Value Strategy_KeepValue::exportState() const {
 	return json::Object
 			("p",st.p)
-			("a",st.a	)
-			("n",st.n	)
+			("a",st.a)
+			("c",st.c)
+			("f",st.f)
 			("valid",st.valid)
 			("rt",st.recalc_time)
 			("ct",st.check_time);
@@ -153,7 +150,8 @@ PStrategy Strategy_KeepValue::importState(json::Value src,const IStockApi::Marke
 	State newst;
 	newst.p = src["p"].getNumber();
 	newst.a = src["a"].getNumber();
-	newst.n = src["n"].getNumber();
+	newst.c = src["c"].getNumber();
+	newst.f = src["f"].getNumber();
 	newst.recalc_time = src["rt"].getUIntLong();
 	newst.check_time = src["ct"].getUIntLong();
 	newst.valid = src["valid"].getBool();
@@ -201,6 +199,8 @@ json::Value Strategy_KeepValue::dumpStatePretty(
 
 	return json::Object("Assets", st.a)
 				 ("Last price", st.p)
+				 ("Allocated currency", st.c)
+				 ("Budget extra", st.f - st.c)
 				 ("Keep", calcK());
 
 }
@@ -212,5 +212,5 @@ double Strategy_KeepValue::calcInitialPosition(const IStockApi::MarketInfo &minf
 
 
 double Strategy_KeepValue::calcCurrencyAllocation(double price) const {
-	return calcReqCurrency(st, cfg, price);
+	return st.c;
 }

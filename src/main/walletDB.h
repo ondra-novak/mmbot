@@ -12,6 +12,10 @@
 #include <shared/shared_object.h>
 #include <string_view>
 
+namespace json {
+	class Value;
+}
+
 class WalletDB {
 public:
 	WalletDB();
@@ -75,6 +79,8 @@ public:
 	double adjBalance(const KeyQuery &key, double balance) const;
 
 	void clear();
+
+	json::Value dumpJSON() const;
 
 protected:
 	AllocTable allocTable;

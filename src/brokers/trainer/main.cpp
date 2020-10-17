@@ -1223,7 +1223,6 @@ inline json::Value Interface::getSettings(const std::string_view & pair) const {
 	}
 
 	Value kv = p.collectSettings();
-	CWSource::Pairs cwAssets = cwsource.getAssets();
 
 	return opt_src.map([&](Value v) {
 		StrViewA n = v["name"].getString();
