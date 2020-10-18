@@ -113,6 +113,11 @@ public:
 	Value dapi_readAccount();
 	std::chrono::steady_clock::time_point symbolsExpire;
 
+	virtual void restoreSettings(json::Value v);
+	virtual json::Value setSettings(json::Value v);
+	virtual json::Value getSettings(const std::string_view &pairHint) const;
+
+	bool feesInBnb = false;
 
 protected:
 	bool dapi_isSymbol(const std::string_view &pair);
@@ -559,6 +564,12 @@ void Interface::initSymbols() {
 			}
 			nfo.cat = Category::spot;
 			nfo.wallet_id="spot";
+
+			if (feesInBnb) {
+				if (nfo.asset_symbol == "BNB") nfo.feeScheme = assets;
+				else nfo.feeScheme = currency;
+			}
+
 			bld.push_back(VT(symbol, nfo));
 		}
 		try {
@@ -707,7 +718,7 @@ Interface::BrokerInfo Interface::getBrokerInfo() {
 "PpVlMu+TeUbzupzJbN4WdMluXpa0mcz1+gD+Evib0D+GfiDSQ7GfjPx07Bckfkm2L0on86kF+MUX"
 "qxcT8GpmX07967kvUPgSjS9S+TKdL1TyUi0vVvNyvd6w0Fs2etNKb9vpjUu9das3r/X2vW9gwAl8"
 "E4tN8F8amVQC38xmE+h+Qt1R6ZtabQLf2GwT+OZ2m8AfcLAJ/CEXm8AfdLIJ/GE3m8AfeLQJ+KHX"
-"R48+XF9VnRBZ1a2+VQAAAABJRU5ErkJggg==",false,true
+"R48+XF9VnRBZ1a2+VQAAAABJRU5ErkJggg==",true,true
 
 
 	};
@@ -814,4 +825,27 @@ inline json::Value Interface::getMarkets() const {
 
 
 	return res;
+}
+
+inline json::Value Interface::setSettings(json::Value v) {
+	feesInBnb = v["bnbfee"].getBool();
+	symbols.clear();
+	return v;
+}
+
+inline json::Value Interface::getSettings(const std::string_view &) const {
+	return {
+		Object
+			("name","bnbfee")
+			("label","Fees paid in BNB")
+			("type","enum")
+			("options",Object
+					("yes","Enabled")
+					("no","Disabled"))
+			("default",feesInBnb?"yes":"no")
+	};
+}
+
+inline void Interface::restoreSettings(json::Value v) {
+	setSettings(v);
 }
