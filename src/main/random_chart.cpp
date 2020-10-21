@@ -9,7 +9,7 @@
 
 #include <random>
 
-void generate_random_chart(double volatility, double noise, unsigned int minutes, std::uint64_t seed, std::vector<double> &prices) {
+void generate_random_chart(double volatility, double noise, unsigned int minutes, std::size_t seed, std::vector<double> &prices) {
 	std::mt19937 rgen(seed);
 
 	double val = 1;
