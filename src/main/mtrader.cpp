@@ -195,6 +195,8 @@ void MTrader::perform(bool manually) {
 		//get current status
 		auto status = getMarketStatus();
 
+		double eq = strategy.getEquilibrium(status.assetBalance);
+
 		std::string buy_order_error;
 		std::string sell_order_error;
 
@@ -236,11 +238,16 @@ void MTrader::perform(bool manually) {
 				logDebug("Sliding - low > eq - $1 > $2, old_center = $4, new center = $3", low, eq, lastTradePrice, prevLTP);
 			}
 
-		} else if (cfg.alerts == false && cfg.delayed_alerts == false && !trades.empty() && trades.back().size != 0) {
-			double eq = strategy.getEquilibrium(status.assetBalance);
-			if (std::isfinite(eq)) {
-				lastTradePrice = eq;
-			}
+		} else if (!cfg.alerts              //alerts must be disabled
+					&& !cfg.delayed_alerts  //alerts must be disabled
+					&& !trades.empty()      //trades must not be empty
+					&& trades.back().size != 0 //last trade is not alert
+					&& std::isfinite(eq)     //equilibrium is finite
+					&& eq > 0				 //equilibrium is not zero or negatiove
+					&& (lastTradePrice * std::exp(-status.curStep)>eq //eq is not in reach to lastTradePrice
+						|| lastTradePrice * std::exp(status.curStep)<eq)) { //eq is not in reach to lastTradePrice
+			logDebug("Using equilibrium as lastTradePrice: $1 -> $2", lastTradePrice, eq);
+			lastTradePrice = eq; //set lastTradePrice to equilibrium
 		}
 
 
