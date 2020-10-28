@@ -588,9 +588,10 @@ a {
 	margin: auto;
 }
 .backtesticons > * {
-	padding: 0.4em;
-	width: 16%;
+	padding: 0.4em 0em;
+	width: 15%;
 	cursor: pointer;
+	box-sizing: border-box;
 }
 
 .backtesticons > *:hover {

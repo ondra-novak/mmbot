@@ -16,6 +16,7 @@
 
 #include <shared/ini_config.h>
 #include "../server/src/rpc/rpcServer.h"
+#include "abstractExtern.h"
 #include "istockapi.h"
 #include "authmapper.h"
 #include "backtest.h"
@@ -105,7 +106,10 @@ public:
 			const std::string &realm,
 			const SharedObject<Traders> &traders,
 			Dispatch &&dispatch,
-			json::PJWTCrypto jwt);
+			json::PJWTCrypto jwt,
+			SharedObject<AbstractExtern> backtest_broker,
+			std::size_t upload_limit
+	);
 
 	~WebCfg();
 
@@ -128,6 +132,7 @@ public:
 		upload_prices,
 		upload_trades,
 		wallet,
+		btdata,
 	};
 
 	AuthMapper auth;
@@ -154,12 +159,15 @@ protected:
 	bool reqUploadTrades(simpleServer::HTTPRequest req);
 	bool reqStrategy(simpleServer::HTTPRequest req);
 	bool reqDumpWallet(simpleServer::HTTPRequest req);
+	bool reqBTData(simpleServer::HTTPRequest req);
 
 	using Sync = std::unique_lock<std::recursive_mutex>;
 
 	using PState = SharedObject<State>;
 
 	PState state;
+	SharedObject<AbstractExtern> backtest_broker;
+	std::size_t upload_limit;
 	static bool generateTrades(const SharedObject<Traders> &trlist, PState state, json::Value args);
 };
 

@@ -172,6 +172,7 @@ int main(int argc, char **argv) {
 						auto storageVersions = servicesection["storage_versions"].getUInt(5);
 						auto listen = servicesection["listen"].getString();
 						auto socket = servicesection["socket"].getPath();
+						auto upload_limit = servicesection["upload_limit"].getUInt(10*1024*1024);
 						auto brk_timeout = servicesection["broker_timeout"].getInt(10000);
 						auto rptsect = app.config["report"];
 						auto rptpath = rptsect.mandatory["path"].getPath();
@@ -180,6 +181,8 @@ int main(int argc, char **argv) {
 						auto isim = rptsect["include_simulators"].getBool(false);
 						auto asyncProvider = simpleServer::ThreadPoolAsync::create(2,1);
 						auto login_section = app.config["login"];
+						auto backtest_section = app.config["backtest"];
+						auto history_broker = backtest_section.mandatory["history_source"];
 
 
 
@@ -258,6 +261,8 @@ int main(int argc, char **argv) {
 						}
 
 						if (addr.getHandle() != nullptr) {
+							auto phb = SharedObject<AbstractExtern>::make(history_broker.getCurPath(), "history_broker", history_broker.getString(), 55000);
+
 							srv = std::make_unique<simpleServer::MiniHttpServer>(addr, asyncProvider);
 
 
@@ -270,7 +275,7 @@ int main(int argc, char **argv) {
 								"/admin",ondra_shared::shared_function<bool(simpleServer::HTTPRequest, ondra_shared::StrViewA)>(WebCfg(webcfgstate,
 										name,
 										traders,
-										[=](WebCfg::Action &&a) mutable {sch.immediate() >> std::move(a);},jwt))
+										[=](WebCfg::Action &&a) mutable {sch.immediate() >> std::move(a);},jwt, phb, upload_limit))
 							});
 							paths.push_back({
 								"/set_cookie",[](simpleServer::HTTPRequest req, const ondra_shared::StrViewA &) mutable {
@@ -351,7 +356,7 @@ int main(int argc, char **argv) {
 
 
 							sch.after(std::chrono::seconds(1)) >> trader_cycle;
-							sch.each(std::chrono::minutes(1)) >> trader_cycle;
+							sch.each(std::chrono::minutes(1)) >> std::move(trader_cycle);
 
 
 							return 0;

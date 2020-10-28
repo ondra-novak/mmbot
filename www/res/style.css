@@ -1115,7 +1115,7 @@ body.daymode .emulated {color: #816600;}
 body.daymode .head >.title.emulated > img {
 	filter: sepia(1) brightness(0.5);
 }
-body.daymode .title:hover, #home:hover {
+body.daymode .title:hover, body.daymode #home:hover {
 	background-color: #d7d7d7;
 }
 body.daymode table.perfmod td.neg {

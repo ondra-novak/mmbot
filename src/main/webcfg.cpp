@@ -47,18 +47,24 @@ NamedEnum<WebCfg::Command> WebCfg::strCommand({
 	{WebCfg::strategy, "strategy"},
 	{WebCfg::upload_prices, "upload_prices"},
 	{WebCfg::upload_trades, "upload_trades"},
-	{WebCfg::wallet, "wallet"}
+	{WebCfg::wallet, "wallet"},
+	{WebCfg::btdata, "btdata"}
 });
 
 WebCfg::WebCfg( const SharedObject<State> &state,
 		const std::string &realm,
 		const SharedObject<Traders> &traders,
 		Dispatch &&dispatch,
-		json::PJWTCrypto jwt)
+		json::PJWTCrypto jwt,
+		SharedObject<AbstractExtern> backtest_broker,
+		std::size_t upload_limit
+)
 	:auth(realm, state.lock_shared()->admins,jwt, false)
 	,trlist(traders)
 	,dispatch(std::move(dispatch))
 	,state(state)
+	,backtest_broker(backtest_broker)
+	,upload_limit(upload_limit)
 {
 
 }
@@ -98,6 +104,7 @@ bool WebCfg::operator ()(const simpleServer::HTTPRequest &req,
 		case upload_prices: return reqUploadPrices(req);
 		case upload_trades: return reqUploadTrades(req);
 		case wallet: return reqDumpWallet(req);
+		case btdata: return reqBTData(req);
 		}
 	}
 	return false;
@@ -133,7 +140,7 @@ bool WebCfg::reqConfig(simpleServer::HTTPRequest req)  {
 	} else {
 
 
-		req.readBodyAsync(1024*1024, [state=this->state,traders=this->trlist,dispatch = this->dispatch](simpleServer::HTTPRequest req) mutable {
+		req.readBodyAsync(upload_limit, [state=this->state,traders=this->trlist,dispatch = this->dispatch](simpleServer::HTTPRequest req) mutable {
 			try {
 				auto lkst = state.lock();
 				Value data = Value::fromString(StrViewA(BinaryView(req.getUserBuffer())));
@@ -306,12 +313,21 @@ static Value getPairInfo(const PStockApi &api, const std::string_view &pair, con
 	} catch (std::exception &e) {
 		last = e.what();
 	}
+
+	Value quote_currency = nfo.invert_price?Value(nfo.inverted_symbol):Value(nfo.currency_symbol);
+	Value quote_asset = nfo.invert_price?Value(nfo.currency_symbol):Value(nfo.asset_symbol);
+
+	if (quote_currency.getString() == "XBT") quote_currency = "BTC";
+	if (quote_asset.getString() == "XBT") quote_currency = "BTC";
+
 	Value resp = Object("symbol",pair)("asset_symbol", nfo.asset_symbol)(
 			"currency_symbol", nfo.currency_symbol)("fees",
 			nfo.fees)("leverage", nfo.leverage)(
 			"invert_price", nfo.invert_price)(
 			"asset_balance", ab)("currency_balance", cb)(
-			"min_size", nfo.min_size)("price",last);
+			"min_size", nfo.min_size)("price",last)
+			("quote_currency", quote_currency)
+			("quote_asset", quote_asset);
 	return resp;
 
 }
@@ -407,7 +423,7 @@ bool WebCfg::reqBrokerSpec(simpleServer::HTTPRequest req,
 			for (auto &&h: req) {
 				if (h.first != "Authorization") d.headers.emplace_back(h.first, h.second);
 			}
-			req.readBodyAsync(1024*1024, [=](simpleServer::HTTPRequest req) mutable {
+			req.readBodyAsync(upload_limit, [=](simpleServer::HTTPRequest req) mutable {
 				d.body.append(reinterpret_cast<const char *>(req.getUserBuffer().data()), req.getUserBuffer().size());
 				IBrokerControl::PageData r = bc->fetchPage(method,vpath,d);
 				if (r.code == 0) {
@@ -1261,7 +1277,7 @@ bool WebCfg::reqUploadPrices(simpleServer::HTTPRequest req)  {
 			req.sendResponse("application/json",Value(state.lock_shared()->upload_progress).stringify());
 			return true;
 	} else {
-	req.readBodyAsync(10*1024*1024,[&trlist = this->trlist,state =  this->state, dispatch = this->dispatch](simpleServer::HTTPRequest req)mutable{
+	req.readBodyAsync(upload_limit,[&trlist = this->trlist,state =  this->state, dispatch = this->dispatch, btbroker = this->backtest_broker](simpleServer::HTTPRequest req)mutable{
 		try {
 			Value args = Value::fromString(StrViewA(BinaryView(req.getUserBuffer())));
 			Value id = args["id"];
@@ -1298,7 +1314,19 @@ bool WebCfg::reqUploadPrices(simpleServer::HTTPRequest req)  {
 					double noise = args["noise"].getValueOrDefault(0.0);
 					generate_random_chart(volatility*0.01, noise*0.01, 525600, seed, chart);
 
-
+				} else if (prices.getString() == "history_broker") {
+					Value asset = args["asset"];
+					Value currency = args["currency"];
+					auto from = std::chrono::system_clock::to_time_t(
+							std::chrono::system_clock::now()-std::chrono::hours(365*24)
+					);
+					auto btb = btbroker.lock();
+					Value data = btb->jsonRequestExchange("minute", Object("asset", asset)("currency",currency)("from",from));
+					std::transform(data.begin(), data.end(), std::back_inserter(chart),[&](Value itm){
+						double p = itm.getNumber();
+						if (minfo.invert_price) p = 1.0/p;
+						return p;
+					});
 				} else {
 
 					std::transform(prices.begin(), prices.end(), std::back_inserter(chart),[&](Value itm){
@@ -1329,7 +1357,7 @@ bool WebCfg::reqUploadPrices(simpleServer::HTTPRequest req)  {
 }
 bool WebCfg::reqUploadTrades(simpleServer::HTTPRequest req)  {
 	if (!req.allowMethods({"POST"})) return true;
-	req.readBodyAsync(10*1024*1024,[&trlist = this->trlist,state =  this->state](simpleServer::HTTPRequest req)mutable{
+	req.readBodyAsync(upload_limit,[&trlist = this->trlist,state =  this->state](simpleServer::HTTPRequest req)mutable{
 			try {
 				Value args = Value::fromString(StrViewA(BinaryView(req.getUserBuffer())));
 				Value id = args["id"];
@@ -1515,5 +1543,17 @@ bool WebCfg::reqDumpWallet(simpleServer::HTTPRequest req) {
 
 	Stream stream = req.sendResponse("application/json");
 	jsn.serialize(stream);
+	return true;
+}
+
+bool WebCfg::reqBTData(simpleServer::HTTPRequest req) {
+	if (!req.allowMethods({"GET"})) return true;
+
+	auto bb = backtest_broker.lock();
+	Value res = bb->jsonRequestExchange("symbols",json::Value(),false);
+	bb->stop();
+
+	Stream s = req.sendResponse(HTTPResponse(200).contentType("application/json").cacheFor(80000));
+	res.serialize(s);
 	return true;
 }

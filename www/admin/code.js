@@ -1864,8 +1864,29 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
     var show_info_fn = function(ev) {
     }    
 
+    
     	
 	this.gen_backtest(form,"backtest_anchor", "backtest_vis",inputs,function(cntr){
+
+		function download_historical_dlg() {
+					this.waitScreen(Promise.all([
+						fetch_json("api/btdata"), fetch_json("api/brokers/"+encodeURIComponent(broker)+"/pairs/"+encodeURIComponent(pair))
+					])).then(function(resp) {
+						var ddata = {
+								symbols: resp[0].map(function(x){
+									return {"":x};
+								}),
+								asset:resp[1].quote_asset,
+								currency:resp[1].quote_currency
+						};
+						var d;
+						(d = this.dlgbox(ddata,"download_price_dlg")).then(function(){
+							ddata = d.view.readData();
+							recalc_spread("history_broker", cntr, ddata);
+						}.bind(this));					
+					}.bind(this));
+		}
+
 
 		cntr.showSpinner();
 		config = this.saveForm(form,{});
@@ -1945,6 +1966,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 					recalc_spread("random", cntr, rnd_preset);
 				});
 			}.bind(this));
+			cntr.bt.setItemEvent("download_prices","click",download_historical_dlg.bind(this));
 
 			cntr.bt.setItemEvent("chart1","mousemove", function(ev){show_info_fn(ev);});
 			cntr.bt.setItemEvent("chart2","mousemove", function(ev){show_info_fn(ev);});
@@ -2004,15 +2026,25 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 
 		}
 		fetch_with_error(url, {method:"POST", body:JSON.stringify(req)}).then(function(v) {					    
-			if (v.length == 0) return;
-			res_data = v;
-			draw(cntr,v,offset,bal);			
-			update = function() {
-				if (tm) clearTimeout(tm);
-				tm = setTimeout(draw.bind(this,cntr,v,offset), 1);
+			if (v.length == 0) {
+				var chart1 = cntr.bt.findElements('chart1')[0];
+				var templ = TemplateJS.View.fromTemplate("no_data_panel");
+				templ.setData({"download":{
+					"!click":download_historical_dlg.bind(this)
+				    }});
+				TemplateJS.View.clearContent(chart1);
+				templ.open(chart1);
+				update_recalc = function() {};
+			} else {
+				res_data = v;
+				draw(cntr,v,offset,bal);			
+				update = function() {
+					if (tm) clearTimeout(tm);
+					tm = setTimeout(draw.bind(this,cntr,v,offset), 1);
+				}
+				update_recalc = draw.bind(this,cntr,v,offset,bal);
 			}
-			update_recalc = draw.bind(this,cntr,v,offset,bal);
-		}).then(cntr.hideSpinner,function(e){
+		}.bind(this)).then(cntr.hideSpinner,function(e){
 			cntr.hideSpinner();throw e;
 		});
 		
