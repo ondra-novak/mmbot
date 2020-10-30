@@ -85,6 +85,7 @@ void Interface::updatePairs() {
 			minfo.leverage = 0;
 			minfo.min_size = symbol["minProvideSize"].getNumber();
 			minfo.min_volume = 0;
+			minfo.wallet_id = "spot";
 			newsmap.emplace_back(name.str(), std::move(minfo));
 		}
 	}
@@ -105,6 +106,7 @@ void Interface::updatePairs() {
 			minfo.leverage = account.leverage;
 			minfo.min_size = minfo.asset_step;
 			minfo.min_volume = 0;
+			minfo.wallet_id = "futures";
 			minfo.type = symbol["type"].getString();
 			minfo.expiration = symbol["expiryDescription"].getString();
 			minfo.name = symbol["underlyingDescription"].getString();
