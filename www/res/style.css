@@ -266,6 +266,24 @@ x-trbgr.hdr {
 	z-index:1	
 }
 
+.chart_box {
+	
+}
+
+.chart_box > .chart {
+	position: relative;
+	padding-bottom: 34.9%;
+	overflow: visible;
+	box-sizing: border-box;
+}
+
+.chart_box > .chart > svg {
+	position: absolute;
+	left: 0;
+	top: 0;
+	right: 0;
+	/* bottom: 0; */
+}
 
 .head {
 	display: flex;

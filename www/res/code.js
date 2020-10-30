@@ -123,7 +123,7 @@ function app_start(){
 			}
 		}
 		elem_title.innerText = title;		
-		if (misc && misc.icon) elem_icon.src = misc.icon; else elem_icon.hidden = true;
+		if (misc && misc.icon) {elem_icon.src = misc.icon;elem_icon.hidden = false;} else {elem_icon.hidden = true;}
 		var info = curchart.querySelector("[data-name=info]");
 		if (ranges) {
 			info.hidden = false;
@@ -229,17 +229,19 @@ function app_start(){
 	
 	function appendChart(id,  info, data, fld,  orders, ranges, misc) {
 		var curchart = createChart(id, "chart");
-		try {
-			if (!hasChart(data,fld)) {
+		setTimeout(function() {
+			try {
+				if (!hasChart(data,fld)) {
+					curchart.hidden = true;
+					return;
+				}			
+				var elem_chart = curchart.querySelector("[data-name=chart]");			
+				drawChart(elem_chart, data, fld, orders,  secondary_charts[fld]);
+				fillInfo(id,curchart, info.title,id,  ranges, info.emulated);
+			} catch (e) {
 				curchart.hidden = true;
-				return;
-			}			
-			var elem_chart = curchart.querySelector("[data-name=chart]");
-			drawChart(elem_chart, data, fld, orders,  secondary_charts[fld]);
-			fillInfo(id,curchart, info.title,id,  ranges, info.emulated);
-		} catch (e) {
-			curchart.hidden = true;
-		}
+			}
+		},0);
 	}
 
 	function appendList(id, info, ranges, misc) {
@@ -835,10 +837,12 @@ function app_start(){
 					var pair = fld.substr(1);
 					appendSummary("_"+pair,infoMap[pair], charts[pair], ranges[pair], stats.misc[pair],true);
 					for (var k in cats) {						
-						appendChart("!"+k, {title:cats[k]}, charts[pair], k, orders[pair], stats.misc[k]);
+						appendChart("!"+k+"_"+pair, {title:cats[k]}, charts[pair], k, orders[pair], stats.misc[k]);
 						
 					}
-					updateLastEvents(charts[pair],pair);
+					setTimeout(function(pair) {
+						updateLastEvents(charts[pair],pair);
+					}.bind(this,pair),2);
 					
 				} else if (fld.startsWith("+")) {
 					fld = fld.substr(1);
