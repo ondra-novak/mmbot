@@ -8,6 +8,8 @@ window.addEventListener('DOMContentLoaded', (event) => {
 var changeinterval=null;
 var source_data=null;
 var drawChart=null;
+var svcreg = Promise.resolve(null);
+var notifyTradesFn = null;
 
 function app_start(){
 
@@ -15,7 +17,7 @@ function app_start(){
 
 	
 	if (navigator.serviceWorker) {
-		navigator.serviceWorker.register('sw.js', {	
+		svcreg=navigator.serviceWorker.register('sw.js', {	
 			scope: '.'
 		});
 	}
@@ -229,19 +231,19 @@ function app_start(){
 	
 	function appendChart(id,  info, data, fld,  orders, ranges, misc) {
 		var curchart = createChart(id, "chart");
-		setTimeout(function() {
 			try {
 				if (!hasChart(data,fld)) {
 					curchart.hidden = true;
 					return;
 				}			
-				var elem_chart = curchart.querySelector("[data-name=chart]");			
-				drawChart(elem_chart, data, fld, orders,  secondary_charts[fld]);
-				fillInfo(id,curchart, info.title,id,  ranges, info.emulated);
+				setTimeout(function() {
+					var elem_chart = curchart.querySelector("[data-name=chart]");			
+					drawChart(elem_chart, data, fld, orders,  secondary_charts[fld]);
+					fillInfo(id,curchart, info.title,id,  ranges, info.emulated);
+				},0);
 			} catch (e) {
 				curchart.hidden = true;
 			}
-		},0);
 	}
 
 	function appendList(id, info, ranges, misc) {
@@ -615,47 +617,63 @@ function app_start(){
 	
 	}
 	
+	
 	function notifyTrades(trades) {
-		console.log("Notify trades:", trades);
-		last_ntf_time = trades.reduce(function(a,t){
-			return a < t.time?t.time:a;
-		},0)+1;
+		trades.sort(function(a,b){return b.time - a.time;});
+		last_ntf_time = trades[0].time+1;
 
-		 if ("Notification" in window && Notification.permission !== "denied") {
-		 	 var ntp = null;			
-  			 if (Notification.permission === "granted") {
-  			 	ntp = Promise.resolve(true);
-  			 } else {
-  			 	ntp = new Promise(function(ok) {
-  					Notification.requestPermission(function (permission) {
-  						ok (permission === "granted");
-  					});
-  			 	});
-  			 }
-			  var text = trades.reduce(function(txt, itm){
-				var ln = (itm.size>0?"↗↗↗":itm.size<0?"↘↘↘":"!!!")
-						+" "+adjNum(Math.abs(itm.size))+" "+itm.asymb
-						+" @ "+adjNum(itm.price)+ " " + itm.csymb;
-				txt = txt + ln + "\n";
-				return txt;
-			  },"");
-  			 ntp.then(function(r) {
-  			 	if (r) {
-  					  var notification = new Notification("MMBot",{
-  						  body:text,
-  						  icon: "res/icon64.png"
-  					  });
-  					  setTimeout(notification.close.bind(notification), 15000);		  					  	 	
-  			 	}
+		  var text = trades.reduce(function(txt, itm){
+			var ln = (itm.size>0?"𝗕𝗨𝗬 ":itm.size<0?"𝗦𝗘𝗟𝗟":"𝗔𝗟𝗥𝗧")
+					+" "+(itm.size?adjNum(Math.abs(itm.size)):"")+" "+itm.title
+					+" 𝗮𝘁 "+adjNum(itm.price);
+			txt = txt + ln + "\n";
+			return txt;
+		  },"");
+
+		  var ntf_perm = "Notification" in window?Notification.permission:"denied";
+		  var hide_bell = true;
+		  if (ntf_perm == "granted") {
+  			 svcreg.then(function(svcreg) {
+		 		if (svcreg.showNotification) {
+		 			svcreg.showNotification("Executed trades",{
+						  body:text,
+  						  badge: "res/ntfbadge.png",
+  						  icon: "res/icon64.png",
+  						  tag:"trade",
+  						  renotify: true
+  					 });  			 			
+		 		} else {
+				  var notification = new Notification("MMBot",{
+					  body:text,
+					  badge: "res/ntfbadge.png",
+					  icon: "res/icon64.png"
+				  });
+				  setTimeout(notification.close.bind(notification), 15000);
+		 		}
   			 });  
-  			 var ntf = document.getElementById("notify");
-  			 ntf.classList.add("shown");
-  			 ntf.innerHTML =  text.replace(/\n/g,"<br>");
-  			 setTimeout(function()  {
-  			 	ntf.classList.remove("shown");
-  			 },10000);
-		 }
+		  } else if (ntf_perm == "default") {
+			  hide_bell = false;
+		  }
+		  
+		 var ntf = document.getElementById("notify");
+		 ntf.classList.add("shown");
+		 var inner = ntf.querySelector("div");
+		 inner.innerText="";
+		 var bell = ntf.querySelector("img");
+		 bell.hidden = hide_bell;
+		 var box = document.createDocumentFragment();
+		 text.split('\n').forEach(function(x){
+			 var d = document.createElement("div");
+			 d.appendChild(document.createTextNode(x));
+			 box.appendChild(d);
+		 });
+		 inner.appendChild(box);
+		 setTimeout(function()  {
+			ntf.classList.remove("shown");
+		 },10000);
 	}
+	
+	notifyTradesFn = notifyTrades;
 
 	function hasChart(chart, item) {
 		return (chart.length != 0) && chart.find(function(x) {
@@ -702,6 +720,7 @@ function app_start(){
 							size:x.achg,
 							asymb:infoMap[n].asset,
 							csymb:infoMap[n].currency,
+							title:infoMap[n].title,
 							time:x.time
 						});
 					}
@@ -842,7 +861,7 @@ function app_start(){
 					}
 					setTimeout(function(pair) {
 						updateLastEvents(charts[pair],pair);
-					}.bind(this,pair),2);
+					}.bind(this,pair),1);
 					
 				} else if (fld.startsWith("+")) {
 					fld = fld.substr(1);
@@ -979,6 +998,21 @@ function app_start(){
 		v.hidden = !v.hidden;
 	})
 	
+	document.getElementById("notify").addEventListener("click", function() {
+		if (Notification && Notification.permission == "default") {
+			 Notification.requestPermission(function (permission ) {
+		      if (permission === "granted") {
+		 			svcreg.then(function(svcreg) {
+		 				svcreg.showNotification("Notifications are enabled",{		 			
+						  badge: "res/ntfbadge.png",
+						  icon: "res/icon64.png"
+					 });
+		 			});
+		      }				
+			 });
+		}
+	})
+	
 
 	changeinterval = function() {
 		interval = (interval+1)%intervals.length;
@@ -1035,7 +1069,7 @@ function donate() {
 		});
 	}
 }
-function close_donate() {
+function close_donate() {	
 	var w = document.getElementById("donate_window");
 	w.classList.remove("shown");
 }
@@ -1060,5 +1094,40 @@ function updateThemeColor() {
 		metaThemeColor.setAttribute("content", "#cdcdcd");
 	} else {
 		metaThemeColor.setAttribute("content", "#202020");
+	}
+}
+
+function testNotify() {
+	try {
+	notifyTradesFn([{
+		time:0,
+		size:0,
+		price:0,
+		asymb:"TEST_A",
+		csymb:"TEST_C",
+		title:"Test notify"
+	},
+{
+		time:1,
+		size:1,
+		price:1,
+		asymb:"TEST_A",
+		csymb:"TEST_C",
+		title:"Test notify"
+
+	},
+	{
+		time:2,
+		size:-1,
+		price:2,
+		asymb:"TEST_A",
+		csymb:"TEST_C",
+		title:"Test notify"
+	}
+
+
+	]);
+	} catch (e) {
+		alert(e.toString());
 	}
 }

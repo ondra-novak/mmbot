@@ -1,5 +1,5 @@
 var CACHE = 'cache-update-and-refresh';
-//serial 23opwkpo121
+//serial 23opwkpo124
 
 self.addEventListener('install', function(evt) {
 	  console.log('The service worker is being installed.');
@@ -95,3 +95,20 @@ function refresh(response) {
 	    });
 	  });
 }
+
+self.addEventListener('notificationclick', function(event) {
+      console.log('On notification click: ', event.notification.tag);
+  event.notification.close();
+  event.waitUntil(clients.matchAll({
+    type: "window"
+  }).then(function(clientList) {
+    for (var i = 0; i < clientList.length; i++) {
+      var client = clientList[i];
+      if ('focus' in client)
+        return client.focus();
+    }
+    if (clients.openWindow)
+      return clients.openWindow('index.html');
+  }));
+
+});

@@ -1034,11 +1034,22 @@ table.perfmod tr.ital > td{font-size: 0.9em;}
 	opacity: 0;
 }
 
+#notify img {
+	width: 1cm;
+	display: block;
+	position: absolute;
+	right: 0;
+	top: 0;
+}
+#notify img[hidden] {
+	display:none;
+}
+
 #notify.shown {
 	left: 10px;
 	bottom: 10px;
 	opacity: 1;
-		
+	padding: 0.2cm 1cm 0.2cm 0.2cm;
 } 
 
 #form_sliding_pos .second {
