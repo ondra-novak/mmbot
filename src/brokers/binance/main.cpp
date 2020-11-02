@@ -80,6 +80,8 @@ public:
 	};
 
 	struct MarketInfoEx: MarketInfo {
+		unsigned int size_precision;
+		unsigned int quote_precision;
 		Category cat;
 		std::string label; //for futures
 		std::string type; //for futures
@@ -439,16 +441,11 @@ std::vector<std::string> Interface::getAllPairs() {
 	 return res;
  }
 
-static Value number_to_decimal(double v) {
+static Value number_to_decimal(double v, unsigned int precision) {
 	std::ostringstream buff;
-	buff.precision(8);
-	buff << std::fixed << "*" << v;
-	std::string s = buff.str();
-	StrViewA ss(s);
-	ss = ss.trim([](char c){return isspace(c) || c == '0';}).substr(1);
-	if (ss.ends("."))
-		ss = ss.substr(0,ss.length-1);
-	return ss;
+	buff.precision(precision);
+	buff << std::fixed << v;
+	return buff.str();
 }
 
 
@@ -459,10 +456,10 @@ json::Value Interface::placeOrder(const std::string_view & pair,
 		json::Value replaceId,
 		double replaceSize) {
 
+	initSymbols();
+	auto iter = symbols.find(pair);
+	if (iter == symbols.end()) throw std::runtime_error("Unknown symbol");
 	if (dapi_isSymbol(pair)) {
-		initSymbols();
-		auto iter = symbols.find(pair);
-		if (iter == symbols.end()) throw std::runtime_error("Unknown symbol");
 		auto cpair = pair.substr(COIN_M_FUTURES_PREFIX.length());
 		size = -size/iter->second.asset_step;
 		replaceSize = replaceSize/iter->second.asset_step;
@@ -485,8 +482,8 @@ json::Value Interface::placeOrder(const std::string_view & pair,
 				("side", size<0?"SELL":"BUY")
 				("type","LIMIT")
 				("newClientOrderId",orderId)
-				("quantity", number_to_decimal(std::fabs(size)))
-				("price", number_to_decimal(std::fabs(price)))
+				("quantity", number_to_decimal(std::fabs(size),iter->second.size_precision))
+				("price", number_to_decimal(std::fabs(price), iter->second.quote_precision))
 				("timeInForce","GTX")
 				("positionSide","BOTH")
 				);
@@ -513,8 +510,8 @@ json::Value Interface::placeOrder(const std::string_view & pair,
 				("side", size<0?"SELL":"BUY")
 				("type","LIMIT_MAKER")
 				("newClientOrderId",orderId)
-				("quantity", number_to_decimal(std::fabs(size)))
-				("price", number_to_decimal(std::fabs(price)))
+				("quantity", number_to_decimal(std::fabs(size),iter->second.size_precision))
+				("price", number_to_decimal(std::fabs(price), iter->second.quote_precision))
 				("newOrderRespType","ACK"));
 
 		return orderId;
@@ -551,6 +548,8 @@ void Interface::initSymbols() {
 			nfo.min_size = 0;
 			nfo.min_volume = 0;
 			nfo.fees = getFees(symbol);
+			nfo.size_precision = smb["baseAssetPrecision"].getUInt();
+			nfo.quote_precision = smb["quotePrecision"].getUInt();
 			for (Value f: smb["filters"]) {
 				auto ft = f["filterType"].getString();
 				if (ft == "LOT_SIZE") {
@@ -585,6 +584,8 @@ void Interface::initSymbols() {
 				nfo.fees = getFees(symbol);
 				nfo.min_size = nfo.asset_step;
 				nfo.min_volume = 0;
+				nfo.size_precision = 0;
+				nfo.quote_precision = smb["quotePrecision"].getUInt();
 				for (Value f: smb["filters"]) {
 					auto ft = f["filterType"].getString();
 					if (ft == "LOT_SIZE") {
