@@ -68,8 +68,6 @@ struct MTrader_Config {
 	bool detect_manual_trades;
 	bool enabled;
 	bool hidden;
-	bool alerts;
-	bool delayed_alerts;
 	bool dynmult_sliding;
 	bool dynmult_mult;
 	bool zigzag;
@@ -162,7 +160,6 @@ public:
 		double spreadCenter;
 		IStockApi::TradesSync new_trades;
 		ChartItem chartItem;
-		bool enable_alerts;
 		std::size_t enable_alerts_after_minutes;
 	};
 

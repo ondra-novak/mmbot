@@ -79,8 +79,6 @@ void MTrader_Config::loadConfig(json::Value data, bool force_dry_run) {
 	detect_manual_trades= data["detect_manual_trades"].getValueOrDefault(false);
 	enabled= data["enabled"].getValueOrDefault(true);
 	hidden = data["hidden"].getValueOrDefault(false);
-	alerts= data["alerts"].getValueOrDefault(true);
-	delayed_alerts= data["delayed_alerts"].getValueOrDefault(true);
 	dynmult_sliding = data["dynmult_sliding"].getValueOrDefault(false);
 	dynmult_mult = data["dynmult_mult"].getValueOrDefault(false);
 	zigzag = data["zigzag"].getValueOrDefault(false);
@@ -181,7 +179,6 @@ void MTrader::alertTrigger(Status &st, double price) {
 		0,
 		price
 	});
-	st.enable_alerts = false;
 }
 
 void MTrader::perform(bool manually) {
@@ -217,6 +214,8 @@ void MTrader::perform(bool manually) {
 			buy_alert.reset();
 		}
 
+		bool need_alerts = trades.empty()?true:trades.back().size == 0;
+
 		double lastTradeSize = trades.empty()?0:trades.back().eff_size;
 		double lastTradePrice;
 		if (lastPriceOffset == 0) {
@@ -226,6 +225,7 @@ void MTrader::perform(bool manually) {
 			lastTradePrice = lastPriceOffset+status.spreadCenter;
 		}
 		if (cfg.dynmult_sliding) {
+			need_alerts = true;
 			double prevLTP = lastTradePrice;
 			double low = lastTradePrice * std::exp(-status.curStep*cfg.buy_step_mult);
 			double high = lastTradePrice * std::exp(status.curStep*cfg.sell_step_mult);
@@ -238,16 +238,18 @@ void MTrader::perform(bool manually) {
 				logDebug("Sliding - low > eq - $1 > $2, old_center = $4, new center = $3", low, eq, lastTradePrice, prevLTP);
 			}
 
-		} else if (!cfg.alerts              //alerts must be disabled
-					&& !cfg.delayed_alerts  //alerts must be disabled
-					&& !trades.empty()      //trades must not be empty
-					&& trades.back().size != 0 //last trade is not alert
+		} else if (!need_alerts
 					&& std::isfinite(eq)     //equilibrium is finite
 					&& eq > 0				 //equilibrium is not zero or negatiove
 					&& (lastTradePrice * std::exp(-status.curStep)>eq //eq is not in reach to lastTradePrice
 						|| lastTradePrice * std::exp(status.curStep)<eq)) { //eq is not in reach to lastTradePrice
-			logDebug("Using equilibrium as lastTradePrice: $1 -> $2", lastTradePrice, eq);
-			lastTradePrice = eq; //set lastTradePrice to equilibrium
+			if (cfg.max_size>0 || cfg.buy_mult < 0.8 || cfg.sell_mult > 1.2) {
+				logDebug("Enforced alerts because configuration");
+				need_alerts = true;
+			} else {
+				logDebug("Using equilibrium as lastTradePrice: $1 -> $2", lastTradePrice, eq);
+				lastTradePrice = eq; //set lastTradePrice to equilibrium
+			}
 		}
 
 
@@ -319,7 +321,7 @@ void MTrader::perform(bool manually) {
 													status.currencyBalance+cfg.external_balance,
 													cfg.buy_mult,
 													zigzaglevels,
-													grant_trade?false:status.enable_alerts);
+													grant_trade?false:need_alerts);
 						//calculate sell order
 					Order sellorder = calculateOrder(grant_trade?status.ticker.ask*0.85:lastTradePrice,
 													 grant_trade?0.1:status.curStep*cfg.sell_step_mult,
@@ -329,7 +331,7 @@ void MTrader::perform(bool manually) {
 													 status.currencyBalance+cfg.external_balance,
 													 cfg.sell_mult,
 													 zigzaglevels,
-													 grant_trade?false:status.enable_alerts);
+													 grant_trade?false:need_alerts);
 
 
 					if (grant_trade) {
@@ -618,39 +620,6 @@ MTrader::Status MTrader::getMarketStatus() const {
 	res.chartItem.bid = ticker.bid;
 	res.chartItem.ask = ticker.ask;
 	res.chartItem.last = ticker.last;
-
-	if (cfg.delayed_alerts && !trades.empty()) {
-		if (res.new_trades.trades.empty()) {
-			auto now = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-			auto ellapsed = now - trades.back().time;
-			using TT = decltype(ellapsed);
-			TT period;
-			if (cfg.accept_loss) {
-				period = cfg.accept_loss * static_cast<TT>(3600*1000);
-			} else {
-				if (period_cache) {
-					period = period_cache;
-				} else {
-					auto cnt = std::count_if(trades.begin(), trades.end(), [&](const IStatSvc::TradeRecord &t) {
-						return t.size != 0;
-					});
-					auto sum = std::accumulate(trades.begin()+1, trades.end(), std::pair(trades[0].time, TT(0)), [&](const auto &c, const auto &t) {
-						if (t.size != 0) return std::pair(t.time, c.second+(t.time-c.first)); else return c;
-					});
-					if (cnt>1) period = sum.second /(cnt-1); else period = 0;
-					period_cache = period;
-				}
-			}
-			res.enable_alerts = ellapsed > period;
-			res.enable_alerts_after_minutes = period - ellapsed;
-		} else {
-			res.enable_alerts = false;
-			period_cache = 0;
-		}
-
-	} else {
-		res.enable_alerts = cfg.alerts;
-	}
 
 	auto step = calcSpread();
 	res.curStep = cfg.force_spread>0?cfg.force_spread:step.spread;

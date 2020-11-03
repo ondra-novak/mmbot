@@ -603,8 +603,6 @@ App.prototype.fillForm = function (src, trg) {
 	data.min_size = filledval(src.min_size,0);
 	data.max_size = filledval(src.max_size,0);
 	data.internal_balance = filledval(src.internal_balance,0);
-	data.alerts = filledval(src.alerts,false);
-	data.delayed_alerts= filledval(src.delayed_alerts,false);
 	data.detect_manual_trades = filledval(src.detect_manual_trades,false);
 	data.report_position_offset = filledval(src.report_position_offset,0);
 	data.report_order = filledval(src.report_order,0);
@@ -768,8 +766,6 @@ App.prototype.saveForm = function(form, src) {
 	trader.max_size = data.max_size;
 	trader.max_leverage = data.max_leverage;
 	trader.internal_balance = data.internal_balance;
-	trader.alerts = data.alerts;
-	trader.delayed_alerts= data.delayed_alerts;
 	trader.detect_manual_trades = data.detect_manual_trades;
 	trader.report_position_offset = data.report_position_offset;
 	trader.report_order = data.report_order;
@@ -1517,8 +1513,8 @@ var rnd_preset={
 App.prototype.init_backtest = function(form, id, pair, broker) {
 	var url = "api/backtest";
 	form.enableItem("show_backtest",false);		
-	var inputs = ["strategy","external_assets", "acum_factor","kv_valinc","kv_halfhalf","min_size","max_size","order_mult","alerts","delayed_alerts","linear_suggest","linear_suggest_maxpos",
-		"st_power","st_reduction_step","st_sl","st_redmode","st_max_step","st_pattern","dynmult_sliding","accept_loss","spread_calc_sma_hours","st_tmode","zigzag",
+	var inputs = ["strategy","external_assets", "acum_factor","kv_valinc","kv_halfhalf","min_size","max_size","order_mult","linear_suggest","linear_suggest_maxpos",
+		"st_power","st_reduction_step","st_sl","st_redmode","st_max_step","st_pattern","dynmult_sliding","accept_loss","st_tmode","zigzag",
 		"hp_dtrend","hp_longonly","hp_reinvest","hp_power","hp_maxloss","hp_asym","hp_reduction","sh_curv","hp_initboost","hp_extbal","hp_powadj","hp_dynred",
 		"gs_external_assets","gs_rb_hi_a","gs_rb_lo_a","gs_rb_hi_p","gs_rb_lo_p",
 		"min_balance","max_balance","max_leverage"];

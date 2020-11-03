@@ -35,8 +35,6 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 	double pl = 0;
 	double minsize = std::max(minfo.min_size, cfg.min_size);
 	int cont = 0;
-	const std::uint64_t sliding_spread_wait = cfg.spread_calc_sma_hours *50000;
-	const std::uint64_t delayed_alert_wait = cfg.accept_loss * 3600000;
 	bool rep;
 	for (price = priceSource();price.has_value();price = priceSource()) {
 		cont = 0;
@@ -57,8 +55,7 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 			double mult = dir>0?cfg.buy_mult:cfg.sell_mult;
 			double adjbal = std::max(balance,0.0);
 			Strategy::OrderData order = s.getNewOrder(minfo, p, p, dir, pos, adjbal,false);
-			bool allowAlert = (cfg.alerts || (cfg.dynmult_sliding && price->time - bt.price.time > sliding_spread_wait))
-					|| (cfg.delayed_alerts &&  price->time - bt.price.time >delayed_alert_wait);
+			bool allowAlert = true;
 			if (cfg.zigzag && !trades.empty()){
 				const auto &l = trades.back();
 				if (order.size * l.size < 0 && std::abs(order.size)<std::abs(l.size)) {
