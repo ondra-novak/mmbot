@@ -419,11 +419,7 @@ Interface::Orders Interface::getOpenOrders(const std::string_view & pair) {
 			};
 		}, Orders());
 	} else if (fapi_isSymbol(pair)) {
-		initSymbols();
 		auto cpair = remove_prefix(pair);
-		auto iter = symbols.find(pair);
-		if (iter == symbols.end()) throw std::runtime_error("Unknown symbol");
-		const MarketInfo &minfo = iter->second;
 		Value resp = fapi.private_request(Proxy::GET,"/fapi/v1/openOrders", Object("symbol",cpair));
 		return mapJSON(resp, [&](Value x) {
 			Value id = x["clientOrderId"];
@@ -431,7 +427,7 @@ Interface::Orders Interface::getOpenOrders(const std::string_view & pair) {
 			return Order {
 				x["orderId"],
 				eoid,
-				(x["side"].getString() == "SELL"?-1:1)*(x["origQty"].getNumber() - x["executedQty"].getNumber())*minfo.asset_step,
+				(x["side"].getString() == "SELL"?-1:1)*(x["origQty"].getNumber() - x["executedQty"].getNumber()),
 				x["price"].getNumber()
 			};
 		}, Orders());
