@@ -326,12 +326,14 @@ void AbstractBrokerAPI::dispatch(std::istream& input, std::ostream& output, std:
 	try {
 		Value v = Value::fromStream(input);
 		handler.logStream = &error;
+		handler.outStream = &output;
 		handler.flushMessages();
 		handler.loadKeys();
 		handler.onInit();
 		while (true) {
 			handler.callMethod(v[0].getString(), v[1]).toStream(output);
 			handler.logStream = nullptr;
+			handler.outStream = nullptr;
 			output << std::endl;
 			int i = input.get();
 			while (i != EOF && isspace(i)) i = input.get();
@@ -339,6 +341,7 @@ void AbstractBrokerAPI::dispatch(std::istream& input, std::ostream& output, std:
 			input.putback(i);
 			v = Value::fromStream(input);
 			handler.logStream = &error;
+			handler.outStream = &output;
 			handler.flushMessages();
 		}
 	} catch (std::exception &e) {
@@ -439,4 +442,8 @@ json::Value AbstractBrokerAPI::getMarkets() const  {
 	return json::Value(json::object, pairs.begin(), pairs.end(), [](const auto &x){
 		return json::Value(x, x);
 	});
+}
+
+void AbstractBrokerAPI::need_more_time() {
+	if (outStream) *outStream << std::endl;
 }

@@ -23,8 +23,8 @@
 #include <imtjson/streams.h>
 #include <imtjson/binjson.tcc>
 #include "../../shared/logOutput.h"
+#include "names.h"
 
-using ondra_shared::logError;
 
 using namespace json;
 
@@ -37,18 +37,27 @@ static Value keyFormat = {Object
 							("type","string")
 							("label","Private key")};
 
-static std::string COIN_M_FUTURES_PREFIX = "COIN-Ⓜ:";
+static std::string_view COIN_M_PREFIX = "COIN-M:";
+static std::string_view USDT_M_PREFIX = "USDT-M:";
+
+static std::string_view remove_prefix(const std::string_view &pair) {
+	auto p =  pair.find(':');
+	if (p == pair.npos) return pair;
+	else return pair.substr(p+1);
+}
 
 
 class Interface: public AbstractBrokerAPI {
 public:
 	Proxy px;
 	Proxy dapi;
+	Proxy fapi;
 
 
 	Interface(const std::string &path):AbstractBrokerAPI(path, keyFormat)
 		,px("https://api.binance.com", "/api/v3/time")
 		,dapi("https://dapi.binance.com", "/dapi/v1/time")
+		,fapi("https://fapi.binance.com", "/fapi/v1/time")
 	{}
 
 
@@ -113,6 +122,7 @@ public:
 	void initSymbols();
 
 	Value dapi_readAccount();
+	Value fapi_readAccount();
 	std::chrono::steady_clock::time_point symbolsExpire;
 
 	virtual void restoreSettings(json::Value v);
@@ -128,11 +138,22 @@ protected:
 	double dapi_getPosition(const json::StrViewA &pair);
 	double dapi_getCollateral(const json::StrViewA &pair);
 
+	bool fapi_isSymbol(const std::string_view &pair);
+	double fapi_getPosition(const json::StrViewA &pair);
+	double fapi_getFees();
+	double fapi_getCollateral();
+	double fapi_getLeverage(const json::StrViewA &pair);
+
 private:
 
 	Value dapi_account;
 	Value dapi_positions;
 	Tickers dapi_tickers;
+
+	Value fapi_account;
+	Value fapi_positions;
+	Tickers fapi_tickers;
+
 };
 
 
@@ -155,8 +176,15 @@ void Interface::updateBalCache() {
 		auto iter = symbols.find(pair);
 		if (iter == symbols.end()) throw std::runtime_error("No such symbol");
 		const MarketInfo &minfo = iter->second;
-		if (minfo.asset_symbol == symb) return dapi_getPosition(pair.substr(COIN_M_FUTURES_PREFIX.length()))*minfo.asset_step;
+		if (minfo.asset_symbol == symb) return dapi_getPosition(remove_prefix(pair))*minfo.asset_step;
 		else return dapi_getCollateral(symb);
+	 } else  if (fapi_isSymbol(pair)) {
+		initSymbols();
+		auto iter = symbols.find(pair);
+		if (iter == symbols.end()) throw std::runtime_error("No such symbol");
+		const MarketInfo &minfo = iter->second;
+		if (minfo.asset_symbol == symb) return fapi_getPosition(remove_prefix(pair));
+		else return fapi_getCollateral();
 	 } else {
 		 updateBalCache();
 		 Value v =balanceCache["balances"][symb];
@@ -164,26 +192,9 @@ void Interface::updateBalCache() {
 		 else throw std::runtime_error("No such symbol");
 	 }
 }
-/*
 
- static std::size_t parseTime(json::String date) {
-	 int y,M,d,h,m;
-	 float s;
-	 sscanf(date.c_str(), "%d-%d-%d %d:%d:%f", &y, &M, &d, &h, &m, &s);
-	 float sec;
-	 float msec = std::modf(s,&sec)*1000;
-	 std::tm t={0};
-	 t.tm_year = y - 1900;
-	 t.tm_mon = M-1;
-	 t.tm_mday = d;
-	 t.tm_hour = h;
-	 t.tm_min = m;
-	 t.tm_sec = static_cast<int>(sec);
-	 std::size_t res = timegm(&t) * 1000 + static_cast<std::size_t>(msec);
-	 return res;
 
- }
-*/
+
  Interface::TradesSync Interface::syncTrades(json::Value lastId, const std::string_view & pair) {
 	 initSymbols();
 	 auto iter = symbols.find(pair);
@@ -193,7 +204,7 @@ void Interface::updateBalCache() {
 	 const MarketInfo &minfo = iter->second;
 
 	 if (dapi_isSymbol(pair)) {
-		 auto cpair = pair.substr(COIN_M_FUTURES_PREFIX.length());
+		 auto cpair = remove_prefix(pair);
 
 		 if (lastId.hasValue()) {
 			 auto pair = cpair;
@@ -249,7 +260,63 @@ void Interface::updateBalCache() {
 			 };
 		 }
 
+	 } else if (fapi_isSymbol(pair)) {
+		 auto cpair = remove_prefix(pair);
 
+		 if (lastId.hasValue()) {
+			 auto pair = cpair;
+
+			 Value r = fapi.private_request(Proxy::GET,"/fapi/v1/userTrades", Object
+					 ("fromId", lastId)
+					 ("symbol", pair)
+					 );
+
+			 r = r.map([&](Value x) ->Value{
+				if (x["id"] == lastId) return json::undefined;
+				else return x;
+			  });
+
+			 TradeHistory h(mapJSON(r,[&](Value x){
+				 double size = x["qty"].getNumber();
+				 double price = x["price"].getNumber();
+				 if (!x["buyer"].getBool()) size = -size;
+				 double comms = x["commission"].getNumber();
+				 double eff_size = size;
+				 double eff_price = price;
+				 if (x["commissionAsset"].getString() == "USDT") {
+					 eff_price += comms/size;
+				 }
+
+				 return Trade {
+					 x["id"],
+					 x["time"].getUIntLong(),
+					 size,
+					 price,
+					 eff_size,
+					 eff_price
+				 };
+			 }, TradeHistory()));
+
+			 std::sort(h.begin(), h.end(),[&](const Trade &a, const Trade &b) {
+				 return Value::compare(a.id,b.id) < 0;
+			 });
+			 if (!h.empty()) lastId = h.back().id;
+			 return TradesSync{
+				 h,
+				 lastId
+			 };
+		 } else {
+			 Value r = fapi.private_request(Proxy::GET,"/fapi/v1/userTrades", Object
+					 ("symbol", cpair)("limit",1));
+			 Value id = r.reduce([](Value l, Value itm) {
+				 Value id = itm["id"];
+				 return id.getUIntLong() > l.getUIntLong()?id:l;
+			 }, Value(0));
+			 return TradesSync {
+				 {},
+				 id
+			 };
+		 }
 	 } else {
 
 		 if (lastId.hasValue()) {
@@ -336,7 +403,7 @@ static Value extractOrderID(StrViewA id) {
 Interface::Orders Interface::getOpenOrders(const std::string_view & pair) {
 	if (dapi_isSymbol(pair)) {
 		initSymbols();
-		auto cpair = pair.substr(COIN_M_FUTURES_PREFIX.length());
+		auto cpair = remove_prefix(pair);
 		auto iter = symbols.find(pair);
 		if (iter == symbols.end()) throw std::runtime_error("Unknown symbol");
 		const MarketInfo &minfo = iter->second;
@@ -351,6 +418,24 @@ Interface::Orders Interface::getOpenOrders(const std::string_view & pair) {
 				1.0/x["price"].getNumber()
 			};
 		}, Orders());
+	} else if (fapi_isSymbol(pair)) {
+		initSymbols();
+		auto cpair = remove_prefix(pair);
+		auto iter = symbols.find(pair);
+		if (iter == symbols.end()) throw std::runtime_error("Unknown symbol");
+		const MarketInfo &minfo = iter->second;
+		Value resp = fapi.private_request(Proxy::GET,"/fapi/v1/openOrders", Object("symbol",cpair));
+		return mapJSON(resp, [&](Value x) {
+			Value id = x["clientOrderId"];
+			Value eoid = extractOrderID(id.getString());
+			return Order {
+				x["orderId"],
+				eoid,
+				(x["side"].getString() == "SELL"?-1:1)*(x["origQty"].getNumber() - x["executedQty"].getNumber())*minfo.asset_step,
+				x["price"].getNumber()
+			};
+		}, Orders());
+
 	} else {
 		Value resp = px.private_request(Proxy::GET,"/api/v3/openOrders", Object("symbol",pair));
 		return mapJSON(resp, [&](Value x) {
@@ -380,7 +465,7 @@ static Value indexBySymbol(Value data) {
 
 Interface::Ticker Interface::getTicker(const std::string_view &pair) {
 	if (dapi_isSymbol(pair)) {
-		auto cpair = pair.substr(COIN_M_FUTURES_PREFIX.length());
+		auto cpair = remove_prefix(pair);
 		if (dapi_tickers.empty()) {
 			std::vector<Tickers::value_type> tk;
 			Value book = dapi.public_request("/dapi/v1/ticker/bookTicker",Value());
@@ -399,6 +484,27 @@ Interface::Ticker Interface::getTicker(const std::string_view &pair) {
 		 auto iter=dapi_tickers.find(cpair);
 		 if (iter != dapi_tickers.end()) return iter->second;
 		 else throw std::runtime_error("No such symbol");
+	} else if (fapi_isSymbol(pair)) {
+		auto cpair = remove_prefix(pair);
+		if (fapi_tickers.empty()) {
+			std::vector<Tickers::value_type> tk;
+			Value book = fapi.public_request("/fapi/v1/ticker/bookTicker",Value());
+			for (Value v: book) {
+				double bid = v["askPrice"].getNumber();
+				double ask = v["bidPrice"].getNumber();
+				double midl = std::sqrt(bid * ask);
+				tk.emplace_back(
+					v["symbol"].getString(),
+					Ticker{bid,ask,midl,v["time"].getUIntLong()}
+				);
+			}
+			fapi_tickers = Tickers(std::move(tk));
+		}
+
+		 auto iter=fapi_tickers.find(cpair);
+		 if (iter != fapi_tickers.end()) return iter->second;
+		 else throw std::runtime_error("No such symbol");
+
 	} else {
 		if (tickerCache.empty()) {
 
@@ -460,7 +566,7 @@ json::Value Interface::placeOrder(const std::string_view & pair,
 	auto iter = symbols.find(pair);
 	if (iter == symbols.end()) throw std::runtime_error("Unknown symbol");
 	if (dapi_isSymbol(pair)) {
-		auto cpair = pair.substr(COIN_M_FUTURES_PREFIX.length());
+		auto cpair = remove_prefix(pair);
 		size = -size/iter->second.asset_step;
 		replaceSize = replaceSize/iter->second.asset_step;
 		price = std::round((1.0/price)/iter->second.currency_step)*iter->second.currency_step;
@@ -490,6 +596,30 @@ json::Value Interface::placeOrder(const std::string_view & pair,
 
 		return orderId;
 
+	} else 	if (fapi_isSymbol(pair)) {
+		auto cpair = remove_prefix(pair);
+		if (replaceId.defined()) {
+			Value r = fapi.private_request(Proxy::DELETE,"/fapi/v1/order",Object
+					("symbol", cpair)
+					("orderId", replaceId));
+			double remain = r["origQty"].getNumber() - r["executedQty"].getNumber();
+			if (r["status"].getString() != "CANCELED"
+					|| remain < std::fabs(replaceSize)*0.9999) return nullptr;
+		}
+		if (size == 0) return nullptr;
+		Value orderId = generateOrderId(clientId);
+		fapi.private_request(Proxy::POST,"/fapi/v1/order",Object
+				("symbol", cpair)
+				("side", size<0?"SELL":"BUY")
+				("type","LIMIT")
+				("newClientOrderId",orderId)
+				("quantity", number_to_decimal(std::fabs(size),iter->second.size_precision))
+				("price", number_to_decimal(std::fabs(price), iter->second.quote_precision))
+				("timeInForce","GTX")
+				("positionSide","BOTH")
+				);
+
+		return orderId;
 
 	} else {
 
@@ -526,55 +656,59 @@ bool Interface::reset() {
 	dapi_account = Value();
 	dapi_positions = Value();
 	dapi_tickers.clear();
+	fapi_account=Value();
+	fapi_positions=Value();
+	fapi_tickers.clear();
 	return true;
 }
 
 void Interface::initSymbols() {
 	auto now = std::chrono::steady_clock::now();
 	if (symbols.empty() || symbolsExpire < now) {
-		Value res = px.public_request("/api/v1/exchangeInfo",Value());
+			Value res = px.public_request("/api/v1/exchangeInfo",Value());
 
-
-		using VT = Symbols::value_type;
-		std::vector<VT> bld;
-		for (Value smb: res["symbols"]) {
-			std::string symbol = smb["symbol"].getString();
-			MarketInfoEx nfo;
-			nfo.asset_symbol = smb["baseAsset"].getString();
-			nfo.currency_symbol = smb["quoteAsset"].getString();
-			nfo.currency_step = std::pow(10,-smb["quotePrecision"].getNumber());
-			nfo.asset_step = std::pow(10,-smb["baseAssetPrecision"].getNumber());
-			nfo.feeScheme = income;
-			nfo.min_size = 0;
-			nfo.min_volume = 0;
-			nfo.fees = getFees(symbol);
-			nfo.size_precision = smb["baseAssetPrecision"].getUInt();
-			nfo.quote_precision = smb["quotePrecision"].getUInt();
-			for (Value f: smb["filters"]) {
-				auto ft = f["filterType"].getString();
-				if (ft == "LOT_SIZE") {
-					nfo.min_size = f["minQty"].getNumber();
-					nfo.asset_step = f["stepSize"].getNumber();
-				} else if (ft == "PRICE_FILTER") {
-					nfo.currency_step = f["tickSize"].getNumber();
-				} else if (ft == "MIN_NOTIONAL") {
-					nfo.min_volume = f["minNotional"].getNumber();
-				}
-			}
-			nfo.cat = Category::spot;
-			nfo.wallet_id="spot";
-
-			if (feesInBnb) {
-				if (nfo.asset_symbol == "BNB") nfo.feeScheme = assets;
-				else nfo.feeScheme = currency;
-			}
-
-			bld.push_back(VT(symbol, nfo));
-		}
-		try {
-			res = dapi.public_request("/dapi/v1/exchangeInfo",Value());
+			using VT = Symbols::value_type;
+			std::vector<VT> bld;
 			for (Value smb: res["symbols"]) {
-				std::string symbol = COIN_M_FUTURES_PREFIX + std::string(smb["symbol"].getString());
+				std::string symbol = smb["symbol"].getString();
+				MarketInfoEx nfo;
+				nfo.asset_symbol = smb["baseAsset"].getString();
+				nfo.currency_symbol = smb["quoteAsset"].getString();
+				nfo.currency_step = std::pow(10,-smb["quotePrecision"].getNumber());
+				nfo.asset_step = std::pow(10,-smb["baseAssetPrecision"].getNumber());
+				nfo.feeScheme = income;
+				nfo.min_size = 0;
+				nfo.min_volume = 0;
+				nfo.fees = getFees(symbol);
+				nfo.size_precision = smb["baseAssetPrecision"].getUInt();
+				nfo.quote_precision = smb["quotePrecision"].getUInt();
+				for (Value f: smb["filters"]) {
+					auto ft = f["filterType"].getString();
+					if (ft == "LOT_SIZE") {
+						nfo.min_size = f["minQty"].getNumber();
+						nfo.asset_step = f["stepSize"].getNumber();
+					} else if (ft == "PRICE_FILTER") {
+						nfo.currency_step = f["tickSize"].getNumber();
+					} else if (ft == "MIN_NOTIONAL") {
+						nfo.min_volume = f["minNotional"].getNumber();
+					}
+				}
+				nfo.cat = Category::spot;
+				nfo.wallet_id="spot";
+
+				if (feesInBnb) {
+					if (nfo.asset_symbol == "BNB") nfo.feeScheme = assets;
+					else nfo.feeScheme = currency;
+				}
+
+				bld.push_back(VT(symbol, nfo));
+			}
+			need_more_time();
+			res = dapi.public_request("/dapi/v1/exchangeInfo",Value());
+			std::string symbol(COIN_M_PREFIX);
+			for (Value smb: res["symbols"]) {
+				symbol.resize(COIN_M_PREFIX.length());
+				symbol.append(smb["symbol"].getString());
 				MarketInfoEx nfo;
 				nfo.asset_symbol = smb["quoteAsset"].getString();
 				nfo.currency_symbol = smb["marginAsset"].getString();
@@ -603,12 +737,44 @@ void Interface::initSymbols() {
 				nfo.wallet_id = symbol;
 				bld.push_back(VT(symbol, nfo));
 			}
-		} catch (std::exception &e) {
-			logError("DAPI is not available: $1", e.what());
-		}
+			need_more_time();
+			res = fapi.public_request("/fapi/v1/exchangeInfo",Value());
+			symbol = USDT_M_PREFIX;
+			for (Value smb: res["symbols"]) {
+				if (smb["quoteAsset"].getString() != "USDT" || smb["status"].getString() != "TRADING") continue;
+				symbol.resize(USDT_M_PREFIX.length());
+				symbol.append(smb["symbol"].getString());
+				MarketInfoEx nfo;
+				nfo.asset_symbol = smb["baseAsset"].getString();
+				nfo.currency_symbol = smb["quoteAsset"].getString();
+				nfo.currency_step = std::pow(10,-smb["pricePrecision"].getNumber());
+				nfo.asset_step = std::pow(10, -smb["quantityPrecision"].getNumber());
+				nfo.feeScheme = currency;
+				nfo.fees = getFees(symbol);
+				nfo.min_size = nfo.asset_step;
+				nfo.min_volume = 0;
+				nfo.size_precision = smb["baseAssetPrecision"].getUInt();
+				nfo.quote_precision = smb["quotePrecision"].getUInt();
+				for (Value f: smb["filters"]) {
+					auto ft = f["filterType"].getString();
+					if (ft == "LOT_SIZE") {
+						nfo.min_size = f["minQty"].getNumber()*nfo.asset_step;
+					} else if (ft == "PRICE_FILTER") {
+						nfo.currency_step = f["tickSize"].getNumber();
+					}
+				}
+				nfo.leverage = fapi_getLeverage(smb["symbol"].getString());
+				nfo.invert_price = false;
+				nfo.cat = Category::usdt_m;
+				nfo.label = nfo.asset_symbol+"/"+nfo.currency_symbol;
+				nfo.type = "PERPETUAL";
+				nfo.wallet_id = "usdt-m";
+				bld.push_back(VT(symbol, nfo));
+			}
 
-		symbols = Symbols(std::move(bld));
-		symbolsExpire = now + std::chrono::minutes(15);
+			symbols = Symbols(std::move(bld));
+			symbolsExpire = now + std::chrono::minutes(15);
+			need_more_time();
 	}
 }
 
@@ -624,19 +790,24 @@ inline Interface::MarketInfo Interface::getMarketInfo(const std::string_view &pa
 		throw std::runtime_error("Unknown trading pair symbol");
 	MarketInfo res = iter->second;
 	if (dapi_isSymbol(pair)) {
-		res.leverage = dapi_getLeverage(pair.substr(COIN_M_FUTURES_PREFIX.length()));
+		res.leverage = dapi_getLeverage(remove_prefix(pair));
+	}
+	if (fapi_isSymbol(pair)) {
+		res.leverage = fapi_getLeverage(remove_prefix(pair));
 	}
 	return res;
 }
 
 bool Interface::dapi_isSymbol(const std::string_view &pair) {
-	return pair.substr(0, COIN_M_FUTURES_PREFIX.length()) == COIN_M_FUTURES_PREFIX;
+	return pair.substr(0, COIN_M_PREFIX.length()) == COIN_M_PREFIX;
 }
 
 inline double Interface::getFees(const std::string_view &pair) {
 	if (px.hasKey()) {
 		if (dapi_isSymbol(pair)) {
 			return dapi_getFees();
+		} else if (fapi_isSymbol(pair)) {
+			return fapi_getFees();
 		} else {
 			 if (!feeInfo.defined()) {
 				 updateBalCache();
@@ -645,6 +816,8 @@ inline double Interface::getFees(const std::string_view &pair) {
 		}
 	} else {
 		if (dapi_isSymbol(pair)) {
+			return 0.00015;
+		} else if (fapi_isSymbol(pair)) {
 			return 0.0002;
 		} else {
 			return 0.001;
@@ -666,6 +839,8 @@ inline void Interface::onLoadApiKey(json::Value keyData) {
 	px.pubKey = keyData["pubKey"].getString();
 	dapi.privKey = px.privKey;
 	dapi.pubKey = px.pubKey;
+	fapi.privKey = px.privKey;
+	fapi.pubKey = px.pubKey;
 	symbols.clear();
 }
 
@@ -688,7 +863,7 @@ Interface::BrokerInfo Interface::getBrokerInfo() {
 		"binance",
 		"Binance",
 		"https://www.binance.com/en/register?ref=37092760",
-		"2.0+dapi",
+		"2.1",
 		"Copyright (c) 2019 Ondřej Novák\n\n"
 
 "Permission is hereby granted, free of charge, to any person "
@@ -753,12 +928,24 @@ inline Value Interface::dapi_readAccount() {
 	return dapi_account;
 }
 
+inline Value Interface::fapi_readAccount() {
+	if (!fapi_account.defined()) {
+		Value account = fapi.private_request(Proxy::GET, "/fapi/v2/account", Value());
+		fapi_account = account;
+	}
+	return fapi_account;
+}
+
 inline double Interface::dapi_getFees() {
-	Value account = dapi_readAccount();
-	unsigned int tier = account["feeTier"].getNumber();
-	if (tier >= 4) return 0.0;
 	double fees[] = {0.00015, 0.00013, 0.00011, 0.00010};
-	return fees[tier];
+	try {
+		Value account = dapi_readAccount();
+		unsigned int tier = account["feeTier"].getNumber();
+		if (tier >= 4) return 0.0;
+		return fees[tier];
+	} catch (std::exception &e) {
+		return fees[0];
+	}
 }
 
 inline double Interface::dapi_getLeverage(const json::StrViewA &pair) {
@@ -782,7 +969,7 @@ inline double Interface::dapi_getCollateral(const json::StrViewA &pair) {
 	Value a = dapi_readAccount();
 	Value ass = a["assets"];
 	Value z = ass.find([&](Value item){return item["asset"].getString() == pair;});
-	return z["availableBalance"].getNumber();
+	return z["walletBalance"].getNumber();
 }
 
 inline json::Value Interface::getMarkets() const {
@@ -820,7 +1007,14 @@ inline json::Value Interface::getMarkets() const {
 		for (auto &&v: symbols) if (v.second.cat == Category::coin_m) {
 			map.emplace(std::pair(std::string_view(v.second.label), std::string_view(v.second.type)), v.first);
 		}
-		res.set("COIN-Ⓜ Futures",loadToMap(map));
+		res.set(coin_m_title,loadToMap(map));
+	}
+	{
+		Map map;
+		for (auto &&v: symbols) if (v.second.cat == Category::usdt_m) {
+			map.emplace(std::pair(std::string_view(v.second.label), std::string_view(v.second.type)), v.first);
+		}
+		res.set(usdt_m_title,loadToMap(map));
 	}
 
 
@@ -849,4 +1043,43 @@ inline json::Value Interface::getSettings(const std::string_view &) const {
 
 inline void Interface::restoreSettings(json::Value v) {
 	setSettings(v);
+}
+
+bool Interface::fapi_isSymbol(const std::string_view &pair) {
+	return pair.substr(0, USDT_M_PREFIX.length()) == USDT_M_PREFIX;
+}
+
+inline double Interface::fapi_getPosition(const json::StrViewA &pair) {
+	if (!fapi_positions.defined()) {
+		fapi_positions = fapi.private_request(Proxy::GET, "/fapi/v2/positionRisk", Value());
+	}
+	Value z = fapi_positions.find([&](Value item){return item["symbol"].getString() == pair;});
+	return z["positionAmt"].getNumber();
+}
+
+double Interface::fapi_getFees() {
+	double fees[] = {0.00020, 0.00016, 0.00012, 0.00010, 0.00008, 0.00006, 0.00004, 0.00002};
+	try {
+		Value account = fapi_readAccount();
+		unsigned int tier = account["feeTier"].getNumber();
+		if (tier >= 8) return 0.0;
+		return fees[tier];
+	} catch (std::exception &e) {
+		return fees[0];
+	}
+}
+
+double Interface::fapi_getCollateral() {
+	Value account = fapi_readAccount();
+	return account["totalWalletBalance"].getNumber();
+}
+
+
+double Interface::fapi_getLeverage(const json::StrViewA &pair) {
+	Value a = fapi_readAccount();
+	Value b = a["positions"];
+	Value z = b.find([&](Value itm){
+		return itm["symbol"] == pair;
+	});
+	return z["leverage"].getNumber();
 }

@@ -294,10 +294,6 @@ void AbstractExtern::housekeeping(int counter) {
 	}
 }
 
-json::Value AbstractExtern::readJSON(FD& fd, int timeout) {
-	return json::Value::parse(Reader(fd, timeout));
-
-}
 
 
 bool AbstractExtern::preload() {
@@ -372,10 +368,19 @@ json::Value AbstractExtern::jsonExchange(json::Value request, bool idle) {
 				}while (rep);
 			}
 			if (fds[0].revents) {
-					auto ret = readJSON(extout, timeout);
-					if (verbose) log.debug("RECV: $1", ret.toString().substr(0,512));
-					return ret;
-
+					Reader rd(extout, timeout);
+					auto buff = rd.read();
+					while (!buff.empty() && isspace(buff[0])) {
+						buff = buff.substr(1);
+					}
+					if (!buff.empty()) {
+						rd.putback(buff);
+						auto ret = json::Value::parse<Reader &>(rd);
+						if (verbose) log.debug("RECV: $1", ret.toString().substr(0,512));
+						return ret;
+					} else {
+						log.debug("Broker requested more time");
+					}
 			}
 		} catch (...) {
 			kill();

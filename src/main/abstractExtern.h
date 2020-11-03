@@ -88,7 +88,7 @@ protected:
 
 	json::Value jsonExchange(json::Value request, bool idle);
 	static bool writeJSON(json::Value v, FD &fd, int timeout);
-	static json::Value readJSON(FD &fd, int timeout);
+//	static json::Value readJSON(FD &fd, int timeout);
 
 };
 

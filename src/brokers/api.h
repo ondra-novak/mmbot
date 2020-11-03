@@ -106,12 +106,16 @@ public:
 
 	virtual json::Value callMethod(std::string_view name, json::Value args);
 
+	///Request more time for processing current command (to prevent timeout);
+	void need_more_time();
+
 protected:
 	bool debug_mode = false;
 	std::string secure_storage_path;
 	json::Value apiKeyFormat;
 	std::vector<std::string> logMessages;
 	std::ostream *logStream = nullptr;;
+	std::ostream *outStream = nullptr;;
 	virtual void flushMessages();
 
 	class LogProvider;
