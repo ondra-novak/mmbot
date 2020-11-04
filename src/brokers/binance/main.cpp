@@ -724,7 +724,7 @@ void Interface::initSymbols() {
 						nfo.currency_step = f["tickSize"].getNumber();
 					}
 				}
-				nfo.leverage = dapi_getLeverage(smb["symbol"].getString());
+				nfo.leverage = 20;
 				nfo.invert_price = true;
 				nfo.inverted_symbol = smb["quoteAsset"].getString();
 				nfo.cat = Category::coin_m;
@@ -759,7 +759,7 @@ void Interface::initSymbols() {
 						nfo.currency_step = f["tickSize"].getNumber();
 					}
 				}
-				nfo.leverage = fapi_getLeverage(smb["symbol"].getString());
+				nfo.leverage = 20;
 				nfo.invert_price = false;
 				nfo.cat = Category::usdt_m;
 				nfo.label = nfo.asset_symbol+"/"+nfo.currency_symbol;
@@ -917,31 +917,35 @@ int main(int argc, char **argv) {
 }
 
 inline Value Interface::dapi_readAccount() {
-	if (!dapi_account.defined()) {
-		Value account = dapi.private_request(Proxy::GET, "/dapi/v1/account", Value());
-		dapi_account = account;
+	try {
+		if (!dapi_account.defined()) {
+			Value account = dapi.private_request(Proxy::GET, "/dapi/v1/account", Value());
+			dapi_account = account;
+		}
+		return dapi_account;
+	} catch (...) {
+		return dapi_account = json::object;
 	}
-	return dapi_account;
 }
 
 inline Value Interface::fapi_readAccount() {
-	if (!fapi_account.defined()) {
-		Value account = fapi.private_request(Proxy::GET, "/fapi/v2/account", Value());
-		fapi_account = account;
+	try {
+		if (!fapi_account.defined()) {
+			Value account = fapi.private_request(Proxy::GET, "/fapi/v2/account", Value());
+			fapi_account = account;
+		}
+		return fapi_account;
+	} catch (...) {
+		return fapi_account = json::object;
 	}
-	return fapi_account;
 }
 
 inline double Interface::dapi_getFees() {
 	double fees[] = {0.00015, 0.00013, 0.00011, 0.00010};
-	try {
-		Value account = dapi_readAccount();
-		unsigned int tier = account["feeTier"].getNumber();
-		if (tier >= 4) return 0.0;
-		return fees[tier];
-	} catch (std::exception &e) {
-		return fees[0];
-	}
+	Value account = dapi_readAccount();
+	unsigned int tier = account["feeTier"].getNumber();
+	if (tier >= 4) return 0.0;
+	return fees[tier];
 }
 
 inline double Interface::dapi_getLeverage(const json::StrViewA &pair) {
@@ -1055,14 +1059,10 @@ inline double Interface::fapi_getPosition(const json::StrViewA &pair) {
 
 double Interface::fapi_getFees() {
 	double fees[] = {0.00020, 0.00016, 0.00012, 0.00010, 0.00008, 0.00006, 0.00004, 0.00002};
-	try {
-		Value account = fapi_readAccount();
-		unsigned int tier = account["feeTier"].getNumber();
-		if (tier >= 8) return 0.0;
-		return fees[tier];
-	} catch (std::exception &e) {
-		return fees[0];
-	}
+	Value account = fapi_readAccount();
+	unsigned int tier = account["feeTier"].getNumber();
+	if (tier >= 8) return 0.0;
+	return fees[tier];
 }
 
 double Interface::fapi_getCollateral() {
