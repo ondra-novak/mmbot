@@ -180,8 +180,9 @@ PStrategy Strategy_ConstantStep::init(const IStockApi::MarketInfo &m,
 	}
 
 	nst.f = cur;
-
-	return PStrategy(new Strategy_ConstantStep(cfg, std::move(nst)));
+	PStrategy s = new Strategy_ConstantStep(cfg, std::move(nst));
+	if (!s->isValid()) throw std::runtime_error("Unable to initialize strategy");
+	return s;
 
 }
 

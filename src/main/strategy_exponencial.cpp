@@ -75,7 +75,9 @@ PStrategy Strategy_Exponencial::init(const IStockApi::MarketInfo &m, double pric
 
 	}
 	nst.f = cur;
-	return new Strategy_Exponencial(cfg, std::move(nst));
+	PStrategy s = new Strategy_Exponencial(cfg, std::move(nst));
+	if (!s->isValid()) throw std::runtime_error("can't initialize strategy");
+	return s;
 }
 
 std::pair<Strategy_Exponencial::OnTradeResult, PStrategy> Strategy_Exponencial::onTrade(

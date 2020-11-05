@@ -74,7 +74,9 @@ PStrategy Strategy_HyperSquare::init(const IStockApi::MarketInfo &m, double pric
 		nst.a = assets;
 	}
 	nst.f = cur;
-	return new Strategy_HyperSquare(cfg, std::move(nst));
+	PStrategy s= new Strategy_HyperSquare(cfg, std::move(nst));;
+	if (!s->isValid()) throw std::runtime_error("Unable to initialize strategy");
+	return s;
 }
 
 std::pair<Strategy_HyperSquare::OnTradeResult, PStrategy> Strategy_HyperSquare::onTrade(
