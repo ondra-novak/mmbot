@@ -71,6 +71,7 @@ public:
 	virtual std::optional<BudgetExtraInfo> getBudgetExtraInfo(double price, double currency) const {
 		return std::optional<BudgetExtraInfo>();
 	}
+	virtual ChartPoint calcChart(double price) const override;
 
 
 	static std::string_view id;

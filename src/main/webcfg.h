@@ -16,6 +16,7 @@
 
 #include <shared/ini_config.h>
 #include "../server/src/rpc/rpcServer.h"
+#include "../server/src/simpleServer/query_parser.h"
 #include "abstractExtern.h"
 #include "istockapi.h"
 #include "authmapper.h"
@@ -133,6 +134,7 @@ public:
 		upload_trades,
 		wallet,
 		btdata,
+		visstrategy
 	};
 
 	AuthMapper auth;
@@ -160,6 +162,7 @@ protected:
 	bool reqStrategy(simpleServer::HTTPRequest req);
 	bool reqDumpWallet(simpleServer::HTTPRequest req);
 	bool reqBTData(simpleServer::HTTPRequest req);
+	bool reqVisStrategy(simpleServer::HTTPRequest req,  simpleServer::QueryParser &qp);
 
 	using Sync = std::unique_lock<std::recursive_mutex>;
 

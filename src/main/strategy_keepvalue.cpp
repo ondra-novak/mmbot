@@ -214,3 +214,9 @@ double Strategy_KeepValue::calcInitialPosition(const IStockApi::MarketInfo &minf
 double Strategy_KeepValue::calcCurrencyAllocation(double price) const {
 	return st.c;
 }
+
+Strategy_KeepValue::ChartPoint Strategy_KeepValue::calcChart(double price) const {
+	double a = calcA(st, cfg, price);
+	double k = calcK(st, cfg);
+	return {true,a , k*std::log(price/st.c) + a*price};
+}

@@ -94,6 +94,7 @@ public:
 		return std::optional<BudgetExtraInfo>();
 	}
 	virtual double calcCurrencyAllocation(double price) const override;
+	virtual ChartPoint calcChart(double price) const override {return {false};}
 
 
 

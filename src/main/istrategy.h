@@ -68,6 +68,11 @@ public:
 		double extra;
 	};
 
+	struct ChartPoint {
+		bool valid;
+		double position;
+		double budget;
+	};
 
 	virtual bool isValid() const = 0;
 	virtual PStrategy onIdle(const IStockApi::MarketInfo &minfo, const IStockApi::Ticker &curTicker, double assets, double currency) const = 0;
@@ -84,7 +89,7 @@ public:
 	virtual BudgetInfo getBudgetInfo() const = 0;
 	virtual double calcCurrencyAllocation(double price) const = 0;
 	virtual ~IStrategy() {}
-
+	virtual ChartPoint calcChart(double price) const = 0;
 
 
 protected:

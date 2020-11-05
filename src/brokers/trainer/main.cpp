@@ -974,6 +974,7 @@ inline bool Interface::reset() {
 
 		newOrders.swap(p.orders);
 		p.prev_price = cp;
+		need_more_time();
 	}
 	for (auto &&k : remove) {
 		pairs.erase(k);

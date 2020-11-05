@@ -213,6 +213,43 @@ div.trader.list > *:active {
 	background-color:#484b52;
 }
 
+div.visstrategy {
+	display: block;
+	width: 70%;
+	margin: 1em auto;
+	border: 1px solid #444;
+	padding: 2%;
+}
+div.visstrategy > div {
+	position:relative;
+	padding-bottom:62.5%;
+	box-sizing:border-box;	
+}
+
+div.visstrategy > div::before {
+	content:"⌛";
+	display:block;
+	position:absolute;
+	left:0;
+	top:0;
+	right:0;
+	bottom:0;
+	margin:auto;
+	text-align:center;
+	height: 1em;
+	opacity: 0.5;
+}
+
+div.visstrategy > div>img {
+	display:block;
+	position:absolute;
+	width:100%;
+	background-color:#222;
+}
+div.visstrategy > p {
+	text-align:center;
+	margin: 1em 0 0 0;
+}
 
 div.trader.list > * {
 	margin: 0.2cm 0.1cm;

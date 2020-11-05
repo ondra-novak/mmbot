@@ -234,3 +234,12 @@ double Strategy_ConstantStep::calcAccountValue(const Consts &cst, double price) 
 double Strategy_ConstantStep::calcCurrencyAllocation(double price) const {
 	return st.a * price / std::log(st.m/price);
 }
+
+Strategy_ConstantStep::ChartPoint Strategy_ConstantStep::calcChart(double price) const {
+	auto consts = calcConsts(st.a, st.p, st.m);
+	return {
+		true,
+		calcA(consts,  price),
+		calcAccountValue(consts,price)
+	};
+}

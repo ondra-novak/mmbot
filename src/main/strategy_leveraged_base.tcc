@@ -500,4 +500,8 @@ inline double Strategy_Leveraged<Calc>::calcCurrencyAllocation(double) const {
 	return cfg->external_balance + st.redbal - st.val;
 }
 
+template<typename Calc>
+typename Strategy_Leveraged<Calc>::ChartPoint Strategy_Leveraged<Calc>::calcChart(double price) const {
+	return {true,calc->calcPosition(st.power, calcAsym(cfg,st), st.neutral_price, price), cfg->external_balance+st.redbal-calc->calcPosValue(st.power, calcAsym(cfg,st), st.neutral_price, price)};
+}
 

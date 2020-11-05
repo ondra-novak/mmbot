@@ -316,3 +316,9 @@ double Strategy_ErrorFn::calcInitialPosition(const IStockApi::MarketInfo &minfo,
 double Strategy_ErrorFn::calcCurrencyAllocation(double price) const {
 	return calcReqCurrency(st,cfg.ea,price,cfg.rebalance);
 }
+
+Strategy_ErrorFn::ChartPoint Strategy_ErrorFn::calcChart(double price) const {
+	return {
+		true,calcA(price),calcAccountValue(st, cfg.ea, price)
+	};
+}

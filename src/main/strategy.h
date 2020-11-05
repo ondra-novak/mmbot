@@ -121,6 +121,10 @@ public:
 		return ptr->getBudgetInfo();
 	}
 
+	IStrategy::ChartPoint calcChart(double price) const {
+		return ptr->calcChart(price);
+	}
+
 
 	///Calculates how much currency is allocated for strategy
 	/** Function is used to allocate budget from currency pool

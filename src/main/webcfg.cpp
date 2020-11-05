@@ -48,7 +48,8 @@ NamedEnum<WebCfg::Command> WebCfg::strCommand({
 	{WebCfg::upload_prices, "upload_prices"},
 	{WebCfg::upload_trades, "upload_trades"},
 	{WebCfg::wallet, "wallet"},
-	{WebCfg::btdata, "btdata"}
+	{WebCfg::btdata, "btdata"},
+	{WebCfg::visstrategy, "visstrategy"}
 });
 
 WebCfg::WebCfg( const SharedObject<State> &state,
@@ -105,6 +106,7 @@ bool WebCfg::operator ()(const simpleServer::HTTPRequest &req,
 		case upload_trades: return reqUploadTrades(req);
 		case wallet: return reqDumpWallet(req);
 		case btdata: return reqBTData(req);
+		case visstrategy: return reqVisStrategy(req, qp);
 		}
 	}
 	return false;
@@ -1555,5 +1557,187 @@ bool WebCfg::reqBTData(simpleServer::HTTPRequest req) {
 
 	Stream s = req.sendResponse(HTTPResponse(200).contentType("application/json").cacheFor(80000));
 	res.serialize(s);
+	return true;
+}
+
+static double choose_best_step(double v) {
+	double s =  std::pow(10,std::floor(std::log10((v/2))));
+	if (std::floor(v/s)<5) s/=2;
+	return s;
+}
+
+bool WebCfg::reqVisStrategy(simpleServer::HTTPRequest req,  simpleServer::QueryParser &qp) {
+	if (!req.allowMethods({"GET"})) return true;
+	json::StrViewA id = qp["id"];
+	json::StrViewA assets = qp["asset"];
+	json::StrViewA currency = qp["currency"];
+	json::StrViewA sprice = qp["price"];
+	double bal_a = std::strtod(assets.data,nullptr);
+	double bal_c = std::strtod(currency.data,nullptr);
+	double price = std::strtod(sprice.data,nullptr);
+	auto trader = trlist.lock_shared()->find(id);
+	std::ostringstream tmp;
+	if (trader == nullptr) {
+		req.sendErrorPage(404);
+	} else {
+		Strategy st(nullptr);
+		IStockApi::MarketInfo minfo;
+		IStrategy::MinMax range;
+		std::vector<double> pt_budget, pt_value;
+		{
+			auto tr = trader.lock_shared();
+			auto trades = tr->getTrades();
+			if (!trades.empty()) price = trades.back().price;
+			st = tr->getStrategy();
+			minfo = tr->getMarketInfo();
+			range = st.calcSafeRange(minfo, bal_a, bal_c);
+		}
+
+		Stream out = req.sendResponse(simpleServer::HTTPResponse(200)
+					.contentType("image/svg+xml").cacheFor(600));
+		out << "<?xml version=\"1.0\"?>"
+			<< "<!DOCTYPE svg PUBLIC \"-//W3C//DTD SVG 1.1//EN\" \"http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd\">";
+
+		out << "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"800\" height=\"500\">";
+
+
+		if (st.isValid()) {
+
+			double pprice = price;
+			double p_min = range.min;
+			double p_max = range.max;
+			if (minfo.invert_price) {
+				pprice = 1.0/price;
+				p_min = 1.0/range.max;
+				p_max = 1.0/range.min;
+				if (!std::isfinite(p_min)) p_min = 0;
+				if (!std::isfinite(p_max)) p_max = pprice*2;
+			}
+
+			p_min = std::max(p_min, 0.0);
+			p_max = std::min(p_max, pprice*2);
+			p_min = std::min(p_min, pprice);
+
+			double v_min = std::numeric_limits<double>::max();
+			double v_max = -v_min;
+
+			auto imap_price = [&](double x)-> double {
+				double k = p_min + x/800.0*(p_max - p_min);
+				return minfo.invert_price?1.0/k:k;
+			};
+
+
+			for (unsigned int i = 0; i <= 400; i++) {
+				double p = imap_price(i*2);
+				auto pt = st.calcChart(p);
+				if (!pt.valid) {
+					continue;
+				}
+				double value = std::abs(pt.position * p);
+				if (pt.budget<v_min) v_min = pt.budget;
+				if (pt.budget>v_max) v_max = pt.budget;
+
+				pt_budget.push_back(pt.budget);
+				pt_value.push_back(value);
+
+			}
+
+			auto cur = st.calcChart(price);
+			double curval = std::abs(cur.position * price);
+			if (curval < v_min) v_min = curval;
+			if (curval > v_max) v_max = curval;
+
+
+
+			{
+				double d1 = v_max- v_min;
+				v_min -= d1*0.07;
+				v_max += d1*0.07;
+			}
+
+
+			auto line = [&](double x1, double y1, double x2, double y2, const std::string_view style) {
+				tmp.str("");tmp.clear();
+				tmp << "<line x1=\"" << x1 << "\" y1=\"" << y1 <<"\" x2=\"" << x2 << "\" y2=\"" << y2 <<"\" style=\"" << style << "\" />";
+				out << tmp.str();
+			};
+			auto point = [&](double x1, double y1, const std::string_view style) {
+				tmp.str("");tmp.clear();
+				tmp << "<circle cx=\"" << x1 << "\" cy=\"" << y1 <<"\" r=\"4\" style=\"" << style << "\" />";
+				out << tmp.str();
+			};
+			auto label = [&](double x, double y, double number, const std::string_view style) {
+				tmp.str("");tmp.clear();
+				const char *sfx = "";
+				if (std::abs(number)>1000000) {number/=1000000.0;sfx="M";}
+				else if (std::abs(number)>1000) {number/=1000.0;sfx="k";}
+				tmp << std::fixed << number;
+				std::string c = tmp.str();
+				if (c.find('.') != c.npos) {
+					while (c.back() == '0') c.pop_back();
+					if (c.back() == '.') c.pop_back();
+				}
+
+				c.append(sfx);
+				out << "<text x=\"" << x << "\" y=\"" << y << "\" style=\"" << style << "\">" << c << "</text>";
+			};
+
+			auto map_price = [&](double x) -> double{
+				return (x - p_min)/(p_max - p_min)*800.0;
+			};
+			auto map_y = [&](double y)-> double {
+				return (v_max - y)/(v_max - v_min)*500.0;
+			};
+
+			double zero_y = map_y(0);
+
+
+			double fx = choose_best_step(p_max - p_min);
+			for (double x = std::floor(p_min/fx)*fx; x < p_max; x+=fx) {
+				double mx = map_price(x);
+				line(mx,0,mx,500,"stroke:#8888; stroke-width: 1px");
+				label(mx,500,x,"alignment-baseline: after-edge; font-size: 20px;fill: #CDCDCD");
+			}
+			fx = choose_best_step(v_max - v_min);
+			for (double y = std::floor(v_min/fx)*fx; y < v_max; y+=fx) {
+				double my = map_y(y);
+				line(0,my,800,my,"stroke:#8888; stroke-width: 1px");
+				label(0,my,y,"alignment-baseline: after-edge; font-size: 20px;fill: #CDCDCD");
+			}
+
+			line(0,zero_y,800,zero_y,"stroke: #FFFFFF; stroke-width: 1px");
+
+
+
+			for (unsigned int i = 1; i < pt_budget.size(); i++) {
+				double x = i * 2.0;
+				line(x-2.0,map_y(pt_budget[i-1]),x,map_y(pt_budget[i]),"stroke: #FFFFA0; stroke-width: 2px");
+				line(x-2.0,map_y(pt_value[i-1]),x,map_y(pt_value[i]),"stroke: #00AA00; stroke-width: 2px");
+			}
+			double a = map_price(pprice);
+			double b = map_y(cur.budget);
+			line(a,0,a,500,"stroke: #CDCDCD; stroke-width: 1px");
+			line(0,b,800,b,"stroke: #CDCDCD; stroke-width: 1px");
+			auto smernice = [&](double x) {
+				return (x - price) * cur.position + cur.budget;
+			};
+
+			for (int i = -250; i < 250; i+=2) {
+				double v1 = map_y(smernice(imap_price(a+i-2)));
+				double v2 = map_y(smernice(imap_price(a+i)));
+				line(a+i-2, v1, a+i, v2, "stroke: #80FFFF; stroke-width: 3px");
+			}
+
+			point(a, map_y(curval), "fill: #00AA00");
+			point(a, b, "fill: #FFFFA0");
+
+
+		}
+
+
+
+		out << "</svg>";
+	}
+
 	return true;
 }

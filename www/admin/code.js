@@ -490,7 +490,10 @@ App.prototype.fillForm = function (src, trg) {
 			}
 			first_fetch = false;
 		}
-		data.swap_symbols_hide = {".hidden":!!(pair.leverage || state.trades) && !src.swap_symbols};			
+		data.swap_symbols_hide = {".hidden":!!(pair.leverage || state.trades) && !src.swap_symbols};
+		if (!state.visstr)  
+		    state.visstr="api/visstrategy?id="+encodeURIComponent(src.id)+"&asset="+pair.asset_balance+"&currency="+pair.currency_balance+"&price="+pair.price+"&t="+Date.now();
+		data.visstr = state.visstr;
 		
 		
 	}.bind(this);

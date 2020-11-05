@@ -44,6 +44,7 @@ public:
 	PStrategy init(const IStockApi::MarketInfo &m, double price, double assets, double cur) const;
 	virtual double calcInitialPosition(const IStockApi::MarketInfo & , double price, double assets, double currency) const override;
 	virtual BudgetInfo getBudgetInfo() const override;
+	virtual ChartPoint calcChart(double price) const override;
 
 
 	struct Consts {

@@ -51,6 +51,7 @@ public:
 	virtual std::string_view getID() const override;
 	virtual json::Value dumpStatePretty(const IStockApi::MarketInfo &minfo) const override;
 	virtual double calcCurrencyAllocation(double price) const override;
+	virtual ChartPoint calcChart(double price) const override;
 
 
 	static std::string_view id;

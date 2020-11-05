@@ -182,7 +182,7 @@ double Strategy_Exponencial::calcAccountValue(double w, double k, double p) {
 
 double Strategy_Exponencial::calcAccountValue(const State &st, double ea, double p) {
 	double w = calcW(st.a + ea, st.k, st.p);
-	return calcAccountValue(w, st.k, st.p);
+	return calcAccountValue(w, st.k, p);
 }
 
 
@@ -278,4 +278,10 @@ std::optional<IStrategy::BudgetExtraInfo> Strategy_Exponencial::getBudgetExtraIn
 
 double Strategy_Exponencial::calcCurrencyAllocation(double price) const {
 	return calcReqCurrency(st, cfg.ea, price);
+}
+
+Strategy_Exponencial::ChartPoint Strategy_Exponencial::calcChart(double price) const  {
+	return {
+		true, calcA(price), calcAccountValue(st, cfg.ea, price)
+	};
 }

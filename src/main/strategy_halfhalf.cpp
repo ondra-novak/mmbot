@@ -150,3 +150,7 @@ double Strategy_HalfHalf::calcInitialPosition(const IStockApi::MarketInfo &minfo
 double Strategy_HalfHalf::calcCurrencyAllocation(double price) const {
 	return price*a;
 }
+
+Strategy_HalfHalf::ChartPoint Strategy_HalfHalf::calcChart(double price) const {
+	return {true,calcNewA(price),2*a*std::sqrt(p*price)};
+}
