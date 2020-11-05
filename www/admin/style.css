@@ -514,11 +514,25 @@ a {
 	animation: rot_fast 0.5s infinite linear;
 }
 
-.backtest .charts {
-	/* overflow: auto; */
-}
 .backtest .charts.spread_vis {
 	position: relative;
+}
+
+.backtest .charts.spread_vis .error::before {
+	content:"⚠️ ";
+}
+.backtest .charts.spread_vis .error {
+	position: absolute;
+	left: 0;
+	right: 0;
+	top: 56%;
+	border:  1px solid;
+	width: 75%;
+	margin: auto;
+	background-color: black;
+	padding: 1em;
+	color: #FFD;
+	box-shadow: 5px 5px 5px black;
 }
 
 .backtest .charts.spread_vis .spinner {

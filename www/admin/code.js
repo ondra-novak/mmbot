@@ -2024,7 +2024,9 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 			})
 
 		}
-		fetch_with_error(url, {method:"POST", body:JSON.stringify(req)}).then(function(v) {					    
+		fetch_json(url, {method:"POST", body:JSON.stringify(req)}).then(function(v) {
+			cntr.hideSpinner();
+			cntr.bt.setData({error_window:{classList:{mark:false}}});					    
 			if (v.length == 0) {
 				var chart1 = cntr.bt.findElements('chart1')[0];
 				var templ = TemplateJS.View.fromTemplate("no_data_panel");
@@ -2043,8 +2045,15 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 				}
 				update_recalc = draw.bind(this,cntr,v,offset,bal);
 			}
-		}.bind(this)).then(cntr.hideSpinner,function(e){
-			cntr.hideSpinner();throw e;
+		}.bind(this),function(e){
+			parse_fetch_error(e).then(function(x) {
+				cntr.bt.setData({error_window:{
+					classList:{
+						mark:true
+					},value:x.msg+" " +x.t
+					}});
+				cntr.hideSpinner();throw e;
+			});
 		});
 		
 
