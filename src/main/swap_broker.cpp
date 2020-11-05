@@ -1,3 +1,4 @@
+
 /*
  * swap_broker.cpp
  *
@@ -8,6 +9,8 @@
 #include "swap_broker.h"
 
 #include <cmath>
+
+#include "sgn.h"
 SwapBroker::SwapBroker(PStockApi target):target(target) {
 	// TODO Auto-generated constructor stub
 
@@ -141,6 +144,9 @@ json::Value SwapBroker::placeOrder(const std::string_view &pair, double size, do
 				return iter->id;
 		}
 		new_replace = minfo.adjValue(replaceSize / iter->price, minfo.asset_step, round_fn);
+	}
+	if (std::abs(new_size) < minfo.min_size) {
+		new_size = minfo.min_size * sgn(new_size);
 	}
 
 	return target->placeOrder(pair, new_size, new_price, clientId, replaceId, new_replace);
