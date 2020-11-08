@@ -274,6 +274,7 @@ protected:
 	json::Value test_backup;
 	json::Value lastTradeId = nullptr;
 	std::optional<double> sell_alert, buy_alert;
+	bool need_live_balance;
 
 	using TradeItem = IStockApi::Trade;
 	using TWBItem = IStatSvc::TradeRecord;

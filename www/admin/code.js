@@ -99,6 +99,7 @@ App.prototype.createTraderForm = function() {
 		form.showItem("strategy_pl",state.strategy == "plfrompos");
 		form.showItem("strategy_stairs",state.strategy == "stairs");
 		form.showItem("strategy_gauss",state.strategy == "errorfn");
+		form.showItem("strategy_keepbalance",state.strategy == "keep_balance");
 		form.showItem("strategy_hyperbolic",["hyperbolic","linear","sinh","sinh_val","sinh2"].indexOf(state.strategy) != -1);
 		form.showItem("kv_valinc_h",state.strategy == "keepvalue");
 		form.showItem("show_curvature",["sinh","sinh_val","sinh2"].indexOf(state.strategy) != -1);
@@ -540,6 +541,8 @@ App.prototype.fillForm = function (src, trg) {
 	data.hp_fastclose=true;
 	data.hp_slowopen=true;
 	data.max_leverage = 10;
+	data.kb_keep_min = 0;
+	data.kb_keep_max = 100;
 
 	function powerCalc(x) {return adjNumN(Math.pow(10,x)*0.01);};
 
@@ -549,6 +552,9 @@ App.prototype.fillForm = function (src, trg) {
 		data.external_assets = filledval(src.strategy.ea,0);
 		data.kv_valinc = filledval(src.strategy.valinc,0);
 		data.kv_halfhalf = filledval(src.strategy.halfhalf,false);
+	} else if (data.strategy == "keep_balance" ) {
+		data.kb_keep_min = filledval(src.strategy.keep_min,0);
+		data.kb_keep_max = filledval(src.strategy.keep_max,0);
 	} else if (data.strategy == "errorfn" ) {
 		data.gs_external_assets = filledval(src.strategy.ea,0);
 		data.gs_rb_lo_p=filledval(defval(src.strategy.rb_lo_p,0.1)*100,10);
@@ -732,6 +738,12 @@ function getStrategyData(data) {
 				mode:data.st_tmode,
 				sl:data.st_sl
 		}
+	} else if (data.strategy == "keep_balance") {
+		strategy = {
+				type: data.strategy,
+				keep_min: data.kb_keep_min < data.kb_keep_max?data.kb_keep_min:data.kb_keep_max,
+				keep_max: data.kb_keep_min > data.kb_keep_max?data.kb_keep_min:data.kb_keep_max
+		};
 	}
 	return strategy;
 }

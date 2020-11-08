@@ -65,6 +65,9 @@
 <option value="sinh">Sinh/exponencial</option>
 <option value="sinh_val">Volume based Sinh </option>
 </optgroup>
+<optgroup label="Utility">
+<option value="keep_balance">Keep balance</option>
+</optgroup>
 <optgroup label="Experimental">
 <option value="sinh2">Sinh - new version</option>
 </optgroup>
@@ -85,6 +88,7 @@
 <div class="stairs">This strategy generates orders in predefined steps. The size of the next order is affected by the current position in steps. You can set the maximum number of steps or the way the strategy jumps between steps. </div>
 <div class="hypersquare">This strategi is similar to Exponencial, but it is based on square hyperbolic function. Area for target average price is much wider then exponencial. <a href="https://www.desmos.com/calculator/pbfisabvcm" target="_blank">Interactive graph</a></div>
 <div class="errorfn">The best strategy for exchanges, can reach highest normalized profit. The core of the strategy is based on Gauss Error Function. The optimal range between -50% to +50%. If the price goes out of the optimal range, the Rebalance is performed to keep price in the optimal range<a href="https://www.desmos.com/calculator/uhkqt4ajvp">Interactive graph</a></div>
+<div class="keep_balance">Not quite a strategy, more a utility. It balances the currency balance. If the account has a larger balance than the specified maximum, the excess money will be used to purchase the asset. If the account has a smaller balance than the specified minimum, some assets will be sold to replenish the balance </div>
 </div></div>
 <div class="label"><span>Options</span><div>
 <div><x-checkbox data-name="enabled">Enable automatic trading</x-checkbox></div>
@@ -105,8 +109,6 @@ fixed constant. The robot is forced to buy assets, but if the price of assets ri
 sell part of the assets and use the currency to buy assets at a better price. It is also possible
 to enter a negative value and then the value of the assets held will decrease and allow slower but more efficient sales.</span></span>
 <input type="number" step="any" data-name="kv_valinc"></label>
-
-
 <x-section>
 <div class="label"><span>Min price:</span><span data-name="range_min_price">---</span></div>
 <div class="label"><span>Max price:</span><span data-name="range_max_price">---</span></div>
@@ -114,6 +116,12 @@ to enter a negative value and then the value of the assets held will decrease an
 </x-section>
 <div class="rightinfo"><button name="show_backtest hide_on_new" disabled="disabled">Backtest</button></div>
 </x-section>
+
+<x-section data-name="strategy_keepbalance" class="goal" hidden="hidden"><x-section-caption>Keep Balance</x-section-caption>
+<label><span>Min.balance [<span data-name="currency"></span>]</span><input type="number" step="any" data-name="kb_keep_min"></label>
+<label><span>Max.balance [<span data-name="currency"></span>]</span><input type="number" step="any" data-name="kb_keep_max"></label>
+</x-section>
+
 <x-section data-name="strategy_gauss" class="goal" hidden="hidden"><x-section-caption>Gauss error function</x-section-caption>
 <label><span>External assets <span class="tooltip">Amount of assets held outside of exchange. They are included into calculations.</span></span><input type="number" step="any" data-name="gs_external_assets"></label>
 <x-section class="adv"><x-section-caption>Rebalance settings</x-section-caption>
@@ -131,9 +139,6 @@ to enter a negative value and then the value of the assets held will decrease an
 </tbody>
 </table>
 </x-section>
-<div class="warning" data-name="err_external_assets">Unable to trade - This strategy requies to fund account with some assets [<span data-name="asset"></span>].  You can also set the "external assets" field above <span data-name="external_assets_hint">0</span>. You can use <b>Reset strategy</b> to perform initial buy.</div>
-<div class="warning" data-name="err_external_assets_margin">Unable to trade - This strategy needs to have a <b>long position</b> opened. You can also set external assets above <span data-name="external_assets_hint">0</span>. You can use <b>Reset strategy</b> to perform initial buy,</div>
-<div class="warning" data-name="err_external_assets_inverse">Unable to trade - This strategy needs to have a <b>short position</b> opened. You can also set external assets above <span data-name="external_assets_hint">0</span>. You can use <b>Reset strategy</b> to perform initial sell.</div>
 
 <x-section>
 <div class="label"><span>Min price:</span><span data-name="range_min_price">---</span></div>

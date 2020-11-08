@@ -95,6 +95,7 @@ public:
 	}
 	virtual double calcCurrencyAllocation(double price) const override;
 	virtual ChartPoint calcChart(double price) const override {return {false};}
+	virtual bool needLiveBalance() const override {return false;}
 
 
 

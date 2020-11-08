@@ -21,6 +21,7 @@
 #include "strategy_sinh.h"
 #include "strategy_constantstep.h"
 #include "strategy_error_fn.h"
+#include "strategy_keepbalance.h"
 #include "strategy_sinh_val.h"
 
 
@@ -156,6 +157,12 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 		double curv = config["curv"].getValueOrDefault(5.0);
 		return Strategy(new Strategy_SinhVal(std::make_shared<Strategy_SinhVal::TCalc>(power, curv),
 			    							std::make_shared<Strategy_SinhVal::Config>(cfg)));
+	} else if (id == Strategy_KeepBalance::id) {
+		Strategy_KeepBalance::Config cfg;
+		cfg.keep_max = config["keep_max"].getNumber();
+		cfg.keep_min = config["keep_min"].getNumber();
+		return Strategy(new Strategy_KeepBalance(cfg));
+
 	} else {
 		throw std::runtime_error(std::string("Unknown strategy: ").append(id));
 	}

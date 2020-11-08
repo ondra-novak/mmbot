@@ -1034,6 +1034,7 @@ label span:hover span.tooltip, div.label span:hover span.tooltip, span.tooltipan
 .strategygoal > div.halfhalf > div.halfhalf {display:block;}
 .strategygoal > div.stairs > div.stairs {display:block;}
 .strategygoal > div.keepvalue > div.keepvalue {display:block;}
+.strategygoal > div.keep_balance > div.keep_balance {display:block;}
 .strategygoal > div.hyperbolic > div.hyperbolic {display:block;}
 .strategygoal > div.linear > div.linear {display:block;}
 .strategygoal > div.exponencial > div.exponencial {display:block;}

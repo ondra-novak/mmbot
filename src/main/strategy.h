@@ -124,6 +124,9 @@ public:
 	IStrategy::ChartPoint calcChart(double price) const {
 		return ptr->calcChart(price);
 	}
+	bool needLiveBalance() const {
+		return ptr->needLiveBalance();
+	}
 
 
 	///Calculates how much currency is allocated for strategy

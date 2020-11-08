@@ -114,6 +114,8 @@ MTrader::MTrader(IStockSelector &stock_selector,
 		uid = rnd();
 	}
 
+	need_live_balance = strategy.needLiveBalance();
+
 }
 
 
@@ -582,7 +584,7 @@ MTrader::Status MTrader::getMarketStatus() const {
 		}
 	}
 
-	if (!res.new_trades.trades.empty() || !internal_balance.has_value() || !currency_balance.has_value() || !currency_unadjusted_balance.has_value())
+	if (need_live_balance || !res.new_trades.trades.empty() || !internal_balance.has_value() || !currency_balance.has_value() || !currency_unadjusted_balance.has_value())
 	{
 		if (cfg.internal_balance && internal_balance.has_value() && currency_balance.has_value()) {
 			auto sumt = std::accumulate(res.new_trades.trades.begin(),
@@ -694,6 +696,9 @@ MTrader::Order MTrader::calculateOrderFeeLess(
 	double newPrice = prevPrice * exp(step*dynmult*m);
 
 	order= strategy.getNewOrder(minfo,curPrice, newPrice,dir, balance, currency, false);
+
+	//Strategy can disable to place order using size=0 and disable alert
+	if (order.size == 0 && order.alert == IStrategy::Alert::disabled) return order;
 
 	bool skipcycle = false;
 
