@@ -56,6 +56,7 @@ public:
 	virtual Interface *createSubaccount(const std::string &path) {
 		return new Interface(path);
 	}
+	virtual AllWallets getWallet() override;
 
 	Value balanceCache;
 	Value orderCache;
@@ -347,6 +348,24 @@ OTHER DEALINGS IN THE SOFTWARE.)mit",
 	};
 }
 
+
+Interface::AllWallets Interface::getWallet() {
+	getBalance("");
+	Wallet w;
+	for (Value x: balanceCache) {
+		double n = x["balance"].getNumber();
+		if (n) {
+			String symb = x.getKey();
+			w.wallet.push_back({
+				symb, n
+			});
+		}
+	}
+	AllWallets aw;
+	w.walletId ="exchange";
+	aw.push_back(w);
+	return aw;
+}
 
 int main(int argc, char **argv) {
 	using namespace json;

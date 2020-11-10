@@ -86,6 +86,7 @@ public:
 	virtual Interface *createSubaccount(const std::string &path) {
 		return new Interface(path);
 	}
+	virtual json::Value getWallet_direct() override;
 
 	static std::uint64_t now() {
 		return std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -512,5 +513,17 @@ inline void Interface::onLoadApiKey(json::Value keyData) {
 		simulator = true;
 		httpc.setBaseUrl("https://api-public.sandbox.pro.coinbase.com");
 	}
+}
+
+json::Value Interface::getWallet_direct() {
+	getBalance("","");
+	Value spot = balanceCache.map([](Value x){
+		double n = x["balance"].getNumber();
+		if (n)
+			return Value(x["currency"].getString(), n);
+		else
+			return Value();
+	}, json::object);
+	return Value(json::object,{Value("exchange", spot)});
 }
 

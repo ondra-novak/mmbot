@@ -226,7 +226,22 @@ static Value fetchPage(AbstractBrokerAPI &handler, const Value &req) {
 			}));
 }
 
+json::Value AbstractBrokerAPI::getWallet_direct() {
+	auto wallet = getWallet();
+	Object resp;
+	for (auto &&x: wallet) {
+		Object w;
+		for (auto &&z: x.wallet) {
+			w.set(z.symbol, z.balance);
+		}
+		resp.set(x.walletId, w);
+	}
+	return resp;
+}
 
+Value getWallet(AbstractBrokerAPI &handler, const Value &req) {
+	return handler.getWallet_direct();
+}
 
 
 Value handleSubaccount(AbstractBrokerAPI &handler, const Value &req) {
@@ -302,7 +317,8 @@ static MethodMap methodMap ({
 			{"restoreSettings",&restoreSettings},
 			{"fetchPage",&fetchPage},
 			{"subaccount",&handleSubaccount},
-			{"getMarkets",&getMarkets}
+			{"getMarkets",&getMarkets},
+			{"getWallet",&getWallet}
 	});
 
 
@@ -446,4 +462,8 @@ json::Value AbstractBrokerAPI::getMarkets() const  {
 
 void AbstractBrokerAPI::need_more_time() {
 	if (outStream) *outStream << std::endl;
+}
+
+AbstractBrokerAPI::AllWallets AbstractBrokerAPI::getWallet() {
+	throw std::runtime_error("Unsupported feature");
 }

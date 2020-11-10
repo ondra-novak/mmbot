@@ -109,6 +109,10 @@ public:
 	///Request more time for processing current command (to prevent timeout);
 	void need_more_time();
 
+	virtual json::Value getWallet_direct();
+	virtual AllWallets getWallet() override;
+
+
 protected:
 	bool debug_mode = false;
 	std::string secure_storage_path;

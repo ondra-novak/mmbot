@@ -110,11 +110,29 @@ void Interface::updatePairs() {
 			minfo.type = symbol["type"].getString();
 			minfo.expiration = symbol["expiryDescription"].getString();
 			minfo.name = symbol["underlyingDescription"].getString();
-			newsmap.emplace_back(name.str(), std::move(minfo));
+
+			if (minfo.type == "move") {
+				newsmap.emplace_back(name.str(), minfo);
+				StrViewA srch;
+				if (minfo.expiration == "Next Week") srch = "This Week";
+				else if (minfo.expiration == "Next Day") srch = "Today";
+				Value s = result.find([&](Value c) {
+					return c["type"].getString() == "move" && c["expiryDescription"].getString() == srch && c["underlying"] == minfo.asset_symbol;
+				});
+				if (s.hasValue()) {
+					minfo.prev_period = s["name"].getString();
+					minfo.this_period = name.str();
+					name = String({"SPEC:",minfo.asset_symbol,"-",minfo.expiration});
+					minfo.expiration.append(" (rollover)");
+					newsmap.emplace_back(name.str(), std::move(minfo));
+				}
+			} else {
+				newsmap.emplace_back(name.str(), std::move(minfo));
+			}
 		}
 	}
-
 	smap.swap(newsmap);
+	smap_exp = std::chrono::steady_clock::now() + std::chrono::minutes(20);
 }
 
 
@@ -184,6 +202,24 @@ void Interface::onLoadApiKey(json::Value keyData) {
 	c->api_subaccount=keyData["subaccount"].getString();
 }
 
+void Interface::updateBalances() {
+	if (balances.empty()) {
+		Value resp = requestGET("/wallet/balances");
+		if (resp["success"].getBool()) {
+			resp = resp["result"];
+			BalanceMap::Set::VecT bmap;
+			for (Value r : resp) {
+				String symbol = r["coin"].toString();
+				double val = r["total"].getNumber();
+				bmap.emplace_back(symbol.str(), val);
+			}
+			balances.swap(bmap);
+		} else {
+			throw std::runtime_error("Failed to get balances");
+		}
+	}
+}
+
 double Interface::getBalance(const std::string_view &symb, const std::string_view &pair) {
 	if (smap.empty()) updatePairs();
 	auto iter = smap.find(pair);
@@ -193,26 +229,20 @@ double Interface::getBalance(const std::string_view &symb, const std::string_vie
 		const AccountInfo &acc = getAccountInfo();
 		if (symb == iter->second.currency_symbol) return getAccountInfo().colateral;
 		else {
-			auto iter = acc.positions.find(pair);
-			if (iter == acc.positions.end()) return 0.0;
-			else return iter->second;
-		}
-	} else {
-		if (balances.empty()) {
-			Value resp = requestGET("/wallet/balances");
-			if (resp["success"].getBool()) {
-				resp = resp["result"];
-				BalanceMap::Set::VecT bmap;
-				for (Value r: resp) {
-					String symbol = r["coin"].toString();
-					double val = r["total"].getNumber();
-					bmap.emplace_back(symbol.str(), val);
-				}
-				balances.swap(bmap);
+			if (iter->second.this_period.empty()) {
+				auto iter = acc.positions.find(pair);
+				if (iter == acc.positions.end()) return 0.0;
+				else return iter->second;
 			} else {
-				throw std::runtime_error("Failed to get balances");
+				auto iter1 = acc.positions.find(iter->second.this_period);
+				auto iter2 = acc.positions.find(iter->second.prev_period);
+				double sum1 = iter1 == acc.positions.end()?0.0:iter1->second;
+				double sum2 = iter2 == acc.positions.end()?0.0:iter2->second;
+				return sum1 + sum2;
 			}
 		}
+	} else {
+		updateBalances();
 		auto iter = balances.find(symb);
 		if (iter == balances.end()) return 0.0;
 		else return iter->second;
@@ -222,15 +252,34 @@ double Interface::getBalance(const std::string_view &symb, const std::string_vie
 
 IStockApi::TradesSync Interface::syncTrades(json::Value lastId, const std::string_view &pair) {
 	std::ostringstream uri;
-	uri << "/fills?market=" << simpleServer::urlEncode(pair);
-	if (lastId.hasValue()) {
-		auto start_time = lastId[0].getUIntLong()/1000;
-		uri << "&limit=100"
-				<< "&start_time=" << start_time;
+	std::string symb ( pair);
+	if (smap.empty()) updatePairs();
+	auto iter = smap.find(symb);
+	if (iter == smap.end()) throw std::runtime_error("Unknown symbol");
+	Value resp;
+	auto readTrades = [&](const std::string_view &pair) {
+
+		uri.str("");uri.clear();
+		uri << "/fills?market=" << simpleServer::urlEncode(pair);
+		if (lastId.hasValue()) {
+			auto start_time = lastId[0].getUIntLong()/1000;
+			uri << "&limit=100"
+					<< "&start_time=" << start_time;
+		} else {
+			uri << "&limit=1";
+		}
+		json::Value resp = requestGET(uri.str());
+		return resp;
+	};
+	if (!iter->second.this_period.empty()) {
+		resp = readTrades(iter->second.prev_period);
+		if (resp["result"].empty()) {
+			resp = readTrades(iter->second.this_period);
+		}
 	} else {
-		uri << "&limit=1";
+		resp = readTrades(pair);
 	}
-	json::Value resp = requestGET(uri.str());
+
 	if (resp["success"].getBool()) {
 		json::Value result = resp["result"];
 
@@ -299,8 +348,13 @@ void Interface::onInit() {
 }
 
 bool Interface::reset() {
+	if (std::chrono::steady_clock::now() > smap_exp) {
+		smap.clear();
+		updatePairs();
+	}
 	balances.clear();
 	curAccount.reset();
+
 	return true;
 }
 
@@ -316,7 +370,15 @@ Value Interface::buildClientId(Value v) {
 
 IStockApi::Orders Interface::getOpenOrders(const std::string_view &pair) {
 	std::ostringstream uri;
-	uri << "/orders?market=" << simpleServer::urlEncode(pair);
+
+	std::string symb ( pair);
+	if (smap.empty()) updatePairs();
+	auto iter = smap.find(symb);
+	if (iter == smap.end()) throw std::runtime_error("Unknown symbol");
+	if (!iter->second.this_period.empty()) symb = iter->second.this_period;
+
+
+	uri << "/orders?market=" << simpleServer::urlEncode(symb);
 	json::Value resp = requestGET(uri.str());
 	if (resp["success"].getBool()) {
 		return mapJSON(resp["result"],[](Value v){
@@ -398,6 +460,19 @@ json::Value Interface::checkCancelAndPlace(PConnection conn, json::String pair,
 
 
 json::Value Interface::placeOrder(const std::string_view &pair, double size, double price, json::Value clientId, json::Value replaceId, double replaceSize) {
+
+	std::string symb ( pair);
+	if (smap.empty()) updatePairs();
+	auto iter = smap.find(symb);
+	if (iter == smap.end()) throw std::runtime_error("Unknown symbol");
+	if (!iter->second.this_period.empty()) {
+		symb = iter->second.this_period;
+		if (iter->second.period_checked == false) {
+			close_position(iter->second.prev_period); //will also close position
+			iter->second.period_checked = true;
+		}
+	}
+
 	if (size == 0) {
 		if (replaceId.defined()) {
 			cancelOrderImpl(connection,replaceId);
@@ -405,11 +480,11 @@ json::Value Interface::placeOrder(const std::string_view &pair, double size, dou
 		return nullptr;
 	} else if (!replaceId.defined()) {
 		auto ordId = buildClientId(clientId);
-		return placeOrderImpl(connection, pair,size, price, ordId);
+		return placeOrderImpl(connection, symb,size, price, ordId);
 	} else {
 		cancelOrderImpl(connection,replaceId);
 		auto ordId = buildClientId(clientId);
-		return checkCancelAndPlace(connection, json::String(StrViewA(pair)), size,price,ordId,replaceId,replaceSize);
+		return checkCancelAndPlace(connection, json::String(StrViewA(symb)), size,price,ordId,replaceId,replaceSize);
 	}
 
 
@@ -422,8 +497,12 @@ double Interface::getFees(const std::string_view &pair) {
 
 
 IStockApi::Ticker Interface::getTicker(const std::string_view &pair) {
+	if (smap.empty()) updatePairs();
+	auto iter = smap.find(pair);
+	if (iter == smap.end()) throw std::runtime_error("unknown symbol");
+	std::string symb = iter->second.this_period.empty()?std::string(pair):iter->second.this_period;
 	std::ostringstream uri;
-	uri << "/markets/" << simpleServer::urlEncode(pair) << "/orderbook?depth=1";
+	uri << "/markets/" << simpleServer::urlEncode(symb) << "/orderbook?depth=1";
 	json::Value resp = publicGET(uri.str());
 	if (resp["success"].getBool()) {
 		auto result = resp["result"];
@@ -512,6 +591,20 @@ json::Value Interface::Connection::requestPOST(std::string_view path, json::Valu
 json::Value Interface::requestDELETE(std::string_view path) {
 	return connection.lock()->requestDELETE(path);
 }
+
+json::Value Interface::Connection::requestDELETE(std::string_view path, json::Value params) {
+	try {
+		return api.DELETE(path, params, signHeaders("DELETE",path, params));
+	} catch (HTTPJson::UnknownStatusException &e) {
+		try {
+			json::Value v = json::Value::parse(e.response.getBody());
+			throw std::runtime_error(v["error"].toString().str());
+		} catch (...) {
+			throw;
+		}
+	}
+}
+
 
 json::Value Interface::Connection::requestDELETE(std::string_view path) {
 	try {
@@ -619,3 +712,44 @@ json::Value Interface::getMarkets() const {
 	}
 	return Object("Spot", spot)("Futures",futures)("Move",move)("Prediction",prediction);
 }
+
+void Interface::close_position(const std::string_view &pair) {
+	const AccountInfo &acc = getAccountInfo();
+	connection.lock()->requestDELETE("/orders", Object("market", pair));
+	auto iter = acc.positions.find(pair);
+	if (iter != acc.positions.end()) {
+		double size = iter->second;
+		if (size) {
+			Object req;
+			req	("market", pair)
+				("side", size>0?"sell":"buy")
+				("price",nullptr)
+				("type","market")
+				("size",std::fabs(size))
+				("reduceOnly",true);
+			connection.lock()->requestPOST("/orders", req);
+		}
+	}
+}
+
+json::Value Interface::getWallet_direct() {
+	updateBalances();
+	Object res;
+	for (auto &&x: balances) {
+		if (x.second)
+			res.set(x.first, x.second);
+	}
+	Object pos;
+	const AccountInfo &acc = getAccountInfo();
+	for (auto &&x: acc.positions) {
+		if (x.second)
+			pos.set(x.first, x.second);
+	}
+
+
+	Object out;
+	out.set("spot", res);
+	out.set("positions", pos);
+	return out;
+}
+

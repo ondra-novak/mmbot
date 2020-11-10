@@ -40,6 +40,7 @@ public:
 	virtual double getFees(const std::string_view &pair) override;
 	virtual double getBalance(const std::string_view &symb) override {return 0;}
 	virtual IStockApi::Ticker getTicker(const std::string_view &piar) override;
+	virtual json::Value getWallet_direct() override;
 protected:
 
 	class Connection {
@@ -65,6 +66,7 @@ protected:
 		json::Value requestGET(std::string_view path);
 		json::Value requestPOST(std::string_view path, json::Value params);
 		json::Value requestDELETE(std::string_view path);
+		json::Value requestDELETE(std::string_view path, json::Value params);
 
 
 	};
@@ -76,10 +78,14 @@ protected:
 		std::string type;
 		std::string expiration;
 		std::string name;
+		//for rollover contains previous period
+		std::string prev_period, this_period;
+		bool period_checked = false;
 	};
 	using SymbolMap = ondra_shared::linear_map<std::string, MarketInfoEx, std::less<std::string_view> >;
 	using Positions = ondra_shared::linear_map<std::string, double, std::less<std::string_view> >;
 	SymbolMap smap;
+	std::chrono::steady_clock::time_point smap_exp;
 
 	void updatePairs();
 
@@ -99,6 +105,13 @@ protected:
 	std::optional<AccountInfo> curAccount;
 	using BalanceMap = ondra_shared::linear_map<std::string, double, std::less<std::string_view> >;
 	BalanceMap balances;
+
+	struct RolloverInfo {
+		std::string prev_period;
+		std::string cur_period;
+	};
+
+	using RolloverMap = ondra_shared::linear_map<std::string, RolloverInfo>;
 
 
 
@@ -123,6 +136,8 @@ protected:
 			double size, double price, json::Value ordId,
 			json::Value replaceId, double replaceSize);
 
+	void close_position(const std::string_view &pair);
+	void updateBalances();
 
 };
 

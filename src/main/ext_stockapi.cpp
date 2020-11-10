@@ -290,6 +290,23 @@ json::Value ExtStockApi::getMarkets() const {
 
 }
 
+ExtStockApi::AllWallets ExtStockApi::getWallet()  {
+	AllWallets w;
+	auto resp = requestExchange("getWallet",json::Value());
+	for (json::Value x: resp) {
+		Wallet sw;
+		for (json::Value y: x) {
+			if (y.getNumber()) {
+				sw.wallet.push_back({
+					y.getKey(), y.getNumber()
+				});
+			}
+		}
+		sw.walletId = x.getKey();
+	}
+	return w;
+}
+
 ExtStockApi::ExtStockApi(std::shared_ptr<Connection> connection, const std::string &subaccount)
 	:connection(connection),subaccount(subaccount) {}
 

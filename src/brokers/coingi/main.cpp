@@ -12,6 +12,7 @@
 #include <cmath>
 #include <iomanip>
 #include <iostream>
+#include <set>
 #include <sstream>
 #include <stack>
 #include <thread>
@@ -77,6 +78,7 @@ public:
 	virtual Interface *createSubaccount(const std::string &path) {
 		return new Interface(path);
 	}
+	virtual AllWallets getWallet() override ;
 
 	static std::uint64_t now() {
 		return std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -485,3 +487,35 @@ inline void Interface::onLoadApiKey(json::Value keyData) {
 	privateKey = keyData["privKey"].getString();
 }
 
+Interface::AllWallets Interface::getWallet() {
+	Value allPairs = getAllPairsJSON();
+	std::set<std::string_view> symbols;
+	for (Value x: allPairs) {
+		symbols.insert(x["base"]["name"].getString());
+		symbols.insert(x["counter"]["name"].getString());
+	}
+	std::ostringstream req;
+	auto iter = symbols.begin();
+	if (iter == symbols.end()) return {};
+	req << *iter;
+	++iter;
+	while (iter != symbols.end()) {
+		req << "," << *iter;
+		++iter;
+	}
+	Object breq;
+	createSigned(breq);
+	breq.set("currencies", req.str());
+	Value response = httpc.POST("/user/balance",breq);
+	Wallet w;
+	for (Value v: response) {
+		double n = v["available"].getNumber()+v["inOrders"].getNumber();
+		if (n) {
+			w.wallet.push_back({
+				v["currency"]["name"].toString(),n
+			});
+		}
+	}
+	w.walletId="exchange";
+	return {w};
+}

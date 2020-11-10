@@ -8,6 +8,7 @@
 #ifndef SRC_MAIN_IBROKERCONTROL_H_
 #define SRC_MAIN_IBROKERCONTROL_H_
 #include <imtjson/value.h>
+#include <imtjson/string.h>
 
 class IBrokerControl {
 public:
@@ -41,6 +42,20 @@ public:
 
 	///Replacement of getAllPairs() - returns structured object
 	virtual json::Value getMarkets() const = 0;
+
+	struct WalletItem {
+		json::String symbol;
+		double balance;
+	};
+
+	struct Wallet {
+		json::String walletId;
+		std::vector<WalletItem> wallet;
+
+	};
+	using AllWallets = std::vector<Wallet>;
+
+	virtual AllWallets getWallet()  = 0;
 
 	virtual ~IBrokerControl() {}
 };

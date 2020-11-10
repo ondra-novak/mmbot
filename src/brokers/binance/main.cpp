@@ -83,6 +83,8 @@ public:
 		return new Interface(path);
 	}
 	virtual json::Value getMarkets() const override;
+	virtual AllWallets getWallet() override {return {};};
+	virtual json::Value getWallet_direct()  override;
 
 	enum class Category {
 		spot, coin_m, usdt_m
@@ -1070,6 +1072,45 @@ double Interface::fapi_getCollateral() {
 	return account["totalWalletBalance"].getNumber();
 }
 
+Value Interface::getWallet_direct()  {
+	updateBalCache();
+	Object out;
+	out.set("spot", balanceCache["balances"].map([&](Value x){
+		double n = x["free"].getNumber();
+		if (n) return Value(n); else return Value();
+	}));
+	Object fut;
+	fut.set("USDT", fapi_getCollateral());
+	Value dacc = dapi_readAccount();
+	for (Value x:dacc["assets"]) {
+		double n = x["walletBalance"].getNumber();
+		if (n) {
+			fut.set(x["asset"].getString(), n);
+		}
+	}
+	out.set("futures", fut);
+
+	fapi_getPosition("");
+
+	Object poss;
+	for (Value x:fapi_positions) {
+		double n = x["positionAmt"].getNumber();
+		if (n) {
+			poss.set(x["symbol"].getString(), n);
+		}
+	}
+
+	dapi_getPosition("");
+	for (Value x:dapi_positions) {
+		double n = x["positionAmt"].getNumber();
+		if (n) {
+			poss.set(x["symbol"].getString(), n);
+		}
+	}
+	out.set("positions", poss);
+	return out;
+
+}
 
 double Interface::fapi_getLeverage(const json::StrViewA &pair) {
 	Value a = fapi_readAccount();

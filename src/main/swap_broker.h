@@ -36,6 +36,7 @@ public:
 	virtual std::string getIconName() const override;
 	virtual void saveIconToDisk(const std::string &path) const override;
 	virtual json::Value getMarkets() const override;
+	virtual AllWallets getWallet() override;
 
 protected:
 	PStockApi target;

@@ -75,6 +75,7 @@ public:
 	virtual Interface *createSubaccount(const std::string &path) {
 		return new Interface(path);
 	}
+	virtual json::Value getWallet_direct();
 
 
 	ondra_shared::linear_map<std::string, double, std::less<std::string_view> > tick_cache;
@@ -379,4 +380,20 @@ inline void Interface::onLoadApiKey(json::Value keyData) {
 
 inline void Interface::onInit() {
 	//empty
+}
+
+json::Value Interface::getWallet_direct() {
+	auto currencies = px.request("public/get_currencies", Object(),false);
+	Object w;
+
+	for (Value c: currencies) {
+		Value symb = c["currency"];
+		auto response = px.request("private/get_account_summary",Object
+				("currency",symb),true);
+		double n = response["margin_balance"].getNumber();
+		if (n) {
+			w.set(symb.getString(),n);
+		}
+	}
+	return Object("default",w);
 }

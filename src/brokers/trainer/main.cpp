@@ -245,6 +245,7 @@ public:
 	void setSettings(json::Value v, bool loaded, unsigned int pairId) ;
 	virtual json::Value getSettings(const std::string_view &) const override ;
 	virtual PageData fetchPage(const std::string_view &method, const std::string_view &vpath, const PageData &pageData) override;
+	virtual AllWallets getWallet() override;
 
 
 	class TestPair {
@@ -1494,4 +1495,20 @@ inline json::Value Interface::getMarkets() const {
 inline Interface::TestPair::TestPair(CryptowatchPairs &cryptowatch)
 	:cryptowatch(cryptowatch)
 {
+}
+
+Interface::AllWallets Interface::getWallet() {
+	AllWallets w;
+	for (auto &&x : pairs) {
+		Wallet wx;
+		wx.walletId = std::to_string(x.first);
+		wx.wallet.push_back({
+			x.second.asset, x.second.asset_balance
+		});
+		wx.wallet.push_back({
+			x.second.currency, x.second.currency_balance
+		});
+		w.push_back(wx);
+	}
+	return w;
 }

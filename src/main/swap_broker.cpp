@@ -181,3 +181,10 @@ json::Value SwapBroker::getMarkets() const {
 	if (sub == nullptr) return json::object;
 	return sub->getMarkets();
 }
+
+SwapBroker::AllWallets SwapBroker::getWallet()  {
+	auto sub = dynamic_cast<IBrokerControl *>(target.get());
+	if (sub == nullptr) return {};
+	return sub->getWallet();
+}
+

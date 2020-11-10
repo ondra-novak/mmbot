@@ -580,3 +580,20 @@ json::Value Interface::getMarkets() const {
 	}
 	return res;
 }
+
+json::Value Interface::getWallet_direct() {
+	auto data = signedPOST("/v2/auth/r/wallets", json::object);
+	std::map<std::string_view, Object> mp;
+	for (Value x: data) {
+		Object &q = mp[x[0].getString()];
+		double n = x[2].getNumber();
+		if (n) {
+			q.set(x[1].getString(), n);
+		}
+	}
+	Object out;
+	for (auto &&x: mp) {
+		out.set(x.first, x.second);
+	}
+	return out;
+}
