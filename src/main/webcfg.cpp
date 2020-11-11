@@ -104,7 +104,7 @@ bool WebCfg::operator ()(const simpleServer::HTTPRequest &req,
 		case strategy: return reqStrategy(req);
 		case upload_prices: return reqUploadPrices(req);
 		case upload_trades: return reqUploadTrades(req);
-		case wallet: return reqDumpWallet(req);
+		case wallet: return reqDumpWallet(req, rest);
 		case btdata: return reqBTData(req);
 		case visstrategy: return reqVisStrategy(req, qp);
 		}
@@ -1536,13 +1536,62 @@ bool WebCfg::reqStrategy(simpleServer::HTTPRequest req) {
 	return true;
 }
 
-bool WebCfg::reqDumpWallet(simpleServer::HTTPRequest req) {
+bool WebCfg::reqDumpWallet(simpleServer::HTTPRequest req, ondra_shared::StrViewA vpath) {
 	if (!req.allowMethods({"GET"})) return true;
+
+	if (!vpath.empty()) {
+		auto s = trlist.lock_shared()->stockSelector.getStock(vpath);
+		if (s != nullptr) {
+			IBrokerControl *bk = dynamic_cast<IBrokerControl *>(s.get());
+			if (bk) {
+				try {
+					Object wallet;
+					IBrokerControl::AllWallets allw = bk->getWallet();
+					for (auto &&x: allw) {
+						Object bww;
+						for (auto &&y: x.wallet) {
+							bww.set(y.symbol, y.balance);
+						}
+						wallet.set(x.walletId, bww);
+					}
+					Stream stream = req.sendResponse("application/json");
+					Value(wallet).serialize(stream);
+					return true;
+				} catch (...) {
+
+				}
+			}
+			req.sendErrorPage(501);
+		} else {
+			req.sendErrorPage(404);
+		}
+		return true;
+	}
 
 	auto wallet = trlist.lock_shared()->walletDB;
 	auto lkwallet = wallet.lock_shared();
 	json::Value jsn = lkwallet->dumpJSON();
+	Array brks;
+	trlist.lock_shared()->stockSelector.forEachStock([&](std::string_view brk, const PStockApi &){
+		brks.push_back(brk);
+	});
 
+	auto rdc = jsn.reduce([&](std::vector<Value> &&accum, Value row){
+		if (accum.empty() || accum.back()["broker"] != row[0] || accum.back()["wallet"] != row[1] || accum.back()["symbol"] != row[2]) {
+			Object mdata;
+			mdata.set("broker", row[0]);
+			mdata.set("wallet", row[1]);
+			mdata.set("symbol", row[2]);
+			mdata.set("value", row[4]);
+			accum.push_back(mdata);
+		} else {
+			accum.back() = accum.back().replace("value", accum.back()["value"].getNumber()+row[4].getNumber());
+		}
+		return accum;
+	},std::vector<Value>());
+	jsn = Value(json::array, rdc.begin(), rdc.end(),[](Value x){return x;});
+
+	jsn = Object("entries", brks)("allocations", jsn);
 	Stream stream = req.sendResponse("application/json");
 	jsn.serialize(stream);
 	return true;

@@ -303,6 +303,7 @@ ExtStockApi::AllWallets ExtStockApi::getWallet()  {
 			}
 		}
 		sw.walletId = x.getKey();
+		w.push_back(sw);
 	}
 	return w;
 }

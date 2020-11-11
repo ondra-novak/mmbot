@@ -160,7 +160,7 @@ protected:
 	bool reqUploadPrices(simpleServer::HTTPRequest req);
 	bool reqUploadTrades(simpleServer::HTTPRequest req);
 	bool reqStrategy(simpleServer::HTTPRequest req);
-	bool reqDumpWallet(simpleServer::HTTPRequest req);
+	bool reqDumpWallet(simpleServer::HTTPRequest req, ondra_shared::StrViewA vpath);
 	bool reqBTData(simpleServer::HTTPRequest req);
 	bool reqVisStrategy(simpleServer::HTTPRequest req,  simpleServer::QueryParser &qp);
 

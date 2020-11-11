@@ -1137,6 +1137,57 @@ x-form.trading .chart .spinner {
 	margin: 1em 0;
 }
 
+.wallet_form {}
+.wallet_form table {
+    width: 100%;
+    max-width: 15cm;
+    margin: auto;
+}
+.wallet_form table td img {
+	width: 2em;
+	vertical-align: middle;
+}
+.wallet_form table td {
+    text-align: left;
+}
+.wallet_form table td[data-name=value] {
+    text-align: right;
+    font-weight: bold;
+    color: white;
+}
+.wallet_form .brk_wallets {}
+.wallet_form .brk_wallets .acc_wallet{display: flex;background-color: #181818;padding: 0.5em 0.2em;margin: 0.1em;}
+.wallet_form .brk_wallets .acc_wallet > div {
+    display: flex;
+    flex-wrap: wrap;
+    align-self: center;
+    justify-content: flex-start;
+}
+.wallet_form .brk_wallets .acc_wallet .acc_wallet_name{
+    min-width: 6em;
+    display: block;
+}
+.wallet_form .brk_wallets .acc_wallet .acc_balances{
+    display: block;
+    font-family: monospace;
+    /* flex-grow: 1; */
+}
+.wallet_form .brk_wallets .acc_wallet .acc_balances .symbol{
+    min-width: 4em;
+    display: inline-block;
+}
+.wallet_form .brk_wallets .acc_wallet .acc_balances .value{
+    margin-right: 0.2em;
+    min-width: 10em;
+    text-align: right;
+    color: white;
+    display: inline-block;
+}
+
+x-section-caption img {
+	width: 1em;
+	vertical-align: middle;
+}
 
 @media all and (max-width: 15cm) { 
 

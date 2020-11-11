@@ -133,9 +133,15 @@ App.prototype.createTraderList = function(form) {
 		return a.broker.localeCompare(b.broker);
 	});
 	items.unshift({
+		"image":"../res/wallet.png",
+		"caption":this.strtable.wallet,				
+		"id":"$"		
+	})
+
+	items.unshift({
 		"image":"../res/options.png",
 		"caption":this.strtable.options,				
-		"id":"$"
+		"id":"#"
 		
 	})
 	items.unshift({
@@ -171,12 +177,21 @@ App.prototype.createTraderList = function(form) {
 			this.desktop.setItemValue("content", nf);
 			nf.save = function() {};
 
-		} else if (id == '$') {
+		} else if (id == '#') {
 			if (this.curForm) {
 				this.curForm.save();				
 				this.curForm = null;
 			}
 			nf = this.optionsForm();
+			this.desktop.setItemValue("content", nf);
+			this.curForm = nf;
+			
+		} else if (id == '$') {
+			if (this.curForm) {
+				this.curForm.save();				
+				this.curForm = null;
+			}
+			nf = this.walletForm();
 			this.desktop.setItemValue("content", nf);
 			this.curForm = nf;
 			
@@ -2096,6 +2111,54 @@ App.prototype.optionsForm = function() {
 	}.bind(this);
 	return form;
 	
+}
+
+App.prototype.walletForm = function() {
+	var form = TemplateJS.View.fromTemplate("wallet_form");
+	var data = fetch_json("api/wallet").then(function(data) {
+		var allocs = data.allocations.map(function(x) {
+			x.value = x.value.toFixed(8);
+			x.img="api/brokers/"+encodeURIComponent(x.broker)+"/icon.png";
+			return x;
+		});
+		var brokers = data.entries;
+		var form_data = {allocs:allocs};
+		var wallets = brokers.map(function(brk) {
+			return fetch_json("api/wallet/"+encodeURIComponent(brk))
+			.then(function(wdata) {
+				var wlts = [];
+				for (var x in wdata) {
+					var assts = [];
+					for (var y in wdata[x]) {
+						assts.push({
+							symbol:y,
+							value: parseFloat(wdata[x][y]).toFixed(8)
+						});
+					}
+					wlts.push({
+						wallet_name: x,
+						balances: assts
+					});
+				}
+				return {			
+					broker_icon:"api/brokers/"+encodeURIComponent(brk)+"/icon.png",
+					broker_name:brk,
+					account_wallets: wlts
+				}
+			}, function(err) {						
+				return null;
+			});
+		});
+		Promise.all(wallets).then(function(wallets) {
+			form_data.wallets = wallets.filter(function(x) {return x!==null;});
+			form_data.spinner={".hidden":true};
+			form.setData(form_data);
+		});
+	}.bind(this));
+	
+	form.save = function() {
+	}.bind(this);
+	return form;
 }
 
 App.prototype.tradingForm = function(id) {

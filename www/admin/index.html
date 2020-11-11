@@ -634,6 +634,7 @@ the same order, they are ordered by its ID - this is the default ordering. Modif
     data-backtest_nodata="Backtest is not available yet (no data). Run trader with minimal power to collect some trades. At least 100 trades is needed."
     data-access_control="Access control"
     data-options="Options"
+    data-wallet="Wallets"
     data-global_stop_confirm="Temporarily stops trading for all configured traders  and cancels all their orders. To re-enable trading, you have to click Apply button"
     data-conflict1="Configuration has been modified externally and cannot be overwritten."
     data-conflict2="Reload the configuration?"
@@ -797,6 +798,37 @@ the same order, they are ordered by its ID - this is the default ordering. Modif
 <p>No data available. </p>
 <p><button data-name="download">Get public historical data</button></p>
 </div>
+</template>
+
+<template id="wallet_form">
+<x-form  class="pair wallet_form sections">
+<x-section><x-section-caption>Budget allocations</x-section-caption>
+<div data-name="spinner" class="spinner inline fast"></div>
+<table>
+<tr data-name="allocs[]">
+<td><img data-name="img">&nbsp;<span data-name="broker"></span></td>
+<td data-name="wallet"></td>
+<td data-name="value"></td>
+<td data-name="symbol"></td>
+</tr>
+</table>
+</x-section>
+<x-section data-name="wallets[]"><x-section-caption><img data-name="broker_icon">&nbsp;<span data-name="broker_name"></span></x-section-caption>
+<div class="brk_wallets">
+<div class="acc_wallet" data-name="account_wallets[]">
+<div class="acc_wallet_name" data-name="wallet_name"></div>
+<div>
+<div class="acc_balances" data-name="balances[]">
+	<div class="value" data-name="value"></div>
+	<div class="symbol" data-name="symbol"></div>
+</div>
+</div>
+</div>
+</div>
+</x-section>
+</x-form>
+
+
 </template>
 
 <script src="../res/template.js" type="text/javascript"></script>
