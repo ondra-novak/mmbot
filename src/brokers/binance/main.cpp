@@ -1076,7 +1076,7 @@ Value Interface::getWallet_direct()  {
 	updateBalCache();
 	Object out;
 	out.set("spot", balanceCache["balances"].map([&](Value x){
-		double n = x["free"].getNumber();
+		double n = x["free"].getNumber()+x["locked"].getNumber();
 		if (n) return Value(n); else return Value();
 	}));
 	Object fut;
