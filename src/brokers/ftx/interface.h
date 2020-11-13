@@ -41,6 +41,7 @@ public:
 	virtual double getBalance(const std::string_view &symb) override {return 0;}
 	virtual IStockApi::Ticker getTicker(const std::string_view &piar) override;
 	virtual json::Value getWallet_direct() override;
+	virtual json::Value testCall(const std::string_view &method, json::Value args) override;
 protected:
 
 	class Connection {
@@ -136,8 +137,9 @@ protected:
 			double size, double price, json::Value ordId,
 			json::Value replaceId, double replaceSize);
 
-	void close_position(const std::string_view &pair);
+	bool close_position(const std::string_view &pair);
 	void updateBalances();
+	double getMarkPrice(const std::string_view &pair);
 
 };
 

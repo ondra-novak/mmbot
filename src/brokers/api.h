@@ -111,6 +111,7 @@ public:
 
 	virtual json::Value getWallet_direct();
 	virtual AllWallets getWallet() override;
+	virtual json::Value testCall(const std::string_view &method, json::Value args) ;
 
 
 protected:

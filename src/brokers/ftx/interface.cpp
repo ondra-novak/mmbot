@@ -468,8 +468,8 @@ json::Value Interface::placeOrder(const std::string_view &pair, double size, dou
 	if (!iter->second.this_period.empty()) {
 		symb = iter->second.this_period;
 		if (iter->second.period_checked == false) {
-			close_position(iter->second.prev_period); //will also close position
-			iter->second.period_checked = true;
+			bool ok = close_position(iter->second.prev_period);
+			iter->second.period_checked = ok;
 		}
 	}
 
@@ -713,23 +713,28 @@ json::Value Interface::getMarkets() const {
 	return Object("Spot", spot)("Futures",futures)("Move",move)("Prediction",prediction);
 }
 
-void Interface::close_position(const std::string_view &pair) {
+bool Interface::close_position(const std::string_view &pair) {
 	const AccountInfo &acc = getAccountInfo();
 	connection.lock()->requestDELETE("/orders", Object("market", pair));
 	auto iter = acc.positions.find(pair);
 	if (iter != acc.positions.end()) {
 		double size = iter->second;
 		if (size) {
+			double mark_price = getMarkPrice(pair);
 			Object req;
 			req	("market", pair)
 				("side", size>0?"sell":"buy")
-				("price",nullptr)
-				("type","market")
+				("price",mark_price)
+				("type","limit")
 				("size",std::fabs(size))
 				("reduceOnly",true);
 			connection.lock()->requestPOST("/orders", req);
+			return false;
+		} else {
+			return true;
 		}
 	}
+	return true;
 }
 
 json::Value Interface::getWallet_direct() {
@@ -753,3 +758,25 @@ json::Value Interface::getWallet_direct() {
 	return out;
 }
 
+double Interface::getMarkPrice(const std::string_view &pair) {
+	std::string uri = "/futures/"+simpleServer::urlDecode(pair);
+	Value resp = publicGET(uri);
+	if (resp["success"].getBool()) {
+		double x = resp["result"]["mark"].getNumber();
+		if (x) return x;
+		throw std::runtime_error("Can't get mark price (zero price)");
+	} else {
+		throw std::runtime_error("Can't get mark price (success=false)");
+	}
+}
+
+json::Value Interface::testCall(const std::string_view &method, json::Value args) {
+	if (method == "getMarkPrice") {
+		return getMarkPrice(args.getString());
+	} else 	if (method == "closePosition") {
+		return close_position(args.getString());
+
+	} else {
+		return AbstractBrokerAPI::testCall(method, args);
+	}
+}

@@ -113,6 +113,27 @@ except **subaccount** itself.
 The **id** of subaccount can be any arbitrary id (can contain only alphanumeric characters). The broker process should store any data under this ID to separate data
 from main account.
 
+#### testCall
+
+This function is intended for debugging purpose. The broker can define any function which is accessed by this call and this can be used to test other features which
+are not accessible by other functions defined on the API.
+
+```
+[ "testCall",  "cmd" ]                  (1)
+[ "testCall",  ["cmd"] ]                (2)
+[ "testCall",  ["cmd", <args>] ]        (3)
+```
+
+- **(1)** - call command without aruments
+- **(2)** - call command without aruments
+- **(2)** - call command with aruments
+
+
+**Return value**
+
+Function can return any arbitrary JSON value if function is supported. If function is not supported, returns standard error response
+
+**Note** - Function can be implemented through **testCall()** defined in **api.h**
 
 
 
@@ -237,6 +258,29 @@ The parameter is retrieved from a form filled by a user. The form is built using
 
 
 ### Account data and trading
+
+#### getWallet
+
+```
+[ "getWallet" ]
+```
+
+Returns amount for all available assets on the account. Result is divided by wallets and symbols
+
+```
+{
+   "wallet_name" : {
+   			"symbol1":<amount>,
+   			"symbol2":<amount>,
+   			"symbol3":<amount>
+   	},
+   "wallet_name_2" :{ 
+   
+   
+   }
+}
+```
+
 
 #### getBalance
 
