@@ -470,6 +470,7 @@ json::Value Interface::placeOrder(const std::string_view &pair, double size, dou
 		if (iter->second.period_checked == false) {
 			bool ok = close_position(iter->second.prev_period);
 			iter->second.period_checked = ok;
+			if (!ok) throw std::runtime_error("Waiting for rollover");
 		}
 	}
 
