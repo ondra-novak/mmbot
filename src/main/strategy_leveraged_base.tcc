@@ -92,17 +92,19 @@ double Strategy_Leveraged<Calc>::calcPosition(double price) const {
 		}
 	}
 
-	double reduction = cfg->reduction;
-	double mprice = calc->calcPrice0(st.neutral_price, calcAsym());
+	double reduction = 2*cfg->reduction;
 	double dynred = 0;
 	if (cfg->dynred) {
-		auto mm = calcRoots();
-		double distance = pow2((price - mprice)/(mm.max - mm.min));
-		dynred = pow2(distance*cfg->dynred);
+		double val = st.redbal+cfg->external_balance;
+		if (val) {
+			double leverage = abs(st.position * price) / val;
+			dynred = leverage * cfg->dynred;
+		}
 	}
 	if (dynred > 1.0) dynred = 1.0;
-	reduction = std::sqrt(pow2(reduction) + 0.5*dynred);
+	reduction = std::sqrt(pow2(reduction) + dynred);
 	double new_neutral;
+
 
 	double profit = st.position * (price - st.last_price);
 	{
@@ -170,7 +172,7 @@ double Strategy_Leveraged<Calc>::calcNewNeutralFromProfit(double profit, double 
 			c_neutral = 2*st.neutral_price - c_neutral;
 		}
 	}
-	double new_neutral = st.neutral_price + (c_neutral - st.neutral_price)* 2 * (reduction);
+	double new_neutral = st.neutral_price + (c_neutral - st.neutral_price) * (reduction);
 	return new_neutral;
 }
 
