@@ -716,7 +716,6 @@ json::Value Interface::getMarkets() const {
 
 bool Interface::close_position(const std::string_view &pair) {
 	const AccountInfo &acc = getAccountInfo();
-	connection.lock()->requestDELETE("/orders", Object("market", pair));
 	auto iter = acc.positions.find(pair);
 	if (iter != acc.positions.end()) {
 		double size = iter->second;
@@ -729,6 +728,7 @@ bool Interface::close_position(const std::string_view &pair) {
 				("type","limit")
 				("size",std::fabs(size))
 				("reduceOnly",true);
+			connection.lock()->requestDELETE("/orders", Object("market", pair));
 			connection.lock()->requestPOST("/orders", req);
 			return false;
 		} else {

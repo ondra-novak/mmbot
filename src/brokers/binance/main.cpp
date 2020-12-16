@@ -971,7 +971,7 @@ inline double Interface::dapi_getCollateral(const json::StrViewA &pair) {
 	Value a = dapi_readAccount();
 	Value ass = a["assets"];
 	Value z = ass.find([&](Value item){return item["asset"].getString() == pair;});
-	return z["walletBalance"].getNumber();
+	return z["walletBalance"].getNumber()+z["unrealizedProfit"].getNumber();
 }
 
 inline json::Value Interface::getMarkets() const {
@@ -1069,7 +1069,7 @@ double Interface::fapi_getFees() {
 
 double Interface::fapi_getCollateral() {
 	Value account = fapi_readAccount();
-	return account["totalWalletBalance"].getNumber();
+	return account["totalWalletBalance"].getNumber()+account["totalUnrealizedProfit"].getNumber();
 }
 
 Value Interface::getWallet_direct()  {
@@ -1083,7 +1083,7 @@ Value Interface::getWallet_direct()  {
 	fut.set("USDT", fapi_getCollateral());
 	Value dacc = dapi_readAccount();
 	for (Value x:dacc["assets"]) {
-		double n = x["walletBalance"].getNumber();
+		double n = x["walletBalance"].getNumber()+x["unrealizedProfit"].getNumber();
 		if (n) {
 			fut.set(x["asset"].getString(), n);
 		}
