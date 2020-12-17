@@ -30,6 +30,7 @@ add_executable (mmbot
 	ext_storage.cpp
 	backtest.cpp
 	swap_broker.cpp
+	emulatedLeverageBroker.cpp
 	walletDB.cpp
 	random_chart.cpp
 	)

@@ -278,10 +278,11 @@ Specifies maximum allowed asset balance (or position, for short use negative val
 <div><x-checkbox data-name="internal_balance">Internal balance</x-checkbox></div>
 </div>
 </div>
+<label class="adv"><span>External currency balance (<span data-name="currency"></span>)<span class="tooltip">If you doesn't keep all money on the exchange, you can specify amount of money held outside of the exchange. This only affect some statistics, but not the strategy itself.</span></span><input type="number" step="any" data-name="ext_bal"></label>
+<label class="adv"><span>Emulate leverage (0=disabled)<span class="tooltip">Emulates leverage on non-leveraged market. This changes, how current ballance is reported to the strategy. It uses currency balance and value of the held assets as collateral. The value specifies, how big leverage is emulated. Note that reported collateral is divided by leverage, so don't feel, that large number can increase trading power beyong actual held balance.</span></span><input type="number" step="0.1" data-name="emul_leverage"></label>
 <label class="adv"><span>Report - position offset<span class="tooltip">Allows to sync the position on the report page with the actual state on the echange.<br>
 The position is not generally in the sync due to various issues. You need to specify a difference between the calculated position presented on the report page and the actual position on the exchhange
 </span></span><input type="number" step="any" data-name="report_position_offset"></label>
-<label class="adv"><span>External currency balance (<span data-name="currency"></span>)<span class="tooltip">If you doesn't keep all money on the exchange, you can specify amount of money held outside of the exchange. This only affect some statistics, but not the strategy itself.</span></span><input type="number" step="any" data-name="ext_bal"></label>
 <label class="adv"><span>Ordering (position in the report)<span class="tooltip">Specifies order in report page. The traders are ordered by this ascending number. If there are two traders with
 the same order, they are ordered by its ID - this is the default ordering. Modifying this number you can change the default ordering.
 </span></span><input type="number" step="any" data-name="report_order"></label>

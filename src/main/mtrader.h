@@ -58,6 +58,7 @@ struct MTrader_Config {
 	double report_order;
 	double max_leverage;
 	double external_balance;
+	double emulate_leveraged;
 	unsigned int grant_trade_minutes;
 
 	unsigned int spread_calc_stdev_hours;

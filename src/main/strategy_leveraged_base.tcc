@@ -387,15 +387,11 @@ typename Strategy_Leveraged<Calc>::MinMax Strategy_Leveraged<Calc>::calcSafeRang
 		double assets,
 		double currencies) const {
 
-	if (minfo.leverage) {
-		return calcRoots();
-	} else {
-		auto r = calcRoots();
-		if (cfg->longonly) r.max = calc->calcPrice0(st.neutral_price, calcAsym());
-		double maxp = calc->calcPriceFromPosition(st.power, calcAsym(), st.neutral_price, -st.neutral_pos);
-		double minp = calc->calcRoots(st.power, calcAsym(),st.neutral_price, currencies).min;
-		return {std::max(r.min,minp),std::min(r.max,maxp)};
+	auto r = calcRoots();
+	if (cfg->longonly) {
+		r.max = st.neutral_price;
 	}
+	return r;
 }
 
 template<typename Calc>

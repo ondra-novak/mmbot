@@ -14,6 +14,7 @@
 #include <random>
 
 #include "../shared/stringview.h"
+#include "emulatedLeverageBroker.h"
 #include "emulator.h"
 #include "ibrokercontrol.h"
 #include "sgn.h"
@@ -83,6 +84,7 @@ void MTrader_Config::loadConfig(json::Value data, bool force_dry_run) {
 	dynmult_mult = data["dynmult_mult"].getValueOrDefault(false);
 	zigzag = data["zigzag"].getValueOrDefault(false);
 	swap_symbols= data["swap_symbols"].getValueOrDefault(false);
+	emulate_leveraged=data["emulate_leveraged"].getValueOrDefault(0.0);
 
 
 	if (dynmult_raise > 1e6) throw std::runtime_error("'dynmult_raise' is too big");
@@ -137,6 +139,9 @@ PStockApi MTrader::selectStock(IStockSelector &stock_selector, const Config &con
 	if (s == nullptr) throw std::runtime_error(std::string("Unknown stock market name: ")+std::string(conf.broker));
 	if (conf.swap_symbols) {
 		s = std::make_shared<SwapBroker>(s);
+	}
+	if (conf.emulate_leveraged>0) {
+		s = std::make_shared<EmulatedLeverageBroker>(s,conf.emulate_leveraged);
 	}
 	if (conf.dry_run) {
 		auto new_s = std::make_shared<EmulatorAPI>(s, 0);
