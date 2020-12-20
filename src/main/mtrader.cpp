@@ -188,6 +188,18 @@ void MTrader::alertTrigger(Status &st, double price) {
 	});
 }
 
+void MTrader::dorovnani(Status &st, double assetBalance, double price) {
+	double diff = st.assetBalance - assetBalance;
+	st.new_trades.trades.push_back(IStockApi::Trade{
+		json::Value(json::String({"ADJ:",json::Value(st.chartItem.time).toString()})),
+		st.chartItem.time,
+		diff,
+		st.curPrice,
+		diff,
+		st.curPrice
+	});
+}
+
 void MTrader::perform(bool manually) {
 
 	try {
@@ -204,9 +216,7 @@ void MTrader::perform(bool manually) {
 		std::string buy_order_error;
 		std::string sell_order_error;
 
-		internal_balance = status.assetBalance;
 		currency_balance = status.currencyBalance;
-		currency_unadjusted_balance = status.currencyUnadjustedBalance;
 
 		//update market fees
 		minfo.fees = status.new_fees;
@@ -220,6 +230,13 @@ void MTrader::perform(bool manually) {
 			sell_alert.reset();
 			buy_alert.reset();
 		}
+
+		if (!anytrades && cfg.enabled && std::abs(status.assetBalance - *asset_balance)/std::abs(status.assetBalance + *asset_balance) > 0.01) {
+			double last_price = trades.empty()?status.curPrice:trades.back().eff_price;
+			dorovnani(status, *asset_balance, last_price);
+			anytrades = processTrades(status);
+		}
+
 
 		bool need_alerts = trades.empty()?true:trades.back().size == 0;
 
@@ -258,7 +275,6 @@ void MTrader::perform(bool manually) {
 				lastTradePrice = eq; //set lastTradePrice to equilibrium
 			}
 		}
-
 
 
 		//only create orders, if there are no trades from previous run
@@ -589,29 +605,21 @@ MTrader::Status MTrader::getMarketStatus() const {
 		}
 	}
 
-	if (need_live_balance || !res.new_trades.trades.empty() || !internal_balance.has_value() || !currency_balance.has_value() || !currency_unadjusted_balance.has_value())
-	{
-		if (cfg.internal_balance && internal_balance.has_value() && currency_balance.has_value()) {
-			auto sumt = std::accumulate(res.new_trades.trades.begin(),
-					res.new_trades.trades.end(),std::pair<double,double>(0,0),sumTrades<IStockApi::Trade>);
-			res.assetBalance = sumt.first;
-			res.currencyBalance = minfo.leverage?0:sumt.second;
-			if (internal_balance.has_value()) res.assetBalance += *internal_balance;
-			if (currency_balance.has_value()) res.currencyBalance += *currency_balance;
-			res.currencyUnadjustedBalance = res.currencyBalance;
-		} else {
-			res.assetBalance = stock->getBalance(minfo.asset_symbol, cfg.pairsymb);
-			res.currencyUnadjustedBalance = stock->getBalance(minfo.currency_symbol, cfg.pairsymb);
-			auto wdb = walletDB.lock_shared();
-//			res.assetBalance = wdb->adjBalance(WalletDB::KeyQuery(cfg.broker,minfo.wallet_id,minfo.asset_symbol,uid), res.assetBalance);
-			res.currencyBalance = wdb->adjBalance(WalletDB::KeyQuery(cfg.broker,minfo.wallet_id,minfo.currency_symbol,uid), res.currencyUnadjustedBalance);
-		}
+	if (!cfg.internal_balance || !currency_balance.has_value() || !asset_balance.has_value()) {
+		res.assetBalance = stock->getBalance(minfo.asset_symbol, cfg.pairsymb);
+		res.currencyUnadjustedBalance = stock->getBalance(minfo.currency_symbol, cfg.pairsymb);
+		auto wdb = walletDB.lock_shared();
+		res.currencyBalance = wdb->adjBalance(WalletDB::KeyQuery(cfg.broker,minfo.wallet_id,minfo.currency_symbol,uid), res.currencyUnadjustedBalance);
 	} else {
-		res.currencyBalance = *currency_balance;
-		res.assetBalance = *internal_balance;
-		res.currencyUnadjustedBalance = *currency_unadjusted_balance;
+		auto sumt = std::accumulate(res.new_trades.trades.begin(),
+				res.new_trades.trades.end(),std::pair<double,double>(0,0),sumTrades<IStockApi::Trade>);
+		res.assetBalance = sumt.first;
+		res.currencyBalance = sumt.second;
+		if (minfo.leverage) res.currencyBalance = 0;
+		res.assetBalance += *asset_balance;
+		res.currencyBalance += *currency_balance;
+		res.currencyUnadjustedBalance = res.currencyBalance;
 	}
-
 
 
 	res.new_fees = stock->getFees(cfg.pairsymb);
@@ -893,7 +901,7 @@ void MTrader::loadState() {
 		if (state.defined()) {
 			dynmult.setMult(state["buy_dynmult"].getNumber(),state["sell_dynmult"].getNumber());
 			if (cfg.internal_balance) {
-				if (state["internal_balance"].hasValue()) internal_balance = state["internal_balance"].getNumber();
+				if (state["internal_balance"].hasValue()) asset_balance = state["internal_balance"].getNumber();
 				if (state["currency_balance"].hasValue()) currency_balance = state["currency_balance"].getNumber();
 			}
 			json::Value accval = state["account_value"];
@@ -970,8 +978,8 @@ void MTrader::saveState() {
 		auto st = obj.object("state");
 		st.set("buy_dynmult", dynmult.getBuyMult());
 		st.set("sell_dynmult", dynmult.getSellMult());
-		if (internal_balance.has_value())
-			st.set("internal_balance", *internal_balance);
+		if (asset_balance.has_value())
+			st.set("internal_balance", *asset_balance);
 		if (currency_balance.has_value())
 			st.set("currency_balance", *currency_balance);
 		st.set("recalc",recalc);
@@ -1039,14 +1047,12 @@ bool MTrader::processTrades(Status &st) {
 			new_trades = new_trades.substr(1);
 	}
 
-	if (new_trades.empty()) return false;
 
-
-
-	auto z = std::accumulate(new_trades.begin(), new_trades.end(),std::pair<double,double>(st.assetBalance,st.currencyBalance+cfg.external_balance),
-			[](const std::pair<double,double> &x, const IStockApi::Trade &y) {
-		return std::pair<double,double>(x.first - y.eff_size, x.second + y.eff_size*y.eff_price);}
-	);
+	double assetBal = asset_balance.has_value()?*asset_balance:st.assetBalance;
+	double curBal = st.currencyBalance - (minfo.leverage?0:std::accumulate(
+			new_trades.begin(), new_trades.end(),0,[](double a, const IStockApi::Trade &tr){
+				return a - tr.price*tr.size;
+			}));
 
 
 	double last_np = 0;
@@ -1058,28 +1064,25 @@ bool MTrader::processTrades(Status &st) {
 		last_price = trades.back().eff_price;
 	}
 
-
+	bool res = false;
 
 	for (auto &&t : new_trades) {
-
-
 		if (t.eff_price <= 0 || t.price <= 0) throw std::runtime_error("Broker error - trade negative price");
+
+		res = true;
 
 		tempPr.tradeId = t.id.toString().str();
 		tempPr.size = t.eff_size;
 		tempPr.price = t.eff_price;
-		tempPr.change = z.first * (t.eff_price - last_price);
+		tempPr.change = assetBal * (t.eff_price - last_price);
 		tempPr.time = t.time;
 		if (last_price) statsvc->reportPerformance(tempPr);
 		last_price = t.eff_price;
-		z.first += t.eff_size;
-		//don't calc currency balance on leveraged stocks
-		if (minfo.leverage)
-			z.second = st.currencyBalance+cfg.external_balance;
-		else
-			z.second -= t.eff_size * t.eff_price;
+		assetBal += t.eff_size;
+		if (minfo.leverage == 0) curBal -= t.price * t.size;
+
 		if (!achieve_mode && (cfg.enabled || first_cycle)) {
-			auto norm = strategy.onTrade(minfo, t.eff_price, t.eff_size, z.first, z.second);
+			auto norm = strategy.onTrade(minfo, t.eff_price, t.eff_size, assetBal, curBal);
 			trades.push_back(TWBItem(t, last_np+=norm.normProfit, last_ap+=norm.normAccum, norm.neutralPrice));
 			lastPriceOffset = t.price - st.spreadCenter;
 		} else {
@@ -1087,7 +1090,8 @@ bool MTrader::processTrades(Status &st) {
 		}
 	}
 	walletDB.lock()->alloc(getWalletKey(), strategy.calcCurrencyAllocation(last_price));
-	return true;
+	asset_balance = assetBal;
+	return res;
 }
 
 void MTrader::update_dynmult(bool buy_trade,bool sell_trade) {
@@ -1110,9 +1114,9 @@ void MTrader::reset(std::optional<double> achieve_pos) {
 	dynmult.setMult(1,1);
 	if (cfg.internal_balance) {
 		if (!trades.empty())
-			internal_balance = std::accumulate(trades.begin(), trades.end(), 0.0, [](double v, const TWBItem &itm) {return v+itm.eff_size;});
+			asset_balance = std::accumulate(trades.begin(), trades.end(), 0.0, [](double v, const TWBItem &itm) {return v+itm.eff_size;});
 	} else {
-		internal_balance.reset();
+		asset_balance.reset();
 		currency_balance.reset();
 	}
 	currency_balance.reset();
@@ -1241,7 +1245,7 @@ MTrader::SpreadCalcResult MTrader::stCalcSpread(Iter beg, Iter end, unsigned int
 }
 
 std::optional<double> MTrader::getInternalBalance() const {
-	if (cfg.internal_balance) return internal_balance;
+	if (cfg.internal_balance) return asset_balance;
 	else return std::optional<double>();
 }
 std::optional<double> MTrader::getInternalCurrencyBalance() const {
@@ -1400,7 +1404,7 @@ std::pair<bool, double> MTrader::limitOrderMinMaxBalance(double balance, double 
 }
 
 void MTrader::setInternalBalancies(double assets, double currency) {
-	internal_balance = assets;
+	asset_balance = assets;
 	currency_balance = currency;
 }
 
@@ -1435,20 +1439,17 @@ bool MTrader::checkEquilibriumClose(const Status &st, double lastTradePrice) {
 }
 
 bool MTrader::checkLeverage(const Order &order, double &maxSize) const {
-	if (minfo.leverage && cfg.max_leverage
-			&& currency_balance.has_value() && order.size * *internal_balance > 0) {
+	if (minfo.leverage && cfg.max_leverage && currency_balance.has_value() ) {
 		double bal = *currency_balance;
 
 		if (!trades.empty()) {
 			double chng = order.price - trades.back().eff_price;
-			bal += chng * *internal_balance;
+			bal += chng * *asset_balance;
 		}
-		double max_bal = bal * cfg.max_leverage;
-		double cash_flow = *internal_balance * order.size < 0?
-				std::abs((order.size + *internal_balance)  * order.price)
-				:std::abs(order.size  * order.price);
+		double max_bal = bal * cfg.max_leverage ;
+		double cash_flow = std::abs((order.size + *asset_balance)  * order.price);
 		if (cash_flow > max_bal) {
-			maxSize = (max_bal / order.price - std::abs(*internal_balance));
+			maxSize = (max_bal / order.price - std::abs(*asset_balance));
 			if (maxSize < 0) maxSize = 0;
 			maxSize *= sgn(order.size);
 			return false;

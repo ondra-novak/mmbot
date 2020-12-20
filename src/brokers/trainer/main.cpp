@@ -210,7 +210,7 @@ static std::size_t genIDCnt() {
 				std::chrono::system_clock::now().time_since_epoch()).count();
 }
 
-static HTTPJson httpc(simpleServer::HttpClient("MMBot Trainer",newHttpsProvider(), newNoProxyProvider()),"");
+static HTTPJson httpc(simpleServer::HttpClient("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36",newHttpsProvider(), newNoProxyProvider()),"");
 
 
 class Interface: public AbstractBrokerAPI {

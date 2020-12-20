@@ -118,7 +118,7 @@ Strategy_HalfHalf::MinMax Strategy_HalfHalf::calcSafeRange(const IStockApi::Mark
 }
 
 double Strategy_HalfHalf::getEquilibrium(double assets) const {
-	return this->p * pow2(a/assets+cfg.ea);
+	return this->p * pow2((a+cfg.ea)/(assets+cfg.ea));
 }
 
 PStrategy Strategy_HalfHalf::reset() const {
@@ -143,7 +143,7 @@ json::Value Strategy_HalfHalf::dumpStatePretty(
 
 double Strategy_HalfHalf::calcInitialPosition(const IStockApi::MarketInfo &minfo, double price, double assets, double currency) const {
 	if (minfo.leverage) return (currency/price)*0.5;
-	else return (assets + cfg.ea+currency/price)*0.5;
+	else return (assets + currency/price)*0.5;
 }
 
 

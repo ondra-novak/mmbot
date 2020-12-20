@@ -50,6 +50,7 @@ public:
 		double power = 0;
 		double neutral_pos = 0;
 		long trend_cntr = 0;
+		long last_dir = 0;
 	};
 
 	Strategy_Leveraged(const PCalc &calc, const PConfig &cfg, State &&st);

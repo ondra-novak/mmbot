@@ -1017,6 +1017,7 @@ static Value btevent_no_event;
 static Value btevent_margin_call("margin_call");
 static Value btevent_liquidation("liquidation");
 static Value btevent_no_balance("no_balance");
+static Value btevent_error("error");
 static Value btevent_accept_loss("accept_loss");
 
 bool WebCfg::reqBacktest(simpleServer::HTTPRequest req)  {
@@ -1119,6 +1120,7 @@ bool WebCfg::reqBacktest(simpleServer::HTTPRequest req)  {
 						case BTEvent::liquidation: event = btevent_liquidation;break;
 						case BTEvent::margin_call: event = btevent_margin_call;break;
 						case BTEvent::no_balance: event = btevent_no_balance;break;
+						case BTEvent::error: event = btevent_error;break;
 						}
 						return Object
 								("np",x.neutral_price)

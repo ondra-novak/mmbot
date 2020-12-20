@@ -283,9 +283,9 @@ protected:
 	std::vector<ChartItem> chart;
 	TradeHistory trades;
 
-	std::optional<double> internal_balance;
+	std::optional<double> asset_balance;
 	std::optional<double> currency_balance;
-	std::optional<double> currency_unadjusted_balance;
+//	std::optional<double> currency_unadjusted_balance;
 
 	size_t magic = 0;
 	size_t uid = 0;
@@ -335,6 +335,7 @@ private:
 
 	bool checkAchieveModeDone(const Status &st);
 	bool checkEquilibriumClose(const Status &st, double lastTradePrice);
+	void dorovnani(Status &st, double assetBalance, double price);
 };
 
 

@@ -78,7 +78,7 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 				}
 				if (minfo.leverage) {
 					double max_lev = cfg.max_leverage?std::min(cfg.max_leverage,minfo.leverage):minfo.leverage;
-					double max_abs_pos = (adjbal * max_lev)/bt.price.price;
+					double max_abs_pos = (adjbal * max_lev)/bt.price.price - std::abs(pos);
 					double new_pos = std::abs(pos + order.size);
 					if (new_pos > max_abs_pos) {
 						if (cfg.accept_loss) {
@@ -143,6 +143,15 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 				bt.pos = pos;
 				bt.norm_profit_total = bt.norm_profit + bt.norm_accum * p;
 				bt.info = s.dumpStatePretty(minfo);
+				double eq = s.getEquilibrium(pos);
+				if (bt.size) {
+					if (std::abs(eq - p)/std::abs(eq+p) > 0.001) {
+						bt.info = json::Object("error", "Strategy error, equilibrium test failed")
+								("getEquilibrium", eq);
+						bt.event = BTEvent::error;
+					}
+				}
+
 				trades.push_back(bt);
 
 			} while (cont%16 && rep);

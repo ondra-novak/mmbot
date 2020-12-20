@@ -25,6 +25,7 @@ enum class BTEvent {
 	liquidation,
 	no_balance,
 	accept_loss,
+	error
 
 };
 

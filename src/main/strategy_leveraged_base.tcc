@@ -121,12 +121,12 @@ double Strategy_Leveraged<Calc>::calcPosition(double price) const {
 		}
 	}
 	double pos = calc->calcPosition(st.power, calcAsym(), new_neutral, price);
-	double initpos = calc->calcPosition(st.power,calcAsym(), new_neutral, new_neutral);
-	if ((initpos - st.position) * (initpos - pos) <= 0) {
-			pos = (pos - initpos) * std::pow(2.0,cfg->initboost) + initpos;
-	}
 	if (cfg->longonly && pos < 0) pos = 0;
-
+	double pp = pos * st.position ;
+	if (pp < 0) return 0;
+	else if (pp == 0) {
+		pos = pos * std::pow(2.0,cfg->initboost);
+	}
 	return pos;
 
 }
@@ -222,6 +222,7 @@ std::pair<typename Strategy_Leveraged<Calc>::OnTradeResult, PStrategy> Strategy_
 	nwst.position = cpos;
 	//store last price
 	nwst.last_price = tradePrice;
+	nwst.last_dir = sgn(tradeSize);
 
 	recalcNeutral(calc, cfg, nwst);
 
@@ -273,6 +274,7 @@ json::Value Strategy_Leveraged<Calc>::exportState() const {
 			("power",st.power)
 			("neutral_pos",st.neutral_pos)
 			("trend", st.trend_cntr)
+			("last_dir", st.last_dir)
 			("cfg", storeCfgCmp());
 
 }
@@ -288,7 +290,8 @@ PStrategy Strategy_Leveraged<Calc>::importState(json::Value src,const IStockApi:
 			src["redbal"].getNumber(),
 			src["power"].getNumber(),
 			src["neutral_pos"].getNumber(),
-			src["trend"].getInt()
+			src["trend"].getInt(),
+			src["last_dir"].getInt()
 		};
 		json::Value cfgcmp = src["cfg"];
 		json::Value cfgcmp2 = storeCfgCmp();
@@ -324,9 +327,9 @@ IStrategy::OrderData Strategy_Leveraged<Calc>::getNewOrder(
 		else
 			return {0,0,Alert::stoploss};
 	} else {
-		double bal = (st.bal+cfg->external_balance);;
+		double bal = (st.redbal+cfg->external_balance);;
 		double lev = std::abs(st.position) * st.last_price / bal;
-		if (!rej && ((lev > 0.5 && st.redbal != st.bal) || lev>2)  && st.val > 0) {
+		if (!rej && ((lev > 0.5 && dir != st.last_dir) || lev>2)  && st.val > 0) {
 			if (cfg->fastclose && dir * st.position < 0) {
 				double midl = calc->calcPrice0(st.neutral_price, asym);
 				double calc_price = (price - midl) * (st.last_price - midl) < 0?midl:price;
@@ -340,7 +343,7 @@ IStrategy::OrderData Strategy_Leveraged<Calc>::getNewOrder(
 
 						auto cps = calcPosition(close_price);
 						double newlev = std::abs(cps)*close_price / bal;
-						if (lev > 2 && st.bal != st.redbal) {
+						if (lev > 2 && dir != st.last_dir) {
 							int cnt = 20;
 							 while (newlev < lev - 1 && cnt) {
 								 close_price = (close_price + st.last_price)*0.5;
@@ -377,6 +380,8 @@ IStrategy::OrderData Strategy_Leveraged<Calc>::getNewOrder(
 
 		auto cps = calcPosition(price);
 		double df = calcOrderSize(st.position,apos,cps);
+		if (df * assets < 0 && std::abs(df) > std::abs(assets+df) && std::abs(df) < std::abs(assets))
+			df = -assets;
 		return {price, df,  cps == 0?Alert::forced:Alert::enabled};
 	}
 }
