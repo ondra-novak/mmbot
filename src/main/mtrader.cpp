@@ -194,9 +194,9 @@ void MTrader::dorovnani(Status &st, double assetBalance, double price) {
 		json::Value(json::String({"ADJ:",json::Value(st.chartItem.time).toString()})),
 		st.chartItem.time,
 		diff,
-		st.curPrice,
+		price,
 		diff,
-		st.curPrice
+		price
 	});
 }
 
@@ -232,13 +232,21 @@ void MTrader::perform(bool manually) {
 		}
 
 		if (!anytrades && cfg.enabled && std::abs(status.assetBalance - *asset_balance)/std::abs(status.assetBalance + *asset_balance) > 0.01) {
-			double last_price = trades.empty()?status.curPrice:trades.back().eff_price;
-			dorovnani(status, *asset_balance, last_price);
-			anytrades = processTrades(status);
+			logDebug("Need adjust $1 => $2, stage: $3",  *asset_balance, status.assetBalance, adj_wait);
+			if (adj_wait>4) {
+				double last_price = trades.empty()?status.curPrice:trades.back().eff_price;
+				dorovnani(status, *asset_balance, last_price);
+				anytrades = processTrades(status);
+				adj_wait = 0;
+			} else {
+				adj_wait++;
+			}
+		} else {
+			adj_wait = 0;
 		}
 
 
-		bool need_alerts = trades.empty()?true:trades.back().size == 0;
+		bool need_alerts = trades.empty()?false:trades.back().size == 0;
 
 		double lastTradeSize = trades.empty()?0:trades.back().eff_size;
 		double lastTradePrice;
@@ -538,12 +546,20 @@ void MTrader::setOrder(std::optional<IStockApi::Order> &orig, Order neworder, st
 			neworder.update(orig);
 			return;
 		}
-		if (neworder.size == 0 && orig.has_value()) {
-			return;
+
+		if (neworder.size == 0) {
+			if (orig.has_value() || neworder.alert == IStrategy::Alert::disabled) {
+				return;
+			} else {
+				alert = neworder.price;
+				neworder.update(orig);
+				return;
+			}
 		}
+
+
 		IStockApi::Order n {json::undefined, magic, neworder.size, neworder.price};
 		try {
-			checkLeverage(neworder);
 			json::Value replaceid;
 			double replaceSize = 0;
 			if (orig.has_value()) {
@@ -559,7 +575,8 @@ void MTrader::setOrder(std::optional<IStockApi::Order> &orig, Order neworder, st
 						replaceid,
 						replaceSize);
 			if (!placeid.hasValue()) {
-				orig.reset();
+				alert = neworder.price;
+				neworder.update(orig);
 			} else if (placeid != replaceid) {
 				n.id = placeid;
 				orig = n;
@@ -754,9 +771,9 @@ MTrader::Order MTrader::calculateOrderFeeLess(
 	auto lmsz = limitOrderMinMaxBalance(balance, order.size);
 	if (lmsz.first) {
 		order.size = lmsz.second;
-		order.alert = !order.size?IStrategy::Alert::forced:IStrategy::Alert::disabled;
+		order.alert = !order.size?IStrategy::Alert::forced:IStrategy::Alert::enabled;
 	} else {
-		order.alert = !order.size && alerts?IStrategy::Alert::forced:IStrategy::Alert::disabled;
+		order.alert = !order.size && alerts?IStrategy::Alert::forced:IStrategy::Alert::enabled;
 	}
 
 	return order;
@@ -864,6 +881,7 @@ void MTrader::initialize() {
 		else {
 			statsvc->clear();
 		}
+		minfo.min_size = std::max(minfo.min_size, cfg.min_size);
 	} catch (std::exception &e) {
 		this->statsvc->setInfo(
 				IStatSvc::Info {cfg.title, "???",
@@ -900,10 +918,8 @@ void MTrader::loadState() {
 		bool swapped = cfg.swap_symbols;
 		if (state.defined()) {
 			dynmult.setMult(state["buy_dynmult"].getNumber(),state["sell_dynmult"].getNumber());
-			if (cfg.internal_balance) {
-				if (state["internal_balance"].hasValue()) asset_balance = state["internal_balance"].getNumber();
-				if (state["currency_balance"].hasValue()) currency_balance = state["currency_balance"].getNumber();
-			}
+			if (state["internal_balance"].hasValue()) asset_balance = state["internal_balance"].getNumber();
+			if (state["currency_balance"].hasValue()) currency_balance = state["currency_balance"].getNumber();
 			json::Value accval = state["account_value"];
 			recalc = state["recalc"].getBool();
 			std::size_t nuid = state["uid"].getUInt();
@@ -1101,6 +1117,7 @@ void MTrader::update_dynmult(bool buy_trade,bool sell_trade) {
 void MTrader::clearStats() {
 	init();
 	trades.clear();
+	asset_balance.reset();
 	saveState();
 }
 
@@ -1112,14 +1129,14 @@ void MTrader::stop() {
 void MTrader::reset(std::optional<double> achieve_pos) {
 	init();
 	dynmult.setMult(1,1);
-	if (cfg.internal_balance) {
+/*	if (cfg.internal_balance) {
 		if (!trades.empty())
 			asset_balance = std::accumulate(trades.begin(), trades.end(), 0.0, [](double v, const TWBItem &itm) {return v+itm.eff_size;});
 	} else {
 		asset_balance.reset();
 		currency_balance.reset();
 	}
-	currency_balance.reset();
+	currency_balance.reset();*/
 	achieve_mode = false;
 
 	if (!trades.empty()) {
@@ -1459,9 +1476,5 @@ bool MTrader::checkLeverage(const Order &order, double &maxSize) const {
 
 }
 
-void MTrader::checkLeverage(const Order &order) const {
-	double d;
-	if (!checkLeverage(order, d)) throw std::runtime_error("Over max leverage");
-}
 
 

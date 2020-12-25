@@ -271,6 +271,7 @@ protected:
 	bool first_cycle = true;
 	bool achieve_mode = false;
 	bool need_initial_reset = true;
+	int adj_wait = 0;
 	double lastPriceOffset = 0;
 	json::Value test_backup;
 	json::Value lastTradeId = nullptr;
@@ -321,7 +322,6 @@ protected:
 	void updateZigzagLevels();
 	void modifyOrder(const ZigZagLevels &zlevs, double dir, Order &order) const;
 
-	void checkLeverage(const Order &order) const;
 	bool checkLeverage(const Order &order, double &maxSize) const;
 
 	WalletDB::Key getWalletKey() const;

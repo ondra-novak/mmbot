@@ -201,10 +201,10 @@ void Strategy::adjustOrder(double dir, double mult,
 		order.alert = IStrategy::Alert::forced;
 	}
 	if (order.size * dir <= 0) {
-		order.alert = order.alert == IStrategy::Alert::forced || (enable_alerts && order.alert == IStrategy::Alert::enabled)?IStrategy::Alert::forced:IStrategy::Alert::disabled;
+		order.alert = order.alert == IStrategy::Alert::forced || (enable_alerts && order.alert == IStrategy::Alert::enabled)?IStrategy::Alert::forced:IStrategy::Alert::enabled;
 		order.size = 0;
 	} else {
-		order.alert = IStrategy::Alert::disabled;
+		order.alert = IStrategy::Alert::enabled;
 	}
 
 

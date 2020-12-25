@@ -594,14 +594,13 @@ bool WebCfg::reqTraders(simpleServer::HTTPRequest req, ondra_shared::StrViewA vp
 		} else {
 			auto splt = StrViewA(path).split("/");
 			std::string trid = urlDecode(StrViewA(splt()));
-			auto trl = trlist.lock();
-			auto tr = trl->find(trid);
+			auto tr = trlist.lock_shared()->find(trid);
 			if (tr == nullptr) {
 				req.sendErrorPage(404);
 			} else if (!splt) {
 				if (!req.allowMethods({"GET","DELETE"})) return true;
 				if (req.getMethod() == "DELETE") {
-					trl->removeTrader(trid, false);
+					trlist.lock()->removeTrader(trid, false);
 					req.sendResponse(std::move(hdr), "true");
 				} else {
 					req.sendResponse(std::move(hdr),

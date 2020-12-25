@@ -64,8 +64,8 @@ Strategy_KeepBalance::OrderData Strategy_KeepBalance::getNewOrder(
 	double diff = currency<cfg.keep_min?cfg.keep_min - currency:currency>cfg.keep_max?cfg.keep_max- currency:0;
 	double asst = -diff / cur_price;
 	if (asst * dir <= 0) {
-		if (dir < 0) return {cur_price * 2, 0};
-		else return {cur_price*0.5, 0};
+		if (dir < 0) return {cur_price * 2, 0, IStrategy::Alert::disabled};
+		else return {cur_price*0.5, 0, IStrategy::Alert::disabled};
 	}
 	else return {cur_price, asst};
 

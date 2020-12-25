@@ -1188,6 +1188,7 @@ json::Value Interface::TestPair::collectSettings() const {
 		  ("src_field", price_path)
 	  	  ("src_asset", src_asset)
 	  	  ("src_currency", src_currency)
+		  ("bfx_src", String({asset,"/", currency}))
 		  ("activityCounter", activityCounter)
 		  ("last_order_price", last_order_price)
 		  ("loaded",true)

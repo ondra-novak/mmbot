@@ -19,11 +19,11 @@ class IStrategy: public ondra_shared::RefCntObj {
 public:
 
 	enum class Alert {
-		//alerts are disabled. If the order cannot be placed, the MTrader will try different price
+		//alerts are disabled. If the order cannot be placed, the MTrader will try different price - when order fails to place, order doesn't appear
 		disabled,
-		//alerts are enabled however it appearence is controlled by the MTrader. It still can cause that MTrader will try different price
+		//alerts are enabled however it appearence is controlled by the MTrader. It still can cause that MTrader will try different price. When order fails to place, alert is placed instead
 		enabled,
-		//alert is enforced. This causes, that alert appear at given price regadless on settings
+		//alert is enforced. Order or alert is placed at given price without searching for better price
 		forced,
 		//order is stoploss - no futher modification are allowed. If the order cannot be executed, it is converted to alert
 		stoploss

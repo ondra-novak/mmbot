@@ -222,7 +222,7 @@ std::pair<typename Strategy_Leveraged<Calc>::OnTradeResult, PStrategy> Strategy_
 	nwst.position = cpos;
 	//store last price
 	nwst.last_price = tradePrice;
-	nwst.last_dir = sgn(tradeSize);
+	nwst.last_dir = sgn(st.last_price-tradePrice);
 
 	recalcNeutral(calc, cfg, nwst);
 
@@ -380,9 +380,9 @@ IStrategy::OrderData Strategy_Leveraged<Calc>::getNewOrder(
 
 		auto cps = calcPosition(price);
 		double df = calcOrderSize(st.position,apos,cps);
-		if (df * assets < 0 && std::abs(df) > std::abs(assets+df) && std::abs(df) < std::abs(assets))
-			df = -assets;
-		return {price, df,  cps == 0?Alert::forced:Alert::enabled};
+/*		double min_size = std::max(minfo.min_size, minfo.min_volume/price);
+		return {price, df,  std::abs(cps) < min_size && std::abs(df) < min_size?Alert::forced:Alert::enabled};*/
+		return {price, df,  cps == 0 ?Alert::forced:Alert::enabled};
 	}
 }
 

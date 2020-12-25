@@ -129,9 +129,17 @@ IStockApi::Orders SwapBroker::getOpenOrders(const std::string_view &par) {
 static double round_fn(double x) {
 	return std::round(x);
 }
+static double tozero_fn(double x) {
+	if (x > 0) return std::floor(x);
+	else return std::ceil(x);
+}
+
+static double floor_fn(double x) {
+	return std::floor(x);
+}
 
 json::Value SwapBroker::placeOrder(const std::string_view &pair, double size, double price, json::Value clientId, json::Value replaceId, double replaceSize) {
-	double new_size = minfo.adjValue(-size * price, minfo.asset_step, round_fn);
+	double new_size = minfo.adjValue(-size * price, minfo.asset_step, tozero_fn);
 	double new_price = price?minfo.adjValue(1.0/price, minfo.currency_step, round_fn):0;
 
 	double new_replace = 0;
@@ -143,12 +151,19 @@ json::Value SwapBroker::placeOrder(const std::string_view &pair, double size, do
 			if (iter->client_id == clientId && std::abs(iter->price - new_price)<minfo.currency_step && std::abs(iter->size -new_size) < minfo.asset_step)
 				return iter->id;
 		}
-		new_replace = minfo.adjValue(replaceSize / iter->price, minfo.asset_step, round_fn);
+		new_replace = minfo.adjValue(replaceSize / iter->price, minfo.asset_step, tozero_fn);
 	}
 	if (std::abs(new_size) < minfo.min_size) {
 		new_size = minfo.min_size * sgn(new_size);
 	}
 
+	if (new_size > 0) {
+		double remain = getBalance(minfo.currency_symbol, pair)/new_price;
+		remain -= minfo.asset_step;
+		new_size = minfo.adjValue(std::min(remain, new_size), minfo.asset_step, floor_fn);
+		if (new_size < minfo.min_size) return nullptr;
+		if (new_size < minfo.min_volume/new_price) return nullptr;
+	}
 	return target->placeOrder(pair, new_size, new_price, clientId, replaceId, new_replace);
 }
 
