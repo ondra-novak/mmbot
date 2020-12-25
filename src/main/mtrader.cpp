@@ -537,7 +537,7 @@ void MTrader::setOrder(std::optional<IStockApi::Order> &orig, Order neworder, st
 			if (orig.has_value()) return;
 			throw std::runtime_error("Order rejected - Size is not finite");
 		}
-		if (neworder.alert == IStrategy::Alert::forced) {
+		if (neworder.alert == IStrategy::Alert::forced || (neworder.size == 0 && neworder.alert == IStrategy::Alert::enabled)) {
 			if (orig.has_value() && orig->id.hasValue()) {
 				//cancel current order
 				stock->placeOrder(cfg.pairsymb,0,0,nullptr,orig->id,0);
@@ -547,16 +547,7 @@ void MTrader::setOrder(std::optional<IStockApi::Order> &orig, Order neworder, st
 			return;
 		}
 
-		if (neworder.size == 0) {
-			if (orig.has_value() || neworder.alert == IStrategy::Alert::disabled) {
-				return;
-			} else {
-				alert = neworder.price;
-				neworder.update(orig);
-				return;
-			}
-		}
-
+		if (neworder.size == 0) return;
 
 		IStockApi::Order n {json::undefined, magic, neworder.size, neworder.price};
 		try {
@@ -772,8 +763,6 @@ MTrader::Order MTrader::calculateOrderFeeLess(
 	if (lmsz.first) {
 		order.size = lmsz.second;
 		order.alert = !order.size?IStrategy::Alert::forced:IStrategy::Alert::enabled;
-	} else {
-		order.alert = !order.size && alerts?IStrategy::Alert::forced:IStrategy::Alert::enabled;
 	}
 
 	return order;
@@ -797,7 +786,7 @@ MTrader::Order MTrader::calculateOrder(
 		//calculate order
 		Order order(calculateOrderFeeLess(lastTradePrice, step,dynmult,curPrice,balance,currency,mult,zlev,alerts));
 		//apply fees
-		if (order.alert != IStrategy::Alert::forced) minfo.addFees(order.size, order.price);
+		if (order.alert != IStrategy::Alert::forced && order.size) minfo.addFees(order.size, order.price);
 
 		return order;
 

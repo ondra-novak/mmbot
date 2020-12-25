@@ -67,7 +67,7 @@ Strategy_KeepBalance::OrderData Strategy_KeepBalance::getNewOrder(
 		if (dir < 0) return {cur_price * 2, 0, IStrategy::Alert::disabled};
 		else return {cur_price*0.5, 0, IStrategy::Alert::disabled};
 	}
-	else return {cur_price, asst};
+	else return {cur_price, asst, IStrategy::Alert::disabled};
 
 }
 
