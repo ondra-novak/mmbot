@@ -233,10 +233,11 @@ void MTrader::perform(bool manually) {
 
 		if (!anytrades && cfg.enabled && std::abs(status.assetBalance - *asset_balance)/std::abs(status.assetBalance + *asset_balance) > 0.01) {
 			logDebug("Need adjust $1 => $2, stage: $3",  *asset_balance, status.assetBalance, adj_wait);
-			if (adj_wait>4) {
+			if (adj_wait>14) {
 				double last_price = trades.empty()?status.curPrice:trades.back().eff_price;
 				dorovnani(status, *asset_balance, last_price);
 				anytrades = processTrades(status);
+				logDebug("Adjust added: result - $1", *asset_balance);
 				adj_wait = 0;
 			} else {
 				adj_wait++;
@@ -537,7 +538,7 @@ void MTrader::setOrder(std::optional<IStockApi::Order> &orig, Order neworder, st
 			if (orig.has_value()) return;
 			throw std::runtime_error("Order rejected - Size is not finite");
 		}
-		if (neworder.alert == IStrategy::Alert::forced || (neworder.size == 0 && neworder.alert == IStrategy::Alert::enabled)) {
+		if (neworder.alert == IStrategy::Alert::forced) {
 			if (orig.has_value() && orig->id.hasValue()) {
 				//cancel current order
 				stock->placeOrder(cfg.pairsymb,0,0,nullptr,orig->id,0);
@@ -547,7 +548,12 @@ void MTrader::setOrder(std::optional<IStockApi::Order> &orig, Order neworder, st
 			return;
 		}
 
-		if (neworder.size == 0) return;
+		if (neworder.size == 0) {
+			if (neworder.alert == IStrategy::Alert::disabled|| orig.has_value()) return;
+			alert = neworder.price;
+			neworder.update(orig);
+			return;
+		}
 
 		IStockApi::Order n {json::undefined, magic, neworder.size, neworder.price};
 		try {

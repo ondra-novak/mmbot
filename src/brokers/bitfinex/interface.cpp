@@ -248,7 +248,7 @@ IStockApi::TradesSync Interface::syncTrades(json::Value lastId, const std::strin
 			fees[std::string(pair)] = getFeeFromTrade(data[0],pinfo);
 		}
 	} else {
-		Value data = signedPOST(path,Object("sort",1)("start",lastId[1])("end",now));
+		Value data = signedPOST(path,Object("sort",1)("start",lastId[1]));
 		Value anchor = lastId[0];
 		bool m = isMarginPair(pair);
 		Value flt = data.filter([&](Value x){
