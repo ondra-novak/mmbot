@@ -326,81 +326,75 @@ double Interface::getBalance(const std::string_view &symb, const std::string_vie
 }
 
 IStockApi::TradesSync Interface::syncTrades(json::Value lastId, const std::string_view &pair) {
-	if (lastId.hasValue()) {
+	bool first_call = false;
+	Value startId = lastId[0];
+	Value duplist = lastId[1];
+	Value apires;
+	Value newduplist = json::array;
+	auto maxHistory = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now()-std::chrono::hours(24)); //24 hour without trade
 
-		updateSymbols();
-
-		auto symb = stripPrefix(pair);
-		auto mt = getMarketType(pair);
-		StrViewA altname = pairMap[symb]["altname"].getString();
-
-		Value result;
-		if (lastId == trades_cachedLastId) {
-			result = trades_cachedResponse;
-		} else {
-			result = private_POST("/0/private/TradesHistory",
-					Object("start", lastId[0].getUIntLong())
-						 ("trades", true)
-			);
-			trades_cachedResponse = result;
-			trades_cachedLastId = lastId;
-		}
-		Value trades = result["result"]["trades"];
-		if (!trades.empty()) {
-			std::uint64_t bestTime = 0;
-			auto res = mapJSON(trades.filter([&](Value row){
-				auto tm = static_cast<std::uint64_t>(std::floor(row["time"].getNumber()));
-				double cost = row["cost"].getNumber();
-				Value fee = row["fee"];
-				if (tm > bestTime && fee.defined() && cost) {
-					bestTime = tm;
-					fees = fee.getNumber()/cost;
-				}
-				if (lastId[1].indexOf(row.getKey()) != Value::npos) return false;
-				StrViewA pair = row["pair"].getString();
-				return (pair == symb || pair == altname) &&
-						(mt == MarketType::hybrid || (mt == MarketType::leveraged) == row["postxid"].defined());
-			}),[&](Value row){
-				double price = row["price"].getNumber();
-				Value id = row.getKey();
-				double size = row["vol"].getNumber();
-				if (row["type"].getString() == "sell") size = -size;
-				double fee = row["fee"].getNumber();
-				double eff_price = price + fee/size;
-				auto tm = row["time"].getUIntLong()*1000;
-				return Trade{id,tm,size,price,size,eff_price};
-			}, TradeHistory());
-
-			if (res.empty()) {
-				lastId = {bestTime+1,json::array};
-			} else {
-				std::sort(res.begin(), res.end(), [&](const Trade &a, const Trade &b){
-					if (a.time == b.time) return a.id.getString().compare(b.id.getString()) < 0;
-					return a.time < b.time;
-				});
-				json::Array masked;
-				auto tmm =bestTime*1000;
-				for (const auto &k : res) if (k.time >= tmm) {
-					masked.push_back(k.id);
-				}
-				lastId = {bestTime, masked};
-			}
-			return {
-				res, lastId
-			};
-
-		} else {
-			return {{},lastId};
-		}
+	if (lastId.type() != json::array || lastId[0].type() != json::string) {
+		lastId = json::array;
+		first_call = true;
+		Value &k = syncTradeCache[nullptr];
+		if (k.hasValue()) apires = k;
+		else k = apires = private_POST("/0/private/TradesHistory",Object("start",maxHistory));
 	} else {
-		return TradesSync{
-			{},{std::chrono::system_clock::to_time_t(std::chrono::system_clock::now()),json::array}
-		};
+		startId = lastId[0];
+		duplist = lastId[1];
+		Value &k = syncTradeCache[startId];
+		if (k.hasValue()) apires = k;
+		else k = apires = private_POST("/0/private/TradesHistory",Object("start", !startId.getString().empty()?startId:Value(maxHistory)));
 	}
 
+	updateSymbols();
 
+	auto symb = stripPrefix(pair);
+//	auto mt = getMarketType(pair);
+	StrViewA altname = pairMap[symb]["altname"].getString();
 
-	return {}; //todo
+	Value trades = apires["result"]["trades"].map([&](Value x){
+		Value id = x.getKey();
+		return x.replace("id", id);
+	},json::array).sort([](Value a, Value b){
+		return a["time"].getNumber() - b["time"].getNumber();
+	});
+	startId = "";
+	if (!trades.empty())  {
+		double bestTime=0;
+		json::Array dl;
+		for (Value x: trades) {
+			double tm = x["time"].getNumber();
+			if (bestTime < tm) {
+				dl.clear();
+				bestTime = tm;
+				startId = x["id"];
+			} else if (bestTime == tm) {
+				dl.push_back(x["id"]);
+			}
+		}
+		newduplist = dl;
+	}
+
+	lastId = {startId, newduplist};
+	if (!first_call) {
+		auto out = mapJSON(trades.filter([&](Value x){
+			if (duplist.indexOf(x["id"]) != duplist.npos) return false;
+			return x["pair"] == symb || x["pair"] == altname;
+		}),[&](Value row){
+			double price = row["price"].getNumber();
+			Value id = row["id"];
+			double size = row["vol"].getNumber();
+			if (row["type"].getString() == "sell") size = -size;
+			double fee = row["fee"].getNumber();
+			double eff_price = price + fee/size;
+			auto tm = static_cast<std::uint64_t>(row["time"].getNumber()*1000);
+			return Trade{id,tm,size,price,size,eff_price};
+		}, TradeHistory());
+		return {out, lastId};
+	} else {
+		return {{}, lastId};
+	}
 }
 
 void Interface::onInit() {}
@@ -410,7 +404,7 @@ bool Interface::reset() {
 	balanceMap = Value();
 	positionMap = Value();
 	orderMap = Value();
-	trades_cachedLastId = Value();
+	syncTradeCache.clear();
 	return true;
 }
 

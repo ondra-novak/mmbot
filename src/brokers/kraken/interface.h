@@ -49,9 +49,8 @@ protected:
 	std::chrono::system_clock::time_point mapExpire;
 	json::Value tickerMap;
 	json::Value orderMap;
+	std::unordered_map<json::Value, json::Value> syncTradeCache;
 	bool tickerValid = false;
-	json::Value trades_cachedResponse;
-	json::Value trades_cachedLastId;
 	double fees = -1;
 
 	std::string apiKey;
@@ -83,6 +82,7 @@ protected:
 	double getCollateral(const std::string_view &symb) ;
 	double getPosition(const std::string_view &market) ;
 	json::Value placeOrderImp(const std::string_view & pair, double size, double price, json::Value clientId, bool lev);
+
 };
 
 #endif
