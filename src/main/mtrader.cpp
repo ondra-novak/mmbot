@@ -231,7 +231,9 @@ void MTrader::perform(bool manually) {
 			buy_alert.reset();
 		}
 
-		if (!anytrades && cfg.enabled && std::abs(status.assetBalance - *asset_balance)/std::abs(status.assetBalance + *asset_balance) > 0.01) {
+		if (!anytrades && cfg.enabled
+				&& std::abs(status.assetBalance - *asset_balance)
+						/std::abs(status.assetBalance + *asset_balance) > 0.01) {
 			logDebug("Need adjust $1 => $2, stage: $3",  *asset_balance, status.assetBalance, adj_wait);
 			if (adj_wait>14) {
 				double last_price = trades.empty()?status.curPrice:trades.back().eff_price;
@@ -544,6 +546,7 @@ void MTrader::setOrder(std::optional<IStockApi::Order> &orig, Order neworder, st
 				stock->placeOrder(cfg.pairsymb,0,0,nullptr,orig->id,0);
 			}
 			alert = neworder.price;
+			neworder.size = 0;
 			neworder.update(orig);
 			return;
 		}
@@ -573,10 +576,13 @@ void MTrader::setOrder(std::optional<IStockApi::Order> &orig, Order neworder, st
 						replaceSize);
 			if (!placeid.hasValue()) {
 				alert = neworder.price;
+				neworder.size = 0;
 				neworder.update(orig);
 			} else if (placeid != replaceid) {
 				n.id = placeid;
 				orig = n;
+			} else {
+				neworder.update(orig);
 			}
 		} catch (...) {
 			orig = n;
@@ -1101,7 +1107,10 @@ bool MTrader::processTrades(Status &st) {
 		}
 	}
 	walletDB.lock()->alloc(getWalletKey(), strategy.calcCurrencyAllocation(last_price));
-	asset_balance = assetBal;
+
+	if (asset_balance.has_value()) asset_balance = assetBal;
+	else asset_balance = st.assetBalance;
+
 	return res;
 }
 

@@ -143,14 +143,6 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 				bt.pos = pos;
 				bt.norm_profit_total = bt.norm_profit + bt.norm_accum * p;
 				bt.info = s.dumpStatePretty(minfo);
-				double eq = s.getEquilibrium(pos);
-				if (bt.size) {
-					if (std::abs(eq - p)/std::abs(eq+p) > 0.001) {
-						bt.info = json::Object("error", "Strategy error, equilibrium test failed")
-								("getEquilibrium", eq);
-						bt.event = BTEvent::error;
-					}
-				}
 
 				trades.push_back(bt);
 

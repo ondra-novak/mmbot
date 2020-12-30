@@ -1323,6 +1323,7 @@ bool WebCfg::reqUploadPrices(simpleServer::HTTPRequest req)  {
 					auto from = std::chrono::system_clock::to_time_t(
 							std::chrono::system_clock::now()-std::chrono::hours(365*24)
 					);
+					from = (from/86400)*86400;
 					auto btb = btbroker.lock();
 					Value data = btb->jsonRequestExchange("minute", Object("asset", asset)("currency",currency)("from",from));
 					std::transform(data.begin(), data.end(), std::back_inserter(chart),[&](Value itm){
