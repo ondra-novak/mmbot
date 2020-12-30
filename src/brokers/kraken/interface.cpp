@@ -339,6 +339,7 @@ IStockApi::TradesSync Interface::syncTrades(json::Value lastId, const std::strin
 		Value &k = syncTradeCache[nullptr];
 		if (k.hasValue()) apires = k;
 		else k = apires = private_POST("/0/private/TradesHistory",Object("start",maxHistory));
+		startId = "";
 	} else {
 		startId = lastId[0];
 		duplist = lastId[1];
@@ -359,7 +360,6 @@ IStockApi::TradesSync Interface::syncTrades(json::Value lastId, const std::strin
 	},json::array).sort([](Value a, Value b){
 		return a["time"].getNumber() - b["time"].getNumber();
 	});
-	startId = "";
 	if (!trades.empty())  {
 		double bestTime=0;
 		json::Array dl;
