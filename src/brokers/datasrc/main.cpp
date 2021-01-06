@@ -35,7 +35,7 @@ Value readPrices(const StrViewA &asset, const StrViewA &currency, std::uint64_t 
 	url << "https://devel.novacisko.cz/prices/minute.php?asset="
 			<< simpleServer::urlEncode(asset)
 			<< "&currency=" << simpleServer::urlEncode(currency)
-			<< "&from =" << fromTime;
+			<< "&from=" << fromTime;
 
 	return httpc.GET(url.str()).map([&](Value v){return v[1];});
 

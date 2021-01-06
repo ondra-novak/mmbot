@@ -222,7 +222,7 @@ std::pair<typename Strategy_Leveraged<Calc>::OnTradeResult, PStrategy> Strategy_
 	nwst.position = cpos;
 	//store last price
 	nwst.last_price = tradePrice;
-	nwst.last_dir = sgn(st.last_price-tradePrice);
+	nwst.last_dir = sgn(tradeSize);
 
 	recalcNeutral(calc, cfg, nwst);
 
@@ -317,6 +317,7 @@ template<typename Calc>
 IStrategy::OrderData Strategy_Leveraged<Calc>::getNewOrder(
 		const IStockApi::MarketInfo &minfo,
 		double curPrice, double price, double dir, double assets, double currency, bool rej) const {
+	bool fast_closed = false;
 	auto apos = assets - st.neutral_pos;
 	double asym = calcAsym(cfg,st);
 	if (cfg->max_loss && (curPrice < calcRoots().min || curPrice > calcRoots().max)) {
@@ -351,7 +352,11 @@ IStrategy::OrderData Strategy_Leveraged<Calc>::getNewOrder(
 								 newlev = std::abs(cps)*close_price / bal;
 								 cnt --;
 							 }
+							 logDebug("Fast close on levr: newlev = $1, lev = $4, price = $2, cnt = $3",
+									 	 newlev, close_price, cnt, lev);
+
 							 if (cnt) {
+								 fast_closed = true;
 								 price = close_price;
 							 }
 
@@ -382,7 +387,7 @@ IStrategy::OrderData Strategy_Leveraged<Calc>::getNewOrder(
 		double df = calcOrderSize(st.position,apos,cps);
 /*		double min_size = std::max(minfo.min_size, minfo.min_volume/price);
 		return {price, df,  std::abs(cps) < min_size && std::abs(df) < min_size?Alert::forced:Alert::enabled};*/
-		return {price, df,  cps == 0 ?Alert::forced:Alert::enabled};
+		return {price, df,  cps == 0 || fast_closed?Alert::forced:Alert::enabled};
 	}
 }
 
