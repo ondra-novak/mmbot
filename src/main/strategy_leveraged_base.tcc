@@ -92,7 +92,7 @@ double Strategy_Leveraged<Calc>::calcPosition(double price) const {
 		}
 	}
 
-	double reduction = 2*cfg->reduction;
+	double reduction = cfg->reduction>=0?2*cfg->reduction:0;
 	double dynred = 0;
 	if (cfg->dynred) {
 		double val = st.redbal+cfg->external_balance;
@@ -120,6 +120,9 @@ double Strategy_Leveraged<Calc>::calcPosition(double price) const {
 			new_neutral = st.neutral_price;
 		}
 	}
+
+
+
 	double pos = calc->calcPosition(st.power, calcAsym(), new_neutral, price);
 	if (cfg->longonly && pos < 0) pos = 0;
 	double pp = pos * st.position ;
@@ -224,7 +227,17 @@ std::pair<typename Strategy_Leveraged<Calc>::OnTradeResult, PStrategy> Strategy_
 	nwst.last_price = tradePrice;
 	nwst.last_dir = sgn(tradeSize);
 
-	recalcNeutral(calc, cfg, nwst);
+	if (cfg->reduction >= 0) {
+		recalcNeutral(calc, cfg, nwst);
+	} else {
+		if (cpos == 0) {
+			nwst.neutral_price = tradePrice;
+		}
+		else {
+			double ema = -cfg->reduction*200;
+			nwst.neutral_price = std::exp((std::log(nwst.neutral_price) * (ema-1) + std::log(tradePrice))/ema);
+		}
+	}
 
 	double val = calc->calcPosValue(mult, calcAsym(), nwst.neutral_price, tradePrice);
 	//calculate extra profit - we get change of value and add profit. This shows how effective is strategy. If extra is positive, it generates
