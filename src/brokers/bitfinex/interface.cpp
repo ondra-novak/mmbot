@@ -591,9 +591,22 @@ json::Value Interface::getWallet_direct() {
 			q.set(x[1].getString(), n);
 		}
 	}
+	Object poss;
+
+	if (!positions.has_value()) {
+		auto data = signedPOST("/v2/auth/r/positions", json::object);
+		positions = readPositions(data);
+	}
+	for (const auto &c: *positions) {
+		poss.set(c.first, c.second);
+	}
+
+
+
 	Object out;
 	for (auto &&x: mp) {
 		out.set(x.first, x.second);
 	}
+	out.set("positions", poss);
 	return out;
 }

@@ -2116,48 +2116,73 @@ App.prototype.optionsForm = function() {
 
 App.prototype.walletForm = function() {
 	var form = TemplateJS.View.fromTemplate("wallet_form");
-	var data = fetch_json("api/wallet").then(function(data) {
-		var allocs = data.allocations.map(function(x) {
-			x.value = x.value.toFixed(8);
-			x.img="api/brokers/"+encodeURIComponent(x.broker)+"/icon.png";
-			return x;
-		});
-		var brokers = data.entries;
-		var form_data = {allocs:allocs};
-		var wallets = brokers.map(function(brk) {
-			return fetch_json("api/wallet/"+encodeURIComponent(brk))
-			.then(function(wdata) {
-				var wlts = [];
-				for (var x in wdata) {
-					var assts = [];
-					for (var y in wdata[x]) {
-						assts.push({
-							symbol:y,
-							value: parseFloat(wdata[x][y]).toFixed(8)
+	var wallets = [];	
+	var rfr = -1;
+	function update() {			
+		var data = fetch_json("api/wallet").then(function(data) {
+			var allocs = data.allocations.map(function(x) {
+				x.value = x.value.toFixed(8);
+				x.img="api/brokers/"+encodeURIComponent(x.broker)+"/icon.png";
+				return x;
+			});
+			var brokers = data.entries;
+			var form_data = {allocs:allocs};
+			var wt = brokers.map(function(brk) {	
+				var idx = wallets.findIndex(function(a) {
+					return a["@id"] == brk;
+				});
+				if (idx == -1) {
+					wallets.push({"@id":brk});
+				}							
+				return fetch_json("api/wallet/"+encodeURIComponent(brk))
+				.then(function(wdata) {
+					var wlts = [];
+					for (var x in wdata) {
+						var assts = [];
+						for (var y in wdata[x]) {
+							assts.push({
+								symbol:y,
+								value: parseFloat(wdata[x][y]).toFixed(8)
+							});
+						}
+						wlts.push({
+							wallet_name: x,
+							balances: assts
 						});
 					}
-					wlts.push({
-						wallet_name: x,
-						balances: assts
+					return {			
+						broker_icon:"api/brokers/"+encodeURIComponent(brk)+"/icon.png",
+						broker_name:brk,
+						account_wallets: wlts,
+						spinner:{".hidden":true}
+					}
+				}, function(err) {						
+					return null;
+				}).then(function(n) {
+					var idx = wallets.findIndex(function(a) {
+						return a["@id"] == brk;
 					});
-				}
-				return {			
-					broker_icon:"api/brokers/"+encodeURIComponent(brk)+"/icon.png",
-					broker_name:brk,
-					account_wallets: wlts
-				}
-			}, function(err) {						
-				return null;
+					if (idx!=-1) {
+						if (n != null) {
+						    Object.assign(wallets[idx],n);	
+						} else {
+							wallets.splice(idx,1);
+						}						
+					}
+					form.setData({wallets:wallets});					
+				});
 			});
-		});
-		Promise.all(wallets).then(function(wallets) {
-			form_data.wallets = wallets.filter(function(x) {return x!==null;});
-			form_data.spinner={".hidden":true};
+			wallets.sort(function(a,b) {
+				return a["@id"]<b["@id"]?-1:a["@id"]<b["@id"]?0:1;
+			});
+			form_data.spinner = {".hidden":true};
 			form.setData(form_data);
-		});
-	}.bind(this));
-	
+		}.bind(this));
+	}
+	rfr = setInterval(update, 60000);
+	update();	
 	form.save = function() {
+		clearInterval(rfr);
 	}.bind(this);
 	return form;
 }

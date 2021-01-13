@@ -1,3 +1,52 @@
+mmbot (2:21.1) unstable; urgency=medium
+
+  * fdc5bad fix url in datasource, last dir in leveraged strategy can report alert
+  * d1cec19 fix kraken sync trades
+  * a747bc8 fix and improve alerts. and orders
+  * e1ba232 fix kraken doesn't sync trades
+  * dd5370d reduce amount of alerts
+  * 5cdeb3b improve using alerts
+  * 57c85f4 try to solve dust issue
+  * 7e296d4 fix max leverage, half-half equilb, asset balance, pos adjust.
+  * 5367139 emulate leverage
+  * af5356f fix balance report in binance
+  * f6d7a99 backtest reports errors + improve dynreduction
+  * 7615414 ftx: improve rollover
+  * 816a45e testCall, ftx close position on mark price
+  * d575c7a binance: fix getWallet calculation of available money
+  * 78651e9 wallet information ui
+  * 8c665ea function getWallet
+  * b6c2f85 strategy keep balance
+  * 9f7e6ba improve backtest ui
+  * 75cea8d fix instability and crashes
+  * 3334083 reduce posibility of min_size on swap_broker
+  * 654efd7 draw strategy functions as graph
+  * 27e5c25 binance - no longer needed futures permission if not used
+  * 8d40f49 automatic alerts
+  * 35acf3d Binance: Fix reported order size for usdt-m
+  * 07e9f02 Binance: support USDT-M futures
+  * 5c7cf66 try to fix binance error -1111
+  * 2591dea fix/improve calculation of budget extra
+  * 2fb506c improve notifications - missing files
+  * 1a7d01b improve notifications
+  * f7e5bf0 improve ui - shorten reactions of status page
+  * b883bac FTX: split wallet futures/spot
+  * 08e75a2 update externals
+  * 0f1f496 historical data source
+  * 59df185 stick on last trade if equilibrium is in reach
+  * 1be86fa Merge branch 'master' into mmbot.trade
+  * b1c667e option - fees in BNB
+  * b124c12 fix 32bit compile error
+  * fdf162c Merge branch 'master' into mmbot.trade
+  * de4fda8 fix calculation of volume for reset when inverted market
+  * adc4e6b fix calculation of extra budget when multiple traders share balance
+  * 0cc8adf endpoint to dump walletdb
+  * 80b8695 fix crash in gauss strategy
+  * e7bc38f package build - fast load Trainer
+
+ -- Ondra Novak <nov.ondrej@gmail.com>  Mon, 11 Jan 2021 00:00:00 +0200
+
+
 mmbot (2:20.10) unstable; urgency=medium
 
   * 7f08a16 increase accuracy of numeric calculations

@@ -756,6 +756,7 @@ json::Value Interface::getWallet_direct() {
 	Object out;
 	out.set("spot", res);
 	out.set("positions", pos);
+	out.set("collateral", Object("USD", acc.colateral));
 	return out;
 }
 

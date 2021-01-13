@@ -9,6 +9,8 @@
 #include "webcfg.h"
 
 #include <random>
+#include <unordered_set>
+
 #include <imtjson/array.h>
 #include <imtjson/object.h>
 #include <imtjson/string.h>
@@ -171,6 +173,7 @@ bool WebCfg::reqConfig(simpleServer::HTTPRequest req)  {
 				lkst->config->store(data.replace("apikeys", Value()));
 				lkst->write_serial = serial+1;;
 
+
 				try {
 					lkst->applyConfig(traders);
 					if (apikeys.type() == json::object) {
@@ -190,6 +193,8 @@ bool WebCfg::reqConfig(simpleServer::HTTPRequest req)  {
 					return;
 				}
 				req.sendResponse(HTTPResponse(202).contentType("application/json"),data.stringify());
+				req = nullptr;
+				traders.lock()->resetBrokers();
 				traders.lock_shared()->enumTraders([&](const auto &trinfo){
 					dispatch([tr = trinfo.second]()mutable{
 						try {
@@ -770,6 +775,7 @@ void WebCfg::State::init(json::Value data) {
 }
 void WebCfg::State::applyConfig(SharedObject<Traders>  &st) {
 	auto t = st.lock();
+	t->rpt.lock()->clear();
 	auto data = config->load();
 	init(data);
 	for (auto &&n :traderNames) {
@@ -1556,14 +1562,16 @@ bool WebCfg::reqDumpWallet(simpleServer::HTTPRequest req, ondra_shared::StrViewA
 						}
 						wallet.set(x.walletId, bww);
 					}
-					Stream stream = req.sendResponse("application/json");
+					HTTPResponse hdrs(200);
+					hdrs.cacheFor(60).contentType("application/json");
+					Stream stream = req.sendResponse(std::move(hdrs));
 					Value(wallet).serialize(stream);
 					return true;
 				} catch (...) {
 
 				}
 			}
-			req.sendErrorPage(501);
+			req.sendResponse(HTTPResponse(501).cacheFor(300),"");
 		} else {
 			req.sendErrorPage(404);
 		}
@@ -1578,6 +1586,8 @@ bool WebCfg::reqDumpWallet(simpleServer::HTTPRequest req, ondra_shared::StrViewA
 		brks.push_back(brk);
 	});
 
+	std::unordered_set<json::Value> activeBrokers;
+
 	auto rdc = jsn.reduce([&](std::vector<Value> &&accum, Value row){
 		if (accum.empty() || accum.back()["broker"] != row[0] || accum.back()["wallet"] != row[1] || accum.back()["symbol"] != row[2]) {
 			Object mdata;
@@ -1589,11 +1599,15 @@ bool WebCfg::reqDumpWallet(simpleServer::HTTPRequest req, ondra_shared::StrViewA
 		} else {
 			accum.back() = accum.back().replace("value", accum.back()["value"].getNumber()+row[4].getNumber());
 		}
+		activeBrokers.insert(row[0]);
 		return accum;
 	},std::vector<Value>());
 	jsn = Value(json::array, rdc.begin(), rdc.end(),[](Value x){return x;});
 
-	jsn = Object("entries", brks)("allocations", jsn);
+	jsn = Object("entries", Value(json::array, activeBrokers.begin(), activeBrokers.end(),[](Value x){
+		return x;
+	}))
+				("allocations", jsn);
 	Stream stream = req.sendResponse("application/json");
 	jsn.serialize(stream);
 	return true;

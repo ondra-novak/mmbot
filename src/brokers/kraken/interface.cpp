@@ -616,3 +616,18 @@ std::string_view Interface::stripPrefix(std::string_view pair) {
 	return pair.substr(3);
 }
 
+json::Value Interface::getWallet_direct() {
+	if (!positionMap.defined()) {
+		positionMap = private_POST("/0/private/OpenPositions",Value());
+	}
+	Value pos = positionMap["result"].map([&](Value z){
+		double vol =  (z["vol"].getNumber()-z["vol_closed"].getNumber())*(z["type"].getString() == "sell"?-1.0:1.0);
+		String name({z["pair"].getString(),":",z.getKey()});
+		return Value(name, vol);
+	});
+
+
+	getSpotBalance("");
+	return Object("spot", balanceMap["result"])("positions", pos);
+
+}
