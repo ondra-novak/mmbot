@@ -1025,7 +1025,7 @@ inline json::Value Interface::getMarkets() const {
 }
 
 inline json::Value Interface::setSettings(json::Value v) {
-	feesInBnb = v["bnbfee"].getBool();
+	feesInBnb = v["bnbfee"].getString() == "yes";
 	symbols.clear();
 	return v;
 }
