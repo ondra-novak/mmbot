@@ -1064,6 +1064,11 @@ Interface::TestPair &Interface::getPair(unsigned int id) {
 	return iter->second;
 }
 
+bool isTestPair(StrViewA pair) {
+	return pair.startsWith("TEST") && pair.indexOf("/") == pair.npos;
+}
+
+
 inline void Interface::setSettings(json::Value keyData, bool loaded,  unsigned int pairId) {
 	auto &p = getPair(pairId);
 
@@ -1147,7 +1152,9 @@ inline void Interface::setSettings(json::Value keyData, bool loaded,  unsigned i
 				p.price_path = "[6]";
 				p.asset = iter->second.asset.str();
 				p.currency = iter->second.currency.str();
-				p.asset_step = iter->second.min_size;
+				if (p.preset) {
+					p.asset_step = iter->second.min_size;
+				}
 			} else {
 					throw std::runtime_error("Unknown symbold");
 			}
@@ -1424,10 +1431,6 @@ inline const Interface::TestPair* Interface::getPairPtr(const std::string_view &
 	auto iter = pairs.find(idx);
 	if (iter == pairs.end()) return nullptr;
 	return &iter->second;
-}
-
-bool isTestPair(StrViewA pair) {
-	return pair.startsWith("TEST") && pair.indexOf("/") == pair.npos;
 }
 
 void Interface::TestPair::init(const StrViewA &name) {

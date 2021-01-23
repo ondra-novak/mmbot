@@ -61,7 +61,6 @@ using ondra_shared::StrViewA;
 template<typename Cfg>
 void initConfig(Cfg &cfg, json::Value config,
 		double power) {
-	cfg.max_loss = config["max_loss"].getNumber();
 	cfg.power = power;
 	cfg.asym = config["asym"].getNumber();
 	cfg.reduction = config["reduction"].getNumber();
@@ -75,7 +74,6 @@ void initConfig(Cfg &cfg, json::Value config,
 	cfg.fastclose = config["fastclose"].getValueOrDefault(true);
 	cfg.slowopen = config["slowopen"].getValueOrDefault(true);
 	cfg.reinvest_profit = config["reinvest_profit"].getValueOrDefault(false);
-	cfg.reduce_both_side= config["reduce_both_side"].getValueOrDefault(false);
 }
 
 Strategy Strategy::create(std::string_view id, json::Value config) {

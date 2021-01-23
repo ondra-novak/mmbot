@@ -160,7 +160,6 @@ to enter a negative value and then the value of the assets held will decrease an
 <label data-name="show_curvature"><span>Curvature<span class="tooltip">Specifies curvature of the function. Small value works better on low volatility and flat market. High value works better on high volatility and trending markets. Value must be backtested, otherwise leave default value</span></span><x-slider data-name="sh_curv" data-min="0" data-max="40" data-mult="0.1" data-fixed="1"></label>
 <label class="adv"><span>Initial boost<span class="tooltip">Boost volume around neutral price</span></span><x-slider data-name="hp_initboost" data-min="0" data-max="2" data-mult="0.1" data-fixed="1"></label>
 <label class="adv"><span>Dynamic reduction<span class="tooltip">How much is reduction increased with increase of the position. The value 1 means by 100% when position is exact to internal multiplicator (advenced feature)</span></span><input data-name="hp_dynred" type="number" step="0.1" value="1.0"></label>
-<label data-name="hp_maxloss_label"><span>Max loss (stoploss, 0=disabled)<span class="tooltip">Specify maximum loss to execute stoploss order. By setting 0 can result in a liquidation. In this case consider to keep minimum amount of the avaiable assets on the stockmarket and set the External balance to achieve correct caulculations</span></span><input data-name="hp_maxloss" type="number" value="0"></label>
 <label class="adv"><span>Recalculation mode<span class="tooltip">How position is recalculated when values are changed. <br><br><b>Keep position</b> - calculate new neutral price to keep current position<br><b>Keep neutral</b> - keep neutral price. Position is traded to new calculated value (this can result to a loss)</span></span>
 <select data-name="hp_recalc">
 <option value="position" selected="selected">Keep position</option>
@@ -171,7 +170,6 @@ to enter a negative value and then the value of the assets held will decrease an
 <div class="label adv"><span>Open position slower<span class="tooltip">Increase spread for opening orders, so they should be executed after the market performs a significant move</span></span><x-checkbox data-name="hp_slowopen"></x-checkbox></div>
 <label><span>Avoid <x-switch data-name="inverted_price" data-value="false">SHORT</x-switch><x-switch data-name="inverted_price" data-value="true">LONG</x-switch> position<span class="tooltip">Prevents to trade on dangerous side of the market. It is short for normal futures and long for inverted futures</span></span><x-checkbox data-name="hp_longonly"></x-checkbox></label>
 <div class="label adv"><span>Reinvest profit<span class="tooltip">Increase the collateral by realized profit</span></span><x-checkbox data-name="hp_reinvest"></x-checkbox></div>
-<div class="label adv"><span>Reduce both ways</span><x-checkbox data-name="hp_reduce_both_side"></x-checkbox></div>
 <x-section>
 <div class="label"><span>Min price:</span><span data-name="range_min_price">---</span></div>
 <div class="label"><span>Max price:</span><span data-name="range_max_price">---</span></div>

@@ -22,7 +22,6 @@ public:
 	struct Config {
 		double power;
 		double asym = 0;
-		double max_loss = 0;
 		double reduction = 0;
 		double external_balance = 0;
 		double powadj = 0;
@@ -34,8 +33,6 @@ public:
 		bool fastclose = false;
 		bool slowopen = false;
 		bool reinvest_profit = false;
-		bool reduce_both_side = false;
-//		int preference = 0;
 	};
 
 	using PConfig = std::shared_ptr<const Config>;
@@ -47,7 +44,6 @@ public:
 		double position = 0;
 		double bal = 0;
 		double val = 0;
-		double redbal = 0;
 		double power = 0;
 		double neutral_pos = 0;
 		long trend_cntr = 0;
@@ -91,8 +87,6 @@ protected:
 
 	MinMax calcRoots() const;
 	double adjNeutral(double price, double value) const;
-
-	double calcMaxLoss() const;
 
 
 	double calcNewNeutralFromProfit(double profit, double price, double reduction) const;

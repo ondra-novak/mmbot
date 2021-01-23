@@ -475,7 +475,7 @@ App.prototype.fillForm = function (src, trg) {
 		
 		
 		if (first_fetch) {
-			["strategy","external_assets","gs_external_assets", "hp_dtrend","hp_longonly","hp_power", "hp_maxloss", "hp_recalc", "hp_asym","hp_powadj", "hp_extbal", "hp_reduction","hp_dynred","sh_curv","ext_bal"]
+			["strategy","external_assets","gs_external_assets", "hp_dtrend","hp_longonly","hp_power", "hp_recalc", "hp_asym","hp_powadj", "hp_extbal", "hp_reduction","hp_dynred","sh_curv","ext_bal"]
 			.forEach(function(item){
 				trg.findElements(item).forEach(function(elem){
 					elem.addEventListener("input", function(){recalc_strategy_fn();});
@@ -543,19 +543,17 @@ App.prototype.fillForm = function (src, trg) {
 	data.hp_power=1;
 	data.hp_powadj=0;
 	data.hp_dynred=0;
-	data.hp_maxloss=0;
 	data.hp_dtrend={value:false};
 	data.hp_lb_asym="asym";
 	data.inverted_price="false";
 	data.hp_longonly=false;
 	data.hp_reinvest=false;
-	data.hp_reduce_both_side=true;
-	data.gs_rb_lo_p=20;
-	data.gs_rb_lo_a=85;
-	data.gs_rb_hi_p=75;
-	data.gs_rb_hi_a=50;
+	data.gs_rb_lo_p=25;
+	data.gs_rb_lo_a=50;
+	data.gs_rb_hi_p=55;
+	data.gs_rb_hi_a=1;
 	data.hp_fastclose=true;
-	data.hp_slowopen=true;
+	data.hp_slowopen=false;
 	data.max_leverage = 10;
 	data.kb_keep_min = 0;
 	data.kb_keep_max = 100;
@@ -581,7 +579,6 @@ App.prototype.fillForm = function (src, trg) {
 		data.hp_reduction = filledval(defval(src.strategy.reduction,0.25)*200,50);
 		data.hp_initboost = filledval(src.strategy.initboost,0);
 		data.hp_asym = filledval(defval(src.strategy.asym,0.2)*100,20);
-		data.hp_maxloss = filledval(src.strategy.max_loss,0);
 		data.hp_recalc= filledval(src.strategy.recalc_mode,"position");
 		data.hp_power = filledval(src.strategy.power,1);
 		data.hp_powadj = filledval(src.strategy.powadj,0);
@@ -590,11 +587,10 @@ App.prototype.fillForm = function (src, trg) {
 		data.hp_dtrend = filledval(src.strategy.dtrend,false);
 		data.hp_longonly = filledval(src.strategy.longonly,false);
 		data.hp_reinvest= filledval(src.strategy.reinvest_profit,false);
-		data.hp_reduce_both_side= filledval(src.strategy.reduce_both_side,true);
 		data.sh_curv = filledval(src.strategy.curv,5);
 		data.hp_lb_asym = src.strategy.dtrend?"trend":"asym"; 
 		data.hp_fastclose = filledval(src.strategy.fastclose,true);
-		data.hp_slowopen = filledval(src.strategy.slowopen,true);
+		data.hp_slowopen = filledval(src.strategy.slowopen,false);
 	} else if (data.strategy == "stairs") {
 		data.st_power = filledval(src.strategy.power,1.7);
 		data.st_show_factor = powerCalc(data.st_power.value)
@@ -734,8 +730,6 @@ function getStrategyData(data) {
 				dtrend: data.hp_dtrend,
 				longonly: data.hp_longonly,
 				reinvest_profit: data.hp_reinvest,
-				reduce_both_side: data.hp_reduce_both_side,
-				max_loss: data.hp_maxloss,
 				recalc_mode: data.hp_recalc,
 				asym: data.hp_asym / 100,
 				reduction: data.hp_reduction/200,
@@ -1549,7 +1543,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 	form.enableItem("show_backtest",false);		
 	var inputs = ["strategy","external_assets", "acum_factor","kv_valinc","kv_halfhalf","min_size","max_size","order_mult","linear_suggest","linear_suggest_maxpos",
 		"st_power","st_reduction_step","st_sl","st_redmode","st_max_step","st_pattern","dynmult_sliding","accept_loss","st_tmode","zigzag",
-		"hp_dtrend","hp_longonly","hp_reinvest","hp_reduce_both_side","hp_power","hp_maxloss","hp_asym","hp_reduction","sh_curv","hp_initboost","hp_extbal","hp_powadj","hp_dynred",
+		"hp_dtrend","hp_longonly","hp_reinvest","hp_power","hp_asym","hp_reduction","sh_curv","hp_initboost","hp_extbal","hp_powadj","hp_dynred",
 		"gs_external_assets","gs_rb_hi_a","gs_rb_lo_a","gs_rb_hi_p","gs_rb_lo_p",
 		"min_balance","max_balance","max_leverage"];
 	var spread_inputs = ["spread_calc_stdev_hours", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode","dynmult_sliding","dynmult_mult"];
