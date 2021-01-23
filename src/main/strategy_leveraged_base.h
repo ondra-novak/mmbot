@@ -34,6 +34,7 @@ public:
 		bool fastclose = false;
 		bool slowopen = false;
 		bool reinvest_profit = false;
+		bool reduce_both_side = false;
 //		int preference = 0;
 	};
 

@@ -171,6 +171,7 @@ to enter a negative value and then the value of the assets held will decrease an
 <div class="label adv"><span>Open position slower<span class="tooltip">Increase spread for opening orders, so they should be executed after the market performs a significant move</span></span><x-checkbox data-name="hp_slowopen"></x-checkbox></div>
 <label><span>Avoid <x-switch data-name="inverted_price" data-value="false">SHORT</x-switch><x-switch data-name="inverted_price" data-value="true">LONG</x-switch> position<span class="tooltip">Prevents to trade on dangerous side of the market. It is short for normal futures and long for inverted futures</span></span><x-checkbox data-name="hp_longonly"></x-checkbox></label>
 <div class="label adv"><span>Reinvest profit<span class="tooltip">Increase the collateral by realized profit</span></span><x-checkbox data-name="hp_reinvest"></x-checkbox></div>
+<div class="label adv"><span>Reduce both ways</span><x-checkbox data-name="hp_reduce_both_side"></x-checkbox></div>
 <x-section>
 <div class="label"><span>Min price:</span><span data-name="range_min_price">---</span></div>
 <div class="label"><span>Max price:</span><span data-name="range_max_price">---</span></div>

@@ -95,14 +95,15 @@ double Strategy_Leveraged<Calc>::calcPosition(double price) const {
 	double reduction = cfg->reduction>=0?2*cfg->reduction:0;
 	double dynred = 0;
 	if (cfg->dynred) {
-		double val = st.redbal+cfg->external_balance;
-		if (val) {
-			double leverage = abs(st.position * price) / val;
-			dynred = leverage * cfg->dynred;
+		double f;
+		if (price > st.neutral_price) {
+			f = price / st.neutral_price- 1.0;
+		} else {
+			f = st.neutral_price / price - 1.0;
 		}
+		dynred = std::min(1.0,f * cfg->dynred);
 	}
-	if (dynred > 1.0) dynred = 1.0;
-	reduction = std::sqrt(pow2(reduction) + dynred);
+	reduction = reduction + dynred;
 	double new_neutral;
 
 
@@ -113,8 +114,8 @@ double Strategy_Leveraged<Calc>::calcPosition(double price) const {
 		//and we reduce opened long position as well
 		//
 		//for inverted futures, short and long is swapped
-		if (reduction && price > st.last_price) {
-			profit += st.bal - st.redbal;
+		if (reduction && (price > st.last_price || cfg->reduce_both_side)) {
+		//	profit += st.bal - st.redbal;
 			new_neutral = calcNewNeutralFromProfit(profit, price,reduction);
 		} else {
 			new_neutral = st.neutral_price;
@@ -250,7 +251,7 @@ std::pair<typename Strategy_Leveraged<Calc>::OnTradeResult, PStrategy> Strategy_
 	//store new balance
 	nwst.bal += (val - st.val) + vprofit;
 
-	if  (nwst.last_price > st.last_price) {
+	if  (nwst.last_price > st.last_price || cfg->reduce_both_side) {
 		if (cfg->reinvest_profit) {
 			nwst.redbal = nwst.bal;
 		} else {

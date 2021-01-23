@@ -234,12 +234,12 @@ void MTrader::perform(bool manually) {
 		if (!anytrades && cfg.enabled
 				&& std::abs(status.assetBalance - *asset_balance)
 						/std::abs(status.assetBalance + *asset_balance) > 0.01) {
-			logDebug("Need adjust $1 => $2, stage: $3",  *asset_balance, status.assetBalance, adj_wait);
-			if (adj_wait>14) {
+			logNote("Need adjust $1 => $2, stage: $3",  *asset_balance, status.assetBalance, adj_wait);
+			if (adj_wait>59) { //still issue on binance - wait aprox 1 hour before adjst
 				double last_price = trades.empty()?status.curPrice:trades.back().eff_price;
 				dorovnani(status, *asset_balance, last_price);
 				anytrades = processTrades(status);
-				logDebug("Adjust added: result - $1", *asset_balance);
+				logNote("Adjust added: result - $1", *asset_balance);
 				adj_wait = 0;
 			} else {
 				adj_wait++;

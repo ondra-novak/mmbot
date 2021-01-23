@@ -75,6 +75,7 @@ void initConfig(Cfg &cfg, json::Value config,
 	cfg.fastclose = config["fastclose"].getValueOrDefault(true);
 	cfg.slowopen = config["slowopen"].getValueOrDefault(true);
 	cfg.reinvest_profit = config["reinvest_profit"].getValueOrDefault(false);
+	cfg.reduce_both_side= config["reduce_both_side"].getValueOrDefault(false);
 }
 
 Strategy Strategy::create(std::string_view id, json::Value config) {
