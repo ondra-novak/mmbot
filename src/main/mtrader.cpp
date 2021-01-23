@@ -64,6 +64,7 @@ void MTrader_Config::loadConfig(json::Value data, bool force_dry_run) {
 	dynmult_mode = strDynmult_mode[data["dynmult_mode"].getValueOrDefault("half_alternate")];
 
 	accept_loss = data["accept_loss"].getValueOrDefault(1);
+	adj_timeout = data["adj_timeout"].getValueOrDefault(60);
 	max_leverage = data["max_leverage"].getValueOrDefault(0);
 	external_balance= data["ext_bal"].getValueOrDefault(0.0);
 
@@ -116,7 +117,6 @@ MTrader::MTrader(IStockSelector &stock_selector,
 		uid = rnd();
 	}
 
-	need_live_balance = strategy.needLiveBalance();
 
 }
 
@@ -231,18 +231,18 @@ void MTrader::perform(bool manually) {
 			buy_alert.reset();
 		}
 
-		if (!anytrades && cfg.enabled
+		if (!anytrades && cfg.adj_timeout && cfg.enabled
 				&& std::abs(status.assetBalance - *asset_balance)
 						/std::abs(status.assetBalance + *asset_balance) > 0.01) {
-			logNote("Need adjust $1 => $2, stage: $3",  *asset_balance, status.assetBalance, adj_wait);
-			if (adj_wait>59) { //still issue on binance - wait aprox 1 hour before adjst
-				double last_price = trades.empty()?status.curPrice:trades.back().eff_price;
-				dorovnani(status, *asset_balance, last_price);
+			if (adj_wait>cfg.adj_timeout) {
+				dorovnani(status, *asset_balance, adj_wait_price);
 				anytrades = processTrades(status);
 				logNote("Adjust added: result - $1", *asset_balance);
 				adj_wait = 0;
 			} else {
+				if (adj_wait == 0) adj_wait_price = status.curPrice;
 				adj_wait++;
+				logNote("Need adjust $1 => $2, stage: $3/$4 price: $5",  *asset_balance, status.assetBalance, adj_wait ,cfg.adj_timeout, adj_wait_price);
 			}
 		} else {
 			adj_wait = 0;
@@ -933,6 +933,8 @@ void MTrader::loadState() {
 			achieve_mode = state["achieve_mode"].getBool();
 			need_initial_reset = state["need_initial_reset"].getBool();
 			swapped = state["swapped"].getBool();
+			adj_wait = state["adj_wait"].getUInt();
+			adj_wait_price = state["adj_wait_price"].getNumber();
 		}
 		auto chartSect = st["chart"];
 		if (chartSect.defined()) {
@@ -1008,6 +1010,8 @@ void MTrader::saveState() {
 		if (achieve_mode) st.set("achieve_mode", achieve_mode);
 		if (cfg.swap_symbols) st.set("swapped", cfg.swap_symbols);
 		if (need_initial_reset) st.set("need_initial_reset", need_initial_reset);
+		st.set("adj_wait",adj_wait);
+		if (adj_wait) st.set("adj_wait_price", adj_wait_price);
 	}
 	{
 		auto ch = obj.array("chart");
@@ -1122,6 +1126,8 @@ void MTrader::clearStats() {
 	init();
 	trades.clear();
 	asset_balance.reset();
+	adj_wait = 0;
+	adj_wait_price = 0;
 	saveState();
 }
 

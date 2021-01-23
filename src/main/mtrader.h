@@ -52,6 +52,7 @@ struct MTrader_Config {
 	Dynmult_mode dynmult_mode;
 
 	unsigned int accept_loss;
+	unsigned int adj_timeout;
 
 	double force_spread;
 	double report_position_offset;
@@ -271,12 +272,12 @@ protected:
 	bool first_cycle = true;
 	bool achieve_mode = false;
 	bool need_initial_reset = true;
-	int adj_wait = 0;
+	unsigned int adj_wait = 0;
+	double adj_wait_price = 0;
 	double lastPriceOffset = 0;
 	json::Value test_backup;
 	json::Value lastTradeId = nullptr;
 	std::optional<double> sell_alert, buy_alert;
-	bool need_live_balance;
 
 	using TradeItem = IStockApi::Trade;
 	using TWBItem = IStatSvc::TradeRecord;
@@ -286,7 +287,6 @@ protected:
 
 	std::optional<double> asset_balance;
 	std::optional<double> currency_balance;
-//	std::optional<double> currency_unadjusted_balance;
 
 	size_t magic = 0;
 	size_t uid = 0;

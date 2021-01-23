@@ -1,3 +1,12 @@
+mmbot (2:21.1.1) unstable; urgency=medium
+
+  * hotfix some exchanges doesn't update trade history immediately (new option introduced ADJ timeou)
+  * improvement: dynamic reduce changed
+  * improvement: reduction
+
+ -- Ondra Novak <nov.ondrej@gmail.com>  Sun, 24 Jan 2021 00:00:00 +0200
+  
+
 mmbot (2:21.1) unstable; urgency=medium
 
   * fdc5bad fix url in datasource, last dir in leveraged strategy can report alert

@@ -529,6 +529,7 @@ App.prototype.fillForm = function (src, trg) {
 	data.cstep = 0;
 	data.acum_factor = 0;
 	data.external_assets = 0;
+	data.adj_timeout=60
 	data.kv_valinc = 0;
 	data.kv_halfhalf=false;
 	data.st_power={"value":1.7};
@@ -634,6 +635,7 @@ App.prototype.fillForm = function (src, trg) {
 	data.zigzag = filledval(src.zigzag,false);
 	data.max_leverage = filledval(src.max_leverage,10);
 	data.ext_bal = filledval(src.ext_bal,0);
+	data.adj_timeout = filledval(src.adj_timeout,60);
 	data.emul_leverage = filledval(src.emulate_leveraged,0);
 
 	
@@ -799,6 +801,7 @@ App.prototype.saveForm = function(form, src) {
 	trader.force_spread = Math.log(data.force_spread/100+1);
 	trader.ext_bal = data.ext_bal;
 	trader.emulate_leveraged = data.emul_leverage;
+	trader.adj_timeout = data.adj_timeout;
 	if (isFinite(data.min_balance)) trader.min_balance = data.min_balance;
 	if (isFinite(data.max_balance)) trader.max_balance = data.max_balance;
 	return trader;

@@ -286,6 +286,7 @@ The position is not generally in the sync due to various issues. You need to spe
 the same order, they are ordered by its ID - this is the default ordering. Modifying this number you can change the default ordering.
 </span></span><input type="number" step="any" data-name="report_order"></label>
 <label class="adv"><span>Force spread [%](0=disabled)<span class="tooltip">Specifies exact spread in % width and disables the internal spread detection</span></span><input type="number" step="any" data-name="force_spread"></label>
+<label class="adv"><span>ADJ trade timeout [min] (0=disabled)<span class="tooltip">Specifies timeout after which a fake (ADJ) trade is put to trade history if there is a difference between calculated position and actual position reported by the broker. This allows to detect deposits and withdraws and report them as a trade, however, on some markets, trading data may be delayed, which causes puting wrong ADJ trades before the updated list of trades is being populated from the market. The value is in minutes, default value is set to 60 = aprx 1 hour. If you have experienced such wrong ADJ trades, you can increase the timeout or disable it by setting this option to 0. Note: The timer is reset after each trade, so setting a large value can cause, that ADJ trade also never appear.</span></span><input type="number" step="any" data-name="adj_timeout"></label>
 </x-section>
 <div></div>
 </x-form>

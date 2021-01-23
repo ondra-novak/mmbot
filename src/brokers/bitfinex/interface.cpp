@@ -260,7 +260,7 @@ IStockApi::TradesSync Interface::syncTrades(json::Value lastId, const std::strin
 			bool wasAnchor = data[ln][0] == anchor;
 			out.lastId = {data[ln][0], data[ln][2].getUIntLong()+(wasAnchor?1:0)};
 		} else {
-			out.lastId = lastId;
+			out.lastId = {lastId[0],lastId[1].getUIntLong()+1};
 		}
 		std::string spair(pair);
 		auto fiter = fees.find(spair);
