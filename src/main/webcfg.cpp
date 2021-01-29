@@ -1213,6 +1213,7 @@ bool WebCfg::reqSpread(simpleServer::HTTPRequest req)  {
 				Value mult = args["mult"];
 				Value dynmult_raise = args["raise"];
 				Value dynmult_fall = args["fall"];
+				Value dynmult_cap= args["cap"];
 				Value dynmult_mode = args["mode"];
 				Value dynmult_sliding = args["sliding"];
 				Value dynmult_mult = args["dyn_mult"];
@@ -1220,6 +1221,7 @@ bool WebCfg::reqSpread(simpleServer::HTTPRequest req)  {
 				auto res = MTrader::visualizeSpread(IterFn(data.chart.begin(),data.chart.end()),sma.getUInt(), stdev.getUInt(),mult.getNumber(),
 						dynmult_raise.getValueOrDefault(1.0),
 						dynmult_fall.getValueOrDefault(1.0),
+						dynmult_cap.getValueOrDefault(100.0),
 						dynmult_mode.getValueOrDefault("independent"),
 						dynmult_sliding.getBool(),
 						dynmult_mult.getBool(),
@@ -1409,6 +1411,7 @@ bool WebCfg::generateTrades(const SharedObject<Traders> &trlist, PState state, j
 		Value mult = args["mult"];
 		Value dynmult_raise = args["raise"];
 		Value dynmult_fall = args["fall"];
+		Value dynmult_cap = args["cap"];
 		Value dynmult_mode = args["mode"];
 		Value dynmult_sliding = args["sliding"];
 		Value dynmult_mult = args["dyn_mult"];
@@ -1470,6 +1473,7 @@ bool WebCfg::generateTrades(const SharedObject<Traders> &trlist, PState state, j
 		MTrader::VisRes trades = MTrader::visualizeSpread(std::move(source),sma.getNumber(),stdev.getNumber(),mult.getNumber(),
 				dynmult_raise.getValueOrDefault(1.0),
 				dynmult_fall.getValueOrDefault(1.0),
+				dynmult_cap.getValueOrDefault(100.0),
 				dynmult_mode.getValueOrDefault("independent"),
 				dynmult_sliding.getBool(),
 				dynmult_mult.getBool(),

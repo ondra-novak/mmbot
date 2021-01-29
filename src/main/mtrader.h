@@ -49,6 +49,7 @@ struct MTrader_Config {
 
 	double dynmult_raise;
 	double dynmult_fall;
+	double dynmult_cap;
 	Dynmult_mode dynmult_mode;
 
 	unsigned int accept_loss;
@@ -223,7 +224,7 @@ public:
 	};
 
 
-	static VisRes visualizeSpread(std::function<std::optional<ChartItem>()> &&source, double sma, double stdev, double mult, double dyn_raise, double dyn_fall, json::StrViewA dynMode, bool sliding, bool dyn_mult, bool strip, bool onlyTrades);
+	static VisRes visualizeSpread(std::function<std::optional<ChartItem>()> &&source, double sma, double stdev, double mult, double dyn_raise, double dyn_fall,double dyn_cap, json::StrViewA dynMode, bool sliding, bool dyn_mult, bool strip, bool onlyTrades);
 
 	std::optional<double> getInternalBalance() const;
 	std::optional<double> getInternalCurrencyBalance() const;
@@ -238,7 +239,7 @@ public:
 protected:
 	class DynMultControl {
 	public:
-		DynMultControl(double raise, double fall, Dynmult_mode mode, bool mult):raise(raise),fall(fall),mode(mode),mult_buy(1),mult_sell(1),mult(mult) {}
+		DynMultControl(double raise, double fall, double cap, Dynmult_mode mode, bool mult):raise(raise),fall(fall),cap(cap),mode(mode),mult_buy(1),mult_sell(1),mult(mult) {}
 
 		void setMult(double buy, double sell);
 		double getBuyMult() const;
@@ -252,6 +253,7 @@ protected:
 
 		double raise;
 		double fall;
+		double cap;
 		Dynmult_mode mode;
 		double mult_buy;
 		double mult_sell;

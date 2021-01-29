@@ -61,6 +61,7 @@ void MTrader_Config::loadConfig(json::Value data, bool force_dry_run) {
 
 	dynmult_raise = data["dynmult_raise"].getValueOrDefault(0.0);
 	dynmult_fall = data["dynmult_fall"].getValueOrDefault(1.0);
+	dynmult_cap = data["dynmult_cap"].getValueOrDefault(100.0);
 	dynmult_mode = strDynmult_mode[data["dynmult_mode"].getValueOrDefault("half_alternate")];
 
 	accept_loss = data["accept_loss"].getValueOrDefault(1);
@@ -106,7 +107,7 @@ MTrader::MTrader(IStockSelector &stock_selector,
 ,statsvc(std::move(statsvc))
 ,walletDB(walletDB)
 ,strategy(config.strategy)
-,dynmult(cfg.dynmult_raise,cfg.dynmult_fall, cfg.dynmult_mode, cfg.dynmult_mult)
+,dynmult(cfg.dynmult_raise,cfg.dynmult_fall, cfg.dynmult_cap, cfg.dynmult_mode, cfg.dynmult_mult)
 {
 	//probe that broker is valid configured
 	stock->testBroker();
@@ -1294,10 +1295,10 @@ MTrader::SpreadCalcResult MTrader::calcSpread() const {
 }
 
 MTrader::VisRes MTrader::visualizeSpread(std::function<std::optional<ChartItem>()> &&source, double sma, double stdev,
-		double mult, double dyn_raise, double dyn_fall,
+		double mult, double dyn_raise, double dyn_fall,double dyn_cap,
 		json::StrViewA dynMode, bool sliding, bool dyn_mult,
 		bool strip, bool onlyTrades) {
-	DynMultControl dynmult(dyn_raise, dyn_fall, strDynmult_mode[dynMode], dyn_mult);
+	DynMultControl dynmult(dyn_raise, dyn_fall, dyn_cap, strDynmult_mode[dynMode], dyn_mult);
 	VisRes res;
 	double last = 0;
 	double last_price = 0;
@@ -1369,7 +1370,7 @@ double MTrader::DynMultControl::getSellMult() const {
 double MTrader::DynMultControl::raise_fall(double v, bool israise) {
 	if (israise) {
 		double rr = raise/100.0;
-		return mult?v*(1+rr):v + rr;
+		return std::min(mult?v*(1+rr):v + rr, cap);
 	} else {
 		double ff = fall/100.0;
 		return std::max(1.0,mult?v*(1.0-ff):v - ff);

@@ -214,6 +214,7 @@ void Interface::updateBalCache() {
 			 Value r = dapi.private_request(Proxy::GET,"/dapi/v1/userTrades", Object
 					 ("fromId", lastId)
 					 ("symbol", pair)
+					 ("limit", 10)
 					 );
 
 			 r = r.map([&](Value x) ->Value{
@@ -271,6 +272,7 @@ void Interface::updateBalCache() {
 			 Value r = fapi.private_request(Proxy::GET,"/fapi/v1/userTrades", Object
 					 ("fromId", lastId)
 					 ("symbol", pair)
+					 ("limit",10)
 					 );
 
 			 r = r.map([&](Value x) ->Value{
@@ -327,6 +329,7 @@ void Interface::updateBalCache() {
 			 Value r = px.private_request(Proxy::GET,"/api/v3/myTrades", Object
 					 ("fromId", lastId)
 					 ("symbol", pair)
+					 ("limit",10)
 					 );
 
 			 r = r.map([&](Value x) ->Value{

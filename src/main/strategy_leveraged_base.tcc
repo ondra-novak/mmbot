@@ -206,13 +206,15 @@ std::pair<typename Strategy_Leveraged<Calc>::OnTradeResult, PStrategy> Strategy_
 		nwst.trend_cntr += chg - nwst.trend_cntr/1000;
 
 	}
-	bool need_recalc_neutral = false;
+	double neutral_recalc_ratio = 0;
 	double apos = assetsLeft - st.neutral_pos;
 	auto cpos = calcPosition(tradePrice);
-	if (cpos == 0 || (tradeSize == 0 && (std::abs(assetsLeft)+2*minfo.asset_step)<std::abs(cpos) && std::abs(assetsLeft)>(st.bal + cfg->external_balance)/tradePrice)) {
-		need_recalc_neutral = true;
+	if (tradeSize == 0) {
+		neutral_recalc_ratio = 0.5;
 	} else {
-		need_recalc_neutral = tradeSize != 0;
+		//to fight against partial execution
+		//tradeSize must at least 90% of calculated size to calculate reduction in full range
+		neutral_recalc_ratio = st.position == cpos?1.0:std::min(1.1*std::abs(tradeSize/(st.position - cpos)),1.0);
 	}
 	double mult = st.power;
 	double profit = (apos - tradeSize) * (tradePrice - st.last_price);
@@ -223,19 +225,18 @@ std::pair<typename Strategy_Leveraged<Calc>::OnTradeResult, PStrategy> Strategy_
 	nwst.last_price = tradePrice;
 	nwst.last_dir = sgn(tradeSize);
 
-	if (need_recalc_neutral) {
-		if (cfg->reduction >= 0) {
-			recalcNeutral(calc, cfg, nwst);
-		} else {
-			if (cpos == 0) {
-				nwst.neutral_price = tradePrice;
-			}
-			else {
-				double ema = -cfg->reduction*200;
-				nwst.neutral_price = std::exp((std::log(nwst.neutral_price) * (ema-1) + std::log(tradePrice))/ema);
-			}
+	if (cfg->reduction >= 0) {
+		recalcNeutral(calc, cfg, nwst);
+	} else {
+		if (cpos == 0) {
+			nwst.neutral_price = tradePrice;
+		}
+		else {
+			double ema = -cfg->reduction*200;
+			nwst.neutral_price = std::exp((std::log(nwst.neutral_price) * (ema-1) + std::log(tradePrice))/ema);
 		}
 	}
+	nwst.neutral_price = st.neutral_price + (nwst.neutral_price - st.neutral_price)*neutral_recalc_ratio;
 
 	double val = calc->calcPosValue(mult, calcAsym(), nwst.neutral_price, tradePrice);
 	//calculate extra profit - we get change of value and add profit. This shows how effective is strategy. If extra is positive, it generates

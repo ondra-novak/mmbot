@@ -32,7 +32,7 @@ String transformString(StrViewA str, int (*fn)(int)) {
 Value readPrices(const StrViewA &asset, const StrViewA &currency, std::uint64_t fromTime) {
 	std::ostringstream url;
 
-	url << "https://devel.novacisko.cz/prices/minute.php?asset="
+	url << "https://prices.mmbot.trade/minute?asset="
 			<< simpleServer::urlEncode(asset)
 			<< "&currency=" << simpleServer::urlEncode(currency)
 			<< "&from=" << fromTime;
@@ -42,7 +42,7 @@ Value readPrices(const StrViewA &asset, const StrViewA &currency, std::uint64_t 
 }
 
 Value readSymbols() {
-	return httpc.GET("https://devel.novacisko.cz/prices/minute.php").map([](Value v){
+	return httpc.GET("https://prices.mmbot.trade/symbols").map([](Value v){
 		return transformString(v.getKey(), &std::toupper);
 	}, json::array);
 }

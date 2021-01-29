@@ -256,6 +256,8 @@ Specifies maximum allowed asset balance (or position, for short use negative val
 >Specifies [in %] how much is dynamic multiplicator raised after trade.</span></span><x-slider data-name="dynmult_raise" data-min="1" data-max="1000" data-mult="1"></x-slider></label>
 <label class="adv"><span>Dynamic spread mult. fall<span class="tooltip"
 >Specifies [in %] how much is dynamic multiplicator falls every minute without trade.</span></span><x-slider data-name="dynmult_fall" data-min="0.1" data-max="10" data-mult="0.1" data-fixed="1"></x-slider></label>
+<label class="adv"><span>Dynamic spread mult. cap<span class="tooltip"
+>Specifies cap for spread multiplicator.</span></span><input type="number" step="1" data-name="dynmult_cap"></label>
 <label class="adv"><span>Dynamic spread behaviour</span><select data-name="dynmult_mode">
 <option value="disabled">Disabled</option>
 <option value="independent"  selected="selected">Independent</option>
