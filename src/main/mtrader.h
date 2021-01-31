@@ -68,6 +68,7 @@ struct MTrader_Config {
 
 	bool dry_run;
 	bool internal_balance;
+	bool dont_allocate;
 	bool detect_manual_trades;
 	bool enabled;
 	bool hidden;

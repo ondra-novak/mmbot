@@ -66,7 +66,7 @@ void MTrader_Config::loadConfig(json::Value data, bool force_dry_run) {
 
 	accept_loss = data["accept_loss"].getValueOrDefault(1);
 	adj_timeout = data["adj_timeout"].getValueOrDefault(60);
-	max_leverage = data["max_leverage"].getValueOrDefault(0);
+	max_leverage = data["max_leverage"].getValueOrDefault(0.0);
 	external_balance= data["ext_bal"].getValueOrDefault(0.0);
 
 	force_spread = data["force_spread"].getValueOrDefault(0.0);
@@ -79,6 +79,7 @@ void MTrader_Config::loadConfig(json::Value data, bool force_dry_run) {
 
 	dry_run = force_dry_run || data["dry_run"].getValueOrDefault(false);
 	internal_balance = data["internal_balance"].getValueOrDefault(false) || dry_run;
+	dont_allocate = data["dont_allocate"].getValueOrDefault(false) ;
 	detect_manual_trades= data["detect_manual_trades"].getValueOrDefault(false);
 	enabled= data["enabled"].getValueOrDefault(true);
 	hidden = data["hidden"].getValueOrDefault(false);
@@ -118,6 +119,10 @@ MTrader::MTrader(IStockSelector &stock_selector,
 		uid = rnd();
 	}
 
+	if (cfg.dont_allocate) {
+		//create independed wallet db
+		this->walletDB = walletDB.make();
+	}
 
 }
 
@@ -850,7 +855,7 @@ void MTrader::updateZigzagLevels() {
 }
 
 void MTrader::modifyOrder(const ZigZagLevels &zlevs, double ,  Order &order) const {
-	if (sgn(order.size) * zlevs.direction < 0) {
+	if ((order.size * zlevs.direction < 0) && (minfo.leverage == 0 || order.size * *asset_balance <0)) {
 		for (const auto &l : zlevs.levels) {
 			if ((l.price - order.price)* zlevs.direction < 0 && (std::abs(order.size) < std::abs(l.amount) )) {
 				logDebug("(Zigzag) Zigzag active: order_price/level_price=($1 => $3), order_size/new_size=($2 => $4)",

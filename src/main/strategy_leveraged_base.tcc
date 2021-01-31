@@ -247,7 +247,7 @@ std::pair<typename Strategy_Leveraged<Calc>::OnTradeResult, PStrategy> Strategy_
 
 
 
-	if (cfg->reinvest_profit) {
+	if (cfg->reinvest_profit && tradeSize && st.last_dir) {
 		nwst.bal += (val - st.val) + vprofit;
 	}
 
@@ -321,7 +321,6 @@ template<typename Calc>
 IStrategy::OrderData Strategy_Leveraged<Calc>::getNewOrder(
 		const IStockApi::MarketInfo &minfo,
 		double curPrice, double price, double dir, double assets, double currency, bool rej) const {
-	bool fast_closed = false;
 	auto apos = assets - st.neutral_pos;
 	double asym = calcAsym(cfg,st);
 	double bal = (st.bal+cfg->external_balance);;
@@ -343,8 +342,10 @@ IStrategy::OrderData Strategy_Leveraged<Calc>::getNewOrder(
 					if (lev > 2 && dir != st.last_dir) {
 						int cnt = 20;
 						 while (newlev < lev - 1 && cnt) {
-							 close_price = (close_price + st.last_price)*0.5;
-							auto cps = calcPosition(close_price);
+							double cp = (3*close_price + st.last_price)*0.25;
+							auto cps = calcPosition(cp);
+							if (((cps - apos)*dir) < 0) break;
+							close_price = cp;
 							 newlev = std::abs(cps)*close_price / bal;
 							 cnt --;
 						 }
@@ -352,7 +353,6 @@ IStrategy::OrderData Strategy_Leveraged<Calc>::getNewOrder(
 									 newlev, close_price, cnt, lev);
 
 						 if (cnt) {
-							 fast_closed = true;
 							 price = close_price;
 						 }
 
@@ -383,7 +383,7 @@ IStrategy::OrderData Strategy_Leveraged<Calc>::getNewOrder(
 	double df = calcOrderSize(st.position,apos,cps);
 /*		double min_size = std::max(minfo.min_size, minfo.min_volume/price);
 	return {price, df,  std::abs(cps) < min_size && std::abs(df) < min_size?Alert::forced:Alert::enabled};*/
-	return {price, df,  cps == 0 || fast_closed?Alert::forced:Alert::enabled};
+	return {price, df,  cps == 0 ?Alert::forced:Alert::enabled};
 }
 
 template<typename Calc>
@@ -413,11 +413,13 @@ template<typename Calc>
 json::Value Strategy_Leveraged<Calc>::dumpStatePretty(
 		const IStockApi::MarketInfo &minfo) const {
 
+	double bal = cfg->external_balance+st.bal;
 	return json::Object("Position", (minfo.invert_price?-1:1)*st.position)
 				  ("Last price", minfo.invert_price?1/st.last_price:st.last_price)
 				 ("Neutral price", minfo.invert_price?1/st.neutral_price:st.neutral_price)
 				 ("Value", st.val)
-				 ("Collateral", cfg->external_balance+st.bal)
+				 ("Collateral", bal)
+				 ("Current leverage",  std::abs(st.position) * st.last_price / bal)
 				 ("Multiplier", st.power)
 				 ("Neutral pos", st.neutral_pos?json::Value(st.neutral_pos):json::Value())
 	 	 	 	 ("Trend factor", json::String({
