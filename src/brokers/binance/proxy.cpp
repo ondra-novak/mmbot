@@ -84,7 +84,7 @@ static std::string signData(std::string_view key, std::string_view data) {
 	return digest.str();
 }
 
-json::Value Proxy::private_request(Method method, std::string command, json::Value data) {
+json::Value Proxy::private_request(Method method, const std::string &command, json::Value data) {
 	if (!hasKey())
 		throw std::runtime_error("Function requires valid API keys");
 
@@ -117,7 +117,6 @@ json::Value Proxy::private_request(Method method, std::string command, json::Val
 	std::ostringstream response;
 
 	json::Value res;
-	//json::Object hdrs("Content-Type","application/x-www-form-urlencoded");
 
 	json::Object headers;
 	headers("X-MBX-APIKEY",pubKey);

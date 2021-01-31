@@ -146,6 +146,7 @@ protected:
 	double fapi_getCollateral();
 	double fapi_getLeverage(const json::StrViewA &pair);
 
+
 private:
 
 	Value dapi_account;
@@ -196,6 +197,35 @@ void Interface::updateBalCache() {
 }
 
 
+static json::Value readTrades(Proxy &proxy, const std::string &command, std::string_view pair, Value &lastId) {
+	std::uint64_t maxID = lastId.getUIntLong();
+	if (maxID) {
+		Value r = proxy.private_request(Proxy::GET, command, Object
+				("symbol",pair)
+				("fromId",lastId)
+				("limit",10)
+				);
+		for (Value x: r) {
+			Value id = x["id"];
+			std::uint64_t mid = id.getUIntLong();
+			if (mid>=maxID) maxID = mid+1;
+		}
+		lastId = maxID;
+		return r;
+	} else {
+		Value r = proxy.private_request(Proxy::GET, command, Object
+				("symbol",pair)
+				("limit",1)
+				);
+		if (r.empty()) {
+			lastId = 1;
+		} else {
+			lastId = r[0]["id"].getUIntLong()+1;
+		}
+		return json::array;
+	}
+}
+
 
  Interface::TradesSync Interface::syncTrades(json::Value lastId, const std::string_view & pair) {
 	 initSymbols();
@@ -207,181 +237,103 @@ void Interface::updateBalCache() {
 
 	 if (dapi_isSymbol(pair)) {
 		 auto cpair = remove_prefix(pair);
+		 Value r = readTrades(dapi, "/dapi/v1/userTrades", cpair, lastId);
+		 TradeHistory h(mapJSON(r,[&](Value x){
+			 double size = -x["qty"].getNumber()*minfo.asset_step;
+			 double price = 1.0/x["price"].getNumber();
+			 if (!x["buyer"].getBool()) size = -size;
+			 double comms = x["commission"].getNumber();
+			 double eff_size = size;
+			 double eff_price = price;
+			 eff_price += comms/size;
 
-		 if (lastId.hasValue()) {
-			 auto pair = cpair;
-
-			 Value r = dapi.private_request(Proxy::GET,"/dapi/v1/userTrades", Object
-					 ("fromId", lastId)
-					 ("symbol", pair)
-					 ("limit", 10)
-					 );
-
-			 r = r.map([&](Value x) ->Value{
-				if (x["id"] == lastId) return json::undefined;
-				else return x;
-			  });
-
-			 TradeHistory h(mapJSON(r,[&](Value x){
-				 double size = -x["qty"].getNumber()*minfo.asset_step;
-				 double price = 1.0/x["price"].getNumber();
-				 if (!x["buyer"].getBool()) size = -size;
-				 double comms = x["commission"].getNumber();
-				 double eff_size = size;
-				 double eff_price = price;
-				 eff_price += comms/size;
-
-				 return Trade {
-					 x["id"],
-					 x["time"].getUIntLong(),
-					 size,
-					 price,
-					 eff_size,
-					 eff_price
-				 };
-			 }, TradeHistory()));
-
-			 std::sort(h.begin(), h.end(),[&](const Trade &a, const Trade &b) {
-				 return Value::compare(a.id,b.id) < 0;
-			 });
-			 if (!h.empty()) lastId = h.back().id;
-			 return TradesSync{
-				 h,
-				 lastId
+			 return Trade {
+				 x["id"],
+				 x["time"].getUIntLong(),
+				 size,
+				 price,
+				 eff_size,
+				 eff_price
 			 };
-		 } else {
-			 auto pair = cpair;
-			 Value r = dapi.private_request(Proxy::GET,"/dapi/v1/userTrades", Object
-					 ("symbol", pair)("limit",1));
-			 Value id = r.reduce([](Value l, Value itm) {
-				 Value id = itm["id"];
-				 return id.getUIntLong() > l.getUIntLong()?id:l;
-			 }, Value(0));
-			 return TradesSync {
-				 {},
-				 id
-			 };
-		 }
+		 }, TradeHistory()));
+
+		 std::sort(h.begin(), h.end(),[&](const Trade &a, const Trade &b) {
+			 return Value::compare(a.id,b.id) < 0;
+		 });
+
+		 return TradesSync{
+			 h,
+			 lastId
+		 };
 
 	 } else if (fapi_isSymbol(pair)) {
 		 auto cpair = remove_prefix(pair);
+		 Value r = readTrades(fapi, "/fapi/v1/userTrades", cpair, lastId);
+		 TradeHistory h(mapJSON(r,[&](Value x){
+			 double size = x["qty"].getNumber();
+			 double price = x["price"].getNumber();
+			 if (!x["buyer"].getBool()) size = -size;
+			 double comms = x["commission"].getNumber();
+			 double eff_size = size;
+			 double eff_price = price;
+			 if (x["commissionAsset"].getString() == "USDT") {
+				 eff_price += comms/size;
+			 }
 
-		 if (lastId.hasValue()) {
-			 auto pair = cpair;
-
-			 Value r = fapi.private_request(Proxy::GET,"/fapi/v1/userTrades", Object
-					 ("fromId", lastId)
-					 ("symbol", pair)
-					 ("limit",10)
-					 );
-
-			 r = r.map([&](Value x) ->Value{
-				if (x["id"] == lastId) return json::undefined;
-				else return x;
-			  });
-
-			 TradeHistory h(mapJSON(r,[&](Value x){
-				 double size = x["qty"].getNumber();
-				 double price = x["price"].getNumber();
-				 if (!x["buyer"].getBool()) size = -size;
-				 double comms = x["commission"].getNumber();
-				 double eff_size = size;
-				 double eff_price = price;
-				 if (x["commissionAsset"].getString() == "USDT") {
-					 eff_price += comms/size;
-				 }
-
-				 return Trade {
-					 x["id"],
-					 x["time"].getUIntLong(),
-					 size,
-					 price,
-					 eff_size,
-					 eff_price
-				 };
-			 }, TradeHistory()));
-
-			 std::sort(h.begin(), h.end(),[&](const Trade &a, const Trade &b) {
-				 return Value::compare(a.id,b.id) < 0;
-			 });
-			 if (!h.empty()) lastId = h.back().id;
-			 return TradesSync{
-				 h,
-				 lastId
+			 return Trade {
+				 x["id"],
+				 x["time"].getUIntLong(),
+				 size,
+				 price,
+				 eff_size,
+				 eff_price
 			 };
-		 } else {
-			 Value r = fapi.private_request(Proxy::GET,"/fapi/v1/userTrades", Object
-					 ("symbol", cpair)("limit",1));
-			 Value id = r.reduce([](Value l, Value itm) {
-				 Value id = itm["id"];
-				 return id.getUIntLong() > l.getUIntLong()?id:l;
-			 }, Value(0));
-			 return TradesSync {
-				 {},
-				 id
-			 };
-		 }
+		 }, TradeHistory()));
+
+		 std::sort(h.begin(), h.end(),[&](const Trade &a, const Trade &b) {
+			 return Value::compare(a.id,b.id) < 0;
+		 });
+
+		 return TradesSync{
+			 h,
+			 lastId
+		 };
 	 } else {
+		 Value r = readTrades(px, "/api/v3/myTrades", pair, lastId);
 
-		 if (lastId.hasValue()) {
+		 TradeHistory h(mapJSON(r,[&](Value x){
+			 double size = x["qty"].getNumber();
+			 double price = x["price"].getNumber();
+			 StrViewA comass = x["commissionAsset"].getString();
+			 if (!x["isBuyer"].getBool()) size = -size;
+			 double comms = x["commission"].getNumber();
+			 double eff_size = size;
+			 double eff_price = price;
+			 if (comass == StrViewA(minfo.asset_symbol)) {
+				 eff_size -= comms;
+				 eff_price =  std::abs(size * price / eff_size);
+			 } else if (comass == StrViewA(minfo.currency_symbol)) {
+				 eff_price += comms/size;
+			 }
 
-
-			 Value r = px.private_request(Proxy::GET,"/api/v3/myTrades", Object
-					 ("fromId", lastId)
-					 ("symbol", pair)
-					 ("limit",10)
-					 );
-
-			 r = r.map([&](Value x) ->Value{
-				if (x["id"] == lastId) return json::undefined;
-				else return x;
-			  });
-
-			 TradeHistory h(mapJSON(r,[&](Value x){
-				 double size = x["qty"].getNumber();
-				 double price = x["price"].getNumber();
-				 StrViewA comass = x["commissionAsset"].getString();
-				 if (!x["isBuyer"].getBool()) size = -size;
-				 double comms = x["commission"].getNumber();
-				 double eff_size = size;
-				 double eff_price = price;
-				 if (comass == StrViewA(minfo.asset_symbol)) {
-					 eff_size -= comms;
-					 eff_price =  std::abs(size * price / eff_size);
-				 } else if (comass == StrViewA(minfo.currency_symbol)) {
-					 eff_price += comms/size;
-				 }
-
-				 return Trade {
-					 x["id"],
-					 x["time"].getUIntLong(),
-					 size,
-					 price,
-					 eff_size,
-					 eff_price
-				 };
-			 }, TradeHistory()));
-
-			 std::sort(h.begin(), h.end(),[&](const Trade &a, const Trade &b) {
-				 return Value::compare(a.id,b.id) < 0;
-			 });
-			 if (!h.empty()) lastId = h.back().id;
-			 return TradesSync{
-				 h,
-				 lastId
+			 return Trade {
+				 x["id"],
+				 x["time"].getUIntLong(),
+				 size,
+				 price,
+				 eff_size,
+				 eff_price
 			 };
-		 } else {
-			 Value r = px.private_request(Proxy::GET,"/api/v3/myTrades", Object
-					 ("symbol", pair));
-			 Value id = r.reduce([](Value l, Value itm) {
-				 Value id = itm["id"];
-				 return id.getUIntLong() > l.getUIntLong()?id:l;
-			 }, Value(0));
-			 return TradesSync {
-				 {},
-				 id
-			 };
-		 }
+		 }, TradeHistory()));
+
+		 std::sort(h.begin(), h.end(),[&](const Trade &a, const Trade &b) {
+			 return Value::compare(a.id,b.id) < 0;
+		 });
+
+		 return TradesSync{
+			 h,
+			 lastId
+		 };
 	 }
 }
 

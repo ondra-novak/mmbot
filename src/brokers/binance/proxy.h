@@ -32,7 +32,7 @@ public:
 	};
 
 	json::Value public_request(std::string method, json::Value data);
-	json::Value private_request(Method method, std::string command, json::Value data);
+	json::Value private_request(Method method, const std::string &command, json::Value data);
 
 	bool hasKey() const;
 	void setTime(std::uint64_t t);
