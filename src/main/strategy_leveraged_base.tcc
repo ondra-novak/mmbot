@@ -85,10 +85,10 @@ double Strategy_Leveraged<Calc>::calcPosition(double price) const {
 	double dynred = 0;
 	if (cfg->dynred) {
 		double f;
-		if (price > st.neutral_price) {
-			f = price / st.neutral_price- 1.0;
+		if (st.last_price > st.neutral_price) {
+			f = st.last_price / st.neutral_price- 1.0;
 		} else {
-			f = st.neutral_price / price - 1.0;
+			f = st.neutral_price / st.last_price - 1.0;
 		}
 		dynred = std::min(1.0,f * cfg->dynred);
 	}
