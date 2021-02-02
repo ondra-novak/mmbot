@@ -37,6 +37,7 @@
 #include "localdailyperfmod.h"
 #include "stats2report.h"
 #include "traders.h"
+#include "version.h"
 
 using ondra_shared::StdLogFile;
 using ondra_shared::StrViewA;
@@ -70,6 +71,9 @@ public:
 
 	App(): ondra_shared::DefaultApp({
 		App::Switch{'t',"dry_run",[this](auto &&){this->test = true;},"dry run"},
+		App::Switch{'V',"version",[this](auto &&cmd){
+			print_ver = true;
+		},"print version"},
 		App::Switch{'p',"port",[this](auto &&cmd){
 			auto p = cmd.getUInt();
 			if (p.has_value())
@@ -80,6 +84,7 @@ public:
 	},std::cout) {}
 
 	bool test = false;
+	bool print_ver = false;
 	int port = -1;
 
 	virtual void showHelp(const std::initializer_list<Switch> &defsw) {
@@ -130,6 +135,11 @@ int main(int argc, char **argv) {
 		if (!app.init(argc, argv)) {
 			std::cerr << "Invalid parameters at:" << app.args->getNext() << std::endl;
 			return 1;
+		}
+
+		if (app.print_ver) {
+			std::cout << MMBOT_VERSION << std::endl;
+			return 0;
 		}
 
 		if (!!*app.args) {

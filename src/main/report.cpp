@@ -18,6 +18,7 @@
 #include "../shared/range.h"
 #include "../shared/stdLogOutput.h"
 #include "sgn.h"
+#include "version.h"
 
 using ondra_shared::logError;
 using namespace std::chrono;
@@ -41,6 +42,7 @@ void Report::genReport() {
 	st.set("rev", counter++);
 	st.set("log", logLines);
 	st.set("performance", perfRep);
+	st.set("version", MMBOT_VERSION);
 	while (logLines.size()>30) logLines.erase(0);
 	report->store(st);
 }

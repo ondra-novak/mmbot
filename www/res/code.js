@@ -888,6 +888,7 @@ function app_start(){
 			
 			
 			redraw();
+			document.getElementById("version").innerText = stats.version; 
 
 			indicator.classList.remove("fetching");
 			indicator.classList.add("online");

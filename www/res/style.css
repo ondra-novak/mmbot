@@ -51,6 +51,7 @@ a {
 	z-index: 100;
 	
 }
+.versionarea {text-align: left;position: absolute;left: 0;top: -2em;margin: auto 0 auto auto;font-size: 0.3cm;padding: 0.1cm;width: 50%;z-index: 100;}
 
 select {
 	font-size: 0.5cm;

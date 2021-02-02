@@ -17,3 +17,4 @@ generated
 /errors.log
 *.deb
 /install_manifest.txt
+/update_version

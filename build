@@ -78,6 +78,13 @@ mkdir -p ./data
 mkdir -p ./secure_data
 mkdir -p ./log
 mkdir -p ./run
+
+if [ -f update_version ] ; then
+	GIT=`which git`
+	VER=`$GIT describe --tags`
+	echo "#define MMBOT_VERSION \"$VER\"" > ./src/main/version.h
+fi
+
 cmake -DCMAKE_BUILD_TYPE=$BUILDTYPE .
 echo "Building in $PROCS thread(s)"
 make all -j$PROCS
