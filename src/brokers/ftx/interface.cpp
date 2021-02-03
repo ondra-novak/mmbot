@@ -34,6 +34,31 @@ using ondra_shared::logError;
 
 
 static const StrViewA userAgent("+https://mmbot.trade");
+/*
+static bool priceInBTC(std::string_view &symbol) {
+	auto sz = symbol.size();
+	if (sz > 4) {
+		sz -= 4;
+		if (symbol.substr(sz) == "~BTC") {
+			symbol = symbol.substr(0,sz);
+			return true;
+		}
+	}
+	return false;
+}*/
+static std::string_view priceInBTC(const std::string_view &symbol, bool &inBTC) {
+	auto sz = symbol.size();
+	if (sz > 4) {
+		sz -= 4;
+		if (symbol.substr(sz) == "^BTC") {
+			inBTC = true;
+			return symbol.substr(0,sz);
+		}
+	}
+	inBTC = false;
+	return symbol;
+}
+
 
 Interface::Connection::Connection()
 	:api(simpleServer::HttpClient(userAgent,simpleServer::newHttpsProvider(), nullptr,simpleServer::newCachedDNSProvider(60)),
@@ -96,8 +121,9 @@ void Interface::updatePairs() {
 			MarketInfoEx minfo;
 			String name = symbol["name"].toString();
 
+			minfo.type = symbol["type"].getString();
 			minfo.asset_step = symbol["sizeIncrement"].getNumber();
-			minfo.asset_symbol = symbol["underlying"].getString();
+			minfo.asset_symbol = minfo.type == "move"?name.str():symbol["underlying"].getString();
 			minfo.currency_step = symbol["priceIncrement"].getNumber();
 			minfo.currency_symbol = "USD";
 			minfo.feeScheme = currency;
@@ -107,28 +133,36 @@ void Interface::updatePairs() {
 			minfo.min_size = minfo.asset_step;
 			minfo.min_volume = 0;
 			minfo.wallet_id = "futures";
-			minfo.type = symbol["type"].getString();
 			minfo.expiration = symbol["expiryDescription"].getString();
 			minfo.name = symbol["underlyingDescription"].getString();
 
 			if (minfo.type == "move") {
 				newsmap.emplace_back(name.str(), minfo);
 				StrViewA srch;
+				auto underlying = symbol["underlying"].getString();
 				if (minfo.expiration == "Next Week") srch = "This Week";
 				else if (minfo.expiration == "Next Day") srch = "Today";
 				Value s = result.find([&](Value c) {
-					return c["type"].getString() == "move" && c["expiryDescription"].getString() == srch && c["underlying"] == minfo.asset_symbol;
+					return c["type"].getString() == "move" && c["expiryDescription"].getString() == srch && c["underlying"] == underlying;
 				});
 				if (s.hasValue()) {
 					minfo.prev_period = s["name"].getString();
 					minfo.this_period = name.str();
-					name = String({"SPEC:",minfo.asset_symbol,"-",minfo.expiration});
+					name = String({"SPEC:",underlying,"-",minfo.expiration});
 					minfo.expiration.append(" (rollover)");
 					newsmap.emplace_back(name.str(), std::move(minfo));
 				}
 			} else {
 				newsmap.emplace_back(name.str(), std::move(minfo));
 			}
+		}
+	}
+	for (auto &minfo: newsmap) {
+		if (minfo.second.leverage && minfo.second.currency_symbol == "USD" && minfo.second.asset_symbol != "BTC") {
+			MarketInfoEx m = minfo.second;
+			m.currency_symbol = "BTC";
+			m.currency_step = 0;
+			newsmap.emplace_back(minfo.first+"^BTC", m);
 		}
 	}
 	smap.swap(newsmap);
@@ -147,7 +181,8 @@ std::vector<std::string> Interface::getAllPairs() {
 
 IStockApi::MarketInfo Interface::getMarketInfo(const std::string_view &pair) {
 	if (smap.empty()) updatePairs();
-	auto iter = smap.find(pair);
+	std::string symb(pair);
+	auto iter = smap.find(symb);
 	if (iter == smap.end())
 		throw std::runtime_error("Unknown symbol");
 	return iter->second;
@@ -226,11 +261,16 @@ double Interface::getBalance(const std::string_view &symb, const std::string_vie
 	if (iter == smap.end())
 		throw std::runtime_error("Unknown symbol");
 	if (iter->second.leverage) {
+		bool price_in_btc;
+		std::string_view cpair = priceInBTC(pair, price_in_btc);
 		const AccountInfo &acc = getAccountInfo();
-		if (symb == iter->second.currency_symbol) return getAccountInfo().colateral;
+		if (symb == iter->second.currency_symbol) {
+			if (price_in_btc) return getAccountInfo().colateral/getBTCUSDPrice();
+			return getAccountInfo().colateral;
+		}
 		else {
 			if (iter->second.this_period.empty()) {
-				auto iter = acc.positions.find(pair);
+				auto iter = acc.positions.find(cpair);
 				if (iter == acc.positions.end()) return 0.0;
 				else return iter->second;
 			} else {
@@ -252,7 +292,8 @@ double Interface::getBalance(const std::string_view &symb, const std::string_vie
 
 IStockApi::TradesSync Interface::syncTrades(json::Value lastId, const std::string_view &pair) {
 	std::ostringstream uri;
-	std::string symb ( pair);
+	bool price_in_btc;
+	std::string symb ( priceInBTC(pair, price_in_btc));
 	if (smap.empty()) updatePairs();
 	auto iter = smap.find(symb);
 	if (iter == smap.end()) throw std::runtime_error("Unknown symbol");
@@ -277,7 +318,7 @@ IStockApi::TradesSync Interface::syncTrades(json::Value lastId, const std::strin
 			resp = readTrades(iter->second.this_period);
 		}
 	} else {
-		resp = readTrades(pair);
+		resp = readTrades(symb);
 	}
 
 	if (resp["success"].getBool()) {
@@ -319,6 +360,10 @@ IStockApi::TradesSync Interface::syncTrades(json::Value lastId, const std::strin
 				} else {
 					eff_price += fee/size;
 				}
+				if (price_in_btc) {
+					price /= getBTCUSDPrice();
+					eff_price /=getBTCUSDPrice();
+				}
 				out.trades.push_back({
 					id,
 					date,
@@ -354,6 +399,7 @@ bool Interface::reset() {
 	}
 	balances.clear();
 	curAccount.reset();
+	btcusd_price.reset();
 
 	return true;
 }
@@ -370,8 +416,8 @@ Value Interface::buildClientId(Value v) {
 
 IStockApi::Orders Interface::getOpenOrders(const std::string_view &pair) {
 	std::ostringstream uri;
-
-	std::string symb ( pair);
+	bool price_in_btc;
+	std::string symb (priceInBTC(pair, price_in_btc));
 	if (smap.empty()) updatePairs();
 	auto iter = smap.find(symb);
 	if (iter == smap.end()) throw std::runtime_error("Unknown symbol");
@@ -380,14 +426,15 @@ IStockApi::Orders Interface::getOpenOrders(const std::string_view &pair) {
 
 	uri << "/orders?market=" << simpleServer::urlEncode(symb);
 	json::Value resp = requestGET(uri.str());
+	double f = (price_in_btc?getBTCUSDPrice():1);
 	if (resp["success"].getBool()) {
-		return mapJSON(resp["result"],[](Value v){
+		return mapJSON(resp["result"],[f](Value v){
 
 			return Order{
 				v["id"],
 				parseClientId(v["clientId"]),
 				(v["side"].getString() == "sell"?-1:1) * v["remainingSize"].getNumber(),
-				v["price"].getNumber()
+				v["price"].getNumber()/f
 			};
 
 		}, IStockApi::Orders());
@@ -461,7 +508,11 @@ json::Value Interface::checkCancelAndPlace(PConnection conn, json::String pair,
 
 json::Value Interface::placeOrder(const std::string_view &pair, double size, double price, json::Value clientId, json::Value replaceId, double replaceSize) {
 
-	std::string symb ( pair);
+	bool price_in_btc;
+	std::string symb ( priceInBTC(pair, price_in_btc));
+	if (price_in_btc) {
+		price *= getBTCUSDPrice();
+	}
 	if (smap.empty()) updatePairs();
 	auto iter = smap.find(symb);
 	if (iter == smap.end()) throw std::runtime_error("Unknown symbol");
@@ -497,19 +548,29 @@ double Interface::getFees(const std::string_view &pair) {
 }
 
 
+double Interface::getBTCUSDPrice()  {
+	if (!btcusd_price.has_value()) {
+		btcusd_price = getTicker("BTC/USD").last;
+	}
+	return *btcusd_price;
+}
+
 IStockApi::Ticker Interface::getTicker(const std::string_view &pair) {
 	if (smap.empty()) updatePairs();
-	auto iter = smap.find(pair);
+	bool price_in_btc;
+	std::string_view symb(priceInBTC(pair, price_in_btc));
+	auto iter = smap.find(symb);
 	if (iter == smap.end()) throw std::runtime_error("unknown symbol");
-	std::string symb = iter->second.this_period.empty()?std::string(pair):iter->second.this_period;
+	symb = iter->second.this_period.empty()?symb:iter->second.this_period;
 	std::ostringstream uri;
 	uri << "/markets/" << simpleServer::urlEncode(symb) << "/orderbook?depth=1";
 	json::Value resp = publicGET(uri.str());
 	if (resp["success"].getBool()) {
 		auto result = resp["result"];
 		IStockApi::Ticker tkr;
-		tkr.ask = result["asks"][0][0].getNumber();
-		tkr.bid = result["bids"][0][0].getNumber();
+		double f = price_in_btc?getBTCUSDPrice():1.0;
+		tkr.ask = result["asks"][0][0].getNumber()/f;
+		tkr.bid = result["bids"][0][0].getNumber()/f;
 		tkr.last = (tkr.ask + tkr.bid)*0.5;
 		tkr.time = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now())*1000;
 		return tkr;
@@ -702,13 +763,16 @@ json::Value Interface::getMarkets() const {
 			obj.set(k.second.currency_symbol, k.first);
 		} else if (k.second.type == "move") {
 			auto obj = move.object(k.second.name);
-			obj.set(k.second.expiration, k.first);
+			auto type = obj.object(k.second.currency_symbol);
+			type.set(k.second.expiration, k.first);
 		} else if (k.second.type == "prediction") {
 			auto obj = prediction.object(k.second.expiration);
-			obj.set(k.first, k.first);
+			auto type = obj.object(k.second.currency_symbol);
+			type.set(k.first, k.first);
 		} else {
 			auto obj = futures.object(k.second.name);
-			obj.set(k.second.expiration, k.first);
+			auto type = obj.object(k.second.currency_symbol);
+			type.set(k.second.expiration, k.first);
 		}
 	}
 	return Object("Spot", spot)("Futures",futures)("Move",move)("Prediction",prediction);

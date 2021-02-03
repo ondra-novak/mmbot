@@ -37,7 +37,7 @@
 #include "localdailyperfmod.h"
 #include "stats2report.h"
 #include "traders.h"
-#include "version.h"
+#include "../../version.h"
 
 using ondra_shared::StdLogFile;
 using ondra_shared::StrViewA;

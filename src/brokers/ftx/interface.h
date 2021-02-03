@@ -87,6 +87,8 @@ protected:
 	using Positions = ondra_shared::linear_map<std::string, double, std::less<std::string_view> >;
 	SymbolMap smap;
 	std::chrono::steady_clock::time_point smap_exp;
+	std::optional<double> btcusd_price;
+
 
 	void updatePairs();
 
@@ -140,6 +142,7 @@ protected:
 	bool close_position(const std::string_view &pair);
 	void updateBalances();
 	double getMarkPrice(const std::string_view &pair);
+	double getBTCUSDPrice() ;
 
 };
 

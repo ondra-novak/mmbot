@@ -18,7 +18,7 @@
 #include "../shared/range.h"
 #include "../shared/stdLogOutput.h"
 #include "sgn.h"
-#include "version.h"
+#include "../../version.h"
 
 using ondra_shared::logError;
 using namespace std::chrono;
