@@ -443,8 +443,8 @@ Interface::Ticker Interface::getTicker(const std::string_view &pair) {
 			std::vector<Tickers::value_type> tk;
 			Value book = fapi.public_request("/fapi/v1/ticker/bookTicker",Value());
 			for (Value v: book) {
-				double bid = v["askPrice"].getNumber();
-				double ask = v["bidPrice"].getNumber();
+				double bid = v["bidPrice"].getNumber();
+				double ask = v["askPrice"].getNumber();
 				double midl = std::sqrt(bid * ask);
 				tk.emplace_back(
 					v["symbol"].getString(),
