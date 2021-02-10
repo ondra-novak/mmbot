@@ -103,7 +103,7 @@ double Strategy_Leveraged<Calc>::calcPosition(double price) const {
 		//and we reduce opened long position as well
 		//
 		//for inverted futures, short and long is swapped
-		if (reduction) {
+		if (reduction && st.position != 0) {
 		//	profit += st.bal - st.redbal;
 			new_neutral = calcNewNeutralFromProfit(profit, price,reduction);
 		} else {
@@ -165,7 +165,18 @@ double Strategy_Leveraged<Calc>::calcNewNeutralFromProfit(double profit, double 
 			c_neutral = 2*st.neutral_price - c_neutral;
 		}
 	}
-	double new_neutral = st.neutral_price + (c_neutral - st.neutral_price) * (reduction);
+
+	double final_reduction;
+	if (reduction <= 0.5) {
+		if (profit > 0) final_reduction = reduction * 2; else final_reduction = 0;
+	} else if (reduction <= 1 ){
+		if (profit > 0) final_reduction = 1; else final_reduction = 2*(reduction-0.5);
+	} else {
+		if (profit >= 0) final_reduction = 2*reduction-1; else final_reduction = 1;
+	}
+
+	double new_neutral = st.neutral_price + (c_neutral - st.neutral_price) * (final_reduction);
+	if ((new_neutral - price)*(st.neutral_price-price) < 0) new_neutral = price;
 	return new_neutral;
 }
 
