@@ -10,6 +10,7 @@
 
 #include "traders.h"
 
+#include "../imtjson/src/imtjson/object.h"
 #include "../shared/countdown.h"
 #include "../shared/logOutput.h"
 #include "ext_stockapi.h"
@@ -111,6 +112,23 @@ void Traders::clear() {
 	walletDB.lock()->clear();
 }
 
+json::Value Traders::getUtilization(std::size_t lastUpdate) const {
+	json::Object res;
+	json::Object ids;
+	json::Array updated;
+	std::size_t lastTime = 0;
+	for (const auto &x: utilization) {
+		ids.set(x.first, x.second.first);
+		if (x.second.second > lastUpdate) updated.push_back(x.first);
+		lastTime = std::max(lastTime, x.second.second);
+	}
+	res.set("traders", ids);
+	res.set("reset",reset_time);
+	res.set("updated", updated);
+	res.set("last_update", lastTime);
+	return res;
+}
+
 void Traders::loadIcon(MTrader &t) {
 	PStockApi api = t.getBroker();
 	const IBrokerIcon *bicon = dynamic_cast<const IBrokerIcon*>(api.get());
@@ -154,6 +172,8 @@ void Traders::removeTrader(ondra_shared::StrViewA n, bool including_state) {
 			t->perform(true);
 			//drop state
 			t->dropState();
+			//delete utilization stats
+			utilization.erase(n);
 			//now we can erase
 		}
 		traders.erase(n);
@@ -170,10 +190,18 @@ static void resetBroker(const PStockApi &api) {
 	}
 }
 
+void Traders::report_util(std::string_view ident, double ms) {
+	utilization[std::string(ident)] = std::pair<double,std::size_t>{ms,
+			std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count()};
+}
+
 void Traders::resetBrokers() {
+	auto t1 = std::chrono::system_clock::now();
 	stockSelector.forEachStock([](json::StrViewA, const PStockApi &api) {
 		resetBroker(api);
 	});
+	auto t2 = std::chrono::system_clock::now();
+	reset_time = std::chrono::duration_cast<std::chrono::milliseconds>(t2-t1).count();
 }
 
 /*void Traders::runTraders(bool manually) {

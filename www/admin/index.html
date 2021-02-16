@@ -666,6 +666,18 @@ the same order, they are ordered by its ID - this is the default ordering. Modif
 <div class="trouble_sect"><div>Temporarily stops trading for all configured traders  and cancels all their orders. To re-enable trading, you have to click Apply button<div><button data-name="stop">Global Stop</button></div></div>
 <div>Reloads all brokers. This can fix some problems with certain brokers<div><button data-name="reload_brokers">Reload brokers</button></div></div>
 </div>
+</x-section>
+<x-section><x-section-caption>Utilization</x-section-caption>
+<p>Shows utilization for each trader and total. If the utilization is higher than 100%, the performance of the program may be significantly reduced. In this case, consider to start separate instance.</p>
+<p>Note: Utilization is calculated from the total time spent in a single trader during the cycle. It consists of total CPU usage and API latency</p>  
+<table class="utilization">
+<tr><td><img src="../res/options.png">API common</td><td><div class="progress"><div data-name="p"></div><span data-name="v"></span></div></td></tr>
+<tr data-name="items[]"><td><img data-name="icon"><span data-name="name"></span></td><td><div class="progress"><div data-name="p"></div><span data-name="v"></span></div></td></tr>
+<tr><td>Total</td><td><div class="progress"><div data-name="total_p"></div><span data-name="total_v"></span></div></td></tr>
+</table>
+</x-section>
+<div>
+</div>
 </x-form>
 </template>
 

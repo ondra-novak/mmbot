@@ -77,6 +77,8 @@ public:
 	void loadIcons(const std::string &path);
 
 
+	void report_util(std::string_view ident, double ms);
+
 	template<typename Fn>
 	void enumTraders(Fn &&fn) const {
 		for (auto k: traders) fn(std::move(k));
@@ -85,6 +87,14 @@ public:
 	void resetBrokers();
 	SharedObject<NamedMTrader> find(json::StrViewA id) const;
 	PWalletDB walletDB;
+
+
+	using Utilization = std::unordered_map<std::string, std::pair<double,std::size_t> >;
+	double reset_time;
+
+	Utilization utilization;
+
+	json::Value getUtilization(std::size_t lastUpdate) const;
 
 private:
 	void loadIcon(MTrader &t);

@@ -1459,7 +1459,7 @@ App.prototype.gen_backtest = function(form,anchor, template, inputs, updatefn) {
 App.prototype.init_spreadvis = function(form, id) {
 	var url = "api/spread"
 	form.enableItem("vis_spread",false);
-	var inputs = ["spread_calc_stdev_hours", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode","dynmult_sliding","dynmult_cap","dynmult_mult","force_spread"];
+	var inputs = ["spread_calc_stdev_hours", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode","dynmult_sliding","dynmult_cap","dynmult_mult"];
 	this.gen_backtest(form,"spread_vis_anchor", "spread_vis",inputs,function(cntr){
 
 		cntr.showSpinner();
@@ -1468,7 +1468,7 @@ App.prototype.init_spreadvis = function(form, id) {
 		var req = {
 			sma:data.spread_calc_sma_hours,
 			stdev:data.spread_calc_stdev_hours,
-			force_spread:Math.log(data.force_spread/100+1),
+			force_spread:data.force_spread,
 			mult:mult,
 			raise:data.dynmult_raise,
 			cap:data.dynmult_cap,
@@ -1555,7 +1555,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		"hp_dtrend","hp_allowshort","hp_reinvest","hp_power","hp_asym","hp_reduction","sh_curv","hp_initboost","hp_extbal","hp_powadj","hp_dynred",
 		"gs_external_assets","gs_rb_hi_a","gs_rb_lo_a","gs_rb_hi_p","gs_rb_lo_p",
 		"min_balance","max_balance","max_leverage"];
-	var spread_inputs = ["spread_calc_stdev_hours", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode","dynmult_sliding","dynmult_cap","dynmult_mult","force_spread"];
+	var spread_inputs = ["spread_calc_stdev_hours", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode","dynmult_sliding","dynmult_cap","dynmult_mult"];
 	var balance = form._balance;
 	var assets = form._assets;
 	var leverage = form._leverage != "n/a";	
@@ -1851,7 +1851,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		var req = {
 			sma:data.spread_calc_sma_hours,
 			stdev:data.spread_calc_stdev_hours,
-			force_spread:Math.log(data.force_spread/100+1),
+			force_spread:data.force_spread,
 			mult:mult,
 			raise:data.dynmult_raise,
 			cap:data.dynmult_cap,
@@ -2112,9 +2112,42 @@ App.prototype.optionsForm = function() {
 			}.bind(this)}
 			
 	};
+	var utm = Date.now();
+	function updateUtilz() {
+		fetch_json("./api/utilization?tm="+utm).then(function(data) {
+			var f = {
+				p:{".style.width":(data.reset/600).toFixed(1)+"%"},
+				v:(data.reset/600).toFixed(1)
+			}
+			var total = data.reset;
+			var items = [];
+			for (var id in data.traders) {
+				var t = data.traders[id];
+				var broker = this.traders[id].broker;
+				total += t;
+				items.push({		
+					"":{classList:{"updated":data.updated.indexOf(id) != -1}},		
+					icon:this.brokerImgURL(broker),
+					name:this.traders[id].title || id,
+					p:{".style.width":(t/600).toFixed(1)+"%"},
+					v:(t/600).toFixed(1)
+				});
+			}
+			f.items = items;
+			f.total_p = {".style.width":(total/600).toFixed(1)+"%"};
+			f.total_v = (total/600).toFixed(1);
+			form.setData(f);
+			utm = data.last_update;
+		}.bind(this));
+	}
+	
+	updateUtilz.call(this);
+	var tm = setInterval(updateUtilz.bind(this),1000);
+	
 	form.setData(data);
 	form.save = function() {
-		var data = form.readData();
+		clearInterval(tm);
+		var data = form.readData();		
 		this.config.report_interval = data.report_interval*86400000;
 		this.config.backtest_interval = data.backtest_interval*86400000;
 	}.bind(this);

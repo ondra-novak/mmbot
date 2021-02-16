@@ -352,9 +352,15 @@ int main(int argc, char **argv) {
 							auto trader_cycle = [=]() mutable {
 								traders.lock()->resetBrokers();
 								traders.lock_shared()->enumTraders([&](const auto & trinfo){
-									sch.immediate()>>[tr = trinfo.second]()mutable{
+									sch.after(std::chrono::milliseconds(1))>>[tr = trinfo.second]()mutable{
 										try {
-											tr.lock()->perform(false);
+											auto t1 = std::chrono::system_clock::now();
+											auto tl = tr.lock();
+											std::string_view ident = tl->ident;
+											tl->perform(false);
+											tl.release();
+											auto t2 = std::chrono::system_clock::now();
+											traders.lock()->report_util(ident, std::chrono::duration_cast<std::chrono::milliseconds>(t2-t1).count());
 										} catch (std::exception &e) {
 											logError("Scheduler exception: $1", e.what());
 										}

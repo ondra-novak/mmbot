@@ -1110,7 +1110,7 @@ x-form.trading .chart .spinner {
 
 }
 
-.upload_dialog  div.progress {
+div.progress {
 	border: 1px solid #666;
 	margin: 1em 10%;
 	line-height: 2em;
@@ -1118,7 +1118,50 @@ x-form.trading .chart .spinner {
 	color: #9c997e;
 }
 
-.upload_dialog  div.progress > div {background: #00ff0073;height:  2em;transition: 1s all linear;position: absolute;left: 0;top: 0;}
+div.progress > div {background: #00ff0073;height:  2em;transition: 1s all linear;position: absolute;left: 0;top: 0;}
+
+table.utilization img {
+    width: 24px;
+    vertical-align: middle;
+    margin-right: 0.5em;
+}
+
+table.utilization div.progress {
+	margin:0;
+	text-align: center;
+}
+
+table.utilization td:last-child span::after {
+	content: " %";
+}
+
+table.utilization span {
+	
+}
+
+table.utilization {
+	border-collapse:collapse;
+	width: 50%;
+	margin: auto;
+}
+
+table.utilization tr td {
+	text-align:left;
+	transition: 1s all;
+}
+
+table.utilization tr.updated td {
+	background-color: #440;
+	color: white;
+}
+
+table.utilization tr:first-child td {border-bottom: 1px solid;}
+
+table.utilization tr:last-child td {
+	border-top: 1px solid;
+	font-weight: bold;
+}
+
 
 .reset_strategy {
 

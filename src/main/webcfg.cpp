@@ -51,7 +51,8 @@ NamedEnum<WebCfg::Command> WebCfg::strCommand({
 	{WebCfg::upload_trades, "upload_trades"},
 	{WebCfg::wallet, "wallet"},
 	{WebCfg::btdata, "btdata"},
-	{WebCfg::visstrategy, "visstrategy"}
+	{WebCfg::visstrategy, "visstrategy"},
+	{WebCfg::utilization, "utilization"}
 });
 
 WebCfg::WebCfg( const SharedObject<State> &state,
@@ -109,6 +110,7 @@ bool WebCfg::operator ()(const simpleServer::HTTPRequest &req,
 		case wallet: return reqDumpWallet(req, rest);
 		case btdata: return reqBTData(req);
 		case visstrategy: return reqVisStrategy(req, qp);
+		case utilization: return reqUtilization(req, qp);
 		}
 	}
 	return false;
@@ -1820,5 +1822,13 @@ bool WebCfg::reqVisStrategy(simpleServer::HTTPRequest req,  simpleServer::QueryP
 		out << "</svg>";
 	}
 
+	return true;
+}
+
+bool WebCfg::reqUtilization(simpleServer::HTTPRequest req,  simpleServer::QueryParser &qp) {
+	if (!req.allowMethods({"GET"})) return true;
+	HeaderValue v = qp["tm"];
+	json::Value res = trlist.lock_shared()->getUtilization(v.getUInt());
+	req.sendResponse("application/json", res.stringify());
 	return true;
 }

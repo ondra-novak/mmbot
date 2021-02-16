@@ -134,7 +134,8 @@ public:
 		upload_trades,
 		wallet,
 		btdata,
-		visstrategy
+		visstrategy,
+		utilization
 	};
 
 	AuthMapper auth;
@@ -163,6 +164,7 @@ protected:
 	bool reqDumpWallet(simpleServer::HTTPRequest req, ondra_shared::StrViewA vpath);
 	bool reqBTData(simpleServer::HTTPRequest req);
 	bool reqVisStrategy(simpleServer::HTTPRequest req,  simpleServer::QueryParser &qp);
+	bool reqUtilization(simpleServer::HTTPRequest req,  simpleServer::QueryParser &qp);
 
 	using Sync = std::unique_lock<std::recursive_mutex>;
 
