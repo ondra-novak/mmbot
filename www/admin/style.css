@@ -113,6 +113,7 @@ x-section {
 	position: relative;
 	margin: 1em 0;
 	box-sizing: border-box;
+	transition: 0.3s all;
 }
 x-section.goal {
 	top: 0;
@@ -1141,13 +1142,14 @@ table.utilization span {
 
 table.utilization {
 	border-collapse:collapse;
-	width: 50%;
+	width: 13cm;
 	margin: auto;
+	transition: 1s all;
 }
 
 table.utilization tr td {
 	text-align:left;
-	transition: 1s all;
+	transition: 0.5s all;
 }
 
 table.utilization tr.updated td {
@@ -1257,6 +1259,9 @@ input,select,button,textarea {
 }
 .backtest {
 	font-size: 2.5vw;
+}
+table.utilization {
+    width:100%;
 }
 }
 
