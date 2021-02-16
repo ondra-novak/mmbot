@@ -225,7 +225,19 @@ public:
 	};
 
 
-	static VisRes visualizeSpread(std::function<std::optional<ChartItem>()> &&source, double sma, double stdev, double mult, double dyn_raise, double dyn_fall,double dyn_cap, json::StrViewA dynMode, bool sliding, bool dyn_mult, bool strip, bool onlyTrades);
+	static VisRes visualizeSpread(std::function<std::optional<ChartItem>()> &&source,
+			double sma,
+			double stdev,
+			double force_spread,
+			double mult,
+			double dyn_raise,
+			double dyn_fall,
+			double dyn_cap,
+			json::StrViewA dynMode,
+			bool sliding,
+			bool dyn_mult,
+			bool strip,
+			bool onlyTrades);
 
 	std::optional<double> getInternalBalance() const;
 	std::optional<double> getInternalCurrencyBalance() const;

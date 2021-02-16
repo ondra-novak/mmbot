@@ -1299,10 +1299,20 @@ MTrader::SpreadCalcResult MTrader::calcSpread() const {
 
 }
 
-MTrader::VisRes MTrader::visualizeSpread(std::function<std::optional<ChartItem>()> &&source, double sma, double stdev,
-		double mult, double dyn_raise, double dyn_fall,double dyn_cap,
-		json::StrViewA dynMode, bool sliding, bool dyn_mult,
-		bool strip, bool onlyTrades) {
+MTrader::VisRes MTrader::visualizeSpread(
+		std::function<std::optional<ChartItem>()> &&source,
+		double sma,
+		double stdev,
+		double force_spread,
+		double mult,
+		double dyn_raise,
+		double dyn_fall,
+		double dyn_cap,
+		json::StrViewA dynMode,
+		bool sliding,
+		bool dyn_mult,
+		bool strip,
+		bool onlyTrades) {
 	DynMultControl dynmult(dyn_raise, dyn_fall, dyn_cap, strDynmult_mode[dynMode], dyn_mult);
 	VisRes res;
 	double last = 0;
@@ -1310,13 +1320,15 @@ MTrader::VisRes MTrader::visualizeSpread(std::function<std::optional<ChartItem>(
 	std::vector<double> prices;
 	std::size_t isma = sma*60;
 	std::size_t istdev = stdev * 60;
+	if (force_spread>0) istdev = 5;
 	std::size_t mx = std::max(isma+istdev, 2*istdev);
 	for (auto k = source(); k.has_value(); k = source()) {
 		double p = k->last;
 		if (last || sliding) {
 	/*		if (minfo.invert_price) p = 1.0/p;*/
 			prices.push_back(p);
-			auto spread_info = stCalcSpread(prices.end()-std::min(mx,prices.size()), prices.end(), sma*60, stdev*60);
+			auto spread_info = stCalcSpread(prices.end()-std::min(mx,prices.size()), prices.end(), isma, istdev);
+			if (force_spread>0) spread_info.spread = force_spread;
 			double spread = spread_info.spread;
 			double center = sliding?spread_info.center:0;
 			double low = (center+last) * std::exp(-spread*mult*dynmult.getBuyMult());
