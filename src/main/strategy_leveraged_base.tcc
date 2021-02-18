@@ -221,7 +221,11 @@ std::pair<typename Strategy_Leveraged<Calc>::OnTradeResult, PStrategy> Strategy_
 	double apos = assetsLeft - st.neutral_pos;
 	auto cpos = calcPosition(tradePrice);
 	if (tradeSize == 0) {
-		neutral_recalc_ratio = 0.5;
+		neutral_recalc_ratio = 1;
+		if (apos * cpos > 0) {
+			double npos = sgn(cpos)*std::sqrt(std::sqrt(apos*apos*cpos*cpos));
+			cpos = npos;
+		}
 	} else {
 		//to fight against partial execution
 		//tradeSize must at least 90% of calculated size to calculate reduction in full range
