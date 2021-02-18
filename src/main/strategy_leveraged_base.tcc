@@ -261,9 +261,10 @@ std::pair<typename Strategy_Leveraged<Calc>::OnTradeResult, PStrategy> Strategy_
 	nwst.val = val;
 
 
+	double baladj = (val - st.val) + vprofit;;
 
-	if (cfg->reinvest_profit && tradeSize && st.last_dir) {
-		nwst.bal += (val - st.val) + vprofit;
+	if ((cfg->reinvest_profit && tradeSize && st.last_dir) || (!tradeSize && baladj < 0  && baladj + st.bal > 0)) {
+		nwst.bal += baladj;
 	}
 
 
@@ -396,12 +397,6 @@ IStrategy::OrderData Strategy_Leveraged<Calc>::getNewOrder(
 
 	auto cps = calcPosition(price);
 	double df = calcOrderSize(st.position,apos,cps);
-/*	if (cps == 0 && cfg->longonly) {
-		if (lev < 1) return {0,0,Alert::forced};
-		else if (!rej) return {price,df/2,Alert::enabled};
-	}*/
-/*		double min_size = std::max(minfo.min_size, minfo.min_volume/price);
-	return {price, df,  std::abs(cps) < min_size && std::abs(df) < min_size?Alert::forced:Alert::enabled};*/
 	return {price, df,  cps == 0 ?Alert::forced:Alert::enabled};
 }
 
