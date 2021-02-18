@@ -263,7 +263,7 @@ std::pair<typename Strategy_Leveraged<Calc>::OnTradeResult, PStrategy> Strategy_
 
 	double baladj = (val - st.val) + vprofit;;
 
-	if ((cfg->reinvest_profit && tradeSize && st.last_dir) || (!tradeSize && baladj < 0  && baladj + st.bal > 0)) {
+	if ((cfg->reinvest_profit && tradeSize && st.last_dir) || (!tradeSize && baladj < 0  && baladj + (st.bal+cfg->external_balance) > 0)) {
 		nwst.bal += baladj;
 	}
 
