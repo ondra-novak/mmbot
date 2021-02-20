@@ -1117,6 +1117,7 @@ div.progress {
 	line-height: 2em;
 	position: relative;
 	color: #9c997e;
+	overflow: hidden;
 }
 
 div.progress > div {background: #00ff0073;height:  2em;transition: 1s all linear;position: absolute;left: 0;top: 0;}

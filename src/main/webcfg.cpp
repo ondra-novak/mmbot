@@ -195,20 +195,6 @@ bool WebCfg::reqConfig(simpleServer::HTTPRequest req)  {
 					return;
 				}
 				req.sendResponse(HTTPResponse(202).contentType("application/json"),data.stringify());
-				req = nullptr;
-				traders.lock()->resetBrokers();
-				traders.lock_shared()->enumTraders([&](const auto &trinfo){
-					dispatch([tr = trinfo.second]()mutable{
-						try {
-							tr.lock()->perform(true);
-						} catch (std::exception &e) {
-							logError("%1", e.what());
-						}
-					});
-				});
-				dispatch([rpt = traders.lock_shared()->rpt]()mutable{
-					rpt.lock()->genReport();
-				});
 
 
 			} catch (std::exception &e) {

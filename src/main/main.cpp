@@ -124,6 +124,43 @@ public:
 
 };
 
+void trader_cycle(PReport rpt, PPerfModule perfmod, Scheduler sch, int pos, std::chrono::steady_clock::time_point nextRun) {
+
+	if (pos == 0) {
+		nextRun = nextRun+std::chrono::minutes(1);
+		traders.lock()->resetBrokers();
+	}
+
+	SharedObject<NamedMTrader> selected;
+	int p = pos;
+	traders.lock_shared()->enumTraders([&](const auto & trinfo){
+		if (p == 0) selected = trinfo.second;
+		p--;
+	});
+	if (selected == nullptr) {
+		auto rptl = rpt.lock();
+		rptl->perfReport(perfmod.lock()->getReport());
+		rptl->genReport();
+		sch.at(nextRun) >> [=]{
+			trader_cycle(rpt,perfmod,  sch, 0, nextRun);
+		};
+	} else {
+		try {
+			auto t1 = std::chrono::system_clock::now();
+			auto tl = selected.lock();
+			std::string_view ident = tl->ident;
+			tl->perform(false);
+			tl.release();
+			auto t2 = std::chrono::system_clock::now();
+			traders.lock()->report_util(ident, std::chrono::duration_cast<std::chrono::milliseconds>(t2-t1).count());
+		} catch (std::exception &e) {
+			logError("Scheduler exception: $1", e.what());
+		}
+		sch.after(std::chrono::milliseconds(1)) >> [=]{
+			trader_cycle(rpt,perfmod,  sch, pos+1, nextRun);
+		};
+	}
+}
 
 
 int main(int argc, char **argv) {
@@ -342,38 +379,7 @@ int main(int argc, char **argv) {
 							};
 
 
-
-							auto report_cycle = [=]() mutable {
-								auto rptl = rpt.lock();
-								rptl->perfReport(perfmod.lock()->getReport());
-								rptl->genReport();
-							};
-
-							auto trader_cycle = [=]() mutable {
-								traders.lock()->resetBrokers();
-								traders.lock_shared()->enumTraders([&](const auto & trinfo){
-									sch.after(std::chrono::milliseconds(1))>>[tr = trinfo.second]()mutable{
-										try {
-											auto t1 = std::chrono::system_clock::now();
-											auto tl = tr.lock();
-											std::string_view ident = tl->ident;
-											tl->perform(false);
-											tl.release();
-											auto t2 = std::chrono::system_clock::now();
-											traders.lock()->report_util(ident, std::chrono::duration_cast<std::chrono::milliseconds>(t2-t1).count());
-										} catch (std::exception &e) {
-											logError("Scheduler exception: $1", e.what());
-										}
-									};
-								});
-								sch.after(std::chrono::seconds(1)) >> report_cycle;
-
-							};
-
-
-							sch.after(std::chrono::seconds(1)) >> trader_cycle;
-							sch.each(std::chrono::minutes(1)) >> std::move(trader_cycle);
-
+							trader_cycle(rpt, perfmod, sch, -1, std::chrono::steady_clock::now());
 
 							return 0;
 						};
