@@ -83,7 +83,12 @@ TemplateJS.View.regCustomElement("X-CHECKBOX", new TemplateJS.CustomElement(
 
 TemplateJS.View.regCustomElement("X-SWITCH", new TemplateJS.CustomElement(
 		function(elem, val) {
-			elem.hidden = (elem.dataset.value!=val);
+			if (elem.dataset.separator) {
+				var arr = elem.dataset.value.split(elem.dataset.separator);
+				elem.hidden = arr.indexOf(val) == -1;
+			} else {
+				elem.hidden = (elem.dataset.value!=val);
+			}
 		},
 		function(elem) {
 			return undefined;

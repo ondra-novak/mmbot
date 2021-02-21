@@ -103,7 +103,7 @@ double Strategy_Leveraged<Calc>::calcPosition(double price) const {
 		//and we reduce opened long position as well
 		//
 		//for inverted futures, short and long is swapped
-		if (reduction && st.position != 0) {
+		if (reduction && st.position != 0 && st.last_dir) {
 		//	profit += st.bal - st.redbal;
 			new_neutral = calcNewNeutralFromProfit(profit, price,reduction);
 		} else {
@@ -182,7 +182,7 @@ double Strategy_Leveraged<Calc>::calcNewNeutralFromProfit(double profit, double 
 
 template<typename Calc>
 void Strategy_Leveraged<Calc>::recalcPower(const PCalc &calc, const PConfig &cfg, State &nwst) {
-	double offset = calc->calcPosition(nwst.power, cfg->asym, nwst.neutral_price, nwst.neutral_price);
+	double offset = calc->calcPosition(nwst.power, calcAsym(cfg, nwst), nwst.neutral_price, nwst.neutral_price);
 	double adjbalance = std::abs(nwst.bal  + cfg->external_balance + nwst.neutral_price * std::abs(nwst.position - offset) * cfg->powadj) * cfg->power;
 	double power = calc->calcPower(nwst.neutral_price, adjbalance, cfg->asym);
 	if (std::isfinite(power)) {
@@ -220,17 +220,13 @@ std::pair<typename Strategy_Leveraged<Calc>::OnTradeResult, PStrategy> Strategy_
 	double neutral_recalc_ratio = 0;
 	double apos = assetsLeft - st.neutral_pos;
 	auto cpos = calcPosition(tradePrice);
-	if (tradeSize == 0) {
-		neutral_recalc_ratio = 1;
-		if (apos * cpos > 0) {
-			double npos = sgn(cpos)*std::sqrt(std::sqrt(apos*apos*cpos*cpos));
-			cpos = npos;
-		}
-	} else {
 		//to fight against partial execution
 		//tradeSize must at least 90% of calculated size to calculate reduction in full range
 		neutral_recalc_ratio = st.position == cpos?1.0:std::min(1.1*std::abs(tradeSize/(st.position - cpos)),1.0);
-	}
+		if (tradeSize == 0 && apos * cpos > 0) {
+			cpos = apos;
+			neutral_recalc_ratio = 0.5;
+		}
 	double mult = st.power;
 	double profit = (apos - tradeSize) * (tradePrice - st.last_price);
 	double vprofit = (st.position) * (tradePrice - st.last_price);
@@ -261,9 +257,12 @@ std::pair<typename Strategy_Leveraged<Calc>::OnTradeResult, PStrategy> Strategy_
 	nwst.val = val;
 
 
-	double baladj = (val - st.val) + vprofit;;
+	double baladj = (val - st.val) + profit;
+	double vbaladj = (val - st.val) + vprofit;
 
-	if ((cfg->reinvest_profit && tradeSize && st.last_dir) || (!tradeSize && baladj < 0  && baladj + (st.bal+cfg->external_balance) > 0)) {
+	if ((cfg->reinvest_profit && tradeSize && st.last_dir)) {
+		nwst.bal += vbaladj;
+	} else if (tradeSize == 0 && cpos && nwst.bal+cfg->external_balance+baladj > 0) {
 		nwst.bal += baladj;
 	}
 

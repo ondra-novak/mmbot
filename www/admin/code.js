@@ -631,7 +631,8 @@ App.prototype.fillForm = function (src, trg) {
 	data.detect_manual_trades = filledval(src.detect_manual_trades,false);
 	data.report_position_offset = filledval(src.report_position_offset,0);
 	data.report_order = filledval(src.report_order,0);
-	data.force_spread = filledval(adjNum((Math.exp(defval(src.force_spread,0))-1)*100),"0.000");
+	data.force_spread = filledval((Math.exp(src.force_spread || Math.log(1.01))*100-100).toFixed(3),"1.000");
+	data.spread_mode = filledval(src.force_spread?"fixed":"adaptive","adaptive");
 	data.max_balance = filledval(src.max_balance,"");
 	data.min_balance = filledval(src.min_balance,"");
 	data.zigzag = filledval(src.zigzag,false);
@@ -639,8 +640,6 @@ App.prototype.fillForm = function (src, trg) {
 	data.ext_bal = filledval(src.ext_bal,0);
 	data.adj_timeout = filledval(src.adj_timeout,60);
 	data.emul_leverage = filledval(src.emulate_leveraged,0);
-
-	
 	
 	data.icon_reset={"!click": function() {
 		this.resetTrader(src.id,initial_pos);
@@ -651,6 +650,12 @@ App.prototype.fillForm = function (src, trg) {
 	data.icon_trading={"!click":this.tradingForm.bind(this, src.id)};
 	data.icon_share={"!click":this.shareForm.bind(this, src.id, trg)};
 	data.advedit = {"!click": this.editStrategyState.bind(this, src.id)};
+	data.spread_mode["!change"] = function() {
+		trg.setItemValue(this.dataset.name,this.value);
+	};
+	data.dynmult_mode["!change"] = function() {
+		trg.setItemValue(this.dataset.name,this.value);
+	};
 	
     var timeout_id = null;
 
@@ -671,9 +676,7 @@ App.prototype.fillForm = function (src, trg) {
 	};
 
 	function unhide_changed(x) {
-
-
-		
+	
 		var root = trg.getRoot();
 		var items = root.getElementsByClassName("changed");
 		Array.prototype.forEach.call(items,function(x) {
@@ -696,12 +699,17 @@ App.prototype.fillForm = function (src, trg) {
 		});	
 
 		refresh_hdr();
-
-		
 		
 		return x;
 	}
 
+/*	function spreadRules() {
+		var d = trg.readData(["spread_mode","dynmult_mode"]);
+		var a = d.spread_mode == "adaptive";
+		trg.
+		
+	
+	}*/
 	
 
 	return trg.setData(data).catch(function(){}).then(unhide_changed.bind(this)).then(trg.dlgRules.bind(trg));
@@ -802,7 +810,9 @@ App.prototype.saveForm = function(form, src) {
 	trader.detect_manual_trades = data.detect_manual_trades;
 	trader.report_position_offset = data.report_position_offset;
 	trader.report_order = data.report_order;
-	trader.force_spread = Math.log(data.force_spread/100+1);
+	if (data.spread_mode == "fixed") {
+		trader.force_spread = Math.log(data.force_spread/100+1);
+	}
 	trader.ext_bal = data.ext_bal;
 	trader.emulate_leveraged = data.emul_leverage;
 	trader.adj_timeout = data.adj_timeout;
@@ -1459,7 +1469,7 @@ App.prototype.gen_backtest = function(form,anchor, template, inputs, updatefn) {
 App.prototype.init_spreadvis = function(form, id) {
 	var url = "api/spread"
 	form.enableItem("vis_spread",false);
-	var inputs = ["spread_calc_stdev_hours", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode","dynmult_sliding","dynmult_cap","dynmult_mult"];
+	var inputs = ["spread_calc_stdev_hours", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode","dynmult_sliding","dynmult_cap","dynmult_mult","force_spread","spread_mode"];
 	this.gen_backtest(form,"spread_vis_anchor", "spread_vis",inputs,function(cntr){
 
 		cntr.showSpinner();
@@ -1468,7 +1478,7 @@ App.prototype.init_spreadvis = function(form, id) {
 		var req = {
 			sma:data.spread_calc_sma_hours,
 			stdev:data.spread_calc_stdev_hours,
-			force_spread:data.force_spread,
+			force_spread:data.spread_mode=="fixed"?Math.log(data.force_spread/100+1):0,
 			mult:mult,
 			raise:data.dynmult_raise,
 			cap:data.dynmult_cap,
@@ -1555,7 +1565,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		"hp_dtrend","hp_allowshort","hp_reinvest","hp_power","hp_asym","hp_reduction","sh_curv","hp_initboost","hp_extbal","hp_powadj","hp_dynred",
 		"gs_external_assets","gs_rb_hi_a","gs_rb_lo_a","gs_rb_hi_p","gs_rb_lo_p",
 		"min_balance","max_balance","max_leverage"];
-	var spread_inputs = ["spread_calc_stdev_hours", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode","dynmult_sliding","dynmult_cap","dynmult_mult"];
+	var spread_inputs = ["spread_calc_stdev_hours", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode","dynmult_sliding","dynmult_cap","dynmult_mult","force_spread","spread_mode"];
 	var balance = form._balance;
 	var assets = form._assets;
 	var leverage = form._leverage != "n/a";	
@@ -1851,7 +1861,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		var req = {
 			sma:data.spread_calc_sma_hours,
 			stdev:data.spread_calc_stdev_hours,
-			force_spread:data.force_spread,
+			force_spread:data.spread_mode=="fixed"?Math.log(data.force_spread/100+1):0,
 			mult:mult,
 			raise:data.dynmult_raise,
 			cap:data.dynmult_cap,

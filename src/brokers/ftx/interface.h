@@ -141,6 +141,7 @@ protected:
 	void updateBalances();
 	double getMarkPrice(const std::string_view &pair);
 
+//	simpleServer::WebSocketStream ws;
 };
 
 

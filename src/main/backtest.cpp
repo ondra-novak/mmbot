@@ -78,9 +78,10 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 				}
 				if (minfo.leverage) {
 					double max_lev = cfg.max_leverage?std::min(cfg.max_leverage,minfo.leverage):minfo.leverage;
-					double max_abs_pos = (adjbal * max_lev)/bt.price.price - std::abs(pos);
+					double max_abs_pos = (adjbal * max_lev)/bt.price.price;
 					double new_pos = std::abs(pos + order.size);
-					if (new_pos > max_abs_pos) {
+					double cur_pos = std::abs(pos);
+					if (new_pos > cur_pos && new_pos > max_abs_pos) {
 						if (cfg.accept_loss) {
 							s.reset();
 							s.onIdle(minfo, tk, pos, adjbal);
@@ -133,8 +134,8 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 				}
 				auto tres = s.onTrade(minfo, p, order.size, pos, balance);
 				bt.neutral_price = tres.neutralPrice;
-				bt.norm_accum += tres.normAccum;
-				bt.norm_profit += tres.normProfit;
+				bt.norm_accum += std::isfinite(tres.normAccum)?tres.normAccum:0;
+				bt.norm_profit += std::isfinite(tres.normProfit)?tres.normProfit:0;
 				bt.open_price = tres.openPrice;
 				bt.size = order.size;
 				bt.price.price = p;

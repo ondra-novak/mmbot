@@ -55,6 +55,13 @@ select {
     box-sizing: border-box;
 }
 
+x-switch.block {
+	display:block;
+}
+x-switch.block[hidden] {
+	display:hidden;
+}
+
 select.noarrow {
 	background-image: none;
 }

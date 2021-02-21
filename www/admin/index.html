@@ -246,18 +246,18 @@ Specifies maximum allowed asset balance (or position, for short use negative val
 </span></span><input type="number" data-name="max_balance" step="any"></label>
 </x-section>
 <x-section class="adv" data-name="spread_vis_anchor"><x-section-caption>Spread</x-section-caption>
+<label  class="adv"><span>Spread mode</span><select data-name="spread_mode"><option value="adaptive">Adaptive</option><option value="fixed">Fixed</option></select></label>
+<x-switch data-name="spread_mode" data-value="fixed"  class="block">
+<label  class="adv"><span>Fixed spread [%] <span class="tooltip"
+>Specifies fixed spread. Dynamic spread is still applied unless it is disabled</span></span><input type="number" step="any" data-name="force_spread"></x-slider></label></x-switch>
+<x-switch data-name="spread_mode" data-value="adaptive" class="block">
 <label  class="adv"><span>Spread width: st.dev hours <span class="tooltip"
 >Specifies how many hours is used to calculate a standard deviation for spread value</span></span><x-slider data-name="spread_calc_stdev_hours" data-min="1" data-max="240" data-mult="1"></x-slider></label>
 <label  class="adv"><span>Spread width: smooth hours <span class="tooltip"
 >Specifies smooth in hours. The program uses SMA (simple moving average) to calculate volatility smooth. By setting 1, it means, deviation longest than 1 hour is not considered as local deviation.</span></span><x-slider data-name="spread_calc_sma_hours" data-min="1" data-max="240" data-mult="1"></x-slider></label>
 <label  class="adv"><span>Spread width: manual adjust <span class="tooltip"
 >Specify manual adjust. Values above zero causes wider spread up to 2x. Values below zero causes narrow spread up to 1/2</span></span><x-slider data-name="spread_mult" data-min="-100" data-max="100" data-mult="1" data-fixed="0"></x-slider></label>
-<label class="adv"><span>Dynamic spread mult. raise<span class="tooltip"
->Specifies [in %] how much is dynamic multiplicator raised after trade.</span></span><x-slider data-name="dynmult_raise" data-min="1" data-max="1000" data-mult="1"></x-slider></label>
-<label class="adv"><span>Dynamic spread mult. fall<span class="tooltip"
->Specifies [in %] how much is dynamic multiplicator falls every minute without trade.</span></span><x-slider data-name="dynmult_fall" data-min="0.1" data-max="10" data-mult="0.1" data-fixed="1"></x-slider></label>
-<label class="adv"><span>Dynamic spread mult. cap<span class="tooltip"
->Specifies cap for spread multiplicator.</span></span><input type="number" step="1" data-name="dynmult_cap"></label>
+</x-switch>
 <label class="adv"><span>Dynamic spread behaviour</span><select data-name="dynmult_mode">
 <option value="disabled">Disabled</option>
 <option value="independent"  selected="selected">Independent</option>
@@ -265,8 +265,20 @@ Specifies maximum allowed asset balance (or position, for short use negative val
 <option value="alternate">Alternate</option>
 <option value="half_alternate">Half alternate</option>
 </select></label>
+<x-switch data-name="dynmult_mode" data-separator="," data-value="independent,together,alternate,half_alternate" class="block">
+<label class="adv"><span>Dynamic spread mult. raise<span class="tooltip"
+>Specifies [in %] how much is dynamic multiplicator raised after trade.</span></span><x-slider data-name="dynmult_raise" data-min="1" data-max="1000" data-mult="1"></x-slider></label>
+<label class="adv"><span>Dynamic spread mult. fall<span class="tooltip"
+>Specifies [in %] how much is dynamic multiplicator falls every minute without trade.</span></span><x-slider data-name="dynmult_fall" data-min="0.1" data-max="10" data-mult="0.1" data-fixed="1"></x-slider></label>
+<label class="adv"><span>Dynamic spread mult. cap<span class="tooltip"
+>Specifies cap for spread multiplicator.</span></span><input type="number" step="1" data-name="dynmult_cap"></label>
+</x-switch>
 <div class="label adv"><span>Options</span><div>
-<div><x-checkbox data-name="dynmult_mult">Multiply factor</x-checkbox></div>
+<div>
+<x-switch data-name="dynmult_mode" data-separator="," data-value="independent,together,alternate,half_alternate">
+<x-checkbox data-name="dynmult_mult">Multiply factor</x-checkbox>
+</x-switch>
+</div>
 <div><x-checkbox data-name="dynmult_sliding">Sliding</x-checkbox></div>
 <div><x-checkbox data-name="zigzag">Zigzag</x-checkbox></div>
 </div></div>
@@ -288,7 +300,6 @@ The position is not generally in the sync due to various issues. You need to spe
 <label class="adv"><span>Ordering (position in the report)<span class="tooltip">Specifies order in report page. The traders are ordered by this ascending number. If there are two traders with
 the same order, they are ordered by its ID - this is the default ordering. Modifying this number you can change the default ordering.
 </span></span><input type="number" step="any" data-name="report_order"></label>
-<label class="adv"><span>Force spread [%](0=disabled)<span class="tooltip">Specifies exact spread in % width and disables the internal spread detection</span></span><input type="number" step="any" data-name="force_spread"></label>
 <label class="adv"><span>ADJ trade timeout [min] (0=disabled)<span class="tooltip">Specifies timeout after which a fake (ADJ) trade is put to trade history if there is a difference between calculated position and actual position reported by the broker. This allows to detect deposits and withdraws and report them as a trade, however, on some markets, trading data may be delayed, which causes puting wrong ADJ trades before the updated list of trades is being populated from the market. The value is in minutes, default value is set to 60 = aprx 1 hour. If you have experienced such wrong ADJ trades, you can increase the timeout or disable it by setting this option to 0. Note: The timer is reset after each trade, so setting a large value can cause, that ADJ trade also never appear.</span></span><input type="number" step="any" data-name="adj_timeout"></label>
 </x-section>
 <div></div>
