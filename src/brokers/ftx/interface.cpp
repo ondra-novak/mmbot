@@ -166,7 +166,7 @@ IStockApi::BrokerInfo Interface::getBrokerInfo() {
 		"ftx",
 		"FTX",
 		"https://ftx.com/#a=3140432",
-		"1.0",
+		"1.5",
 		R"mit(Copyright (c) 2019 Ondřej Novák
 
 Permission is hereby granted, free of charge, to any person
@@ -200,6 +200,9 @@ void Interface::onLoadApiKey(json::Value keyData) {
 	c->api_key=keyData["key"].getString();
 	c->api_secret=keyData["secret"].getString();
 	c->api_subaccount=keyData["subaccount"].getString();
+
+	ws_disconnect();
+
 }
 
 void Interface::updateBalances() {
@@ -368,8 +371,147 @@ Value Interface::buildClientId(Value v) {
 	else return v;
 }
 
+static json::String rawSign(const std::string_view &api_secret, const std::string_view &msg) {
+	unsigned char digest[256];
+	unsigned int digest_len = sizeof(digest);
+	HMAC(EVP_sha256(),api_secret.data(), api_secret.length(), reinterpret_cast<const unsigned char *>(msg.data()), msg.length(), digest, &digest_len);
+	json::String hexDigest(digest_len*2,[&](char *c){
+		const char *hexletters = "0123456789abcdef";
+		char *d = c;
+		for (unsigned int i = 0; i < digest_len; i++) {
+			*d++ = hexletters[digest[i] >> 4];
+			*d++ = hexletters[digest[i] & 0xf];
+		}
+		return d-c;
+	});
+	return hexDigest;
+}
+
+
+
+void Interface::ws_disconnect() {
+	std::unique_lock _(wslock);
+	if (ws != nullptr) {
+		ws.close();
+		_.unlock();
+		ws_reader.join();
+		_.lock();
+		ws = nullptr;
+	}
+}
+
+static void ws_post(simpleServer::WebSocketStream ws, json::StrViewA txt) {
+	logDebug("WSPOST: $1", txt);
+	ws.postText(txt);
+}
+
+void Interface::ws_login() {
+	std::unique_lock _(wslock);
+	simpleServer::WebSocketStream ws = this->ws;
+	auto conn = connection.lock();
+	_.unlock();
+	if (ws!= nullptr) {
+		std::ostringstream message;
+		auto now = conn->now();
+		message << now << "websocket_login";
+		json::Value loginStr =
+				json::Object("op","login")
+				("args",json::Object
+					("key", conn->api_key)
+					("time", now)
+					("subaccount",conn->api_subaccount.empty()?json::Value():json::Value(conn->api_subaccount))
+					("sign", rawSign(conn->api_secret, message.str()))
+				);
+		ws_post(ws, loginStr.toString());
+		json::Value subscribe = json::Object("op","subscribe")("channel","orders");
+		ws_post(ws, subscribe.toString());
+	}
+}
+
+
+void Interface::ws_onMessage(json::StrViewA text) {
+	std::unique_lock _(wslock);
+	try {
+		logDebug("WSRECV $1", text);
+		json::Value jmsg = json::Value::fromString(text);
+		if (jmsg["channel"].getString() == "orders" && jmsg["type"].getString() == "update") {
+			auto data = jmsg["data"];
+			auto id = data["id"].getIntLong();
+			auto status = data["status"];
+			if (status.getString() == "closed") {
+				activeOrderMap.erase(id);
+				auto iter = replaceOrderMap.find(id);
+				if (iter != replaceOrderMap.end()) {
+					json::Value newOrder = iter->second;
+					replaceOrderMap.erase(iter);
+					if (data["filledSize"].getNumber() == 0) {
+						Value resp = connection.lock()->requestPOST("/orders", newOrder);
+					}
+				}
+			} else {
+				activeOrderMap[id] = data;
+			}
+		}
+	} catch (const std::exception &e) {
+		logError("$1", e.what());
+	}
+}
+
+bool Interface::checkWSHealth() {
+	using namespace simpleServer;
+	std::unique_lock _(wslock);
+	if (ws == nullptr) {
+		activeOrderMap.clear();
+		replaceOrderMap.clear();
+		auto conn = connection.lock();
+		auto &client = conn->api.getClient();
+		ws = simpleServer::connectWebSocket(client, "https://ftx.com/ws");
+		ws_reader = std::thread([ws = this->ws, this]() mutable {
+			bool cont = true;
+			auto nextPing = std::chrono::steady_clock::now();
+			while (cont && ws.readFrame()) {
+				switch (ws.getFrameType()) {
+				default:
+				case WSFrameType::binary: break;
+				case WSFrameType::connClose: cont = false;break;
+				case WSFrameType::ping:break;
+				case WSFrameType::text: ws_onMessage(ws.getText());
+										break;
+				}
+				do {
+					auto now = std::chrono::steady_clock::now();
+					if (now > nextPing) {
+						ws_post(ws, "{\"op\":\"ping\"}");
+						nextPing = now + std::chrono::seconds(15);
+					}
+				}	while (!ws.getStream().waitForInput(15000));
+			}
+			std::unique_lock _(wslock);
+			this->ws = nullptr;
+		});
+		conn.release();
+		_.unlock();
+		ws_login();
+		json::Value resp = requestGET("/orders");
+		if (resp["success"].getBool()) {
+			_.lock();
+			auto res = resp["result"];
+			for (Value x: res) {
+				activeOrderMap[x["id"].getIntLong()] = x;
+			}
+		} else {
+			throw std::runtime_error(resp.stringify().str());
+		}
+
+		return false;
+	} else {
+		return true;
+	}
+}
+
 IStockApi::Orders Interface::getOpenOrders(const std::string_view &pair) {
-	std::ostringstream uri;
+
+	checkWSHealth();
 
 	std::string symb ( pair);
 	if (smap.empty()) updatePairs();
@@ -377,23 +519,21 @@ IStockApi::Orders Interface::getOpenOrders(const std::string_view &pair) {
 	if (iter == smap.end()) throw std::runtime_error("Unknown symbol");
 	if (!iter->second.this_period.empty()) symb = iter->second.this_period;
 
-
-	uri << "/orders?market=" << simpleServer::urlEncode(symb);
-	json::Value resp = requestGET(uri.str());
-	if (resp["success"].getBool()) {
-		return mapJSON(resp["result"],[](Value v){
-
-			return Order{
+	std::unique_lock _(wslock);
+	IStockApi::Orders orders;
+	for (const auto &item: activeOrderMap) {
+		if (item.second["market"].getString() == StrViewA(symb)) {
+			Value v = item.second;
+			orders.push_back({
 				v["id"],
 				parseClientId(v["clientId"]),
 				(v["side"].getString() == "sell"?-1:1) * v["remainingSize"].getNumber(),
 				v["price"].getNumber()
-			};
-
-		}, IStockApi::Orders());
-	} else {
-		throw std::runtime_error(resp.stringify().str());
+			});
+		}
 	}
+	return orders;
+
 }
 
 std::string numberToFixed(double numb, int fx) {
@@ -405,20 +545,7 @@ std::string numberToFixed(double numb, int fx) {
 }
 
 json::Value Interface::placeOrderImpl(PConnection conn, const std::string_view &pair, double size, double price, json::Value ordId) {
-	Value req = Object
-			("market", pair)
-			("side", size > 0?"buy":"sell")
-			("price", price)
-			("type","limit")
-			("size", std::abs(size))
-			("postOnly",true)
-			("clientId", ordId);
-	Value resp = conn.lock()->requestPOST("/orders", req);
-	if (resp["success"].getBool()) {
-		return resp["result"]["id"];
-	} else {
-		throw std::runtime_error(resp.stringify().str());
-	}
+	return checkCancelAndPlace(conn, pair, size, price, ordId, nullptr, 0);
 }
 
 bool Interface::cancelOrderImpl(PConnection conn, json::Value cancelId) {
@@ -434,28 +561,39 @@ bool Interface::cancelOrderImpl(PConnection conn, json::Value cancelId) {
 
 }
 
-json::Value Interface::checkCancelAndPlace(PConnection conn, json::String pair,
+json::Value Interface::checkCancelAndPlace(PConnection conn, std::string_view pair,
 		double size, double price, json::Value ordId,
 		json::Value replaceId, double replaceSize) {
 
-	while(true) {
-		std::ostringstream uri;
-		uri << "/orders/" << simpleServer::urlEncode(replaceId.toString());
-		json::Value ordStatus = conn.lock()->requestGET(uri.str());
-		if (ordStatus["success"].getBool()) {
-			Value info = ordStatus["result"];
-			if (info["status"].getString() == "closed") {
-				double remain = info["size"].getNumber()-info["filledSize"].getNumber();
-				if (remain >= replaceSize*0.95) {
-					return placeOrderImpl(conn, pair.str(), size, price, ordId);
-				} else {
-					return nullptr;
-				}
-			} else {
-				std::this_thread::sleep_for(std::chrono::seconds(1));
-			}
+	checkWSHealth();
+
+	std::unique_lock _(wslock);
+
+	Value req = Object
+				("market", pair)
+				("side", size > 0?"buy":"sell")
+				("price", price)
+				("type","limit")
+				("size", std::abs(size))
+				("postOnly",true)
+				("clientId", ordId);
+
+	auto id = replaceId.getUIntLong();
+	auto iter = activeOrderMap.find(id);
+	if (iter == activeOrderMap.end()) {
+		_.unlock();
+		Value resp = conn.lock()->requestPOST("/orders", req);
+		if (resp["success"].getBool()) {
+			return resp["result"]["id"];
+		} else {
+			throw std::runtime_error(resp.stringify().str());
 		}
+	} else {
+		replaceOrderMap[id] = req;
+		_.unlock();
+		cancelOrderImpl(conn, replaceId);
 	}
+	return replaceId;
 }
 
 
@@ -483,12 +621,9 @@ json::Value Interface::placeOrder(const std::string_view &pair, double size, dou
 		auto ordId = buildClientId(clientId);
 		return placeOrderImpl(connection, symb,size, price, ordId);
 	} else {
-		cancelOrderImpl(connection,replaceId);
 		auto ordId = buildClientId(clientId);
-		return checkCancelAndPlace(connection, json::String(StrViewA(symb)), size,price,ordId,replaceId,replaceSize);
+		return checkCancelAndPlace(connection, symb, size,price,ordId,replaceId,replaceSize);
 	}
-
-
 }
 
 double Interface::getFees(const std::string_view &pair) {
@@ -629,18 +764,7 @@ json::Value Interface::Connection::signHeaders(const std::string_view &method, c
 	if (body.defined()) body.toStream(buff);
 	std::string msg = buff.str();
 
-	unsigned char digest[256];
-	unsigned int digest_len = sizeof(digest);
-	HMAC(EVP_sha256(),api_secret.data(), api_key.length(), reinterpret_cast<const unsigned char *>(msg.data()), msg.length(), digest, &digest_len);
-	json::String hexDigest(digest_len*2,[&](char *c){
-		const char *hexletters = "0123456789abcdef";
-		char *d = c;
-		for (unsigned int i = 0; i < digest_len; i++) {
-			*d++ = hexletters[digest[i] >> 4];
-			*d++ = hexletters[digest[i] & 0xf];
-		}
-		return d-c;
-	});
+	auto hexDigest = rawSign(api_secret, msg);
 	Value req =  Object
 			("FTX-KEY", api_key)
 			("FTX-TS", ts)

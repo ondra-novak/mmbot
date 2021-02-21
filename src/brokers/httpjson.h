@@ -58,6 +58,7 @@ public:
 
 
 	void setBaseUrl(const std::string &url);
+	simpleServer::HttpClient &getClient() {return httpc;}
 
 protected:
 	simpleServer::HttpClient httpc;

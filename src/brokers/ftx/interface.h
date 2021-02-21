@@ -9,8 +9,10 @@
 #define SRC_BITFINEX_INTERFACE_H_
 #include <chrono>
 #include <optional>
+#include <thread>
 
 #include <imtjson/string.h>
+#include "../../server/src/simpleServer/websockets_stream.h"
 #include "../../shared/shared_object.h"
 
 #include "../api.h"
@@ -131,9 +133,9 @@ protected:
 	json::Value buildClientId(json::Value v);
 	json::Value getMarkets() const override ;
 
-	static json::Value placeOrderImpl(PConnection conn, const std::string_view &pair, double size, double price, json::Value ordId);
-	static bool cancelOrderImpl(PConnection conn, json::Value cancelId);
-	static json::Value checkCancelAndPlace(PConnection conn, json::String pair,
+	json::Value placeOrderImpl(PConnection conn, const std::string_view &pair, double size, double price, json::Value ordId);
+	bool cancelOrderImpl(PConnection conn, json::Value cancelId);
+	json::Value checkCancelAndPlace(PConnection conn, std::string_view  pair,
 			double size, double price, json::Value ordId,
 			json::Value replaceId, double replaceSize);
 
@@ -141,7 +143,16 @@ protected:
 	void updateBalances();
 	double getMarkPrice(const std::string_view &pair);
 
-//	simpleServer::WebSocketStream ws;
+	std::recursive_mutex wslock;
+	simpleServer::WebSocketStream ws;
+	std::thread ws_reader;
+	bool checkWSHealth();
+	void ws_disconnect();
+	void ws_login();
+	void ws_onMessage(json::StrViewA text);
+
+	using OrderMap = std::unordered_map<std::int64_t, json::Value>;
+	OrderMap activeOrderMap, replaceOrderMap;
 };
 
 
