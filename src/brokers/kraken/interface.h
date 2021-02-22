@@ -38,6 +38,10 @@ public:
 	virtual IStockApi::Ticker getTicker(const std::string_view &piar) override;
 	virtual json::Value getMarkets() const override;
 	virtual json::Value getWallet_direct() override;
+	virtual json::Value getSettings(const std::string_view & pairHint) const override;
+	virtual json::Value setSettings(json::Value v) override;
+	virtual void restoreSettings(json::Value v) override;
+
 protected:
 	mutable HTTPJson api;
 	OrderDataDB orderDB;
@@ -53,6 +57,7 @@ protected:
 	std::unordered_map<json::Value, json::Value> syncTradeCache;
 	bool tickerValid = false;
 	double fees = -1;
+	bool allow_margin = false;
 
 	std::string apiKey;
 	json::Binary apiSecret;

@@ -72,7 +72,7 @@ OTHER DEALINGS IN THE SOFTWARE.)mit",
 "AfeyAjp4NMshYEoI4MQNWuj0fUUlL8UlkfgVjccFHVjz8jsFdODo+/ZvhlU/XBaL/8awqqjg5R9H"
 "C3OvJiSqLlrXdArLz0kHrBwZauN5I5l84bDtC3bwhUj0C/wyOsfb6WtnGIZhGIZhGC++AKuyWLMB"
 "sxKhAAAAAElFTkSuQmCC",
-false,true
+true,true
 	};
 }
 
@@ -107,7 +107,7 @@ json::Value Interface::getMarkets() const {
 		auto altbase = symbolMap[base].getString();
 		auto altquote = symbolMap[quote].getString();
 		auto exsub = res.object(altbase);
-		if (!row["leverage_buy"].empty() && !row["leverage_sell"].empty())  {
+		if (!row["leverage_buy"].empty() && !row["leverage_sell"].empty() && allow_margin)  {
 			exsub.set(altquote, Object
 					("Exchange",String({"ex_",pairName}))
 					("Leveraged",String({"lv_",pairName}))
@@ -125,7 +125,7 @@ std::vector<std::string> Interface::getAllPairs() {
 	std::vector<std::string> res;
 	for (Value row: pairMap) {
 		res.push_back(String({"ex_",row.getKey()}).str());
-		if (!row["leverage_buy"].empty() && !row["leverage_sell"].empty())  {
+		if (!row["leverage_buy"].empty() && !row["leverage_sell"].empty() && allow_margin)  {
 			res.push_back(String({"lv_",row.getKey()}).str());
 			res.push_back(String({"hb_",row.getKey()}).str());
 		}
@@ -630,4 +630,29 @@ json::Value Interface::getWallet_direct() {
 	getSpotBalance("");
 	return Object("spot", balanceMap["result"])("positions", pos);
 
+}
+
+json::Value Interface::getSettings(const std::string_view & pairHint) const {
+	return {
+		Object("name","allow_margin")
+			  ("default",allow_margin?"yes":"no")
+			  ("type","enum")
+			  ("label","Enable Leverage")
+			  ("options", Object
+					  ("yes","Yes (not recommended)")
+					  ("no","No")
+			  ),
+		Object("type","label")
+		      ("label","The Kraken platform has a malfunctioning liquidation engne. Due to low liquidity, high latency, insufficient protection against large price movements and zero protection against a negative balance, it is not recommended to use the Kraken platform for leverage trading. For leverage trading, consider Binance or FTX platforms")
+
+	};
+}
+
+json::Value Interface::setSettings(json::Value v) {
+	allow_margin = v["allow_margin"].getString() == "yes";
+	return v;
+}
+
+void Interface::restoreSettings(json::Value v)  {
+	setSettings(v);
 }

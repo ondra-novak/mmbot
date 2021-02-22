@@ -456,7 +456,12 @@ function formBuilder(format) {
 							   }
 						   })};
 						   break;
-						   
+					
+		case "label":
+			return {
+				tag:"p",
+				text:itm.label
+			};
 		default:
 			el = {tag:"span",text:"unknown: "+itm.type};
 			break;
