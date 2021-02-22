@@ -217,8 +217,6 @@ void MTrader::perform(bool manually) {
 		//get current status
 		auto status = getMarketStatus();
 
-		double eq = strategy.getEquilibrium(status.assetBalance);
-
 		std::string buy_order_error;
 		std::string sell_order_error;
 
@@ -236,6 +234,8 @@ void MTrader::perform(bool manually) {
 			sell_alert.reset();
 			buy_alert.reset();
 		}
+
+		double eq = strategy.getEquilibrium(status.assetBalance);
 
 		if (!anytrades && cfg.adj_timeout && cfg.enabled
 				&& std::abs(status.assetBalance - *asset_balance)
@@ -288,8 +288,18 @@ void MTrader::perform(bool manually) {
 				logDebug("Enforced alerts because configuration");
 				need_alerts = true;
 			} else {
-				logDebug("Using equilibrium as lastTradePrice: $1 -> $2", lastTradePrice, eq);
-				lastTradePrice = eq; //set lastTradePrice to equilibrium
+				if (trades.empty()) {
+					logDebug("Using equilibrium as lastTradePrice: $1 -> $2", lastTradePrice, eq);
+					lastTradePrice = eq; //set lastTradePrice to equilibrium
+				} else {
+					auto t1 = trades.back().time;
+					auto t2 = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+					constexpr auto slide_time = 15*60*1000;
+					double f = std::min<double>(std::max<double>((double)(t2-t1)/(double)slide_time, 0.0),1.0);
+					double nlp = lastTradePrice + (eq - lastTradePrice) * f;
+					logDebug("Sliding to equilibrium as lastTradePrice: $1 -> $2 (f = $3, res = $4)", lastTradePrice, eq, f, nlp);
+					lastTradePrice = nlp; //set lastTradePrice to equilibrium
+				}
 			}
 		}
 
