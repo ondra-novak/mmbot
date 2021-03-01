@@ -284,10 +284,10 @@ void MTrader::perform(bool manually) {
 					&& eq > 0				 //equilibrium is not zero or negatiove
 					&& (lastTradePrice * std::exp(-status.curStep)>eq //eq is not in reach to lastTradePrice
 						|| lastTradePrice * std::exp(status.curStep)<eq)) { //eq is not in reach to lastTradePrice
-			if (cfg.max_size>0 || cfg.buy_mult < 0.8 || cfg.sell_mult > 1.2) {
+		/*	if (cfg.max_size>0 || cfg.buy_mult < 0.8 || cfg.sell_mult > 1.2) {
 				logDebug("Enforced alerts because configuration");
 				need_alerts = true;
-			} else {
+			} else */{
 				if (trades.empty()) {
 					logDebug("Using equilibrium as lastTradePrice: $1 -> $2", lastTradePrice, eq);
 					lastTradePrice = eq; //set lastTradePrice to equilibrium
