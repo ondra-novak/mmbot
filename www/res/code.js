@@ -566,8 +566,22 @@ function app_start(){
 	
 	function calculate_sums(charts, infoMap) {
 		var sums = {};
+		charts = Object.keys(charts).reduce(function(a,k) {
+			var ch = charts[k];
+			if (Array.isArray(ch) && ch.length > 3) a[k] = ch;
+			return a;
+		},{})
+		var maxDate = Date.now();
+		var minDate = Object.values(charts).reduce(function(a,b) {
+			return a>b[0].time?b[0].time:a;
+		},maxDate);
+		var midDate = (2*minDate+maxDate)/3;
+		var firstDate = Object.values(charts).reduce(function(a,b) {
+			return (b[0].time < midDate && a<b[0].time)?b[0].time:a;
+		},minDate);
+		
 		for (var k in charts) {
-			sums[infoMap[k].currency] = [];
+			sums[infoMap[k].currency] = [];			
 		}
 		for (var k in charts) {
 			sums[infoMap[k].currency] = sums[infoMap[k].currency].concat(charts[k]); 
@@ -612,9 +626,13 @@ function app_start(){
 				return s;
 			},[]);
 		}
+		Object.keys(sums).forEach(function(k){
+			sums[k] = sums[k].filter(function(a) {
+				return a.time >= firstDate;
+			});
+			if (sums[k].length == 0) delete sums[k];
+		});
 		return sums;
-
-	
 	}
 	
 	
