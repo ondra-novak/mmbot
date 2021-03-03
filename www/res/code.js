@@ -635,6 +635,39 @@ function app_start(){
 		return sums;
 	}
 	
+	function calculate_pnls(charts, infoMap, prices, sums) {
+		var pnl = {};
+		var org = {};
+		for (var k in sums) {
+			org[k] = pnl[k] = sums[k][sums[k].length-1].pl;
+							
+		}
+		for (var k in charts) {
+			var p = prices[k];
+			if (p) {
+				var ch = charts[k];
+				if (ch.length>3) {
+					var lt = ch[ch.length-1];
+					var price = lt.price;
+					var last_price = prices[k];
+					var pos = lt.pos;
+					var profit = infoMap[k].inverted
+					        ?(1/price-1/last_price)*pos
+					        :(last_price - price)*pos;
+					pnl[infoMap[k].currency]+= profit;
+				}
+			}
+		}		
+		var retpnl = {};
+		for (var k in pnl) {
+			retpnl[k] = [{
+				pl:pnl[k],
+				class:"last",
+				label:"("+(org[k]<pnl[k]?"+":"")+adjNum(pnl[k]-org[k])+") = ",				
+			}];
+		}
+		return retpnl;
+	} 
 	
 	function notifyTrades(trades) {
 		trades.sort(function(a,b){return b.time - a.time;});
@@ -817,6 +850,7 @@ function app_start(){
 			}
 
 			var sums = calculate_sums(charts,infoMap);
+			var plns = calculate_pnls(charts,infoMap, stats.prices, sums);
 			
 			localStorage["mmbot_time"] = Date.now();
 			
@@ -884,12 +918,12 @@ function app_start(){
 				} else if (fld.startsWith("+")) {
 					fld = fld.substr(1);
 					for (var k in sums) {
-						appendChart(k,{"title":k}, sums[k], fld);
+						appendChart(k,{"title":k}, sums[k], fld, plns[k]);
 					}
 					updateLastEventsAll(charts);			
 				} else {
 					traders.forEach(function(t) {
-						appendChart(t.k,t.info, t.chart, fld,  t.orders,t.ranges, t.misc);
+						appendChart(t.k,t.info, t.chart, fld, orders[t.k],t.ranges, t.misc);
 					});
 					updateLastEventsAll(charts);
 				}

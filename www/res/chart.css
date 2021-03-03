@@ -75,7 +75,7 @@ line.marker.sell {
 }
 
 .orderline.current{
-	stroke: #f4ff88;
+	stroke: #f4ff88;	
 }
 
 .textorderline {
@@ -85,5 +85,11 @@ line.marker.sell {
 	font-style: italic;
 	text-shadow: 0 0 10px black;
 	font-weight: bold;
+	transform: translate(7em,0);
+}
+
+.textorderline.current {
+	transform:none;
+
 }
 

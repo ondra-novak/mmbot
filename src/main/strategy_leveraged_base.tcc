@@ -224,8 +224,8 @@ std::pair<typename Strategy_Leveraged<Calc>::OnTradeResult, PStrategy> Strategy_
 		//tradeSize must at least 90% of calculated size to calculate reduction in full range
 		neutral_recalc_ratio = st.position == cpos?1.0:std::min(1.1*std::abs(tradeSize/(st.position - cpos)),1.0);
 		if (tradeSize == 0 && apos * cpos > 0) {
-			cpos = apos;
-			neutral_recalc_ratio = 0.5;
+			cpos = st.position;
+			neutral_recalc_ratio = 0.1;
 		}
 	double mult = st.power;
 	double profit = (apos - tradeSize) * (tradePrice - st.last_price);
