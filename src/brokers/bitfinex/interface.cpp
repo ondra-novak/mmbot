@@ -279,9 +279,11 @@ IStockApi::TradesSync Interface::syncTrades(json::Value lastId, const std::strin
 			} else {
 				eff_price = price + lastFees*price*(size>0?1:-1);
 			}
-			out.trades.push_back({
-				x[0],x[2].getUIntLong(),size,price,eff_size,eff_price
-			});
+			if (std::isfinite(eff_price)) {
+				out.trades.push_back({
+					x[0],x[2].getUIntLong(),size,price,eff_size,eff_price
+				});
+			}
 		}
 		if (!out.trades.empty()) {
 			fees[std::string(pair)] = lastFees;
