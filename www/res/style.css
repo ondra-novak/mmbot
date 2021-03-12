@@ -1133,7 +1133,7 @@ body.daymode .info > div.buy {
     color: green;
 }
 body.daymode .info > div.sell {color: red;}
-body.daymode .info > div.last {color: #002aff;}
+body.daymode .info > div.last {color: #00178e;}
 body.daymode .info > div.pos {color: #a800de;}
 body.daymode .info > div.error > div {color: #4f4c50;}
 body.daymode .info >div > div.error_popup {background-color:white;}
