@@ -1,3 +1,23 @@
+mmbot (2:21.3) unstable; urgency=medium
+
+  * added feature - slide to equilibrium - LIMIT orders are placed relative to last trade and slides over time to by relative to equilibrium
+  * added feature - show time utilization of each trader.
+  * added feature - fixed spread
+  * added version indicator
+  * added dynamic spread multiplier cap.
+  * improve using alerts
+  * improve FTX broker - now it uses websockets for some trading data
+  * improve stability and response of admin page when utilization is very high
+  * improve stop and restart (reduced chance of timeout during stop)
+  * improved binance broker - sync trades is now slightly faster 
+  * improved paper trading on leveraged strategy, which is activated after max leverage is reached
+  * fixed bug in calculation of equilibrium right after a trade, which can cause that LIMIT orders appear on incorrect prices
+  * fixed bug in Bitfinex broker which can cause that zero trade is reported which can destroy trading statistics.
+  * change: margin trading is by default disabled for Kraken because the platform doesn't have sufficient protection against flashcrashes
+  
+
+ -- Ondra Novak <nov.ondrej@gmail.com>  Fri, 12 Mar 2021 21:30:00 +0200
+
 mmbot (2:21.1.1) unstable; urgency=medium
 
   * hotfix some exchanges doesn't update trade history immediately (new option introduced ADJ timeou)
