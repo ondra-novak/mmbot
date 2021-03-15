@@ -353,28 +353,6 @@ IStrategy::OrderData Strategy_Leveraged<Calc>::getNewOrder(
 				double close_price = fastclose_delta+st.last_price;
 				if (close_price * dir < curPrice * dir && close_price * dir > price * dir) {
 					price = close_price;
-
-					auto cps = calcPosition(close_price);
-					double newlev = std::abs(cps)*close_price / bal;
-					if (lev > 2 && dir != st.last_dir) {
-						int cnt = 20;
-						 while (newlev < lev - 1 && cnt) {
-							double cp = (3*close_price + st.last_price)*0.25;
-							auto cps = calcPosition(cp);
-							if (((cps - apos)*dir) < 0) break;
-							close_price = cp;
-							 newlev = std::abs(cps)*close_price / bal;
-							 cnt --;
-						 }
-						 logDebug("Fast close on levr: newlev = $1, lev = $4, price = $2, cnt = $3",
-									 newlev, close_price, cnt, lev);
-
-						 if (cnt) {
-							 price = close_price;
-						 }
-
-					}
-
 				}
 			}
 		}
