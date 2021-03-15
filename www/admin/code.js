@@ -637,6 +637,7 @@ App.prototype.fillForm = function (src, trg) {
 	data.min_balance = filledval(src.min_balance,"");
 	data.zigzag = filledval(src.zigzag,false);
 	data.max_leverage = filledval(src.max_leverage,3);
+	data.reduce_on_leverage = filledval(src.reduce_on_leverage, false);
 	data.ext_bal = filledval(src.ext_bal,0);
 	data.adj_timeout = filledval(src.adj_timeout,60);
 	data.emul_leverage = filledval(src.emulate_leveraged,0);
@@ -816,6 +817,7 @@ App.prototype.saveForm = function(form, src) {
 	trader.ext_bal = data.ext_bal;
 	trader.emulate_leveraged = data.emul_leverage;
 	trader.adj_timeout = data.adj_timeout;
+	trader.reduce_on_leverage = data.reduce_on_leverage;
 	if (isFinite(data.min_balance)) trader.min_balance = data.min_balance;
 	if (isFinite(data.max_balance)) trader.max_balance = data.max_balance;
 	return trader;
@@ -1564,7 +1566,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		"st_power","st_reduction_step","st_sl","st_redmode","st_max_step","st_pattern","dynmult_sliding","accept_loss","st_tmode","zigzag",
 		"hp_dtrend","hp_allowshort","hp_reinvest","hp_power","hp_asym","hp_reduction","sh_curv","hp_initboost","hp_extbal","hp_powadj","hp_dynred",
 		"gs_external_assets","gs_rb_hi_a","gs_rb_lo_a","gs_rb_hi_p","gs_rb_lo_p",
-		"min_balance","max_balance","max_leverage"];
+		"min_balance","max_balance","max_leverage","reduce_on_leverage"];
 	var spread_inputs = ["spread_calc_stdev_hours", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode","dynmult_sliding","dynmult_cap","dynmult_mult","force_spread","spread_mode"];
 	var balance = form._balance;
 	var assets = form._assets;

@@ -98,6 +98,8 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 				if (cfg.max_size && std::abs(order.size) > cfg.max_size) {
 					order.size = cfg.max_size*sgn(order.size);
 				}
+
+
 				if (!minfo.leverage) {
 					double chg = order.size*p;
 					if (balance - chg < 0 || pos + order.size < 0) {
@@ -130,8 +132,19 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 							}
 						}
 					}
+					if (order.size == 0 && cfg.max_leverage && cfg.reduce_on_leverage) {
+						double maxPos = adjbal/p;
+						if (maxPos < std::abs(pos)) {
+							maxPos = maxPos*sgn(pos);
+							double diff = maxPos - pos;
+							order.alert = IStrategy::Alert::disabled;
+							order.price = p;
+							order.size = diff;
+						}
+					}
 					pos += order.size;
 				}
+
 				auto tres = s.onTrade(minfo, p, order.size, pos, balance);
 				bt.neutral_price = tres.neutralPrice;
 				bt.norm_accum += std::isfinite(tres.normAccum)?tres.normAccum:0;

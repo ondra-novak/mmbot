@@ -69,13 +69,13 @@ struct MTrader_Config {
 	bool dry_run;
 	bool internal_balance;
 	bool dont_allocate;
-	bool detect_manual_trades;
 	bool enabled;
 	bool hidden;
 	bool dynmult_sliding;
 	bool dynmult_mult;
 	bool zigzag;
 	bool swap_symbols;
+	bool reduce_on_leverage;
 
 	Strategy strategy = Strategy(nullptr);
 
@@ -351,6 +351,7 @@ private:
 	bool checkAchieveModeDone(const Status &st);
 	bool checkEquilibriumClose(const Status &st, double lastTradePrice);
 	void dorovnani(Status &st, double assetBalance, double price);
+	bool checkReduceOnLeverage(const Status &st, double &maxPosition);
 };
 
 

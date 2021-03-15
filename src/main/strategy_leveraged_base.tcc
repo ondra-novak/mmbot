@@ -220,13 +220,15 @@ std::pair<typename Strategy_Leveraged<Calc>::OnTradeResult, PStrategy> Strategy_
 	double neutral_recalc_ratio = 0;
 	double apos = assetsLeft - st.neutral_pos;
 	auto cpos = calcPosition(tradePrice);
+	double calcSize = cpos - st.position;
+	if (calcSize * tradeSize > 0) { //differs from calculated size but in same direction {
 		//to fight against partial execution
 		//tradeSize must at least 90% of calculated size to calculate reduction in full range
 		neutral_recalc_ratio = st.position == cpos?1.0:std::min(1.1*std::abs(tradeSize/(st.position - cpos)),1.0);
-		if (tradeSize == 0 && apos * cpos > 0) {
-			cpos = st.position;
-			neutral_recalc_ratio = 0.1;
-		}
+	} else if (apos * cpos > 0) { //zero or reversed direction.
+		cpos = st.position;   //don't change position
+		neutral_recalc_ratio = 0.1; //slide neutral
+	}
 	double mult = st.power;
 	double profit = (apos - tradeSize) * (tradePrice - st.last_price);
 	double vprofit = (st.position) * (tradePrice - st.last_price);

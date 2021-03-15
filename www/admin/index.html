@@ -225,6 +225,9 @@ help to push the "average open price" near to the current price
 <label  class="adv"><span>Maximum leverage (0&nbsp;=&nbsp;disabled)<span class="tooltip">
 Specifies maximal allowed leverage. If the size of the order is larger then specified leverage, then the order is not placed. This can also trigger <b>Accept loss</b> feature when it is enabled  
 </span></span><input type="number" data-name="max_leverage" step="1"></label>
+<label  class="adv"><span>Reduce on maximum leverage<span class="tooltip">
+Perform reduction of the position, when current position is over leverage. Note that reduction is not happen always, it is still controlled by spread, so this still doesn't protect against liquidation when liquidation price reached first. Also note that any such reduction a lot decreases any future profit as well  
+</span></span><span><x-checkbox data-name="reduce_on_leverage"></x-checkbox></span></label>
 <label class="adv"><span>Accept loss after hours (0&nbsp;=&nbsp;disabled)<span class="tooltip">
 Enable to the Bot accept partial loss, when trading is not possible due insufficient balance or when
 "Hard max position" is reached. The value specified amount of hours after last trade, when

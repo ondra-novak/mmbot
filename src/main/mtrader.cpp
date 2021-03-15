@@ -80,7 +80,6 @@ void MTrader_Config::loadConfig(json::Value data, bool force_dry_run) {
 	dry_run = force_dry_run || data["dry_run"].getValueOrDefault(false);
 	internal_balance = data["internal_balance"].getValueOrDefault(false) || dry_run;
 	dont_allocate = data["dont_allocate"].getValueOrDefault(false) ;
-	detect_manual_trades= data["detect_manual_trades"].getValueOrDefault(false);
 	enabled= data["enabled"].getValueOrDefault(true);
 	hidden = data["hidden"].getValueOrDefault(false);
 	dynmult_sliding = data["dynmult_sliding"].getValueOrDefault(false);
@@ -88,7 +87,7 @@ void MTrader_Config::loadConfig(json::Value data, bool force_dry_run) {
 	zigzag = data["zigzag"].getValueOrDefault(false);
 	swap_symbols= data["swap_symbols"].getValueOrDefault(false);
 	emulate_leveraged=data["emulate_leveraged"].getValueOrDefault(0.0);
-
+	reduce_on_leverage=data["reduce_on_leverage"].getBool();
 
 	if (dynmult_raise > 1e6) throw std::runtime_error("'dynmult_raise' is too big");
 	if (dynmult_raise < 0) throw std::runtime_error("'dynmult_raise' is too small");
@@ -359,31 +358,44 @@ void MTrader::perform(bool manually) {
 						}
 					}
 				} else {
+					Order buyorder;
+					Order sellorder;
+					double maxPosition;
+					if (need_alerts && checkReduceOnLeverage(status, maxPosition)) {
+						double diff = maxPosition - status.assetBalance;
+						if (diff < 0) {
+							sellorder = Order(diff, status.ticker.ask, IStrategy::Alert::disabled);
+							buyorder = Order(0, status.ticker.ask/2, IStrategy::Alert::disabled);
+						} else {
+							buyorder = Order(diff, status.ticker.bid, IStrategy::Alert::disabled);
+							sellorder = Order(0, status.ticker.bid*2, IStrategy::Alert::disabled);
+						}
+					} else {
 
 
 
-						//calculate buy order
-					Order buyorder = calculateOrder(grant_trade?status.ticker.bid*1.5:lastTradePrice,
-													grant_trade?-0.1:-status.curStep*cfg.buy_step_mult,
-													dynmult.getBuyMult(),
-													status.ticker.bid,
-													status.assetBalance,
-													status.currencyBalance+cfg.external_balance,
-													cfg.buy_mult,
-													zigzaglevels,
-													grant_trade?false:need_alerts);
-						//calculate sell order
-					Order sellorder = calculateOrder(grant_trade?status.ticker.ask*0.85:lastTradePrice,
-													 grant_trade?0.1:status.curStep*cfg.sell_step_mult,
-													 dynmult.getSellMult(),
-													 status.ticker.ask,
-													 status.assetBalance,
-													 status.currencyBalance+cfg.external_balance,
-													 cfg.sell_mult,
-													 zigzaglevels,
-													 grant_trade?false:need_alerts);
+							//calculate buy order
+						buyorder = calculateOrder(grant_trade?status.ticker.bid*1.5:lastTradePrice,
+														grant_trade?-0.1:-status.curStep*cfg.buy_step_mult,
+														dynmult.getBuyMult(),
+														status.ticker.bid,
+														status.assetBalance,
+														status.currencyBalance+cfg.external_balance,
+														cfg.buy_mult,
+														zigzaglevels,
+														grant_trade?false:need_alerts);
+							//calculate sell order
+						sellorder = calculateOrder(grant_trade?status.ticker.ask*0.85:lastTradePrice,
+														 grant_trade?0.1:status.curStep*cfg.sell_step_mult,
+														 dynmult.getSellMult(),
+														 status.ticker.ask,
+														 status.assetBalance,
+														 status.currencyBalance+cfg.external_balance,
+														 cfg.sell_mult,
+														 zigzaglevels,
+														 grant_trade?false:need_alerts);
 
-
+					}
 					if (grant_trade) {
 						sellorder.alert = IStrategy::Alert::disabled;
 						buyorder.alert = IStrategy::Alert::disabled;
@@ -1514,5 +1526,17 @@ bool MTrader::checkLeverage(const Order &order, double &maxSize) const {
 
 }
 
+bool MTrader::checkReduceOnLeverage(const Status &st, double &maxPosition) {
+	if (!cfg.reduce_on_leverage) return false;
+	if (minfo.leverage <= 0) return false;
+	if (cfg.max_leverage <=0) return false;
+	double mp = (*currency_balance/st.curPrice) * cfg.max_leverage;
+	if (mp < std::abs(st.assetBalance)) {
+		maxPosition = sgn(st.assetBalance) * mp;
+		return true;
+	} else {
+		return false;
+	}
+}
 
 
