@@ -23,6 +23,7 @@
 #include "strategy_error_fn.h"
 #include "strategy_keepbalance.h"
 #include "strategy_sinh_val.h"
+#include "strategy_martingale.h"
 
 
 
@@ -161,7 +162,13 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 		cfg.keep_max = config["keep_max"].getNumber();
 		cfg.keep_min = config["keep_min"].getNumber();
 		return Strategy(new Strategy_KeepBalance(cfg));
-
+	} else if (id == Strategy_Martingale::id) {
+		Strategy_Martingale::Config cfg;
+		cfg.initial_step = config["initial_step"].getNumber();
+		cfg.power = config["power"].getNumber();
+		cfg.reduction = config["reduction"].getNumber();
+		cfg.collateral= config["collateral"].getNumber();
+		return Strategy(new Strategy_Martingale(cfg));
 	} else {
 		throw std::runtime_error(std::string("Unknown strategy: ").append(id));
 	}
