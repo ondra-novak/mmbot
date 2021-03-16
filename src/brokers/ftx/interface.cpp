@@ -468,6 +468,7 @@ bool Interface::checkWSHealth() {
 		ws = simpleServer::connectWebSocket(client, "https://ftx.com/ws");
 		ws_reader = std::thread([ws = this->ws, this]() mutable {
 			bool cont = true;
+			bool tm = false;
 			auto nextPing = std::chrono::steady_clock::now();
 			while (cont && ws.readFrame()) {
 				switch (ws.getFrameType()) {
@@ -478,13 +479,21 @@ bool Interface::checkWSHealth() {
 				case WSFrameType::text: ws_onMessage(ws.getText());
 										break;
 				}
+				tm = false;
 				do {
 					auto now = std::chrono::steady_clock::now();
 					if (now > nextPing) {
 						ws_post(ws, "{\"op\":\"ping\"}");
-						nextPing = now + std::chrono::seconds(15);
+						nextPing = now + std::chrono::seconds(10);
+						if (tm) {
+							logError("Closing websocket,  because timeout");
+							std::unique_lock _(wslock);
+							this->ws = nullptr;
+							return;
+						}
+						tm = true;
 					}
-				}	while (!ws.getStream().waitForInput(15000));
+				}	while (!ws.getStream().waitForInput(10000));
 			}
 			std::unique_lock _(wslock);
 			this->ws = nullptr;
@@ -840,6 +849,9 @@ json::Value Interface::getMarkets() const {
 
 bool Interface::close_position(const std::string_view &pair) {
 	const AccountInfo &acc = getAccountInfo();
+	if (getOpenOrders(pair).empty()) {
+		connection.lock()->requestDELETE("/orders", Object("market", pair));
+	}
 	auto iter = acc.positions.find(pair);
 	if (iter != acc.positions.end()) {
 		double size = iter->second;
@@ -852,7 +864,6 @@ bool Interface::close_position(const std::string_view &pair) {
 				("type","limit")
 				("size",std::fabs(size))
 				("reduceOnly",true);
-			connection.lock()->requestDELETE("/orders", Object("market", pair));
 			connection.lock()->requestPOST("/orders", req);
 			return false;
 		} else {
