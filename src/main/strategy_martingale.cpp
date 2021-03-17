@@ -16,7 +16,7 @@ Strategy_Martingale::Strategy_Martingale(const Config &cfg, State &&st)
 }
 
 bool Strategy_Martingale::isValid() const {
-	return st.price > 0 && st.enter_price > 0 && st.exit_price > 0 && st.budget > 0;
+	return st.price > 0 && st.enter_price > 0 && st.exit_price > 0 && st.budget > 0 && st.initial > 0;
 }
 
 PStrategy Strategy_Martingale::importState(json::Value src, const IStockApi::MarketInfo &minfo) const {
@@ -27,6 +27,7 @@ PStrategy Strategy_Martingale::importState(json::Value src, const IStockApi::Mar
 			src["exit_price"].getNumber(),
 			src["value"].getNumber(),
 			src["budget"].getNumber(),
+			src["initial"].getNumber(),
 	});
 }
 
@@ -37,7 +38,8 @@ json::Value Strategy_Martingale::exportState() const {
 			("enter_price", st.enter_price)
 			("exit_price", st.exit_price)
 			("value", st.value)
-			("budget", st.budget);
+			("budget", st.budget)
+			("initial", st.initial);
 }
 
 PStrategy Strategy_Martingale::init(double pos, double price, double currency) const {
@@ -53,6 +55,7 @@ PStrategy Strategy_Martingale::init(double pos, double price, double currency) c
 	nwst.price = price;
 	nwst.value = (nwst.exit_price - price) * pos*0.5;;
 	nwst.budget = cfg.collateral?cfg.collateral:currency+nwst.value;
+	nwst.initial = nwst.budget * cfg.initial_step;
 	PStrategy s = new Strategy_Martingale(cfg, std::move(nwst));
 	if (s->isValid()) return s;
 	else throw std::runtime_error("Unable to initialze strategy");
@@ -90,21 +93,35 @@ std::pair<IStrategy::OnTradeResult, PStrategy > Strategy_Martingale::onTrade(
 	double internal_pos = calcPos(tradePrice);
 	double internal_sz = internal_pos - st.pos;
 	double xp = internal_sz * st.pos;
+	double intdif = std::abs(internal_pos - assetsLeft);
+	double mindist = std::abs(internal_sz)*0.05;
+	if (mindist < 2*minfo.min_size) mindist = 2*minfo.min_size;
+	if (mindist < 2*minfo.min_volume/tradePrice) mindist = 2*minfo.min_volume/tradePrice;
 	State nwst;
-	double red = (200.0/(100*cfg.reduction+1));
-	if (xp == 0) {
-		nwst.enter_price = nwst.exit_price = tradePrice;
-	} else if (xp > 0) {
-		nwst.enter_price = (st.enter_price * st.pos + tradePrice * internal_sz) / internal_pos;
-		nwst.exit_price = (st.exit_price * red +st.enter_price)/(red+1.0);
+	//check whether execution is finished complete (for example multiple small trades)
+	//complete means, that difference between calculated position, and trades position is less then 2x minimum or at least less then 5% of calculates size
+	//however for tradeSize==0 (alert) this is doesn't used)
+	if (tradeSize * internal_sz <= 0 || intdif<=mindist) {
+		double red = (200.0/(100*cfg.reduction+1));
+		if (xp == 0) {
+			nwst.enter_price = nwst.exit_price = tradePrice;
+		} else if (xp > 0) {
+			nwst.enter_price = (st.enter_price * st.pos + tradePrice * internal_sz) / internal_pos;
+			nwst.exit_price = (st.exit_price * red +st.enter_price)/(red+1.0);
+		} else {
+			nwst.enter_price = st.enter_price;
+			nwst.exit_price = (st.exit_price * red +st.enter_price)/(red+1.0);
+		}
+		nwst.price = tradePrice;
+		nwst.pos = internal_pos;
+		nwst.value = (nwst.exit_price - tradePrice) * internal_pos;
+		nwst.budget = cfg.collateral?cfg.collateral:currencyLeft+nwst.value;
+		if (nwst.pos == 0.0) nwst.initial = st.budget * cfg.initial_step; else nwst.initial = st.initial;
 	} else {
-		nwst.enter_price = st.enter_price;
-		nwst.exit_price = (st.exit_price * red +st.enter_price)/(red+1.0);
+		//otherwise keep current state
+		nwst = st;
 	}
-	nwst.price = tradePrice;
-	nwst.pos = internal_pos;
-	nwst.value = (nwst.exit_price - tradePrice) * internal_pos;
-	nwst.budget = cfg.collateral?cfg.collateral:currencyLeft+nwst.value;
+	//just calculate new profit
 	double vchange = (profit - ( st.value - nwst.value));
 
 	return {
@@ -137,6 +154,7 @@ IStrategy::BudgetInfo Strategy_Martingale::getBudgetInfo() const {
 }
 
 double Strategy_Martingale::getEquilibrium(double assets) const {
+	if (st.pos == 0) return st.price;
 	double posFrac = assets/st.pos;
 	return st.exit_price+posFrac * (st.price - st.exit_price);
 }
@@ -152,11 +170,12 @@ IStrategy::ChartPoint Strategy_Martingale::calcChart(double price) const {
 json::Value Strategy_Martingale::dumpStatePretty( const IStockApi::MarketInfo &minfo) const {
 
 	return json::Object
-			("Position", st.pos)
+			("Position", (minfo.invert_price?-1:1)*st.pos)
 			("Enter price", minfo.invert_price?1.0/st.enter_price:st.enter_price)
 			("Exit price", minfo.invert_price?1.0/st.exit_price:st.exit_price)
 			("Value", st.value)
-			("Budget", st.budget);
+			("Budget", st.budget)
+			("Initial volume", st.initial);
 }
 
 bool Strategy_Martingale::needLiveBalance() const {
@@ -165,13 +184,12 @@ bool Strategy_Martingale::needLiveBalance() const {
 
 double Strategy_Martingale::calcPos(double new_price) const {
 	double dir = sgn(new_price - st.price);
-	double init_vol = st.budget * cfg.initial_step/new_price;
+	double cur_vol = st.price * st.pos;
 	if (dir * st.pos > 0) {
 
 		double f = (new_price - st.price)/(st.exit_price - st.price);
 		if (std::isfinite(f) && f >= 0 && f < 1.0) {
 			double new_pos = (1.0 - f*f)*st.pos;
-			if (std::abs(new_pos) < init_vol) new_pos = 0.0;
 			return new_pos;
 		} else {
 			//f is not finite - probably exit_price = price, so exit as soon as possible
@@ -179,9 +197,7 @@ double Strategy_Martingale::calcPos(double new_price) const {
 			//f is below 0.0, which means exit price is on other side than new price, so we are still beyond exit price, so exit now
 			return 0.0; //unexpected situation, close position now
 		}
-	} else if (st.pos == 0) {
-		return -dir * init_vol;
 	} else {
-		return st.pos * (cfg.power+1.0);
+		return -dir * ((std::abs(cur_vol) + st.initial) * (cfg.power+1.0) - st.initial)/new_price;
 	}
 }

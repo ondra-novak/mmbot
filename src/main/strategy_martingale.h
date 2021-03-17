@@ -30,6 +30,7 @@ public:
 		double exit_price = 0;	//exit price
 		double value = 0;		//possible profit, made by closing position exactly at exit price
 		double budget = 0;		//budget calculation - recalculated on position reset
+		double initial = 0;     //initial volumes
 	};
 
 
