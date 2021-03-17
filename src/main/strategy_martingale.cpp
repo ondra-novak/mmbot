@@ -43,7 +43,7 @@ json::Value Strategy_Martingale::exportState() const {
 PStrategy Strategy_Martingale::init(double pos, double price, double currency) const {
 
 	if (cfg.initial_step<=0) throw std::runtime_error("Configuration error: initial step is zero");
-	if (cfg.power<=0) throw std::runtime_error("Configuration error: power is zero");
+	if (cfg.power<=-1) throw std::runtime_error("Configuration error: power is zero");
 	if (cfg.reduction <0) throw std::runtime_error("Configuration error: reduction is zero");
 	State nwst;
 	double liq_price = pos?(-currency/pos + price):price;
@@ -91,19 +91,19 @@ std::pair<IStrategy::OnTradeResult, PStrategy > Strategy_Martingale::onTrade(
 	double internal_sz = internal_pos - st.pos;
 	double xp = internal_sz * st.pos;
 	State nwst;
+	double red = (200.0/(100*cfg.reduction+1));
 	if (xp == 0) {
 		nwst.enter_price = nwst.exit_price = tradePrice;
 	} else if (xp > 0) {
-		double red = (200.0/(100*cfg.reduction+1));
 		nwst.enter_price = (st.enter_price * st.pos + tradePrice * internal_sz) / internal_pos;
 		nwst.exit_price = (st.exit_price * red +st.enter_price)/(red+1.0);
 	} else {
 		nwst.enter_price = st.enter_price;
-		nwst.exit_price = st.exit_price;
+		nwst.exit_price = (st.exit_price * red +st.enter_price)/(red+1.0);
 	}
 	nwst.price = tradePrice;
 	nwst.pos = internal_pos;
-	nwst.value = (nwst.exit_price - tradePrice) * internal_pos*0.5;
+	nwst.value = (nwst.exit_price - tradePrice) * internal_pos;
 	nwst.budget = cfg.collateral?cfg.collateral:currencyLeft+nwst.value;
 	double vchange = (profit - ( st.value - nwst.value));
 
@@ -170,7 +170,7 @@ double Strategy_Martingale::calcPos(double new_price) const {
 
 		double f = (new_price - st.price)/(st.exit_price - st.price);
 		if (std::isfinite(f) && f >= 0 && f < 1.0) {
-			double new_pos = (1.0 - pow2(f))*st.pos;
+			double new_pos = (1.0 - f*f)*st.pos;
 			if (std::abs(new_pos) < init_vol) new_pos = 0.0;
 			return new_pos;
 		} else {
