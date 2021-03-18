@@ -238,16 +238,14 @@ std::pair<typename Strategy_Leveraged<Calc>::OnTradeResult, PStrategy> Strategy_
 	nwst.last_price = tradePrice;
 	nwst.last_dir = sgn(tradeSize);
 
-	if (cfg->reduction >= 0) {
+	if (cpos == 0) {
+		nwst.neutral_price = tradePrice;
+		neutral_recalc_ratio = 1.0;
+	} else if (cfg->reduction >= 0) {
 		recalcNeutral(calc, cfg, nwst);
 	} else {
-		if (cpos == 0) {
-			nwst.neutral_price = tradePrice;
-		}
-		else {
-			double ema = -cfg->reduction*200;
-			nwst.neutral_price = std::exp((std::log(nwst.neutral_price) * (ema-1) + std::log(tradePrice))/ema);
-		}
+		double ema = -cfg->reduction*200;
+		nwst.neutral_price = std::exp((std::log(nwst.neutral_price) * (ema-1) + std::log(tradePrice))/ema);
 	}
 	nwst.neutral_price = st.neutral_price + (nwst.neutral_price - st.neutral_price)*neutral_recalc_ratio;
 
