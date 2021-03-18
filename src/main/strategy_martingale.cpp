@@ -135,7 +135,7 @@ std::pair<IStrategy::OnTradeResult, PStrategy > Strategy_Martingale::onTrade(
 }
 
 IStrategy::MinMax Strategy_Martingale::calcSafeRange(const IStockApi::MarketInfo &minfo, double assets, double currencies) const {
-	if (st.pos) return {0, std::numeric_limits<double>::infinity()};
+	if (!st.pos) return {0, std::numeric_limits<double>::infinity()};
 	double liq_price = (-currencies/assets + st.price);
 	if (liq_price < st.price) return {liq_price, std::numeric_limits<double>::infinity()};
 	else return {0, liq_price};
