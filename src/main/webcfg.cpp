@@ -485,6 +485,25 @@ bool WebCfg::reqBrokerSpec(simpleServer::HTTPRequest req,
 								"last", t.last)("time", t.time);
 						req.sendResponse(std::move(hdr), ticker.stringify());
 						return true;
+					}  else if (orders == "info") {
+						IStockApi::MarketInfo minfo = api->getMarketInfo(p);
+						Value resp = Object
+								("asset_step", minfo.asset_step)
+								("asset_symbol", minfo.asset_symbol)
+								("currency_step", minfo.currency_step)
+								("currency_symbol", minfo.currency_symbol)
+								("feeScheme", (int)minfo.feeScheme)
+								("fees", minfo.fees)
+								("invert_price", minfo.invert_price)
+								("inverted_symbol", minfo.inverted_symbol)
+								("leverage", minfo.leverage)
+								("min_size", minfo.min_size)
+								("min_volume", minfo.min_volume)
+								("private_chart", minfo.private_chart)
+								("simulator", minfo.simulator)
+								("wallet_id", minfo.wallet_id);
+						req.sendResponse(std::move(hdr), resp.stringify());
+						return true;
 					}  else if (orders == "settings") {
 
 						IBrokerControl *bc = dynamic_cast<IBrokerControl *>(api.get());

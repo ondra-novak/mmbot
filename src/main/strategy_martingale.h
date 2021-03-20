@@ -20,6 +20,7 @@ public:
 		double power;         //power between 0 and 1, can be higher but not lower
 		double reduction;	  //reduction between 0 and 1.
 		double collateral;
+		bool allow_short;		//allow shorts
 	};
 
 

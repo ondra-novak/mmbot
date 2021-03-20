@@ -679,6 +679,8 @@ void Interface::initSymbols() {
 						nfo.min_size = f["minQty"].getNumber()*nfo.asset_step;
 					} else if (ft == "PRICE_FILTER") {
 						nfo.currency_step = f["tickSize"].getNumber();
+					} else if (ft == "MIN_NOTIONAL") {
+						nfo.min_volume = f["minNotional"].getNumber();
 					}
 				}
 				nfo.leverage = 20;
@@ -714,6 +716,8 @@ void Interface::initSymbols() {
 						nfo.min_size = f["minQty"].getNumber()*nfo.asset_step;
 					} else if (ft == "PRICE_FILTER") {
 						nfo.currency_step = f["tickSize"].getNumber();
+					} else if (ft == "MIN_NOTIONAL") {
+						nfo.min_volume = f["notional"].getNumber();
 					}
 				}
 				nfo.leverage = 20;

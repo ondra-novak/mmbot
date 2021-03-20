@@ -168,6 +168,7 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 		cfg.power = config["power"].getNumber();
 		cfg.reduction = config["reduction"].getNumber();
 		cfg.collateral= config["collateral"].getNumber();
+		cfg.allow_short = config["allow_short"].getBool();
 		return Strategy(new Strategy_Martingale(cfg));
 	} else {
 		throw std::runtime_error(std::string("Unknown strategy: ").append(id));
