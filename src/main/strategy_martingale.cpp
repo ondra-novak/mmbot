@@ -68,6 +68,8 @@ IStrategy::OrderData Strategy_Martingale::getNewOrder(
 
 	double pos = calcPos(new_price);
 	double sz = pos - assets;
+	if (sz * dir < minfo.min_size) sz = minfo.min_size*dir;
+	if (sz * dir < minfo.min_volume/new_price) sz = minfo.min_size/new_price*dir;
 	bool alert = false;
 	if (rej && pos * dir >= 0) alert = true;
 	return OrderData{0,sz, alert?Alert::forced:Alert::enabled};
@@ -94,13 +96,17 @@ std::pair<IStrategy::OnTradeResult, PStrategy > Strategy_Martingale::onTrade(
 	double profit = (tradePrice - st.price) * (assetsLeft-tradeSize);
 	double internal_pos = calcPos(tradePrice);
 	double internal_sz = internal_pos - st.pos;
-	if (internal_sz * tradeSize > 0) { //accept any partial execution is the size is nonzero a has same sign.
-		internal_sz = tradeSize;
-		internal_pos = st.pos + internal_sz;
-	}
 	double xp = internal_sz * st.pos;
+	double intdif = std::abs(internal_pos - assetsLeft);
+	double mindist = std::abs(internal_sz)*0.05;
+	if (mindist < 2*minfo.min_size) mindist = 2*minfo.min_size;
+	if (mindist < 2*minfo.min_volume/tradePrice) mindist = 2*minfo.min_volume/tradePrice;
 	State nwst;
 	double red = (200.0/(100*cfg.reduction+1));
+	if (tradeSize * internal_sz > 0 && intdif > mindist) {
+			internal_sz = tradeSize;
+			internal_pos = st.pos + internal_sz;
+	}
 	if (xp == 0) {
 		nwst.enter_price = nwst.exit_price = tradePrice;
 	} else if (xp > 0) {
