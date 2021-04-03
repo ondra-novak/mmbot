@@ -62,20 +62,18 @@
 <option value="errorfn">Gauss/error function+rebalance</option>
 </optgroup>
 <optgroup label="Leveraged (advanced traders)">
-<option value="martingale">Simple ATL</option>
 <option value="sinh">Sinh/exponencial</option>
 <option value="sinh_val">Volume based Sinh </option>
+<option value="martingale" data-hidden="true">Simple ATL</option>
 </optgroup>
 <optgroup label="Utility">
 <option value="keep_balance">Keep balance</option>
 </optgroup>
-<optgroup label="Experimental">
-<option value="sinh2">Sinh - new version</option>
-</optgroup>
 <optgroup label="Old and obsolete">
-<option value="linear">Linear</option>
-<option value="hyperbolic">Hyperbolic</option>
-<option value="stairs">Stairs</option>
+<option value="linear"  data-hidden="true">Linear</option>
+<option value="hyperbolic"  data-hidden="true">Hyperbolic</option>
+<option value="stairs"  data-hidden="true">Stairs</option>
+<option value="sinh2"  data-hidden="true">Sinh (old)</option>
 </optgroup>
 </select></label>
 <div class="label strategygoal"><span>Startegy Goal:</span><div data-name="help_goal">
@@ -153,12 +151,11 @@ to enter a negative value and then the value of the assets held will decrease an
 <label><span>Power<span class="tooltip">How balance is multiplied. Can boost profits and losses as well. Conservative value is 1</span></span><input data-name="hp_power" type="number" step="0.1" value="1.0"></label>
 <label class="adv"><span>Dynamic power<span class="tooltip">How much is power adjusted with increase of the position</span></span><input data-name="hp_powadj" type="number" step="0.1" value="1.0"></label>
 <label><span>Collateral (0=use balance)<span class="tooltip">Specify total amount of collateral used to calculate power including collateral held on stockmarket and also held out of stockmarket. If this field is zero, then strategy is initialized with collateral currently available on stockmarket.</span></span><input data-name="hp_extbal" type="number" value="0"></label>
-<label class="adv" data-name="item_trend"><span>Trend detection<span class="tooltip">Tries to detect trend and adjust asymmetry according to detected trend</span></span><x-checkbox data-name="hp_dtrend">Detect trend</x-checkbox></label>
-<label class="adv" data-name="item_asym"><x-switch data-name="hp_lb_asym" data-value="asym"><span>Asymmetry<span class="tooltip">Prefer one of sides. Positive value prefers LONGS on normal futures and SHORTS on inverted futures. Negative values vice versa. Note that negative values are more dangerous and can result in a liquidation.</span></span></x-switch>
-		<x-switch data-name="hp_lb_asym" data-value="trend"><span>Trend strenght<span class="tooltip">Specifies how much the trend affects prefered side. Positive value - go with trend, negative value - go against trend</span></span></x-switch>
+<label class="adv" data-name="item_asym"><span>Asymmetry<span class="tooltip">Prefer one of sides. Positive value prefers LONGS on normal futures and SHORTS on inverted futures. Negative values vice versa. Note that negative values are more dangerous and can result in a liquidation.</span></span>		
 		<x-slider data-name="hp_asym" data-min="-100" data-max="100" data-mult="1" data-fixed="0"></label>
-<label><span>Reduction<span class="tooltip">Reduction of current position, 0=no reduction, 100=use all profit to reduce, 200=reduce twice more (can generate loss)</span></span><x-slider data-name="hp_reduction" data-min="0" data-max="200" data-mult="1" data-fixed="0"></label>
 <label data-name="show_curvature"><span>Curvature<span class="tooltip">Specifies curvature of the function. Small value works better on low volatility and flat market. High value works better on high volatility and trending markets. Value must be backtested, otherwise leave default value</span></span><x-slider data-name="sh_curv" data-min="0" data-max="40" data-mult="0.1" data-fixed="1"></label>
+<label><span>Reduction<span class="tooltip">Reduction of current position, 0=no reduction, 100=use all profit to reduce, 200=reduce twice more (can generate loss)</span></span><x-slider data-name="hp_reduction" data-min="0" data-max="200" data-mult="1" data-fixed="0"></label>
+<label><span>Trend factor<span class="tooltip">Specifies how much trend is used for calculation</span></span><x-slider data-name="hp_trend_factor" data-min="-100" data-max="100" data-mult="1" data-fixed="0"></label>
 <label class="adv"><span>Initial boost<span class="tooltip">Boost volume around neutral price</span></span><x-slider data-name="hp_initboost" data-min="0" data-max="2" data-mult="0.1" data-fixed="1"></label>
 <label class="adv"><span>Dynamic reduction<span class="tooltip">How much is reduction increased with increase of the position. The value 1 means by 100% when position is exact to internal multiplicator (advenced feature)</span></span><input data-name="hp_dynred" type="number" step="0.1" value="1.0"></label>
 <label class="adv"><span>Recalculation mode<span class="tooltip">How position is recalculated when values are changed. <br><br><b>Keep position</b> - calculate new neutral price to keep current position<br><b>Keep neutral</b> - keep neutral price. Position is traded to new calculated value (this can result to a loss)</span></span>

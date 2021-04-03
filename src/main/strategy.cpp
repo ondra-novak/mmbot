@@ -69,7 +69,7 @@ void initConfig(Cfg &cfg, json::Value config,
 	cfg.powadj = config["powadj"].getNumber();
 	cfg.dynred = config["dynred"].getNumber();
 	cfg.initboost = config["initboost"].getNumber();
-	cfg.detect_trend = config["dtrend"].getBool();
+	cfg.trend_factor = config["trend_factor"].getNumber();
 	cfg.longonly = config["longonly"].getBool();
 	cfg.recalc_keep_neutral = config["recalc_mode"].getString() == "neutral";
 	cfg.fastclose = config["fastclose"].getValueOrDefault(true);
@@ -153,7 +153,6 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 		double power = config["power"].getNumber();
 		initConfig(cfg,config,power);
 		cfg.asym = 0;
-		cfg.detect_trend = false;
 		double curv = config["curv"].getValueOrDefault(5.0);
 		return Strategy(new Strategy_SinhVal(std::make_shared<Strategy_SinhVal::TCalc>(power, curv),
 			    							std::make_shared<Strategy_SinhVal::Config>(cfg)));

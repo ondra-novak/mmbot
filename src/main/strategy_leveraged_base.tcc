@@ -212,15 +212,19 @@ std::pair<typename Strategy_Leveraged<Calc>::OnTradeResult, PStrategy> Strategy_
 	}
 
 	State nwst = st;
-	if (tradeSize * st.position < 0 && (st.position + tradeSize)/st.position > 0.5) {
-		int chg = sgn(tradeSize);
-		nwst.trend_cntr += chg - nwst.trend_cntr/1000;
-
-	}
 	double neutral_recalc_ratio = 0;
 	double apos = assetsLeft - st.neutral_pos;
 	auto cpos = calcPosition(tradePrice);
 	double calcSize = cpos - st.position;
+	if (st.avgprice) {
+		nwst.avgprice = (st.avgprice * 50 + tradePrice)/51;
+		nwst.neutral_pos = (tradePrice - st.avgprice)*cfg->trend_factor*(st.bal + cfg->external_balance)/pow2(st.avgprice);
+	} else {
+		nwst.avgprice = tradePrice;
+		nwst.neutral_pos = 0;
+	}
+
+
 	if (calcSize * tradeSize > 0) { //differs from calculated size but in same direction {
 		//to fight against partial execution
 		//tradeSize must at least 90% of calculated size to calculate reduction in full range
@@ -293,7 +297,7 @@ json::Value Strategy_Leveraged<Calc>::exportState() const {
 			("val",st.val)
 			("power",st.power)
 			("neutral_pos",st.neutral_pos)
-			("trend", st.trend_cntr)
+			("avgprice", st.avgprice)
 			("last_dir", st.last_dir)
 			("cfg", storeCfgCmp());
 
@@ -309,7 +313,7 @@ PStrategy Strategy_Leveraged<Calc>::importState(json::Value src,const IStockApi:
 			src["val"].getNumber(),
 			src["power"].getNumber(),
 			src["neutral_pos"].getNumber(),
-			src["trend"].getInt(),
+			src["avgprice"].getNumber(),
 			src["last_dir"].getInt()
 		};
 		json::Value cfgcmp = src["cfg"];
@@ -412,9 +416,8 @@ json::Value Strategy_Leveraged<Calc>::dumpStatePretty(
 				 ("Collateral", bal)
 				 ("Current leverage",  std::abs(st.position) * st.last_price / bal)
 				 ("Multiplier", st.power)
-				 ("Neutral pos", st.neutral_pos?json::Value(st.neutral_pos):json::Value())
-	 	 	 	 ("Trend factor", json::String({
-						json::Value((minfo.invert_price?-1:1)*trendFactor(st)*100).toString(),"%"}));
+				 ("Neutral pos", (minfo.invert_price?-1:1)*st.neutral_pos)
+	 	 	 	 ("Avg price", minfo.invert_price?1/st.avgprice:st.avgprice);
 
 
 }
@@ -432,12 +435,7 @@ typename Strategy_Leveraged<Calc>::MinMax Strategy_Leveraged<Calc>::calcRoots() 
 
 template<typename Calc>
 inline double Strategy_Leveraged<Calc>::calcAsym(const PConfig &cfg, const State &st)  {
-	if (cfg->detect_trend) {
-		return cfg->asym * trendFactor(st);
-	}
-	else {
-		return cfg->asym;
-	}
+	return cfg->asym;
 }
 
 template<typename Calc>
@@ -445,10 +443,6 @@ inline double Strategy_Leveraged<Calc>::calcAsym() const {
 	return calcAsym(cfg,st);
 }
 
-template<typename Calc>
-inline double Strategy_Leveraged<Calc>::trendFactor(const State &st) {
-	return st.trend_cntr*0.001;
-}
 
 template<typename Calc>
 std::pair<double,double> Strategy_Leveraged<Calc>::getBalance(const Config &cfg, bool leveraged, double price, double assets, double currency) {

@@ -27,7 +27,7 @@ public:
 		double powadj = 0;
 		double dynred = 0;
 		double initboost = 0;
-		bool detect_trend = false;
+		double trend_factor=0;
 		bool recalc_keep_neutral =false;
 		bool longonly = false;
 		bool fastclose = false;
@@ -46,7 +46,7 @@ public:
 		double val = 0;
 		double power = 0;
 		double neutral_pos = 0;
-		long trend_cntr = 0;
+		double avgprice = 0;
 		long last_dir = 0;
 	};
 
@@ -98,7 +98,6 @@ private:
 	static void recalcNewState(const PCalc &calc, const PConfig &cfg, State &nwst);
 	double calcAsym() const;
 	static double calcAsym(const PConfig &cfg, const State &st) ;
-	static double trendFactor(const State &st);
 	static std::pair<double,double> getBalance(const Config &cfg, bool leveraged, double price, double assets, double currency);
 	virtual double calcInitialPosition(const IStockApi::MarketInfo &minfo, double price, double assets, double currency) const override;
 

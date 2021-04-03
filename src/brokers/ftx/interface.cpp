@@ -849,7 +849,7 @@ json::Value Interface::getMarkets() const {
 
 bool Interface::close_position(const std::string_view &pair) {
 	const AccountInfo &acc = getAccountInfo();
-	if (getOpenOrders(pair).empty()) {
+	if (!getOpenOrders(pair).empty()) {
 		connection.lock()->requestDELETE("/orders", Object("market", pair));
 	}
 	auto iter = acc.positions.find(pair);
