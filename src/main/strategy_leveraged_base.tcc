@@ -229,7 +229,7 @@ std::pair<typename Strategy_Leveraged<Calc>::OnTradeResult, PStrategy> Strategy_
 		//to fight against partial execution
 		//tradeSize must at least 90% of calculated size to calculate reduction in full range
 		neutral_recalc_ratio = st.position == cpos?1.0:std::min(1.1*std::abs(tradeSize/(st.position - cpos)),1.0);
-	} else if (apos * cpos > 0) { //zero or reversed direction.
+	} else if (std::abs(cpos*tradePrice)/(st.bal+cfg->external_balance)>0.5) { //zero or reversed direction, test whether the position has a meaning
 		cpos = st.position;   //don't change position
 		neutral_recalc_ratio = 0.1; //slide neutral
 	}

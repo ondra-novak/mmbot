@@ -10,7 +10,10 @@
 
 #include <cmath>
 #include <imtjson/object.h>
+#include <shared/logOutput.h>
 #include "sgn.h"
+
+using ondra_shared::logDebug;
 
 IStockApi::Trade IStockApi::Trade::fromJSON(json::Value x) {
 
@@ -67,9 +70,9 @@ static double awayZero(double v) {
 	else return ceil(v);
 }
 */
-/*static double nearZero(double v) {
-	return sgn(v) * floor(std::abs(v)+0.1);
-}*/
+static double nearZero(double v) {
+	return sgn(v) * floor(std::abs(v));
+}
 
 static double rounded(double v) {
 	return std::round(v);
@@ -97,9 +100,11 @@ void IStockApi::MarketInfo::addFees(double &assets, double &price) const {
 					break;
 	}
 
+	logDebug("Before round: $1 $2", assets, price);
 	if (invert_price) price = 1/(adjValue(1/price, currency_step, rounded));
 	else price = adjValue(price, currency_step, rounded);
-	assets = adjValue(assets, asset_step, rounded);
+	assets = adjValue(assets, asset_step, nearZero);
+	logDebug("After round: $1 $2", assets, price);
 }
 
 void IStockApi::MarketInfo::removeFees(double &assets, double &price) const {
