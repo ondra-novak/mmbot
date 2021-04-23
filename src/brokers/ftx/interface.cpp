@@ -461,39 +461,44 @@ bool Interface::checkWSHealth() {
 	using namespace simpleServer;
 	std::unique_lock _(wslock);
 	if (ws == nullptr) {
+		if (ws_reader.joinable()) ws_reader.join();
 		activeOrderMap.clear();
 		replaceOrderMap.clear();
 		auto conn = connection.lock();
 		auto &client = conn->api.getClient();
 		ws = simpleServer::connectWebSocket(client, "https://ftx.com/ws");
 		ws_reader = std::thread([ws = this->ws, this]() mutable {
-			bool cont = true;
-			bool tm = false;
-			auto nextPing = std::chrono::steady_clock::now();
-			while (cont && ws.readFrame()) {
-				switch (ws.getFrameType()) {
-				default:
-				case WSFrameType::binary: break;
-				case WSFrameType::connClose: cont = false;break;
-				case WSFrameType::ping:break;
-				case WSFrameType::text: ws_onMessage(ws.getText());
-										break;
-				}
-				tm = false;
-				do {
-					auto now = std::chrono::steady_clock::now();
-					if (now > nextPing) {
-						ws_post(ws, "{\"op\":\"ping\"}");
-						nextPing = now + std::chrono::seconds(10);
-						if (tm) {
-							logError("Closing websocket,  because timeout");
-							std::unique_lock _(wslock);
-							this->ws = nullptr;
-							return;
-						}
-						tm = true;
+			try {
+				bool cont = true;
+				bool tm = false;
+				auto nextPing = std::chrono::steady_clock::now();
+				while (cont && ws.readFrame()) {
+					switch (ws.getFrameType()) {
+					default:
+					case WSFrameType::binary: break;
+					case WSFrameType::connClose: cont = false;break;
+					case WSFrameType::ping:break;
+					case WSFrameType::text: ws_onMessage(ws.getText());
+											break;
 					}
-				}	while (!ws.getStream().waitForInput(10000));
+					tm = false;
+					do {
+						auto now = std::chrono::steady_clock::now();
+						if (now > nextPing) {
+							ws_post(ws, "{\"op\":\"ping\"}");
+							nextPing = now + std::chrono::seconds(10);
+							if (tm) {
+								logError("Closing websocket,  because timeout");
+								std::unique_lock _(wslock);
+								this->ws = nullptr;
+								return;
+							}
+							tm = true;
+						}
+					}	while (!ws.getStream().waitForInput(10000));
+				}
+			} catch (std::exception &e) {
+				logError("WS exception: $1", e.what());
 			}
 			std::unique_lock _(wslock);
 			this->ws = nullptr;
@@ -590,7 +595,6 @@ json::Value Interface::checkCancelAndPlace(PConnection conn, std::string_view pa
 	auto id = replaceId.getUIntLong();
 	auto iter = activeOrderMap.find(id);
 	if (iter == activeOrderMap.end()) {
-		_.unlock();
 		Value resp = conn.lock()->requestPOST("/orders", req);
 		if (resp["success"].getBool()) {
 			return resp["result"]["id"];
@@ -599,7 +603,6 @@ json::Value Interface::checkCancelAndPlace(PConnection conn, std::string_view pa
 		}
 	} else {
 		replaceOrderMap[id] = req;
-		_.unlock();
 		cancelOrderImpl(conn, replaceId);
 	}
 	return replaceId;

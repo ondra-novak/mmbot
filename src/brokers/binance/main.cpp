@@ -14,6 +14,7 @@
 #include "proxy.h"
 #include <cmath>
 #include <ctime>
+#include <deque>
 
 #include "../api.h"
 #include <imtjson/stringValue.h>
@@ -156,6 +157,9 @@ private:
 	Value fapi_account;
 	Value fapi_positions;
 	Tickers fapi_tickers;
+
+	std::map<json::String, std::uint64_t> openOrderCheckTable;
+	std::deque<json::Value> canceledOrders;
 
 };
 
@@ -390,17 +394,47 @@ Interface::Orders Interface::getOpenOrders(const std::string_view & pair) {
 		}, Orders());
 
 	} else {
-		Value resp = px.private_request(Proxy::GET,"/api/v3/openOrders", Object("symbol",pair));
-		return mapJSON(resp, [&](Value x) {
-			Value id = x["clientOrderId"];
-			Value eoid = extractOrderID(id.getString());
-			return Order {
-				x["orderId"],
-				eoid,
-				(x["side"].getString() == "SELL"?-1:1)*(x["origQty"].getNumber() - x["executedQty"].getNumber()),
-				x["price"].getNumber()
-			};
-		}, Orders());
+		json::String spair((StrViewA(pair)));
+		Value resp;
+		bool canclean = true;
+		std::uint64_t updateTime = 0;
+		for (int i = 0; i < 6; i++) {
+			resp = px.private_request(Proxy::GET,"/api/v3/openOrders", Object("symbol",spair));
+			updateTime = 0;
+			if (!resp.empty()) {
+				canclean = false;
+				updateTime = resp.reduce([&](std::uint64_t ut, Value x){
+					std::uint64_t updateTime = x["updateTime"].getUIntLong();
+					if (std::find(canceledOrders.begin(), canceledOrders.end(), x["orderId"]) != canceledOrders.end()) {
+						updateTime = 0;
+					}
+					if (updateTime<ut) return updateTime;else return ut;
+				}, ~std::uint64_t(0));
+			}
+			auto iter = openOrderCheckTable.find(spair);
+			if (iter == openOrderCheckTable.end()) openOrderCheckTable.emplace(spair,updateTime);
+			else if (iter->second > updateTime) {
+				std::cerr << "Inconsistent data, will retry (" << iter->second <<" > " << updateTime << ")" << std::endl;
+				continue;
+			}
+			iter->second = updateTime;
+			return mapJSON(resp, [&](Value x) {
+				Value id = x["clientOrderId"];
+				Value eoid = extractOrderID(id.getString());
+				return Order {
+					x["orderId"],
+					eoid,
+					(x["side"].getString() == "SELL"?-1:1)*(x["origQty"].getNumber() - x["executedQty"].getNumber()),
+					x["price"].getNumber()
+				};
+			}, Orders());
+		}
+		if (updateTime == 0) {
+			if (canclean) openOrderCheckTable[spair] = 0;
+			return {};
+		} else {
+			throw std::runtime_error("Unable to retrieve open orders (inconsistent response)");
+		}
 	}
 }
 
@@ -581,8 +615,12 @@ json::Value Interface::placeOrder(const std::string_view & pair,
 					("symbol", pair)
 					("orderId", replaceId));
 			double remain = r["origQty"].getNumber() - r["executedQty"].getNumber();
-			if (r["status"].getString() != "CANCELED"
-					|| remain < std::fabs(replaceSize)*0.9999) return nullptr;
+			if (r["status"].getString() != "CANCELED") return nullptr;
+			canceledOrders.push_back(replaceId);
+			while (canceledOrders.size()>100) canceledOrders.pop_front();
+			if(remain < std::fabs(replaceSize)*0.9999) return nullptr;
+
+
 		}
 
 		if (size == 0) return nullptr;

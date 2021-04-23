@@ -1,2 +1,2 @@
 /* v tomto souboru schválně chybí poslední enter */
-#define MMBOT_VERSION  "2.21.3-13-gca15fa2"
+#define MMBOT_VERSION  "2.21.3-14-g95c7151"
