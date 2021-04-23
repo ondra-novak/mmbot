@@ -173,6 +173,7 @@ public:
 	std::recursive_mutex lock;
 
 	virtual json::Value callMethod(std::string_view name, json::Value args) override;
+	virtual AllWallets getWallet() override;
 
 protected:
 	void updatePosition(const std::string& symbol, double amount);
@@ -313,9 +314,10 @@ inline Interface::MarketInfo Interface::getMarketInfo(const std::string_view &pa
 	std::string symbol (pair);
 	const SymbolInfo &sinfo = getSymbolInfo(symbol);
 	bool isdemo;
+	const Account *a = nullptr;
 	try {
-		const Account &a = getAccount(symbol);
-		isdemo = a.reality == "DEMO";
+		a = &getAccount(symbol);
+		isdemo = a->reality == "DEMO";
 	} catch (...) {
 		isdemo = true;
 	}
@@ -333,7 +335,7 @@ inline Interface::MarketInfo Interface::getMarketInfo(const std::string_view &pa
 		"",
 		isdemo,
 		isdemo,
-		std::string(pair)
+		a?std::to_string(a->login):""
 	};
 }
 
@@ -769,3 +771,20 @@ json::Value Interface::callMethod(std::string_view name, json::Value args) {
 	Sync _(lock);
 	return AbstractBrokerAPI::callMethod(name, args);
 }
+
+Interface::AllWallets Interface::getWallet() {
+	const_cast<Interface *>(this)->login();
+
+	AllWallets w;
+	for (auto &x: accounts) {
+		if (x.second.reality == "LIVE") {
+			double balance = x.second.balance/x.second.main_conv_rate;
+			w.push_back(Wallet{
+				Value(x.second.login).toString(),
+				{WalletItem{x.second.currency, balance}}
+			});
+		}
+	}
+	return w;
+}
+

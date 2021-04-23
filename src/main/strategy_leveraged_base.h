@@ -44,6 +44,7 @@ public:
 		double position = 0;
 		double bal = 0;
 		double val = 0;
+		double norm_profit = 0;
 		double power = 0;
 		double neutral_pos = 0;
 		double avgprice = 0;

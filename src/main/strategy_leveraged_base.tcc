@@ -231,11 +231,11 @@ std::pair<typename Strategy_Leveraged<Calc>::OnTradeResult, PStrategy> Strategy_
 		neutral_recalc_ratio = st.position == cpos?1.0:std::min(1.1*std::abs(tradeSize/(st.position - cpos)),1.0);
 	} else if (std::abs(cpos*tradePrice)/(st.bal+cfg->external_balance)>0.5) { //zero or reversed direction, test whether the position has a meaning
 		cpos = st.position;   //don't change position
-		neutral_recalc_ratio = 0.1; //slide neutral
+		neutral_recalc_ratio = 1;
 	}
 	double mult = st.power;
 	double profit = (apos - tradeSize) * (tradePrice - st.last_price);
-	double vprofit = (st.position) * (tradePrice - st.last_price);
+//	double vprofit = (st.position) * (tradePrice - st.last_price);
 	//store current position
 	nwst.position = cpos;
 	//store last price
@@ -261,14 +261,20 @@ std::pair<typename Strategy_Leveraged<Calc>::OnTradeResult, PStrategy> Strategy_
 	nwst.val = val;
 
 
-	double baladj = (val - st.val) + profit;
-	double vbaladj = (val - st.val) + vprofit;
+//	double baladj = (val - st.val) + profit;
+//	double vbaladj = (val - st.val) + vprofit;
 
-	if ((cfg->reinvest_profit && tradeSize && st.last_dir)) {
-		nwst.bal += vbaladj;
-	} else if (tradeSize == 0 && cpos && nwst.bal+cfg->external_balance+baladj > 0) {
-		nwst.bal += baladj;
+	if (cfg->reinvest_profit) {
+		nwst.norm_profit += extra;
 	}
+	if (cpos == 0) {
+		nwst.bal += nwst.norm_profit;
+		nwst.norm_profit = 0;
+	}
+
+	/* else if (tradeSize == 0 && cpos && nwst.bal+cfg->external_balance+baladj > 0) {
+		nwst.bal += baladj;
+	}*/
 
 
 	recalcPower(calc, cfg, nwst);
@@ -299,6 +305,7 @@ json::Value Strategy_Leveraged<Calc>::exportState() const {
 			("neutral_pos",st.neutral_pos)
 			("avgprice", st.avgprice)
 			("last_dir", st.last_dir)
+			("norm_profit", st.norm_profit)
 			("cfg", storeCfgCmp());
 
 }
@@ -311,6 +318,7 @@ PStrategy Strategy_Leveraged<Calc>::importState(json::Value src,const IStockApi:
 			src["position"].getNumber(),
 			src["balance"].getNumber(),
 			src["val"].getNumber(),
+			src["norm_profit"].getNumber(),
 			src["power"].getNumber(),
 			src["neutral_pos"].getNumber(),
 			src["avgprice"].getNumber(),
@@ -377,7 +385,18 @@ IStrategy::OrderData Strategy_Leveraged<Calc>::getNewOrder(
 
 
 	auto cps = calcPosition(price);
-	double df = calcOrderSize(st.position,apos,cps);
+	double df = cps - apos;
+	double eq = getEquilibrium(assets);
+	double pdif = price - st.last_price;
+	if (df * dir < 0) {
+		double cps2 = calc->calcPosition(st.power, calcAsym(), st.neutral_price, eq+pdif);
+		double df2 = cps2 - apos;
+		df = df2*0.5;
+	} else if (st.last_dir && st.last_dir != dir) {
+		double cps2 = calcPosition(price);
+		double df2 = cps2 - apos;
+		df = df2;
+	}
 	return {price, df,  cps == 0 ?Alert::forced:Alert::enabled};
 }
 
@@ -417,6 +436,7 @@ json::Value Strategy_Leveraged<Calc>::dumpStatePretty(
 				 ("Current leverage",  std::abs(st.position) * st.last_price / bal)
 				 ("Multiplier", st.power)
 				 ("Neutral pos", (minfo.invert_price?-1:1)*st.neutral_pos)
+				 ("Norm profit", st.norm_profit)
 	 	 	 	 ("Avg price", minfo.invert_price?1/st.avgprice:st.avgprice);
 
 
