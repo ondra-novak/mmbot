@@ -217,7 +217,7 @@ std::pair<typename Strategy_Leveraged<Calc>::OnTradeResult, PStrategy> Strategy_
 	auto cpos = calcPosition(tradePrice);
 	double calcSize = cpos - st.position;
 	if (st.avgprice) {
-		nwst.avgprice = (st.avgprice * 50 + tradePrice)/51;
+		nwst.avgprice = std::exp((50*std::log(st.avgprice) + std::log(tradePrice))/51);
 		nwst.neutral_pos = (tradePrice - st.avgprice)*cfg->trend_factor*(st.bal + cfg->external_balance)/pow2(st.avgprice);
 	} else {
 		nwst.avgprice = tradePrice;
@@ -226,9 +226,8 @@ std::pair<typename Strategy_Leveraged<Calc>::OnTradeResult, PStrategy> Strategy_
 
 
 	if (calcSize * tradeSize > 0) { //differs from calculated size but in same direction {
-		//to fight against partial execution
-		//tradeSize must at least 90% of calculated size to calculate reduction in full range
-		neutral_recalc_ratio = st.position == cpos?1.0:std::min(1.1*std::abs(tradeSize/(st.position - cpos)),1.0);
+		//to fight against partial execution. When execution is less then expected, adjust neutral_price accordingly
+		neutral_recalc_ratio = std::min(1.0, pow2(tradeSize/calcSize));
 	} else if (std::abs(cpos*tradePrice)/(st.bal+cfg->external_balance)>0.5) { //zero or reversed direction, test whether the position has a meaning
 		cpos = st.position;   //don't change position
 		neutral_recalc_ratio = 1;
@@ -397,7 +396,9 @@ IStrategy::OrderData Strategy_Leveraged<Calc>::getNewOrder(
 		double df2 = cps2 - apos;
 		df = df2;
 	}
-	return {price, df,  cps == 0 ?Alert::forced:Alert::enabled};
+	double finpos = assets+df;
+	auto alert = std::abs(finpos) <= 2*minfo.min_size || std::abs(finpos*price) < 2*minfo.min_volume?Alert::forced:Alert::enabled;
+	return {price, df,  alert};
 }
 
 template<typename Calc>
