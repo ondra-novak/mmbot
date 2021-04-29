@@ -336,6 +336,9 @@ void MTrader::perform(bool manually) {
 				alertTrigger(status, *buy_alert);
 				update_dynmult(true,false);
 			}
+			if (!status.new_trades.trades.empty()) {
+				processTrades(status);
+			}
 
 
 			strategy.onIdle(minfo, status.ticker, status.assetBalance, status.currencyBalance+cfg.external_balance);
