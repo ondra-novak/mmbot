@@ -397,6 +397,7 @@ IStrategy::OrderData Strategy_Leveraged<Calc>::getNewOrder(
 		df = df2;
 	}
 	double finpos = assets+df;
+	if (finpos < 0 && cfg->longonly) return {0,0,Alert::forced};
 	auto alert = std::abs(finpos) <= 2*minfo.min_size || std::abs(finpos*price) < 2*minfo.min_volume?Alert::forced:Alert::enabled;
 	return {price, df,  alert};
 }
