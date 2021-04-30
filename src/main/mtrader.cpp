@@ -1507,6 +1507,10 @@ bool MTrader::checkEquilibriumClose(const Status &st, double lastTradePrice) {
 
 bool MTrader::checkLeverage(const Order &order, double &maxSize) const {
 	if (minfo.leverage && cfg.max_leverage && currency_balance.has_value() ) {
+		double whole_pos = order.size + *asset_balance;
+		if (std::abs(whole_pos) < std::abs(*asset_balance) && (whole_pos * *asset_balance) > 0)
+			return true; //position reduce
+
 		double bal = *currency_balance;
 
 		if (!trades.empty()) {

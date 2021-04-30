@@ -390,12 +390,13 @@ IStrategy::OrderData Strategy_Leveraged<Calc>::getNewOrder(
 	if (df * dir < 0) {
 		double cps2 = calc->calcPosition(st.power, calcAsym(), st.neutral_price, eq+pdif);
 		double df2 = cps2 - apos;
-		df = df2*0.5;
+		df = df2*pow2(cps)/pow2(std::abs(cps)+std::abs(cps2));
 	} else if (st.last_dir && st.last_dir != dir) {
-		double cps2 = calcPosition(price);
+		double cps2 = calcPosition(eq+pdif);
 		double df2 = cps2 - apos;
 		df = df2;
 	}
+	if (!std::isfinite(df)) return {0,0,Alert::forced};
 	double finpos = assets+df;
 	if (finpos < 0 && cfg->longonly) return {0,0,Alert::forced};
 	auto alert = std::abs(finpos) <= 2*minfo.min_size || std::abs(finpos*price) < 2*minfo.min_volume?Alert::forced:Alert::enabled;

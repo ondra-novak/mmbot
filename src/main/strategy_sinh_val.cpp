@@ -81,9 +81,11 @@ double SinhVal_Calculus::calcPriceFromPosition(double power, double asym,	double
 		return calcPosition(power, asym, neutral, x) - position;
 	};
 	double z;
-	if (position >0) {
+	if (std::abs(position*neutral) < 1e-8) return neutral; //nothing has value less than <0.00000001 (even in Bitcoin)
+	double fneu = fn(neutral);
+	if (position >fneu) {
 		z = numeric_search_r1(neutral,std::move(fn));
-	} else if (position < 0){
+	} else if (position < fneu){
 		z = numeric_search_r2(neutral,std::move(fn));
 	} else {
 		z = neutral;
