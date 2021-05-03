@@ -56,14 +56,12 @@ PStrategy Strategy_Leveraged<Calc>::init(const PCalc &calc, const PConfig &cfg, 
 		/*last_price */ price,
 		/*position */ pos - bal.second,
 		/*bal */ bal.first-cfg->external_balance,
-		/* val */ 0,
-		/* power */ 0,
-		/* neutral_pos */bal.second
 	};
 	if (nwst.bal+cfg->external_balance<= 0) {
 		//we cannot calc with empty balance. In this case, use price for calculation (but this is  unreal, trading still impossible)
 		nwst.bal = price;
 	}
+	nwst.spot = minfo.leverage == 0;
 	PCalc newcalc = calc;
 	if (!newcalc->isValid(minfo)) newcalc = std::make_shared<Calc>(calc->init(minfo));
 	recalcNewState(newcalc, cfg,nwst);
@@ -114,7 +112,7 @@ double Strategy_Leveraged<Calc>::calcPosition(double price) const {
 
 
 	double pos = calc->calcPosition(st.power, calcAsym(), new_neutral, price);
-	if (cfg->longonly && pos < 0) pos = 0;
+	if ((cfg->longonly || st.spot) && pos < 0) pos = 0;
 	double pp = pos * st.position ;
 	if (pp < 0) return 0;
 	else if (pp == 0) {
@@ -215,6 +213,7 @@ std::pair<typename Strategy_Leveraged<Calc>::OnTradeResult, PStrategy> Strategy_
 	double neutral_recalc_ratio = 0;
 	double apos = assetsLeft - st.neutral_pos;
 	auto cpos = calcPosition(tradePrice);
+	auto vcpos = cpos;
 	double calcSize = cpos - st.position;
 	if (st.avgprice) {
 		nwst.avgprice = std::exp((50*std::log(st.avgprice) + std::log(tradePrice))/51);
@@ -229,14 +228,14 @@ std::pair<typename Strategy_Leveraged<Calc>::OnTradeResult, PStrategy> Strategy_
 		//to fight against partial execution. When execution is less then expected, adjust neutral_price accordingly
 		neutral_recalc_ratio = std::min(1.0, pow2(tradeSize/calcSize));
 	} else if (std::abs(cpos*tradePrice)/(st.bal+cfg->external_balance)>0.5) { //zero or reversed direction, test whether the position has a meaning
-		cpos = st.position;   //don't change position
-		neutral_recalc_ratio = 1;
+		vcpos = st.position;   //don't change position
+		neutral_recalc_ratio = 0.1;
 	}
 	double mult = st.power;
 	double profit = (apos - tradeSize) * (tradePrice - st.last_price);
 //	double vprofit = (st.position) * (tradePrice - st.last_price);
 	//store current position
-	nwst.position = cpos;
+	nwst.position = vcpos;
 	//store last price
 	nwst.last_price = tradePrice;
 	nwst.last_dir = sgn(tradeSize);
@@ -270,6 +269,7 @@ std::pair<typename Strategy_Leveraged<Calc>::OnTradeResult, PStrategy> Strategy_
 		nwst.bal += nwst.norm_profit;
 		nwst.norm_profit = 0;
 	}
+	nwst.position = cpos;
 
 	/* else if (tradeSize == 0 && cpos && nwst.bal+cfg->external_balance+baladj > 0) {
 		nwst.bal += baladj;
@@ -321,7 +321,8 @@ PStrategy Strategy_Leveraged<Calc>::importState(json::Value src,const IStockApi:
 			src["power"].getNumber(),
 			src["neutral_pos"].getNumber(),
 			src["avgprice"].getNumber(),
-			src["last_dir"].getInt()
+			src["last_dir"].getInt(),
+			minfo.leverage == 0
 		};
 		json::Value cfgcmp = src["cfg"];
 		json::Value cfgcmp2 = storeCfgCmp();
@@ -398,7 +399,7 @@ IStrategy::OrderData Strategy_Leveraged<Calc>::getNewOrder(
 	}
 	if (!std::isfinite(df)) return {0,0,Alert::forced};
 	double finpos = assets+df;
-	if (finpos < 0 && cfg->longonly) return {0,0,Alert::forced};
+	if (finpos < 0 && (cfg->longonly || st.spot)) return {0,0,Alert::forced};
 	auto alert = std::abs(finpos) <= 2*minfo.min_size || std::abs(finpos*price) < 2*minfo.min_volume?Alert::forced:Alert::enabled;
 	return {price, df,  alert};
 }
@@ -410,7 +411,7 @@ typename Strategy_Leveraged<Calc>::MinMax Strategy_Leveraged<Calc>::calcSafeRang
 		double currencies) const {
 
 	auto r = calcRoots();
-	if (cfg->longonly) {
+	if (cfg->longonly || st.spot) {
 		r.max = st.neutral_price;
 	}
 	return r;
@@ -474,8 +475,8 @@ std::pair<double,double> Strategy_Leveraged<Calc>::getBalance(const Config &cfg,
 		else return {currency, 0};
 	} else {
 		double md = assets + currency / price;
-		double bal = cfg.external_balance?cfg.external_balance:(md * price)/2;
-		return {bal, md/2};
+		double bal = cfg.external_balance?cfg.external_balance:(md * price);
+		return {bal, 0};
 	}
 }
 
@@ -496,7 +497,7 @@ typename Strategy_Leveraged<Calc>::BudgetInfo Strategy_Leveraged<Calc>::getBudge
 
 template<typename Calc>
 inline double Strategy_Leveraged<Calc>::calcCurrencyAllocation(double) const {
-	return cfg->external_balance + st.bal - st.val;
+	return cfg->external_balance + st.bal - st.val - (st.spot?st.position*st.last_price:0.0);
 }
 
 template<typename Calc>

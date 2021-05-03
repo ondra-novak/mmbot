@@ -769,6 +769,7 @@ MTrader::Order MTrader::calculateOrderFeeLess(
 		if (order.size != 0)
 			skipcycle = true;
 	}
+	double origOrderPrice = order.price;
 
 
 	if (!skipcycle) {
@@ -803,6 +804,10 @@ MTrader::Order MTrader::calculateOrderFeeLess(
 	if (lmsz.first) {
 		order.size = lmsz.second;
 		order.alert = !order.size?IStrategy::Alert::forced:IStrategy::Alert::enabled;
+	}
+	if (order.size == 0 && order.alert != IStrategy::Alert::disabled) {
+		order.price = origOrderPrice;
+		order.alert = IStrategy::Alert::forced;
 	}
 
 	return order;

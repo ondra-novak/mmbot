@@ -49,6 +49,7 @@ public:
 		double neutral_pos = 0;
 		double avgprice = 0;
 		long last_dir = 0;
+		bool spot = false;
 	};
 
 	Strategy_Leveraged(const PCalc &calc, const PConfig &cfg, State &&st);
