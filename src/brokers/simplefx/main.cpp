@@ -113,6 +113,7 @@ public:
 	virtual json::Value setSettings(json::Value v) override;
 	virtual void restoreSettings(json::Value v) override;
 	virtual void setApiKey(json::Value keyData) override;
+	virtual json::Value getMarkets() const override;
 
 	std::string authKey;
 	std::string authSecret;
@@ -134,6 +135,8 @@ public:
 		std::string symbol;
 		std::string currency_symbol;
 		std::string asset_symbol;
+		std::string label;
+		std::string type;
 		double mult;
 		double step;
 		double price;
@@ -141,7 +144,7 @@ public:
 
 	struct SymbolSettings {
 		unsigned int account;
-		SettlementMode settlMode;
+		//SettlementMode settlMode;
 	};
 
 
@@ -164,8 +167,6 @@ public:
 	bool hasKey() const;
 	void updatePositions();
 	double findConvRate(std::string fromCurrency, std::string toCurrency);
-	bool isSettlementActive(const std::string &pair) const;
-	void checkSettlements();
 
 
 	Value tokenHeader();
@@ -288,9 +289,6 @@ inline json::Value Interface::placeOrder(const std::string_view &pair,
 		double replaceSize) {
 
 	std::string p(pair);
-	if (isSettlementActive(p)) {
-		throw std::runtime_error("Settlement in progress");
-	}
 
 	PTradingEngine eng = getEngine(p);
 	if (replaceId.defined()) {
@@ -306,7 +304,6 @@ inline json::Value Interface::placeOrder(const std::string_view &pair,
 
 inline bool Interface::reset() {
 	login();
-	checkSettlements();
 	return true;
 }
 
@@ -433,19 +430,13 @@ inline Interface::Account& Interface::getAccount(unsigned int login) {
 	return iter2->second;
 }
 
-json::NamedEnum<SettlementMode> strSettlementMode ({
-	{SettlementMode::none,"none"},
-	{SettlementMode::active,"active"},
-	{SettlementMode::friday,"friday"}
-});
-
 inline json::Value Interface::getSettings(const std::string_view& pairHint) const {
 	const_cast<Interface *>(this)->login();
 	std::string ph(pairHint);
 	SymbolSettings ss;
 	auto iter = symcfg.find(ph);
 	if (iter != symcfg.end())  ss = iter->second;
-	else ss = SymbolSettings{defaultAccount, SettlementMode::none};
+	else ss = SymbolSettings{defaultAccount};
 
 	return {Object
 		("type","enum")
@@ -463,17 +454,7 @@ inline json::Value Interface::getSettings(const std::string_view& pairHint) cons
 				Value bal = x.second.balance / x.second.main_conv_rate;
 				String ls = l.toString();
 				return Value(ls, String({ls," (",x.second.reality,") ",bal.toString()," ",x.second.currency}));
-			})),
-		Object
-			("type", "enum")
-			("label", "Settlement")
-			("name","settlmode")
-			("default", strSettlementMode[ss.settlMode])
-			("options", Object
-				("none","Disabled")
-				("active","Now")
-				("friday","Friday 21:05-22:05 UTC")
-			)
+			}))
 	};
 }
 
@@ -481,14 +462,13 @@ inline json::Value Interface::getSettings(const std::string_view& pairHint) cons
 inline json::Value Interface::setSettings(json::Value v) {
 	std::string pairHint = v["pairHint"].getString();
 	unsigned int account = v["account"].getUInt();
-	SettlementMode smode = strSettlementMode[v["settlmode"].getString()];
-	if (account == defaultAccount && smode == SettlementMode::none) symcfg.erase(pairHint);
+	if (account == defaultAccount) symcfg.erase(pairHint);
 	else {
-		symcfg[pairHint]={account, smode};
+		symcfg[pairHint]={account};
 	}
 	json::Array out;
 	for (auto &x : symcfg) {
-		out.push_back({x.first, x.second.account, strSettlementMode[x.second.settlMode] });
+		out.push_back({x.first, x.second.account});
 	}
 	return out;
 }
@@ -497,9 +477,7 @@ void Interface::restoreSettings(json::Value v) {
 	for (Value item:v) {
 		std::string pairHint = item[0].getString();
 		unsigned int account = item[1].getUInt();
-		StrViewA smode = item[2].getString();
-		SettlementMode s = smode.empty()?SettlementMode::none:strSettlementMode[smode];
-		symcfg[pairHint]={account, s};
+		symcfg[pairHint]={account};
 	}
 	remove(getSettingsFile().c_str());
 }
@@ -626,38 +604,6 @@ inline Value Interface::tokenHeader() {
 	}
 }
 
-inline bool Interface::isSettlementActive(const std::string &pair) const {
-	auto iter = symcfg.find(pair);
-	if (iter == symcfg.end()) return false;
-	SettlementMode sm = iter->second.settlMode;
-	switch (sm) {
-	default:
-	case SettlementMode::none: return false;
-	case SettlementMode::active: return true;
-	case SettlementMode::friday: {
-		std::hash<std::string> h;
-		auto now = time(nullptr);
-		auto week = (now/6048000)*6048000; //align to begin of week
-		std::string digest = this->authKey+pair+std::to_string(week);
-		int rndNum = h(digest)%2000; //generate deterministic random number 0-2000 sec(21:05-21:38)
-		auto beg = week+162300+rndNum; //beg Friday 21:05-21:38
-		auto end = week+166000;			//end Friday 22:13
-		return now >= beg && now <=end; //settlement is enabled when current time is between
-		}
-	}
-}
-
-inline void Interface::checkSettlements() {
-	for (auto &&x:position) {
-		if (x.second) {
-			if (isSettlementActive(x.first)) {
-				PTradingEngine engine = getEngine(x.first);
-				engine->runSettlement(-x.second);
-			}
-		}
-	}
-}
-
 std::string Interface::getSettingsFile() {
 	return this->secure_storage_path + ".conf";
 }
@@ -668,7 +614,7 @@ inline void Interface::onInit() {
 	Value data = Value::fromStream(settings);
 	symcfg.clear();
 	for (Value k: data) {
-		symcfg.emplace(k[0].getString(), SymbolSettings{static_cast<unsigned int>(k[1].getUInt()), SettlementMode::none});
+		symcfg.emplace(k[0].getString(), SymbolSettings{static_cast<unsigned int>(k[1].getUInt())});
 	}
 
 
@@ -698,14 +644,19 @@ inline void Interface::updateSymbols() {
 	smbinfo.clear();
 	Value symbs = hjsn_utils.GET("/utils/instruments.json");
 	for (Value z : symbs) {
+		if (z["tradeMode"].getUInt() == 0) continue;
 		std::string symbol = z["symbol"].getString();
 		std::string curSymb = z["priceCurrency"].getString();
 		std::string assSymb = z["marginCurrency"].getString();
+		std::string type = z["type"].getString();
+		std::string label = z["description"].getString();
 		double quote = sqrt(z["quote"]["a"].getNumber()*z["quote"]["b"].getNumber());
 		smbinfo.emplace(symbol, SymbolInfo {
 			symbol,
 			curSymb,
 			assSymb,
+			label,
+			type,
 			z["contractSize"].getNumber(),
 			z["step"].getNumber(),
 			quote
@@ -786,5 +737,59 @@ Interface::AllWallets Interface::getWallet() {
 		}
 	}
 	return w;
+}
+
+json::Value Interface::getMarkets() const {
+	const_cast<Interface *>(this)->updateSymbols();
+	std::vector<std::pair<const SymbolInfo *, std::string_view> > listByType;
+	listByType.reserve(smbinfo.size());
+	for (auto &&k : smbinfo) {
+		listByType.push_back({&k.second, k.first});
+	}
+	std::sort(listByType.begin(), listByType.end(),[&](const auto &a, const auto &b) {
+		if (a.first->type < b.first->type) return true;
+		if (a.first->type > b.first->type) return false;
+		if (a.first->asset_symbol < b.first->asset_symbol) return true;
+		if (a.first->asset_symbol > b.first->asset_symbol) return false;
+		return a.second < b.second;
+	});
+
+
+
+	Object result;
+	Object curTypeObj;
+	Object curAssetObj;
+	std::string_view curType;
+	std::string_view curAsset;
+	for (auto &&c : listByType) {
+		if (c.first->type != curType) {
+			if (curAssetObj.dirty()) curTypeObj.set(curAsset, curAssetObj);
+			if (curTypeObj.dirty()) result.set(curType, curTypeObj);
+			curType = c.first->type;
+			curAsset = "";
+			curTypeObj.clear();
+			curAssetObj.clear();
+		}
+		if (curType == "Forex" || curType == "Crypto") {
+			if (c.first->asset_symbol != curAsset) {
+				if (curAssetObj.dirty()) curTypeObj.set(curAsset, curAssetObj);
+				curAsset = c.first->asset_symbol;
+				curAssetObj.clear();
+			}
+			curAssetObj.set(c.first->currency_symbol, c.second);
+		} else {
+			curTypeObj.set(c.first->label, c.second);
+		}
+	}
+	if (curAssetObj.dirty()) {
+		curTypeObj.set(curAsset, curAssetObj);
+	}
+	if (curTypeObj.dirty()) {
+		result.set(curType, curTypeObj);
+	}
+
+
+	return result;
+
 }
 
