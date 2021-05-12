@@ -213,7 +213,7 @@ std::pair<typename Strategy_Leveraged<Calc>::OnTradeResult, PStrategy> Strategy_
 	double neutral_recalc_ratio = 0;
 	double apos = assetsLeft - st.neutral_pos;
 	auto cpos = calcPosition(tradePrice);
-	auto vcpos = cpos;
+//	auto vcpos = cpos;
 	double calcSize = cpos - st.position;
 	if (st.avgprice) {
 		nwst.avgprice = std::exp((50*std::log(st.avgprice) + std::log(tradePrice))/51);
@@ -228,14 +228,14 @@ std::pair<typename Strategy_Leveraged<Calc>::OnTradeResult, PStrategy> Strategy_
 		//to fight against partial execution. When execution is less then expected, adjust neutral_price accordingly
 		neutral_recalc_ratio = std::min(1.0, pow2(tradeSize/calcSize));
 	} else if (std::abs(cpos*tradePrice)/(st.bal+cfg->external_balance)>0.5) { //zero or reversed direction, test whether the position has a meaning
-		vcpos = st.position;   //don't change position
-		neutral_recalc_ratio = 0.1;
+//		vcpos = st.position;   //don't change position
+		neutral_recalc_ratio = 0; //don't change neutral price
 	}
 	double mult = st.power;
 	double profit = (apos - tradeSize) * (tradePrice - st.last_price);
 //	double vprofit = (st.position) * (tradePrice - st.last_price);
 	//store current position
-	nwst.position = vcpos;
+	nwst.position = cpos;
 	//store last price
 	nwst.last_price = tradePrice;
 	nwst.last_dir = sgn(tradeSize);

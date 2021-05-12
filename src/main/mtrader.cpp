@@ -283,10 +283,10 @@ void MTrader::perform(bool manually) {
 					&& eq > 0				 //equilibrium is not zero or negatiove
 					&& (lastTradePrice * std::exp(-status.curStep)>eq //eq is not in reach to lastTradePrice
 						|| lastTradePrice * std::exp(status.curStep)<eq)) { //eq is not in reach to lastTradePrice
-		/*	if (cfg.max_size>0 || cfg.buy_mult < 0.8 || cfg.sell_mult > 1.2) {
+			if (cfg.buy_mult < 0.99 || cfg.sell_mult > 1.01 || cfg.max_size != 0) {
 				logDebug("Enforced alerts because configuration");
 				need_alerts = true;
-			} else */{
+			} else {
 				if (trades.empty()) {
 					logDebug("Using equilibrium as lastTradePrice: $1 -> $2", lastTradePrice, eq);
 					lastTradePrice = eq; //set lastTradePrice to equilibrium
@@ -1511,8 +1511,8 @@ bool MTrader::checkEquilibriumClose(const Status &st, double lastTradePrice) {
 }
 
 bool MTrader::checkLeverage(const Order &order, double &maxSize) const {
+	double whole_pos = order.size + *asset_balance;
 	if (minfo.leverage && cfg.max_leverage && currency_balance.has_value() ) {
-		double whole_pos = order.size + *asset_balance;
 		if (std::abs(whole_pos) < std::abs(*asset_balance) && (whole_pos * *asset_balance) > 0)
 			return true; //position reduce
 
@@ -1528,6 +1528,18 @@ bool MTrader::checkLeverage(const Order &order, double &maxSize) const {
 			maxSize = (max_bal / order.price - std::abs(*asset_balance));
 			if (maxSize < 0) maxSize = 0;
 			maxSize *= sgn(order.size);
+			return false;
+		}
+	} else if (minfo.leverage == 0 && cfg.accept_loss == 0) {
+		if (whole_pos < 0) {
+			maxSize = -std::max(*asset_balance,0.0);
+			return false;
+		}
+		double vol = order.size * order.price;
+		double min_cur = vol*0.01;
+		if (*currency_balance - vol < min_cur) {
+			vol = *currency_balance - min_cur;
+			maxSize = std::max(vol/order.price,0.0);
 			return false;
 		}
 	}
