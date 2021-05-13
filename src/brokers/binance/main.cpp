@@ -108,15 +108,8 @@ public:
 	Value feeInfo;
 	std::chrono::system_clock::time_point feeInfoExpiration;
 	Symbols symbols;
-	using TradeMap = ondra_shared::linear_map<std::string, std::vector<Trade> > ;
 
 
-	TradeMap tradeMap;
-	bool needSyncTrades = true;
-	std::size_t lastFromTime = -1;
-
-
-	static bool tradeOrder(const Trade &a, const Trade &b);
 	void updateBalCache();
 	Value generateOrderId(Value clientId);
 
@@ -157,9 +150,12 @@ private:
 	Value fapi_account;
 	Value fapi_positions;
 	Tickers fapi_tickers;
-
+	
 	std::map<json::String, std::uint64_t> openOrderCheckTable;
-	std::deque<json::Value> canceledOrders;
+
+	using OrderMap=std::map<std::string, std::vector<Order> >;
+	OrderMap orderMap;
+
 
 };
 
@@ -361,6 +357,12 @@ static Value extractOrderID(StrViewA id) {
 
 }
 
+/*static void print_order_table(std::string_view pair, const Interface::Orders &orders) {
+	for(const auto &c: orders) {
+		std::cerr << "OrderTable - Pair: " << pair << ", Id: "<< c.id.toString() << " size=" << c.size << " price=" << c.price << std::endl;
+	}
+}*/
+
 Interface::Orders Interface::getOpenOrders(const std::string_view & pair) {
 	if (dapi_isSymbol(pair)) {
 		initSymbols();
@@ -395,6 +397,63 @@ Interface::Orders Interface::getOpenOrders(const std::string_view & pair) {
 
 	} else {
 		json::String spair((StrViewA(pair)));
+		Orders orders;
+
+		json::Value resp = px.private_request(Proxy::GET,"/api/v3/openOrders", Object("symbol",spair));
+		std::uint64_t updateTime;
+		if (!resp.empty()) {
+			updateTime = resp.reduce([&](std::uint64_t ut, Value x){
+				std::uint64_t updateTime = x["updateTime"].getUIntLong();
+				if (updateTime<ut) return updateTime;else return ut;
+			}, ~std::uint64_t(0));
+		}
+		auto iter = openOrderCheckTable.find(spair);
+		if (iter == openOrderCheckTable.end()) openOrderCheckTable.emplace(spair,updateTime);
+		else if (iter->second <= updateTime) {
+			orders =  mapJSON(resp, [&](Value x) {
+				Value id = x["clientOrderId"];
+				Value eoid = extractOrderID(id.getString());
+				return Order {
+					x["orderId"],
+					eoid,
+					(x["side"].getString() == "SELL"?-1:1)*(x["origQty"].getNumber() - x["executedQty"].getNumber()),
+					x["price"].getNumber()
+				};
+			}, Orders());
+			iter->second = updateTime;
+		}
+
+		auto ooiter = orderMap.find(std::string(pair));
+		if (ooiter != orderMap.end()) {
+			std::vector<Order> new_oo;
+			for (auto &c: ooiter->second) {
+				if (std::find_if(orders.begin(), orders.end(),[&](const Order &d){
+					return d.id == c.id;
+				}) != orders.end()) {
+					new_oo.push_back(c);
+				} else {
+					try {
+						Value resp = px.private_request(Proxy::GET,"/api/v3/order", Object("symbol",spair)("orderId", c.id));
+						auto status = resp["status"];
+						if (status == "NEW" || status == "PARTIALLY_FILLED") {
+							c.size = (resp["side"].getString() == "SELL"?-1:1)*(resp["origQty"].getNumber() - resp["executedQty"].getNumber());
+							new_oo.push_back(c);
+							orders.push_back(c);
+						}
+					} catch (std::exception &e) {
+						if (strstr(e.what(),"-2013") != 0) {
+							throw std::runtime_error("Market is overloaded!");
+						}
+					}
+				}
+			}
+			std::swap(ooiter->second, new_oo);
+		}
+
+		//print_order_table(pair, orders);
+		return orders;
+/*
+
 		Value resp;
 		bool canclean = true;
 		std::uint64_t updateTime = 0;
@@ -429,12 +488,13 @@ Interface::Orders Interface::getOpenOrders(const std::string_view & pair) {
 				};
 			}, Orders());
 		}
-		if (updateTime == 0) {
-			if (canclean) openOrderCheckTable[spair] = 0;
+		if (updateTime == 0 && canclean) {
+			openOrderCheckTable[spair] = 0;
 			return {};
 		} else {
 			throw std::runtime_error("Unable to retrieve open orders (inconsistent response)");
 		}
+		*/
 	}
 }
 
@@ -616,26 +676,31 @@ json::Value Interface::placeOrder(const std::string_view & pair,
 					("orderId", replaceId));
 			double remain = r["origQty"].getNumber() - r["executedQty"].getNumber();
 			if (r["status"].getString() != "CANCELED") return nullptr;
-			canceledOrders.push_back(replaceId);
-			while (canceledOrders.size()>100) canceledOrders.pop_front();
+			auto &om = orderMap[std::string(pair)];
+			auto itr = std::remove_if(om.begin(), om.end(), [&](const Order &c){
+				return c.id == replaceId;
+			});
+			om.erase(itr, om.end());
 			if(remain < std::fabs(replaceSize)*0.9999) return nullptr;
-
-
 		}
 
 		if (size == 0) return nullptr;
 
-		Value orderId = generateOrderId(clientId);
-		px.private_request(Proxy::POST,"/api/v3/order",Object
+		Value clientOrderId = generateOrderId(clientId);
+		json::Value resp = px.private_request(Proxy::POST,"/api/v3/order",Object
 				("symbol", pair)
 				("side", size<0?"SELL":"BUY")
 				("type","LIMIT_MAKER")
-				("newClientOrderId",orderId)
+				("newClientOrderId",clientOrderId)
 				("quantity", number_to_decimal(std::fabs(size),iter->second.size_precision))
 				("price", number_to_decimal(std::fabs(price), iter->second.quote_precision))
 				("newOrderRespType","ACK"));
 
-		return orderId;
+		Value orderId = resp["orderId"];
+		orderMap[std::string(pair)].push_back(Order{
+			orderId, clientOrderId, size, price,
+		});
+		return clientOrderId;
 	}
 }
 
@@ -643,7 +708,6 @@ bool Interface::reset() {
 	balanceCache = Value();
 	tickerCache.clear();
 	orderCache = Value();
-	needSyncTrades = true;
 	dapi_account = Value();
 	dapi_positions = Value();
 	dapi_tickers.clear();
@@ -821,13 +885,6 @@ inline double Interface::getFees(const std::string_view &pair) {
 }
 
 
-bool Interface::tradeOrder(const Trade &a, const Trade &b) {
-	std::size_t ta = a.time;
-	std::size_t tb = b.time;
-	if (ta < tb) return true;
-	if (ta > tb) return false;
-	return Value::compare(a.id,b.id) < 0;
-}
 
 inline void Interface::onLoadApiKey(json::Value keyData) {
 	px.privKey = keyData["privKey"].getString();
