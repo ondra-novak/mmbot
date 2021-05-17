@@ -397,7 +397,7 @@ Interface::Orders Interface::getOpenOrders(const std::string_view & pair) {
 
 	} else {
 		json::String spair((StrViewA(pair)));
-		Orders orders;
+		Orders orders, srchorders;
 
 		json::Value resp = px.private_request(Proxy::GET,"/api/v3/openOrders", Object("symbol",spair));
 		std::uint64_t updateTime;
@@ -407,30 +407,40 @@ Interface::Orders Interface::getOpenOrders(const std::string_view & pair) {
 				if (updateTime<ut) return updateTime;else return ut;
 			}, ~std::uint64_t(0));
 		}
+		bool itsok = false;
 		auto iter = openOrderCheckTable.find(spair);
-		if (iter == openOrderCheckTable.end()) openOrderCheckTable.emplace(spair,updateTime);
-		else if (iter->second <= updateTime) {
-			orders =  mapJSON(resp, [&](Value x) {
-				Value id = x["clientOrderId"];
-				Value eoid = extractOrderID(id.getString());
-				return Order {
-					x["orderId"],
-					eoid,
-					(x["side"].getString() == "SELL"?-1:1)*(x["origQty"].getNumber() - x["executedQty"].getNumber()),
-					x["price"].getNumber()
-				};
-			}, Orders());
+		if (iter == openOrderCheckTable.end()) {
+			openOrderCheckTable.emplace(spair,updateTime);
+			itsok = true;
+		}
+		else {
+			itsok = iter->second <= updateTime;
+		}
+		srchorders =  mapJSON(resp, [&](Value x) {
+			Value id = x["clientOrderId"];
+			Value eoid = extractOrderID(id.getString());
+			return Order {
+				x["orderId"],
+				eoid,
+				(x["side"].getString() == "SELL"?-1:1)*(x["origQty"].getNumber() - x["executedQty"].getNumber()),
+				x["price"].getNumber()
+			};
+		}, Orders());
+
+		if (itsok) {
 			iter->second = updateTime;
+			orders = srchorders;
 		}
 
 		auto ooiter = orderMap.find(std::string(pair));
 		if (ooiter != orderMap.end()) {
 			std::vector<Order> new_oo;
 			for (auto &c: ooiter->second) {
-				if (std::find_if(orders.begin(), orders.end(),[&](const Order &d){
+				if (std::find_if(srchorders.begin(), srchorders.end(),[&](const Order &d){
 					return d.id == c.id;
 				}) != orders.end()) {
 					new_oo.push_back(c);
+					if (!itsok) orders.push_back(c);
 				} else {
 					try {
 						Value resp = px.private_request(Proxy::GET,"/api/v3/order", Object("symbol",spair)("orderId", c.id));
@@ -698,9 +708,9 @@ json::Value Interface::placeOrder(const std::string_view & pair,
 
 		Value orderId = resp["orderId"];
 		orderMap[std::string(pair)].push_back(Order{
-			orderId, clientOrderId, size, price,
+			orderId, clientId, size, price,
 		});
-		return clientOrderId;
+		return orderId;
 	}
 }
 
