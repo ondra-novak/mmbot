@@ -24,6 +24,7 @@
 #include "strategy_keepbalance.h"
 #include "strategy_sinh_val.h"
 #include "strategy_martingale.h"
+#include "strategy_gamma.h"
 
 
 
@@ -169,6 +170,10 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 		cfg.collateral= config["collateral"].getNumber();
 		cfg.allow_short = config["allow_short"].getBool();
 		return Strategy(new Strategy_Martingale(cfg));
+	} else if (id == Strategy_Gamma::id) {
+		Strategy_Gamma::Config cfg;
+		cfg.intTable = std::make_shared<Strategy_Gamma::IntegrationTable>(config["exponent"].getNumber());
+		return Strategy(new Strategy_Gamma(cfg));
 	} else {
 		throw std::runtime_error(std::string("Unknown strategy: ").append(id));
 	}

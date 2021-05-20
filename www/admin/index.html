@@ -60,6 +60,7 @@
 <option value="hypersquare">Hypersquare</option>
 <option value="exponencial">Exponencial</option>
 <option value="errorfn">Gauss/error function+rebalance</option>
+<option value="gamma">Gamma</option>
 </optgroup>
 <optgroup label="Leveraged (advanced traders)">
 <option value="sinh">Sinh/exponencial</option>
@@ -185,6 +186,15 @@ to enter a negative value and then the value of the assets held will decrease an
 <p>It is recommended to use fixed spread. Dynamic spread can often generate too narrow spread which can result in increased aggresion</p>
 <p>Always backtest the new settings</p>
 <div class="rightinfo"><button name="show_backtest  hide_on_new" disabled="disabled">Backtest</button></div>
+</x-section>
+
+<x-section data-name="strategy_gamma backtest_anchor" class="goal" hidden="hidden"><x-section-caption>Gamma</x-section-caption>
+<label><span>Exponent<span class="tooltip"></span></span><x-slider data-name="gamma_exp" data-min="1" data-max="20" data-mult="0.1" data-fixed="1"></label>
+<div class="rightinfo"><button name="show_backtest  hide_on_new" disabled="disabled">Backtest</button></div>
+<div class="label"><span>Min price:</span><span data-name="range_min_price">---</span></div>
+<div class="label"><span>Max price:</span><span data-name="range_max_price">---</span></div>
+<div class="label"><span>Recomended initial position:</span><span data-name="range_initial">---</span></div>
+
 </x-section>
 
 

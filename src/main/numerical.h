@@ -8,6 +8,8 @@
 #ifndef SRC_MAIN_NUMERICAL_H_
 #define SRC_MAIN_NUMERICAL_H_
 
+#include <cmath>
+#include <cstdlib>
 #include <type_traits>
 
 namespace {
@@ -120,6 +122,47 @@ double newtonRoot(Fn &&fn, dFn &&dfn, double ofs, double initg) {
 	}
 	return v1;
 }
+
+
+//adaptive integration - generate table from a, to b, recursive
+template<typename Fn, typename Out>
+static double generateIntTable2(Fn &&fn, double a, double b, double fa, double fb, double error, double y, Out &&out) {
+	double w = b - a;
+	double pa = w * fa;
+	double pb = w * fb;
+	double e = std::abs(pa-pb);
+	if (e>error) {
+		double m = (a+b)*0.5;
+		double fm = fn(m);
+		double sa = generateIntTable2(std::forward<Fn>(fn), a, m, fa, fm, error, y, std::forward<Out>(out));
+		y+= sa;
+		out(m, y);
+		double sb = generateIntTable2(std::forward<Fn>(fn), m, b, fm, fb, error, y, std::forward<Out>(out));
+		return sa+sb;
+	} else {
+		return (pa+pb)*0.5;
+	}
+}
+
+//adaptive integration - generate table from a, to b, recursive
+/**
+ *
+ * @param fn function to integrate
+ * @param a from
+ * @param b to
+ * @param error maximal error
+ * @param y initial value (can be zero)
+ * @param out output function (x,y)
+ */
+template<typename Fn, typename Out>
+static void generateIntTable(Fn &&fn, double a, double b, double error, double y, Out &&out) {
+	out(a, y);
+	double fa=fn(a);
+	double fb=fn(b);
+	double r = generateIntTable2(std::forward<Fn>(fn), a, b, fa, fb, error, y, std::forward<Out>(out));
+	out(b, y+r);
+}
+
 
 
 #endif /* SRC_MAIN_NUMERICAL_H_ */

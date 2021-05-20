@@ -29,7 +29,7 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 			pos = *init_pos;
 			if (minfo.invert_price) pos = -pos;
 		}else {
-			pos = s.calcInitialPosition(minfo,bt.price.price,0,balance);
+			pos = s.calcInitialPosition(minfo,bt.price.price,0,balance+cfg.external_balance);
 			if (!minfo.leverage) balance -= pos * bt.price.price;
 		}
 
@@ -54,10 +54,10 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 				if (minfo.leverage) balance += pchange;
 
 				double dir = p>bt.price.price?-1:1;
-				s.onIdle(minfo,tk,pos,balance);
+				s.onIdle(minfo,tk,pos,balance+cfg.external_balance);
 				double mult = dir>0?cfg.buy_mult:cfg.sell_mult;
 				double adjbal = std::max(balance,0.0);
-				Strategy::OrderData order = s.getNewOrder(minfo, p, p, dir, pos, adjbal,false);
+				Strategy::OrderData order = s.getNewOrder(minfo, p, p, dir, pos, adjbal+cfg.external_balance,false);
 				bool allowAlert = true;
 				if (cfg.zigzag && !trades.empty()){
 					const auto &l = trades.back();
@@ -84,7 +84,7 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 					if (new_pos > cur_pos && new_pos > max_abs_pos) {
 						if (cfg.accept_loss) {
 							s.reset();
-							s.onIdle(minfo, tk, pos, adjbal);
+							s.onIdle(minfo, tk, pos, adjbal+cfg.external_balance);
 							bt.event = BTEvent::accept_loss;
 						} else {
 							bt.event = BTEvent::margin_call;
@@ -108,7 +108,7 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 						} else {
 							if (cfg.accept_loss) {
 								s.reset();
-								s.onIdle(minfo, tk, pos, adjbal);
+								s.onIdle(minfo, tk, pos, adjbal+cfg.external_balance);
 								bt.event = BTEvent::accept_loss;
 							}
 							order.size = 0;
@@ -145,7 +145,7 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 					pos += order.size;
 				}
 
-				auto tres = s.onTrade(minfo, p, order.size, pos, balance);
+				auto tres = s.onTrade(minfo, p, order.size, pos, balance+cfg.external_balance);
 				bt.neutral_price = tres.neutralPrice;
 				bt.norm_accum += std::isfinite(tres.normAccum)?tres.normAccum:0;
 				bt.norm_profit += std::isfinite(tres.normProfit)?tres.normProfit:0;

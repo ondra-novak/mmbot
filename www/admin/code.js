@@ -101,6 +101,7 @@ App.prototype.createTraderForm = function() {
 		form.showItem("strategy_gauss",state.strategy == "errorfn");
 		form.showItem("strategy_keepbalance",state.strategy == "keep_balance");
 		form.showItem("strategy_martingale",state.strategy == "martingale");
+		form.showItem("strategy_gamma",state.strategy == "gamma");
 		form.showItem("strategy_hyperbolic",["hyperbolic","linear","sinh","sinh_val","sinh2"].indexOf(state.strategy) != -1);
 		form.showItem("kv_valinc_h",state.strategy == "keepvalue");
 		form.showItem("show_curvature",["sinh","sinh_val","sinh2"].indexOf(state.strategy) != -1);
@@ -571,6 +572,7 @@ App.prototype.fillForm = function (src, trg) {
 	data.mart_collateral=0;
 	data.mart_power=50;
 	data.mart_allowshort=false;
+	data.gamma_exp=2;
 
 	function powerCalc(x) {return adjNumN(Math.pow(10,x)*0.01);};
 
@@ -619,6 +621,8 @@ App.prototype.fillForm = function (src, trg) {
 		data.mart_reduction = filledval(defval(src.strategy.reduction,1)*100,100);
 		data.mart_collateral = filledval(src.strategy.collateral,0);
 		data.mart_allowshort = filledval(src.strategy.allowshort,false);
+	} else if (data.strategy == "gamma") {
+		data.gamma_exp = filledval(src.strategy.exponent,2);
 	}
 	data.st_power["!change"] = function() {
 		trg.setItemValue("st_show_factor",powerCalc(trg.readData(["st_power"]).st_power));
@@ -757,6 +761,11 @@ function getStrategyData(data) {
 			collateral: data.mart_collateral,
 			allow_short: data.mart_allowshort
 		};
+	} else if (data.strategy == "gamma") {
+		strategy = {
+			type: data.strategy,
+			exponent: data.gamma_exp
+		};		
 	} else 	if (["hyperbolic","linear","sinh","sinh_val","sinh2"].indexOf(data.strategy) != -1) {
 		strategy = {
 				type: data.strategy,
@@ -1590,7 +1599,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		"st_power","st_reduction_step","st_sl","st_redmode","st_max_step","st_pattern","dynmult_sliding","accept_loss","st_tmode","zigzag",
 		"hp_trend_factor","hp_allowshort","hp_reinvest","hp_power","hp_asym","hp_reduction","sh_curv","hp_initboost","hp_extbal","hp_powadj","hp_dynred",
 		"gs_external_assets","gs_rb_hi_a","gs_rb_lo_a","gs_rb_hi_p","gs_rb_lo_p",
-		"min_balance","max_balance","max_leverage","reduce_on_leverage","mart_initial","mart_power","mart_reduction","mart_collateral","mart_allowshort"];
+		"min_balance","max_balance","max_leverage","reduce_on_leverage","mart_initial","mart_power","mart_reduction","mart_collateral","mart_allowshort","gamma_exp"];
 	var spread_inputs = ["spread_calc_stdev_hours", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode","dynmult_sliding","dynmult_cap","dynmult_mult","force_spread","spread_mode"];
 	var balance = form._balance;
 	var assets = form._assets;
