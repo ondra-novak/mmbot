@@ -23,6 +23,7 @@ bool WalletDB::KeyLess::operator ()(const KeyQuery &key1, const KeyQuery &key2) 
 }
 
 void WalletDB::alloc(Key &&key, double allocation) {
+	if (allocation<0) allocation = 0;
 	auto iter = allocTable.find(key);
 	if (iter == allocTable.end()) {
 		allocTable.emplace_hint(iter, std::move(key), allocation);
@@ -57,17 +58,18 @@ WalletDB::Allocation WalletDB::query(const KeyQuery &key) const {
 }
 
 double WalletDB::adjBalance(const KeyQuery &key, double balance) const {
+	if (balance < 0) balance = 0;
 	auto r = query(key);
 	double total = r.otherTraders+r.thisTrader;
 	if (balance<total) {
 		if (r.thisTrader == 0 || total == 0) {
-			return balance/(r.traders+1);
+			return std::max(0.0,balance/(r.traders+1));
 		} else {
 			double part = r.thisTrader/total;
-			return part * balance;
+			return std::max(0.0,part * balance);
 		}
 	} else {
-		return balance - r.otherTraders;
+		return std::max(0.0,balance - r.otherTraders);
 	}
 }
 

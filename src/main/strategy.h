@@ -124,8 +124,9 @@ public:
 	IStrategy::ChartPoint calcChart(double price) const {
 		return ptr->calcChart(price);
 	}
-	bool needLiveBalance() const {
-		return ptr->needLiveBalance();
+
+	double getCenterPrice(double lastPrice, double assets) const {
+		return ptr->getCenterPrice(lastPrice,assets);
 	}
 
 

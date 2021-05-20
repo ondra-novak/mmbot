@@ -45,7 +45,8 @@ public:
 	virtual double calcInitialPosition(const IStockApi::MarketInfo & , double price, double assets, double currency) const override;
 	virtual BudgetInfo getBudgetInfo() const override;
 	virtual ChartPoint calcChart(double price) const override;
-	virtual bool needLiveBalance() const override {return false;}
+	virtual double getCenterPrice(double lastPrice, double assets) const override {return getEquilibrium(assets);}
+
 
 
 	struct Consts {

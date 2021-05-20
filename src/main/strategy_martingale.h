@@ -63,7 +63,8 @@ public:
 	virtual PStrategy reset() const  override;
 	virtual json::Value dumpStatePretty(
 			const IStockApi::MarketInfo &minfo) const  override;
-	virtual bool needLiveBalance() const  override;
+	virtual double getCenterPrice(double lastPrice, double assets) const override {return lastPrice;}
+
 
 	static std::string_view id;
 

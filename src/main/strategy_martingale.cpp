@@ -178,9 +178,7 @@ json::Value Strategy_Martingale::dumpStatePretty( const IStockApi::MarketInfo &m
 			("Initial volume", st.initial);
 }
 
-bool Strategy_Martingale::needLiveBalance() const {
-	return false;
-}
+
 
 double Strategy_Martingale::calcPos(double new_price) const {
 	double dir = sgn(new_price - st.price);

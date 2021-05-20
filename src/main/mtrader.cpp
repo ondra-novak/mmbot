@@ -235,10 +235,14 @@ void MTrader::perform(bool manually) {
 		}
 
 		double eq = strategy.getEquilibrium(status.assetBalance);
+		bool delayed_trade_detect = false;
 
 		if (!anytrades && cfg.adj_timeout && cfg.enabled
 				&& std::abs(status.assetBalance - *asset_balance)
-						/std::abs(status.assetBalance + *asset_balance) > 0.01) {
+						/std::abs(status.assetBalance + *asset_balance) > 0.01
+						&& std::abs(status.assetBalance - *asset_balance) >= minfo.min_size
+						&& std::abs(status.assetBalance - *asset_balance) >= minfo.min_volume/status.curPrice
+			) {
 			if (adj_wait>cfg.adj_timeout) {
 				dorovnani(status, *asset_balance, adj_wait_price);
 				anytrades = processTrades(status);
@@ -248,6 +252,7 @@ void MTrader::perform(bool manually) {
 				if (adj_wait == 0) adj_wait_price = status.curPrice;
 				adj_wait++;
 				logNote("Need adjust $1 => $2, stage: $3/$4 price: $5",  *asset_balance, status.assetBalance, adj_wait ,cfg.adj_timeout, adj_wait_price);
+				delayed_trade_detect = true;
 			}
 		} else {
 			adj_wait = 0;
@@ -287,18 +292,7 @@ void MTrader::perform(bool manually) {
 				logDebug("Enforced alerts because configuration");
 				need_alerts = true;
 			} else {
-				if (trades.empty()) {
-					logDebug("Using equilibrium as lastTradePrice: $1 -> $2", lastTradePrice, eq);
-					lastTradePrice = eq; //set lastTradePrice to equilibrium
-				} else {
-					auto t1 = trades.back().time;
-					auto t2 = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-					constexpr auto slide_time = 15*60*1000;
-					double f = std::min<double>(std::max<double>((double)(t2-t1)/(double)slide_time, 0.0),1.0);
-					double nlp = lastTradePrice + (eq - lastTradePrice) * f;
-					logDebug("Sliding to equilibrium as lastTradePrice: $1 -> $2 (f = $3, res = $4)", lastTradePrice, eq, f, nlp);
-					lastTradePrice = nlp; //set lastTradePrice to equilibrium
-				}
+				lastTradePrice = strategy.getCenterPrice(lastTradePrice, status.assetBalance);
 			}
 		}
 
@@ -345,13 +339,17 @@ void MTrader::perform(bool manually) {
 
 			if (status.curStep) {
 
-				if (!cfg.enabled || need_initial_reset)  {
+				if (!cfg.enabled || need_initial_reset || delayed_trade_detect)  {
 					if (orders.buy.has_value())
 						stock->placeOrder(cfg.pairsymb,0,0,magic,orders.buy->id,0);
 					if (orders.sell.has_value())
 						stock->placeOrder(cfg.pairsymb,0,0,magic,orders.sell->id,0);
 					if (!cfg.hidden) {
-						if (!cfg.enabled) {
+						if (delayed_trade_detect) {
+							if (adj_wait>1) {
+								statsvc->reportError(IStatSvc::ErrorObj("Trade detected, waiting for confirmation (ADJ Timeout)"));
+							}
+						} else if (!cfg.enabled) {
 							statsvc->reportError(IStatSvc::ErrorObj("Automatic trading is disabled"));
 						} else {
 							statsvc->reportError(IStatSvc::ErrorObj("Reset required"));
@@ -399,6 +397,11 @@ void MTrader::perform(bool manually) {
 					if (grant_trade) {
 						sellorder.alert = IStrategy::Alert::disabled;
 						buyorder.alert = IStrategy::Alert::disabled;
+						if (status.curPrice < eq) {
+							sellorder.size = 0;
+						} else if (status.curPrice > eq) {
+							buyorder.size = 0;
+						}
 					}
 
 					try {

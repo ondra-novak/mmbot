@@ -151,8 +151,6 @@ private:
 	Value fapi_positions;
 	Tickers fapi_tickers;
 	
-	std::map<json::String, std::uint64_t> openOrderCheckTable;
-
 	using OrderMap=std::map<std::string, std::vector<Order> >;
 	OrderMap orderMap;
 
@@ -397,26 +395,10 @@ Interface::Orders Interface::getOpenOrders(const std::string_view & pair) {
 
 	} else {
 		json::String spair((StrViewA(pair)));
-		Orders orders, srchorders;
+		Orders orders;
 
 		json::Value resp = px.private_request(Proxy::GET,"/api/v3/openOrders", Object("symbol",spair));
-		std::uint64_t updateTime;
-		if (!resp.empty()) {
-			updateTime = resp.reduce([&](std::uint64_t ut, Value x){
-				std::uint64_t updateTime = x["updateTime"].getUIntLong();
-				if (updateTime<ut) return updateTime;else return ut;
-			}, ~std::uint64_t(0));
-		}
-		bool itsok = false;
-		auto iter = openOrderCheckTable.find(spair);
-		if (iter == openOrderCheckTable.end()) {
-			openOrderCheckTable.emplace(spair,updateTime);
-			itsok = true;
-		}
-		else {
-			itsok = iter->second <= updateTime;
-		}
-		srchorders =  mapJSON(resp, [&](Value x) {
+		orders =  mapJSON(resp, [&](Value x) {
 			Value id = x["clientOrderId"];
 			Value eoid = extractOrderID(id.getString());
 			return Order {
@@ -427,20 +409,15 @@ Interface::Orders Interface::getOpenOrders(const std::string_view & pair) {
 			};
 		}, Orders());
 
-		if (itsok) {
-			iter->second = updateTime;
-			orders = srchorders;
-		}
 
 		auto ooiter = orderMap.find(std::string(pair));
 		if (ooiter != orderMap.end()) {
 			std::vector<Order> new_oo;
 			for (auto &c: ooiter->second) {
-				if (std::find_if(srchorders.begin(), srchorders.end(),[&](const Order &d){
+				if (std::find_if(orders.begin(), orders.end(),[&](const Order &d){
 					return d.id == c.id;
 				}) != orders.end()) {
 					new_oo.push_back(c);
-					if (!itsok) orders.push_back(c);
 				} else {
 					try {
 						Value resp = px.private_request(Proxy::GET,"/api/v3/order", Object("symbol",spair)("orderId", c.id));
@@ -448,7 +425,7 @@ Interface::Orders Interface::getOpenOrders(const std::string_view & pair) {
 						if (status == "NEW" || status == "PARTIALLY_FILLED") {
 							c.size = (resp["side"].getString() == "SELL"?-1:1)*(resp["origQty"].getNumber() - resp["executedQty"].getNumber());
 							new_oo.push_back(c);
-							orders.push_back(c);
+							orders.insert(orders.begin(),c);
 						}
 					} catch (std::exception &e) {
 						if (strstr(e.what(),"-2013") != 0) {

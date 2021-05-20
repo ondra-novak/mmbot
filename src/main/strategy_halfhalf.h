@@ -33,7 +33,8 @@ public:
 	virtual BudgetInfo getBudgetInfo() const override;
 	virtual double calcCurrencyAllocation(double price) const override;
 	virtual ChartPoint calcChart(double price) const override;
-	virtual bool needLiveBalance() const override {return false;}
+	virtual double getCenterPrice(double lastPrice, double assets) const override {return getEquilibrium(assets);}
+
 
 
 	static std::string_view id;

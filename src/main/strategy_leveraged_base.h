@@ -72,7 +72,8 @@ public:
 		return std::optional<BudgetExtraInfo>();
 	}
 	virtual ChartPoint calcChart(double price) const override;
-	virtual bool needLiveBalance() const override {return false;}
+	virtual double getCenterPrice(double lastPrice, double assets) const override {return lastPrice;}
+
 
 
 	static std::string_view id;

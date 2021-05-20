@@ -90,14 +90,7 @@ public:
 	virtual double calcCurrencyAllocation(double price) const = 0;
 	virtual ~IStrategy() {}
 	virtual ChartPoint calcChart(double price) const = 0;
-	///whether strategy need live balance onIdle()
-	/**
-	 * @retval false balance is updated only after trade
-	 * @retval true balance is update on each cycle
-	 *
-	 * If strategy doesn't need live balance, it can make whole cycle faster, because queries to balance are skipped
-	 */
-	virtual bool needLiveBalance() const = 0;
+	virtual double getCenterPrice(double lastPrice, double assets) const = 0;
 
 
 protected:

@@ -393,7 +393,7 @@ IStrategy::OrderData Strategy_Leveraged<Calc>::getNewOrder(
 		double df2 = cps2 - apos;
 		df = df2*pow2(cps)/pow2(std::abs(cps)+std::abs(cps2));
 	} else if (st.last_dir && st.last_dir != dir) {
-		double cps2 = calcPosition(eq+pdif);
+		double cps2 = calc->calcPosition(st.power, calcAsym(), st.neutral_price, eq+pdif);
 		double df2 = cps2 - apos;
 		df = df2;
 	}
