@@ -373,6 +373,7 @@ App.prototype.fillForm = function (src, trg) {
 		trg._assets = pair.asset_balance;
 		trg._price = invPrice(pair.price, pair.invert_price);
 		trg._leverage = data.leverage;
+		trg._invprice = pair.invert_price;
 
 		var mp = orders?orders.map(function(z) {
 			return {
@@ -1610,6 +1611,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 	var balance = form._balance;
 	var assets = form._assets;
 	var leverage = form._leverage != "n/a";	
+	var invert_price = form._invprice;
 	var init_def_price = form._price;
 	var days = 45*60*60*24*1000;
     var offset = 0;
@@ -1653,6 +1655,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		var ilst,acp = false;
 		v.forEach(function(x) {
 			var nacp = x.tm >= imin && x.tm <=imax;
+			var npr = invert_price?1.0/x.pr: x.pr;
 			if (nacp || acp) {
 				x.achg = x.sz;
 				x.time = x.tm;
@@ -1672,7 +1675,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 				    max_pos = ap;
 				if (x.pl > max_pl) {max_pl = x.pl;min_pl = x.pl;}
 				if (x.pl < min_pl) {min_pl = x.pl;var downdraw = max_pl - min_pl; if (downdraw> max_downdraw) max_downdraw = downdraw;}
-				cost = cost + x.sz * x.pr;
+				cost = cost + x.sz * npr;
 				if (cost > max_cost) max_cost = cost;
 				if (x.sz > 0) buys++;
 				if (x.sz < 0) sells++;
@@ -1980,8 +1983,9 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		config.broker = broker;
 		config.pair_symbol = pair;
 		var init_price = isFinite(opts.initial_price)?opts.initial_price:init_def_price;
+        var norm_init_price = invert_price?1.0/init_price:init_price;
         bal =( isFinite(opts.initial_balance)?opts.initial_balance:balance)
-                    + (leverage?0:(isFinite(opts.initial_pos)?opts.initial_pos:assets)*init_price);                        
+                    + (leverage?0:(isFinite(opts.initial_pos)?opts.initial_pos:assets)*norm_init_price);
        	req = {
 			config: config,
 			id: id,
