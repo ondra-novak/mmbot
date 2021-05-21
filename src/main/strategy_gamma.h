@@ -27,6 +27,8 @@ public:
 
 	struct Config {
 		std::shared_ptr<IntegrationTable> intTable;
+		int reduction_mode;
+		double trend;
 	};
 
 
@@ -34,6 +36,7 @@ public:
 		double k = 0;
 		double w = 0;
 		double p = 0;
+		double kk = 0;
 	};
 
 	Strategy_Gamma(const Config &cfg);
@@ -79,6 +82,8 @@ protected:
 	double calculatePosition(double price, double &newk) const;
 	Strategy_Gamma init(const IStockApi::MarketInfo &minfo, double price, double assets, double currency) const;
 	double calculateCurPosition() const;
+
+	double calibK(double k) const;
 
 	Config cfg;
 	State state;

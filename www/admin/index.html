@@ -190,10 +190,12 @@ to enter a negative value and then the value of the assets held will decrease an
 
 <x-section data-name="strategy_gamma backtest_anchor" class="goal" hidden="hidden"><x-section-caption>Gamma</x-section-caption>
 <label><span>Exponent<span class="tooltip"></span></span><x-slider data-name="gamma_exp" data-min="1" data-max="20" data-mult="0.1" data-fixed="1"></label>
-<div class="rightinfo"><button name="show_backtest  hide_on_new" disabled="disabled">Backtest</button></div>
+<label><span>Trend preference<span class="tooltip"></span></span><x-slider data-name="gamma_trend" data-min="-100" data-max="100" data-mult="1" data-fixed="0"></label>
+<label><span>Rebalance<span class="tooltip"></span></span><select data-name="gamma_rebalance"><option value="0">No rebalace</option><option value="1">After buy</option><option value="2">After sell</option><option value="3">Always</option></select></label>
 <div class="label"><span>Min price:</span><span data-name="range_min_price">---</span></div>
 <div class="label"><span>Max price:</span><span data-name="range_max_price">---</span></div>
 <div class="label"><span>Recomended initial position:</span><span data-name="range_initial">---</span></div>
+<div class="rightinfo"><button name="show_backtest  hide_on_new" disabled="disabled">Backtest</button></div>
 
 </x-section>
 

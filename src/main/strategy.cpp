@@ -173,6 +173,8 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 	} else if (id == Strategy_Gamma::id) {
 		Strategy_Gamma::Config cfg;
 		cfg.intTable = std::make_shared<Strategy_Gamma::IntegrationTable>(config["exponent"].getNumber());
+		cfg.reduction_mode = config["rebalance"].getInt();
+		cfg.trend= config["trend"].getNumber();
 		return Strategy(new Strategy_Gamma(cfg));
 	} else {
 		throw std::runtime_error(std::string("Unknown strategy: ").append(id));

@@ -44,7 +44,7 @@ IStrategy::OrderData Strategy_Gamma::getNewOrder(
 }
 
 double Strategy_Gamma::calculateCurPosition() const {
-	return calcAssets(state.k, state.w, state.p, cfg.intTable->z);
+	return calcAssets(state.kk, state.w, state.p, cfg.intTable->z);
 }
 
 std::pair<IStrategy::OnTradeResult, ondra_shared::RefCntPtr<const IStrategy> > Strategy_Gamma::onTrade(
@@ -61,22 +61,26 @@ std::pair<IStrategy::OnTradeResult, ondra_shared::RefCntPtr<const IStrategy> > S
 
 	double accur = 2*std::max(std::max(minfo.asset_step, minfo.min_size), minfo.min_volume * tradePrice);
 
-	if (cur_pos<new_pos) {
-		if (assetsLeft < new_pos - accur) {
-			return {{0,0,state.k,0}, this};
-		}
-	} else if (cur_pos > new_pos) {
-		if (assetsLeft > new_pos + accur) {
-			return {{0,0,state.k,0}, this};
+	if (tradePrice < state.k) {
+		if (cur_pos<new_pos) {
+			if (assetsLeft < new_pos - accur) {
+				return {{0,0,state.k,0}, this};
+			}
+		} else if (cur_pos > new_pos) {
+			if (assetsLeft > new_pos + accur) {
+				return {{0,0,state.k,0}, this};
+			}
 		}
 	}
 
-	double bc = calcBudget(state.k, state.w, state.p, *cfg.intTable);
-	double bn = calcBudget(new_k, state.w, tradePrice, *cfg.intTable);
-	double np = (-tradeSize * tradePrice) - (bn - tradePrice * new_pos) + (bc - state.p * cur_pos);
+	double new_kk = calibK(new_k);
+	double bc = calcBudget(state.kk, state.w, state.p, *cfg.intTable);
+	double bn = calcBudget(new_kk, state.w, tradePrice, *cfg.intTable);
+	double pnl = (tradePrice - state.p)*(assetsLeft - tradeSize);
+	double np = pnl - (bn - bc);
 
 	State nwst = {
-			new_k,state.w,tradePrice
+			new_k,state.w,tradePrice, new_kk
 	};
 	return {{np,0,new_k,0},
 		PStrategy(new Strategy_Gamma(cfg, std::move(nwst)))
@@ -88,7 +92,8 @@ PStrategy Strategy_Gamma::importState(json::Value src,
 	return new Strategy_Gamma(cfg, {
 			src["k"].getNumber(),
 			src["w"].getNumber(),
-			src["p"].getNumber()
+			src["p"].getNumber(),
+			calibK(src["k"].getNumber())
 	});
 }
 
@@ -101,16 +106,16 @@ IStrategy::MinMax Strategy_Gamma::calcSafeRange(
 	if (a>assets) {
 		if (assets < 0) mmx.max = state.p;
 		else mmx.max = numeric_search_r2(state.p, [&](double p){
-			return calcAssets(state.k, state.w, p, cfg.intTable->z) - a + assets;
+			return calcAssets(state.kk, state.w, p, cfg.intTable->z) - a + assets;
 		});
 	} else {
 		mmx.max = std::numeric_limits<double>::infinity();
 	}
-	double cur = calcBudget(state.k, state.w, state.p, *cfg.intTable) - a*state.p;
+	double cur = calcBudget(state.kk, state.w, state.p, *cfg.intTable) - a*state.p;
 	if (cur>currencies) {
 		if (currencies < 0) mmx.min = state.p;
 		else mmx.min = numeric_search_r1(state.p, [&](double p){
-			return calcBudget(state.k, state.w, p, *cfg.intTable) - cur + currencies;
+			return calcBudget(state.kk, state.w, p, *cfg.intTable) - cur + currencies;
 		});
 	}
 	return mmx;
@@ -139,26 +144,28 @@ double Strategy_Gamma::calcInitialPosition(const IStockApi::MarketInfo &minfo,
 		double price, double assets, double currency) const {
 
 	double budget = price * assets +currency;
-	double w = budget/cfg.intTable->get_max();
-	return calcAssets(price, w, price, cfg.intTable->z);
+	double kk = calibK(price);
+	double normb = calcBudget(kk, 1, price, *cfg.intTable);
+	double w = budget/normb;
+	return calcAssets(kk, w, price, cfg.intTable->z);
 
 }
 
 IStrategy::BudgetInfo Strategy_Gamma::getBudgetInfo() const {
-	return {calcBudget(state.k, state.w, state.p, *cfg.intTable),
-			calcAssets(state.k, state.w, state.p, cfg.intTable->z)};
+	return {calcBudget(state.kk, state.w, state.p, *cfg.intTable),
+			calcAssets(state.kk, state.w, state.p, cfg.intTable->z)};
 
 }
 
 double Strategy_Gamma::getEquilibrium(double assets) const {
-	double a = calcAssets(state.k, state.w, state.p, cfg.intTable->z);
+	double a = calcAssets(state.kk, state.w, state.p, cfg.intTable->z);
 	if (assets > a) {
 		return numeric_search_r1(state.p, [&](double price){
-			return calcAssets(state.k, state.w, price, cfg.intTable->z)-assets;
+			return calcAssets(state.kk, state.w, price, cfg.intTable->z)-assets;
 		});
 	} else if (assets<a) {
 		return numeric_search_r2(state.p, [&](double price){
-			return calcAssets(state.k, state.w, price, cfg.intTable->z)-assets;
+			return calcAssets(state.kk, state.w, price, cfg.intTable->z)-assets;
 		});
 	} else {
 		return state.p;
@@ -166,15 +173,15 @@ double Strategy_Gamma::getEquilibrium(double assets) const {
 }
 
 double Strategy_Gamma::calcCurrencyAllocation(double price) const {
-	return calcBudget(state.k, state.w, price, *cfg.intTable)
-			-calcAssets(state.k, state.w, price, cfg.intTable->z)*price;
+	return calcBudget(state.kk, state.w, price, *cfg.intTable)
+			-calcAssets(state.kk, state.w, price, cfg.intTable->z)*price;
 }
 
 IStrategy::ChartPoint Strategy_Gamma::calcChart(double price) const {
 	return {
 		true,
-		calcAssets(state.k, state.w, price, cfg.intTable->z),
-		calcBudget(state.k, state.w, price, *cfg.intTable)
+		calcAssets(state.kk, state.w, price, cfg.intTable->z),
+		calcBudget(state.kk, state.w, price, *cfg.intTable)
 	};
 }
 
@@ -192,8 +199,8 @@ PStrategy Strategy_Gamma::reset() const {
 json::Value Strategy_Gamma::dumpStatePretty(const IStockApi::MarketInfo &minfo) const {
 	bool inv = minfo.invert_price;
 	return json::Object
-			("Position", (inv?-1.0:1.0) * calcAssets(state.k, state.w, state.p, cfg.intTable->z))
-			("Neutral price", inv?1.0/state.k:state.k)
+			("Position", (inv?-1.0:1.0) * calcAssets(state.kk, state.w, state.p, cfg.intTable->z))
+			("Neutral price", inv?1.0/state.kk:state.kk)
 			("Last price", inv?1.0/state.p:state.p)
 			("Max budget", cfg.intTable->get_max()* state.w);
 
@@ -244,22 +251,25 @@ double Strategy_Gamma::calculatePosition(double price, double &newk) const  {
 	newk = state.k;
 	if (price >= state.k) {
 		if (price < state.p) {
-			newk = price;
-			return calcAssets(price, state.w, price, cfg.intTable->z);
+			newk = (price+state.k)*0.5;
+			return calcAssets(calibK(newk), state.w, price, cfg.intTable->z);
 		} else {
 			//cur k will not change
-			return calcAssets(state.k, state.w, price, cfg.intTable->z);
+			return calcAssets(state.kk, state.w, price, cfg.intTable->z);
 		}
 	}
+	if (cfg.reduction_mode == 0 || (cfg.reduction_mode == 1 && price > state.p) || (cfg.reduction_mode == 2 && price < state.p)) {
+		return calcAssets(state.kk, state.w, price, cfg.intTable->z);
+	}
 	//current position (calculated from last price)
-	double cur_pos = calcAssets(state.k, state.w, state.p, cfg.intTable->z);
+	double cur_pos = calcAssets(state.kk, state.w, state.p, cfg.intTable->z);
 	double pnl = cur_pos * (price - state.p);
-	double bc = calcBudget(state.k, state.w, state.p, *cfg.intTable);
+	double bc = calcBudget(state.kk, state.w, state.p, *cfg.intTable);
 	double needb = bc+pnl;
 	newk = numeric_search_r1(1.5*state.k, [&](double k){
-		return calcBudget(k, state.w, price, *cfg.intTable) - needb;
+		return calcBudget(calibK(k), state.w, price, *cfg.intTable) - needb;
 	});
-	return calcAssets(newk, state.w, price, cfg.intTable->z);
+	return calcAssets(calibK(newk), state.w, price, cfg.intTable->z);
 }
 
 Strategy_Gamma Strategy_Gamma::init(const IStockApi::MarketInfo &minfo,
@@ -267,27 +277,45 @@ Strategy_Gamma Strategy_Gamma::init(const IStockApi::MarketInfo &minfo,
 
 	double budget = assets * price + currency;
 	State newst;
-	newst.w = budget / cfg.intTable->get_max();
-	if (newst.w <= 0) throw std::runtime_error("No budget");
+	if (budget<=0) throw std::runtime_error("No budget");
 	newst.p = price;
 	if (newst.p <= 0) throw std::runtime_error("Invalid price");
 	if (assets <= 0) newst.k = price;
 	else {
+		double r = assets*price/budget;
 		double k = price / cfg.intTable->b; //assume that k is lowest possible value;
-		double a = calcAssets(k, newst.w, price, cfg.intTable->z);
-		if (assets > a) {
-			newst.k = numeric_search_r2(k, [&](double k){
-				double a = calcAssets(k, newst.w, price, cfg.intTable->z);
-				return a - assets;
-			});
+		double a = calcAssets(calibK(k), 1, price, cfg.intTable->z);
+		double b = calcBudget(calibK(k), 1, price, *cfg.intTable);
+		double r0 = a/b*price;
+		if (r > r0) {
+			if (r  <0.5 ) {
+				newst.k = numeric_search_r2(k, [&](double k){
+					double a = calcAssets(calibK(k), 1, price, cfg.intTable->z);
+					double b = calcBudget(calibK(k), 1, price, *cfg.intTable);
+					return a/b*price - r;
+				});
+			} else {
+				newst.k = (price / cfg.intTable->a)/calibK(1.0);
+				budget = 2*assets*price;
+			}
 		} else {
 			newst.k = price;
 		}
 	}
+	newst.kk = calibK(newst.k);
+	double w1 = calcBudget(newst.kk, 1.0, price, *cfg.intTable);
+	newst.w = budget / w1;
+
 
 	return Strategy_Gamma(cfg, std::move(newst));
 }
 
 double Strategy_Gamma::IntegrationTable::get_max() const {
 	return values.back().second;
+}
+
+double Strategy_Gamma::calibK(double k) const {
+	double l = -cfg.trend/100.0;
+	double kk = std::pow(std::exp(-1.6*l*l+3.4*l),1.0/cfg.intTable->z);
+	return k/kk;
 }
