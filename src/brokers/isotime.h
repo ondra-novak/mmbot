@@ -13,6 +13,7 @@ enum class ParseTimeFormat {
 	iso = 0,
 	mysql = 1,
 	iso_tm = 2,
+	iso_notm = 3,
 };
 
 
@@ -22,6 +23,7 @@ template<typename String>
 			"%d-%d-%dT%d:%d:%fZ",
 			"%d-%d-%d %d:%d:%f",
 			"%d-%d-%dT%d:%d:%f%c%d:%d",
+			"%d-%d-%dT%d:%d:%f",
 	};
  	 int y,M,d,h,m,tmh=0,tmm=0;
  	 float s = 0;

@@ -13,15 +13,28 @@
 class Strategy_Gamma: public IStrategy {
 public:
 
+	enum Function {
+		halfhalf,
+		keepvalue,
+		exponencial
+	};
+
 	struct IntegrationTable {
+		Function fn;
 		double z;
 		double a;
 		double b;
 		std::vector<std::pair<double, double> > values;
-		IntegrationTable(double z);
+		IntegrationTable(Function fn, double z);
 
 		double get(double x) const;
 		double get_max() const;
+
+		double mainFunction(double x) const;
+		double calcAssets(double k, double w, double x) const;
+		double calcBudget(double k, double w, double x) const;
+
+
 	};
 
 
@@ -37,6 +50,7 @@ public:
 		double w = 0;
 		double p = 0;
 		double kk = 0;
+		Function fn = halfhalf;
 	};
 
 	Strategy_Gamma(const Config &cfg);

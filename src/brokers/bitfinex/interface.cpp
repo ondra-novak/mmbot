@@ -244,7 +244,7 @@ IStockApi::TradesSync Interface::syncTrades(json::Value lastId, const std::strin
 		if (data.empty()) {
 			out.lastId = {0, now};
 		} else {
-			out.lastId = {data[0][0], data[0][2]};
+			out.lastId = {json::Value(json::array,{data[0][0]}), data[0][2]};
 			fees[std::string(pair)] = getFeeFromTrade(data[0],pinfo);
 		}
 	} else {
@@ -252,15 +252,14 @@ IStockApi::TradesSync Interface::syncTrades(json::Value lastId, const std::strin
 		Value anchor = lastId[0];
 		bool m = isMarginPair(pair);
 		Value flt = data.filter([&](Value x){
-			if (anchor == x[0]) return false;
+			if (anchor.indexOf(x[0])!=Value::npos) return false;
 			return x[6].getString().startsWith("EXCHANGE") != m;
 		});
 		if (!data.empty()) {
 			auto ln = data.size()-1;
-			bool wasAnchor = data[ln][0] == anchor;
-			out.lastId = {data[ln][0], data[ln][2].getUIntLong()+(wasAnchor?1:0)};
+			out.lastId = {flt.map([](Value x){return x[0];}), data[ln][2]};
 		} else {
-			out.lastId = {lastId[0],lastId[1].getUIntLong()+1};
+			out.lastId = lastId;
 		}
 		std::string spair(pair);
 		auto fiter = fees.find(spair);

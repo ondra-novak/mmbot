@@ -13,17 +13,6 @@
 #include "../imtjson/src/imtjson/object.h"
 const std::string_view Strategy_Gamma::id = "gamma";
 
-static double mainFunction(double x, double z) {
-	double param = -(std::pow(x,z))-0.5*std::log(x);
-	return std::exp(param);
-}
-
-static double calcAssets(double k, double w, double x, double z) {
-	return mainFunction(x/k,z)*w/k;
-}
-static double calcBudget(double k, double w, double x, Strategy_Gamma::IntegrationTable &table) {
-	return table.get(x/k)*w;
-}
 
 
 Strategy_Gamma::Strategy_Gamma(const Config &cfg):cfg(cfg) {
@@ -44,7 +33,7 @@ IStrategy::OrderData Strategy_Gamma::getNewOrder(
 }
 
 double Strategy_Gamma::calculateCurPosition() const {
-	return calcAssets(state.kk, state.w, state.p, cfg.intTable->z);
+	return cfg.intTable->calcAssets(state.kk, state.w, state.p );
 }
 
 std::pair<IStrategy::OnTradeResult, ondra_shared::RefCntPtr<const IStrategy> > Strategy_Gamma::onTrade(
@@ -74,8 +63,8 @@ std::pair<IStrategy::OnTradeResult, ondra_shared::RefCntPtr<const IStrategy> > S
 	}
 
 	double new_kk = calibK(new_k);
-	double bc = calcBudget(state.kk, state.w, state.p, *cfg.intTable);
-	double bn = calcBudget(new_kk, state.w, tradePrice, *cfg.intTable);
+	double bc = cfg.intTable->calcBudget(state.kk, state.w, state.p);
+	double bn = cfg.intTable->calcBudget(new_kk, state.w, tradePrice);
 	double pnl = (tradePrice - state.p)*(assetsLeft - tradeSize);
 	double np = pnl - (bn - bc);
 
@@ -93,7 +82,8 @@ PStrategy Strategy_Gamma::importState(json::Value src,
 			src["k"].getNumber(),
 			src["w"].getNumber(),
 			src["p"].getNumber(),
-			calibK(src["k"].getNumber())
+			calibK(src["k"].getNumber()),
+			(Function)src["fn"].getInt()
 	});
 }
 
@@ -106,30 +96,33 @@ IStrategy::MinMax Strategy_Gamma::calcSafeRange(
 	if (a>assets) {
 		if (assets < 0) mmx.max = state.p;
 		else mmx.max = numeric_search_r2(state.p, [&](double p){
-			return calcAssets(state.kk, state.w, p, cfg.intTable->z) - a + assets;
+			return cfg.intTable->calcAssets(state.kk, state.w, p) - a + assets;
 		});
 	} else {
 		mmx.max = std::numeric_limits<double>::infinity();
 	}
-	double cur = calcBudget(state.kk, state.w, state.p, *cfg.intTable) - a*state.p;
-	if (cur>currencies) {
+	double cur = cfg.intTable->calcBudget(state.kk, state.w, state.p) - a*state.p;
+	if (cur>currencies || cfg.intTable->fn == keepvalue) {
 		if (currencies < 0) mmx.min = state.p;
 		else mmx.min = numeric_search_r1(state.p, [&](double p){
-			return calcBudget(state.kk, state.w, p, *cfg.intTable) - cur + currencies;
+			return cfg.intTable->calcBudget(state.kk, state.w, p)
+					- cfg.intTable->calcAssets(state.kk, state.w, p)*state.p
+					- cur + currencies;
 		});
-	}
+	} else mmx.min = 0;
 	return mmx;
 }
 
 bool Strategy_Gamma::isValid() const {
-	return state.k>0 && state.p >0 && state.w > 0;
+	return state.k>0 && state.p >0 && state.w > 0 && state.fn == cfg.intTable->fn;
 }
 
 json::Value Strategy_Gamma::exportState() const {
 	return json::Object
 			("k",state.k)
 			("w",state.w)
-			("p",state.p);
+			("p",state.p)
+			("fn",(int)state.fn);
 }
 
 std::string_view Strategy_Gamma::getID() const {
@@ -145,27 +138,27 @@ double Strategy_Gamma::calcInitialPosition(const IStockApi::MarketInfo &minfo,
 
 	double budget = price * assets +currency;
 	double kk = calibK(price);
-	double normb = calcBudget(kk, 1, price, *cfg.intTable);
+	double normb = cfg.intTable->calcBudget(kk, 1, price);
 	double w = budget/normb;
-	return calcAssets(kk, w, price, cfg.intTable->z);
+	return cfg.intTable->calcAssets(kk, w, price);
 
 }
 
 IStrategy::BudgetInfo Strategy_Gamma::getBudgetInfo() const {
-	return {calcBudget(state.kk, state.w, state.p, *cfg.intTable),
-			calcAssets(state.kk, state.w, state.p, cfg.intTable->z)};
+	return {cfg.intTable->calcBudget(state.kk, state.w, state.p),
+		cfg.intTable->calcAssets(state.kk, state.w, state.p)};
 
 }
 
 double Strategy_Gamma::getEquilibrium(double assets) const {
-	double a = calcAssets(state.kk, state.w, state.p, cfg.intTable->z);
+	double a = cfg.intTable->calcAssets(state.kk, state.w, state.p);
 	if (assets > a) {
 		return numeric_search_r1(state.p, [&](double price){
-			return calcAssets(state.kk, state.w, price, cfg.intTable->z)-assets;
+			return cfg.intTable->calcAssets(state.kk, state.w, price)-assets;
 		});
 	} else if (assets<a) {
 		return numeric_search_r2(state.p, [&](double price){
-			return calcAssets(state.kk, state.w, price, cfg.intTable->z)-assets;
+			return cfg.intTable->calcAssets(state.kk, state.w, price)-assets;
 		});
 	} else {
 		return state.p;
@@ -173,15 +166,18 @@ double Strategy_Gamma::getEquilibrium(double assets) const {
 }
 
 double Strategy_Gamma::calcCurrencyAllocation(double price) const {
-	return calcBudget(state.kk, state.w, price, *cfg.intTable)
-			-calcAssets(state.kk, state.w, price, cfg.intTable->z)*price;
+	return cfg.intTable->calcBudget(state.kk, state.w, price)
+			-cfg.intTable->calcAssets(state.kk, state.w, price)*price;
 }
 
 IStrategy::ChartPoint Strategy_Gamma::calcChart(double price) const {
+	double a = cfg.intTable->calcAssets(state.kk, state.w, price);
+	double b = cfg.intTable->calcBudget(state.kk, state.w, price);
+	if (b < 0) b = 0;
 	return {
 		true,
-		calcAssets(state.kk, state.w, price, cfg.intTable->z),
-		calcBudget(state.kk, state.w, price, *cfg.intTable)
+		a,
+		b
 	};
 }
 
@@ -199,28 +195,28 @@ PStrategy Strategy_Gamma::reset() const {
 json::Value Strategy_Gamma::dumpStatePretty(const IStockApi::MarketInfo &minfo) const {
 	bool inv = minfo.invert_price;
 	return json::Object
-			("Position", (inv?-1.0:1.0) * calcAssets(state.kk, state.w, state.p, cfg.intTable->z))
+			("Position", (inv?-1.0:1.0) * cfg.intTable->calcAssets(state.kk, state.w, state.p))
 			("Neutral price", inv?1.0/state.kk:state.kk)
 			("Last price", inv?1.0/state.p:state.p)
 			("Max budget", cfg.intTable->get_max()* state.w);
 
 }
 
-Strategy_Gamma::IntegrationTable::IntegrationTable(double z):z(z) {
+Strategy_Gamma::IntegrationTable::IntegrationTable(Function fn, double z):fn(fn),z(z) {
 	if (z <= 0.1) throw std::runtime_error("Invalid exponent value");
 
 	//calculate maximum for integration. Since this point, the integral is flat
 	//power number 16 by 1/z (for z=1, this value is 16)
 	b = std::pow(16,1.0/z);
 	//below certain point, the integral is equal to half-half (2*sqrt(x))
-	a = std::pow(0.0001,1.0/z);
+	a = fn==exponencial?0:std::pow(0.0001,1.0/z);
 	//calculate integral for this point
-	double y = 2*std::sqrt(a);
+	double y = fn==halfhalf?2*std::sqrt(a):0;
 	//generate integration table between a and b.
 	//maximum step is 0.00001
 	//starting by y and generate x,y table
 	generateIntTable([&](double x){
-		return mainFunction(x, z);
+		return mainFunction(x);
 	}, a, b, 0.0001, y, [&](double x,double y){
 		values.push_back({x,y});
 	});
@@ -228,7 +224,13 @@ Strategy_Gamma::IntegrationTable::IntegrationTable(double z):z(z) {
 
 double Strategy_Gamma::IntegrationTable::get(double x) const {
 	//for values below a, use half-half aproximation (square root)
-	if (x <= a) return 2*std::sqrt(x);
+	if (x <= a) {
+		if (fn == halfhalf) {
+			return 2*std::sqrt(x);
+		} else {
+			return std::log(x/a);
+		}
+	}
 	else {
 		//because table is ordered, use divide-half to search first  >= x;
 		auto iter = std::lower_bound(values.begin(), values.end(), std::pair(x,0.0), std::less<std::pair<double,double> >());
@@ -252,24 +254,24 @@ double Strategy_Gamma::calculatePosition(double price, double &newk) const  {
 	if (price >= state.k) {
 		if (price < state.p) {
 			newk = (price+state.k)*0.5;
-			return calcAssets(calibK(newk), state.w, price, cfg.intTable->z);
+			return cfg.intTable->calcAssets(calibK(newk), state.w, price);
 		} else {
 			//cur k will not change
-			return calcAssets(state.kk, state.w, price, cfg.intTable->z);
+			return cfg.intTable->calcAssets(state.kk, state.w, price);
 		}
 	}
 	if (cfg.reduction_mode == 0 || (cfg.reduction_mode == 1 && price > state.p) || (cfg.reduction_mode == 2 && price < state.p)) {
-		return calcAssets(state.kk, state.w, price, cfg.intTable->z);
+		return cfg.intTable->calcAssets(state.kk, state.w, price);
 	}
 	//current position (calculated from last price)
-	double cur_pos = calcAssets(state.kk, state.w, state.p, cfg.intTable->z);
+	double cur_pos = cfg.intTable->calcAssets(state.kk, state.w, state.p);
 	double pnl = cur_pos * (price - state.p);
-	double bc = calcBudget(state.kk, state.w, state.p, *cfg.intTable);
+	double bc = cfg.intTable->calcBudget(state.kk, state.w, state.p);
 	double needb = bc+pnl;
 	newk = numeric_search_r1(1.5*state.k, [&](double k){
-		return calcBudget(calibK(k), state.w, price, *cfg.intTable) - needb;
+		return cfg.intTable->calcBudget(calibK(k), state.w, price) - needb;
 	});
-	return calcAssets(calibK(newk), state.w, price, cfg.intTable->z);
+	return cfg.intTable->calcAssets(calibK(newk), state.w, price);
 }
 
 Strategy_Gamma Strategy_Gamma::init(const IStockApi::MarketInfo &minfo,
@@ -284,14 +286,16 @@ Strategy_Gamma Strategy_Gamma::init(const IStockApi::MarketInfo &minfo,
 	else {
 		double r = assets*price/budget;
 		double k = price / cfg.intTable->b; //assume that k is lowest possible value;
-		double a = calcAssets(calibK(k), 1, price, cfg.intTable->z);
-		double b = calcBudget(calibK(k), 1, price, *cfg.intTable);
+		double a = cfg.intTable->calcAssets(calibK(k), 1, price);
+		double b = cfg.intTable->calcBudget(calibK(k), 1, price);
 		double r0 = a/b*price;
 		if (r > r0) {
-			if (r  <0.5 ) {
+			if (r  <0.5 || cfg.intTable->fn != halfhalf) {
 				newst.k = numeric_search_r2(k, [&](double k){
-					double a = calcAssets(calibK(k), 1, price, cfg.intTable->z);
-					double b = calcBudget(calibK(k), 1, price, *cfg.intTable);
+					double a = cfg.intTable->calcAssets(calibK(k), 1, price);
+					double b = cfg.intTable->calcBudget(calibK(k), 1, price);
+					if (b <= 0) return std::numeric_limits<double>::max();
+					if (a <= 0) return 0.0;
 					return a/b*price - r;
 				});
 			} else {
@@ -303,7 +307,8 @@ Strategy_Gamma Strategy_Gamma::init(const IStockApi::MarketInfo &minfo,
 		}
 	}
 	newst.kk = calibK(newst.k);
-	double w1 = calcBudget(newst.kk, 1.0, price, *cfg.intTable);
+	newst.fn = cfg.intTable->fn;
+	double w1 = cfg.intTable->calcBudget(newst.kk, 1.0, price);
 	newst.w = budget / w1;
 
 
@@ -318,4 +323,35 @@ double Strategy_Gamma::calibK(double k) const {
 	double l = -cfg.trend/100.0;
 	double kk = std::pow(std::exp(-1.6*l*l+3.4*l),1.0/cfg.intTable->z);
 	return k/kk;
+}
+
+double Strategy_Gamma::IntegrationTable::mainFunction(double x) const {
+	switch (fn) {
+	case halfhalf:return std::exp(-(std::pow(x,z))-0.5*std::log(x));
+	case keepvalue: return std::exp(-std::pow(x,z))/x;
+	case exponencial: return std::exp(-std::pow(x,z));
+	default : return 0;
+	}
+}
+
+double Strategy_Gamma::IntegrationTable::calcAssets(double k, double w,
+		double x) const {
+	switch (fn) {
+	case halfhalf: return mainFunction(x/k)*w/k;
+	case keepvalue:  return mainFunction(x/k)*w/k;
+	case exponencial:  return mainFunction(x/k)*w/k;
+	default : return 0;
+	}
+
+
+}
+
+double Strategy_Gamma::IntegrationTable::calcBudget(double k, double w, double x) const {
+	switch (fn) {
+		case halfhalf: return get(x/k)*w;
+		case keepvalue: return get(x/k)*w;
+		case exponencial: return get(x/k)*w;
+		default : return 0;
+	};
+
 }

@@ -37,6 +37,7 @@ add_subdirectory (src/brokers/ftx)
 add_subdirectory (src/brokers/kraken)
 add_subdirectory (src/brokers/poloniex)
 add_subdirectory (src/brokers/simplefx)
+add_subdirectory (src/brokers/southxchange)
 add_subdirectory (src/brokers/trainer)
 
 if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)

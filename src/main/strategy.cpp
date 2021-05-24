@@ -58,6 +58,14 @@ static json::NamedEnum<Strategy_Stairs::TradingMode> strStairsTMode ({
 	{Strategy_Stairs::margin,"margin"}
 });
 
+static json::NamedEnum<Strategy_Gamma::Function> strGammaFunction ({
+	{Strategy_Gamma::halfhalf,""},
+	{Strategy_Gamma::halfhalf,"halfhalf"},
+	{Strategy_Gamma::keepvalue,"keepvalue"},
+	{Strategy_Gamma::exponencial,"exponencial"},
+
+});
+
 using ondra_shared::StrViewA;
 
 template<typename Cfg>
@@ -172,7 +180,7 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 		return Strategy(new Strategy_Martingale(cfg));
 	} else if (id == Strategy_Gamma::id) {
 		Strategy_Gamma::Config cfg;
-		cfg.intTable = std::make_shared<Strategy_Gamma::IntegrationTable>(config["exponent"].getNumber());
+		cfg.intTable = std::make_shared<Strategy_Gamma::IntegrationTable>(strGammaFunction[config["function"].getString()],config["exponent"].getNumber());
 		cfg.reduction_mode = config["rebalance"].getInt();
 		cfg.trend= config["trend"].getNumber();
 		return Strategy(new Strategy_Gamma(cfg));
