@@ -69,7 +69,7 @@ std::pair<IStrategy::OnTradeResult, ondra_shared::RefCntPtr<const IStrategy> > S
 	double np = pnl - (bn - bc);
 
 	State nwst = {
-			new_k,state.w,tradePrice, new_kk
+			new_k,state.w,tradePrice, new_kk, state.fn
 	};
 	return {{np,0,new_k,0},
 		PStrategy(new Strategy_Gamma(cfg, std::move(nwst)))
@@ -268,9 +268,11 @@ double Strategy_Gamma::calculatePosition(double price, double &newk) const  {
 	double pnl = cur_pos * (price - state.p);
 	double bc = cfg.intTable->calcBudget(state.kk, state.w, state.p);
 	double needb = bc+pnl;
-	newk = numeric_search_r1(1.5*state.k, [&](double k){
-		return cfg.intTable->calcBudget(calibK(k), state.w, price) - needb;
-	});
+	if (pnl) {
+		newk = numeric_search_r1(1.5*state.k, [&](double k){
+			return cfg.intTable->calcBudget(calibK(k), state.w, price) - needb;
+		});
+	}
 	return cfg.intTable->calcAssets(calibK(newk), state.w, price);
 }
 
