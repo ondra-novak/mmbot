@@ -268,11 +268,10 @@ double Strategy_Gamma::calculatePosition(double price, double &newk) const  {
 	double pnl = cur_pos * (price - state.p);
 	double bc = cfg.intTable->calcBudget(state.kk, state.w, state.p);
 	double needb = bc+pnl;
-	if (pnl) {
-		newk = numeric_search_r1(1.5*state.k, [&](double k){
-			return cfg.intTable->calcBudget(calibK(k), state.w, price) - needb;
-		});
-	}
+	newk = numeric_search_r1(1.5*state.k, [&](double k){
+		return cfg.intTable->calcBudget(calibK(k), state.w, price) - needb;
+	});
+	if (newk < price*1e-6) newk = state.k;
 	return cfg.intTable->calcAssets(calibK(newk), state.w, price);
 }
 

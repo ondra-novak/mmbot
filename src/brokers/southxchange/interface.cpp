@@ -221,7 +221,7 @@ IStockApi::TradesSync Interface::syncTrades(json::Value lastId, const std::strin
 			});
 			if (iter != trades.end()) {
 				double amount = z["Amount"].getNumber();
-				iter->eff_size=amount;
+				iter->eff_size+=amount;
 			}
 		}
 	}
