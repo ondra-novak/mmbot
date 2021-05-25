@@ -6,13 +6,13 @@
  */
 #include <sstream>
 
-#include "../southxchange/interface.h"
+#include "interface.h"
 
 #include <openssl/hmac.h>
 #include <imtjson/object.h>
 #include <imtjson/string.h>
 #include <imtjson/operations.h>
-#include "../../imtjson/src/imtjson/array.h"
+#include <imtjson/array.h>
 #include "../isotime.h"
 using json::Array;
 using json::Object;

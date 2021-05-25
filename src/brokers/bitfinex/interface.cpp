@@ -237,30 +237,26 @@ IStockApi::TradesSync Interface::syncTrades(json::Value lastId, const std::strin
 	std::string path = "/v2/auth/r/trades/";
 	path.append(pinfo.tsymbol.str());
 	path.append("/hist");
-	auto now = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-	TradesSync out;
-	if (!lastId.hasValue()) {
-		Value data = signedPOST(path,Object("sort",-1)("limit",1));
-		if (data.empty()) {
-			out.lastId = {0, now};
-		} else {
-			out.lastId = {json::Value(json::array,{data[0][0]}), data[0][2]};
-			fees[std::string(pair)] = getFeeFromTrade(data[0],pinfo);
-		}
-	} else {
-		Value data = signedPOST(path,Object("sort",1)("start",lastId[1]));
-		Value anchor = lastId[0];
+	int count = 5;
+	if (lastId[0].type() == json::array) lastId = Value();
+	while (true) {
+		int cols = 0;
+		TradesSync out;
+		Value data = signedPOST(path,Object("sort",-1)("limit",count));
+		Value anchor = lastId;
 		bool m = isMarginPair(pair);
 		Value flt = data.filter([&](Value x){
-			if (anchor.indexOf(x[0])!=Value::npos) return false;
+			if (anchor.indexOf(x[0])!=Value::npos) {
+				cols++;
+				return false;
+			}
 			return x[6].getString().startsWith("EXCHANGE") != m;
 		});
-		if (!data.empty()) {
-			auto ln = data.size()-1;
-			out.lastId = {flt.map([](Value x){return x[0];}), data[ln][2]};
-		} else {
-			out.lastId = lastId;
+		if (lastId.hasValue() && cols<1) {
+			count*=2;
+			if (count < 2500) continue;
 		}
+		out.lastId = data.map([](Value x){return x[0];});
 		std::string spair(pair);
 		auto fiter = fees.find(spair);
 		double lastFees =fiter == fees.end()?0.002:fiter->second;
@@ -287,10 +283,20 @@ IStockApi::TradesSync Interface::syncTrades(json::Value lastId, const std::strin
 		if (!out.trades.empty()) {
 			fees[std::string(pair)] = lastFees;
 		}
+		if (!lastId.defined()) {
+			out.trades.clear();
+		}
+		else {
+			std::sort(out.trades.begin(), out.trades.end(), [](const auto &a, const auto &b){
+				return Value::compare(a.id, b.id) < 0;
+			});
+		}
+
+
+
+
+		return out;
 	}
-
-
-	return out;
 }
 
 void Interface::onInit() {

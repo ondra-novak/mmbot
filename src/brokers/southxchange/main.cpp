@@ -7,7 +7,7 @@
 
 
 #include "../api.h"
-#include "../southxchange/interface.h"
+#include "interface.h"
 
 
 int main(int argc, char **argv) {

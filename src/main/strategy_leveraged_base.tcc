@@ -389,6 +389,7 @@ IStrategy::OrderData Strategy_Leveraged<Calc>::getNewOrder(
 	double eq = getEquilibrium(assets);
 	double pdif = price - st.last_price;
 	if (df * dir < 0) {
+		if (cps == 0) return {0,0,Alert::forced};
 		double cps2 = calc->calcPosition(st.power, calcAsym(), st.neutral_price, eq+pdif);
 		double df2 = cps2 - apos;
 		df = df2*pow2(cps)/pow2(std::abs(cps)+std::abs(cps2));

@@ -758,7 +758,10 @@ MTrader::Order MTrader::calculateOrderFeeLess(
 	double dir = sgn(-step);
 
 	double newPrice = prevPrice * exp(step*dynmult*m);
-
+	if ((newPrice - curPrice) * dir > 0) {
+		newPrice = curPrice;
+		m = std::log(newPrice/prevPrice)/(step*dynmult);
+	}
 	order= strategy.getNewOrder(minfo,curPrice, newPrice,dir, balance, currency, false);
 
 	//Strategy can disable to place order using size=0 and disable alert
@@ -776,6 +779,8 @@ MTrader::Order MTrader::calculateOrderFeeLess(
 
 
 	if (!skipcycle) {
+
+
 		do {
 			prevSz = sz;
 
@@ -1092,22 +1097,22 @@ bool MTrader::eraseTrade(std::string_view id, bool trunc) {
 bool MTrader::processTrades(Status &st) {
 
 
-	StringView<IStockApi::Trade> new_trades(st.new_trades.trades);
-
 	//Remove duplicate trades
 	//which can happen by failed synchronization
 	//while the new trade is already in current trades
-	while (!new_trades.empty() && !trades.empty()
-			&& std::find_if(trades.begin(), trades.end(),[&](const IStockApi::Trade &t) {
-				return t.id == new_trades[0].id;
-			}) != trades.end()) {
-			new_trades = new_trades.substr(1);
-	}
+	auto iter = std::remove_if(st.new_trades.trades.begin(), st.new_trades.trades.end(),
+			[&](const IStockApi::Trade &t) {
+				return std::find_if(trades.begin(), trades.end(),[&](const IStockApi::Trade &q) {
+					return t.id == q.id;
+				}) != trades.end();
+	});
+
+	st.new_trades.trades.erase(iter, st.new_trades.trades.end());
 
 
 	double assetBal = asset_balance.has_value()?*asset_balance:st.assetBalance;
 	double curBal = st.currencyBalance - (minfo.leverage?0:std::accumulate(
-			new_trades.begin(), new_trades.end(),0,[](double a, const IStockApi::Trade &tr){
+			st.new_trades.trades.begin(), st.new_trades.trades.end(),0,[](double a, const IStockApi::Trade &tr){
 				return a - tr.price*tr.size;
 			}));
 
@@ -1123,7 +1128,7 @@ bool MTrader::processTrades(Status &st) {
 
 	bool res = false;
 
-	for (auto &&t : new_trades) {
+	for (auto &&t : st.new_trades.trades) {
 		if (t.eff_price <= 0 || t.price <= 0) throw std::runtime_error("Broker error - trade negative price");
 
 		res = true;
