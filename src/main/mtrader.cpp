@@ -321,17 +321,19 @@ void MTrader::perform(bool manually) {
 			}
 
 
-			//process alerts
-			if (sell_alert.has_value() && status.ticker.last >= *sell_alert) {
-				alertTrigger(status, *sell_alert);
-				update_dynmult(false,true);
-			}
-			if (buy_alert.has_value() && status.ticker.last <= *buy_alert) {
-				alertTrigger(status, *buy_alert);
-				update_dynmult(true,false);
-			}
-			if (!status.new_trades.trades.empty()) {
-				processTrades(status);
+			if (status.new_trades.trades.empty()) {
+				//process alerts
+				if (sell_alert.has_value() && status.ticker.last >= *sell_alert) {
+					alertTrigger(status, *sell_alert);
+					update_dynmult(false,true);
+				}
+				if (buy_alert.has_value() && status.ticker.last <= *buy_alert) {
+					alertTrigger(status, *buy_alert);
+					update_dynmult(true,false);
+				}
+				if (!status.new_trades.trades.empty()) {
+					processTrades(status);
+				}
 			}
 
 
@@ -445,7 +447,7 @@ void MTrader::perform(bool manually) {
 		}
 
 		if (!cfg.hidden) {
-			int last_trade_dir = !anytrades?0:sgn(status.new_trades.trades.back().size);
+			int last_trade_dir = !anytrades?0:sgn(lastTradeSize);
 			if (fast_trade) {
 				if (last_trade_dir < 0) orders.sell.reset();
 				if (last_trade_dir > 0) orders.buy.reset();

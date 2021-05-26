@@ -43,35 +43,35 @@ std::pair<IStrategy::OnTradeResult, ondra_shared::RefCntPtr<const IStrategy> > S
 	if (!isValid()) return init(minfo, tradePrice, assetsLeft, currencyLeft)
 				.onTrade(minfo, tradePrice, tradeSize, assetsLeft, currencyLeft);
 
-	double new_k;
-	double cur_pos = calculateCurPosition();
-	double new_pos = calculatePosition(tradePrice, new_k);
+	double newk = state.k;
+	double price = tradePrice;
+	double cur_pos = assetsLeft - tradeSize;
 
-
-	double accur = 2*std::max(std::max(minfo.asset_step, minfo.min_size), minfo.min_volume * tradePrice);
-
-	if (tradePrice < state.k) {
-		if (cur_pos<new_pos) {
-			if (assetsLeft < new_pos - accur) {
-				return {{0,0,state.k,0}, this};
-			}
-		} else if (cur_pos > new_pos) {
-			if (assetsLeft > new_pos + accur) {
-				return {{0,0,state.k,0}, this};
-			}
+	if (price >= state.k) {
+		if (price < state.p) {
+			newk = (price+state.k)*0.5;
 		}
+	} else if (!(cfg.reduction_mode == 0 || (cfg.reduction_mode == 1 && price > state.p) || (cfg.reduction_mode == 2 && price < state.p))) {
+		double pnl = cur_pos * (price - state.p);
+		double bc = cfg.intTable->calcBudget(state.kk, state.w, state.p);
+		double needb = bc+pnl;
+		newk = numeric_search_r1(1.5*state.k, [&](double k){
+			return cfg.intTable->calcBudget(calibK(k), state.w, price) - needb;
+		});
+		if (newk < price*1e-6) newk = state.k;
 	}
 
-	double new_kk = calibK(new_k);
+
+	double newkk = calibK(newk);
 	double bc = cfg.intTable->calcBudget(state.kk, state.w, state.p);
-	double bn = cfg.intTable->calcBudget(new_kk, state.w, tradePrice);
+	double bn = cfg.intTable->calcBudget(newkk, state.w, tradePrice);
 	double pnl = (tradePrice - state.p)*(assetsLeft - tradeSize);
 	double np = pnl - (bn - bc);
 
 	State nwst = {
-			new_k,state.w,tradePrice, new_kk, state.fn
+			newk,state.w,tradePrice, newkk, state.fn
 	};
-	return {{np,0,new_k,0},
+	return {{np,0,newk,0},
 		PStrategy(new Strategy_Gamma(cfg, std::move(nwst)))
 	};
 }

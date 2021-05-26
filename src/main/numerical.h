@@ -54,7 +54,7 @@ double numeric_search_r2(double middle, Fn &&fn) {
 		double ml = v * ref;
 		if (ml > 0) max = md;
 		else if (ml < 0) min = md;
-		else return md;
+		else return 1.0/md;
 		md = (min+max)/2;
 	}
 	return 1.0/md;
