@@ -79,6 +79,13 @@ json::Value HTTPJson::GET(const std::string_view &path, json::Value &&headers, u
 	logDebug("GET $1", url);
 
 	auto resp = httpc.request("GET", url, hdrs(headers));
+	const simpleServer::ReceivedHeaders &hdrs = resp.getHeaders();
+	simpleServer::HeaderValue datehdr = hdrs["Date"];
+	if (datehdr.defined()) {
+		if (parseHttpDate(datehdr, lastServerTime)) {
+			lastLocalTime = std::chrono::steady_clock::now();
+		}
+	}
 	unsigned int st = resp.getStatus();
 	if ((expectedCode && st != expectedCode) || (!expectedCode && st/100 != 2)) {
 		throw UnknownStatusException(st, resp.getMessage(),resp);
@@ -110,6 +117,13 @@ json::Value HTTPJson::SEND(const std::string_view &path,
 
 
 	auto resp = httpc.request(method, url, hdrs(headers), sdata.str());
+	const simpleServer::ReceivedHeaders &hdrs = resp.getHeaders();
+	simpleServer::HeaderValue datehdr = hdrs["Date"];
+	if (datehdr.defined()) {
+		if (parseHttpDate(datehdr, lastServerTime)) {
+			lastLocalTime = std::chrono::steady_clock::now();
+		}
+	}
 	unsigned int st = resp.getStatus();
 	if ((expectedCode && st != expectedCode) || (!expectedCode && st/100 != 2)) {
 		throw UnknownStatusException(st, resp.getMessage(), resp);
@@ -137,4 +151,135 @@ json::Value HTTPJson::DELETE(const std::string_view &path,
 
 void HTTPJson::setBaseUrl(const std::string &url) {
 	baseUrl = url;
+}
+
+static bool parse_char(std::string_view &date, char c) {
+	if (date.empty()) return false;
+	char d = date[0];
+	if (c != d) return false;
+	date = date.substr(1);
+	return true;
+}
+
+static unsigned long parse_unsigned(std::string_view &date) {
+	unsigned long z = 0;
+	while (!date.empty()) {
+		char c = date[0];
+		if (!isdigit(c)) break;
+		date = date.substr(1);
+		z = z * 10 + (c - '0');
+	}
+	return z;
+}
+
+constexpr unsigned long makeMonth(char a, char b, char c) {
+	return static_cast<unsigned long>(a)*65536
+		  +static_cast<unsigned long>(b)*256
+		  +static_cast<unsigned long>(c);
+}
+
+static unsigned long parse_month(std::string_view &date) {
+	if (date.length()<3) return 0;
+	unsigned long ret;
+	switch (makeMonth(date[0],date[1],date[2])) {
+		case makeMonth('J', 'a', 'n'): ret=1;break;
+		case makeMonth('F', 'e', 'b'): ret=2;break;
+		case makeMonth('M', 'a', 'r'): ret=3;break;
+		case makeMonth('A', 'p', 'r'): ret=4;break;
+		case makeMonth('M', 'a', 'y'): ret=5;break;
+		case makeMonth('J', 'u', 'n'): ret=6;break;
+		case makeMonth('J', 'u', 'l'): ret=7;break;
+		case makeMonth('A', 'u', 'g'): ret=8;break;
+		case makeMonth('S', 'e', 'p'): ret=9;break;
+		case makeMonth('O', 'c', 't'): ret=10;break;
+		case makeMonth('N', 'o', 'v'): ret=11;break;
+		case makeMonth('D', 'e', 'c'): ret=12;break;
+		default: return 0;
+	}
+
+	date = date.substr(3);
+	return ret;
+}
+
+static bool parse_time(unsigned long &h, unsigned long &m, unsigned long &s, std::string_view &date) {
+	h = parse_unsigned(date);
+	if (h > 23) return false;
+	if (!parse_char(date,':')) return false;
+	m = parse_unsigned(date);
+	if (m > 59) return false;
+	if (!parse_char(date,':')) return false;
+	s = parse_unsigned(date);
+	if (m > 60) return false;
+	return true;
+}
+
+static std::chrono::system_clock::time_point timeFromValues(
+		unsigned long y, unsigned long m, unsigned long d,
+		unsigned long h, unsigned long mm, unsigned long s) {
+
+	struct tm t = {
+			static_cast<int>(s),
+			static_cast<int>(mm),
+			static_cast<int>(h),
+			static_cast<int>(d),
+			static_cast<int>(m-1),
+			static_cast<int>(y-1900)
+	};
+	return std::chrono::system_clock::from_time_t(timegm(&t));
+}
+
+
+static bool parseRfc1123_date(std::string_view date, std::chrono::system_clock::time_point & tp) {
+	auto p = date.find(',');
+	if (p == date.npos) return false;
+	date = date.substr(p+1);
+	if (!parse_char(date,' ')) return false;
+	auto day = parse_unsigned(date);
+	if (day < 1 || day > 31) return false;
+	if (!parse_char(date,' ')) return false;
+	auto month = parse_month(date);
+	if (month < 1 || month > 12) return false;
+	if (!parse_char(date,' ')) return false;
+	auto year = parse_unsigned(date);
+	if (year < 1000 || month > 9999) return false;
+	if (!parse_char(date,' ')) return false;
+	unsigned long h,m,s;
+	if (!parse_time(h,m,s,date)) return false;
+	tp = timeFromValues(year, month, day, h, m, s);
+	return true;
+}
+
+static bool parseRfc850_date(std::string_view date, std::chrono::system_clock::time_point & tp) {
+	auto p = date.find(',');
+	if (p == date.npos) return false;
+	if (!parse_char(date,' ')) return false;
+	auto day = parse_unsigned(date);
+	if (day < 1 || day > 31) return false;
+	if (!parse_char(date,'-')) return false;
+	auto month = parse_month(date);
+	if (month < 1 || month > 12) return false;
+	if (!parse_char(date,'-')) return false;
+	auto year = parse_unsigned(date);
+	if (year < 1000 || month > 9999) return false;
+	if (!parse_char(date,' ')) return false;
+	unsigned long h,m,s;
+	if (!parse_time(h,m,s,date)) return false;
+	tp = timeFromValues(year, month, day, h, m, s);
+	return true;
+
+
+
+}
+
+
+bool HTTPJson::parseHttpDate(const std::string_view &date, std::chrono::system_clock::time_point & tp) {
+	return parseRfc1123_date(date, tp) || parseRfc850_date(date, tp);
+}
+
+std::chrono::system_clock::time_point HTTPJson::now() {
+	if (lastServerTime.time_since_epoch().count() == 0) {
+		return std::chrono::system_clock::now();
+	} else {
+		return lastServerTime + (std::chrono::steady_clock::now() - lastLocalTime);
+	}
 }

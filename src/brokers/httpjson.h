@@ -8,6 +8,7 @@
 #ifndef SRC_SIMPLEFX_HTTPJSON_H_
 #define SRC_SIMPLEFX_HTTPJSON_H_
 
+#include <chrono>
 #include <string_view>
 #include <imtjson/value.h>
 #include <simpleServer/http_client.h>
@@ -60,10 +61,17 @@ public:
 	void setBaseUrl(const std::string &url);
 	simpleServer::HttpClient &getClient() {return httpc;}
 
+	const auto &getLastServerTime() const {return lastServerTime;}
+	std::chrono::system_clock::time_point now();
+
 protected:
 	simpleServer::HttpClient httpc;
 	std::string baseUrl;
+	std::chrono::system_clock::time_point lastServerTime;
+	std::chrono::steady_clock::time_point lastLocalTime;
 
+
+	static bool parseHttpDate(const std::string_view &date, std::chrono::system_clock::time_point & tp);
 };
 
 
