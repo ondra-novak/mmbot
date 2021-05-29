@@ -15,7 +15,6 @@
 #include "strategy_halfhalf.h"
 #include "strategy_keepvalue.h"
 #include "strategy_stairs.h"
-#include "strategy_hyperbolic.h"
 #include "strategy_exponencial.h"
 #include "strategy_hypersquare.h"
 #include "strategy_sinh.h"
@@ -25,6 +24,7 @@
 #include "strategy_sinh_val.h"
 #include "strategy_martingale.h"
 #include "strategy_gamma.h"
+#include "strategy_hedge.h"
 
 
 
@@ -72,7 +72,6 @@ template<typename Cfg>
 void initConfig(Cfg &cfg, json::Value config,
 		double power) {
 	cfg.power = power;
-	cfg.asym = config["asym"].getNumber();
 	cfg.reduction = config["reduction"].getNumber();
 	cfg.external_balance = config["extbal"].getNumber();
 	cfg.powadj = config["powadj"].getNumber();
@@ -133,16 +132,6 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 		cfg.redmode = strStairsRedMode[config["redmode"].getString()];
 		cfg.sl = config["sl"].getBool();
 		return Strategy(new Strategy_Stairs(cfg));
-	} else if (id == Strategy_Hyperbolic::id) {
-		Strategy_Hyperbolic::Config cfg;
-		initConfig(cfg, config, config["power"].getNumber());
-		return Strategy(new Strategy_Hyperbolic(std::make_shared<Strategy_Hyperbolic::TCalc>(),
-											    std::make_shared<Strategy_Hyperbolic::Config>(cfg)));
-	} else if (id == Strategy_Linear::id) {
-		Strategy_Linear::Config cfg;
-		initConfig(cfg, config, config["power"].getNumber());
-		return Strategy(new Strategy_Linear(std::make_shared<Strategy_Linear::TCalc>(),
-			    							std::make_shared<Strategy_Linear::Config>(cfg)));
 	} else if (id == Strategy_Sinh::id) {
 		Strategy_Sinh::Config cfg;
 		double power = config["power"].getNumber();
@@ -161,7 +150,6 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 		Strategy_SinhVal::Config cfg;
 		double power = config["power"].getNumber();
 		initConfig(cfg,config,power);
-		cfg.asym = 0;
 		double curv = config["curv"].getValueOrDefault(5.0);
 		return Strategy(new Strategy_SinhVal(std::make_shared<Strategy_SinhVal::TCalc>(power, curv),
 			    							std::make_shared<Strategy_SinhVal::Config>(cfg)));
@@ -184,6 +172,12 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 		cfg.reduction_mode = config["rebalance"].getInt();
 		cfg.trend= config["trend"].getNumber();
 		return Strategy(new Strategy_Gamma(cfg));
+	} else if (id == Strategy_Hedge::id) {
+		Strategy_Hedge::Config cfg;
+		cfg.h_long = config["long"].getBool();
+		cfg.h_short = config["short"].getBool();
+		cfg.ptc_drop = config["drop"].getNumber()*0.01;
+		return Strategy(new Strategy_Hedge(cfg));
 	} else {
 		throw std::runtime_error(std::string("Unknown strategy: ").append(id));
 	}

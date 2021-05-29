@@ -102,6 +102,7 @@ App.prototype.createTraderForm = function() {
 		form.showItem("strategy_keepbalance",state.strategy == "keep_balance");
 		form.showItem("strategy_martingale",state.strategy == "martingale");
 		form.showItem("strategy_gamma",state.strategy == "gamma");
+		form.showItem("strategy_hedge",state.strategy == "hedge");
 		form.showItem("strategy_hyperbolic",["hyperbolic","linear","sinh","sinh_val","sinh2"].indexOf(state.strategy) != -1);
 		form.showItem("kv_valinc_h",state.strategy == "keepvalue");
 		form.showItem("show_curvature",["sinh","sinh_val","sinh2"].indexOf(state.strategy) != -1);
@@ -577,6 +578,9 @@ App.prototype.fillForm = function (src, trg) {
 	data.gamma_rebalance=1;
 	data.gamma_trend=0;
 	data.gamma_fn="halfhalf";
+	data.hedge_drop=1;
+	data.hedge_long=true;
+	data.hedge_short=true;
 
 	function powerCalc(x) {return adjNumN(Math.pow(10,x)*0.01);};
 
@@ -630,6 +634,10 @@ App.prototype.fillForm = function (src, trg) {
 		data.gamma_exp = filledval(src.strategy.exponent,2);
 		data.gamma_rebalance = filledval(src.strategy.rebalance,1);
 		data.gamma_trend = filledval(src.strategy.trend,0);
+	} else if (data.strategy == "hedge") {
+		data.hedge_drop = filledval(src.strategy.drop,1);
+		data.hedge_long = filledval(src.strategy.long,true);
+		data.gamma_short = filledval(src.strategy.short,true);
 	}
 	data.st_power["!change"] = function() {
 		trg.setItemValue("st_show_factor",powerCalc(trg.readData(["st_power"]).st_power));
@@ -775,6 +783,13 @@ function getStrategyData(data) {
 			exponent: data.gamma_exp,
 			rebalance: data.gamma_rebalance,
 			trend:data.gamma_trend,
+		};		
+	} else if (data.strategy == "hedge") {
+		strategy = {
+			type: data.strategy,
+			drop: data.hedge_drop,
+			long: data.hedge_long,
+			short: data.hedge_short,
 		};		
 	} else 	if (["hyperbolic","linear","sinh","sinh_val","sinh2"].indexOf(data.strategy) != -1) {
 		strategy = {
@@ -1609,7 +1624,8 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		"st_power","st_reduction_step","st_sl","st_redmode","st_max_step","st_pattern","dynmult_sliding","accept_loss","st_tmode","zigzag",
 		"hp_trend_factor","hp_allowshort","hp_reinvest","hp_power","hp_asym","hp_reduction","sh_curv","hp_initboost","hp_extbal","hp_powadj","hp_dynred",
 		"gs_external_assets","gs_rb_hi_a","gs_rb_lo_a","gs_rb_hi_p","gs_rb_lo_p",
-		"min_balance","max_balance","max_leverage","reduce_on_leverage","mart_initial","mart_power","mart_reduction","mart_collateral","mart_allowshort","gamma_exp","gamma_rebalance","gamma_trend","gamma_fn"];
+		"min_balance","max_balance","max_leverage","reduce_on_leverage","mart_initial","mart_power","mart_reduction","mart_collateral","mart_allowshort","gamma_exp","gamma_rebalance","gamma_trend","gamma_fn",
+		"hedge_short","hedge_long","hedge_drop"];
 	var spread_inputs = ["spread_calc_stdev_hours", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode","dynmult_sliding","dynmult_cap","dynmult_mult","force_spread","spread_mode"];
 	var balance = form._balance;
 	var assets = form._assets;

@@ -55,7 +55,7 @@
 <label><span>Strategy</span><select data-name="strategy">
 <optgroup label="Exchanges">
 <option value="halfhalf">Half-Half</option>
-<option value="conststep">Linear costs</option>
+<option value="conststep" data-hidden="true">Linear costs</option>
 <option value="keepvalue">Keep Value</option>
 <option value="hypersquare">Hypersquare</option>
 <option value="exponencial">Exponencial</option>
@@ -69,12 +69,10 @@
 </optgroup>
 <optgroup label="Utility">
 <option value="keep_balance">Keep balance</option>
+<option value="hedge">Hedge</option>
 </optgroup>
 <optgroup label="Old and obsolete">
-<option value="linear"  data-hidden="true">Linear</option>
-<option value="hyperbolic"  data-hidden="true">Hyperbolic</option>
 <option value="stairs"  data-hidden="true">Stairs</option>
-<option value="sinh2"  data-hidden="true">Sinh (old)</option>
 </optgroup>
 </select></label>
 <div class="label strategygoal"><span>Startegy Goal:</span><div data-name="help_goal">
@@ -152,8 +150,6 @@ to enter a negative value and then the value of the assets held will decrease an
 <label><span>Power<span class="tooltip">How balance is multiplied. Can boost profits and losses as well. Conservative value is 1</span></span><input data-name="hp_power" type="number" step="0.1" value="1.0"></label>
 <label class="adv"><span>Dynamic power<span class="tooltip">How much is power adjusted with increase of the position</span></span><input data-name="hp_powadj" type="number" step="0.1" value="1.0"></label>
 <label><span>Collateral (0=use balance)<span class="tooltip">Specify total amount of collateral used to calculate power including collateral held on stockmarket and also held out of stockmarket. If this field is zero, then strategy is initialized with collateral currently available on stockmarket.</span></span><input data-name="hp_extbal" type="number" value="0"></label>
-<label class="adv" data-name="item_asym"><span>Asymmetry<span class="tooltip">Prefer one of sides. Positive value prefers LONGS on normal futures and SHORTS on inverted futures. Negative values vice versa. Note that negative values are more dangerous and can result in a liquidation.</span></span>		
-		<x-slider data-name="hp_asym" data-min="-100" data-max="100" data-mult="1" data-fixed="0"></label>
 <label data-name="show_curvature"><span>Curvature<span class="tooltip">Specifies curvature of the function. Small value works better on low volatility and flat market. High value works better on high volatility and trending markets. Value must be backtested, otherwise leave default value</span></span><x-slider data-name="sh_curv" data-min="0" data-max="40" data-mult="0.1" data-fixed="1"></label>
 <label><span>Reduction<span class="tooltip">Reduction of current position, 0=no reduction, 100=use all profit to reduce, 200=reduce twice more (can generate loss)</span></span><x-slider data-name="hp_reduction" data-min="0" data-max="200" data-mult="1" data-fixed="0"></label>
 <label><span>Trend factor<span class="tooltip">Specifies how much trend is used for calculation</span></span><x-slider data-name="hp_trend_factor" data-min="-100" data-max="100" data-mult="1" data-fixed="0"></label>
@@ -188,7 +184,7 @@ to enter a negative value and then the value of the assets held will decrease an
 <div class="rightinfo"><button name="show_backtest  hide_on_new" disabled="disabled">Backtest</button></div>
 </x-section>
 
-<x-section data-name="strategy_gamma backtest_anchor" class="goal" hidden="hidden"><x-section-caption>Gamma</x-section-caption>
+<x-section data-name="strategy_gamma" class="goal" hidden="hidden"><x-section-caption>Gamma</x-section-caption>
 <label><span>Underlying function:</span><select data-name="gamma_fn">
 <option value="halfhalf">Half-Half</option>
 <option value="keepvalue">Keep Value</option>
@@ -202,6 +198,12 @@ to enter a negative value and then the value of the assets held will decrease an
 <div class="label"><span>Recomended initial position:</span><span data-name="range_initial">---</span></div>
 <div class="rightinfo"><button name="show_backtest  hide_on_new" disabled="disabled">Backtest</button></div>
 
+</x-section>
+
+<x-section data-name="strategy_hedge" class="goal" hidden="hidden"><x-section-caption>Hedge</x-section-caption>
+<label><span>Price change<span class="tooltip">How much the price need to drop from ATH or raise from ATL</span></span><x-slider data-name="hedge_drop" data-min="0" data-max="20" data-mult="0.1" data-fixed="1"></label>
+<label><span>Trailing buy<span class="tooltip">Buy when price raises, sells when price drops</span></span><x-checkbox data-name="hedge_long"></label>
+<label><span>Trailing sell<span class="tooltip">Sell or open short when price going down and close when price goes up</span></span><x-checkbox data-name="hedge_short"></label>
 </x-section>
 
 

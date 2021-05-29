@@ -38,13 +38,13 @@ bool Strategy_Leveraged<Calc>::isValid() const {
 template<typename Calc>
 void Strategy_Leveraged<Calc>::recalcNewState(const PCalc &calc, const PConfig &cfg, State &nwst) {
 	double adjbalance = std::abs(nwst.bal + cfg->external_balance) * cfg->power;
-	nwst.power = calc->calcPower(nwst.last_price, adjbalance, cfg->asym);
+	nwst.power = calc->calcPower(nwst.last_price, adjbalance);
 	recalcNeutral(calc,cfg,nwst);
 	for (int i = 0; i < 100; i++) {
-		nwst.power = calc->calcPower(nwst.neutral_price, adjbalance, cfg->asym);
+		nwst.power = calc->calcPower(nwst.neutral_price, adjbalance);
 		recalcNeutral(calc,cfg,nwst);
 	}
-	nwst.val = calc->calcPosValue(nwst.power, calcAsym(cfg,nwst), nwst.neutral_price, nwst.last_price);
+	nwst.val = calc->calcPosValue(nwst.power, nwst.neutral_price, nwst.last_price);
 }
 
 template<typename Calc>
@@ -111,7 +111,7 @@ double Strategy_Leveraged<Calc>::calcPosition(double price) const {
 
 
 
-	double pos = calc->calcPosition(st.power, calcAsym(), new_neutral, price);
+	double pos = calc->calcPosition(st.power, new_neutral, price);
 	if ((cfg->longonly || st.spot) && pos < 0) pos = 0;
 	double pp = pos * st.position ;
 	if (pp < 0) return 0;
@@ -141,10 +141,35 @@ PStrategy Strategy_Leveraged<Calc>::onIdle(
 }
 
 template<typename Calc>
+double Strategy_Leveraged<Calc>::calcNewNeutralFromPnl(double price, double pnl) const {
+
+	if (std::abs(pnl) < (st.bal+cfg->external_balance)*0.0000001) return st.neutral_price;
+	double reduction = cfg->reduction>=0?2*cfg->reduction:0;
+	double dynred = 0;
+	if (cfg->dynred) {
+		double f;
+		if (st.last_price > st.neutral_price) {
+			f = st.last_price / st.neutral_price- 1.0;
+		} else {
+			f = st.neutral_price / st.last_price - 1.0;
+		}
+		dynred = std::min(1.0,f * cfg->dynred);
+	}
+	reduction = reduction + dynred;
+
+	double best_value = st.val-pnl;
+	double worst_value = calc->calcPosValue(st.power, st.neutral_price, price);
+	double sel_value = worst_value + (best_value-worst_value)*reduction;
+	if (sel_value <= 0) return price;
+	double new_neutral = calc->calcNeutralFromValue(st.power, st.neutral_price, sel_value, price);
+	if (std::abs(st.neutral_price-price)<std::abs(new_neutral-price)) new_neutral = st.neutral_price;
+	return new_neutral;
+}
+
+template<typename Calc>
 double Strategy_Leveraged<Calc>::calcNewNeutralFromProfit(double profit, double price, double reduction) const {
 
-	double asym = calcAsym();
-	double middle = calc->calcPrice0(st.neutral_price, asym);
+	double middle = calc->calcPrice0(st.neutral_price);
 	if ((middle - st.last_price ) * (middle - price) <= 0)
 		return st.neutral_price;
 
@@ -154,11 +179,11 @@ double Strategy_Leveraged<Calc>::calcNewNeutralFromProfit(double profit, double 
 	double prev_val = st.val;
 	new_val = prev_val - profit;
 	double c_neutral;
-	double neutral_from_price = calc->calcNeutralFromPrice0(price, asym);
-	if (calc->calcPosValue(st.power, asym, neutral_from_price, price) > new_val) {
+	double neutral_from_price = calc->calcNeutralFromPrice0(price);
+	if (calc->calcPosValue(st.power,  neutral_from_price, price) > new_val) {
 		c_neutral = neutral_from_price;
 	} else {
-		c_neutral = calc->calcNeutralFromValue(st.power, asym, st.neutral_price, new_val, price);
+		c_neutral = calc->calcNeutralFromValue(st.power, st.neutral_price, new_val, price);
 		if (rev_shift) {
 			c_neutral = 2*st.neutral_price - c_neutral;
 		}
@@ -180,9 +205,9 @@ double Strategy_Leveraged<Calc>::calcNewNeutralFromProfit(double profit, double 
 
 template<typename Calc>
 void Strategy_Leveraged<Calc>::recalcPower(const PCalc &calc, const PConfig &cfg, State &nwst) {
-	double offset = calc->calcPosition(nwst.power, calcAsym(cfg, nwst), nwst.neutral_price, nwst.neutral_price);
+	double offset = calc->calcPosition(nwst.power, nwst.neutral_price, nwst.neutral_price);
 	double adjbalance = std::abs(nwst.bal  + cfg->external_balance + nwst.neutral_price * std::abs(nwst.position - offset) * cfg->powadj) * cfg->power;
-	double power = calc->calcPower(nwst.neutral_price, adjbalance, cfg->asym);
+	double power = calc->calcPower(nwst.neutral_price, adjbalance);
 	if (std::isfinite(power)) {
 		nwst.power = power;
 	}
@@ -190,7 +215,7 @@ void Strategy_Leveraged<Calc>::recalcPower(const PCalc &calc, const PConfig &cfg
 
 template<typename Calc>
 void Strategy_Leveraged<Calc>::recalcNeutral(const PCalc &calc, const PConfig &cfg,State &nwst)  {
-	double neutral_price = calc->calcNeutral(nwst.power, calcAsym(cfg,nwst), nwst.position,
+	double neutral_price = calc->calcNeutral(nwst.power, nwst.position,
 			nwst.last_price);
 	if (std::isfinite(neutral_price) && neutral_price > 0) {
 		nwst.neutral_price = neutral_price;
@@ -208,13 +233,23 @@ std::pair<typename Strategy_Leveraged<Calc>::OnTradeResult, PStrategy> Strategy_
 		return init(calc, cfg,tradePrice, assetsLeft, currencyLeft, minfo)
 				->onTrade(minfo, tradePrice, tradeSize, assetsLeft, currencyLeft);
 	}
+	assetsLeft = roundZero(assetsLeft, minfo, tradePrice);
 
 	State nwst = st;
-	double neutral_recalc_ratio = 0;
 	double apos = assetsLeft - st.neutral_pos;
-	auto cpos = calcPosition(tradePrice);
-//	auto vcpos = cpos;
-	double calcSize = cpos - st.position;
+
+	double pnl = (apos-tradeSize)*(tradePrice-st.last_price);
+	nwst.neutral_price = calcNewNeutralFromPnl(tradePrice, pnl);
+	if (tradeSize) recalcPower(calc, cfg, nwst);
+	nwst.position = calc->calcPosition(nwst.power, nwst.neutral_price, tradePrice);
+	//store last price
+	nwst.last_price = tradePrice;
+	nwst.last_dir = sgn(tradeSize);
+
+	nwst.val = calc->calcPosValue(nwst.power, nwst.neutral_price, tradePrice);
+	double np = (nwst.val - st.val)+pnl;
+
+
 	if (st.avgprice) {
 		nwst.avgprice = std::exp((50*std::log(st.avgprice) + std::log(tradePrice))/51);
 		nwst.neutral_pos = (tradePrice - st.avgprice)*cfg->trend_factor*(st.bal + cfg->external_balance)/pow2(st.avgprice);
@@ -224,62 +259,16 @@ std::pair<typename Strategy_Leveraged<Calc>::OnTradeResult, PStrategy> Strategy_
 	}
 
 
-	if (calcSize * tradeSize > 0) { //differs from calculated size but in same direction {
-		//to fight against partial execution. When execution is less then expected, adjust neutral_price accordingly
-		neutral_recalc_ratio = std::min(1.0, pow2(tradeSize/calcSize));
-	} else if (std::abs(cpos*tradePrice)/(st.bal+cfg->external_balance)>0.5) { //zero or reversed direction, test whether the position has a meaning
-//		vcpos = st.position;   //don't change position
-		neutral_recalc_ratio = 0; //don't change neutral price
-	}
-	double mult = st.power;
-	double profit = (apos - tradeSize) * (tradePrice - st.last_price);
-//	double vprofit = (st.position) * (tradePrice - st.last_price);
-	//store current position
-	nwst.position = cpos;
-	//store last price
-	nwst.last_price = tradePrice;
-	nwst.last_dir = sgn(tradeSize);
-
-	if (cpos == 0) {
-		nwst.neutral_price = tradePrice;
-		neutral_recalc_ratio = 1.0;
-	} else if (cfg->reduction >= 0) {
-		recalcNeutral(calc, cfg, nwst);
-	} else {
-		double ema = -cfg->reduction*200;
-		nwst.neutral_price = std::exp((std::log(nwst.neutral_price) * (ema-1) + std::log(tradePrice))/ema);
-	}
-	nwst.neutral_price = st.neutral_price + (nwst.neutral_price - st.neutral_price)*neutral_recalc_ratio;
-
-	double val = calc->calcPosValue(mult, calcAsym(), nwst.neutral_price, tradePrice);
-	//calculate extra profit - we get change of value and add profit. This shows how effective is strategy. If extra is positive, it generates
-	//profit, if it is negative, is losses
-	double extra = (val - st.val) + profit;
-	//store val to calculate next profit (because strategy was adjusted)
-	nwst.val = val;
-
-
 //	double baladj = (val - st.val) + profit;
 //	double vbaladj = (val - st.val) + vprofit;
 
 	if (cfg->reinvest_profit) {
-		nwst.norm_profit += extra;
+		nwst.bal += np;
 	}
-	if (cpos == 0) {
-		nwst.bal += nwst.norm_profit;
-		nwst.norm_profit = 0;
-	}
-	nwst.position = cpos;
 
-	/* else if (tradeSize == 0 && cpos && nwst.bal+cfg->external_balance+baladj > 0) {
-		nwst.bal += baladj;
-	}*/
-
-
-	recalcPower(calc, cfg, nwst);
 
 	return {
-		OnTradeResult{extra,0,calc->calcPrice0(st.neutral_price, calcAsym()),0},
+		OnTradeResult{np,0,nwst.neutral_price,0},
 		new Strategy_Leveraged<Calc>(calc, cfg,  std::move(nwst))
 	};
 
@@ -287,7 +276,7 @@ std::pair<typename Strategy_Leveraged<Calc>::OnTradeResult, PStrategy> Strategy_
 
 template<typename Calc>
 json::Value Strategy_Leveraged<Calc>::storeCfgCmp() const {
-	return json::Object("asym", static_cast<int>(cfg->asym * 1000))("ebal",
+	return json::Object("ebal",
 			static_cast<int>(cfg->external_balance * 1000))("power",
 			static_cast<int>(cfg->power * 1000))("lo",cfg->longonly);
 }
@@ -329,15 +318,15 @@ PStrategy Strategy_Leveraged<Calc>::importState(json::Value src,const IStockApi:
 		if (cfgcmp != cfgcmp2) {
 			double last_price = newst.last_price;
 			if (cfg->recalc_keep_neutral) {
-				newst.last_price = calc->calcPrice0(newst.neutral_price, calcAsym(cfg, newst));
+				newst.last_price = calc->calcPrice0(newst.neutral_price);
 				newst.position = 0;
 				recalcNewState(calc, cfg,newst);
 				newst.last_price = last_price;
-				newst.position = calc->calcPosition(newst.power,calcAsym(cfg,newst),newst.neutral_price, last_price);
+				newst.position = calc->calcPosition(newst.power,newst.neutral_price, last_price);
 			} else {
 				recalcNewState(calc, cfg,newst);
 			}
-			newst.val= calc->calcPosValue(newst.power,calcAsym(cfg,newst),newst.neutral_price, last_price);
+			newst.val= calc->calcPosValue(newst.power,newst.neutral_price, last_price);
 		}
 		PCalc newcalc = calc;
 		if (!newcalc->isValid(minfo)) newcalc = std::make_shared<Calc>(newcalc->init(minfo));
@@ -345,18 +334,28 @@ PStrategy Strategy_Leveraged<Calc>::importState(json::Value src,const IStockApi:
 }
 
 template<typename Calc>
+double Strategy_Leveraged<Calc>::roundZero(double finpos,
+		const IStockApi::MarketInfo &minfo, double price) const {
+	double afinpos = std::abs(finpos);
+	if (afinpos < minfo.min_size || afinpos < minfo.min_volume / price
+			|| afinpos < (st.bal + cfg->external_balance) / 1000000.0) {
+		finpos = 0;
+	}
+	return finpos;
+}
+
+template<typename Calc>
 IStrategy::OrderData Strategy_Leveraged<Calc>::getNewOrder(
 		const IStockApi::MarketInfo &minfo,
 		double curPrice, double price, double dir, double assets, double currency, bool rej) const {
 	auto apos = assets - st.neutral_pos;
-	double asym = calcAsym(cfg,st);
 	double bal = (st.bal+cfg->external_balance);;
 	double lev = std::abs(st.position) * st.last_price / bal;
 	if (!rej && ((lev > 0.5 && dir != st.last_dir) || lev>2)  && st.val > 0) {
 		if (cfg->fastclose && dir * st.position < 0) {
-			double midl = calc->calcPrice0(st.neutral_price, asym);
+			double midl = calc->calcPrice0(st.neutral_price);
 			double calc_price = (price - midl) * (st.last_price - midl) < 0?midl:price;
-			double newval = calc->calcPosValue(st.power, asym,st.neutral_price, calc_price);
+			double newval = calc->calcPosValue(st.power, st.neutral_price, calc_price);
 			double valdiff = st.val - newval;
 			if (valdiff > 0) {
 				double fastclose_delta = valdiff/st.position;
@@ -367,7 +366,7 @@ IStrategy::OrderData Strategy_Leveraged<Calc>::getNewOrder(
 			}
 		}
 		if (cfg->slowopen && dir * st.position > 0) {
-			double newval = calc->calcPosValue(st.power, asym,st.neutral_price, price);
+			double newval = calc->calcPosValue(st.power, st.neutral_price, price);
 			double valdiff = newval - st.val;
 			if (valdiff > 0) {
 				double delta = -valdiff/st.position;
@@ -383,25 +382,36 @@ IStrategy::OrderData Strategy_Leveraged<Calc>::getNewOrder(
 
 	}
 
+	double pnl = (price - st.last_price) * apos;
+	double new_neutral = calcNewNeutralFromPnl(price, pnl);
+	double cps = calc->calcPosition(st.power, new_neutral, price);
 
-	auto cps = calcPosition(price);
 	double df = cps - apos;
 	double eq = getEquilibrium(assets);
 	double pdif = price - st.last_price;
 	if (df * dir < 0) {
 		if (cps == 0) return {0,0,Alert::forced};
-		double cps2 = calc->calcPosition(st.power, calcAsym(), st.neutral_price, eq+pdif);
+		double cps2 = calc->calcPosition(st.power, new_neutral, eq+pdif);
 		double df2 = cps2 - apos;
 		df = df2*pow2(cps)/pow2(std::abs(cps)+std::abs(cps2));
 	} else if (st.last_dir && st.last_dir != dir) {
-		double cps2 = calc->calcPosition(st.power, calcAsym(), st.neutral_price, eq+pdif);
+		double cps2 = calc->calcPosition(st.power, new_neutral, eq+pdif);
 		double df2 = cps2 - apos;
-		df = df2;
+		if (dir * df2 > 0) df = df2;
 	}
-	if (!std::isfinite(df)) return {0,0,Alert::forced};
+	if (!std::isfinite(df))
+		return {0,0,Alert::forced};
 	double finpos = assets+df;
-	if (finpos < 0 && (cfg->longonly || st.spot)) return {0,0,Alert::forced};
-	auto alert = std::abs(finpos) <= 2*minfo.min_size || std::abs(finpos*price) < 2*minfo.min_volume?Alert::forced:Alert::enabled;
+	double curPos = roundZero(apos, minfo, price);
+	if (curPos == 0 && cfg->initboost) {
+		double maxpos = 0.5*(st.bal+cfg->external_balance)/price;
+		finpos = dir *finpos * std::pow(2.0,cfg->initboost);
+		if (finpos * dir > maxpos) finpos = maxpos * dir;
+	}
+	finpos = roundZero(finpos, minfo, price);
+	if (finpos < 0 && (cfg->longonly || st.spot)) finpos = 0;;
+	auto alert = finpos == 0?Alert::forced:Alert::enabled;
+	df = finpos - assets;
 	return {price, df,  alert};
 }
 
@@ -420,7 +430,7 @@ typename Strategy_Leveraged<Calc>::MinMax Strategy_Leveraged<Calc>::calcSafeRang
 
 template<typename Calc>
 double Strategy_Leveraged<Calc>::getEquilibrium(double assets) const {
-	return  calc->calcPriceFromPosition(st.power, calcAsym(), st.neutral_price, assets-st.neutral_pos);
+	return  calc->calcPriceFromPosition(st.power, st.neutral_price, assets-st.neutral_pos);
 }
 
 template<typename Calc>
@@ -453,20 +463,11 @@ json::Value Strategy_Leveraged<Calc>::dumpStatePretty(
 template<typename Calc>
 typename Strategy_Leveraged<Calc>::MinMax Strategy_Leveraged<Calc>::calcRoots() const {
 	if (!rootsCache.has_value()) {
-		rootsCache = calc->calcRoots(st.power, calcAsym(),st.neutral_price, st.bal+cfg->external_balance);
+		rootsCache = calc->calcRoots(st.power,st.neutral_price, st.bal+cfg->external_balance);
 	}
 	return *rootsCache;
 }
 
-template<typename Calc>
-inline double Strategy_Leveraged<Calc>::calcAsym(const PConfig &cfg, const State &st)  {
-	return cfg->asym;
-}
-
-template<typename Calc>
-inline double Strategy_Leveraged<Calc>::calcAsym() const {
-	return calcAsym(cfg,st);
-}
 
 
 template<typename Calc>
@@ -503,6 +504,6 @@ inline double Strategy_Leveraged<Calc>::calcCurrencyAllocation(double) const {
 
 template<typename Calc>
 typename Strategy_Leveraged<Calc>::ChartPoint Strategy_Leveraged<Calc>::calcChart(double price) const {
-	return {true,calc->calcPosition(st.power, calcAsym(cfg,st), st.neutral_price, price), cfg->external_balance+st.bal-calc->calcPosValue(st.power, calcAsym(cfg,st), st.neutral_price, price)};
+	return {true,calc->calcPosition(st.power, st.neutral_price, price), cfg->external_balance+st.bal-calc->calcPosValue(st.power,  st.neutral_price, price)};
 }
 

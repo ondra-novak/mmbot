@@ -21,7 +21,6 @@ public:
 
 	struct Config {
 		double power;
-		double asym = 0;
 		double reduction = 0;
 		double external_balance = 0;
 		double powadj = 0;
@@ -93,16 +92,17 @@ protected:
 
 
 	double calcNewNeutralFromProfit(double profit, double price, double reduction) const;
+	double roundZero(double finpos, const IStockApi::MarketInfo &minfo,
+			double price) const;
 
 private:
 	static void recalcPower(const PCalc &calc, const PConfig &cfg, State &nwst) ;
 	static void recalcNeutral(const PCalc &calc, const PConfig &cfg, State &nwst) ;
 	json::Value storeCfgCmp() const;
 	static void recalcNewState(const PCalc &calc, const PConfig &cfg, State &nwst);
-	double calcAsym() const;
-	static double calcAsym(const PConfig &cfg, const State &st) ;
 	static std::pair<double,double> getBalance(const Config &cfg, bool leveraged, double price, double assets, double currency);
 	virtual double calcInitialPosition(const IStockApi::MarketInfo &minfo, double price, double assets, double currency) const override;
+	double calcNewNeutralFromPnl(double price, double pnl) const;
 
 };
 

@@ -703,6 +703,8 @@ MTrader::Status MTrader::getMarketStatus() const {
 
 bool MTrader::calculateOrderFeeLessAdjust(Order &order, int dir, double mult, bool alerts, double min_size, const ZigZagLevels &zlev) const {
 
+	bool enabledAlert = order.alert != IStrategy::Alert::disabled;
+
 	Strategy::adjustOrder(dir, mult, alerts, order);
 
 	modifyOrder(zlev,dir, order);
@@ -717,7 +719,7 @@ bool MTrader::calculateOrderFeeLessAdjust(Order &order, int dir, double mult, bo
 	if (!checkLeverage(order, d))  {
 		order.size = d;
 		if (d == 0) {
-			order.alert = IStrategy::Alert::forced;
+			if (enabledAlert) order.alert = IStrategy::Alert::forced;
 			return true;
 		}
 	}

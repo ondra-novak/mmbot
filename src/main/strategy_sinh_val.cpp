@@ -21,25 +21,25 @@ SinhVal_Calculus::SinhVal_Calculus(double p, double curv) :
 		p(p*curv),curv(curv) {}
 
 
-double SinhVal_Calculus::calcPosition(double power, double asym, double neutral, double price) {
+double SinhVal_Calculus::calcPosition(double power, double neutral, double price) {
 	double res = neutral*power*(std::sinh(p - p * price / neutral))/price;
 	return res;
 }
 
 
-double SinhVal_Calculus::calcPosValue(double power, double asym, double neutral, double curPrice) {
+double SinhVal_Calculus::calcPosValue(double power, double neutral, double curPrice) {
 	double res = -numeric_integral([&](double x){
-		return calcPosition(power,asym, neutral, x);
+		return calcPosition(power, neutral, x);
 	}, neutral, curPrice,int_steps);
 	return res;
 
 }
 
-double SinhVal_Calculus::calcNeutral(double power, double asym, double position, double curPrice) {
+double SinhVal_Calculus::calcNeutral(double power, double position, double curPrice) {
 	if (position == 0) return curPrice;
 
 	auto fn = [&](double x) {
-		return calcPosition(power, asym, x, curPrice) - position;
+		return calcPosition(power,  x, curPrice) - position;
 	};
 	double initp = fn(curPrice);
 	double res;
@@ -54,31 +54,31 @@ double SinhVal_Calculus::calcNeutral(double power, double asym, double position,
 
 }
 
-double SinhVal_Calculus::calcPrice0(double neutral_price, double asym) {
+double SinhVal_Calculus::calcPrice0(double neutral_price) {
 	return neutral_price;
 }
 
-double SinhVal_Calculus::calcNeutralFromPrice0(double price0, double asym) {
+double SinhVal_Calculus::calcNeutralFromPrice0(double price0) {
 	return price0;
 }
 
-IStrategy::MinMax SinhVal_Calculus::calcRoots(double power, double asym, double neutral, double balance) {
+IStrategy::MinMax SinhVal_Calculus::calcRoots(double power, double neutral, double balance) {
 	if (balance < 0) return IStrategy::MinMax {neutral,neutral};
 	//position is most of cases less then postion value, so point where price is equal to balance is our limit
 
 	auto fn = [=](double x) {
-		return calcPosValue(power, asym, neutral, x) - balance;
+		return calcPosValue(power, neutral, x) - balance;
 	};
-	double p0 = calcPrice0(neutral, asym);
+	double p0 = calcPrice0(neutral);
 	if (p0<0) p0 = 0;
 	double mnval = numeric_search_r1(p0, fn);
 	double mxval = numeric_search_r2(p0, fn);
 	return {mnval, mxval};
 }
 
-double SinhVal_Calculus::calcPriceFromPosition(double power, double asym,	double neutral, double position) {
+double SinhVal_Calculus::calcPriceFromPosition(double power,	double neutral, double position) {
 	auto fn = [&](double x) {
-		return calcPosition(power, asym, neutral, x) - position;
+		return calcPosition(power, neutral, x) - position;
 	};
 	double z;
 	if (std::abs(position*neutral) < 1e-8) return neutral; //nothing has value less than <0.00000001 (even in Bitcoin)
@@ -93,14 +93,14 @@ double SinhVal_Calculus::calcPriceFromPosition(double power, double asym,	double
 	return z;
 }
 
-double SinhVal_Calculus::calcNeutralFromValue(double power, double asym, double neutral, double value, double curPrice) {
+double SinhVal_Calculus::calcNeutralFromValue(double power, double neutral, double value, double curPrice) {
 	auto dFn = [=](double x) {
 			double arg = p * (1 - curPrice / x);
 			double px = p * x;
-			return -power * (asym * px + p * curPrice * std::sinh(arg) + x * std::cosh(arg) - x) / px;
+			return -power * (p * curPrice * std::sinh(arg) + x * std::cosh(arg) - x) / px;
 		};
 	auto vFn = [=](double x) {
-		return calcPosValue(power, asym, x, curPrice) - value;
+		return calcPosValue(power, x, curPrice) - value;
 	};
 	double dVal = dFn(curPrice);
 	double n0;
@@ -117,7 +117,7 @@ double SinhVal_Calculus::calcNeutralFromValue(double power, double asym, double 
 	return nn;
 }
 
-double SinhVal_Calculus::calcPower(double neutral, double balance, double ) {
+double SinhVal_Calculus::calcPower(double neutral, double balance) {
 	double f = 1/sinh(curv);
 	return balance/(neutral*p)*f;
 }
