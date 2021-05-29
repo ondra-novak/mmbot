@@ -250,7 +250,7 @@ inline void DBConn::put_trade(const json::Value &trade) {
 	base64url->encodeBinaryValue(BinaryView(StrViewA(buff)),[&](StrViewA str){
 		id.append(str.data, str.length);
 	});
-	Value doc = trade.replace("_id", id);
+	Value doc = trade.replace("_id", id).replace("ident", ident);
 	trades.push_back(doc);
 }
 
@@ -285,7 +285,7 @@ inline json::Value DBConn::get_report(bool rep) {
 
 		Value month_date_from = {ident, 0};
 		Value month_date_to = {ident, month_id};
-		Value day_date_from = {ident, from_tm};
+		Value day_date_from = {ident, from_tm/(24*60*60)};
 		Value day_date_to = {ident, ""};
 
 		std::string uri;
@@ -305,9 +305,9 @@ inline json::Value DBConn::get_report(bool rep) {
 		uri.clear();
 		uri.append("/_design/report/_view/day?group_level=3");
 		uri.append("&start_key=");
-		month_date_from.serialize(enc);
+		day_date_from.serialize(enc);
 		uri.append("&end_key=");
-		month_date_to.serialize(enc);
+		day_date_to.serialize(enc);
 
 		Value day_data = api.GET(uri, Value(auth))["rows"];
 
@@ -340,7 +340,7 @@ inline json::Value DBConn::get_report(bool rep) {
 
 		auto build_rows=[&](Value data, auto &&tmfn) {
 			std::uint64_t ln = 0;
-			for (Value x: month_data) {
+			for (Value x: data) {
 				auto m = x["key"][1].getUInt();
 				if (ln != m) {
 					if (ln) {
@@ -355,7 +355,9 @@ inline json::Value DBConn::get_report(bool rep) {
 				ln = m;
 			}
 			if (ln) {
-				outdata.push_back(Value(array, row.begin(), row.end(), append_row));
+				Value r(array, row.begin(), row.end(), append_row);
+				r.unshift(tmfn(ln));
+				outdata.push_back(r);
 			}
 		};
 
@@ -371,7 +373,7 @@ inline json::Value DBConn::get_report(bool rep) {
 		Value jrows(array,outdata.begin(),outdata.end(),[](Value x){return x;});
 		Value jsums(array,sums.begin(),sums.end(),[](auto &x){return x.second;});
 		return Value(object,{
-				Value("hdrs", hdrs),
+				Value("hdr", hdrs),
 				Value("rows", jrows),
 				Value("sums", jsums),
 		});
