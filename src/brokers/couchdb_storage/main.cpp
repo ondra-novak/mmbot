@@ -315,12 +315,12 @@ inline json::Value DBConn::get_report(bool rep) {
 		std::unordered_map<json::Value, double> sums;
 		for(Value x: month_data) {
 			Value k = x["key"][2];
-			row[k] = Value();
+			row[k] = 0;
 			sums[k] = 0;
 		}
 		for(Value x: day_data) {
 			Value k = x["key"][2];
-			row[k] = Value();
+			row[k] = 0;
 			sums[k] = 0;
 		}
 
