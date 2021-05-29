@@ -338,7 +338,7 @@ double Strategy_Leveraged<Calc>::roundZero(double finpos,
 		const IStockApi::MarketInfo &minfo, double price) const {
 	double afinpos = std::abs(finpos);
 	if (afinpos < minfo.min_size || afinpos < minfo.min_volume / price
-			|| afinpos < (st.bal + cfg->external_balance) / 1000000.0) {
+			|| afinpos < (st.bal + cfg->external_balance) / 1.0e20) {
 		finpos = 0;
 	}
 	return finpos;
