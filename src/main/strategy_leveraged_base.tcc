@@ -384,13 +384,18 @@ IStrategy::OrderData Strategy_Leveraged<Calc>::getNewOrder(
 
 	double pnl = (price - st.last_price) * apos;
 	double new_neutral = calcNewNeutralFromPnl(price, pnl);
-	double cps = calc->calcPosition(st.power, new_neutral, price);
+	double cps = calc-> calcPosition(st.power, new_neutral, price);
+	double cpsz = roundZero(cps, minfo, price);
+	double apsz = roundZero(apos, minfo, price);
+	if (!rej &&  cpsz * apsz  < 0) {
+		return {0,-apos,Alert::stoploss};
+	}
 
 	double df = cps - apos;
 	double eq = getEquilibrium(assets);
 	double pdif = price - st.last_price;
 	if (df * dir < 0) {
-		if (cps == 0) return {0,0,Alert::forced};
+		if (cpsz == 0) return {0,0,Alert::forced};
 		double cps2 = calc->calcPosition(st.power, new_neutral, eq+pdif);
 		double df2 = cps2 - apos;
 		df = df2*pow2(cps)/pow2(std::abs(cps)+std::abs(cps2));
