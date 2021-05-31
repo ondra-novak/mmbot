@@ -246,6 +246,11 @@ std::pair<typename Strategy_Leveraged<Calc>::OnTradeResult, PStrategy> Strategy_
 	nwst.last_price = tradePrice;
 	nwst.last_dir = sgn(tradeSize);
 
+	if ((cfg->longonly || st.spot) && nwst.position < 0) {
+		nwst.position = 0;
+		nwst.neutral_price = tradePrice;
+	}
+
 	nwst.val = calc->calcPosValue(nwst.power, nwst.neutral_price, tradePrice);
 	double np = (nwst.val - st.val)+pnl;
 
