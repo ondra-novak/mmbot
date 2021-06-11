@@ -115,9 +115,9 @@ double Strategy_Leveraged<Calc>::calcPosition(double price) const {
 	if ((cfg->longonly || st.spot) && pos < 0) pos = 0;
 	double pp = pos * st.position ;
 	if (pp < 0) return 0;
-	else if (pp == 0) {
+/*	else if (pp == 0) {
 		pos = pos * std::pow(2.0,cfg->initboost);
-	}
+	}*/
 	return pos;
 
 }
@@ -143,7 +143,6 @@ PStrategy Strategy_Leveraged<Calc>::onIdle(
 template<typename Calc>
 double Strategy_Leveraged<Calc>::calcNewNeutralFromPnl(double price, double pnl) const {
 
-	if (std::abs(pnl) < (st.bal+cfg->external_balance)*0.0000001) return st.neutral_price;
 	double reduction = cfg->reduction>=0?2*cfg->reduction:0;
 	double dynred = 0;
 	if (cfg->dynred) {
@@ -388,10 +387,10 @@ IStrategy::OrderData Strategy_Leveraged<Calc>::getNewOrder(
 	}
 
 	double pnl = (price - st.last_price) * apos;
-	double new_neutral = calcNewNeutralFromPnl(price, pnl);
-	double cps = calc-> calcPosition(st.power, new_neutral, price);
-	double cpsz = roundZero(cps, minfo, price);
 	double apsz = roundZero(apos, minfo, price);
+	double new_neutral = apsz?calcNewNeutralFromPnl(price, pnl):st.neutral_price;
+	double cps = calc-> calcPosition(st.power, new_neutral, price)*std::pow(2.0,cfg->boost);
+	double cpsz = roundZero(cps, minfo, price);
 	if (!rej &&  cpsz * apsz  < 0) {
 		return {0,-apos,Alert::stoploss};
 	}
@@ -399,8 +398,7 @@ IStrategy::OrderData Strategy_Leveraged<Calc>::getNewOrder(
 	double df = cps - apos;
 	double eq = getEquilibrium(assets);
 	double pdif = price - st.last_price;
-	if (df * dir < 0) {
-		if (cpsz == 0) return {0,0,Alert::forced};
+	if (df * dir < 0 && cpsz) {
 		double cps2 = calc->calcPosition(st.power, new_neutral, eq+pdif);
 		double df2 = cps2 - apos;
 		df = df2*pow2(cps)/pow2(std::abs(cps)+std::abs(cps2));
@@ -412,14 +410,14 @@ IStrategy::OrderData Strategy_Leveraged<Calc>::getNewOrder(
 	if (!std::isfinite(df))
 		return {0,0,Alert::forced};
 	double finpos = assets+df;
-	double curPos = roundZero(apos, minfo, price);
+/*	double curPos = roundZero(apos, minfo, price);
 	if (curPos == 0 && cfg->initboost) {
 		double maxpos = 0.5*(st.bal+cfg->external_balance)/price;
-		finpos = dir *finpos * std::pow(2.0,cfg->initboost);
+		finpos = finpos * std::pow(2.0,cfg->initboost);
 		if (finpos * dir > maxpos) finpos = maxpos * dir;
-	}
-	finpos = roundZero(finpos, minfo, price);
-	if (finpos < 0 && (cfg->longonly || st.spot)) finpos = 0;;
+	}*/
+	bool longonly = (cfg->longonly || st.spot);
+	if (longonly && roundZero(finpos, minfo, price) <= 0 ) finpos = 0;
 	auto alert = finpos == 0?Alert::forced:Alert::enabled;
 	df = finpos - assets;
 	return {price, df,  alert};

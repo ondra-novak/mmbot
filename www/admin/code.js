@@ -551,7 +551,7 @@ App.prototype.fillForm = function (src, trg) {
 	data.st_sl=false;
 	data.hp_reduction=50;
 	data.sh_curv=1;
-	data.hp_initboost=0;
+	data.hp_boost=0;
 	data.hp_asym=0;
 	data.hp_power=1;
 	data.hp_powadj=0;
@@ -601,7 +601,7 @@ App.prototype.fillForm = function (src, trg) {
 		data.gs_rb_hi_a=filledval(defval(src.strategy.rb_hi_a,0.5)*100,50);
 	} else if (["hyperbolic","linear","sinh","sinh_val","sinh2"].indexOf(data.strategy) != -1) {
 		data.hp_reduction = filledval(defval(src.strategy.reduction,0.25)*200,50);
-		data.hp_initboost = filledval(src.strategy.initboost,0);
+		data.hp_boost = filledval(src.strategy.boost,0);
 		data.hp_asym = filledval(defval(src.strategy.asym,0.0)*100,0);
 		data.hp_recalc= filledval(src.strategy.recalc_mode,"position");
 		data.hp_power = filledval(src.strategy.power,1);
@@ -804,7 +804,7 @@ function getStrategyData(data) {
 				recalc_mode: data.hp_recalc,
 				asym: data.hp_asym / 100,
 				reduction: data.hp_reduction/200,
-				initboost: data.hp_initboost,
+				boost: data.hp_boost,
 				curv: data.sh_curv,
 				slowopen: data.hp_slowopen,
 				fastclose: data.hp_fastclose,
@@ -1622,7 +1622,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 	form.enableItem("show_backtest",false);		
 	var inputs = ["strategy","external_assets", "acum_factor","kv_valinc","kv_halfhalf","min_size","max_size","order_mult","linear_suggest","linear_suggest_maxpos",
 		"st_power","st_reduction_step","st_sl","st_redmode","st_max_step","st_pattern","dynmult_sliding","accept_loss","st_tmode","zigzag",
-		"hp_trend_factor","hp_allowshort","hp_reinvest","hp_power","hp_asym","hp_reduction","sh_curv","hp_initboost","hp_extbal","hp_powadj","hp_dynred",
+		"hp_trend_factor","hp_allowshort","hp_reinvest","hp_power","hp_asym","hp_reduction","sh_curv","hp_boost","hp_extbal","hp_powadj","hp_dynred",
 		"gs_external_assets","gs_rb_hi_a","gs_rb_lo_a","gs_rb_hi_p","gs_rb_lo_p",
 		"min_balance","max_balance","max_leverage","reduce_on_leverage","mart_initial","mart_power","mart_reduction","mart_collateral","mart_allowshort","gamma_exp","gamma_rebalance","gamma_trend","gamma_fn",
 		"hedge_short","hedge_long","hedge_drop"];

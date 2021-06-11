@@ -76,7 +76,7 @@ void initConfig(Cfg &cfg, json::Value config,
 	cfg.external_balance = config["extbal"].getNumber();
 	cfg.powadj = config["powadj"].getNumber();
 	cfg.dynred = config["dynred"].getNumber();
-	cfg.initboost = config["initboost"].getNumber();
+	cfg.boost = config["boost"].getNumber();
 	cfg.trend_factor = config["trend_factor"].getNumber();
 	cfg.longonly = config["longonly"].getBool();
 	cfg.recalc_keep_neutral = config["recalc_mode"].getString() == "neutral";

@@ -93,9 +93,11 @@ public:
 
 protected:
 
-	double calculatePosition(double price, double &newk) const;
+	double calculatePosition(double a,double price) const;
 	Strategy_Gamma init(const IStockApi::MarketInfo &minfo, double price, double assets, double currency) const;
 	double calculateCurPosition() const;
+
+	double calculateNewNeutral(double a, double price) const;
 
 	double calibK(double k) const;
 
