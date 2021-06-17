@@ -42,6 +42,7 @@ public:
 		std::shared_ptr<IntegrationTable> intTable;
 		int reduction_mode;
 		double trend;
+		bool reinvest;
 	};
 
 

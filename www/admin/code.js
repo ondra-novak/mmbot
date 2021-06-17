@@ -575,6 +575,7 @@ App.prototype.fillForm = function (src, trg) {
 	data.mart_power=50;
 	data.mart_allowshort=false;
 	data.gamma_exp=2;
+	data.gamma_reinvest=false;
 	data.gamma_rebalance=1;
 	data.gamma_trend=0;
 	data.gamma_fn="halfhalf";
@@ -634,10 +635,11 @@ App.prototype.fillForm = function (src, trg) {
 		data.gamma_exp = filledval(src.strategy.exponent,2);
 		data.gamma_rebalance = filledval(src.strategy.rebalance,1);
 		data.gamma_trend = filledval(src.strategy.trend,0);
+		data.gamma_reinvest = filledval(src.strategy.reinvest,false);
 	} else if (data.strategy == "hedge") {
 		data.hedge_drop = filledval(src.strategy.drop,1);
 		data.hedge_long = filledval(src.strategy.long,true);
-		data.gamma_short = filledval(src.strategy.short,true);
+		data.hedge_short = filledval(src.strategy.short,true);
 	}
 	data.st_power["!change"] = function() {
 		trg.setItemValue("st_show_factor",powerCalc(trg.readData(["st_power"]).st_power));
@@ -783,6 +785,7 @@ function getStrategyData(data) {
 			exponent: data.gamma_exp,
 			rebalance: data.gamma_rebalance,
 			trend:data.gamma_trend,
+			reinvest:data.gamma_reinvest
 		};		
 	} else if (data.strategy == "hedge") {
 		strategy = {
@@ -1624,7 +1627,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		"st_power","st_reduction_step","st_sl","st_redmode","st_max_step","st_pattern","dynmult_sliding","accept_loss","st_tmode","zigzag",
 		"hp_trend_factor","hp_allowshort","hp_reinvest","hp_power","hp_asym","hp_reduction","sh_curv","hp_boost","hp_extbal","hp_powadj","hp_dynred",
 		"gs_external_assets","gs_rb_hi_a","gs_rb_lo_a","gs_rb_hi_p","gs_rb_lo_p",
-		"min_balance","max_balance","max_leverage","reduce_on_leverage","mart_initial","mart_power","mart_reduction","mart_collateral","mart_allowshort","gamma_exp","gamma_rebalance","gamma_trend","gamma_fn",
+		"min_balance","max_balance","max_leverage","reduce_on_leverage","mart_initial","mart_power","mart_reduction","mart_collateral","mart_allowshort","gamma_exp","gamma_rebalance","gamma_trend","gamma_fn","gamma_reinvest",
 		"hedge_short","hedge_long","hedge_drop"];
 	var spread_inputs = ["spread_calc_stdev_hours", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode","dynmult_sliding","dynmult_cap","dynmult_mult","force_spread","spread_mode"];
 	var balance = form._balance;

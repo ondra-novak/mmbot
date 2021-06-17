@@ -171,6 +171,7 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 		cfg.intTable = std::make_shared<Strategy_Gamma::IntegrationTable>(strGammaFunction[config["function"].getString()],config["exponent"].getNumber());
 		cfg.reduction_mode = config["rebalance"].getInt();
 		cfg.trend= config["trend"].getNumber();
+		cfg.reinvest= config["reinvest"].getNumber();
 		return Strategy(new Strategy_Gamma(cfg));
 	} else if (id == Strategy_Hedge::id) {
 		Strategy_Hedge::Config cfg;

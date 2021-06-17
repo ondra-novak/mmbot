@@ -761,10 +761,10 @@ MTrader::Order MTrader::calculateOrderFeeLess(
 	double min_size = std::max(cfg.min_size, minfo.min_size);
 	double dir = sgn(-step);
 
-	double newPrice = prevPrice * exp(step*dynmult*m);
+	double newPrice = prevPrice *exp(step*dynmult*m);
 	if ((newPrice - curPrice) * dir > 0) {
 		newPrice = curPrice;
-		m = std::log(newPrice/prevPrice)/(step*dynmult);
+		prevPrice = newPrice /exp(step*dynmult*m);
 	}
 	order= strategy.getNewOrder(minfo,curPrice, newPrice,dir, balance, currency, false);
 
