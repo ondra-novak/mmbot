@@ -25,7 +25,7 @@ public:
 		double external_balance = 0;
 		double powadj = 0;
 		double dynred = 0;
-		double boost = 0;
+		double open_limit = 0;
 		double trend_factor=0;
 		bool recalc_keep_neutral =false;
 		bool longonly = false;

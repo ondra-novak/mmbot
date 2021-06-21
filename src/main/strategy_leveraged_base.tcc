@@ -388,8 +388,9 @@ IStrategy::OrderData Strategy_Leveraged<Calc>::getNewOrder(
 
 	double pnl = (price - st.last_price) * apos;
 	double apsz = roundZero(apos, minfo, price);
+	double limit = cfg->open_limit?((apsz == 0?(cfg->external_balance+st.bal)/price:std::abs(apsz))*(1.0+1.0/cfg->open_limit)):std::numeric_limits<double>::max();
 	double new_neutral = apsz?calcNewNeutralFromPnl(price, pnl):st.neutral_price;
-	double cps = calc-> calcPosition(st.power, new_neutral, price)*std::pow(2.0,cfg->boost);
+	double cps = calc-> calcPosition(st.power, new_neutral, price);
 	double cpsz = roundZero(cps, minfo, price);
 	if (!rej &&  cpsz * apsz  < 0) {
 		return {0,-apos,Alert::stoploss};
@@ -410,6 +411,7 @@ IStrategy::OrderData Strategy_Leveraged<Calc>::getNewOrder(
 	if (!std::isfinite(df))
 		return {0,0,Alert::forced};
 	double finpos = assets+df;
+	if (std::abs(finpos) > limit) finpos = sgn(finpos) * limit;
 /*	double curPos = roundZero(apos, minfo, price);
 	if (curPos == 0 && cfg->initboost) {
 		double maxpos = 0.5*(st.bal+cfg->external_balance)/price;

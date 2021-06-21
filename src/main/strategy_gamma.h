@@ -16,7 +16,8 @@ public:
 	enum Function {
 		halfhalf,
 		keepvalue,
-		exponencial
+		exponencial,
+		gauss
 	};
 
 	struct IntegrationTable {

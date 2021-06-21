@@ -63,6 +63,7 @@ static json::NamedEnum<Strategy_Gamma::Function> strGammaFunction ({
 	{Strategy_Gamma::halfhalf,"halfhalf"},
 	{Strategy_Gamma::keepvalue,"keepvalue"},
 	{Strategy_Gamma::exponencial,"exponencial"},
+	{Strategy_Gamma::gauss,"gauss"},
 
 });
 
@@ -76,7 +77,7 @@ void initConfig(Cfg &cfg, json::Value config,
 	cfg.external_balance = config["extbal"].getNumber();
 	cfg.powadj = config["powadj"].getNumber();
 	cfg.dynred = config["dynred"].getNumber();
-	cfg.boost = config["boost"].getNumber();
+	cfg.open_limit = config["limit"].getNumber();
 	cfg.trend_factor = config["trend_factor"].getNumber();
 	cfg.longonly = config["longonly"].getBool();
 	cfg.recalc_keep_neutral = config["recalc_mode"].getString() == "neutral";

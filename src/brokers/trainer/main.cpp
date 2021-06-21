@@ -1153,7 +1153,7 @@ inline void Interface::setSettings(json::Value keyData, bool loaded,  unsigned i
 				p.asset = iter->second.asset.str();
 				p.currency = iter->second.currency.str();
 				if (p.preset) {
-					p.asset_step = iter->second.min_size;
+					p.asset_step = 0.00000001;
 				}
 			} else {
 					throw std::runtime_error("Unknown symbold");

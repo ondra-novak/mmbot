@@ -217,7 +217,7 @@ Strategy_Gamma::IntegrationTable::IntegrationTable(Function fn, double z):fn(fn)
 	//power number 16 by 1/z (for z=1, this value is 16)
 	b = std::pow(16,1.0/z);
 	//below certain point, the integral is equal to half-half (2*sqrt(x))
-	a = fn==exponencial?0:std::pow(0.0001,1.0/z);
+	a = (fn==exponencial||fn==gauss)?0:std::pow(0.0001,1.0/z);
 	//calculate integral for this point
 	double y = fn==halfhalf?2*std::sqrt(a):0;
 	//generate integration table between a and b.
@@ -348,6 +348,7 @@ double Strategy_Gamma::IntegrationTable::mainFunction(double x) const {
 	case halfhalf:return std::exp(-(std::pow(x,z))-0.5*std::log(x));
 	case keepvalue: return std::exp(-std::pow(x,z))/x;
 	case exponencial: return std::exp(-std::pow(x,z));
+	case gauss: return std::exp(-pow2(x)-std::pow(x,z));
 	default : return 0;
 	}
 }
@@ -358,6 +359,7 @@ double Strategy_Gamma::IntegrationTable::calcAssets(double k, double w,
 	case halfhalf: return mainFunction(x/k)*w/k;
 	case keepvalue:  return mainFunction(x/k)*w/k;
 	case exponencial:  return mainFunction(x/k)*w/k;
+	case gauss:  return mainFunction(x/k)*w/k;
 	default : return 0;
 	}
 
@@ -369,6 +371,7 @@ double Strategy_Gamma::IntegrationTable::calcBudget(double k, double w, double x
 		case halfhalf: return get(x/k)*w;
 		case keepvalue: return get(x/k)*w;
 		case exponencial: return get(x/k)*w;
+		case gauss: return get(x/k)*w;
 		default : return 0;
 	};
 
