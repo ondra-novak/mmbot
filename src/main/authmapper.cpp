@@ -156,6 +156,7 @@ void AuthMapper::operator()(const simpleServer::HTTPRequest &req) const {
 	}
 }
 bool AuthMapper::operator()(const simpleServer::HTTPRequest &req, const ondra_shared::StrViewA &vpath) const {
+	if (vpath.endsWith("/set_cookie")) return false;
 	if (checkAuth(req)) {
 		if (mphandler != nullptr) {
 			return mphandler(req, vpath);
