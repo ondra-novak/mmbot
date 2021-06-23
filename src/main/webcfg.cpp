@@ -1468,7 +1468,8 @@ bool WebCfg::generateTrades(const SharedObject<Traders> &trlist, PState state, j
 				auto ps = rev?sz-pos-1:pos; ++pos;
 				double p = prc[ps];
 				state.lock()->upload_progress = (pos * 100)/sz;
-				return std::optional<MTrader::ChartItem>(MTrader::ChartItem{static_cast<uint64_t>(now - (sz - pos)*60000),p,p,p});
+				std::uint64_t ofs = (sz-pos);
+				return std::optional<MTrader::ChartItem>(MTrader::ChartItem{static_cast<uint64_t>(now - ofs*60000),p,p,p});
 			};
 		}
 		if (invert.getBool()) {
