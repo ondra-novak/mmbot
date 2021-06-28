@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <iostream>
 #include <sstream>
+#include <imtjson/parser.h>
 
 #include "../server/src/simpleServer/abstractStream.h"
 #include "../server/src/simpleServer/address.h"
@@ -165,6 +166,7 @@ void trader_cycle(PReport rpt, PPerfModule perfmod, Scheduler sch, int pos, std:
 
 int main(int argc, char **argv) {
 
+	json::enableParsePreciseNumbers = true;
 	try {
 
 		App app;

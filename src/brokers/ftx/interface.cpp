@@ -70,6 +70,8 @@ void Interface::updatePairs() {
 	Value result = mres["result"];
 	const AccountInfo &account = getAccountInfo();
 	SymbolMap::Set::VecT newsmap;
+	std::map<json::String, json::Value> minProvideSize;
+
 	for (Value symbol: result) {
 		if (symbol["enabled"].getBool() && symbol["type"] == "spot") {
 			MarketInfoEx minfo;
@@ -87,6 +89,10 @@ void Interface::updatePairs() {
 			minfo.min_volume = 0;
 			minfo.wallet_id = "spot";
 			newsmap.emplace_back(name.str(), std::move(minfo));
+		} else {
+			String name = symbol["name"].toString();
+			Value minSz = symbol["minProvideSize"];
+			minProvideSize[name] = minSz;
 		}
 	}
 	mres = publicGET("/futures");
@@ -104,7 +110,7 @@ void Interface::updatePairs() {
 			minfo.fees = account.fees;
 			minfo.invert_price = false;
 			minfo.leverage = account.leverage;
-			minfo.min_size = minfo.asset_step;
+			minfo.min_size = minProvideSize[name].getNumber();
 			minfo.min_volume = 0;
 			minfo.wallet_id = "futures";
 			minfo.type = symbol["type"].getString();
