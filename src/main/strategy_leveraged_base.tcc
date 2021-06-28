@@ -156,9 +156,16 @@ double Strategy_Leveraged<Calc>::calcNewNeutralFromPnl(double price, double pnl)
 	}
 	reduction = reduction + dynred;
 
-	double best_value = st.val-pnl;
+	double sel_value;
 	double worst_value = calc->calcPosValue(st.power, st.neutral_price, price);
-	double sel_value = worst_value + (best_value-worst_value)*reduction;
+	double best_value = st.val-pnl;
+	if (reduction == 0 && dynred == 0) {
+		double sprd = price/st.last_price;
+		double refval = calc->calcPosValue(st.power, st.neutral_price, st.neutral_price *sprd);
+		sel_value = best_value+refval;
+	} else {
+		sel_value = worst_value + (best_value-worst_value)*reduction;
+	}
 	if (sel_value <= 0) return price;
 	double new_neutral = calc->calcNeutralFromValue(st.power, st.neutral_price, sel_value, price);
 	if (std::abs(st.neutral_price-price)<std::abs(new_neutral-price)) new_neutral = st.neutral_price;
