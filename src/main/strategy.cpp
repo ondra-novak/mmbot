@@ -25,6 +25,7 @@
 #include "strategy_martingale.h"
 #include "strategy_gamma.h"
 #include "strategy_hedge.h"
+#include "strategy_sinh_gen.h"
 
 
 
@@ -180,6 +181,16 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 		cfg.h_short = config["short"].getBool();
 		cfg.ptc_drop = config["drop"].getNumber()*0.01;
 		return Strategy(new Strategy_Hedge(cfg));
+	} else if (id == Strategy_Sinh_Gen::id) {
+		Strategy_Sinh_Gen::Config cfg;
+		double p = config["p"].getNumber()*0.01;
+		double w = config["w"].getNumber();
+		cfg.calc = std::make_shared<Strategy_Sinh_Gen::FnCalc>(w);
+		cfg.disableSide = config["disableSide"].getInt();
+		cfg.power = p/std::sqrt(w);
+		cfg.reinvest = config["reinvest"].getBool();
+		cfg.avgspread= config["avgspread"].getBool();
+		return Strategy(new Strategy_Sinh_Gen(cfg));
 	} else {
 		throw std::runtime_error(std::string("Unknown strategy: ").append(id));
 	}

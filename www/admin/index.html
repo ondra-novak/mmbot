@@ -63,6 +63,7 @@
 <option value="gamma">Gamma</option>
 </optgroup>
 <optgroup label="Leveraged (advanced traders)">
+<option value="sinh_gen">Simple leveraged</option>
 <option value="sinh">Sinh/exponencial</option>
 <option value="sinh_val">Volume based Sinh </option>
 <option value="martingale" data-hidden="true">Simple ATL</option>
@@ -207,11 +208,31 @@ to enter a negative value and then the value of the assets held will decrease an
 
 </x-section>
 
+
 <x-section data-name="strategy_hedge" class="goal" hidden="hidden"><x-section-caption>Hedge</x-section-caption>
 <label><span>Price change<span class="tooltip">How much the price need to drop from ATH or raise from ATL</span></span><x-slider data-name="hedge_drop" data-min="0" data-max="20" data-mult="0.1" data-fixed="1"></label>
 <label><span>Trailing buy<span class="tooltip">Buy when price raises, sells when price drops</span></span><x-checkbox data-name="hedge_long"></label>
 <label><span>Trailing sell<span class="tooltip">Sell or open short when price going down and close when price goes up</span></span><x-checkbox data-name="hedge_short"></label>
 </x-section>
+
+<x-section data-name="strategy_sinhgen" class="goal" hidden="hidden"><x-section-caption>Simple Leveraged</x-section-caption>
+<label><span>Power[%]<span class="tooltip">Relative amount of you balance used in calculation in percent</span></span><x-slider data-name="shg_p" data-min="1" data-max="200" data-mult="1" data-fixed="0"></label>
+<label><span>Aggressiveness[%]<span class="tooltip">How much aggresive is strategy is to open positions. In order to ensure sufficient money management, smaller positions may be opened first and larger positions will be opened later </span></span><x-slider data-name="shg_w" data-min="1" data-max="200" data-mult="1" data-fixed="0"></label>
+<label><span>Limit position side:</span><select data-name="shg_lp">
+<option value="0">No limit</option>
+<option value="-1">Long only</option>
+<option value="1">Short only</option>
+</select></label>
+<div class="label"><span>Reinvest profit<span class="tooltip">Increase the collateral by realized profit</span></span><x-checkbox data-name="shg_rnv"></x-checkbox></div>
+<div class="label"><span>Use average spread<span class="tooltip">Instead using current spread, use average spread</span></span><x-checkbox data-name="shg_avgsp"></x-checkbox></div>
+
+<div class="label"><span>Min price:</span><span data-name="range_min_price">---</span></div>
+<div class="label"><span>Max price:</span><span data-name="range_max_price">---</span></div>
+<div class="label"><span>Recomended initial position:</span><span data-name="range_initial">---</span></div>
+<div class="rightinfo"><button name="show_backtest  hide_on_new" disabled="disabled">Backtest</button></div>
+</x-section>
+
+
 
 
 <x-section data-name="strategy_stairs backtest_anchor" class="goal" hidden="hidden"><x-section-caption>Stairs</x-section-caption>

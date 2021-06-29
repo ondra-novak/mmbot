@@ -21,6 +21,7 @@ add_executable (mmbot
 	strategy_error_fn.cpp
 	strategy_exponencial.cpp
 	strategy_sinh.cpp
+	strategy_sinh_gen.cpp
 	strategy_sinh_val.cpp
 	strategy_stairs.cpp
 	strategy_keepbalance.cpp

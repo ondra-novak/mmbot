@@ -103,6 +103,7 @@ App.prototype.createTraderForm = function() {
 		form.showItem("strategy_martingale",state.strategy == "martingale");
 		form.showItem("strategy_gamma",state.strategy == "gamma");
 		form.showItem("strategy_hedge",state.strategy == "hedge");
+		form.showItem("strategy_sinhgen",state.strategy == "sinh_gen");
 		form.showItem("strategy_hyperbolic",["hyperbolic","linear","sinh","sinh_val","sinh2"].indexOf(state.strategy) != -1);
 		form.showItem("kv_valinc_h",state.strategy == "keepvalue");
 		form.showItem("show_curvature",["sinh","sinh_val","sinh2"].indexOf(state.strategy) != -1);
@@ -487,7 +488,11 @@ App.prototype.fillForm = function (src, trg) {
 		
 		
 		if (first_fetch) {
-			["strategy","external_assets","gs_external_assets", "hp_trend_factor","hp_allowshort","hp_power", "hp_recalc", "hp_asym","hp_powadj", "hp_extbal", "hp_reduction","hp_dynred","sh_curv","ext_bal","gamma_exp","gamma_trend","gamma_fn"]
+			["strategy","external_assets","gs_external_assets", "hp_trend_factor","hp_allowshort","hp_power", "hp_recalc", "hp_asym","hp_powadj", 
+			"hp_extbal", "hp_reduction","hp_dynred","sh_curv","ext_bal","gamma_exp",
+			"gamma_trend","gamma_fn",
+			"shg_w","shg_p","shg_lp"
+			]
 			.forEach(function(item){
 				trg.findElements(item).forEach(function(elem){
 					elem.addEventListener("input", function(){recalc_strategy_fn();});
@@ -582,6 +587,11 @@ App.prototype.fillForm = function (src, trg) {
 	data.hedge_drop=1;
 	data.hedge_long=true;
 	data.hedge_short=true;
+	data.shg_w=50;
+	data.shg_p=100;
+	data.shg_lp="0";
+	data.shg_rnv=false;
+	data.shg_avgsp=false;	
 
 	function powerCalc(x) {return adjNumN(Math.pow(10,x)*0.01);};
 
@@ -640,6 +650,12 @@ App.prototype.fillForm = function (src, trg) {
 		data.hedge_drop = filledval(src.strategy.drop,1);
 		data.hedge_long = filledval(src.strategy.long,true);
 		data.hedge_short = filledval(src.strategy.short,true);
+	} else if (data.strategy == "sinh_gen") {
+		data.shg_w=filledval(src.strategy.w,50);
+		data.shg_p=filledval(src.strategy.p,100);
+		data.shg_lp=filledval(src.strategy.disableSide,0);
+		data.shg_rnv=filledval(src.strategy.reinvest,false);
+		data.shg_avgsp=filledval(src.strategy.avgspread,false);
 	}
 	data.st_power["!change"] = function() {
 		trg.setItemValue("st_show_factor",powerCalc(trg.readData(["st_power"]).st_power));
@@ -793,6 +809,15 @@ function getStrategyData(data) {
 			drop: data.hedge_drop,
 			long: data.hedge_long,
 			short: data.hedge_short,
+		};		
+	} else if (data.strategy == "sinh_gen") {
+		strategy = {
+			type: data.strategy,
+			w:data.shg_w,
+			p:data.shg_p,
+			disableSide:data.shg_lp,
+			reinvest:data.shg_rnv,
+			avgspread:data.shg_avgsp
 		};		
 	} else 	if (["hyperbolic","linear","sinh","sinh_val","sinh2"].indexOf(data.strategy) != -1) {
 		strategy = {
@@ -1502,8 +1527,23 @@ App.prototype.gen_backtest = function(form,anchor, template, inputs, updatefn) {
 			hideSpinner:hideSpinner,
 			bt:bt
 	}
+	var update_in_progress=false;
+	var pending_update = false;
 	function update() {
-		updatefn(obj)
+		if (update_in_progress) {
+			pending_update = true;
+		} else {
+			update_in_progress = true;
+			updatefn(obj)
+				.catch(function(){})
+				.then(function() {
+					update_in_progress = false;
+					if (pending_update) {
+						pending_update = false;
+						update();
+					}
+				});
+		}
 	}
 
 	var tm;
@@ -1628,7 +1668,8 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		"hp_trend_factor","hp_allowshort","hp_reinvest","hp_power","hp_asym","hp_reduction","sh_curv","hp_limit","hp_extbal","hp_powadj","hp_dynred",
 		"gs_external_assets","gs_rb_hi_a","gs_rb_lo_a","gs_rb_hi_p","gs_rb_lo_p",
 		"min_balance","max_balance","max_leverage","reduce_on_leverage","mart_initial","mart_power","mart_reduction","mart_collateral","mart_allowshort","gamma_exp","gamma_rebalance","gamma_trend","gamma_fn","gamma_reinvest",
-		"hedge_short","hedge_long","hedge_drop"];
+		"hedge_short","hedge_long","hedge_drop",
+		"shg_w","shg_p","shg_lp","shg_rnv","shg_avgsp"];
 	var spread_inputs = ["spread_calc_stdev_hours", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode","dynmult_sliding","dynmult_cap","dynmult_mult","force_spread","spread_mode"];
 	var balance = form._balance;
 	var assets = form._assets;
@@ -2137,7 +2178,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 			})
 
 		}
-		fetch_json(url, {method:"POST", body:JSON.stringify(req)}).then(function(v) {
+		return fetch_json(url, {method:"POST", body:JSON.stringify(req)}).then(function(v) {
 			cntr.hideSpinner();
 			cntr.bt.setData({error_window:{classList:{mark:false}}});					    
 			if (v.length == 0) {
