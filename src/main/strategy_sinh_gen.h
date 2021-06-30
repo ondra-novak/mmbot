@@ -28,6 +28,7 @@ public:
 
 		static bool sortPoints(const Point &a, const Point &b);
 
+		const double getWD() const {return wd;}
 
 	protected:
 		double wd;
@@ -43,6 +44,7 @@ public:
 		int disableSide;  //-1 disable short, 1 disable long
 		bool reinvest;
 		bool avgspread;
+		std::size_t calcConfigHash() const;
 	};
 
 	struct State {
@@ -50,7 +52,7 @@ public:
 		double k = 0;
 		double p = 0;
 		double budget=0;
-		double last_spread=1;
+		double last_spread=1.01;
 		double sum_spread=0;
 		int trades=0;
 	};

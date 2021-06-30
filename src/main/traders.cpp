@@ -148,11 +148,6 @@ void Traders::addTrader(const MTrader::Config &mcfg ,ondra_shared::StrViewA n) {
 				std::make_unique<StatsSvc>(n, rpt, perfMod), walletDB, mcfg, n);
 			auto lt = t.lock();
 			loadIcon(*lt);
-			try {
-				lt->init();
-			} catch (std::exception &e) {
-				logWarning("Can't initialize pair $1 - postponed", lt->ident);
-			}
 			traders.insert(std::pair(StrViewA(lt->ident), std::move(t)));
 		} else {
 			throw std::runtime_error("Unable to load broker");

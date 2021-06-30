@@ -44,6 +44,7 @@ public:
 		int reduction_mode;
 		double trend;
 		bool reinvest;
+		std::size_t calcConfigHash() const;
 	};
 
 
@@ -52,7 +53,6 @@ public:
 		double w = 0;
 		double p = 0;
 		double kk = 0;
-		Function fn = halfhalf;
 	};
 
 	Strategy_Gamma(const Config &cfg);

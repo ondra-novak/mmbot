@@ -76,7 +76,7 @@ std::pair<IStrategy::OnTradeResult, ondra_shared::RefCntPtr<const IStrategy> > S
 	}
 
 	State nwst = {
-			newk,neww,tradePrice, newkk, state.fn
+			newk,neww,tradePrice, newkk
 	};
 	return {{np,0,newk,0},
 		PStrategy(new Strategy_Gamma(cfg, std::move(nwst)))
@@ -85,13 +85,19 @@ std::pair<IStrategy::OnTradeResult, ondra_shared::RefCntPtr<const IStrategy> > S
 
 PStrategy Strategy_Gamma::importState(json::Value src,
 		const IStockApi::MarketInfo &minfo) const {
-	return new Strategy_Gamma(cfg, {
-			src["k"].getNumber(),
-			src["w"].getNumber(),
-			src["p"].getNumber(),
-			calibK(src["k"].getNumber()),
-			(Function)src["fn"].getInt()
-	});
+
+	State nwst{
+		src["k"].getNumber(),
+		src["w"].getNumber(),
+		src["p"].getNumber(),
+	};
+	if (src["hash"].hasValue() && cfg.calcConfigHash() != src["hash"].getUIntLong()) {
+		nwst.k = 0;
+		nwst.kk = 0;
+	} else {
+		nwst.kk = calibK(nwst.k);
+	}
+	return new Strategy_Gamma(cfg,std::move(nwst));
 }
 
 IStrategy::MinMax Strategy_Gamma::calcSafeRange(
@@ -122,7 +128,7 @@ IStrategy::MinMax Strategy_Gamma::calcSafeRange(
 }
 
 bool Strategy_Gamma::isValid() const {
-	return state.k>0 && state.p >0 && state.w > 0 && state.fn == cfg.intTable->fn;
+	return state.k>0 && state.p >0 && state.w > 0;
 }
 
 json::Value Strategy_Gamma::exportState() const {
@@ -130,7 +136,7 @@ json::Value Strategy_Gamma::exportState() const {
 			("k",state.k)
 			("w",state.w)
 			("p",state.p)
-			("fn",(int)state.fn);
+			("hash",cfg.calcConfigHash());
 }
 
 std::string_view Strategy_Gamma::getID() const {
@@ -298,6 +304,7 @@ Strategy_Gamma Strategy_Gamma::init(const IStockApi::MarketInfo &minfo,
 	double budget = assets * price + currency;
 	State newst;
 	if (budget<=0) throw std::runtime_error("No budget");
+	if (state.p) price = state.p;
 	newst.p = price;
 	if (newst.p <= 0) throw std::runtime_error("Invalid price");
 	if (assets <= 0) newst.k = price;
@@ -325,7 +332,6 @@ Strategy_Gamma Strategy_Gamma::init(const IStockApi::MarketInfo &minfo,
 		}
 	}
 	newst.kk = calibK(newst.k);
-	newst.fn = cfg.intTable->fn;
 	double w1 = cfg.intTable->calcBudget(newst.kk, 1.0, price);
 	newst.w = budget / w1;
 
@@ -374,5 +380,11 @@ double Strategy_Gamma::IntegrationTable::calcBudget(double k, double w, double x
 		case gauss: return get(x/k)*w;
 		default : return 0;
 	};
+
+}
+
+std::size_t Strategy_Gamma::Config::calcConfigHash() const {
+	std::hash<json::Value> h;
+	return h({(int)intTable->fn, intTable->z, trend});
 
 }

@@ -102,7 +102,7 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 
 				if (!minfo.leverage) {
 					double chg = order.size*p;
-					if (balance - chg < 0 || pos + order.size < 0) {
+					if (balance - chg < 0 || pos + order.size < -(std::abs(pos) + std::abs(order.size))*1e-10) {
 						if (neg_bal) {
 							bt.event = BTEvent::no_balance;
 						} else {
@@ -116,7 +116,7 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 						}
 					}
 					balance -= chg;
-					pos += order.size;
+					pos = std::max(pos+order.size,0.0);
 				} else {
 					if (balance <= 0 && prev_bal > 0) {
 						bt.event = BTEvent::liquidation;

@@ -103,22 +103,28 @@ PStrategy Strategy_Sinh_Gen::init(const IStockApi::MarketInfo &minfo,
 
 	double budget = minfo.leverage?currency:(pos * price + currency);
 	State nwst;
-	nwst.p = price;
+	nwst.p = st.p?st.p:price;
 	nwst.spot = minfo.leverage == 0;
+	nwst.sum_spread = st.sum_spread;
+	nwst.trades = st.trades;
+	nwst.last_spread = st.last_spread;
+	double pw = cfg.power * currency/price;
 
-	if (pos > 0) {
-		nwst.k = numeric_search_r2(price, [&](double x) {
-			return cfg.calc->assets(x, pw, price)-pos;
-		});
-	} else if (pos < 0) {
-		nwst.k = numeric_search_r1(price, [&](double x) {
-			return cfg.calc->assets(x, pw, price)-pos;
-		});
-	} else {
-		nwst.k = price;
+	for (int i=0;i < 5;i++) {
+		if (pos > 0) {
+			nwst.k = numeric_search_r2(price, [&](double x) {
+				return cfg.calc->assets(x, pw, price)-pos;
+			});
+		} else if (pos < 0) {
+			nwst.k = numeric_search_r1(price, [&](double x) {
+				return cfg.calc->assets(x, pw, price)-pos;
+			});
+		} else {
+			nwst.k = price;
+		}
+		nwst.budget = budget-cfg.calc->budget(nwst.k, pw, price);
+		pw = cfg.power * nwst.budget/nwst.k;
 	}
-	double pw = cfg.power * currency/nwst.k;
-	nwst.budget = budget-cfg.calc->budget(nwst.k, pw, price);
 	PStrategy s(new Strategy_Sinh_Gen(cfg, std::move(nwst)));
 	if (!s->isValid()) throw std::runtime_error("Unable to initialize the strategy");
 	return s;
@@ -210,6 +216,7 @@ json::Value Strategy_Sinh_Gen::exportState() const {
 			Value("last_spread", st.last_spread),
 			Value("sum_spread", st.sum_spread),
 			Value("trades", st.trades),
+			Value("hash", cfg.calcConfigHash())
 	});
 }
 
@@ -223,6 +230,9 @@ PStrategy Strategy_Sinh_Gen::importState(json::Value src, const IStockApi::Marke
 		src["sum_spread"].getNumber(),
 		static_cast<int>(src["trades"].getInt())
 	};
+	if (src["hash"].hasValue() && cfg.calcConfigHash() != src["hash"].getUIntLong()) {
+		nwst.k = 0; //make settings invalid;
+	}
 	return new Strategy_Sinh_Gen(cfg, std::move(nwst));
 }
 
@@ -320,8 +330,12 @@ IStrategy::OrderData Strategy_Sinh_Gen::getNewOrder(
 }
 
 double Strategy_Sinh_Gen::limitPosition(double pos) const {
-	if ((cfg.disableSide<0 || st.spot) && pos<0) return 0;
-	if (cfg.disableSide>0 && pos>0) return 0;
+	if ((cfg.disableSide<0 || st.spot) && pos<0) {
+		return 0;
+	}
+	if (cfg.disableSide>0 && pos>0) {
+		return 0;
+	}
 	return pos;
 }
 
@@ -393,3 +407,7 @@ double Strategy_Sinh_Gen::getCenterPrice(double lastPrice,double assets) const {
 	return lastPrice;
 }
 
+std::size_t Strategy_Sinh_Gen::Config::calcConfigHash() const {
+	std::hash<json::Value> h;
+	return h({power, calc->getWD()});
+}
