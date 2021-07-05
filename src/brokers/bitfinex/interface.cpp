@@ -283,7 +283,7 @@ IStockApi::TradesSync Interface::syncTrades(json::Value lastId, const std::strin
 		if (!out.trades.empty()) {
 			fees[std::string(pair)] = lastFees;
 		}
-		if (!lastId.defined()) {
+		if (!lastId.hasValue()) {
 			out.trades.clear();
 		}
 		else {
