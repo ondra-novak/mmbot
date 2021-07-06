@@ -671,7 +671,9 @@ function app_start(){
 	
 	function notifyTrades(trades) {
 		trades.sort(function(a,b){return b.time - a.time;});
-		last_ntf_time = trades[0].time+1;
+		if (trades[0].time) {
+			last_ntf_time = trades[0].time+1;
+		}
 
 		  var text = trades.reduce(function(txt, itm){
 			var ln = (itm.size>0?"𝗕𝗨𝗬 ":itm.size<0?"𝗦𝗘𝗟𝗟":"𝗔𝗟𝗥𝗧")
@@ -853,6 +855,10 @@ function app_start(){
 			var plns = calculate_pnls(charts,infoMap, stats.prices, sums);
 			
 			localStorage["mmbot_time"] = Date.now();
+
+			if (stats.news_url) {
+				checkNews(stats.news_url);
+			}
 			
 			drawChart = initChart(stats.interval);
 			redraw = function() {
@@ -1182,5 +1188,68 @@ function testNotify() {
 	]);
 	} catch (e) {
 		alert(e.toString());
+	}
+}
+
+var checkNewsNextTime = 0;
+
+function checkNews(url) {
+	var now = Date.now();
+	if (now > checkNewsNextTime) {
+		 var nt = localStorage["news_last_check"];
+		 var ntt;
+		 if (!nt) {
+			ntt = Date.now()-24*60*60*1000;
+			localStorage["news_last_check"] = ntt;
+		 } else {
+			ntt = parseInt(nt); 
+		 }
+		 url = url+ntt;
+		 fetch(url)
+		     .then(function(x) {return x.json();})
+		     .then(function(data){
+                 checkNewsNextTime = now+3600000;
+                 ntt = data.items.reduce(function(a,b){
+                 	if (b.time > a) a = b.time;
+                 	return a;
+                 },ntt);
+                    
+                 var wnd = document.getElementById("news_window");
+                 var items = data.items;
+                 if (items.length != 0) {
+					 var rows = document.getElementById("news_data");
+					 rows.innerText="";
+					 items.forEach(function(r){
+						var rw = document.createElement("div");
+						var fields = ["time","subject","body"]
+							.reduce(function(a,b){
+								a[b] = document.createElement("div");
+								rw.appendChild(a[b]);
+								return a;
+							},{});
+						fields.time.innerText = (new Date(r.time)).toLocaleDateString();
+						fields.subject.innerText = r.title;
+						fields.body.innerText = r.body;
+						rows.appendChild(rw);						
+					 });
+					 var b = document.getElementById("news_open_link");
+					 b.innerText = data.title;
+					 b.onclick=function() {
+					 	window.open(data.url);
+					 };
+					 b = document.getElementById("news_close");
+					 var b2= document.getElementById("news_close_butt");
+					 b2.onclick = b.onclick=function() {
+					 	localStorage["news_last_check"] = ntt+1000;
+					 	wnd.classList.remove("shown");
+					 }
+                   	 wnd.classList.add("shown");
+                   	 notifyTradesFn([{
+		                time:0,	size:0,
+		                price:(new Date(now)).toLocaleDateString(),
+		                asymb:"",csymb:"",title:data.title}]);
+                 }
+		     });
+         		 
 	}
 }

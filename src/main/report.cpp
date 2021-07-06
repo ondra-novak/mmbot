@@ -43,6 +43,7 @@ void Report::genReport() {
 	st.set("log", logLines);
 	st.set("performance", perfRep);
 	st.set("version", MMBOT_VERSION);
+	if (!news_url.empty()) st.set("news_url",news_url);
 	while (logLines.size()>30) logLines.erase(0);
 	report->store(st);
 }

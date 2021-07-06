@@ -232,6 +232,7 @@ int main(int argc, char **argv) {
 						auto login_section = app.config["login"];
 						auto backtest_section = app.config["backtest"];
 						auto history_broker = backtest_section.mandatory["history_source"];
+						auto news_url=app.config["news"]["url"].getString();
 
 
 
@@ -251,7 +252,7 @@ int main(int argc, char **argv) {
 
 						StorageFactory rptf(rptpath,2,Storage::json);
 
-						PReport rpt = PReport::make(rptf.create("report.json"), rptinterval);
+						PReport rpt = PReport::make(rptf.create("report.json"), ReportConfig{rptinterval,news_url});
 
 
 						PPerfModule perfmod;

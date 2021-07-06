@@ -1188,3 +1188,80 @@ body.daymode .summary .daystats > div > span:first-child {
 body.daymode table.extended td:nth-child(4) b::after {
     color: #3c3c3c;
 }
+
+#news_window {
+    position: fixed;    
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;	
+    padding: 1em;
+    z-index: 2000;
+    display: none;
+}
+
+#news_window.shown {
+	display: block;
+}
+
+#news_window >div {
+    background-color: #444;
+    margin: auto;
+    max-width: 20cm;
+    max-height: 100%;
+    box-sizing: border-box;
+    position: relative;
+    min-height: 3em;
+    box-shadow: 5px 5px 20px black;
+    overflow: auto;
+}
+
+#news_close {
+	position: sticky;
+	width:  1cm;
+	height:  1cm;
+	line-height: 1cm;
+	text-align: center;
+	margin-left: auto;
+	margin-right: 0;
+	cursor: pointer;
+	font-size: 0.75cm;
+	top: 0;
+	z-index: 2001;
+}
+
+#news_close:hover {
+	background-color: #FFF2;
+}
+
+#news_data {
+	margin: 1%;
+	margin-top: -0.25cm;
+}
+
+#news_data > div {
+	margin-bottom: 1em;
+	padding-bottom: 1em;
+	border-bottom: 1px dotted;
+	position: relative;
+}
+#news_data > div>div:nth-child(1) {
+    position: absolute;
+    right: 1em;
+    width:  6em;
+    text-align: right;
+    top: 0;
+}
+#news_data > div>div:nth-child(2) {font-weight: bold;margin-right: 6em;}
+#news_data > div>div:nth-child(3) {
+    font-size: 0.8em;
+}
+#news_window button {
+	margin: 1em;
+	padding: 0.4em;
+}
+
+#news_window .buttons {
+	margin: 1em;
+	text-align: center;	
+}

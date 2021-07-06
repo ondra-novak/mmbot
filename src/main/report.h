@@ -26,6 +26,11 @@ namespace json {
 	class Value;
 }
 
+struct ReportConfig {
+	std::size_t interval_in_ms;
+	std::string news_url;
+};
+
 class Report {
 
 
@@ -36,8 +41,9 @@ public:
 	using InfoObj = IStatSvc::Info;
 	using Sync = std::unique_lock<std::recursive_mutex>;
 
-	Report(StoragePtr &&report, std::size_t interval_in_ms)
-		:report(std::move(report)),interval_in_ms(interval_in_ms)
+	Report(StoragePtr &&report, const ReportConfig &cfg)
+		:report(std::move(report)),interval_in_ms(cfg.interval_in_ms)
+		,news_url(cfg.news_url)
 		,counter(initCounter()){}
 
 
@@ -106,6 +112,7 @@ protected:
 	void exportPrices(json::Object &&out);
 	void exportMisc(json::Object &&out);
 	std::uint64_t interval_in_ms;
+	std::string news_url;
 
 	std::size_t counter;
 
