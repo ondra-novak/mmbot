@@ -1149,7 +1149,13 @@ App.prototype.resetTrader = function(id, initial) {
             "!click":function(){
                 view.setItemValue("setpos",this.value);	
             }},
-            accept_loss:false            
+            accept_loss:false,
+            cur_pct:{
+            	"value":100,
+            	"!change":function() {
+            		var d = view.readData(["cur_pct"]);
+            		view.setData({"rpos":initial * d.cur_pct*0.01});
+            	}}
 			},"reset_strategy");
 
 		p.then(function(){
@@ -1157,7 +1163,8 @@ App.prototype.resetTrader = function(id, initial) {
 			var data = view.readData();
 			var req = {
                 "achieve":data.setpos,
-                "alert":data.accept_loss
+                "alert":data.accept_loss,
+                "cur_pct":data.cur_pct,
             }
 				
 			this.waitScreen(fetch_with_error(

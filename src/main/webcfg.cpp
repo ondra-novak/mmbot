@@ -644,11 +644,12 @@ bool WebCfg::reqTraders(simpleServer::HTTPRequest req, ondra_shared::StrViewA vp
 								trl->addAcceptLossAlert();
 							}
 							auto achieve = r["achieve"];
-							if (achieve.hasValue()) {
-								trl->reset(achieve.getNumber());
-							} else {
-								trl->reset();
-							}
+							auto cur_pct=  r["cur_pct"];
+							MTrader::ResetOptions opts;
+							opts.achieve = achieve.hasValue();
+							opts.assets = achieve.getNumber();
+							opts.cur_pct = (!cur_pct.defined()?100.0:cur_pct.getNumber())*0.01;
+							trl->reset(opts);
 						}
 						req.sendResponse(std::move(hdr), "true");
 					});

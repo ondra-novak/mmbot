@@ -199,7 +199,18 @@ public:
 
 	bool eraseTrade(std::string_view id, bool trunc);
 	void clearStats();
-	void reset(std::optional<double> achieve_pos = std::optional<double>());
+//	void reset(std::optional<double> achieve_pos = std::optional<double>());
+
+	struct ResetOptions {
+		//currency percentage (0-100)
+		double cur_pct;
+		//assets to achieve - only when achieve is true
+		double assets;
+		//achieve given position
+		bool achieve;
+	};
+	void reset(const ResetOptions &opt);
+
 
 	Chart getChart() const;
 	void dropState();

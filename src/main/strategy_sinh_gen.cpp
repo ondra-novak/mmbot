@@ -101,7 +101,7 @@ PStrategy Strategy_Sinh_Gen::onIdle(const IStockApi::MarketInfo &minfo,
 PStrategy Strategy_Sinh_Gen::init(const IStockApi::MarketInfo &minfo,
 		double price, double pos, double currency) const {
 
-	double budget = minfo.leverage?currency:(pos * price + currency);
+	double budget = st.budget>0?st.budget:(minfo.leverage?currency:(pos * price + currency));
 	State nwst;
 	nwst.p = st.p?st.p:price;
 	nwst.spot = minfo.leverage == 0;

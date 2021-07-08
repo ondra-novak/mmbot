@@ -1180,7 +1180,58 @@ void MTrader::stop() {
 	cfg.enabled = false;
 }
 
-
+void MTrader::reset(const ResetOptions &ropt) {
+	init();
+	dynmult.setMult(1, 1);
+	stock->reset();
+	//check whether lastTradeId is unable to retrieve trades
+	auto syncState = stock->syncTrades(lastTradeId, cfg.pairsymb);
+	//if no trades are received, we can freely reset lastTradeId;
+	if (syncState.trades.empty()) {
+		//so obtain new lastTradeId;
+		syncState = stock->syncTrades(nullptr, cfg.pairsymb);
+		//store it
+		lastTradeId = syncState.lastId;
+	}
+	lastPriceOffset = 0;
+	double lastPrice = 0;
+	for (auto &&x : trades) {
+		if (!std::isfinite(x.norm_accum)) x.norm_accum = 0;
+		if (!std::isfinite(x.norm_profit)) x.norm_profit = 0;
+		if (x.price < 1e-20 || !std::isfinite(x.price)) {
+			x.price = lastPrice;
+		} else {
+			lastPrice = x.price;
+		}
+	}
+	double assets;
+	if (asset_balance.has_value()) {
+		assets = *asset_balance;
+	} else {
+		assets = *asset_balance = stock->getBalance(minfo.asset_symbol, cfg.pairsymb);
+	}
+	double currency = stock->getBalance(minfo.currency_symbol, cfg.pairsymb);
+	double position = ropt.achieve?(minfo.invert_price?-1.0:1.0)*(ropt.assets):assets;
+	auto tk = stock->getTicker(cfg.pairsymb);
+	currency = walletDB.lock_shared()->adjBalance(WalletDB::KeyQuery(cfg.broker, minfo.wallet_id, minfo.currency_symbol, uid), currency);
+	double fin_cur = currency * ropt.cur_pct+cfg.external_balance;
+	double diff = position - assets;
+	double vol = diff * tk.last;
+	double remain = minfo.leverage?fin_cur:std::max(fin_cur - vol,0.0);
+	logInfo("RESET strategy: price=$1, cur_pos=$2, new_pos=$3, diff=$4, volume=$5, remain=$6", tk.last, assets, position, diff, vol, remain);
+	strategy.reset();
+	try {
+		strategy.onIdle(minfo, tk, position, remain);
+		achieve_mode = ropt.achieve;
+		need_initial_reset = false;
+	} catch (...) {
+		need_initial_reset = true;
+		saveState();
+		throw;
+	}
+	saveState();
+}
+#if 0
 void MTrader::reset(std::optional<double> achieve_pos) {
 	init();
 	dynmult.setMult(1,1);
@@ -1208,7 +1259,6 @@ void MTrader::reset(std::optional<double> achieve_pos) {
 		} else {
 			lastPrice = x.price;
 		}
-
 	}
 
 	strategy.reset();
@@ -1230,7 +1280,7 @@ void MTrader::reset(std::optional<double> achieve_pos) {
 	need_initial_reset = false;
 	saveState();
 }
-
+#endif
 MTrader::Chart MTrader::getChart() const {
 	return chart;
 }

@@ -52,6 +52,7 @@ public:
 		double k = 0;
 		double w = 0;
 		double p = 0;
+		double b = 0;
 		double kk = 0;
 	};
 

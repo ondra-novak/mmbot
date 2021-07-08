@@ -7,6 +7,7 @@
 
 #include "walletDB.h"
 
+#include <cmath>
 #include "../imtjson/src/imtjson/value.h"
 WalletDB::WalletDB() {
 	// TODO Auto-generated constructor stub
@@ -23,7 +24,7 @@ bool WalletDB::KeyLess::operator ()(const KeyQuery &key1, const KeyQuery &key2) 
 }
 
 void WalletDB::alloc(Key &&key, double allocation) {
-	if (allocation<0) allocation = 0;
+	if (allocation<0 || !std::isfinite(allocation)) allocation = 0;
 	auto iter = allocTable.find(key);
 	if (iter == allocTable.end()) {
 		allocTable.emplace_hint(iter, std::move(key), allocation);

@@ -76,7 +76,7 @@ std::pair<IStrategy::OnTradeResult, ondra_shared::RefCntPtr<const IStrategy> > S
 	}
 
 	State nwst = {
-			newk,neww,tradePrice, newkk
+			newk,neww,tradePrice, cfg.intTable->calcBudget(newkk, neww, tradePrice),newkk
 	};
 	return {{np,0,newk,0},
 		PStrategy(new Strategy_Gamma(cfg, std::move(nwst)))
@@ -90,6 +90,7 @@ PStrategy Strategy_Gamma::importState(json::Value src,
 		src["k"].getNumber(),
 		src["w"].getNumber(),
 		src["p"].getNumber(),
+		src["b"].getNumber()
 	};
 	if (src["hash"].hasValue() && cfg.calcConfigHash() != src["hash"].getUIntLong()) {
 		nwst.k = 0;
@@ -128,7 +129,7 @@ IStrategy::MinMax Strategy_Gamma::calcSafeRange(
 }
 
 bool Strategy_Gamma::isValid() const {
-	return state.k>0 && state.p >0 && state.w > 0;
+	return state.k>0 && state.p >0 && state.w > 0 && state.b > 0;
 }
 
 json::Value Strategy_Gamma::exportState() const {
@@ -136,6 +137,7 @@ json::Value Strategy_Gamma::exportState() const {
 			("k",state.k)
 			("w",state.w)
 			("p",state.p)
+			("b",state.b)
 			("hash",cfg.calcConfigHash());
 }
 
@@ -210,9 +212,10 @@ json::Value Strategy_Gamma::dumpStatePretty(const IStockApi::MarketInfo &minfo) 
 	bool inv = minfo.invert_price;
 	return json::Object
 			("Position", (inv?-1.0:1.0) * cfg.intTable->calcAssets(state.kk, state.w, state.p))
-			("Neutral price", inv?1.0/state.kk:state.kk)
-			("Last price", inv?1.0/state.p:state.p)
-			("Max budget", cfg.intTable->get_max()* state.w);
+			("Price.neutral", inv?1.0/state.kk:state.kk)
+			("Price.last", inv?1.0/state.p:state.p)
+			("Budget.max", cfg.intTable->get_max()* state.w)
+			("Budget.current", state.b);
 
 }
 
@@ -301,7 +304,7 @@ double Strategy_Gamma::calculatePosition(double a,double price) const  {
 Strategy_Gamma Strategy_Gamma::init(const IStockApi::MarketInfo &minfo,
 	double price, double assets, double currency) const {
 
-	double budget = assets * price + currency;
+	double budget = state.b > 0?state.b:assets * price + currency;
 	State newst;
 	if (budget<=0) throw std::runtime_error("No budget");
 	if (state.p) price = state.p;
@@ -334,6 +337,7 @@ Strategy_Gamma Strategy_Gamma::init(const IStockApi::MarketInfo &minfo,
 	newst.kk = calibK(newst.k);
 	double w1 = cfg.intTable->calcBudget(newst.kk, 1.0, price);
 	newst.w = budget / w1;
+	newst.b = budget;
 
 
 	return Strategy_Gamma(cfg, std::move(newst));
