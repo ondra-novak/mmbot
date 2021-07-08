@@ -36,7 +36,7 @@ Interface::Interface(const std::string &config_path)
 		"https://www.southxchange.com/api")
 ,orderDB(std::string(config_path)+".orders", 1000)
 {
-	nonce = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now())*1000;
+	nonce = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 }
 
 json::Value Interface::testCall(const std::string_view &method, json::Value args) {
