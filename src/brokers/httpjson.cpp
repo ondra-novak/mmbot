@@ -46,7 +46,7 @@ static simpleServer::SendHeaders hdrs(const json::Value &headers) {
 	return hdr;
 }
 
-json::Value parseResponse(simpleServer::HttpResponse &resp, json::Value &headers) {
+json::Value HTTPJson::parseResponse(simpleServer::HttpResponse &resp, json::Value &headers) {
 	json::Value r;
 	json::Object hh;
 	StrViewA ctx = resp.getHeaders()["Content-Type"];
@@ -56,13 +56,25 @@ json::Value parseResponse(simpleServer::HttpResponse &resp, json::Value &headers
 		hh.set(name, k.second);
 	}
 	if (ctx.indexOf("application/json") != ctx.npos) {
-		r = json::Value::parse(resp.getBody());
+		BinaryView b;
+		std::size_t pos = 0;
+		auto s = resp.getBody();
+		r = json::Value::parse([&]{
+			if (pos >= b.length) {
+				b = s.read();
+				if (b.empty()) return -1;
+				pos = 0;
+				if (reading_fn != nullptr) reading_fn();
+			}
+			return int(b[pos++]);
+		});
 	} else {
 		std::ostringstream buff;
 		auto s = resp.getBody();
 		BinaryView b = s.read();
 		while (!b.empty()) {
 			buff.write(reinterpret_cast<const char*>(b.data), b.length);
+			if (reading_fn != nullptr) reading_fn();
 			b = s.read();
 		}
 		r = buff.str();

@@ -32,6 +32,16 @@ String transformString(StrViewA str, int (*fn)(int)) {
 Value readPrices(const StrViewA &asset, const StrViewA &currency, std::uint64_t fromTime) {
 	std::ostringstream url;
 
+	httpc.set_reading_fn([next_tm = std::chrono::system_clock::now()]()mutable{
+		auto n = std::chrono::system_clock::now();
+		if (n > next_tm) {
+			std::cout << std::endl;
+			std::cout.flush();
+			next_tm = n + std::chrono::seconds(10);
+		}
+	});
+
+
 	url << "https://prices.mmbot.trade/minute?asset="
 			<< simpleServer::urlEncode(asset)
 			<< "&currency=" << simpleServer::urlEncode(currency)

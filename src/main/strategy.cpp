@@ -174,6 +174,7 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 		cfg.reduction_mode = config["rebalance"].getInt();
 		cfg.trend= config["trend"].getNumber();
 		cfg.reinvest= config["reinvest"].getNumber();
+		cfg.maxrebalance= false;
 		return Strategy(new Strategy_Gamma(cfg));
 	} else if (id == Strategy_Hedge::id) {
 		Strategy_Hedge::Config cfg;
@@ -181,6 +182,14 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 		cfg.h_short = config["short"].getBool();
 		cfg.ptc_drop = config["drop"].getNumber()*0.01;
 		return Strategy(new Strategy_Hedge(cfg));
+	} else if (id == "passive_income") {
+		Strategy_Gamma::Config cfg;
+		cfg.intTable = std::make_shared<Strategy_Gamma::IntegrationTable>(Strategy_Gamma::Function::halfhalf,config["exponent"].getNumber());
+		cfg.reduction_mode = 0;
+		cfg.trend= 0;
+		cfg.reinvest=false;
+		cfg.maxrebalance = true;
+		return Strategy(new Strategy_Gamma(cfg));
 	} else if (id == Strategy_Sinh_Gen::id) {
 		Strategy_Sinh_Gen::Config cfg;
 		double p = config["p"].getNumber()*0.01;

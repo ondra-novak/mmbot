@@ -30,6 +30,7 @@ public:
 
 		double get(double x) const;
 		double get_max() const;
+		double get_min() const;
 
 		double mainFunction(double x) const;
 		double calcAssets(double k, double w, double x) const;
@@ -44,6 +45,7 @@ public:
 		int reduction_mode;
 		double trend;
 		bool reinvest;
+		bool maxrebalance;
 		std::size_t calcConfigHash() const;
 	};
 
@@ -58,6 +60,7 @@ public:
 
 	Strategy_Gamma(const Config &cfg);
 	Strategy_Gamma(const Config &cfg, State &&st);
+	Strategy_Gamma(Strategy_Gamma &&other);
 
 
 
@@ -100,7 +103,11 @@ protected:
 	Strategy_Gamma init(const IStockApi::MarketInfo &minfo, double price, double assets, double currency) const;
 	double calculateCurPosition() const;
 
-	double calculateNewNeutral(double a, double price) const;
+	struct NNRes {
+		double k;
+		double w;
+	};
+	NNRes calculateNewNeutral(double a, double price) const;
 
 	double calibK(double k) const;
 

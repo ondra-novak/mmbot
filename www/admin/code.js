@@ -104,6 +104,7 @@ App.prototype.createTraderForm = function() {
 		form.showItem("strategy_gamma",state.strategy == "gamma");
 		form.showItem("strategy_hedge",state.strategy == "hedge");
 		form.showItem("strategy_sinhgen",state.strategy == "sinh_gen");
+		form.showItem("strategy_passive_income",state.strategy == "passive_income");
 		form.showItem("strategy_hyperbolic",["hyperbolic","linear","sinh","sinh_val","sinh2"].indexOf(state.strategy) != -1);
 		form.showItem("kv_valinc_h",state.strategy == "keepvalue");
 		form.showItem("show_curvature",["sinh","sinh_val","sinh2"].indexOf(state.strategy) != -1);
@@ -489,7 +490,7 @@ App.prototype.fillForm = function (src, trg) {
 		
 		if (first_fetch) {
 			["strategy","external_assets","gs_external_assets", "hp_trend_factor","hp_allowshort","hp_power", "hp_recalc", "hp_asym","hp_powadj", 
-			"hp_extbal", "hp_reduction","hp_dynred","sh_curv","ext_bal","gamma_exp",
+			"hp_extbal", "hp_reduction","hp_dynred","sh_curv","ext_bal","gamma_exp","pincome_exp",
 			"gamma_trend","gamma_fn",
 			"shg_w","shg_p","shg_lp"
 			]
@@ -581,6 +582,7 @@ App.prototype.fillForm = function (src, trg) {
 	data.mart_allowshort=false;
 	data.gamma_exp=2;
 	data.gamma_reinvest=false;
+	data.gamma_maxrebal=false;
 	data.gamma_rebalance=1;
 	data.gamma_trend=0;
 	data.gamma_fn="halfhalf";
@@ -591,7 +593,8 @@ App.prototype.fillForm = function (src, trg) {
 	data.shg_p=100;
 	data.shg_lp="0";
 	data.shg_rnv=false;
-	data.shg_avgsp=false;	
+	data.shg_avgsp=false;
+	data.pincome_exp = 40;	
 
 	function powerCalc(x) {return adjNumN(Math.pow(10,x)*0.01);};
 
@@ -646,6 +649,9 @@ App.prototype.fillForm = function (src, trg) {
 		data.gamma_rebalance = filledval(src.strategy.rebalance,1);
 		data.gamma_trend = filledval(src.strategy.trend,0);
 		data.gamma_reinvest = filledval(src.strategy.reinvest,false);
+		data.gamma_maxrebal = filledval(src.strategy.maxrebalance,false);
+	} else if (data.strategy == "gamma") {
+		data.pincome_exp = filledval(src.strategy.exponent,40);
 	} else if (data.strategy == "hedge") {
 		data.hedge_drop = filledval(src.strategy.drop,1);
 		data.hedge_long = filledval(src.strategy.long,true);
@@ -801,8 +807,14 @@ function getStrategyData(data) {
 			exponent: data.gamma_exp,
 			rebalance: data.gamma_rebalance,
 			trend:data.gamma_trend,
-			reinvest:data.gamma_reinvest
+			reinvest:data.gamma_reinvest,
+			maxrebalance:data.gamma_maxrebal
 		};		
+	} else if (data.strategy == "passive_income") {
+		strategy = {
+			type: data.strategy,
+			exponent: data.pincome_exp
+		};	
 	} else if (data.strategy == "hedge") {
 		strategy = {
 			type: data.strategy,
@@ -1674,7 +1686,8 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		"st_power","st_reduction_step","st_sl","st_redmode","st_max_step","st_pattern","dynmult_sliding","accept_loss","st_tmode","zigzag",
 		"hp_trend_factor","hp_allowshort","hp_reinvest","hp_power","hp_asym","hp_reduction","sh_curv","hp_limit","hp_extbal","hp_powadj","hp_dynred",
 		"gs_external_assets","gs_rb_hi_a","gs_rb_lo_a","gs_rb_hi_p","gs_rb_lo_p",
-		"min_balance","max_balance","max_leverage","reduce_on_leverage","mart_initial","mart_power","mart_reduction","mart_collateral","mart_allowshort","gamma_exp","gamma_rebalance","gamma_trend","gamma_fn","gamma_reinvest",
+		"min_balance","max_balance","max_leverage","reduce_on_leverage","mart_initial","mart_power","mart_reduction","mart_collateral","mart_allowshort","gamma_exp","gamma_rebalance","gamma_trend","gamma_fn","gamma_reinvest","gamma_maxrebal",
+		"pincome_exp",
 		"hedge_short","hedge_long","hedge_drop",
 		"shg_w","shg_p","shg_lp","shg_rnv","shg_avgsp"];
 	var spread_inputs = ["spread_calc_stdev_hours", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode","dynmult_sliding","dynmult_cap","dynmult_mult","force_spread","spread_mode"];

@@ -1074,14 +1074,15 @@ bool WebCfg::reqBacktest(simpleServer::HTTPRequest req)  {
 					double mlt = 1.0;
 					double avg = std::accumulate(trades.prices.begin(), trades.prices.end(),0.0,[](double a, const BTPrice &b){return a + b.price;})/trades.prices.size();
 					double ip = init_price.getNumber();
+					double fv = trades.prices.empty()?ip:trades.prices[rev?trades.prices.size()-1:0].price;
 					if (ip && !trades.prices.empty()) {
-						double fv = trades.prices[rev?trades.prices.size()-1:0].price;
 						if (inv) fv = 2*avg - fv;
 						if (trades.minfo.invert_price) {
 							mlt = (1.0/ip)/fv;
 						} else {
 							mlt = ip/fv;
 						}
+						fv = fv * mlt;
 					}
 
 					BTPriceSource source;
@@ -1113,9 +1114,9 @@ bool WebCfg::reqBacktest(simpleServer::HTTPRequest req)  {
 					}
 
 					if (inv) {
-						source = [src = std::move(source),avg,mlt](){
+						source = [src = std::move(source),avg,fv](){
 							auto r = src();
-							if (r.has_value()) r->price = 2*avg*mlt - r->price;
+							if (r.has_value()) r->price = fv*fv/r->price;
 							return r;
 						};
 					}
@@ -1443,13 +1444,11 @@ bool WebCfg::generateTrades(const SharedObject<Traders> &trlist, PState state, j
 		}
 
 		bool rev = reverse.getBool();
-		double avg;
 
 		std::function<std::optional<MTrader::ChartItem>()> source;
 		lkst->upload_progress = 0;
 		if (!lkst->prices_cache.available(id.getString())) {
 			auto chart = tr->getChart();
-			avg = std::accumulate(chart.begin(), chart.end(), 0.0,[](double a, const MTrader::ChartItem &b){return a + b.last;})/chart.size();
 			source = [=,pos = std::size_t(0),sz = chart.size() ]() mutable {
 				if (state.lock_shared()->cancel_upload || pos >= sz) {
 					return std::optional<MTrader::ChartItem>();
@@ -1460,7 +1459,6 @@ bool WebCfg::generateTrades(const SharedObject<Traders> &trlist, PState state, j
 			};
 		} else {
 			auto prc = lkst->prices_cache.getSubject();
-			avg = std::accumulate(prc.begin(), prc.end(), 0.0,[](double a, double b){return a + b;})/prc.size();
 			auto now = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 			source = [pos = std::size_t(0), sz = prc.size(), prc = std::move(prc), state , now,rev]() mutable {
 				if (state.lock_shared()->cancel_upload || pos >= sz) {
@@ -1474,10 +1472,11 @@ bool WebCfg::generateTrades(const SharedObject<Traders> &trlist, PState state, j
 			};
 		}
 		if (invert.getBool()) {
-			source = [src = std::move(source), avg]() {
+			source = [src = std::move(source), fv = std::make_shared<double>(0)]()  {
 				std::optional<MTrader::ChartItem> v = src();
 				if (v.has_value()) {
-					return std::optional<MTrader::ChartItem>(MTrader::ChartItem{v->time,2*avg - v->bid,2*avg - v->ask,2*avg - v->last});
+					if (*fv == 0) *fv = v->last*v->last;
+					return std::optional<MTrader::ChartItem>(MTrader::ChartItem{v->time,*fv/v->bid,*fv/v->ask,*fv/v->last});
 				} else {
 					return v;
 				}

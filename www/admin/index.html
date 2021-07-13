@@ -53,7 +53,9 @@
 <x-section><x-section-caption>General</x-section-caption>
 <label><span>Title</span><input type="text" data-name="title"></label>
 <label><span>Strategy</span><select data-name="strategy">
+<option value="">--- select ---</option>
 <optgroup label="Exchanges">
+<option value="passive_income">Passive Income</option>
 <option value="halfhalf">Half-Half</option>
 <option value="conststep" data-hidden="true">Linear costs</option>
 <option value="keepvalue">Keep Value</option>
@@ -95,6 +97,7 @@
 <div><x-checkbox data-name="hidden">Hidden</x-checkbox></div>
 <div data-name="swap_symbols_hide" hidden="hidden"><x-checkbox data-name="swap_symbols">Swap symbols </x-checkbox> (<span data-name="currency"></span> &lt;=&gt; <span data-name="asset"></span>)</div>
 </div></div>
+
 <div class="label adv"><span>Strategy state (<span class="link" data-name="advedit">modify</span>)</span><x-section>
 	<div class="label" data-name="strategy_fields[]"><span data-name="key"></span><input type="text" readonly="readonly" data-name="value"></div>
 	</x-section></div>
@@ -201,11 +204,17 @@ to enter a negative value and then the value of the assets held will decrease an
 	<option value="3">Always</option>
 	</select></label>
 <div class="label adv"><span>Reinvest profit<span class="tooltip">Increase the budget by realized profit</span></span><x-checkbox data-name="gamma_reinvest"></x-checkbox></div>
+<div class="label adv"><span>Maximum rebalance<span class="tooltip">???</span></span><x-checkbox data-name="gamma_maxrebal"></x-checkbox></div>
 <div class="label"><span>Min price:</span><span data-name="range_min_price">---</span></div>
 <div class="label"><span>Max price:</span><span data-name="range_max_price">---</span></div>
 <div class="label"><span>Recomended initial position:</span><span data-name="range_initial">---</span></div>
 <div class="rightinfo"><button name="show_backtest  hide_on_new" disabled="disabled">Backtest</button></div>
+</x-section>
 
+<x-section data-name="strategy_passive_income" class="goal" hidden="hidden"><x-section-caption>Passive income</x-section-caption>
+<label><span>Exponent<span class="tooltip"></span></span><x-slider data-name="pincome_exp" data-min="1" data-max="60" data-mult="1" data-fixed="0"></label>
+<div class="label"><span>Recomended initial position:</span><span data-name="range_initial">---</span></div>
+<div class="rightinfo"><button name="show_backtest  hide_on_new" disabled="disabled">Backtest</button></div>
 </x-section>
 
 
