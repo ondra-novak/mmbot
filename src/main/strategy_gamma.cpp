@@ -320,6 +320,15 @@ Strategy_Gamma::NNRes Strategy_Gamma::calculateNewNeutral(double a, double price
 		} else {
 			bc = cfg.intTable->calcBudget(state.kk, state.w, state.p);
 			needb = bc+pnl;
+			if (mode == 4) {
+				double spr = price/state.p;
+				double ref = cfg.intTable->calcAssets(state.kk, state.w, state.k)*state.k*(spr-1.0)
+						+ cfg.intTable->calcBudget(state.kk, state.w, state.k)-cfg.intTable->calcBudget(state.kk, state.w, state.k*spr);
+				//double bq = cfg.intTable->calcBudget(state.kk, state.w, price);
+//				double maxref = needb - bq;
+				//ref = std::min(ref, maxref);
+				needb = needb-ref;
+			}
 			newk = numeric_search_r1(1.5*state.k, [&](double k){
 				return cfg.intTable->calcBudget(calibK(k), state.w, price) - needb;
 			});
