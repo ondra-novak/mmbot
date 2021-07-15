@@ -53,6 +53,7 @@ public:
 		double k = 0;
 		double p = 0;
 		double budget=0;
+		double val = 0;
 		double last_spread=1.01;
 		double sum_spread=0;
 		int trades=0;

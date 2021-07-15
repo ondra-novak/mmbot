@@ -125,6 +125,7 @@ PStrategy Strategy_Sinh_Gen::init(const IStockApi::MarketInfo &minfo,
 		nwst.budget = budget-cfg.calc->budget(nwst.k, pw, price);
 		pw = cfg.power * nwst.budget/nwst.k;
 	}
+	nwst.val = cfg.calc->budget(nwst.k, pw,  price);
 	PStrategy s(new Strategy_Sinh_Gen(cfg, std::move(nwst)));
 	if (!s->isValid()) throw std::runtime_error("Unable to initialize the strategy");
 	return s;
@@ -146,12 +147,12 @@ double Strategy_Sinh_Gen::calcNewK(double tradePrice, double cb, double pnl) con
 
 			if (st.p < st.k) {
 				newk = numeric_search_r2(tradePrice, [&](double k){
-					return cfg.calc->budget(k, pw, tradePrice)-nb;
+					return cfg.calc->budget(k, cfg.power * st.budget/k, tradePrice)-nb;
 				});
 				if (newk>1e300) newk = st.k;
 			} else if (st.p > st.k) {
 				newk = numeric_search_r1(tradePrice, [&](double k){
-					return cfg.calc->budget(k, pw, tradePrice)-nb;
+					return cfg.calc->budget(k, cfg.power * st.budget/k, tradePrice)-nb;
 				});
 				if (newk<1e-200) newk = st.k;
 			} else {
@@ -181,16 +182,17 @@ std::pair<IStrategy::OnTradeResult, PStrategy> Strategy_Sinh_Gen::onTrade(
 
 
 	double prevPos = assetsLeft - tradeSize;
-	double cb = cfg.calc->budget(st.k, pw, st.p);
+	double cb = st.val;
 	double pnl = prevPos*(tradePrice - st.p);
 	double newk = assetsLeft?calcNewK(tradePrice, cb, pnl):tradePrice;
 
-	double nb = cfg.calc->budget(newk, pw, tradePrice);
+	double nb = cfg.calc->budget(newk, cfg.power * st.budget/st.k, tradePrice);
 	double np = pnl - (nb - cb);
 
 	State nwst;
 	nwst.spot = minfo.leverage == 0;
 	nwst.budget = (cfg.reinvest?np:0)+st.budget;
+	nwst.val = nb;
 	nwst.k = newk;
 	nwst.p = tradePrice;
 	nwst.last_spread = tradePrice/st.p;
@@ -215,6 +217,7 @@ json::Value Strategy_Sinh_Gen::exportState() const {
 			Value("last_spread", st.last_spread),
 			Value("sum_spread", st.sum_spread),
 			Value("trades", st.trades),
+			Value("val", st.val),
 			Value("hash", cfg.calcConfigHash())
 	});
 }
@@ -225,12 +228,20 @@ PStrategy Strategy_Sinh_Gen::importState(json::Value src, const IStockApi::Marke
 		src["k"].getNumber(),
 		src["p"].getNumber(),
 		src["budget"].getNumber(),
+		0,
 		src["last_spread"].getNumber(),
 		src["sum_spread"].getNumber(),
 		static_cast<int>(src["trades"].getInt())
 	};
 	if (src["hash"].hasValue() && cfg.calcConfigHash() != src["hash"].getUIntLong()) {
 		nwst.k = 0; //make settings invalid;
+	} else {
+		json::Value val = src["val"];
+		if (val.defined()) {
+			nwst.val = val.getNumber();
+		} else {
+			nwst.val = cfg.calc->budget(nwst.k, cfg.power*nwst.budget/nwst.k, nwst.p);
+		}
 	}
 	return new Strategy_Sinh_Gen(cfg, std::move(nwst));
 }
@@ -246,7 +257,7 @@ json::Value Strategy_Sinh_Gen::dumpStatePretty(const IStockApi::MarketInfo &minf
 			Value("Price-last", getpx(st.p)),
 			Value("Price-neutral", getpx(st.k)),
 			Value("Budget-total", st.budget),
-			Value("Budget-current", cfg.calc->budget(st.k, pw, st.p)+st.budget),
+			Value("Budget-current", st.val+st.budget),
 			Value("Position", getpos(cfg.calc->assets(st.k, pw, st.p))),
 			Value("Profit per trade", -cfg.calc->budget(st.k, pw, st.k*sprd)),
 			Value("Profit per trade[%]", -cfg.calc->budget(st.k, pw, st.k*sprd)/st.budget*100)
@@ -262,12 +273,10 @@ IStrategy::OrderData Strategy_Sinh_Gen::getNewOrder(
 		assets = 0;
 	}
 
-	//calculate current budget
-	double cb = cfg.calc->budget(st.k, pw, st.p);
 	//calculate pnl
 	double pnl = assets*(new_price - st.p);
 	//calculate new k for budgetr and pnl
-	double newk = calcNewK(new_price, cb, pnl);
+	double newk = calcNewK(new_price, st.val, pnl);
 	//calculate minimal allowed budget
 	//	double minbudget = st.budget*(1.0-cfg.stopOnLoss);
 
