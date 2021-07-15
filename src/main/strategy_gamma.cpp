@@ -285,21 +285,32 @@ Strategy_Gamma::NNRes Strategy_Gamma::calculateNewNeutral(double a, double price
 	double needb;
 	double newk;
 	if (price > state.k) {
-		bc = cfg.intTable->calcBudget(state.kk, state.w, price);
-		needb = bc-pnl;
-		newk = numeric_search_r2(0.5*state.k, [&](double k){
-			return cfg.intTable->calcBudget(calibK(k), state.w, state.p) - needb;
-		});
+
+		if (price < state.p && cfg.maxrebalance) {
+			bc = cfg.intTable->calcBudget(state.kk, state.w, state.p);
+			needb = pnl+bc;
+			w = numeric_search_r2(0.5*state.w, [&](double w){
+				return cfg.intTable->calcBudget(state.kk, w, price) - needb;
+			});
+			newk = state.k;
+		} else {
+			bc = cfg.intTable->calcBudget(state.kk, state.w, price);
+			needb = bc-pnl;
+			newk = numeric_search_r2(0.5*state.k, [&](double k){
+				return cfg.intTable->calcBudget(calibK(k), state.w, state.p) - needb;
+			});
+		}
 	} else if (price < state.k){
 		if (cfg.maxrebalance && price > state.p) {
 			double k = price;//*cfg.intTable->get_min();
 			double kk = calibK(k);
-			double w1 = cfg.intTable->calcAssets(kk, 1.0, state.p);
-			double w2 = cfg.intTable->calcAssets(state.kk, state.w, state.p);
-			w = w2/w1;
-			if (w>w2*2){
+			double w1 = cfg.intTable->calcAssets(kk, 1.0, price);
+			double w2 = cfg.intTable->calcAssets(state.kk, state.w, price);
+			double neww = w2/w1;
+			if (neww>w*2){
 				return {state.k, state.w};
 			}
+			w = neww;
 			newk = k;
 			double pos1 = cfg.intTable->calcAssets(state.kk, state.w, price);
 			double pos2 = cfg.intTable->calcAssets(kk, w, price);
