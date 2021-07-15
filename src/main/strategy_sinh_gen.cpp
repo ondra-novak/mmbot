@@ -137,8 +137,7 @@ double Strategy_Sinh_Gen::calcNewK(double tradePrice, double cb, double pnl) con
 	if ((st.p<st.k && tradePrice<st.k) || (st.p>st.k && tradePrice>st.k))  {
 		double sprd = cfg.avgspread && st.trades?(1.0+st.sum_spread/st.trades):(tradePrice/st.p);
 		double refp = st.k*sprd;
-		double refb = pnl>0?cfg.calc->budget(st.k, pw, refp):0;
-//		double cnb = cfg.calc->budget(st.k, pw, tradePrice);
+		double refb = (pnl>0 || cfg.booster)?cfg.calc->budget(st.k, pw, refp):0;
 		double nb = cb+pnl+refb;
 
 		if (nb > 0) {

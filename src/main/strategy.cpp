@@ -199,6 +199,7 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 		cfg.power = p/std::sqrt(w);
 		cfg.reinvest = config["reinvest"].getBool();
 		cfg.avgspread= config["avgspread"].getBool();
+		cfg.booster= config["booster"].getBool();
 		return Strategy(new Strategy_Sinh_Gen(cfg));
 	} else {
 		throw std::runtime_error(std::string("Unknown strategy: ").append(id));

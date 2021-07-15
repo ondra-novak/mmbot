@@ -590,10 +590,11 @@ App.prototype.fillForm = function (src, trg) {
 	data.hedge_long=true;
 	data.hedge_short=true;
 	data.shg_w=50;
-	data.shg_p=100;
+	data.shg_p=50;
 	data.shg_lp="0";
 	data.shg_rnv=false;
 	data.shg_avgsp=false;
+	data.shg_booster=false
 	data.pincome_exp = 40;	
 
 	function powerCalc(x) {return adjNumN(Math.pow(10,x)*0.01);};
@@ -662,6 +663,7 @@ App.prototype.fillForm = function (src, trg) {
 		data.shg_lp=filledval(src.strategy.disableSide,0);
 		data.shg_rnv=filledval(src.strategy.reinvest,false);
 		data.shg_avgsp=filledval(src.strategy.avgspread,false);
+		data.shg_booster=filledval(src.strategy.booster,false);
 	}
 	data.st_power["!change"] = function() {
 		trg.setItemValue("st_show_factor",powerCalc(trg.readData(["st_power"]).st_power));
@@ -829,7 +831,8 @@ function getStrategyData(data) {
 			p:data.shg_p,
 			disableSide:data.shg_lp,
 			reinvest:data.shg_rnv,
-			avgspread:data.shg_avgsp
+			avgspread:data.shg_avgsp,
+			booster:data.shg_booster
 		};		
 	} else 	if (["hyperbolic","linear","sinh","sinh_val","sinh2"].indexOf(data.strategy) != -1) {
 		strategy = {
@@ -1689,7 +1692,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		"min_balance","max_balance","max_leverage","reduce_on_leverage","mart_initial","mart_power","mart_reduction","mart_collateral","mart_allowshort","gamma_exp","gamma_rebalance","gamma_trend","gamma_fn","gamma_reinvest","gamma_maxrebal",
 		"pincome_exp",
 		"hedge_short","hedge_long","hedge_drop",
-		"shg_w","shg_p","shg_lp","shg_rnv","shg_avgsp"];
+		"shg_w","shg_p","shg_lp","shg_rnv","shg_avgsp","shg_booster"];
 	var spread_inputs = ["spread_calc_stdev_hours", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode","dynmult_sliding","dynmult_cap","dynmult_mult","force_spread","spread_mode"];
 	var balance = form._balance;
 	var assets = form._assets;

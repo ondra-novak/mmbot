@@ -44,6 +44,7 @@ public:
 		int disableSide;  //-1 disable short, 1 disable long
 		bool reinvest;
 		bool avgspread;
+		bool booster;
 		std::size_t calcConfigHash() const;
 	};
 
