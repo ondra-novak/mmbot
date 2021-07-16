@@ -185,7 +185,7 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 	} else if (id == "passive_income") {
 		Strategy_Gamma::Config cfg;
 		cfg.intTable = std::make_shared<Strategy_Gamma::IntegrationTable>(Strategy_Gamma::Function::halfhalf,config["exponent"].getNumber());
-		cfg.reduction_mode = 0;
+		cfg.reduction_mode = 4;
 		cfg.trend= 0;
 		cfg.reinvest=false;
 		cfg.maxrebalance = true;
