@@ -1043,12 +1043,15 @@ label span:hover span.tooltip, div.label span:hover span.tooltip, span.tooltipan
 .strategygoal > div.stairs > div.stairs {display:block;}
 .strategygoal > div.keepvalue > div.keepvalue {display:block;}
 .strategygoal > div.keep_balance > div.keep_balance {display:block;}
-.strategygoal > div.hyperbolic > div.hyperbolic {display:block;}
-.strategygoal > div.linear > div.linear {display:block;}
 .strategygoal > div.exponencial > div.exponencial {display:block;}
 .strategygoal > div.sinh > div.sinh {display:block;}
 .strategygoal > div.hypersquare > div.hypersquare {display:block;}
 .strategygoal > div.errorfn > div.hypersquare {display:block;}
+.strategygoal > div.gamma > div.gamma {display:block;}
+.strategygoal > div.passive_income> div.passive_income {display:block;}
+.strategygoal > div.sinh_gen > div.sinh_gen {display:block;}
+.strategygoal > div.sinh > div.sinh_gen {display:block;}
+.strategygoal > div.sinh_val > div.sinh_gen {display:block;}
 
 x-form.trading .buttons {text-align: center;}
 x-form.trading .buttons button {width: 40%}

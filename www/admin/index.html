@@ -55,7 +55,6 @@
 <label><span>Strategy</span><select data-name="strategy">
 <option value="">--- select ---</option>
 <optgroup label="Exchanges">
-<option value="passive_income">Passive Income</option>
 <option value="halfhalf">Half-Half</option>
 <option value="conststep" data-hidden="true">Linear costs</option>
 <option value="keepvalue">Keep Value</option>
@@ -66,9 +65,12 @@
 </optgroup>
 <optgroup label="Leveraged (advanced traders)">
 <option value="sinh_gen">Simple leveraged</option>
-<option value="sinh">Sinh/exponencial</option>
-<option value="sinh_val">Volume based Sinh </option>
+<option value="sinh">Sinh/exponencial (advanced)</option>
+<option value="sinh_val">Volume based Sinh (advanced)</option>
 <option value="martingale" data-hidden="true">Simple ATL</option>
+</optgroup>
+<optgroup label="Experimental">
+<option value="passive_income">Passive Income</option>
 </optgroup>
 <optgroup label="Utility">
 <option value="keep_balance">Keep balance</option>
@@ -83,13 +85,13 @@
 <div class="halfhalf">This strategy keeps the value of assets and money on the stock exchange in a ratio 1:1. Whenever this ratio is disrupted, the strategy executes a trade in such a volume to achieve the defined ratio. <a href="https://www.desmos.com/calculator/9fdvux8fms">Interactive graph</a></div>
 <div class="keepvalue">This strategy keeps the value of assets on the stock exchange at the same value. If the value of assets falls or rises (due to changing price), the strategy executes a trade in such a volume to achieve the same value of the assets as before.</div>
 <div class="exponencial">Strategy based on exponencial function to trade pairs on exchanges. If correctly configured, it can work in range of (0,infinity) like Half-Half, however, its effectivty ends after 400% gain on the price of the underlying asset. So this strategy is ideal to trade altcoins where is less chance of a long running positive trend. The profit is realized through the normalized profit. <a href="https://www.desmos.com/calculator/gln1sxxgyo" target="_blank">Interactive graph</a></div>
-<div class="linear">This strategy is designed for trading on leveraged exchanges and futures. Opened position is calculated using linear function relative to neutral price. Profit is calculated as difference between price of increasing and decreasing of the position. Some of the profit can be used to move neutral price near to the current price to avoid trading on the edge of the tradable range (and to avoid liquidation) </div>
-<div class="hyperbolic">This strategy is designed for trading on leveraged exchanges and futures. It is specially adapted for inversed futures, such as Deribit or Bitmex USD pairs. However, it also works well on other markets and can be used on exchanges if it is set with a preference for long positions. The strategy is based on Keep Value, the calculation of the order size has a similar hyperbolic form </div>
-<div class="sinh">The strategy uses hyperbolic function <b>sinh</b> to calculate position. It starts as <b>linear</b> however it increases position when price goes far away from neutral price. This increases chance to reduce position. Strategy is tuned to acheieve overall range between 0 and 2x of initial price. You can increase power to reduce tradable range to receive significant profit for less volatile markets. On inverse futures, basic settings allows to increase high of the range to the infinity.</div>
 <div class="stairs">This strategy generates orders in predefined steps. The size of the next order is affected by the current position in steps. You can set the maximum number of steps or the way the strategy jumps between steps. </div>
 <div class="hypersquare">This strategi is similar to Exponencial, but it is based on square hyperbolic function. Area for target average price is much wider then exponencial. <a href="https://www.desmos.com/calculator/pbfisabvcm" target="_blank">Interactive graph</a></div>
 <div class="errorfn">The best strategy for exchanges, can reach highest normalized profit. The core of the strategy is based on Gauss Error Function. The optimal range between -50% to +50%. If the price goes out of the optimal range, the Rebalance is performed to keep price in the optimal range<a href="https://www.desmos.com/calculator/uhkqt4ajvp">Interactive graph</a></div>
 <div class="keep_balance">Not quite a strategy, more a utility. It balances the currency balance. If the account has a larger balance than the specified maximum, the excess money will be used to purchase the asset. If the account has a smaller balance than the specified minimum, some assets will be sold to replenish the balance </div>
+<div class="gamma">A spot strategy to maximize yield in small price range, includes rebalance and reduction features.</div>
+<div class="passive_income">Experimental strategy complete built to generate profit through the budget extra. When the price raises, it extends the budget, when the price falls, its shrinks the budget, always increasing the extra budget. Note that when the price only falls, the most of profit is actually made by releasing already invested money, not an actual profit, and in compare to a hodl strategy, this can result to worse performance. However who know whether the price will raise back ever</div>
+<div class="sinh_gen">It is based on the ATL (Adding to loser) strategy. However, it uses a clever mathematical system to reduce the overall growing position in trend markets. You should always use the backtest function to find the optimal setting for your market. The strategy has no other protection against events, such as margin calls and liquidation. You can only set the maximum leverage, which is not complete protection. This strategy can bring a very good profit, but also includes a high risk and a high probability of losing the entire account. Don't put all your money into leverage trading! </div>
 </div></div>
 <div class="label"><span>Options</span><div>
 <div><x-checkbox data-name="enabled">Enable automatic trading</x-checkbox></div>
@@ -234,7 +236,7 @@ to enter a negative value and then the value of the assets held will decrease an
 </select></label>
 <div class="label"><span>Reinvest profit<span class="tooltip">Increase the collateral by realized profit</span></span><x-checkbox data-name="shg_rnv"></x-checkbox></div>
 <div class="label"><span>Use average spread<span class="tooltip">Instead using current spread, use average spread</span></span><x-checkbox data-name="shg_avgsp"></x-checkbox></div>
-<div class="label"><span>Booster<span class="tooltip">Boot profit but increase risk by making reduction less aggresive</span></span><x-checkbox data-name="shg_booster"></x-checkbox></div>
+<div class="label adv"><span>Booster<span class="tooltip">Boot profit but increase risk by making reduction less aggresive</span></span><x-checkbox data-name="shg_booster"></x-checkbox></div>
 
 <div class="label"><span>Min price:</span><span data-name="range_min_price">---</span></div>
 <div class="label"><span>Max price:</span><span data-name="range_max_price">---</span></div>
