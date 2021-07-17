@@ -482,7 +482,7 @@ double Strategy_Sinh_Gen::adjustPower(double a, double newk, double price) const
 				}
 			}
 		} else if (st.pwadj<1.0 && (price - st.p)*a < 0) {
-			return (st.pwadj*0.95+0.05)/st.pwadj;
+			return (st.pwadj*0.98+0.02)/st.pwadj;
 		}
 	}else {
 		return 1.0/st.pwadj;
