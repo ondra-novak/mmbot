@@ -591,6 +591,8 @@ App.prototype.fillForm = function (src, trg) {
 	data.hedge_short=true;
 	data.shg_w=50;
 	data.shg_p=50;
+	data.shg_ol=2;
+	data.shg_olt={value:"-1"};
 	data.shg_lp="0";
 	data.shg_rnv=false;
 	data.shg_avgsp=false;
@@ -663,10 +665,17 @@ App.prototype.fillForm = function (src, trg) {
 		data.shg_lp=filledval(src.strategy.disableSide,0);
 		data.shg_rnv=filledval(src.strategy.reinvest,false);
 		data.shg_avgsp=filledval(src.strategy.avgspread,false);
-		data.shg_booster=filledval(src.strategy.booster,true);
+		data.shg_booster=filledval(defval(src.strategy.booster,false),true);
+		data.shg_ol=filledval(defval(Math.abs(src.strategy.openlimit),0),2);
+		if (!src.strategy.openlimit || src.strategy.openlimit==0) data.shg_ol.disabled = true;
+		data.shg_olt={value:src.strategy.openlimit>0?1:src.strategy.openlimit<0?-1:0};
 	}
 	data.st_power["!change"] = function() {
 		trg.setItemValue("st_show_factor",powerCalc(trg.readData(["st_power"]).st_power));
+	};	
+	data.shg_olt["!change"] = function() {
+		trg.enableItem("shg_ol", this.value != "0");
+		if (!trg.readData(["shg_ol"]).shg_ol) trg.setData({shg_ol:2});
 	};
 	data.enabled = src.enabled;
 	data.hidden = !!src.hidden;
@@ -829,6 +838,7 @@ function getStrategyData(data) {
 			type: data.strategy,
 			w:data.shg_w,
 			p:data.shg_p,
+			openlimit:parseFloat(data.shg_olt)*data.shg_ol,
 			disableSide:data.shg_lp,
 			reinvest:data.shg_rnv,
 			avgspread:data.shg_avgsp,
@@ -1692,7 +1702,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		"min_balance","max_balance","max_leverage","reduce_on_leverage","mart_initial","mart_power","mart_reduction","mart_collateral","mart_allowshort","gamma_exp","gamma_rebalance","gamma_trend","gamma_fn","gamma_reinvest","gamma_maxrebal",
 		"pincome_exp",
 		"hedge_short","hedge_long","hedge_drop",
-		"shg_w","shg_p","shg_lp","shg_rnv","shg_avgsp","shg_booster"];
+		"shg_w","shg_p","shg_olt","shg_ol","shg_lp","shg_rnv","shg_avgsp","shg_booster"];
 	var spread_inputs = ["spread_calc_stdev_hours", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode","dynmult_sliding","dynmult_cap","dynmult_mult","force_spread","spread_mode"];
 	var balance = form._balance;
 	var assets = form._assets;

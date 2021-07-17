@@ -21,6 +21,12 @@ x-slider > div:nth-child(2) {
 	bottom:0;
 }
 
+x-slider[disabled]>*{
+	opacity: 0.3;
+	pointer-events: none;
+
+}
+
 
 x-checkbox {
 	display: inline;

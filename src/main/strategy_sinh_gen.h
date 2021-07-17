@@ -42,6 +42,7 @@ public:
 		double power;
 		PFnCalc calc;
 		int disableSide;  //-1 disable short, 1 disable long
+		double openlimit;
 		bool reinvest;
 		bool avgspread;
 		bool booster;
@@ -53,6 +54,7 @@ public:
 		double k = 0;
 		double p = 0;
 		double budget=0;
+		double pwadj = 1;
 		double val = 0;
 		double last_spread=1.01;
 		double sum_spread=0;
@@ -104,7 +106,9 @@ protected:
 	PStrategy init(const IStockApi::MarketInfo &minfo, double price, double pos, double currency) const;
 	double calcNewK(double tradePrice, double cb, double pnl) const;
 	double limitPosition(double pos) const;
-
+	double adjustPower(double a, double newk, double price) const;
+	static double calcPower(double cfgpw, const State &st);
+	static double calcPower(double cfgpw, const State &st, double k);
 };
 
 

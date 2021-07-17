@@ -47,17 +47,13 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 				bt.event = BTEvent::no_event;
 				double p = price->price;
 				Ticker tk{p,p,p,price->time};
-				double dprice = (p - bt.price.price);
-				double pchange = pos * dprice;
-				pl = pl + pchange;
 				double prev_bal = balance;
-				if (minfo.leverage) balance += pchange;
 
 				double dir = p>bt.price.price?-1:1;
 				s.onIdle(minfo,tk,pos,balance+cfg.external_balance);
 				double mult = dir>0?cfg.buy_mult:cfg.sell_mult;
 				double adjbal = std::max(balance,0.0);
-				Strategy::OrderData order = s.getNewOrder(minfo, p, p, dir, pos, adjbal+cfg.external_balance,false);
+				Strategy::OrderData order = s.getNewOrder(minfo, bt.price.price*0.9+p*0.1, p, dir, pos, adjbal+cfg.external_balance,false);
 				bool allowAlert = true;
 				if (cfg.zigzag && !trades.empty()){
 					const auto &l = trades.back();
@@ -66,6 +62,15 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 					}
 				}
 				Strategy::adjustOrder(dir, mult, allowAlert, order);
+
+				if (order.price) {
+					p = order.price;
+				}
+
+				double dprice = (p - bt.price.price);
+				double pchange = pos * dprice;
+				pl = pl + pchange;
+				if (minfo.leverage) balance += pchange;
 
 				order.size  = IStockApi::MarketInfo::adjValue(order.size,minfo.asset_step,round);
 				if (cfg.max_balance.has_value()) {
