@@ -9,7 +9,8 @@
 #include "strategy_sinh_gen.h"
 #include <cmath>
 
-#include "../imtjson/src/imtjson/value.h"
+#include <imtjson/string.h>
+#include <imtjson/value.h>
 #include "numerical.h"
 #include "sgn.h"
 static const double INT_RANGE = 1000000;
@@ -246,7 +247,7 @@ PStrategy Strategy_Sinh_Gen::importState(json::Value src, const IStockApi::Marke
 		src["sum_spread"].getNumber(),
 		static_cast<int>(src["trades"].getInt())
 	};
-	if (src["hash"].hasValue() && cfg.calcConfigHash() != src["hash"].getUIntLong()) {
+	if (src["hash"].hasValue() && cfg.calcConfigHash() != src["hash"].toString()) {
 		nwst.k = 0; //make settings invalid;
 	} else {
 		json::Value val = src["val"];
@@ -449,9 +450,9 @@ double Strategy_Sinh_Gen::getCenterPrice(double lastPrice,double assets) const {
 	return lastPrice;
 }
 
-std::size_t Strategy_Sinh_Gen::Config::calcConfigHash() const {
+json::String Strategy_Sinh_Gen::Config::calcConfigHash() const {
 	std::hash<json::Value> h;
-	return h({power, calc->getWD()});
+	return json::Value(h({power, calc->getWD()})).toString();
 }
 
 double Strategy_Sinh_Gen::adjustPower(double a, double newk, double price) const {

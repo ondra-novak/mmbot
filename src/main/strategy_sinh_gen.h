@@ -46,7 +46,7 @@ public:
 		bool reinvest;
 		bool avgspread;
 		bool booster;
-		std::size_t calcConfigHash() const;
+		json::String calcConfigHash() const;
 	};
 
 	struct State {

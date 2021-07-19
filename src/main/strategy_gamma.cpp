@@ -10,8 +10,9 @@
 
 #include <cmath>
 
-#include "../imtjson/src/imtjson/object.h"
-#include "../shared/logOutput.h"
+#include <imtjson/object.h>
+#include <imtjson/string.h>
+#include <shared/logOutput.h>
 #include "sgn.h"
 
 using ondra_shared::logDebug;
@@ -66,6 +67,7 @@ std::pair<IStrategy::OnTradeResult, ondra_shared::RefCntPtr<const IStrategy> > S
 				.onTrade(minfo, tradePrice, tradeSize, assetsLeft, currencyLeft);
 
 	double cur_pos = assetsLeft - tradeSize;
+
 	auto nn = calculateNewNeutral(cur_pos, tradePrice);
 	if (tradeSize == 0 && std::abs(nn.k-tradePrice)>std::abs(state.k - tradePrice)) {
 		nn.k = state.k;
@@ -73,18 +75,20 @@ std::pair<IStrategy::OnTradeResult, ondra_shared::RefCntPtr<const IStrategy> > S
 
 	}
 	double newkk = calibK(nn.k);
-	double bc = cfg.intTable->calcBudget(state.kk, state.w, state.p);
+	double volume = -tradePrice*tradeSize;
+	double prev_cur = state.b - cur_pos * state.p;
 	double bn = cfg.intTable->calcBudget(newkk, nn.w, tradePrice);
-	double pnl = (tradePrice - state.p)*cur_pos;
-	double np = pnl - (bn - bc);
+	double new_cur = bn - assetsLeft * tradePrice;
+	double np = volume + prev_cur - new_cur;
 	double neww = nn.w;
 
 	if (cfg.reinvest) {
 		neww = nn.w * (bn+np)/bn;
+		bn = cfg.intTable->calcBudget(newkk, neww, tradePrice);
 	}
 
 	State nwst = {
-			nn.k,neww,tradePrice, cfg.intTable->calcBudget(newkk, neww, tradePrice),newkk
+			nn.k,neww,tradePrice, bn,newkk
 	};
 	return {{np,0,nn.k,0},
 		PStrategy(new Strategy_Gamma(cfg, std::move(nwst)))
@@ -100,7 +104,7 @@ PStrategy Strategy_Gamma::importState(json::Value src,
 		src["p"].getNumber(),
 		src["b"].getNumber()
 	};
-	if (src["hash"].hasValue() && cfg.calcConfigHash() != src["hash"].getUIntLong()) {
+	if (src["hash"].hasValue() && cfg.calcConfigHash() != src["hash"].toString()) {
 		nwst.k = 0;
 		nwst.kk = 0;
 	} else {
@@ -321,7 +325,7 @@ Strategy_Gamma::NNRes Strategy_Gamma::calculateNewNeutral(double a, double price
 		} else {
 			bc = cfg.intTable->calcBudget(state.kk, state.w, state.p);
 			needb = bc+pnl;
-			if (mode == 4) {
+			if (mode == 4 && price/state.kk > 1.0) {
 				double spr = price/state.p;
 				double ref = cfg.intTable->calcAssets(state.kk, state.w, state.k)*state.k*(spr-1.0)
 						+ cfg.intTable->calcBudget(state.kk, state.w, state.k)-cfg.intTable->calcBudget(state.kk, state.w, state.k*spr);
@@ -440,8 +444,8 @@ double Strategy_Gamma::IntegrationTable::calcBudget(double k, double w, double x
 
 }
 
-std::size_t Strategy_Gamma::Config::calcConfigHash() const {
+json::String Strategy_Gamma::Config::calcConfigHash() const {
 	std::hash<json::Value> h;
-	return h({(int)intTable->fn, intTable->z, trend});
+	return json::Value(h({(int)intTable->fn, intTable->z, trend})).toString();
 
 }

@@ -46,7 +46,7 @@ public:
 		double trend;
 		bool reinvest;
 		bool maxrebalance;
-		std::size_t calcConfigHash() const;
+		json::String calcConfigHash() const;
 	};
 
 
