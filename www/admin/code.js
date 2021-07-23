@@ -1624,7 +1624,7 @@ App.prototype.init_spreadvis = function(form, id) {
 			id: id
 		}
 		
-		fetch_with_error(url, {method:"POST", body:JSON.stringify(req)}).then(function(v) {			
+		return fetch_with_error(url, {method:"POST", body:JSON.stringify(req)}).then(function(v) {			
 			var c = v.chart.map(function(x) {
 				x.achg = x.s;
 				x.time = x.t;
