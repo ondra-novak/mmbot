@@ -225,6 +225,9 @@ void MTrader::perform(bool manually) {
 		minfo.fees = status.new_fees;
 		//process all new trades
 		bool anytrades = processTrades(status);
+		//fast_trade is true, when there is missing order after execution
+		//which assumes, that complete execution achieved
+		//orderwise it is false which can mean, that only partial execution achieved
 		bool fast_trade = false;
 		if (anytrades && ((!orders.buy.has_value() && !buy_alert.has_value())
 				|| (!orders.sell.has_value() && !sell_alert.has_value()))) {
@@ -262,11 +265,11 @@ void MTrader::perform(bool manually) {
 		bool need_alerts = trades.empty()?false:trades.back().size == 0;
 
 		double lastTradeSize = trades.empty()?0:trades.back().eff_size;
-		double lastTradePrice;
-		if (lastPriceOffset == 0) {
+		if (lastTradePrice == 0 ) {
 			lastTradePrice = !trades.empty()?trades.back().eff_price:strategy.isValid()?strategy.getEquilibrium(status.assetBalance):status.curPrice;
-			if (!std::isfinite(lastTradePrice)) lastTradePrice = status.curPrice;
-		} else {
+			if (!std::isfinite(lastTradePrice)) lastTradePrice = status.curPrice;		}
+
+		if (lastPriceOffset != 0) {
 			lastTradePrice = lastPriceOffset+status.spreadCenter;
 		}
 		if (cfg.dynmult_sliding) {
@@ -312,8 +315,23 @@ void MTrader::perform(bool manually) {
 			}
 
 			if (recalc) {
-				update_dynmult(lastTradeSize > 0, lastTradeSize < 0);
-				if (cfg.zigzag) updateZigzagLevels();
+				double lp = status.curPrice;
+				if (!trades.empty()) {
+					lp = trades.back().eff_price;
+					recalc = fast_trade || std::abs(lp-eq)/eq < 0.001;
+					if (!recalc) {
+						auto o = strategy.getNewOrder(minfo, lp, lp, sgn(lastTradeSize), status.assetBalance, status.curPrice, false);
+						double minsz = std::max(minfo.min_size,std::max(minfo.asset_step, minfo.min_volume/lp));
+						auto sz = std::abs(o.size);
+						if (sz < minsz) recalc = true;
+					}
+				}
+				if (recalc) {
+					update_dynmult(lastTradeSize > 0, lastTradeSize < 0);
+					lastTradePrice = lp;
+					lastPriceOffset = lastTradePrice - status.spreadCenter;
+					if (cfg.zigzag) updateZigzagLevels();
+				}
 			}
 
 			if (grant_trade) {
@@ -972,6 +990,7 @@ void MTrader::loadState() {
 			if (nuid) uid = nuid;
 			lastTradeId = state["lastTradeId"];
 			lastPriceOffset = state["lastPriceOffset"].getNumber();
+			lastTradePrice = state["lastTradePrice"].getNumber();
 			bool cfg_sliding = state["cfg_sliding_spread"].getBool();
 			if (cfg_sliding != cfg.dynmult_sliding)
 				lastPriceOffset = 0;
@@ -1050,6 +1069,7 @@ void MTrader::saveState() {
 		st.set("uid",uid);
 		st.set("lastTradeId",lastTradeId);
 		st.set("lastPriceOffset",lastPriceOffset);
+		st.set("lastTradePrice", lastTradePrice);
 		st.set("cfg_sliding_spread",cfg.dynmult_sliding);
 		st.set("private_chart", minfo.private_chart||minfo.simulator);
 		if (achieve_mode) st.set("achieve_mode", achieve_mode);
@@ -1150,7 +1170,6 @@ bool MTrader::processTrades(Status &st) {
 		if (!achieve_mode && (cfg.enabled || first_cycle)) {
 			auto norm = strategy.onTrade(minfo, t.eff_price, t.eff_size, assetBal, curBal);
 			trades.push_back(TWBItem(t, last_np+=norm.normProfit, last_ap+=norm.normAccum, norm.neutralPrice));
-			lastPriceOffset = t.price - st.spreadCenter;
 		} else {
 			trades.push_back(TWBItem(t, last_np, last_ap, 0, true));
 		}

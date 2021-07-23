@@ -301,6 +301,7 @@ protected:
 	unsigned int adj_wait = 0;
 	double adj_wait_price = 0;
 	double lastPriceOffset = 0;
+	double lastTradePrice = 0;
 	json::Value test_backup;
 	json::Value lastTradeId = nullptr;
 	std::optional<double> sell_alert, buy_alert;

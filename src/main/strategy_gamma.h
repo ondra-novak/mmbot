@@ -35,6 +35,7 @@ public:
 		double mainFunction(double x) const;
 		double calcAssets(double k, double w, double x) const;
 		double calcBudget(double k, double w, double x) const;
+		double calcCurrency(double k, double w, double x) const;
 
 
 	};

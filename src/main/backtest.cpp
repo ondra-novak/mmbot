@@ -106,6 +106,9 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 
 
 				if (!minfo.leverage) {
+					if (order.size+pos < 0) {
+						order.size = 0;
+					}
 					double chg = order.size*p;
 					if (balance - chg < 0 || pos + order.size < -(std::abs(pos) + std::abs(order.size))*1e-10) {
 						if (neg_bal) {
@@ -121,7 +124,7 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 						}
 					}
 					balance -= chg;
-					pos = std::max(pos+order.size,0.0);
+					pos = pos+order.size;
 				} else {
 					if (balance <= 0 && prev_bal > 0) {
 						bt.event = BTEvent::liquidation;
@@ -150,11 +153,13 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 					pos += order.size;
 				}
 
-				auto tres = s.onTrade(minfo, p, order.size, pos, balance+cfg.external_balance);
-				bt.neutral_price = tres.neutralPrice;
-				bt.norm_accum += std::isfinite(tres.normAccum)?tres.normAccum:0;
-				bt.norm_profit += std::isfinite(tres.normProfit)?tres.normProfit:0;
-				bt.open_price = tres.openPrice;
+				if (std::abs(pos) > minsize || order.size!=0.0 || order.alert == IStrategy::Alert::forced) {
+					auto tres = s.onTrade(minfo, p, order.size, pos, balance+cfg.external_balance);
+					bt.neutral_price = tres.neutralPrice;
+					bt.norm_accum += std::isfinite(tres.normAccum)?tres.normAccum:0;
+					bt.norm_profit += std::isfinite(tres.normProfit)?tres.normProfit:0;
+					bt.open_price = tres.openPrice;
+				}
 				bt.size = order.size;
 				bt.price.price = p;
 				bt.price.time = price->time;
@@ -164,7 +169,6 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 				bt.info = s.dumpStatePretty(minfo);
 
 				trades.push_back(bt);
-
 			} while (cont%16 && rep);
 		}
 

@@ -141,14 +141,15 @@ PStrategy Strategy_Sinh_Gen::init(const IStockApi::MarketInfo &minfo,
 	return s;
 }
 
-double Strategy_Sinh_Gen::calcNewK(double tradePrice, double cb, double pnl) const {
+double Strategy_Sinh_Gen::calcNewK(double tradePrice, double cb, double pnl, bool reduce_more) const {
 	if (pnl == 0) return st.k;
 	double newk;
 	if (st.p == st.k) return st.k;
 	if ((st.p<st.k && tradePrice<st.k) || (st.p>st.k && tradePrice>st.k))  {
 		double sprd = cfg.avgspread && st.trades?(1.0+st.sum_spread/st.trades):(tradePrice/st.p);
 		double refp = st.k*sprd;
-		double refb = (pnl>0 || cfg.booster)?cfg.calc->budget(st.k, pw, refp):0;
+		double yield = cfg.calc->budget(st.k, pw, refp);
+		double refb = reduce_more?-yield:((pnl>0 || cfg.booster)?yield:0.0);
 		double nb = cb+pnl+refb;
 
 		if (nb > 0) {
@@ -172,7 +173,7 @@ double Strategy_Sinh_Gen::calcNewK(double tradePrice, double cb, double pnl) con
 			if (std::abs(st.k-tradePrice)<std::abs(newk-tradePrice))
 				newk = st.k;
 	} else {
-		newk = tradePrice;
+		newk = st.k;
 	}
 	return newk;
 
@@ -194,10 +195,14 @@ std::pair<IStrategy::OnTradeResult, PStrategy> Strategy_Sinh_Gen::onTrade(
 	double prevPos = assetsLeft - tradeSize;
 	double cb = st.val;
 	double pnl = prevPos*(tradePrice - st.p);
-	double newk = assetsLeft?calcNewK(tradePrice, cb, pnl):tradePrice;
+	double newk = assetsLeft?calcNewK(tradePrice, cb, pnl, false):tradePrice;
 	double pwadj = adjustPower(prevPos, newk, tradePrice);
+	if (assetsLeft && pwadj<0) {
+		newk = calcNewK(tradePrice, cb, pnl,true);
+		pwadj = adjustPower(prevPos, newk, tradePrice);
+	}
 
-	double nb = cfg.calc->budget(newk, pw*pwadj, tradePrice);
+	double nb = cfg.calc->budget(newk, pw, tradePrice);
 	double np = pnl - (nb - cb);
 
 	State nwst;
@@ -290,30 +295,32 @@ IStrategy::OrderData Strategy_Sinh_Gen::getNewOrder(
 		assets = 0;
 	}
 
-/*	//close faster
-	if (!rej && st.val<0 && dir * assets < 0 && !cfg.openlimit) {
+	//close faster
+	/*if (!rej && st.val<0 && dir * assets < 0 && cfg.openlimit<0 && absass*st.p/(st.budget+st.val) > -cfg.openlimit) {
 		double calc_price = (new_price - st.k) * (st.p - st.k) < 0?st.k:new_price;
 		double newval = cfg.calc->budget(st.k, pw, calc_price);
-		if (absass * new_price/(st.budget+newval)>0.5) {
-			double valdiff = st.val - newval;
-			if (valdiff < 0) {
-				double fastclose_delta = -valdiff/assets;
-				double close_price = fastclose_delta+st.p;
-				if (close_price * dir < cur_price * dir && close_price * dir > new_price * dir) {
-					new_price = close_price;
-				}
+		double valdiff = (st.val - newval)*st.pwadj;
+		if (valdiff < 0) {
+			double fastclose_delta = -valdiff/assets;
+			double close_price = fastclose_delta+st.p;
+			if (close_price * dir < cur_price * dir && close_price * dir > new_price * dir) {
+				new_price = close_price;
 			}
 		}
-	}
-*/
+	}*/
+
 	//calculate pnl
 	double pnl = assets*(new_price - st.p);
 	//calculate new k for budgetr and pnl
-	double newk = calcNewK(new_price, st.val, pnl);
+	double newk = calcNewK(new_price, st.val, pnl, false);
 	//calculate minimal allowed budget
 	//	double minbudget = st.budget*(1.0-cfg.stopOnLoss);
 	double pwadj = adjustPower(assets, newk, new_price);
 	//calculate new position
+	if (pwadj<1.0) {
+		newk = calcNewK(new_price, st.val, pnl, true);
+		pwadj = adjustPower(assets, newk, new_price);
+	}
 
 
 	double new_pos = limitPosition(cfg.calc->assets(newk, pw*pwadj, new_price));
@@ -470,7 +477,7 @@ double Strategy_Sinh_Gen::adjustPower(double a, double newk, double price) const
 					double adj = numeric_search_r1(1.5, [&](double adj){
 						return cfg.calc->assets(newk, pw*adj, price) - new_a;
 					});
-					return std::max(0.5,adj);
+					return std::max(0.3,adj);
 				}
 			} else {
 				double ref_a = (oldlev-cfg.openlimit)*b/price;
@@ -479,7 +486,7 @@ double Strategy_Sinh_Gen::adjustPower(double a, double newk, double price) const
 					double adj = numeric_search_r1(1.5, [&](double adj){
 						return cfg.calc->assets(newk, pw*adj, price) - new_a;
 					});
-					return std::max(0.5,adj);
+					return std::max(0.3,adj);
 				}
 			}
 		} else if (st.pwadj<1.0 && (price - st.p)*a < 0) {

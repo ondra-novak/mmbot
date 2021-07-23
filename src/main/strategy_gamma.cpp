@@ -32,7 +32,7 @@ Strategy_Gamma::Strategy_Gamma(Strategy_Gamma &&other)
 
 
 static double roundZero(double finpos, const IStockApi::MarketInfo &minfo, double price, double budget) {
-	double afinpos = finpos;
+	double afinpos = std::abs(finpos);
 	if (afinpos < minfo.min_size || afinpos < minfo.min_volume / price || afinpos < minfo.asset_step || afinpos < (budget * 1.0e-10 / price)) {
 		finpos = 0;
 	}
@@ -45,14 +45,12 @@ IStrategy::OrderData Strategy_Gamma::getNewOrder(
 		double dir, double assets, double currency, bool rej) const {
 	double newPos = calculatePosition(assets,new_price);
 	double newPosz = roundZero(newPos, minfo, new_price, currency);
-	Alert alert = Alert::enabled;
-	if (newPosz == 0 && rej) {
-		alert = Alert::forced;
+	double dff = newPosz - assets;
+	double dffz = roundZero(dff, minfo, new_price, currency);
+	if (dir < 0 && dffz == 0 && newPosz == 0) {
+		return {0,0,Alert::forced};
 	}
-	else {
-		alert = Alert::enabled;
-	}
-	return {0,newPos - assets, alert};
+	return {0,dffz};
 }
 
 double Strategy_Gamma::calculateCurPosition() const {
@@ -76,10 +74,10 @@ std::pair<IStrategy::OnTradeResult, ondra_shared::RefCntPtr<const IStrategy> > S
 	}
 	double newkk = calibK(nn.k);
 	double volume = -tradePrice*tradeSize;
-	double prev_cur = state.b - cur_pos * state.p;
+	double prev_cur = state.b - cfg.intTable->calcAssets(state.kk, state.w, state.p) * state.p;
 	double bn = cfg.intTable->calcBudget(newkk, nn.w, tradePrice);
-	double new_cur = bn - assetsLeft * tradePrice;
-	double np = volume + prev_cur - new_cur;
+	double new_cur = bn - cfg.intTable->calcAssets(newkk, nn.w, tradePrice) * tradePrice;
+	double np = volume - new_cur + prev_cur  ;
 	double neww = nn.w;
 
 	if (cfg.reinvest) {
@@ -278,6 +276,9 @@ double Strategy_Gamma::IntegrationTable::get(double x) const {
 
 
 Strategy_Gamma::NNRes Strategy_Gamma::calculateNewNeutral(double a, double price) const {
+	if ((price-state.k)*(state.p - state.k) < 0) {
+		return {state.k, state.w};
+	}
 	double pnl = a*(price - state.p);
 	double w = state.w;
 	int mode = cfg.reduction_mode;
@@ -442,6 +443,10 @@ double Strategy_Gamma::IntegrationTable::calcBudget(double k, double w, double x
 		default : return 0;
 	};
 
+}
+
+double Strategy_Gamma::IntegrationTable::calcCurrency(double k, double w, double x) const {
+	return calcBudget(k,w,x) - calcAssets(k,w,x)*x;
 }
 
 json::String Strategy_Gamma::Config::calcConfigHash() const {
