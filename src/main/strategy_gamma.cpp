@@ -48,7 +48,7 @@ IStrategy::OrderData Strategy_Gamma::getNewOrder(
 	double dff = newPosz - assets;
 	double dffz = roundZero(dff, minfo, new_price, currency);
 	if (dir < 0 && dffz == 0 && newPosz == 0) {
-		return {0,0,Alert::forced};
+		return {new_price,0,Alert::forced};
 	}
 	return {0,dffz};
 }
@@ -79,14 +79,19 @@ std::pair<IStrategy::OnTradeResult, ondra_shared::RefCntPtr<const IStrategy> > S
 	double new_cur = bn - cfg.intTable->calcAssets(newkk, nn.w, tradePrice) * tradePrice;
 	double np = volume - new_cur + prev_cur  ;
 	double neww = nn.w;
+	double d = state.d;
 
-	if (cfg.reinvest) {
-		neww = nn.w * (bn+np)/bn;
+	if (cfg.reinvest && tradeSize) {
+		d = d + np;
+		if (d > 0) {
+			neww = nn.w * (bn+d)/bn;
+			d = 0;
+		}
 		bn = cfg.intTable->calcBudget(newkk, neww, tradePrice);
 	}
 
 	State nwst = {
-			nn.k,neww,tradePrice, bn,newkk
+			nn.k,neww,tradePrice, bn,d,newkk
 	};
 	return {{np,0,nn.k,0},
 		PStrategy(new Strategy_Gamma(cfg, std::move(nwst)))
@@ -100,7 +105,8 @@ PStrategy Strategy_Gamma::importState(json::Value src,
 		src["k"].getNumber(),
 		src["w"].getNumber(),
 		src["p"].getNumber(),
-		src["b"].getNumber()
+		src["b"].getNumber(),
+		src["d"].getNumber()
 	};
 	if (src["hash"].hasValue() && cfg.calcConfigHash() != src["hash"].toString()) {
 		nwst.k = 0;
@@ -148,6 +154,7 @@ json::Value Strategy_Gamma::exportState() const {
 			("w",state.w)
 			("p",state.p)
 			("b",state.b)
+			("d",state.d)
 			("hash",cfg.calcConfigHash());
 }
 
@@ -156,6 +163,7 @@ std::string_view Strategy_Gamma::getID() const {
 }
 
 double Strategy_Gamma::getCenterPrice(double lastPrice, double assets) const {
+	if (assets == 0) return lastPrice;
 	return getEquilibrium(assets);
 }
 
@@ -390,6 +398,7 @@ Strategy_Gamma Strategy_Gamma::init(const IStockApi::MarketInfo &minfo,
 	double w1 = cfg.intTable->calcBudget(newst.kk, 1.0, price);
 	newst.w = budget / w1;
 	newst.b = budget;
+	newst.d = 0;
 
 	Strategy_Gamma s(cfg, std::move(newst));
 	if (s.isValid()) return s;

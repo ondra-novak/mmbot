@@ -182,7 +182,7 @@ const MTrader::TradeHistory& MTrader::getTrades() const {
 	return trades;
 }
 
-void MTrader::alertTrigger(Status &st, double price) {
+void MTrader::alertTrigger(Status &st, double price, double &ltp) {
 	st.new_trades.trades.push_back(IStockApi::Trade{
 		json::Value(json::String({"ALERT:",json::Value(st.chartItem.time).toString()})),
 		st.chartItem.time,
@@ -191,6 +191,7 @@ void MTrader::alertTrigger(Status &st, double price) {
 		0,
 		price
 	});
+	ltp = price;
 }
 
 void MTrader::dorovnani(Status &st, double assetBalance, double price) {
@@ -203,6 +204,7 @@ void MTrader::dorovnani(Status &st, double assetBalance, double price) {
 		diff,
 		price
 	});
+	lastTradePrice = price;
 }
 
 void MTrader::perform(bool manually) {
@@ -342,11 +344,11 @@ void MTrader::perform(bool manually) {
 			if (status.new_trades.trades.empty()) {
 				//process alerts
 				if (sell_alert.has_value() && status.ticker.last >= *sell_alert) {
-					alertTrigger(status, *sell_alert);
+					alertTrigger(status, *sell_alert, lastTradePrice);
 					update_dynmult(false,true);
 				}
 				if (buy_alert.has_value() && status.ticker.last <= *buy_alert) {
-					alertTrigger(status, *buy_alert);
+					alertTrigger(status, *buy_alert, lastTradePrice);
 					update_dynmult(true,false);
 				}
 				if (!status.new_trades.trades.empty()) {

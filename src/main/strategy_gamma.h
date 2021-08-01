@@ -56,6 +56,7 @@ public:
 		double w = 0;
 		double p = 0;
 		double b = 0;
+		double d = 0;
 		double kk = 0;
 	};
 
