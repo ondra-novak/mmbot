@@ -361,7 +361,8 @@ void Report::setMisc(StrViewA symb, const MiscData &miscData) {
 				("ml",1.0/miscData.highest_price)
 				("mh",1.0/miscData.lowest_price)
 				("mdmb", miscData.dynmult_sell)
-				("mdms", miscData.dynmult_buy);
+				("mdms", miscData.dynmult_buy)
+				("ltp", 1.0/miscData.lastTradePrice);
 	} else {
 		output
 				("t",miscData.trade_dir)
@@ -370,7 +371,8 @@ void Report::setMisc(StrViewA symb, const MiscData &miscData) {
 				("ml",miscData.lowest_price)
 				("mh",miscData.highest_price)
 				("mdmb", miscData.dynmult_buy)
-				("mdms", miscData.dynmult_sell);
+				("mdms", miscData.dynmult_sell)
+				("ltp", miscData.lastTradePrice);
 	}
 	miscMap[symb] = output;
 }

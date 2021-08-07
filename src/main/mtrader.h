@@ -328,7 +328,7 @@ protected:
 	bool processTrades(Status &st);
 
 	void update_dynmult(bool buy_trade,bool sell_trade);
-	static void alertTrigger(Status &st, double price, double &ltp);
+	static void alertTrigger(Status &st, double price);
 
 	void acceptLoss(const Status &st, double dir);
 	json::Value getTradeLastId() const;

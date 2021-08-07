@@ -44,6 +44,7 @@ public:
 		std::optional<double> budget_extra;
 		std::size_t total_trades;
 		std::uint64_t total_time;
+		double lastTradePrice;
 	};
 
 

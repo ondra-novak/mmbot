@@ -182,7 +182,7 @@ const MTrader::TradeHistory& MTrader::getTrades() const {
 	return trades;
 }
 
-void MTrader::alertTrigger(Status &st, double price, double &ltp) {
+void MTrader::alertTrigger(Status &st, double price) {
 	st.new_trades.trades.push_back(IStockApi::Trade{
 		json::Value(json::String({"ALERT:",json::Value(st.chartItem.time).toString()})),
 		st.chartItem.time,
@@ -191,7 +191,6 @@ void MTrader::alertTrigger(Status &st, double price, double &ltp) {
 		0,
 		price
 	});
-	ltp = price;
 }
 
 void MTrader::dorovnani(Status &st, double assetBalance, double price) {
@@ -271,10 +270,12 @@ void MTrader::perform(bool manually) {
 			lastTradePrice = !trades.empty()?trades.back().eff_price:strategy.isValid()?strategy.getEquilibrium(status.assetBalance):status.curPrice;
 			if (!std::isfinite(lastTradePrice)) lastTradePrice = status.curPrice;		}
 
-		if (lastPriceOffset != 0) {
-			lastTradePrice = lastPriceOffset+status.spreadCenter;
-		}
 		if (cfg.dynmult_sliding) {
+
+			if (lastPriceOffset != 0) {
+				lastTradePrice = lastPriceOffset+status.spreadCenter;
+			}
+
 			need_alerts = true;
 			double prevLTP = lastTradePrice;
 			double low = lastTradePrice * std::exp(-status.curStep*cfg.buy_step_mult);
@@ -344,11 +345,13 @@ void MTrader::perform(bool manually) {
 			if (status.new_trades.trades.empty()) {
 				//process alerts
 				if (sell_alert.has_value() && status.ticker.last >= *sell_alert) {
-					alertTrigger(status, *sell_alert, lastTradePrice);
+					alertTrigger(status, *sell_alert);
+					lastTradePrice=*sell_alert;
 					update_dynmult(false,true);
 				}
 				if (buy_alert.has_value() && status.ticker.last <= *buy_alert) {
-					alertTrigger(status, *buy_alert, lastTradePrice);
+					alertTrigger(status, *buy_alert);
+					lastTradePrice=*buy_alert;
 					update_dynmult(true,false);
 				}
 				if (!status.new_trades.trades.empty()) {
@@ -506,7 +509,8 @@ void MTrader::perform(bool manually) {
 				budget.assets,
 				budget_extra,
 				trades.size(),
-				trades.empty()?0:(trades.back().time-trades[0].time)
+				trades.empty()?0:(trades.back().time-trades[0].time),
+				lastTradePrice
 			});
 
 		}
@@ -539,7 +543,7 @@ void MTrader::perform(bool manually) {
 		statsvc->reportError(IStatSvc::ErrorObj(error.c_str()));
 		statsvc->reportMisc(IStatSvc::MiscData{
 			0,false,0,0,dynmult.getBuyMult(),dynmult.getSellMult(),0,0,0,0,0,
-			trades.size(),trades.empty()?0UL:(trades.back().time-trades[0].time)
+			trades.size(),trades.empty()?0UL:(trades.back().time-trades[0].time),lastTradePrice
 		});
 		statsvc->reportPrice(trades.empty()?1:trades.back().price);
 		throw;
