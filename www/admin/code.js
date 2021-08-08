@@ -51,7 +51,7 @@ function fetch_error(e) {
 				});
 			}
 		});
-	}
+	}	
 	throw e;	
 }
 
@@ -2412,14 +2412,55 @@ App.prototype.tradingForm = function(id) {
 	});
 	form.setItemEvent("order_size","input",dialogRules);
 	form.setItemEvent("edit_order","change",dialogRules);
+	form.setItemEvent("bal_currency","click",function(){
+		var n = parseFloat(this.value);
+		if (n && !isNaN(n)) {
+			var dt = form.readData(["last_price","order_price"]);
+			var k = parseFloat(dt.last_price);
+			var l = parseFloat(dt.order_price);
+			if (l) l = parseFloat(l);
+			if (l && !isNaN(l)) {
+				k = l;
+			} else {
+				k = parseFloat(k);
+			}
+			if (k && !isNaN(k)) {
+				form.setData({
+					"order_price":k,
+					"order_size":(n/k*0.95).toFixed(8)
+				});
+				dialogRules();
+			}
+		}
+	});
+	form.setItemEvent("bal_assets","click", function(){
+		var n = parseFloat(this.value);
+		if (n && !isNaN(n)) {
+			form.setData({"order_size":n});
+			dialogRules();
+		}
+	});
+	["ask_price","last_price","bid_price"].forEach(function(x){
+		form.setItemEvent(x,"click", function(){
+			var n = parseFloat(this.value);
+			if (n && !isNaN(n)) {
+				form.setData({"order_price":n});
+			}
+			dialogRules();
+		});
+	});
+
 	dialogRules();
 		
+	var running_update = false;
 	function update() {		
 		var traderURL = _this.traderURL(id);
 		var params="";
 		var data = form.readData(["order_price"]);		
 		var req_intrprice =data.order_price;
 		if (!isNaN(req_intrprice)) params="/"+req_intrprice;
+		if (running_update) return;
+		running_update = true;
 		var f = fetch_json(traderURL+"/trading"+params).then(function(rs) {
 				var pair = rs.pair;
 				var chartData = rs.chart;
@@ -2514,8 +2555,7 @@ App.prototype.tradingForm = function(id) {
 								ev.stopPropagation();
 								this.hidden = true;
 								this.nextSibling.hidden = false;
-								_this.cancelOrder(cfg.id, cfg.pair_symbol, x.id).
-									then(update);
+								asyncUpdate(_this.cancelOrder(cfg.id, cfg.pair_symbol, x.id));
 							},
 							".hidden":false
 						
@@ -2560,16 +2600,36 @@ App.prototype.tradingForm = function(id) {
 					}
 				}
 				
-				form.setData(formdata);
+				form.setData(formdata);				
 				return rs;
 			})
+			.then(function(x){running_update=false;return x;},function(x){running_update=false;console.error(x);});
 			
 		return f;
+	}
+	var willUpdate = 0;
+	function asyncUpdate(p) {
+		willUpdate++;
+		return p.then(function(x) {
+			willUpdate--;
+			if (willUpdate <= 0) {
+				willUpdate = 0;
+			    return update().then(function(){return x;});				
+			} else {
+				return x;
+			}
+		},function(x) {
+			willUpdate--;
+			if (willUpdate <= 0) {
+				willUpdate = 0;
+			}
+			throw x;
+		});
 	}
 	function cycle_update() {
 		if (!form.getRoot().isConnected) return;
 		setTimeout(cycle_update, 15000);
-		return update();
+		;if (willUpdate == 0) return update();
 	}
 	
 	function clearForm() {
@@ -2598,7 +2658,7 @@ App.prototype.tradingForm = function(id) {
 			}
 
 			var b = this.dataset.name;
-			var d = form.readData(["edit_order","order_price","order_size"]);
+			var d = form.readData(["edit_order","order_price","order_size","orders"]);
 
 			var price = b == "button_buybid"?(pair.invert_price?"ask":"bid")
 						:(b == "button_sellask"?(pair.invert_price?"bid":"ask"):
@@ -2613,8 +2673,17 @@ App.prototype.tradingForm = function(id) {
 					replaceId: id,
 					replaceSize: 0
 			};
+			var olst = d.orders;
+			olst.push({
+			    dir:d.order_size<0?_this.strtable.sell:_this.strtable.buy,
+				size:adjNumN(Math.abs(d.order_size)),
+				price:adjNumN(d.order_price),
+				cancel:{".hidden":true},
+				spinner:{".hidden":false}
+			})
+			form.setData({"orders":olst});
 			clearForm();
-			_this.waitScreen(fetch_with_error(url, {method:"POST", body: JSON.stringify(req)}).then(update));
+			asyncUpdate(fetch_with_error(url, {method:"POST", body: JSON.stringify(req)}));
 		}
 
 		form.setItemEvent("button_buy","click", postOrder);
