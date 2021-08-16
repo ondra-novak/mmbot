@@ -38,6 +38,13 @@ of JSON elements.
  - **(2)** - Command has been executed and returns a value
  - **(3)** - Command failed to execute, other value contains an error message
 
+## Timeouts
+
+There is a timeout to response, it can be set in config (broker_timeout) and default value
+is 10sec. 
+
+If the broker needs more time, it can send an empty line, which resets the timer. 
+
 ## Logging
 
 The broker process can use **stderr** to send log messages. This output is copied
@@ -47,7 +54,7 @@ to MMBot's log file - every line also contains date and time and name of the bro
 A missing terminating character can cause deadlock, because MMBot stucks waiting on 
 terminating charactes. 
 
-**Multithreading note** - Only the thread which processing messages should 
+**Multithreading note** - Only the thread which is processing messages should 
 send log messages. The log messages can be send only when MMBot waiting for a reply. 
 
 ## Functions
