@@ -596,7 +596,7 @@ App.prototype.fillForm = function (src, trg) {
 	data.shg_lp="0";
 	data.shg_rnv=false;
 	data.shg_avgsp=false;
-	data.shg_booster=true;
+	data.shg_booster=false;
 	data.pincome_exp = 40;	
 
 	function powerCalc(x) {return adjNumN(Math.pow(10,x)*0.01);};
@@ -665,7 +665,7 @@ App.prototype.fillForm = function (src, trg) {
 		data.shg_lp=filledval(src.strategy.disableSide,0);
 		data.shg_rnv=filledval(src.strategy.reinvest,false);
 		data.shg_avgsp=filledval(src.strategy.avgspread,false);
-		data.shg_booster=filledval(defval(src.strategy.booster,false),true);
+		data.shg_booster=filledval(src.strategy.booster,false);
 		data.shg_ol=filledval(defval(Math.abs(src.strategy.openlimit),0),2);
 		if (!src.strategy.openlimit || src.strategy.openlimit==0) data.shg_ol.disabled = true;
 		data.shg_olt={value:src.strategy.openlimit>0?1:src.strategy.openlimit<0?-1:0};

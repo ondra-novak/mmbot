@@ -197,7 +197,7 @@ std::pair<IStrategy::OnTradeResult, PStrategy> Strategy_Sinh_Gen::onTrade(
 	double pnl = prevPos*(tradePrice - st.p);
 	double newk = assetsLeft?calcNewK(tradePrice, cb, pnl, false):tradePrice;
 	double pwadj = adjustPower(prevPos, newk, tradePrice);
-	if (assetsLeft && pwadj<0) {
+	if (assetsLeft && pwadj<1.0) {
 		newk = calcNewK(tradePrice, cb, pnl,true);
 		pwadj = adjustPower(prevPos, newk, tradePrice);
 	}
