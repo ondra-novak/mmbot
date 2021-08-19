@@ -107,7 +107,8 @@ MTrader::MTrader(IStockSelector &stock_selector,
 ,statsvc(std::move(statsvc))
 ,walletDB(walletDB)
 ,strategy(config.strategy)
-,dynmult(cfg.dynmult_raise,cfg.dynmult_fall, cfg.dynmult_cap, cfg.dynmult_mode, cfg.dynmult_mult)
+,dynmult({cfg.dynmult_raise,cfg.dynmult_fall, cfg.dynmult_cap, cfg.dynmult_mode, cfg.dynmult_mult})
+,spread_fn(defaultSpreadFunction(cfg.spread_calc_sma_hours, cfg.spread_calc_stdev_hours, cfg.force_spread))
 {
 	//probe that broker is valid configured
 	stock->testBroker();
@@ -714,7 +715,7 @@ MTrader::Status MTrader::getMarketStatus() const {
 	res.chartItem.last = ticker.last;
 
 	auto step = calcSpread();
-	res.curStep = cfg.force_spread>0?cfg.force_spread:step.spread;
+	res.curStep = step.spread;
 	if (cfg.dynmult_sliding) {
 		res.spreadCenter = step.center;
 	} else {
@@ -1402,13 +1403,20 @@ std::optional<double> MTrader::getInternalCurrencyBalance() const {
 
 
 MTrader::SpreadCalcResult MTrader::calcSpread() const {
-	if (chart.size() < 5) return SpreadCalcResult{0,0};
-	std::vector<double> values(chart.size());
-	std::transform(chart.begin(), chart.end(),  values.begin(), [&](auto &&c) {return c.last;});
 
-	SpreadCalcResult lnspread = stCalcSpread(values.begin(), values.end(), cfg.spread_calc_sma_hours, cfg.spread_calc_stdev_hours);
+	ISpreadFunction::Result r;
+	auto state = spread_fn->start();
+	for (const auto &x: chart) {
+		r = spread_fn->point(state, x.last);
+	}
+	if (r.valid) {
+		return {
+			r.spread,r.center
+		};
+	} else {
+		return SpreadCalcResult{0,0};
+	}
 
-	return lnspread;
 
 
 }
@@ -1427,7 +1435,7 @@ MTrader::VisRes MTrader::visualizeSpread(
 		bool dyn_mult,
 		bool strip,
 		bool onlyTrades) {
-	DynMultControl dynmult(dyn_raise, dyn_fall, dyn_cap, strDynmult_mode[dynMode], dyn_mult);
+	DynMultControl dynmult({dyn_raise, dyn_fall, dyn_cap, strDynmult_mode[dynMode], dyn_mult});
 	VisRes res;
 	double last = 0;
 	double last_price = 0;
@@ -1485,55 +1493,6 @@ MTrader::VisRes MTrader::visualizeSpread(
 	return res;
 }
 
-void MTrader::DynMultControl::setMult(double buy, double sell) {
-	this->mult_buy = buy;
-	this->mult_sell = sell;
-}
-
-double MTrader::DynMultControl::getBuyMult() const {
-	return mult_buy;
-}
-
-double MTrader::DynMultControl::getSellMult() const {
-	return mult_sell;
-}
-
-double MTrader::DynMultControl::raise_fall(double v, bool israise) {
-	if (israise) {
-		double rr = raise/100.0;
-		return std::min(mult?v*(1+rr):v + rr, cap);
-	} else {
-		double ff = fall/100.0;
-		return std::max(1.0,mult?v*(1.0-ff):v - ff);
-	}
-
-}
-
-void MTrader::DynMultControl::update(bool buy_trade, bool sell_trade) {
-
-	switch (mode) {
-	case Dynmult_mode::disabled:
-		mult_buy = 1.0;
-		mult_sell = 1.0;
-		return;
-	case Dynmult_mode::independent:
-		break;
-	case Dynmult_mode::together:
-		buy_trade = buy_trade || sell_trade;
-		sell_trade = buy_trade;
-		break;
-	case Dynmult_mode::alternate:
-		if (buy_trade) mult_sell = 0;
-		else if (sell_trade) mult_buy = 0;
-		break;
-	case Dynmult_mode::half_alternate:
-		if (buy_trade) mult_sell = ((mult_sell-1) * 0.5) + 1;
-		else if (sell_trade) mult_buy = ((mult_buy-1) * 0.5) + 1;
-		break;
-	}
-	mult_buy= raise_fall(mult_buy, buy_trade);
-	mult_sell= raise_fall(mult_sell, sell_trade);
-}
 
 bool MTrader::checkMinMaxBalance(double balance, double orderSize) const {
 	auto x = limitOrderMinMaxBalance(balance, orderSize);
@@ -1567,10 +1526,6 @@ void MTrader::setInternalBalancies(double assets, double currency) {
 	currency_balance = currency;
 }
 
-void MTrader::DynMultControl::reset() {
-	mult_buy = 1.0;
-	mult_sell = 1.0;
-}
 
 
 bool MTrader::checkAchieveModeDone(const Status &st) {

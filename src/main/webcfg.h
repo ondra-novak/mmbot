@@ -79,8 +79,6 @@ public:
 		BacktestCache backtest_cache;
 		SpreadCache spread_cache;
 		PricesCache prices_cache;
-		int upload_progress=-1;
-		bool cancel_upload = false;
 
 		State( PStorage &&config,
 			  ondra_shared::RefCntPtr<AuthUserList> users,

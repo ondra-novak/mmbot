@@ -1691,6 +1691,17 @@ var rnd_preset={
 		"noise":1,		
 };
 
+function DelayUpdate(fn) {
+	var tm;
+	
+	this.exec = function() {
+		if (tm) clearTimeout(tm);
+		tm = setTimeout(function() {
+			tm = null;
+			fn()
+		},250);
+	}
+};
 
 App.prototype.init_backtest = function(form, id, pair, broker) {
 	var url = "api/backtest";
@@ -2018,11 +2029,12 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		if (extra !== undefined) {
 			req = Object.assign(req, extra);
 		}
-		var w = progress_wait();
-		fetch_with_error("api/upload_prices", {method:"POST", body:JSON.stringify(req)}).then(function(){							
-			w.wait().then(cntr.update.bind(cntr));
+		cntr.showSpinner();
+		fetch_with_error("api/upload_prices", {method:"POST", body:JSON.stringify(req)}).then(function(){
+			cntr.hideSpinner();							
+			cntr.update();
 		}).catch(function(e) {
-			w.close();
+			cntr.hideSpinner();
 			console.error(e);
 		});								
 	}
@@ -2049,7 +2061,6 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
     var show_info_fn = function(ev) {
     }    
 
-    
     	
 	this.gen_backtest(form,"backtest_anchor", "backtest_vis",inputs,function(cntr){
 
@@ -2098,6 +2109,19 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 
 		if (frst) {
 			frst = false;
+
+			var d = new DelayUpdate(recalc_spread.bind(this,"update",cntr));
+			spread_inputs.forEach(function(a) {
+				form.forEachElement(a, function(x){
+					if (x.tagName == "BUTTON")
+						x.addEventListener("click", d.exec);
+					else {
+						x.addEventListener("input",d.exec);
+						x.addEventListener("change",d.exec);
+					}
+				})
+			});
+			
 			cntr.bt.setItemEvent("options", "click", function() {
 				this.classList.toggle("sel");
 				cntr.bt.showItem("options_form", this.classList.contains("sel"));

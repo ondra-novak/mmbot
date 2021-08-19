@@ -13,25 +13,18 @@
 
 #include <shared/ini_config.h>
 #include <imtjson/namedEnum.h>
+#include "dynmult.h"
 #include "idailyperfmod.h"
 #include "istatsvc.h"
 #include "storage.h"
 #include "report.h"
+#include "spread.h"
 #include "strategy.h"
 #include "walletDB.h"
 
 class IStockApi;
 
-enum class Dynmult_mode {
-	disabled,
-	independent,
-	together,
-	alternate,
-	half_alternate,
-};
 
-
-extern json::NamedEnum<Dynmult_mode> strDynmult_mode;
 
 struct MTrader_Config {
 	std::string pairsymb;
@@ -261,29 +254,6 @@ public:
 	bool isInitialResetRequired() const {return need_initial_reset;}
 
 protected:
-	class DynMultControl {
-	public:
-		DynMultControl(double raise, double fall, double cap, Dynmult_mode mode, bool mult):raise(raise),fall(fall),cap(cap),mode(mode),mult_buy(1),mult_sell(1),mult(mult) {}
-
-		void setMult(double buy, double sell);
-		double getBuyMult() const;
-		double getSellMult() const;
-
-		double raise_fall(double v, bool israise);
-		void update(bool buy_trade,bool sell_trade);
-		void reset();
-
-	protected:
-
-		double raise;
-		double fall;
-		double cap;
-		Dynmult_mode mode;
-		double mult_buy;
-		double mult_sell;
-		bool mult;
-
-	};
 
 	PStockApi stock;
 	Config cfg;
@@ -364,6 +334,7 @@ private:
 	bool checkEquilibriumClose(const Status &st, double lastTradePrice);
 	void dorovnani(Status &st, double assetBalance, double price);
 	bool checkReduceOnLeverage(const Status &st, double &maxPosition);
+	std::unique_ptr<ISpreadFunction> spread_fn;
 };
 
 

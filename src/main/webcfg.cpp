@@ -27,6 +27,7 @@
 #include "ext_stockapi.h"
 #include "random_chart.h"
 #include "sgn.h"
+#include "spread.h"
 
 using namespace json;
 using ondra_shared::StrViewA;
@@ -907,10 +908,6 @@ bool WebCfg::State::logout_commit(std::string &&user) {
 
 bool WebCfg::reqEditor(simpleServer::HTTPRequest req)  {
 	if (!req.allowMethods({"POST"})) return true;
-	if (state.lock_shared()->upload_progress != -1) {
-		req.sendErrorPage(503);
-		return true;
-	}
 	req.readBodyAsync(10000,[trlist = this->trlist,state =  this->state, dispatch = this->dispatch](simpleServer::HTTPRequest req) mutable {
 			try {
 
@@ -1217,6 +1214,7 @@ bool WebCfg::reqSpread(simpleServer::HTTPRequest req)  {
 			Value id = args["id"];
 			auto process = [=](const SpreadCacheItem &data) {
 
+
 				Value sma = args["sma"];
 				Value stdev = args["stdev"];
 				Value force_spread = args["force_spread"];
@@ -1228,36 +1226,44 @@ bool WebCfg::reqSpread(simpleServer::HTTPRequest req)  {
 				Value dynmult_sliding = args["sliding"];
 				Value dynmult_mult = args["dyn_mult"];
 
-				auto res = MTrader::visualizeSpread(IterFn(
-						data.chart.begin(),data.chart.end()),
-						sma.getNumber(),
-						stdev.getNumber(),
-						force_spread.getNumber(),
+				auto fn = defaultSpreadFunction(sma.getNumber(), stdev.getNumber(), force_spread.getNumber());
+				VisSpread vs(fn, {
+						{
+								dynmult_raise.getValueOrDefault(1.0),
+								dynmult_fall.getValueOrDefault(1.0),
+								dynmult_cap.getValueOrDefault(100.0),
+								strDynmult_mode[dynmult_mode.getValueOrDefault("independent")],
+								dynmult_mult.getBool(),
+						},
 						mult.getNumber(),
-						dynmult_raise.getValueOrDefault(1.0),
-						dynmult_fall.getValueOrDefault(1.0),
-						dynmult_cap.getValueOrDefault(100.0),
-						dynmult_mode.getValueOrDefault("independent"),
 						dynmult_sliding.getBool(),
-						dynmult_mult.getBool(),
-						true,false);
-				if (data.invert_price) {
-					std::transform(res.chart.begin(), res.chart.end(), res.chart.begin(),[](const MTrader::VisRes::Item &itm) {
-						return MTrader::VisRes::Item{1.0/itm.price,1.0/itm.high, 1.0/itm.low,-itm.size,itm.time};
-					});
+				});
+
+				json::Array chart;
+				for (const auto &d: data.chart) {
+					auto spinfo = vs.point(d.last);
+					if (spinfo.valid) {
+						double p = d.last;
+						if (data.invert_price) {
+							p = 1.0/p;
+							spinfo = VisSpread::Result{
+								true,1.0/spinfo.price,1.0/spinfo.high,1.0/spinfo.low,-spinfo.trade
+							};
+						}
+						chart.push_back(Value(json::object,{
+								Value("p",p),
+								Value("x",spinfo.price),
+								Value("l",spinfo.low),
+								Value("h",spinfo.high),
+								Value("s",spinfo.trade),
+								Value("t",d.time)
+						}));
+					}
 				}
 
-				Value out (json::object,
-					{Value("chart",Value(json::array, res.chart.begin(), res.chart.end(), [](auto &&k){
-						return Value(json::object,{
-							Value("p",k.price),
-							Value("l",k.low),
-							Value("h",k.high),
-							Value("s",k.size),
-							Value("t",k.time),
-						});
-					}))}
-				);
+
+
+				Value out (json::object,{Value("chart",chart)});
 				req.sendResponse("application/json", out.stringify());
 			};
 
@@ -1294,15 +1300,7 @@ bool WebCfg::reqSpread(simpleServer::HTTPRequest req)  {
 }
 
 bool WebCfg::reqUploadPrices(simpleServer::HTTPRequest req)  {
-	if (!req.allowMethods({"POST","GET","DELETE"})) return true;
-	if (req.getMethod() == "GET") {
-		req.sendResponse("application/json",Value(state.lock_shared()->upload_progress).stringify());
-		return true;
-	} else  if (req.getMethod() == "DELETE") {
-			state.lock()->cancel_upload = true;
-			req.sendResponse("application/json",Value(state.lock_shared()->upload_progress).stringify());
-			return true;
-	} else {
+	if (!req.allowMethods({"POST"})) return true;
 	req.readBodyAsync(upload_limit,[&trlist = this->trlist,state =  this->state, dispatch = this->dispatch, btbroker = this->backtest_broker](simpleServer::HTTPRequest req)mutable{
 		try {
 			Value args = Value::fromString(StrViewA(BinaryView(req.getUserBuffer())));
@@ -1314,10 +1312,8 @@ bool WebCfg::reqUploadPrices(simpleServer::HTTPRequest req)  {
 			if (prices.getString() == "internal") {
 				auto lkst = state.lock();
 				lkst->prices_cache.clear();
-				lkst->upload_progress = 0;
 			} else if (prices.getString() == "update") {
 				auto lkst = state.lock();
-				lkst->upload_progress = 0;
 
 			} else {
 
@@ -1368,18 +1364,13 @@ bool WebCfg::reqUploadPrices(simpleServer::HTTPRequest req)  {
 				tr.release();
 				auto lkst = state.lock();
 				lkst->prices_cache = PricesCache(chart, id.toString().str());
-				lkst->upload_progress = 0;
 			}
+			generateTrades(trlist, state, args);
 			req.sendResponse("application/json", "0");
-			req = nullptr;
-			dispatch ([trlist, state, args]() mutable {
-				generateTrades(trlist, state, args);
-			});
 		} catch (std::exception &e) {
 			req.sendErrorPage(400,"",e.what());
 		}
 	});
-	}
 	return true;
 }
 bool WebCfg::reqUploadTrades(simpleServer::HTTPRequest req)  {
@@ -1409,7 +1400,6 @@ bool WebCfg::reqUploadTrades(simpleServer::HTTPRequest req)  {
 				bt.inverted = false;
 				tr.release();
 				auto lkst = state.lock();
-				lkst->upload_progress = -1;
 				lkst->backtest_cache = BacktestCache(bt, id.toString().str());
 				req.sendResponse("application/json", "true");
 			} catch (std::exception &e) {
@@ -1439,21 +1429,18 @@ bool WebCfg::generateTrades(const SharedObject<Traders> &trlist, PState state, j
 
 		auto tr = trlist.lock_shared()->find(id.getString()).lock_shared();
 		if (tr == nullptr) {
-			lkst->upload_progress = -1;
 			return false;
 		}
 
 		bool rev = reverse.getBool();
 
 		std::function<std::optional<MTrader::ChartItem>()> source;
-		lkst->upload_progress = 0;
 		if (!lkst->prices_cache.available(id.getString())) {
 			auto chart = tr->getChart();
 			source = [=,pos = std::size_t(0),sz = chart.size() ]() mutable {
-				if (state.lock_shared()->cancel_upload || pos >= sz) {
+				if ( pos >= sz) {
 					return std::optional<MTrader::ChartItem>();
 				}
-				state.lock()->upload_progress = (pos * 100)/sz;
 				auto ps = rev?sz-pos-1:pos; ++pos;
 				return std::optional<MTrader::ChartItem>(chart[ps]);
 			};
@@ -1461,12 +1448,11 @@ bool WebCfg::generateTrades(const SharedObject<Traders> &trlist, PState state, j
 			auto prc = lkst->prices_cache.getSubject();
 			auto now = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 			source = [pos = std::size_t(0), sz = prc.size(), prc = std::move(prc), state , now,rev]() mutable {
-				if (state.lock_shared()->cancel_upload || pos >= sz) {
+				if (pos >= sz) {
 					return std::optional<MTrader::ChartItem>();
 				}
 				auto ps = rev?sz-pos-1:pos; ++pos;
 				double p = prc[ps];
-				state.lock()->upload_progress = (pos * 100)/sz;
 				std::uint64_t ofs = (sz-pos);
 				return std::optional<MTrader::ChartItem>(MTrader::ChartItem{static_cast<uint64_t>(now - ofs*60000),p,p,p});
 			};
@@ -1483,36 +1469,37 @@ bool WebCfg::generateTrades(const SharedObject<Traders> &trlist, PState state, j
 			};
 		}
 
-		lkst->cancel_upload = false;
 		lkst.release();
-		MTrader::VisRes trades = MTrader::visualizeSpread(
-				std::move(source),
-				sma.getNumber(),
-				stdev.getNumber(),
-				force_spread.getNumber(),
-				mult.getNumber(),
-				dynmult_raise.getValueOrDefault(1.0),
-				dynmult_fall.getValueOrDefault(1.0),
-				dynmult_cap.getValueOrDefault(100.0),
-				dynmult_mode.getValueOrDefault("independent"),
-				dynmult_sliding.getBool(),
-				dynmult_mult.getBool(),
-				false,true);
-
 		BacktestCacheSubj bt;
-		std::transform(trades.chart.begin(), trades.chart.end(), std::back_inserter(bt.prices), [](const MTrader::VisRes::Item &itm) {
-				return BTPrice{itm.time, itm.price};
+		auto fn = defaultSpreadFunction(sma.getNumber(), stdev.getNumber(), force_spread.getNumber());
+		VisSpread spreadCalc(fn,{
+			{
+					dynmult_raise.getValueOrDefault(1.0),
+					dynmult_fall.getValueOrDefault(1.0),
+					dynmult_cap.getValueOrDefault(100.0),
+					strDynmult_mode[dynmult_mode.getValueOrDefault("independent")],
+					dynmult_mult.getBool()
+			},
+			mult.getNumber(),
+			dynmult_sliding.getBool()
 		});
+		auto itm = source();
+		while (itm.has_value()) {
+			auto r = spreadCalc.point(itm->last);
+			if (r.valid && r.trade) {
+				bt.prices.push_back(BTPrice{itm->time, r.price});
+			}
+			itm = source();
+		}
+
 		bt.minfo = tr->getMarketInfo();
 		bt.reversed = rev;
 		bt.inverted = invert.getBool();
 		lkst = state.lock();
-		lkst->upload_progress = -1;
 		lkst->backtest_cache = BacktestCache(bt, id.toString().str());
 		return true;
 	} catch (std::exception &e) {
 		logError("Error: $1", e.what());
-		state.lock()->upload_progress = -1;
 		return false;
 	}
 

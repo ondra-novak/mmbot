@@ -36,5 +36,8 @@ add_executable (mmbot
 	emulatedLeverageBroker.cpp
 	walletDB.cpp
 	random_chart.cpp
+	dynmult.cpp
+	spread.cpp
+	series.cpp
 	)
 target_link_libraries (mmbot LINK_PUBLIC simpleServer imtjson )
