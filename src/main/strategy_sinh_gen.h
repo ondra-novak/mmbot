@@ -45,7 +45,7 @@ public:
 		double openlimit;
 		bool reinvest;
 		bool avgspread;
-		bool booster;
+		int boostmode;
 		json::String calcConfigHash() const;
 	};
 
@@ -104,7 +104,7 @@ protected:
 	double pw;
 
 	PStrategy init(const IStockApi::MarketInfo &minfo, double price, double pos, double currency) const;
-	double calcNewK(double tradePrice, double cb, double pnl, bool reduce_more) const;
+	double calcNewK(double tradePrice, double cb, double pnl, int bmode) const;
 	double limitPosition(double pos) const;
 	double adjustPower(double a, double newk, double price) const;
 	static double calcPower(double cfgpw, const State &st);

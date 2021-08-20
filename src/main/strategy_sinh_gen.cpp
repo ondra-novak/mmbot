@@ -141,7 +141,7 @@ PStrategy Strategy_Sinh_Gen::init(const IStockApi::MarketInfo &minfo,
 	return s;
 }
 
-double Strategy_Sinh_Gen::calcNewK(double tradePrice, double cb, double pnl, bool reduce_more) const {
+double Strategy_Sinh_Gen::calcNewK(double tradePrice, double cb, double pnl, int bmode) const {
 	if (pnl == 0) return st.k;
 	double newk;
 	if (st.p == st.k) return st.k;
@@ -149,7 +149,16 @@ double Strategy_Sinh_Gen::calcNewK(double tradePrice, double cb, double pnl, boo
 		double sprd = cfg.avgspread && st.trades?(1.0+st.sum_spread/st.trades):(tradePrice/st.p);
 		double refp = st.k*sprd;
 		double yield = cfg.calc->budget(st.k, pw, refp);
-		double refb = reduce_more?-yield:((pnl>0 || cfg.booster)?yield:0.0);
+		double refb;
+		switch (bmode) {
+		default:
+			case 0: refb = pnl>0?yield:0.0;break;
+			case 1: refb = yield;break;
+			case 2: refb = pnl>0?2*yield:0.0;break;
+			case 3: refb = 0;break;
+			case 4: refb = pnl>0?yield*2:-yield;break;
+			case 5: refb = pnl>0?yield*3:-2*yield;break;
+		}
 		double nb = cb+pnl+refb;
 
 		if (nb > 0) {
@@ -195,12 +204,8 @@ std::pair<IStrategy::OnTradeResult, PStrategy> Strategy_Sinh_Gen::onTrade(
 	double prevPos = assetsLeft - tradeSize;
 	double cb = st.val;
 	double pnl = prevPos*(tradePrice - st.p);
-	double newk = assetsLeft?calcNewK(tradePrice, cb, pnl, false):tradePrice;
+	double newk = assetsLeft?calcNewK(tradePrice, cb, pnl, cfg.boostmode):tradePrice;
 	double pwadj = adjustPower(prevPos, newk, tradePrice);
-	if (assetsLeft && pwadj<1.0) {
-		newk = calcNewK(tradePrice, cb, pnl,true);
-		pwadj = adjustPower(prevPos, newk, tradePrice);
-	}
 
 	double nb = cfg.calc->budget(newk, pw, tradePrice);
 	double np = pnl - (nb - cb);
@@ -312,15 +317,10 @@ IStrategy::OrderData Strategy_Sinh_Gen::getNewOrder(
 	//calculate pnl
 	double pnl = assets*(new_price - st.p);
 	//calculate new k for budgetr and pnl
-	double newk = calcNewK(new_price, st.val, pnl, false);
+	double newk = calcNewK(new_price, st.val, pnl, cfg.boostmode);
 	//calculate minimal allowed budget
 	//	double minbudget = st.budget*(1.0-cfg.stopOnLoss);
 	double pwadj = adjustPower(assets, newk, new_price);
-	//calculate new position
-	if (pwadj<1.0) {
-		newk = calcNewK(new_price, st.val, pnl, true);
-		pwadj = adjustPower(assets, newk, new_price);
-	}
 
 
 	double new_pos = limitPosition(cfg.calc->assets(newk, pw*pwadj, new_price));
