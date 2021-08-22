@@ -146,7 +146,7 @@ double Strategy_Sinh_Gen::calcNewK(double tradePrice, double cb, double pnl, int
 	double newk;
 	if (st.p == st.k) return st.k;
 	if ((st.p<st.k && tradePrice<st.k) || (st.p>st.k && tradePrice>st.k))  {
-		double sprd = cfg.avgspread && st.trades?(1.0+st.sum_spread/st.trades):(tradePrice/st.p);
+		double sprd = cfg.avgspread?(1.0+st.sum_spread/std::max(st.trades,10)):(tradePrice/st.p);
 		double refp = st.k*sprd;
 		double yield = cfg.calc->budget(st.k, pw, refp);
 		double refb;
@@ -273,7 +273,7 @@ PStrategy Strategy_Sinh_Gen::importState(json::Value src, const IStockApi::Marke
 json::Value Strategy_Sinh_Gen::dumpStatePretty(const IStockApi::MarketInfo &minfo) const {
 	auto getpx = [&](double px){return minfo.invert_price?1.0/px:px;};
 	auto getpos = [&](double pos){return minfo.invert_price?-pos:pos;};
-	double sprd = cfg.avgspread && st.trades?(1.0+st.sum_spread/st.trades):st.last_spread;
+	double sprd = cfg.avgspread?(1.0+st.sum_spread/std::max(10,st.trades)):st.last_spread;
 	double a = cfg.calc->assets(st.k, pw, st.p);
 
 	using namespace json;
