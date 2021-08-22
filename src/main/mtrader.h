@@ -56,8 +56,8 @@ struct MTrader_Config {
 	double emulate_leveraged;
 	unsigned int grant_trade_minutes;
 
-	unsigned int spread_calc_stdev_hours;
-	unsigned int spread_calc_sma_hours;
+	double spread_calc_stdev_hours;
+	double spread_calc_sma_hours;
 
 	bool dry_run;
 	bool internal_balance;

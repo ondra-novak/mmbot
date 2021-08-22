@@ -74,8 +74,8 @@ void MTrader_Config::loadConfig(json::Value data, bool force_dry_run) {
 	report_order = data["report_order"].getValueOrDefault(0.0);
 	grant_trade_minutes = static_cast<unsigned int>(data["grant_trade_hours"].getValueOrDefault(0.0)*60);
 
-	spread_calc_sma_hours = static_cast<unsigned int>(data["spread_calc_sma_hours"].getValueOrDefault(24.0)*60.0);
-	spread_calc_stdev_hours = static_cast<unsigned int>(data["spread_calc_stdev_hours"].getValueOrDefault(4.0)*60.0);
+	spread_calc_sma_hours = data["spread_calc_sma_hours"].getValueOrDefault(24.0);
+	spread_calc_stdev_hours = data["spread_calc_stdev_hours"].getValueOrDefault(4.0);
 
 	dry_run = force_dry_run || data["dry_run"].getValueOrDefault(false);
 	internal_balance = data["internal_balance"].getValueOrDefault(false) || dry_run;
