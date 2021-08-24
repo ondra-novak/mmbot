@@ -228,7 +228,8 @@ int main(int argc, char **argv) {
 						auto rptinterval = rptsect["interval"].getUInt(864000000);
 						auto dr = rptsect["report_broker"];
 						auto isim = rptsect["include_simulators"].getBool(false);
-						auto asyncProvider = simpleServer::ThreadPoolAsync::create(2,1);
+						auto threads = servicesection["http_threads"].getUInt(2);
+						auto asyncProvider = simpleServer::ThreadPoolAsync::create(threads,1);
 						auto login_section = app.config["login"];
 						auto backtest_section = app.config["backtest"];
 						auto history_broker = backtest_section.mandatory["history_source"];
