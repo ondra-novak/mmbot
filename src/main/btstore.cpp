@@ -40,7 +40,7 @@ bool BacktestStorage::cmp_metadata(const Metadata &m1, const Metadata &m2) {
 }
 
 std::vector<BacktestStorage::Metadata>::const_iterator BacktestStorage::find_to_remove() const {
-	auto mx = std::chrono::system_clock::time_point::max();
+	auto mx = std::chrono::system_clock::now()-std::chrono::seconds(30);
 	auto found = meta.end();
 	for (auto iter = meta.begin(); iter != meta.end(); ++iter) {
 		if (iter->lastAccess<mx) {
@@ -57,9 +57,11 @@ void BacktestStorage::add_metadata(const Metadata &md) {
 		mark_access(r);
 	} else {
 		meta.insert(r, md);
-		if (meta.size()>max_files) {
+		while (meta.size()>max_files) {
 			auto rm = find_to_remove();
-			remove_metadata(rm);
+			if (rm != meta.end()) {
+				remove_metadata(rm);
+			}
 		}
 	}
 }

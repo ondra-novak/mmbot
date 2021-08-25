@@ -2062,18 +2062,22 @@ bool WebCfg::reqBacktest_v2(simpleServer::HTTPRequest req, ondra_shared::StrView
 				double fv = trades.empty()?ip:trades[0].price;
 				if (ip && !trades.empty()) {
 					if (inv) fv = 2*avg - fv;
-					if (minfo.invert_price) {
-						mlt = (1.0/ip)/fv;
-					} else {
-						mlt = ip/fv;
-					}
+					mlt = ip/fv;
 					fv = fv * mlt;
 				}
 
+				for (auto &x: trades) {
+					x.price *= mlt;
+				}
 
 				if (inv) {
 					for (auto &x: trades) {
 						x.price = pow2(fv)/x.price;
+					}
+				}
+				if (minfo.invert_price) {
+					for (auto &x: trades) {
+						x.price = 1.0/x.price;
 					}
 				}
 

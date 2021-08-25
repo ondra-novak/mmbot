@@ -2197,6 +2197,8 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 			return p;
 		}
 		
+        var download_historical_fn = download_historical_dlg.bind(this);
+		
 		function call_update() {
 			
 			var ret;
@@ -2213,7 +2215,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 						var chart1 = cntr.bt.findElements('chart1')[0];
 						var templ = TemplateJS.View.fromTemplate("no_data_panel");
 						templ.setData({"download":{
-							"!click":download_historical_dlg.bind(this)
+							"!click":download_historical_fn
 						    }});
 						TemplateJS.View.clearContent(chart1);
 						templ.open(chart1);
