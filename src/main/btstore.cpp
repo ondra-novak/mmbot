@@ -10,6 +10,7 @@
 #include <filesystem>
 #include "btstore.h"
 
+#include <unistd.h>
 #include <vector>
 
 #include <imtjson/binjson.h>
@@ -77,7 +78,8 @@ std::string BacktestStorage::store_data(const json::Value &data) {
 
 	auto tmpPath = std::filesystem::temp_directory_path();
 	std::string id = std::to_string(hval);
-	auto fpath = tmpPath / ("mmbot_backtest_"+id);
+	std::string pid = std::to_string(getpid());
+	auto fpath = tmpPath / ("mmbot_backtest_"+pid+"x"+id);
 	std::ofstream f(fpath, std::ios::binary);
 	if (!(!f)) {
 		data.serializeBinary([&](char c){f.put(c);}, json::compressKeys);
