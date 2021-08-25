@@ -233,7 +233,7 @@ int main(int argc, char **argv) {
 						auto login_section = app.config["login"];
 						auto backtest_section = app.config["backtest"];
 						auto history_broker = backtest_section.mandatory["history_source"];
-						auto backtest_cache_size = backtest_section["backtest_cache_size"].getUInt(32);
+						auto backtest_cache_size = backtest_section["backtest_cache_size"].getUInt(8);
 						auto news_url=app.config["news"]["url"].getString();
 
 
