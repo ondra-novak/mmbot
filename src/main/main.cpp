@@ -233,6 +233,7 @@ int main(int argc, char **argv) {
 						auto login_section = app.config["login"];
 						auto backtest_section = app.config["backtest"];
 						auto history_broker = backtest_section.mandatory["history_source"];
+						auto backtest_cache_size = backtest_section["backtest_cache_size"].getUInt(32);
 						auto news_url=app.config["news"]["url"].getString();
 
 
@@ -326,7 +327,7 @@ int main(int argc, char **argv) {
 								"/admin",ondra_shared::shared_function<bool(simpleServer::HTTPRequest, ondra_shared::StrViewA)>(WebCfg(webcfgstate,
 										name,
 										traders,
-										[=](WebCfg::Action &&a) mutable {sch.immediate() >> std::move(a);},jwt, phb, upload_limit))
+										[=](WebCfg::Action &&a) mutable {sch.immediate() >> std::move(a);},jwt, phb, upload_limit,backtest_cache_size))
 							});
 							paths.push_back({
 								"/set_cookie",[](simpleServer::HTTPRequest req, const ondra_shared::StrViewA &) mutable {

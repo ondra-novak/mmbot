@@ -21,6 +21,7 @@
 #include "istockapi.h"
 #include "authmapper.h"
 #include "backtest.h"
+#include "btstore.h"
 #include "traders.h"
 
 
@@ -107,7 +108,8 @@ public:
 			Dispatch &&dispatch,
 			json::PJWTCrypto jwt,
 			SharedObject<AbstractExtern> backtest_broker,
-			std::size_t upload_limit
+			std::size_t upload_limit,
+			std::size_t backtest_cache_size
 	);
 
 	~WebCfg();
@@ -126,6 +128,7 @@ public:
 		editor,
 		login,
 		backtest,
+		backtest2,
 		spread,
 		strategy,
 		upload_prices,
@@ -154,7 +157,7 @@ protected:
 	bool reqLogin(simpleServer::HTTPRequest req);
 	bool reqBrokerSpec(simpleServer::HTTPRequest req, ondra_shared::StrViewA rest, PStockApi api, ondra_shared::StrViewA broker_name);
 	bool reqEditor(simpleServer::HTTPRequest req);
-	bool reqBacktest(simpleServer::HTTPRequest req);
+	bool reqBacktest(simpleServer::HTTPRequest req, ondra_shared::StrViewA rest);
 	bool reqSpread(simpleServer::HTTPRequest req);
 	bool reqUploadPrices(simpleServer::HTTPRequest req);
 	bool reqUploadTrades(simpleServer::HTTPRequest req);
@@ -170,8 +173,12 @@ protected:
 
 	PState state;
 	SharedObject<AbstractExtern> backtest_broker;
+	SharedObject<BacktestStorage> backtest_storage;
 	std::size_t upload_limit;
 	static bool generateTrades(const SharedObject<Traders> &trlist, PState state, json::Value args);
+
+
+	bool reqBacktest_v2(simpleServer::HTTPRequest req, ondra_shared::StrViewA rest);
 };
 
 

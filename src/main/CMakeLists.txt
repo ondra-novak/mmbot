@@ -39,5 +39,6 @@ add_executable (mmbot
 	dynmult.cpp
 	spread.cpp
 	series.cpp
+	btstore.cpp
 	)
 target_link_libraries (mmbot LINK_PUBLIC simpleServer imtjson )

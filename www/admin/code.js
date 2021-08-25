@@ -62,6 +62,7 @@ function fetch_with_error(url, opt) {
 function App() {	
 	this.traders={};
 	this.config={};
+	this.backtest={};
 	this.curForm = null;
 	this.advanced = false;
 }
@@ -1578,23 +1579,17 @@ App.prototype.gen_backtest = function(form,anchor, template, inputs, updatefn) {
 		}
 	}
 
-	var tm;
+	var tm = new DelayUpdate(update);
 
-	function delayUpdate() {
-		if (tm) clearTimeout(tm);
-		tm = setTimeout(function() {
-			tm = null;
-			update()},250);
-	}
-	obj.update = delayUpdate;
+	obj.update = tm.exec.bind(tm);
 
 	inputs.forEach(function(a) {
 		form.forEachElement(a, function(x){
 			if (x.tagName == "BUTTON")
-				x.addEventListener("click", delayUpdate);
+				x.addEventListener("click", tm.exec.bind(tm));
 			else {
-				x.addEventListener("input",delayUpdate);
-				x.addEventListener("change",delayUpdate);
+				x.addEventListener("input",tm.exec.bind(tm));
+				x.addEventListener("change",tm.exec.bind(tm));
 			}
 		})
 	});
@@ -1704,7 +1699,7 @@ function DelayUpdate(fn) {
 };
 
 App.prototype.init_backtest = function(form, id, pair, broker) {
-	var url = "api/backtest";
+	var url = "api/backtest2";
 	form.enableItem("show_backtest",false);		
 	var inputs = ["strategy","external_assets", "acum_factor","kv_valinc","kv_halfhalf","min_size","max_size","order_mult","linear_suggest","linear_suggest_maxpos",
 		"st_power","st_reduction_step","st_sl","st_redmode","st_max_step","st_pattern","dynmult_sliding","accept_loss","st_tmode","zigzag",
@@ -1727,6 +1722,8 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 	var sttype =this.traders[id].strategy.type;
     var show_norm= ["halfhalf","keepvalue","exponencial","errorfn","hypersquare","conststep"].indexOf(sttype) != -1;
 	var infoElm;
+	var this_bt=this.backtest[id];
+	if (!this_bt) this.backtest[id]=this_bt={};
 
 
 	function draw(cntr, v, offset, balance) {
@@ -1961,6 +1958,12 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 
 	}
 
+    function get_bt_file(what) {
+    	if (what && what.id) {
+    	    fetch_json(url+"/get_file",{method:"POST",body:JSON.stringify({source:what.id})})
+    	    .then(function(x){what.chart = x;});
+    	}
+    }
 
 	var frst = true;
 
@@ -1972,87 +1975,14 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 	var bal;
 	var req;
 	var res_data;	
+	var delayed_update_trades = new DelayUpdate(function(){get_bt_file(this_bt.trades)});
+	var delayed_update_minute = new DelayUpdate(function(){get_bt_file(this_bt.minute)});
 
 	function swapshowpl() {
 		show_norm = !show_norm;
 		update_recalc();
 	}
 
-	function progress_wait() {		
-		var dlg = TemplateJS.View.fromTemplate("upload_chart_wait");
-		dlg.openModal();
-		function wait(cb) {
-			fetch_with_error("api/upload_prices").then(function(x) {
-				if (x == -1) {
-					dlg.close();
-					cb();
-				} 
-				else {
-					dlg.setData({progress:{"style":"width: "+x+"%"}});
-					setTimeout(wait.bind(null,cb),1000);
-				}
-			}).catch(function() {
-					setTimeout(wait.bind(null,cb),1000);										
-			});
-		}
-		dlg.wait = function() {
-			dlg.showItem("upload_mark",false);
-			dlg.showItem("process_mark",true);
-			return new Promise(wait);
-		}
-		dlg.setItemEvent("stop","click", function() {
-			fetch_json("api/upload_prices", {method:"DELETE"});
-		});
-		return dlg;		
-	}
-
-	function recalc_spread(prices, cntr, extra) {
-		var data = form.readData(spread_inputs);
-		var mult = Math.pow(2,data.spread_mult*0.01);
-		var req = {
-			sma:data.spread_calc_sma_hours,
-			stdev:data.spread_calc_stdev_hours,
-			force_spread:data.spread_mode=="fixed"?Math.log(data.force_spread/100+1):0,
-			mult:mult,
-			raise:data.dynmult_raise,
-			cap:data.dynmult_cap,
-			fall:data.dynmult_fall,
-			mode:data.dynmult_mode,
-			sliding:data.dynmult_sliding,
-			dyn_mult:data.dynmult_mult,
-			id: id,
-			prices: prices,
-			reverse: reverse_chart,
-			invert: invert_chart,
-			neg_bal: allow_neg_balance
-		}
-		if (extra !== undefined) {
-			req = Object.assign(req, extra);
-		}
-		cntr.showSpinner();
-		fetch_with_error("api/upload_prices", {method:"POST", body:JSON.stringify(req)}).then(function(){
-			cntr.hideSpinner();							
-			cntr.update();
-		}).catch(function(e) {
-			cntr.hideSpinner();
-			console.error(e);
-		});								
-	}
-	
-	function upload_trades(data, cntr) {
-		var req = {
-			id: id,
-			prices: data
-		}
-		cntr.showSpinner();
-		fetch_with_error("api/upload_trades", {method:"POST", body:JSON.stringify(req)}).then(function(){							
-			cntr.update();
-			cntr.hideSpinner();
-		}).catch(function(e) {
-			console.error(e);
-			cntr.hideSpinner();
-		});										
-	}
 	
 	var import_error = function() {
 		this.dlgbox({text:this.strtable.import_invalid_format,cancel:{".hidden":true}},"confirm");		
@@ -2078,7 +2008,9 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 						var d;
 						(d = this.dlgbox(ddata,"download_price_dlg")).then(function(){
 							ddata = d.view.readData();
-							recalc_spread("history_broker", cntr, ddata);
+							this_bt.minute = {"mode":"historical_chart","args":ddata};
+							this_bt.trades = null;
+							cntr.update();
 						}.bind(this));					
 					}.bind(this));
 		}
@@ -2093,9 +2025,11 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
         var norm_init_price = invert_price?1.0/init_price:init_price;
         bal =( isFinite(opts.initial_balance)?opts.initial_balance:balance)
                     + (leverage?0:(isFinite(opts.initial_pos)?opts.initial_pos:assets)*norm_init_price);
+
+        function has_minute() {return this_bt.minute && this_bt.minute.chart;};
        	req = {
 			config: config,
-			id: id,
+			trader: id,
 			init_pos:isFinite(opts.initial_pos)?opts.initial_pos:undefined,
 			init_price:init_price,
 			balance:isFinite(opts.initial_balance)?opts.initial_balance:bal,
@@ -2110,7 +2044,10 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		if (frst) {
 			frst = false;
 
-			var d = new DelayUpdate(recalc_spread.bind(this,"update",cntr));
+			var d = new DelayUpdate(function() {
+                this_bt.trades=null;
+                cntr.update();
+			});
 			spread_inputs.forEach(function(a) {
 				form.forEachElement(a, function(x){
 					if (x.tagName == "BUTTON")
@@ -2132,10 +2069,12 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 			cntr.bt.setItemEvent("initial_price","input",cntr.update);
 			cntr.bt.setItemEvent("reverse_chart","change",function() {
 				reverse_chart = cntr.bt.readData(["reverse_chart"]).reverse_chart;
+				if (has_minute()) this_bt.trades = null;
 				cntr.update();				
 			});
 			cntr.bt.setItemEvent("invert_chart","change",function() {
 				invert_chart = cntr.bt.readData(["invert_chart"]).invert_chart;
+				if (has_minute()) this_bt.trades = null;
 				cntr.update();				
 			});
 			cntr.bt.setItemValue("show_op", show_op);
@@ -2173,8 +2112,11 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 				var d;
 				(d = this.dlgbox(rnd_preset,"random_dlg")).then(function(){
 					rnd_preset = d.view.readData();
-					recalc_spread("random", cntr, rnd_preset);
+					this_bt.trades = null;
+					this_bt.minute = {mode:"random_chart", args: rnd_preset};
+					cntr.update();
 				});
+
 			}.bind(this));
 			cntr.bt.setItemEvent("download_prices","click",download_historical_dlg.bind(this));
 
@@ -2210,21 +2152,33 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 								return null;
 							}
 						}).filter(function(x) {return x !== null});
-						if (min > trs && trs/min < 0.1) recalc_spread(prices,cntr);
-						else if (min < trs && min/trs < 0.1) upload_trades(prices, cntr);
-						else import_error();
+						if (min > trs && trs/min < 0.1) {
+							this_bt.trades={"chart":prices};
+							cntr.update();
+						} else if (min < trs && min/trs < 0.1) {
+							this_bt.minute={"chart":prices};
+							this_bt.trades=null;
+							cntr.update();
+						} else {
+							import_error();
+						}
 					}.bind(this);
 					reader.readAsText(this.files[0]);
 				}
 			});
 			cntr.bt.setItemEvent("icon_internal","click",function(){
-				recalc_spread("internal",cntr);
+				this_bt.minute={"mode":"trader_minute_chart","args":{"trader":id}};
+				this_bt.trades=null;
+				cntr.update();
 			})
 			cntr.bt.setItemEvent("icon_recalc","click",function(){
-				recalc_spread("update",cntr);
+				this_bt.trades = null;
+				cntr.update();
 			})
 			cntr.bt.setItemEvent("icon_reset","click",function(){
-				fetch_json("api/backtest", {method:"DELETE"}).then(cntr.update.bind(cntr));
+				this_bt.minute = null;
+				this_bt.trades = null;
+				cntr.update();
 			})
 			
 
@@ -2235,28 +2189,122 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 			})
 
 		}
-		return fetch_json(url, {method:"POST", body:JSON.stringify(req)}).then(function(v) {
-			cntr.hideSpinner();
-			cntr.bt.setData({error_window:{classList:{mark:false}}});					    
-			if (v.length == 0) {
-				var chart1 = cntr.bt.findElements('chart1')[0];
-				var templ = TemplateJS.View.fromTemplate("no_data_panel");
-				templ.setData({"download":{
-					"!click":download_historical_dlg.bind(this)
-				    }});
-				TemplateJS.View.clearContent(chart1);
-				templ.open(chart1);
-				update_recalc = function() {};
-			} else {
-				res_data = v;
-				draw(cntr,v,offset,bal);			
-				update = function() {
-					if (tm) clearTimeout(tm);
-					tm = setTimeout(draw.bind(this,cntr,v,offset), 1);
+
+		function get_chart(p, du) {
+			p.then(function(){
+				du.exec();
+			});
+			return p;
+		}
+		
+		function call_update() {
+			
+			var ret;
+			
+			if (this_bt.trades && this_bt.trades.id) {
+				req.source = this_bt.trades.id; 			
+				if (has_minute()) {
+					req.reverse = false;
+					req.invert = false;
 				}
-				update_recalc = draw.bind(this,cntr,v,offset,bal);
+				ret =  fetch_json(url+"/run", {method:"POST", body:JSON.stringify(req)}).then(function(v) {
+					cntr.bt.setData({error_window:{classList:{mark:false}}});					    
+					if (v.length == 0) {
+						var chart1 = cntr.bt.findElements('chart1')[0];
+						var templ = TemplateJS.View.fromTemplate("no_data_panel");
+						templ.setData({"download":{
+							"!click":download_historical_dlg.bind(this)
+						    }});
+						TemplateJS.View.clearContent(chart1);
+						templ.open(chart1);
+						update_recalc = function() {};
+					} else {
+						res_data = v;
+						draw(cntr,v,offset,bal);			
+						update = function() {
+							if (tm) clearTimeout(tm);
+							tm = setTimeout(draw.bind(this,cntr,v,offset), 1);
+						}
+						update_recalc = draw.bind(this,cntr,v,offset,bal);
+					}
+				},function(e){
+							if (e.status == 410) {
+								delete this_bt.trades.id;
+								return call_update();
+							} else {
+								throw e;
+							}							
+						});
+			} else if (this_bt.trades && this_bt.trades.chart) {
+				ret = fetch_json(url+"/upload", {method:"POST", body:JSON.stringify(this_bt.trades.chart)})
+				.then(function(r) {
+					this_bt.trades.id = r.id;
+					return call_update();
+				});				
+			} else if (this_bt.trades && this_bt.trades.mode) {
+				ret = fetch_json(url+"/"+this_bt.trades.mode, {method:"POST", body:JSON.stringify(this_bt.trades.args)})
+				.then(function(r) {
+					this_bt.trades.id = r;
+					return get_chart(call_update(),delayed_update_trades);
+				});
+			} else {
+				if (this_bt.minute && this_bt.minute.id) {
+					var data = form.readData(spread_inputs);
+					var mult = Math.pow(2,data.spread_mult*0.01);
+					var sreq = {
+						sma:data.spread_calc_sma_hours,
+						stdev:data.spread_calc_stdev_hours,
+						force_spread:data.spread_mode=="fixed"?Math.log(data.force_spread/100+1):0,
+						mult:mult,
+						raise:data.dynmult_raise,
+						cap:data.dynmult_cap,
+						fall:data.dynmult_fall,
+						mode:data.dynmult_mode,
+						sliding:data.dynmult_sliding,
+						dyn_mult:data.dynmult_mult,
+						reverse: reverse_chart,
+						invert: invert_chart,
+						ifutures: invert_price,			
+						source: this_bt.minute.id			
+					}
+					ret = fetch_json(url+"/gen_trades",{method:"POST",body:JSON.stringify(sreq)})
+						.then(function(r) {
+							this_bt.trades = r;
+							return get_chart(call_update(),delayed_update_trades);
+						},function(e){
+							if (e.status == 410) {
+								delete this_bt.minute.id;
+								return call_update();
+							} else {
+								throw e;
+							}							
+						})
+				} else if (this_bt.minute && this_bt.minute.chart) {
+					ret = fetch_json(url+"/upload", {method:"POST", body:JSON.stringify(this_bt.minute.chart)})
+					.then(function(r) {
+						this_bt.minute.id = r.id;
+						return call_update();
+					})
+				} else if (this_bt.minute && this_bt.minute.mode) {
+					ret = fetch_json(url+"/"+this_bt.minute.mode, {method:"POST", body:JSON.stringify(this_bt.minute.args)})
+					.then(function(r) {
+						this_bt.minute = r;
+						return get_chart(call_update(),delayed_update_minute);
+					})
+				} else {
+					ret = fetch_json(url+"/trader_chart",{method:"POST",body:JSON.stringify({"trader":id})})
+					.then(function(r) {
+						this_bt.trades = r;
+						return get_chart(call_update(),delayed_update_trades);
+					})
+				}									
 			}
-		}.bind(this),function(e){
+			return ret;			
+		}
+
+		return call_update().then(function(v) {
+			cntr.hideSpinner();
+		},function(e){
 			parse_fetch_error(e).then(function(x) {
 				cntr.bt.setData({error_window:{
 					classList:{
