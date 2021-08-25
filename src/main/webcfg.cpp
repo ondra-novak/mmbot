@@ -1909,7 +1909,8 @@ bool WebCfg::reqBacktest_v2(simpleServer::HTTPRequest req, ondra_shared::StrView
 				if (smooth>1) {
 					double accum = chart_data[0].getNumber()*smooth;
 					Value smth_data (json::array,chart_data.begin(), chart_data.end(),[&](const Value &d){
-						accum -= accum / smooth + d.getNumber();
+						accum -= accum / smooth;
+						accum += d.getNumber();
 						return accum/smooth;
 					});
 					chart_data = smth_data;

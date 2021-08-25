@@ -1681,6 +1681,7 @@ var show_op=false;
 var invert_chart = false;
 var reverse_chart = false;
 var allow_neg_balance = false;
+var hist_smooth=0;
 var rnd_preset={
 		"volatility":1,
 		"noise":1,		
@@ -2003,13 +2004,15 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 									return {"":x};
 								}),
 								asset:resp[1].quote_asset,
-								currency:resp[1].quote_currency
+								currency:resp[1].quote_currency,
+								smooth:hist_smooth,
 						};
 						var d;
 						(d = this.dlgbox(ddata,"download_price_dlg")).then(function(){
-							ddata = d.view.readData();
+							ddata = d.view.readData(["asset","currency","smooth"]);;
 							this_bt.minute = {"mode":"historical_chart","args":ddata};
 							this_bt.trades = null;
+							hist_smooth = ddata.smooth;
 							cntr.update();
 						}.bind(this));					
 					}.bind(this));
