@@ -11,8 +11,11 @@
 
 #include <imtjson/string.h>
 #include <imtjson/value.h>
+#include "../shared/logOutput.h"
 #include "numerical.h"
 #include "sgn.h"
+
+using ondra_shared::logInfo;
 static const double INT_RANGE = 1000000;
 static const double MAX_ERROR = 0.0001;
 
@@ -46,6 +49,7 @@ Strategy_Sinh_Gen::FnCalc::FnCalc(double wd)
 		}, 1, b, MAX_ERROR, 0, fillFn);
 
 		std::sort(itable.begin(),itable.end(), sortPoints);
+		logInfo("Strategy_Sinh_Gen: Integration table for: wd=$1, entries: $2", wd, itable.size());
 }
 
 double Strategy_Sinh_Gen::FnCalc::baseFn(double x) const {

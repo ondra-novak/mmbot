@@ -126,18 +126,18 @@ double newtonRoot(Fn &&fn, dFn &&dfn, double ofs, double initg) {
 
 //adaptive integration - generate table from a, to b, recursive
 template<typename Fn, typename Out>
-static double generateIntTable2(Fn &&fn, double a, double b, double fa, double fb, double error, double y, Out &&out) {
+static double generateIntTable2(Fn &&fn, double a, double b, double fa, double fb, double error, double y,int lev, Out &&out) {
 	double w = b - a;
 	double pa = w * fa;
 	double pb = w * fb;
 	double e = std::abs(pa-pb);
-	if (e>error) {
+	if (e>error && lev < 16) {
 		double m = (a+b)*0.5;
 		double fm = fn(m);
-		double sa = generateIntTable2(std::forward<Fn>(fn), a, m, fa, fm, error, y, std::forward<Out>(out));
+		double sa = generateIntTable2(std::forward<Fn>(fn), a, m, fa, fm, error, y, lev+1, std::forward<Out>(out));
 		y+= sa;
 		out(m, y);
-		double sb = generateIntTable2(std::forward<Fn>(fn), m, b, fm, fb, error, y, std::forward<Out>(out));
+		double sb = generateIntTable2(std::forward<Fn>(fn), m, b, fm, fb, error, y, lev+1, std::forward<Out>(out));
 		return sa+sb;
 	} else {
 		return (pa+pb)*0.5;
@@ -159,7 +159,7 @@ static void generateIntTable(Fn &&fn, double a, double b, double error, double y
 	out(a, y);
 	double fa=fn(a);
 	double fb=fn(b);
-	double r = generateIntTable2(std::forward<Fn>(fn), a, b, fa, fb, error, y, std::forward<Out>(out));
+	double r = generateIntTable2(std::forward<Fn>(fn), a, b, fa, fb, error, y, 0,std::forward<Out>(out));
 	out(b, y+r);
 }
 
