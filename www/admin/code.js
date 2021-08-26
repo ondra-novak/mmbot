@@ -2156,11 +2156,11 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 							}
 						}).filter(function(x) {return x !== null});
 						if (min > trs && trs/min < 0.1) {
-							this_bt.trades={"chart":prices};
-							cntr.update();
-						} else if (min < trs && min/trs < 0.1) {
 							this_bt.minute={"chart":prices};
 							this_bt.trades=null;
+							cntr.update();
+						} else if (min < trs && min/trs < 0.1) {
+							this_bt.trades={"chart":prices};
 							cntr.update();
 						} else {
 							import_error();

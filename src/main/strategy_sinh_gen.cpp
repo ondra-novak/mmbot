@@ -326,8 +326,10 @@ IStrategy::OrderData Strategy_Sinh_Gen::getNewOrder(
 	//	double minbudget = st.budget*(1.0-cfg.stopOnLoss);
 	double pwadj = adjustPower(assets, newk, new_price);
 
+	double new_pos1 = limitPosition(cfg.calc->assets(newk, pw, new_price));
 
-	double new_pos = limitPosition(cfg.calc->assets(newk, pw*pwadj, new_price));
+	double new_pos2 = limitPosition(cfg.calc->assets(newk, pw*pwadj, new_price));
+	double new_pos = sgn(new_pos1) * sqrt(new_pos1 * new_pos2);
 	//calculate difference between new position and curreny position
 	double dfa = new_pos -assets;
 	//if difference is in other direction and position should decrease
