@@ -80,7 +80,7 @@ public:
 	virtual BrokerInfo getBrokerInfo() override;
 	virtual void onLoadApiKey(json::Value keyData) override;
 	virtual void onInit() override;
-	virtual Interface *createSubaccount(const std::string &path) {
+	virtual Interface *createSubaccount(const std::string &path) override {
 		return new Interface(path);
 	}
 	virtual json::Value getMarkets() const override;
@@ -121,9 +121,9 @@ public:
 	Value fapi_readAccount();
 	std::chrono::steady_clock::time_point symbolsExpire;
 
-	virtual void restoreSettings(json::Value v);
-	virtual json::Value setSettings(json::Value v);
-	virtual json::Value getSettings(const std::string_view &pairHint) const;
+	virtual void restoreSettings(json::Value v) override;
+	virtual json::Value setSettings(json::Value v) override;
+	virtual json::Value getSettings(const std::string_view &pairHint) const override;
 
 	bool feesInBnb = false;
 

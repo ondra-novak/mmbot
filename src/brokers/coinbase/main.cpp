@@ -83,7 +83,7 @@ public:
 	virtual BrokerInfo getBrokerInfo() override;
 	virtual void onLoadApiKey(json::Value keyData) override;
 	virtual void onInit() override {}
-	virtual Interface *createSubaccount(const std::string &path) {
+	virtual Interface *createSubaccount(const std::string &path) override {
 		return new Interface(path);
 	}
 	virtual json::Value getWallet_direct() override;

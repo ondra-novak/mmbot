@@ -30,6 +30,7 @@ public:
 
 	virtual std::unique_ptr<ISpreadState> start() const = 0;
 	virtual Result point(std::unique_ptr<ISpreadState> &state, double y) const = 0;
+	virtual ~ISpreadFunction() {}
 };
 
 

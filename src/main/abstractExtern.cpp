@@ -18,7 +18,7 @@
 #include <poll.h>
 #include <sys/types.h>
 #include <sys/wait.h>
-#include <experimental/filesystem>
+#include <shared/filesystem.h>
 
 #include <cstring>
 #include <sstream>
@@ -139,7 +139,7 @@ void AbstractExtern::spawn() {
 				signal(SIGINT, SIG_IGN);
 
 				try {
-					std::experimental::filesystem::current_path(workingDir);
+					std::filesystem::current_path(workingDir);
 					if (dup2(proc_input.read, 0)<0) report_error("dup->stdin");
 					if (dup2(proc_output.write, 1)<0) report_error("dup->stdout");
 					if (dup2(proc_error.write, 2)<0) report_error("dup->stderr");

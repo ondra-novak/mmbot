@@ -314,7 +314,7 @@ public:
 	std::string fname;
 	std::size_t idcnt;
 
-	virtual json::Value getMarkets() const;
+	virtual json::Value getMarkets() const override;
 
 	CryptowatchPairs cryptowatch;
 	TestPair &getPair(unsigned int id);

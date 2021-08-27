@@ -226,7 +226,6 @@ bool AuthMapper::setCookieHandler(simpleServer::HTTPRequest req) {
 		std::string cookie = "auth=";
 		if (auth == "auth") {
 			auto hdr = req["Authorization"];
-			StrViewA authhdr;
 			if (hdr.defined()) {
 				auth=hdr;
 			} else {

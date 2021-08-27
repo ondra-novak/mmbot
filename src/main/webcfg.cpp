@@ -767,7 +767,7 @@ static void AULFromJSON(json::Value js, AuthUserList &aul, bool admin) {
 		if (!admin || isadmin.getBool()) {
 			curVal.push_back(LoginPwd(username.toString().str(), password.toString().str()));
 		}
-		return curVal;
+		return std::move(curVal);
 	},UserVector());
 
 	aul.setUsers(std::move(ulist));
@@ -1116,7 +1116,7 @@ bool WebCfg::reqBacktest(simpleServer::HTTPRequest req, ondra_shared::StrViewA r
 					}
 
 					if (inv) {
-						source = [src = std::move(source),avg,fv](){
+						source = [src = std::move(source),fv](){
 							auto r = src();
 							if (r.has_value()) r->price = fv*fv/r->price;
 							return r;
@@ -1616,7 +1616,7 @@ bool WebCfg::reqDumpWallet(simpleServer::HTTPRequest req, ondra_shared::StrViewA
 			accum.back() = accum.back().replace("value", accum.back()["value"].getNumber()+row[4].getNumber());
 		}
 		activeBrokers.insert(row[0]);
-		return accum;
+		return std::move(accum);
 	},std::vector<Value>());
 	jsn = Value(json::array, rdc.begin(), rdc.end(),[](Value x){return x;});
 

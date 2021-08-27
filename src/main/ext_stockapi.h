@@ -60,6 +60,7 @@ protected:
 		const std::string &getName() const {return this->name;}
 		std::recursive_mutex &getLock() const {return lock;}
 		bool isActive() const {return this->chldid != -1;}
+		virtual ~Connection() {}
 	protected:
 		std::atomic<int> instance_counter = 0;
 	};

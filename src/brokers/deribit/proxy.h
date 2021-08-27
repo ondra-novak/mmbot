@@ -46,7 +46,6 @@ public:
 
 
 private:
-	std::intptr_t time_diff = 0;
 	std::string auth_token;
 	std::chrono::system_clock::time_point auth_token_expire;
 	std::size_t req_id = 1;
