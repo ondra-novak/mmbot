@@ -380,6 +380,7 @@ App.prototype.fillForm = function (src, trg) {
 		data.price= adjNum(invPrice(pair.price,pair.invert_price));
 		data.fees =adjNum(pair.fees*100,4);
 		data.leverage=pair.leverage?pair.leverage+"x":"n/a";
+		data.hdr_position = adjNum(invSize(avail.asset,pair.invert_price));
 		var ext_ass = this.ext_assets.find(function(x){
 			return x.broker == src.broker && x.wallet == pair.wallet_id && x.symbol == pair.currency_symbol;
 		});		
@@ -447,21 +448,6 @@ App.prototype.fillForm = function (src, trg) {
 
 
 		
-		function calcPosition(data) {
-			var v = trg.readData(["report_position_offset"]);
-			var cpos = invSize((isFinite(v.report_position_offset)?v.report_position_offset:0) + state.position,pair.invert_price);
-			if (isFinite(cpos)) {
-				var apos = invSize(pair.asset_balance, pair.invert_price) ;
-				data.hdr_position = adjNum(cpos);
-				data.sync_pos = {
-						".hidden":(Math.abs(cpos - apos) <= (Math.abs(cpos)+Math.abs(apos))*1e-8)
-				};
-			} else {
-				data.hdr_position = adjNum();
-				data.sync_pos = {};
-			}
-		}
-		calcPosition(data);
 
 		function recalcStrategy() {
 			var data = trg.readData()
@@ -520,14 +506,6 @@ App.prototype.fillForm = function (src, trg) {
 			data.show_backtest= {"!click": this.init_backtest.bind(this, trg, src.id, src.pair_symbol, src.broker), ".disabled":false};
 			data.inverted_price=pair.invert_price?"true":"false";
 			var tmp = trg.readData(["cstep","max_pos"]);
-			data.sync_pos["!click"] = function() {
-				var data = {};
-				var v = trg.readData(["report_position_offset"]);
-				var s = pair.asset_balance  - state.position;
-				trg.setData({report_position_offset:s});
-				calcPosition(data);
-				trg.setData(data);
-			}
 			if (!pair.leverage) {
 				var elm = trg.findElements("st_power")[0].querySelector("input[type=range]");
 				elm.setAttribute("max","199");
@@ -711,7 +689,6 @@ App.prototype.fillForm = function (src, trg) {
 	data.internal_balance = filledval(src.internal_balance,0);
 	data.dont_allocate = filledval(src.dont_allocate,false);
 	data.detect_manual_trades = filledval(src.detect_manual_trades,false);
-	data.report_position_offset = filledval(src.report_position_offset,0);
 	data.report_order = filledval(src.report_order,0);
 	data.force_spread = filledval((Math.exp(src.force_spread || Math.log(1.01))*100-100).toFixed(3),"1.000");
 	data.spread_mode = filledval(src.force_spread?"fixed":"adaptive","adaptive");
@@ -932,7 +909,6 @@ App.prototype.saveForm = function(form, src) {
 	trader.internal_balance = data.internal_balance;
 	trader.dont_allocate = data.dont_allocate;
 	trader.detect_manual_trades = data.detect_manual_trades;
-	trader.report_position_offset = data.report_position_offset;
 	trader.report_order = data.report_order;
 	if (data.spread_mode == "fixed") {
 		trader.force_spread = Math.log(data.force_spread/100+1);
@@ -2877,7 +2853,6 @@ App.prototype.shareForm = function(id, form) {
 	delete cfg.title;
 	delete cfg.enable;
 	delete cfg.dry_run;
-	delete cfg.report_position_offset;
 	delete cfg.report_order;
 	delete cfg.hidden;
 	var cfgstr = JSON.stringify(cfg);	

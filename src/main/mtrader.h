@@ -49,7 +49,6 @@ struct MTrader_Config {
 	unsigned int adj_timeout;
 
 	double force_spread;
-	double report_position_offset;
 	double report_order;
 	double max_leverage;
 	double emulate_leveraged;
@@ -250,6 +249,7 @@ public:
 
 	std::optional<double> getInternalBalance() const;
 	std::optional<double> getInternalCurrencyBalance() const;
+	std::optional<double> getAssetBalance() const;
 
 
 	void saveState();

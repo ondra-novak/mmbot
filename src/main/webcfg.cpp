@@ -969,12 +969,8 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req)  {
 					Strategy stratobj=trl->getStrategy();
 					strategy = stratobj.dumpStatePretty(trl->getMarketInfo());
 					auto trades = trl->getTrades();
-					auto pos = std::accumulate(trades.begin(), trades.end(),0.0,[&](
-							auto &&a, auto &&b
-					) {
-						return a + b.eff_size;
-					});
-					position = pos;
+					auto assBal = trl->getAssetBalance();
+					if (assBal.has_value()) position =*assBal;
 					tradeCnt = trades.size();
 				}
 				std::optional<double> internalBalance, internalCurrencyBalance;

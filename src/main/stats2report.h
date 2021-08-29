@@ -37,8 +37,8 @@ public:
 							  const std::optional<IStockApi::Order> &sell) override {
 		rpt.lock()->setOrders(name, buy, sell);
 	}
-	virtual void reportTrades(ondra_shared::StringView<IStatSvc::TradeRecord> trades) override {
-		rpt.lock()->setTrades(name,trades);
+	virtual void reportTrades(double finalPos, ondra_shared::StringView<IStatSvc::TradeRecord> trades) override {
+		rpt.lock()->setTrades(name,finalPos, trades);
 	}
 	virtual void reportMisc(const MiscData &miscData) override{
 		rpt.lock()->setMisc(name, miscData);

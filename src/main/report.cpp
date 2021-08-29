@@ -103,7 +103,7 @@ static IStatSvc::TradeRecord sumTrades(const IStatSvc::TradeRecord &a, const ISt
 	);
 }
 
-void Report::setTrades(StrViewA symb, StringView<IStatSvc::TradeRecord> trades) {
+void Report::setTrades(StrViewA symb, double finalPos, StringView<IStatSvc::TradeRecord> trades) {
 
 	using ondra_shared::range;
 
@@ -111,7 +111,10 @@ void Report::setTrades(StrViewA symb, StringView<IStatSvc::TradeRecord> trades) 
 
 	const json::Value &info = infoMap[symb];
 	bool inverted = info["inverted"].getBool();
-	double pos = info["po"].getNumber();
+	double chng = std::accumulate(trades.begin(), trades.end(), 0.0, [](double x, const IStatSvc::TradeRecord &b){
+		return x+b.eff_size;
+	});
+	double pos = finalPos-chng;
 
 	if (!trades.empty()) {
 
@@ -240,7 +243,6 @@ void Report::setInfo(StrViewA symb, const InfoObj &infoObj) {
 			("brokerIcon", infoObj.brokerIcon)
 			("inverted", infoObj.inverted)
 			("emulated",infoObj.emulated)
-			("po", infoObj.position_offset)
 			("order", infoObj.order);
 }
 

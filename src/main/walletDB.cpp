@@ -123,6 +123,18 @@ json::Value BalanceMap::dump() const {
 	});
 }
 
+double WalletDB::adjAssets(const KeyQuery &key, double assets) const {
+	if (assets < 0) return assets;
+	auto r = query(key);
+	double total = r.otherTraders+r.thisTrader;
+	if (r.thisTrader == 0 || total == 0) {
+		return std::max(0.0,assets/(r.traders+1));
+	} else {
+		double part = r.thisTrader/total;
+		return std::max(0.0,part * assets);
+	}
+}
+
 std::vector<WalletDB::AggrItem> WalletDB::getAggregated() const {
 	if (allocTable.empty()) return {};
 	auto beg = allocTable.begin();

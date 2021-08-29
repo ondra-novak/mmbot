@@ -69,7 +69,6 @@ void MTrader_Config::loadConfig(json::Value data, bool force_dry_run) {
 	max_leverage = data["max_leverage"].getValueOrDefault(0.0);
 
 	force_spread = data["force_spread"].getValueOrDefault(0.0);
-	report_position_offset = data["report_position_offset"].getValueOrDefault(0.0);
 	report_order = data["report_order"].getValueOrDefault(0.0);
 	grant_trade_minutes = static_cast<unsigned int>(data["grant_trade_hours"].getValueOrDefault(0.0)*60);
 
@@ -219,6 +218,10 @@ void MTrader::perform(bool manually) {
 
 		if (status.brokerCurrencyBalance.has_value()) {
 			wcfg.balanceCache.lock()->put(cfg.broker, minfo.wallet_id, minfo.currency_symbol, *status.brokerCurrencyBalance);
+		}
+		if (!cfg.internal_balance && minfo.leverage == 0 && asset_balance.has_value()) {
+			wcfg.balanceCache.lock()->put(cfg.broker, minfo.wallet_id, minfo.asset_symbol, status.assetBalance);
+			wcfg.walletDB.lock()->alloc({cfg.broker, minfo.wallet_id, minfo.asset_symbol, uid}, *asset_balance);
 		}
 
 		std::string buy_order_error;
@@ -482,7 +485,7 @@ void MTrader::perform(bool manually) {
 			//report orders to UI
 			statsvc->reportOrders(orders.buy,orders.sell);
 			//report trades to UI
-			statsvc->reportTrades(trades);
+			statsvc->reportTrades(*asset_balance, trades);
 			//report price to UI
 			statsvc->reportPrice(status.curPrice);
 			//report misc
@@ -541,7 +544,7 @@ void MTrader::perform(bool manually) {
 		first_cycle = false;
 
 	} catch (std::exception &e) {
-		statsvc->reportTrades(trades);
+		statsvc->reportTrades(asset_balance.has_value()?0:*asset_balance,trades);
 		std::string error;
 		error.append(e.what());
 		statsvc->reportError(IStatSvc::ErrorObj(error.c_str()));
@@ -702,8 +705,11 @@ MTrader::Status MTrader::getMarketStatus() const {
 		res.currencyUnadjustedBalance+= wcfg.externalBalance.lock_shared()->get(cfg.broker, minfo.wallet_id, minfo.currency_symbol);
 		auto wdb = wcfg.walletDB.lock_shared();
 		res.currencyBalance = wdb->adjBalance(WalletDB::KeyQuery(cfg.broker,minfo.wallet_id,minfo.currency_symbol,uid),	res.currencyUnadjustedBalance);
+		if (minfo.leverage == 0) {
+				res.assetBalance = wdb->adjAssets(WalletDB::KeyQuery(cfg.broker,minfo.wallet_id,minfo.asset_symbol,uid),
+						wcfg.externalBalance.lock_shared()->get(cfg.broker, minfo.wallet_id, minfo.asset_symbol) + res.assetBalance);
+		}
 	}
-
 
 	res.new_fees = stock->getFees(cfg.pairsymb);
 
@@ -951,7 +957,7 @@ void MTrader::initialize() {
 								minfo.invert_price ?
 										minfo.inverted_symbol :
 										minfo.currency_symbol, brokerImg,
-						cfg.report_position_offset, cfg.report_order,
+						cfg.report_order,
 						minfo.invert_price, minfo.leverage != 0, minfo.simulator });
 		}
 		else {
@@ -964,7 +970,6 @@ void MTrader::initialize() {
 								"???",
 								"???",
 								brokerImg,
-								cfg.report_position_offset,
 								cfg.report_order,
 								false,
 								false,
@@ -1239,7 +1244,9 @@ void MTrader::reset(const ResetOptions &ropt) {
 	if (asset_balance.has_value()) {
 		assets = *asset_balance;
 	} else {
-		assets = *asset_balance = stock->getBalance(minfo.asset_symbol, cfg.pairsymb);
+		assets = *asset_balance = stock->getBalance(minfo.asset_symbol, cfg.pairsymb)
+				+ wcfg.externalBalance.lock_shared()->get(cfg.broker, minfo.wallet_id, minfo.asset_symbol);
+		assets = wcfg.walletDB.lock_shared()->adjBalance(WalletDB::KeyQuery(cfg.broker, minfo.wallet_id, minfo.asset_symbol, uid), assets);
 	}
 	double currency = stock->getBalance(minfo.currency_symbol, cfg.pairsymb);
 	currency += wcfg.externalBalance.lock_shared()->get(cfg.broker, minfo.wallet_id, minfo.currency_symbol);
@@ -1402,6 +1409,10 @@ std::optional<double> MTrader::getInternalBalance() const {
 	if (cfg.internal_balance) return asset_balance;
 	else return std::optional<double>();
 }
+std::optional<double> MTrader::getAssetBalance() const {
+	return asset_balance;
+}
+
 std::optional<double> MTrader::getInternalCurrencyBalance() const {
 	if (cfg.internal_balance) return currency_balance;
 	else return std::optional<double>();

@@ -78,6 +78,7 @@ public:
 	Allocation query(const KeyQuery &key) const;
 
 	double adjBalance(const KeyQuery &key, double balance) const;
+	double adjAssets(const KeyQuery &key, double assets) const;
 
 	void clear();
 
