@@ -21,6 +21,7 @@ IStockApi::MarketInfo EmulatedLeverageBroker::getMarketInfo(const std::string_vi
 	if (minfo.leverage) throw std::runtime_error("Can't emulate leverage on leveraged market");
 	if (emulatedLeverage<=0) throw std::runtime_error("Invalid leverage to emulate");
 	minfo.leverage = emulatedLeverage;
+	minfo.wallet_id.append("#leveraged");
 	return minfo;
 }
 

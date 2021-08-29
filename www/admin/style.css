@@ -1347,9 +1347,6 @@ table.utilization {
 	text-align: left;
 	margin: 0.1cm;
 }
-.vertical div.trader.list > *:last-child {
-	text-align: center;
-}
 
 .vertical div.trader.list img {width:  1cm;height: 1cm;vertical-align:middle;}
 .vertical div.trader.list .item div {

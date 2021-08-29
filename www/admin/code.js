@@ -167,7 +167,7 @@ App.prototype.createTraderList = function(form) {
 	})
 	items.push({
 		"image":"../res/add_icon.png",
-		"caption":"",				
+		"caption":"New trader",				
 		"id":"internal/add"
 	});
 	items.forEach(function(x) {
@@ -214,7 +214,7 @@ App.prototype.createTraderList = function(form) {
 				this.desktop.setItemValue("content", nf);
 				this.curForm = nf;
 
-			} else if (id == "add") {
+			} else if (iid == "add") {
 				this.brokerSelect().then(this.pairSelect.bind(this)).then(function(res) {
 					var broker = res[0];
 					var pair = res[1];
@@ -1119,7 +1119,9 @@ App.prototype.pairSelect = function(broker) {
 
 App.prototype.updateTopMenu = function(select) {
 	this.createTraderList(this.menu);
-	if (select) this.menu.select(select);
+	if (select) {        
+		this.menu.select("trader/"+select);
+	}
 }
 
 App.prototype.waitScreen = function(promise) {	
@@ -1487,7 +1489,7 @@ App.prototype.save = function() {
 	}.bind(this), function(e) {
 		top.showItem("saveprogress",false);
 		if (e.trader)   
-			this.menu.select(e.trader);		
+			this.menu.select("trader/"+e.trader);		
 		this.dlgbox({text:e.message},"validation_error");
 	}.bind(this));
 }
