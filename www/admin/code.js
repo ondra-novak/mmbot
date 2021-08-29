@@ -383,8 +383,8 @@ App.prototype.fillForm = function (src, trg) {
 		var ext_ass = this.ext_assets.find(function(x){
 			return x.broker == src.broker && x.wallet == pair.wallet_id && x.symbol == pair.currency_symbol;
 		});		
-		var ext_ass_bal = ext_ass.balance || 0;
-		trg._balance = pair.currency_balance+ext_ass_bal+avail.budget;
+		var ext_ass_bal = (ext_ass && ext_ass.balance) || 0;
+		trg._balance = pair.currency_balance+ext_ass_bal-avail.budget;
 		trg._assets = pair.asset_balance;
 		trg._price = invPrice(pair.price, pair.invert_price);
 		trg._leverage = data.leverage;
