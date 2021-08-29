@@ -11,6 +11,8 @@
 
 #include <shared/shared_object.h>
 #include <string_view>
+#include <unordered_map>
+#include <vector>
 
 namespace json {
 	class Value;
@@ -52,8 +54,6 @@ public:
 		bool operator()(const KeyQuery &key1, const KeyQuery &key2) const;
 	};
 
-
-
 	struct Allocation {
 		double thisTrader;
 		double otherTraders;
@@ -62,6 +62,7 @@ public:
 	};
 
 	using AllocTable = std::map<Key, double, KeyLess>;
+
 
 	///Allocate budget for given symbol
 	/**
@@ -82,11 +83,64 @@ public:
 
 	json::Value dumpJSON() const;
 
+
+	struct AggrItem {
+		std::string_view broker;
+		std::string_view wallet;
+		std::string_view symbol;
+		double val = 0;
+	};
+
+	std::vector<AggrItem> getAggregated() const;
+
+
 protected:
 	AllocTable allocTable;
 };
 
 using PWalletDB = ondra_shared::SharedObject<WalletDB>;
 
+class BalanceMap {
+public:
+
+	template<typename Z>
+	struct Key {
+		Z broker;
+		Z wallet;
+		Z symbol;
+	};
+
+
+	struct ItemCmp{
+		template<typename A, typename B>
+		std::size_t operator()(const Key<A> &a, const Key<B> &b) const {
+			if (std::string_view(a.broker) == std::string_view(b.broker)) {
+				if (std::string_view(a.wallet) == std::string_view(b.wallet)) {
+					return std::string_view(a.symbol) < std::string_view(b.symbol);
+				} else {
+					return std::string_view(a.wallet) < std::string_view(b.wallet);
+				}
+			} else {
+				return std::string_view(a.broker) == std::string_view(b.broker);
+			}
+		}
+		using is_transparent = void;
+	};
+
+
+	using Table = std::map<Key<std::string>, double, ItemCmp>;
+
+
+	double get(const std::string_view &broker, const std::string_view &wallet, const std::string_view &symbol) const;
+	void put(const std::string_view &broker, const std::string_view &wallet, const std::string_view &symbol, double val);
+	void load(json::Value map);
+	json::Value dump() const;
+
+protected:
+	Table table;
+
+};
+
+using PBalanceMap= ondra_shared::SharedObject<BalanceMap>;
 
 #endif /* SRC_MAIN_WALLETDB_H_ */

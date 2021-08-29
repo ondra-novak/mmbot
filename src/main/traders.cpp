@@ -17,8 +17,8 @@
 
 using ondra_shared::Countdown;
 using ondra_shared::logError;
-NamedMTrader::NamedMTrader(IStockSelector &sel, StoragePtr &&storage, PStatSvc statsvc, PWalletDB wdb, Config cfg, std::string &&name)
-		:MTrader(sel, std::move(storage), std::move(statsvc), wdb, cfg), ident(std::move(name)) {
+NamedMTrader::NamedMTrader(IStockSelector &sel, StoragePtr &&storage, PStatSvc statsvc, const WalletCfg &wcfg, Config cfg, std::string &&name)
+		:MTrader(sel, std::move(storage), std::move(statsvc), wcfg, cfg), ident(std::move(name)) {
 }
 
 void NamedMTrader::perform(bool manually) {
@@ -103,13 +103,15 @@ test(test)
 ,iconPath(iconPath)
 {
 	stockSelector.loadBrokers(ini, test, brk_timeout);
-	walletDB = PWalletDB::make();
+	wcfg.walletDB = PWalletDB::make();
+	wcfg.externalBalance = wcfg.externalBalance.make();
+	wcfg.balanceCache = wcfg.balanceCache.make();
 }
 
 void Traders::clear() {
 	traders.clear();
 	stockSelector.clear();
-	walletDB.lock()->clear();
+	wcfg.walletDB.lock()->clear();
 }
 
 json::Value Traders::getUtilization(std::size_t lastUpdate) const {
@@ -129,6 +131,10 @@ json::Value Traders::getUtilization(std::size_t lastUpdate) const {
 	return res;
 }
 
+void Traders::initExternalAssets(json::Value config) {
+	wcfg.externalBalance.lock()->load(config);
+}
+
 void Traders::loadIcon(MTrader &t) {
 	PStockApi api = t.getBroker();
 	const IBrokerIcon *bicon = dynamic_cast<const IBrokerIcon*>(api.get());
@@ -145,9 +151,14 @@ void Traders::addTrader(const MTrader::Config &mcfg ,ondra_shared::StrViewA n) {
 		logProgress("Started trader $1 (for $2)", n, mcfg.pairsymb);
 		if (stockSelector.checkBrokerSubaccount(mcfg.broker)) {
 			auto t = SharedObject<NamedMTrader>::make(stockSelector, sf->create(n),
-				std::make_unique<StatsSvc>(n, rpt, perfMod), walletDB, mcfg, n);
+				std::make_unique<StatsSvc>(n, rpt, perfMod), wcfg, mcfg, n);
 			auto lt = t.lock();
 			loadIcon(*lt);
+			try {
+				lt->init();
+			} catch (...) {
+				//ignore exception now
+			}
 			traders.insert(std::pair(StrViewA(lt->ident), std::move(t)));
 		} else {
 			throw std::runtime_error("Unable to load broker");

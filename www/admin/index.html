@@ -35,12 +35,13 @@
 	</label>
 
 
-<label><span>Symbol</span><span data-name="symbol" ></span></label>
-<div class="label"><span>Asset balance (position):</span><span><span data-name="balance_asset"></span> <span data-name="asset" ></span></span></div>
-<div class="label"><span>Currency balance (free/total):</span><span><span data-name="balance_currency_free"></span>&nbsp;/&nbsp;<span data-name="balance_currency"></span> <span data-name="currency" ></span></span></div>
-<div class="label"><span>Calculated position:</span><div><span data-name="hdr_position"></span> <span data-name="asset" ></span> <button data-name="sync_pos" hidden="hidden">Sync</button></div></div>
+<div class="label sepabove"><span>Symbol</span><span data-name="symbol" ></span></div>
 <div class="label"><span>Price</span><span data-name="price"></span></div>
-<div class="label"><span>Fees</span><span><span data-name="fees"></span>%</span></div>
+<div class="label sepabove"><span>Live position:</span><span><span data-name="balance_asset"></span> <span data-name="asset" ></span></span></div>
+<div class="label"><span>Live balance:</span><span><span data-name="balance_currency"></span> <span data-name="currency" ></span></span></div>
+<div class="label sepabove"><span>Calculated position:</span><div><span data-name="hdr_position"></span> <span data-name="asset" ></span> <button data-name="sync_pos" hidden="hidden">Sync</button></div></div>
+<div class="label"><span>Available balance:</span><span><span data-name="balance_currency_free"></span> <span data-name="currency" ></span></span></div>
+<div class="label sepabove"><span>Fees</span><span><span data-name="fees"></span>%</span></div>
 <div class="label" data-name="l_leverage"><span>Leverage</span><span data-name="leverage"></span></div>
 <div data-name="open_orders_sect" hidden="hidden"><table class="orders"><caption>Open orders</caption>
 <tr><th>ID</th><th>Direction</th><th>Price</th><th>Size</th></tr>
@@ -376,7 +377,6 @@ Specifies maximum allowed asset balance (or position, for short use negative val
 <div><x-checkbox data-name="dont_allocate">No budget allocation</x-checkbox></div>
 </div>
 </div>
-<label class="adv"><span>External currency balance (<span data-name="currency"></span>)<span class="tooltip">If you doesn't keep all money on the exchange, you can specify amount of money held outside of the exchange. This only affect some statistics, but not the strategy itself.</span></span><input type="number" step="any" data-name="ext_bal"></label>
 <label class="adv"><span>Emulate leverage (0=disabled)<span class="tooltip">Emulates leverage on non-leveraged market. This changes, how current ballance is reported to the strategy. It uses currency balance and value of the held assets as collateral. The value specifies, how big leverage is emulated. Note that reported collateral is divided by leverage, so don't feel, that large number can increase trading power beyong actual held balance.</span></span><input type="number" step="0.1" data-name="emul_leverage"></label>
 <label class="adv"><span>Report - position offset<span class="tooltip">Allows to sync the position on the report page with the actual state on the echange.<br>
 The position is not generally in the sync due to various issues. You need to specify a difference between the calculated position presented on the report page and the actual position on the exchhange
@@ -918,14 +918,18 @@ the same order, they are ordered by its ID - this is the default ordering. Modif
 <x-form  class="pair wallet_form sections">
 <x-section><x-section-caption>Budget allocations</x-section-caption>
 <div data-name="spinner" class="spinner inline fast"></div>
-<table>
-<tr data-name="allocs[]">
-<td><img data-name="img">&nbsp;<span data-name="broker"></span></td>
-<td data-name="wallet"></td>
-<td data-name="value"></td>
-<td data-name="symbol"></td>
-</tr>
-</table>
+<div class="table">
+<div class="hdr">
+<div>Trader</div><div>Wallet</div><div class="money"><div>Allocated</div><div>Balance</div></div>
+</div>
+<div data-name="allocs[]">
+<div><img data-name="img">&nbsp;<span data-name="broker"></span></div>
+<div data-name="wallet"></div>
+<div><div class="money"><div><span data-name="allocated"></span>&nbsp;<span data-name="symbol"></span></div>
+<div><span data-name="balance" contenteditable="true"></span>&nbsp;<span data-name="symbol"></span></div>
+</div></div>
+</div>
+</div>
 </x-section>
 <x-section data-name="wallets[]"><x-section-caption><img data-name="broker_icon">&nbsp;<span data-name="broker_name"></span></x-section-caption>
 <div class="brk_wallets">

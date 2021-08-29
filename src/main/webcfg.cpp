@@ -327,7 +327,8 @@ static Value getPairInfo(const PStockApi &api, const std::string_view &pair, con
 			"asset_balance", ab)("currency_balance", cb)(
 			"min_size", nfo.min_size)("price",last)
 			("quote_currency", quote_currency)
-			("quote_asset", quote_asset);
+			("quote_asset", quote_asset)
+			("wallet_id", nfo.wallet_id);;
 	return resp;
 
 }
@@ -795,10 +796,12 @@ void WebCfg::State::applyConfig(SharedObject<Traders>  &st) {
 		t->removeTrader(n, !data["traders"][n].defined());
 	}
 
-	t->walletDB.lock()->clear();
+	t->wcfg.walletDB.lock()->clear();
 	traderNames.clear();
 	t->stockSelector.eraseSubaccounts();
 	t->rpt.lock()->clear();
+
+	t->initExternalAssets(data["ext_assets"]);
 
 	for (Value v: data["traders"]) {
 		try {
@@ -952,7 +955,7 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req)  {
 					p = symb.toString().str();
 				}
 
-				auto walletDB = trlist.lock_shared()->walletDB;
+				auto walletDB = trlist.lock_shared()->wcfg.walletDB;
 
 
 				api->reset();
@@ -987,9 +990,6 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req)  {
 						("settings", binfo.settings)
 						("trading_enabled", binfo.trading_enabled));
 				Value pair = getPairInfo(api, p, internalBalance, internalCurrencyBalance);
-				double avail_cur = walletDB.lock_shared()->adjBalance(WalletDB::KeyQuery(
-						broker.getString(),minfo.wallet_id,minfo.currency_symbol,uid
-					),pair["currency_balance"].getNumber());
 				result.set("pair", pair);
 				result.set("available_balance", Object
 
@@ -997,7 +997,6 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req)  {
 								WalletDB::KeyQuery(
 													broker.getString(),minfo.wallet_id,minfo.asset_symbol,uid
 												),pair["asset_balance"].getNumber()))
-						("currency",avail_cur)
 						("budget",walletDB.lock_shared()->query(WalletDB::KeyQuery(
 												broker.getString(),minfo.wallet_id,minfo.currency_symbol,uid
 											)).otherTraders));
@@ -1594,36 +1593,28 @@ bool WebCfg::reqDumpWallet(simpleServer::HTTPRequest req, ondra_shared::StrViewA
 		return true;
 	}
 
-	auto wallet = trlist.lock_shared()->walletDB;
-	auto lkwallet = wallet.lock_shared();
-	json::Value jsn = lkwallet->dumpJSON();
-	Array brks;
-	trlist.lock_shared()->stockSelector.forEachStock([&](std::string_view brk, const PStockApi &){
-		brks.push_back(brk);
-	});
+	WalletCfg wcfg = trlist.lock_shared()->wcfg;
+	auto lkwallet = wcfg.walletDB.lock_shared();
+	auto lkcache = wcfg.balanceCache.lock_shared();
 
 	std::unordered_set<json::Value> activeBrokers;
 
-	auto rdc = jsn.reduce([&](std::vector<Value> &&accum, Value row){
-		if (accum.empty() || accum.back()["broker"] != row[0] || accum.back()["wallet"] != row[1] || accum.back()["symbol"] != row[2]) {
-			Object mdata;
-			mdata.set("broker", row[0]);
-			mdata.set("wallet", row[1]);
-			mdata.set("symbol", row[2]);
-			mdata.set("value", row[4]);
-			accum.push_back(mdata);
-		} else {
-			accum.back() = accum.back().replace("value", accum.back()["value"].getNumber()+row[4].getNumber());
-		}
-		activeBrokers.insert(row[0]);
-		return std::move(accum);
-	},std::vector<Value>());
-	jsn = Value(json::array, rdc.begin(), rdc.end(),[](Value x){return x;});
+	auto data = lkwallet->getAggregated();
+	json::Value allocations (json::array, data.begin(), data.end(), [&](const WalletDB::AggrItem &x) {
+		Object mdata;
+		mdata.set("broker", x.broker);
+		mdata.set("wallet", x.wallet);
+		mdata.set("symbol", x.symbol);
+		mdata.set("allocated", x.val);
+		mdata.set("balance", lkcache->get(x.broker, x.wallet, x.symbol));
+		activeBrokers.insert(json::Value(x.broker));
+		return json::Value(mdata);
+	});
 
-	jsn = Object("entries", Value(json::array, activeBrokers.begin(), activeBrokers.end(),[](Value x){
+
+	json::Value jsn = Object("entries", Value(json::array, activeBrokers.begin(), activeBrokers.end(),[](Value x){
 		return x;
-	}))
-				("allocations", jsn);
+	}))("wallet", allocations);
 	Stream stream = req.sendResponse("application/json");
 	jsn.serialize(stream);
 	return true;

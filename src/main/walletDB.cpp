@@ -89,3 +89,57 @@ json::Value WalletDB::dumpJSON() const {
 		});
 	});
 }
+
+
+double BalanceMap::get(const std::string_view &broker, const std::string_view &wallet, const std::string_view &symbol) const {
+	auto iter = table.find(Key<std::string_view>{broker, wallet, symbol});
+	if (iter == table.end()) return 0;
+	else return iter->second;
+}
+
+void BalanceMap::put(const std::string_view &broker, const std::string_view &wallet, const std::string_view &symbol, double val) {
+	table[Key<std::string>{std::string(broker),std::string(wallet),std::string(symbol)}] = val;
+}
+
+void BalanceMap::load(json::Value map) {
+	table.clear();
+	for (json::Value x: map) {
+		auto broker = x["broker"].getString();
+		auto wallet = x["wallet"].getString();
+		auto symbol = x["symbol"].getString();
+		auto val = x["balance"].getNumber();
+		put(broker, wallet, symbol, val);
+	}
+}
+
+json::Value BalanceMap::dump() const {
+	return json::Value(json::array, table.begin(), table.end(),[](const Table::value_type &x){
+		return json::Value(json::object,{
+				json::Value("broker", x.first.broker),
+				json::Value("wallet", x.first.wallet),
+				json::Value("symbol", x.first.symbol),
+				json::Value("balance", x.second)
+		});
+	});
+}
+
+std::vector<WalletDB::AggrItem> WalletDB::getAggregated() const {
+	if (allocTable.empty()) return {};
+	auto beg = allocTable.begin();
+	AggrItem itm {beg->first.broker, beg->first.wallet, beg->first.symbol, 0};
+	std::vector<AggrItem> r;
+
+	for (const auto &x: allocTable) {
+		if (x.first.broker == itm.broker && x.first.wallet == itm.wallet && x.first.symbol == itm.symbol) {
+			itm.val+=x.second;
+		} else {
+			r.push_back(itm);
+			itm.broker = x.first.broker;
+			itm.symbol = x.first.symbol;
+			itm.wallet = x.first.wallet;
+			itm.val = x.second;
+		}
+	}
+	r.push_back(itm);
+	return r;
+}

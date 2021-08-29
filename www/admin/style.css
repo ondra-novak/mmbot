@@ -1194,18 +1194,47 @@ table.utilization tr:last-child td {
 }
 
 .wallet_form {}
-.wallet_form table {
+.wallet_form div.table {
     width: 100%;
-    max-width: 15cm;
+    /* max-width: 15cm; */
     margin: auto;
+    display: block;
 }
-.wallet_form table td img {
+.wallet_form div.table>div {
+	display: flex;
+	/* align-content: center; */
+	align-items: center;
+}
+.wallet_form div.table>div>div:last-child{width: 50%;}
+.wallet_form div.table img {
 	width: 2em;
 	vertical-align: middle;
 }
-.wallet_form table td {
+.wallet_form div.table>div>div {
     text-align: left;
+    width: 25%;
 }
+
+.wallet_form div.hdr {font-weight: bold;border-bottom: 1px solid #464;margin-bottom: 0.3em;}
+.wallet_form div.money {
+    display: flex;
+    flex-wrap: wrap;
+}
+.wallet_form div.money > div{
+    flex-grow: 1;
+    width: 9em;
+    text-align: right;
+    /* overflow: hidden; */
+    /* text-overflow: ellipsis; */
+}
+.wallet_form div.money span.modified{
+	color: yellow;
+}
+
+.wallet_form div.money span:first-child:focus{
+	padding: 0 0.5em;
+}
+
 .wallet_form table td[data-name=value] {
     text-align: right;
     font-weight: bold;
@@ -1243,6 +1272,21 @@ table.utilization tr:last-child td {
 x-section-caption img {
 	width: 1em;
 	vertical-align: middle;
+}
+
+.sepabove {
+	position: relative;
+	padding-top: 3px;
+}
+.sepabove::before {
+    content: "";
+    display: block;
+    height:  1px;
+    position: absolute;
+    left: 0;
+    right: 0;
+    top:0;
+    background: linear-gradient(to right,#ffffff73,#ffffff00);
 }
 
 @media all and (max-width: 15cm) { 

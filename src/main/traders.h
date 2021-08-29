@@ -21,7 +21,7 @@ using StatsSvc = Stats2Report;
 
 class NamedMTrader: public MTrader {
 public:
-	NamedMTrader(IStockSelector &sel, StoragePtr &&storage, PStatSvc statsvc, PWalletDB wdb, Config cfg, std::string &&name);
+	NamedMTrader(IStockSelector &sel, StoragePtr &&storage, PStatSvc statsvc, const WalletCfg &wcfg, Config cfg, std::string &&name);
 	void perform(bool manually);
 	const std::string ident;
 
@@ -86,7 +86,7 @@ public:
 
 	void resetBrokers();
 	SharedObject<NamedMTrader> find(json::StrViewA id) const;
-	PWalletDB walletDB;
+	WalletCfg wcfg;
 
 
 	using Utilization = std::unordered_map<std::string, std::pair<double,std::size_t> >;
@@ -95,6 +95,8 @@ public:
 	Utilization utilization;
 
 	json::Value getUtilization(std::size_t lastUpdate) const;
+
+	void initExternalAssets(json::Value config);
 
 private:
 	void loadIcon(MTrader &t);

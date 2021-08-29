@@ -65,6 +65,7 @@ function App() {
 	this.backtest={};
 	this.curForm = null;
 	this.advanced = false;
+	this.ext_assets=[];
 }
 
 TemplateJS.View.prototype.showWithAnim = function(item, state) {	
@@ -140,7 +141,7 @@ App.prototype.createTraderList = function(form) {
 			image:this.brokerImgURL(this.traders[x].broker),
 			caption: this.traders[x].title,
 			broker: this.traders[x].broker,
-			id: this.traders[x].id,			
+			id: "trader/"+this.traders[x].id,			
 		};
 	},this);
 	items.sort(function(a,b) {
@@ -149,25 +150,25 @@ App.prototype.createTraderList = function(form) {
 	items.unshift({
 		"image":"../res/wallet.png",
 		"caption":this.strtable.wallet,				
-		"id":"$"		
+		"id":"internal/wallet"		
 	})
 
 	items.unshift({
 		"image":"../res/options.png",
 		"caption":this.strtable.options,				
-		"id":"#"
+		"id":"internal/options"
 		
 	})
 	items.unshift({
 		"image":"../res/security.png",
 		"caption":this.strtable.access_control,				
-		"id":"!"
+		"id":"internal/security"
 		
 	})
 	items.push({
 		"image":"../res/add_icon.png",
 		"caption":"",				
-		"id":"+"
+		"id":"internal/add"
 	});
 	items.forEach(function(x) {
 		x[""] = {"!click":function(id) {
@@ -182,55 +183,61 @@ App.prototype.createTraderList = function(form) {
 		form.setData({"item": update});
 		
 		var nf;
-		if (id == "!") {
-			if (this.curForm) {
-				this.curForm.save();				
-				this.curForm = null;
-			}
-			nf = this.securityForm();
-			this.desktop.setItemValue("content", nf);
-			nf.save = function() {};
+		var path = id.split("/");
+		location.replace("#"+id);
+		if (path[0]=="internal") {
+			var iid = path[1];		
+			if (iid == "security") {
+				if (this.curForm) {
+					this.curForm.save();				
+					this.curForm = null;
+				}
+				nf = this.securityForm();
+				this.desktop.setItemValue("content", nf);
+				nf.save = function() {};
 
-		} else if (id == '#') {
-			if (this.curForm) {
-				this.curForm.save();				
-				this.curForm = null;
+			} else if (iid == 'options') {
+				if (this.curForm) {
+					this.curForm.save();				
+					this.curForm = null;
+				}
+				nf = this.optionsForm();
+				this.desktop.setItemValue("content", nf);
+				this.curForm = nf;
+
+			} else if (iid == 'wallet') {
+				if (this.curForm) {
+					this.curForm.save();				
+					this.curForm = null;
+				}
+				nf = this.walletForm();
+				this.desktop.setItemValue("content", nf);
+				this.curForm = nf;
+
+			} else if (id == "add") {
+				this.brokerSelect().then(this.pairSelect.bind(this)).then(function(res) {
+					var broker = res[0];
+					var pair = res[1];
+					var name = res[2];				
+					if (!this.traders[name]) this.traders[name] = {};
+					var t = this.traders[name];
+					t.broker = broker;
+					t.pair_symbol = pair;
+					t.id = name;
+					t.enabled = true;
+					t.dry_run = false;
+					if (!t.title) t.title = pair;
+					this.updateTopMenu(name);
+				}.bind(this))
 			}
-			nf = this.optionsForm();
-			this.desktop.setItemValue("content", nf);
-			this.curForm = nf;
-			
-		} else if (id == '$') {
-			if (this.curForm) {
-				this.curForm.save();				
-				this.curForm = null;
-			}
-			nf = this.walletForm();
-			this.desktop.setItemValue("content", nf);
-			this.curForm = nf;
-			
-		} else if (id == "+") {
-			this.brokerSelect().then(this.pairSelect.bind(this)).then(function(res) {
-				var broker = res[0];
-				var pair = res[1];
-				var name = res[2];				
-				if (!this.traders[name]) this.traders[name] = {};
-				var t = this.traders[name];
-				t.broker = broker;
-				t.pair_symbol = pair;
-				t.id = name;
-				t.enabled = true;
-				t.dry_run = false;
-				if (!t.title) t.title = pair;
-				this.updateTopMenu(name);
-			}.bind(this))
-		} else {
+		} else if (path[0] == "trader") {
+			var iid = path[1];
 			if (this.curForm) {
 				this.curForm.save();				
 				this.curForm = null;
 			}
 
-			nf = this.openTraderForm(id);			
+			nf = this.openTraderForm(iid);			
 
 			this.desktop.setItemValue("content", TemplateJS.View.fromTemplate("main_form_wait"));
 			
@@ -238,10 +245,10 @@ App.prototype.createTraderList = function(form) {
 				this.desktop.setItemValue("content", nf);
 				this.curForm = nf;
 				this.curForm.save = function() {
-					this.traders[id] = this.saveForm(nf, this.traders[id]);
+					this.traders[iid] = this.saveForm(nf, this.traders[iid]);
 					this.updateTopMenu();
 				}.bind(this);
-				this.curTrader = this.traders[id];
+				this.curTrader = this.traders[iid];
 			}.bind(this));
 		}
 	}.bind(this);
@@ -253,6 +260,7 @@ App.prototype.processConfig = function(x) {
 	this.config = x;
 	this.users = x["users"] || [];
 	this.traders = x["traders"] || {}
+	this.ext_assets=x["ext_assets"] || []
 	for (var id in this.traders) this.traders[id].id = id;
 	return x;	
 }
@@ -276,7 +284,7 @@ App.prototype.traderURL = function(trader) {
 App.prototype.traderPairURL = function(trader, pair) {
 	return "api/traders/"+encodeURIComponent(trader)+"/broker/pairs/" + encodeURIComponent(pair);	
 }
-App.reload_trader_header=function() {}
+App.prototype.reload_trader_header=function() {}
 
 function defval(v,w) {
 	if (v === undefined) return w;
@@ -369,15 +377,20 @@ App.prototype.fillForm = function (src, trg) {
 		data.currency = pair.currency_symbol;
 		data.balance_asset= adjNum(invSize(pair.asset_balance,pair.invert_price));		
 		data.balance_currency = adjNum(pair.currency_balance);
-		data.balance_currency_free = adjNum(pair.currency_balance-avail.budget);
 		data.price= adjNum(invPrice(pair.price,pair.invert_price));
 		data.fees =adjNum(pair.fees*100,4);
 		data.leverage=pair.leverage?pair.leverage+"x":"n/a";
-		trg._balance = pair.currency_balance;
+		var ext_ass = this.ext_assets.find(function(x){
+			return x.broker == src.broker && x.wallet == pair.wallet_id && x.symbol == pair.currency_symbol;
+		});		
+		var ext_ass_bal = ext_ass.balance || 0;
+		trg._balance = pair.currency_balance+ext_ass_bal+avail.budget;
 		trg._assets = pair.asset_balance;
 		trg._price = invPrice(pair.price, pair.invert_price);
 		trg._leverage = data.leverage;
 		trg._invprice = pair.invert_price;
+
+		data.balance_currency_free = adjNum(trg._balance);
 
 		var mp = orders?orders.map(function(z) {
 			return {
@@ -458,7 +471,6 @@ App.prototype.fillForm = function (src, trg) {
 					price:pair.price,
 					assets:avail.asset,
 					currency:avail.currency,
-					extra_balance:data.ext_bal,
 					leverage:pair.leverage,
 					inverted: pair.invert_price,
 					trader:src.id
@@ -491,7 +503,7 @@ App.prototype.fillForm = function (src, trg) {
 		
 		if (first_fetch) {
 			["strategy","external_assets","gs_external_assets", "hp_trend_factor","hp_allowshort","hp_power", "hp_recalc", "hp_asym","hp_powadj", 
-			"hp_extbal", "hp_reduction","hp_dynred","sh_curv","ext_bal","gamma_exp","pincome_exp",
+			"hp_extbal", "hp_reduction","hp_dynred","sh_curv","gamma_exp","pincome_exp",
 			"gamma_trend","gamma_fn",
 			"shg_w","shg_p","shg_lp"
 			]
@@ -708,7 +720,6 @@ App.prototype.fillForm = function (src, trg) {
 	data.zigzag = filledval(src.zigzag,false);
 	data.max_leverage = filledval(src.max_leverage,3);
 	data.reduce_on_leverage = filledval(src.reduce_on_leverage, false);
-	data.ext_bal = filledval(src.ext_bal,0);
 	data.adj_timeout = filledval(src.adj_timeout,60);
 	data.emul_leverage = filledval(src.emulate_leveraged,0);
 	
@@ -926,7 +937,6 @@ App.prototype.saveForm = function(form, src) {
 	if (data.spread_mode == "fixed") {
 		trader.force_spread = Math.log(data.force_spread/100+1);
 	}
-	trader.ext_bal = data.ext_bal;
 	trader.emulate_leveraged = data.emul_leverage;
 	trader.adj_timeout = data.adj_timeout;
 	trader.reduce_on_leverage = data.reduce_on_leverage;
@@ -963,6 +973,10 @@ App.prototype.init = function() {
 		this.menu =  menu;
 		this.desktop.setItemValue("menu", menu);
 		this.stopped = {};
+		var h = location.hash;
+		if (h.startsWith("#")) {
+			menu.select(h.substr(1));
+		}
 		
 		
 	}.bind(this));
@@ -1439,6 +1453,9 @@ App.prototype.save = function() {
 	top.showItem("saveok",false);
 	this.config.users = this.users;
 	this.config.traders = this.traders;
+	this.config.ext_assets = this.ext_assets.filter(function(x){
+		return x.balance;
+	});
 	this.validate(this.config).then(function(config) {		
 		fetch_json("api/config",{
 			method: "PUT",
@@ -2387,13 +2404,71 @@ App.prototype.walletForm = function() {
 	var form = TemplateJS.View.fromTemplate("wallet_form");
 	var wallets = [];	
 	var rfr = -1;
+	var ext_assets = this.ext_assets;
+	function format(x) {
+	    var r = x.toFixed(6);
+	    return r;
+	}
 	function update() {			
 		var data = fetch_json("api/wallet").then(function(data) {
-			var allocs = data.allocations.map(function(x) {
-				x.value = x.value.toFixed(8);
-				x.img="api/brokers/"+encodeURIComponent(x.broker)+"/icon.png";
-				return x;
-			});
+			var allocs = data.wallet.map(function(x) {
+				var bal = x.balance;
+				var out = x;
+				var balstr = format(bal);
+				var baltot;
+				var ea = ext_assets.find(function(y){
+					return y.broker == x.broker && y.wallet == x.wallet && y.symbol == x.symbol; 
+				});
+				out.allocated = x.allocated.toFixed(6);
+				if (ea && ea.balance) {
+					baltot = x.balance+ea.balance;
+					out.balance = {value: format(x.balance+ea.balance),
+					             title: balstr,
+					             classList:{modified:true},
+					            };
+			    } else {
+			    	baltot = x.balance;
+					out.balance = {
+						value: format(baltot)
+					}
+				}		
+				out.balance["!focus"] = function() {
+					this.textContent = baltot;
+					setTimeout(function() {document.execCommand('selectAll',false,null);},1);
+				}
+				out.balance["!blur"] = function() {
+					var txt = this.textContent;
+					var el = document.createElement("input");
+					el.setAttribute("type","number");
+					el.value = txt;					
+                    if (isNaN(el.valueAsNumber) || el.valueAsNumber<=0){
+                         this.textContent = balstr;
+                         this.classList.remove("modified");
+                         if (ea) ea.balance = 0;
+                         baltot = bal;
+                    } else {
+                    	baltot = el.valueAsNumber;
+                    	var diff =  baltot - bal;
+                    	this.textContent = format(el.valueAsNumber);
+                    	if (ea) {
+                    		ea.balance = diff;                    		
+                    	} else {
+                    		this.classList.add("modified");
+                    		ea = {broker: x.broker, wallet: x.wallet, symbol: x.symbol, balance: diff};
+                    		ext_assets.push(ea);                    		
+                    	}
+                    }
+				};
+				out.balance["!keydown"] = function(ev) {
+					if (ev.code == "Enter") {
+						ev.preventDefault();
+						ev.stopPropagation();
+						this.blur();
+					}
+				}
+				out.img="api/brokers/"+encodeURIComponent(x.broker)+"/icon.png";
+				return out;
+			}.bind(this));
 			var brokers = data.entries;
 			var form_data = {allocs:allocs};
 			var wt = brokers.map(function(brk) {	
@@ -2411,7 +2486,7 @@ App.prototype.walletForm = function() {
 						for (var y in wdata[x]) {
 							assts.push({
 								symbol:y,
-								value: parseFloat(wdata[x][y]).toFixed(8)
+								value: format(parseFloat(wdata[x][y])),
 							});
 						}
 						wlts.push({

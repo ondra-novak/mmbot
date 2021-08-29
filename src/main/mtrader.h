@@ -52,7 +52,6 @@ struct MTrader_Config {
 	double report_position_offset;
 	double report_order;
 	double max_leverage;
-	double external_balance;
 	double emulate_leveraged;
 	unsigned int grant_trade_minutes;
 
@@ -76,6 +75,11 @@ struct MTrader_Config {
 
 };
 
+struct WalletCfg {
+	PWalletDB walletDB;
+	PBalanceMap balanceCache;
+	PBalanceMap externalBalance;
+};
 
 class MTrader {
 public:
@@ -128,7 +132,7 @@ public:
 	MTrader(IStockSelector &stock_selector,
 			StoragePtr &&storage,
 			PStatSvc &&statsvc,
-			PWalletDB walletDB,
+			const WalletCfg &walletCfg,
 			Config config);
 
 
@@ -158,6 +162,7 @@ public:
 		IStockApi::TradesSync new_trades;
 		ChartItem chartItem;
 		std::size_t enable_alerts_after_minutes;
+		std::optional<double> brokerCurrencyBalance;
 	};
 
 	Status getMarketStatus() const;
@@ -260,7 +265,7 @@ protected:
 	IStockApi::MarketInfo minfo;
 	StoragePtr storage;
 	PStatSvc statsvc;
-	PWalletDB walletDB;
+	WalletCfg wcfg;
 	Strategy strategy;
 	DynMultControl dynmult;
 	bool need_load = true;
