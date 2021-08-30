@@ -1258,7 +1258,7 @@ void MTrader::reset(const ResetOptions &ropt) {
 	if (position_valid && !trades.empty()) {
 		assets = position;
 	} else {
-		position = assets = status.assetBalance;
+		position = assets = wcfg.walletDB.lock_shared()->adjBalance(getWalletAssetKey(), status.assetUnadjustedBalance);
 	}
 	position_valid = true;
 	double currency = status.currencyUnadjustedBalance;
