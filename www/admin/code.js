@@ -365,6 +365,7 @@ App.prototype.fillForm = function (src, trg) {
 		var broker = state.broker;
 		var avail = state.available_balance;
 		var pair = state.pair;
+		var ext_ass = state.ext_ass;
 		var orders = state.orders;
 		this.fillFormCache[src.id] = state;
 
@@ -380,13 +381,12 @@ App.prototype.fillForm = function (src, trg) {
 		data.price= adjNum(invPrice(pair.price,pair.invert_price));
 		data.fees =adjNum(pair.fees*100,4);
 		data.leverage=pair.leverage?pair.leverage+"x":"n/a";
-		data.hdr_position = adjNum(invSize(avail.asset,pair.invert_price));
-		var ext_ass = this.ext_assets.find(function(x){
-			return x.broker == src.broker && x.wallet == pair.wallet_id && x.symbol == pair.currency_symbol;
-		});		
-		var ext_ass_bal = (ext_ass && ext_ass.balance) || 0;
-		trg._balance = pair.currency_balance+ext_ass_bal-avail.budget;
-		trg._assets = pair.asset_balance;
+		data.type_spot={".hidden":pair.leverage != 0};
+		data.type_leveraged={".hidden":pair.leverage == 0};
+		data.type_inverted={".hidden":!pair.invert_price};
+		data.hdr_position = adjNum(invSize(state.position,pair.invert_price));
+		trg._balance = pair.currency_balance+ext_ass.currency-avail.budget;
+		trg._assets = state.position;
 		trg._price = invPrice(pair.price, pair.invert_price);
 		trg._leverage = data.leverage;
 		trg._invprice = pair.invert_price;
@@ -455,8 +455,8 @@ App.prototype.fillForm = function (src, trg) {
 			var req = {
 					strategy:strategy,
 					price:pair.price,
-					assets:avail.asset,
-					currency:avail.currency,
+					assets:state.position,
+					currency:trg._balance,
 					leverage:pair.leverage,
 					inverted: pair.invert_price,
 					trader:src.id
@@ -538,7 +538,7 @@ App.prototype.fillForm = function (src, trg) {
 	data.cstep = 0;
 	data.acum_factor = 0;
 	data.external_assets = 0;
-	data.adj_timeout=60
+	data.adj_timeout=5;
 	data.kv_valinc = 0;
 	data.kv_halfhalf=false;
 	data.st_power={"value":1.7};
@@ -2383,6 +2383,39 @@ App.prototype.walletForm = function() {
 	var wallets = [];	
 	var rfr = -1;
 	var ext_assets = this.ext_assets;
+	var incntr = document.createElement("input");	
+	incntr.setAttribute("type","number");
+	incntr.setAttribute("step","none");
+	incntr.setAttribute("class","editval");
+	var incntr_rec={};
+	incntr.addEventListener("blur", function(){
+		if (!incntr_rec.canceled) {			
+			var flt = function(x) {return x.broker == incntr_rec.broker && x.wallet == incntr_rec.wallet && x.symbol == incntr_rec.symbol};
+			var val = incntr.valueAsNumber;
+			if (isNaN(val) || incntr_rec.balance == val) {
+				this.ext_assets = ext_assets = ext_assets.filter(function(z){return !flt(z);});
+			} else {
+				var diff = val - incntr_rec.balance;
+				var ea = ext_assets.find(flt);
+				if (ea) ea.balance = diff;
+				else {
+					var v = Object.assign({},incntr_rec);
+					v.balance = diff;
+					ext_assets.push(v);
+				}
+			}
+		}
+		update();
+		incntr.parentNode.removeChild(incntr);
+	}.bind(this));
+	incntr.addEventListener("keydown",function(ev){
+		if (ev.code == "Enter" || ev.code == "Escape") {
+			ev.preventDefault();
+			ev.stopPropagation();
+			if (ev.code == "Escape") incntr_rec.canceled = true;
+			incntr.blur();
+		}
+	}.bind(this));
 	function format(x) {
 	    var r = x.toFixed(6);
 	    return r;
@@ -2391,59 +2424,40 @@ App.prototype.walletForm = function() {
 		var data = fetch_json("api/wallet").then(function(data) {
 			var allocs = data.wallet.map(function(x) {
 				var bal = x.balance;
-				var out = x;
+				var out = Object.assign({},x);
 				var balstr = format(bal);
 				var baltot;
 				var ea = ext_assets.find(function(y){
 					return y.broker == x.broker && y.wallet == x.wallet && y.symbol == x.symbol; 
 				});
 				out.allocated = x.allocated.toFixed(6);
+				var mod;
 				if (ea && ea.balance) {
 					baltot = x.balance+ea.balance;
-					out.balance = {value: format(x.balance+ea.balance),
-					             title: balstr,
-					             classList:{modified:true},
-					            };
+					mod = true;
 			    } else {
+			    	mod = false;
 			    	baltot = x.balance;
 					out.balance = {
 						value: format(baltot)
 					}
-				}		
-				out.balance["!focus"] = function() {
-					this.textContent = baltot;
-					setTimeout(function() {document.execCommand('selectAll',false,null);},1);
-				}
-				out.balance["!blur"] = function() {
-					var txt = this.textContent;
-					var el = document.createElement("input");
-					el.setAttribute("type","number");
-					el.value = txt;					
-                    if (isNaN(el.valueAsNumber) || el.valueAsNumber<=0){
-                         this.textContent = balstr;
-                         this.classList.remove("modified");
-                         if (ea) ea.balance = 0;
-                         baltot = bal;
-                    } else {
-                    	baltot = el.valueAsNumber;
-                    	var diff =  baltot - bal;
-                    	this.textContent = format(el.valueAsNumber);
-                    	if (ea) {
-                    		ea.balance = diff;                    		
-                    	} else {
-                    		this.classList.add("modified");
-                    		ea = {broker: x.broker, wallet: x.wallet, symbol: x.symbol, balance: diff};
-                    		ext_assets.push(ea);                    		
-                    	}
-                    }
-				};
-				out.balance["!keydown"] = function(ev) {
-					if (ev.code == "Enter") {
-						ev.preventDefault();
-						ev.stopPropagation();
-						this.blur();
+				}						
+				out.balance = {value: format(baltot),
+							  title: balstr,
+							  classList:{modified:mod}
+							};
+				out.editval={"!click": function() {
+					incntr_rec={
+						broker:x.broker,
+						wallet:x.wallet,
+						symbol:x.symbol,
+						balance:x.balance,						
 					}
-				}
+					this.parentNode.appendChild(incntr);
+					incntr.value = baltot;
+					incntr.focus();
+					incntr.select();
+				}};
 				out.img="api/brokers/"+encodeURIComponent(x.broker)+"/icon.png";
 				return out;
 			}.bind(this));

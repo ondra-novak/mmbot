@@ -111,7 +111,7 @@ test(test)
 void Traders::clear() {
 	traders.clear();
 	stockSelector.clear();
-	wcfg.walletDB.lock()->clear();
+	wcfg.walletDB = wcfg.walletDB.make();
 }
 
 json::Value Traders::getUtilization(std::size_t lastUpdate) const {

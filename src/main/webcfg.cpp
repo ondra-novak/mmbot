@@ -956,6 +956,7 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req)  {
 				}
 
 				auto walletDB = trlist.lock_shared()->wcfg.walletDB;
+				auto extBal = trlist.lock_shared()->wcfg.externalBalance;
 
 
 				api->reset();
@@ -989,13 +990,18 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req)  {
 				result.set("pair", pair);
 				result.set("available_balance", Object
 
-						("asset",walletDB.lock_shared()->adjBalance(
+						("asset",walletDB.lock_shared()->adjAssets(
 								WalletDB::KeyQuery(
 													broker.getString(),minfo.wallet_id,minfo.asset_symbol,uid
 												),pair["asset_balance"].getNumber()))
 						("budget",walletDB.lock_shared()->query(WalletDB::KeyQuery(
 												broker.getString(),minfo.wallet_id,minfo.currency_symbol,uid
 											)).otherTraders));
+				auto extBalL = extBal.lock_shared();
+				result.set("ext_ass", Object
+						("currency", extBalL->get(broker.getString(), minfo.wallet_id, minfo.currency_symbol))
+						("assets", extBalL->get(broker.getString(), minfo.wallet_id, minfo.asset_symbol)));
+
 				result.set("orders", getOpenOrders(api, p));
 				result.set("strategy", strategy);
 				result.set("position", position);

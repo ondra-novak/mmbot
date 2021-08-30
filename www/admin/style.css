@@ -101,6 +101,9 @@ x-form  label > *, x-form  div.label > * {
 	width: 50%;
 	box-sizing: border-box;
 }
+x-form  div.label >  span:nth-child(2) > span:first-child {
+	font-weight:bold;
+}
 
 x-form div.label label > *{
 	width: unset;
@@ -110,7 +113,7 @@ x-form img.inline_img {
 	height: 2em;
 	vertical-align: middle;
 }
-x-form input[type=number], x-form input.number {
+b {
 	text-align:center;
 }
 x-section {
@@ -1220,12 +1223,16 @@ table.utilization tr:last-child td {
     display: flex;
     flex-wrap: wrap;
 }
+.wallet_form div.editanch {
+	position:relative;
+	cursor: pointer;
+}
+.wallet_form input.editval {position: absolute;/* left: 0; */right: 0;top: -0.1em;bottom: -0.1em;box-sizing: border-box;width: 90%;display: block;text-align: right;}
 .wallet_form div.money > div{
     flex-grow: 1;
-    width: 9em;
+    flex-basis: 9em;
     text-align: right;
-    /* overflow: hidden; */
-    /* text-overflow: ellipsis; */
+    position: relative;
 }
 .wallet_form div.money span.modified{
 	color: yellow;

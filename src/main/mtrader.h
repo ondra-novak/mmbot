@@ -153,14 +153,27 @@ public:
 		IStockApi::Ticker ticker;
 		double curPrice;
 		double curStep;
+		///asset balance allocated for this trader (including external assets)
 		double assetBalance;
+		///total asset balance available for all traders (including external assets)
+		double assetUnadjustedBalance;
+		///available balance on exchange (external assets not counted) for this trader
+		double assetAvailBalance;
+		///current balance allocated for this trader (including external assets)
 		double currencyBalance;
+		///current balance available for all traders (including external assets)
 		double currencyUnadjustedBalance;
+		///available balance on exchange (external assets not counted) for this trader
+		double currencyAvailBalance;
+
 		double new_fees;
 		double spreadCenter;
 		IStockApi::TradesSync new_trades;
 		ChartItem chartItem;
 		std::size_t enable_alerts_after_minutes;
+		///asset balance reported by the broker - not defined for internal balance = on
+		std::optional<double> brokerAssetBalance;
+		///currency balance reported by the broker - not defined for internal balance = on
 		std::optional<double> brokerCurrencyBalance;
 	};
 
@@ -287,6 +300,9 @@ protected:
 	std::vector<ChartItem> chart;
 	TradeHistory trades;
 
+	double position = 0;
+	bool position_valid = false;
+
 	std::optional<double> asset_balance;
 	std::optional<double> currency_balance;
 
@@ -326,7 +342,8 @@ protected:
 
 	bool checkLeverage(const Order &order, double &maxSize) const;
 
-	WalletDB::Key getWalletKey() const;
+	WalletDB::Key getWalletBalanceKey() const;
+	WalletDB::Key getWalletAssetKey() const;
 private:
 	template<typename Iter>
 	static SpreadCalcResult stCalcSpread(Iter beg, Iter end, unsigned int input_sma, unsigned int input_stdev);

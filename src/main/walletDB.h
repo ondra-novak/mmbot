@@ -122,7 +122,7 @@ public:
 					return std::string_view(a.wallet) < std::string_view(b.wallet);
 				}
 			} else {
-				return std::string_view(a.broker) == std::string_view(b.broker);
+				return std::string_view(a.broker) < std::string_view(b.broker);
 			}
 		}
 		using is_transparent = void;

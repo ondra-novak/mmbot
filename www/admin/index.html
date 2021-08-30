@@ -42,7 +42,12 @@
 <div class="label sepabove"><span>Calculated position:</span><span><span data-name="hdr_position"></span> <span data-name="asset" ></span></span></div>
 <div class="label"><span>Available balance:</span><span><span data-name="balance_currency_free"></span> <span data-name="currency" ></span></span></div>
 <div class="label sepabove"><span>Fees</span><span><span data-name="fees"></span>%</span></div>
-<div class="label" data-name="l_leverage"><span>Leverage</span><span data-name="leverage"></span></div>
+<div class="label"><span>Market type:</span><span>
+	<span data-name="type_leveraged" hidden="hidden">Leveraged: <span data-name="leverage"></span></span>
+	<span data-name="type_spot" hidden="hidden">Exchange</span>
+	<span data-name="type_inverted" hidden="hidden">Inverted</span>
+	</span>
+</div>
 <div data-name="open_orders_sect" hidden="hidden"><table class="orders"><caption>Open orders</caption>
 <tr><th>ID</th><th>Direction</th><th>Price</th><th>Size</th></tr>
 <tr data-name="orders[]"><td data-name="id">123456</td><td data-name="dir">buy</td><td data-name="price">123456</td><td data-name="size">123456</td><td data-name="action"></td></tr>
@@ -381,7 +386,7 @@ Specifies maximum allowed asset balance (or position, for short use negative val
 <label class="adv"><span>Ordering (position in the report)<span class="tooltip">Specifies order in report page. The traders are ordered by this ascending number. If there are two traders with
 the same order, they are ordered by its ID - this is the default ordering. Modifying this number you can change the default ordering.
 </span></span><input type="number" step="any" data-name="report_order"></label>
-<label class="adv"><span>ADJ trade timeout [min] (0=disabled)<span class="tooltip">Specifies timeout after which a fake (ADJ) trade is put to trade history if there is a difference between calculated position and actual position reported by the broker. This allows to detect deposits and withdraws and report them as a trade, however, on some markets, trading data may be delayed, which causes puting wrong ADJ trades before the updated list of trades is being populated from the market. The value is in minutes, default value is set to 60 = aprx 1 hour. If you have experienced such wrong ADJ trades, you can increase the timeout or disable it by setting this option to 0. Note: The timer is reset after each trade, so setting a large value can cause, that ADJ trade also never appear.</span></span><input type="number" step="any" data-name="adj_timeout"></label>
+<label class="adv"><span>Wait for trade confirmation [min]<span class="tooltip">Specifies timeout after which a fake (ADJ) trade is put to trade history if there is a difference between calculated position and actual position reported by the broker. This allows to detect deposits and withdraws and report them as a trade, however, on some markets, trading data may be delayed, which causes puting wrong ADJ trades before the updated list of trades is being populated from the market. The value is in minutes, default value is set to 5min (which is also minimal value). If you have experienced such wrong ADJ trades, you can increase the timeout</span></span><input type="number" step="any" data-name="adj_timeout"></label>
 </x-section>
 <div></div>
 </x-form>
@@ -923,7 +928,7 @@ the same order, they are ordered by its ID - this is the default ordering. Modif
 <div><img data-name="img">&nbsp;<span data-name="broker"></span></div>
 <div data-name="wallet"></div>
 <div><div class="money"><div><span data-name="allocated"></span>&nbsp;<span data-name="symbol"></span></div>
-<div><span data-name="balance" contenteditable="true"></span>&nbsp;<span data-name="symbol"></span></div>
+<div><div class="editanch" data-name="editval"><span data-name="balance"></span>&nbsp;<span data-name="symbol"></span></div></div>
 </div></div>
 </div>
 </div>

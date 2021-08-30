@@ -50,7 +50,7 @@ IStrategy::OrderData Strategy_Gamma::getNewOrder(
 	if (dir < 0 && dffz == 0 && newPosz == 0) {
 		return {new_price,0,Alert::forced};
 	}
-	return {0,dffz};
+	return {0,dff};
 }
 
 double Strategy_Gamma::calculateCurPosition() const {

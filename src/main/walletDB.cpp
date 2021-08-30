@@ -63,7 +63,7 @@ double WalletDB::adjBalance(const KeyQuery &key, double balance) const {
 	auto r = query(key);
 	double total = r.otherTraders+r.thisTrader;
 	if (balance<total) {
-		if (r.thisTrader == 0 || total == 0) {
+		if (total == 0 || (r.thisTrader == 0 && std::abs(std::log(balance/total))<1e-20)) {
 			return std::max(0.0,balance/(r.traders+1));
 		} else {
 			double part = r.thisTrader/total;
@@ -127,7 +127,7 @@ double WalletDB::adjAssets(const KeyQuery &key, double assets) const {
 	if (assets < 0) return assets;
 	auto r = query(key);
 	double total = r.otherTraders+r.thisTrader;
-	if (r.thisTrader == 0 || total == 0) {
+	if (total == 0) {
 		return std::max(0.0,assets/(r.traders+1));
 	} else {
 		double part = r.thisTrader/total;
