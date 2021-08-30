@@ -970,7 +970,7 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req)  {
 					Strategy stratobj=trl->getStrategy();
 					strategy = stratobj.dumpStatePretty(trl->getMarketInfo());
 					auto trades = trl->getTrades();
-					auto assBal = trl->getAssetBalance();
+					auto assBal = trl->getPosition();
 					if (assBal.has_value()) position =*assBal;
 					tradeCnt = trades.size();
 				}

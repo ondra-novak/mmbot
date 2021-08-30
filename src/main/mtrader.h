@@ -262,7 +262,7 @@ public:
 
 	std::optional<double> getInternalBalance() const;
 	std::optional<double> getInternalCurrencyBalance() const;
-	std::optional<double> getAssetBalance() const;
+	std::optional<double> getPosition() const;
 
 
 	void saveState();

@@ -26,6 +26,7 @@
 #include "strategy_gamma.h"
 #include "strategy_hedge.h"
 #include "strategy_sinh_gen.h"
+#include "strategy_leveraged_base.tcc"
 
 
 

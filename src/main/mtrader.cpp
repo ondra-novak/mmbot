@@ -1420,7 +1420,7 @@ std::optional<double> MTrader::getInternalBalance() const {
 	if (cfg.internal_balance) return position;
 	else return std::optional<double>();
 }
-std::optional<double> MTrader::getAssetBalance() const {
+std::optional<double> MTrader::getPosition() const {
 	return position;
 }
 
