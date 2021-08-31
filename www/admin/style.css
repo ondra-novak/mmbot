@@ -113,7 +113,7 @@ x-form img.inline_img {
 	height: 2em;
 	vertical-align: middle;
 }
-b {
+x-form input[type=number], x-form input.number {
 	text-align:center;
 }
 x-section {
