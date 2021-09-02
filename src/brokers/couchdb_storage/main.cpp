@@ -364,7 +364,7 @@ inline json::Value DBConn::get_report(bool rep) {
 		build_rows(month_data,[](std::uint64_t ln){
 			struct tm t = {};
 			t.tm_year = ln/12;
-			t.tm_mon = ln%12;
+			t.tm_mon = (ln%12)+1;
 			return timegm(&t);
 		});
 		build_rows(day_data,[](std::uint64_t ln){

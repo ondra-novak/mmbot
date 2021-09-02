@@ -6,6 +6,7 @@
 #include <iostream>
 #include <sstream>
 #include <imtjson/parser.h>
+#include <imtjson/serializer.h>
 
 #include "../server/src/simpleServer/abstractStream.h"
 #include "../server/src/simpleServer/address.h"
@@ -39,6 +40,7 @@
 #include "stats2report.h"
 #include "traders.h"
 #include "../../version.h"
+#include "../imtjson/src/imtjson/operations.h"
 
 using ondra_shared::StdLogFile;
 using ondra_shared::StrViewA;
@@ -162,6 +164,74 @@ void trader_cycle(PReport rpt, PPerfModule perfmod, Scheduler sch, int pos, std:
 		};
 	}
 }
+
+class StreamState: public RefCntObj {
+public:
+	StreamState(simpleServer::HTTPRequest req, simpleServer::Stream s);
+
+	bool sendAsync(json::Value v);
+protected:
+	simpleServer::HTTPRequest req;
+	simpleServer::Stream s;
+	bool ok;
+	bool ip;
+	std::string curBuff;
+	std::string nextBuff;
+	std::recursive_mutex lock;
+	ondra_shared::linear_map<std::size_t, std::size_t> hcache;
+
+	void sendBuffer();
+};
+
+StreamState::StreamState(simpleServer::HTTPRequest req, simpleServer::Stream s):req(req),s(s),ok(true),ip(false) {}
+
+bool StreamState::sendAsync(json::Value v) {
+	std::lock_guard _(lock);
+	if (!ok) return false;
+	json::Value ty = v.filter([](const json::Value &x){return x.getKey() != "data";});
+	if (!ty.empty()) {
+		std::hash<json::Value> h;
+		std::size_t hk = h(ty);
+		std::size_t hv = h(v);
+		std::size_t &z = hcache[hk];
+		if (z == hv) return true;
+		z = hv;
+	}
+	std::string *t;
+	if (ip) t = &nextBuff; else t = &curBuff;
+	t->append("data: ");
+	v.serialize([&](char c){t->push_back(c);});
+	t->append("\r\n\r\n");
+	if (!ip) {
+		sendBuffer();
+	}
+	return true;
+}
+void StreamState::sendBuffer() {
+	ip = true;
+	s.writeAsync(ondra_shared::BinaryView(ondra_shared::StrViewA(curBuff)),
+			[me=RefCntPtr<StreamState>(this)](simpleServer::AsyncState st, ondra_shared::BinaryView) {
+		if (st != simpleServer::asyncOK || !me->s.flush()) {
+			std::lock_guard _(me->lock);
+			me->ip = false;
+			me->ok = false;
+		} else {
+			std::lock_guard _(me->lock);
+			me->ip = false;
+			me->curBuff.clear();
+			if (st == simpleServer::asyncOK) {
+				if (!me->nextBuff.empty()) {
+					std::swap(me->curBuff,me->nextBuff);
+					me->sendBuffer();
+				}
+			} else {
+				me->ok = false;
+			}
+		}
+	});
+}
+
+
 
 
 int main(int argc, char **argv) {
@@ -334,6 +404,21 @@ int main(int argc, char **argv) {
 									return AuthMapper::setCookieHandler(req);
 								}
 							});
+							paths.push_back({
+								"/data",AuthMapper(name,aul,jwt, true) >>= [&](simpleServer::HTTPRequest req, const ondra_shared::StrViewA &) mutable {
+									simpleServer::Stream s = req.sendResponse(simpleServer::HTTPResponse(200)
+											.contentType("text/event-stream")
+											.disableCache()
+											("Connection","close")
+											("X-Accel-Buffering","no"));
+									s.flush();
+									rpt.lock()->addStream([state = RefCntPtr<StreamState>(new StreamState(req, s))](const json::Value &v)mutable{
+										return state->sendAsync(v);
+									});
+
+									return true;
+								}
+							});
 							(*srv)  >>=  (simpleServer::AutoHostMappingHandler() >> simpleServer::HttpStaticPathMapperHandler(paths));
 
 						}
@@ -385,6 +470,9 @@ int main(int argc, char **argv) {
 
 
 							trader_cycle(rpt, perfmod, sch, -1, std::chrono::steady_clock::now());
+							sch.each(std::chrono::seconds(30)) >> [=]()mutable{
+								rpt.lock()->pingStreams();
+							};
 
 							return 0;
 						};

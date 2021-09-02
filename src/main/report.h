@@ -31,10 +31,14 @@ struct ReportConfig {
 	std::string news_url;
 };
 
+
+
 class Report {
 
 
 public:
+	using Stream = std::function<bool(json::Value)>;
+
 	using StoragePtr = PStorage;
 	using MiscData = IStatSvc::MiscData;
 	using ErrorObj = IStatSvc::ErrorObj;
@@ -46,9 +50,12 @@ public:
 		,news_url(cfg.news_url)
 		,counter(initCounter()){}
 
+	void addStream(Stream &&stream);
+	void pingStreams();
 
 	void setInterval(std::uint64_t interval);
 	void genReport();
+	json::Value genReport_noStore();
 
 	using StrViewA = ondra_shared::StrViewA;
 	template<typename T> using StringView = ondra_shared::StringView<T>;
@@ -82,6 +89,7 @@ protected:
 	struct OValue {
 		double price;
 		double size;
+		json::Value toJson() const;
 	};
 
 	struct OKeyCmp {
@@ -104,6 +112,9 @@ protected:
 	json::Value perfRep;
 
 	StoragePtr report;
+	std::vector<Stream> streams;
+
+	void sendStream(const json::Value &v);
 
 
 	void exportCharts(json::Object&& out);

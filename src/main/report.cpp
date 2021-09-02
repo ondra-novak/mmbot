@@ -30,8 +30,7 @@ void Report::setInterval(std::uint64_t interval) {
 }
 
 
-void Report::genReport() {
-
+json::Value Report::genReport_noStore() {
 	Object st;
 	exportCharts(st.object("charts"));
 	exportOrders(st.array("orders"));
@@ -39,13 +38,18 @@ void Report::genReport() {
 	exportPrices(st.object("prices"));
 	exportMisc(st.object("misc"));
 	st.set("interval", interval_in_ms);
-	st.set("rev", counter++);
+	st.set("rev", counter);
 	st.set("log", logLines);
 	st.set("performance", perfRep);
 	st.set("version", MMBOT_VERSION);
 	if (!news_url.empty()) st.set("news_url",news_url);
+	return st;
+}
+
+void Report::genReport() {
 	while (logLines.size()>30) logLines.erase(0);
-	report->store(st);
+	counter++;
+	report->store(genReport_noStore());
 }
 
 
@@ -66,18 +70,26 @@ void Report::setOrders(StrViewA symb, const std::optional<IStockApi::Order> &buy
 
 	OKey buyKey {symb, buyid};
 	OKey sellKey {symb, -buyid};
+	OValue data;
 
 	if (buy.has_value()) {
-		orderMap[buyKey] = {inverted?1.0/buy->price:buy->price, buy->size*buyid};
+		data = {inverted?1.0/buy->price:buy->price, buy->size*buyid};
 	} else{
-		orderMap[buyKey] = {0, 0};
+		data = {0, 0};
 	}
 
+	orderMap[buyKey] = data;
+	sendStream(json::Object({{"type","order"},{"symbol",symb},{"dir",1},{"data",data.toJson()}}));
+
+
 	if (sell.has_value()) {
-		orderMap[sellKey] = {inverted?1.0/sell->price:sell->price, sell->size*buyid};
+		orderMap[sellKey] = data = {inverted?1.0/sell->price:sell->price, sell->size*buyid};
 	} else {
-		orderMap[sellKey] = {0, 0};
+		orderMap[sellKey] = data = {0, 0};
 	}
+
+	orderMap[sellKey] = data;
+	sendStream(json::Object({{"type","order"},{"symbol",symb},{"dir",-1},{"data",data.toJson()}}));
 
 
 }
@@ -182,22 +194,22 @@ void Report::setTrades(StrViewA symb, double finalPos, StringView<IStatSvc::Trad
 
 
 				if (t.time >= first) {
-					records.push_back(Object
-							("id", t.id)
-							("time", t.time)
-							("achg", (inverted?-1:1)*t.size)
-							("gain", gain)
-							("norm", t.norm_profit)
-							("normch", normch)
-							("nacum", normaccum?Value((inverted?-1:1)*t.norm_accum):Value())
-							("pos", (inverted?-1:1)*pos)
-							("pl", cur_fromPos)
-							("rpl", rpln)
-							("price", (inverted?1.0/t.price:t.price))
-							("p0",t.neutral_price?Value(inverted?1.0/t.neutral_price:t.neutral_price):Value())
-							("volume", fabs(t.eff_price*t.eff_size))
-							("man",t.manual_trade)
-					);
+					records.push_back(Object({
+						{"id", t.id},
+						{"time", t.time},
+						{"achg", (inverted?-1:1)*t.size},
+						{"gain", gain},
+						{"norm", t.norm_profit},
+						{"normch", normch},
+						{"nacum", normaccum?Value((inverted?-1:1)*t.norm_accum):Value()},
+						{"pos", (inverted?-1:1)*pos},
+						{"pl", cur_fromPos},
+						{"rpl", rpln},
+						{"price", (inverted?1.0/t.price:t.price)},
+						{"p0",t.neutral_price?Value(inverted?1.0/t.neutral_price:t.neutral_price):Value()},
+						{"volume", fabs(t.eff_price*t.eff_size)},
+						{"man",t.manual_trade}
+					}));
 				}
 				prevTrade = nullptr;
 				if (iter == tend)
@@ -215,6 +227,7 @@ void Report::setTrades(StrViewA symb, double finalPos, StringView<IStatSvc::Trad
 
 	}
 	tradeMap[symb] = records;
+	sendStream(json::Object({{"type","trades"},{"symbol",symb},{"data",records}}));
 }
 
 
@@ -235,15 +248,22 @@ bool Report::OKeyCmp::operator ()(const OKey& a, const OKey& b) const {
 }
 
 void Report::setInfo(StrViewA symb, const InfoObj &infoObj) {
-	infoMap[symb] = Object
-			("title",infoObj.title)
-			("currency", infoObj.currencySymb)
-			("asset", infoObj.assetSymb)
-			("price_symb", infoObj.priceSymb)
-			("brokerIcon", infoObj.brokerIcon)
-			("inverted", infoObj.inverted)
-			("emulated",infoObj.emulated)
-			("order", infoObj.order);
+	json::Value data = json::Object({
+		{"title",infoObj.title},
+		{"currency", infoObj.currencySymb},
+		{"asset", infoObj.assetSymb},
+		{"price_symb", infoObj.priceSymb},
+		{"brokerIcon", infoObj.brokerIcon},
+		{"inverted", infoObj.inverted},
+		{"emulated",infoObj.emulated},
+		{"order", infoObj.order}
+	});
+	infoMap[symb] = data;
+	sendStream(json::Object({
+			{"type","info"},
+			{"symbol",symb},
+			{"data",data}}));
+
 }
 
 void Report::setPrice(StrViewA symb, double price) {
@@ -251,7 +271,10 @@ void Report::setPrice(StrViewA symb, double price) {
 	const json::Value &info = infoMap[symb];
 	bool inverted = info["inverted"].getBool();
 
-	priceMap[symb] = inverted?1.0/price:price;;
+	double data = inverted?1.0/price:price;
+	priceMap[symb] = data;
+
+	sendStream(json::Object("type","price")("symbol",symb)("data",data));
 }
 
 
@@ -259,12 +282,12 @@ void Report::exportOrders(json::Array &&out) {
 
 	for (auto &&ord : orderMap) {
 		if (ord.second.price) {
-			out.push_back(Object
-					("symb",ord.first.symb)
-					("dir",static_cast<int>(ord.first.dir))
-					("size",ord.second.size)
-					("price",ord.second.price)
-			);
+			out.push_back(Object({
+					{"symb",ord.first.symb},
+					{"dir",static_cast<int>(ord.first.dir)},
+					{"size",ord.second.size},
+					{"price",ord.second.price}
+			}));
 		}
 	}
 }
@@ -291,6 +314,8 @@ void Report::setError(StrViewA symb, const ErrorObj &errorObj) {
 	if (!errorObj.buyError.empty()) obj.set(inverted?"sell":"buy", errorObj.buyError);
 	if (!errorObj.sellError.empty()) obj.set(inverted?"buy":"sell", errorObj.sellError);
 	errorMap[symb] = obj;
+
+	sendStream(json::Object("type","error")("symbol",symb)("data",obj));
 }
 
 void Report::exportMisc(json::Object &&out) {
@@ -303,6 +328,7 @@ void Report::exportMisc(json::Object &&out) {
 
 void Report::addLogLine(StrViewA ln) {
 	logLines.push_back(ln);
+	sendStream(json::Object("type","log")("data",ln));
 }
 
 using namespace ondra_shared;
@@ -346,37 +372,44 @@ void Report::setMisc(StrViewA symb, const MiscData &miscData) {
 	}
 
 	Object output;
-	output	("ms", spread)
-		("mt",miscData.total_trades)
-		("tt",miscData.total_time)
-		("bt",miscData.budget_total)
-		("ba",miscData.budget_assets);
+	output.setItems({{"ms", spread},
+		{"mt",miscData.total_trades},
+		{"tt",miscData.total_time},
+		{"bt",miscData.budget_total},
+		{"ba",miscData.budget_assets}});
 	if (miscData.budget_extra.has_value())
-		output("be", *miscData.budget_extra);
+		output.set("be", *miscData.budget_extra);
 
 	if (inverted) {
 
-		output
-				("t",-miscData.trade_dir)
-				("a",miscData.achieve_mode)
-				("mcp", 1.0/miscData.calc_price)
-				("ml",1.0/miscData.highest_price)
-				("mh",1.0/miscData.lowest_price)
-				("mdmb", miscData.dynmult_sell)
-				("mdms", miscData.dynmult_buy)
-				("ltp", 1.0/miscData.lastTradePrice);
+		output.setItems({
+			{"t",-miscData.trade_dir},
+			{"a",miscData.achieve_mode},
+			{"mcp", 1.0/miscData.calc_price},
+			{"ml",1.0/miscData.highest_price},
+			{"mh",1.0/miscData.lowest_price},
+			{"mdmb", miscData.dynmult_sell},
+			{"mdms", miscData.dynmult_buy},
+			{"ltp", 1.0/miscData.lastTradePrice}});
 	} else {
-		output
-				("t",miscData.trade_dir)
-				("a",miscData.achieve_mode)
-				("mcp", miscData.calc_price)
-				("ml",miscData.lowest_price)
-				("mh",miscData.highest_price)
-				("mdmb", miscData.dynmult_buy)
-				("mdms", miscData.dynmult_sell)
-				("ltp", miscData.lastTradePrice);
+		output.setItems({
+			{"t",miscData.trade_dir},
+			{"a",miscData.achieve_mode},
+			{"mcp", miscData.calc_price},
+			{"ml",miscData.lowest_price},
+			{"mh",miscData.highest_price},
+			{"mdmb", miscData.dynmult_buy},
+			{"mdms", miscData.dynmult_sell},
+			{"ltp", miscData.lastTradePrice}
+		});
 	}
 	miscMap[symb] = output;
+
+	sendStream(json::Object({
+		{"type","misc"},
+		{"symbol",symb},
+		{"data",output}
+	}));
 }
 
 void Report::clear(StrViewA symb) {
@@ -402,6 +435,35 @@ void Report::perfReport(json::Value report) {
 	perfRep = report;
 }
 
+void Report::sendStream(const json::Value &v) {
+	auto iter = std::remove_if(streams.begin(), streams.end(), [&](const auto &s){
+		return !s(v);
+	});
+	streams.erase(iter, streams.end());
+}
+
+void Report::pingStreams() {
+	if (!streams.empty()) {
+		sendStream("ping");
+	}
+}
+
 std::size_t Report::initCounter() {
 	return time(nullptr);
+}
+
+void Report::addStream(Stream &&stream) {
+	if (stream(json::Object({
+		{"type","refresh"},
+		{"data",genReport_noStore()}
+	}))) {
+		this->streams.push_back(std::move(stream));
+	}
+}
+
+json::Value Report::OValue::toJson() const {
+	return json::Object({
+		{"price",price},
+		{"size",size}
+	});
 }

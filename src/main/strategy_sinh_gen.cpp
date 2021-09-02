@@ -318,6 +318,12 @@ IStrategy::OrderData Strategy_Sinh_Gen::getNewOrder(
 		}
 	}*/
 
+	//close position if we are in forbidden side
+	if (limitPosition(assets) != assets && dir * assets < 0) {
+		return {cur_price, -assets, Alert::forced};
+	}
+
+
 	//calculate pnl
 	double pnl = assets*(new_price - st.p);
 	//calculate new k for budgetr and pnl
@@ -325,6 +331,7 @@ IStrategy::OrderData Strategy_Sinh_Gen::getNewOrder(
 	//calculate minimal allowed budget
 	//	double minbudget = st.budget*(1.0-cfg.stopOnLoss);
 	double pwadj = adjustPower(assets, newk, new_price);
+
 
 	double new_pos1 = limitPosition(cfg.calc->assets(newk, pw, new_price));
 
