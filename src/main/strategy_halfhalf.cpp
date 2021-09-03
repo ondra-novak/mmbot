@@ -90,9 +90,10 @@ std::pair<Strategy_HalfHalf::OnTradeResult, PStrategy> Strategy_HalfHalf::onTrad
 }
 
 json::Value Strategy_HalfHalf::exportState() const {
-	return json::Object
-			("p",p)
-			("a",a);
+	return json::Object({
+		{"p",p},
+		{"a",a}
+	});
 }
 
 PStrategy Strategy_HalfHalf::importState(json::Value src,const IStockApi::MarketInfo &) const {
@@ -134,10 +135,12 @@ json::Value Strategy_HalfHalf::dumpStatePretty(
 
 	double a= cfg.ea + this->a;
 
-	return json::Object("Assets", a)
-				 ("Last price", p)
-				 ("Budget", 2*a*p)
-				 ("Factor", a*std::sqrt(p));
+	return json::Object({
+		{"Assets", a},
+		{"Last price", p},
+		{"Budget", 2*a*p},
+		{"Factor", a*std::sqrt(p)}
+	});
 
 }
 

@@ -70,10 +70,11 @@ std::pair<IStrategy::OnTradeResult, PStrategy> Strategy_ConstantStep::onTrade(
 }
 
 json::Value Strategy_ConstantStep::exportState() const {
-	return json::Object
-			("p",st.p)
-			("a",st.a)
-			("f",st.f);
+	return json::Object({
+		{"p",st.p},
+		{"a",st.a},
+		{"f",st.f}
+	});
 }
 
 
@@ -134,12 +135,12 @@ std::string_view Strategy_ConstantStep::getID() const {
 json::Value Strategy_ConstantStep::dumpStatePretty(
 		const IStockApi::MarketInfo &minfo) const {
 	auto consts = calcConsts(st.a+cfg.ea, st.p, st.m);
-	return json::Object("Assets/Position", (minfo.invert_price?-1:1)*st.a)
-				 ("Last price ", minfo.invert_price?1.0/st.p:st.p)
-				 ("Power (w)", consts.c)
-				 ("Anchor price (k)", consts.k)
-				 ("Budget", calcAccountValue(consts, st.p))
-				 ("Budget Extra(+)/Debt(-)", minfo.leverage?Value():Value(st.f - consts.k * st.p));
+	return json::Object({{"Assets/Position", (minfo.invert_price?-1:1)*st.a},
+		{"Last price ", minfo.invert_price?1.0/st.p:st.p},
+		{"Power (w)", consts.c},
+		{"Anchor price (k)", consts.k},
+		{"Budget", calcAccountValue(consts, st.p)},
+		{"Budget Extra(+)/Debt(-)", minfo.leverage?Value():Value(st.f - consts.k * st.p)}});
 
 }
 

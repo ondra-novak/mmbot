@@ -177,7 +177,7 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 		else {
 			BTTrade bt = trades.back();
 			bt.price.time+=3600*1000;
-			bt.info = json::Object("error", e.what());
+			bt.info = json::Object({{"error", e.what()}});
 		}
 	}
 

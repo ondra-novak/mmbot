@@ -28,16 +28,15 @@ ExtStockApi::ExtStockApi(const std::string_view & workingDir, const std::string_
 
 double ExtStockApi::getBalance(const std::string_view & symb, const std::string_view & pair) {
 	return requestExchange("getBalance",
-			json::Object("pair", pair)
-				  ("symbol", symb)).getNumber();
+			json::Object({{"pair", pair},
+						{"symbol", symb}})).getNumber();
 
 }
 
 
 ExtStockApi::TradesSync ExtStockApi::syncTrades(json::Value lastId, const std::string_view & pair) {
-	auto r = requestExchange("syncTrades",json::Object
-			("lastId",lastId)
-			("pair",StrViewA(pair)));
+	auto r = requestExchange("syncTrades",json::Object({{"lastId",lastId},
+														{"pair",StrViewA(pair)}}));
 	TradeHistory  th;
 	for (json::Value v: r["trades"]) th.push_back(Trade::fromJSON(v));
 	return TradesSync {
@@ -75,13 +74,13 @@ json::Value  ExtStockApi::placeOrder(const std::string_view & pair,
 		double size, double price,json::Value clientId,
 		json::Value replaceId,double replaceSize) {
 
-	return requestExchange("placeOrder",json::Object
-					("pair",StrViewA(pair))
-					("price",price)
-					("size",size)
-					("clientOrderId",clientId)
-					("replaceOrderId",replaceId)
-					("replaceOrderSize",replaceSize));
+	return requestExchange("placeOrder",json::Object({
+		{"pair",StrViewA(pair)},
+		{"price",price},
+		{"size",size},
+		{"clientOrderId",clientId},
+		{"replaceOrderId",replaceId},
+		{"replaceOrderSize",replaceSize}}));
 }
 
 
@@ -232,12 +231,12 @@ std::string ExtStockApi::getIconName() const {
 
 ExtStockApi::PageData ExtStockApi::fetchPage(const std::string_view &method,
 		const std::string_view &vpath, const PageData &pageData) {
-	json::Value v = json::Object("method", method)
-			("path", vpath)
-			("body", pageData.body)
-			("headers", json::Value(json::object, pageData.headers.begin(), pageData.headers.end(),[](auto &&p) {
+	json::Value v = json::Object({{"method", method},
+		{"path", vpath},
+		{"body", pageData.body},
+		{"headers", json::Value(json::object, pageData.headers.begin(), pageData.headers.end(),[](auto &&p) {
 					return json::Value(p.first, p.second);
-			}));
+			})}});
 
 	json::Value resp = requestExchange("fetchPage", v);
 	PageData presp;

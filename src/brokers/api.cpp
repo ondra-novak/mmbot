@@ -85,8 +85,8 @@ static Value syncTrades(AbstractBrokerAPI &handler, const Value &request) {
 	for (auto &&itm: hst.trades) {
 		response.push_back(itm.toJSON());
 	}
-	return Object("trades",response)
-				 ("lastId", hst.lastId);
+	return Object({{"trades",response},
+				{"lastId", hst.lastId}});
 }
 
 static Value getOpenOrders(AbstractBrokerAPI &handler, const Value &request) {
@@ -95,11 +95,11 @@ static Value getOpenOrders(AbstractBrokerAPI &handler, const Value &request) {
 	Array response;
 	response.reserve(ords.size());
 	for (auto &&itm:ords) {
-		response.push_back(Object
-				("id",itm.id)
-				("clientOrderId",itm.client_id)
-				("size",itm.size)
-				("price",itm.price));
+		response.push_back(Object({
+				{"id",itm.id},
+				{"clientOrderId",itm.client_id},
+				{"size",itm.size},
+				{"price",itm.price}}));
 	}
 	return response;
 }
@@ -107,11 +107,11 @@ static Value getOpenOrders(AbstractBrokerAPI &handler, const Value &request) {
 static Value getTicker(AbstractBrokerAPI &handler, const Value &req) {
 	AbstractBrokerAPI::Ticker tk(handler.getTicker(req.getString()));
 
-	return Object
-			("bid", tk.bid)
-			("ask", tk.ask)
-			("last", tk.last)
-			("timestamp",tk.time);
+	return Object({
+			{"bid", tk.bid},
+			{"ask", tk.ask},
+			{"last", tk.last},
+			{"timestamp",tk.time}});
 }
 
 
@@ -135,14 +135,14 @@ static Value enableDebug(AbstractBrokerAPI &handler, const Value &req) {
 
 static Value getBrokerInfo(AbstractBrokerAPI &handler, const Value &req) {
 	AbstractBrokerAPI::BrokerInfo nfo = handler.getBrokerInfo();
-	return Object("name",nfo.exchangeName)
-				 ("url",nfo.exchangeUrl)
-				 ("version",nfo.version)
-				 ("licence",nfo.licence)
-				 ("trading_enabled", nfo.trading_enabled)
-				 ("settings",nfo.settings)
-				 ("subaccounts",nfo.subaccounts)
-				 ("favicon",Value(BinaryView(StrViewA(nfo.favicon)),base64));
+	return Object({{"name",nfo.exchangeName},
+				 {"url",nfo.exchangeUrl},
+				 {"version",nfo.version},
+				 {"licence",nfo.licence},
+				 {"trading_enabled", nfo.trading_enabled},
+				 {"settings",nfo.settings},
+				 {"subaccounts",nfo.subaccounts},
+				 {"favicon",Value(BinaryView(StrViewA(nfo.favicon)),base64)}});
 }
 
 static Value reset(AbstractBrokerAPI &handler, const Value &req) {
@@ -170,21 +170,21 @@ static Value getFees(AbstractBrokerAPI &handler, const Value &req) {
 
 static Value getInfo(AbstractBrokerAPI &handler, const Value &req) {
 	AbstractBrokerAPI::MarketInfo nfo ( handler.getMarketInfo(req.getString()) );
-	return Object
-			("asset_step",nfo.asset_step)
-			("currency_step", nfo.currency_step)
-			("asset_symbol",nfo.asset_symbol)
-			("currency_symbol", nfo.currency_symbol)
-			("min_size", nfo.min_size)
-			("min_volume", nfo.min_volume)
-			("fees", nfo.fees)
-			("feeScheme",AbstractBrokerAPI::strFeeScheme[nfo.feeScheme])
-			("leverage", nfo.leverage)
-			("invert_price", nfo.invert_price)
-			("inverted_symbol", nfo.inverted_symbol)
-			("simulator", nfo.simulator)
-			("private_chart", nfo.private_chart)
-			("wallet_id", nfo.wallet_id);
+	return Object({
+			{"asset_step",nfo.asset_step},
+			{"currency_step", nfo.currency_step},
+			{"asset_symbol",nfo.asset_symbol},
+			{"currency_symbol", nfo.currency_symbol},
+			{"min_size", nfo.min_size},
+			{"min_volume", nfo.min_volume},
+			{"fees", nfo.fees},
+			{"feeScheme",AbstractBrokerAPI::strFeeScheme[nfo.feeScheme]},
+			{"leverage", nfo.leverage},
+			{"invert_price", nfo.invert_price},
+			{"inverted_symbol", nfo.inverted_symbol},
+			{"simulator", nfo.simulator},
+			{"private_chart", nfo.private_chart},
+			{"wallet_id", nfo.wallet_id}});
 }
 
 static Value setApiKey(AbstractBrokerAPI &handler, const Value &req) {
@@ -219,11 +219,11 @@ static Value fetchPage(AbstractBrokerAPI &handler, const Value &req) {
 	auto resp = handler.fetchPage(req["method"].toString().str(),
 				req["path"].toString().str(),
 				preq);
-	return Object("code", resp.code)
-			("body", resp.body)
-			("headers", Value(json::object, resp.headers.begin(), resp.headers.end(),[](auto &&p) {
+	return Object({{"code", resp.code},
+			{"body", resp.body},
+			{"headers", Value(json::object, resp.headers.begin(), resp.headers.end(),[](auto &&p) {
 					return Value(p.first, p.second);
-			}));
+			})}});
 }
 
 json::Value AbstractBrokerAPI::getWallet_direct() {

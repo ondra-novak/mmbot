@@ -274,7 +274,7 @@ void Report::setPrice(StrViewA symb, double price) {
 	double data = inverted?1.0/price:price;
 	priceMap[symb] = data;
 
-	sendStream(json::Object("type","price")("symbol",symb)("data",data));
+	sendStream(json::Object({{"type","price"},{"symbol",symb},{"data",data}}));
 }
 
 
@@ -315,7 +315,7 @@ void Report::setError(StrViewA symb, const ErrorObj &errorObj) {
 	if (!errorObj.sellError.empty()) obj.set(inverted?"buy":"sell", errorObj.sellError);
 	errorMap[symb] = obj;
 
-	sendStream(json::Object("type","error")("symbol",symb)("data",obj));
+	sendStream(json::Object({{"type","error"},{"symbol",symb},{"data",obj}}));
 }
 
 void Report::exportMisc(json::Object &&out) {
@@ -328,7 +328,7 @@ void Report::exportMisc(json::Object &&out) {
 
 void Report::addLogLine(StrViewA ln) {
 	logLines.push_back(ln);
-	sendStream(json::Object("type","log")("data",ln));
+	sendStream(json::Object({{"type","log"},{"data",ln}}));
 }
 
 using namespace ondra_shared;

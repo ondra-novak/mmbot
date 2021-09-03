@@ -242,18 +242,18 @@ bool Strategy_Stairs::isValid() const {
 }
 
 json::Value Strategy_Stairs::exportState() const {
-	return json::Object("price", st.price)
-					   ("pos", st.pos)
-					   ("open", st.open)
-					   ("enter", st.enter)
-					   ("value", st.value)
-					   ("neutral_pos", st.neutral_pos)
-					   ("power", st.power)
-					   ("step", st.step)
-					   ("prev_dir", st.prevdir)
-					   ("cfg_hash", st.cfghash)
-					   ("sl",st.sl)
-					   ;
+	return json::Object({{"price", st.price},
+		{"pos", st.pos},
+		{"open", st.open},
+		{"enter", st.enter},
+		{"value", st.value},
+		{"neutral_pos", st.neutral_pos},
+		{"power", st.power},
+		{"step", st.step},
+		{"prev_dir", st.prevdir},
+		{"cfg_hash", st.cfghash},
+		{"sl",st.sl}
+	});
 }
 
 double Strategy_Stairs::calcPower(double price, double currency) const {
@@ -312,13 +312,14 @@ std::string_view  Strategy_Stairs::getID() const {
 json::Value Strategy_Stairs::dumpStatePretty(
 		const IStockApi::MarketInfo &minfo) const {
 
-	return json::Object
-			("Last price", minfo.invert_price?1.0/st.price:st.price)
-			("Position", minfo.invert_price?-st.pos:st.pos)
-			("Step", minfo.invert_price?-st.step:st.step)
-			("Step width", st.power)
-			("Neutral position", minfo.invert_price?-st.neutral_pos:st.neutral_pos)
-			("Open price", minfo.invert_price?1.0/st.open:st.open);
+	return json::Object({
+		{"Last price", minfo.invert_price?1.0/st.price:st.price},
+		{"Position", minfo.invert_price?-st.pos:st.pos},
+		{"Step", minfo.invert_price?-st.step:st.step},
+		{"Step width", st.power},
+		{"Neutral position", minfo.invert_price?-st.neutral_pos:st.neutral_pos},
+		{"Open price", minfo.invert_price?1.0/st.open:st.open}
+	});
 
 }
 

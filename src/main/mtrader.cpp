@@ -1109,10 +1109,10 @@ void MTrader::saveState() {
 	{
 		auto ch = obj.array("chart");
 		for (auto &&itm: chart) {
-			ch.push_back(json::Object("time", itm.time)
-				  ("ask",minfo.invert_price?1.0/itm.ask:itm.ask)
-				  ("bid",minfo.invert_price?1.0/itm.bid:itm.bid)
-				  ("last",minfo.invert_price?1.0/itm.last:itm.last));
+			ch.push_back(json::Object({{"time", itm.time},
+				{"ask",minfo.invert_price?1.0/itm.ask:itm.ask},
+				{"bid",minfo.invert_price?1.0/itm.bid:itm.bid},
+				{"last",minfo.invert_price?1.0/itm.last:itm.last}}));
 		}
 	}
 	{

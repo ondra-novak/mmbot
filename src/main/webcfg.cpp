@@ -145,7 +145,7 @@ bool WebCfg::reqConfig(simpleServer::HTTPRequest req)  {
 	if (req.getMethod() == "GET") {
 
 		json::Value data = state.lock_shared()->config->load();
-		if (!data.defined()) data = Object("revision",0);
+		if (!data.defined()) data = Object({{"revision",0}});
 		req.sendResponse("application/json",data.stringify());
 
 	} else {
@@ -236,10 +236,14 @@ static json::Value brokerToJSON(const IStockApi::BrokerInfo &binfo) {
 	if (StrViewA(binfo.exchangeUrl).begins("/")) url = {"./api/brokers/",simpleServer::urlEncode(binfo.name),"/page/"};
 	else url = binfo.exchangeUrl;
 
-	Value res = Object("name", binfo.name)("trading_enabled",
-			binfo.trading_enabled)("exchangeName", binfo.exchangeName)(
-			"exchangeUrl", url)("version", binfo.version)("subaccounts",binfo.subaccounts);
-			return res;
+	Value res = Object({
+		{"name", binfo.name},
+		{"trading_enabled",binfo.trading_enabled},
+		{"exchangeName", binfo.exchangeName},
+		{"exchangeUrl", url},
+		{"version", binfo.version},
+		{"subaccounts",binfo.subaccounts}});
+	return res;
 }
 
 
@@ -250,7 +254,7 @@ bool WebCfg::reqBrokers(simpleServer::HTTPRequest req, ondra_shared::StrViewA re
 		trlist.lock_shared()->stockSelector.forEachStock([&](const std::string_view &name,const PStockApi &){
 			brokers.push_back(name);
 		});
-		Object obj("entries", brokers);
+		Object obj({{"entries", brokers}});
 		req.sendResponse("application/json",Value(obj).stringify());
 		return true;
 	} else {
@@ -290,9 +294,9 @@ static Value getOpenOrders(const PStockApi &api, const std::string_view &pair) {
 		orders = Value(json::array, ords.begin(),
 				ords.end(),
 				[&](const IStockApi::Order &ord) {
-					return Object("price", ord.price)(
-							"size", ord.size)("clientId",
-							ord.client_id)("id", ord.id);
+					return Object({{"price", ord.price},{
+							"size", ord.size},{"clientId",
+							ord.client_id},{"id", ord.id}});
 				});
 	} catch (...) {
 
@@ -320,15 +324,15 @@ static Value getPairInfo(const PStockApi &api, const std::string_view &pair, con
 	if (quote_currency.getString() == "XBT") quote_currency = "BTC";
 	if (quote_asset.getString() == "XBT") quote_currency = "BTC";
 
-	Value resp = Object("symbol",pair)("asset_symbol", nfo.asset_symbol)(
-			"currency_symbol", nfo.currency_symbol)("fees",
-			nfo.fees)("leverage", nfo.leverage)(
-			"invert_price", nfo.invert_price)(
-			"asset_balance", ab)("currency_balance", cb)(
-			"min_size", nfo.min_size)("price",last)
-			("quote_currency", quote_currency)
-			("quote_asset", quote_asset)
-			("wallet_id", nfo.wallet_id);;
+	Value resp = Object({{"symbol",pair},{"asset_symbol", nfo.asset_symbol},{
+			"currency_symbol", nfo.currency_symbol},{"fees",
+			nfo.fees},{"leverage", nfo.leverage},{
+			"invert_price", nfo.invert_price},{
+			"asset_balance", ab},{"currency_balance", cb},{
+			"min_size", nfo.min_size},{"price",last},
+					{"quote_currency", quote_currency},
+					{"quote_asset", quote_asset},
+					{"wallet_id", nfo.wallet_id}});;
 	return resp;
 
 }
@@ -470,7 +474,7 @@ bool WebCfg::reqBrokerSpec(simpleServer::HTTPRequest req,
 				auto pairs = api->getAllPairs();
 				for (auto &&k : pairs)
 					p.push_back(k);
-				Object obj("entries", p);
+				Object obj({{"entries", p}});
 				req.sendResponse(std::move(hdr), Value(obj).stringify());
 				return true;
 			} else {
@@ -487,27 +491,28 @@ bool WebCfg::reqBrokerSpec(simpleServer::HTTPRequest req,
 						if (!req.allowMethods( { "GET" }))
 							return true;
 						auto t = api->getTicker(p);
-						Value ticker = Object("ask", t.ask)("bid", t.bid)(
-								"last", t.last)("time", t.time);
+						Value ticker = Object({{"ask", t.ask},{"bid", t.bid},{
+								"last", t.last},{"time", t.time}});
 						req.sendResponse(std::move(hdr), ticker.stringify());
 						return true;
 					}  else if (orders == "info") {
 						IStockApi::MarketInfo minfo = api->getMarketInfo(p);
-						Value resp = Object
-								("asset_step", minfo.asset_step)
-								("asset_symbol", minfo.asset_symbol)
-								("currency_step", minfo.currency_step)
-								("currency_symbol", minfo.currency_symbol)
-								("feeScheme", (int)minfo.feeScheme)
-								("fees", minfo.fees)
-								("invert_price", minfo.invert_price)
-								("inverted_symbol", minfo.inverted_symbol)
-								("leverage", minfo.leverage)
-								("min_size", minfo.min_size)
-								("min_volume", minfo.min_volume)
-								("private_chart", minfo.private_chart)
-								("simulator", minfo.simulator)
-								("wallet_id", minfo.wallet_id);
+						Value resp = Object({
+								{"asset_step", minfo.asset_step},
+								{"asset_symbol", minfo.asset_symbol},
+								{"currency_step", minfo.currency_step},
+								{"currency_symbol", minfo.currency_symbol},
+								{"feeScheme", (int)minfo.feeScheme},
+								{"fees", minfo.fees},
+								{"invert_price", minfo.invert_price},
+								{"inverted_symbol", minfo.inverted_symbol},
+								{"leverage", minfo.leverage},
+								{"min_size", minfo.min_size},
+								{"min_volume", minfo.min_volume},
+								{"private_chart", minfo.private_chart},
+								{"simulator", minfo.simulator},
+								{"wallet_id", minfo.wallet_id}
+						});
 						req.sendResponse(std::move(hdr), resp.stringify());
 						return true;
 					}  else if (orders == "settings") {
@@ -607,7 +612,7 @@ bool WebCfg::reqTraders(simpleServer::HTTPRequest req, ondra_shared::StrViewA vp
 			Value res (json::array, trl->begin(), trl->end(), [&](auto &&x) {
 				return x.first;
 			});
-			res = Object("entries", res);
+			res = Object({{"entries", res}});
 			req.sendResponse(std::move(hdr), res.stringify());
 		} else {
 			auto splt = StrViewA(path).split("/");
@@ -622,7 +627,7 @@ bool WebCfg::reqTraders(simpleServer::HTTPRequest req, ondra_shared::StrViewA vp
 					req.sendResponse(std::move(hdr), "true");
 				} else {
 					req.sendResponse(std::move(hdr),
-						Value(Object("entries",{"stop","clear_stats","reset","broker","trading","strategy"})).stringify());
+						Value(Object({{"entries",{"stop","clear_stats","reset","broker","trading","strategy"}}})).stringify());
 				}
 			} else {
 				auto trl = tr.lock();
@@ -673,7 +678,7 @@ bool WebCfg::reqTraders(simpleServer::HTTPRequest req, ondra_shared::StrViewA vp
 					broker->reset();
 					if (chart.length>600) chart = chart.substr(chart.length-600);
 					out.set("chart", Value(json::array,chart.begin(), chart.end(),[&](auto &&item) {
-						return Object("time", item.time)("last",item.last);
+						return Object({{"time", item.time},{"last",item.last}});
 					}));
 					std::size_t start = chart.empty()?0:chart[0].time;
 					auto trades = trl->getTrades();
@@ -682,7 +687,7 @@ bool WebCfg::reqTraders(simpleServer::HTTPRequest req, ondra_shared::StrViewA vp
 					}));
 					auto ticker = broker->getTicker(trl->getConfig().pairsymb);
 					double stprice = strtod(splt().data,0);
-					out.set("ticker", Object("ask", ticker.ask)("bid", ticker.bid)("last", ticker.last)("time", ticker.time));
+					out.set("ticker", Object({{"ask", ticker.ask},{"bid", ticker.bid},{"last", ticker.last},{"time", ticker.time}}));
 					out.set("orders", getOpenOrders(broker, trl->getConfig().pairsymb));
 					out.set("broker", trl->getConfig().broker);
 					std::optional<double> ibalance ;
@@ -704,7 +709,7 @@ bool WebCfg::reqTraders(simpleServer::HTTPRequest req, ondra_shared::StrViewA vp
 						auto order = strategy.getNewOrder(minfo,ticker.last, stprice, sgn(eq - stprice),assets, currencies, false);
 						order.price = stprice;
 						minfo.addFees(order.size, order.price);
-						out.set("strategy",Object("size", (minfo.invert_price?-1:1)*order.size));
+						out.set("strategy",Object({{"size", (minfo.invert_price?-1:1)*order.size}}));
 					}
 					req.sendResponse(std::move(hdr), Value(out).stringify());
 				} else if (cmd == "strategy") {
@@ -714,10 +719,10 @@ bool WebCfg::reqTraders(simpleServer::HTTPRequest req, ondra_shared::StrViewA vp
 						auto st = trl->getMarketStatus();
 						json::Value v = strategy.exportState();
 						if (trl->getConfig().internal_balance) {
-							v = v.replace("internal_balance", Object
-									("assets", st.assetBalance)
-									("currency", st.currencyBalance)
-								);
+							v = v.replace("internal_balance", Object({
+									{"assets", st.assetBalance},
+									{"currency", st.currencyBalance}
+							}));
 						}
 						req.sendResponse(std::move(hdr), v.stringify());
 					} else {
@@ -980,27 +985,27 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req)  {
 					internalCurrencyBalance = trl->getInternalCurrencyBalance();
 				}
 				Object result;
-				result.set("broker",Object
-						("name", binfo.name)
-						("exchangeName", binfo.exchangeName)
-						("version", binfo.version)
-						("settings", binfo.settings)
-						("trading_enabled", binfo.trading_enabled));
+				result.set("broker",Object({
+						{"name", binfo.name},
+						{"exchangeName", binfo.exchangeName},
+						{"version", binfo.version},
+						{"settings", binfo.settings},
+						{"trading_enabled", binfo.trading_enabled}}));
 				Value pair = getPairInfo(api, p, internalBalance, internalCurrencyBalance);
 				result.set("pair", pair);
-				result.set("available_balance", Object
+				result.set("available_balance", Object({
 
-						("asset",walletDB.lock_shared()->adjAssets(
+						{"asset",walletDB.lock_shared()->adjAssets(
 								WalletDB::KeyQuery(
 													broker.getString(),minfo.wallet_id,minfo.asset_symbol,uid
-												),pair["asset_balance"].getNumber()))
-						("budget",walletDB.lock_shared()->query(WalletDB::KeyQuery(
+												),pair["asset_balance"].getNumber())},
+						{"budget",walletDB.lock_shared()->query(WalletDB::KeyQuery(
 												broker.getString(),minfo.wallet_id,minfo.currency_symbol,uid
-											)).otherTraders));
+											)).otherTraders}}));
 				auto extBalL = extBal.lock_shared();
-				result.set("ext_ass", Object
-						("currency", extBalL->get(broker.getString(), minfo.wallet_id, minfo.currency_symbol))
-						("assets", extBalL->get(broker.getString(), minfo.wallet_id, minfo.asset_symbol)));
+				result.set("ext_ass", Object({
+						{"currency", extBalL->get(broker.getString(), minfo.wallet_id, minfo.currency_symbol)},
+						{"assets", extBalL->get(broker.getString(), minfo.wallet_id, minfo.asset_symbol)}}));
 
 				result.set("orders", getOpenOrders(api, p));
 				result.set("strategy", strategy);
@@ -1139,19 +1144,20 @@ bool WebCfg::reqBacktest(simpleServer::HTTPRequest req, ondra_shared::StrViewA r
 						case BTEvent::no_balance: event = btevent_no_balance;break;
 						case BTEvent::error: event = btevent_error;break;
 						}
-						return Object
-								("np",x.neutral_price)
-								("op",x.open_price)
-								("na",x.norm_accum)
-								("npl",x.norm_profit)
-								("npla",x.norm_profit_total)
-								("pl",x.pl)
-								("ps",x.pos)
-								("pr",x.price.price)
-								("tm",x.price.time)
-								("info",x.info)
-								("sz",x.size)
-								("event", event);
+						return Object({
+								{"np",x.neutral_price},
+								{"op",x.open_price},
+								{"na",x.norm_accum},
+								{"npl",x.norm_profit},
+								{"npla",x.norm_profit_total},
+								{"pl",x.pl},
+								{"ps",x.pos},
+								{"pr",x.price.price},
+								{"tm",x.price.time},
+								{"info",x.info},
+								{"sz",x.size},
+								{"event", event}
+						});
 					});
 					String resstr = result.toString();
 					req.sendResponse("application/json",resstr.str());
@@ -1350,7 +1356,7 @@ bool WebCfg::reqUploadPrices(simpleServer::HTTPRequest req)  {
 					);
 					from = (from/86400)*86400;
 					auto btb = btbroker.lock();
-					Value data = btb->jsonRequestExchange("minute", Object("asset", asset)("currency",currency)("from",from));
+					Value data = btb->jsonRequestExchange("minute", Object({{"asset", asset},{"currency",currency},{"from",from}}));
 					std::transform(data.begin(), data.end(), std::back_inserter(chart),[&](Value itm){
 						double p = itm.getNumber();
 						if (minfo.invert_price) p = 1.0/p;
@@ -1552,10 +1558,11 @@ bool WebCfg::reqStrategy(simpleServer::HTTPRequest req) {
 
 	auto range = s.calcSafeRange(minfo, assets, currency);
 	auto initial = s.calcInitialPosition(minfo, price, assets, currency+extra_bal);
-	Value out = Object
-			("min", inverted?1.0/range.max:range.min)
-			("max", inverted?1.0/range.min:range.max)
-			("initial", (inverted?-1:1)*initial);
+	Value out = Object({
+			{"min", inverted?1.0/range.max:range.min},
+			{"max", inverted?1.0/range.min:range.max},
+			{"initial", (inverted?-1:1)*initial},
+	});
 
 	req.sendResponse("application/json", out.toString());
 	return true;
@@ -1614,9 +1621,9 @@ bool WebCfg::reqDumpWallet(simpleServer::HTTPRequest req, ondra_shared::StrViewA
 	});
 
 
-	json::Value jsn = Object("entries", Value(json::array, activeBrokers.begin(), activeBrokers.end(),[](Value x){
+	json::Value jsn = Object({{"entries", Value(json::array, activeBrokers.begin(), activeBrokers.end(),[](Value x){
 		return x;
-	}))("wallet", allocations);
+	})},{"wallet", allocations}});
 	Stream stream = req.sendResponse("application/json");
 	jsn.serialize(stream);
 	return true;
@@ -1898,7 +1905,7 @@ bool WebCfg::reqBacktest_v2(simpleServer::HTTPRequest req, ondra_shared::StrView
 				);
 				from = (from/86400)*86400;
 				auto btb = prices.lock();
-				Value chart_data = btb->jsonRequestExchange("minute", Object("asset", asset)("currency",currency)("from",from));
+				Value chart_data = btb->jsonRequestExchange("minute", Object({{"asset", asset},{"currency",currency},{"from",from}}));
 				if (smooth>1) {
 					double accum = chart_data[0].getNumber()*smooth;
 					Value smth_data (json::array,chart_data.begin(), chart_data.end(),[&](const Value &d){
@@ -2095,19 +2102,20 @@ bool WebCfg::reqBacktest_v2(simpleServer::HTTPRequest req, ondra_shared::StrView
 					case BTEvent::no_balance: event = btevent_no_balance;break;
 					case BTEvent::error: event = btevent_error;break;
 					}
-					return Object
-							("np",x.neutral_price)
-							("op",x.open_price)
-							("na",x.norm_accum)
-							("npl",x.norm_profit)
-							("npla",x.norm_profit_total)
-							("pl",x.pl)
-							("ps",x.pos)
-							("pr",x.price.price)
-							("tm",x.price.time)
-							("info",x.info)
-							("sz",x.size)
-							("event", event);
+					return Object({
+							{"np",x.neutral_price},
+							{"op",x.open_price},
+							{"na",x.norm_accum},
+							{"npl",x.norm_profit},
+							{"npla",x.norm_profit_total},
+							{"pl",x.pl},
+							{"ps",x.pos},
+							{"pr",x.price.price},
+							{"tm",x.price.time},
+							{"info",x.info},
+							{"sz",x.size},
+							{"event", event}
+					});
 				});
 
 				auto stream = req.sendResponse("application/json");

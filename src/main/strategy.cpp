@@ -210,7 +210,7 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 }
 
 json::Value Strategy::exportState() const {
-	return json::Object(ptr->getID(), ptr->exportState());
+	return json::Object({{ptr->getID(), ptr->exportState()}});
 }
 
 void Strategy::importState(json::Value src, const IStockApi::MarketInfo &minfo) {

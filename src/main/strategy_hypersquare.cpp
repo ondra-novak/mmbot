@@ -104,11 +104,12 @@ std::pair<Strategy_HyperSquare::OnTradeResult, PStrategy> Strategy_HyperSquare::
 }
 
 json::Value Strategy_HyperSquare::exportState() const {
-	return json::Object
-			("p",st.p)
-			("a",st.a)
-			("k",st.k)
-			("f",st.f);
+	return json::Object({
+		{"p",st.p},
+		{"a",st.a},
+		{"k",st.k},
+		{"f",st.f}
+	});
 }
 
 PStrategy Strategy_HyperSquare::importState(json::Value src,const IStockApi::MarketInfo &) const {
@@ -162,12 +163,12 @@ json::Value Strategy_HyperSquare::dumpStatePretty(
 		const IStockApi::MarketInfo &minfo) const {
 
 	double w = calcW(st.a + cfg.ea, st.k, st.p);
-	return json::Object("Assets/Position", (minfo.invert_price?-1:1)*st.a)
-				 ("Last price ", minfo.invert_price?1.0/st.p:st.p)
-				 ("Power (w)", w)
-				 ("Anchor price (k)", minfo.invert_price?1.0/st.k:st.k)
-				 ("Budget", calcAccountValue(st, cfg.ea, st.p))
-				 ("Budget Extra(+)/Debt(-)", minfo.leverage?Value():Value(st.f - calcReqCurrency(st,cfg.ea,st.p)));
+	return json::Object({{"Assets/Position", (minfo.invert_price?-1:1)*st.a},
+		{"Last price ", minfo.invert_price?1.0/st.p:st.p},
+		{"Power (w)", w},
+		{"Anchor price (k)", minfo.invert_price?1.0/st.k:st.k},
+		{"Budget", calcAccountValue(st, cfg.ea, st.p)},
+		{"Budget Extra(+)/Debt(-)", minfo.leverage?Value():Value(st.f - calcReqCurrency(st,cfg.ea,st.p))}});
 
 }
 

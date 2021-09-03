@@ -63,8 +63,8 @@ json::Value ExtDailyPerfMod::getReport() {
 			dayIndex = newidx;
 		} catch (std::exception &e) {
 			if (reportCache.hasValue()) return reportCache;
-			else return Object("hdr",Value(json::array, {"error"}))
-						("rows",Value(json::array, {Value(json::array,{e.what()})}));
+			else return Object({{"hdr",Value(json::array, {"error"})},
+				{"rows",Value(json::array, {Value(json::array,{e.what()})})}});
 		}
 	}
 	return reportCache;

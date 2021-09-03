@@ -136,14 +136,15 @@ std::pair<Strategy_KeepValue::OnTradeResult, PStrategy> Strategy_KeepValue::onTr
 }
 
 json::Value Strategy_KeepValue::exportState() const {
-	return json::Object
-			("p",st.p)
-			("a",st.a)
-			("c",st.c)
-			("f",st.f)
-			("valid",st.valid)
-			("rt",st.recalc_time)
-			("ct",st.check_time);
+	return json::Object({
+		{"p",st.p},
+		{"a",st.a},
+		{"c",st.c},
+		{"f",st.f},
+		{"valid",st.valid},
+		{"rt",st.recalc_time},
+		{"ct",st.check_time}
+	});
 }
 
 PStrategy Strategy_KeepValue::importState(json::Value src,const IStockApi::MarketInfo &) const {
@@ -197,11 +198,12 @@ PStrategy Strategy_KeepValue::reset() const {
 json::Value Strategy_KeepValue::dumpStatePretty(
 		const IStockApi::MarketInfo &minfo) const {
 
-	return json::Object("Assets", st.a)
-				 ("Last price", st.p)
-				 ("Allocated currency", st.c)
-				 ("Budget extra", st.f - st.c)
-				 ("Keep", calcK());
+	return json::Object({
+		{"Assets", st.a},
+		{"Last price", st.p},
+		{"Allocated currency", st.c},
+		{"Budget extra", st.f - st.c},
+		{"Keep", calcK()}});
 
 }
 double Strategy_KeepValue::calcInitialPosition(const IStockApi::MarketInfo &minfo, double price, double assets, double currency) const {
