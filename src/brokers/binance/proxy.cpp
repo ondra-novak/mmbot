@@ -119,7 +119,7 @@ json::Value Proxy::private_request(Method method, const std::string &command, js
 	json::Value res;
 
 	json::Object headers;
-	headers("X-MBX-APIKEY",pubKey);
+	headers.set("X-MBX-APIKEY",pubKey);
 
 	try {
 		if (method == GET) {
@@ -129,7 +129,7 @@ json::Value Proxy::private_request(Method method, const std::string &command, js
 			url = url + "?" + request;
 			res = httpc.DELETE(url,json::String(), headers);
 		} else {
-			headers("Content-Type","application/x-www-form-urlencoded");
+			headers.set("Content-Type","application/x-www-form-urlencoded");
 			if (method == POST) {
 				res = httpc.POST(url, request, headers);
 			} else {

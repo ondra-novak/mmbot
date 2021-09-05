@@ -21,19 +21,21 @@ public:
 	Proxy cm;
 
 	Interface(const std::string &path)
-		:AbstractBrokerAPI(path,{Object
-				("name","pubKey")
-				("label","Public key")
-				("type", "string"),
-			Object
-				("name","privKey")
-				("label","Private key")
-				("type", "string"),
-			Object
-				("name","clientId")
-				("label","Client ID")
-				("type", "string")
-		}) {}
+		:AbstractBrokerAPI(path,{Object({
+				{"name","pubKey"},
+				{"label","Public key"},
+				{"type", "string"}
+		}),
+			Object({
+				{"name","privKey"},
+				{"label","Private key"},
+				{"type", "string"}
+		}),
+			Object({
+				{"name","clientId"},
+				{"label","Client ID"},
+				{"type", "string"},
+		})}) {}
 
 
 	virtual double getBalance(const std::string_view & symb) override;
@@ -215,7 +217,7 @@ json::Value Interface::placeOrder(const std::string_view & pair,
 		double replaceSize) {
 
 	if (replaceId.defined()) {
-		Value res = cm.request(Proxy::POST, "cancelOrderWithInfo",Object("orderId", replaceId));
+		Value res = cm.request(Proxy::POST, "cancelOrderWithInfo",Object({{"orderId", replaceId}}));
 		if (replaceSize && (
 				res["success"].getBool() != true
 				|| res["remainingAmount"].getNumber()<std::fabs(replaceSize)*0.999999)) {
@@ -269,7 +271,7 @@ double Interface::getFees(const std::string_view &pair) {
 		auto now = std::chrono::system_clock::now();
 		auto iter = feeMap.find(StrViewA(pair));
 		if (iter == feeMap.end() || iter->second.expiration < now) {
-			Value fresp = cm.request(Proxy::POST, "traderFees", Object("currencyPair", pair));
+			Value fresp = cm.request(Proxy::POST, "traderFees", Object({{"currencyPair", pair}}));
 			FeeInfo &fi = feeMap[StrViewA(pair)];
 			fi.fee = fresp["maker"].getNumber()*0.01;
 			fi.expiration = now + std::chrono::hours(1);

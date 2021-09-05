@@ -62,7 +62,7 @@ json::Value Proxy::request(Method method, std::string path, json::Value data) {
 
 	if (!hasKey() && method != GET)
 		throw std::runtime_error("This operation requires valid API key");
-	static json::Object ctx("Content-Type","application/x-www-form-urlencoded");
+	static json::Object ctx({{"Content-Type","application/x-www-form-urlencoded"}});
 
 	json::Value v;
 	switch(method) {

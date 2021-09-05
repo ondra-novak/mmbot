@@ -29,14 +29,14 @@ static const StrViewA userAgent("+https://mmbot.trade");
 Interface::Interface(const std::string &secure_storage_path)
 	:AbstractBrokerAPI(secure_storage_path,
 			{
-						Object
-							("name","key")
-							("label","API Key")
-							("type","string"),
-						Object
-							("name","secret")
-							("label","API Key secret")
-							("type","string")
+						Object({
+							{"name","key"},
+							{"label","API Key"},
+							{"type","string"}}),
+						Object({
+							{"name","secret"},
+							{"label","API Key secret"},
+							{"type","string"}})
 			}),
 	api_pub(simpleServer::HttpClient(userAgent,simpleServer::newHttpsProvider(), nullptr,simpleServer::newCachedDNSProvider(60)),
 			"https://api-pub.bitfinex.com"),
@@ -242,7 +242,7 @@ IStockApi::TradesSync Interface::syncTrades(json::Value lastId, const std::strin
 	while (true) {
 		int cols = 0;
 		TradesSync out;
-		Value data = signedPOST(path,Object("sort",-1)("limit",count));
+		Value data = signedPOST(path,Object({{"sort",-1},{"limit",count}}));
 		Value anchor = lastId;
 		bool m = isMarginPair(pair);
 		Value flt = data.filter([&](Value x){
@@ -351,7 +351,7 @@ json::Value Interface::placeOrder(const std::string_view &pair, double size, dou
 	try {
 		if (replaceId.hasValue()) {
 			if (size == 0 || replaceSize == 0) {
-				Value resp = signedPOST("/v2/auth/w/order/cancel",Object("id", replaceId));
+				Value resp = signedPOST("/v2/auth/w/order/cancel",Object({{"id", replaceId}}));
 				Value orderDetail = resp[4];
 				Value amount = orderDetail[6];
 				double remain = std::abs(amount.getNumber());
@@ -362,9 +362,9 @@ json::Value Interface::placeOrder(const std::string_view &pair, double size, dou
 				double oldsize = replaceSize * dir;
 				double delta = size - oldsize;
 				auto strdelta = numberToFixed(delta,8);
-				Value resp = signedPOST("/v2/auth/w/order/update",Object("id", replaceId)
-															   ("price", numberToFixed(price,8))
-															   ("delta", strdelta == "0.00000000"?Value():Value(strdelta)));
+				Value resp = signedPOST("/v2/auth/w/order/update",Object({{"id", replaceId},
+															   {"price", numberToFixed(price,8)},
+															   {"delta", strdelta == "0.00000000"?Value():Value(strdelta)}}));
 				return resp[4][0];
 			}
 		}
@@ -376,14 +376,14 @@ json::Value Interface::placeOrder(const std::string_view &pair, double size, dou
 			auto tpair = iter->second.tsymbol;
 			int cid = genOrderNonce();
 			orderDB.store(cid, clientId);
-			Value resp = signedPOST("/v2/auth/w/order/submit",Object
-					("cid", cid)
-					("type", m?"LIMIT":"EXCHANGE LIMIT")
-					("symbol", tpair)
-					("price",numberToFixed(price,8))
-					("amount",numberToFixed(size,8))
-					("flags", 4096)
-					("meta", Object("aff_code","QoenTafCw")));
+			Value resp = signedPOST("/v2/auth/w/order/submit",Object({
+					{"cid", cid},
+					{"type", m?"LIMIT":"EXCHANGE LIMIT"},
+					{"symbol", tpair},
+					{"price",numberToFixed(price,8)},
+					{"amount",numberToFixed(size,8)},
+					{"flags", 4096},
+					{"meta", Object({{"aff_code","QoenTafCw"}})}}));
 			return resp[4][0][0];
 		} else {
 			return nullptr;
@@ -470,10 +470,10 @@ json::Value Interface::signRequest(const StrViewA path, json::Value body) const 
 		}
 		return d-c;
 	});
-	return Object
-			("bfx-nonce", nonce)
-			("bfx-apikey", keyId)
-			("bfx-signature", hexDigest);
+	return Object({
+			{"bfx-nonce", nonce},
+			{"bfx-apikey", keyId},
+			{"bfx-signature", hexDigest}});
 
 }
 
@@ -578,11 +578,11 @@ json::Value Interface::getMarkets() const {
 		auto sub = res.object(p.second.asset);
 		if (p.second.leverage) {
 			String symbol {p.second.symbol, p.second.leverage?" (m)":""};
-			sub.set(p.second.currency, Object
-					("Exchange",p.second.symbol)
-					("Margin", symbol));
+			sub.set(p.second.currency, Object({
+					{"Exchange",p.second.symbol},
+					{"Margin", symbol}}));
 		} else {
-			sub.set(p.second.currency, Object("Exchange",p.second.symbol));
+			sub.set(p.second.currency, Object({{"Exchange",p.second.symbol}}));
 		}
 	}
 	return res;

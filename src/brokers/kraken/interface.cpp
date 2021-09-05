@@ -79,14 +79,16 @@ true,true
 Interface::Interface(const std::string &secure_storage_path)
 	:AbstractBrokerAPI(secure_storage_path,
 			{
-						Object
-							("name","key")
-							("label","API Key")
-							("type","string"),
-						Object
-							("name","secret")
-							("label","API secret")
-							("type","string")
+						Object({
+							{"name","key"},
+							{"label","API Key"},
+							{"type","string"}
+						}),
+						Object({
+							{"name","secret"},
+							{"label","API secret"},
+							{"type","string"}
+						})
 			})
 
 	,api(simpleServer::HttpClient(userAgent,simpleServer::newHttpsProvider(), nullptr,simpleServer::newCachedDNSProvider(60)),
@@ -108,11 +110,11 @@ json::Value Interface::getMarkets() const {
 		auto altquote = symbolMap[quote].getString();
 		auto exsub = res.object(altbase);
 		if (!row["leverage_buy"].empty() && !row["leverage_sell"].empty() && allow_margin)  {
-			exsub.set(altquote, Object
-					("Exchange",String({"ex_",pairName}))
-					("Leveraged",String({"lv_",pairName}))
-					("Hybrid",String({"hb_",pairName}))
-			);
+			exsub.set(altquote, Object({
+				{"Exchange",String({"ex_",pairName})},
+				{"Leveraged",String({"lv_",pairName})},
+				{"Hybrid",String({"hb_",pairName})}
+			}));
 		} else {
 			exsub.set(altquote, String({"ex_",pairName}));
 		}
@@ -212,10 +214,11 @@ json::Value Interface::private_POST(std::string_view path, json::Value req) {
 	unsigned int hmac_digest_len = sizeof (hmac_digest);
 	HMAC(EVP_sha512(), apiSecret.data, apiSecret.length, reinterpret_cast<const unsigned char *>(toSign.data()), toSign.length(), hmac_digest, &hmac_digest_len);
 	Value sign = json::base64->encodeBinaryValue(BinaryView(hmac_digest, hmac_digest_len));
-	Value headers = Object
-			("API-Key", apiKey)
-			("API-Sign", sign)
-			("Content-Type", "application/x-www-form-urlencoded");
+	Value headers = Object({
+		{"API-Key", apiKey},
+		{"API-Sign", sign},
+		{"Content-Type", "application/x-www-form-urlencoded"}
+	});
 	try {
 		return checkError(api.POST(path, sreq, std::move(headers)));
 	} catch (HTTPJson::UnknownStatusException &e) {
@@ -288,7 +291,7 @@ double Interface::getSpotBalance(const std::string_view &symb) {
 
 
 double Interface::getCollateral(const std::string_view &symb)  {
-	Value bal = private_POST("/0/private/TradeBalance",Object("asset",symb));
+	Value bal = private_POST("/0/private/TradeBalance",Object({{"asset",symb}}));
 	return bal["result"]["e"].getNumber();
 }
 
@@ -338,14 +341,14 @@ IStockApi::TradesSync Interface::syncTrades(json::Value lastId, const std::strin
 		first_call = true;
 		Value &k = syncTradeCache[nullptr];
 		if (k.hasValue()) apires = k;
-		else k = apires = private_POST("/0/private/TradesHistory",Object("start",maxHistory));
+		else k = apires = private_POST("/0/private/TradesHistory",Object({{"start",maxHistory}}));
 		startId = "";
 	} else {
 		startId = lastId[0];
 		duplist = lastId[1];
 		Value &k = syncTradeCache[startId];
 		if (k.hasValue()) apires = k;
-		else k = apires = private_POST("/0/private/TradesHistory",Object("start", !startId.getString().empty()?startId:Value(maxHistory)));
+		else k = apires = private_POST("/0/private/TradesHistory",Object({{"start", !startId.getString().empty()?startId:Value(maxHistory)}}));
 	}
 
 	updateSymbols();
@@ -452,18 +455,19 @@ json::Value Interface::placeOrderImp(const std::string_view &pair, double size, 
 	Value symbinfo = pairMap[symb];
 
 	Object req;
-	req("pair",symb)
-	   ("type",size<0?"sell":"buy")
-	   ("ordertype","limit")
-	   ("price",double2string(price, symbinfo["pair_decimals"].getUInt()))
-	   ("volume",double2string(std::abs(size), symbinfo["lot_decimals"].getUInt()))
-	   ("oflags","fciq,post");
+	req.setItems({{"pair",symb},
+		{"type",size<0?"sell":"buy"},
+		{"ordertype","limit"},
+		{"price",double2string(price, symbinfo["pair_decimals"].getUInt())},
+		{"volume",double2string(std::abs(size), symbinfo["lot_decimals"].getUInt())},
+		{"oflags","fciq,post"}
+	});
 	if (lev) {
 		double levlev = symbinfo[size<0?"leverage_sell":"leverage_buy"]
 				.reduce([&](double a, Value b){
 			return std::max(a, b.getNumber());
 		},0.0);
-		req("leverage", levlev);
+		req.set("leverage", levlev);
 	}
 	if (clientId.defined()) {
 		std::hash<json::Value> h;
@@ -473,7 +477,7 @@ json::Value Interface::placeOrderImp(const std::string_view &pair, double size, 
 		if (!cc.defined()) {
 			orderDB.store(key, clientId);
 		}
-		req("userref", userref);
+		req.set("userref", userref);
 	}
 	Value resp = private_POST("/0/private/AddOrder", req);
 	return resp["result"]["txid"][0];
@@ -493,7 +497,7 @@ json::Value Interface::placeOrder(const std::string_view &pair, double size, dou
 
 	if (replaceId.defined()) {
 		Value resp = private_POST("/0/private/CancelOrder", Object
-				("txid", replaceId));
+				({{"txid", replaceId}}));
 		if (resp["result"]["count"].getUInt() == 0) {
 			return nullptr;
 		}
@@ -628,23 +632,26 @@ json::Value Interface::getWallet_direct() {
 
 
 	getSpotBalance("");
-	return Object("spot", balanceMap["result"])("positions", pos);
+	return Object({{"spot", balanceMap["result"]},{"positions", pos}});
 
 }
 
 json::Value Interface::getSettings(const std::string_view & pairHint) const {
 	return {
-		Object("name","allow_margin")
-			  ("default",allow_margin?"yes":"no")
-			  ("type","enum")
-			  ("label","Enable Leverage")
-			  ("options", Object
-					  ("yes","Yes (not recommended)")
-					  ("no","No")
-			  ),
-		Object("type","label")
-		      ("label","The Kraken platform has a malfunctioning liquidation engne. Due to low liquidity, high latency, insufficient protection against large price movements and zero protection against a negative balance, it is not recommended to use the Kraken platform for leverage trading. For leverage trading, consider Binance or FTX platforms")
-
+		Object({
+			{"name","allow_margin"},
+			{"default",allow_margin?"yes":"no"},
+			{"type","enum"},
+			{"label","Enable Leverage"},
+			{"options", Object({
+				{"yes","Yes (not recommended)"},
+				{"no","No"}
+			})},
+		}),
+		Object({
+			{"type","label"},
+			{"label","The Kraken platform has a malfunctioning liquidation engne. Due to low liquidity, high latency, insufficient protection against large price movements and zero protection against a negative balance, it is not recommended to use the Kraken platform for leverage trading. For leverage trading, consider Binance or FTX platforms"}
+		})
 	};
 }
 

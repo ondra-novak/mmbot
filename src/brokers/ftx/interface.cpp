@@ -46,18 +46,18 @@ Interface::Connection::Connection()
 Interface::Interface(const std::string &secure_storage_path)
 	:AbstractBrokerAPI(secure_storage_path,
 			{
-						Object
-							("name","key")
-							("label","API Key")
-							("type","string"),
-						Object
-							("name","secret")
-							("label","API Secret")
-							("type","string"),
-						Object
-							("name","subaccount")
-							("label","Subaccount (optional)")
-							("type","string")
+						Object({
+							{"name","key"},
+							{"label","API Key"},
+							{"type","string"}}),
+						Object({
+							{"name","secret"},
+							{"label","API Secret"},
+							{"type","string"}}),
+						Object({
+							{"name","subaccount"},
+							{"label","Subaccount (optional)"},
+							{"type","string"}})
 			})
 {
 	connection=PConnection::make();
@@ -421,15 +421,17 @@ void Interface::ws_login() {
 		auto now = conn->now();
 		message << now << "websocket_login";
 		json::Value loginStr =
-				json::Object("op","login")
-				("args",json::Object
-					("key", conn->api_key)
-					("time", now)
-					("subaccount",conn->api_subaccount.empty()?json::Value():json::Value(conn->api_subaccount))
-					("sign", rawSign(conn->api_secret, message.str()))
-				);
+				json::Object({
+						{"op","login"},
+						{"args",json::Object({
+							{"key", conn->api_key},
+							{"time", now},
+							{"subaccount",conn->api_subaccount.empty()?json::Value():json::Value(conn->api_subaccount)}
+						})},
+						{"sign", rawSign(conn->api_secret, message.str())}
+					});
 		ws_post(ws, loginStr.toString());
-		json::Value subscribe = json::Object("op","subscribe")("channel","orders");
+		json::Value subscribe = json::Object({{"op","subscribe"},{"channel","orders"}});
 		ws_post(ws, subscribe.toString());
 	}
 }
@@ -589,14 +591,15 @@ json::Value Interface::checkCancelAndPlace(PConnection conn, std::string_view pa
 
 	std::unique_lock _(wslock);
 
-	Value req = Object
-				("market", pair)
-				("side", size > 0?"buy":"sell")
-				("price", price)
-				("type","limit")
-				("size", std::abs(size))
-				("postOnly",true)
-				("clientId", ordId);
+	Value req = Object({
+		{"market", pair},
+		{"side", size > 0?"buy":"sell"},
+		{"price", price},
+		{"type","limit"},
+		{"size", std::abs(size)},
+		{"postOnly",true},
+		{"clientId", ordId}
+	});
 
 	auto id = replaceId.getUIntLong();
 	auto iter = activeOrderMap.find(id);
@@ -783,11 +786,12 @@ json::Value Interface::Connection::signHeaders(const std::string_view &method, c
 	std::string msg = buff.str();
 
 	auto hexDigest = rawSign(api_secret, msg);
-	Value req =  Object
-			("FTX-KEY", api_key)
-			("FTX-TS", ts)
-			("FTX-SIGN", hexDigest)
-			("FTX-SUBACCOUNT", api_subaccount.empty()?Value():Value(api_subaccount));
+	Value req =  Object({
+		{"FTX-KEY", api_key},
+		{"FTX-TS", ts},
+		{"FTX-SIGN", hexDigest},
+		{"FTX-SUBACCOUNT", api_subaccount.empty()?Value():Value(api_subaccount)}
+	});
 
 	return req;
 
@@ -853,13 +857,13 @@ json::Value Interface::getMarkets() const {
 			obj.set(k.second.expiration, k.first);
 		}
 	}
-	return Object("Spot", spot)("Futures",futures)("Move",move)("Prediction",prediction);
+	return Object({{"Spot", spot},{"Futures",futures},{"Move",move},{"Prediction",prediction}});
 }
 
 bool Interface::close_position(const std::string_view &pair) {
 	const AccountInfo &acc = getAccountInfo();
 	if (!getOpenOrders(pair).empty()) {
-		connection.lock()->requestDELETE("/orders", Object("market", pair));
+		connection.lock()->requestDELETE("/orders", Object({{"market", pair}}));
 	}
 	auto iter = acc.positions.find(pair);
 	if (iter != acc.positions.end()) {
@@ -867,12 +871,14 @@ bool Interface::close_position(const std::string_view &pair) {
 		if (size) {
 			double mark_price = getMarkPrice(pair);
 			Object req;
-			req	("market", pair)
-				("side", size>0?"sell":"buy")
-				("price",mark_price)
-				("type","limit")
-				("size",std::fabs(size))
-				("reduceOnly",true);
+			req.setItems({
+				{"market", pair},
+				{"side", size>0?"sell":"buy"},
+				{"price",mark_price},
+				{"type","limit"},
+				{"size",std::fabs(size)},
+				{"reduceOnly",true}
+			});
 			connection.lock()->requestPOST("/orders", req);
 			return false;
 		} else {
@@ -900,7 +906,7 @@ json::Value Interface::getWallet_direct() {
 	Object out;
 	out.set("spot", res);
 	out.set("positions", pos);
-	out.set("collateral", Object("USD", acc.colateral));
+	out.set("collateral", Object({{"USD", acc.colateral}}));
 	return out;
 }
 

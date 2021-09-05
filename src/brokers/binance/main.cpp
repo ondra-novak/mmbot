@@ -29,14 +29,14 @@
 
 using namespace json;
 
-static Value keyFormat = {Object
-							("name","pubKey")
-							("type","string")
-							("label","Public key"),
-						 Object
-							("name","privKey")
-							("type","string")
-							("label","Private key")};
+static Value keyFormat = {Object({
+							{"name","pubKey"},
+							{"type","string"},
+							{"label","Public key"}}),
+						 Object({
+							{"name","privKey"},
+							{"type","string"},
+							{"label","Private key"}})};
 
 static std::string_view COIN_M_PREFIX = "COIN-M:";
 static std::string_view USDT_M_PREFIX = "USDT-M:";
@@ -198,10 +198,10 @@ void Interface::updateBalCache() {
 static json::Value readTrades(Proxy &proxy, const std::string &command, std::string_view pair, Value &lastId) {
 	std::uint64_t maxID = lastId.getUIntLong();
 	if (maxID) {
-		Value r = proxy.private_request(Proxy::GET, command, Object
-				("symbol",pair)
-				("fromId",lastId)
-				("limit",10)
+		Value r = proxy.private_request(Proxy::GET, command, Object({
+				{"symbol",pair},
+				{"fromId",lastId},
+				{"limit",10}})
 				);
 		for (Value x: r) {
 			Value id = x["id"];
@@ -211,9 +211,9 @@ static json::Value readTrades(Proxy &proxy, const std::string &command, std::str
 		lastId = maxID;
 		return r;
 	} else {
-		Value r = proxy.private_request(Proxy::GET, command, Object
-				("symbol",pair)
-				("limit",1)
+		Value r = proxy.private_request(Proxy::GET, command, Object({
+				{"symbol",pair},
+				{"limit",1}})
 				);
 		if (r.empty()) {
 			lastId = 1;
@@ -368,7 +368,7 @@ Interface::Orders Interface::getOpenOrders(const std::string_view & pair) {
 		auto iter = symbols.find(pair);
 		if (iter == symbols.end()) throw std::runtime_error("Unknown symbol");
 		const MarketInfo &minfo = iter->second;
-		Value resp = dapi.private_request(Proxy::GET,"/dapi/v1/openOrders", Object("symbol",cpair));
+		Value resp = dapi.private_request(Proxy::GET,"/dapi/v1/openOrders", Object({{"symbol",cpair}}));
 		return mapJSON(resp, [&](Value x) {
 			Value id = x["clientOrderId"];
 			Value eoid = extractOrderID(id.getString());
@@ -381,7 +381,7 @@ Interface::Orders Interface::getOpenOrders(const std::string_view & pair) {
 		}, Orders());
 	} else if (fapi_isSymbol(pair)) {
 		auto cpair = remove_prefix(pair);
-		Value resp = fapi.private_request(Proxy::GET,"/fapi/v1/openOrders", Object("symbol",cpair));
+		Value resp = fapi.private_request(Proxy::GET,"/fapi/v1/openOrders", Object({{"symbol",cpair}}));
 		return mapJSON(resp, [&](Value x) {
 			Value id = x["clientOrderId"];
 			Value eoid = extractOrderID(id.getString());
@@ -397,7 +397,7 @@ Interface::Orders Interface::getOpenOrders(const std::string_view & pair) {
 		json::String spair((StrViewA(pair)));
 		Orders orders;
 
-		json::Value resp = px.private_request(Proxy::GET,"/api/v3/openOrders", Object("symbol",spair));
+		json::Value resp = px.private_request(Proxy::GET,"/api/v3/openOrders", Object({{"symbol",spair}}));
 		orders =  mapJSON(resp, [&](Value x) {
 			Value id = x["clientOrderId"];
 			Value eoid = extractOrderID(id.getString());
@@ -420,7 +420,7 @@ Interface::Orders Interface::getOpenOrders(const std::string_view & pair) {
 					new_oo.push_back(c);
 				} else {
 					try {
-						Value resp = px.private_request(Proxy::GET,"/api/v3/order", Object("symbol",spair)("orderId", c.id));
+						Value resp = px.private_request(Proxy::GET,"/api/v3/order", Object({{"symbol",spair},{"orderId", c.id}}));
 						auto status = resp["status"];
 						if (status == "NEW" || status == "PARTIALLY_FILLED") {
 							c.size = (resp["side"].getString() == "SELL"?-1:1)*(resp["origQty"].getNumber() - resp["executedQty"].getNumber());
@@ -439,49 +439,6 @@ Interface::Orders Interface::getOpenOrders(const std::string_view & pair) {
 
 		//print_order_table(pair, orders);
 		return orders;
-/*
-
-		Value resp;
-		bool canclean = true;
-		std::uint64_t updateTime = 0;
-		for (int i = 0; i < 6; i++) {
-			resp = px.private_request(Proxy::GET,"/api/v3/openOrders", Object("symbol",spair));
-			updateTime = 0;
-			if (!resp.empty()) {
-				canclean = false;
-				updateTime = resp.reduce([&](std::uint64_t ut, Value x){
-					std::uint64_t updateTime = x["updateTime"].getUIntLong();
-					if (std::find(canceledOrders.begin(), canceledOrders.end(), x["orderId"]) != canceledOrders.end()) {
-						updateTime = 0;
-					}
-					if (updateTime<ut) return updateTime;else return ut;
-				}, ~std::uint64_t(0));
-			}
-			auto iter = openOrderCheckTable.find(spair);
-			if (iter == openOrderCheckTable.end()) openOrderCheckTable.emplace(spair,updateTime);
-			else if (iter->second > updateTime) {
-				std::cerr << "Inconsistent data, will retry (" << iter->second <<" > " << updateTime << ")" << std::endl;
-				continue;
-			}
-			iter->second = updateTime;
-			return mapJSON(resp, [&](Value x) {
-				Value id = x["clientOrderId"];
-				Value eoid = extractOrderID(id.getString());
-				return Order {
-					x["orderId"],
-					eoid,
-					(x["side"].getString() == "SELL"?-1:1)*(x["origQty"].getNumber() - x["executedQty"].getNumber()),
-					x["price"].getNumber()
-				};
-			}, Orders());
-		}
-		if (updateTime == 0 && canclean) {
-			openOrderCheckTable[spair] = 0;
-			return {};
-		} else {
-			throw std::runtime_error("Unable to retrieve open orders (inconsistent response)");
-		}
-		*/
 	}
 }
 
@@ -606,9 +563,9 @@ json::Value Interface::placeOrder(const std::string_view & pair,
 		price = std::round((1.0/price)/iter->second.currency_step)*iter->second.currency_step;
 
 		if (replaceId.defined()) {
-			Value r = dapi.private_request(Proxy::DELETE,"/dapi/v1/order",Object
-					("symbol", cpair)
-					("orderId", replaceId));
+			Value r = dapi.private_request(Proxy::DELETE,"/dapi/v1/order",Object({
+					{"symbol", cpair},
+					{"orderId", replaceId}}));
 			double remain = r["origQty"].getNumber() - r["executedQty"].getNumber();
 			if (r["status"].getString() != "CANCELED"
 					|| remain < std::fabs(replaceSize)*0.9999) return nullptr;
@@ -617,15 +574,15 @@ json::Value Interface::placeOrder(const std::string_view & pair,
 		if (size == 0) return nullptr;
 
 		Value orderId = generateOrderId(clientId);
-		dapi.private_request(Proxy::POST,"/dapi/v1/order",Object
-				("symbol", cpair)
-				("side", size<0?"SELL":"BUY")
-				("type","LIMIT")
-				("newClientOrderId",orderId)
-				("quantity", number_to_decimal(std::fabs(size),iter->second.size_precision))
-				("price", number_to_decimal(std::fabs(price), iter->second.quote_precision))
-				("timeInForce","GTX")
-				("positionSide","BOTH")
+		dapi.private_request(Proxy::POST,"/dapi/v1/order",Object({
+				{"symbol", cpair},
+				{"side", size<0?"SELL":"BUY"},
+				{"type","LIMIT"},
+				{"newClientOrderId",orderId},
+				{"quantity", number_to_decimal(std::fabs(size),iter->second.size_precision)},
+				{"price", number_to_decimal(std::fabs(price), iter->second.quote_precision)},
+				{"timeInForce","GTX"},
+				{"positionSide","BOTH"}})
 				);
 
 		return orderId;
@@ -633,24 +590,24 @@ json::Value Interface::placeOrder(const std::string_view & pair,
 	} else 	if (fapi_isSymbol(pair)) {
 		auto cpair = remove_prefix(pair);
 		if (replaceId.defined()) {
-			Value r = fapi.private_request(Proxy::DELETE,"/fapi/v1/order",Object
-					("symbol", cpair)
-					("orderId", replaceId));
+			Value r = fapi.private_request(Proxy::DELETE,"/fapi/v1/order",Object({
+					{"symbol", cpair},
+					{"orderId", replaceId}}));
 			double remain = r["origQty"].getNumber() - r["executedQty"].getNumber();
 			if (r["status"].getString() != "CANCELED"
 					|| remain < std::fabs(replaceSize)*0.9999) return nullptr;
 		}
 		if (size == 0) return nullptr;
 		Value orderId = generateOrderId(clientId);
-		fapi.private_request(Proxy::POST,"/fapi/v1/order",Object
-				("symbol", cpair)
-				("side", size<0?"SELL":"BUY")
-				("type","LIMIT")
-				("newClientOrderId",orderId)
-				("quantity", number_to_decimal(std::fabs(size),iter->second.size_precision))
-				("price", number_to_decimal(std::fabs(price), iter->second.quote_precision))
-				("timeInForce","GTX")
-				("positionSide","BOTH")
+		fapi.private_request(Proxy::POST,"/fapi/v1/order",Object({
+				{"symbol", cpair},
+				{"side", size<0?"SELL":"BUY"},
+				{"type","LIMIT"},
+				{"newClientOrderId",orderId},
+				{"quantity", number_to_decimal(std::fabs(size),iter->second.size_precision)},
+				{"price", number_to_decimal(std::fabs(price), iter->second.quote_precision)},
+				{"timeInForce","GTX"},
+				{"positionSide","BOTH"}})
 				);
 
 		return orderId;
@@ -658,9 +615,9 @@ json::Value Interface::placeOrder(const std::string_view & pair,
 	} else {
 
 		if (replaceId.defined()) {
-			Value r = px.private_request(Proxy::DELETE,"/api/v3/order",Object
-					("symbol", pair)
-					("orderId", replaceId));
+			Value r = px.private_request(Proxy::DELETE,"/api/v3/order",Object({
+					{"symbol", pair},
+					{"orderId", replaceId}}));
 			double remain = r["origQty"].getNumber() - r["executedQty"].getNumber();
 			if (r["status"].getString() != "CANCELED") return nullptr;
 			auto &om = orderMap[std::string(pair)];
@@ -674,14 +631,14 @@ json::Value Interface::placeOrder(const std::string_view & pair,
 		if (size == 0) return nullptr;
 
 		Value clientOrderId = generateOrderId(clientId);
-		json::Value resp = px.private_request(Proxy::POST,"/api/v3/order",Object
-				("symbol", pair)
-				("side", size<0?"SELL":"BUY")
-				("type","LIMIT_MAKER")
-				("newClientOrderId",clientOrderId)
-				("quantity", number_to_decimal(std::fabs(size),iter->second.size_precision))
-				("price", number_to_decimal(std::fabs(price), iter->second.quote_precision))
-				("newOrderRespType","ACK"));
+		json::Value resp = px.private_request(Proxy::POST,"/api/v3/order",Object({
+				{"symbol", pair},
+				{"side", size<0?"SELL":"BUY"},
+				{"type","LIMIT_MAKER"},
+				{"newClientOrderId",clientOrderId},
+				{"quantity", number_to_decimal(std::fabs(size),iter->second.size_precision)},
+				{"price", number_to_decimal(std::fabs(price), iter->second.quote_precision)},
+				{"newOrderRespType","ACK"}}));
 
 		Value orderId = resp["orderId"];
 		orderMap[std::string(pair)].push_back(Order{
@@ -1073,14 +1030,14 @@ inline json::Value Interface::setSettings(json::Value v) {
 
 inline json::Value Interface::getSettings(const std::string_view &) const {
 	return {
-		Object
-			("name","bnbfee")
-			("label","Fees paid in BNB")
-			("type","enum")
-			("options",Object
-					("yes","Enabled")
-					("no","Disabled"))
-			("default",feesInBnb?"yes":"no")
+		Object({
+			{"name","bnbfee"},
+			{"label","Fees paid in BNB"},
+			{"type","enum"},
+			{"options",Object({
+					{"yes","Enabled"},
+					{"no","Disabled"}})},
+			{"default",feesInBnb?"yes":"no"}})
 	};
 }
 

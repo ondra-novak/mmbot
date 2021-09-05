@@ -31,27 +31,33 @@ public:
 	Proxy px;
 
 	Interface(const std::string &path):AbstractBrokerAPI(path, {
-			Object
-				("name","key")
-				("label","Key")
-				("type","string"),
-			Object
-				("name","secret")
-				("label","Secret")
-				("type","string"),
-			Object
-				("name","scopes")
-				("label","Scopes")
-				("type","string")
-				("default","session:apiconsole"),
-			Object
-				("name","server")
-				("label","Server")
-				("type","enum")
-				("options",Object
-						("main","www.deribit.com")
-						("test","test.deribit.com"))
-				("default","main")})
+			Object({
+				{"name","key"},
+				{"label","Key"},
+				{"type","string"}
+			}),
+			Object({
+				{"name","secret"},
+				{"label","Secret"},
+				{"type","string"}
+			}),
+			Object({
+				{"name","scopes"},
+				{"label","Scopes"},
+				{"type","string"},
+				{"default","session:apiconsole"}
+			}),
+			Object({
+				{"name","server"},
+				{"label","Server"},
+				{"type","enum"},
+				{"options",Object({
+					{"main","www.deribit.com"},
+					{"test","test.deribit.com"}
+				})},
+				{"default","main"}
+			})
+			})
 	{}
 
 
@@ -104,23 +110,23 @@ inline double Interface::getBalance(const std::string_view &symb) {
 	if (symb.empty()) return 0;
 	if (symb[0] == '$') {
 		auto instrument = symb.substr(1);
-		auto response = px.request("private/get_position", Object
-				("instrument_name",instrument),true);
+		auto response = px.request("private/get_position", Object({
+			{"instrument_name",instrument}}),true);
 		return -response["size"].getNumber();
 	} else {
-		auto response = px.request("private/get_account_summary",Object
-			("currency",symb),true);
+		auto response = px.request("private/get_account_summary",Object({
+			{"currency",symb}}),true);
 		return response["margin_balance"].getNumber();
 	}
 }
 
 inline Interface::TradesSync Interface::syncTrades(json::Value lastId,  const std::string_view &pair) {
-	auto resp = px.request("private/get_user_trades_by_instrument",Object
-			("instrument_name",pair)
-			("sorting","asc")
-			("count", 1000)
-			("include_old", true)
-			("start_seq", lastId.hasValue()?lastId:Value()),true);
+	auto resp = px.request("private/get_user_trades_by_instrument",Object({
+		{"instrument_name",pair},
+		{"sorting","asc"},
+		{"count", 1000},
+		{"include_old", true},
+		{"start_seq", lastId.hasValue()?lastId:Value()}}),true);
 
 
 	resp = resp["trades"];
@@ -170,7 +176,7 @@ inline Interface::Orders Interface::getOpenOrders(const std::string_view &pair) 
 	Value &resp = openOrdersCache[pair];
 	if (!resp.defined()) {
 		resp = px.request("private/get_open_orders_by_instrument",Object
-			("instrument_name", pair), true);
+			({{"instrument_name", pair}}), true);
 	}
 
 	return mapJSON(resp, [&](Value v){
@@ -203,7 +209,7 @@ inline Interface::Orders Interface::getOpenOrders(const std::string_view &pair) 
 
 inline Interface::Ticker Interface::getTicker(const std::string_view &pair) {
 	auto response = px.request("public/ticker", Object
-			("instrument_name",pair), false);
+			({{"instrument_name",pair}}), false);
 	return {
 		1.0/response["best_ask_price"].getNumber(),
 		1.0/response["best_bid_price"].getNumber(),
@@ -239,7 +245,7 @@ inline json::Value Interface::placeOrder(const std::string_view &pair,
 		if (iter != ords.end()) return iter->id;
 
 		auto response = px.request("private/cancel",Object
-				("order_id",replaceId),true);
+				({{"order_id",replaceId}}),true);
 		double remain = (response["amount"].getNumber() - response["filled_amount"].getNumber())*1.00001;
 		if (replaceSize > remain) return nullptr;
 	}
@@ -248,13 +254,13 @@ inline json::Value Interface::placeOrder(const std::string_view &pair,
 	std::string_view method  = size>0?"private/sell":"private/buy";
 	double amount = std::fabs(size);
 
-	auto resp = px.request(method,Object
-			("instrument_name", pair)
-			("amount", amount)
-			("type", "limit")
-			("label", clientId.stringify())
-			("price", adj_price)
-			("post_only", true), true);
+	auto resp = px.request(method,Object({
+		{"instrument_name", pair},
+		{"amount", amount},
+		{"type", "limit"},
+		{"label", clientId.stringify()},
+		{"price", adj_price},
+		{"post_only", true}}), true);
 
 	return resp["order"]["order_id"];
 }
@@ -266,15 +272,15 @@ inline bool Interface::reset() {
 
 inline Interface::MarketInfo Interface::getMarketInfo(const std::string_view &pair) {
 	auto csize = px.request("public/get_contract_size", Object
-			("instrument_name", pair),false);
+			({{"instrument_name", pair}}),false);
 	auto currencies = px.request("public/get_currencies", Object(),false);
 	Value instrument;
 	for (Value c: currencies) {
 		Value sign = c["currency"];
-		auto instrs = px.request("public/get_instruments", Object
-				("currency",sign)
-				("kind","future")
-				("expired",false),false);
+		auto instrs = px.request("public/get_instruments", Object({
+			{"currency",sign},
+			{"kind","future"},
+			{"expired",false}}),false);
 		for (Value i: instrs) {
 			if (i["instrument_name"].getString() == pair) {
 				instrument = i;
@@ -360,10 +366,10 @@ inline std::vector<std::string> Interface::getAllPairs() {
 	auto currencies = px.request("public/get_currencies", Object(),false);
 	for (Value c: currencies) {
 		Value sign = c["currency"];
-		auto instrs = px.request("public/get_instruments", Object
-				("currency",sign)
-				("kind","future")
-				("expired",false),false);
+		auto instrs = px.request("public/get_instruments", Object({
+			{"currency",sign},
+			{"kind","future"},
+			{"expired",false}}),false);
 		for (Value i: instrs) {
 			resp.push_back(i["instrument_name"].getString());
 		}
@@ -389,11 +395,11 @@ json::Value Interface::getWallet_direct() {
 	for (Value c: currencies) {
 		Value symb = c["currency"];
 		auto response = px.request("private/get_account_summary",Object
-				("currency",symb),true);
+				({{"currency",symb}}),true);
 		double n = response["margin_balance"].getNumber();
 		if (n) {
 			w.set(symb.getString(),n);
 		}
 	}
-	return Object("default",w);
+	return Object({{"default",w}});
 }

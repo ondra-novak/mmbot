@@ -21,14 +21,16 @@ using json::String;
 
 Interface::Interface(const std::string &config_path)
 :AbstractBrokerAPI(config_path,{
-		Object
-			("name","key")
-			("label","Key")
-			("type","string"),
-		Object
-			("name","secret")
-			("label","Secret")
-			("type","string")
+		Object({
+			{"name","key"},
+			{"label","Key"},
+			{"type","string"}
+		}),
+		Object({
+			{"name","secret"},
+			{"label","Secret"},
+			{"type","string"}
+		})
 })
 ,api(simpleServer::HttpClient(
 		"Mozilla/5.0 (compatible; MMBOT/2.0; +http://github.com/ondra-novak/mmbot.git)",
@@ -41,13 +43,13 @@ Interface::Interface(const std::string &config_path)
 
 json::Value Interface::testCall(const std::string_view &method, json::Value args) {
 	if (method == "transactions") {
-		return  apiPOST("/v3/listTransactions", Object
-				("currency",args)
-				("pageIndex",0)
-				("pageSize",50)
-				("sortField","Date")
-				("descending",true)
-		);
+		return  apiPOST("/v3/listTransactions", Object({
+			{"currency",args},
+			{"pageIndex",0},
+			{"pageSize",50},
+			{"sortField","Date"},
+			{"descending",true}
+		}));
 	} else {
 		throw std::runtime_error("Not implemented");
 	}
@@ -188,12 +190,12 @@ IStockApi::TradesSync Interface::syncTrades(json::Value lastId, const std::strin
 	auto splt = splitPair(pair);
 	auto &a_tx = txCache[std::string(splt.first)];
 	bool needFees = false;
-	if (!a_tx.defined()) a_tx = apiPOST("/v3/listTransactions", Object
-			("currency",splt.first)
-			("pageIndex",0)
-			("pageSize",50)
-			("sortField","Date")
-			("descending",true));
+	if (!a_tx.defined()) a_tx = apiPOST("/v3/listTransactions", Object({
+		{"currency",splt.first},
+		{"pageIndex",0},
+		{"pageSize",50},
+		{"sortField","Date"},
+		{"descending",true}}));
 	std::vector<Trade> trades;
 	Array newLastId;
 	for (Value z: a_tx["Result"]) {
@@ -227,12 +229,12 @@ IStockApi::TradesSync Interface::syncTrades(json::Value lastId, const std::strin
 	}
 	if (needFees) {
 		auto &c_tx = txCache[std::string(splt.second)];
-		if (!c_tx.defined()) c_tx = apiPOST("/v3/listTransactions", Object
-				("currency",splt.second)
-				("pageIndex",0)
-				("pageSize",50)
-				("sortField","Date")
-				("descending",true));
+		if (!c_tx.defined()) c_tx = apiPOST("/v3/listTransactions", Object({
+			{"currency",splt.second},
+			{"pageIndex",0},
+			{"pageSize",50},
+			{"sortField","Date"},
+			{"descending",true}}));
 
 		for (Value z: c_tx["Result"]) {
 			if (z["Type"].getString() == "tradefee") {
@@ -293,13 +295,13 @@ json::Value Interface::placeOrder(const std::string_view &pair, double size, dou
 	}
 	if (size) {
 		auto splt = splitPair(pair);
-		Value resp = apiPOST("/v3/placeOrder", Object
-				("listingCurrency",splt.first)
-				("referenceCurrency",splt.second)
-				("type",size>0?"buy":"sell")
-				("amount",std::abs(size))
-				("amountInReferenceCurrency",false)
-				("limitPrice",price));
+		Value resp = apiPOST("/v3/placeOrder", Object({
+			{"listingCurrency",splt.first},
+			{"referenceCurrency",splt.second},
+			{"type",size>0?"buy":"sell"},
+			{"amount",std::abs(size)},
+			{"amountInReferenceCurrency",false},
+			{"limitPrice",price}}));
 		orderDB.store(resp, clientId);
 		return resp;
 	} else {

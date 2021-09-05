@@ -36,26 +36,29 @@ public:
 
 	Interface(const std::string &path)
 		:AbstractBrokerAPI(path,{
-			Object
-				("name","passphrase")
-				("label","Passphrase")
-				("type", "string"),
-			Object
-				("name","privKey")
-				("label","Secret")
-				("type", "string"),
-			Object
-				("name","pubKey")
-				("label","KeyID")
-				("type", "string"),
-			Object
-				("name","site")
-				("label","Site")
-				("type", "enum")
-				("options", Object
-						("live","Live")
-						("sandbox","Sandbox (test)")
-				)
+			Object({
+				{"name","passphrase"},
+				{"label","Passphrase"},
+				{"type", "string"}
+			}),
+			Object({
+				{"name","privKey"},
+				{"label","Secret"},
+				{"type", "string"}
+			}),
+			Object({
+				{"name","pubKey"},
+				{"label","KeyID"},
+				{"type", "string"}
+			}),
+			Object({
+				{"name","site"},
+				{"label","Site"},
+				{"type", "enum"},
+				{"options", Object({
+					{"live","Live"},
+					{"sandbox","Sandbox (test)"}})}
+			})
 		})
 	,httpc(simpleServer::HttpClient("MMBot 2.0 coinbase API client", simpleServer::newHttpsProvider(), nullptr, nullptr),"https://api.pro.coinbase.com")
 	,orderdb(path+".db")
@@ -163,39 +166,16 @@ Value Interface::createHeaders(std::string_view method, std::string_view path, V
 		sign.append(txt.data, txt.length);
 	});
 */
-	Value v =  Object
-			("CB-ACCESS-KEY", publicKey)
-			("CB-ACCESS-SIGN", Value(BinaryView(digest, digest_len),base64))
-			("CB-ACCESS-TIMESTAMP",tm)
-			("CB-ACCESS-PASSPHRASE",passphrase);
+	Value v =  Object({
+			{"CB-ACCESS-KEY", publicKey},
+			{"CB-ACCESS-SIGN", Value(BinaryView(digest, digest_len),base64)},
+			{"CB-ACCESS-TIMESTAMP",tm},
+			{"CB-ACCESS-PASSPHRASE",passphrase}});
 	return v;
 
 }
 
 
-/*void Interface::createSigned(Object &payload) {
-	auto nonce = this->nonce++;
-	std::ostringstream buff;
-	buff << nonce << "$" << publicKey;
-	std::string message = buff.str();
-
-	unsigned char digest[256];
-	unsigned int digest_len = sizeof(digest);
-
-	HMAC(EVP_sha256(), privateKey.data(), privateKey.length(), reinterpret_cast<const unsigned char *>(message.data()), message.length(),digest,&digest_len);
-
-	std::ostringstream digestHex;
-	for (unsigned int i = 0; i < digest_len; i++) {
-		digestHex << std::hex << std::setw(2) << std::setfill('0')
-				<< static_cast<unsigned int>(digest[i]);
-	}
-
-
-	payload.set("token", publicKey);
-	payload.set("nonce", nonce);
-	payload.set("signature", digestHex.str());
-}
-*/
 double Interface::getBalance(const std::string_view& symb, const std::string_view & pair) {
 	try {
 		if (!balanceCache.hasValue()) {
@@ -335,13 +315,13 @@ inline json::Value Interface::placeOrder(const std::string_view& pair,
 		}
 		if (size) {
 			std::string path = "/orders";
-			Value req = Object
-					("type","limit")
-					("side", size < 0?"sell":"buy")
-					("product_id", pair)
-					("price", price)
-					("size", std::abs(size))
-					("post_only", true);
+			Value req = Object({
+				{"type","limit"},
+				{"side", size < 0?"sell":"buy"},
+				{"product_id", pair},
+				{"price", price},
+				{"size", std::abs(size)},
+				{"post_only", true}});
 			Value resp = httpc.POST(path, req, createHeaders("POST", path, req));
 			Value id = resp["id"];
 			orderdb.store(id, clientId);
