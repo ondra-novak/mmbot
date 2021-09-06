@@ -47,189 +47,189 @@ static Value showIfUrl = Object
 static Value showIfManual = Object
 		({{"source",Value(json::array,{"manual"})}});
 static Value settingsForm = {
-					Object({
+					Object{
 						{"name","pair"},
 						{"type","string"},
 						{"label","Pair"},
 						{"showif",json::array}
-					}),
-					Object({
+					},
+					Object{
 						{"name","source"},
 						{"type","enum"},
 						{"label","Price source"},
 						{"default","cryptowatch"},
-						{"options",Object({
+						{"options",Object{
 							{"cryptowatch","Cryptowatch"},
 							{"bitfinex","Bitfinex"},
 							{"urljson","Link to JSON url"},
 							{"manual","Manual enter prices"},
 							{"orders","Execute orders"},
 							{"randomwalk","Random walk"}
-						})}}),
-					Object({
+						}}},
+					Object{
 						{"name","src_asset"},
 						{"type","enum"},
 						{"label","Asset"},
 						{"default",""},
 						{"showif", showIfAuto},
-						{"options",Object({
+						{"options",Object{
 							{"","---select---"}
-						})}
-					}),
-					Object({
+						}}
+					},
+					Object{
 						{"name","src_currency"},
 						{"type","enum"},
 						{"label","Currency"},
 						{"default",""},
 						{"showif", showIfAuto},
-						{"options",Object({
+						{"options",Object{
 							{"","---select---"}
-						})}
-					}),
-					Object({
+						}}
+					},
+					Object{
 						{"name","bfx_src"},
 						{"type","enum"},
 						{"label","Symbol"},
 						{"default",""},
 						{"showif", showIfBfx},
-						{"options",Object({
+						{"options",Object{
 							{"","---select---"}
-						})}}),
-					Object({
+						}}},
+					Object{
 						{"name","src_url"},
 						{"type","string"},
 						{"label","URL"},
 						{"default",""},
-						{"showif", showIfUrl}}),
-					Object({
+						{"showif", showIfUrl}},
+					Object{
 						{"name","src_field"},
 						{"type","string"},
 						{"label","Field name"},
 						{"default",""},
 						{"showif", showIfUrl}
-					}),
-					Object({
+					},
+					Object{
 						{"name","prices"},
 						{"type","textarea"},
 						{"label","Prices - one per line"},
 						{"showif", showIfManual},
 						{"default",""}
-					}),
-					Object({
+					},
+					Object{
 						{"name","timeframe"},
 						{"type","number"},
 						{"label","Time frame in minutes"},
-						{"showif", Object({{"source",{"manual","randomwalk"}}})},
+						{"showif", Object{{"source",{"manual","randomwalk"}}}},
 						{"default",1}
-					}),
-					Object({
+					},
+					Object{
 						{"name","asset"},
 						{"type","string"},
 						{"label","Asset symbol"},
-						{"showif", Object({{"source", {"manual","urljson","orders","randomwalk"}}})},
+						{"showif", Object{{"source", {"manual","urljson","orders","randomwalk"}}}},
 						{"default","TEST"}
-					}),
-					Object({
+					},
+					Object{
 						{"name","asset_balance"},
 						{"type","number"},
 						{"label","Asset Balance"},
 						{"default","0"}
-					}),
-					Object({
+					},
+					Object{
 						{"name","asset_step"},
 						{"type","number"},
 						{"label","Asset Step"},
 						{"default","0"}
-					}),
-					Object({
+					},
+					Object{
 						{"name","currency"},
 						{"type","string"},
 						{"label","Currency symbol"},
-						{"showif", Object({{"source", {"manual","urljson","orders","randomwalk"}}})},
+						{"showif", Object{{"source", {"manual","urljson","orders","randomwalk"}}}},
 						{"default","FIAT"}
-					}),
-					Object({
+					},
+					Object{
 						{"name","currency_balance"},
 						{"type","number"},
 						{"label","Currency Balance"},
 						{"default","0"}
-					}),
-					Object({
+					},
+					Object{
 						{"name","currency_step"},
 						{"type","number"},
 						{"label","Currency Step"},
 						{"default","0"}
-					}),
-					Object({
+					},
+					Object{
 						{"name","type"},
 						{"type","enum"},
-						{"options",Object({
+						{"options",Object{
 							{"normal","Standard exchange"},
 							{"futures","Normal futures"},
 							{"inverted","Inverted futures"},
 							{"futures_liq","Futures with liquidation"},
 							{"inverted_liq","Inv Futures with liquidation"}
-						})},
+						}},
 						{"label","Market type"},
 						{"default","normal"}
-					}),
-					Object({
+					},
+					Object{
 						{"name","liq"},
 						{"type","string"},
 						{"label","Liquidation price"},
-						{"showif",Object({{"type",{"futures_liq","inverted_liq"}}})}
-					}),
-					Object({
+						{"showif",Object{{"type",{"futures_liq","inverted_liq"}}}}
+					},
+					Object{
 						{"name","restart"},
 						{"type","enum"},
 						{"showif", showIfManual},
-						{"options",Object({
+						{"options",Object{
 							{"cont","Continue in chart"},
 							{"restart","Restart from beginning"}
-						})},
+						}},
 						{"label","Restart or continue in chart"},
 						{"default","cont"}
-					})
+					}
 };
 
 static Value presetSettingsForm = {
-		Object({
+		Object{
 			{"name","pair"},
 			{"type","string"},
 			{"label","Pair"},
 			{"showif",json::array}
-		}),
-		Object({
+		},
+		Object{
 			{"name","asset_balance"},
 			{"type","number"},
 			{"default","0"},
 			{"label","Assets"}
-		}),
-		Object({
+		},
+		Object{
 			{"name","currency_balance"},
 			{"type","number"},
 			{"default","0"},
 			{"label","Currency"}
-		}),
-		Object({
+		},
+		Object{
 			{"name","type"},
 			{"type","enum"},
-			{"options",Object({
+			{"options",Object{
 				{"normal","Standard exchange"},
 				{"futures","Normal futures"},
 				{"inverted","Inverted futures"},
 				{"futures_liq","Futures with liquidation"},
 				{"inverted_liq","Inv Futures with liquidation"}
-			})},
+			}},
 			{"label","Market type"},
 			{"default","normal"}
-		}),
-		Object({
+		},
+		Object{
 			{"name","liq"},
 			{"type","string"},
 			{"label","Liquidation price"},
-			{"showif",Object({{"type",{"futures_liq","inverted_liq"}}})}
-		})
+			{"showif",Object{{"type",{"futures_liq","inverted_liq"}}}}
+		}
 };
 
 static std::size_t genIDCnt() {

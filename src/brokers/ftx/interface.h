@@ -152,7 +152,9 @@ protected:
 	void ws_onMessage(json::StrViewA text);
 
 	using OrderMap = std::unordered_map<std::int64_t, json::Value>;
-	OrderMap activeOrderMap, replaceOrderMap;
+	OrderMap activeOrderMap;
+	using OrderCloseEventMap = std::unordered_map<std::int64_t, std::function<void(json::Value)> >;
+	OrderCloseEventMap closeEventMap;
 };
 
 

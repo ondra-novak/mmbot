@@ -11,6 +11,7 @@
 #include <openssl/evp.h>
 #include <openssl/hmac.h>
 #include <cmath>
+#include <future>
 
 #include <imtjson/object.h>
 #include <simpleServer/http_client.h>
@@ -426,9 +427,10 @@ void Interface::ws_login() {
 						{"args",json::Object({
 							{"key", conn->api_key},
 							{"time", now},
-							{"subaccount",conn->api_subaccount.empty()?json::Value():json::Value(conn->api_subaccount)}
+							{"subaccount",conn->api_subaccount.empty()?json::Value():json::Value(conn->api_subaccount)},
+							{"sign", rawSign(conn->api_secret, message.str())}
 						})},
-						{"sign", rawSign(conn->api_secret, message.str())}
+
 					});
 		ws_post(ws, loginStr.toString());
 		json::Value subscribe = json::Object({{"op","subscribe"},{"channel","orders"}});
@@ -448,13 +450,15 @@ void Interface::ws_onMessage(json::StrViewA text) {
 			auto status = data["status"];
 			if (status.getString() == "closed") {
 				activeOrderMap.erase(id);
-				auto iter = replaceOrderMap.find(id);
-				if (iter != replaceOrderMap.end()) {
-					json::Value newOrder = iter->second;
-					replaceOrderMap.erase(iter);
+				auto iter = closeEventMap.find(id);
+				if (iter != closeEventMap.end()) {
+					auto fn = std::move(iter->second);
+					closeEventMap.erase(iter);
+					fn(data);
+/*					iter->second(data);
 					if (data["filledSize"].getNumber() == 0) {
 						Value resp = connection.lock()->requestPOST("/orders", newOrder);
-					}
+					}*/
 				}
 			} else {
 				activeOrderMap[id] = data;
@@ -471,7 +475,7 @@ bool Interface::checkWSHealth() {
 	if (ws == nullptr) {
 		if (ws_reader.joinable()) ws_reader.join();
 		activeOrderMap.clear();
-		replaceOrderMap.clear();
+		closeEventMap.clear();
 		auto conn = connection.lock();
 		auto &client = conn->api.getClient();
 		ws = simpleServer::connectWebSocket(client, "https://ftx.com/ws");
@@ -591,6 +595,32 @@ json::Value Interface::checkCancelAndPlace(PConnection conn, std::string_view pa
 
 	std::unique_lock _(wslock);
 
+
+	if (replaceId.hasValue()) {
+		auto id = replaceId.getUIntLong();
+		auto iter = activeOrderMap.find(id);
+		if (iter == activeOrderMap.end()) {
+			return nullptr;
+		} else {
+			auto promise= std::make_shared<std::promise<json::Value> >();
+			auto future = promise->get_future();
+			closeEventMap.emplace(id, [promise](json::Value v){
+				promise->set_value(std::move(v));
+			});
+			_.unlock();
+			cancelOrderImpl(conn, replaceId);
+			if (future.wait_for(std::chrono::seconds(5)) == std::future_status::timeout) {
+				throw std::runtime_error("Timeout while waiting for close the order");
+			}
+			auto data = future.get();
+			//can't use remainSize - because it is valid only for open order - (for closed, it is always 0)
+			double remain = data["size"].getNumber()-data["filledSize"].getNumber();
+			if (remain < replaceSize*0.99) {
+				return nullptr;
+			}
+		}
+	}
+
 	Value req = Object({
 		{"market", pair},
 		{"side", size > 0?"buy":"sell"},
@@ -601,20 +631,12 @@ json::Value Interface::checkCancelAndPlace(PConnection conn, std::string_view pa
 		{"clientId", ordId}
 	});
 
-	auto id = replaceId.getUIntLong();
-	auto iter = activeOrderMap.find(id);
-	if (iter == activeOrderMap.end()) {
-		Value resp = conn.lock()->requestPOST("/orders", req);
-		if (resp["success"].getBool()) {
-			return resp["result"]["id"];
-		} else {
-			throw std::runtime_error(resp.stringify().str());
-		}
+	Value resp = conn.lock()->requestPOST("/orders", req);
+	if (resp["success"].getBool()) {
+		return resp["result"]["id"];
 	} else {
-		replaceOrderMap[id] = req;
-		cancelOrderImpl(conn, replaceId);
+		throw std::runtime_error(resp.stringify().str());
 	}
-	return replaceId;
 }
 
 
