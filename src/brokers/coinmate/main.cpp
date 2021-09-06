@@ -269,10 +269,10 @@ std::vector<std::string> Interface::getAllPairs() {
 double Interface::getFees(const std::string_view &pair) {
 	if (cm.hasKey()) {
 		auto now = std::chrono::system_clock::now();
-		auto iter = feeMap.find(StrViewA(pair));
+		auto iter = feeMap.find(pair);
 		if (iter == feeMap.end() || iter->second.expiration < now) {
 			Value fresp = cm.request(Proxy::POST, "traderFees", Object({{"currencyPair", pair}}));
-			FeeInfo &fi = feeMap[StrViewA(pair)];
+			FeeInfo &fi = feeMap[pair];
 			fi.fee = fresp["maker"].getNumber()*0.01;
 			fi.expiration = now + std::chrono::hours(1);
 			return fi.fee;

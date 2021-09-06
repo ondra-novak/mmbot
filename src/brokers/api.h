@@ -15,6 +15,7 @@
 #include "../main/ibrokercontrol.h"
 #include "../main/istockapi.h"
 #include "../main/sgn.h"
+#include "../shared/refcnt.h"
 
 
 

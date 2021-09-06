@@ -1111,7 +1111,7 @@ inline void Interface::setSettings(json::Value keyData, bool loaded,  unsigned i
 	p.price_url.clear();
 	p.price_path.clear();
 
-	StrViewA textPrices = keyData["prices"].getString().trim(isspace);
+	StrViewA textPrices = StrViewA(keyData["prices"].getString()).trim(isspace);
 	{
 		auto splt = textPrices.split("\n");
 		while (!!splt) {
@@ -1424,7 +1424,7 @@ Interface::PageData Interface::fetchPage(const std::string_view &method, const s
 			StrViewA a = splt();
 			StrViewA c = splt();
 			StrViewA d = splt();
-			unsigned int days = Value(d).getUInt();
+			unsigned int days = Value(std::string_view(d)).getUInt();
 
 			auto prices = generatePrices(a, c, days);
 			std::ostringstream s;

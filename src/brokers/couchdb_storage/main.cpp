@@ -172,8 +172,8 @@ static json::Value createAuthStr(const std::string_view &username, const std::st
 	res.reserve((buff.size()+4)*4/3);
 	json::base64->encodeBinaryValue(
 			json::BinaryView(reinterpret_cast<const unsigned char *>(buff.data()),buff.length()),
-			[&](const json::StrViewA &txt){
-		res.append(txt.data, txt.length);
+			[&](const std::string_view &txt){
+		res.append(txt);
 	});
 	return json::Value(json::object, {
 			json::Value("Authorization", json::String({"Basic ",res}))
@@ -247,7 +247,7 @@ inline void DBConn::put_trade(const json::Value &trade) {
 		buff.push_back(c);
 	});
 	id = trade_prefix;
-	base64url->encodeBinaryValue(BinaryView(StrViewA(buff)),[&](StrViewA str){
+	base64url->encodeBinaryValue(json::map_str2bin(buff),[&](StrViewA str){
 		id.append(str.data, str.length);
 	});
 	Value doc = trade.replace("_id", id).replace("ident", ident);

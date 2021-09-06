@@ -157,7 +157,7 @@ void Interface::updateSymbols() {
 	this->pairMap = public_GET("/0/public/AssetPairs")["result"];
 	this->pairMap = this->pairMap.filter([&](Value row){
 		return row["lot"].getString() == "unit"
-				&& row["lot_multiplier"].getNumber() == 1 && !row.getKey().endsWith(".d");
+				&& row["lot_multiplier"].getNumber() == 1 && !ondra_shared::StrViewA(row.getKey()).endsWith(".d");
 	});
 
 
@@ -212,7 +212,7 @@ json::Value Interface::private_POST(std::string_view path, json::Value req) {
 	std::string toSign = buff.str();
 
 	unsigned int hmac_digest_len = sizeof (hmac_digest);
-	HMAC(EVP_sha512(), apiSecret.data, apiSecret.length, reinterpret_cast<const unsigned char *>(toSign.data()), toSign.length(), hmac_digest, &hmac_digest_len);
+	HMAC(EVP_sha512(), apiSecret.data(), apiSecret.size(), reinterpret_cast<const unsigned char *>(toSign.data()), toSign.length(), hmac_digest, &hmac_digest_len);
 	Value sign = json::base64->encodeBinaryValue(BinaryView(hmac_digest, hmac_digest_len));
 	Value headers = Object({
 		{"API-Key", apiKey},
@@ -383,7 +383,7 @@ IStockApi::TradesSync Interface::syncTrades(json::Value lastId, const std::strin
 	if (!first_call) {
 		auto out = mapJSON(trades.filter([&](Value x){
 			if (duplist.indexOf(x["id"]) != duplist.npos) return false;
-			return x["pair"] == symb || x["pair"] == altname;
+			return x["pair"].getString() == symb || x["pair"].getString() == altname;
 		}),[&](Value row){
 			double price = row["price"].getNumber();
 			Value id = row["id"];

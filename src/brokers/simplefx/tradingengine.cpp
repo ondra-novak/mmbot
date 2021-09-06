@@ -106,7 +106,7 @@ std::string TradingEngine::placeOrder(double price, double size, json::Value cli
 void TradingEngine::cancelOrder(std::string id) {
 	Sync _(lock);
 	auto iter = std::find_if(orders.begin(), orders.end(), [&](const Order &o) {
-		return o.id.getString() == json::StrViewA(id);
+		return o.id.getString() == id;
 	});
 	if (iter != orders.end()) {
 		logDebug("Order canceled: $1", id);
@@ -153,7 +153,7 @@ void TradingEngine::onPriceChange(const IStockApi::Ticker &price, Sync &hlck) {
 			if ((order.size < 0 && order.price < ticker.bid)
 					|| (order.size > 0 && order.price > ticker.ask)) {
 				volume += order.size;
-				logDebug("Matching order $1 at $2 size $3", order.id.toString(), order.price, order.size);
+				logDebug("Matching order $1 at $2 size $3", order.id.toString().str(), order.price, order.size);
 			} else {
 				pending.push_back(order);
 			}

@@ -26,7 +26,7 @@ public:
 	using ondra_shared::StdLogProvider::StdLogProvider;
 
 
-	virtual ondra_shared::PLogProvider newSection(const StrViewA &ident)  override {
+	virtual ondra_shared::PLogProvider newSection(const ondra_shared::StrViewA &ident)  override {
 		return ondra_shared::PLogProvider(new BrokerLogProvider(*this,ident));
 	}
 
@@ -41,7 +41,7 @@ class AbstractBrokerAPI::LogProvider: public ondra_shared::StdLogProviderFactory
 public:
 	using Super = ondra_shared::StdLogProviderFactory;
 	LogProvider(AbstractBrokerAPI &owner):owner(owner) {}
-	virtual void writeToLog(const StrViewA &line, const std::time_t &, ondra_shared::LogLevel ) override {
+	virtual void writeToLog(const ondra_shared::StrViewA &line, const std::time_t &, ondra_shared::LogLevel ) override {
 		if (connected) owner.logMessage(std::string(line));
 	}
 	void lock() {
@@ -142,7 +142,7 @@ static Value getBrokerInfo(AbstractBrokerAPI &handler, const Value &req) {
 				 {"trading_enabled", nfo.trading_enabled},
 				 {"settings",nfo.settings},
 				 {"subaccounts",nfo.subaccounts},
-				 {"favicon",Value(BinaryView(StrViewA(nfo.favicon)),base64)}});
+				 {"favicon",nfo.favicon}});
 }
 
 static Value reset(AbstractBrokerAPI &handler, const Value &req) {
@@ -221,9 +221,9 @@ static Value fetchPage(AbstractBrokerAPI &handler, const Value &req) {
 				preq);
 	return Object({{"code", resp.code},
 			{"body", resp.body},
-			{"headers", Value(json::object, resp.headers.begin(), resp.headers.end(),[](auto &&p) {
+			{"headers", Value(json::object, resp.headers.begin(), resp.headers.end(),[](const std::pair<std::string, std::string> &p) {
 					return Value(p.first, p.second);
-			})}});
+			},true)}});
 }
 
 json::Value AbstractBrokerAPI::getWallet_direct() {
@@ -259,7 +259,7 @@ Value handleSubaccount(AbstractBrokerAPI &handler, const Value &req) {
 	if (req.hasValue()) {
 		Value id = req[0];
 		Value cmd = req[1];
-		StrViewA cmdstr = cmd.getString();
+		auto cmdstr = cmd.getString();
 		Value args = req[2];
 		bool loadK = false;
 		if (cmdstr == "erase") {
@@ -300,7 +300,7 @@ Value handleSubaccount(AbstractBrokerAPI &handler, const Value &req) {
 
 		}
 	} else {
-		return Value(json::array,subList.begin(), subList.end(), [&](const auto &p) {return p.first;});
+		return Value(json::array,subList.begin(), subList.end(), [&](const auto &p) {return p.first;}, true);
 	}
 }
 

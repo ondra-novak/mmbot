@@ -1458,7 +1458,7 @@ MTrader::VisRes MTrader::visualizeSpread(
 		double dyn_raise,
 		double dyn_fall,
 		double dyn_cap,
-		json::StrViewA dynMode,
+		ondra_shared::StrViewA dynMode,
 		bool sliding,
 		bool dyn_mult,
 		bool strip,

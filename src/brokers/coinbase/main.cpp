@@ -168,7 +168,7 @@ Value Interface::createHeaders(std::string_view method, std::string_view path, V
 */
 	Value v =  Object({
 			{"CB-ACCESS-KEY", publicKey},
-			{"CB-ACCESS-SIGN", Value(BinaryView(digest, digest_len),base64)},
+			{"CB-ACCESS-SIGN", Value(json::BinaryView(digest, digest_len),base64)},
 			{"CB-ACCESS-TIMESTAMP",tm},
 			{"CB-ACCESS-PASSPHRASE",passphrase}});
 	return v;
@@ -482,7 +482,7 @@ int main(int argc, char **argv) {
 
 inline void Interface::onLoadApiKey(json::Value keyData) {
 	publicKey = keyData["pubKey"].getString();
-	privateKey = StrViewA(keyData["privKey"].getBinary(json::base64));
+	privateKey = map_bin2str(keyData["privKey"].getBinary(json::base64));
 	passphrase = keyData["passphrase"].getString();
 
 	auto site = keyData["site"].getString();

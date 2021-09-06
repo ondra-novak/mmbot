@@ -46,8 +46,8 @@ protected:
 	mutable std::chrono::system_clock::time_point pairListExpire;
 
 	const PairList& getPairs() const;
-	static bool isMarginPair(const StrViewA &name);
-	static json::StrViewA stripMargin(const StrViewA &name);
+	static bool isMarginPair(const std::string_view &name);
+	static std::string_view stripMargin(const std::string_view &name);
 	const bool hasKey() const;
 
 	using Wallet=::Wallet;
@@ -61,7 +61,7 @@ protected:
 	std::map<std::string, double, std::less<> > curStep;
 	OrderDataDB orderDB;
 
-	json::Value signRequest(const StrViewA path, json::Value body) const;
+	json::Value signRequest(const std::string_view path, json::Value body) const;
 	mutable std::uint64_t nonce;
 	int order_nonce;
 	bool needUpdateTickers=true;
@@ -72,8 +72,8 @@ protected:
 	int genOrderNonce();
 
 	double getFeeFromTrade(json::Value trade, const PairInfo &pair);
-	json::Value signedPOST(json::StrViewA path, json::Value body) const;
-	json::Value publicGET(json::StrViewA path)  const;
+	json::Value signedPOST(std::string_view path, json::Value body) const;
+	json::Value publicGET(std::string_view path)  const;
 };
 
 

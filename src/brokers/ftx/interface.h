@@ -149,7 +149,7 @@ protected:
 	bool checkWSHealth();
 	void ws_disconnect();
 	void ws_login();
-	void ws_onMessage(json::StrViewA text);
+	void ws_onMessage(const std::string_view &text);
 
 	using OrderMap = std::unordered_map<std::int64_t, json::Value>;
 	OrderMap activeOrderMap;

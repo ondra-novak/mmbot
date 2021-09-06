@@ -207,7 +207,7 @@ void Traders::report_util(std::string_view ident, double ms) {
 
 void Traders::resetBrokers() {
 	auto t1 = std::chrono::system_clock::now();
-	stockSelector.forEachStock([](json::StrViewA, const PStockApi &api) {
+	stockSelector.forEachStock([](const std::string_view &, const PStockApi &api) {
 		resetBroker(api);
 	});
 	auto t2 = std::chrono::system_clock::now();
@@ -252,7 +252,7 @@ Traders::TMap::const_iterator Traders::end() const {
 	return traders.end();
 }
 
-SharedObject<NamedMTrader> Traders::find(json::StrViewA id) const {
+SharedObject<NamedMTrader> Traders::find(std::string_view id) const {
 	auto iter = traders.find(id);
 	if (iter == traders.end()) return nullptr;
 	else return iter->second;

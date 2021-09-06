@@ -35,12 +35,12 @@ std::string create(T val) {
 
 
 template<typename T>
-T parse(json::StrViewA val, const T &initial) {
+T parse(std::string_view val, const T &initial) {
 	T sum(initial);
 
 	if (val.empty()) return sum;
 	unsigned int count = val[0]-'A';
-	if (count-1 > val.length) return sum;
+	if (count-1 > val.length()) return sum;
 
 	for (unsigned int i = 0; i < count; i++) {
 		char c = val[i+1];

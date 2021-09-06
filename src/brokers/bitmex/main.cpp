@@ -540,8 +540,8 @@ inline json::Value Interface::getSettings(const std::string_view&) const {
 
 inline json::Value Interface::setSettings(json::Value v) {
 	auto m = v["quoteEachMin"].getString();
-	if (m.length > 1) {
-		quoteEachMin = std::strtod(m.data+1,nullptr);
+	if (m.size() > 1) {
+		quoteEachMin = std::strtod(m.data()+1,nullptr);
 	}
 	allowSmallOrders = v["allowSmallOrders"].getString() == "allow";
 	return saveOptions();

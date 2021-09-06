@@ -100,14 +100,14 @@ json::Value Interface::apiPOST(const std::string_view &uri, json::Value params) 
 
 	String ss = req.toString();
 	HMAC(EVP_sha512(), api_secret.data(), api_secret.length(),
-			reinterpret_cast<const unsigned char *>(ss.str().data),
-			ss.str().length, digest, &digest_len);
+			reinterpret_cast<const unsigned char *>(ss.str().data()),
+			ss.str().length(), digest, &digest_len);
 	char buff[200];
 	for (unsigned int i = 0; i < digest_len; i++) {
 		buff[i*2] = hexchar[digest[i]>>4];
 		buff[i*2+1] = hexchar[digest[i] & 0xF];
 	}
-	Value hdr = Value(json::object,{Value("Hash", StrViewA(buff, digest_len*2))});
+	Value hdr = Value(json::object,{Value("Hash", std::string_view(buff, digest_len*2))});
 
 	return api.POST(uri, req, std::move(hdr));
 }
@@ -201,7 +201,7 @@ IStockApi::TradesSync Interface::syncTrades(json::Value lastId, const std::strin
 	for (Value z: a_tx["Result"]) {
 		if (z["Type"].getString() == "trade" && z["OtherCurrency"].getString() == StrViewA(splt.second)) {
 			Value id = z["TradeId"];
-			newLastId.add(id);
+			newLastId.push_back(id);
 			if (lastId.type() == json::array && lastId.indexOf(id) == Value::npos) {
 				double a = z["Amount"].getNumber();
 				double p = z["Price"].getNumber();

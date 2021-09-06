@@ -73,7 +73,7 @@ void LocalDailyPerfMonitor::prepareReport() {
 	avg.resize(header.size(),0);
 
 
-	Value jheader (json::array, header.begin(), header.end(), [](StrViewA x){return x;});
+	Value jheader (json::array, header.begin(), header.end(), [](StrViewA x){return Value(std::string_view(x));});
 	jheader.unshift("Date");
 	Array reportrows;
 	for (Value row: dailySums) {

@@ -44,7 +44,7 @@ SubscribeFn QuoteStream::connect() {
 	json::Value headers;
 	json::Value v = hj.GET("negotiate?clientProtocol=1.5&connectionData=%5B%7B%22name%22%3A%22quotessubscribehub%22%7D%5D&_="+std::to_string(TradingEngine::now()),std::move(headers));
 	json::Value cookie = headers["set-cookie"];
-	std::string cookeText = StrViewA(cookie.getString().split(";")()).trim(isspace);
+	std::string cookeText = StrViewA(StrViewA(cookie.getString()).split(";")()).trim(isspace);
 	json::Value reqhdrs = json::Object({{"cookie", cookeText}});
 
 
@@ -104,13 +104,13 @@ SubscribeFn QuoteStream::connect() {
 			{"M","getLastPrices"},
 			{"A",A},
 			{"I",this->cnt++}});
-		ws.postText(data.stringify());
+		ws.postText(data.stringify().str());
 		data = json::Object({
 			{"H","quotessubscribehub"},
 			{"M","subscribeList"},
 			{"A",A},
 			{"I",this->cnt++}});
-		ws.postText(data.stringify());
+		ws.postText(data.stringify().str());
 
 		subscribed.insert(std::string(symbol));
 		logDebug("+++ Subscribed $1, currently: $2", symbol, LogRange<decltype(subscribed.begin())>(subscribed.begin(), subscribed.end(), ","));
@@ -136,7 +136,7 @@ void QuoteStream::processQuotes(const json::Value& quotes) {
 					{"M","unsubscribeList"},
 					{"A", json::Value(json::array, {json::Value(json::array, { s }) })},
 					{"I", this->cnt++}});
-			ws.postText(data.stringify());
+			ws.postText(data.stringify().str());
 			subscribed.erase(s.getString());
 			logDebug("--- Unsubscribed $1, currently: $2", s, LogRange<decltype(subscribed.begin())>(subscribed.begin(), subscribed.end(), ","));
 		}

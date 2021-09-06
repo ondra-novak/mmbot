@@ -70,7 +70,7 @@ json::Value Proxy::request(
 		const json::Value &data) {
 
 	std::string fpath = buildPath(path, query);
-	std::string fdata = data.hasValue()?data.stringify().str():json::StrViewA();
+	std::string fdata = data.hasValue()?data.stringify().str():json::StringView();
 
 	json::Object headers;
 

@@ -15,14 +15,14 @@
 using json::String;
 using json::Value;
 
-static std::pair<String, String> crackSymbol(StrViewA symbol) {
-	auto splpos = symbol.indexOf(":");
+static std::pair<String, String> crackSymbol(std::string_view symbol) {
+	auto splpos = symbol.find(':');
 	if (splpos != symbol.npos) {
 		return {
 			symbol.substr(0,splpos),
 			symbol.substr(splpos+1)
 		};
-	} else if (symbol.length == 6) {
+	} else if (symbol.size() == 6) {
 		return {
 			symbol.substr(0,3),
 			symbol.substr(3)

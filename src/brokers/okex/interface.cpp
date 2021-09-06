@@ -399,7 +399,7 @@ json::Value Interface::authReq(std::string_view method, std::string_view uri, js
 	HMAC(EVP_sha256(), api_secret.data(), api_secret.length(), reinterpret_cast<const unsigned char *>(prehash.c_str()), prehash.length(), digest, &digest_len);
 	Value hdrs (json::object,{
 			Value("OK-ACCESS-KEY",api_key),
-			Value("OK-ACCESS-SIGN",Value(BinaryView(digest,digest_len),json::base64)),
+			Value("OK-ACCESS-SIGN",Value(json::BinaryView(digest,digest_len),json::base64)),
 			Value("OK-ACCESS-TIMESTAMP",nowstr),
 			Value("OK-ACCESS-PASSPHRASE",api_passphrase)
 	});
@@ -444,7 +444,7 @@ std::string Interface::createTag(const Value &clientId) {
 	std::hash<json::Value> h;
 	auto hash = h(clientId) & 0xFFFFFFFF;
 	std::string buff="mm";
-	base64url->encodeBinaryValue(BinaryView(reinterpret_cast<const unsigned char *>(&hash),4),
+	base64url->encodeBinaryValue(json::BinaryView(reinterpret_cast<const unsigned char *>(&hash),4),
 			[&](StrViewA c){buff.append(c.data, c.length);});
 	clientIdMap[buff] = clientId;
 	return buff;

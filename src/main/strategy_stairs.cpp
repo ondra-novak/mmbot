@@ -282,7 +282,7 @@ PStrategy Strategy_Stairs::onIdle(const IStockApi::MarketInfo &minfo,
 		g = new Strategy_Stairs(cfg, nst);
 		if (g->isValid()) return g;
 		else {
-			logError("Invalid state: $1, assets: $2, currencies: $2", g->exportState().toString(), assets, currency);
+			logError("Invalid state: $1, assets: $2, currencies: $2", g->exportState().toString().str(), assets, currency);
 			throw std::runtime_error("Stairs: Invalid settings - unable to initialize strategy");
 		}
 	}

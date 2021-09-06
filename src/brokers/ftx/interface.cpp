@@ -407,7 +407,7 @@ void Interface::ws_disconnect() {
 	}
 }
 
-static void ws_post(simpleServer::WebSocketStream ws, json::StrViewA txt) {
+static void ws_post(simpleServer::WebSocketStream ws, std::string_view txt) {
 	logDebug("WSPOST: $1", txt);
 	ws.postText(txt);
 }
@@ -439,7 +439,7 @@ void Interface::ws_login() {
 }
 
 
-void Interface::ws_onMessage(json::StrViewA text) {
+void Interface::ws_onMessage(const std::string_view &text) {
 	std::unique_lock _(wslock);
 	try {
 		logDebug("WSRECV $1", text);

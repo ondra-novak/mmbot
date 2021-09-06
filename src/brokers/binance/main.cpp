@@ -130,15 +130,15 @@ public:
 protected:
 	bool dapi_isSymbol(const std::string_view &pair);
 	double dapi_getFees();
-	double dapi_getLeverage(const json::StrViewA &pair);
-	double dapi_getPosition(const json::StrViewA &pair);
-	double dapi_getCollateral(const json::StrViewA &pair);
+	double dapi_getLeverage(const std::string_view &pair);
+	double dapi_getPosition(const std::string_view &pair);
+	double dapi_getCollateral(const std::string_view &pair);
 
 	bool fapi_isSymbol(const std::string_view &pair);
-	double fapi_getPosition(const json::StrViewA &pair);
+	double fapi_getPosition(const std::string_view &pair);
 	double fapi_getFees();
 	double fapi_getCollateral();
-	double fapi_getLeverage(const json::StrViewA &pair);
+	double fapi_getLeverage(const std::string_view &pair);
 
 
 private:
@@ -394,7 +394,7 @@ Interface::Orders Interface::getOpenOrders(const std::string_view & pair) {
 		}, Orders());
 
 	} else {
-		json::String spair((StrViewA(pair)));
+		json::String spair(pair);
 		Orders orders;
 
 		json::Value resp = px.private_request(Proxy::GET,"/api/v3/openOrders", Object({{"symbol",spair}}));
@@ -846,7 +846,7 @@ inline Value Interface::generateOrderId(Value clientId) {
 		stream.put(c);
 	});
 	std::string s = stream.str();
-	BinaryView bs((StrViewA(s)));
+	auto bs= json::map_str2bin(s);
 	return Value((String({
 		"mmbot",base64url->encodeBinaryValue(bs).getString()
 	})));
@@ -948,7 +948,7 @@ inline double Interface::dapi_getFees() {
 	return fees[tier];
 }
 
-inline double Interface::dapi_getLeverage(const json::StrViewA &pair) {
+inline double Interface::dapi_getLeverage(const std::string_view &pair) {
 	Value a = dapi_readAccount();
 	Value b = a["positions"];
 	Value z = b.find([&](Value itm){
@@ -957,7 +957,7 @@ inline double Interface::dapi_getLeverage(const json::StrViewA &pair) {
 	return z["leverage"].getNumber();
 }
 
-inline double Interface::dapi_getPosition(const json::StrViewA &pair) {
+inline double Interface::dapi_getPosition(const std::string_view &pair) {
 	if (!dapi_positions.defined()) {
 		dapi_positions = dapi.private_request(Proxy::GET, "/dapi/v1/positionRisk", Value());
 	}
@@ -965,7 +965,7 @@ inline double Interface::dapi_getPosition(const json::StrViewA &pair) {
 	return -z["positionAmt"].getNumber();
 }
 
-inline double Interface::dapi_getCollateral(const json::StrViewA &pair) {
+inline double Interface::dapi_getCollateral(const std::string_view &pair) {
 	Value a = dapi_readAccount();
 	Value ass = a["assets"];
 	Value z = ass.find([&](Value item){return item["asset"].getString() == pair;});
@@ -1049,7 +1049,7 @@ bool Interface::fapi_isSymbol(const std::string_view &pair) {
 	return pair.substr(0, USDT_M_PREFIX.length()) == USDT_M_PREFIX;
 }
 
-inline double Interface::fapi_getPosition(const json::StrViewA &pair) {
+inline double Interface::fapi_getPosition(const std::string_view &pair) {
 	if (!fapi_positions.defined()) {
 		fapi_positions = fapi.private_request(Proxy::GET, "/fapi/v2/positionRisk", Value());
 	}
@@ -1110,7 +1110,7 @@ Value Interface::getWallet_direct()  {
 
 }
 
-double Interface::fapi_getLeverage(const json::StrViewA &pair) {
+double Interface::fapi_getLeverage(const std::string_view &pair) {
 	Value a = fapi_readAccount();
 	Value b = a["positions"];
 	Value z = b.find([&](Value itm){

@@ -23,7 +23,7 @@ struct PairInfo {
 	double leverage;
 };
 
-using PairList = ondra_shared::linear_map<json::StrViewA, PairInfo>;
+using PairList = ondra_shared::linear_map<std::string_view, PairInfo>;
 
 PairList readPairs(json::Value data);
 

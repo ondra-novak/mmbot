@@ -47,8 +47,8 @@ bool AuthUserList::empty() const {
 	return users.empty();
 }
 
-std::string AuthUserList::hashPwd(const std::string& user,
-		const std::string& pwd) {
+std::string AuthUserList::hashPwd(const std::string_view& user,
+		const std::string_view& pwd) {
 
 	unsigned char result[256];
 	unsigned int result_len;
@@ -56,30 +56,29 @@ std::string AuthUserList::hashPwd(const std::string& user,
 			reinterpret_cast<const unsigned char *>(user.data()), user.length(),
 			result,&result_len);
 	std::string out;
-	json::base64url->encodeBinaryValue(json::BinaryView(result,result_len),[&](json::StrViewA x){
-		out.append(x.data,x.length);
+	json::base64url->encodeBinaryValue(json::BinaryView(result,result_len),[&](const std::string_view &x){
+		out.append(x);
 	});
 	return out;
 }
 
-AuthUserList::LoginPwd AuthUserList::decodeBasicAuth(const json::StrViewA auth) {
+AuthUserList::LoginPwd AuthUserList::decodeBasicAuth(const std::string_view &auth) {
 	json::Value v = json::base64->decodeBinaryValue(auth);
-	json::StrViewA dec = v.getString();
+	ondra_shared::StrViewA dec = v.getString();
 	auto splt = dec.split(":",2);
-	json::StrViewA user = splt();
-	json::StrViewA pwd = splt();
+	ondra_shared::StrViewA user = splt();
+	ondra_shared::StrViewA pwd = splt();
 	std::string pwdhash = hashPwd(user,pwd);
 	return {std::string(user), pwdhash};
 }
 
-std::vector<AuthUserList::LoginPwd> AuthUserList::decodeMultipleBasicAuth(
-		const json::StrViewA auth) {
+std::vector<AuthUserList::LoginPwd> AuthUserList::decodeMultipleBasicAuth(const std::string_view &auth) {
 
 	std::vector<AuthUserList::LoginPwd> res;
 
-	auto splt = auth.split(" ");
+	auto splt = ondra_shared::StrViewA(auth).split(" ");
 	while (!!splt) {
-		json::StrViewA x = splt();
+		auto x = splt();
 		if (!x.empty()) {
 			res.push_back(decodeBasicAuth(x));
 		}
@@ -208,7 +207,7 @@ json::PJWTCrypto AuthMapper::initJWT(const std::string &type, const std::string 
 bool AuthMapper::setCookieHandler(simpleServer::HTTPRequest req) {
 	if (!req.allowMethods({"POST"})) return true;
 	req.readBodyAsync(1000,[](simpleServer::HTTPRequest req){
-		StrViewA body(BinaryView(req.getUserBuffer()));
+		auto body = json::map_bin2str(req.getUserBuffer());
 		simpleServer::QueryParser qp;
 		StrViewA redir;
 		StrViewA auth;
