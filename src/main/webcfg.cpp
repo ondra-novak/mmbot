@@ -377,11 +377,8 @@ bool WebCfg::reqBrokerSpec(simpleServer::HTTPRequest req,
 			if (!req.allowMethods( { "GET" }))
 				return true;
 			auto binfo = api->getBrokerInfo();
-			Value v = base64->decodeBinaryValue(binfo.favicon);
-			Binary b = v.getBinary(base64);
 			req.sendResponse(
-					HTTPResponse(200).contentType("image/png").cacheFor(600),
-					map_bin2str(b));
+					HTTPResponse(200).contentType("image/png").cacheFor(600),binfo.favicon);
 			return true;
 		} else if (entry == "apikey") {
 			IApiKey *kk = dynamic_cast<IApiKey*>(api.get());

@@ -214,8 +214,7 @@ void ExtStockApi::saveIconToDisk(const std::string &path) const {
         if (iconFiles.find(fullpath) == iconFiles.end()) {
                 std::ofstream f(fullpath, std::ios::out|std::ios::trunc|std::ios::binary);
                 BrokerInfo binfo = const_cast<ExtStockApi *>(this)->getBrokerInfo();
-                json::Binary b = json::base64->decodeBinaryValue(binfo.favicon).getBinary(json::base64);
-                f.write(reinterpret_cast<const char *>(b.data()), b.size());
+                f.write(reinterpret_cast<const char *>(binfo.favicon.data()), binfo.favicon.size());
                 if (!f) {
                     logError("Failed to create icon: $1", fullpath);
                 } else {
