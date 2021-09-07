@@ -8,6 +8,7 @@
 #ifndef SRC_MAIN_EXT_STORAGE_H_
 #define SRC_MAIN_EXT_STORAGE_H_
 #include <imtjson/value.h>
+#include "../shared/refcnt.h"
 #include "abstractExtern.h"
 #include "istorage.h"
 

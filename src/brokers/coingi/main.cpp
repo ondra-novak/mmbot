@@ -40,14 +40,14 @@ public:
 	OrderDataDB orderdb;
 
 	Interface(const std::string &path)
-		:AbstractBrokerAPI(path,{Object
-				("name","pubKey")
-				("label","Public key")
-				("type", "string"),
-			Object
-				("name","privKey")
-				("label","Private key")
-				("type", "string"),
+		:AbstractBrokerAPI(path,{Object({
+				{"name","pubKey"},
+				{"label","Public key"},
+				{"type", "string"}}),
+			Object({
+				{"name","privKey"},
+				{"label","Private key"},
+				{"type", "string"}}),
 		})
 	,httpc(simpleServer::HttpClient("MMBot 2.0 coingi API client", simpleServer::newHttpsProvider(), nullptr, nullptr),"https://api.coingi.com")
 	,orderdb(path+".db")
@@ -175,9 +175,11 @@ inline Value Interface::readTradePage(unsigned int pageId, const std::string_vie
 	try {
 		Object req;
 		createSigned(req);
-		req("pageNumber", pageId)
-		   ("pageSize",100)
-		   ("currencyPair", pair);
+		req.setItems({
+			{"pageNumber", pageId},
+			{"pageSize",100},
+			{"currencyPair", pair}
+		});
 
 		return httpc.POST("/user/transactions", req);
 	} catch (...) {handleError();throw;}
@@ -248,10 +250,12 @@ inline Interface::Orders Interface::getOpenOrders(const std::string_view& pair) 
 	try {
 		Object obj;
 		createSigned(obj);
-		obj("pageNumber",1)
-		   ("pageSize",100)
-		   ("currencyPair",pair)
-		   ("status",0);
+		obj.setItems({
+			{"pageNumber",1},
+			{"pageSize",100},
+			{"currencyPair",pair},
+			{"status",0}
+		});
 
 		Value rp = httpc.POST("/user/orders",obj)["orders"];
 		rp = rp.filter([&](Value o){
@@ -260,7 +264,7 @@ inline Interface::Orders Interface::getOpenOrders(const std::string_view& pair) 
 			//delete unknown orders
 			Object obj;
 			createSigned(obj);
-			obj("orderId", o["id"]);
+			obj.set("orderId", o["id"]);
 			Value resp = httpc.POST("/user/cancel-order", obj);
 			return false;
 		});
@@ -297,7 +301,7 @@ inline json::Value Interface::placeOrder(const std::string_view& pair,
 
 		if (replaceId.hasValue()) {
 			Object obj;createSigned(obj);
-			obj("orderId", replaceId);
+			obj.set("orderId", replaceId);
 			Value resp = httpc.POST("/user/cancel-order", obj);
 			double left = resp["baseAmount"].getNumber();
 			logDebug("left: $1, replaceSize: $2", left, replaceSize);
@@ -307,10 +311,12 @@ inline json::Value Interface::placeOrder(const std::string_view& pair,
 		}
 		if (size) {
 			Object obj;createSigned(obj);
-			obj("type",size < 0?1:0)
-			   ("volume", std::abs(size))
-			   ("price", price)
-			   ("currencyPair", pair);
+			obj.setItems({
+				{"type",size < 0?1:0},
+				{"volume", std::abs(size)},
+				{"price", price},
+				{"currencyPair", pair}
+			});
 			Value resp;
 			try {
 				resp = httpc.POST("/user/add-order", obj);

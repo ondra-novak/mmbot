@@ -37,7 +37,7 @@ static simpleServer::SendHeaders hdrs(const json::Value &headers) {
 	for (json::Value v: headers) {
 		auto k = v.getKey();
 		if (k != "Connection") {
-			hdr(k, v.toString());
+			hdr(k, v.toString().str());
 		}
 
 	}
@@ -53,7 +53,7 @@ json::Value HTTPJson::parseResponse(simpleServer::HttpResponse &resp, json::Valu
 	for (auto &&k: resp.getHeaders()) {
 		std::string name;
 		std::transform(k.first.begin(), k.first.end(), std::back_inserter(name), tolower);
-		hh.set(name, k.second);
+		hh.set(name, std::string_view(k.second));
 	}
 	if (ctx.indexOf("application/json") != ctx.npos) {
 		BinaryView b;

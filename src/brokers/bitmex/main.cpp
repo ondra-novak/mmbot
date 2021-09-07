@@ -37,22 +37,22 @@ public:
 	Proxy px;
 
 	Interface(const std::string &path):AbstractBrokerAPI(path, {
-			Object
-				("name","key")
-				("label","ID")
-				("type","string"),
-			Object
-				("name","secret")
-				("label","Secret")
-				("type","string"),
-			Object
-				("name","server")
-				("label","Server")
-				("type","enum")
-				("options",Object
-						("main","www.bitmex.com")
-						("testnet","testnet.bitmex.com"))
-				("default","main")})
+			Object({
+				{"name","key"},
+				{"label","ID"},
+				{"type","string"}}),
+			Object({
+				{"name","secret"},
+				{"label","Secret"},
+				{"type","string"}}),
+			Object({
+				{"name","server"},
+				{"label","Server"},
+				{"type","enum"},
+				{"options",Object({
+						{"main","www.bitmex.com"},
+						{"testnet","testnet.bitmex.com"}})},
+				{"default","main"}})})
 	,optionsFile(path+".conf"){}
 
 
@@ -140,8 +140,8 @@ int main(int argc, char **argv) {
 
 Value Interface::getBalanceCache() {
 	if (!balanceCache.hasValue()) {
-		balanceCache = px.request("GET","/api/v1/user/margin", Object("currency","XBt")
-					("columns",{"marginBalance"}));
+		balanceCache = px.request("GET","/api/v1/user/margin", Object({{"currency","XBt"},
+					{"columns",{"marginBalance"}}}));
 	}
 	return balanceCache;
 }
@@ -154,7 +154,7 @@ inline double Interface::getBalance(const std::string_view &symb) {
 	} else {
 		const SymbolInfo &s = getSymbol(symb);
 		if (!positionCache.hasValue()) {
-			positionCache = px.request("GET","/api/v1/position",Object("columns",{"symbol","currentQty"}));
+			positionCache = px.request("GET","/api/v1/position",Object({{"columns",{"symbol","currentQty"}}}));
 		}
 		Value x = positionCache.find([&](Value v){return v["symbol"] == symb;});
 		double q = x["currentQty"].getNumber();
@@ -174,19 +174,19 @@ inline Interface::TradesSync Interface::syncTrades(json::Value lastId,  const st
 	Value lastExecId = lastId[1];
 	Value columns = {"execID","transactTime","side","lastQty","lastPx","symbol","execType"};
 	if (lastId.hasValue()) {
-		trades = px.request("GET","/api/v1/execution/tradeHistory",Object
-				("filter", Object("execType",Value(json::array,{"Trade"})))
-				("startTime",lastId[0])
-				("count", 100)
-				("symbol", pair)
-				("columns",columns));
+		trades = px.request("GET","/api/v1/execution/tradeHistory",Object({
+				{"filter", Object({{"execType",Value(json::array,{"Trade"})}})},
+				{"startTime",lastId[0]},
+				{"count", 100},
+				{"symbol", pair},
+				{"columns",columns}}));
 	} else {
-		trades = px.request("GET","/api/v1/execution/tradeHistory",Object
-				("filter", Object("execType",Value(json::array,{"Trade"})))
-				("reverse",true)
-				("count", 1)
-				("symbol", pair)
-				("columns",columns));
+		trades = px.request("GET","/api/v1/execution/tradeHistory",Object({
+				{"filter", Object({{"execType",Value(json::array,{"Trade"})}})},
+				{"reverse",true},
+				{"count", 1},
+				{"symbol", pair},
+				{"columns",columns}}));
 
 	}
 
@@ -260,7 +260,7 @@ inline Interface::Orders Interface::getOpenOrders(const std::string_view &pair) 
 
 inline Interface::Ticker Interface::getTicker(const std::string_view &pair) {
 	const SymbolInfo &s = getSymbol(pair);
-	Value resp = px.request("GET","/api/v1/orderBook/L2", Object("symbol",pair)("depth",1));
+	Value resp = px.request("GET","/api/v1/orderBook/L2", Object({{"symbol",pair},{"depth",1}}));
 	double bid = 0;
 	double ask = 0;
 	for (Value v: resp) {
@@ -317,13 +317,13 @@ inline json::Value Interface::placeOrder(const std::string_view &pair,
 			} else {
 				if (size) {
 					Object order;
-					order.set("orderID", replaceId)
-							 ("orderQty", qty)
-							 ("price",price);
+					order.set({{"orderID", replaceId},
+							 {"orderQty", qty},
+							 {"price",price}});
 					Value resp = px.request("PUT","/api/v1/order",Value(),order);
 					return resp["orderID"];
 				} else{
-					px.request("DELETE","/api/v1/order",Object("orderID",replaceId));
+					px.request("DELETE","/api/v1/order",Object({{"orderID",replaceId}}));
 					return nullptr;
 				}
 			}
@@ -336,13 +336,13 @@ inline json::Value Interface::placeOrder(const std::string_view &pair,
 		clId = clId.toString();
 	}
 	Object order;
-	order.set("symbol", pair)
-			 ("side",side)
-			 ("orderQty",qty)
-			 ("price",price)
-			 ("clOrdID", clId)
-			 ("ordType","Limit")
-			 ("execInst","ParticipateDoNotInitiate");
+	order.set({{"symbol", pair},
+			 {"side",side},
+			 {"orderQty",qty},
+			 {"price",price},
+			 {"clOrdID", clId},
+			 {"ordType","Limit"},
+			 {"execInst","ParticipateDoNotInitiate"}});
 	Value resp = px.request("POST","/api/v1/order",Value(),order);
 	return resp["orderID"];
 }
@@ -461,7 +461,7 @@ inline void Interface::onInit() {
 
 void Interface::updateSymbols() {
 	Value resp = px.request("GET", "/api/v1/instrument/active",
-			Object("columns",{"optionUnderlyingPrice","isQuanto","settlCurrency","symbol","isInverse","rootSymbol","quoteCurrency","multiplier","lotSize","initMargin","tickSize"}));
+			Object({{"columns",{"optionUnderlyingPrice","isQuanto","settlCurrency","symbol","isInverse","rootSymbol","quoteCurrency","multiplier","lotSize","initMargin","tickSize"}}}));
 	std::vector<SymbolList::value_type> smap;
 	for (Value s : resp) {
 		SymbolInfo sinfo;
@@ -508,40 +508,40 @@ inline json::Value Interface::getSettings(const std::string_view&) const {
 
 
 	return {
-		Object
-			("name","quoteEachMin")
-			("label","Allow to move the order")
-			("type","enum")
-			("options",Object
-					("m00", "anytime")
-					("m01", "every 1 minute")
-					("m02", "every 2 minutes")
-					("m03", "every 3 minutes")
-					("m04", "every 4 minutes")
-					("m05", "every 5 minutes")
-					("m07", "every 6 minutes")
-					("m10", "every 10 minutes")
-					("m10", "every 12 minutes")
-					("m15", "every 15 minutes")
-					("m20", "every 20 minutes")
-					("m30", "every 30 minutes")
-					("m60", "every 60 minutes"))
-			("default",m),
-		Object
-			("name","allowSmallOrders")
-			("label","Allow small orders (spam orders)")
-			("type","enum")
-			("options", Object
-					("allow", "Allow (not recommended)")
-					("disallow", "Disallow"))
-			("default",allowSmallOrders?"allow":"disallow")
+		Object({
+			{"name","quoteEachMin"},
+			{"label","Allow to move the order"},
+			{"type","enum"},
+			{"options",Object({
+					{"m00", "anytime"},
+					{"m01", "every 1 minute"},
+					{"m02", "every 2 minutes"},
+					{"m03", "every 3 minutes"},
+					{"m04", "every 4 minutes"},
+					{"m05", "every 5 minutes"},
+					{"m07", "every 6 minutes"},
+					{"m10", "every 10 minutes"},
+					{"m10", "every 12 minutes"},
+					{"m15", "every 15 minutes"},
+					{"m20", "every 20 minutes"},
+					{"m30", "every 30 minutes"},
+					{"m60", "every 60 minutes"}})},
+			{"default",m}}),
+		Object({
+			{"name","allowSmallOrders"},
+			{"label","Allow small orders (spam orders},"},
+			{"type","enum"},
+			{"options", Object({
+					{"allow", "Allow (not recommended},"},
+					{"disallow", "Disallow"}})},
+			{"default",allowSmallOrders?"allow":"disallow"}})
 	};
 }
 
 inline json::Value Interface::setSettings(json::Value v) {
 	auto m = v["quoteEachMin"].getString();
-	if (m.length > 1) {
-		quoteEachMin = std::strtod(m.data+1,nullptr);
+	if (m.size() > 1) {
+		quoteEachMin = std::strtod(m.data()+1,nullptr);
 	}
 	allowSmallOrders = v["allowSmallOrders"].getString() == "allow";
 	return saveOptions();
@@ -555,10 +555,9 @@ inline void Interface::restoreSettings(json::Value v) {
 
 Value Interface::readOrders() {
 	if (!orderCache.hasValue()) {
-		orderCache = px.request("GET","/api/v1/order",Object
-				("filter",Object
-						("ordStatus",{"New","PartiallyFilled","DoneForDay","Stopped"}))
-		);
+		orderCache = px.request("GET","/api/v1/order",Object({
+				{"filter",Object({
+						{"ordStatus",{"New","PartiallyFilled","DoneForDay","Stopped"}}})}}));
 	}
 	return orderCache;
 

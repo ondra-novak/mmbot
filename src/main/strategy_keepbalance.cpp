@@ -103,9 +103,10 @@ double Strategy_KeepBalance::calcCurrencyAllocation(double price) const {
 }
 
 json::Value Strategy_KeepBalance::dumpStatePretty(const IStockApi::MarketInfo &minfo) const {
-	return json::Object
-			("Last price", minfo.invert_price?1.0/st.last_price:st.last_price)
-			("Last balance", st.last_balance);
+	return json::Object({
+		{"Last price", minfo.invert_price?1.0/st.last_price:st.last_price},
+		{"Last balance", st.last_balance}
+	});
 }
 
 Strategy_KeepBalance::ChartPoint Strategy_KeepBalance::calcChart(double price) const {

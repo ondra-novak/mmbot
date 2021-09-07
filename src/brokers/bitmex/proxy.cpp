@@ -70,7 +70,7 @@ json::Value Proxy::request(
 		const json::Value &data) {
 
 	std::string fpath = buildPath(path, query);
-	std::string fdata = data.hasValue()?data.stringify().str():json::StrViewA();
+	std::string fdata = data.hasValue()?data.stringify().str():json::StringView();
 
 	json::Object headers;
 
@@ -79,15 +79,15 @@ json::Value Proxy::request(
 	if (hasKey()) {
 		auto authdata = signRequest(verb, fpath, fdata);
 
-		headers("api-expires",authdata.expires);
-		headers("api-key",authdata.key);
-		headers("api-signature",authdata.signature);
+		headers.set("api-expires",authdata.expires);
+		headers.set("api-key",authdata.key);
+		headers.set("api-signature",authdata.signature);
 
 	}
 
 	if (verb != "GET" && !fdata.empty()) {
-		headers("Content-Type","application/json");
-		headers("Accepts","application/json");
+		headers.set("Content-Type","application/json");
+		headers.set("Accepts","application/json");
 	}
 
 

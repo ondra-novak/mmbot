@@ -97,10 +97,10 @@ json::Value Proxy::private_request(std::string method, json::Value data) {
 
 
 	json::Object headers;
-	headers("Accepts","application/json");
-	headers("Content-Type","application/x-www-form-urlencoded");
-	headers("Key",pubKey);
-	headers("Sign",signData(privKey, request));;
+	headers.set("Accepts","application/json");
+	headers.set("Content-Type","application/x-www-form-urlencoded");
+	headers.set("Key",pubKey);
+	headers.set("Sign",signData(privKey, request));;
 
 	try {
 		json::Value v = httpc.POST(apiPrivUrl, request, headers);

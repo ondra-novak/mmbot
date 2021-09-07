@@ -32,14 +32,15 @@ PStrategy Strategy_Martingale::importState(json::Value src, const IStockApi::Mar
 }
 
 json::Value Strategy_Martingale::exportState() const {
-	return json::Object
-			("pos", st.pos)
-			("price", st.price)
-			("enter_price", st.enter_price)
-			("exit_price", st.exit_price)
-			("value", st.value)
-			("budget", st.budget)
-			("initial", st.initial);
+	return json::Object({
+		{"pos", st.pos},
+		{"price", st.price},
+		{"enter_price", st.enter_price},
+		{"exit_price", st.exit_price},
+		{"value", st.value},
+		{"budget", st.budget},
+		{"initial", st.initial}
+	});
 }
 
 PStrategy Strategy_Martingale::init(double pos, double price, double currency) const {
@@ -169,13 +170,14 @@ IStrategy::ChartPoint Strategy_Martingale::calcChart(double price) const {
 
 json::Value Strategy_Martingale::dumpStatePretty( const IStockApi::MarketInfo &minfo) const {
 
-	return json::Object
-			("Position", (minfo.invert_price?-1:1)*st.pos)
-			("Enter price", minfo.invert_price?1.0/st.enter_price:st.enter_price)
-			("Exit price", minfo.invert_price?1.0/st.exit_price:st.exit_price)
-			("Value", st.value)
-			("Budget", st.budget)
-			("Initial volume", st.initial);
+	return json::Object({
+		{"Position", (minfo.invert_price?-1:1)*st.pos},
+		{"Enter price", minfo.invert_price?1.0/st.enter_price:st.enter_price},
+		{"Exit price", minfo.invert_price?1.0/st.exit_price:st.exit_price},
+		{"Value", st.value},
+		{"Budget", st.budget},
+		{"Initial volume", st.initial}
+	});
 }
 
 

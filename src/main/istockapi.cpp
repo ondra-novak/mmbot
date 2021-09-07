@@ -46,15 +46,15 @@ IStockApi::Trade IStockApi::Trade::fromJSON(json::Value x) {
 }
 
 json::Value IStockApi::Trade::toJSON() const {
-	json::Object obj;
 
-	obj("size", size)
-	   ("time",time)
-	   ("price",price)
-	   ("eff_price",eff_price)
-	   ("eff_size",eff_size)
-	   ("id",id);
-	return obj;
+	return json::Object ({
+		{"size", size},
+		{"time",time},
+		{"price",price},
+		{"eff_price",eff_price},
+		{"eff_size",eff_size},
+		{"id",id}
+	});
 }
 
 
@@ -134,7 +134,10 @@ IStockApi::TradeWithBalance IStockApi::TradeWithBalance::fromJSON(json::Value v)
 
 json::Value IStockApi::TradeWithBalance::toJSON() const {
 	json::Value v = Trade::toJSON();
-	return json::Object(v)("bal", balance)("man", manual_trade);
+	json::Object edt(v);
+	edt.set("bal", balance);
+	edt.set("man", manual_trade);
+	return edt;
 }
 
 IStockApi::Order IStockApi::Order::fromJSON(json::Value v) {
@@ -147,9 +150,10 @@ IStockApi::Order IStockApi::Order::fromJSON(json::Value v) {
 }
 
 json::Value IStockApi::Order::toJSON() const {
-	return json::Object
-			("id",id)
-			("client_id",client_id)
-			("size",size)
-			("price",price);
+	return json::Object({
+		{"id",id},
+		{"client_id",client_id},
+		{"size",size},
+		{"price",price}
+	});
 }

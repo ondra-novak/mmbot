@@ -47,7 +47,7 @@ json::Value Report::genReport_noStore() {
 }
 
 void Report::genReport() {
-	while (logLines.size()>30) logLines.erase(0);
+	while (logLines.size()>30) logLines.erase(logLines.begin());
 	counter++;
 	report->store(genReport_noStore());
 }
@@ -79,7 +79,7 @@ void Report::setOrders(StrViewA symb, const std::optional<IStockApi::Order> &buy
 	}
 
 	orderMap[buyKey] = data;
-	sendStream(json::Object({{"type","order"},{"symbol",symb},{"dir",1},{"data",data.toJson()}}));
+	sendStream(json::Object({{"type","order"},{"symbol",std::string_view(symb)},{"dir",1},{"data",data.toJson()}}));
 
 
 	if (sell.has_value()) {
@@ -89,7 +89,7 @@ void Report::setOrders(StrViewA symb, const std::optional<IStockApi::Order> &buy
 	}
 
 	orderMap[sellKey] = data;
-	sendStream(json::Object({{"type","order"},{"symbol",symb},{"dir",-1},{"data",data.toJson()}}));
+	sendStream(json::Object({{"type","order"},{"symbol",std::string_view(symb)},{"dir",-1},{"data",data.toJson()}}));
 
 
 }
@@ -227,7 +227,7 @@ void Report::setTrades(StrViewA symb, double finalPos, StringView<IStatSvc::Trad
 
 	}
 	tradeMap[symb] = records;
-	sendStream(json::Object({{"type","trades"},{"symbol",symb},{"data",records}}));
+	sendStream(json::Object({{"type","trades"},{"symbol",std::string_view(symb)},{"data",records}}));
 }
 
 
@@ -261,7 +261,7 @@ void Report::setInfo(StrViewA symb, const InfoObj &infoObj) {
 	infoMap[symb] = data;
 	sendStream(json::Object({
 			{"type","info"},
-			{"symbol",symb},
+			{"symbol",std::string_view(symb)},
 			{"data",data}}));
 
 }
@@ -274,7 +274,7 @@ void Report::setPrice(StrViewA symb, double price) {
 	double data = inverted?1.0/price:price;
 	priceMap[symb] = data;
 
-	sendStream(json::Object("type","price")("symbol",symb)("data",data));
+	sendStream(json::Object({{"type","price"},{"symbol",std::string_view(symb)},{"data",data}}));
 }
 
 
@@ -315,7 +315,7 @@ void Report::setError(StrViewA symb, const ErrorObj &errorObj) {
 	if (!errorObj.sellError.empty()) obj.set(inverted?"buy":"sell", errorObj.sellError);
 	errorMap[symb] = obj;
 
-	sendStream(json::Object("type","error")("symbol",symb)("data",obj));
+	sendStream(json::Object({{"type","error"},{"symbol",std::string_view(symb)},{"data",obj}}));
 }
 
 void Report::exportMisc(json::Object &&out) {
@@ -327,8 +327,8 @@ void Report::exportMisc(json::Object &&out) {
 }
 
 void Report::addLogLine(StrViewA ln) {
-	logLines.push_back(ln);
-	sendStream(json::Object("type","log")("data",ln));
+	logLines.push_back(std::string_view(ln));
+	sendStream(json::Object({{"type","log"},{"data",std::string_view(ln)}}));
 }
 
 using namespace ondra_shared;
@@ -407,7 +407,7 @@ void Report::setMisc(StrViewA symb, const MiscData &miscData) {
 
 	sendStream(json::Object({
 		{"type","misc"},
-		{"symbol",symb},
+		{"symbol",std::string_view(symb)},
 		{"data",output}
 	}));
 }

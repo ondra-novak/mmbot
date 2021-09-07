@@ -149,13 +149,14 @@ bool Strategy_Gamma::isValid() const {
 }
 
 json::Value Strategy_Gamma::exportState() const {
-	return json::Object
-			("k",state.k)
-			("w",state.w)
-			("p",state.p)
-			("b",state.b)
-			("d",state.d)
-			("hash",cfg.calcConfigHash());
+	return json::Object({
+		{"k",state.k},
+		{"w",state.w},
+		{"p",state.p},
+		{"b",state.b},
+		{"d",state.d},
+		{"hash",cfg.calcConfigHash()}
+	});
 }
 
 std::string_view Strategy_Gamma::getID() const {
@@ -228,12 +229,13 @@ PStrategy Strategy_Gamma::reset() const {
 
 json::Value Strategy_Gamma::dumpStatePretty(const IStockApi::MarketInfo &minfo) const {
 	bool inv = minfo.invert_price;
-	return json::Object
-			("Position", (inv?-1.0:1.0) * cfg.intTable->calcAssets(state.kk, state.w, state.p))
-			("Price.neutral", inv?1.0/state.kk:state.kk)
-			("Price.last", inv?1.0/state.p:state.p)
-			("Budget.max", cfg.intTable->get_max()* state.w)
-			("Budget.current", state.b);
+	return json::Object({
+		{"Position", (inv?-1.0:1.0) * cfg.intTable->calcAssets(state.kk, state.w, state.p)},
+		{"Price.neutral", inv?1.0/state.kk:state.kk},
+		{"Price.last", inv?1.0/state.p:state.p},
+		{"Budget.max", cfg.intTable->get_max()* state.w},
+		{"Budget.current", state.b}
+	});
 
 }
 

@@ -8,7 +8,6 @@
 #ifndef SRC_MAIN_AUTHMAPPER_H_
 #define SRC_MAIN_AUTHMAPPER_H_
 #include <shared/refcnt.h>
-#include <imtjson/stringview.h>
 #include <imtjson/jwt.h>
 #include <mutex>
 #include <string>
@@ -26,9 +25,9 @@ public:
 
 	bool findUser(const std::string &user, const std::string &pwdhash) const;
 
-	static std::string hashPwd(const std::string &user, const std::string &pwd);
-	static LoginPwd decodeBasicAuth(const json::StrViewA auth);
-	static std::vector<LoginPwd> decodeMultipleBasicAuth(const json::StrViewA auth);
+	static std::string hashPwd(const std::string_view &user, const std::string_view &pwd);
+	static LoginPwd decodeBasicAuth(const std::string_view &auth);
+	static std::vector<LoginPwd> decodeMultipleBasicAuth(const std::string_view &auth);
 
 	void setUsers(std::vector<std::pair<std::string, std::string> > &&users);
 	void setCfgUsers(std::vector<std::pair<std::string, std::string> > &&users);

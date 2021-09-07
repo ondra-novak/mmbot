@@ -32,18 +32,21 @@ using ondra_shared::logError;
 
 Interface::Interface(const std::string &config_path)
 :AbstractBrokerAPI(config_path,{
-		Object
-			("name","passphrase")
-			("label","Passphrase")
-			("type","string"),
-		Object
-			("name","key")
-			("label","API Key")
-			("type","string"),
-		Object
-			("name","secret")
-			("label","Secret Key")
-			("type","string")
+		Object({
+			{"name","passphrase"},
+			{"label","Passphrase"},
+			{"type","string"}
+		}),
+		Object({
+			{"name","key"},
+			{"label","API Key"},
+			{"type","string"}
+		}),
+		Object({
+			{"name","secret"},
+			{"label","Secret Key"},
+			{"type","string"}
+		})
 })
 ,api(simpleServer::HttpClient(
 		"Mozilla/5.0 (compatible; MMBOT/2.0; +http://github.com/ondra-novak/mmbot.git)",
@@ -307,30 +310,32 @@ json::Value Interface::placeOrder(const std::string_view &pair, double size,
 
 	if (replaceId.defined()) {
 		if (size) {
-			Value res = authReq("POST", "/api/v5/trade/amend-order", Object
-				("instId",pair)
-				("ordId",replaceId)
-				("newSz", std::abs(size))
-				("newPx", price)
-			);
+			Value res = authReq("POST", "/api/v5/trade/amend-order", Object({
+				{"instId",pair},
+				{"ordId",replaceId},
+				{"newSz", std::abs(size)},
+				{"newPx", price}
+			}));
 			return res["data"][0]["ordId"];
 		} else {
-			Value res = authReq("POST","/api/v5/trade/cancel-order", Object
-				("instId",pair)
-				("ordId", replaceId)
+			Value res = authReq("POST","/api/v5/trade/cancel-order", Object({
+				{"instId",pair},
+				{"ordId", replaceId}
+			})
 			);
 			return nullptr;
 		}
 	} else if (size) {
 
-		Value res = authReq("POST", "/api/v5/trade/order", Object
-				("instId", pair)
-				("tdMode","cash")
-				("tag", createTag(clientId))
-				("side",size<0?"sell":"buy")
-				("ordType","post_only")
-				("sz", std::abs(size))
-				("px",price)
+		Value res = authReq("POST", "/api/v5/trade/order", Object({
+			{"instId", pair},
+			{"tdMode","cash"},
+			{"tag", createTag(clientId)},
+			{"side",size<0?"sell":"buy"},
+			{"ordType","post_only"},
+			{"sz", std::abs(size)},
+			{"px",price}
+		})
 				);
 		return res["data"][0]["ordId"];
 	} else {
@@ -394,7 +399,7 @@ json::Value Interface::authReq(std::string_view method, std::string_view uri, js
 	HMAC(EVP_sha256(), api_secret.data(), api_secret.length(), reinterpret_cast<const unsigned char *>(prehash.c_str()), prehash.length(), digest, &digest_len);
 	Value hdrs (json::object,{
 			Value("OK-ACCESS-KEY",api_key),
-			Value("OK-ACCESS-SIGN",Value(BinaryView(digest,digest_len),json::base64)),
+			Value("OK-ACCESS-SIGN",Value(json::BinaryView(digest,digest_len),json::base64)),
 			Value("OK-ACCESS-TIMESTAMP",nowstr),
 			Value("OK-ACCESS-PASSPHRASE",api_passphrase)
 	});
@@ -439,7 +444,7 @@ std::string Interface::createTag(const Value &clientId) {
 	std::hash<json::Value> h;
 	auto hash = h(clientId) & 0xFFFFFFFF;
 	std::string buff="mm";
-	base64url->encodeBinaryValue(BinaryView(reinterpret_cast<const unsigned char *>(&hash),4),
+	base64url->encodeBinaryValue(json::BinaryView(reinterpret_cast<const unsigned char *>(&hash),4),
 			[&](StrViewA c){buff.append(c.data, c.length);});
 	clientIdMap[buff] = clientId;
 	return buff;

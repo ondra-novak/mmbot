@@ -28,8 +28,8 @@ public:
 	Interface(const std::string &path):AbstractBrokerAPI(
 			path,
 			{
-					Object("name","key")("type","string")("label","Key"),
-					Object("name","secret")("type","string")("label","Secret")
+					Object({{"name","key"},{"type","string"},{"label","Key"}}),
+					Object({{"name","secret"},{"type","string"},{"label","Secret"}})
 			}),orderdb(path+".db") {}
 
 
@@ -98,10 +98,10 @@ public:
 	 		time_t startTime = lastId[0].getUIntLong();
 	 		Value id = lastId[1];
 
-	 		Value trs = px.private_request("returnTradeHistory", Object
-	 				("start", startTime)
-	 				("currencyPair",pair)
-	 				("limit", 10000));
+	 		Value trs = px.private_request("returnTradeHistory", Object({
+	 			{"start", startTime},
+				{"currencyPair",pair},
+				{"limit", 10000}}));
 
  			TradeHistory loaded;
 	 		for (Value t: trs) {
@@ -147,7 +147,7 @@ Interface::Orders Interface::getOpenOrders(const std::string_view & pair) {
 
 	 if (!orderCache.defined()) {
 		 orderCache = px.private_request("returnOpenOrders", Object
-				 ("currencyPair","all")
+				 ({{"currencyPair","all"}})
 		 );
 
 		 for (Value p: orderCache) {
@@ -214,10 +214,10 @@ json::Value Interface::placeOrder(const std::string_view & pair,
 
 
 	if (replaceId.defined()) {
-		Value z = px.private_request("cancelOrder", Object
-				("currencyPair", pair)
-				("orderNumber",  replaceId)
-		);
+		Value z = px.private_request("cancelOrder", Object({
+			{"currencyPair", pair},
+			{"orderNumber",  replaceId}
+		}));
 		StrViewA msg = z["message"].getString();
 		if (z["success"].getUInt() != 1  ||
 				z["amount"].getNumber()<std::fabs(replaceSize)*0.999999)
@@ -235,11 +235,12 @@ json::Value Interface::placeOrder(const std::string_view & pair,
 		return nullptr;
 	}
 
-	json::Value res = px.private_request(fn, Object
-			("currencyPair", pair)
-			("rate", price)
-			("amount", size)
-			("postOnly", 1)
+	json::Value res = px.private_request(fn, Object({
+		{"currencyPair", pair},
+		{"rate", price},
+		{"amount", size},
+		{"postOnly", 1}
+	})
 	);
 
 	Value onum = res["orderNumber"].toString();
@@ -322,10 +323,11 @@ void Interface::syncTrades(std::size_t fromTime) {
 
 bool Interface::syncTradesCycle(std::size_t fromTime) {
 
-	Value trs = px.private_request("returnTradeHistory", Object
-			("start", fromTime/1000)
-			("currencyPair","all")
-			("limit", 10000));
+	Value trs = px.private_request("returnTradeHistory", Object({
+		{"start", fromTime/1000},
+		{"currencyPair","all"},
+		{"limit", 10000}})
+		);
 
 	bool succ = false;
 	for (Value p: trs) {

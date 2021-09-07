@@ -287,25 +287,26 @@ std::pair<typename Strategy_Leveraged<Calc>::OnTradeResult, PStrategy> Strategy_
 
 template<typename Calc>
 json::Value Strategy_Leveraged<Calc>::storeCfgCmp() const {
-	return json::Object("ebal",
-			static_cast<int>(cfg->external_balance * 1000))("power",
-			static_cast<int>(cfg->power * 1000))("lo",cfg->longonly);
+	return json::Object({{"ebal",
+			static_cast<int>(cfg->external_balance * 1000)},{"power",
+			static_cast<int>(cfg->power * 1000)},{"lo",cfg->longonly}});
 }
 
 template<typename Calc>
 json::Value Strategy_Leveraged<Calc>::exportState() const {
-	return json::Object
-			("neutral_price",st.neutral_price)
-			("last_price",st.last_price)
-			("position",st.position)
-			("balance",st.bal)
-			("val",st.val)
-			("power",st.power)
-			("neutral_pos",st.neutral_pos)
-			("avgprice", st.avgprice)
-			("last_dir", st.last_dir)
-			("norm_profit", st.norm_profit)
-			("cfg", storeCfgCmp());
+	return json::Object({
+			{"neutral_price",st.neutral_price},
+			{"last_price",st.last_price},
+			{"position",st.position},
+			{"balance",st.bal},
+			{"val",st.val},
+			{"power",st.power},
+			{"neutral_pos",st.neutral_pos},
+			{"avgprice", st.avgprice},
+			{"last_dir", st.last_dir},
+			{"norm_profit", st.norm_profit},
+			{"cfg", storeCfgCmp()}
+			});
 
 }
 
@@ -460,16 +461,16 @@ json::Value Strategy_Leveraged<Calc>::dumpStatePretty(
 		const IStockApi::MarketInfo &minfo) const {
 
 	double bal = cfg->external_balance+st.bal;
-	return json::Object("Position", (minfo.invert_price?-1:1)*st.position)
-				  ("Last price", minfo.invert_price?1/st.last_price:st.last_price)
-				 ("Neutral price", minfo.invert_price?1/st.neutral_price:st.neutral_price)
-				 ("Value", st.val)
-				 ("Collateral", bal)
-				 ("Current leverage",  std::abs(st.position) * st.last_price / bal)
-				 ("Multiplier", st.power)
-				 ("Neutral pos", (minfo.invert_price?-1:1)*st.neutral_pos)
-				 ("Norm profit", st.norm_profit)
-	 	 	 	 ("Avg price", minfo.invert_price?1/st.avgprice:st.avgprice);
+	return json::Object({{"Position", (minfo.invert_price?-1:1)*st.position},
+				  {"Last price", minfo.invert_price?1/st.last_price:st.last_price},
+				 {"Neutral price", minfo.invert_price?1/st.neutral_price:st.neutral_price},
+				 {"Value", st.val},
+				 {"Collateral", bal},
+				 {"Current leverage",  std::abs(st.position) * st.last_price / bal},
+				 {"Multiplier", st.power},
+				 {"Neutral pos", (minfo.invert_price?-1:1)*st.neutral_pos},
+				 {"Norm profit", st.norm_profit},
+	 	 	 	 {"Avg price", minfo.invert_price?1/st.avgprice:st.avgprice}});
 
 
 }

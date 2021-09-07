@@ -24,19 +24,19 @@ using json::Object;
 using json::String;
 using json::Value;
 
-static const StrViewA userAgent("+https://mmbot.trade");
+static const std::string_view userAgent("+https://mmbot.trade");
 
 Interface::Interface(const std::string &secure_storage_path)
 	:AbstractBrokerAPI(secure_storage_path,
 			{
-						Object
-							("name","key")
-							("label","API Key")
-							("type","string"),
-						Object
-							("name","secret")
-							("label","API Key secret")
-							("type","string")
+						Object({
+							{"name","key"},
+							{"label","API Key"},
+							{"type","string"}}),
+						Object({
+							{"name","secret"},
+							{"label","API Key secret"},
+							{"type","string"}})
 			}),
 	api_pub(simpleServer::HttpClient(userAgent,simpleServer::newHttpsProvider(), nullptr,simpleServer::newCachedDNSProvider(60)),
 			"https://api-pub.bitfinex.com"),
@@ -72,7 +72,7 @@ std::vector<std::string> Interface::getAllPairs() {
 
 IStockApi::MarketInfo Interface::getMarketInfo(const std::string_view &pair) {
 	bool margin = isMarginPair(pair);
-	StrViewA name = stripMargin(pair);
+	std::string_view name = stripMargin(pair);
 	const PairList &pls = getPairs();
 	auto itr = pls.find(name);
 	if (itr == pls.end()) throw std::runtime_error("Unknown symbol");
@@ -174,7 +174,7 @@ void Interface::onLoadApiKey(json::Value keyData) {
 }
 
 
-static auto findConversion(const PairList &pairs, const StrViewA from, const StrViewA to) {
+static auto findConversion(const PairList &pairs, const std::string_view from, const std::string_view to) {
 	for (auto &&k: pairs) {
 		if (k.second.asset == from && k.second.currency == to) {
 			return k.second.symbol;
@@ -194,7 +194,7 @@ double Interface::getBalance(const std::string_view &symb, const std::string_vie
 				auto data = signedPOST("/v2/auth/r/positions", json::object);
 				positions = readPositions(data);
 			}
-			auto iter2 = positions->find(StrViewA(iter->second.tsymbol));
+			auto iter2 = positions->find(std::string_view(iter->second.tsymbol));
 			if (iter2 == positions->end()) return 0;
 			return iter2->second;
 		} else {
@@ -202,7 +202,7 @@ double Interface::getBalance(const std::string_view &symb, const std::string_vie
 				auto data = signedPOST("/v2/auth/r/info/margin/sym_all", json::object);
 				marginBalance = readMarginBalance(data);
 			}
-			auto iter2 = marginBalance->find(StrViewA(iter->second.tsymbol));
+			auto iter2 = marginBalance->find(std::string_view(iter->second.tsymbol));
 			if (iter2 == marginBalance->end()) return 0;
 			if (iter->second.currency != "USD") {
 				auto conv = findConversion(pairs, iter->second.asset, "USD");
@@ -221,7 +221,7 @@ double Interface::getBalance(const std::string_view &symb, const std::string_vie
 			auto data = signedPOST("/v2/auth/r/wallets", json::object);
 			wallet = readWallet(data);
 		}
-		auto iter = wallet->find(StrViewA(symb));
+		auto iter = wallet->find(std::string_view(symb));
 		if (iter == wallet->end()) return 0;
 		return iter->second;
 	}
@@ -242,7 +242,7 @@ IStockApi::TradesSync Interface::syncTrades(json::Value lastId, const std::strin
 	while (true) {
 		int cols = 0;
 		TradesSync out;
-		Value data = signedPOST(path,Object("sort",-1)("limit",count));
+		Value data = signedPOST(path,Object({{"sort",-1},{"limit",count}}));
 		Value anchor = lastId;
 		bool m = isMarginPair(pair);
 		Value flt = data.filter([&](Value x){
@@ -250,7 +250,7 @@ IStockApi::TradesSync Interface::syncTrades(json::Value lastId, const std::strin
 				cols++;
 				return false;
 			}
-			return x[6].getString().startsWith("EXCHANGE") != m;
+			return ondra_shared::StrViewA(x[6].getString()).startsWith("EXCHANGE") != m;
 		});
 		if (lastId.hasValue() && cols<1) {
 			count*=2;
@@ -263,7 +263,7 @@ IStockApi::TradesSync Interface::syncTrades(json::Value lastId, const std::strin
 		for (Value x: flt) {
 			double price = x[5].getNumber();
 			double size = x[4].getNumber();
-			StrViewA feecur = x[10].getString();
+			std::string_view feecur = x[10].getString();
 			double eff_price = price;
 			double eff_size = size;
 			double fee = x[9].getNumber();
@@ -351,7 +351,7 @@ json::Value Interface::placeOrder(const std::string_view &pair, double size, dou
 	try {
 		if (replaceId.hasValue()) {
 			if (size == 0 || replaceSize == 0) {
-				Value resp = signedPOST("/v2/auth/w/order/cancel",Object("id", replaceId));
+				Value resp = signedPOST("/v2/auth/w/order/cancel",Object({{"id", replaceId}}));
 				Value orderDetail = resp[4];
 				Value amount = orderDetail[6];
 				double remain = std::abs(amount.getNumber());
@@ -362,9 +362,9 @@ json::Value Interface::placeOrder(const std::string_view &pair, double size, dou
 				double oldsize = replaceSize * dir;
 				double delta = size - oldsize;
 				auto strdelta = numberToFixed(delta,8);
-				Value resp = signedPOST("/v2/auth/w/order/update",Object("id", replaceId)
-															   ("price", numberToFixed(price,8))
-															   ("delta", strdelta == "0.00000000"?Value():Value(strdelta)));
+				Value resp = signedPOST("/v2/auth/w/order/update",Object({{"id", replaceId},
+															   {"price", numberToFixed(price,8)},
+															   {"delta", strdelta == "0.00000000"?Value():Value(strdelta)}}));
 				return resp[4][0];
 			}
 		}
@@ -376,14 +376,14 @@ json::Value Interface::placeOrder(const std::string_view &pair, double size, dou
 			auto tpair = iter->second.tsymbol;
 			int cid = genOrderNonce();
 			orderDB.store(cid, clientId);
-			Value resp = signedPOST("/v2/auth/w/order/submit",Object
-					("cid", cid)
-					("type", m?"LIMIT":"EXCHANGE LIMIT")
-					("symbol", tpair)
-					("price",numberToFixed(price,8))
-					("amount",numberToFixed(size,8))
-					("flags", 4096)
-					("meta", Object("aff_code","QoenTafCw")));
+			Value resp = signedPOST("/v2/auth/w/order/submit",Object({
+					{"cid", cid},
+					{"type", m?"LIMIT":"EXCHANGE LIMIT"},
+					{"symbol", tpair},
+					{"price",numberToFixed(price,8)},
+					{"amount",numberToFixed(size,8)},
+					{"flags", 4096},
+					{"meta", Object({{"aff_code","QoenTafCw"}})}}));
 			return resp[4][0][0];
 		} else {
 			return nullptr;
@@ -438,20 +438,20 @@ const PairList& Interface::getPairs() const {
 	return pairList;
 }
 
-bool Interface::isMarginPair(const StrViewA &name) {
-	return name.endsWith(" (m)");
+bool Interface::isMarginPair(const std::string_view &name) {
+	return ondra_shared::StrViewA(name).endsWith(" (m)");
 }
 
 
-json::StrViewA Interface::stripMargin(const StrViewA &name) {
-	if (isMarginPair(name)) return name.substr(0,name.length-4); else return name;
+std::string_view Interface::stripMargin(const std::string_view &name) {
+	if (isMarginPair(name)) return name.substr(0,name.size()-4); else return name;
 }
 
 const bool Interface::hasKey() const {
 	return !keyId.empty() && !keySecret.empty();
 }
 
-json::Value Interface::signRequest(const StrViewA path, json::Value body) const {
+json::Value Interface::signRequest(const std::string_view path, json::Value body) const {
 
 	auto nonce = (this->nonce)++;
 	std::ostringstream buff;
@@ -470,10 +470,10 @@ json::Value Interface::signRequest(const StrViewA path, json::Value body) const 
 		}
 		return d-c;
 	});
-	return Object
-			("bfx-nonce", nonce)
-			("bfx-apikey", keyId)
-			("bfx-signature", hexDigest);
+	return Object({
+			{"bfx-nonce", nonce},
+			{"bfx-apikey", keyId},
+			{"bfx-signature", hexDigest}});
 
 }
 
@@ -518,7 +518,7 @@ void Interface::updateTicker(Value v) {
 double Interface::getFeeFromTrade(Value trade, const PairInfo &pair) {
 	double price = trade[5].getNumber();
 	double size = trade[4].getNumber();
-	StrViewA feecur = trade[10].getString();
+	std::string_view feecur = trade[10].getString();
 	double fee = trade[9].getNumber();
 	double res;
 	if (feecur == pair.asset) {
@@ -544,7 +544,7 @@ double Interface::getFeeFromTrade(Value trade, const PairInfo &pair) {
 	return res;
 }
 
-Value Interface::signedPOST(StrViewA path, Value body) const {
+Value Interface::signedPOST(std::string_view path, Value body) const {
 	try {
 		return api.POST(path, body,signRequest(path, body));
 	} catch (HTTPJson::UnknownStatusException &e) {
@@ -557,7 +557,7 @@ Value Interface::signedPOST(StrViewA path, Value body) const {
 	}
 }
 
-Value Interface::publicGET(StrViewA path) const {
+Value Interface::publicGET(std::string_view path) const {
 	try {
 		return api_pub.GET(path);
 	} catch (HTTPJson::UnknownStatusException &e) {
@@ -578,11 +578,11 @@ json::Value Interface::getMarkets() const {
 		auto sub = res.object(p.second.asset);
 		if (p.second.leverage) {
 			String symbol {p.second.symbol, p.second.leverage?" (m)":""};
-			sub.set(p.second.currency, Object
-					("Exchange",p.second.symbol)
-					("Margin", symbol));
+			sub.set(p.second.currency, Object({
+					{"Exchange",p.second.symbol},
+					{"Margin", symbol}}));
 		} else {
-			sub.set(p.second.currency, Object("Exchange",p.second.symbol));
+			sub.set(p.second.currency, Object({{"Exchange",p.second.symbol}}));
 		}
 	}
 	return res;

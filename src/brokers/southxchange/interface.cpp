@@ -21,14 +21,16 @@ using json::String;
 
 Interface::Interface(const std::string &config_path)
 :AbstractBrokerAPI(config_path,{
-		Object
-			("name","key")
-			("label","Key")
-			("type","string"),
-		Object
-			("name","secret")
-			("label","Secret")
-			("type","string")
+		Object({
+			{"name","key"},
+			{"label","Key"},
+			{"type","string"}
+		}),
+		Object({
+			{"name","secret"},
+			{"label","Secret"},
+			{"type","string"}
+		})
 })
 ,api(simpleServer::HttpClient(
 		"Mozilla/5.0 (compatible; MMBOT/2.0; +http://github.com/ondra-novak/mmbot.git)",
@@ -41,13 +43,13 @@ Interface::Interface(const std::string &config_path)
 
 json::Value Interface::testCall(const std::string_view &method, json::Value args) {
 	if (method == "transactions") {
-		return  apiPOST("/v3/listTransactions", Object
-				("currency",args)
-				("pageIndex",0)
-				("pageSize",50)
-				("sortField","Date")
-				("descending",true)
-		);
+		return  apiPOST("/v3/listTransactions", Object({
+			{"currency",args},
+			{"pageIndex",0},
+			{"pageSize",50},
+			{"sortField","Date"},
+			{"descending",true}
+		}));
 	} else {
 		throw std::runtime_error("Not implemented");
 	}
@@ -98,14 +100,14 @@ json::Value Interface::apiPOST(const std::string_view &uri, json::Value params) 
 
 	String ss = req.toString();
 	HMAC(EVP_sha512(), api_secret.data(), api_secret.length(),
-			reinterpret_cast<const unsigned char *>(ss.str().data),
-			ss.str().length, digest, &digest_len);
+			reinterpret_cast<const unsigned char *>(ss.str().data()),
+			ss.str().length(), digest, &digest_len);
 	char buff[200];
 	for (unsigned int i = 0; i < digest_len; i++) {
 		buff[i*2] = hexchar[digest[i]>>4];
 		buff[i*2+1] = hexchar[digest[i] & 0xF];
 	}
-	Value hdr = Value(json::object,{Value("Hash", StrViewA(buff, digest_len*2))});
+	Value hdr = Value(json::object,{Value("Hash", std::string_view(buff, digest_len*2))});
 
 	return api.POST(uri, req, std::move(hdr));
 }
@@ -188,18 +190,18 @@ IStockApi::TradesSync Interface::syncTrades(json::Value lastId, const std::strin
 	auto splt = splitPair(pair);
 	auto &a_tx = txCache[std::string(splt.first)];
 	bool needFees = false;
-	if (!a_tx.defined()) a_tx = apiPOST("/v3/listTransactions", Object
-			("currency",splt.first)
-			("pageIndex",0)
-			("pageSize",50)
-			("sortField","Date")
-			("descending",true));
+	if (!a_tx.defined()) a_tx = apiPOST("/v3/listTransactions", Object({
+		{"currency",splt.first},
+		{"pageIndex",0},
+		{"pageSize",50},
+		{"sortField","Date"},
+		{"descending",true}}));
 	std::vector<Trade> trades;
 	Array newLastId;
 	for (Value z: a_tx["Result"]) {
 		if (z["Type"].getString() == "trade" && z["OtherCurrency"].getString() == StrViewA(splt.second)) {
 			Value id = z["TradeId"];
-			newLastId.add(id);
+			newLastId.push_back(id);
 			if (lastId.type() == json::array && lastId.indexOf(id) == Value::npos) {
 				double a = z["Amount"].getNumber();
 				double p = z["Price"].getNumber();
@@ -227,12 +229,12 @@ IStockApi::TradesSync Interface::syncTrades(json::Value lastId, const std::strin
 	}
 	if (needFees) {
 		auto &c_tx = txCache[std::string(splt.second)];
-		if (!c_tx.defined()) c_tx = apiPOST("/v3/listTransactions", Object
-				("currency",splt.second)
-				("pageIndex",0)
-				("pageSize",50)
-				("sortField","Date")
-				("descending",true));
+		if (!c_tx.defined()) c_tx = apiPOST("/v3/listTransactions", Object({
+			{"currency",splt.second},
+			{"pageIndex",0},
+			{"pageSize",50},
+			{"sortField","Date"},
+			{"descending",true}}));
 
 		for (Value z: c_tx["Result"]) {
 			if (z["Type"].getString() == "tradefee") {
@@ -293,13 +295,13 @@ json::Value Interface::placeOrder(const std::string_view &pair, double size, dou
 	}
 	if (size) {
 		auto splt = splitPair(pair);
-		Value resp = apiPOST("/v3/placeOrder", Object
-				("listingCurrency",splt.first)
-				("referenceCurrency",splt.second)
-				("type",size>0?"buy":"sell")
-				("amount",std::abs(size))
-				("amountInReferenceCurrency",false)
-				("limitPrice",price));
+		Value resp = apiPOST("/v3/placeOrder", Object({
+			{"listingCurrency",splt.first},
+			{"referenceCurrency",splt.second},
+			{"type",size>0?"buy":"sell"},
+			{"amount",std::abs(size)},
+			{"amountInReferenceCurrency",false},
+			{"limitPrice",price}}));
 		orderDB.store(resp, clientId);
 		return resp;
 	} else {

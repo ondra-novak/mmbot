@@ -28,16 +28,15 @@ ExtStockApi::ExtStockApi(const std::string_view & workingDir, const std::string_
 
 double ExtStockApi::getBalance(const std::string_view & symb, const std::string_view & pair) {
 	return requestExchange("getBalance",
-			json::Object("pair", pair)
-				  ("symbol", symb)).getNumber();
+			json::Object({{"pair", pair},
+						{"symbol", symb}})).getNumber();
 
 }
 
 
 ExtStockApi::TradesSync ExtStockApi::syncTrades(json::Value lastId, const std::string_view & pair) {
-	auto r = requestExchange("syncTrades",json::Object
-			("lastId",lastId)
-			("pair",StrViewA(pair)));
+	auto r = requestExchange("syncTrades",json::Object({{"lastId",lastId},
+														{"pair",pair}}));
 	TradeHistory  th;
 	for (json::Value v: r["trades"]) th.push_back(Trade::fromJSON(v));
 	return TradesSync {
@@ -48,7 +47,7 @@ ExtStockApi::TradesSync ExtStockApi::syncTrades(json::Value lastId, const std::s
 ExtStockApi::Orders ExtStockApi::getOpenOrders(const std::string_view & pair) {
 	Orders r;
 
-	auto v = requestExchange("getOpenOrders",StrViewA(pair));
+	auto v = requestExchange("getOpenOrders",pair);
 	for (json::Value x: v) {
 		Order ord {
 			x["id"],
@@ -62,7 +61,7 @@ ExtStockApi::Orders ExtStockApi::getOpenOrders(const std::string_view & pair) {
 }
 
 ExtStockApi::Ticker ExtStockApi::getTicker(const std::string_view & pair) {
-	auto resp =  requestExchange("getTicker", StrViewA(pair));
+	auto resp =  requestExchange("getTicker", pair);
 	return Ticker {
 		resp["bid"].getNumber(),
 		resp["ask"].getNumber(),
@@ -75,13 +74,13 @@ json::Value  ExtStockApi::placeOrder(const std::string_view & pair,
 		double size, double price,json::Value clientId,
 		json::Value replaceId,double replaceSize) {
 
-	return requestExchange("placeOrder",json::Object
-					("pair",StrViewA(pair))
-					("price",price)
-					("size",size)
-					("clientOrderId",clientId)
-					("replaceOrderId",replaceId)
-					("replaceOrderSize",replaceSize));
+	return requestExchange("placeOrder",json::Object({
+		{"pair",pair},
+		{"price",price},
+		{"size",size},
+		{"clientOrderId",clientId},
+		{"replaceOrderId",replaceId},
+		{"replaceOrderSize",replaceSize}}));
 }
 
 
@@ -97,7 +96,7 @@ bool ExtStockApi::reset() {
 }
 
 ExtStockApi::MarketInfo ExtStockApi::getMarketInfo(const std::string_view & pair) {
-	json::Value v = requestExchange("getInfo",StrViewA(pair));
+	json::Value v = requestExchange("getInfo",pair);
 
 	MarketInfo res;
 	res.asset_step = v["asset_step"].getNumber();
@@ -128,7 +127,7 @@ std::vector<std::string> ExtStockApi::getAllPairs() {
 	json::Value v = requestExchange("getAllPairs", json::Value());
 	std::vector<std::string> res;
 	res.reserve(v.size());
-	for (json::Value x: v) res.push_back(x.toString().str());
+	for (json::Value x: v) res.push_back(std::string(x.toString().str()));
 	return res;
 }
 
@@ -156,7 +155,7 @@ ExtStockApi::BrokerInfo ExtStockApi::getBrokerInfo()  {
 			resp["url"].getString(),
 			resp["version"].getString(),
 			resp["licence"].getString(),
-			StrViewA(resp["favicon"].getBinary()),
+			json::map_bin2str(resp["favicon"].getBinary()),
 			resp["settings"].getBool(),
 			subaccount.empty()?resp["subaccounts"].getBool():false
 		};
@@ -215,8 +214,7 @@ void ExtStockApi::saveIconToDisk(const std::string &path) const {
         if (iconFiles.find(fullpath) == iconFiles.end()) {
                 std::ofstream f(fullpath, std::ios::out|std::ios::trunc|std::ios::binary);
                 BrokerInfo binfo = const_cast<ExtStockApi *>(this)->getBrokerInfo();
-                json::Binary b = json::base64->decodeBinaryValue(binfo.favicon).getBinary(json::base64);
-                f.write(reinterpret_cast<const char *>(b.data), b.length);
+                f.write(reinterpret_cast<const char *>(binfo.favicon.data()), binfo.favicon.size());
                 if (!f) {
                     logError("Failed to create icon: $1", fullpath);
                 } else {
@@ -232,12 +230,12 @@ std::string ExtStockApi::getIconName() const {
 
 ExtStockApi::PageData ExtStockApi::fetchPage(const std::string_view &method,
 		const std::string_view &vpath, const PageData &pageData) {
-	json::Value v = json::Object("method", method)
-			("path", vpath)
-			("body", pageData.body)
-			("headers", json::Value(json::object, pageData.headers.begin(), pageData.headers.end(),[](auto &&p) {
+	json::Value v = json::Object({{"method", method},
+		{"path", vpath},
+		{"body", pageData.body},
+		{"headers", json::Value(json::object, pageData.headers.begin(), pageData.headers.end(),[](auto &&p) {
 					return json::Value(p.first, p.second);
-			}));
+			})}});
 
 	json::Value resp = requestExchange("fetchPage", v);
 	PageData presp;

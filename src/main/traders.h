@@ -46,7 +46,7 @@ public:
 class Traders {
 public:
 
-	using TMap = ondra_shared::linear_map<json::StrViewA, SharedObject<NamedMTrader> >;
+	using TMap = ondra_shared::linear_map<std::string_view, SharedObject<NamedMTrader> >;
 	TMap traders;
     StockSelector stockSelector;
 	bool test;
@@ -85,7 +85,7 @@ public:
 	}
 
 	void resetBrokers();
-	SharedObject<NamedMTrader> find(json::StrViewA id) const;
+	SharedObject<NamedMTrader> find(std::string_view id) const;
 	WalletCfg wcfg;
 
 

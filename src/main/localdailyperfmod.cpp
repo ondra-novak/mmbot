@@ -45,9 +45,8 @@ void LocalDailyPerfMonitor::sendItem(const PerformanceReport &report) {
 		checkInit();
 
 		json::Object sentence;
-		sentence.set
-				("currency",report.currency)
-				("change", report.change);
+		sentence.set("currency",report.currency);
+		sentence.set("change", report.change);
 
 		json::Value(sentence).toStream(logf);
 		logf.put('\n');
@@ -74,7 +73,7 @@ void LocalDailyPerfMonitor::prepareReport() {
 	avg.resize(header.size(),0);
 
 
-	Value jheader (json::array, header.begin(), header.end(), [](StrViewA x){return x;});
+	Value jheader (json::array, header.begin(), header.end(), [](StrViewA x){return Value(std::string_view(x));});
 	jheader.unshift("Date");
 	Array reportrows;
 	for (Value row: dailySums) {
@@ -97,11 +96,12 @@ void LocalDailyPerfMonitor::prepareReport() {
 		return a / b;
 	});
 
-	report = Object
-			("hdr", jheader)
-			("rows", reportrows)
-			("sums", Value(json::array, sum.begin(), sum.end(), [](double x){return x;}))
-			("avg", Value(json::array, avg.begin(), avg.end(), [](double x){return x;}));
+	report = Object({
+		{"hdr", jheader},
+		{"rows", reportrows},
+		{"sums", Value(json::array, sum.begin(), sum.end(), [](double x){return x;})},
+		{"avg", Value(json::array, avg.begin(), avg.end(), [](double x){return x;})}
+	});
 
 
 }
@@ -183,5 +183,5 @@ void LocalDailyPerfMonitor::aggregate(unsigned int curDayIndex) {
 }
 
 void LocalDailyPerfMonitor::save() {
-	storage->store(json::Object("day", dayIndex)("sum", dailySums));
+	storage->store(json::Object({{"day", dayIndex},{"sum", dailySums}}));
 }

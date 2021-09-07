@@ -52,10 +52,10 @@ json::Value Proxy::request(std::string_view method, json::Value params, bool aut
 	});
 
 	json::Object headers;
-	headers("Content-Type","application/json");
+	headers.set("Content-Type","application/json");
 
 	if (tk) {
-		headers("Authorization","bearer "+ *tk);
+		headers.set("Authorization","bearer "+ *tk);
 	}
 
 	json::Value resp;
@@ -70,7 +70,7 @@ json::Value Proxy::request(std::string_view method, json::Value params, bool aut
 			for (StrViewA x (stream.read());!x.empty();x = StrViewA(stream.read())) {
 				buff.append(x.data, x.length);
 			}
-			resp = json::Object("error", json::Object("code",e.getStatusCode())("message", buff));
+			resp = json::Object({{"error", json::Object({{"code",e.getStatusCode()},{"message", buff}})}});
 		}
 	}
 	json::Value success = resp["result"];
@@ -119,14 +119,14 @@ const std::string &Proxy::getAccessToken() {
 //	std::string signature = signData(config.privKey, payload.str());
 
 
-	auto resp = request("public/auth",json::Object
-			("grant_type","client_credentials") /* Don't know, but client_signature doesn't work for me*/
-			("client_id",pubKey)
-			("client_secret",privKey)
-			("scope",scopes)
-/*			("timestamp",time)
-			("signature",signature)
-			("nonce",nonce)*/, false);
+	auto resp = request("public/auth",json::Object({
+		{"grant_type","client_credentials"}, /* Don't know, but client_signature doesn't work for me*/
+		{"client_id",pubKey},
+		{"client_secret",privKey},
+		{"scope",scopes},
+/*			{"timestamp",time},
+			{"signature",signature},
+			{"nonce",nonce}*/}), false);
 
 	std::uint64_t expires =resp["expires_in"].getUIntLong();
 	auth_token = resp["access_token"].getString();

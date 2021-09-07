@@ -33,18 +33,21 @@ using ondra_shared::logError;
 
 
 
-static Value keyFormat = {Object
-							("name","key")
-							("type","string")
-							("label","Key"),
-						 Object
-							("name","secret")
-							("type","string")
-							("label","Secret"),
-						 Object
-							("name","account")
-							("type","string")
-							("label","Default account ID")
+static Value keyFormat = {Object({
+							{"name","key"},
+							{"type","string"},
+							{"label","Key"}
+						}),
+						 Object({
+							{"name","secret"},
+							{"type","string"},
+							{"label","Secret"}
+						}),
+						 Object({
+							{"name","account"},
+							{"type","string"},
+							{"label","Default account ID"}
+						})
 };
 
 class Interface: public AbstractBrokerAPI {
@@ -438,23 +441,23 @@ inline json::Value Interface::getSettings(const std::string_view& pairHint) cons
 	if (iter != symcfg.end())  ss = iter->second;
 	else ss = SymbolSettings{defaultAccount};
 
-	return {Object
-		("type","enum")
-		("label","Symbol")
-		("name","pairHint")
-		("default", pairHint)
-		("options", Object(pairHint,pairHint)),
-		Object
-			("type","enum")
-			("label","Use Account")
-			("name","account")
-			("default",ss.account)
-			("options",Value(json::object, accounts.begin(), accounts.end(),[](auto &x){
+	return {Object({
+		{"type","enum"},
+		{"label","Symbol"},
+		{"name","pairHint"},
+		{"default", pairHint},
+		{"options", Object({{pairHint,pairHint}})}}),
+		Object({
+			{"type","enum"},
+			{"label","Use Account"},
+			{"name","account"},
+			{"default",ss.account},
+			{"options",Value(json::object, accounts.begin(), accounts.end(),[](auto &x){
 				Value l = x.second.login;
 				Value bal = x.second.balance / x.second.main_conv_rate;
 				String ls = l.toString();
 				return Value(ls, String({ls," (",x.second.reality,") ",bal.toString()," ",x.second.currency}));
-			}))
+			})}})
 	};
 }
 
@@ -507,13 +510,13 @@ inline double Interface::execCommand(const std::string &symbol, double amount, d
 	Account &a = getAccount(symbol);
 	double adjamount = amount / sinfo.mult;
 	try {
-		Value v = getData(hjsn.POST("/api/v3/trading/orders/market",json::Object
-				("Reality",a.reality)
-				("Login", a.login)
-				("Symbol", symbol)
-				("Side",adjamount>0?"BUY":"SELL")
-				("Volume", fabs(adjamount))
-				("IsFIFO", true), tokenHeader()));
+		Value v = getData(hjsn.POST("/api/v3/trading/orders/market",json::Object({
+			{"Reality",a.reality},
+			{"Login", a.login},
+			{"Symbol", symbol},
+			{"Side",adjamount>0?"BUY":"SELL"},
+			{"Volume", fabs(adjamount)},
+			{"IsFIFO", true}}), tokenHeader()));
 
 		Value morder = v["marketOrders"][0];
 		Value order = morder["order"];
@@ -557,9 +560,9 @@ inline void Interface::login() {
 	try {
 		auto now = TradingEngine::now();
 		if (hasKey() && (token.empty()|| tokenExpire < now)) {
-			Value v = getData(hjsn.POST("/api/v3/auth/key", json::Object
-					  ("clientId", authKey)
-					  ("clientSecret",authSecret)));
+			Value v = getData(hjsn.POST("/api/v3/auth/key", json::Object({
+				{"clientId", authKey},
+				{"clientSecret",authSecret}})));
 			Value token = v["token"];
 			this->token = token.getString();
 			tokenExpire = now + 15*60000;
@@ -598,7 +601,7 @@ inline void Interface::login() {
 
 inline Value Interface::tokenHeader() {
 	if (!token.empty()) {
-		return Object("Authorization","bearer "+ token);
+		return Object({{"Authorization","bearer "+ token}});
 	} else {
 		return Value();
 	}
@@ -677,9 +680,9 @@ inline void Interface::updatePositions() {
 	try {
 
 		for (auto &a : accounts) {
-			Value data = getData(hjsn.POST("/api/v3/trading/orders/active", Object
-						("login",a.second.login)
-						("reality", a.second.reality), tokenHeader()
+			Value data = getData(hjsn.POST("/api/v3/trading/orders/active", Object({
+						{"login",a.second.login},
+						{"reality", a.second.reality}}), tokenHeader()
 				));
 
 				Value morders = data["marketOrders"];

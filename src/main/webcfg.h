@@ -92,13 +92,13 @@ public:
 		void init();
 		void init(json::Value v);
 		void applyConfig(SharedObject<Traders> &t);
-		void setAdminAuth(json::StrViewA auth);
+		void setAdminAuth(const std::string_view &auth);
 		void setAdminUser(const std::string &uname, const std::string &pwd);
 		ondra_shared::linear_set<std::string> logout_users;
 
 		void logout_user(std::string &&user);
 		bool logout_commit(std::string &&user);
-		void setBrokerConfig(json::StrViewA name, json::Value config);
+		void setBrokerConfig(const std::string_view &name, json::Value config);
 	};
 
 

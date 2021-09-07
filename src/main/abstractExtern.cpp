@@ -399,7 +399,7 @@ json::Value AbstractExtern::jsonRequestExchange(json::String name, json::Value a
 			return result;
 		} else {
 			auto error = resp[1];
-			throw std::runtime_error(error.getString());
+			throw std::runtime_error(std::string(error.getString()));
 		}
 	} catch (const Exception &e) {
 		throw Exception(std::string(e.getMsg()), this->name, name.c_str());

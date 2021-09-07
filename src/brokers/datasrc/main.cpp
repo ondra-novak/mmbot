@@ -16,20 +16,19 @@
 
 using json::String;
 using json::Value;
-using ondra_shared::StrViewA;
 
 static HTTPJson httpc(simpleServer::HttpClient(simpleServer::HttpClient::defUserAgent, simpleServer::newHttpsProvider(), nullptr,nullptr),"");
 
-String transformString(StrViewA str, int (*fn)(int)) {
-	return String(str.length, [&](char *s){
+String transformString(std::string_view str, int (*fn)(int)) {
+	return String(str.size(), [&](char *s){
 		for (char c: str) {
 			*(s++) = fn(c);
 		}
-		return str.length;
+		return str.size();
 	});
 }
 
-Value readPrices(const StrViewA &asset, const StrViewA &currency, std::uint64_t fromTime) {
+Value readPrices(const std::string_view &asset, const std::string_view &currency, std::uint64_t fromTime) {
 	std::ostringstream url;
 
 	httpc.set_reading_fn([next_tm = std::chrono::system_clock::now()]()mutable{
