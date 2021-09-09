@@ -5,11 +5,11 @@ TemplateJS.View.regCustomElement("X-SLIDER", new TemplateJS.CustomElement(
 			var range = elem.querySelector("input[type=range]");
 			var number = elem.querySelector("input[type=number]");
 			var mult = parseFloat(elem.dataset.mult);
-			var fixed = parseInt(elem.dataset.fixed)
+			var fixed = parseInt(elem.dataset.fixed);
 			var toFixed = function(v) {
 				if (!isNaN(fixed)) return parseFloat(v).toFixed(fixed);
 				else return v;
-			}
+			};
 			if (!range) {
 				range = document.createElement("input");
 				range.setAttribute("type","range");

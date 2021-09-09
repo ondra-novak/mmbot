@@ -162,26 +162,26 @@ var TemplateJS = function(){
 		else if (this.dur.endsWith("s")) this.durms = parseFloat(this.dur)*1000;
 		else if (this.dur.endsWith("m")) this.durms = parseFloat(this.dur)*60000;
 		else this.durms = 1000;
-	}
+	};
 	 Animation.prototype.ANIMATION = 1;
 	 Animation.prototype.TRANSITION = 2;
 	 Animation.prototype.NOANIM = 0;
 	
 	 Animation.prototype.isAnimated = function() {
 		return this.type != this.NOANIM;
-	}
+	};
 	 Animation.prototype.isTransition = function() {
 		return this.type == this.TRANSITION;
-	}
+	};
 	 Animation.prototype.isAnimation = function() {
 		return this.type == this.ANIMATION;
-	}
+	};
 	
 	 Animation.prototype.restart = function() {
 		var parent = this.elem.parentElement;
 		var next = this.elem.nextSibling;
 		parent.insertBefore(this.elem, next);		
-	}
+	};
 	
 	 Animation.prototype.wait = function(arg) {
 		var res;
@@ -196,7 +196,7 @@ var TemplateJS = function(){
 		} else {
 			return res;
 		}
-	}
+	};
 
 	///removes element from the DOM, but it plays "close" animation before removal
 	/**
@@ -229,7 +229,7 @@ var TemplateJS = function(){
 			element.dispatchEvent(event);
 			return Promise.resolve();
 		}		
-	}
+	};
 	
 	function waitForDOMUpdate() {
 		return new Promise(function(ok) {
@@ -237,7 +237,7 @@ var TemplateJS = function(){
 				window.requestAnimationFrame(ok);
 			});
 		})
-	}
+	};
 	
 	function addElement(parent, element, before) {
 		if (before === undefined) before = null;
@@ -252,7 +252,7 @@ var TemplateJS = function(){
 				element.classList.add(element.dataset.openAnim);				
 			});
 		}
-	}
+	};
 	
 	function createElement(def) {
 		if (typeof def == "string") {
@@ -282,7 +282,7 @@ var TemplateJS = function(){
 			}
 		}
 		return document.createElement("div");
-	}
+	};
 	
 	function loadTemplate(templateID) {
 		var tempel;
@@ -317,7 +317,7 @@ var TemplateJS = function(){
 		}
 		return cloned;
 		
-	}
+	};
 	
 		
 	function View(elem) {
@@ -337,7 +337,7 @@ var TemplateJS = function(){
 	///Get root element of the view
 	View.prototype.getRoot = function() {
 		return this.root;
-	}
+	};
 	
 	///Replace content of the view
 	/**
@@ -359,13 +359,13 @@ var TemplateJS = function(){
 	 */
 	View.prototype.loadTemplate = function(templateRef) {
 		this.setContent(loadTemplate(templateRef));
-	}
+	};
 		
 	View.prototype.replace = function(view, skip_wait) {
 		
 		if (this.lock_replace) {
 			view.lock_replace = this.lock_replace =  this.lock_replace.then(function(v) {
-				delete view.lock_replace 
+				delete view.lock_replace;
 				return v.replace(view,skip_wait);
 			});
 			return this.lock_replace;
@@ -393,13 +393,13 @@ var TemplateJS = function(){
 			addElement(parent,view.getRoot(),nx);
 			return Promise.resolve(view);
 		}			
-	}
+	};
 	///Visibility state - whole view is hidden
 	View.HIDDEN = 0;
 	///Visibility state - whole view is visible
 	View.VISIBLE = 1;
 	///Visibility state - whole view is hidden, but still occupies area (transparent)
-	View.TRANSPARENT=-1
+	View.TRANSPARENT=-1;
 	
 	View.prototype.setVisibility = function(vis_state) {
 		if (vis_state == View.VISIBLE) {
@@ -411,15 +411,15 @@ var TemplateJS = function(){
 		} else {
 			this.root.hidden = true;
 		}
-	}
+	};
 	
 	View.prototype.show = function() {
 		this.setVisibility(View.VISIBLE);
-	}
+	};
 	
 	View.prototype.hide = function() {
 		this.setVisibility(View.HIDDEN);
-	}
+	};
 	
 	///Closes the view by unmapping it from the doom
 	/** The view can be remapped through the setConent or open() 
@@ -435,7 +435,7 @@ var TemplateJS = function(){
 			if (this.modal_elem && this.modal_elem.isConnected) 
 				this.modal_elem.parentElement.removeChild(this.modal_elem);			
 		}.bind(this));
-	}
+	};
 
 	///Opens the view as toplevel window
 	/** @note visual of toplevel window must be achieved through styles. 
@@ -449,7 +449,7 @@ var TemplateJS = function(){
 		if (!elem) elem = document.body;
 		addElement(elem,this.root);
 		this._installFocusHandler();
-	}
+	};
 
 
 	///Opens the view as modal window
@@ -466,18 +466,18 @@ var TemplateJS = function(){
 		document.body.appendChild(lb);
 		this.open();
 	//	this.setFirstTabElement()
-	}
+	};
 	
 	View.clearContent = function(element) {
 		var event = new Event("remove");
-		var x =  element.firstChild
+		var x =  element.firstChild;
 		while (x) {
 			var y = x.nextSibling; 
 			element.removeChild(x);
-			x.dispatchEvent(event)
+			x.dispatchEvent(event);
 			x = y;
 		}		
-	}
+	};
 	
 	View.prototype.clearContent = function() {
 		View.clearContent(this.root);
@@ -584,7 +584,7 @@ var TemplateJS = function(){
 			return [selector];
 		} 
 		return [];
-	}
+	};
 	
 	
 	///Marks every element specified as CSS selector with a mark
@@ -610,7 +610,7 @@ var TemplateJS = function(){
 	View.prototype.forEachElement = function(selector, fn, a, b) {
 		var items = this.findElements(selector);
 		items.forEach(fn, a, b);
-	}
+	};
 
 	
 	///Removes all marks
@@ -626,7 +626,7 @@ var TemplateJS = function(){
 	
 	View.prototype.anyMarked = function() {
 		return this.marked.length > 0;
-	}
+	};
 	///Installs keyboard handler for keys ESC and ENTER
 	/**
 	 * This function is called by setDefaultAction or setCancelAction, do not call directly
@@ -701,7 +701,7 @@ var TemplateJS = function(){
 			walkDOM(c,fn);
 			c = c.nextSibling;
 		}
-	}
+	};
 	
 	///Installs focus handler
 	/** Function is called from setFirstTabElement, do not call directly */
@@ -768,7 +768,7 @@ var TemplateJS = function(){
 	 */
 	View.prototype.setFirstTabElement = function(el) {
 		this._installFocusHandler();
-	}
+	};
 	
 	function GroupManager(template_el,name) {
 		this.baseEl = template_el;
@@ -784,16 +784,16 @@ var TemplateJS = function(){
 		template_el.removeAttribute("data-name");
 		template_el.removeAttribute("name");
 
-	}
+	};
 	
 	GroupManager.prototype.isConnectedTo = function(elem) {
 		return elem.contains(this.anchor);
-	}
+	};
 	
 	GroupManager.prototype.begin = function() {
 		this.result = [];
 		this.newOrder = [];		
-	}
+	};
 	
 	
 	GroupManager.prototype.setValue = function(id, data) {			
@@ -813,7 +813,7 @@ var TemplateJS = function(){
 		var res =  x.setData(data);
 		if (res)
 		   this.result.push(res);				 
-	}
+	};
 	
 	GroupManager.prototype.findElements = function(selector) {
 		var item = selector.shift();
@@ -826,7 +826,7 @@ var TemplateJS = function(){
 		} else {			
 			return this.idmap[item]?this.idmap[item].findElements(selector):[];
 		}
-	}
+	};
 	
 	GroupManager.prototype.finish = function() {
 		var newidmap = {};		
@@ -881,7 +881,7 @@ var TemplateJS = function(){
 		this.newOrder = [];
 		return this.result;
 		
-	}
+	};
 	
 	GroupManager.prototype.readData = function() {
 	
@@ -893,7 +893,7 @@ var TemplateJS = function(){
 		}
 		return out;
 		
-	}
+	};
 	
 	///enables items
 	/**
@@ -904,7 +904,7 @@ var TemplateJS = function(){
 		var d = {};
 		d[name] = {"disabled":enable?null:""};
 		this.setData(d);
-	}
+	};
 
 	///show or hide item
 	/**
@@ -925,7 +925,7 @@ var TemplateJS = function(){
 			}
 		}
 		this.setData(d);
-	}
+	};
 
 	///sets an event procedure to the item
 	/**
@@ -936,29 +936,29 @@ var TemplateJS = function(){
 	 * @note it is faster to set the event procedure through setData along with other items
 	 */
 	View.prototype.setItemEvent = function(name, event, fn) {
-		var d = {}
+		var d = {};
 		var evdef = {};
 		evdef["!"+event] = fn;
 		d[name] = evdef;
 		this.setData(d);
 		
-	}
+	};
 
 	View.prototype.setItemValue = function(name, value) {
 		var d = {};
-		d[name] = {value:value}
+		d[name] = {value:value};
 		this.setData(d);
-	}
+	};
 
 	View.prototype.loadItemTemplate = function(name, template_name) {
 		var v = View.createFromTemplate(template_name);
 		this.setItemValue(name, v);
 		return v;
-	}
+	};
 	
 	View.prototype.clearItem = function(name) {
 		this.setItemValue(name, null);
-	}
+	};
 
 	///Rebuilds map of elements
 	/**
@@ -1008,7 +1008,7 @@ var TemplateJS = function(){
 
 				}
 			}		
-	}
+	};
 	
 	///Sets data in the view
 	/**
@@ -1024,11 +1024,11 @@ var TemplateJS = function(){
 		
 		function checkSpecialValue(val, elem) {
 			if (val instanceof Element) {
-				View.clearContent(elem)
+				View.clearContent(elem);
 				elem.appendChild(val);
 				return true;
 			} else if (val instanceof View) {
-				View.clearContent(elem)
+				View.clearContent(elem);
 				elem.appendChild(val.getRoot());
 				return true;
 			} else if (val instanceof Date && elem.type == "date") {
@@ -1113,7 +1113,7 @@ var TemplateJS = function(){
 			}
 		}
 		return Promise.all(results);
-	}
+	};
 	
 	var event_handlers = new WeakMap();
 	
@@ -1122,7 +1122,13 @@ var TemplateJS = function(){
 			if (itm == "value") continue;
 			if (itm == "classList" && typeof val[itm] == "object") {
 				for (var x in val[itm]) {
-					if (val[itm][x]) elem.classList.add(x);
+					if (val[itm][x]) {
+                        if (val[itm][x] === "restart") {
+                        	elem.classList.remove(x);
+                        	void elem.offsetWidth;
+                        }
+						elem.classList.add(x); 
+					}
 					else elem.classList.remove(x);
 				}
 			} else if (itm.substr(0,1) == "!") {
@@ -1165,7 +1171,7 @@ var TemplateJS = function(){
 				elem.setAttribute(itm, val[itm].toString())
 			} 
 		}
-	}
+	};
 	
 	function updateInputElement(elem, val) {
 		var type = elem.getAttribute("type");
@@ -1182,7 +1188,7 @@ var TemplateJS = function(){
 		} else {
 			elem.value = val;
 		}
-	}
+	};
 	
 	
 	function updateSelectElement(elem, val) {
@@ -1210,14 +1216,14 @@ var TemplateJS = function(){
 		} else {
 			elem.value = val;
 		}
-	}
+	};
 	
 	function updateBasicElement (elem, val) {
 		View.clearContent(elem);
 		if (val !== null && val !== undefined) {
 			elem.appendChild(document.createTextNode(val));
 		}
-	}
+	};
 
 	///Reads data from the elements
 	/**
@@ -1259,7 +1265,7 @@ var TemplateJS = function(){
 			});
 		});
 		return res;
-	}
+	};
 	
 	function readInputElement(elem, curVal) {
 		var type = elem.getAttribute("type");
@@ -1285,10 +1291,10 @@ var TemplateJS = function(){
 		} else {
 			return elem.value;
 		}
-	}
+	};
 	function readSelectElement(elem) {
 		return elem.value;	
-	}
+	};
 		
 	function readBasicElement(elem) {
 		var group = elem.template_js_group;
@@ -1302,7 +1308,7 @@ var TemplateJS = function(){
 					return elem.innerText;
 			}
 		}
-	}
+	};
 	
 	///Registers custrom element
 	/**
@@ -1312,7 +1318,7 @@ var TemplateJS = function(){
 	View.regCustomElement = function(tagName, customElementObject) {
 		var upper = tagName.toUpperCase();
 		View.customElements[upper] = customElementObject;
-	}
+	};
 
 	///Creates root View in current page
 	/**
@@ -1321,11 +1327,11 @@ var TemplateJS = function(){
 	 */
 	View.createPageRoot = function(visibility /* = View.HIDDEN */) {
 		var elem = document.createElement(View.topLevelViewName);
-		document.body.appendChild(elem)
+		document.body.appendChild(elem);
 		var view = new View(elem);
 		view.setVisibility(visibility);
 		return view;
-	}
+	};
 	
 	View.topLevelViewName = "div";
 	
@@ -1351,7 +1357,7 @@ var TemplateJS = function(){
 			}
 		}
 		return new View(t);
-	}
+	};
 
 	View.createFromTemplate = View.fromTemplate;
 	
@@ -1364,14 +1370,14 @@ var TemplateJS = function(){
 			}
 		}
 		return new View(elem);			
-	}
+	};
 	
 	function CustomElementEvents(setval,getval,setattrs) {
 		this.setValue = setval;
 		this.getValue = getval;
 		this.setAttrs = setattrs;
 		
-	}
+	};
 
 	View.customElements = {
 			"INPUT":{
@@ -1422,7 +1428,7 @@ var TemplateJS = function(){
 		"addElement":addElement,
 		"waitForRender":waitForRender,
 		"waitForRemove":waitForRemove,
-		"waitForDOMUpdate":waitForDOMUpdate
+		 "waitForDOMUpdate":waitForDOMUpdate
 	};
 	
 }();

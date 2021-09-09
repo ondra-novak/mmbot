@@ -1,0 +1,8 @@
+set -e
+
+while true; do 
+	./spamake devel main.js ../index2.dev.html
+	./spamake packed main.js ../index2.html
+	inotifywait -e modify,create,delete  ./
+done
+

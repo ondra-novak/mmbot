@@ -960,6 +960,8 @@ void MTrader::initialize() {
 								minfo.invert_price ?
 										minfo.inverted_symbol :
 										minfo.currency_symbol, brokerImg,
+										cfg.broker,
+										minfo.wallet_id,
 						cfg.report_order,
 						minfo.invert_price, minfo.leverage != 0, minfo.simulator });
 		}
@@ -973,6 +975,8 @@ void MTrader::initialize() {
 								"???",
 								"???",
 								brokerImg,
+								cfg.broker,
+								"???",
 								cfg.report_order,
 								false,
 								false,

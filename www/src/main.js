@@ -1,0 +1,9 @@
+//@require ../res/template.js
+//@require ../res/ui.js
+//@style ../res/ui.css
+//@style style.css
+//@head header.html
+//@require common.js
+//@require svg.js
+//@require stream.js
+//@require profitpanel.js

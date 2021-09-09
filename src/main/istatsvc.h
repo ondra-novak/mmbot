@@ -54,6 +54,8 @@ public:
 		std::string_view currencySymb;
 		std::string_view priceSymb;
 		std::string_view brokerIcon;
+		std::string_view brokerName;
+		std::string_view walletId;
 		double order;
 		bool inverted;
 		bool margin;
