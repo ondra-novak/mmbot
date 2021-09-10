@@ -552,11 +552,11 @@ bool Report::stream_refresh(Stream &stream) const  {
 
 	Helper hlp(stream);
 	sendStreamGlobal(hlp);
-	for (const auto &item: tradeMap) {
-		sendStreamTrades(hlp,item.first, item.second);
-	}
 	for (const auto &item: infoMap) {
 		sendStreamInfo(hlp,item.first, item.second);
+	}
+	for (const auto &item: tradeMap) {
+		sendStreamTrades(hlp,item.first, item.second);
 	}
 	for (const auto &item: miscMap) {
 		sendStreamMisc(hlp,item.first, item.second);

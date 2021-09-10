@@ -73,3 +73,40 @@ function adjNumShort(n) {
 function pow2(x) {
 	return x*x;
 }
+
+function setElNumber(el, numb) {
+	let pos = false;
+	let neg = false;
+	let zero = false;
+	let na = false;
+	if (!isNaN(numb)) {
+		pos = numb > 0;
+		neg = numb < 0;
+		zero = numb == 0;
+	} else {
+		na = true;
+	}
+	el.classList.toggle("pos",pos);
+	el.classList.toggle("neg",neg);
+	el.classList.toggle("zero",zero);
+	el.classList.toggle("na",na);
+	el.classList.add("colornumber");
+	el.textContent = adjNum(numb);
+}
+
+function binarySearch(array, predicate) {
+	let l = 0;
+	let h = array.length;
+	while (l<h) {
+		let m = Math.floor((l+h)/2);
+		let dir = predicate(array[m]);
+		if (dir > 0) {
+			h = m;
+		} else if (dir < 0) {
+			l = m+1;
+		} else {
+			return array[m];
+		}
+	}
+	return l;
+}

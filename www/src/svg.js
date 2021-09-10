@@ -26,6 +26,10 @@ class SVG {
 		this._root = this.new_element("svg",{viewBox:vbx});
 		this._stack = [];
 	};
+
+	clear() {
+		while (this._root.firstChild) this._root.removeChild(this._root.firstChild);7
+	}
 	
 	get() {
 		return this._root;
@@ -48,6 +52,14 @@ class SVG {
 	rect(x, y,w,h,rx,ry) {
 		this.new_element("rect",{x:x,y:y,width:w,height:h,rx:rx,ry:ry},this._root);
 	};
+	gradrect(x, y,w,h,rx,ry,vert) {
+		let id = "svg"+(Math.random() + 1).toString(36).substring(7);
+		let d = this.new_element("defs",{},this._root);
+		let g = this.new_element("linearGradient",{id:id,x1:0,y1:0,x2:vert?"100%":0,y2:vert?0:"100%"},d);
+		this.new_element("stop",{offset:"0%"},g);
+		this.new_element("stop",{offset:"100%"},g);
+		this.new_element("rect",{x:x,y:y,width:w,height:h,rx:rx,ry:ry,fill:"url(#"+id+")"},this._root);
+	};
 	polyline(points, className) {
 		this.new_element("polyline",{points:points.map(function(x){
 			return x.join(' ')
@@ -62,9 +74,41 @@ class SVG {
 		let e = this.new_element("g",{class:className},this._root);
 		this._stack.push(this._root);
 		this._root = e;
-	};
+		return e;
+	};	
 	text(x,y,text,className) {
 		let e = this.new_element("text",{x:x,y:y,class:className},this._root);
+		this.set_text(e,text);
+		return e;
+	};
+	text_space(x,y,text,len) {
+		let r = (Math.random() + 1).toString(36).substring(7);
+		this.new_element("path",{id:"path_"+r,d:"M"+x+","+y+" h"+len,stroke:"none",fill:"none"},this._root);
+		let t = this.new_element("text",{},this._root);
+		let e = this.new_element("textPath",{href:"#path_"+r},t);
+		this.set_text(e,text);
+		return e;
+	};
+	
+	image(x,y,width,height,href,aspect) {
+		return this.new_element("image",{x:x,y:y,width:width,height:height,href:href,preserveAspectRatio:aspect},this._root);ss		
+	}
+	push_viewport(x,y,width,height,vbx_x, vbx_y,vbx_width,vbx_height) {
+		if (vbx_x === undefined) vbx_x = 0;
+		if (vbx_y === undefined) vbx_y = 0;
+		if (vbx_width === undefined) vbx_width = width;
+		if (vbx_height === undefined) vbx_height = height;
+		var vbx = vbx_x+" "+vbx_y+" "+vbx_width+" "+vbx_height;
+		let e = this.new_element("svg", {
+			x:x,y:y,width:width,height:height,viewBox:vbx
+		},this._root);
+		this._stack.push(this._root);
+		this._root = e;
+		return e;
+	}
+
+    set_text(e, text) {
+		while (e.firstChild) e.removeChild(e.firstChild);
 		if (Array.isArray(text)) {
 			text.forEach(function(z){
 				let n = this.new_element("tspan",{},e);				
@@ -73,22 +117,9 @@ class SVG {
 		} else {
 			e.appendChild(document.createTextNode(text));
 		}	
-		return e;
-	};
-	
-	image(x,y,width,height,href,aspect) {
-		return this.new_element("image",{x:x,y:y,width:width,height:height,href:href,preserveAspectRatio:aspect},this._root);ss		
-	}
-	push_viewport(x,y,width,height,vbx_x, vbx_y,vbx_width,vbx_height) {
-		var vbx = vbx_x+" "+vbx_y+" "+vbx_width+" "+vbx_height;
-		let e = this.new_element("svg", {
-			x:x,y:y,width:width,height:height,viewBox:vbx
-		});
-		this._stack.push(this._root);
-		this._root = e;
-		return e;
-	}
+    }
 
 };
+
 
 mmbot.SVG = SVG;

@@ -32,7 +32,7 @@ public:
 	 * @param enable if set to true, debug mode is enabled. The broker should send more debug informations
 	 * to the stderr.
 	 *
-	 * Default implementaion only sets debug_mode flag to true, so any function can easyli check this status
+	 * Default implementaion only sets debug_mode flag to true, so any function can easily check this status
 	 */
 	virtual void enable_debug(bool enable);
 	virtual BrokerInfo getBrokerInfo()  override {throw std::runtime_error("unsupported");}

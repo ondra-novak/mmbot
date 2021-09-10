@@ -39,6 +39,7 @@ class DataStream extends mmbot.Source {
     }
     update_misc(msg) {
         var t = this.getTrader(msg.symbol);
+		t.prev_misc = t.misc || msg.data;
         t.misc = msg.data;
     }
     update_info(msg) {

@@ -1,4 +1,140 @@
+@import url("https://fonts.googleapis.com/css?family=Ruda&display=swap");
+
 .draw_black {
 	stroke:black;
 	fill: transparent;
+}
+
+body {
+	background-color: #222;
+	color: #CDCDCD;	
+	font-family: Ruda;
+	margin:0;
+	font-size: 0.5cm;	
+}
+
+svg {
+	fill: #CDCDCD;
+	font-size: 16px;
+}
+
+svg .symbolname {
+	font-size: 32px;
+	font-weight: bold;
+}
+
+svg .walletname {
+	font-size: 15px;
+}
+svg .budgetextra {
+	text-anchor: middle;	
+}
+svg .statslabelsbg linearGradient stop:nth-child(1){
+	stop-color: #0000;
+}
+svg .statslabelsbg linearGradient stop:nth-child(2){
+	stop-color: #444F;
+}
+svg ,statslabelsbig{
+	
+}
+
+svg .budgetextra text:nth-child(3) {
+	font-size: 22px;
+}
+
+svg .labels {
+	font-size: 10px;
+	dominant-baseline: hanging;
+}
+
+svg .statslabels {
+	font-size: 12px;
+}
+
+svg .stats {
+	text-anchor: end;
+	font-size: 25px;
+}
+
+svg .assetslabels{
+    text-anchor: end;
+}
+svg .assets{
+	/* text-anchor: end; */
+	font-size: 21px;
+	fill: #A8A;
+}
+svg .prices{
+	text-anchor: end;
+	font-size: 21px;
+	fill: #88f;
+	font-style: italic;
+}
+svg .frame {
+	stroke: #3ee4d3;
+	fill: transparent;
+}
+svg .chart {
+	stroke: #a1b1de;
+	stroke-width: 2px;
+	fill: transparent;
+}
+
+
+svg .chartlabels{
+	font-size:  10px;
+	dominant-baseline: text-after-edge;
+}
+
+.colornumber.neg {fill: #ff8080;}
+
+.colornumber.pos {
+	fill: #78c378;
+}
+
+.colornumber.zero {
+	fill: #888;
+}
+
+.colornumber.na {
+	fill: #888;	
+}
+
+svg .assets .flashing {
+    animation: 1s blink infinite;
+}
+
+svg .assets .buy {
+	fill: #8F0
+}
+svg .assets .sell {
+	fill: #F80
+}
+
+@keyframes blink {
+	0% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.2;
+	}
+	100% {
+		opacity: 1;
+	}
+}
+
+#main_panel {
+	display: flex;
+	flex-wrap: wrap;
+	flex-direction: row;
+	/* height: 100vh; */
+	gap: 2vmin;
+	justify-content: center;
+	margin: 2vmin;
+}
+
+#main_panel > * {
+	width: 12cm;
+	flex-shrink: 1;
 }
