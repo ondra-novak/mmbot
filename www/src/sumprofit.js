@@ -127,7 +127,7 @@ class Sumprofit extends mmbot.Source {
 		let sum = Object.values(wdef.last).reduce((a,x)=>{
 			let last_price = x.price;
 			let recent_price = x.new_price || x.price;
-			let inv = this.src.traders[symbol].info.inverted;
+			let inv = this.src.traders[x.trader].info.inverted;
 			let pnl = inv?(x.pos*(1.0/last_price-1.0/recent_price)):(x.pos*(recent_price-last_price));
 			return a+pnl; 
 		},0);

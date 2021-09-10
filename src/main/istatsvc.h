@@ -45,6 +45,7 @@ public:
 		std::size_t total_trades;
 		std::uint64_t total_time;
 		double lastTradePrice;
+		double position;
 	};
 
 

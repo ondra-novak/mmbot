@@ -512,7 +512,8 @@ void MTrader::perform(bool manually) {
 				budget_extra,
 				trades.size(),
 				trades.empty()?0:(trades.back().time-trades[0].time),
-				lastTradePrice
+				lastTradePrice,
+				position
 			});
 
 		}

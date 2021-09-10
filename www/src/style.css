@@ -72,12 +72,19 @@ svg .prices{
 	font-style: italic;
 }
 svg .frame {
-	stroke: #3ee4d3;
+	stroke: #636363;
 	fill: transparent;
+	stroke-width: 2px;
+	/* fill: #111; */
 }
+svg .frame stop:nth-child(1) {
+    stop-color: #0008;
+}
+svg .frame stop:nth-child(2) {stop-color: #2228;}
+
 svg .chart {
 	stroke: #a1b1de;
-	stroke-width: 2px;
+	stroke-width: 3px;
 	fill: transparent;
 }
 
@@ -135,6 +142,6 @@ svg .assets .sell {
 }
 
 #main_panel > * {
-	width: 12cm;
+	width: 14cm;
 	flex-shrink: 1;
 }

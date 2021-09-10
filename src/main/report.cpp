@@ -435,6 +435,7 @@ void Report::setMisc(StrViewA symb, const MiscData &miscData) {
 		{"mt",miscData.total_trades},
 		{"tt",miscData.total_time},
 		{"bt",miscData.budget_total},
+		{"a",miscData.achieve_mode},
 		{"ba",miscData.budget_assets}});
 	if (miscData.budget_extra.has_value())
 		output.set("be", *miscData.budget_extra);
@@ -443,7 +444,7 @@ void Report::setMisc(StrViewA symb, const MiscData &miscData) {
 
 		output.setItems({
 			{"t",-miscData.trade_dir},
-			{"a",miscData.achieve_mode},
+			{"pos",-miscData.position},
 			{"mcp", 1.0/miscData.calc_price},
 			{"ml",1.0/miscData.highest_price},
 			{"mh",1.0/miscData.lowest_price},
@@ -453,7 +454,7 @@ void Report::setMisc(StrViewA symb, const MiscData &miscData) {
 	} else {
 		output.setItems({
 			{"t",miscData.trade_dir},
-			{"a",miscData.achieve_mode},
+			{"pos",miscData.position},
 			{"mcp", miscData.calc_price},
 			{"ml",miscData.lowest_price},
 			{"mh",miscData.highest_price},

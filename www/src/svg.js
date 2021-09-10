@@ -52,13 +52,13 @@ class SVG {
 	rect(x, y,w,h,rx,ry) {
 		this.new_element("rect",{x:x,y:y,width:w,height:h,rx:rx,ry:ry},this._root);
 	};
-	gradrect(x, y,w,h,rx,ry,vert) {
+	gradrect(x, y,w,h,vert) {
 		let id = "svg"+(Math.random() + 1).toString(36).substring(7);
 		let d = this.new_element("defs",{},this._root);
 		let g = this.new_element("linearGradient",{id:id,x1:0,y1:0,x2:vert?"100%":0,y2:vert?0:"100%"},d);
 		this.new_element("stop",{offset:"0%"},g);
 		this.new_element("stop",{offset:"100%"},g);
-		this.new_element("rect",{x:x,y:y,width:w,height:h,rx:rx,ry:ry,fill:"url(#"+id+")"},this._root);
+		this.new_element("rect",{x:x,y:y,width:w,height:h,fill:"url(#"+id+")"},this._root);
 	};
 	polyline(points, className) {
 		this.new_element("polyline",{points:points.map(function(x){

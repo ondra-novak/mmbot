@@ -34,17 +34,17 @@ class ProfitPanel {
 			this.walletInfo = svg.text_space(64,70,"brokerId walletId",136);
 		svg.pop();
 		svg.push_viewport(200,0,145,84);
-		    svg.push_group("frame");svg.rect(0,0,"100%","100%");svg.pop();
+		    svg.push_group("frame");svg.gradrect(0,0,"100%","100%");svg.gradrect(0,0,"100%","100%",true);svg.pop();
 		    this.pnlchart = svg.push_group("chart");svg.pop();
 			svg.push_group("chartlabels");
-				svg.text(2,"100%","PnL");
+				svg.text(2,"99.5%","PnL");
 			svg.pop();
 		svg.pop();
 		svg.push_viewport(350,0,145,84);
-			svg.push_group("frame");svg.rect(0,0,"100%","100%");svg.pop();
+			svg.push_group("frame");svg.gradrect(0,0,"100%","100%");svg.gradrect(0,0,"100%","100%",true);svg.pop();
 			this.normchart = svg.push_group("chart");svg.pop();
 			svg.push_group("chartlabels");
-				svg.text(2,"100%","Norm.profit");
+				svg.text(2,"99.5%","Norm.profit");
 			svg.pop();
 		svg.pop();
 		svg.push_group("budgetextra");
@@ -141,7 +141,7 @@ class ProfitPanel {
 		setElNumber(this.norm_range,range.norm);
 		setElNumber(this.pnl_range,range.pnl);
 		setElNumber(this.budgetExtra,wid.info.be);
-		const s = wid.serie.slice(-25);
+		const s = wid.serie.slice(-50);
 		this.drawChart(this.pnlchart, s.map(x=>x.pnl));
 		this.drawChart(this.normchart, s.map(x=>x.norm));
 
@@ -159,8 +159,8 @@ class ProfitPanel {
 				 const  trd = dsrc.traders[x[1]];
 				if (trd) {
 					itm.name = trd.info.asset;
-					itm.pos = trd.misc.ba;
-					itm.prev_pos = trd.prev_misc.ba;
+					itm.pos = trd.misc.pos;
+					itm.prev_pos = trd.prev_misc.pos;
 					itm.price = trd.price;
 					itm.time = x[0];					
 				}
@@ -188,11 +188,11 @@ class ProfitPanel {
 				min:a.min<x?a.min:x,
 				max:a.max>x?a.max:x 
 			}},{min:series[0],max:series[0]});
-			let mx = 140/(series.length-1);
-			let my = 80/(minmax.max-minmax.min);
+			let mx = 130/(series.length-1);
+			let my = 70/(minmax.max-minmax.min);
 			let points = series.map((v,idx)=>{
-				return [(idx * mx+2),
-				        (81-(v - minmax.min)*my)];
+				return [(idx * mx+6),
+				        (75-(v - minmax.min)*my)];
 			});
 			svg.polyline(points);
 		}
