@@ -181,6 +181,7 @@ protected:
 	ondra_shared::linear_map<std::size_t, std::size_t> hcache;
 
 	void sendBuffer();
+	void sendBuffer(ondra_shared::BinaryView b);
 };
 
 StreamState::StreamState(simpleServer::HTTPRequest req, simpleServer::Stream s):req(req),s(s),ok(true),ip(false) {}
@@ -209,23 +210,30 @@ bool StreamState::sendAsync(json::Value v) {
 }
 void StreamState::sendBuffer() {
 	ip = true;
-	s.writeAsync(ondra_shared::BinaryView(ondra_shared::StrViewA(curBuff)),
-			[me=RefCntPtr<StreamState>(this)](simpleServer::AsyncState st, ondra_shared::BinaryView) {
-		if (st != simpleServer::asyncOK || !me->s.flush()) {
+	sendBuffer(ondra_shared::BinaryView(ondra_shared::StrViewA(curBuff)));
+}
+void StreamState::sendBuffer(ondra_shared::BinaryView b) {
+	s->getDirectWrite().writeAsync(b,
+			[me=RefCntPtr<StreamState>(this)](simpleServer::AsyncState st, ondra_shared::BinaryView b) {
+		if (st != simpleServer::asyncOK) {
 			std::lock_guard _(me->lock);
 			me->ip = false;
 			me->ok = false;
 		} else {
 			std::lock_guard _(me->lock);
-			me->ip = false;
-			me->curBuff.clear();
-			if (st == simpleServer::asyncOK) {
-				if (!me->nextBuff.empty()) {
-					std::swap(me->curBuff,me->nextBuff);
-					me->sendBuffer();
-				}
+			if (!b.empty()) {
+				me->sendBuffer(b);
 			} else {
-				me->ok = false;
+				me->ip = false;
+				me->curBuff.clear();
+				if (st == simpleServer::asyncOK) {
+					if (!me->nextBuff.empty()) {
+						std::swap(me->curBuff,me->nextBuff);
+						me->sendBuffer();
+					}
+				} else {
+					me->ok = false;
+				}
 			}
 		}
 	});

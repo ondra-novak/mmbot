@@ -45,6 +45,7 @@ public:
 		std::size_t total_trades;
 		std::uint64_t total_time;
 		double lastTradePrice;
+		double position;
 	};
 
 
@@ -54,6 +55,8 @@ public:
 		std::string_view currencySymb;
 		std::string_view priceSymb;
 		std::string_view brokerIcon;
+		std::string_view brokerName;
+		std::string_view walletId;
 		double order;
 		bool inverted;
 		bool margin;

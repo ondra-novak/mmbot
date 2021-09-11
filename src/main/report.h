@@ -130,8 +130,16 @@ protected:
 
 	static std::size_t initCounter();
 
+	bool stream_refresh(Stream &stream) const ;
 
 
+	template<typename ME> static void sendStreamOrder(ME &me, const OKey &key, const OValue &data);
+	template<typename ME> static void sendStreamTrades(ME &me, const std::string_view &symb, const json::Value &records);
+	template<typename ME> static void sendStreamInfo(ME &me, const std::string_view &symb, const json::Value &object);
+	template<typename ME> static void sendStreamMisc(ME &me, const std::string_view &symb, const json::Value &object);
+	template<typename ME> static void sendStreamPrice(ME &me, const std::string_view &symb, double data);
+	template<typename ME> static void sendStreamError(ME &me, const std::string_view &symb, const json::Value &obj);
+	template<typename ME> void sendStreamGlobal(ME &me) const;
 };
 
 
