@@ -39,10 +39,19 @@ public:
 	virtual IBrokerControl::AllWallets getWallet() override;
 protected:
 	bool hasKeys() const;
-	TimeSync curTime;
+	mutable TimeSync curTime;
 	mutable HTTPJson api;
 
+	enum MarketType {
+		inverse_perpetual,
+		usdt_perpetual,
+		inverse_futures,
+		spot
+	};
+
 	struct MarketInfoEx: IStockApi::MarketInfo {
+		MarketType type;
+		std::string name;
 		std::string alias;
 		std::string expiration;
 	};
@@ -53,6 +62,10 @@ protected:
 	void updateSymbols() const;
 	void forceUpdateSymbols() const ;
 	json::Value publicGET(std::string_view uri) const;
+	json::Value privateGET(std::string_view uri, json::Value params);
+	json::Value privatePOST(std::string_view uri, json::Value params);
+	json::Value privatePOSTSpot(std::string_view uri, json::Value params);
+	std::string signRequest(json::Value &params);
 	static void handleError(json::Value err) ;
 	static void handleException(const HTTPJson::UnknownStatusException &ex) ;
 
@@ -62,6 +75,14 @@ protected:
 
 	std::string api_key, api_secret;
 	bool testnet = false;
+
+	std::map<std::string, json::Value, std::less<>> positionCache, walletCache;
+	json::Value spotBalanceCache;
+	json::Value getInversePerpetualPosition(std::string_view symbol);
+	json::Value getUSDTPerpetualPosition(std::string_view symbol);
+	json::Value getInverseFuturePosition(std::string_view symbol);
+	json::Value getWalletState(std::string_view coin);
+	json::Value getSpotBalance(std::string_view coin);
 };
 
 #endif /* SRC_BROKERS_BYBIT_BYBITBROKER_H_ */

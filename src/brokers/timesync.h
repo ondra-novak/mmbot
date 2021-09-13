@@ -49,6 +49,18 @@ public:
 
 	}
 
+	///Updates time using averaging
+	/**
+	 * @param time new time sample
+	 * @param avg_sample count of average samples to use - this value is ignored when needSync returns true
+	 */
+	void setCurTimeAvg(std::uint64_t time, unsigned int avg_samples) {
+		if (needSync()) setCurTime(time);
+		auto curTime = getCurTime();
+		auto finTime = (curTime*(avg_samples-1)+time)/avg_samples;
+		setCurTime(finTime);
+	}
+
 	///determines, whether it is time to sync time
 	/**
 	 * @retval false no syncing is needed

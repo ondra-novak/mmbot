@@ -6,8 +6,14 @@
  */
 
 #include "bybitbroker.h"
+
+#include <openssl/hmac.h>
+#include <cmath>
+
 #include <imtjson/object.h>
 #include <imtjson/parser.h>
+#include <imtjson/operations.h>
+
 
 const std::string licence(R"mit(Copyright (c) 2020 Ondřej Novák
 
@@ -123,11 +129,40 @@ json::Value ByBitBroker::testCall(const std::string_view &method, json::Value ar
 }
 
 std::vector<std::string> ByBitBroker::getAllPairs() {
-	return {};
+	updateSymbols();
+	std::vector<std::string> ret;
+	ret.reserve(symbols.size());
+	for (const auto &k: symbols) {
+		ret.push_back(k.first);
+	}
+	return ret;
 }
 
 IStockApi::MarketInfo ByBitBroker::getMarketInfo(const std::string_view &pair) {
-	return {};
+	MarketInfoEx nfo = getSymbol(pair);
+	Value pos;
+	switch (nfo.type) {
+	case spot:break;
+	case inverse_futures:
+		pos = getInverseFuturePosition(nfo.name);
+		if (pos.defined() && pos["leverage"].defined()) {
+			nfo.leverage = pos["leverage"].getNumber();
+		}
+		break;
+	case inverse_perpetual:
+		pos = getInversePerpetualPosition(nfo.name);
+		if (pos.defined() && pos["leverage"].defined()) {
+			nfo.leverage = pos["leverage"].getNumber();
+		}
+		break;
+	case usdt_perpetual:
+		pos = getUSDTPerpetualPosition(nfo.name);
+		if (pos.defined() && pos["leverage"].defined()) {
+			nfo.leverage = pos["leverage"].getNumber();
+		}
+		break;
+	}
+	return nfo;
 }
 
 AbstractBrokerAPI* ByBitBroker::createSubaccount(const std::string &secure_storage_path) {
@@ -151,9 +186,9 @@ IStockApi::BrokerInfo ByBitBroker::getBrokerInfo() {
 void ByBitBroker::onLoadApiKey(json::Value keyData) {
 	api_key = keyData["key"].getString();
 	api_secret = keyData["secret"].getString();
-	testnet = keyData["type"].getString() == "testnet";
+	testnet = keyData["server"].getString() == "testnet";
 	if (testnet) {
-		api.setBaseUrl("https://testnet-api.bybit.com");
+		api.setBaseUrl("https://api-testnet.bybit.com");
 	} else {
 		api.setBaseUrl("https://api.bybit.com");
 	}
@@ -171,23 +206,29 @@ static std::string_view extractExpiration(std::string_view str) {
 json::Value ByBitBroker::getMarkets() const {
 	Object inversed;
 	Object usdt;
+	Object mspot;
 	ondra_shared::linear_map<std::string_view, Object> exp_futures;
 	updateSymbols();
 	for(const auto &sdef: symbols) {
-		if (sdef.second.invert_price) {
-			auto label= sdef.second.currency_symbol+"/"+sdef.second.inverted_symbol;
-			if (!sdef.second.expiration.empty()) {
-				exp_futures[sdef.second.expiration].set(label, sdef.first);
-			} else {
-				inversed.set(label, sdef.first);
-			}
-		} else {
+		switch (sdef.second.type) {
+		case inverse_perpetual:
+			inversed.set(sdef.second.currency_symbol+"/"+sdef.second.inverted_symbol, sdef.first);
+			break;
+		case inverse_futures:
+			exp_futures[sdef.second.expiration].set(sdef.second.currency_symbol+"/"+sdef.second.inverted_symbol, sdef.first);
+			break;
+		case usdt_perpetual:
 			usdt.set(sdef.second.asset_symbol+"/"+sdef.second.currency_symbol, sdef.first);
+			break;
+		case spot:
+			mspot.set(sdef.second.asset_symbol,mspot[sdef.second.asset_symbol].replace(sdef.second.currency_symbol, sdef.first));
+			break;
 		}
 	}
 	return Object{
 		{"Inverse Perpetual", inversed},
 		{"USDT Perpetual", usdt},
+		{"Spot", mspot},
 		{"Inverse Futures", Value(json::object, exp_futures.begin(), exp_futures.end(),[](const auto &item){
 			return Value(item.first, item.second);
 		})
@@ -196,14 +237,85 @@ json::Value ByBitBroker::getMarkets() const {
 }
 
 double ByBitBroker::getBalance(const std::string_view &symb, const std::string_view &pair) {
+	const MarketInfoEx &market = getSymbol(pair);
+	switch (market.type) {
+	case inverse_futures: {
+		if (symb == market.asset_symbol) {
+			Value pos = getInverseFuturePosition(market.name);
+			return pos["size"].getNumber() * (pos["side"].getString() == "Sell"?-1.0:1.0);
+		} else {
+			Value coin = getWalletState(symb);
+			return coin["equity"].getNumber();
+		}
+	}break;
+	case usdt_perpetual: {
+		if (symb == market.asset_symbol) {
+			Value pos = getUSDTPerpetualPosition(market.name);
+			return pos["size"].getNumber() * (pos["side"].getString() == "Sell"?-1.0:1.0);
+		} else {
+			Value coin = getWalletState(symb);
+			return coin["equity"].getNumber();
+		}
+	}break;
+	case inverse_perpetual: {
+		if (symb == market.asset_symbol) {
+			Value pos = getInversePerpetualPosition(market.name);
+			return pos["size"].getNumber() * (pos["side"].getString() == "Sell"?-1.0:1.0);
+		} else {
+			Value coin = getWalletState(symb);
+			return coin["equity"].getNumber();
+		}
+	}break;
+	case spot:
+		return getSpotBalance(symb)["total"].getNumber();
+	}
 	return 0;
 }
 
+
 IStockApi::TradesSync ByBitBroker::syncTrades(json::Value lastId, const std::string_view &pair) {
+	const MarketInfoEx &nfo = getSymbol(pair);
+	Value list;
+	switch (nfo.type) {
+	case inverse_perpetual:
+		if (lastId.defined()) {
+			list = privateGET("/v2/private/execution/list", Object{{"symbol", nfo.name},{"start_time",lastId["time"]}});
+			list = list["trade_list"].filter([l=lastId["seen"]](Value x){
+				return l.find(x["exec_id"]) == json::undefined;
+			});
+			return TradesSync(mapJSON(list, [](Value x){
+				double side = x["side"].getString() == "Sell"?1:-1;
+				double size = x["exec_qty"].getNumber()*side;
+				double price = 1/x["exec_price"].getNumber();
+				double fee = std::max(0.0, x["exec_fee"],getNumber());
+				double eff_price = fee/(size*price)
+				return {
+					x["exec_id"],
+					x["trade_time_ms"].getUIntLong(),
+
+				};
+			}, TradeHistory()));
+
+		}
+
+	break;
+	case usdt_perpetual:
+		list = privateGET("/private/linear/trade/execution/list", Object{{"symbol",nfo.name}});
+		break;
+	case inverse_futures:
+		list = privateGET("/futures/private/execution/list", Object{{"symbol",nfo.name}});
+		break;
+	case spot:
+		list = privateGET("/spot/v1/myTrades", Object{{"symbol",nfo.name},{"fromId", lastId}});
+		break;
+	}
 	return {};
 }
 
 bool ByBitBroker::reset() {
+	positionCache.clear();
+	walletCache.clear();
+	spotBalanceCache = json::undefined;
 	return true;
 }
 
@@ -219,8 +331,28 @@ double ByBitBroker::getFees(const std::string_view &pair) {
 	return 0;
 }
 
-IStockApi::Ticker ByBitBroker::getTicker(const std::string_view &piar) {
-	return {};
+IStockApi::Ticker ByBitBroker::getTicker(const std::string_view &pair) {
+	const MarketInfoEx &nfo = getSymbol(pair);
+	if (nfo.type == spot) {
+		Value resp = publicGET("/spot/quote/v1/ticker/book_ticker?symbol="+nfo.name);
+		auto bid = resp["bidPrice"].getNumber();
+		auto ask = resp["askPrice"].getNumber();
+		return {
+			bid,
+			ask,
+			std::sqrt(bid*ask),
+			curTime.getCurTime()
+		};
+	} else {
+		Value resp = publicGET("/v2/public/tickers?symbol="+nfo.name)[0];
+		double bid = resp["bid_price"].getNumber();
+		double ask = resp["ask_price"].getNumber();
+		double last = resp["last_price"].getNumber();
+		if (nfo.invert_price)
+			return {1.0/ask, 1.0/bid, 1.0/last, curTime.getCurTime()};
+		else
+			return {bid,ask,last,curTime.getCurTime()};
+	}
 }
 
 void ByBitBroker::onInit() {
@@ -239,7 +371,7 @@ void ByBitBroker::updateSymbols() const {
 	auto now = std::chrono::steady_clock::now();
 	if (symbols_expiration>now) return;
 	forceUpdateSymbols();
-	symbols_expiration = now;
+	symbols_expiration = now+std::chrono::minutes(15);
 }
 
 void ByBitBroker::handleError(json::Value err) {
@@ -252,6 +384,83 @@ void ByBitBroker::handleError(json::Value err) {
 		throw std::runtime_error(msg);
 	} else {
 		throw std::runtime_error(err.toString().str());
+	}
+}
+
+static json::String convertJSON2formData(json::Value params) {
+	return Value(json::array, params.begin(), params.end(), [](const Value &k){
+		return Value(json::string,{k.getKey(),"=",k.toString()});
+	}).join("&");
+}
+
+std::string ByBitBroker::signRequest(json::Value &params) {
+	if (curTime.needSync()) {
+			Value r = publicGET("/spot/v1/time");//synchronize time (done as side effect)
+			Value tm = r["serverTime"];
+			if (tm.defined()) {
+				curTime.setCurTime(tm.getUIntLong());
+			} else {
+				throw std::runtime_error("unable to sync time");
+			}
+	}
+	params.setItems({
+		{"api_key", api_key},
+		{"timestamp", curTime.getCurTime()},
+	});
+	auto signString = convertJSON2formData(params);
+	unsigned char digest[100];
+	unsigned int dsize = 100;
+	HMAC(EVP_sha256(), api_secret.data(), api_secret.size(), reinterpret_cast<const unsigned char *>(signString.c_str()), signString.length(),digest,&dsize);
+	std::string_view hexChars("0123456789abcdef");
+	std::string sign;
+	sign.reserve(100);
+	for (unsigned int i = 0; i < dsize; i++) {
+		unsigned char v = digest[i];
+		sign.push_back(hexChars[v >> 4]);
+		sign.push_back(hexChars[v & 0xF]);
+	}
+	return sign;
+}
+
+json::Value ByBitBroker::privateGET(std::string_view uri, json::Value params) {
+	std::string sign = signRequest(params);
+	json::String qr = convertJSON2formData(params);
+	std::string url(uri);
+	url.append("?").append(qr.str()).append("&sign=").append(sign);
+	return publicGET(url);
+}
+
+json::Value ByBitBroker::privatePOST(std::string_view uri, json::Value params) {
+	std::string sign = signRequest(params);
+	try {
+		params.setItems({{"sign",sign}});
+		Value ret = api.POST(uri,params);;
+		Value ret_code = ret["ret_code"];
+		if (ret_code.getUInt() != 0) handleError(ret);
+		else {
+			Value tn = ret["time_now"];
+			if (tn.defined()) {
+				curTime.setCurTimeAvg(static_cast<std::uint64_t>(tn.getNumber()*1000), 8);
+			}
+		}
+		return ret["result"];
+	} catch (const HTTPJson::UnknownStatusException &ex) {
+		handleException(ex);
+		throw;
+	}
+}
+
+json::Value ByBitBroker::privatePOSTSpot(std::string_view uri, json::Value params) {
+	std::string sign = signRequest(params);
+	try {
+		json::String qr ({convertJSON2formData(params).str(),"&sign=",sign});
+		Value ret = api.POST(uri,qr);
+		Value ret_code = ret["ret_code"];
+		if (ret_code.getUInt() != 0) handleError(ret);
+		return ret["result"];
+	} catch (const HTTPJson::UnknownStatusException &ex) {
+		handleException(ex);
+		throw;
 	}
 }
 
@@ -272,6 +481,12 @@ Value ByBitBroker::publicGET(std::string_view uri) const {
 		Value ret = api.GET(uri);
 		Value ret_code = ret["ret_code"];
 		if (ret_code.getUInt() != 0) handleError(ret);
+		else {
+			Value tn = ret["time_now"];
+			if (tn.defined()) {
+				curTime.setCurTimeAvg(static_cast<std::uint64_t>(tn.getNumber()*1000), 8);
+			}
+		}
 		return ret["result"];
 	} catch (const HTTPJson::UnknownStatusException &ex) {
 		handleException(ex);
@@ -296,6 +511,7 @@ void ByBitBroker::forceUpdateSymbols() const {
 		nfo.private_chart = false;
 		nfo.simulator = testnet;
 		nfo.wallet_id = "futures";
+		nfo.name = name;
 		nfo.alias = smb["alias"].getString();
 		nfo.expiration = extractExpiration(nfo.alias);
 		if (inverted) {
@@ -303,15 +519,41 @@ void ByBitBroker::forceUpdateSymbols() const {
 			nfo.currency_symbol = smb["base_currency"].getString();
 			nfo.invert_price = true;
 			nfo.inverted_symbol = nfo.asset_symbol;
+			nfo.type = nfo.expiration.empty()?inverse_perpetual:inverse_futures;
 		} else {
 			nfo.asset_symbol = smb["base_currency"].getString();
 			nfo.currency_symbol = smb["quote_currency"].getString();
 			nfo.invert_price = false;
+			nfo.type = usdt_perpetual;
 		}
 		symbolvect.push_back(SymbolMap::value_type{
-			std::string(name),std::move(nfo)
+			std::string("f_").append(name),std::move(nfo)
 		});
 	}
+	smblist = publicGET("/spot/v1/symbols");
+	for (Value smb: smblist) {
+		std::string_view name = smb["name"].getString();
+		MarketInfoEx nfo ;
+		nfo.name = name;
+		nfo.alias = smb["alias"].getString();
+		nfo.asset_symbol = smb["baseCurrency"].getString();
+		nfo.currency_symbol = smb["quoteCurrency"].getString();
+		nfo.asset_step = smb["basePrecision"].getNumber();
+		nfo.currency_step = smb["minPricePrecision"].getNumber();
+		nfo.min_size = smb["minTradeQuantity"].getNumber();
+		nfo.min_volume = smb["minTradeQuantity"].getNumber();
+		nfo.feeScheme = currency;
+		nfo.fees = 0;
+		nfo.leverage = 0;
+		nfo.private_chart = false;
+		nfo.simulator = testnet;
+		nfo.wallet_id = "spot";
+		nfo.type = spot;
+		symbolvect.push_back(SymbolMap::value_type{
+			std::string("s_").append(name),std::move(nfo)
+		});
+	}
+
 	symbols = SymbolMap(std::move(symbolvect));
 
 
@@ -326,4 +568,56 @@ const ByBitBroker::MarketInfoEx& ByBitBroker::getSymbol(const std::string_view &
 	auto iter = symbols.find(name);
 	if (iter == symbols.end()) throw std::runtime_error(std::string("Unknown symbol: ").append(name));
 	else return iter->second;
+}
+
+json::Value ByBitBroker::getInversePerpetualPosition(std::string_view symbol) {
+	auto iter = positionCache.find(symbol);
+	if (iter == positionCache.end()) {
+		Value r = privateGET("/v2/private/position/list", Object({{"symbol",symbol}}));
+		positionCache.emplace(std::string(symbol),r);
+		return r;
+	} else {
+		return iter->second;
+	}
+}
+json::Value ByBitBroker::getUSDTPerpetualPosition(std::string_view symbol) {
+	auto iter = positionCache.find(symbol);
+	if (iter == positionCache.end()) {
+		Value r = privateGET("/private/linear/position/list", Object({{"symbol",symbol}}));
+		positionCache.emplace(std::string(symbol),r);
+		return r;
+	} else {
+		return iter->second;
+	}
+}
+json::Value ByBitBroker::getInverseFuturePosition(std::string_view symbol) {
+	auto iter = positionCache.find(symbol);
+	if (iter == positionCache.end()) {
+		Value r = privateGET("/futures/private/position/list", Object({{"symbol",symbol}}));
+		positionCache.emplace(std::string(symbol),r);
+		return r;
+	} else {
+		return iter->second;
+	}
+}
+
+json::Value ByBitBroker::getWalletState(std::string_view symbol) {
+	auto iter = walletCache.find(symbol);
+	if (iter == walletCache.end()) {
+		Value r = privateGET("/v2/private/wallet/balance", Object({{"coin",symbol}}))[0];
+		walletCache.emplace(std::string(symbol),r);
+		return r;
+	} else {
+		return iter->second;
+	}
+}
+
+json::Value ByBitBroker::getSpotBalance(std::string_view coin) {
+	if (!spotBalanceCache.defined()) {
+		spotBalanceCache = privateGET("/spot/v1/account",json::object);
+	}
+	return spotBalanceCache["balances"].find([&](Value z){
+		return z["coin"].getString() == coin;
+	});
+
 }
