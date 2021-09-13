@@ -455,10 +455,6 @@ void Interface::ws_onMessage(const std::string_view &text) {
 					auto fn = std::move(iter->second);
 					closeEventMap.erase(iter);
 					fn(data);
-/*					iter->second(data);
-					if (data["filledSize"].getNumber() == 0) {
-						Value resp = connection.lock()->requestPOST("/orders", newOrder);
-					}*/
 				}
 			} else {
 				activeOrderMap[id] = data;
@@ -578,9 +574,21 @@ bool Interface::cancelOrderImpl(PConnection conn, json::Value cancelId) {
 	std::ostringstream uri;
 	if (cancelId.hasValue()) {
 		uri << "/orders/" << simpleServer::urlEncode(cancelId.toString());
-		Value resp = conn.lock()->requestDELETE(uri.str());
-		if (!resp["success"].getBool()) {
-			throw std::runtime_error(resp.stringify().str());
+		try {
+			Value resp = conn.lock()->requestDELETE(uri.str());
+			if (!resp["success"].getBool()) {
+				throw std::runtime_error(resp.stringify().str());
+			}
+			return true;
+		} catch (const std::exception &e) {
+			if (strstr(e.what(),"Order already closed") != 0) {
+				std::unique_lock _(wslock);
+				auto id = cancelId.getIntLong();
+				activeOrderMap.erase(id);
+				closeEventMap.erase(id);
+				return false;
+			}
+			throw;
 		}
 	}
 	return true;
@@ -608,15 +616,16 @@ json::Value Interface::checkCancelAndPlace(PConnection conn, std::string_view pa
 				promise->set_value(std::move(v));
 			});
 			_.unlock();
-			cancelOrderImpl(conn, replaceId);
-			if (future.wait_for(std::chrono::seconds(5)) == std::future_status::timeout) {
-				throw std::runtime_error("Timeout while waiting for close the order");
-			}
-			auto data = future.get();
-			//can't use remainSize - because it is valid only for open order - (for closed, it is always 0)
-			double remain = data["size"].getNumber()-data["filledSize"].getNumber();
-			if (remain < replaceSize*0.99) {
-				return nullptr;
+			if (cancelOrderImpl(conn, replaceId)) {
+				if (future.wait_for(std::chrono::seconds(5)) == std::future_status::timeout) {
+					throw std::runtime_error("Timeout while waiting for close the order");
+				}
+				auto data = future.get();
+				//can't use remainSize - because it is valid only for open order - (for closed, it is always 0)
+				double remain = data["size"].getNumber()-data["filledSize"].getNumber();
+				if (remain < replaceSize*0.99) {
+					return nullptr;
+				}
 			}
 		}
 	}

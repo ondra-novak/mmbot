@@ -274,6 +274,9 @@ IStockApi::MarketInfo Interface::getMarketInfo(const std::string_view &pair) {
 			return std::max<int>(l, v.getInt());
 		},0);
 		minfo.leverage = std::min(lev_buy, lev_sell);
+		minfo.wallet_id = "margin";
+	} else {
+		minfo.wallet_id = "spot";
 	}
 	return minfo;
 }
