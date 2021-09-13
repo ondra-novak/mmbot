@@ -41,6 +41,7 @@ protected:
 	bool hasKeys() const;
 	mutable TimeSync curTime;
 	mutable HTTPJson api;
+	std::uint64_t nonce;
 
 	enum MarketType {
 		inverse_perpetual,
@@ -65,6 +66,7 @@ protected:
 	json::Value privateGET(std::string_view uri, json::Value params);
 	json::Value privatePOST(std::string_view uri, json::Value params);
 	json::Value privatePOSTSpot(std::string_view uri, json::Value params);
+	json::Value privateDELETESpot(std::string_view uri, json::Value params);
 	std::string signRequest(json::Value &params);
 	static void handleError(json::Value err) ;
 	static void handleException(const HTTPJson::UnknownStatusException &ex) ;
@@ -83,6 +85,7 @@ protected:
 	json::Value getInverseFuturePosition(std::string_view symbol);
 	json::Value getWalletState(std::string_view coin);
 	json::Value getSpotBalance(std::string_view coin);
+	json::Value composeOrderID(json::Value userData);
 };
 
 #endif /* SRC_BROKERS_BYBIT_BYBITBROKER_H_ */

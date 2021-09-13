@@ -9,10 +9,12 @@
 
 #include <openssl/hmac.h>
 #include <cmath>
+#include <ctime>
 
 #include <imtjson/object.h>
 #include <imtjson/parser.h>
 #include <imtjson/operations.h>
+#include <imtjson/binjson.tcc>
 
 
 const std::string licence(R"mit(Copyright (c) 2020 Ondřej Novák
@@ -121,7 +123,7 @@ ByBitBroker::ByBitBroker(const std::string &secure_storage_path)
  	 ,curTime(15)
  	 ,api(simpleServer::HttpClient("MMBOT (+https://www.mmbot.trade)", simpleServer::newHttpsProvider(), nullptr, simpleServer::newCachedDNSProvider(15)),"https://api.bybit.com")
 {
-
+	nonce = std::time(nullptr);
 }
 
 json::Value ByBitBroker::testCall(const std::string_view &method, json::Value args) {
@@ -242,7 +244,7 @@ double ByBitBroker::getBalance(const std::string_view &symb, const std::string_v
 	case inverse_futures: {
 		if (symb == market.asset_symbol) {
 			Value pos = getInverseFuturePosition(market.name);
-			return pos["size"].getNumber() * (pos["side"].getString() == "Sell"?-1.0:1.0);
+			return pos["size"].getNumber() * (pos["side"].getString() == "Sell"?1.0:-1.0);
 		} else {
 			Value coin = getWalletState(symb);
 			return coin["equity"].getNumber();
@@ -260,7 +262,7 @@ double ByBitBroker::getBalance(const std::string_view &symb, const std::string_v
 	case inverse_perpetual: {
 		if (symb == market.asset_symbol) {
 			Value pos = getInversePerpetualPosition(market.name);
-			return pos["size"].getNumber() * (pos["side"].getString() == "Sell"?-1.0:1.0);
+			return pos["size"].getNumber() * (pos["side"].getString() == "Sell"?1.0:-1.0);
 		} else {
 			Value coin = getWalletState(symb);
 			return coin["equity"].getNumber();
@@ -276,37 +278,126 @@ double ByBitBroker::getBalance(const std::string_view &symb, const std::string_v
 IStockApi::TradesSync ByBitBroker::syncTrades(json::Value lastId, const std::string_view &pair) {
 	const MarketInfoEx &nfo = getSymbol(pair);
 	Value list;
+	Value fltlist;
+	std::uint64_t since;
 	switch (nfo.type) {
 	case inverse_perpetual:
-		if (lastId.defined()) {
-			list = privateGET("/v2/private/execution/list", Object{{"symbol", nfo.name},{"start_time",lastId["time"]}});
-			list = list["trade_list"].filter([l=lastId["seen"]](Value x){
-				return l.find(x["exec_id"]) == json::undefined;
+		if (lastId.hasValue()) {
+			since = lastId["time"].getUIntLong();
+			list = privateGET("/v2/private/execution/list", Object{{"symbol", nfo.name},{"start_time",since}})["trade_list"];
+			fltlist = list.filter([l=lastId["seen"],&since](Value x)->bool{
+				std::uint64_t time = x["trade_time_ms"].getUIntLong();
+				since = std::max(since, time);
+				return l.indexOf(x["exec_id"]) == l.npos && x["exec_type"].getString() != "Funding";
 			});
-			return TradesSync(mapJSON(list, [](Value x){
-				double side = x["side"].getString() == "Sell"?1:-1;
+			if (fltlist.empty() && !list.empty()) since++;
+			return TradesSync{mapJSON(fltlist,[&](Value x){
+				double side = x["side"].getString() == "Buy"?-1:1;
 				double size = x["exec_qty"].getNumber()*side;
 				double price = 1/x["exec_price"].getNumber();
-				double fee = std::max(0.0, x["exec_fee"],getNumber());
-				double eff_price = fee/(size*price)
-				return {
-					x["exec_id"],
-					x["trade_time_ms"].getUIntLong(),
-
-				};
-			}, TradeHistory()));
-
+				double fee = x["exec_fee"].getNumber();
+				double eff_price = price;
+				if (fee > 0) {
+							eff_price += -fee/size;
+						}
+				return IStockApi::Trade{x["exec_id"],x["trade_time_ms"].getUIntLong(),size,price,size,eff_price};
+			}, TradeHistory()),Object{{"time",since},{"seen",list.map([](Value x){
+				return x["exec_id"];
+			})}}};
+		} else {
+			return TradesSync{{},Object{{"time",curTime.getCurTime()},{"seen",json::array}}};
 		}
-
 	break;
 	case usdt_perpetual:
-		list = privateGET("/private/linear/trade/execution/list", Object{{"symbol",nfo.name}});
-		break;
+		if (lastId.hasValue()) {
+			since = lastId["time"].getUIntLong();
+			list = privateGET("/private/linear/trade/execution/list", Object{{"symbol",nfo.name},{"start_time",since}})["data"];
+			fltlist = list.filter([l=lastId["seen"],&since](Value x)->bool{
+				std::uint64_t time = x["trade_time_ms"].getUIntLong();
+				since = std::max(since, time);
+				return l.indexOf(x["exec_id"]) == l.npos && x["exec_type"].getString() != "Funding";
+			});
+			if (fltlist.empty() && !list.empty()) since++;
+			return TradesSync{mapJSON(fltlist,[&](Value x){
+				double side = x["side"].getString() == "Buy"?1:-1;
+				double size = x["exec_qty"].getNumber()*side;
+				double price = x["exec_price"].getNumber();
+				double fee = x["exec_fee"].getNumber();
+				double eff_price = price;
+				if (fee > 0) {
+							eff_price += fee/size;
+				}
+				return IStockApi::Trade{x["exec_id"],x["trade_time_ms"].getUIntLong(),size,price,size,eff_price};
+			}, TradeHistory()),Object{{"time",since},{"seen",list.map([](Value x){
+				return x["exec_id"];
+			})}}};
+
+		} else {
+			return TradesSync{{},Object{{"time",curTime.getCurTime()},{"seen",json::array}}};
+		}
+	break;
 	case inverse_futures:
-		list = privateGET("/futures/private/execution/list", Object{{"symbol",nfo.name}});
+		if (lastId.hasValue()) {
+					since = lastId["time"].getUIntLong();
+					list = privateGET("/futures/private/execution/list", Object{{"symbol", nfo.name},{"start_time",since}})["trade_list"];
+					fltlist = list.filter([l=lastId["seen"],&since](Value x)->bool{
+						std::uint64_t time = x["trade_time_ms"].getUIntLong();
+						since = std::max(since, time);
+						return l.indexOf(x["exec_id"]) == l.npos && x["exec_type"].getString() != "Funding";
+					});
+					if (fltlist.empty() && !list.empty()) since++;
+					return TradesSync{mapJSON(fltlist,[&](Value x){
+						double side = x["side"].getString() == "Buy"?-1:1;
+						double size = x["exec_qty"].getNumber()*side;
+						double price = 1/x["exec_price"].getNumber();
+						double fee = x["exec_fee"].getNumber();
+						double eff_price = price;
+						if (fee > 0) {
+									eff_price += -fee/size;
+								}
+						return IStockApi::Trade{x["exec_id"],x["trade_time_ms"].getUIntLong(),size,price,size,eff_price};
+					}, TradeHistory()),Object{{"time",since},{"seen",list.map([](Value x){
+						return x["exec_id"];
+					})}}};
+				} else {
+					return TradesSync{{},Object{{"time",curTime.getCurTime()},{"seen",json::array}}};
+				}
 		break;
 	case spot:
-		list = privateGET("/spot/v1/myTrades", Object{{"symbol",nfo.name},{"fromId", lastId}});
+		if (lastId.hasValue()) {
+			list = privateGET("/spot/v1/myTrades", Object{{"symbol",nfo.name},{"fromId", lastId}});
+			fltlist = list.filter([&](Value x){
+				int cmp = Value::compare(lastId,x["id"]);
+				if (cmp < 0) lastId = x["id"];
+				return cmp != 0;
+			});
+			return TradesSync{mapJSON(fltlist,[&](Value x){
+				double side = x["isBuyer"].getBool()?1:-1;
+				double size = x["qty"].getNumber()*side;
+				double price = x["price"].getNumber();
+				double fee = x["commission"].getNumber();
+				bool assetFee = x["commissionAsset"].getString() == nfo.asset_symbol;
+				bool currencyFee = x["commissionAsset"].getString() == nfo.currency_symbol;
+				double eff_price = price;
+				double eff_size = size;
+				if (assetFee) {
+					eff_size -= fee;
+				}
+				if (currencyFee) {
+					eff_price += fee/size;
+				}
+				return IStockApi::Trade{x["exec_id"],x["time"].getUIntLong(),size,price,size,eff_price};
+			}, TradeHistory()),lastId};
+
+		} else {
+			list = privateGET("/spot/v1/myTrades", Object{{"symbol",nfo.name},{"limit", 1}});
+			if (list.empty()) {
+				return TradesSync{{},1};
+			} else {
+				return TradesSync{{},list[0]["id"]};
+			}
+		}
+
 		break;
 	}
 	return {};
@@ -319,12 +410,176 @@ bool ByBitBroker::reset() {
 	return true;
 }
 
-IStockApi::Orders ByBitBroker::getOpenOrders(const std::string_view &par) {
+static Value parseOrderID(Value v) {
+	if (v.type() != json::string || v.getString().empty()) return json::Value();
+	try {
+		auto str = v.getBinary(base64url);
+		std::size_t idx = 0;
+		Value ret = Value::parseBinary([&](){
+			if (idx >= str.size()) throw std::runtime_error("not valid client ID");
+			return str[idx++];
+		}, base64);
+		return ret[0];
+	} catch (...) {
+		return json::Value();
+	}
+}
+
+json::Value ByBitBroker::composeOrderID(json::Value userData) {
+	std::uint64_t n = nonce++;
+	Value msg = {userData.stripKey(), n};
+	unsigned char buff[27];
+	int len = 0;
+	msg.serializeBinary([&](unsigned char c){
+		if (len < 27) {
+			buff[len++] = c;
+		} else {
+			throw std::runtime_error("UserData are too long");
+		}
+	});
+	return Value(json::BinaryView(buff,len), base64url);
+}
+
+IStockApi::Orders ByBitBroker::getOpenOrders(const std::string_view &pair) {
+	const MarketInfoEx &nfo = getSymbol(pair);
+	Value list;
+	switch (nfo.type) {
+	case inverse_perpetual:
+		list = privateGET("/v2/private/order", Object{{"symbol",nfo.name}});
+		return mapJSON(list, [&](Value x){
+			return IStockApi::Order {
+				x["order_id"],
+				parseOrderID(x["order_link_id"]),
+				x["qty"].getNumber()*(x["side"].getString()=="Buy"?-1:1),
+				1.0/x["price"].getNumber()
+			};
+		}, IStockApi::Orders());
+	break;
+	case usdt_perpetual:
+		list = privateGET("/private/linear/order/search", Object{{"symbol",nfo.name}});
+		return mapJSON(list, [&](Value x){
+			return IStockApi::Order {
+				x["order_id"],
+				parseOrderID(x["order_link_id"]),
+				x["qty"].getNumber()*(x["side"].getString()=="Buy"?1:-1),
+				x["price"].getNumber()
+			};
+		}, IStockApi::Orders());
+	break;
+	case inverse_futures:
+		list = privateGET("/futures/private/order", Object{{"symbol",nfo.name}});
+		return mapJSON(list, [&](Value x){
+			return IStockApi::Order {
+				x["order_id"],
+				parseOrderID(x["order_link_id"]),
+				x["qty"].getNumber()*(x["side"].getString()=="Buy"?-1:1),
+				1.0/x["price"].getNumber()
+			};
+		}, IStockApi::Orders());
+	break;
+	case spot:
+		list = privateGET("/spot/v1/open-orders", Object{{"symbol",nfo.name}});
+		return mapJSON(list, [&](Value x){
+			return IStockApi::Order {
+				x["exchangeId"],
+				parseOrderID(x["orderLinkId"]),
+				x["origQty"].getNumber()*(x["side"].getString()=="Buy"?1:-1),
+				x["price"].getNumber()
+			};
+		}, IStockApi::Orders());
+	break;
+	}
 	return {};
 }
 
+static Value adjustSize(double size, double step) {
+	return Value(std::round(std::abs(size)/step)*step);
+}
+static Value adjustPrice(double size, double step) {
+	return Value(std::round(std::abs(size)/step)*step);
+}
+
 json::Value ByBitBroker::placeOrder(const std::string_view &pair, double size, double price, json::Value clientId, json::Value replaceId, double replaceSize) {
-	throw std::runtime_error("not implemented");
+	const MarketInfoEx &nfo = getSymbol(pair);
+	Value list;
+	switch (nfo.type) {
+	case inverse_perpetual:
+		if (replaceId.hasValue()) {
+			Value r = privatePOST("/v2/private/order/cancel",Object{{"symbol",nfo.name},{"order_id",replaceId}});
+			double lv = r["leaves_qty"].getNumber();
+			if (lv < std::abs(replaceSize*0.99)) return nullptr;
+		}
+		if (size) {
+			Value r = privatePOST("/v2/private/order/create",Object{
+				{"symbol",nfo.name},
+				{"side",size<0?"Buy":"Sell"},
+				{"order_type","Limit"},
+				{"qty",adjustSize(size,nfo.asset_step)},
+				{"price",adjustPrice(1.0/price,nfo.currency_step)},
+				{"time_in_force","PostOnly"},
+				{"order_link_id",composeOrderID(clientId)}
+			});
+			return r["order_id"];
+		}
+		break;
+	case usdt_perpetual:
+		if (replaceId.hasValue()) {
+			privatePOST("/private/linear/order/cancel",Object{{"symbol",nfo.name},{"order_id",replaceId}});
+		}
+		if (size) {
+			Value r = privatePOST("/private/linear/order/create",Object{
+				{"symbol",nfo.name},
+				{"side",size>0?"Buy":"Sell"},
+				{"order_type","Limit"},
+				{"qty",adjustSize(size,nfo.asset_step)},
+				{"price",adjustPrice(price,nfo.currency_step)},
+				{"time_in_force","PostOnly"},
+				{"order_link_id",composeOrderID(clientId)}
+			});
+			return r["order_id"];
+		}
+		break;
+	case inverse_futures:
+		if (replaceId.hasValue()) {
+			Value r = privatePOST("/futures/private/order/cancel",Object{{"symbol",nfo.name},{"order_id",replaceId}});
+			double lv = r["leaves_qty"].getNumber();
+			if (lv < std::abs(replaceSize*0.99)) return nullptr;
+		}
+		if (size) {
+			Value r = privatePOST("/futures/private/order/create",Object{
+				{"symbol",nfo.name},
+				{"side",size<0?"Buy":"Sell"},
+				{"order_type","Limit"},
+				{"qty",adjustSize(size,nfo.asset_step)},
+				{"price",adjustPrice(1.0/price,nfo.currency_step)},
+				{"time_in_force","PostOnly"},
+				{"order_link_id",composeOrderID(clientId)}
+			});
+			return r["order_id"];
+		}
+		break;
+	case spot:
+		if (replaceId.hasValue()) {
+			Value r = privateDELETESpot("/spot/v1/order",Object{{"orderId",replaceId}});
+			double lv = r["origQty"].getNumber()-r["executedQty"].getNumber();
+			if (lv < std::abs(replaceSize*0.99)) return nullptr;
+		}
+		if (size) {
+			Value r = privatePOSTSpot("/spot/v1/order",Object{
+				{"symbol",nfo.name},
+				{"side",size>0?"Buy":"Sell"},
+				{"type","LIMIT_MAKER"},
+				{"qty",adjustSize(size,nfo.asset_step)},
+				{"price",adjustPrice(price,nfo.currency_step)},
+				{"time_in_force","GTC"},
+				{"orderLinkId",composeOrderID(clientId)}
+			});
+			return r["orderId"];
+		}
+		break;
+
+	}
+	return nullptr;
 }
 
 double ByBitBroker::getFees(const std::string_view &pair) {
@@ -455,6 +710,19 @@ json::Value ByBitBroker::privatePOSTSpot(std::string_view uri, json::Value param
 	try {
 		json::String qr ({convertJSON2formData(params).str(),"&sign=",sign});
 		Value ret = api.POST(uri,qr);
+		Value ret_code = ret["ret_code"];
+		if (ret_code.getUInt() != 0) handleError(ret);
+		return ret["result"];
+	} catch (const HTTPJson::UnknownStatusException &ex) {
+		handleException(ex);
+		throw;
+	}
+}
+json::Value ByBitBroker::privateDELETESpot(std::string_view uri, json::Value params) {
+	std::string sign = signRequest(params);
+	try {
+		json::String qr ({convertJSON2formData(params).str(),"&sign=",sign});
+		Value ret = api.DELETE(uri,qr);
 		Value ret_code = ret["ret_code"];
 		if (ret_code.getUInt() != 0) handleError(ret);
 		return ret["result"];
