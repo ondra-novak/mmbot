@@ -615,7 +615,30 @@ void ByBitBroker::onInit() {
 }
 
 IBrokerControl::AllWallets ByBitBroker::getWallet() {
-	return {};
+	AllWallets wlt;
+	Wallet w;
+	w.walletId = "futures";
+	for (const auto &x: symbols) {
+		if (x.second.type == inverse_perpetual) {
+			w.wallet.push_back({x.second.currency_symbol,getWalletState(x.second.currency_symbol)["equity"].getNumber()});
+		}
+	}
+	{
+		w.wallet.push_back({"USDT", getWalletState("USDT")["equity"].getNumber()});
+	}
+	wlt.push_back(w);
+	{
+		Wallet sw;
+		getSpotBalance("");
+		for (Value z: spotBalanceCache["balances"]) {
+			w.wallet.push_back({z["coin"].getString(),z["total"].getNumber()});
+		}
+	}
+
+
+	return wlt;
+
+
 }
 
 bool ByBitBroker::hasKeys() const {
