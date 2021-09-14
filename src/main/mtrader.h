@@ -198,7 +198,7 @@ public:
 			double mult,
 			const ZigZagLevels &zlev,
 			bool alerts) const;
-	bool calculateOrderFeeLessAdjust(Order &order,
+	bool calculateOrderFeeLessAdjust(Order &order,double assets, double currency,
 			int dir, double mult, bool alert, double min_size,
 			const ZigZagLevels &zlev) const;
 
@@ -340,7 +340,7 @@ protected:
 	void updateZigzagLevels();
 	void modifyOrder(const ZigZagLevels &zlevs, double dir, Order &order) const;
 
-	bool checkLeverage(const Order &order, double &maxSize) const;
+	bool checkLeverage(const Order &order, double assets, double currency, double &maxSize) const;
 
 	WalletDB::Key getWalletBalanceKey() const;
 	WalletDB::Key getWalletAssetKey() const;
