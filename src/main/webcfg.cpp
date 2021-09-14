@@ -936,6 +936,9 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req)  {
 				IStockApi::MarketInfo minfo;
 				if (tr == nullptr) {
 					api = trlist.lock_shared()->stockSelector.getStock(broker.toString().str());
+					if (api == nullptr) {
+						return req.sendErrorPage(410);
+					}
 					minfo = api->getMarketInfo(symb.getString());
 					uid = 0;
 					exists=false;
