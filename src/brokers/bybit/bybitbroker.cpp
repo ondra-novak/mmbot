@@ -159,8 +159,8 @@ IStockApi::MarketInfo ByBitBroker::getMarketInfo(const std::string_view &pair) {
 		break;
 	case usdt_perpetual:
 		pos = getUSDTPerpetualPosition(nfo.name);
-		if (pos.defined() && pos["leverage"].defined()) {
-			nfo.leverage = pos["leverage"].getNumber();
+		if (pos[0].defined() && pos[0]["leverage"].defined() && pos[1].defined() && pos[1]["leverage"].defined()) {
+			nfo.leverage = std::min(pos[0]["leverage"].getNumber(),pos[1]["leverage"].getNumber());
 		}
 		break;
 	}
@@ -230,7 +230,7 @@ json::Value ByBitBroker::getMarkets() const {
 	return Object{
 		{"Inverse Perpetual", inversed},
 		{"USDT Perpetual", usdt},
-		{"Spot", mspot},
+	//	{"Spot", mspot},
 		{"Inverse Futures", Value(json::object, exp_futures.begin(), exp_futures.end(),[](const auto &item){
 			return Value(item.first, item.second);
 		})
@@ -253,7 +253,9 @@ double ByBitBroker::getBalance(const std::string_view &symb, const std::string_v
 	case usdt_perpetual: {
 		if (symb == market.asset_symbol) {
 			Value pos = getUSDTPerpetualPosition(market.name);
-			return pos["size"].getNumber() * (pos["side"].getString() == "Sell"?-1.0:1.0);
+			return pos.reduce([](double a, Value x){
+				return a+x["size"].getNumber() * (x["side"].getString() == "Sell"?-1.0:1.0);
+			},0.0);
 		} else {
 			Value coin = getWalletState(symb);
 			return coin["equity"].getNumber();
@@ -510,13 +512,15 @@ json::Value ByBitBroker::placeOrder(const std::string_view &pair, double size, d
 			if (lv < std::abs(replaceSize*0.99)) return nullptr;
 		}
 		if (size) {
+			auto side =[](double s){return s<0?"Buy":"Sell";};
 			Value r = privatePOST("/v2/private/order/create",Object{
 				{"symbol",nfo.name},
-				{"side",size<0?"Buy":"Sell"},
+				{"side",side(size)},
 				{"order_type","Limit"},
 				{"qty",adjustSize(size,nfo.asset_step)},
 				{"price",adjustPrice(1.0/price,nfo.currency_step)},
 				{"time_in_force","PostOnly"},
+				{"reduce_only",getInversePerpetualPosition(nfo.name)["side"].getString() == side(-size)},
 				{"order_link_id",composeOrderID(clientId)}
 			});
 			return r["order_id"];
@@ -527,14 +531,19 @@ json::Value ByBitBroker::placeOrder(const std::string_view &pair, double size, d
 			privatePOST("/private/linear/order/cancel",Object{{"symbol",nfo.name},{"order_id",replaceId}});
 		}
 		if (size) {
+			auto side =[](double s){return s>0?"Buy":"Sell";};
 			Value r = privatePOST("/private/linear/order/create",Object{
 				{"symbol",nfo.name},
-				{"side",size>0?"Buy":"Sell"},
+				{"side",side(size)},
 				{"order_type","Limit"},
 				{"qty",adjustSize(size,nfo.asset_step)},
 				{"price",adjustPrice(price,nfo.currency_step)},
 				{"time_in_force","PostOnly"},
-				{"order_link_id",composeOrderID(clientId)}
+				{"order_link_id",composeOrderID(clientId)},
+				{"reduce_only",getUSDTPerpetualPosition(nfo.name).find([&](Value x){
+					return x["side"].getString() == side(-size);
+				})["size"].getNumber()>0},
+				{"close_on_trigger",false}
 			});
 			return r["order_id"];
 		}
@@ -546,14 +555,17 @@ json::Value ByBitBroker::placeOrder(const std::string_view &pair, double size, d
 			if (lv < std::abs(replaceSize*0.99)) return nullptr;
 		}
 		if (size) {
+			auto side =[](double s){return s<0?"Buy":"Sell";};
 			Value r = privatePOST("/futures/private/order/create",Object{
 				{"symbol",nfo.name},
-				{"side",size<0?"Buy":"Sell"},
+				{"side",side(size)},
 				{"order_type","Limit"},
 				{"qty",adjustSize(size,nfo.asset_step)},
 				{"price",adjustPrice(1.0/price,nfo.currency_step)},
 				{"time_in_force","PostOnly"},
-				{"order_link_id",composeOrderID(clientId)}
+				{"order_link_id",composeOrderID(clientId)},
+				{"reduce_only",getInverseFuturePosition(nfo.name)["side"].getString() == side(-size)},
+
 			});
 			return r["order_id"];
 		}
@@ -885,6 +897,10 @@ json::Value ByBitBroker::getInverseFuturePosition(std::string_view symbol) {
 	auto iter = positionCache.find(symbol);
 	if (iter == positionCache.end()) {
 		Value r = privateGET("/futures/private/position/list", Object({{"symbol",symbol}}));
+		r = r.find([](Value x){
+			return x["data"]["position_idx"].getInt() == 0;
+		});
+		r = r["data"];
 		positionCache.emplace(std::string(symbol),r);
 		return r;
 	} else {
