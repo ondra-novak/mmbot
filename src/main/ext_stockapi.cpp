@@ -85,6 +85,7 @@ json::Value  ExtStockApi::placeOrder(const std::string_view & pair,
 
 
 bool ExtStockApi::reset() {
+	connection->housekeeping(5);
 	std::unique_lock _(connection->getLock());
 	//save housekeep counter to avoid reset treat as action
 	if (connection->isActive()) try {
@@ -139,13 +140,22 @@ void ExtStockApi::Connection::onConnect() {
 	} catch (AbstractExtern::Exception &) {
 
 	}
+	broker_info = jsonRequestExchange("getBrokerInfo", json::Value());
 	instance_counter++;
 }
 
+json::Value ExtStockApi::Connection::getBrokerInfo() const {
+	return broker_info;
+}
 ExtStockApi::BrokerInfo ExtStockApi::getBrokerInfo()  {
 
 	try {
-		auto resp = requestExchange("getBrokerInfo", json::Value());
+		auto resp = connection->getBrokerInfo();
+		if (!resp.defined()) {
+			connection->preload();
+			resp = connection->getBrokerInfo();
+		}
+		/*auto resp = requestExchange("getBrokerInfo", json::Value());*/
 		std::string name = connection->getName();
 		if (!subaccount.empty()) name = name + "~" + subaccount;
 		return BrokerInfo {
