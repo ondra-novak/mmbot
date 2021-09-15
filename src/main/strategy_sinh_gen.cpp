@@ -334,9 +334,12 @@ IStrategy::OrderData Strategy_Sinh_Gen::getNewOrder(
 
 
 	double new_pos1 = limitPosition(cfg.calc->assets(newk, pw, new_price));
+	//double new_pos1 = limitPosition(cfg.calc->assets(2*st.k-newk, pw, new_price));
 
 	double new_pos2 = limitPosition(cfg.calc->assets(newk, pw*pwadj, new_price));
 	double new_pos = sgn(new_pos1) * sqrt(new_pos1 * new_pos2);
+    //double new_pos = sgn(new_pos1) * (std::abs(new_pos1) + std::abs(new_pos2))*0.5;
+	//double new_pos = pwadj<0?sgn(new_pos2) * sqrt(new_pos2 * assets):new_pos2;
 	//calculate difference between new position and curreny position
 	double dfa = new_pos -assets;
 	//if difference is in other direction and position should decrease

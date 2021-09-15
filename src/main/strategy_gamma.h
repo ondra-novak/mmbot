@@ -17,7 +17,8 @@ public:
 		halfhalf,
 		keepvalue,
 		exponencial,
-		gauss
+		gauss,
+		invsqrtsinh
 	};
 
 	struct IntegrationTable {
