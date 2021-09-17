@@ -51,12 +51,14 @@ void Proxy::setTime(std::uint64_t t ) {
 }
 
 void Proxy::buildParams(const json::Value& params, std::ostream& data) {
+	std::string_view sep = "?";
 	for (json::Value field : params) {
-		data << "&" << field.getKey() << "=";
+		data << sep << field.getKey() << "=";
 		json::String s = field.toString();
 		if (!s.empty()) {
 			data << simpleServer::urlEncode(s);
 		}
+		sep = "&";
 	}
 }
 

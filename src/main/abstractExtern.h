@@ -84,12 +84,12 @@ protected:
 	static Pipe makePipe();
 	int msgCntr = 1;
 	int houseKeepingCounter = 0;
-
+	bool binary_mode = false;
 
 	json::Value jsonExchange(json::Value request, bool idle);
-	static bool writeJSON(json::Value v, FD &fd, int timeout);
+	static bool writeJSON(json::Value v, FD &fd, bool binary_mode, int timeout);
 //	static json::Value readJSON(FD &fd, int timeout);
-
+	static bool writeString(std::string_view ss, int timeout, FD &fd);
 };
 
 

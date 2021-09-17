@@ -323,15 +323,22 @@ static Value getPairInfo(const PStockApi &api, const std::string_view &pair, con
 	if (quote_currency.getString() == "XBT") quote_currency = "BTC";
 	if (quote_asset.getString() == "XBT") quote_currency = "BTC";
 
-	Value resp = Object({{"symbol",pair},{"asset_symbol", nfo.asset_symbol},{
-			"currency_symbol", nfo.currency_symbol},{"fees",
-			nfo.fees},{"leverage", nfo.leverage},{
-			"invert_price", nfo.invert_price},{
-			"asset_balance", ab},{"currency_balance", cb},{
-			"min_size", nfo.min_size},{"price",last},
-					{"quote_currency", quote_currency},
-					{"quote_asset", quote_asset},
-					{"wallet_id", nfo.wallet_id}});;
+	Value resp = Object({{"symbol",pair},
+			{"asset_symbol", nfo.asset_symbol},
+			{"currency_symbol", nfo.currency_symbol},
+			{"fees",nfo.fees},
+			{"leverage", nfo.leverage},
+			{"invert_price", nfo.invert_price},
+			{"asset_balance", ab},
+			{"currency_balance", cb},
+			{"min_size", nfo.min_size},
+			{"min_volume", nfo.min_volume},
+			{"asset_step", nfo.asset_step},
+			{"currency_step",nfo.currency_step},
+			{"price",last},
+			{"quote_currency", quote_currency},
+			{"quote_asset", quote_asset},
+			{"wallet_id", nfo.wallet_id}});;
 	return resp;
 
 }

@@ -86,6 +86,15 @@ public:
 	virtual json::Value getMarkets() const override;
 	virtual AllWallets getWallet() override {return {};};
 	virtual json::Value getWallet_direct()  override;
+	virtual bool areMinuteDataAvailable(const std::string_view &asset, const std::string_view &currency) override;
+	virtual std::uint64_t downloadMinuteData(const std::string_view &asset,
+					  const std::string_view &currency,
+					  const std::string_view &hint_pair,
+					  std::uint64_t time_from,
+					  std::uint64_t time_to,
+					  std::vector<OHLC> &data
+				) override;
+
 
 	enum class Category {
 		spot, coin_m, usdt_m
@@ -126,6 +135,8 @@ public:
 	virtual json::Value getSettings(const std::string_view &pairHint) const override;
 
 	bool feesInBnb = false;
+
+	static bool isMatchedPair(const MarketInfo &minfo, const std::string_view &asset, const std::string_view &currency);
 
 protected:
 	bool dapi_isSymbol(const std::string_view &pair);
@@ -1108,6 +1119,63 @@ Value Interface::getWallet_direct()  {
 	out.set("positions", poss);
 	return out;
 
+}
+
+bool Interface::isMatchedPair(const MarketInfo &nfo, const std::string_view &asset, const std::string_view &currency) {
+	return (nfo.asset_symbol == asset && nfo.currency_symbol == currency)
+			|| (nfo.asset_symbol == currency && nfo.currency_symbol == asset);
+}
+
+bool Interface::areMinuteDataAvailable(const std::string_view &asset, const std::string_view &currency) {
+	initSymbols();
+	auto iter = std::find_if(symbols.begin(), symbols.end(), [&](const auto &nfo) {
+		return isMatchedPair(nfo.second, asset, currency);
+	});
+	return iter != symbols.end();
+}
+
+std::uint64_t Interface::downloadMinuteData(
+		const std::string_view &asset, const std::string_view &currency,
+		const std::string_view &hint_pair, std::uint64_t time_from,
+		std::uint64_t time_to, std::vector<OHLC> &data) {
+	std::uint64_t adj_time_from = time_to-1000*60000; //LIMIT 1000 per 1 minute
+	time_from = std::max(adj_time_from, time_from);
+	auto limit = (time_to-time_from)/60000;
+	if (limit <= 0) return 0;
+	initSymbols();
+	auto iter = symbols.find(hint_pair);
+	if (iter == symbols.end() || !isMatchedPair(iter->second, asset, currency)) {
+		iter = std::find_if(symbols.begin(), symbols.end(), [&](const auto &nfo) {
+			return isMatchedPair(nfo.second, asset, currency);
+		});
+		if (iter == symbols.end()) return 0;
+	}
+	Value tmp;
+	switch (iter->second.cat) {
+	case Category::spot:
+		tmp = px.public_request("/api/v3/klines",Object{{"symbol",iter->first},{"interval","1m"},{"limit",limit},{"startTime",time_from},{"endTime",time_to}});
+		break;
+	case Category::usdt_m:
+		tmp = fapi.public_request("/fapi/v1/klines",Object{{"symbol",iter->first},{"interval","1m"},{"limit",limit},{"startTime",time_from},{"endTime",time_to}});
+		break;
+	case Category::coin_m:
+		tmp = dapi.public_request("/dapi/v1/klines",Object{{"symbol",iter->first},{"interval","1m"},{"limit",limit},{"startTime",time_from},{"endTime",time_to}});
+		break;
+	}
+	if (iter->second.currency_symbol == asset) {
+		std::transform(tmp.begin(), tmp.end(), std::back_inserter(data),[](Value v){
+			return OHLC{
+				1.0/v[1].getNumber(),1.0/v[3].getNumber(),1.0/v[2].getNumber(),v[4].getNumber()
+			};
+		});
+	} else {
+		std::transform(tmp.begin(), tmp.end(), std::back_inserter(data),[](Value v){
+			return OHLC{
+				v[1].getNumber(),v[2].getNumber(),v[3].getNumber(),v[4].getNumber()
+			};
+		});
+	}
+	return tmp[0][0].getUIntLong();
 }
 
 double Interface::fapi_getLeverage(const std::string_view &pair) {

@@ -20,7 +20,7 @@
 
 
 
-class AbstractBrokerAPI: public IStockApi, public IApiKey, public IBrokerControl {
+class AbstractBrokerAPI: public IStockApi, public IApiKey, public IBrokerControl, public IHistoryDataSource {
 public:
 
 	AbstractBrokerAPI(const std::string &secure_storage_path,
@@ -113,6 +113,17 @@ public:
 	virtual json::Value getWallet_direct();
 	virtual AllWallets getWallet() override;
 	virtual json::Value testCall(const std::string_view &method, json::Value args) ;
+	virtual bool areMinuteDataAvailable(const std::string_view &asset, const std::string_view &currency) override;
+	virtual std::uint64_t downloadMinuteData(const std::string_view &asset,
+					  const std::string_view &currency,
+					  const std::string_view &hint_pair,
+					  std::uint64_t time_from,
+					  std::uint64_t time_to,
+					  std::vector<OHLC> &data
+				) override;
+
+
+	bool binary_mode = false;
 
 
 protected:
@@ -123,6 +134,9 @@ protected:
 	std::ostream *logStream = nullptr;;
 	std::ostream *outStream = nullptr;;
 	virtual void flushMessages();
+	void connectStreams(std::ostream &log, std::ostream &out);
+	void disconnectStreams();
+
 
 	class LogProvider;
 	ondra_shared::RefCntPtr<LogProvider> logProvider;

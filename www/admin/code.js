@@ -513,6 +513,25 @@ App.prototype.fillForm = function (src, trg) {
 			if (!src.strategy && typeof state.pair.price == "string" && state.pair.price.startsWith("trainer")){
 			    this.brokerConfig(src.broker, src.pair_symbol).then(updateHdr,updateHdr);
 			}
+			data.more_info={
+				".hidden":false,
+				"!click":function() {
+					var data={
+						tick_size:adjNum(pair.currency_step),
+						quote_symbol:pair.quote_currency,
+						asset_step:adjNum(pair.asset_step),
+						asset_symbol:pair.asset_symbol,
+						min_size:adjNum(pair.min_size),
+						min_volume:adjNum(pair.min_volume),
+						leverage:pair.leverage,
+						currency_symbol:pair.currency_symbol,
+						inverted_price:JSON.stringify(pair.invert_price)
+					}					
+					this.dlgbox(data,"pair_details");					
+				}.bind(this)
+			
+			};
+
 			first_fetch = false;
 		}
 		data.swap_symbols_hide = {".hidden":!!(pair.leverage || state.trades) && !src.swap_symbols};

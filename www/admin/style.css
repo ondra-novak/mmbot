@@ -83,6 +83,21 @@ button:active {
 	transform: translate(2px,2px);
 }
 
+.info_icon {
+	display: inline-block;
+	background: #3636c3;
+	font-family: monospace;
+	font-weight: bold;
+	width: 1.4em;
+	text-align: center;
+	padding-top: 0.1em;
+	border-radius: 1em;
+	text-shadow: 0 0 2px white;
+	font-size: 0.9em;
+	box-shadow: 0 0 1px 0px black;
+	cursor: pointer;
+}
+
 x-form {
 	display:block;
 	position: relative;
