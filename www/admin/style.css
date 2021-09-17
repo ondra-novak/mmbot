@@ -1193,6 +1193,20 @@ table.utilization tr:last-child td {
 	font-weight: bold;
 }
 
+.dialog.pairdetails > div {
+ padding: 1em;
+ width: 15cm;
+}
+.dialog.pairdetails > div  div {
+	margin: 0.5em;
+}
+.dialog.pairdetails > div  div > span:first-child{
+ text-align: left;
+}
+.dialog.pairdetails > div  div > span:last-child{
+ text-align: right;
+}
+
 
 .reset_strategy {
 

@@ -516,13 +516,15 @@ App.prototype.fillForm = function (src, trg) {
 			data.more_info={
 				".hidden":false,
 				"!click":function() {
+					var mincursize = pair.min_volume/pair.price;
 					var data={
+						price:  adjNum(invPrice(pair.price,pair.invert_price)),
 						tick_size:adjNum(pair.currency_step),
 						quote_symbol:pair.quote_currency,
 						asset_step:adjNum(pair.asset_step),
 						asset_symbol:pair.asset_symbol,
 						min_size:adjNum(pair.min_size),
-						min_volume:adjNum(pair.min_volume),
+						min_volume:adjNum(mincursize > pair.min_size?mincursize:pair.min_size),
 						leverage:pair.leverage,
 						currency_symbol:pair.currency_symbol,
 						inverted_price:JSON.stringify(pair.invert_price)

@@ -953,12 +953,12 @@ the same order, they are ordered by its ID - this is the default ordering. Modif
 </template>
 
 <template id="pair_details">
-<div class="dialog"><div>
+<div class="dialog pairdetails"><div>
 <x-form>
 <div class="label"><span>Tick size:</span><span><span data-name="tick_size"></span> <span data-name="quote_symbol"></span></span></div>
-<div class="label"><span>Amount step:</span><span><span data-name="asset_step"></span> <span data-name="asset_symbol"></span></span></div>
-<div class="label"><span>Minimal amount:</span><span><span data-name="min_size"></span> <span data-name="asset_symbol"></span></span></div>
-<div class="label"><span>Minimal volume:</span><span><span data-name="min_volume"></span> <span data-name="currency_symbol"></span></span></div>
+<div class="label"><span>Order size granuality:</span><span><span data-name="asset_step"></span> <span data-name="asset_symbol"></span></span></div>
+<div class="label"><span>Minimal order size:</span><span><span data-name="min_size"></span> <span data-name="asset_symbol"></span></span></div>
+<div class="label"><span>Minimal order size at <span data-name="price"></span>&nbsp;<span data-name="quote_symbol"></span>:</span><span><span data-name="min_volume"></span> <span data-name="asset_symbol"></span></span></div>
 <div class="label"><span>Leverage:</span><span><span data-name="leverage"></span>x</span></div>
 <div class="label"><span>P/L formula:</span><span>
 	<x-switch data-name="inverted_price" data-value="false">(close_price - entry_price) × amount</x-switch>
