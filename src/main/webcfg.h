@@ -70,7 +70,7 @@ public:
 	using SpreadCache = Cache<SpreadCacheItem>;
 	using PricesCache = Cache<std::vector<double> >;
 
-	class State : public ondra_shared::RefCntObj{
+	class State {
 	public:
 		unsigned int write_serial = 0;
 		PStorage config;
@@ -80,13 +80,22 @@ public:
 		BacktestCache backtest_cache;
 		SpreadCache spread_cache;
 		PricesCache prices_cache;
+		ondra_shared::linear_map<int,std::pair<int,bool> > progress_map;
+		SharedObject<BacktestStorage> backtest_storage;
 
 		State( PStorage &&config,
 			  ondra_shared::RefCntPtr<AuthUserList> users,
-			  ondra_shared::RefCntPtr<AuthUserList> admins):
+			  ondra_shared::RefCntPtr<AuthUserList> admins,
+			  std::size_t backtest_cache_size
+			):
 				  config(std::move(config)),
 				  users(users),
-				  admins(admins) {}
+				  admins(admins),
+				  backtest_storage(SharedObject<BacktestStorage>::make(backtest_cache_size))
+		{
+			initProgress(666);
+			setProgress(666,66); //just for test
+		}
 
 
 		void init();
@@ -99,8 +108,24 @@ public:
 		void logout_user(std::string &&user);
 		bool logout_commit(std::string &&user);
 		void setBrokerConfig(const std::string_view &name, json::Value config);
+		void initProgress(int i);
+		bool setProgress(int i, int v);
+		void clearProgress(int i);
+		std::optional<int> getProgress(int i) const;
+		void stopProgress(int i) ;
 	};
 
+
+	class Progress {
+	public:
+		SharedObject<State> state;
+		int id;
+		Progress(const SharedObject<State> &state, int id);
+		Progress(Progress &&s);
+		Progress(const Progress &s);
+		~Progress();
+		bool set(int amount);
+	};
 
 	WebCfg( const SharedObject<State> &state,
 			const std::string &realm,
@@ -108,8 +133,7 @@ public:
 			Dispatch &&dispatch,
 			json::PJWTCrypto jwt,
 			SharedObject<AbstractExtern> backtest_broker,
-			std::size_t upload_limit,
-			std::size_t backtest_cache_size
+			std::size_t upload_limit
 	);
 
 	~WebCfg();
@@ -136,7 +160,8 @@ public:
 		wallet,
 		btdata,
 		visstrategy,
-		utilization
+		utilization,
+		progress
 	};
 
 	AuthMapper auth;
@@ -166,6 +191,7 @@ protected:
 	bool reqBTData(simpleServer::HTTPRequest req);
 	bool reqVisStrategy(simpleServer::HTTPRequest req,  simpleServer::QueryParser &qp);
 	bool reqUtilization(simpleServer::HTTPRequest req,  simpleServer::QueryParser &qp);
+	bool reqProgress(simpleServer::HTTPRequest req, ondra_shared::StrViewA rest);
 
 	using Sync = std::unique_lock<std::recursive_mutex>;
 
@@ -173,12 +199,15 @@ protected:
 
 	PState state;
 	SharedObject<AbstractExtern> backtest_broker;
-	SharedObject<BacktestStorage> backtest_storage;
 	std::size_t upload_limit;
 	static bool generateTrades(const SharedObject<Traders> &trlist, PState state, json::Value args);
 
 
 	bool reqBacktest_v2(simpleServer::HTTPRequest req, ondra_shared::StrViewA rest);
+
+	static void processBrokerHistory(simpleServer::HTTPRequest req,
+			PState state, PStockApi api, ondra_shared::StrViewA pair
+	);
 };
 
 

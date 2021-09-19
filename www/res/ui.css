@@ -32,6 +32,11 @@ x-checkbox {
 	display: inline;
 }
 
+x-checkbox[disabled=true] {
+	opacity: 0.5;
+	pointer-events: none;
+}
+
 x-checkbox.checked {
 	font-weight: bold;
 }

@@ -328,7 +328,7 @@ ExtStockApi::AllWallets ExtStockApi::getWallet()  {
 bool ExtStockApi::areMinuteDataAvailable(const std::string_view &asset, const std::string_view &currency) {
 	try {
 		auto resp = requestExchange("areMinuteDataAvailable", {asset, currency});
-		return resp[1].getBool();
+		return resp.getBool();
 	} catch (...) {
 		return false;
 	}
@@ -368,7 +368,7 @@ std::uint64_t ExtStockApi::downloadMinuteData(const std::string_view &asset,
 				h = std::max({o,h,l,c});
 				l = std::min({o,h,l,c});
 				last = c;
-				recv_data.push({o,h,l,c});
+				data.push_back({o,h,l,c});
 			}
 		}
 		return start_time.getUIntLong();

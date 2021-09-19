@@ -54,7 +54,8 @@ NamedEnum<WebCfg::Command> WebCfg::strCommand({
 	{WebCfg::wallet, "wallet"},
 	{WebCfg::btdata, "btdata"},
 	{WebCfg::visstrategy, "visstrategy"},
-	{WebCfg::utilization, "utilization"}
+	{WebCfg::utilization, "utilization"},
+	{WebCfg::progress, "progress"}
 });
 
 WebCfg::WebCfg( const SharedObject<State> &state,
@@ -63,15 +64,13 @@ WebCfg::WebCfg( const SharedObject<State> &state,
 		Dispatch &&dispatch,
 		json::PJWTCrypto jwt,
 		SharedObject<AbstractExtern> backtest_broker,
-		std::size_t upload_limit,
-		std::size_t backtest_cache_size
+		std::size_t upload_limit
 )
 	:auth(realm, state.lock_shared()->admins,jwt, false)
 	,trlist(traders)
 	,dispatch(std::move(dispatch))
 	,state(state)
 	,backtest_broker(backtest_broker)
-	,backtest_storage(SharedObject<BacktestStorage>::make(backtest_cache_size))
 	,upload_limit(upload_limit)
 {
 
@@ -116,6 +115,7 @@ bool WebCfg::operator ()(const simpleServer::HTTPRequest &req,
 		case btdata: return reqBTData(req);
 		case visstrategy: return reqVisStrategy(req, qp);
 		case utilization: return reqUtilization(req, qp);
+		case progress: return reqProgress(req,rest);
 		}
 	}
 	return false;
@@ -487,7 +487,7 @@ bool WebCfg::reqBrokerSpec(simpleServer::HTTPRequest req,
 					if (orders.empty()) {
 						if (!req.allowMethods( { "GET" }))
 							return true;
-						Value resp = getPairInfo(api, p).replace("entries",{"orders", "ticker", "settings"});
+						Value resp = getPairInfo(api, p).replace("entries",{"orders", "ticker", "settings","info","history"});
 						req.sendResponse(std::move(hdr), resp.stringify().str());
 						return true;
 					} else if (orders == "ticker") {
@@ -578,6 +578,9 @@ bool WebCfg::reqBrokerSpec(simpleServer::HTTPRequest req,
 							return true;
 						}
 
+					}else if (orders == "history") {
+						processBrokerHistory(req, state, api, pair);
+						return true;
 					}
 
 				} catch (...) {
@@ -1866,9 +1869,9 @@ bool WebCfg::reqBacktest_v2(simpleServer::HTTPRequest req, ondra_shared::StrView
 	req.readBodyAsync(upload_limit,[action,
 									trlist = this->trlist,
 									state =  this->state,
-									storage = this->backtest_storage,
 									prices = this->backtest_broker](simpleServer::HTTPRequest req) mutable{
 		Value args = Value::fromString(json::map_bin2str(req.getUserBuffer()));
+		auto storage = state.lock()->backtest_storage;
 		Value response;
 
 		switch (action) {
@@ -2139,3 +2142,152 @@ bool WebCfg::reqBacktest_v2(simpleServer::HTTPRequest req, ondra_shared::StrView
 	});
 	return true;
 }
+
+
+void WebCfg::State::initProgress(int i) {
+	progress_map.emplace(i,std::pair(0,false));
+}
+bool WebCfg::State::setProgress(int i, int v) {
+	auto iter = progress_map.find(i);
+	if (iter == progress_map.end()) return false;
+	iter->second.first = v;
+	return !iter->second.second;
+}
+void WebCfg::State::clearProgress(int i) {
+	progress_map.erase(i);
+}
+std::optional<int> WebCfg::State::getProgress(int i) const {
+	auto iter = progress_map.find(i);
+	if (iter == progress_map.end()) return std::optional<int>();
+	return iter->second.first;
+}
+
+void WebCfg::State::stopProgress(int i)  {
+	auto iter = progress_map.find(i);
+	if (iter != progress_map.end()) iter->second.second = true;
+}
+
+WebCfg::Progress::Progress(const SharedObject<State> &state, int id)
+	:state(state),id(id) {
+	this->state.lock()->initProgress(id);
+}
+WebCfg::Progress::Progress(Progress &&s)
+	:state(std::move(s.state)),id(s.id) {
+	s.id = -1;
+}
+WebCfg::Progress::Progress(const Progress &) {
+	throw std::runtime_error("Progress - Can't handle copy");
+}
+
+
+WebCfg::Progress::~Progress() {
+	if (state != nullptr) state.lock()->clearProgress(id);
+
+}
+bool WebCfg::Progress::set(int amount) {
+	return state.lock()->setProgress(id, amount);
+}
+
+bool WebCfg::reqProgress(simpleServer::HTTPRequest req, ondra_shared::StrViewA rest) {
+	if (!req.allowMethods({"GET","DELETE"})) return true;
+	int i = atoi(rest.data);
+	if (req.getMethod() == "DELETE") {
+		state.lock()->stopProgress(i);
+		req.sendErrorPage(202);
+	} else {
+		auto st = state.lock()->getProgress(i);
+		if (st.has_value()) {
+			Value out (*st);
+
+			req.sendResponse(simpleServer::HTTPResponse(200)
+			.contentType("application/json")
+			.disableCache(),out.stringify().str());
+		} else {
+			req.sendErrorPage(410);
+		}
+	}
+	return true;
+}
+
+void WebCfg::processBrokerHistory(simpleServer::HTTPRequest req,
+				PState state, PStockApi api, ondra_shared::StrViewA pair
+) {
+	if (!req.allowMethods({"GET","POST"})) return;
+	auto bc = dynamic_cast<IHistoryDataSource *>(api.get());
+	if (bc == nullptr) {
+		req.sendErrorPage(204);
+		return;
+	}
+
+	auto minfo = api->getMarketInfo(pair);
+
+	if (req.getMethod() == "GET") {
+
+		bool res = bc->areMinuteDataAvailable(minfo.asset_symbol, minfo.currency_symbol);
+		if (res) req.sendErrorPage(200);
+		else req.sendErrorPage(204);
+	} else {
+		std::random_device rdev;
+		std::uniform_int_distribution<> rdist(0,1<<(sizeof(int)*8-1));
+		int id = rdist(rdev);
+		Progress prg(state,id);
+		std::string strid = "dwn_"+std::to_string(id);
+		json::Value resp = json::Object{
+			{"progress",id},
+			{"data",strid}
+		};
+		Stream s = req.sendResponse(simpleServer::HTTPResponse(202)
+			.contentType("application/json")
+			.disableCache());
+		auto async = s.getAsyncProvider();
+		resp.serialize(s);
+		s.flush();
+		async.runAsync([pair=std::string(pair),
+						state,
+						prg=std::move(prg),
+						api, bc, minfo,strid]() mutable {
+			auto storage = state.lock()->backtest_storage;
+			auto now = std::chrono::system_clock::now();
+			std::uint64_t end_tm = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
+			std::uint64_t start_tm = end_tm-24ULL*60ULL*60ULL*1000ULL*365ULL;
+			std::vector<IHistoryDataSource::OHLC> tmpVect;
+			std::stack<std::vector<IHistoryDataSource::OHLC> > datastack;
+			std::size_t cnt = 0;
+			std::uint64_t n = end_tm;
+			while (n && prg.set((end_tm - n)/((end_tm-start_tm)/100)) && n > start_tm) {
+				try {
+					n = bc->downloadMinuteData(
+							minfo.asset_symbol,
+							minfo.currency_symbol,
+							pair, start_tm, n, tmpVect);
+				} catch (std::exception &e) {
+					logError("Download failed, stopping: $1", e.what());
+					n = 0;
+					tmpVect.clear();
+				}
+				cnt+=tmpVect.size();
+				datastack.push(std::move(tmpVect));
+				tmpVect.clear();
+			}
+			tmpVect.reserve(cnt);
+			while (!datastack.empty()) {
+				const auto &p = datastack.top();
+				tmpVect.insert(tmpVect.end(), p.begin(), p.end());
+				datastack.pop();
+			}
+			Value out = json::array;
+			if (!tmpVect.empty()) {
+				out = Value(json::array, tmpVect.begin(), tmpVect.end(),[&](const auto &ohlc) -> Value {
+					double du = ohlc.high-ohlc.open;
+					double dw = ohlc.open-ohlc.low;
+					if (du > 2*dw) return ohlc.high;
+					if (dw > 2*du) return ohlc.low;
+					return ohlc.close;
+				});
+			}
+			storage.lock()->store_data(out, strid);
+		});
+
+	}
+}
+

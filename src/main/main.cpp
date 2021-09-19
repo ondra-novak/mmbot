@@ -241,7 +241,6 @@ void StreamState::sendBuffer(ondra_shared::BinaryView b) {
 
 
 
-
 int main(int argc, char **argv) {
 
 	json::enableParsePreciseNumbers = true;
@@ -367,7 +366,7 @@ int main(int argc, char **argv) {
 								jwt=AuthMapper::initJWT(jwt_type, jwt_pubkey);
 							}
 						}
-						SharedObject<WebCfg::State> webcfgstate = SharedObject<WebCfg::State>::make(sf->create("web_admin_conf"),new AuthUserList, new AuthUserList);
+						SharedObject<WebCfg::State> webcfgstate = SharedObject<WebCfg::State>::make(sf->create("web_admin_conf"),new AuthUserList, new AuthUserList,backtest_cache_size);
 						webcfgstate.lock()->setAdminAuth(webadmin_auth);
 						webcfgstate.lock()->applyConfig(traders);
 						aul = webcfgstate.lock_shared()->users;
@@ -405,7 +404,7 @@ int main(int argc, char **argv) {
 								"/admin",ondra_shared::shared_function<bool(simpleServer::HTTPRequest, ondra_shared::StrViewA)>(WebCfg(webcfgstate,
 										name,
 										traders,
-										[=](WebCfg::Action &&a) mutable {sch.immediate() >> std::move(a);},jwt, phb, upload_limit,backtest_cache_size))
+										[=](WebCfg::Action &&a) mutable {sch.immediate() >> std::move(a);},jwt, phb, upload_limit))
 							});
 							paths.push_back({
 								"/set_cookie",[](simpleServer::HTTPRequest req, const ondra_shared::StrViewA &) mutable {

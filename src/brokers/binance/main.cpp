@@ -1138,9 +1138,9 @@ std::uint64_t Interface::downloadMinuteData(
 		const std::string_view &asset, const std::string_view &currency,
 		const std::string_view &hint_pair, std::uint64_t time_from,
 		std::uint64_t time_to, std::vector<OHLC> &data) {
-	std::uint64_t adj_time_from = time_to-1000*60000; //LIMIT 1000 per 1 minute
+	std::uint64_t adj_time_from = time_to-1000*300000; //LIMIT 1000 per 5 minute
 	time_from = std::max(adj_time_from, time_from);
-	auto limit = (time_to-time_from)/60000;
+	auto limit = (time_to-time_from)/300000;
 	if (limit <= 0) return 0;
 	initSymbols();
 	auto iter = symbols.find(hint_pair);
@@ -1153,27 +1153,30 @@ std::uint64_t Interface::downloadMinuteData(
 	Value tmp;
 	switch (iter->second.cat) {
 	case Category::spot:
-		tmp = px.public_request("/api/v3/klines",Object{{"symbol",iter->first},{"interval","1m"},{"limit",limit},{"startTime",time_from},{"endTime",time_to}});
+		tmp = px.public_request("/api/v3/klines",Object{{"symbol",iter->first},{"interval","5m"},{"limit",limit},{"startTime",time_from},{"endTime",time_to}});
 		break;
 	case Category::usdt_m:
-		tmp = fapi.public_request("/fapi/v1/klines",Object{{"symbol",iter->first},{"interval","1m"},{"limit",limit},{"startTime",time_from},{"endTime",time_to}});
+		tmp = fapi.public_request("/fapi/v1/klines",Object{{"symbol",iter->first},{"interval","5m"},{"limit",limit},{"startTime",time_from},{"endTime",time_to}});
 		break;
 	case Category::coin_m:
-		tmp = dapi.public_request("/dapi/v1/klines",Object{{"symbol",iter->first},{"interval","1m"},{"limit",limit},{"startTime",time_from},{"endTime",time_to}});
+		tmp = dapi.public_request("/dapi/v1/klines",Object{{"symbol",iter->first},{"interval","5m"},{"limit",limit},{"startTime",time_from},{"endTime",time_to}});
 		break;
 	}
-	if (iter->second.currency_symbol == asset) {
-		std::transform(tmp.begin(), tmp.end(), std::back_inserter(data),[](Value v){
-			return OHLC{
-				1.0/v[1].getNumber(),1.0/v[3].getNumber(),1.0/v[2].getNumber(),v[4].getNumber()
-			};
-		});
-	} else {
-		std::transform(tmp.begin(), tmp.end(), std::back_inserter(data),[](Value v){
-			return OHLC{
-				v[1].getNumber(),v[2].getNumber(),v[3].getNumber(),v[4].getNumber()
-			};
-		});
+	auto insert_val = [&,inv=iter->second.currency_symbol == asset](double n){
+		if (inv) n=1/n;
+		data.push_back({n,n,n,n});
+	};
+	for (Value v: tmp) {
+		double o = v[1].getNumber();
+		double h = v[2].getNumber();
+		double l = v[3].getNumber();
+		double c = v[4].getNumber();
+		double m = std::sqrt(h*l);
+		insert_val(o);
+		insert_val(h);
+		insert_val(m);
+		insert_val(l);
+		insert_val(c);
 	}
 	return tmp[0][0].getUIntLong();
 }
