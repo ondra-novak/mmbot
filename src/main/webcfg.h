@@ -80,7 +80,7 @@ public:
 		BacktestCache backtest_cache;
 		SpreadCache spread_cache;
 		PricesCache prices_cache;
-		ondra_shared::linear_map<int,std::pair<int,bool> > progress_map;
+		ondra_shared::linear_map<std::size_t,std::pair<json::Value,bool> > progress_map;
 		SharedObject<BacktestStorage> backtest_storage;
 
 		State( PStorage &&config,
@@ -93,8 +93,6 @@ public:
 				  admins(admins),
 				  backtest_storage(SharedObject<BacktestStorage>::make(backtest_cache_size))
 		{
-			initProgress(666);
-			setProgress(666,66); //just for test
 		}
 
 
@@ -108,23 +106,23 @@ public:
 		void logout_user(std::string &&user);
 		bool logout_commit(std::string &&user);
 		void setBrokerConfig(const std::string_view &name, json::Value config);
-		void initProgress(int i);
-		bool setProgress(int i, int v);
-		void clearProgress(int i);
-		std::optional<int> getProgress(int i) const;
-		void stopProgress(int i) ;
+		void initProgress(std::size_t i);
+		bool setProgress(std::size_t i, json::Value v);
+		void clearProgress(std::size_t i);
+		json::Value getProgress(std::size_t i) const;
+		void stopProgress(std::size_t i) ;
 	};
 
 
 	class Progress {
 	public:
 		SharedObject<State> state;
-		int id;
-		Progress(const SharedObject<State> &state, int id);
+		std::size_t id;
+		Progress(const SharedObject<State> &state, std::size_t id);
 		Progress(Progress &&s);
 		Progress(const Progress &s);
 		~Progress();
-		bool set(int amount);
+		bool set(json::Value v);
 	};
 
 	WebCfg( const SharedObject<State> &state,

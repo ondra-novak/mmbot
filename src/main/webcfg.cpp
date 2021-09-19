@@ -2144,30 +2144,30 @@ bool WebCfg::reqBacktest_v2(simpleServer::HTTPRequest req, ondra_shared::StrView
 }
 
 
-void WebCfg::State::initProgress(int i) {
+void WebCfg::State::initProgress(std::size_t i) {
 	progress_map.emplace(i,std::pair(0,false));
 }
-bool WebCfg::State::setProgress(int i, int v) {
+bool WebCfg::State::setProgress(std::size_t i, json::Value v) {
 	auto iter = progress_map.find(i);
 	if (iter == progress_map.end()) return false;
 	iter->second.first = v;
 	return !iter->second.second;
 }
-void WebCfg::State::clearProgress(int i) {
+void WebCfg::State::clearProgress(std::size_t i) {
 	progress_map.erase(i);
 }
-std::optional<int> WebCfg::State::getProgress(int i) const {
+json::Value WebCfg::State::getProgress(std::size_t i) const {
 	auto iter = progress_map.find(i);
-	if (iter == progress_map.end()) return std::optional<int>();
+	if (iter == progress_map.end()) return json::Value();
 	return iter->second.first;
 }
 
-void WebCfg::State::stopProgress(int i)  {
+void WebCfg::State::stopProgress(std::size_t i)  {
 	auto iter = progress_map.find(i);
 	if (iter != progress_map.end()) iter->second.second = true;
 }
 
-WebCfg::Progress::Progress(const SharedObject<State> &state, int id)
+WebCfg::Progress::Progress(const SharedObject<State> &state, std::size_t id)
 	:state(state),id(id) {
 	this->state.lock()->initProgress(id);
 }
@@ -2184,24 +2184,23 @@ WebCfg::Progress::~Progress() {
 	if (state != nullptr) state.lock()->clearProgress(id);
 
 }
-bool WebCfg::Progress::set(int amount) {
+bool WebCfg::Progress::set(json::Value amount) {
 	return state.lock()->setProgress(id, amount);
 }
 
 bool WebCfg::reqProgress(simpleServer::HTTPRequest req, ondra_shared::StrViewA rest) {
 	if (!req.allowMethods({"GET","DELETE"})) return true;
-	int i = atoi(rest.data);
+	std::size_t id = 0;
+	for (char c: rest) id = id * 10 + (c - '0');
 	if (req.getMethod() == "DELETE") {
-		state.lock()->stopProgress(i);
+		state.lock()->stopProgress(id);
 		req.sendErrorPage(202);
 	} else {
-		auto st = state.lock()->getProgress(i);
-		if (st.has_value()) {
-			Value out (*st);
-
+		json::Value st = state.lock()->getProgress(id);
+		if (st.defined()) {
 			req.sendResponse(simpleServer::HTTPResponse(200)
 			.contentType("application/json")
-			.disableCache(),out.stringify().str());
+			.disableCache(),st.stringify().str());
 		} else {
 			req.sendErrorPage(410);
 		}
@@ -2227,25 +2226,29 @@ void WebCfg::processBrokerHistory(simpleServer::HTTPRequest req,
 		if (res) req.sendErrorPage(200);
 		else req.sendErrorPage(204);
 	} else {
-		std::random_device rdev;
-		std::uniform_int_distribution<> rdist(0,1<<(sizeof(int)*8-1));
-		int id = rdist(rdev);
-		Progress prg(state,id);
-		std::string strid = "dwn_"+std::to_string(id);
+		std::string digest = std::to_string(reinterpret_cast<std::uintptr_t>(api.get()));
+		digest.append(pair.data, pair.length);
+		std::hash<std::string> hstr;
+		auto id = hstr(digest);
+		std::string strid = std::to_string(id);
+		std::string dwnid = "dwn_"+strid;
 		json::Value resp = json::Object{
-			{"progress",id},
-			{"data",strid}
+			{"progress",strid},
+			{"data",dwnid}
 		};
+		std::shared_ptr<Progress> prg;
+		bool inp = state.lock_shared()->getProgress(id).defined();
+		if (!inp) prg = std::make_shared<Progress>(state, id);
 		Stream s = req.sendResponse(simpleServer::HTTPResponse(202)
 			.contentType("application/json")
 			.disableCache());
 		auto async = s.getAsyncProvider();
 		resp.serialize(s);
 		s.flush();
-		async.runAsync([pair=std::string(pair),
+		if (!inp) async.runAsync([pair=std::string(pair),
 						state,
-						prg=std::move(prg),
-						api, bc, minfo,strid]() mutable {
+						prg,
+						api, bc, minfo,dwnid]() mutable {
 			auto storage = state.lock()->backtest_storage;
 			auto now = std::chrono::system_clock::now();
 			std::uint64_t end_tm = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
@@ -2254,7 +2257,7 @@ void WebCfg::processBrokerHistory(simpleServer::HTTPRequest req,
 			std::stack<std::vector<IHistoryDataSource::OHLC> > datastack;
 			std::size_t cnt = 0;
 			std::uint64_t n = end_tm;
-			while (n && prg.set((end_tm - n)/((end_tm-start_tm)/100)) && n > start_tm) {
+			while (n && prg->set((end_tm - n)/((double)(end_tm-start_tm)/100)) && n > start_tm) {
 				try {
 					n = bc->downloadMinuteData(
 							minfo.asset_symbol,
@@ -2285,7 +2288,7 @@ void WebCfg::processBrokerHistory(simpleServer::HTTPRequest req,
 					return ohlc.close;
 				});
 			}
-			storage.lock()->store_data(out, strid);
+			storage.lock()->store_data(out, dwnid);
 		});
 
 	}

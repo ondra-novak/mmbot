@@ -94,3 +94,21 @@ TemplateJS.View.regCustomElement("X-SWITCH", new TemplateJS.CustomElement(
 			return undefined;
 		}
 ));
+
+TemplateJS.View.regCustomElement("X-PROGRESS", new TemplateJS.CustomElement(
+		function(elem, val) {
+			var inner = elem.firstChild;
+			if (!inner) {
+				inner = document.createElement("X-BAR");
+				inner.style.display="block";
+				inner.style.marginLeft="0";
+				inner.style.marginRight="auto";
+				inner.style.height="100%";
+				elem.appendChild(inner);
+			}
+			inner.style.width=val+"%";
+		},
+		function() {
+			return undefined;
+		}
+));

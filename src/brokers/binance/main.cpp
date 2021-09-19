@@ -141,7 +141,7 @@ public:
 protected:
 	bool dapi_isSymbol(const std::string_view &pair);
 	double dapi_getFees();
-	double dapi_getLeverage(const std::string_view &pair);
+	json::Value dapi_getLeverage(const std::string_view &pair);
 	double dapi_getPosition(const std::string_view &pair);
 	double dapi_getCollateral(const std::string_view &pair);
 
@@ -149,7 +149,7 @@ protected:
 	double fapi_getPosition(const std::string_view &pair);
 	double fapi_getFees();
 	double fapi_getCollateral();
-	double fapi_getLeverage(const std::string_view &pair);
+	json::Value fapi_getLeverage(const std::string_view &pair);
 
 
 private:
@@ -804,10 +804,12 @@ inline Interface::MarketInfo Interface::getMarketInfo(const std::string_view &pa
 		throw std::runtime_error("Unknown trading pair symbol");
 	MarketInfo res = iter->second;
 	if (dapi_isSymbol(pair)) {
-		res.leverage = dapi_getLeverage(remove_prefix(pair));
+		auto lev = dapi_getLeverage(remove_prefix(pair));
+		if (lev.defined()) res.leverage = lev.getNumber();
 	}
 	if (fapi_isSymbol(pair)) {
-		res.leverage = fapi_getLeverage(remove_prefix(pair));
+		auto lev = fapi_getLeverage(remove_prefix(pair));
+		if (lev.defined()) res.leverage = lev.getNumber();
 	}
 	return res;
 }
@@ -959,13 +961,13 @@ inline double Interface::dapi_getFees() {
 	return fees[tier];
 }
 
-inline double Interface::dapi_getLeverage(const std::string_view &pair) {
+inline json::Value Interface::dapi_getLeverage(const std::string_view &pair) {
 	Value a = dapi_readAccount();
 	Value b = a["positions"];
 	Value z = b.find([&](Value itm){
 		return itm["symbol"] == pair;
 	});
-	return z["leverage"].getNumber();
+	return z["leverage"];
 }
 
 inline double Interface::dapi_getPosition(const std::string_view &pair) {
@@ -1140,7 +1142,7 @@ std::uint64_t Interface::downloadMinuteData(
 		std::uint64_t time_to, std::vector<OHLC> &data) {
 	std::uint64_t adj_time_from = time_to-1000*300000; //LIMIT 1000 per 5 minute
 	time_from = std::max(adj_time_from, time_from);
-	auto limit = (time_to-time_from)/300000;
+	auto limit = (time_to-time_from-1)/300000;
 	if (limit <= 0) return 0;
 	initSymbols();
 	auto iter = symbols.find(hint_pair);
@@ -1151,15 +1153,16 @@ std::uint64_t Interface::downloadMinuteData(
 		if (iter == symbols.end()) return 0;
 	}
 	Value tmp;
+	auto smb = remove_prefix(iter->first);
 	switch (iter->second.cat) {
 	case Category::spot:
-		tmp = px.public_request("/api/v3/klines",Object{{"symbol",iter->first},{"interval","5m"},{"limit",limit},{"startTime",time_from},{"endTime",time_to}});
+		tmp = px.public_request("/api/v3/klines",Object{{"symbol",smb},{"interval","5m"},{"limit",1000},{"startTime",time_from},{"endTime",time_to}});
 		break;
 	case Category::usdt_m:
-		tmp = fapi.public_request("/fapi/v1/klines",Object{{"symbol",iter->first},{"interval","5m"},{"limit",limit},{"startTime",time_from},{"endTime",time_to}});
+		tmp = fapi.public_request("/fapi/v1/klines",Object{{"symbol",smb},{"interval","5m"},{"limit",1000},{"startTime",time_from},{"endTime",time_to}});
 		break;
 	case Category::coin_m:
-		tmp = dapi.public_request("/dapi/v1/klines",Object{{"symbol",iter->first},{"interval","5m"},{"limit",limit},{"startTime",time_from},{"endTime",time_to}});
+		tmp = dapi.public_request("/dapi/v1/klines",Object{{"symbol",smb},{"interval","5m"},{"limit",1000},{"startTime",time_from},{"endTime",time_to}});
 		break;
 	}
 	auto insert_val = [&,inv=iter->second.currency_symbol == asset](double n){
@@ -1167,6 +1170,8 @@ std::uint64_t Interface::downloadMinuteData(
 		data.push_back({n,n,n,n});
 	};
 	for (Value v: tmp) {
+		auto tm = v[0].getUIntLong();
+		if (tm >= time_to) break;
 		double o = v[1].getNumber();
 		double h = v[2].getNumber();
 		double l = v[3].getNumber();
@@ -1178,14 +1183,15 @@ std::uint64_t Interface::downloadMinuteData(
 		insert_val(l);
 		insert_val(c);
 	}
+	if (data.empty()) return 0;
 	return tmp[0][0].getUIntLong();
 }
 
-double Interface::fapi_getLeverage(const std::string_view &pair) {
+json::Value Interface::fapi_getLeverage(const std::string_view &pair) {
 	Value a = fapi_readAccount();
 	Value b = a["positions"];
 	Value z = b.find([&](Value itm){
 		return itm["symbol"] == pair;
 	});
-	return z["leverage"].getNumber();
+	return z["leverage"];
 }
