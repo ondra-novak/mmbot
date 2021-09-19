@@ -357,7 +357,7 @@ std::uint64_t ExtStockApi::downloadMinuteData(const std::string_view &asset,
 				last = d;
 				recv_data.push({d,d,d,d});
 			} else if (v.type() == json::array) {
-				double o=last,h,l,c;
+				double o=last,h=last,l=last,c=last;
 				switch (v.size()) {
 				case 1: h=l=c = v[0].getNumber();break;
 				case 2: h=v[0].getNumber();l =v[1].getNumber();c=std::sqrt(h*l);break;

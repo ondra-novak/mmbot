@@ -1165,7 +1165,16 @@ std::uint64_t Interface::downloadMinuteData(
 		tmp = dapi.public_request("/dapi/v1/klines",Object{{"symbol",smb},{"interval","5m"},{"limit",1000},{"startTime",time_from},{"endTime",time_to}});
 		break;
 	}
+	double prev=0;
 	auto insert_val = [&,inv=iter->second.currency_symbol == asset](double n){
+		if (prev) {
+			double z = n/prev;
+			if (z < 0.8 || z>1.4) {
+				std::cerr << "Value filtered: " << n << " - " << prev << std::endl;
+				n = prev;
+			}
+		}
+		prev = n;
 		if (inv) n=1/n;
 		data.push_back({n,n,n,n});
 	};

@@ -107,6 +107,7 @@ TemplateJS.View.regCustomElement("X-PROGRESS", new TemplateJS.CustomElement(
 				elem.appendChild(inner);
 			}
 			inner.style.width=val+"%";
+			inner.textContent=val.toFixed(1)+"%"
 		},
 		function() {
 			return undefined;

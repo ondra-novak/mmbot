@@ -326,11 +326,15 @@ div.broker.pair img {
 
 div.dialog > div.progressdlg {padding: 2em;}
 
-x-progress {display: block;width: 100%;height: 2em;border: 1px solid;}
+x-progress {display: block;width: 100%;/* height: 2em; */border: 1px solid;border-radius: 0.4em;overflow: hidden;line-height: 2em;box-sizing: border-box;}
 
 x-progress > * {
-	background-color: #134e30;
-	/* transition: 2s all linear; */
+	background: linear-gradient(97deg, #006f08, #6aa56f);
+	transition: 2s all linear;
+	text-align: right;
+	padding-right: 0.2em;
+	box-sizing: border-box;
+	text-shadow: 2px 2px 4px black;
 }
 
 div.dialog > div {
