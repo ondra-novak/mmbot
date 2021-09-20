@@ -401,8 +401,12 @@ json::Value Interface::placeOrder(const std::string_view &pair, double size, dou
 double Interface::getFees(const std::string_view &pair) {
 	auto iter = fees.find(pair);
 	if (iter == fees.end()) {
-		syncTrades(nullptr, pair);
-		iter = fees.find(pair);
+		try {
+			syncTrades(nullptr, pair);
+			iter = fees.find(pair);
+		} catch (...) {
+
+		}
 	}
 	if (iter == fees.end())	return 0.001;
 	return std::min(iter->second,0.002);
@@ -616,4 +620,57 @@ json::Value Interface::getWallet_direct() {
 	}
 	out.set("positions", poss);
 	return out;
+}
+
+bool Interface::areMinuteDataAvailable(const std::string_view &asset, const std::string_view &currency) {
+	const PairList &pls = getPairs();
+	auto iter = std::find_if(pls.begin(), pls.end(), [&](const auto &x){
+		return asset == x.second.asset && currency == x.second.currency;
+	});
+	return iter != pls.end();
+}
+
+uint64_t Interface::downloadMinuteData(const std::string_view &asset, const std::string_view &currency,
+		const std::string_view &hint_pair, uint64_t time_from, uint64_t time_to,
+		std::vector<IHistoryDataSource::OHLC> &data) {
+	const PairList &pls = getPairs();
+	auto iter = pls.find(stripMargin(hint_pair));
+	if (iter == pls.end()) {
+		iter = std::find_if(pls.begin(), pls.end(), [&](const auto &x){
+				return asset == x.second.asset && currency == x.second.currency;
+		});
+	}
+	if (iter == pls.end()) return 0;
+	std::uint64_t max_items = 10000;
+	auto start = std::max(time_to - max_items*4*60000, time_from);
+	std::ostringstream buff;
+	buff << "/v2/candles/trade:5m:" << iter->second.tsymbol << "/hist?limit=10000&start="<<start<<"&end="<<time_to<<"&sort=1";
+	json::Value hdata = publicGET(buff.str());
+	auto insert_val = [&](double n){
+			data.push_back({n,n,n,n});
+	};
+	std::uint64_t minDate = time_to;
+
+	for (Value row: hdata) {
+		auto date = row[0].getUIntLong();
+		if (date >= time_from && date < time_to) {
+				double o = row[1].getNumber();
+				double h = row[2].getNumber();
+				double l = row[3].getNumber();
+				double c = row[4].getNumber();
+				double m = std::sqrt(h*l);
+				insert_val(o);
+				insert_val(h);
+				insert_val(m);
+				insert_val(l);
+				insert_val(c);
+			if (minDate > date) minDate = date;
+		}
+	}
+	if (!data.empty()) {
+		return minDate;
+	} else {
+		return 0;
+	}
+
 }
