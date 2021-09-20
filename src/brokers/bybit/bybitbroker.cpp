@@ -928,3 +928,57 @@ json::Value ByBitBroker::getSpotBalance(std::string_view coin) {
 	});
 
 }
+
+bool ByBitBroker::areMinuteDataAvailable(const std::string_view &asset, const std::string_view &currency) {
+	updateSymbols();
+	auto iter = std::find_if(symbols.begin(), symbols.end(),[&](const auto &x){
+		return x.second.currency_symbol == currency && x.second.asset_symbol == asset;
+	});
+	return iter != symbols.end();
+}
+
+uint64_t ByBitBroker::downloadMinuteData(const std::string_view &asset,
+		const std::string_view &currency, const std::string_view &hint_pair, uint64_t time_from,
+		uint64_t time_to, std::vector<IHistoryDataSource::OHLC> &data) {
+	updateSymbols();
+	auto iter = symbols.find(hint_pair);
+	if (iter == symbols.end()) {
+		iter = std::find_if(symbols.begin(), symbols.end(),[&](const auto &x){
+				return x.second.currency_symbol == currency && x.second.asset_symbol == asset;
+		});
+		if (iter == symbols.end()) return 0;
+	}
+
+	if (iter->second.type == spot) {
+		return 0;
+	} else {
+		auto start = std::max(time_from, time_to - 200*300000);
+		json::Value hdata;
+		if (iter->second.type == usdt_perpetual) {
+			hdata = publicGET("/public/linear/kline?symbol="+iter->second.name+"&interval=5&limit=200&from="+std::to_string(start/1000));
+		} else {
+			hdata = publicGET("/v2/public/kline/list?symbol="+iter->second.name+"&interval=5&limit=200&from="+std::to_string(start/1000));
+		}
+		for (json::Value x: hdata) {
+			auto tm = x["open_time"].getUIntLong()*1000;
+			if (tm >= time_from && tm < time_to) {
+				double o = x["open"].getNumber();
+				double h = x["high"].getNumber();
+				double l = x["low"].getNumber();
+				double c = x["close"].getNumber();
+				double m = std::sqrt(h*l);
+				data.push_back({o,o,o,o});
+				data.push_back({l,l,l,l});
+				data.push_back({m,m,m,m});
+				data.push_back({h,h,h,h});
+				data.push_back({c,c,c,c});
+			}
+		}
+		if (data.size()){
+			return start;
+		} else {
+			return 0;
+		}
+	}
+
+}

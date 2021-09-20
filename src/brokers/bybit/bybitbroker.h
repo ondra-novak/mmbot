@@ -37,6 +37,12 @@ public:
 	virtual double getFees(const std::string_view &pair) override;
 	virtual IStockApi::Ticker getTicker(const std::string_view &piar) override;
 	virtual IBrokerControl::AllWallets getWallet() override;
+	virtual bool areMinuteDataAvailable(const std::string_view &asset,
+			const std::string_view &currency);
+	virtual uint64_t downloadMinuteData(const std::string_view &asset, const std::string_view &currency,
+			const std::string_view &hint_pair, uint64_t time_from, uint64_t time_to,
+			std::vector<IHistoryDataSource::OHLC> &data);
+
 protected:
 	bool hasKeys() const;
 	mutable TimeSync curTime;
