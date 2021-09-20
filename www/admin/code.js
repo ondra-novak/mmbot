@@ -2029,7 +2029,6 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 							d.view.enableItem("currency",en);
 							d.view.enableItem("smooth",en);							
 						};
-						console.log(resp);
 						var brkhist = resp[2].status==200;
 						var ddata = {
 							    from_broker:{
