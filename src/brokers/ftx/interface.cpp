@@ -963,3 +963,56 @@ json::Value Interface::testCall(const std::string_view &method, json::Value args
 		return AbstractBrokerAPI::testCall(method, args);
 	}
 }
+
+bool Interface::areMinuteDataAvailable(const std::string_view &asset, const std::string_view &currency) {
+	if (smap.empty()) updatePairs();
+	auto iter = std::find_if(smap.begin(), smap.end(), [&](const auto &x) {
+		return x.second.asset_symbol == asset && x.second.currency_symbol == currency && x.second.type != "move";
+	});
+	return iter != smap.end();
+}
+
+uint64_t Interface::downloadMinuteData(const std::string_view &asset, const std::string_view &currency,
+		const std::string_view &hint_pair, uint64_t time_from, uint64_t time_to,
+		std::vector<IHistoryDataSource::OHLC> &data) {
+	if (smap.empty()) updatePairs();
+	auto iter = smap.find(std::string(hint_pair));
+	if (iter == smap.end()) {
+		iter = std::find_if(smap.begin(), smap.end(), [&](const auto &x) {
+				return x.second.asset_symbol == asset && x.second.currency_symbol == currency && x.second.type != "move";
+		});
+		if (iter == smap.end())  return 0;
+	}
+	std::string uri ="/markets/"+simpleServer::urlEncode(iter->first)+"/candles?resolution=300&start_time="+std::to_string(time_from/1000)+"&end_time="+std::to_string(time_to/1000);
+	Value hdata = publicGET(uri);
+
+	auto insert_val = [&](double n){
+			data.push_back({n,n,n,n});
+	};
+
+
+	std::uint64_t minDate = time_to;
+
+	for (Value row: hdata["result"]) {
+		auto date = parseTime(row["startTime"].toString(), ParseTimeFormat::iso_tm);
+		if (date >= time_from && date < time_to) {
+				double o = row["open"].getNumber();
+				double h = row["high"].getNumber();
+				double l = row["low"].getNumber();
+				double c = row["close"].getNumber();
+				double m = std::sqrt(h*l);
+				insert_val(o);
+				insert_val(h);
+				insert_val(m);
+				insert_val(l);
+				insert_val(c);
+			if (minDate > date) minDate = date;
+		}
+	}
+	if (!data.empty()) {
+		return minDate;
+	} else {
+		return 0;
+	}
+}
+

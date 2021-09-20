@@ -475,6 +475,7 @@ void MTrader::perform(bool manually) {
 				if (last_trade_dir < 0) orders.sell.reset();
 				if (last_trade_dir > 0) orders.buy.reset();
 			}
+
 			//report orders to UI
 			statsvc->reportOrders(orders.buy,orders.sell);
 			//report trades to UI
@@ -496,6 +497,22 @@ void MTrader::perform(bool manually) {
 				}
 			}
 
+			double buy_norm = 0;
+			double sell_norm = 0;
+			Strategy buy_state = strategy;
+			Strategy sell_state = strategy;
+			if (sell_alert.has_value()) {
+				sell_norm = sell_state.onTrade(minfo, *sell_alert, 0, position, status.currencyBalance).normProfit;
+			} else if (orders.sell.has_value()) {
+				sell_norm = sell_state.onTrade(minfo, orders.sell->price, orders.sell->size, position-orders.sell->size, status.currencyBalance).normProfit;
+			}
+			if (buy_alert.has_value()) {
+				buy_norm = buy_state.onTrade(minfo, *buy_alert, 0, position, status.currencyBalance).normProfit;
+			} else if (orders.buy.has_value()) {
+				buy_norm = buy_state.onTrade(minfo, orders.buy->price, orders.buy->size, position-orders.buy->size, status.currencyBalance).normProfit;
+			}
+
+
 			statsvc->reportMisc(IStatSvc::MiscData{
 				last_trade_dir,
 				achieve_mode,
@@ -511,7 +528,9 @@ void MTrader::perform(bool manually) {
 				trades.size(),
 				trades.empty()?0:(trades.back().time-trades[0].time),
 				lastTradePrice,
-				position
+				position,
+				buy_norm,
+				sell_norm
 			});
 
 		}
