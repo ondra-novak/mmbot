@@ -7,6 +7,7 @@
 #include <imtjson/array.h>
 #include <vector>
 #include <fstream>
+#include <sstream>
 
 #include "../api.h"
 #include <imtjson/value.h>
@@ -55,6 +56,7 @@ public:
 
 	simpleServer::HttpClient httpc;
 	HTTPJson hjsn;
+	HTTPJson hjsn_c;
 	HTTPJson hjsn_utils;
 	std::unique_ptr<QuoteStream> qstream;
 	std::unique_ptr<Market> market;
@@ -90,6 +92,7 @@ public:
 	,httpc("+mmbot/2.0 simplefx_broker (https://github.com/ondra-novak/mmbot)",
 			simpleServer::newHttpsProvider(),nullptr,simpleServer::newCachedDNSProvider(10))
 	,hjsn(simpleServer::HttpClient(httpc),"https://rest.simplefx.com")
+	,hjsn_c(simpleServer::HttpClient(httpc),"https://candles.simplefx.com/api/CandlesController")
 	,hjsn_utils(simpleServer::HttpClient(httpc),"https://simplefx.com")
 	{
 	}
@@ -176,6 +179,10 @@ public:
 	using Sync = std::unique_lock<std::recursive_mutex>;
 	std::recursive_mutex lock;
 
+	virtual bool areMinuteDataAvailable(const std::string_view &asset,
+			const std::string_view &currency);
+	virtual uint64_t downloadMinuteData(const std::string_view &asset, const std::string_view &currency, const std::string_view &hint_pair, uint64_t time_from, uint64_t time_to,
+			std::vector<IHistoryDataSource::OHLC> &data);
 	virtual json::Value callMethod(std::string_view name, json::Value args) override;
 	virtual AllWallets getWallet() override;
 
@@ -796,3 +803,53 @@ json::Value Interface::getMarkets() const {
 
 }
 
+inline bool Interface::areMinuteDataAvailable(const std::string_view &asset, const std::string_view &currency) {
+	try {
+		getSymbolInfo(std::string(asset));
+		return true;
+	} catch (...) {
+		return false;
+	}
+
+}
+
+inline uint64_t Interface::downloadMinuteData(const std::string_view &asset,
+		const std::string_view &currency, const std::string_view &hint_pair, uint64_t time_from,
+		uint64_t time_to, std::vector<IHistoryDataSource::OHLC > &data) {
+	getSymbolInfo(std::string(asset));
+	int sets[] = {300,900,1800,3600,14400};
+	for (int curset: sets) {
+		std::ostringstream buff;
+		buff << "/GetCandles?symbol="<<asset<<"&cPeriod="<<curset<<"&timeFrom="<<time_from/1000<<"&timeTo="<<time_to/1000;
+		int dups = curset/300;
+		auto insert_val = [&](double n){
+				for (int i = 0; i < dups; i++) data.push_back({n,n,n,n});
+		};
+
+		Value hdata=hjsn_c.GET(buff.str());
+
+		std::uint64_t minDate = time_to;
+
+		for (Value row: hdata) {
+			auto date = row["time"].getUIntLong()*1000;
+			if (date >= time_from && date < time_to) {
+				double o = row["open"].getNumber();
+				double h = row["high"].getNumber();
+				double l = row["low"].getNumber();
+				double c = row["close"].getNumber();
+				double m = std::sqrt(h*l);
+				insert_val(o);
+				insert_val(h);
+				insert_val(m);
+				insert_val(l);
+				insert_val(c);
+				if (minDate > date) minDate = date;
+			}
+		}
+		if (!data.empty()) {
+			return minDate;
+		}
+	}
+	return 0;
+
+}
