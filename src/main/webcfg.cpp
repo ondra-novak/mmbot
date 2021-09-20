@@ -2202,11 +2202,87 @@ bool WebCfg::reqProgress(simpleServer::HTTPRequest req, ondra_shared::StrViewA r
 			.contentType("application/json")
 			.disableCache(),st.stringify().str());
 		} else {
-			req.sendErrorPage(410);
+			req.sendResponse(simpleServer::HTTPResponse(204)
+			.disableCache(),"");
 		}
 	}
 	return true;
 }
+
+struct WebCfg::DataDownloaderTask {
+	std::string pair;
+	PState state;
+	PStockApi api;
+	IStockApi::MarketInfo minfo;
+	std::shared_ptr<Progress> prg;
+	std::string dwnid;
+	AsyncProvider async;
+
+	std::vector<IHistoryDataSource::OHLC> tmpVect;
+	std::stack<std::vector<IHistoryDataSource::OHLC> > datastack;
+	std::uint64_t end_tm ;
+	std::uint64_t start_tm;
+	std::size_t cnt;
+	std::uint64_t n;
+
+	void init();
+	void operator()();
+	void done();
+};
+
+void WebCfg::DataDownloaderTask::init() {
+	auto now = std::chrono::system_clock::now();
+	end_tm = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
+	start_tm = end_tm-24ULL*60ULL*60ULL*1000ULL*365ULL;
+	cnt = 0;
+	n = end_tm;
+}
+
+
+void WebCfg::DataDownloaderTask::operator()() {
+	auto bc = dynamic_cast<IHistoryDataSource *>(api.get());
+	if (bc && n && prg->set((end_tm - n)/((double)(end_tm-start_tm)/100)) && n > start_tm) {
+		try {
+			n = bc->downloadMinuteData(
+					minfo.asset_symbol,
+					minfo.currency_symbol,
+					pair, start_tm, n, tmpVect);
+		} catch (std::exception &e) {
+			prg->set(e.what());
+			std::this_thread::sleep_for(std::chrono::seconds(2));
+			async.runAsync(std::move(*this));
+			return;
+		}
+		cnt+=tmpVect.size();
+		datastack.push(std::move(tmpVect));
+		tmpVect.clear();
+		async.runAsync(std::move(*this));
+	} else {
+		done();
+	}
+
+}
+void WebCfg::DataDownloaderTask::done() {
+	tmpVect.reserve(cnt);
+	while (!datastack.empty()) {
+		const auto &p = datastack.top();
+		tmpVect.insert(tmpVect.end(), p.begin(), p.end());
+		datastack.pop();
+	}
+	Value out = json::array;
+	if (!tmpVect.empty()) {
+		out = Value(json::array, tmpVect.begin(), tmpVect.end(),[&](const auto &ohlc) -> Value {
+			double du = ohlc.high-ohlc.open;
+			double dw = ohlc.open-ohlc.low;
+			if (du > 2*dw) return ohlc.high;
+			if (dw > 2*du) return ohlc.low;
+			return ohlc.close;
+		});
+	}
+	auto storage = state.lock_shared()->backtest_storage;
+	storage.lock()->store_data(out, dwnid);
+}
+
 
 void WebCfg::processBrokerHistory(simpleServer::HTTPRequest req,
 				PState state, PStockApi api, ondra_shared::StrViewA pair
@@ -2245,52 +2321,11 @@ void WebCfg::processBrokerHistory(simpleServer::HTTPRequest req,
 		auto async = s.getAsyncProvider();
 		resp.serialize(s);
 		s.flush();
-		if (!inp) async.runAsync([pair=std::string(pair),
-						state,
-						prg,
-						api, bc, minfo,dwnid]() mutable {
-			auto storage = state.lock()->backtest_storage;
-			auto now = std::chrono::system_clock::now();
-			std::uint64_t end_tm = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
-			std::uint64_t start_tm = end_tm-24ULL*60ULL*60ULL*1000ULL*365ULL;
-			std::vector<IHistoryDataSource::OHLC> tmpVect;
-			std::stack<std::vector<IHistoryDataSource::OHLC> > datastack;
-			std::size_t cnt = 0;
-			std::uint64_t n = end_tm;
-			while (n && prg->set((end_tm - n)/((double)(end_tm-start_tm)/100)) && n > start_tm) {
-				try {
-					n = bc->downloadMinuteData(
-							minfo.asset_symbol,
-							minfo.currency_symbol,
-							pair, start_tm, n, tmpVect);
-				} catch (std::exception &e) {
-					logError("Download failed, stopping: $1", e.what());
-					n = 0;
-					tmpVect.clear();
-				}
-				cnt+=tmpVect.size();
-				datastack.push(std::move(tmpVect));
-				tmpVect.clear();
-			}
-			tmpVect.reserve(cnt);
-			while (!datastack.empty()) {
-				const auto &p = datastack.top();
-				tmpVect.insert(tmpVect.end(), p.begin(), p.end());
-				datastack.pop();
-			}
-			Value out = json::array;
-			if (!tmpVect.empty()) {
-				out = Value(json::array, tmpVect.begin(), tmpVect.end(),[&](const auto &ohlc) -> Value {
-					double du = ohlc.high-ohlc.open;
-					double dw = ohlc.open-ohlc.low;
-					if (du > 2*dw) return ohlc.high;
-					if (dw > 2*du) return ohlc.low;
-					return ohlc.close;
-				});
-			}
-			storage.lock()->store_data(out, dwnid);
-		});
-
+		if (!inp) {
+			DataDownloaderTask task{pair, state, api, minfo, prg, dwnid, async};
+			task.init();
+			async.runAsync(std::move(task));
+		}
 	}
 }
 

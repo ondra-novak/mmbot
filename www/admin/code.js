@@ -3013,7 +3013,7 @@ function showProgress(id) {
 			var intr = setInterval(function(){
 				fetch("api/progress/"+id)
 				.then(function(resp){
-					if (resp.status == 410) {
+					if (resp.status == 204) {
 						clearInterval(intr);
 						dlg.setData({"progress":100})
 						ok(dlg);

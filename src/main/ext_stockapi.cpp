@@ -338,8 +338,8 @@ std::uint64_t ExtStockApi::downloadMinuteData(const std::string_view &asset,
 		const std::string_view &currency, const std::string_view &hint_pair,
 		std::uint64_t time_from, std::uint64_t time_to,
 		std::vector<OHLC> &data) {
-	try {
-		auto resp = requestExchange("downloadMinuteData", json::Object{
+
+	auto resp = requestExchange("downloadMinuteData", json::Object{
 			{"asset",asset},
 			{"currency",currency},
 			{"hint_pair",hint_pair},
@@ -372,9 +372,7 @@ std::uint64_t ExtStockApi::downloadMinuteData(const std::string_view &asset,
 			}
 		}
 		return start_time.getUIntLong();
-	} catch (...) {
-		return 0;
-	}
+
 
 }
 

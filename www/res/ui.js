@@ -106,8 +106,15 @@ TemplateJS.View.regCustomElement("X-PROGRESS", new TemplateJS.CustomElement(
 				inner.style.height="100%";
 				elem.appendChild(inner);
 			}
-			inner.style.width=val+"%";
-			inner.textContent=val.toFixed(1)+"%"
+			if (typeof val == "number") {
+				inner.style.width=val+"%";
+				inner.textContent=val.toFixed(1)+"%"
+				elem.classList.remove("message");
+			} else {
+				inner.style.width="100%";
+				inner.textContent=val;
+				elem.classList.add("message");
+			}
 		},
 		function() {
 			return undefined;

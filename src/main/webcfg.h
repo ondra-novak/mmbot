@@ -80,7 +80,7 @@ public:
 		BacktestCache backtest_cache;
 		SpreadCache spread_cache;
 		PricesCache prices_cache;
-		ondra_shared::linear_map<std::size_t,std::pair<json::Value,bool> > progress_map;
+		std::map<std::size_t,std::pair<json::Value,bool> > progress_map;
 		SharedObject<BacktestStorage> backtest_storage;
 
 		State( PStorage &&config,
@@ -206,6 +206,7 @@ protected:
 	static void processBrokerHistory(simpleServer::HTTPRequest req,
 			PState state, PStockApi api, ondra_shared::StrViewA pair
 	);
+	struct DataDownloaderTask;
 };
 
 
