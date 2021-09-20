@@ -455,10 +455,6 @@ void Interface::ws_onMessage(const std::string_view &text) {
 					auto fn = std::move(iter->second);
 					closeEventMap.erase(iter);
 					fn(data);
-/*					iter->second(data);
-					if (data["filledSize"].getNumber() == 0) {
-						Value resp = connection.lock()->requestPOST("/orders", newOrder);
-					}*/
 				}
 			} else {
 				activeOrderMap[id] = data;
@@ -578,9 +574,21 @@ bool Interface::cancelOrderImpl(PConnection conn, json::Value cancelId) {
 	std::ostringstream uri;
 	if (cancelId.hasValue()) {
 		uri << "/orders/" << simpleServer::urlEncode(cancelId.toString());
-		Value resp = conn.lock()->requestDELETE(uri.str());
-		if (!resp["success"].getBool()) {
-			throw std::runtime_error(resp.stringify().str());
+		try {
+			Value resp = conn.lock()->requestDELETE(uri.str());
+			if (!resp["success"].getBool()) {
+				throw std::runtime_error(resp.stringify().str());
+			}
+			return true;
+		} catch (const std::exception &e) {
+			if (strstr(e.what(),"Order already closed") != 0) {
+				std::unique_lock _(wslock);
+				auto id = cancelId.getIntLong();
+				activeOrderMap.erase(id);
+				closeEventMap.erase(id);
+				return false;
+			}
+			throw;
 		}
 	}
 	return true;
@@ -608,15 +616,16 @@ json::Value Interface::checkCancelAndPlace(PConnection conn, std::string_view pa
 				promise->set_value(std::move(v));
 			});
 			_.unlock();
-			cancelOrderImpl(conn, replaceId);
-			if (future.wait_for(std::chrono::seconds(5)) == std::future_status::timeout) {
-				throw std::runtime_error("Timeout while waiting for close the order");
-			}
-			auto data = future.get();
-			//can't use remainSize - because it is valid only for open order - (for closed, it is always 0)
-			double remain = data["size"].getNumber()-data["filledSize"].getNumber();
-			if (remain < replaceSize*0.99) {
-				return nullptr;
+			if (cancelOrderImpl(conn, replaceId)) {
+				if (future.wait_for(std::chrono::seconds(5)) == std::future_status::timeout) {
+					throw std::runtime_error("Timeout while waiting for close the order");
+				}
+				auto data = future.get();
+				//can't use remainSize - because it is valid only for open order - (for closed, it is always 0)
+				double remain = data["size"].getNumber()-data["filledSize"].getNumber();
+				if (remain < replaceSize*0.99) {
+					return nullptr;
+				}
 			}
 		}
 	}
@@ -954,3 +963,56 @@ json::Value Interface::testCall(const std::string_view &method, json::Value args
 		return AbstractBrokerAPI::testCall(method, args);
 	}
 }
+
+bool Interface::areMinuteDataAvailable(const std::string_view &asset, const std::string_view &currency) {
+	if (smap.empty()) updatePairs();
+	auto iter = std::find_if(smap.begin(), smap.end(), [&](const auto &x) {
+		return x.second.asset_symbol == asset && x.second.currency_symbol == currency && x.second.type != "move";
+	});
+	return iter != smap.end();
+}
+
+uint64_t Interface::downloadMinuteData(const std::string_view &asset, const std::string_view &currency,
+		const std::string_view &hint_pair, uint64_t time_from, uint64_t time_to,
+		std::vector<IHistoryDataSource::OHLC> &data) {
+	if (smap.empty()) updatePairs();
+	auto iter = smap.find(std::string(hint_pair));
+	if (iter == smap.end()) {
+		iter = std::find_if(smap.begin(), smap.end(), [&](const auto &x) {
+				return x.second.asset_symbol == asset && x.second.currency_symbol == currency && x.second.type != "move";
+		});
+		if (iter == smap.end())  return 0;
+	}
+	std::string uri ="/markets/"+simpleServer::urlEncode(iter->first)+"/candles?resolution=300&start_time="+std::to_string(time_from/1000)+"&end_time="+std::to_string(time_to/1000);
+	Value hdata = publicGET(uri);
+
+	auto insert_val = [&](double n){
+			data.push_back({n,n,n,n});
+	};
+
+
+	std::uint64_t minDate = time_to;
+
+	for (Value row: hdata["result"]) {
+		auto date = parseTime(row["startTime"].toString(), ParseTimeFormat::iso_tm);
+		if (date >= time_from && date < time_to) {
+				double o = row["open"].getNumber();
+				double h = row["high"].getNumber();
+				double l = row["low"].getNumber();
+				double c = row["close"].getNumber();
+				double m = std::sqrt(h*l);
+				insert_val(o);
+				insert_val(h);
+				insert_val(m);
+				insert_val(l);
+				insert_val(c);
+			if (minDate > date) minDate = date;
+		}
+	}
+	if (!data.empty()) {
+		return minDate;
+	} else {
+		return 0;
+	}
+}
+

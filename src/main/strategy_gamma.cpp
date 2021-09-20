@@ -241,14 +241,24 @@ json::Value Strategy_Gamma::dumpStatePretty(const IStockApi::MarketInfo &minfo) 
 
 Strategy_Gamma::IntegrationTable::IntegrationTable(Function fn, double z):fn(fn),z(z) {
 	if (z <= 0.1) throw std::runtime_error("Invalid exponent value");
+	double y;
 
 	//calculate maximum for integration. Since this point, the integral is flat
 	//power number 16 by 1/z (for z=1, this value is 16)
 	b = std::pow(16,1.0/z);
-	//below certain point, the integral is equal to half-half (2*sqrt(x))
-	a = (fn==exponencial||fn==gauss)?0:std::pow(0.0001,1.0/z);
-	//calculate integral for this point
-	double y = fn==halfhalf?2*std::sqrt(a):0;
+	switch (fn){
+	case exponencial:
+	case gauss: a = 0;
+				y=0;break;
+	case invsqrtsinh: a= pow(0.001,1.0/z);;
+					   y=0;break;
+	case halfhalf: a=std::pow(0.0001,1.0/z);
+				   y=2*std::sqrt(a);
+				   break;
+	default:a=std::pow(0.0001,1.0/z);
+			y=0;
+			break;
+	}
 	//generate integration table between a and b.
 	//maximum step is 0.00001
 	//starting by y and generate x,y table
@@ -264,6 +274,8 @@ double Strategy_Gamma::IntegrationTable::get(double x) const {
 	if (x <= a) {
 		if (fn == halfhalf) {
 			return 2*std::sqrt(x);
+		} else if (fn == invsqrtsinh) {
+			return values[0].second;
 		} else {
 			return std::log(x/a);
 		}
@@ -428,6 +440,7 @@ double Strategy_Gamma::IntegrationTable::mainFunction(double x) const {
 	case keepvalue: return std::exp(-std::pow(x,z))/x;
 	case exponencial: return std::exp(-std::pow(x,z));
 	case gauss: return std::exp(-pow2(x)-std::pow(x,z));
+	case invsqrtsinh: return 1.0/std::sqrt(std::sinh(std::pow(x*1.2,z)));
 	default : return 0;
 	}
 }
@@ -439,6 +452,7 @@ double Strategy_Gamma::IntegrationTable::calcAssets(double k, double w,
 	case keepvalue:  return mainFunction(x/k)*w/k;
 	case exponencial:  return mainFunction(x/k)*w/k;
 	case gauss:  return mainFunction(x/k)*w/k;
+	case invsqrtsinh:  return mainFunction(x/k)*w/k;
 	default : return 0;
 	}
 
@@ -451,6 +465,7 @@ double Strategy_Gamma::IntegrationTable::calcBudget(double k, double w, double x
 		case keepvalue: return get(x/k)*w;
 		case exponencial: return get(x/k)*w;
 		case gauss: return get(x/k)*w;
+		case invsqrtsinh: return get(x/k)*w;
 		default : return 0;
 	};
 

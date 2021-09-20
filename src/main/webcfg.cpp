@@ -54,7 +54,8 @@ NamedEnum<WebCfg::Command> WebCfg::strCommand({
 	{WebCfg::wallet, "wallet"},
 	{WebCfg::btdata, "btdata"},
 	{WebCfg::visstrategy, "visstrategy"},
-	{WebCfg::utilization, "utilization"}
+	{WebCfg::utilization, "utilization"},
+	{WebCfg::progress, "progress"}
 });
 
 WebCfg::WebCfg( const SharedObject<State> &state,
@@ -63,15 +64,13 @@ WebCfg::WebCfg( const SharedObject<State> &state,
 		Dispatch &&dispatch,
 		json::PJWTCrypto jwt,
 		SharedObject<AbstractExtern> backtest_broker,
-		std::size_t upload_limit,
-		std::size_t backtest_cache_size
+		std::size_t upload_limit
 )
 	:auth(realm, state.lock_shared()->admins,jwt, false)
 	,trlist(traders)
 	,dispatch(std::move(dispatch))
 	,state(state)
 	,backtest_broker(backtest_broker)
-	,backtest_storage(SharedObject<BacktestStorage>::make(backtest_cache_size))
 	,upload_limit(upload_limit)
 {
 
@@ -116,6 +115,7 @@ bool WebCfg::operator ()(const simpleServer::HTTPRequest &req,
 		case btdata: return reqBTData(req);
 		case visstrategy: return reqVisStrategy(req, qp);
 		case utilization: return reqUtilization(req, qp);
+		case progress: return reqProgress(req,rest);
 		}
 	}
 	return false;
@@ -323,15 +323,22 @@ static Value getPairInfo(const PStockApi &api, const std::string_view &pair, con
 	if (quote_currency.getString() == "XBT") quote_currency = "BTC";
 	if (quote_asset.getString() == "XBT") quote_currency = "BTC";
 
-	Value resp = Object({{"symbol",pair},{"asset_symbol", nfo.asset_symbol},{
-			"currency_symbol", nfo.currency_symbol},{"fees",
-			nfo.fees},{"leverage", nfo.leverage},{
-			"invert_price", nfo.invert_price},{
-			"asset_balance", ab},{"currency_balance", cb},{
-			"min_size", nfo.min_size},{"price",last},
-					{"quote_currency", quote_currency},
-					{"quote_asset", quote_asset},
-					{"wallet_id", nfo.wallet_id}});;
+	Value resp = Object({{"symbol",pair},
+			{"asset_symbol", nfo.asset_symbol},
+			{"currency_symbol", nfo.currency_symbol},
+			{"fees",nfo.fees},
+			{"leverage", nfo.leverage},
+			{"invert_price", nfo.invert_price},
+			{"asset_balance", ab},
+			{"currency_balance", cb},
+			{"min_size", nfo.min_size},
+			{"min_volume", nfo.min_volume},
+			{"asset_step", nfo.asset_step},
+			{"currency_step",nfo.currency_step},
+			{"price",last},
+			{"quote_currency", quote_currency},
+			{"quote_asset", quote_asset},
+			{"wallet_id", nfo.wallet_id}});;
 	return resp;
 
 }
@@ -480,7 +487,7 @@ bool WebCfg::reqBrokerSpec(simpleServer::HTTPRequest req,
 					if (orders.empty()) {
 						if (!req.allowMethods( { "GET" }))
 							return true;
-						Value resp = getPairInfo(api, p).replace("entries",{"orders", "ticker", "settings"});
+						Value resp = getPairInfo(api, p).replace("entries",{"orders", "ticker", "settings","info","history"});
 						req.sendResponse(std::move(hdr), resp.stringify().str());
 						return true;
 					} else if (orders == "ticker") {
@@ -571,6 +578,9 @@ bool WebCfg::reqBrokerSpec(simpleServer::HTTPRequest req,
 							return true;
 						}
 
+					}else if (orders == "history") {
+						processBrokerHistory(req, state, api, pair);
+						return true;
 					}
 
 				} catch (...) {
@@ -936,6 +946,9 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req)  {
 				IStockApi::MarketInfo minfo;
 				if (tr == nullptr) {
 					api = trlist.lock_shared()->stockSelector.getStock(broker.toString().str());
+					if (api == nullptr) {
+						return req.sendErrorPage(410);
+					}
 					minfo = api->getMarketInfo(symb.getString());
 					uid = 0;
 					exists=false;
@@ -1856,9 +1869,9 @@ bool WebCfg::reqBacktest_v2(simpleServer::HTTPRequest req, ondra_shared::StrView
 	req.readBodyAsync(upload_limit,[action,
 									trlist = this->trlist,
 									state =  this->state,
-									storage = this->backtest_storage,
 									prices = this->backtest_broker](simpleServer::HTTPRequest req) mutable{
 		Value args = Value::fromString(json::map_bin2str(req.getUserBuffer()));
+		auto storage = state.lock()->backtest_storage;
 		Value response;
 
 		switch (action) {
@@ -2129,3 +2142,190 @@ bool WebCfg::reqBacktest_v2(simpleServer::HTTPRequest req, ondra_shared::StrView
 	});
 	return true;
 }
+
+
+void WebCfg::State::initProgress(std::size_t i) {
+	progress_map.emplace(i,std::pair(0,false));
+}
+bool WebCfg::State::setProgress(std::size_t i, json::Value v) {
+	auto iter = progress_map.find(i);
+	if (iter == progress_map.end()) return false;
+	iter->second.first = v;
+	return !iter->second.second;
+}
+void WebCfg::State::clearProgress(std::size_t i) {
+	progress_map.erase(i);
+}
+json::Value WebCfg::State::getProgress(std::size_t i) const {
+	auto iter = progress_map.find(i);
+	if (iter == progress_map.end()) return json::Value();
+	return iter->second.first;
+}
+
+void WebCfg::State::stopProgress(std::size_t i)  {
+	auto iter = progress_map.find(i);
+	if (iter != progress_map.end()) iter->second.second = true;
+}
+
+WebCfg::Progress::Progress(const SharedObject<State> &state, std::size_t id)
+	:state(state),id(id) {
+	this->state.lock()->initProgress(id);
+}
+WebCfg::Progress::Progress(Progress &&s)
+	:state(std::move(s.state)),id(s.id) {
+	s.id = -1;
+}
+WebCfg::Progress::Progress(const Progress &) {
+	throw std::runtime_error("Progress - Can't handle copy");
+}
+
+
+WebCfg::Progress::~Progress() {
+	if (state != nullptr) state.lock()->clearProgress(id);
+
+}
+bool WebCfg::Progress::set(json::Value amount) {
+	return state.lock()->setProgress(id, amount);
+}
+
+bool WebCfg::reqProgress(simpleServer::HTTPRequest req, ondra_shared::StrViewA rest) {
+	if (!req.allowMethods({"GET","DELETE"})) return true;
+	std::size_t id = 0;
+	for (char c: rest) id = id * 10 + (c - '0');
+	if (req.getMethod() == "DELETE") {
+		state.lock()->stopProgress(id);
+		req.sendErrorPage(202);
+	} else {
+		json::Value st = state.lock()->getProgress(id);
+		if (st.defined()) {
+			req.sendResponse(simpleServer::HTTPResponse(200)
+			.contentType("application/json")
+			.disableCache(),st.stringify().str());
+		} else {
+			req.sendResponse(simpleServer::HTTPResponse(204)
+			.disableCache(),"");
+		}
+	}
+	return true;
+}
+
+struct WebCfg::DataDownloaderTask {
+	std::string pair;
+	PState state;
+	PStockApi api;
+	IStockApi::MarketInfo minfo;
+	std::shared_ptr<Progress> prg;
+	std::string dwnid;
+	AsyncProvider async;
+
+	std::vector<IHistoryDataSource::OHLC> tmpVect;
+	std::stack<std::vector<IHistoryDataSource::OHLC> > datastack;
+	std::uint64_t end_tm ;
+	std::uint64_t start_tm;
+	std::size_t cnt;
+	std::uint64_t n;
+
+	void init();
+	void operator()();
+	void done();
+};
+
+void WebCfg::DataDownloaderTask::init() {
+	auto now = std::chrono::system_clock::now();
+	end_tm = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
+	start_tm = end_tm-24ULL*60ULL*60ULL*1000ULL*365ULL;
+	cnt = 0;
+	n = end_tm;
+}
+
+
+void WebCfg::DataDownloaderTask::operator()() {
+	auto bc = dynamic_cast<IHistoryDataSource *>(api.get());
+	if (bc && n && prg->set((end_tm - n)/((double)(end_tm-start_tm)/100)) && n > start_tm) {
+		try {
+			n = bc->downloadMinuteData(
+					minfo.asset_symbol,
+					minfo.currency_symbol,
+					pair, start_tm, n, tmpVect);
+		} catch (std::exception &e) {
+			prg->set(e.what());
+			std::this_thread::sleep_for(std::chrono::seconds(2));
+			async.runAsync(std::move(*this));
+			return;
+		}
+		cnt+=tmpVect.size();
+		datastack.push(std::move(tmpVect));
+		tmpVect.clear();
+		async.runAsync(std::move(*this));
+	} else {
+		done();
+	}
+
+}
+void WebCfg::DataDownloaderTask::done() {
+	tmpVect.reserve(cnt);
+	while (!datastack.empty()) {
+		const auto &p = datastack.top();
+		tmpVect.insert(tmpVect.end(), p.begin(), p.end());
+		datastack.pop();
+	}
+	Value out = json::array;
+	if (!tmpVect.empty()) {
+		out = Value(json::array, tmpVect.begin(), tmpVect.end(),[&](const auto &ohlc) -> Value {
+			double du = ohlc.high-ohlc.open;
+			double dw = ohlc.open-ohlc.low;
+			if (du > 2*dw) return ohlc.high;
+			if (dw > 2*du) return ohlc.low;
+			return ohlc.close;
+		});
+	}
+	auto storage = state.lock_shared()->backtest_storage;
+	storage.lock()->store_data(out, dwnid);
+}
+
+
+void WebCfg::processBrokerHistory(simpleServer::HTTPRequest req,
+				PState state, PStockApi api, ondra_shared::StrViewA pair
+) {
+	if (!req.allowMethods({"GET","POST"})) return;
+	auto bc = dynamic_cast<IHistoryDataSource *>(api.get());
+	if (bc == nullptr) {
+		req.sendErrorPage(204);
+		return;
+	}
+
+	auto minfo = api->getMarketInfo(pair);
+
+	if (req.getMethod() == "GET") {
+
+		bool res = bc->areMinuteDataAvailable(minfo.asset_symbol, minfo.currency_symbol);
+		if (res) req.sendErrorPage(200);
+		else req.sendErrorPage(204);
+	} else {
+		std::string digest = std::to_string(reinterpret_cast<std::uintptr_t>(api.get()));
+		digest.append(pair.data, pair.length);
+		std::hash<std::string> hstr;
+		auto id = hstr(digest);
+		std::string strid = std::to_string(id);
+		std::string dwnid = "dwn_"+strid;
+		json::Value resp = json::Object{
+			{"progress",strid},
+			{"data",dwnid}
+		};
+		std::shared_ptr<Progress> prg;
+		bool inp = state.lock_shared()->getProgress(id).defined();
+		if (!inp) prg = std::make_shared<Progress>(state, id);
+		Stream s = req.sendResponse(simpleServer::HTTPResponse(202)
+			.contentType("application/json")
+			.disableCache());
+		auto async = s.getAsyncProvider();
+		resp.serialize(s);
+		s.flush();
+		if (!inp) {
+			DataDownloaderTask task{pair, state, api, minfo, prg, dwnid, async};
+			task.init();
+			async.runAsync(std::move(task));
+		}
+	}
+}
+

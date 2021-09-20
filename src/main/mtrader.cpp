@@ -397,15 +397,13 @@ void MTrader::perform(bool manually) {
 						}
 					} else {
 
-
-
 							//calculate buy order
 						buyorder = calculateOrder(grant_trade?status.ticker.bid*1.5:lastTradePrice,
 														grant_trade?-0.1:-status.curStep*cfg.buy_step_mult,
 														dynmult.getBuyMult(),
 														status.ticker.bid,
 														position,
-														status.currencyBalance,
+														status.currencyAvailBalance,
 														cfg.buy_mult,
 														zigzaglevels,
 														grant_trade?false:need_alerts);
@@ -415,7 +413,7 @@ void MTrader::perform(bool manually) {
 														 dynmult.getSellMult(),
 														 status.ticker.ask,
 														 position,
-														 status.currencyBalance,
+														 status.currencyAvailBalance,
 														 cfg.sell_mult,
 														 zigzaglevels,
 														 grant_trade?false:need_alerts);
@@ -477,6 +475,7 @@ void MTrader::perform(bool manually) {
 				if (last_trade_dir < 0) orders.sell.reset();
 				if (last_trade_dir > 0) orders.buy.reset();
 			}
+
 			//report orders to UI
 			statsvc->reportOrders(orders.buy,orders.sell);
 			//report trades to UI
@@ -498,6 +497,22 @@ void MTrader::perform(bool manually) {
 				}
 			}
 
+			double buy_norm = 0;
+			double sell_norm = 0;
+			Strategy buy_state = strategy;
+			Strategy sell_state = strategy;
+			if (sell_alert.has_value()) {
+				sell_norm = sell_state.onTrade(minfo, *sell_alert, 0, position, status.currencyBalance).normProfit;
+			} else if (orders.sell.has_value()) {
+				sell_norm = sell_state.onTrade(minfo, orders.sell->price, orders.sell->size, position+orders.sell->size, status.currencyBalance).normProfit;
+			}
+			if (buy_alert.has_value()) {
+				buy_norm = buy_state.onTrade(minfo, *buy_alert, 0, position, status.currencyBalance).normProfit;
+			} else if (orders.buy.has_value()) {
+				buy_norm = buy_state.onTrade(minfo, orders.buy->price, orders.buy->size, position+orders.buy->size, status.currencyBalance).normProfit;
+			}
+
+
 			statsvc->reportMisc(IStatSvc::MiscData{
 				last_trade_dir,
 				achieve_mode,
@@ -513,7 +528,9 @@ void MTrader::perform(bool manually) {
 				trades.size(),
 				trades.empty()?0:(trades.back().time-trades[0].time),
 				lastTradePrice,
-				position
+				position,
+				buy_norm,
+				sell_norm
 			});
 
 		}
@@ -712,7 +729,7 @@ MTrader::Status MTrader::getMarketStatus() const {
 			res.assetAvailBalance = res.assetBalance;
 		}
 		res.currencyBalance = wdb->adjBalance(WalletDB::KeyQuery(cfg.broker,minfo.wallet_id,minfo.currency_symbol,uid),	res.currencyUnadjustedBalance);
-		res.currencyAvailBalance = wdb->adjBalance(WalletDB::KeyQuery(cfg.broker,minfo.wallet_id,minfo.currency_symbol,uid),*res.brokerAssetBalance);
+		res.currencyAvailBalance = wdb->adjBalance(WalletDB::KeyQuery(cfg.broker,minfo.wallet_id,minfo.currency_symbol,uid),*res.brokerCurrencyBalance);
 	}
 
 	res.new_fees = stock->getFees(cfg.pairsymb);
@@ -741,7 +758,7 @@ MTrader::Status MTrader::getMarketStatus() const {
 	return res;
 }
 
-bool MTrader::calculateOrderFeeLessAdjust(Order &order, int dir, double mult, bool alerts, double min_size, const ZigZagLevels &zlev) const {
+bool MTrader::calculateOrderFeeLessAdjust(Order &order, double assets, double currency, int dir, double mult, bool alerts, double min_size, const ZigZagLevels &zlev) const {
 
 	bool enabledAlert = order.alert != IStrategy::Alert::disabled;
 
@@ -756,7 +773,7 @@ bool MTrader::calculateOrderFeeLessAdjust(Order &order, int dir, double mult, bo
 	}
 
 	double d;
-	if (!checkLeverage(order, d))  {
+	if (!checkLeverage(order, assets, currency, d))  {
 		order.size = d;
 		if (d == 0) {
 			if (enabledAlert) order.alert = IStrategy::Alert::forced;
@@ -815,7 +832,7 @@ MTrader::Order MTrader::calculateOrderFeeLess(
 
 	if (order.price <= 0) order.price = newPrice;
 	if ((order.price - curPrice) * dir < 0) {
-		if (calculateOrderFeeLessAdjust(order, dir, mult, alerts, min_size, zlev)) return order;
+		if (calculateOrderFeeLessAdjust(order, balance, currency, dir, mult, alerts, min_size, zlev)) return order;
 		if (order.size != 0)
 			skipcycle = true;
 	}
@@ -845,7 +862,7 @@ MTrader::Order MTrader::calculateOrderFeeLess(
 
 			sz = order.size;
 
-			if (calculateOrderFeeLessAdjust(order, dir, mult, alerts, min_size, zlev)) return order;
+			if (calculateOrderFeeLessAdjust(order, balance, currency, dir, mult, alerts, min_size, zlev)) return order;
 
 			cnt++;
 			m = m*1.1;
@@ -1591,13 +1608,13 @@ bool MTrader::checkEquilibriumClose(const Status &st, double lastTradePrice) {
 
 }
 
-bool MTrader::checkLeverage(const Order &order, double &maxSize) const {
+bool MTrader::checkLeverage(const Order &order,double position, double currency, double &maxSize) const {
 	double whole_pos = order.size + position;
-	if (minfo.leverage && cfg.max_leverage && currency_balance.has_value() ) {
+	if (minfo.leverage && cfg.max_leverage) {
 		if (std::abs(whole_pos) < std::abs(position) && (whole_pos * position) > 0)
 			return true; //position reduce
 
-		double bal = *currency_balance;
+		double bal = currency;
 
 		if (!trades.empty()) {
 			double chng = order.price - trades.back().eff_price;
@@ -1618,8 +1635,8 @@ bool MTrader::checkLeverage(const Order &order, double &maxSize) const {
 		}
 		double vol = order.size * order.price;
 		double min_cur = vol*0.01;
-		if (*currency_balance - vol < min_cur) {
-			vol = *currency_balance - min_cur;
+		if (currency - vol < min_cur) {
+			vol = currency - min_cur;
 			maxSize = std::max(vol/order.price,0.0);
 			return false;
 		}

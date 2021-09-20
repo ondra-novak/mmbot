@@ -46,6 +46,8 @@ public:
 		std::uint64_t total_time;
 		double lastTradePrice;
 		double position;
+		double cur_norm_buy;
+		double cur_norm_sell;
 	};
 
 

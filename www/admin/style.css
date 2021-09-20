@@ -83,6 +83,21 @@ button:active {
 	transform: translate(2px,2px);
 }
 
+.info_icon {
+	display: inline-block;
+	background: #3636c3;
+	font-family: monospace;
+	font-weight: bold;
+	width: 1.4em;
+	text-align: center;
+	padding-top: 0.1em;
+	border-radius: 1em;
+	text-shadow: 0 0 2px white;
+	font-size: 0.9em;
+	box-shadow: 0 0 1px 0px black;
+	cursor: pointer;
+}
+
 x-form {
 	display:block;
 	position: relative;
@@ -307,6 +322,25 @@ div.broker.pair img {
 	width: 0.7cm;
 	height: 0.7cm;
 	vertical-align: middle;
+}
+
+div.dialog > div.progressdlg {padding: 2em;}
+
+x-progress {display: block;width: 100%;/* height: 2em; */border: 1px solid;border-radius: 0.4em;overflow: hidden;line-height: 2em;box-sizing: border-box;}
+
+x-progress > * {
+	background: linear-gradient(97deg, #013805, #3a7111);
+	transition: 2s all linear;
+	text-align: right;
+	padding-right: 0.2em;
+	box-sizing: border-box;
+	text-shadow: 2px 2px 4px black;
+}
+x-progress.message > * {
+	transition: none;
+	background: linear-gradient(359deg, #980000, #809000);
+	color: white;
+	white-space: nowrap;
 }
 
 div.dialog > div {
@@ -951,6 +985,11 @@ x-form.pair table.orders td button {
 }
 
 
+.fromexchoption {
+	padding-bottom: 1em;
+	border-bottom: 1px dotted;
+	margin-bottom: 1em;
+}
 
 .pairactions img {
 	width: 1.3cm;
@@ -1176,6 +1215,20 @@ table.utilization tr:first-child td {border-bottom: 1px solid;}
 table.utilization tr:last-child td {
 	border-top: 1px solid;
 	font-weight: bold;
+}
+
+.dialog.pairdetails > div {
+ padding: 1em;
+ width: 15cm;
+}
+.dialog.pairdetails > div  div {
+	margin: 0.5em;
+}
+.dialog.pairdetails > div  div > span:first-child{
+ text-align: left;
+}
+.dialog.pairdetails > div  div > span:last-child{
+ text-align: right;
 }
 
 

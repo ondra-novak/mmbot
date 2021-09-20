@@ -15,7 +15,12 @@
 
 
 
-class ExtStockApi: public IStockApi, public IApiKey, public IBrokerControl, public IBrokerIcon, public IBrokerSubaccounts {
+class ExtStockApi: public IStockApi,
+				   public IApiKey,
+				   public IBrokerControl,
+				   public IBrokerIcon,
+				   public IBrokerSubaccounts,
+				   public IHistoryDataSource {
 public:
 
 	ExtStockApi(const std::string_view & workingDir, const std::string_view & name, const std::string_view & cmdline, int timeout);
@@ -50,6 +55,16 @@ public:
 	virtual bool isSubaccount() const override;
 	virtual json::Value getMarkets() const override;
 	virtual AllWallets getWallet()  override;
+	virtual bool areMinuteDataAvailable(const std::string_view &asset, const std::string_view &currency);
+	virtual std::uint64_t downloadMinuteData(const std::string_view &asset,
+					  const std::string_view &currency,
+					  const std::string_view &hint_pair,
+					  std::uint64_t time_from,
+					  std::uint64_t time_to,
+					  std::vector<OHLC> &data
+				);
+
+
 
 protected:
 	class Connection: public AbstractExtern {
@@ -61,8 +76,10 @@ protected:
 		std::recursive_mutex &getLock() const {return lock;}
 		bool isActive() const {return this->chldid != -1;}
 		virtual ~Connection() {}
+		json::Value getBrokerInfo() const;
 	protected:
 		std::atomic<int> instance_counter = 0;
+		json::Value broker_info;
 	};
 
 	json::Value broker_config;

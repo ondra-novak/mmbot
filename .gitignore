@@ -19,3 +19,4 @@ generated
 /install_manifest.txt
 /update_version
 www/src/.cache
+/core

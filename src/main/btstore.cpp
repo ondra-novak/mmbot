@@ -73,13 +73,8 @@ void BacktestStorage::remove_metadata(const std::vector<Metadata>::const_iterato
 	std::filesystem::remove(p);
 }
 
-std::string BacktestStorage::store_data(const json::Value &data) {
-	if (!data.defined()) return std::string();
-	std::hash<json::Value> h;
-	auto hval = h(data);
-
+void BacktestStorage::store_data(const json::Value &data, const std::string &id) {
 	auto tmpPath = std::filesystem::temp_directory_path();
-	std::string id = std::to_string(hval);
 	std::string pid = std::to_string(getpid());
 	auto fpath = tmpPath / ("mmbot_backtest_"+pid+"x"+id);
 	std::ofstream f(fpath, std::ios::binary);
@@ -87,10 +82,19 @@ std::string BacktestStorage::store_data(const json::Value &data) {
 		data.serializeBinary([&](char c){f.put(c);}, json::compressKeys);
 		if (!(!f)) {
 			add_metadata({id,fpath.string(),std::chrono::system_clock::now()});
-			return id;
+			return;
 		}
 	}
 	throw std::runtime_error("Inaccessible temporary storage");
+}
+
+std::string BacktestStorage::store_data(const json::Value &data) {
+	if (!data.defined()) return std::string();
+	std::hash<json::Value> h;
+	auto hval = h(data);
+	std::string id = std::to_string(hval);
+	store_data(data, id);
+	return id;
 }
 
 json::Value BacktestStorage::load_data(const std::string &id) {

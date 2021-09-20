@@ -46,6 +46,7 @@
 	<span data-name="type_leveraged" hidden="hidden">Leveraged: <span data-name="leverage"></span></span>
 	<span data-name="type_spot" hidden="hidden">Exchange</span>
 	<span data-name="type_inverted" hidden="hidden">Inverted</span>
+	<span class="info_icon" data-name="more_info" hidden="hidden" title="Click for more details...">i</span>
 	</span>
 </div>
 <div data-name="open_orders_sect" hidden="hidden"><table class="orders"><caption>Open orders</caption>
@@ -201,6 +202,7 @@ to enter a negative value and then the value of the assets held will decrease an
 <option value="halfhalf">Half-Half</option>
 <option value="keepvalue">Keep Value</option>
 <option value="exponencial">Exponencial</option>
+<option value="invsqrtsinh">Cosecant</option>
 <option value="gauss">Gauss</option>
 </select></label>
 <label><span>Exponent<span class="tooltip"></span></span><x-slider data-name="gamma_exp" data-min="1" data-max="20" data-mult="0.1" data-fixed="1"></label>
@@ -900,6 +902,11 @@ the same order, they are ordered by its ID - this is the default ordering. Modif
 <div class="dialog"><div class="download_prices">
 <x-form>
 <h2>Download historical prices</h2>
+<div class="fromexchoption">
+<x-checkbox data-name="from_broker">Download from the exchange</x-checkbox>
+<div class="error" data-name="not_available">(not available)</div>
+</div>
+<h2>Public source</h2>
 <label><span>Symbol for asset</span><select data-name="asset"><option data-name="symbols[]"></option></select></label>
 <label><span>Symbol for currency</span><select data-name="currency"><option data-name="symbols[]"></option></select></label>
 <label><span>Smooth [min]</span><input type="number" step="1" data-name="smooth"></label>
@@ -948,9 +955,37 @@ the same order, they are ordered by its ID - this is the default ordering. Modif
 </div>
 </x-section>
 </x-form>
+</template>
 
+<template id="pair_details">
+<div class="dialog pairdetails"><div>
+<x-form>
+<div class="label"><span>Tick size:</span><span><span data-name="tick_size"></span> <span data-name="quote_symbol"></span></span></div>
+<div class="label"><span>Order size granuality:</span><span><span data-name="asset_step"></span> <span data-name="asset_symbol"></span></span></div>
+<div class="label"><span>Minimal order size:</span><span><span data-name="min_size"></span> <span data-name="asset_symbol"></span></span></div>
+<div class="label"><span>Minimal order size at <span data-name="price"></span>&nbsp;<span data-name="quote_symbol"></span>:</span><span><span data-name="min_volume"></span> <span data-name="asset_symbol"></span></span></div>
+<div class="label"><span>Leverage:</span><span><span data-name="leverage"></span>x</span></div>
+<div class="label"><span>P/L formula:</span><span>
+	<x-switch data-name="inverted_price" data-value="false">(close_price - entry_price) × amount</x-switch>
+	<x-switch data-name="inverted_price" data-value="true">(1/<sub>entry_price</sub> - 1/<sub>close_price</sub>) × amount</x-switch>
+	</span>
+</div>
+<button data-name="ok">OK</button>
+</x-form>
+</div></div>
+</template>
+
+<template id="progress_dlg"><div class="dialog">
+<div class="progressdlg">
+<p>Processing...</p>
+<x-progress data-name="progress"></x-progress>
+<p><button data-name="stop" disabled="true">Stop</button></p>
+<div></div>
+</div>
+</div>
 
 </template>
+
 
 <script src="../res/template.js" type="text/javascript"></script>
 <script src="../res/common.js" type="text/javascript"></script>

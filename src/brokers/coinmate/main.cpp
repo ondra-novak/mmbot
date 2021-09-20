@@ -18,7 +18,7 @@ using namespace json;
 
 class Interface: public AbstractBrokerAPI {
 public:
-	Proxy cm;
+	mutable Proxy cm;
 
 	Interface(const std::string &path)
 		:AbstractBrokerAPI(path,{Object({
@@ -59,11 +59,12 @@ public:
 		return new Interface(path);
 	}
 	virtual AllWallets getWallet() override;
+	virtual json::Value getMarkets() const override ;
 
 	Value balanceCache;
 	Value orderCache;
 	Value tradeCache;
-	Value all_pairs;
+	mutable Value all_pairs;
 	bool fetch_trades = true;
 
 	struct FeeInfo {
@@ -73,9 +74,11 @@ public:
 
 	ondra_shared::linear_map<String, FeeInfo> feeMap;
 
-
-
-	Value readTradesPerPartes(Value lastId, Value fromTime);
+	virtual bool areMinuteDataAvailable(const std::string_view &asset, const std::string_view &currency) override;
+	virtual uint64_t downloadMinuteData(const std::string_view &asset, const std::string_view &currency,
+			const std::string_view &hint_pair, uint64_t time_from, uint64_t time_to,
+			std::vector<IHistoryDataSource::OHLC> &data) override;
+	json::Value findSymbol(const std::string_view &asset, const std::string_view &currency);
 };
 
  double Interface::getBalance(const std::string_view &symb) {
@@ -369,6 +372,20 @@ Interface::AllWallets Interface::getWallet() {
 	return aw;
 }
 
+json::Value Interface::getMarkets() const  {
+	ondra_shared::linear_map<std::string_view, json::Object> smap;
+	if (!all_pairs.defined()) {
+		all_pairs = cm.request(Proxy::GET, "tradingPairs", Value());
+	}
+	for (json::Value row: all_pairs) {
+		smap[row["firstCurrency"].getString()].set(row["secondCurrency"].getString(), row["name"]);
+	}
+	return json::Value(json::object, smap.begin(), smap.end(), [](const auto &x){
+		return json::Value(x.first, x.second);
+	});
+
+}
+
 int main(int argc, char **argv) {
 	using namespace json;
 
@@ -381,3 +398,81 @@ int main(int argc, char **argv) {
 	ifc.dispatch();
 }
 
+json::Value Interface::findSymbol(const std::string_view &asset, const std::string_view &currency) {
+	if (!all_pairs.defined()) {
+		all_pairs = cm.request(Proxy::GET, "tradingPairs", Value());
+	}
+	json::Value f = all_pairs.find([&](json::Value row){
+		auto first = row["firstCurrency"];
+		auto second = row["secondCurrency"];
+		return  (first.getString() == asset && second.getString() == currency) || (first.getString() == currency && second.getString() == asset);
+	});
+	return f;
+
+}
+
+inline bool Interface::areMinuteDataAvailable(const std::string_view &asset, const std::string_view &currency) {
+	return findSymbol(asset, currency).defined();
+}
+
+struct HistDataSet{
+	int minutes;
+	int interval;
+	int duplcnt;
+
+	std::uint64_t toMS() const {return static_cast<std::uint64_t>(minutes)*60000;}
+};
+
+HistDataSet histDataSets[] = {
+		{150*5, 5, 1},
+		{150*15, 15, 3},
+		{150*30, 30, 6},
+		{150*60, 60, 12},
+		{150*120, 120, 24},
+		{150*240, 240, 48},
+		{150*360, 360, 72},
+		{150*720, 720, 144},
+		{150*1440, 1440, 288},
+		{150*4320, 4320, 864},
+		{150*10080, 10080, 2016}
+};
+
+inline uint64_t Interface::downloadMinuteData(const std::string_view &asset,
+		const std::string_view &currency, const std::string_view &hint_pair, uint64_t time_from,
+		uint64_t time_to, std::vector<IHistoryDataSource::OHLC> &data) {
+	auto f =findSymbol(asset, currency);
+	auto name = f["name"];
+	auto now = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+	auto hpt = now - time_to;
+	auto st = std::find_if(std::begin(histDataSets), std::end(histDataSets),[&](const HistDataSet &x){
+		return x.toMS() > hpt;
+	});
+	HTTPJson hapi(cm.httpc);
+	hapi.setBaseUrl("https://coinmate.io/");
+	if (st == std::end(histDataSets)) return 0;
+	std::uint64_t start = std::max(now - st->toMS(), time_from);
+	json::Value hdata = hapi.GET(std::string("guirest/rateGraph?currencyPairName=").append(name.getString()).append("&interval=").append(std::to_string(st->interval)));
+
+	auto insert_val = [&,inv=f["firstCurrency"].getString() == currency](double n){
+			if (inv) n=1/n;
+			for (int i = 0; i < st->duplcnt; i++) data.push_back({n,n,n,n});
+		};
+
+	for (Value row: hdata) {
+		auto date = row["date"].getUIntLong();
+		if (date >= start && date < time_to) {
+			double o = row["open"].getNumber();
+			double h = row["high"].getNumber();
+			double l = row["low"].getNumber();
+			double c = row["close"].getNumber();
+			double m = std::sqrt(h*l);
+			insert_val(o);
+			insert_val(h);
+			insert_val(m);
+			insert_val(l);
+			insert_val(c);
+		}
+	}
+	return start;
+
+}

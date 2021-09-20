@@ -22,6 +22,7 @@ public:
 	void cleanup();
 	std::string store_data(const json::Value &data);
 	json::Value load_data(const std::string &id);
+	void store_data(const json::Value &data, const std::string &id);
 
 
 protected:

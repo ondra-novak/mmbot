@@ -265,20 +265,28 @@ protected:
 	}
 };
 
-
-bool AbstractExtern::writeJSON(json::Value v, FD& fd, int timeout) {
-	auto s = v.stringify();
-	s = s + "\n";
-	std::string_view ss(s.c_str(),s.length());
+bool AbstractExtern::writeString(std::string_view ss, int timeout, FD &fd) {
 	while (!ss.empty()) {
 		waitForWrite(fd, timeout);
 		int i = write(fd, ss.data(), ss.length());
 		if (i < 1) {
-			return false;
+			break;
 		}
 		ss = ss.substr(i);
 	}
-	return true;
+	return ss.empty();
+}
+
+bool AbstractExtern::writeJSON(json::Value v, FD& fd, bool binary_mode, int timeout) {
+	if (binary_mode) {
+		std::string s;
+		v.serializeBinary([&](char c){s.push_back(c);}, json::compressKeys);
+		return writeString(s, timeout, fd);
+	} else {
+		auto s = v.stringify();
+		s = s + "\n";
+		return writeString(s.str(), timeout, fd);
+	}
 }
 
 void AbstractExtern::housekeeping(int counter) {
@@ -327,7 +335,7 @@ json::Value AbstractExtern::jsonExchange(json::Value request, bool idle) {
 	}
 	bool verbose = log.isLogLevelEnabled(ondra_shared::LogLevel::debug);
 	if (verbose) log.debug("SEND: $1", request.toString().substr(0,512));
-	if (writeJSON(request, extin, timeout) == false) {
+	if (writeJSON(request, extin, binary_mode, timeout) == false) {
 		kill();
 	}
 	do {
@@ -375,7 +383,9 @@ json::Value AbstractExtern::jsonExchange(json::Value request, bool idle) {
 					}
 					if (!buff.empty()) {
 						rd.putback(buff);
-						auto ret = json::Value::parse<Reader &>(rd);
+						auto ret = binary_mode
+								?json::Value::parseBinary<Reader &>(rd, json::base64)
+								:json::Value::parse<Reader &>(rd);
 						if (verbose) log.debug("RECV: $1", ret.toString().substr(0,512));
 						return ret;
 					} else {

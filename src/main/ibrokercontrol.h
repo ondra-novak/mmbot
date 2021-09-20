@@ -77,4 +77,52 @@ public:
 	virtual ~IBrokerSubaccounts() {}
 };
 
+class IHistoryDataSource {
+public:
+	struct OHLC {
+		double open;
+		double high;
+		double low;
+		double close;
+	};
+
+	///Asks to broker, whether there are available historical minute data
+	/**
+	 * @param asset asset
+	 * @param currency currency
+	 * @retval true data are available
+	 * @retval false data are not available
+	 */
+	virtual bool areMinuteDataAvailable(const std::string_view &asset, const std::string_view &currency) = 0;
+	///Downloads data
+	/**
+	 *  Downloads data as much as possible into history. Function allows download data in block which
+	 *  is necesery when a large portion of the data must be downloaded, the process can take more time that timeout. So
+	 *  broker can return less then requested data, but the returned block must be recent.
+	 *
+	 *  For example, the user want to download data from january to jul. However, the broker can download only one month
+	 *  at once, so the broker returns data for jul only. Then additional requests are generated to retrieve rest of the data
+	 *
+	 *  @param asset asset
+	 *  @param currency currency
+	 *  @param hint_symbol hints which pair to use - for example if there are multiple pairs for different kinds of markets. The
+	 *  broker can ignore the hint.
+	 *  @param time_from starting time - linux timestamp (can't be zero)
+	 *  @param time_to ending time - linux timestamp (excluded)
+	 *  @param data the vector is cleared and filled with result
+	 *
+	 *  @return function returns 0, if no more data are available. Function returns starting_time, when all of the requested
+	 *  data has been downloaded. Function returns number greater than starting_time if less then requested data were downloaded.
+	 *  The returned value contains time of the first record
+	 */
+	virtual std::uint64_t downloadMinuteData(const std::string_view &asset,
+					  const std::string_view &currency,
+					  const std::string_view &hint_pair,
+					  std::uint64_t time_from,
+					  std::uint64_t time_to,
+					  std::vector<OHLC> &data
+				) = 0;
+
+};
+
 #endif /* SRC_MAIN_IBROKERCONTROL_H_ */

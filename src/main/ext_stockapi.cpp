@@ -85,6 +85,7 @@ json::Value  ExtStockApi::placeOrder(const std::string_view & pair,
 
 
 bool ExtStockApi::reset() {
+	connection->housekeeping(5);
 	std::unique_lock _(connection->getLock());
 	//save housekeep counter to avoid reset treat as action
 	if (connection->isActive()) try {
@@ -132,20 +133,38 @@ std::vector<std::string> ExtStockApi::getAllPairs() {
 }
 
 void ExtStockApi::Connection::onConnect() {
+	binary_mode = false;
+	try {
+		jsonRequestExchange("bin", json::Value());
+		binary_mode = true;
+	} catch (...) {
+		//empty
+	}
 	ondra_shared::LogObject lg("");
 	bool debug= lg.isLogLevelEnabled(ondra_shared::LogLevel::debug);
-	try {
-		jsonRequestExchange("enableDebug",debug, false);
-	} catch (AbstractExtern::Exception &) {
+	if (debug) {
+		try {
+			jsonRequestExchange("enableDebug",debug, false);
+		} catch (AbstractExtern::Exception &) {
 
+		}
 	}
+	broker_info = jsonRequestExchange("getBrokerInfo", json::Value());
 	instance_counter++;
 }
 
+json::Value ExtStockApi::Connection::getBrokerInfo() const {
+	return broker_info;
+}
 ExtStockApi::BrokerInfo ExtStockApi::getBrokerInfo()  {
 
 	try {
-		auto resp = requestExchange("getBrokerInfo", json::Value());
+		auto resp = connection->getBrokerInfo();
+		if (!resp.defined()) {
+			connection->preload();
+			resp = connection->getBrokerInfo();
+		}
+		/*auto resp = requestExchange("getBrokerInfo", json::Value());*/
 		std::string name = connection->getName();
 		if (!subaccount.empty()) name = name + "~" + subaccount;
 		return BrokerInfo {
@@ -304,6 +323,57 @@ ExtStockApi::AllWallets ExtStockApi::getWallet()  {
 		w.push_back(sw);
 	}
 	return w;
+}
+
+bool ExtStockApi::areMinuteDataAvailable(const std::string_view &asset, const std::string_view &currency) {
+	try {
+		auto resp = requestExchange("areMinuteDataAvailable", {asset, currency});
+		return resp.getBool();
+	} catch (...) {
+		return false;
+	}
+}
+
+std::uint64_t ExtStockApi::downloadMinuteData(const std::string_view &asset,
+		const std::string_view &currency, const std::string_view &hint_pair,
+		std::uint64_t time_from, std::uint64_t time_to,
+		std::vector<OHLC> &data) {
+
+	auto resp = requestExchange("downloadMinuteData", json::Object{
+			{"asset",asset},
+			{"currency",currency},
+			{"hint_pair",hint_pair},
+			{"time_from",time_from},
+			{"time_to",time_to},
+		});
+		json::Value recv_data = resp["data"];
+		json::Value start_time = resp["start"];
+		data.clear();
+		data.reserve(recv_data.size());
+		double last = 0;
+		for (json::Value v: recv_data) {
+			if (v.type() == json::number) {
+				double d = v.getNumber();
+				last = d;
+				recv_data.push({d,d,d,d});
+			} else if (v.type() == json::array) {
+				double o=last,h=last,l=last,c=last;
+				switch (v.size()) {
+				case 1: h=l=c = v[0].getNumber();break;
+				case 2: h=v[0].getNumber();l =v[1].getNumber();c=std::sqrt(h*l);break;
+				case 3: h=v[0].getNumber();l =v[1].getNumber();c=v[2].getNumber();break;
+				case 4: o=v[0].getNumber();h =v[1].getNumber();l=v[2].getNumber();c=v[3].getNumber();break;
+				}
+				if (o == 0) o = std::sqrt(h*l);
+				h = std::max({o,h,l,c});
+				l = std::min({o,h,l,c});
+				last = c;
+				data.push_back({o,h,l,c});
+			}
+		}
+		return start_time.getUIntLong();
+
+
 }
 
 ExtStockApi::ExtStockApi(std::shared_ptr<Connection> connection, const std::string &subaccount)

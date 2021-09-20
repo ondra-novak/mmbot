@@ -94,3 +94,29 @@ TemplateJS.View.regCustomElement("X-SWITCH", new TemplateJS.CustomElement(
 			return undefined;
 		}
 ));
+
+TemplateJS.View.regCustomElement("X-PROGRESS", new TemplateJS.CustomElement(
+		function(elem, val) {
+			var inner = elem.firstChild;
+			if (!inner) {
+				inner = document.createElement("X-BAR");
+				inner.style.display="block";
+				inner.style.marginLeft="0";
+				inner.style.marginRight="auto";
+				inner.style.height="100%";
+				elem.appendChild(inner);
+			}
+			if (typeof val == "number") {
+				inner.style.width=val+"%";
+				inner.textContent=val.toFixed(1)+"%"
+				elem.classList.remove("message");
+			} else {
+				inner.style.width="100%";
+				inner.textContent=val;
+				elem.classList.add("message");
+			}
+		},
+		function() {
+			return undefined;
+		}
+));

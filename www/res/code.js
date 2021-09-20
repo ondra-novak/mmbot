@@ -794,14 +794,16 @@ function app_start(){
 				var inv = infoMap[o.symb].inverted;
 				var last;
 				if (!ch || !ch.length) {
-					last = {pl:0,price:o.price,pos:0};
+					last = {pl:0,price:o.price,pos:0,norm:0};
 				} else {
 					 last = ch[ch.length-1];
 				}
 				var dir = o.dir < 0?"sell":"buy";
+				var norm = o.dir < 0?stats.misc[o.symb].cur_norm_sell:stats.misc[o.symb].cur_norm_buy;				
 				var gain = ((inv?1.0/o.price:o.price) - (inv?1.0/last.price:last.price))* (inv?-1:1)*last.pos;
 				var newpl = last.pl + gain;
 				var newpos = last.pos + sz;
+				var newnorm = last.norm + norm;
 				s.push({
 					price: o.price,
 					achg: sz,
@@ -810,6 +812,7 @@ function app_start(){
 					label: "",
 					gain:gain,
 					class: dir,
+					norm: newnorm
 				})
 				ranges[o.symb][dir] = [o.price,o.size];
 			}) 

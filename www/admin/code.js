@@ -513,6 +513,27 @@ App.prototype.fillForm = function (src, trg) {
 			if (!src.strategy && typeof state.pair.price == "string" && state.pair.price.startsWith("trainer")){
 			    this.brokerConfig(src.broker, src.pair_symbol).then(updateHdr,updateHdr);
 			}
+			data.more_info={
+				".hidden":false,
+				"!click":function() {
+					var mincursize = pair.min_volume/pair.price;
+					var data={
+						price:  adjNum(invPrice(pair.price,pair.invert_price)),
+						tick_size:adjNum(pair.currency_step),
+						quote_symbol:pair.quote_currency,
+						asset_step:adjNum(pair.asset_step),
+						asset_symbol:pair.asset_symbol,
+						min_size:adjNum(pair.min_size),
+						min_volume:adjNum(mincursize > pair.min_size?mincursize:pair.min_size),
+						leverage:pair.leverage,
+						currency_symbol:pair.currency_symbol,
+						inverted_price:JSON.stringify(pair.invert_price)
+					}					
+					this.dlgbox(data,"pair_details");					
+				}.bind(this)
+			
+			};
+
 			first_fetch = false;
 		}
 		data.swap_symbols_hide = {".hidden":!!(pair.leverage || state.trades) && !src.swap_symbols};
@@ -1684,13 +1705,19 @@ var rnd_preset={
 
 function DelayUpdate(fn) {
 	var tm;
+	var p;
+	var done;
 	
 	this.exec = function() {
+		if (!p) p = new Promise(function(ok){done = ok});
 		if (tm) clearTimeout(tm);
 		tm = setTimeout(function() {
+			var d = done;
 			tm = null;
-			fn()
+			p = null;
+			d(fn());
 		},250);
+		return p;
 	}
 };
 
@@ -1992,9 +2019,24 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 
 		function download_historical_dlg() {
 					this.waitScreen(Promise.all([
-						fetch_json("api/btdata"), fetch_json("api/brokers/"+encodeURIComponent(broker)+"/pairs/"+encodeURIComponent(pair))
+						fetch_json("api/btdata"), 
+						fetch_json("api/brokers/"+encodeURIComponent(broker)+"/pairs/"+encodeURIComponent(pair)),
+						fetch("api/brokers/"+encodeURIComponent(broker)+"/pairs/"+encodeURIComponent(pair)+"/history")
 					])).then(function(resp) {
+						function dlgRules() {
+							var en = !d.view.readData(["from_broker"]).from_broker;
+							d.view.enableItem("asset",en);
+							d.view.enableItem("currency",en);
+							d.view.enableItem("smooth",en);							
+						};
+						console.log(resp);
+						var brkhist = resp[2].status==200;
 						var ddata = {
+							    from_broker:{
+							    	value:brkhist,
+							    	"disabled":!brkhist,
+							    	"!change": dlgRules
+							    },
 								symbols: resp[0].map(function(x){
 									return {"":x};
 								}),
@@ -2004,12 +2046,25 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 						};
 						var d;
 						(d = this.dlgbox(ddata,"download_price_dlg")).then(function(){
-							ddata = d.view.readData(["asset","currency","smooth"]);;
-							this_bt.minute = {"mode":"historical_chart","args":ddata};
-							this_bt.trades = null;
-							hist_smooth = ddata.smooth;
-							cntr.update();
+							ddata = d.view.readData(["asset","currency","smooth","from_broker"]);;
+							if (ddata.from_broker) {
+								var dataid;
+								showProgress(fetch_json("api/brokers/"+encodeURIComponent(broker)+"/pairs/"+encodeURIComponent(pair)+"/history",{method:"POST"}).then(function(info){
+                                	dataid = info.data;
+                                	return info.progress;
+								})).then(function(dlg){
+                                		this_bt.minute={id:dataid};
+										this_bt.trades = null;
+										get_chart(cntr.update().then(function(){dlg.close();}), delayed_update_minute);
+                                });
+							} else { 
+								this_bt.minute = {"mode":"historical_chart","args":ddata};
+								this_bt.trades = null;
+								hist_smooth = ddata.smooth;
+								cntr.update();
+							}
 						}.bind(this));					
+						dlgRules();
 					}.bind(this));
 		}
 
@@ -2941,4 +2996,38 @@ App.prototype.editStrategyState = function(id) {
 			 }.bind(this));
 		}.bind(this),"ok");
 	}.bind(this));
+}
+
+function showProgress(id) {
+	var dlg = TemplateJS.View.fromTemplate("progress_dlg");
+	dlg.openModal();
+	dlg.setData({
+		"progress":0,
+	});
+	return Promise.resolve(id).then(function(id) {
+		dlg.setItemEvent("stop","click",function(){
+				fetch("api/progress/"+id, {"method":"DELETE"});
+		});
+		return new Promise(function(ok) {
+			
+			var intr = setInterval(function(){
+				fetch("api/progress/"+id)
+				.then(function(resp){
+					if (resp.status == 204) {
+						clearInterval(intr);
+						dlg.setData({"progress":100})
+						ok(dlg);
+					} else if (resp.status == 200) {
+						resp.json().then(function(numb) {
+							dlg.setData({"progress":numb});
+							dlg.enableItem("stop",true);
+						})
+					}
+				});
+			},1000);
+		});
+	},function(e){
+		dlg.close();
+		throw e;
+	});
 }

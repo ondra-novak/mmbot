@@ -253,6 +253,30 @@ Value testCall(AbstractBrokerAPI &handler, const Value &req) {
 	}
 }
 
+Value areMinuteDataAvailable(AbstractBrokerAPI &handler, const Value &req) {
+	return handler.areMinuteDataAvailable(req[0].getString(), req[1].getString());
+}
+Value downloadMinuteData(AbstractBrokerAPI &handler, const Value &req) {
+	std::vector<AbstractBrokerAPI::OHLC> vect;
+	auto start_time = handler.downloadMinuteData(req["asset"].getString(),
+				req["currency"].getString(),
+				req["hint_pair"].getString(),
+				req["time_from"].getUIntLong(),
+				req["time_to"].getUIntLong(), vect);
+
+	return Object{
+		{"start", start_time},
+		{"data",Value(json::array, vect.begin(), vect.end(), [](const AbstractBrokerAPI::OHLC &x){
+			return Value({x.open, x.high, x.low, x.close});
+		})}
+	};
+}
+
+
+Value enableBinary(AbstractBrokerAPI &handle, const Value &) {
+	handle.binary_mode = true;
+	return json::undefined;
+}
 
 Value handleSubaccount(AbstractBrokerAPI &handler, const Value &req) {
 	static std::unordered_map<Value, std::unique_ptr<AbstractBrokerAPI> > subList;
@@ -329,7 +353,11 @@ static MethodMap methodMap ({
 			{"subaccount",&handleSubaccount},
 			{"getMarkets",&getMarkets},
 			{"getWallet",&getWallet},
-			{"testCall",&testCall}
+			{"testCall",&testCall},
+			{"areMinuteDataAvailable",&areMinuteDataAvailable},
+			{"downloadMinuteData",&downloadMinuteData},
+			{"bin",&enableBinary},
+
 	});
 
 
@@ -346,30 +374,49 @@ Value AbstractBrokerAPI::callMethod(std::string_view name, Value args) {
 }
 
 
+void AbstractBrokerAPI::connectStreams(std::ostream &log, std::ostream &out) {
+	std::lock_guard<LogProvider> _(*logProvider);
+	logStream = &log;
+	outStream = &out;
+	flushMessages();
+}
+
+void AbstractBrokerAPI::disconnectStreams() {
+	std::lock_guard<LogProvider> _(*logProvider);
+	logStream = nullptr;
+	outStream = nullptr;
+
+}
 
 void AbstractBrokerAPI::dispatch(std::istream& input, std::ostream& output, std::ostream &error, AbstractBrokerAPI &handler) {
 
 	handler.logProvider->setDefault();
 	try {
 		Value v = Value::fromStream(input);
-		handler.logStream = &error;
-		handler.outStream = &output;
-		handler.flushMessages();
+		handler.connectStreams(error, output);
 		handler.loadKeys();
 		handler.onInit();
+		bool binmode = false;
 		while (true) {
-			handler.callMethod(v[0].getString(), v[1]).toStream(output);
-			handler.logStream = nullptr;
-			handler.outStream = nullptr;
-			output << std::endl;
+			Value res = handler.callMethod(v[0].getString(), v[1]);
+			if (binmode) {
+				res.serializeBinary([&](char c){output.put(c);}, json::compressKeys);
+			} else {
+				res.toStream(output);
+				output << std::endl;
+			}
+			handler.disconnectStreams();
+			binmode = handler.binary_mode;
 			int i = input.get();
 			while (i != EOF && isspace(i)) i = input.get();
 			if (i == EOF) break;
 			input.putback(i);
-			v = Value::fromStream(input);
-			handler.logStream = &error;
-			handler.outStream = &output;
-			handler.flushMessages();
+			if (binmode) {
+				v = Value::parseBinary([&]{return input.get();}, json::base64);
+			} else {
+				v = Value::fromStream(input);
+			}
+			handler.connectStreams(error, output);
 		}
 	} catch (std::exception &e) {
 		Value({false, e.what()}).toStream(output);
@@ -482,3 +529,15 @@ AbstractBrokerAPI::AllWallets AbstractBrokerAPI::getWallet() {
 json::Value AbstractBrokerAPI::testCall(const std::string_view &method, json::Value args) {
 	throw std::runtime_error("Unsupported feature");
 }
+
+bool AbstractBrokerAPI::areMinuteDataAvailable(const std::string_view &, const std::string_view &) {
+	//if not overridden, there are no historical data available
+	return false;
+}
+std::uint64_t AbstractBrokerAPI::downloadMinuteData(const std::string_view &,
+				  const std::string_view &,const std::string_view &,std::uint64_t ,std::uint64_t ,
+				  std::vector<OHLC> &) {
+	//if not overridden, there are no historical data available
+	return 0;
+}
+
