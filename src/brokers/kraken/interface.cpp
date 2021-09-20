@@ -256,7 +256,7 @@ IStockApi::MarketInfo Interface::getMarketInfo(const std::string_view &pair) {
 	minfo.asset_step = std::pow(10,-symbinfo["lot_decimals"].getInt());
 	minfo.currency_step = std::pow(10,-symbinfo["pair_decimals"].getInt());
 	minfo.feeScheme = currency;
-	minfo.fees=getFees(pair);//todo
+	minfo.fees=getFees(pair);
 	minfo.invert_price = false;
 	minfo.leverage = 0;
 	minfo.min_size = symbinfo["ordermin"].getNumber();
@@ -411,6 +411,7 @@ bool Interface::reset() {
 	positionMap = Value();
 	orderMap = Value();
 	syncTradeCache.clear();
+	hDataCache = Value();
 	return true;
 }
 
@@ -564,7 +565,7 @@ json::Value Interface::placeOrder(const std::string_view &pair, double size, dou
 */
 double Interface::getFees(const std::string_view &pair) {
 
-	if (fees < 0) {
+	if (fees < 0 && hasKey()) {
 		Value result = private_POST("/0/private/TradesHistory",Value());
 		double bestTime = 0;
 		for (Value v : result["result"]["trades"]) {
@@ -665,4 +666,75 @@ json::Value Interface::setSettings(json::Value v) {
 
 void Interface::restoreSettings(json::Value v)  {
 	setSettings(v);
+}
+
+bool Interface::areMinuteDataAvailable(const std::string_view &asset,const std::string_view &currency) {
+	updateSymbols();
+	json::Value r = pairMap.find([&](json::Value x){
+		auto asset_symbol = symbolMap[x["base"].getString()].getString();
+		auto currency_symbol = symbolMap[x["quote"].getString()].getString();
+		return asset == asset_symbol && currency == currency_symbol;
+	});
+	return r.defined();
+}
+
+uint64_t Interface::downloadMinuteData(const std::string_view &asset, const std::string_view &currency,
+		const std::string_view &hint_pair, uint64_t time_from, uint64_t time_to,
+		std::vector<IHistoryDataSource::OHLC> &data) {
+
+	updateSymbols();
+	std::string_view psymb = stripPrefix(hint_pair);
+	Value symbinfo = pairMap[psymb];
+	if (!symbinfo.defined()) {
+		json::Value r = pairMap.find([&](json::Value x){
+			auto asset_symbol = symbolMap[x["base"].getString()].getString();
+			auto currency_symbol = symbolMap[x["quote"].getString()].getString();
+			return asset == asset_symbol && currency == currency_symbol;
+		});
+		if (!r.defined()) return 0;
+		symbinfo = r;
+	}
+	auto name = symbinfo.getKey();
+	time_from/=1000;
+	time_to/=1000;
+	int sets[] = {5,15,30,60,240,1440,10080};
+	for (int curset: sets) {
+		std::ostringstream buff;
+		buff << "/0/public/OHLC?pair=" << name << "&since=" << time_from << "&interval=" << curset;
+		int dups = curset/5;
+		auto insert_val = [&](double n){
+				for (int i = 0; i < dups; i++) data.push_back({n,n,n,n});
+		};
+
+		std::string url = buff.str();
+		Value hdata;
+		if (hDataCache[url].defined()) hdata = hDataCache[url];
+		else {
+			hdata=public_GET(buff.str());
+			hDataCache.setItems({{url, hdata}});
+		}
+
+		std::uint64_t minDate = time_to;
+
+		for (Value row: hdata["result"][0]) {
+			auto date = row[0].getUIntLong();
+			if (date >= time_from && date < time_to) {
+				double o = row[1].getNumber();
+				double h = row[2].getNumber();
+				double l = row[3].getNumber();
+				double c = row[4].getNumber();
+				double m = std::sqrt(h*l);
+				insert_val(o);
+				insert_val(h);
+				insert_val(m);
+				insert_val(l);
+				insert_val(c);
+				if (minDate > date) minDate = date;
+			}
+		}
+		if (!data.empty()) {
+			return minDate*1000;
+		}
+	}
+	return 0;
 }
