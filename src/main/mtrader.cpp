@@ -504,12 +504,12 @@ void MTrader::perform(bool manually) {
 			if (sell_alert.has_value()) {
 				sell_norm = sell_state.onTrade(minfo, *sell_alert, 0, position, status.currencyBalance).normProfit;
 			} else if (orders.sell.has_value()) {
-				sell_norm = sell_state.onTrade(minfo, orders.sell->price, orders.sell->size, position-orders.sell->size, status.currencyBalance).normProfit;
+				sell_norm = sell_state.onTrade(minfo, orders.sell->price, orders.sell->size, position+orders.sell->size, status.currencyBalance).normProfit;
 			}
 			if (buy_alert.has_value()) {
 				buy_norm = buy_state.onTrade(minfo, *buy_alert, 0, position, status.currencyBalance).normProfit;
 			} else if (orders.buy.has_value()) {
-				buy_norm = buy_state.onTrade(minfo, orders.buy->price, orders.buy->size, position-orders.buy->size, status.currencyBalance).normProfit;
+				buy_norm = buy_state.onTrade(minfo, orders.buy->price, orders.buy->size, position+orders.buy->size, status.currencyBalance).normProfit;
 			}
 
 
