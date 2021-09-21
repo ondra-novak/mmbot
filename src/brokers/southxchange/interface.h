@@ -38,6 +38,12 @@ public:
 	virtual std::vector<std::string> getAllPairs() override;;
 	virtual void onInit() override;;
 	virtual double getBalance(const std::string_view & symb) override;
+	virtual bool areMinuteDataAvailable(const std::string_view &asset,
+			const std::string_view &currency);
+	virtual uint64_t downloadMinuteData(const std::string_view &asset, const std::string_view &currency,
+			const std::string_view &hint_pair, uint64_t time_from, uint64_t time_to,
+			std::vector<IHistoryDataSource::OHLC> &data);
+
 protected:
 
 	HTTPJson api;

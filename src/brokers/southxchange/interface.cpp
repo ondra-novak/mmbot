@@ -421,3 +421,47 @@ bool Interface::marketMapCmp(const MarketInfo &a,const MarketInfo &b) {
 	if (ls(b.asset_symbol, a.asset_symbol)) return false;
 	return ls(a.currency_symbol, b.currency_symbol);
 }
+
+bool Interface::areMinuteDataAvailable(const std::string_view &asset,
+		const std::string_view &currency) {
+	updateMarkets();
+	MarketInfo minfo;
+	minfo.asset_symbol = asset;
+	minfo.currency_symbol = currency;
+	auto iter = std::lower_bound(markets.begin(), markets.end(), minfo, marketMapCmp);
+	if (iter == markets.end() || iter->asset_symbol != minfo.asset_symbol || iter->currency_symbol != minfo.currency_symbol) {
+		return false;
+	}
+	else {
+		return true;
+	}
+}
+
+uint64_t Interface::downloadMinuteData(const std::string_view &asset, const std::string_view &currency,
+		const std::string_view &hint_pair, uint64_t time_from, uint64_t time_to,
+		std::vector<IHistoryDataSource::OHLC, std::allocator<IHistoryDataSource::OHLC> > &data) {
+
+	time_from = std::max(time_to - 1000*5*60000, time_from);
+	std::ostringstream uri;
+	uri << "/v4/history/"<<asset<<"/"<<currency<<"/"<<time_from<<"/"<<time_to<<"/"<<500;
+	Value hdata = api.GET(uri.str());
+	auto minTime = time_to;
+	for(Value v: hdata) {
+		auto tm = parseTime(v["Date"].toString(), ParseTimeFormat::iso_notm);
+		if (tm >= time_from && tm < time_to) {
+			minTime = std::min(minTime, tm);
+			auto o = v["PriceOpen"].getNumber();
+			auto h = v["PriceHigh"].getNumber();
+			auto l = v["PriceLow"].getNumber();
+			auto c = v["PriceClose"].getNumber();
+			auto m = std::sqrt(h*l);
+			data.push_back({o,o,o,o});
+			data.push_back({l,l,l,l});
+			data.push_back({m,m,m,m});
+			data.push_back({h,h,h,h});
+			data.push_back({c,c,c,c});
+		}
+	}
+	if (data.empty()) return 0;
+	else return  minTime;
+}
