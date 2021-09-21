@@ -58,6 +58,7 @@ public:
 		double p = 0;
 		double b = 0;
 		double d = 0;
+		double uv = 0; //unprocessed volume
 		double kk = 0;
 	};
 
