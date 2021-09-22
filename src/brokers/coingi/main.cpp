@@ -57,7 +57,7 @@ public:
 	}
 
 
-	virtual double getBalance(const std::string_view & symb) override {return 0;}
+
 	virtual double getBalance(const std::string_view & symb, const std::string_view & pair) override;
 	virtual TradesSync syncTrades(json::Value lastId, const std::string_view & pair) override;
 	virtual Orders getOpenOrders(const std::string_view & par) override;

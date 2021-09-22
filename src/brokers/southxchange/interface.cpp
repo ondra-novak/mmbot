@@ -351,9 +351,6 @@ std::vector<std::string> Interface::getAllPairs() {
 void Interface::onInit() {
 
 }
-double Interface::getBalance(const std::string_view & symb)  {
-	return 0;
-}
 
 void Interface::updateMarkets() {
 	auto now = std::chrono::system_clock::now();

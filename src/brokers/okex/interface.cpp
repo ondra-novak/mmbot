@@ -372,9 +372,6 @@ IBrokerControl::AllWallets Interface::getWallet() {
 
 void Interface::onInit() {}
 
-double Interface::getBalance(const std::string_view &symb) {
-	return 0;
-}
 
 static std::string timeToISO(const std::chrono::system_clock::time_point &tp) {
 

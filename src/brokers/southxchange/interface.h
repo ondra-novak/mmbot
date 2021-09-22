@@ -37,7 +37,6 @@ public:
 	virtual IStockApi::Ticker getTicker(const std::string_view &piar) override;
 	virtual std::vector<std::string> getAllPairs() override;;
 	virtual void onInit() override;;
-	virtual double getBalance(const std::string_view & symb) override;
 	virtual bool areMinuteDataAvailable(const std::string_view &asset,
 			const std::string_view &currency);
 	virtual uint64_t downloadMinuteData(const std::string_view &asset, const std::string_view &currency,

@@ -251,7 +251,6 @@ public:
 	virtual BrokerInfo getBrokerInfo()  override;
 	virtual void onLoadApiKey(json::Value) override {}
 
-	virtual double getBalance(const std::string_view & symb) override;
 	virtual double getBalance(const std::string_view & symb, const std::string_view & pair) override;
 	virtual TradesSync syncTrades(json::Value lastId, const std::string_view & pair) override;
 	virtual Orders getOpenOrders(const std::string_view & par)override;
@@ -680,9 +679,7 @@ inline Interface::BrokerInfo Interface::getBrokerInfo() {
 }
 
 
-inline double Interface::getBalance(const std::string_view &x) {
-	return 0;
-}
+
 double Interface::getBalance(const std::string_view & symb, const std::string_view & pair) {
 
 	TestPair &p = getPair(pair);

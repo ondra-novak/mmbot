@@ -61,7 +61,6 @@ public:
 	{}
 
 
-	virtual double getBalance(const std::string_view & symb) override;
 	virtual TradesSync syncTrades(json::Value lastId, const std::string_view & pair) override;
 	virtual Orders getOpenOrders(const std::string_view & par)override;
 	virtual Ticker getTicker(const std::string_view & piar)override;
@@ -81,6 +80,7 @@ public:
 	virtual Interface *createSubaccount(const std::string &path) override {
 		return new Interface(path);
 	}
+	virtual double getBalance(const std::string_view & symb, const std::string_view & pair) override;
 	virtual json::Value getWallet_direct() override;
 
 
@@ -106,7 +106,7 @@ int main(int argc, char **argv) {
 
 }
 
-inline double Interface::getBalance(const std::string_view &symb) {
+inline double Interface::getBalance(const std::string_view &symb, const std::string_view & ) {
 	if (symb.empty()) return 0;
 	if (symb[0] == '$') {
 		auto instrument = symb.substr(1);
