@@ -25,13 +25,13 @@
 class Interface:public AbstractBrokerAPI  {
 public:
 	Interface(const std::string &secure_storage_path);
+	virtual double getBalance(const std::string_view & symb, const std::string_view & pair) override;
 	virtual std::vector<std::string> getAllPairs() override;
 	virtual IStockApi::MarketInfo getMarketInfo(const std::string_view &pair) override;
 	virtual AbstractBrokerAPI* createSubaccount(
 			const std::string &secure_storage_path) override;
 	virtual IStockApi::BrokerInfo getBrokerInfo() override;
 	virtual void onLoadApiKey(json::Value keyData) override;
-	virtual double getBalance(const std::string_view &symb, const std::string_view &pair) override;
 	virtual IStockApi::TradesSync syncTrades(json::Value lastId, const std::string_view &pair) override;
 	virtual void onInit() override;
 	virtual bool reset() override;
@@ -40,7 +40,6 @@ public:
 			json::Value clientId, json::Value replaceId, double replaceSize)
 					override;
 	virtual double getFees(const std::string_view &pair) override;
-	virtual double getBalance(const std::string_view &symb) override {return 0;}
 	virtual IStockApi::Ticker getTicker(const std::string_view &piar) override;
 	virtual json::Value getWallet_direct() override;
 	virtual json::Value testCall(const std::string_view &method, json::Value args) override;

@@ -38,7 +38,7 @@ public:
 		})}) {}
 
 
-	virtual double getBalance(const std::string_view & symb) override;
+
 	virtual TradesSync syncTrades(json::Value lastId, const std::string_view & pair) override;
 	virtual Orders getOpenOrders(const std::string_view & par) override;
 	virtual Ticker getTicker(const std::string_view & piar) override;
@@ -58,6 +58,7 @@ public:
 	virtual Interface *createSubaccount(const std::string &path) override {
 		return new Interface(path);
 	}
+	virtual double getBalance(const std::string_view & symb, const std::string_view & pair);
 	virtual AllWallets getWallet() override;
 	virtual json::Value getMarkets() const override ;
 
@@ -81,7 +82,7 @@ public:
 	json::Value findSymbol(const std::string_view &asset, const std::string_view &currency);
 };
 
- double Interface::getBalance(const std::string_view &symb) {
+ double Interface::getBalance(const std::string_view &symb, const std::string_view & ) {
 	 if (!balanceCache.defined()) {
 		 	balanceCache = cm.request(Proxy::POST, "balances", Value());
 	 }
@@ -355,7 +356,7 @@ OTHER DEALINGS IN THE SOFTWARE.)mit",
 
 
 Interface::AllWallets Interface::getWallet() {
-	getBalance("");
+	getBalance("","");
 	Wallet w;
 	for (Value x: balanceCache) {
 		double n = x["balance"].getNumber();

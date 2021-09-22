@@ -497,9 +497,6 @@ void AbstractBrokerAPI::flushMessages() {
 		logMessages.clear();
 	}
 }
-double AbstractBrokerAPI::getBalance(const std::string_view & symb, const std::string_view & pair){
-	return getBalance(symb);
-}
 
 AbstractBrokerAPI::PageData AbstractBrokerAPI::fetchPage(const std::string_view &,
 		const std::string_view &, const PageData &) {

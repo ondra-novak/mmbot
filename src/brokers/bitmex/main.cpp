@@ -56,7 +56,6 @@ public:
 	,optionsFile(path+".conf"){}
 
 
-	virtual double getBalance(const std::string_view & symb) override;
 	virtual TradesSync syncTrades(json::Value lastId, const std::string_view & pair) override;
 	virtual Orders getOpenOrders(const std::string_view & par)override;
 	virtual Ticker getTicker(const std::string_view & piar)override;
@@ -76,6 +75,7 @@ public:
 	virtual Interface *createSubaccount(const std::string &path) override {
 		return new Interface(path);
 	}
+	virtual double getBalance(const std::string_view & symb, const std::string_view & pair) override;
 
 
 
@@ -146,7 +146,7 @@ Value Interface::getBalanceCache() {
 	return balanceCache;
 }
 
-inline double Interface::getBalance(const std::string_view &symb) {
+inline double Interface::getBalance(const std::string_view &symb, const std::string_view &) {
 	if (symb == "BTC") {
 		return getBalanceCache()["marginBalance"].getNumber()*1e-8;
 	} else 	if (symb == "USD") {

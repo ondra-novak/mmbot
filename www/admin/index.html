@@ -966,8 +966,8 @@ the same order, they are ordered by its ID - this is the default ordering. Modif
 <div class="label"><span>Minimal order size at <span data-name="price"></span>&nbsp;<span data-name="quote_symbol"></span>:</span><span><span data-name="min_volume"></span> <span data-name="asset_symbol"></span></span></div>
 <div class="label"><span>Leverage:</span><span><span data-name="leverage"></span>x</span></div>
 <div class="label"><span>P/L formula:</span><span>
-	<x-switch data-name="inverted_price" data-value="false">(close_price - entry_price) × amount</x-switch>
-	<x-switch data-name="inverted_price" data-value="true">(1/<sub>entry_price</sub> - 1/<sub>close_price</sub>) × amount</x-switch>
+	<x-switch data-name="inverted_price" data-value="false">(p<sub>c</sub> - p<sub>e</sub>) × q</x-switch>
+	<x-switch data-name="inverted_price" data-value="true">(<span class="fraction"><span>1</span><span>p<sub>e</sub></span></span> - <span class="fraction"><span>1</span><span>p<sub>c</sub></span></span>) × q</x-switch>
 	</span>
 </div>
 <button data-name="ok">OK</button>

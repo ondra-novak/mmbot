@@ -41,7 +41,6 @@ public:
 	virtual IStockApi::Ticker getTicker(const std::string_view &piar) override;
 	virtual std::vector<std::string> getAllPairs() override;;
 	virtual void onInit() override;
-	virtual double getBalance(const std::string_view & symb) override;
 protected:
 
 	mutable HTTPJson api;

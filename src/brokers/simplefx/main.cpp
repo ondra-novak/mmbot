@@ -97,7 +97,6 @@ public:
 	{
 	}
 
-	virtual double getBalance(const std::string_view & symb) override;
 	virtual double getBalance(const std::string_view & symb, const std::string_view & pair) override;
 	virtual TradesSync syncTrades(json::Value lastId, const std::string_view & pair) override;
 	virtual Orders getOpenOrders(const std::string_view & par)override;
@@ -222,9 +221,6 @@ static Value getData(Value resp) {
 	return resp["data"];
 }
 
-inline double Interface::getBalance(const std::string_view &symb) {
-	throw std::runtime_error("not supported");
-}
 
 double Interface::findConvRate(std::string fromCurrency, std::string toCurrency) {
 	std::unordered_map<std::string, double> toTarget;

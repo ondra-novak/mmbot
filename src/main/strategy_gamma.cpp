@@ -74,9 +74,13 @@ std::pair<IStrategy::OnTradeResult, ondra_shared::RefCntPtr<const IStrategy> > S
 	}
 	double newkk = calibK(nn.k);
 	double volume = -tradePrice*tradeSize;
-	double prev_cur = state.b - cfg.intTable->calcAssets(state.kk, state.w, state.p) * state.p;
+	double calc_pos = cfg.intTable->calcAssets(newkk, nn.w, tradePrice);
+	double unprocessed = (assetsLeft - calc_pos)*tradePrice;
+	double prev_calc_pos = cfg.intTable->calcAssets(state.kk, state.w, state.p);
+	double prev_unprocessed = (assetsLeft-tradeSize - prev_calc_pos)*state.p;
+	double prev_cur = state.b - prev_calc_pos * state.p - prev_unprocessed;
 	double bn = cfg.intTable->calcBudget(newkk, nn.w, tradePrice);
-	double new_cur = bn - cfg.intTable->calcAssets(newkk, nn.w, tradePrice) * tradePrice;
+	double new_cur = bn - calc_pos * tradePrice - unprocessed;
 	double np = volume - new_cur + prev_cur  ;
 	double neww = nn.w;
 	double d = state.d;
@@ -91,7 +95,7 @@ std::pair<IStrategy::OnTradeResult, ondra_shared::RefCntPtr<const IStrategy> > S
 	}
 
 	State nwst = {
-			nn.k,neww,tradePrice, bn,d,newkk
+			nn.k,neww,tradePrice, bn,d,unprocessed,newkk
 	};
 	return {{np,0,nn.k,0},
 		PStrategy(new Strategy_Gamma(cfg, std::move(nwst)))
@@ -106,7 +110,8 @@ PStrategy Strategy_Gamma::importState(json::Value src,
 		src["w"].getNumber(),
 		src["p"].getNumber(),
 		src["b"].getNumber(),
-		src["d"].getNumber()
+		src["d"].getNumber(),
+		src["uv"].getNumber()
 	};
 	if (src["hash"].hasValue() && cfg.calcConfigHash() != src["hash"].toString()) {
 		nwst.k = 0;
@@ -155,6 +160,7 @@ json::Value Strategy_Gamma::exportState() const {
 		{"p",state.p},
 		{"b",state.b},
 		{"d",state.d},
+		{"uv",state.uv},
 		{"hash",cfg.calcConfigHash()}
 	});
 }
@@ -202,7 +208,8 @@ double Strategy_Gamma::getEquilibrium(double assets) const {
 
 double Strategy_Gamma::calcCurrencyAllocation(double) const {
 	return cfg.intTable->calcBudget(state.kk, state.w, state.p)
-			-cfg.intTable->calcAssets(state.kk, state.w, state.p)*state.p;
+			-cfg.intTable->calcAssets(state.kk, state.w, state.p)*state.p
+			-state.uv;
 }
 
 IStrategy::ChartPoint Strategy_Gamma::calcChart(double price) const {
@@ -234,7 +241,8 @@ json::Value Strategy_Gamma::dumpStatePretty(const IStockApi::MarketInfo &minfo) 
 		{"Price.neutral", inv?1.0/state.kk:state.kk},
 		{"Price.last", inv?1.0/state.p:state.p},
 		{"Budget.max", cfg.intTable->get_max()* state.w},
-		{"Budget.current", state.b}
+		{"Budget.current", state.b},
+		{"Budget.not_traded", state.uv}
 	});
 
 }
@@ -413,6 +421,7 @@ Strategy_Gamma Strategy_Gamma::init(const IStockApi::MarketInfo &minfo,
 	newst.w = budget / w1;
 	newst.b = budget;
 	newst.d = 0;
+	newst.uv = 0;
 
 	Strategy_Gamma s(cfg, std::move(newst));
 	if (s.isValid()) return s;

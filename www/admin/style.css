@@ -62,6 +62,22 @@ x-switch.block[hidden] {
 	display:hidden;
 }
 
+.fraction {
+	display: inline-flex;
+	flex-direction: column;
+	vertical-align: middle;
+	font-size: 0.8em;
+	text-align: center;
+	padding: 0 0.2em;
+}
+.fraction > span{
+	display: block;
+}
+
+.fraction > span:first-child {
+    border-bottom:  1px solid;
+}
+
 select.noarrow {
 	background-image: none;
 }
@@ -329,8 +345,8 @@ div.dialog > div.progressdlg {padding: 2em;}
 x-progress {display: block;width: 100%;/* height: 2em; */border: 1px solid;border-radius: 0.4em;overflow: hidden;line-height: 2em;box-sizing: border-box;}
 
 x-progress > * {
-	background: linear-gradient(97deg, #013805, #3a7111);
-	transition: 1s all linear;
+	background: linear-gradient(90deg, #013805, #3a7111);
+	transition: 2s width cubic-bezier(0.4, 0.77, 0.5, 0.93);
 	text-align: right;
 	padding-right: 0.2em;
 	box-sizing: border-box;
@@ -1219,7 +1235,7 @@ table.utilization tr:last-child td {
 
 .dialog.pairdetails > div {
  padding: 1em;
- width: 15cm;
+ max-width: 15cm;
 }
 .dialog.pairdetails > div  div {
 	margin: 0.5em;
