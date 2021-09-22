@@ -225,7 +225,7 @@ inline std::string DBConn::buildPath(const std::string_view &name) const {
 		out.push_back(c);
 	};
 	out.append(cfg_prefix);
-	simpleServer::UrlEncode<decltype(fn)> encoder(fn);
+	simpleServer::UrlEncode<decltype(fn) &> encoder(fn);
 	for (char c: ident) encoder(c);
 	out.push_back('/');
 	if (name.empty()) out.append("empty_empty");
@@ -290,7 +290,7 @@ inline json::Value DBConn::get_report(bool rep) {
 
 		std::string uri;
 		auto srl_to_url=[&](char c){uri.push_back(c);};
-		simpleServer::UrlEncode<decltype(srl_to_url)> enc(srl_to_url);
+		simpleServer::UrlEncode<decltype(srl_to_url) &> enc(srl_to_url);
 
 		uri.reserve(200);
 		uri.append("/_design/report/_view/month?group_level=3");
