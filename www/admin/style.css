@@ -1235,7 +1235,7 @@ table.utilization tr:last-child td {
 
 .dialog.pairdetails > div {
  padding: 1em;
- width: 15cm;
+ max-width: 15cm;
 }
 .dialog.pairdetails > div  div {
 	margin: 0.5em;
