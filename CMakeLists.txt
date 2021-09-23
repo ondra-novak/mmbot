@@ -40,6 +40,7 @@ add_subdirectory (src/brokers/poloniex)
 add_subdirectory (src/brokers/okex)
 add_subdirectory (src/brokers/simplefx)
 add_subdirectory (src/brokers/southxchange)
+add_subdirectory (src/brokers/tradeogre)
 add_subdirectory (src/brokers/trainer)
 add_subdirectory (src/brokers/couchdb_storage)
 

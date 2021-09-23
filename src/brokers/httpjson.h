@@ -65,6 +65,8 @@ public:
 	std::chrono::system_clock::time_point now();
 
 	void set_reading_fn(std::function<void()> reading_fn) {this->reading_fn = reading_fn;}
+	void setForceJSON(bool force) {force_json = force;}
+	bool getForceJSON() const {return force_json;}
 
 protected:
 	simpleServer::HttpClient httpc;
@@ -72,6 +74,7 @@ protected:
 	std::chrono::system_clock::time_point lastServerTime;
 	std::chrono::steady_clock::time_point lastLocalTime;
 	std::function<void()> reading_fn;
+	bool force_json = false;
 
 
 	static bool parseHttpDate(const std::string_view &date, std::chrono::system_clock::time_point & tp);

@@ -55,7 +55,7 @@ json::Value HTTPJson::parseResponse(simpleServer::HttpResponse &resp, json::Valu
 		std::transform(k.first.begin(), k.first.end(), std::back_inserter(name), tolower);
 		hh.set(name, std::string_view(k.second));
 	}
-	if (ctx.indexOf("application/json") != ctx.npos) {
+	if (force_json || ctx.indexOf("application/json") != ctx.npos) {
 		BinaryView b;
 		std::size_t pos = 0;
 		auto s = resp.getBody();
