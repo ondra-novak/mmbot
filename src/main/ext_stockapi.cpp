@@ -156,6 +156,9 @@ void ExtStockApi::Connection::onConnect() {
 json::Value ExtStockApi::Connection::getBrokerInfo() const {
 	return broker_info;
 }
+void ExtStockApi::Connection::refreshBrokerInfo() {
+	broker_info = jsonRequestExchange("getBrokerInfo", json::Value());
+}
 ExtStockApi::BrokerInfo ExtStockApi::getBrokerInfo()  {
 
 	try {
@@ -190,6 +193,7 @@ ExtStockApi::BrokerInfo ExtStockApi::getBrokerInfo()  {
 
 void ExtStockApi::setApiKey(json::Value keyData) {
 	requestExchange("setApiKey",keyData);
+	connection->refreshBrokerInfo();
 }
 
 json::Value ExtStockApi::getApiKeyFields() const {
