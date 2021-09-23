@@ -218,7 +218,7 @@ IStockApi::Orders TradeOgreIFC::getOpenOrders(const std::string_view &pair) {
 		orderDB.mark(uuid);
 		Value clientId = orderDB.get(uuid);
 		double price = rw["price"].getNumber();
-		double size = rw["size"].getNumber();
+		double size = rw["quantity"].getNumber();
 		int dir = rw["type"].getString() == "sell"?-1:1;
 		return (Order{
 			uuid,
