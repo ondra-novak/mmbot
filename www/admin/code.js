@@ -386,6 +386,7 @@ App.prototype.fillForm = function (src, trg) {
 		data.type_inverted={".hidden":!pair.invert_price};
 		data.hdr_position = adjNum(invSize(state.position,pair.invert_price));
 		trg._balance = pair.currency_balance+ext_ass.currency-avail.budget;
+		trg._backtest_balance = pair.currency_balance>trg._balance?pair.currency_balance:trg._balance;
 		trg._assets = state.position;
 		trg._price = invPrice(pair.price, pair.invert_price);
 		trg._leverage = data.leverage;
@@ -1733,7 +1734,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		"hedge_short","hedge_long","hedge_drop",
 		"shg_w","shg_p","shg_olt","shg_ol","shg_lp","shg_rnv","shg_avgsp","shg_boostmode"];
 	var spread_inputs = ["spread_calc_stdev_hours", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode","dynmult_sliding","dynmult_cap","dynmult_mult","force_spread","spread_mode"];
-	var balance = form._balance;
+	var balance = form._backtest_balance;
 	var assets = form._assets;
 	var leverage = form._leverage != "n/a";	
 	var invert_price = form._invprice;
@@ -2111,6 +2112,8 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 				})
 			});
 			
+			cntr.bt.setItemValue("initial_price",init_def_price);
+			cntr.bt.setItemValue("initial_balance",balance);
 			cntr.bt.setItemEvent("options", "click", function() {
 				this.classList.toggle("sel");
 				cntr.bt.showItem("options_form", this.classList.contains("sel"));
