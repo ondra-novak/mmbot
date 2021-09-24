@@ -648,7 +648,7 @@ the same order, they are ordered by its ID - this is the default ordering. Modif
 <th class="a" data-name="shownorm" hidden="hidden">norm/y</th>
 <th class="a" data-name="shownorm" hidden="hidden">norm p.a.</th>
 <th class="a" data-name="shownorm"  hidden="hidden">max cost</th>
-<th>max profit</th><th colspan="2">drawdown</th><th>RRR</th><th rowspan="2" data-name="options"><img src="../res/options.png" ></tr>
+<th>max profit</th><th colspan="2">drawdown</th><th>RRR</th>
 <tr>
 <td class="colornumb a" data-name="pl showpl" hidden="hidden"></td>
 <td class="colornumb a" data-name="ply showpl" hidden="hidden"></td>
@@ -665,15 +665,42 @@ the same order, they are ordered by its ID - this is the default ordering. Modif
 </tr>
 </table>
 </div>
+<div class="middle">
+<div class="sidepanel">
+<div>
+	<div class="icon" data-name="options"><img src="../res/hamburger.png" title="Show more options"></div>
+	<div class="icon" data-name="download_prices"><img src="../res/dwn_history.png" title="Download prices" ></div>
+	<div class="icon" data-name="select_file"><img src="../res/upload_data.png" title="Upload 1minute data or exported trades in CSV" ></div>
+	<div class="icon" data-name="random_chart"><img src="../res/random_chart.png" title="Generate random chart" ></div>
+	<div class="icon" data-name="icon_internal"><img src="../res/internal_data.png" title="Use internal data"></div> 
+	<div class="icon" data-name="icon_recalc"><img src="../res/recalc_data.png" title="Recalculate spread" ></div>
+	<div class="icon" data-name="export"><img src="../res/export_csv.png" title="Export CSV" > </div>
+	<div class="icon" data-name="icon_reset"><img src="../res/repair.png" title="Reset data" ></div>
+	</div>	
+</div>
+<div class="options">
+<div class="floating" data-name="options_form">
 
+<input hidden="hidden" type="file"  data-name="price_file">
+<div>Start date</div><input type="date" data-name="start_date">
+<div>Assets/Position</div><input type="number" step="any" data-name="initial_pos">
+<div>Currency</div><input type="number" step="any" data-name="initial_balance">
+<div>Initial price</div><input type="number" step="any" data-name="initial_price">
+<div>Reverse/Invert chart</div><span><x-checkbox data-name="reverse_chart">Rev</x-checkbox> <x-checkbox data-name="invert_chart">Inv</x-checkbox></span>
+<div>Neg.balance</div><x-checkbox data-name="allow_neg_bal">Enabled</x-checkbox>
+</div>
+</div>
+<div class="mainpanel">
 <div class="charts spread_vis">
-<div data-name="chart1"><div><em>Loading data, please wait...</em></div></div>
+<div data-name="chart1" class="chart"><div><em>Loading data, please wait...</em></div></div>
 <p>Price / neutral price</p>
-<div data-name="chart2"></div>
+<div data-name="chart2" class="chart"></div>
 <p>Profit from position / normalized profit</p>
 <div class="spinner fast save" data-name="spinner" hidden="hidden"></div>
-<div><input name="pos" type="range" min="-100" max="0" step="0.1" value="0" class="thick"></div>
+<div class="scrollbar"><input name="pos" type="range" min="-100" max="0" step="0.1" value="0" class="thick"></div>
 <div class="error" data-name="error_window">Error message example</div>
+</div>
+</div>
 </div>
 <div class="tablecont bottom"><table>
 <tr>
@@ -702,26 +729,9 @@ the same order, they are ordered by its ID - this is the default ordering. Modif
 <td data-name="streak"></td>
 </tr>
 </table>
-</div>
 
-<x-form class="floating" hidden="hidden" data-name="options_form">
-<div class="backtesticons">
-	<div class="icon" data-name="download_prices"><img src="../res/dwn_history.png" title="Download prices" ></div>
-	<div class="icon" data-name="select_file"><img src="../res/upload_data.png" title="Upload 1minute data or exported trades in CSV" ></div>
-	<div class="icon" data-name="random_chart"><img src="../res/random_chart.png" title="Generate random chart" ></div>
-	<div class="icon" data-name="icon_internal"><img src="../res/internal_data.png" title="Use internal data"></div> 
-	<div class="icon" data-name="icon_recalc"><img src="../res/recalc_data.png" title="Recalculate spread" ></div>
-	<div class="icon" data-name="export"><img src="../res/export_csv.png" title="Export CSV" > </div>
-	<div class="icon" data-name="icon_reset"><img src="../res/repair.png" title="Reset data" ></div>
+
 </div>
-<input hidden="hidden" type="file"  data-name="price_file">
-<label><span>Start date</span><input type="date" data-name="start_date"></label>
-<label><span>Assets/Position</span><input type="number" step="any" data-name="initial_pos"></label>
-<label><span>Currency</span><input type="number" step="any" data-name="initial_balance"></label>
-<label><span>Initial price</span><input type="number" step="any" data-name="initial_price"></label>
-<label><span>Reverse/Invert chart</span><span><x-checkbox data-name="reverse_chart">Rev</x-checkbox> <x-checkbox data-name="invert_chart">Inv</x-checkbox></span></label>
-<label><span>Neg.balance</span><x-checkbox data-name="allow_neg_bal">Enabled</x-checkbox></label>
-</x-form>
 </x-section>
 </template>
 

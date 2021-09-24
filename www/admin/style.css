@@ -157,8 +157,6 @@ x-section {
 	transition: 0.3s all;
 }
 x-section.goal {
-	top: 0;
-	margin: 1.1em 0;
 }
 x-section.goal.hidden {
 	display:none
@@ -193,6 +191,73 @@ x-form.no_adv label.adv.unhide, x-form.no_adv div.label.adv.unhide {
 x-form label.modified, x-form div.label.modified {
 	color:yellow;	
 }
+
+x-section.backtest {padding: 0;}
+x-section.backtest div.middle {display: flex;flex-direction: row;overflow: hidden;}
+x-section.backtest div.options {
+    position: relative;
+    width: 0;
+}
+x-section.backtest div.floating {
+    position: absolute;
+    left: -12em;
+    /* border: 1px solid; */
+    padding: 0.5em;
+    background-color: #101010;
+    text-align: center;
+    border: 1px solid #444;
+    box-shadow: 0 0 black;
+    box-sizing:border-box;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: 0.3s all ease-in-out;
+    width: 12em;
+}
+x-section.backtest div.floating.shown {opacity: 1;pointer-events: auto;left: 0;} 
+x-section.backtest div.floating >div {
+    font-size: 0.8em;
+    margin-top: 0.5em;
+    text-shadow: 0px 0px 6px black;
+}
+x-section.backtest div.floating >input {
+    width: 100%;
+}
+x-section.backtest  div.sidepanel{
+    width: 6%;
+    height: 0;
+    padding-bottom: 61%;
+    position: relative;
+}
+x-section.backtest  div.sidepanel > div {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: -100%;
+    z-index: 1;
+    background-color: #222;
+}
+x-section.backtest  div.sidepanel img{width: 100%;display: block;box-sizing: border-box;padding: 15%;}
+x-section.backtest  div.sidepanel .icon {
+    cursor: pointer;
+    background-color: #0000;
+    transition: 0.3s all;
+    opacity: 0.5;
+}
+x-section.backtest  div.sidepanel .icon:hover {opacity: 1;}
+x-section.backtest  div.sidepanel .icon:active {}
+x-section.backtest  div.sidepanel .icon.sel{background-color: #101010;opacity: 1;}
+x-section.backtest   div.mainpanel{
+	flex-grow: 1;
+}
+x-section.backtest   div.mainpanel div.chart > svg{}
+.backtest .chart {
+}
+
+.backtest .no_data_panel {
+    padding: 1cm;
+} 
 
 div.trader.list .selected {
 	background-color: #333;
@@ -576,7 +641,10 @@ a {
 }
 
 .backtest .charts.spread_vis {
-	position: relative;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    justify-content: space-between;
 }
 
 .backtest .charts.spread_vis .error::before {
@@ -599,7 +667,7 @@ a {
 .backtest .charts.spread_vis .spinner {
 	display: block;
 	position: absolute;
-	top: 0;
+	top: 5em;
 	left: 0;
 	right: 0;
 	margin: auto;
@@ -608,20 +676,18 @@ a {
 .backtest p {
 	text-align:center;
 	margin: 0;
-	font-style:italic
+	font-style:italic;
+	height: 5%;
 }
+.backtest .scrollbar {height: 10%;}
 
 .backtest div.tablecont {
 	background: linear-gradient(to right, transparent,#3e3e3e);	
 }
-.backtest div.tablecont.up {
-		margin: -0.5em -0.5em 0.5em -0.5em;
-}
-.backtest div.tablecont.bottom {
-		margin: 0.5em -0.5em -0.5em -0.5em;
-}
+.backtest div.tablecont.up {padding-top: 0.4em;}
+.backtest div.tablecont.bottom {padding-bottom: 0.4em;}
 .backtest table{
-	/* width: 100%; */
+	width: 100%;
 	border-collapse:collapse;
 	padding:0;
 }
@@ -636,6 +702,7 @@ a {
 	font-size: 0.9em;
 	margin: 0;
 	box-sizing: border-box;
+	width: 50%;
 }
 
 .backtest th {
@@ -688,28 +755,6 @@ a {
 	width: 100% !important;
 }
 
-.backtesticons {
-	display: flex;
-	flex-wrap:nowrap;	
-	background-color: #282828;
-	margin: -0.5em -0.5em 0.5em -0.5em;
-}
-.backtesticons img {
-	width: 60%;
-	display: block;
-	margin: auto;
-}
-.backtesticons > * {
-	padding: 0.4em 0em;
-	width: 15%;
-	cursor: pointer;
-	box-sizing: border-box;
-}
-
-.backtesticons > *:hover {
-	background-color:#FFF2
-
-}
 input[type=range].thick {
   -webkit-appearance: none;
   width: 100%;
@@ -1394,6 +1439,10 @@ input,select,button,textarea {
 table.utilization {
     width:100%;
 }
+x-section.backtest div.sidepanel {
+	width: 7.5%;
+}
+
 }
 
 
@@ -1433,12 +1482,14 @@ table.utilization {
 	flex-wrap:wrap;
 	max-width: none;
 	justify-content: center;
-	margin: 0;
+	margin: 0.5em 2%;
+	gap: 1em;
 }
 .vertical .content x-form.sections > * {
 	flex-grow:1;
 	width: 15cm;
-	margin-right: 1em;
+	box-sizing: border-box;
+	margin: 0;
 }
 
 .vertical .content x-section.small_box {

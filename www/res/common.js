@@ -363,6 +363,9 @@ function initChart(chart_interval, ratio, base_interval, objret) {
 		},
 		symb: function() {
 			return fld;
+		},
+		aspect: function(x) {
+			svg.setAttribute("preserveAspectRatio",x);
 		}
 		
 	}} else {

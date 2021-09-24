@@ -1928,7 +1928,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
                 var bb = selmap.box();
                 var ofsx = ev.clientX - bb.left;
                 var ofsy = ev.clientY - bb.top;
-                var cont = chart1.parentNode;
+                var cont = chart1.parentNode.parentNode.parentNode.parentNode;
                 var contBox = cont.getBoundingClientRect();
                 if (!infoElm) {
                 	infoElm = TemplateJS.View.fromTemplate("backtest_info");
@@ -2119,7 +2119,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 			cntr.bt.setItemValue("initial_balance",balance);
 			cntr.bt.setItemEvent("options", "click", function() {
 				this.classList.toggle("sel");
-				cntr.bt.showItem("options_form", this.classList.contains("sel"));
+				cntr.bt.setData({"options_form":{classList:{shown:this.classList.contains("sel")}}});
 				if (infoElm) {infoElm.close(); infoElm = null;}
 			});
 			cntr.bt.setItemEvent("initial_balance","input",cntr.update);
@@ -2150,7 +2150,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 			})
 			cntr.bt.setItemEvent("start_date","input", function() {
 				start_date=this.valueAsNumber;
-				cntr.update();
+				if (start_date>0) cntr.update();
 			})
 			cntr.bt.setItemEvent("fill_atprice","change", function() {
 				fill_atprice = cntr.bt.readData(["fill_atprice"]).fill_atprice;
@@ -2276,7 +2276,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 							"!click":download_historical_fn
 						    }});
 						TemplateJS.View.clearContent(chart1);
-						templ.open(chart1);
+						chart1.appendChild(templ.getRoot());
 						update_recalc = function() {};
 					} else {
 						res_data = v;
