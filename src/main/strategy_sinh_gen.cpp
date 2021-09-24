@@ -54,7 +54,7 @@ Strategy_Sinh_Gen::FnCalc::FnCalc(double wd, double boost)
 
 double Strategy_Sinh_Gen::FnCalc::baseFn(double x) const {
 	double y = std::sinh(wd*(1-std::sqrt(x)))/(x*sqrt(wd));
-	return y = y + sgn(y) * boost;
+	return y + sgn(y) * boost;
 }
 
 
@@ -154,6 +154,7 @@ double Strategy_Sinh_Gen::calcNewK(double tradePrice, double cb, double pnl, int
 		double sprd = cfg.avgspread?(1.0+st.sum_spread/std::max(st.trades,10)):(tradePrice/st.p);
 		double refp = st.k*sprd;
 		double yield = cfg.calc->budget(st.k, pw, refp);
+		double yield2 = yield+cfg.power*cfg.calc->getBoost()*std::abs(refp-st.k);
 		double refb;
 		switch (bmode) {
 		default:
@@ -161,8 +162,8 @@ double Strategy_Sinh_Gen::calcNewK(double tradePrice, double cb, double pnl, int
 			case 1: refb = yield;break;
 			case 2: refb = pnl>0?2*yield:0.0;break;
 			case 3: refb = 0;break;
-			case 4: refb = pnl>0?yield*2:-yield;break;
-			case 5: refb = pnl>0?yield*3:-2*yield;break;
+			case 4: refb = pnl>0?yield2*2:-yield2;break;
+			case 5: refb = pnl>0?yield2*3:-2*yield2;break;
 		}
 		double nb = cb+pnl+refb;
 

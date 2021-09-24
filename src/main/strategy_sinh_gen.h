@@ -29,6 +29,7 @@ public:
 		static bool sortPoints(const Point &a, const Point &b);
 
 		const double getWD() const {return wd;}
+		const double getBoost() const {return boost;}
 
 	protected:
 		double wd;
