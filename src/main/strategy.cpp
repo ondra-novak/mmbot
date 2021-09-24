@@ -197,7 +197,7 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 		double p = config["p"].getNumber()*0.01;
 		double w = config["w"].getNumber();
 		double b = config["b"].getNumber();
-		cfg.calc = std::make_shared<Strategy_Sinh_Gen::FnCalc>(w,b);
+		cfg.calc = std::make_shared<Strategy_Sinh_Gen::FnCalc>(w,b*0.01);
 		cfg.disableSide = config["disableSide"].getInt();
 		cfg.power = p;
 		cfg.reinvest = config["reinvest"].getBool();
