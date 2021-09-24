@@ -436,8 +436,6 @@ void Report::setMisc(StrViewA symb, const MiscData &miscData) {
 		{"tt",miscData.total_time},
 		{"bt",miscData.budget_total},
 		{"a",miscData.achieve_mode},
-		{"cur_norm_buy",miscData.cur_norm_buy},
-		{"cur_norm_sell",miscData.cur_norm_sell},
 		{"ba",miscData.budget_assets}});
 	if (miscData.budget_extra.has_value())
 		output.set("be", *miscData.budget_extra);
@@ -452,6 +450,8 @@ void Report::setMisc(StrViewA symb, const MiscData &miscData) {
 			{"mh",1.0/miscData.lowest_price},
 			{"mdmb", miscData.dynmult_sell},
 			{"mdms", miscData.dynmult_buy},
+			{"cur_norm_buy",miscData.cur_norm_sell},
+			{"cur_norm_sell",miscData.cur_norm_buy},
 			{"ltp", 1.0/miscData.lastTradePrice}});
 	} else {
 		output.setItems({
@@ -462,6 +462,8 @@ void Report::setMisc(StrViewA symb, const MiscData &miscData) {
 			{"mh",miscData.highest_price},
 			{"mdmb", miscData.dynmult_buy},
 			{"mdms", miscData.dynmult_sell},
+			{"cur_norm_buy",miscData.cur_norm_buy},
+			{"cur_norm_sell",miscData.cur_norm_sell},
 			{"ltp", miscData.lastTradePrice}
 		});
 	}
