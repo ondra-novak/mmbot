@@ -237,6 +237,7 @@ to enter a negative value and then the value of the assets held will decrease an
 <x-section data-name="strategy_sinhgen" class="goal" hidden="hidden"><x-section-caption>Simple Leveraged</x-section-caption>
 <label><span>Power[%]<span class="tooltip">Relative amount of you balance used in calculation in percent</span></span><x-slider data-name="shg_p" data-min="1" data-max="200" data-mult="1" data-fixed="0"></label>
 <label><span>Aggressiveness[%]<span class="tooltip">How much aggresive is strategy is to open positions. In order to ensure sufficient money management, smaller positions may be opened first and larger positions will be opened later </span></span><x-slider data-name="shg_w" data-min="1" data-max="200" data-mult="1" data-fixed="0"></label>
+<label class="adv"><span>Initial boost[%]<span class="tooltip">Boosts position when it is initialy opened</span></span><x-slider data-name="shg_b" data-min="0" data-max="1" data-mult="0.01" data-fixed="2"></label>
 <label class="adv"><span>Open limiter - <select data-name="shg_olt">
 <option value="0">disabled</option>
 <option value="-1">max leverage</option>

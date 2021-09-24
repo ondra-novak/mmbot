@@ -26,8 +26,8 @@ bool Strategy_Sinh_Gen::FnCalc::sortPoints(const Point &a, const Point &b) {
 	return a.first < b.first;
 }
 
-Strategy_Sinh_Gen::FnCalc::FnCalc(double wd)
-:wd(wd) {
+Strategy_Sinh_Gen::FnCalc::FnCalc(double wd, double boost)
+:wd(wd),boost(boost) {
 
 		auto fillFn = [&](double x, double y) {
 			itable.push_back({x,y});
@@ -53,7 +53,8 @@ Strategy_Sinh_Gen::FnCalc::FnCalc(double wd)
 }
 
 double Strategy_Sinh_Gen::FnCalc::baseFn(double x) const {
-	return std::sinh(wd*(1-std::sqrt(x)))/x;
+	double y = std::sinh(wd*(1-std::sqrt(x)))/(x*sqrt(wd));
+	return y = y + sgn(y) * boost;
 }
 
 

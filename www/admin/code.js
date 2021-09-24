@@ -604,6 +604,7 @@ App.prototype.fillForm = function (src, trg) {
 	data.hedge_short=true;
 	data.shg_w=50;
 	data.shg_p=50;
+	data.shg_b=0;
 	data.shg_ol=2;
 	data.shg_olt={value:"-1"};
 	data.shg_lp="0";
@@ -675,6 +676,7 @@ App.prototype.fillForm = function (src, trg) {
 	} else if (data.strategy == "sinh_gen") {
 		data.shg_w=filledval(src.strategy.w,50);
 		data.shg_p=filledval(src.strategy.p,100);
+		data.shg_b=filledval(src.strategy.b,0);
 		data.shg_lp=filledval(src.strategy.disableSide,0);
 		data.shg_rnv=filledval(src.strategy.reinvest,false);
 		data.shg_avgsp=filledval(src.strategy.avgspread,false);
@@ -848,6 +850,7 @@ function getStrategyData(data) {
 		strategy = {
 			type: data.strategy,
 			w:data.shg_w,
+			b:data.shg_b,
 			p:data.shg_p,
 			openlimit:parseFloat(data.shg_olt)*data.shg_ol,
 			disableSide:data.shg_lp,
@@ -1732,7 +1735,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		"min_balance","max_balance","max_leverage","reduce_on_leverage","mart_initial","mart_power","mart_reduction","mart_collateral","mart_allowshort","gamma_exp","gamma_rebalance","gamma_trend","gamma_fn","gamma_reinvest","gamma_maxrebal",
 		"pincome_exp",
 		"hedge_short","hedge_long","hedge_drop",
-		"shg_w","shg_p","shg_olt","shg_ol","shg_lp","shg_rnv","shg_avgsp","shg_boostmode"];
+		"shg_w","shg_p","shg_b","shg_olt","shg_ol","shg_lp","shg_rnv","shg_avgsp","shg_boostmode"];
 	var spread_inputs = ["spread_calc_stdev_hours", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode","dynmult_sliding","dynmult_cap","dynmult_mult","force_spread","spread_mode"];
 	var balance = form._backtest_balance;
 	var assets = form._assets;
