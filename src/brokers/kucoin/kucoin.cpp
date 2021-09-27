@@ -279,6 +279,7 @@ IStockApi::TradesSync KucoinIFC::syncTrades(json::Value lastId, const std::strin
 			{"symbol",pair}
 		})["items"];
 		findMostTime(fills);
+		if (mostTime == 0) mostTime = std::chrono::duration_cast<std::chrono::milliseconds>(api.now().time_since_epoch()).count();
 		return TradesSync{{},{mostTime, mostIDS}};
 
 	}
