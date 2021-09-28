@@ -147,6 +147,8 @@ PStrategy Strategy_Sinh_Gen::init(const IStockApi::MarketInfo &minfo,
 }
 
 double Strategy_Sinh_Gen::calcNewK(double tradePrice, double cb, double pnl, int bmode) const {
+	if (st.p == st.k)
+		return std::sqrt(st.k* tradePrice);
 	if (pnl == 0) return st.k;
 	double newk;
 	if (st.p == st.k) return st.k;
@@ -486,7 +488,7 @@ double Strategy_Sinh_Gen::adjustPower(double a, double newk, double price) const
 		double b = st.budget+cfg.calc->budget(newk, pw, price);
 		double newlev = std::abs(new_a) * price/b;
 		double oldlev = std::abs(a) * price/b;
-		if (newlev > 0.25) {
+		if (newlev > 0.25 || cfg.openlimit<0) {
 			if (cfg.openlimit>0) {
 				double m = new_a/a;
 				double f = cfg.openlimit+1;
@@ -500,11 +502,14 @@ double Strategy_Sinh_Gen::adjustPower(double a, double newk, double price) const
 			} else {
 				double ref_a = (oldlev-cfg.openlimit)*b/price;
 				if (ref_a < std::abs(new_a)) {
-					new_a = sgn(a)*ref_a;
+//					new_a = sgn(new_a)*ref_a;
+					new_a = pow2(ref_a)/new_a;
 					double adj = numeric_search_r1(1.5, [&](double adj){
 						return cfg.calc->assets(newk, pw*adj, price) - new_a;
 					});
 					return std::max(0.3,adj);
+				} else if (st.pwadj<1.0 && (price - st.p)*a < 0) {
+					return (st.pwadj*0.98+0.02)/st.pwadj;
 				}
 			}
 		} else if (st.pwadj<1.0 && (price - st.p)*a < 0) {
