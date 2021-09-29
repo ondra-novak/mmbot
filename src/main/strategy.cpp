@@ -234,19 +234,3 @@ double IStrategy::calcOrderSize(double , double actualAmount, double newAmount) 
 }
 
 
-void Strategy::adjustOrder(double dir, double mult,
-		bool enable_alerts, Strategy::OrderData &order) {
-
-	if (order.alert != IStrategy::Alert::stoploss) {
-		order.size *= mult;
-	} else {
-		order.alert = IStrategy::Alert::forced;
-	}
-	if (order.size * dir <= 0) {
-		if (order.alert == IStrategy::Alert::enabled && !enable_alerts)
-			order.alert = IStrategy::Alert::disabled;
-		order.size = 0;
-	} else if (order.alert == IStrategy::Alert::forced) {
-		order.alert = IStrategy::Alert::enabled;
-	}
-}

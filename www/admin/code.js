@@ -707,7 +707,6 @@ App.prototype.fillForm = function (src, trg) {
 	data.dynmult_sliding = filledval(src.dynmult_sliding,false);
 	data.dynmult_mult = filledval(src.dynmult_mult, true);
 	data.spread_mult = filledval(Math.log(defval(src.buy_step_mult,1))/Math.log(2)*100,0);
-	data.order_mult = filledval(defval(src.buy_mult,1)*100,100);
 	data.min_size = filledval(src.min_size,0);
 	data.max_size = filledval(src.max_size,0);
 	data.internal_balance = filledval(src.internal_balance,0);
@@ -718,7 +717,6 @@ App.prototype.fillForm = function (src, trg) {
 	data.spread_mode = filledval(src.force_spread?"fixed":"adaptive","adaptive");
 	data.max_balance = filledval(src.max_balance,"");
 	data.min_balance = filledval(src.min_balance,"");
-	data.zigzag = filledval(src.zigzag,false);
 	data.max_leverage = filledval(src.max_leverage,3);
 	data.reduce_on_leverage = filledval(src.reduce_on_leverage, false);
 	data.adj_timeout = filledval(src.adj_timeout,60);
@@ -923,9 +921,6 @@ App.prototype.saveForm = function(form, src) {
 	trader.dynmult_sliding = data.dynmult_sliding;
 	trader.dynmult_mult = data.dynmult_mult;
 	trader.dynmult_cap = data.dynmult_cap;
-	trader.zigzag = data.zigzag;
-	trader.buy_mult = data.order_mult/100;
-	trader.sell_mult = data.order_mult/100;
 	trader.buy_step_mult = Math.pow(2,data.spread_mult*0.01)
 	trader.sell_step_mult = Math.pow(2,data.spread_mult*0.01)
 	trader.min_size = data.min_size;
@@ -1728,8 +1723,8 @@ function DelayUpdate(fn) {
 App.prototype.init_backtest = function(form, id, pair, broker) {
 	var url = "api/backtest2";
 	form.enableItem("show_backtest",false);		
-	var inputs = ["strategy","external_assets", "acum_factor","kv_valinc","kv_halfhalf","min_size","max_size","order_mult","linear_suggest","linear_suggest_maxpos",
-		"st_power","st_reduction_step","st_sl","st_redmode","st_max_step","st_pattern","dynmult_sliding","accept_loss","st_tmode","zigzag",
+	var inputs = ["strategy","external_assets", "acum_factor","kv_valinc","kv_halfhalf","min_size","max_size","linear_suggest","linear_suggest_maxpos",
+		"st_power","st_reduction_step","st_sl","st_redmode","st_max_step","st_pattern","dynmult_sliding","accept_loss","st_tmode",
 		"hp_trend_factor","hp_allowshort","hp_reinvest","hp_power","hp_asym","hp_reduction","sh_curv","hp_limit","hp_extbal","hp_powadj","hp_dynred",
 		"gs_external_assets","gs_rb_hi_a","gs_rb_lo_a","gs_rb_hi_p","gs_rb_lo_p",
 		"min_balance","max_balance","max_leverage","reduce_on_leverage","mart_initial","mart_power","mart_reduction","mart_collateral","mart_allowshort","gamma_exp","gamma_rebalance","gamma_trend","gamma_fn","gamma_reinvest","gamma_maxrebal",

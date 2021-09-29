@@ -48,8 +48,6 @@ void MTrader_Config::loadConfig(json::Value data, bool force_dry_run) {
 	strategy = Strategy::create(strstr.str(), strdata);
 
 
-	buy_mult = data["buy_mult"].getValueOrDefault(1.0);
-	sell_mult = data["sell_mult"].getValueOrDefault(1.0);
 	buy_step_mult = data["buy_step_mult"].getValueOrDefault(1.0);
 	sell_step_mult = data["sell_step_mult"].getValueOrDefault(1.0);
 	min_size = data["min_size"].getValueOrDefault(0.0);
@@ -82,7 +80,6 @@ void MTrader_Config::loadConfig(json::Value data, bool force_dry_run) {
 	hidden = data["hidden"].getValueOrDefault(false);
 	dynmult_sliding = data["dynmult_sliding"].getValueOrDefault(false);
 	dynmult_mult = data["dynmult_mult"].getValueOrDefault(false);
-	zigzag = data["zigzag"].getValueOrDefault(false);
 	swap_symbols= data["swap_symbols"].getValueOrDefault(false);
 	emulate_leveraged=data["emulate_leveraged"].getValueOrDefault(0.0);
 	reduce_on_leverage=data["reduce_on_leverage"].getBool();
@@ -296,7 +293,7 @@ void MTrader::perform(bool manually) {
 					&& eq > 0				 //equilibrium is not zero or negatiove
 					&& (lastTradePrice * std::exp(-status.curStep)>eq //eq is not in reach to lastTradePrice
 						|| lastTradePrice * std::exp(status.curStep)<eq)) { //eq is not in reach to lastTradePrice
-			if (cfg.buy_mult < 0.99 || cfg.sell_mult > 1.01 || cfg.max_size != 0) {
+			if (cfg.max_size != 0) {
 				logDebug("Enforced alerts because configuration");
 				need_alerts = true;
 			} else {
@@ -335,7 +332,6 @@ void MTrader::perform(bool manually) {
 					update_dynmult(lastTradeSize > 0, lastTradeSize < 0);
 					lastTradePrice = lp;
 					lastPriceOffset = lastTradePrice - status.spreadCenter;
-					if (cfg.zigzag) updateZigzagLevels();
 				}
 			}
 
@@ -404,8 +400,6 @@ void MTrader::perform(bool manually) {
 														status.ticker.bid,
 														position,
 														status.currencyAvailBalance,
-														cfg.buy_mult,
-														zigzaglevels,
 														grant_trade?false:need_alerts);
 							//calculate sell order
 						sellorder = calculateOrder(grant_trade?status.ticker.ask*0.85:lastTradePrice,
@@ -414,8 +408,6 @@ void MTrader::perform(bool manually) {
 														 status.ticker.ask,
 														 position,
 														 status.currencyAvailBalance,
-														 cfg.sell_mult,
-														 zigzaglevels,
 														 grant_trade?false:need_alerts);
 
 					}
@@ -617,7 +609,7 @@ void MTrader::setOrder(std::optional<IStockApi::Order> &orig, Order neworder, st
 			if (orig.has_value()) return;
 			throw std::runtime_error("Order rejected - Size is not finite");
 		}
-		if (neworder.alert == IStrategy::Alert::forced) {
+		if (neworder.alert == IStrategy::Alert::forced && neworder.size == 0) {
 			if (orig.has_value() && orig->id.hasValue()) {
 				//cancel current order
 				stock->placeOrder(cfg.pairsymb,0,0,nullptr,orig->id,0);
@@ -758,33 +750,41 @@ MTrader::Status MTrader::getMarketStatus() const {
 	return res;
 }
 
-bool MTrader::calculateOrderFeeLessAdjust(Order &order, double assets, double currency, int dir, double mult, bool alerts, double min_size, const ZigZagLevels &zlev) const {
+bool MTrader::calculateOrderFeeLessAdjust(Order &order, double assets, double currency, int dir, bool alerts, double min_size) const {
 
-	bool enabledAlert = order.alert != IStrategy::Alert::disabled;
-
-	Strategy::adjustOrder(dir, mult, alerts, order);
-
-	modifyOrder(zlev,dir, order);
-
-
-
-	if (order.alert == IStrategy::Alert::forced) {
-		return true;
+	//order is reversed to requested direction
+	if (order.size * dir < 0) {
+		//we can't trade this, so assume, that order size is zero
+		order.size = 0;
 	}
 
+	if (order.size == 0) {
+		//for forced, stoploss, disabled, we accept current order
+		//otherwise it depends on "alerts enabled"
+		if (order.alert != IStrategy::Alert::enabled) return true;
+		else return alerts;
+	}
+
+	//check leverage
 	double d;
 	if (!checkLeverage(order, assets, currency, d))  {
+		//adjust order when leverage reached
 		order.size = d;
+		//if result is zero
 		if (d == 0) {
-			if (enabledAlert) order.alert = IStrategy::Alert::forced;
+			//force alert
+			order.alert = IStrategy::Alert::forced;
 			return true;
 		}
 	}
 
+	//if size of order is above max_size, adjust to max_size
 	if (cfg.max_size && std::fabs(order.size) > cfg.max_size) {
 		order.size = cfg.max_size*dir;
 	}
+	//if order size is below min_size, adjust to zero
 	if (std::fabs(order.size) < min_size) order.size = 0;
+	//if order volume is below min volume (after add fees), adjust order to zero
 	if (minfo.min_volume) {
 		double op = order.price;
 		double os = order.size;
@@ -793,7 +793,8 @@ bool MTrader::calculateOrderFeeLessAdjust(Order &order, double assets, double cu
 		if (vol < minfo.min_volume) order.size = 0;
 	}
 
-	return false;
+	//in this case, we continue to search better price (don't accept the order)
+	return order.size !=0 ;
 
 }
 
@@ -804,8 +805,6 @@ MTrader::Order MTrader::calculateOrderFeeLess(
 		double curPrice,
 		double balance,
 		double currency,
-		double mult,
-		const ZigZagLevels &zlev,
 		bool alerts) const {
 
 	double m = 1;
@@ -832,9 +831,7 @@ MTrader::Order MTrader::calculateOrderFeeLess(
 
 	if (order.price <= 0) order.price = newPrice;
 	if ((order.price - curPrice) * dir < 0) {
-		if (calculateOrderFeeLessAdjust(order, balance, currency, dir, mult, alerts, min_size, zlev)) return order;
-		if (order.size != 0)
-			skipcycle = true;
+		if (calculateOrderFeeLessAdjust(order, balance, currency, dir, alerts, min_size)) skipcycle = true;;
 	}
 	double origOrderPrice = order.price;
 
@@ -862,7 +859,7 @@ MTrader::Order MTrader::calculateOrderFeeLess(
 
 			sz = order.size;
 
-			if (calculateOrderFeeLessAdjust(order, balance, currency, dir, mult, alerts, min_size, zlev)) return order;
+			if (calculateOrderFeeLessAdjust(order, balance, currency, dir, alerts, min_size)) break;;
 
 			cnt++;
 			m = m*1.1;
@@ -872,7 +869,7 @@ MTrader::Order MTrader::calculateOrderFeeLess(
 	auto lmsz = limitOrderMinMaxBalance(balance, order.size);
 	if (lmsz.first) {
 		order.size = lmsz.second;
-		order.alert = !order.size?IStrategy::Alert::forced:IStrategy::Alert::enabled;
+		if (!order.size) order.alert = IStrategy::Alert::forced;
 	}
 	if (order.size == 0 && order.alert != IStrategy::Alert::disabled) {
 		order.price = origOrderPrice;
@@ -890,77 +887,21 @@ MTrader::Order MTrader::calculateOrder(
 		double curPrice,
 		double balance,
 		double currency,
-		double mult,
-		const ZigZagLevels &zlev,
 		bool alerts) const {
 
 		double fakeSize = -step;
 		//remove fees from curPrice to effectively put order inside of bid/ask spread
 		minfo.removeFees(fakeSize, curPrice);
 		//calculate order
-		Order order(calculateOrderFeeLess(lastTradePrice, step,dynmult,curPrice,balance,currency,mult,zlev,alerts));
+		Order order(calculateOrderFeeLess(lastTradePrice, step,dynmult,curPrice,balance,currency,alerts));
 		//apply fees
-		if (order.alert != IStrategy::Alert::forced && order.size) minfo.addFees(order.size, order.price);
+		if (order.alert != IStrategy::Alert::stoploss && order.size) minfo.addFees(order.size, order.price);
 
 		return order;
 
 }
 
-void MTrader::updateZigzagLevels() {
-	zigzaglevels.levels.clear();
-	zigzaglevels.direction = 0;
-	if (trades.size()<4) return;
-	double sumTrades = std::accumulate(trades.begin(), trades.end(), 0.0, [](double x, const auto &z) {
-		return x + std::abs(z.eff_size);
-	});
-	double limit = sumTrades/trades.size();
 
-	logDebug("(Zigzag) Limit set $1", limit*2);
-
-	auto iter = trades.rbegin();
-	auto end = trades.rend();
-	while (iter != end && iter->size == 0) ++iter;
-	if (iter != end)  {
-		double sz = iter->eff_size;
-		if (std::abs(sz)>=limit*2) sz = 0;
-		zigzaglevels.levels.push_back({
-			sz,
-			iter->eff_price,
-		});
-		{
-			const auto &bb = zigzaglevels.levels.back();
-			logDebug("(Zigzag) ZigZagLevels 1th level update: amount=$1, price=$2", bb.amount, bb.price);
-		}
-		zigzaglevels.direction = sgn(iter->size);
-		++iter;
-		int level = 2;
-		while (iter != end && iter->size * zigzaglevels.direction >= 0) {
-			level++;
-			const auto &b = zigzaglevels.levels.back();
-			double sz = iter->eff_size+b.amount;
-			if (std::abs(sz) < limit*level) {
-				zigzaglevels.levels.push_back({
-					sz, (b.amount * b.price + iter->eff_size*iter->eff_price)/(b.amount + iter->eff_size)
-				});
-				const auto &bb = zigzaglevels.levels.back();
-				logDebug("(Zigzag) ZigZagLevels 2nd level update: amount=$1, price=$2", bb.amount, bb.price);
-			}
-			++iter;
-		}
-	}
-}
-
-void MTrader::modifyOrder(const ZigZagLevels &zlevs, double ,  Order &order) const {
-	if ((order.size * zlevs.direction < 0) && (minfo.leverage == 0 || order.size * position <0)) {
-		for (const auto &l : zlevs.levels) {
-			if ((l.price - order.price)* zlevs.direction < 0 && (std::abs(order.size) < std::abs(l.amount) )) {
-				logDebug("(Zigzag) Zigzag active: order_price/level_price=($1 => $3), order_size/new_size=($2 => $4)",
-						order.price, order.size, l.price, -l.amount	);
-				order.size = -l.amount;
-			}
-		}
-	}
-}
 
 void MTrader::initialize() {
 	std::string brokerImg;
@@ -1093,7 +1034,6 @@ void MTrader::loadState() {
 	tempPr.asset = minfo.asset_symbol;
 	tempPr.simulator = minfo.simulator;
 	tempPr.invert_price = minfo.invert_price;
-	if (cfg.zigzag) updateZigzagLevels();
 	if (strategy.isValid() && !trades.empty()) {
 		wcfg.walletDB.lock()->alloc(getWalletBalanceKey(), strategy.calcCurrencyAllocation(trades.back().eff_price));
 	}
@@ -1380,7 +1320,7 @@ void MTrader::acceptLoss(const Status &st, double dir) {
 		if (dynmult.getBuyMult() <= 1.0 && dynmult.getSellMult() <= 1.0) {
 			std::size_t e = st.chartItem.time>ttm?(st.chartItem.time-ttm)/(3600000):0;
 			double lastTradePrice = trades.back().eff_price;
-			auto order = calculateOrder(lastTradePrice, -st.curStep * 2 * dir, 1, lastTradePrice, st.assetBalance, st.currencyBalance, 1.0, zigzaglevels,true);
+			auto order = calculateOrder(lastTradePrice, -st.curStep * 2 * dir, 1, lastTradePrice, st.assetBalance, st.currencyBalance, true);
 			double limitPrice = order.price;
 			if (e > cfg.accept_loss && (st.curPrice - limitPrice) * dir < 0) {
 				ondra_shared::logWarning("Accept loss in effect: price=$1, balance=$2", st.curPrice, st.assetBalance);

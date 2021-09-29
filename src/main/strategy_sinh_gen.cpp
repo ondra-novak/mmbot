@@ -363,7 +363,7 @@ IStrategy::OrderData Strategy_Sinh_Gen::getNewOrder(
 		}
 	}*/
 	//if new position is reverse or zero
-	if (new_pos * assets <0 || new_pos == 0) {
+	if ((new_pos * assets <0 || new_pos == 0) && (assets * dir < 0)){
 		//close current position (force alert)
 		return {0,-assets,Alert::forced};
 	}

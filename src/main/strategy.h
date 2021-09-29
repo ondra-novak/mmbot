@@ -143,7 +143,6 @@ public:
 	static Strategy create(std::string_view id, json::Value config);
 
 
-	static void adjustOrder(double dir,double mult,bool enable_alerts, Strategy::OrderData &order);
 
 protected:
 	Ptr ptr;

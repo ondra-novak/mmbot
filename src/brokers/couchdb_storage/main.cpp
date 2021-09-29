@@ -27,7 +27,7 @@ static json::Value design_document = json::Value(json::object,{
 		json::Value("month", json::Value(json::object,{
 			json::Value("map",R"js(
 function(doc) {
-   if (doc._id[0] == 't') {
+   if (doc._id[0] == 't' && !doc.deleted) {
 	  var d = new Date(doc.time);
 	  var m = d.getYear()*12+d.getMonth();
 	  if (typeof doc.change == "number") emit([doc.ident,m,doc.currency],doc.change);
@@ -39,7 +39,7 @@ function(doc) {
 		json::Value("day", json::Value(json::object,{
 			json::Value("map",R"js(
 function(doc) {
-   if (doc._id[0] == 't') {
+   if (doc._id[0] == 't' && !doc.deleted) {
 	  var m = Math.floor(doc.time/(24*60*60*1000));
 	  if (typeof doc.change == "number") emit([doc.ident,m,doc.currency],doc.change);
    }

@@ -31,8 +31,6 @@ struct MTrader_Config {
 	std::string broker;
 	std::string title;
 
-	double buy_mult;
-	double sell_mult;
 	double buy_step_mult;
 	double sell_step_mult;
 	double min_size;
@@ -64,7 +62,6 @@ struct MTrader_Config {
 	bool hidden;
 	bool dynmult_sliding;
 	bool dynmult_mult;
-	bool zigzag;
 	bool swap_symbols;
 	bool reduce_on_leverage;
 
@@ -185,8 +182,6 @@ public:
 			double curPrice,
 			double balance,
 			double currency,
-			double mult,
-			const ZigZagLevels &zlev,
 			bool alerts) const;
 	Order calculateOrderFeeLess(
 			double lastTradePrice,
@@ -195,12 +190,9 @@ public:
 			double curPrice,
 			double balance,
 			double currency,
-			double mult,
-			const ZigZagLevels &zlev,
 			bool alerts) const;
 	bool calculateOrderFeeLessAdjust(Order &order,double assets, double currency,
-			int dir, double mult, bool alert, double min_size,
-			const ZigZagLevels &zlev) const;
+			int dir, bool alert, double min_size) const;
 
 
 	Config getConfig() {return cfg;}
@@ -337,8 +329,6 @@ protected:
 
 	ZigZagLevels zigzaglevels;
 
-	void updateZigzagLevels();
-	void modifyOrder(const ZigZagLevels &zlevs, double dir, Order &order) const;
 
 	bool checkLeverage(const Order &order, double assets, double currency, double &maxSize) const;
 
