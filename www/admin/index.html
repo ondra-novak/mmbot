@@ -74,7 +74,6 @@
 <option value="sinh_gen">Simple leveraged</option>
 <option value="sinh">Sinh/exponencial (advanced)</option>
 <option value="sinh_val">Volume based Sinh (advanced)</option>
-<option value="martingale" data-hidden="true">Simple ATL</option>
 </optgroup>
 <optgroup label="Experimental">
 <option value="passive_income">Passive Income</option>
@@ -183,17 +182,6 @@ to enter a negative value and then the value of the assets held will decrease an
 <div class="label"><span>Max price:</span><span data-name="range_max_price">---</span></div>
 <div class="label"><span>Recomended initial position:</span><span data-name="range_initial">---</span></div>
 </x-section>
-<div class="rightinfo"><button name="show_backtest  hide_on_new" disabled="disabled">Backtest</button></div>
-</x-section>
-
-<x-section data-name="strategy_martingale" class="goal" hidden="hidden"><x-section-caption>Simple ATL</x-section-caption>
-<label><span>Collateral (0=use balance)<span data-name="currency">BTC</span><span class="tooltip">Specify fixed collateral size. It is used to calculate initial volume relative to current price. Specify 0 to always use current balance (which also causes reinvest profit)</span></span><input data-name="mart_collateral" type="number" step="any" value="0"></label>
-<label><span>Initial position volume [%]<span class="tooltip">Amount of volume for inital position in percent.</span></span><input data-name="mart_initial" type="number" step="0.1" value="1"></label>
-<label><span>Power/Aggression<span class="tooltip">Specifies how aggresive is additional position opened. Higher values can generate a lot of profit, but also need lower initial volume, otherwise the position can grow rapidly over allowed leverage</span></span><x-slider data-name="mart_power" data-min="0" data-max="100" data-mult="1" data-fixed="0"></label>
-<label><span>Reduction<span class="tooltip">Specifies how much profit is used to reduce position.</span></span><x-slider data-name="mart_reduction" data-min="0" data-max="100" data-mult="1" data-fixed="0"></label>
-<label><span>Allow <x-switch data-name="inverted_price" data-value="false">SHORTs</x-switch><x-switch data-name="inverted_price" data-value="true">LONGs</x-switch> <span class="tooltip">Prevents to trade on dangerous side of the market. It is short for normal futures and long for inverted futures</span></span><x-checkbox data-name="mart_allowshort"></x-checkbox></label>
-<p>It is recommended to use fixed spread. Dynamic spread can often generate too narrow spread which can result in increased aggresion</p>
-<p>Always backtest the new settings</p>
 <div class="rightinfo"><button name="show_backtest  hide_on_new" disabled="disabled">Backtest</button></div>
 </x-section>
 

@@ -25,7 +25,6 @@ add_executable (mmbot
 	strategy_sinh_val.cpp
 	strategy_stairs.cpp
 	strategy_keepbalance.cpp
-	strategy_martingale.cpp
 	strategy_gamma.cpp
 	strategy_hedge.cpp
 	localdailyperfmod.cpp

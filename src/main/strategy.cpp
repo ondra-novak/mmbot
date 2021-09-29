@@ -22,7 +22,6 @@
 #include "strategy_error_fn.h"
 #include "strategy_keepbalance.h"
 #include "strategy_sinh_val.h"
-#include "strategy_martingale.h"
 #include "strategy_gamma.h"
 #include "strategy_hedge.h"
 #include "strategy_sinh_gen.h"
@@ -162,14 +161,6 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 		cfg.keep_max = config["keep_max"].getNumber();
 		cfg.keep_min = config["keep_min"].getNumber();
 		return Strategy(new Strategy_KeepBalance(cfg));
-	} else if (id == Strategy_Martingale::id) {
-		Strategy_Martingale::Config cfg;
-		cfg.initial_step = config["initial_step"].getNumber();
-		cfg.power = config["power"].getNumber();
-		cfg.reduction = config["reduction"].getNumber();
-		cfg.collateral= config["collateral"].getNumber();
-		cfg.allow_short = config["allow_short"].getBool();
-		return Strategy(new Strategy_Martingale(cfg));
 	} else if (id == Strategy_Gamma::id) {
 		Strategy_Gamma::Config cfg;
 		cfg.intTable = std::make_shared<Strategy_Gamma::IntegrationTable>(strGammaFunction[config["function"].getString()],config["exponent"].getNumber());
