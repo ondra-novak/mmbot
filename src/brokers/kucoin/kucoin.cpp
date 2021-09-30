@@ -240,7 +240,9 @@ IStockApi::TradesSync KucoinIFC::syncTrades(json::Value lastId, const std::strin
 		if (fills.empty()) {
 			return {{},lastId};
 		}
+		fills = fills.reverse();
 		findMostTime(fills);
+
 		Value ffils = fills.filter([&](Value r){
 			return lastId[1].indexOf(r["tradeId"]) == Value::npos;
 		});
@@ -248,7 +250,7 @@ IStockApi::TradesSync KucoinIFC::syncTrades(json::Value lastId, const std::strin
 			return {{},{mostTime+1, mostIDS}};
 		}
 		return {
-			mapJSON(fills, [&](Value rw){
+			mapJSON(ffils, [&](Value rw){
 				double size = rw["size"].getNumber()*(rw["side"].getString() == "buy"?1:-1);
 				double price = rw["price"].getNumber();
 				double fee = rw["fee"].getNumber();
