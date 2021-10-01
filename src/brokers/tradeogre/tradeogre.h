@@ -2,6 +2,8 @@
 #define SRC_BROKERS_KUCOIN_KUCOIN_H_
 
 #include <map>
+#include <set>
+
 #include "../api.h"
 #include "../orderdatadb.h"
 #include <imtjson/value.h>
@@ -47,10 +49,14 @@ protected:
 	};
 
 	Value orderCache;
-	Value balanceCache;
 
 	using SymbolMap = std::map<std::string, MarketInfoEx, std::less<> >;
 	mutable SymbolMap symbolMap;
+	using BalanceCache = std::map<std::string, double, std::less<>>;
+	mutable BalanceCache balanceCache;
+	using HistoryCache = std::map<std::string, json::Value, std::less<> >;
+	HistoryCache historyCache;
+
 
 
 	mutable std::chrono::system_clock::time_point symbolExpires;
@@ -65,7 +71,6 @@ protected:
 
 	void updateSymbols() const;
 	const MarketInfoEx &findSymbol(const std::string_view &name) const;
-
 
 
 //	void generateTrades(json::Value orders, json::Value balances);

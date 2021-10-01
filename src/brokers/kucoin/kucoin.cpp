@@ -242,7 +242,6 @@ IStockApi::TradesSync KucoinIFC::syncTrades(json::Value lastId, const std::strin
 		}
 		fills = fills.reverse();
 		findMostTime(fills);
-
 		Value ffils = fills.filter([&](Value r){
 			return lastId[1].indexOf(r["tradeId"]) == Value::npos;
 		});

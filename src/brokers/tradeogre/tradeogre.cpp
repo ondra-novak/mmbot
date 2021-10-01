@@ -159,50 +159,110 @@ json::Value TradeOgreIFC::getMarkets() const {
 }
 
 double TradeOgreIFC::getBalance(const std::string_view &symb, const std::string_view &) {
-	if (!balanceCache.defined())
-		balanceCache = privateGET("/v1/account/balances",Value())["balances"];
-	return balanceCache[symb].getNumber();
+	auto p = balanceCache.find(symb);
+	if (p == balanceCache.end()) return 0;
+	return p->second;
 }
 
 void TradeOgreIFC::onInit() {
+	reset();
 }
 
 IStockApi::TradesSync TradeOgreIFC::syncTrades(json::Value lastId, const std::string_view &pair) {
 
-		Value hist = privateGET(std::string("/v1/account/history/").append(pair),Value())["data"];
-		json::Array newLastID;
-		Value flt = hist.filter([&](Value rw){
+
+	Array mostIDS;
+	std::uint64_t mostTime = 0;
+	auto findMostTime = [&](Value fills) {
+		for (Value f: fills) {
+			std::uint64_t t = f["date"].getUIntLong()*1000;
+			if (mostTime <=t) {
+				if (mostTime < t) mostIDS.clear();
+				std::hash<json::Value> hh;
+				Value hash = hh(f);
+				mostIDS.push_back(hash);
+				mostTime = t;
+			}
+		}
+	};
+
+	if (lastId.hasValue()) {
+
+		Value jfrom = lastId[0];
+		Value jlist = lastId[1];
+		if (jlist.type() != json::array) {
+			jfrom = 0;
+			jlist = lastId;
+		}
+
+
+		Value &hist = historyCache[std::string(pair)];
+		if (!hist.defined()) hist = privateGET(std::string("/v1/account/history/").append(pair),Value())["data"];
+		std::uint64_t from = jfrom.getUIntLong();
+		Value fills = hist.filter([&](Value row){
+			std::uint64_t time = row["date"].getUIntLong()*1000;
+			return time >= from;
+		});
+		if (fills.empty()) {
+			return {{},lastId};
+		}
+
+		findMostTime(fills);
+		Value ffils = fills.filter([&](Value r){
+			std::hash<json::Value> hh;
+			Value hash = hh(r);
+			return jlist.indexOf(hash) == Value::npos;
+		});
+		if (!fills.empty() && ffils.empty()) {
+			return {{},{mostTime+1, mostIDS}};
+		}
+
+		return TradesSync{mapJSON(ffils, [](Value rw){
 			std::hash<json::Value> hh;
 			Value hash = hh(rw);
-			newLastID.push_back(hash);
-			return (lastId.indexOf(hash) == Value::npos);
-		});
-		if (lastId.hasValue()) {
-			return TradesSync{mapJSON(flt, [](Value rw){
-				std::hash<json::Value> hh;
-				Value hash = hh(rw);
-				std::uint64_t time = rw["date"].getUIntLong()*1000;
-				double price = rw["price"].getNumber();
-				int dir = rw["type"].getString() == "sell"?-1:1;
-				double size = rw["quantity"].getNumber()*dir;
-				double eff_price = price;
-				double eff_size = size;
-				if (dir > 0) {
-					eff_price = price * 1.002;
-				} else {
-					eff_price = price / 1.002;
-				}
-				return Trade {
-					hash, time, size, price, eff_size, eff_price
-				};
-			}, TradeHistory()), newLastID};
-		} else {
-			return {{},newLastID};
-		}
+			std::uint64_t time = rw["date"].getUIntLong()*1000;
+			double price = rw["price"].getNumber();
+			int dir = rw["type"].getString() == "sell"?-1:1;
+			double size = rw["quantity"].getNumber()*dir;
+			double eff_price = price;
+			double eff_size = size;
+			if (dir > 0) {
+				eff_price = price * 1.002;
+			} else {
+				eff_price = price / 1.002;
+			}
+			return Trade {
+				hash, time, size, price, eff_size, eff_price
+			};
+		}, TradeHistory()), {mostTime, mostIDS}};
+	} else {
+		Value fills = privateGET(std::string("/v1/account/history/").append(pair),Value())["data"];
+		findMostTime(fills);
+		if (mostTime == 0) mostTime = std::chrono::duration_cast<std::chrono::milliseconds>(api.now().time_since_epoch()).count();
+		return TradesSync{{},{mostTime, mostIDS}};
+
+	}
 }
 
 bool TradeOgreIFC::reset() {
-	balanceCache = Value();
+	if (hasKey()) {
+		Value bals = privateGET("/v1/account/balances",Value())["balances"];
+		std::set<std::string, std::less<> > changeSymbols;
+		for (Value x: bals) {
+			std::string symb = x.getKey();
+			double val = x.getNumber();
+			double prev_val = getBalance(symb, symb);
+			if (val != prev_val) changeSymbols.insert(symb);
+			balanceCache[symb] = val;
+		}
+		for (auto iter = historyCache.begin(); iter != historyCache.end();++iter) {
+			auto x = changeSymbols.find(extractSymbols(iter->first).first);
+			if (x != changeSymbols.end()) {
+				iter->second = Value();
+				logDebug("Reset trading history cache for: $1", iter->first);
+			}
+		}
+	}
 	orderCache = Value();
 	return true;
 }
