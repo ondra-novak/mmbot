@@ -147,7 +147,7 @@ protected:
 	bool fapi_isSymbol(const std::string_view &pair);
 	double fapi_getPosition(const std::string_view &pair);
 	double fapi_getFees();
-	double fapi_getCollateral();
+	double fapi_getCollateral(const std::string_view &currency);
 	json::Value fapi_getLeverage(const std::string_view &pair);
 
 
@@ -195,7 +195,7 @@ void Interface::updateBalCache() {
 		if (iter == symbols.end()) throw std::runtime_error("No such symbol");
 		const MarketInfo &minfo = iter->second;
 		if (minfo.asset_symbol == symb) return fapi_getPosition(remove_prefix(pair));
-		else return fapi_getCollateral();
+		else return fapi_getCollateral(symb);
 	 } else {
 		 updateBalCache();
 		 Value v =balanceCache["balances"][symb];
@@ -284,7 +284,7 @@ static json::Value readTrades(Proxy &proxy, const std::string &command, std::str
 			 double comms = x["commission"].getNumber();
 			 double eff_size = size;
 			 double eff_price = price;
-			 if (x["commissionAsset"].getString() == "USDT") {
+			 if (x["commissionAsset"].getString() == minfo.currency_symbol) {
 				 eff_price += comms/size;
 			 }
 
@@ -752,7 +752,7 @@ void Interface::initSymbols() {
 			res = fapi.public_request("/fapi/v1/exchangeInfo",Value());
 			symbol = USDT_M_PREFIX;
 			for (Value smb: res["symbols"]) {
-				if (smb["quoteAsset"].getString() != "USDT" || smb["status"].getString() != "TRADING") continue;
+				if (smb["status"].getString() != "TRADING") continue;
 				symbol.resize(USDT_M_PREFIX.length());
 				symbol.append(smb["symbol"].getString());
 				MarketInfoEx nfo;
@@ -1077,9 +1077,13 @@ double Interface::fapi_getFees() {
 	return fees[tier];
 }
 
-double Interface::fapi_getCollateral() {
+double Interface::fapi_getCollateral(const std::string_view &currency) {
 	Value account = fapi_readAccount();
-	return account["totalWalletBalance"].getNumber()+account["totalUnrealizedProfit"].getNumber();
+	Value assets = account["assets"];
+	Value srch = assets.find([&](Value v){
+		return v["asset"].getString() == currency;
+	});
+	return srch["walletBalance"].getNumber()+account["unrealizedProfit"].getNumber();
 }
 
 Value Interface::getWallet_direct()  {
@@ -1090,7 +1094,8 @@ Value Interface::getWallet_direct()  {
 		if (n) return Value(n); else return Value();
 	}));
 	Object fut;
-	fut.set("USDT", fapi_getCollateral());
+	fut.set("USDT", fapi_getCollateral("USDT"));
+	fut.set("BUSD", fapi_getCollateral("BUSD"));
 	Value dacc = dapi_readAccount();
 	for (Value x:dacc["assets"]) {
 		double n = x["walletBalance"].getNumber()+x["unrealizedProfit"].getNumber();
