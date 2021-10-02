@@ -214,8 +214,9 @@ std::pair<IStrategy::OnTradeResult, PStrategy> Strategy_Sinh_Gen::onTrade(
 	double pnl = prevPos*(tradePrice - st.p);
 	double newk = assetsLeft?calcNewK(tradePrice, cb, pnl, cfg.boostmode):tradePrice;
 	double pwadj = adjustPower(prevPos, newk, tradePrice);
+	double newpw = calcPower(cfg.power, st, newk);
 
-	double nb = cfg.calc->budget(newk, pw, tradePrice);
+	double nb = cfg.calc->budget(newk, newpw*pwadj, tradePrice);
 	double np = pnl - (nb - cb);
 
 	State nwst;
