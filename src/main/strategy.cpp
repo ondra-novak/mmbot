@@ -26,6 +26,7 @@
 #include "strategy_hedge.h"
 #include "strategy_sinh_gen.h"
 #include "strategy_leveraged_base.tcc"
+#include "strategy_pile.h"
 
 
 
@@ -95,6 +96,11 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 		cfg.ea = config["ea"].getNumber();
 		cfg.accum = config["accum"].getNumber();
 		return Strategy(new Strategy_HalfHalf(cfg));
+	} else if (id == Strategy_Pile::id) {
+		Strategy_Pile::Config cfg;
+		cfg.accum = config["accum"].getNumber()*0.01;
+		cfg.ratio= config["ratio"].getNumber()*0.01;
+		return Strategy(new Strategy_Pile(cfg));
 	} else if (id == Strategy_Exponencial::id) {
 		Strategy_Exponencial::Config cfg;
 		cfg.ea = config["ea"].getNumber();

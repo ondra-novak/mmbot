@@ -144,9 +144,11 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 			if (enable_alert) {
 				auto tres = s.onTrade(minfo, p, order.size, pos, balance);
 				bt.neutral_price = tres.neutralPrice;
-				bt.norm_accum += std::isfinite(tres.normAccum)?tres.normAccum:0;
+				double norm_accum = std::isfinite(tres.normAccum)?tres.normAccum:0;
+				bt.norm_accum += norm_accum;
 				bt.norm_profit += std::isfinite(tres.normProfit)?tres.normProfit:0;
 				bt.open_price = tres.openPrice;
+				order.size -= norm_accum;
 			}
 			bt.size = order.size;
 			bt.price.price = p;

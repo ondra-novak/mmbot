@@ -73,6 +73,7 @@ struct MTrader_Config {
 
 struct WalletCfg {
 	PWalletDB walletDB;
+	PWalletDB accumDB;
 	PBalanceMap balanceCache;
 	PBalanceMap externalBalance;
 };
@@ -293,10 +294,15 @@ protected:
 	TradeHistory trades;
 
 	double position = 0;
+	double currency = 0;
+	double prev_live_currency = 0;
 	bool position_valid = false;
+	bool currency_valid = false;
+	double accumulated = 0;
 
-	std::optional<double> asset_balance;
-	std::optional<double> currency_balance;
+
+/*	std::optional<double> asset_balance;
+	std::optional<double> currency_balance;*/
 
 	size_t magic = 0;
 	size_t uid = 0;
@@ -347,6 +353,16 @@ private:
 	void dorovnani(Status &st, double assetBalance, double price);
 	bool checkReduceOnLeverage(const Status &st, double &maxPosition);
 	std::unique_ptr<ISpreadFunction> spread_fn;
+
+	enum class BalanceChangeEvent {
+		no_change,
+		withdraw,
+		leak_trade,
+		disabled
+
+	};
+
+	BalanceChangeEvent detectLeakedTrade(const Status &st) const;
 };
 
 

@@ -1557,13 +1557,21 @@ bool WebCfg::reqStrategy(simpleServer::HTTPRequest req) {
 		}
 	}
 
-
-
-	s.onIdle(minfo, IStockApi::Ticker{price,price,price,
+	auto tk = IStockApi::Ticker{price,price,price,
 		static_cast<std::uint64_t>(
 				std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count()
 				)
-	},assets,currency+extra_bal);
+	};
+
+	try {
+		s.onIdle(minfo, tk ,assets,currency+extra_bal);
+	} catch (...) {
+		double cur = currency+extra_bal;
+		double z = s.calcInitialPosition(minfo, price, assets, cur);
+		double df = z - assets;
+		cur = cur - df * price;
+		s.onIdle(minfo, tk ,z,cur);
+	}
 
 	auto range = s.calcSafeRange(minfo, assets, currency);
 	auto initial = s.calcInitialPosition(minfo, price, assets, currency+extra_bal);

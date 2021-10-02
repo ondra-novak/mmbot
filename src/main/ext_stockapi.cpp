@@ -39,8 +39,6 @@ ExtStockApi::TradesSync ExtStockApi::syncTrades(json::Value lastId, const std::s
 														{"pair",pair}}));
 	TradeHistory  th;
 	for (json::Value v: r["trades"]) th.push_back(Trade::fromJSON(v));
-	//brokers don't need to return trades in correct order
-	std::sort(th.begin(), th.end(), [](const Trade &a, const Trade &b){return a.time<b.time;});
 	return TradesSync {
 		th, r["lastId"]
 	};

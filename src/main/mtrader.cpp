@@ -218,34 +218,24 @@ void MTrader::perform(bool manually) {
 		}
 		if (!cfg.internal_balance && minfo.leverage == 0 && position_valid) {
 			if (status.brokerAssetBalance.has_value()) wcfg.balanceCache.lock()->put(cfg.broker, minfo.wallet_id, minfo.asset_symbol, *status.brokerAssetBalance);
-			wcfg.walletDB.lock()->alloc({cfg.broker, minfo.wallet_id, minfo.asset_symbol, uid}, position);
-		}
-
-		std::string buy_order_error;
-		std::string sell_order_error;
-
-		currency_balance = status.currencyBalance;
-
-		//update market fees
-		minfo.fees = status.new_fees;
-		//process all new trades
-		bool anytrades = processTrades(status);
-		//fast_trade is true, when there is missing order after execution
-		//which assumes, that complete execution achieved
-		//orderwise it is false which can mean, that only partial execution achieved
-		bool fast_trade = false;
-		if (anytrades && ((!orders.buy.has_value() && !buy_alert.has_value())
-				|| (!orders.sell.has_value() && !sell_alert.has_value()))) {
-			recalc = true;
-			fast_trade = true;
-			sell_alert.reset();
-			buy_alert.reset();
+			wcfg.walletDB.lock()->alloc(getWalletAssetKey(), position+accumulated);
+			wcfg.accumDB.lock()->alloc(getWalletAssetKey(), accumulated);
 		}
 
 		double eq = strategy.getEquilibrium(status.assetBalance);
 		bool delayed_trade_detect = false;
+		std::string buy_order_error;
+		std::string sell_order_error;
+		//update market fees
+		minfo.fees = status.new_fees;
+		//process all new trades
+		bool anytrades = processTrades(status);
 
-		if (!anytrades && cfg.enabled && std::abs(status.assetBalance - position) >= std::max(minfo.min_size,minfo.min_volume/status.curPrice))  {
+		BalanceChangeEvent bche = detectLeakedTrade(status);
+		switch (bche) {
+		default:
+		case BalanceChangeEvent::disabled: break;
+		case BalanceChangeEvent::leak_trade:
 			if (adj_wait>cfg.adj_timeout) {
 				dorovnani(status, position, adj_wait_price);
 				anytrades = processTrades(status);
@@ -257,10 +247,32 @@ void MTrader::perform(bool manually) {
 				logNote("Need adjust $1 => $2, stage: $3/$4 price: $5",  position, status.assetBalance, adj_wait ,cfg.adj_timeout, adj_wait_price);
 				delayed_trade_detect = true;
 			}
-		} else {
-			adj_wait = 0;
+			break;
+		case BalanceChangeEvent::withdraw:
+			doWithdraw()
 		}
 
+		if (& detectLeakedTrade(status)) {
+		} else {
+			currency = status.currencyBalance;
+			currency_valid = true;
+		}
+
+
+
+
+		//fast_trade is true, when there is missing order after execution
+		//which assumes, that complete execution achieved
+		//orderwise it is false which can mean, that only partial execution achieved
+		bool fast_trade = false;
+
+		if (anytrades && ((!orders.buy.has_value() && !buy_alert.has_value())
+				|| (!orders.sell.has_value() && !sell_alert.has_value()))) {
+			recalc = true;
+			fast_trade = true;
+			sell_alert.reset();
+			buy_alert.reset();
+		}
 
 		bool need_alerts = trades.empty()?false:trades.back().size == 0;
 
@@ -695,14 +707,14 @@ MTrader::Status MTrader::getMarketStatus() const {
 	}
 
 //handle option internal_balance in case, that we have internal balance data
-	if (cfg.internal_balance && currency_balance.has_value() && position_valid) {
+	if (cfg.internal_balance && currency_valid && position_valid) {
 		auto sumt = std::accumulate(res.new_trades.trades.begin(),
 				res.new_trades.trades.end(),std::pair<double,double>(0,0),sumTrades<IStockApi::Trade>);
 		res.assetBalance = sumt.first;
 		res.currencyBalance = sumt.second;
 		if (minfo.leverage) res.currencyBalance = 0;
 		res.assetBalance += position;
-		res.currencyBalance += *currency_balance;
+		res.currencyBalance += currency;;
 		res.currencyUnadjustedBalance = res.currencyBalance;
 		res.assetUnadjustedBalance = res.assetBalance;
 		res.assetAvailBalance = res.assetBalance;
@@ -971,7 +983,7 @@ void MTrader::loadState() {
 			} else {
 				position = 0;
 			}
-			if (state["currency_balance"].hasValue()) currency_balance = state["currency_balance"].getNumber();
+			if (state["currency_balance"].hasValue()) {currency = state["currency_balance"].getNumber(); currency_valid = true;}
 			json::Value accval = state["account_value"];
 			recalc = state["recalc"].getBool();
 			std::size_t nuid = state["uid"].getUInt();
@@ -1037,9 +1049,18 @@ void MTrader::loadState() {
 	if (strategy.isValid() && !trades.empty()) {
 		wcfg.walletDB.lock()->alloc(getWalletBalanceKey(), strategy.calcCurrencyAllocation(trades.back().eff_price));
 	}
-	if (!cfg.internal_balance && minfo.leverage == 0 && position_valid) {
-		wcfg.walletDB.lock()->alloc(getWalletAssetKey(), position);
+	if (!cfg.internal_balance && minfo.leverage == 0) {
+		accumulated = std::accumulate(trades.begin(), trades.end(), 0.0, [](double a, const IStatSvc::TradeRecord &t){
+			return a + t.norm_accum;
+		});
+		if (position_valid) {
+			auto key = getWalletAssetKey();
+			wcfg.walletDB.lock()->alloc(getWalletAssetKey(), position+accumulated);
+			wcfg.accumDB.lock()->alloc(getWalletAssetKey(), accumulated);
+
+		}
 	}
+
 
 }
 
@@ -1053,8 +1074,8 @@ void MTrader::saveState() {
 		st.set("sell_dynmult", dynmult.getSellMult());
 		if (position_valid)
 			st.set("internal_balance", position);
-		if (currency_balance.has_value())
-			st.set("currency_balance", *currency_balance);
+		if (currency_valid)
+			st.set("currency_balance", currency);
 		st.set("recalc",recalc);
 		st.set("uid",uid);
 		st.set("lastTradeId",lastTradeId);
@@ -1159,6 +1180,8 @@ bool MTrader::processTrades(Status &st) {
 
 		if (!achieve_mode && (cfg.enabled || first_cycle)) {
 			auto norm = strategy.onTrade(minfo, t.eff_price, t.eff_size, assetBal, curBal);
+			t.eff_size-=norm.normAccum;
+			accumulated += norm.normAccum;
 			trades.push_back(TWBItem(t, last_np+=norm.normProfit, last_ap+=norm.normAccum, norm.neutralPrice));
 		} else {
 			trades.push_back(TWBItem(t, last_np, last_ap, 0, true));
@@ -1387,7 +1410,7 @@ std::optional<double> MTrader::getPosition() const {
 }
 
 std::optional<double> MTrader::getInternalCurrencyBalance() const {
-	if (cfg.internal_balance) return currency_balance;
+	if (cfg.internal_balance) return currency;
 	else return std::optional<double>();
 }
 
@@ -1511,9 +1534,11 @@ std::pair<bool, double> MTrader::limitOrderMinMaxBalance(double balance, double 
 	return {false,orderSize};
 }
 
-void MTrader::setInternalBalancies(double assets, double currency) {
+void MTrader::setInternalBalancies(double assets, double cur) {
 	position = assets;
-	currency_balance = currency;
+	position_valid =true;
+	currency= cur;
+	currency_valid = true;
 }
 
 
@@ -1589,7 +1614,7 @@ bool MTrader::checkReduceOnLeverage(const Status &st, double &maxPosition) {
 	if (!cfg.reduce_on_leverage) return false;
 	if (minfo.leverage <= 0) return false;
 	if (cfg.max_leverage <=0) return false;
-	double mp = (*currency_balance/st.curPrice) * cfg.max_leverage;
+	double mp = currency/st.curPrice * cfg.max_leverage;
 	if (mp < std::abs(st.assetBalance)) {
 		maxPosition = sgn(st.assetBalance) * mp;
 		return true;
@@ -1598,4 +1623,24 @@ bool MTrader::checkReduceOnLeverage(const Status &st, double &maxPosition) {
 	}
 }
 
-
+MTrader::BalanceChangeEvent MTrader::detectLeakedTrade(const Status &st) const {
+	if (position_valid && cfg.enabled) {
+		double minsize = std::max({minfo.asset_step, minfo.min_size, minfo.min_volume/st.curPrice});
+		double diff = st.assetBalance - (position+accumulated);
+		if (std::abs(diff)<minsize) return BalanceChangeEvent::no_change; //this is ok - difference is on round error level
+		if (minfo.leverage == 0 && diff<0) {//we can detect leaked trade on exchange better then on futures
+			double cchg = -diff * st.curPrice;
+			double cdiff = st.currencyBalance-currency;
+			if (cdiff < cchg*0.25) {
+				auto x = wcfg.accumDB.lock_shared()->query(WalletDB::KeyQuery(cfg.broker, minfo.wallet_id, minfo.asset_symbol, uid));
+				double accumTot = x.otherTraders+x.thisTrader;
+				if (accumTot+diff > -accumTot) {
+					return BalanceChangeEvent::withdraw;
+				}
+			}
+		}
+		return BalanceChangeEvent::leak_trade;
+	} else {
+		return BalanceChangeEvent::disabled;
+	}
+}

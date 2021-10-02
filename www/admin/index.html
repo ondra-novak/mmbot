@@ -62,7 +62,7 @@
 <label><span>Strategy</span><select data-name="strategy">
 <option value="">--- select ---</option>
 <optgroup label="Exchanges">
-<option value="halfhalf">Half-Half</option>
+<option value="pile">Pile strategy (improved Half-Half)</option>
 <option value="conststep" data-hidden="true">Linear costs</option>
 <option value="keepvalue">Keep Value</option>
 <option value="hypersquare">Hypersquare</option>
@@ -84,6 +84,7 @@
 </optgroup>
 <optgroup label="Old and obsolete">
 <option value="stairs"  data-hidden="true">Stairs</option>
+<option value="halfhalf">Half-Half</option>
 </optgroup>
 </select></label>
 <div class="label strategygoal"><span>Startegy Goal:</span><div data-name="help_goal">
@@ -110,6 +111,16 @@
 	<div class="label" data-name="strategy_fields[]"><span data-name="key"></span><input type="text" readonly="readonly" data-name="value"></div>
 	</x-section></div>
 </x-section>
+<x-section data-name="strategy_pile" class="goal" hidden="hidden"><x-section-caption>Pile strategy</x-section-caption>
+<label><span>Ratio [%] (need reset):<span class="tooltip">(advise only, requires to set position during reset)</span></span><x-slider data-name="pile_ratio" data-min="5" data-max="95" data-mult="1" data-fixed="0"></x-slider></label>
+<label><span>Accumulation [%]: <span class="tooltip">Specifies amount of normalized profit used to buy assets. This extra assets are not considered as the position</span></span><x-slider data-name="pile_accum" data-min="0" data-max="100" data-mult="1" data-fixed="0"></x-slider></label>
+<x-section>
+<div class="label"><span>Current ratio:</span><span data-name="cur_pile_ratio">---</span></div>
+<div class="label"><span>Recomended initial position:</span><span data-name="range_initial">---</span></div>
+</x-section>
+<div class="rightinfo"><button name="show_backtest hide_on_new" disabled="disabled">Backtest</button></div>
+</x-section>
+
 <x-section data-name="strategy_halfhalf" class="goal" hidden="hidden"><x-section-caption>Half-Half / Keep Value / Exponencial</x-section-caption>
 <label><span>External assets (<span data-name="asset"></span>)<span class="tooltip">Amount of assets held outside of exchange. They are included into calculations.</span></span><input type="number" step="any" data-name="external_assets"></label>
 <label class="adv"><span>Accumulation <span class="tooltip">Amount of the profit used to buy extra assets</span></span><x-slider data-name="acum_factor" data-min="0" data-max="100" data-mult="1"></x-slider></label>
@@ -967,6 +978,8 @@ the same order, they are ordered by its ID - this is the default ordering. Modif
 </x-form>
 </div></div>
 </template>
+
+
 
 <template id="progress_dlg"><div class="dialog">
 <div class="progressdlg">
