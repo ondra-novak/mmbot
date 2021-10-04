@@ -436,7 +436,9 @@ void Report::setMisc(StrViewA symb, const MiscData &miscData) {
 		{"tt",miscData.total_time},
 		{"bt",miscData.budget_total},
 		{"a",miscData.achieve_mode},
+		{"accum",miscData.accumulated},
 		{"ba",miscData.budget_assets}});
+
 	if (miscData.budget_extra.has_value())
 		output.set("be", *miscData.budget_extra);
 

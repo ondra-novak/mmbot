@@ -190,7 +190,7 @@ void MTrader::alertTrigger(Status &st, double price) {
 }
 
 void MTrader::dorovnani(Status &st, double assetBalance, double price) {
-	double diff = st.assetBalance - assetBalance;
+	double diff = st.assetBalance - assetBalance-getAccumulated();
 	st.new_trades.trades.push_back(IStockApi::Trade{
 		json::Value(json::String({"ADJ:",json::Value(st.chartItem.time).toString()})),
 		st.chartItem.time,
@@ -217,9 +217,10 @@ void MTrader::perform(bool manually) {
 			wcfg.balanceCache.lock()->put(cfg.broker, minfo.wallet_id, minfo.currency_symbol, *status.brokerCurrencyBalance);
 		}
 		if (!cfg.internal_balance && minfo.leverage == 0 && position_valid) {
+			double accum = getAccumulated();
 			if (status.brokerAssetBalance.has_value()) wcfg.balanceCache.lock()->put(cfg.broker, minfo.wallet_id, minfo.asset_symbol, *status.brokerAssetBalance);
-			wcfg.walletDB.lock()->alloc(getWalletAssetKey(), position+accumulated);
-			wcfg.accumDB.lock()->alloc(getWalletAssetKey(), accumulated);
+			wcfg.walletDB.lock()->alloc(getWalletAssetKey(), position+accum);
+			wcfg.accumDB.lock()->alloc(getWalletAssetKey(), accum);
 		}
 
 		double eq = strategy.getEquilibrium(status.assetBalance);
@@ -244,22 +245,22 @@ void MTrader::perform(bool manually) {
 			} else {
 				if (adj_wait == 0) adj_wait_price = status.curPrice;
 				adj_wait++;
-				logNote("Need adjust $1 => $2, stage: $3/$4 price: $5",  position, status.assetBalance, adj_wait ,cfg.adj_timeout, adj_wait_price);
+				logNote("Need adjust $1 => $2, stage: $3/$4 price: $5",  position, status.assetBalance-getAccumulated(), adj_wait ,cfg.adj_timeout, adj_wait_price);
 				delayed_trade_detect = true;
 			}
 			break;
 		case BalanceChangeEvent::withdraw:
-			doWithdraw()
-		}
-
-		if (& detectLeakedTrade(status)) {
-		} else {
+			doWithdraw(status);
 			currency = status.currencyBalance;
 			currency_valid = true;
+			adj_wait = 0;
+			break;
+		case BalanceChangeEvent::no_change:
+			currency = status.currencyBalance;
+			currency_valid = true;
+			adj_wait = 0;
+			break;
 		}
-
-
-
 
 		//fast_trade is true, when there is missing order after execution
 		//which assumes, that complete execution achieved
@@ -528,6 +529,7 @@ void MTrader::perform(bool manually) {
 				minmax.max,
 				budget.total,
 				budget.assets,
+				accumulated,
 				budget_extra,
 				trades.size(),
 				trades.empty()?0:(trades.back().time-trades[0].time),
@@ -566,7 +568,7 @@ void MTrader::perform(bool manually) {
 		error.append(e.what());
 		statsvc->reportError(IStatSvc::ErrorObj(error.c_str()));
 		statsvc->reportMisc(IStatSvc::MiscData{
-			0,false,0,0,dynmult.getBuyMult(),dynmult.getSellMult(),0,0,0,0,0,
+			0,false,0,0,dynmult.getBuyMult(),dynmult.getSellMult(),0,0,0,0,accumulated,0,
 			trades.size(),trades.empty()?0UL:(trades.back().time-trades[0].time),lastTradePrice
 		});
 		statsvc->reportPrice(trades.empty()?1:trades.back().price);
@@ -999,6 +1001,7 @@ void MTrader::loadState() {
 			swapped = state["swapped"].getBool();
 			adj_wait = state["adj_wait"].getUInt();
 			adj_wait_price = state["adj_wait_price"].getNumber();
+			accumulated = state["accumulated"].getNumber();
 		}
 		auto chartSect = st["chart"];
 		if (chartSect.defined()) {
@@ -1050,13 +1053,11 @@ void MTrader::loadState() {
 		wcfg.walletDB.lock()->alloc(getWalletBalanceKey(), strategy.calcCurrencyAllocation(trades.back().eff_price));
 	}
 	if (!cfg.internal_balance && minfo.leverage == 0) {
-		accumulated = std::accumulate(trades.begin(), trades.end(), 0.0, [](double a, const IStatSvc::TradeRecord &t){
-			return a + t.norm_accum;
-		});
 		if (position_valid) {
 			auto key = getWalletAssetKey();
-			wcfg.walletDB.lock()->alloc(getWalletAssetKey(), position+accumulated);
-			wcfg.accumDB.lock()->alloc(getWalletAssetKey(), accumulated);
+			double accum = getAccumulated();
+			wcfg.walletDB.lock()->alloc(getWalletAssetKey(), position+accum);
+			wcfg.accumDB.lock()->alloc(getWalletAssetKey(), accum);
 
 		}
 	}
@@ -1083,6 +1084,7 @@ void MTrader::saveState() {
 		st.set("lastTradePrice", lastTradePrice);
 		st.set("cfg_sliding_spread",cfg.dynmult_sliding);
 		st.set("private_chart", minfo.private_chart||minfo.simulator);
+		st.set("accumulated",accumulated);
 		if (achieve_mode) st.set("achieve_mode", achieve_mode);
 		if (cfg.swap_symbols) st.set("swapped", cfg.swap_symbols);
 		if (need_initial_reset) st.set("need_initial_reset", need_initial_reset);
@@ -1181,7 +1183,8 @@ bool MTrader::processTrades(Status &st) {
 		if (!achieve_mode && (cfg.enabled || first_cycle)) {
 			auto norm = strategy.onTrade(minfo, t.eff_price, t.eff_size, assetBal, curBal);
 			t.eff_size-=norm.normAccum;
-			accumulated += norm.normAccum;
+			assetBal -= norm.normAccum;
+			accumulated +=norm.normAccum;
 			trades.push_back(TWBItem(t, last_np+=norm.normProfit, last_ap+=norm.normAccum, norm.neutralPrice));
 		} else {
 			trades.push_back(TWBItem(t, last_np, last_ap, 0, true));
@@ -1207,6 +1210,7 @@ void MTrader::clearStats() {
 	position_valid = false;
 	adj_wait = 0;
 	adj_wait_price = 0;
+	accumulated = 0;
 	saveState();
 }
 
@@ -1243,8 +1247,10 @@ void MTrader::reset(const ResetOptions &ropt) {
 	if (position_valid && !trades.empty()) {
 		assets = position;
 	} else {
-		position = assets = wcfg.walletDB.lock_shared()->adjBalance(getWalletAssetKey(), status.assetUnadjustedBalance);
+		position = assets = wcfg.walletDB.lock_shared()->adjBalance(getWalletAssetKey(), status.assetUnadjustedBalance)-accumulated;
+		accumulated = 0;
 	}
+	if (!trades.empty()) status.curPrice = trades.back().price;
 	position_valid = true;
 	double currency = status.currencyUnadjustedBalance;
 	double position = ropt.achieve?(minfo.invert_price?-1.0:1.0)*(ropt.assets):assets;
@@ -1409,6 +1415,10 @@ std::optional<double> MTrader::getPosition() const {
 	return position;
 }
 
+std::optional<double> MTrader::getCurrency() const {
+	return currency;
+}
+
 std::optional<double> MTrader::getInternalCurrencyBalance() const {
 	if (cfg.internal_balance) return currency;
 	else return std::optional<double>();
@@ -1432,78 +1442,6 @@ MTrader::SpreadCalcResult MTrader::calcSpread() const {
 
 
 
-}
-
-MTrader::VisRes MTrader::visualizeSpread(
-		std::function<std::optional<ChartItem>()> &&source,
-		double sma,
-		double stdev,
-		double force_spread,
-		double mult,
-		double dyn_raise,
-		double dyn_fall,
-		double dyn_cap,
-		ondra_shared::StrViewA dynMode,
-		bool sliding,
-		bool dyn_mult,
-		bool strip,
-		bool onlyTrades) {
-	DynMultControl dynmult({dyn_raise, dyn_fall, dyn_cap, strDynmult_mode[dynMode], dyn_mult});
-	VisRes res;
-	double last = 0;
-	double last_price = 0;
-	std::vector<double> prices;
-	std::size_t isma = sma*60;
-	std::size_t istdev = stdev * 60;
-	if (force_spread>0) istdev = 5;
-	std::size_t mx = std::max(isma+istdev, 2*istdev);
-	for (auto k = source(); k.has_value(); k = source()) {
-		double p = k->last;
-		if (last || sliding) {
-	/*		if (minfo.invert_price) p = 1.0/p;*/
-			prices.push_back(p);
-			auto spread_info = stCalcSpread(prices.end()-std::min(mx,prices.size()), prices.end(), isma, istdev);
-			if (force_spread>0) spread_info.spread = force_spread;
-			double spread = spread_info.spread;
-			double center = sliding?spread_info.center:0;
-			double low = (center+last) * std::exp(-spread*mult*dynmult.getBuyMult());
-			double high = (center+last) * std::exp(spread*mult*dynmult.getSellMult());
-			if (sliding && last_price) {
-				double low_max = last_price*std::exp(-spread*0.01);
-				double high_min = last_price*std::exp(spread*0.01);
-				if (low > low_max) {
-					high = low_max + (high-low);
-					low = low_max;
-				}
-				if (high < high_min) {
-					low = high_min - (high-low);
-					high = high_min;
-
-				}
-				low = std::min(low_max, low);
-				high = std::max(high_min, high);
-			}
-			double size = 0;
-			if (p > high) {
-				last_price = high;
-				last = high-center; size = -1;dynmult.update(false,true);
-			}
-			else if (p < low) {
-				last_price = low;
-				last = low-center; size = 1;dynmult.update(true,false);
-			}
-			else {
-				dynmult.update(false,false);
-			}
-			if (size || !onlyTrades) res.chart.push_back(VisRes::Item{
-				p, low, high, size,k->time
-			});
-		} else {
-			last = p;
-		}
-	}
-	if (strip && res.chart.size()>10) res.chart.erase(res.chart.begin(), res.chart.begin()+res.chart.size()/2);
-	return res;
 }
 
 
@@ -1626,11 +1564,12 @@ bool MTrader::checkReduceOnLeverage(const Status &st, double &maxPosition) {
 MTrader::BalanceChangeEvent MTrader::detectLeakedTrade(const Status &st) const {
 	if (position_valid && cfg.enabled) {
 		double minsize = std::max({minfo.asset_step, minfo.min_size, minfo.min_volume/st.curPrice});
-		double diff = st.assetBalance - (position+accumulated);
+		double accum = getAccumulated();
+		double diff = st.assetBalance - (position+accum);
 		if (std::abs(diff)<minsize) return BalanceChangeEvent::no_change; //this is ok - difference is on round error level
 		if (minfo.leverage == 0 && diff<0) {//we can detect leaked trade on exchange better then on futures
-			double cchg = -diff * st.curPrice;
-			double cdiff = st.currencyBalance-currency;
+			double cchg = std::abs(diff * st.curPrice);
+			double cdiff = std::abs(st.currencyBalance-currency);
 			if (cdiff < cchg*0.25) {
 				auto x = wcfg.accumDB.lock_shared()->query(WalletDB::KeyQuery(cfg.broker, minfo.wallet_id, minfo.asset_symbol, uid));
 				double accumTot = x.otherTraders+x.thisTrader;
@@ -1643,4 +1582,30 @@ MTrader::BalanceChangeEvent MTrader::detectLeakedTrade(const Status &st) const {
 	} else {
 		return BalanceChangeEvent::disabled;
 	}
+}
+
+void MTrader::doWithdraw(const Status &st) {
+	double accum = getAccumulated();
+	double diff = st.assetBalance - (position+accum);
+	double withdraw_size;
+	auto wkey = getWalletAssetKey();
+	auto x = wcfg.accumDB.lock_shared()->query(wkey);
+	if (x.otherTraders == 0) {
+		withdraw_size = diff;
+	} else {
+		withdraw_size = std::max(diff, - accum);
+	}
+	accum+=withdraw_size;
+	logInfo("Withdraw from trader: amount=$1, remain=$2, accumulated=$3, accumulated_total=$4", withdraw_size, diff-withdraw_size,accum,x.thisTrader+x.otherTraders+withdraw_size);
+	auto time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+	trades.push_back(IStatSvc::TradeRecord(IStockApi::Trade{
+		"WITHDRAW:"+std::to_string(time),
+		static_cast<std::uint64_t>(time),
+		0, lastTradePrice, 0, lastTradePrice
+	},0,accum,0,true));
+	wcfg.accumDB.lock()->alloc(std::move(wkey), accum);
+}
+
+double MTrader::getAccumulated() const {
+	return accumulated;
 }

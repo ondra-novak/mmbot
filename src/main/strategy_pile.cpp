@@ -34,32 +34,33 @@ PStrategy Strategy_Pile::init(double price, double assets, double currency, bool
 }
 
 double Strategy_Pile::calcPosition(double ratio, double kmult, double price) {
-	return kmult*std::pow(price, -ratio);
+	return kmult*std::pow(price, ratio-1);
 }
 
 double Strategy_Pile::calcBudget(double ratio, double kmult, double price) {
-	return kmult*std::pow(price,1-ratio)/(1-ratio);
+	return kmult*std::pow(price,ratio)/(ratio);
 }
 
 double Strategy_Pile::calcEquilibrium(double ratio, double kmul, double position) {
-	return std::pow<double>(position/kmul,-1.0/ratio);
+	return std::pow<double>(position/kmul,-1.0/(1-ratio));
 }
 
 double Strategy_Pile::calcPriceFromBudget(double ratio, double kmul, double budget) {
-	return std::pow(budget*(1-ratio)/kmul, 1.0/(ratio-1));
+	return std::pow(budget*ratio/kmul, 1.0/(ratio));
 }
 
 double Strategy_Pile::calcCurrency(double ratio, double kmult, double price) {
-	return kmult*(std::pow(price,1-ratio)/(1-ratio) - std::pow(price, -ratio)*price);
+	return kmult*(std::pow(price,ratio)/(ratio) - std::pow(price, ratio-1)*price);
 }
 
 double Strategy_Pile::calcPriceFromCurrency(double ratio, double kmult, double currency) {
-	return std::pow(currency*(1-ratio)/(kmult*ratio), 1.0/(ratio-1));
+	return std::pow(-(kmult - kmult/ratio)/currency,-1.0/ratio);
 }
 
 
-std::pair<double,double> Strategy_Pile::calcAccum(double new_price, double assets) const {
+std::pair<double,double> Strategy_Pile::calcAccum(double new_price) const {
 	double b2 = calcBudget(st.ratio, st.kmult, new_price);
+	double assets = calcPosition(st.ratio, st.kmult, st.lastp);
 	double pnl = (assets) * (new_price - st.lastp);
 	double bdiff = b2 - st.budget;
 	double extra = pnl - bdiff;
@@ -73,7 +74,7 @@ IStrategy::OrderData Strategy_Pile::getNewOrder(
 		double dir, double assets, double currency, bool rej) const {
 
 	double finPos = calcPosition(st.ratio, st.kmult, new_price);
-	double accum = calcAccum(new_price, assets).second;
+	double accum = calcAccum(new_price).second;
 	finPos += accum;
 	double diff = finPos - assets;
 	return {0, diff};
@@ -86,10 +87,9 @@ std::pair<IStrategy::OnTradeResult, ondra_shared::RefCntPtr<const IStrategy> > S
 			this->init(tradePrice, assetsLeft-tradeSize, currencyLeft, minfo.leverage != 0)
 				 ->onTrade(minfo, tradePrice, tradeSize, assetsLeft, currencyLeft);
 
-	double prevAssets = assetsLeft - tradeSize;
-	auto normp = calcAccum(tradePrice, prevAssets);
+	auto normp = calcAccum(tradePrice);
 	auto cass = calcPosition(st.ratio, st.kmult, tradePrice);
-	auto diff = assetsLeft - cass;
+	auto diff = assetsLeft-cass-normp.second;
 
 	return {
 		{normp.first, normp.second,0,0},

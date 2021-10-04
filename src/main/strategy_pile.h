@@ -75,7 +75,7 @@ protected:
 	Config cfg;
 	State st;
 
-	std::pair<double,double> calcAccum(double new_price, double assets) const;
+	std::pair<double,double> calcAccum(double new_price) const;
 };
 
 #endif /* SRC_MAIN_STRATEGY_PILE_H_ */

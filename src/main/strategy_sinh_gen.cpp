@@ -208,7 +208,6 @@ std::pair<IStrategy::OnTradeResult, PStrategy> Strategy_Sinh_Gen::onTrade(
 		assetsLeft = 0;
 	}
 
-
 	double prevPos = assetsLeft - tradeSize;
 	double cb = st.val;
 	double pnl = prevPos*(tradePrice - st.p);

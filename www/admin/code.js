@@ -380,6 +380,8 @@ App.prototype.fillForm = function (src, trg) {
 		data.balance_asset= adjNum(invSize(pair.asset_balance,pair.invert_price));		
 		data.balance_currency = adjNum(pair.currency_balance);
 		data.price= adjNum(invPrice(pair.price,pair.invert_price));
+		data.accumulation = adjNum(state.accumulation);
+		data.show_accum = {".hidden": state.accumulation == 0};
 		data.fees =adjNum(pair.fees*100,4);
 		data.leverage=pair.leverage?pair.leverage+"x":"n/a";
 		data.type_spot={".hidden":pair.leverage != 0};
@@ -459,7 +461,7 @@ App.prototype.fillForm = function (src, trg) {
 			var req = {
 					strategy:strategy,
 					price:pair.price,
-					assets:state.position,
+					assets:state.position || state.pair.asset_balance,
 					currency:trg._balance,
 					leverage:pair.leverage,
 					inverted: pair.invert_price,
@@ -1729,8 +1731,8 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		"hedge_short","hedge_long","hedge_drop",
 		"shg_w","shg_p","shg_b","shg_olt","shg_ol","shg_lp","shg_rnv","shg_avgsp","shg_boostmode"];
 	var spread_inputs = ["spread_calc_stdev_hours", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode","dynmult_sliding","dynmult_cap","dynmult_mult","force_spread","spread_mode"];
-	var balance = form._backtest_balance;
-	var assets = form._assets;
+	var balance = form._backtest_balance+form._assets*form._price;
+	var assets = 0;
 	var leverage = form._leverage != "n/a";	
 	var invert_price = form._invprice;
 	var init_def_price = form._price;
@@ -1739,7 +1741,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
     var offset_max = 0;
 	var start_date = "";
 	var sttype =this.traders[id].strategy.type;
-    var show_norm= ["halfhalf","keepvalue","exponencial","errorfn","hypersquare","conststep"].indexOf(sttype) != -1;
+    var show_norm= ["halfhalf","pile","keepvalue","exponencial","errorfn","hypersquare","conststep"].indexOf(sttype) != -1?1:0;
 	var infoElm;
 	var this_bt=this.backtest[id];
 	if (!this_bt) this.backtest[id]=this_bt={};
@@ -1831,24 +1833,31 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		var last = c[c.length-1];
 		var lastnp;
 		var lastnpl;
+		var lastna;
 		var lastop;
 		var lastpl;
 		if (offset) {
 			var x = Object.assign({}, last);
 			x.time = imax;
-			lastnp = x.np;
-			lastnpl = x.npla;
-			lastop = x.op;
-			lastpl = x.pl;
 			c.push(x);
 		}
+		lastnp = last.np;
+		lastnpl = last.npla;
+		lastop = last.op;
+		lastpl = last.pl;
+		lastna = last.na;		
+
+		skip_norm = lastnpl == 0;
+		skip_accum = lastna == 0;
 
 		if (balance!==undefined) {
         cntr.bt.setData({
         	"pl":adjNumBuySell(vlast.pl),
         	"ply":adjNumBuySell(vlast.pl*31536000000/interval),
-        	"npl":adjNumBuySell(vlast.npla),
-        	"nply":adjNumBuySell(vlast.npla*31536000000/interval),
+        	"npl":adjNumBuySell(vlast.npl),
+        	"nply":adjNumBuySell(vlast.npl*31536000000/interval),
+        	"npla":adjNumBuySell(vlast.na),
+        	"nplya":adjNumBuySell(vlast.na*31536000000/interval),
         	"max_pos":adjNum(max_pos),
         	"max_cost":adjNum(max_cost),
         	"max_loss":adjNumBuySell(-max_downdraw),
@@ -1856,9 +1865,11 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
         	"max_profit":adjNumBuySell(max_pl),
         	"pr": adjNum(max_pl/max_downdraw),
         	"pc": adjNumBuySell(vlast.pl*3153600000000/(interval*balance),0),
-        	"npc": adjNumBuySell(vlast.npla*3153600000000/(interval*balance),1),
-        	"showpl":{".hidden":show_norm},
-        	"shownorm":{".hidden":!show_norm},
+        	"npc": adjNumBuySell(vlast.npl*3153600000000/(interval*balance),1),
+        	"npca": adjNumBuySell(vlast.na*3153600000000/(interval*balance/form._price),1),
+        	"showpl":{".hidden":show_norm!=0},
+        	"shownorm":{".hidden":show_norm!=1},
+        	"showaccum":{".hidden":show_norm!=2},
         	"trades": trades,
         	"buys": buys,
         	"sells": sells,
@@ -1890,8 +1901,10 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		} else {
 		    drawMap1=drawChart(chart1,c,"pr",lastnp?[{label:"neutral",pr:lastnp}]:[],"np");			
 		}
-		if (show_norm) {
-		    drawMap2=drawChart(chart2,c,"npla",[{label:"PL",npla:lastpl}],"pl");
+		if (show_norm==1) {
+		    drawMap2=drawChart(chart2,c,"npl",[{label:"PL",npla:lastpl}],"pl");
+		} else if (show_norm==2) {
+		    drawMap2=drawChart(chart2,c,"na",[]);
 		} else {
 		    drawMap2=drawChart(chart2,c,"pl",[{label:"norm",pl:lastnpl}],"npla");
 		}
@@ -1949,6 +1962,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
                 		pr:adjNum(bestItem.pr),
                 		ps:adjNumBuySell(bestItem.ps),
                 		pl:adjNumBuySell(bestItem.pl),
+                		na:adjNumBuySell(bestItem.na),
                 		npl:adjNumBuySell(bestItem.npl),
                 		sz:adjNumBuySell(bestItem.sz),
                 		bt_event: bestItem.event,
@@ -1996,9 +2010,13 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 	var res_data;	
 	var delayed_update_trades = new DelayUpdate(function(){get_bt_file(this_bt.trades)});
 	var delayed_update_minute = new DelayUpdate(function(){get_bt_file(this_bt.minute)});
+    var skip_accum = false;
+    var skip_norm = false;
 
 	function swapshowpl() {
-		show_norm = !show_norm;
+		show_norm = (show_norm+1)%3;
+		if (skip_norm && show_norm == 1) swapshowpl();
+		else if (skip_accum && show_norm == 2) swapshowpl();
 		update_recalc();
 	}
 
@@ -2150,6 +2168,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 			})
 			cntr.bt.setItemEvent("showpl","click",swapshowpl);
 			cntr.bt.setItemEvent("shownorm","click",swapshowpl);
+			cntr.bt.setItemEvent("showaccum","click",swapshowpl);
 			cntr.bt.setItemEvent("select_file","click",function(){
 				var el = cntr.bt.findElements("price_file")[0];
 				el.value="";

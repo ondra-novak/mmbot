@@ -106,6 +106,7 @@ test(test)
 	wcfg.walletDB = PWalletDB::make();
 	wcfg.externalBalance = wcfg.externalBalance.make();
 	wcfg.balanceCache = wcfg.balanceCache.make();
+	wcfg.accumDB = wcfg.accumDB.make();
 }
 
 void Traders::clear() {

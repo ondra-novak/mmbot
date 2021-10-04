@@ -703,8 +703,8 @@ bool WebCfg::reqTraders(simpleServer::HTTPRequest req, ondra_shared::StrViewA vp
 					out.set("pair", getPairInfo(broker, trl->getConfig().pairsymb, ibalance));
 					if (trl != nullptr) {
 						auto strategy = trl->getStrategy();
-						double assets = out["pair"]["asset_balance"].getNumber();
-						double currencies = out["pair"]["currency_balance"].getNumber();
+						double assets = *trl->getPosition();
+						double currencies = *trl->getCurrency();
 						auto eq = strategy.getEquilibrium(assets);
 						auto minfo = trl->getMarketInfo();
 						if (stprice) {
@@ -1019,6 +1019,7 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req)  {
 				result.set("orders", getOpenOrders(api, p));
 				result.set("strategy", strategy);
 				result.set("position", position);
+				result.set("accumulation", trl->getAccumulated());
 				result.set("trades", tradeCnt);
 				result.set("exists", exists);
 				result.set("need_initial_reset",need_initial_reset);

@@ -239,23 +239,11 @@ public:
 	};
 
 
-	static VisRes visualizeSpread(std::function<std::optional<ChartItem>()> &&source,
-			double sma,
-			double stdev,
-			double force_spread,
-			double mult,
-			double dyn_raise,
-			double dyn_fall,
-			double dyn_cap,
-			ondra_shared::StrViewA dynMode,
-			bool sliding,
-			bool dyn_mult,
-			bool strip,
-			bool onlyTrades);
 
 	std::optional<double> getInternalBalance() const;
 	std::optional<double> getInternalCurrencyBalance() const;
 	std::optional<double> getPosition() const;
+	std::optional<double> getCurrency() const;
 
 
 	void saveState();
@@ -263,6 +251,8 @@ public:
 
 	auto getUID() const {return uid;}
 	bool isInitialResetRequired() const {return need_initial_reset;}
+	double getAccumulated() const;
+
 
 protected:
 
@@ -295,10 +285,9 @@ protected:
 
 	double position = 0;
 	double currency = 0;
-	double prev_live_currency = 0;
+	double accumulated = 0;
 	bool position_valid = false;
 	bool currency_valid = false;
-	double accumulated = 0;
 
 
 /*	std::optional<double> asset_balance;
@@ -363,6 +352,7 @@ private:
 	};
 
 	BalanceChangeEvent detectLeakedTrade(const Status &st) const;
+	void doWithdraw(const Status &st);
 };
 
 

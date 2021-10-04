@@ -41,6 +41,7 @@ public:
 		double highest_price;
 		double budget_total;
 		double budget_assets;
+		double accumulated;
 		std::optional<double> budget_extra;
 		std::size_t total_trades;
 		std::uint64_t total_time;
