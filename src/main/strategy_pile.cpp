@@ -27,6 +27,7 @@ PStrategy Strategy_Pile::init(double price, double assets, double currency, bool
 			m, //kmult
 			price, //last price
 			cb, //budget
+			assets,
 			0,
 	}));
 	if (!out->isValid()) throw std::runtime_error("Unable to initialize strategy - failed to validate state");
@@ -60,7 +61,7 @@ double Strategy_Pile::calcPriceFromCurrency(double ratio, double kmult, double c
 
 std::pair<double,double> Strategy_Pile::calcAccum(double new_price) const {
 	double b2 = calcBudget(st.ratio, st.kmult, new_price);
-	double assets = calcPosition(st.ratio, st.kmult, st.lastp);
+	double assets = st.pos;
 	double pnl = (assets) * (new_price - st.lastp);
 	double bdiff = b2 - st.budget;
 	double extra = pnl - bdiff;
@@ -94,7 +95,7 @@ std::pair<IStrategy::OnTradeResult, ondra_shared::RefCntPtr<const IStrategy> > S
 	return {
 		{normp.first, normp.second,0,0},
 		PStrategy(new Strategy_Pile(cfg, State {
-			st.ratio, st.kmult, tradePrice, calcBudget(st.ratio, st.kmult, tradePrice), diff * tradePrice
+			st.ratio, st.kmult, tradePrice, calcBudget(st.ratio, st.kmult, tradePrice), assetsLeft-normp.second, diff * tradePrice
 		}))
 	};
 
@@ -106,6 +107,7 @@ PStrategy Strategy_Pile::importState(json::Value src, const IStockApi::MarketInf
 			src["kmult"].getNumber(),
 			src["lastp"].getNumber(),
 			src["budget"].getNumber(),
+			src["pos"].getNumber(),
 			src["berror"].getNumber()
 	};
 	return new Strategy_Pile(cfg, std::move(st));
@@ -139,6 +141,7 @@ json::Value Strategy_Pile::exportState() const {
 		{"kmult",st.kmult},
 		{"lastp",st.lastp},
 		{"budget",st.budget},
+		{"pos",st.pos},
 		{"berror",st.berror}
 	};
 }
@@ -191,7 +194,7 @@ PStrategy Strategy_Pile::reset() const {
 }
 
 json::Value Strategy_Pile::dumpStatePretty(const IStockApi::MarketInfo &minfo) const {
-	double pos = calcPosition(st.ratio, st.kmult, st.lastp);
+	double pos = st.pos;
 	double price = st.lastp;
 	if (minfo.invert_price) {
 		price = 1.0/price;

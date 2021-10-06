@@ -64,8 +64,8 @@
 <option value="">--- select ---</option>
 <optgroup label="Exchanges">
 <option value="pile">Pile strategy (improved Half-Half)</option>
+<option value="keepvalue2">Keep Value</option>
 <option value="conststep" data-hidden="true">Linear costs</option>
-<option value="keepvalue">Keep Value</option>
 <option value="hypersquare">Hypersquare</option>
 <option value="exponencial">Exponencial</option>
 <option value="errorfn">Gauss/error function+rebalance</option>
@@ -84,8 +84,8 @@
 <option value="hedge">Hedge</option>
 </optgroup>
 <optgroup label="Old and obsolete">
-<option value="stairs"  data-hidden="true">Stairs</option>
 <option value="halfhalf">Half-Half</option>
+<option value="keepvalue">Keep Value (old)</option>
 </optgroup>
 </select></label>
 <div class="label strategygoal"><span>Startegy Goal:</span><div data-name="help_goal">
@@ -93,7 +93,6 @@
 <div class="halfhalf">This strategy keeps the value of assets and money on the stock exchange in a ratio 1:1. Whenever this ratio is disrupted, the strategy executes a trade in such a volume to achieve the defined ratio. <a href="https://www.desmos.com/calculator/9fdvux8fms">Interactive graph</a></div>
 <div class="keepvalue">This strategy keeps the value of assets on the stock exchange at the same value. If the value of assets falls or rises (due to changing price), the strategy executes a trade in such a volume to achieve the same value of the assets as before.</div>
 <div class="exponencial">Strategy based on exponencial function to trade pairs on exchanges. If correctly configured, it can work in range of (0,infinity) like Half-Half, however, its effectivty ends after 400% gain on the price of the underlying asset. So this strategy is ideal to trade altcoins where is less chance of a long running positive trend. The profit is realized through the normalized profit. <a href="https://www.desmos.com/calculator/gln1sxxgyo" target="_blank">Interactive graph</a></div>
-<div class="stairs">This strategy generates orders in predefined steps. The size of the next order is affected by the current position in steps. You can set the maximum number of steps or the way the strategy jumps between steps. </div>
 <div class="hypersquare">This strategi is similar to Exponencial, but it is based on square hyperbolic function. Area for target average price is much wider then exponencial. <a href="https://www.desmos.com/calculator/pbfisabvcm" target="_blank">Interactive graph</a></div>
 <div class="errorfn">The best strategy for exchanges, can reach highest normalized profit. The core of the strategy is based on Gauss Error Function. The optimal range between -50% to +50%. If the price goes out of the optimal range, the Rebalance is performed to keep price in the optimal range<a href="https://www.desmos.com/calculator/uhkqt4ajvp">Interactive graph</a></div>
 <div class="keep_balance">Not quite a strategy, more a utility. It balances the currency balance. If the account has a larger balance than the specified maximum, the excess money will be used to purchase the asset. If the account has a smaller balance than the specified minimum, some assets will be sold to replenish the balance </div>
@@ -131,6 +130,17 @@ fixed constant. The robot is forced to buy assets, but if the price of assets ri
 sell part of the assets and use the currency to buy assets at a better price. It is also possible
 to enter a negative value and then the value of the assets held will decrease and allow slower but more efficient sales.</span></span>
 <input type="number" step="any" data-name="kv_valinc"></label>
+<x-section>
+<div class="label"><span>Min price:</span><span data-name="range_min_price">---</span></div>
+<div class="label"><span>Max price:</span><span data-name="range_max_price">---</span></div>
+<div class="label"><span>Recomended initial position:</span><span data-name="range_initial">---</span></div>
+</x-section>
+<div class="rightinfo"><button name="show_backtest hide_on_new" disabled="disabled">Backtest</button></div>
+</x-section>
+
+<x-section data-name="strategy_kv2" class="goal" hidden="hidden"><x-section-caption>Keep Value</x-section-caption>
+<label><span>Accumulation <span class="tooltip">Amount of the profit used to buy extra assets</span></span><x-slider data-name="kv2_accum" data-min="0" data-max="100" data-mult="1"></x-slider></label>
+<label class="adv"><span>Exponent<span class="tooltip">Adds exponent to the formula. <br><br>Exponent&gt;0 - reduce kept value with higher price.<br>Exponent&lt;0 - increase kept value with higher price</span></span><x-slider data-name="kv2_ratio" data-min="-2" data-max="2" data-mult="0.1"></x-slider></label>
 <x-section>
 <div class="label"><span>Min price:</span><span data-name="range_min_price">---</span></div>
 <div class="label"><span>Max price:</span><span data-name="range_max_price">---</span></div>
@@ -234,7 +244,7 @@ to enter a negative value and then the value of the assets held will decrease an
 <label><span>Trailing sell<span class="tooltip">Sell or open short when price going down and close when price goes up</span></span><x-checkbox data-name="hedge_short"></label>
 </x-section>
 
-<x-section data-name="strategy_sinhgen" class="goal" hidden="hidden"><x-section-caption>Simple Leveraged</x-section-caption>
+<x-section data-name="strategy_sinhgen backtest_anchor" class="goal" hidden="hidden"><x-section-caption>Simple Leveraged</x-section-caption>
 <label><span>Power[%]<span class="tooltip">Relative amount of you balance used in calculation in percent</span></span><x-slider data-name="shg_p" data-min="1" data-max="200" data-mult="1" data-fixed="0"></label>
 <label><span>Aggressiveness[%]<span class="tooltip">How much aggresive is strategy is to open positions. In order to ensure sufficient money management, smaller positions may be opened first and larger positions will be opened later </span></span><x-slider data-name="shg_w" data-min="1" data-max="200" data-mult="1" data-fixed="0"></label>
 <label class="adv"><span>Initial boost[%]<span class="tooltip">Boosts position when it is initially opened</span></span><x-slider data-name="shg_b" data-min="0" data-max="10" data-mult="0.1" data-fixed="1"></label>
@@ -267,37 +277,6 @@ to enter a negative value and then the value of the assets held will decrease an
 
 
 
-
-<x-section data-name="strategy_stairs backtest_anchor" class="goal" hidden="hidden"><x-section-caption>Stairs</x-section-caption>
-<label class="adv"><span>Trading mode</span><select data-name="st_tmode">
-<option value="auto" selected="selected">Auto</option>
-<option value="exchange">Exchange</option>
-<option value="margin">Margin</option>
-</select></label>
-<label><span>Power (<span data-name="st_show_factor"></span>x)<span class="tooltip">Specifies power of 10 multiplier of current balance used to automatically calculate the step (for 1% of movement). <br><br>Use <strong>0.5</strong> for <strong>cryptocurrencies</strong> <br>and values between <strong>3-4</strong> for <strong>Forex</strong></span></span><x-slider data-name="st_power" data-min="0.01" data-max="5" data-mult="0.01" data-fixed="2"></x-slider></label>
-<label><span>Max steps<span class="tooltip">TBD</span></span><x-slider data-name="st_max_step" data-min="1" data-max="50" data-mult="1" data-fixed="0"></x-slider></label>
-<div class="label ttb"><span><select data-name="st_redmode">
-	<option value="stepsBack" selected="selected">N steps back</option>
-	<option value="reverse">Close/Reverse</option>
-	<option value="lockOnReduce">Locked step</option>
-	<option value="lockOnReverse">One-way steps</option>
-</select></span><x-slider data-name="st_reduction_step" data-min="0" data-max="50" data-mult="1" data-fixed="0"></x-slider></div>
-<label><span>Series</span><select data-name="st_pattern">
-<option value="constant">Linear increase</option>
-<option value="harmonic">Harmonic (1,1.5,1.83,2.083,...)</option> 
-<option value="sqrt">Square root(1,1.4,1.7,2,2.2...)</option>
-<option value="arithmetic">Arithmetic (1,3,6,10,15,...)</option>
-<option value="exponencial">Exponencial (1,2,4,8,16...)</option>
-<option value="parabolic">Parabolic</option>
-<option value="poisson1">Poisson μ=1</option>
-<option value="poisson2">Poisson μ=2</option>
-<option value="poisson3">Poisson μ=5</option>
-<option value="poisson4">Poisson μ=7</option>
-<option value="poisson5">Poisson μ=11</option>
-</select></label>
-<label class="adv"><span>Options</span><span><x-checkbox data-name="st_sl">Stoploss</x-checkbox></span></label>
-<div class="rightinfo"><button name="show_backtest hide_on_new" disabled="disabled">Backtest</button></div>
-</x-section>
 
 <x-section class="adv"  ><x-section-caption>Common</x-section-caption>
 <label  class="adv"><span>Minimum order size (0&nbsp;=&nbsp;disabled)<span class="tooltip">
@@ -885,6 +864,7 @@ the same order, they are ordered by its ID - this is the default ordering. Modif
 <tr><th>Position</th><td class="colornumb" data-name="ps"></td></tr>
 <tr><th>PnL</th><td class="colornumb" data-name="pl"></td></tr>
 <tr><th>Norm PnL</th><td class="colornumb" data-name="npl"></td></tr>
+<tr><th>Balance</th><td class="colornumb" data-name="bal"></td></tr>
 <tr><th>Accum:</th><td class="colornumb" data-name="na"></td></tr>
 <tr data-name="bt_event_row"><th>Event</th><td>
 <x-switch data-name="bt_event" data-value="liquidation" class="mark_crit">Liquidation!</x-switch>

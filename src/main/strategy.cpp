@@ -14,7 +14,6 @@
 #include "sgn.h"
 #include "strategy_halfhalf.h"
 #include "strategy_keepvalue.h"
-#include "strategy_stairs.h"
 #include "strategy_exponencial.h"
 #include "strategy_hypersquare.h"
 #include "strategy_sinh.h"
@@ -27,38 +26,8 @@
 #include "strategy_sinh_gen.h"
 #include "strategy_leveraged_base.tcc"
 #include "strategy_pile.h"
+#include "strategy_keepvalue2.h"
 
-
-
-static json::NamedEnum<Strategy_Stairs::Pattern> strStairsPattern ({
-		{Strategy_Stairs::arithmetic,"arithmetic"},
-		{Strategy_Stairs::constant,""},
-		{Strategy_Stairs::constant,"constant"},
-		{Strategy_Stairs::exponencial,"exponencial"},
-		{Strategy_Stairs::harmonic,"harmonic"},
-		{Strategy_Stairs::parabolic,"parabolic"},
-		{Strategy_Stairs::sqrt,"sqrt"},
-		{Strategy_Stairs::poisson1,"poisson1"},
-		{Strategy_Stairs::poisson2,"poisson2"},
-		{Strategy_Stairs::poisson3,"poisson3"},
-		{Strategy_Stairs::poisson4,"poisson4"},
-		{Strategy_Stairs::poisson5,"poisson5"}
-});
-
-static json::NamedEnum<Strategy_Stairs::ReductionMode> strStairsRedMode ({
-	{Strategy_Stairs::stepsBack,""},
-	{Strategy_Stairs::stepsBack,"stepsBack"},
-	{Strategy_Stairs::reverse,"reverse"},
-	{Strategy_Stairs::lockOnReduce,"lockOnReduce"},
-	{Strategy_Stairs::lockOnReverse,"lockOnReverse"},
-});
-
-static json::NamedEnum<Strategy_Stairs::TradingMode> strStairsTMode ({
-	{Strategy_Stairs::autodetect,""},
-	{Strategy_Stairs::autodetect,"auto"},
-	{Strategy_Stairs::exchange,"exchange"},
-	{Strategy_Stairs::margin,"margin"}
-});
 
 static json::NamedEnum<Strategy_Gamma::Function> strGammaFunction ({
 	{Strategy_Gamma::halfhalf,""},
@@ -101,6 +70,11 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 		cfg.accum = config["accum"].getNumber()*0.01;
 		cfg.ratio= config["ratio"].getNumber()*0.01;
 		return Strategy(new Strategy_Pile(cfg));
+	} else if (id == Strategy_KeepValue2::id) {
+		Strategy_KeepValue2::Config cfg;
+		cfg.accum = config["accum"].getNumber()*0.01;
+		cfg.ratio= std::exp(config["ratio"].getNumber());
+		return Strategy(new Strategy_KeepValue2(cfg));
 	} else if (id == Strategy_Exponencial::id) {
 		Strategy_Exponencial::Config cfg;
 		cfg.ea = config["ea"].getNumber();
@@ -131,16 +105,6 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 		cfg.accum = config["accum"].getNumber();
 		cfg.chngtm = config["valinc"].getNumber();
 		return Strategy(new Strategy_KeepValue(cfg,{}));
-	} else if (id == Strategy_Stairs::id) {
-		Strategy_Stairs::Config cfg;
-		cfg.power = config["power"].getNumber();
-		cfg.reduction= config["reduction_steps"].getValueOrDefault(2);
-		cfg.max_steps=config["max_steps"].getInt();
-		cfg.pattern=strStairsPattern[config["pattern"].getString()];
-		cfg.mode = strStairsTMode[config["mode"].getString()];
-		cfg.redmode = strStairsRedMode[config["redmode"].getString()];
-		cfg.sl = config["sl"].getBool();
-		return Strategy(new Strategy_Stairs(cfg));
 	} else if (id == Strategy_Sinh::id) {
 		Strategy_Sinh::Config cfg;
 		double power = config["power"].getNumber();

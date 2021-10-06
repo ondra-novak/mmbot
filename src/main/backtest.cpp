@@ -148,13 +148,14 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 				bt.norm_accum += norm_accum;
 				bt.norm_profit += std::isfinite(tres.normProfit)?tres.normProfit:0;
 				bt.open_price = tres.openPrice;
-				order.size -= norm_accum;
+				if (order.size*(order.size-norm_accum)>1) order.size -= norm_accum;
 			}
 			bt.size = order.size;
 			bt.price.price = p;
 			bt.price.time = price->time;
 			bt.pl = pl;
 			bt.pos = pos;
+			bt.bal = balance;
 			bt.norm_profit_total = bt.norm_profit + bt.norm_accum * p;
 			bt.info = s.dumpStatePretty(minfo);
 

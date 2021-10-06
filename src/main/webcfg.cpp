@@ -2130,6 +2130,7 @@ bool WebCfg::reqBacktest_v2(simpleServer::HTTPRequest req, ondra_shared::StrView
 							{"ps",x.pos},
 							{"pr",x.price.price},
 							{"tm",x.price.time},
+							{"bal",x.bal},
 							{"info",x.info},
 							{"sz",x.size},
 							{"event", event}

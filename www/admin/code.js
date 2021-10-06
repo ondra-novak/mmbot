@@ -100,7 +100,7 @@ App.prototype.createTraderForm = function() {
 		form.showItem("strategy_halfhalf",state.strategy == "halfhalf" || state.strategy == "keepvalue" || state.strategy == "exponencial"||state.strategy == "hypersquare"||state.strategy == "conststep");
 		form.showItem("strategy_pl",state.strategy == "plfrompos");
 		form.showItem("strategy_pile",state.strategy == "pile");
-		form.showItem("strategy_stairs",state.strategy == "stairs");
+		form.showItem("strategy_kv2",state.strategy == "keepvalue2");
 		form.showItem("strategy_gauss",state.strategy == "errorfn");
 		form.showItem("strategy_keepbalance",state.strategy == "keep_balance");
 		form.showItem("strategy_martingale",state.strategy == "martingale");
@@ -498,7 +498,7 @@ App.prototype.fillForm = function (src, trg) {
 			"hp_extbal", "hp_reduction","hp_dynred","sh_curv","gamma_exp","pincome_exp",
 			"gamma_trend","gamma_fn",
 			"shg_w","shg_p","shg_lp",
-			"pile_ratio"
+			"pile_ratio","kv2_ratio"
 			]
 			.forEach(function(item){
 				trg.findElements(item).forEach(function(elem){
@@ -513,10 +513,6 @@ App.prototype.fillForm = function (src, trg) {
 			data.show_backtest= {"!click": this.init_backtest.bind(this, trg, src.id, src.pair_symbol, src.broker), ".disabled":false};
 			data.inverted_price=pair.invert_price?"true":"false";
 			var tmp = trg.readData(["cstep","max_pos"]);
-			if (!pair.leverage) {
-				var elm = trg.findElements("st_power")[0].querySelector("input[type=range]");
-				elm.setAttribute("max","199");
-			}
 			if (!src.strategy && typeof state.pair.price == "string" && state.pair.price.startsWith("trainer")){
 			    this.brokerConfig(src.broker, src.pair_symbol).then(updateHdr,updateHdr);
 			}
@@ -569,11 +565,6 @@ App.prototype.fillForm = function (src, trg) {
 	data.adj_timeout=5;
 	data.kv_valinc = 0;
 	data.kv_halfhalf=false;
-	data.st_power={"value":1.7};
-	data.st_max_step=1;
-	data.st_reduction_step=2;
-	data.st_pattern = "constant";
-	data.st_sl=false;
 	data.hp_reduction=0;
 	data.sh_curv=1;
 	data.hp_limit=1;
@@ -616,6 +607,8 @@ App.prototype.fillForm = function (src, trg) {
 	data.pincome_exp = 40;
 	data.pile_ratio=50;
 	data.pile_accum=0;
+	data.kv2_accum=0;
+	data.kv2_ratio=0;	
 
 	function powerCalc(x) {return adjNumN(Math.pow(10,x)*0.01);};
 
@@ -649,15 +642,6 @@ App.prototype.fillForm = function (src, trg) {
 		data.sh_curv = filledval(src.strategy.curv,5);
 		data.hp_fastclose = filledval(src.strategy.fastclose,true);
 		data.hp_slowopen = filledval(src.strategy.slowopen,false);
-	} else if (data.strategy == "stairs") {
-		data.st_power = filledval(src.strategy.power,1.7);
-		data.st_show_factor = powerCalc(data.st_power.value)
-		data.st_max_step = filledval(src.strategy.max_steps,1);
-		data.st_pattern = filledval(src.strategy.pattern,"constant");
-		data.st_reduction_step= filledval(src.strategy.reduction_steps,2);
-		data.st_redmode= filledval(src.strategy.redmode,"stepsBack");
-		data.st_tmode=filledval(src.strategy.mode, "auto");
-		data.st_sl=filledval(src.strategy.sl,false);
 	} else if (data.strategy == "gamma") {
 		data.gamma_fn = filledval(src.strategy.function,"halfhalf");
 		data.gamma_exp = filledval(src.strategy.exponent,2);
@@ -685,10 +669,10 @@ App.prototype.fillForm = function (src, trg) {
 	} else if (data.strategy == "pile") {
 		data.pile_accum = filledval(src.strategy.accum,0);
 		data.pile_ratio = filledval(src.strategy.ratio,0);
+	} else if (data.strategy == "keepvalue2") {
+		data.kv2_accum = filledval(src.strategy.accum,0);
+		data.kv2_ratio = filledval(src.strategy.ratio,0);
 	}
-	data.st_power["!change"] = function() {
-		trg.setItemValue("st_show_factor",powerCalc(trg.readData(["st_power"]).st_power));
-	};	
 	data.shg_olt["!change"] = function() {
 		trg.enableItem("shg_ol", this.value != "0");
 		if (!trg.readData(["shg_ol"]).shg_ol) trg.setData({shg_ol:2});
@@ -835,6 +819,12 @@ function getStrategyData(data) {
 			accum: data.pile_accum,
 			ratio: data.pile_ratio,
 		};
+	} else if (data.strategy == "keepvalue2") {
+		strategy = {
+			type: data.strategy,
+			accum: data.kv2_accum,
+			ratio: data.kv2_ratio,
+		};
 	} else if (data.strategy == "hedge") {
 		strategy = {
 			type: data.strategy,
@@ -873,17 +863,6 @@ function getStrategyData(data) {
 				fastclose: data.hp_fastclose,
 				
 		};
-	} else 	if (data.strategy == "stairs") {
-		strategy ={
-				type: data.strategy,
-				power : data.st_power,
-				max_steps: data.st_max_step,
-				pattern: data.st_pattern,
-				reduction_steps:data.st_reduction_step,
-				redmode:data.st_redmode,
-				mode:data.st_tmode,
-				sl:data.st_sl
-		}
 	} else if (data.strategy == "keep_balance") {
 		strategy = {
 				type: data.strategy,
@@ -1722,12 +1701,13 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 	var url = "api/backtest2";
 	form.enableItem("show_backtest",false);		
 	var inputs = ["strategy","external_assets", "acum_factor","kv_valinc","kv_halfhalf","min_size","max_size","linear_suggest","linear_suggest_maxpos",
-		"st_power","st_reduction_step","st_sl","st_redmode","st_max_step","st_pattern","dynmult_sliding","accept_loss","st_tmode",
+		"dynmult_sliding","accept_loss",
 		"hp_trend_factor","hp_allowshort","hp_reinvest","hp_power","hp_asym","hp_reduction","sh_curv","hp_limit","hp_extbal","hp_powadj","hp_dynred",
 		"gs_external_assets","gs_rb_hi_a","gs_rb_lo_a","gs_rb_hi_p","gs_rb_lo_p",
 		"min_balance","max_balance","max_leverage","reduce_on_leverage","gamma_exp","gamma_rebalance","gamma_trend","gamma_fn","gamma_reinvest","gamma_maxrebal",
 		"pincome_exp",
 		"pile_accum","pile_ratio",
+		"kv2_accum","kv2_ratio",
 		"hedge_short","hedge_long","hedge_drop",
 		"shg_w","shg_p","shg_b","shg_olt","shg_ol","shg_lp","shg_rnv","shg_avgsp","shg_boostmode"];
 	var spread_inputs = ["spread_calc_stdev_hours", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode","dynmult_sliding","dynmult_cap","dynmult_mult","force_spread","spread_mode"];
@@ -1830,7 +1810,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 
 
         
-		var last = c[c.length-1];
+		var last = c[c.length-1]|| {};
 		var lastnp;
 		var lastnpl;
 		var lastna;
@@ -1967,6 +1947,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
                 		sz:adjNumBuySell(bestItem.sz),
                 		bt_event: bestItem.event,
                 		bt_event_row: {".hidden": bestItem.event === undefined},
+                		bal:adjNumBuySell(bestItem.bal),
                 		info:Object.keys(bestItem.info)
                 		    .map(function(n) {
                 		    	var v = bestItem.info[n];

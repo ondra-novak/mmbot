@@ -25,6 +25,7 @@ public:
 		double kmult = 0; // multiplication constant
 		double lastp = 0; // last price
 		double budget = 0; // budget at last price
+		double pos = 0;
 		double berror = 0; //budget error
 	};
 
@@ -68,7 +69,7 @@ public:
 	static double calcPriceFromBudget(double ratio, double kmul, double budget);
 	static double calcCurrency(double ratio, double kmult, double price);
 	static double calcPriceFromCurrency(double ratio, double kmult, double currency);
-	static double calcNormProfit(double ratio, double kmult, double budget, double last_price, double new_price);
+
 
 
 protected:

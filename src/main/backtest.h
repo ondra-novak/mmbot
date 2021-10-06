@@ -38,6 +38,7 @@ struct BTTrade {
 	double open_price = 0;
 	double pl = 0;
 	double pos = 0;
+	double bal = 0;
 	double norm_profit_total = 0;
 	BTEvent event = BTEvent::no_event;
 
