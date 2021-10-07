@@ -610,7 +610,7 @@ App.prototype.fillForm = function (src, trg) {
 	data.pile_ratio=50;
 	data.pile_accum=0;
 	data.kv2_accum=0;
-	data.kv_chngtm=0;
+	data.kv2_chngtm=0;
 	data.kv2_boost=false;	
 
 	function powerCalc(x) {return adjNumN(Math.pow(10,x)*0.01);};
