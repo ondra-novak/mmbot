@@ -1022,7 +1022,7 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req)  {
 				result.set("orders", getOpenOrders(api, p));
 				result.set("strategy", strategy);
 				result.set("position", position);
-				result.set("accumulation", trl->getAccumulated());
+				result.set("accumulation", trl == nullptr?0.0:trl->getAccumulated());
 				result.set("trades", tradeCnt);
 				result.set("exists", exists);
 				result.set("need_initial_reset",need_initial_reset);
