@@ -388,6 +388,7 @@ App.prototype.fillForm = function (src, trg) {
 		data.type_leveraged={".hidden":pair.leverage == 0};
 		data.type_inverted={".hidden":!pair.invert_price};
 		data.hdr_position = adjNum(invSize(state.position,pair.invert_price));
+		data.cur_pile_ratio = (state.strategy.Ratio || 0).toFixed(1);
 		trg._balance = pair.currency_balance+ext_ass.currency-avail.unavailable;
 		trg._backtest_balance = pair.currency_balance>trg._balance?pair.currency_balance:trg._balance;
 		trg._assets = state.position;

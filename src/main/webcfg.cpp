@@ -1573,7 +1573,7 @@ bool WebCfg::reqStrategy(simpleServer::HTTPRequest req) {
 		double cur = currency+extra_bal;
 		double z = s.calcInitialPosition(minfo, price, assets, cur);
 		double df = z - assets;
-		cur = cur - df * price;
+		if (!minfo.leverage) cur = cur - df * price;
 		s.onIdle(minfo, tk ,z,cur);
 	}
 
