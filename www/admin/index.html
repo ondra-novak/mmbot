@@ -840,12 +840,12 @@ the same order, they are ordered by its ID - this is the default ordering. Modif
 <template id="reset_strategy">
 <div class="dialog"><div class="reset_strategy">
 <h2>Reset strategy</h2>
-<p>This operation resets an internal state of the strategy. The purpose of this operation is to solve any strange behaviour of the strategy. However, this can also cause poor performance or loss, because the internal state of the strategy can hold important informations about your trading</p>
+<p>This operation resets an internal state of the strategy. The purpose of this operation is to solve any strange behavior of the strategy. However, this can also cause poor performance or loss, because the internal state of the strategy can hold important informations about your trading</p>
 <x-form>
 <label><span>Recommended initial position</span><input type="number" readonly="readonly" data-name="rpos" tabindex="-1"></label>
 <label><span>Set position</span><input type="number" placeholder="Do not change position" data-name="setpos"></label>
 <div class="note">Sends orders to achieve specified position</div>
-<label><span>Allocate currency [%]</span><x-slider data-name="cur_pct" data-min="1" data-max="100" data-mult="10" data-fixed="0"></x-slider></label>
+<label><span>Allocate currency:</span><x-slider data-name="cur_pct" data-min="1" data-max="100" data-mult="10" data-fixed="0"></x-slider></label>
 <div class="note">Allocate fraction of the currency balance to leave money for others</div>
 <label><span>Alert/Accept loss</span><x-checkbox data-name="accept_loss">Add alert</x-checkbox></label>
 <div class="buttons">

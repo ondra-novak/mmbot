@@ -364,7 +364,7 @@ App.prototype.fillForm = function (src, trg) {
 				
 	
 		var broker = state.broker;
-		var avail = state.available_balance;
+		var avail = state.allocations;
 		var pair = state.pair;
 		var ext_ass = state.ext_ass;
 		var orders = state.orders;
@@ -388,12 +388,13 @@ App.prototype.fillForm = function (src, trg) {
 		data.type_leveraged={".hidden":pair.leverage == 0};
 		data.type_inverted={".hidden":!pair.invert_price};
 		data.hdr_position = adjNum(invSize(state.position,pair.invert_price));
-		trg._balance = pair.currency_balance+ext_ass.currency-avail.budget;
+		trg._balance = pair.currency_balance+ext_ass.currency-avail.unavailable;
 		trg._backtest_balance = pair.currency_balance>trg._balance?pair.currency_balance:trg._balance;
 		trg._assets = state.position;
 		trg._price = invPrice(pair.price, pair.invert_price);
 		trg._leverage = data.leverage;
 		trg._invprice = pair.invert_price;
+		trg._budget = avail.budget;	
 
 		data.balance_currency_free = adjNum(trg._balance);
 
@@ -710,7 +711,7 @@ App.prototype.fillForm = function (src, trg) {
 	data.emul_leverage = filledval(src.emulate_leveraged,0);
 	
 	data.icon_reset={"!click": function() {
-		this.resetTrader(src.id,initial_pos);
+		this.resetTrader(src.id,initial_pos, trg._budget, trg._balance);
 		}.bind(this)};
 	data.icon_clearStats={"!click": this.clearStatsTrader.bind(this, src.id)};
 	data.icon_delete={"!click": this.deleteTrader.bind(this, src.id)};
@@ -1159,9 +1160,11 @@ App.prototype.clearStatsTrader = function(id) {
 	}.bind(this));
 }
 
-App.prototype.resetTrader = function(id, initial) {
+App.prototype.resetTrader = function(id, initial, budget, balance) {
 		var form=TemplateJS.View.fromTemplate("reset_strategy");
 		var view;
+		if (balance<0) balance = 100;
+		if (budget <=0 || budget > balance) budget = balance;
 		var p = this.dlgbox({rpos:{
 			value:initial,			
             "!click":function(){
@@ -1169,20 +1172,26 @@ App.prototype.resetTrader = function(id, initial) {
             }},
             accept_loss:false,
             cur_pct:{
-            	"value":100,
+            	"data-min":0,
+            	"data-max":balance,
+            	"data-fixed":balance>10000?0:balance>=1?2:8,
+            	"data-mult":balance>10000?1:balance>=1?0.01:0.00000001,
+            	"value":budget,
             	"!change":function() {
             		var d = view.readData(["cur_pct"]);
-            		view.setData({"rpos":initial * d.cur_pct*0.01});
+            		var p = d.cur_pct/balance;
+            		view.setData({"rpos":adjNumN(initial * p)});
             	}}
 			},"reset_strategy");
 
 		p.then(function(){
 			var tr = this.traders[id];
 			var data = view.readData();
+			var p = data.cur_pct/balance*100;
 			var req = {
                 "achieve":data.setpos,
                 "alert":data.accept_loss,
-                "cur_pct":data.cur_pct,
+                "cur_pct":p,
             }
 				
 			this.waitScreen(fetch_with_error(
