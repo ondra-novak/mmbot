@@ -413,7 +413,7 @@ IStrategy::MinMax Strategy_Sinh_Gen::calcSafeRange(
 		const IStockApi::MarketInfo &minfo, double assets,
 		double currencies) const {
 
-	double b = st.budget;
+	double b = currencies;
 	MinMax ret;
 	ret.min = numeric_search_r1(st.k, [&](double x){
 		return cfg.calc->budget(st.k, pw, x)+b;

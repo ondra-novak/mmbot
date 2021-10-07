@@ -18,17 +18,20 @@ public:
 		double ratio;
 		double accum;
 		double chngtm;
+		bool rebalance;
 	};
 
 
 	struct State {
-		double init_pos = 0;
+		double base_pos = 0;
 		double kmult = 0;
 		double lastp = 0;
 		double curr = 0;
 		double budget = 0;
 		double pos = 0;
 		double berror = 0;
+		std::uint64_t last_trade_time;
+		std::uint64_t last_check_time;
 	};
 
 	Strategy_KeepValue2(const Config &cfg);
@@ -67,7 +70,18 @@ protected:
 	State st;
 
 
-	std::pair<double,double> calcAccum(double new_price) const;
+	double calculateNewNeutral(double a, double price) const;
+
+	struct AccumInfo {
+		double normp;
+		double norma;
+		double newk;
+		double newinit;
+	};
+
+	AccumInfo calcAccum(double new_price) const;
+	double calcInitP() const;
+	double calcCurr() const;
 
 
 };

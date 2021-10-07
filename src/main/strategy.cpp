@@ -73,7 +73,9 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 	} else if (id == Strategy_KeepValue2::id) {
 		Strategy_KeepValue2::Config cfg;
 		cfg.accum = config["accum"].getNumber()*0.01;
-		cfg.ratio= std::exp(config["ratio"].getNumber());
+		cfg.ratio= 1.0;
+		cfg.rebalance = config["boost"].getBool();
+		cfg.chngtm = config["chngtm"].getNumber();
 		return Strategy(new Strategy_KeepValue2(cfg));
 	} else if (id == Strategy_Exponencial::id) {
 		Strategy_Exponencial::Config cfg;

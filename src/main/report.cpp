@@ -129,13 +129,12 @@ static IStatSvc::TradeRecord sumTrades(const IStatSvc::TradeRecord &a, const ISt
 template<typename ME>
 void Report::sendStreamTrades(ME &me, const std::string_view &symb, const json::Value &records) {
 	for (Value rw : records) {
-		auto rowhash = std::hash<json::Value>()(rw);
 		me.sendStream(
-				json::Object{
+			json::Object{
 			{ "type", "trade" },
 			{ "symbol",symb},
-			{ "id", Value(BinaryView(reinterpret_cast<unsigned char *>(&rowhash), sizeof(rowhash)),json::base64url)},
-			{ "data",rw }
+			{ "id", rw["iid"]},
+			{ "data",rw.replace("iid",json::undefined) }
 		});
 	}
 }
@@ -181,6 +180,7 @@ void Report::setTrades(StrViewA symb, double finalPos, StringView<IStatSvc::Trad
 		const IStatSvc::TradeRecord *prevTrade = nullptr;
 
 
+		int iid = 0;
 		do {
 			if (iter == tend || (prevTrade && (std::abs(prevTrade->price - iter->price) > std::abs(iter->price*1e-8)
 												|| prevTrade->size * iter->size <= 0
@@ -230,6 +230,7 @@ void Report::setTrades(StrViewA symb, double finalPos, StringView<IStatSvc::Trad
 						{"pos", (inverted?-1:1)*pos},
 						{"pl", cur_fromPos},
 						{"rpl", rpln},
+						{"iid", std::to_string(iid)},
 						{"price", (inverted?1.0/t.price:t.price)},
 						{"p0",t.neutral_price?Value(inverted?1.0/t.neutral_price:t.neutral_price):Value()},
 						{"volume", fabs(t.eff_price*t.eff_size)},
@@ -248,6 +249,7 @@ void Report::setTrades(StrViewA symb, double finalPos, StringView<IStatSvc::Trad
 			}
 
 			++iter;
+			iid++;
 		} while (true);
 
 	}

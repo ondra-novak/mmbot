@@ -140,7 +140,8 @@ to enter a negative value and then the value of the assets held will decrease an
 
 <x-section data-name="strategy_kv2" class="goal" hidden="hidden"><x-section-caption>Keep Value</x-section-caption>
 <label><span>Accumulation <span class="tooltip">Amount of the profit used to buy extra assets</span></span><x-slider data-name="kv2_accum" data-min="0" data-max="100" data-mult="1"></x-slider></label>
-<label class="adv"><span>Exponent<span class="tooltip">Adds exponent to the formula. <br><br>Exponent&gt;0 - reduce kept value with higher price.<br>Exponent&lt;0 - increase kept value with higher price</span></span><x-slider data-name="kv2_ratio" data-min="-2" data-max="2" data-mult="0.1"></x-slider></label>
+<label><span>Enable DCA - monthly value increase (<span data-name="currency"></span>/month): <span class="tooltip">Use Keep Value as DCA strategy. Increases kept value over time. The value specifies increase per month</span></span><input data-name="kv2_chngtm" step="any" type="number"></label>
+<label class="adv"><span>Boost up<span class="tooltip">Slightly boost normalized profit during uptrend. On other side, it also increases minimal tradeable price</span></span><x-checkbox data-name="kv2_boost"></x-checkbox></label>
 <x-section>
 <div class="label"><span>Min price:</span><span data-name="range_min_price">---</span></div>
 <div class="label"><span>Max price:</span><span data-name="range_max_price">---</span></div>
