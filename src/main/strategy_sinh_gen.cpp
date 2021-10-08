@@ -137,10 +137,17 @@ PStrategy Strategy_Sinh_Gen::init(const IStockApi::MarketInfo &minfo,
 		} else {
 			nwst.k = price;
 		}
-		nwst.budget = budget-cfg.calc->budget(nwst.k, pw, price);
+		nwst.budget = budget;
 		pw = calcPower(cfg.power ,nwst);
 	}
 	nwst.val = cfg.calc->budget(nwst.k, pw,  price);
+	if (st.budget <= 0) {
+		for (int i = 0; i < 10; i++) {
+			nwst.budget = budget - nwst.val;
+			pw = calcPower(cfg.power ,nwst);
+			nwst.val = cfg.calc->budget(nwst.k, pw,  price);
+		}
+	}
 	PStrategy s(new Strategy_Sinh_Gen(cfg, std::move(nwst)));
 	if (!s->isValid()) throw std::runtime_error("Unable to initialize the strategy");
 	return s;
