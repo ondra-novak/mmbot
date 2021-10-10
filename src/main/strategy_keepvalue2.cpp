@@ -208,7 +208,7 @@ Strategy_KeepValue2::MinMax Strategy_KeepValue2::calcSafeRange(
 	double n = calcPriceFromCurrency(cfg.ratio, st.kmult, -currencies, init_pos);
 	double m;
 	double p = calcPosition(cfg.ratio, st.kmult, st.lastp, init_pos);
-	if (assets < p) {
+	if (assets < p*99.9) {
 		m =calcEquilibrium(cfg.ratio, st.kmult, p-assets, init_pos);
 	} else {
 		m = std::numeric_limits<double>::infinity();
