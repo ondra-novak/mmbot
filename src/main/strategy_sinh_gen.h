@@ -61,6 +61,7 @@ public:
 		double last_spread=1.01;
 		double sum_spread=0;
 		int trades=0;
+		double enforce_val=0;  //set this to value and direction -value=long (value is negative), +value=short
 	};
 
 
@@ -111,6 +112,7 @@ protected:
 	double adjustPower(double a, double newk, double price) const;
 	static double calcPower(double cfgpw, const State &st);
 	static double calcPower(double cfgpw, const State &st, double k);
+	static double calcNewKFromValue(const Config &cfg, const State &st, double tradePrice, double enf_val);
 };
 
 

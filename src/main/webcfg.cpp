@@ -740,14 +740,22 @@ bool WebCfg::reqTraders(simpleServer::HTTPRequest req, ondra_shared::StrViewA vp
 							Value currency = st["currency"];
 							trl->setInternalBalancies(assets.getNumber(), currency.getNumber());
 						}
+						bool dry_run = v["dry_run"].getBool();
+						auto pos = trl->getPosition();
+						auto cur = trl->getCurrency();
 						MTrader::Status mst = trl->getMarketStatus();
-						strategy.onIdle(trl->getMarketInfo(), mst.ticker, mst.assetBalance, mst.currencyBalance);
+						strategy.onIdle(trl->getMarketInfo(), mst.ticker, *pos, *cur);
 						if (!strategy.isValid()) {
 							req.sendErrorPage(409,"","Settings was not accepted");
 						} else {
-							trl->setStrategy(strategy);
-							trl->saveState();
-							req.sendResponse("application/json","true",202);
+							if (dry_run) {
+								Value state = strategy.dumpStatePretty(trl->getMarketInfo());
+								req.sendResponse("application/json",state.toString().str());
+							} else {
+								trl->setStrategy(strategy);
+								trl->saveState();
+								req.sendResponse("application/json","true",202);
+							}
 						}
 					}
 

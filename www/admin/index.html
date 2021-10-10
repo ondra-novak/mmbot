@@ -273,7 +273,7 @@ to enter a negative value and then the value of the assets held will decrease an
 <div class="label"><span>Min price:</span><span data-name="range_min_price">---</span></div>
 <div class="label"><span>Max price:</span><span data-name="range_max_price">---</span></div>
 <div class="label"><span>Recomended initial position:</span><span data-name="range_initial">---</span></div>
-<div class="rightinfo"><button name="show_backtest  hide_on_new" disabled="disabled">Backtest</button></div>
+<div class="rightinfo"><button name="shg_control_pos hide_on_new" disabled="disabled">Control position</button> <button name="show_backtest  hide_on_new" disabled="disabled">Backtest</button></div>
 </x-section>
 
 
@@ -744,6 +744,8 @@ the same order, they are ordered by its ID - this is the default ordering. Modif
     data-btev_no_balance="No balance (need funding)"
     data-btev_accept_loss="Accept loss"
     data-btev_margin_call="Margin call!"
+    data-sinhgen_overwrite="This action DESTROYS current strategy state. Operation cannot be undoed. Do you really want to set the new state?"
+    data-sinhgen_na="State is not available yet. Ensure that trader is active. Then wait for aprx 1 minute"
     ></span>
 
 
@@ -983,6 +985,30 @@ the same order, they are ordered by its ID - this is the default ordering. Modif
 
 </template>
 
+<template id="shg_control_position">
+<div class="shgcontrol dialog">
+<div>
+<x-form>
+<h1>Control position</h1>
+<label><span>Current budget:</span><input type="number" data-name="curbudget"></label>
+<label><span>Profit [%]:</span><input type="number" data-name="profit"></label>
+<label><span>Wan't budget:</span><input type="number" data-name="wantbudget"></label>
+
+<label><span>Side:</span><select data-name="side">
+		<option value="0"> --- select--- </option>
+		<option value="-1">Long</option>
+		<option value="1">Short</option>
+	</select></label>
+<label><span>Position:</span><input type="number" data-name="position" readonly="readonly"></label>
+<label><span>Leverage:</span><input type="number" data-name="leverage" readonly="readonly"></label>
+<div class="buttons">
+<button data-name="ok">Make it happen</button>
+<button data-name="cancel">Cancel</button>
+</div>
+</x-form>
+</div>
+</div>
+</template>
 
 <script src="../res/template.js" type="text/javascript"></script>
 <script src="../res/common.js" type="text/javascript"></script>

@@ -153,7 +153,27 @@ PStrategy Strategy_Sinh_Gen::init(const IStockApi::MarketInfo &minfo,
 	return s;
 }
 
+double Strategy_Sinh_Gen::calcNewKFromValue(const Config &cfg, const State &st, double tradePrice, double enf_val) {
+	double val = -std::abs(enf_val);
+	double newk;
+	if (enf_val<0) {
+		newk = numeric_search_r2(tradePrice, [&](double k){
+			return cfg.calc->budget(k, calcPower(cfg.power, st, tradePrice), tradePrice)-val;
+		});
+	} else {
+		newk = numeric_search_r1(tradePrice, [&](double k){
+			return cfg.calc->budget(k, calcPower(cfg.power, st, tradePrice), tradePrice)-val;
+		});
+	}
+	if (newk<1e-60 || newk>1e60) return st.k;
+	return newk;
+
+}
+
 double Strategy_Sinh_Gen::calcNewK(double tradePrice, double cb, double pnl, int bmode) const {
+	if (st.enforce_val) {
+		return calcNewKFromValue(cfg, st, tradePrice, st.enforce_val);
+	}
 	if (st.p == st.k)
 		return std::sqrt(st.k* tradePrice);
 	if (pnl == 0) return st.k;
@@ -174,6 +194,7 @@ double Strategy_Sinh_Gen::calcNewK(double tradePrice, double cb, double pnl, int
 			case 4: refb = pnl>0?yield2*2:-yield2;break;
 			case 5: refb = pnl>0?yield2*3:-2*yield2;break;
 		}
+
 		double nb = cb+pnl+refb;
 
 		if (nb > 0) {
@@ -238,6 +259,12 @@ std::pair<IStrategy::OnTradeResult, PStrategy> Strategy_Sinh_Gen::onTrade(
 		nwst.trades = st.trades+1;
 		nwst.sum_spread = st.sum_spread + (nwst.last_spread-1.0);
 	}
+	if (st.enforce_val) {
+		if (nb <= -std::abs(st.enforce_val)*0.95 && st.enforce_val * assetsLeft < 0)
+			nwst.enforce_val = 0;
+		else
+			nwst.enforce_val = st.enforce_val;
+	}
 
 	return {
 		OnTradeResult{np,0,newk,0},
@@ -256,6 +283,7 @@ json::Value Strategy_Sinh_Gen::exportState() const {
 			Value("trades", st.trades),
 			Value("val", st.val),
 			Value("pwadj", st.pwadj),
+			Value("enforce_val", st.enforce_val),
 			Value("hash", cfg.calcConfigHash())
 	});
 }
@@ -270,7 +298,8 @@ PStrategy Strategy_Sinh_Gen::importState(json::Value src, const IStockApi::Marke
 		0,
 		src["last_spread"].getNumber(),
 		src["sum_spread"].getNumber(),
-		static_cast<int>(src["trades"].getInt())
+		static_cast<int>(src["trades"].getInt()),
+		src["enforce_val"].getNumber()
 	};
 	if (src["hash"].hasValue() && cfg.calcConfigHash() != src["hash"].toString()) {
 		nwst.k = 0; //make settings invalid;
@@ -282,6 +311,17 @@ PStrategy Strategy_Sinh_Gen::importState(json::Value src, const IStockApi::Marke
 			nwst.val = cfg.calc->budget(nwst.k, calcPower(cfg.power,nwst), nwst.p);
 		}
 	}
+	if (src["find_k"].defined()) {
+		double find_k = src["find_k"].getNumber();
+		nwst.k = calcNewKFromValue(cfg,st, st.p, find_k);
+		nwst.val = cfg.calc->budget(nwst.k, calcPower(cfg.power,nwst), nwst.p);
+	}
+	if (cfg.disableSide<0 && nwst.k < nwst.p) {
+		nwst.enforce_val = nwst.val;
+	} else if (cfg.disableSide>0 && nwst.k > nwst.p) {
+		nwst.enforce_val = -nwst.val;
+	}
+
 	return new Strategy_Sinh_Gen(cfg, std::move(nwst));
 }
 
@@ -294,6 +334,8 @@ json::Value Strategy_Sinh_Gen::dumpStatePretty(const IStockApi::MarketInfo &minf
 	using namespace json;
 
 	return Value(object, {
+			Value("!Position reversal in effect (new current budget)",
+					st.enforce_val?Value(st.budget-std::abs(st.enforce_val)):Value()),
 			Value("Leverage[x]", std::abs(a)*st.p/(st.val+st.budget)),
 			Value("Power[%]", st.pwadj*100),
 			Value("Price-last", getpx(st.p)),
@@ -315,6 +357,8 @@ IStrategy::OrderData Strategy_Sinh_Gen::getNewOrder(
 		assets = 0;
 	}
 
+	if (st.enforce_val) new_price = cur_price;
+
 	//close faster
 	/*if (!rej && st.val<0 && dir * assets < 0 && cfg.openlimit<0 && absass*st.p/(st.budget+st.val) > -cfg.openlimit) {
 		double calc_price = (new_price - st.k) * (st.p - st.k) < 0?st.k:new_price;
@@ -330,7 +374,7 @@ IStrategy::OrderData Strategy_Sinh_Gen::getNewOrder(
 	}*/
 
 	//close position if we are in forbidden side
-	if (limitPosition(assets) != assets && dir * assets < 0) {
+	if (limitPosition(assets) != assets && dir * assets < 0 && !st.enforce_val) {
 		return {cur_price, -assets, Alert::forced};
 	}
 
@@ -370,9 +414,9 @@ IStrategy::OrderData Strategy_Sinh_Gen::getNewOrder(
 		}
 	}*/
 	//if new position is reverse or zero
-	if ((new_pos * assets <0 || new_pos == 0) && (assets * dir < 0)){
+	if ((new_pos * assets <0 || new_pos == 0) && (assets * dir < 0) && !st.enforce_val){
 		//close current position (force alert)
-		return {0,-assets,Alert::forced};
+		return {new_price,-assets,Alert::forced};
 	}
 	//if position is increasing
 	/*

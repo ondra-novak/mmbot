@@ -459,7 +459,7 @@ App.prototype.fillForm = function (src, trg) {
 
 		function recalcStrategy() {
 			var data = trg.readData()
-			var strategy = getStrategyData(data);
+			var strategy = getStrategyData(data,trg._invprice);
 			var req = {
 					strategy:strategy,
 					price:pair.price,
@@ -494,6 +494,11 @@ App.prototype.fillForm = function (src, trg) {
 
 		recalc_strategy_fn = recalcStrategy.bind(this);
 		
+
+		data.shg_control_pos ={
+			".disabled":state.need_initial_reset,
+		}
+
 		
 		if (first_fetch) {
 			["strategy","external_assets","gs_external_assets", "hp_trend_factor","hp_allowshort","hp_power", "hp_recalc", "hp_asym","hp_powadj", 
@@ -514,7 +519,7 @@ App.prototype.fillForm = function (src, trg) {
 			data.vis_spread = {"!click": this.init_spreadvis.bind(this, trg, src.id), ".disabled":false};
 			data.show_backtest= {"!click": this.init_backtest.bind(this, trg, src.id, src.pair_symbol, src.broker), ".disabled":false};
 			data.inverted_price=pair.invert_price?"true":"false";
-			var tmp = trg.readData(["cstep","max_pos"]);
+			var tmp = trg.readData(["cstep","max_pos","shg_lp"]);
 			if (!src.strategy && typeof state.pair.price == "string" && state.pair.price.startsWith("trainer")){
 			    this.brokerConfig(src.broker, src.pair_symbol).then(updateHdr,updateHdr);
 			}
@@ -535,9 +540,13 @@ App.prototype.fillForm = function (src, trg) {
 						inverted_price:JSON.stringify(pair.invert_price)
 					}					
 					this.dlgbox(data,"pair_details");					
-				}.bind(this)
-			
-			};
+				}.bind(this)			
+			};			
+			if (trg._invprice && tmp.shg_lp) {
+				data.shg_lp = -parseInt(tmp.shg_lp);
+			}
+			data.shg_control_pos["!click"] = this.shgControlPosition.bind(this,src.id, trg);	        
+
 
 			first_fetch = false;
 		}
@@ -668,7 +677,7 @@ App.prototype.fillForm = function (src, trg) {
 		data.shg_boostmode=filledval(src.strategy.boostmode,0);
 		data.shg_ol=filledval(defval(Math.abs(src.strategy.openlimit),0),2);
 		if (!src.strategy.openlimit || src.strategy.openlimit==0) data.shg_ol.disabled = true;
-		data.shg_olt={value:src.strategy.openlimit>0?1:src.strategy.openlimit<0?-1:0};
+		data.shg_olt={value:src.strategy.openlimit>0?1:src.strategy.openlimit<0?-1:0};		
 	} else if (data.strategy == "pile") {
 		data.pile_accum = filledval(src.strategy.accum,0);
 		data.pile_ratio = filledval(src.strategy.ratio,0);
@@ -785,7 +794,7 @@ App.prototype.fillForm = function (src, trg) {
 	return trg.setData(data).catch(function(){}).then(unhide_changed.bind(this)).then(trg.dlgRules.bind(trg));
 }
 
-function getStrategyData(data) {
+function getStrategyData(data, inv) {
 	var strategy = {};
 	strategy.type = data.strategy;
 	if (data.strategy == "halfhalf" || data.strategy == "keepvalue" || data.strategy == "exponencial"|| data.strategy == "hypersquare"||data.strategy == "conststep") {
@@ -844,7 +853,7 @@ function getStrategyData(data) {
 			b:data.shg_b,
 			p:data.shg_p,
 			openlimit:parseFloat(data.shg_olt)*data.shg_ol,
-			disableSide:data.shg_lp,
+			disableSide:inv?""+(-parseInt(data.shg_lp)):data.shg_lp,
 			reinvest:data.shg_rnv,
 			avgspread:data.shg_avgsp,
 			boostmode:data.shg_boostmode
@@ -883,7 +892,7 @@ App.prototype.saveForm = function(form, src) {
 	var data = form.readData();
 	var trader = {}
 	var goal = data.goal;
-	trader.strategy = getStrategyData(data);
+	trader.strategy = getStrategyData(data, form._invprice);
 	trader.id = src.id;
 	trader.broker =src.broker;
 	trader.pair_symbol = src.pair_symbol;
@@ -1413,7 +1422,9 @@ App.prototype.dlgbox = function(data, template) {
 	dlg.openModal();
 	dlg.enableItem("ok",false);
 	dlg.setData(data).then(function() {
-		dlg.enableItem("ok",true);
+		if (!data.ok || !data.ok[".disabled"]) {
+		    dlg.enableItem("ok",true);
+		}
 	})
 	var res = new Promise(function(ok, cancel) {
 		dlg.setCancelAction(function() {
@@ -3040,4 +3051,65 @@ function showProgress(id) {
 		dlg.close();
 		throw e;
 	});
+}
+
+
+App.prototype.shgControlPosition = function(id, form) {
+	var inv = form._invprice;
+	var cur = form._backtest_balance;
+	var url = this.traderURL(id)+"/strategy";
+    fetch_with_error(url).then(function(res){
+    	var prom;
+    	var dlg;
+    	if (!res.sinh_gen || !res.sinh_gen.budget) {
+    		this.dlgbox({"text":this.strtable.sinhgen_na,"cancel":{".hidden":true}},"confirm");
+    		return;
+    	}
+        prom = this.dlgbox({curbudget: adjNumN(cur),profit:0,wantbudget:adjNumN(cur),ok:{".disabled":true}},"shg_control_position");
+        prom.then(function(r) {
+        	 this.dlgbox({
+        	 	   "text":this.strtable.sinhgen_overwrite,
+        	 	   "ok":this.strtable.yes,
+        	 	   "cancel":this.strtable.no},"confirm").then(function(){
+        	 	   	    var rd = dlg.readData();
+                        this.waitScreen(fetch_with_error(url).then(function(res){
+							res.sinh_gen.budget = rd.wantbudget;
+							res.sinh_gen.find_k = (rd.wantbudget-rd.curbudget) * parseInt(rd.side);
+                        	return fetch_with_error(url,{method:"PUT",body:JSON.stringify(res)})
+                        	.then(function(){
+                        		this.undoTrader(id);
+                        	}.bind(this));
+                        }.bind(this)));
+        	 	   }.bind(this));
+        }.bind(this));
+        dlg = prom.view;
+        var dlgRules = function(){
+            var rd = dlg.readData();
+            if (this.dataset.name == "profit") {
+            	rd.wantbudget = rd.curbudget*(1+rd.profit*0.01);
+            	dlg.setItemValue("wantbudget", adjNumN(rd.wantbudget));
+            }
+            if (this.dataset.name == "wantbudget") {
+            	dlg.setItemValue("profit", (((rd.wantbudget/rd.curbudget)-1)*100).toFixed(2));
+            }
+            if (parseInt(rd.side) && rd.wantbudget>rd.curbudget) {
+            	res.sinh_gen.budget = rd.wantbudget;
+            	res.sinh_gen.find_k = (rd.wantbudget-rd.curbudget) * parseInt(rd.side);
+            	res.dry_run = true;
+            	fetch_with_error(url,{method:"PUT",body:JSON.stringify(res)}).then(function(out){
+            		dlg.setItemValue("position", adjNumN(invSize(out.Position,form._invprice)));
+            		dlg.setItemValue("leverage", out["Leverage[x]"].toFixed(2));
+            		dlg.enableItem("ok",true);
+            	});
+            } else {
+            		dlg.setItemValue("position", "");
+            		dlg.setItemValue("leverage", "");            	
+            		dlg.enableItem("ok",false);
+            }
+        };
+        ["curbudget","profit","wantbudget"].forEach(function(itm){
+        	dlg.setItemEvent(itm,"input",dlgRules)
+        },this);
+        dlg.setItemEvent("side","change",dlgRules);        
+    }.bind(this));
 }
