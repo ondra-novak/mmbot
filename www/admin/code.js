@@ -2130,8 +2130,8 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 				})
 			});
 			
-			cntr.bt.setItemValue("initial_price",init_def_price);
-			cntr.bt.setItemValue("initial_balance",balance);
+			cntr.bt.setItemValue("initial_price",adjNumN(init_def_price));
+			cntr.bt.setItemValue("initial_balance",adjNumN(balance));
 			cntr.bt.setItemEvent("options", "click", function() {
 				this.classList.toggle("sel");
 				cntr.bt.setData({"options_form":{classList:{shown:this.classList.contains("sel")}}});
