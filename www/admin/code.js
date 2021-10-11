@@ -1735,9 +1735,9 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		"hedge_short","hedge_long","hedge_drop",
 		"shg_w","shg_p","shg_b","shg_olt","shg_ol","shg_lp","shg_rnv","shg_avgsp","shg_boostmode"];
 	var spread_inputs = ["spread_calc_stdev_hours", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode","dynmult_sliding","dynmult_cap","dynmult_mult","force_spread","spread_mode"];
-	var balance = form._backtest_balance+form._assets*invPrice(form._price,form._invprice);
-	var assets = 0;
 	var leverage = form._leverage != "n/a";	
+	var balance = form._backtest_balance+(leverage?0:form._assets*invPrice(form._price,form._invprice));
+	var assets = 0;
 	var invert_price = form._invprice;
 	var init_def_price = form._price;
 	var days = 45*60*60*24*1000;
