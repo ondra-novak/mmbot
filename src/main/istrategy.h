@@ -8,6 +8,7 @@
 #ifndef SRC_MAIN_ISTRATEGY_H_
 #define SRC_MAIN_ISTRATEGY_H_
 #include <string_view>
+#include <optional>
 #include <imtjson/value.h>
 #include "../shared/refcnt.h"
 #include "istockapi.h"
