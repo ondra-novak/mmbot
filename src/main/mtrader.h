@@ -10,6 +10,7 @@
 #include <deque>
 #include <optional>
 #include <type_traits>
+#include <limits>
 
 #include <shared/ini_config.h>
 #include <imtjson/namedEnum.h>
