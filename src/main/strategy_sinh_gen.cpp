@@ -153,16 +153,16 @@ PStrategy Strategy_Sinh_Gen::init(const IStockApi::MarketInfo &minfo,
 	return s;
 }
 
-double Strategy_Sinh_Gen::calcNewKFromValue(const Config &cfg, const State &st, double tradePrice, double enf_val) {
+double Strategy_Sinh_Gen::calcNewKFromValue(const Config &cfg, const State &st, double tradePrice, double pw,double enf_val) {
 	double val = -std::abs(enf_val);
 	double newk;
 	if (enf_val<0) {
 		newk = numeric_search_r2(tradePrice, [&](double k){
-			return cfg.calc->budget(k, calcPower(cfg.power, st, tradePrice), tradePrice)-val;
+			return cfg.calc->budget(k, pw, tradePrice)-val;
 		});
 	} else {
 		newk = numeric_search_r1(tradePrice, [&](double k){
-			return cfg.calc->budget(k, calcPower(cfg.power, st, tradePrice), tradePrice)-val;
+			return cfg.calc->budget(k, pw, tradePrice)-val;
 		});
 	}
 	if (newk<1e-60 || newk>1e60) return st.k;
@@ -172,7 +172,7 @@ double Strategy_Sinh_Gen::calcNewKFromValue(const Config &cfg, const State &st, 
 
 double Strategy_Sinh_Gen::calcNewK(double tradePrice, double cb, double pnl, int bmode) const {
 	if (st.enforce_val) {
-		return calcNewKFromValue(cfg, st, tradePrice, st.enforce_val);
+		return calcNewKFromValue(cfg, st, tradePrice, pw,st.enforce_val);
 	}
 	if (st.p == st.k)
 		return std::sqrt(st.k* tradePrice);
@@ -313,7 +313,7 @@ PStrategy Strategy_Sinh_Gen::importState(json::Value src, const IStockApi::Marke
 	}
 	if (src["find_k"].defined()) {
 		double find_k = src["find_k"].getNumber();
-		nwst.k = calcNewKFromValue(cfg,st, st.p, find_k);
+		nwst.k = calcNewKFromValue(cfg,st, st.p, calcPower(cfg.power, nwst), find_k);
 		nwst.val = cfg.calc->budget(nwst.k, calcPower(cfg.power,nwst), nwst.p);
 	}
 	if (cfg.disableSide<0 && nwst.k < nwst.p) {
@@ -336,6 +336,7 @@ json::Value Strategy_Sinh_Gen::dumpStatePretty(const IStockApi::MarketInfo &minf
 	return Value(object, {
 			Value("!Position reversal in effect (new current budget)",
 					st.enforce_val?Value(st.budget-std::abs(st.enforce_val)):Value()),
+			Value("!Position reversal new Price-Neutral", st.enforce_val?Value(getpx(calcNewKFromValue(cfg, st, st.p, pw, st.enforce_val))):Value()),
 			Value("Leverage[x]", std::abs(a)*st.p/(st.val+st.budget)),
 			Value("Power[%]", st.pwadj*100),
 			Value("Price-last", getpx(st.p)),
@@ -357,7 +358,7 @@ IStrategy::OrderData Strategy_Sinh_Gen::getNewOrder(
 		assets = 0;
 	}
 
-	if (st.enforce_val) new_price = cur_price;
+	if (st.enforce_val && !rej) new_price = cur_price;
 
 	//close faster
 	/*if (!rej && st.val<0 && dir * assets < 0 && cfg.openlimit<0 && absass*st.p/(st.budget+st.val) > -cfg.openlimit) {
@@ -534,7 +535,7 @@ json::String Strategy_Sinh_Gen::Config::calcConfigHash() const {
 }
 
 double Strategy_Sinh_Gen::adjustPower(double a, double newk, double price) const {
-	if (cfg.openlimit) {
+	if (cfg.openlimit && !st.enforce_val) {
 		double new_a = cfg.calc->assets(newk, pw, price);
 		double b = st.budget+cfg.calc->budget(newk, pw, price);
 		double newlev = std::abs(new_a) * price/b;

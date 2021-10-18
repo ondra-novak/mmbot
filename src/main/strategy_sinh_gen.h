@@ -112,7 +112,7 @@ protected:
 	double adjustPower(double a, double newk, double price) const;
 	static double calcPower(double cfgpw, const State &st);
 	static double calcPower(double cfgpw, const State &st, double k);
-	static double calcNewKFromValue(const Config &cfg, const State &st, double tradePrice, double enf_val);
+	static double calcNewKFromValue(const Config &cfg, const State &st, double tradePrice, double pw, double enf_val);
 };
 
 
