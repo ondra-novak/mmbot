@@ -3074,7 +3074,7 @@ App.prototype.shgControlPosition = function(id, form) {
         	 	   	    var rd = dlg.readData();
                         this.waitScreen(fetch_with_error(url).then(function(res){
 							res.sinh_gen.budget = rd.wantbudget;
-							res.sinh_gen.find_k = (rd.wantbudget-rd.curbudget) * parseInt(rd.side);
+							res.sinh_gen.find_k = invSize((rd.wantbudget-rd.curbudget) * parseInt(rd.side),inv);
                         	return fetch_with_error(url,{method:"PUT",body:JSON.stringify(res)})
                         	.then(function(){
                         		this.undoTrader(id);
@@ -3094,10 +3094,10 @@ App.prototype.shgControlPosition = function(id, form) {
             }
             if (parseInt(rd.side) && rd.wantbudget>rd.curbudget) {
             	res.sinh_gen.budget = rd.wantbudget;
-            	res.sinh_gen.find_k = (rd.wantbudget-rd.curbudget) * parseInt(rd.side);
+            	res.sinh_gen.find_k = invSize((rd.wantbudget-rd.curbudget) * parseInt(rd.side),inv);
             	res.dry_run = true;
             	fetch_with_error(url,{method:"PUT",body:JSON.stringify(res)}).then(function(out){
-            		dlg.setItemValue("position", adjNumN(invSize(out.Position,form._invprice)));
+            		dlg.setItemValue("position", adjNumN(out.Position));
             		dlg.setItemValue("leverage", out["Leverage[x]"].toFixed(2));
             		dlg.enableItem("ok",true);
             	});

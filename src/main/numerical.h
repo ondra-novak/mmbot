@@ -95,32 +95,14 @@ double numeric_integral(Fn &&fn, double a, double b, unsigned int steps=33) {
 
 template<typename Fn, typename dFn>
 double newtonRoot(Fn &&fn, dFn &&dfn, double ofs, double initg) {
-	auto oneiter = [&](double v) {
-		double j = dfn(v);
-		if (j == 0) {
-			v = v*1.0001;
-			j = dfn(v);
-			if (j == 0) {
-				v = v*1.0001;
-				j = dfn(v);
-				if (j == 0) {
-					v = v*1.0001;
-					j = dfn(v);
-				}
-			}
-		}
-		double i = fn(v);
-		double r = (i+ofs)/j;
-		return v - r;
-	};
-
-	double v0 = oneiter(initg);
-	double v1 = oneiter(v0);
-	while (std::isfinite(v1) && std::fabs(v1-v0)/v0 > accuracy) {
-		v0 = v1;
-		v1 = oneiter(v0);
+	double x = initg;
+	double y = fn(x)-ofs;
+	while (std::abs(y)/(std::abs(ofs)+std::abs(y))>accuracy) {
+		double dy = dfn(x);
+		x = x - y/dy;
+		y = fn(x)-ofs;
 	}
-	return v1;
+	return x;
 }
 
 

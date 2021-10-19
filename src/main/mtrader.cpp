@@ -282,36 +282,12 @@ void MTrader::perform(bool manually) {
 			lastTradePrice = !trades.empty()?trades.back().eff_price:strategy.isValid()?strategy.getEquilibrium(status.assetBalance):status.curPrice;
 			if (!std::isfinite(lastTradePrice)) lastTradePrice = status.curPrice;		}
 
+
+		if (cfg.max_size != 0) need_alerts = true;
+		double centerPrice = need_alerts?lastTradePrice:strategy.getCenterPrice(lastTradePrice, status.assetBalance);
+
 		if (cfg.dynmult_sliding) {
-
-			if (lastPriceOffset != 0) {
-				lastTradePrice = lastPriceOffset+status.spreadCenter;
-			}
-
-			need_alerts = true;
-			double prevLTP = lastTradePrice;
-			double low = lastTradePrice * std::exp(-status.curStep*cfg.buy_step_mult);
-			double high = lastTradePrice * std::exp(status.curStep*cfg.sell_step_mult);
-			double eq = strategy.getEquilibrium(status.assetBalance);
-			if (high < eq) {
-				lastTradePrice = eq/std::exp(status.curStep*cfg.sell_step_mult);
-				logDebug("Sliding - high < eq - $1 < $2, old_center = $4, new center = $3", high, eq, lastTradePrice, prevLTP);
-			} else if (low > eq) {
-				lastTradePrice = eq/std::exp(-status.curStep*cfg.buy_step_mult);
-				logDebug("Sliding - low > eq - $1 > $2, old_center = $4, new center = $3", low, eq, lastTradePrice, prevLTP);
-			}
-
-		} else if (!need_alerts
-					&& std::isfinite(eq)     //equilibrium is finite
-					&& eq > 0				 //equilibrium is not zero or negatiove
-					&& (lastTradePrice * std::exp(-status.curStep)>eq //eq is not in reach to lastTradePrice
-						|| lastTradePrice * std::exp(status.curStep)<eq)) { //eq is not in reach to lastTradePrice
-			if (cfg.max_size != 0) {
-				logDebug("Enforced alerts because configuration");
-				need_alerts = true;
-			} else {
-				lastTradePrice = strategy.getCenterPrice(lastTradePrice, status.assetBalance);
-			}
+			centerPrice = (centerPrice-lastTradePrice)+lastPriceOffset+status.spreadCenter;
 		}
 
 
@@ -407,7 +383,7 @@ void MTrader::perform(bool manually) {
 					} else {
 
 							//calculate buy order
-						buyorder = calculateOrder(grant_trade?status.ticker.bid*1.5:lastTradePrice,
+						buyorder = calculateOrder(grant_trade?status.ticker.bid*1.5:centerPrice,
 														grant_trade?-0.1:-status.curStep*cfg.buy_step_mult,
 														dynmult.getBuyMult(),
 														status.ticker.bid,
@@ -415,7 +391,7 @@ void MTrader::perform(bool manually) {
 														status.currencyAvailBalance,
 														grant_trade?false:need_alerts);
 							//calculate sell order
-						sellorder = calculateOrder(grant_trade?status.ticker.ask*0.85:lastTradePrice,
+						sellorder = calculateOrder(grant_trade?status.ticker.ask*0.85:centerPrice,
 														 grant_trade?0.1:status.curStep*cfg.sell_step_mult,
 														 dynmult.getSellMult(),
 														 status.ticker.ask,
@@ -490,7 +466,6 @@ void MTrader::perform(bool manually) {
 			//report misc
 			auto minmax = strategy.calcSafeRange(minfo,status.assetAvailBalance,status.currencyAvailBalance);
 			auto budget = strategy.getBudgetInfo();
-			auto equil = strategy.getEquilibrium(status.assetBalance);
 			std::optional<double> budget_extra;
 			if (!trades.empty())
 			{
@@ -521,7 +496,7 @@ void MTrader::perform(bool manually) {
 			statsvc->reportMisc(IStatSvc::MiscData{
 				last_trade_dir,
 				achieve_mode,
-				equil,
+				eq,
 				status.curPrice * (exp(status.curStep) - 1),
 				dynmult.getBuyMult(),
 				dynmult.getSellMult(),
@@ -533,7 +508,7 @@ void MTrader::perform(bool manually) {
 				budget_extra,
 				trades.size(),
 				trades.empty()?0:(trades.back().time-trades[0].time),
-				lastTradePrice,
+				centerPrice,
 				position,
 				buy_norm,
 				sell_norm

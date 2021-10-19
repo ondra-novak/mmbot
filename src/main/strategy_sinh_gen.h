@@ -22,6 +22,8 @@ public:
 		FnCalc(double wd, double boost);
 
 		double baseFn(double x) const;
+		double root(double x) const;
+		double root(double k, double w, double x) const;
 		double integralBaseFn(double x) const;
 		double assets(double k, double w, double x) const;
 		double budget(double k, double w, double x) const;
@@ -53,6 +55,8 @@ public:
 
 	struct State {
 		bool spot = false;
+		bool use_last_price = false;
+		bool rebalance = false; //pokud je true, pak neprovadi redukci ani jine nutne vypocty
 		double k = 0;
 		double p = 0;
 		double budget=0;
@@ -61,7 +65,6 @@ public:
 		double last_spread=1.01;
 		double sum_spread=0;
 		int trades=0;
-		double enforce_val=0;  //set this to value and direction -value=long (value is negative), +value=short
 	};
 
 
