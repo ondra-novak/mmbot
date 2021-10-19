@@ -231,14 +231,26 @@ IStockApi::TradesSync KucoinIFC::syncTrades(json::Value lastId, const std::strin
 
 	if (lastId[0].getUIntLong()>0) {
 
+		bool timeOverflow = false;
+		std::uint64_t startAt = lastId[0].getUIntLong();
+		std::uint64_t endAt = std::chrono::duration_cast<std::chrono::milliseconds>(api.now().time_since_epoch()).count();
+		if (endAt-startAt > 6*24*60*60*1000) {
+			endAt = startAt + 6*24*60*60*1000;
+			timeOverflow = true;
+		}
+
 		Value fills = privateGET("/api/v1/fills", Object{
 			{"symbol",pair},
 			{"pageSize",500},
-			{"startAt",lastId[0]},
-			{"endAt",std::chrono::duration_cast<std::chrono::milliseconds>(api.now().time_since_epoch()).count()}
+			{"startAt",startAt},
+			{"endAt",endAt}
 		})["items"];
 		if (fills.empty()) {
-			return {{},lastId};
+			if (timeOverflow) {
+				return {{},{(startAt+endAt)>>1,{}}};
+			} else {
+				return {{}, lastId};
+			}
 		}
 		fills = fills.reverse();
 		findMostTime(fills);
