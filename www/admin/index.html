@@ -670,6 +670,7 @@ the same order, they are ordered by its ID - this is the default ordering. Modif
 <div>Initial price</div><input type="number" step="any" data-name="initial_price">
 <div>Reverse/Invert chart</div><span><x-checkbox data-name="reverse_chart">Rev</x-checkbox> <x-checkbox data-name="invert_chart">Inv</x-checkbox></span>
 <div>Neg.balance</div><x-checkbox data-name="allow_neg_bal">Enabled</x-checkbox>
+<div>Spend profit</div><x-checkbox data-name="spend_profit">Enabled</x-checkbox>
 </div>
 </div>
 <div class="mainpanel">
@@ -868,7 +869,8 @@ the same order, they are ordered by its ID - this is the default ordering. Modif
 <tr><th>PnL</th><td class="colornumb" data-name="pl"></td></tr>
 <tr><th>Norm PnL</th><td class="colornumb" data-name="npl"></td></tr>
 <tr><th>Balance</th><td class="colornumb" data-name="bal"></td></tr>
-<tr><th>Accum:</th><td class="colornumb" data-name="na"></td></tr>
+<tr data-name="ubal_row"><th>Avail.balance</th><td class="colornumb" data-name="ubal"></td></tr>
+<tr data-name="accum_row"><th>Accum:</th><td class="colornumb" data-name="na"></td></tr>
 <tr data-name="bt_event_row"><th>Event</th><td>
 <x-switch data-name="bt_event" data-value="liquidation" class="mark_crit">Liquidation!</x-switch>
 <x-switch data-name="bt_event" data-value="margin_call" class="mark_warn">Margin&nbsp;call!</x-switch>
@@ -999,6 +1001,7 @@ the same order, they are ordered by its ID - this is the default ordering. Modif
 		<option value="-1">Long</option>
 		<option value="1">Short</option>
 	</select></label>
+<label><span>Aprox. profit target:</span><input type="number" data-name="pt" readonly="readonly"></label>
 <label><span>Position:</span><input type="number" data-name="position" readonly="readonly"></label>
 <label><span>Leverage:</span><input type="number" data-name="leverage" readonly="readonly"></label>
 <div class="buttons">

@@ -40,6 +40,7 @@ struct BTTrade {
 	double pos = 0;
 	double bal = 0;
 	double norm_profit_total = 0;
+	double unspend_balance = 0;
 	BTEvent event = BTEvent::no_event;
 
 	json::Value info;
@@ -51,7 +52,7 @@ using BTTrades = std::vector<BTTrade>;
 class IStockSelector;
 
 
-BTTrades backtest_cycle(const MTrader_Config &config, BTPriceSource &&priceSource, const IStockApi::MarketInfo &minfo, std::optional<double> init_pos, double balance, bool negbal);
+BTTrades backtest_cycle(const MTrader_Config &config, BTPriceSource &&priceSource, const IStockApi::MarketInfo &minfo, std::optional<double> init_pos, double balance, bool negbal, bool spend);
 
 
 

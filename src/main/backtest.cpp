@@ -12,7 +12,7 @@ using TradeRec=IStatSvc::TradeRecord;
 using Trade=IStockApi::Trade;
 using Ticker=IStockApi::Ticker;
 
-BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, const IStockApi::MarketInfo &minfo, std::optional<double> init_pos, double balance, bool neg_bal) {
+BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, const IStockApi::MarketInfo &minfo, std::optional<double> init_pos, double balance, bool neg_bal, bool spend) {
 
 	BTTrades trades;
 	try {
@@ -35,6 +35,7 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 
 		trades.push_back(bt);
 
+		double total_spend = 0;
 		double pl = 0;
 		double minsize = std::max(minfo.min_size, cfg.min_size);
 		for (price = priceSource();price.has_value();price = priceSource()) {
@@ -150,14 +151,25 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 				bt.open_price = tres.openPrice;
 				if (order.size*(order.size-norm_accum)>1) order.size -= norm_accum;
 			}
+			if (spend) {
+				double alloc = s.calcCurrencyAllocation(p);
+				if (alloc>0 && alloc<balance) {
+					total_spend += balance-alloc;
+					balance = alloc;
+				}
+			}
+
 			bt.size = order.size;
 			bt.price.price = p;
 			bt.price.time = price->time;
 			bt.pl = pl;
 			bt.pos = pos;
-			bt.bal = balance;
+			bt.bal = balance+total_spend;
+			bt.unspend_balance= balance;
 			bt.norm_profit_total = bt.norm_profit + bt.norm_accum * p;
 			bt.info = s.dumpStatePretty(minfo);
+
+
 
 			trades.push_back(bt);
 		}

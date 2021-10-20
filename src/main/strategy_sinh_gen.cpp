@@ -188,11 +188,8 @@ double Strategy_Sinh_Gen::calcNewKFromValue(const Config &cfg, const State &st, 
 
 double Strategy_Sinh_Gen::calcNewK(double tradePrice, double cb, double pnl, int bmode) const {
 	if (st.rebalance) return st.k;
-	if (st.p == st.k || (pnl == 0 && tradePrice != st.p)) {
-		return std::sqrt(st.k* tradePrice);
-	}
-	double newk;
-	if ((st.p<st.k && tradePrice<st.k) || (st.p>st.k && tradePrice>st.k))  {
+	double newk = st.k;
+	if (st.k != st.p) {
 		double sprd = cfg.avgspread?(1.0+st.sum_spread/std::max(st.trades,10)):(tradePrice/st.p);
 		double refp = st.k*sprd;
 		double yield = cfg.calc->budget(st.k, pw, refp);
@@ -208,29 +205,31 @@ double Strategy_Sinh_Gen::calcNewK(double tradePrice, double cb, double pnl, int
 			case 5: refb = pnl>0?yield2*3:-2*yield2;break;
 		}
 
-		double nb = cb+pnl+refb;
+		double nb = cb+pnl+refb; //current budget + pnl + yield = new budget
 
 		if (nb > 0) {
 			return tradePrice;
 		}
 
-			if (st.p < st.k) {
-				newk = numeric_search_r2(tradePrice, [&](double k){
-					return cfg.calc->budget(k, calcPower(cfg.power ,st,k), tradePrice)-nb;
-				});
-				if (newk>1e300) newk = st.k;
-			} else if (st.p > st.k) {
-				newk = numeric_search_r1(tradePrice, [&](double k){
-					return cfg.calc->budget(k, calcPower(cfg.power , st,k), tradePrice)-nb;
-				});
-				if (newk<1e-200) newk = st.k;
-			} else {
-				newk = tradePrice;
-			}
-
-			if (std::abs(st.k-tradePrice)<std::abs(newk-tradePrice))
-				newk = st.k;
+		if (st.p < st.k) {
+			newk = numeric_search_r2(tradePrice, [&](double k){
+				return cfg.calc->budget(k, calcPower(cfg.power ,st,k), tradePrice)-nb;
+			});
+			if (newk>1e300) newk = st.k;
+		} else if (st.p > st.k) {
+			newk = numeric_search_r1(tradePrice, [&](double k){
+				return cfg.calc->budget(k, calcPower(cfg.power , st,k), tradePrice)-nb;
+			});
+			if (newk<1e-200) newk = st.k;
+		}
 	} else {
+		newk = std::sqrt(st.k* tradePrice);
+	}
+
+/*	if (std::abs(st.k-tradePrice)<std::abs(newk-tradePrice)) {
+		newk = st.k;
+	}*/
+	if (!((newk <= tradePrice && newk >=st.k) || (newk>=tradePrice && newk <= st.k))) {
 		newk = st.k;
 	}
 	return newk;
@@ -389,21 +388,7 @@ IStrategy::OrderData Strategy_Sinh_Gen::getNewOrder(
 
 	if (st.rebalance) new_price = cur_price;
 
-	//close faster
-	/*if (!rej && st.val<0 && dir * assets < 0 && cfg.openlimit<0 && absass*st.p/(st.budget+st.val) > -cfg.openlimit) {
-		double calc_price = (new_price - st.k) * (st.p - st.k) < 0?st.k:new_price;
-		double newval = cfg.calc->budget(st.k, pw, calc_price);
-		double valdiff = (st.val - newval)*st.pwadj;
-		if (valdiff < 0) {
-			double fastclose_delta = -valdiff/assets;
-			double close_price = fastclose_delta+st.p;
-			if (close_price * dir < cur_price * dir && close_price * dir > new_price * dir) {
-				new_price = close_price;
-			}
-		}
-	}*/
 
-	//close position if we are in forbidden side
 	if (limitPosition(assets) != assets && dir * assets < 0) {
 		return {cur_price, -assets, Alert::forced};
 	}
@@ -418,65 +403,12 @@ IStrategy::OrderData Strategy_Sinh_Gen::getNewOrder(
 	double pwadj = adjustPower(assets, newk, new_price);
 
 
-	//double new_pos1 = limitPosition(cfg.calc->assets(newk, pw, new_price));
-	//double new_pos1 = limitPosition(cfg.calc->assets(2*st.k-newk, pw, new_price));
-
 	double new_pos = limitPosition(cfg.calc->assets(newk, pw*pwadj, new_price));
-	//double new_pos = sgn(new_pos1) * sqrt(new_pos1 * new_pos2);
-    //double new_pos = sgn(new_pos1) * (std::abs(new_pos1) + std::abs(new_pos2))*0.5;
-	//double new_pos = pwadj<0?sgn(new_pos2) * sqrt(new_pos2 * assets):new_pos2;
-	//calculate difference between new position and curreny position
 	double dfa = new_pos -assets;
-	//if difference is in other direction and position should decrease
-	/*if (dfa*dir < 0 && dir*(new_price-st.p)<0) {
-		//calculate equilibrium
-		double eq = getEquilibrium(assets);
-		//calculate distance between last price and current price
-		double df = new_price - st.p;
-		//calculate position on shifte price
-		double new_a = limitPosition(cfg.calc->assets(newk, pw, eq+df));
-		//difference
-		double dfa = new_a-assets;
-		//if (difference is valid
-		if (dfa*dir >= 0) {
-			//create order with this difference
-			return {0,dfa};
-		}
-	}*/
-	//if new position is reverse or zero
 	if ((new_pos * assets <0 || new_pos == 0) && (assets * dir < 0)){
 		//close current position (force alert)
 		return {new_price,-assets,Alert::forced};
 	}
-	//if position is increasing
-	/*
-	if (dfa * assets > 0 && dir * assets > 0) {
-		//if reached minbugget
-		if (currency<=minbudget) {
-			//send alert only
-			return {0,0,Alert::forced};
-		}
-		//calculate price difference
-		double df = new_price - st.p;
-		//calculate next price if difference maintain
-		double next_price = new_price + df;
-		//don't allow negative price
-		if (next_price < 0) next_price = 0;
-		//max_pos, maximum position, which causes, that on next_price, minbudget will be reached
-		double max_pos = (next_price - new_price)/(minbudget-currency);
-
-		//reached max_pos
-		if (max_pos*dir > new_pos*dir) {
-			double dfma = max_pos - assets;
-			//negative direction?
-			if (dfma * dir < 0) {
-				//stop trading now
-				return {0,0,Alert::forced};
-			}
-			new_pos = max_pos;
-			dfa = dfma;
-		}
-	}*/
 	return {new_price, dfa};
 }
 

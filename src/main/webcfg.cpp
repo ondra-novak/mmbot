@@ -1090,6 +1090,7 @@ bool WebCfg::reqBacktest(simpleServer::HTTPRequest req, ondra_shared::StrViewA r
 					Value init_price = data["init_price"];
 					Value fill_atprice= data["fill_atprice"];
 					Value negbal= data["neg_bal"];
+					Value spend= data["spend"];
 
 					std::uint64_t start_date=data["start_date"].getUIntLong();
 
@@ -1151,7 +1152,7 @@ bool WebCfg::reqBacktest(simpleServer::HTTPRequest req, ondra_shared::StrViewA r
 					}
 
 					BTTrades rs = backtest_cycle(mconfig,std::move(source),
-							trades.minfo,m_init_pos, balance.getNumber(), negbal.getBool());
+							trades.minfo,m_init_pos, balance.getNumber(), negbal.getBool(), spend.getBool());
 
 
 
@@ -2044,6 +2045,7 @@ bool WebCfg::reqBacktest_v2(simpleServer::HTTPRequest req, ondra_shared::StrView
 				Value init_price = args["init_price"];
 				Value fill_atprice= args["fill_atprice"];
 				Value negbal= args["neg_bal"];
+				Value spend= args["spend"];
 
 				bool rev = reverse.getBool();
 				bool inv = invert.getBool();
@@ -2118,7 +2120,7 @@ bool WebCfg::reqBacktest_v2(simpleServer::HTTPRequest req, ondra_shared::StrView
 						[iter = trades.begin(), end = trades.end()]() mutable {
 					if (iter == end) return std::optional<BTPrice>();
 					else return std::optional<BTPrice>(*iter++);
-				},minfo,m_init_pos, balance.getNumber(), negbal.getBool());
+				},minfo,m_init_pos, balance.getNumber(), negbal.getBool(), spend.getBool());
 
 
 				Value result (json::array, rs.begin(), rs.end(), [](const BTTrade &x) {
@@ -2142,6 +2144,7 @@ bool WebCfg::reqBacktest_v2(simpleServer::HTTPRequest req, ondra_shared::StrView
 							{"pr",x.price.price},
 							{"tm",x.price.time},
 							{"bal",x.bal},
+							{"ubal",x.unspend_balance},
 							{"info",x.info},
 							{"sz",x.size},
 							{"event", event}

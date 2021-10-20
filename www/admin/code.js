@@ -1697,6 +1697,7 @@ var show_op=false;
 var invert_chart = false;
 var reverse_chart = false;
 var allow_neg_balance = false;
+var spend_profit = false;
 var hist_smooth=0;
 var rnd_preset={
 		"volatility":1,
@@ -1972,6 +1973,9 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
                 		bt_event: bestItem.event,
                 		bt_event_row: {".hidden": bestItem.event === undefined},
                 		bal:adjNumBuySell(bestItem.bal),
+						ubal:adjNumBuySell(bestItem.ubal),
+						ubal_row:{".hidden":bestItem.bal==bestItem.ubal},
+						accum_row:{".hidden":bestItem.na==0},
                 		info:Object.keys(bestItem.info)
                 		    .map(function(n) {
                 		    	var v = bestItem.info[n];
@@ -2109,6 +2113,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 			reverse: reverse_chart,
 			invert: invert_chart,
 			neg_bal: allow_neg_balance,
+			spend: spend_profit,
 		};
 
 
@@ -2153,10 +2158,15 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 			cntr.bt.setItemValue("show_op", show_op);
 			cntr.bt.setItemValue("fill_atprice",fill_atprice);
 			cntr.bt.setItemValue("allow_neg_bal",allow_neg_balance);
+			cntr.bt.setItemValue("spend_profit",spend_profit);
 			cntr.bt.setItemValue("reverse_chart",reverse_chart);
 			cntr.bt.setItemValue("invert_chart",invert_chart);
 			cntr.bt.setItemEvent("allow_neg_bal","change", function() {
 				allow_neg_balance = cntr.bt.readData(["allow_neg_bal"]).allow_neg_bal;
+				cntr.update();
+			})
+			cntr.bt.setItemEvent("spend_profit","change", function() {
+				spend_profit = cntr.bt.readData(["spend_profit"]).spend_profit;
 				cntr.update();
 			})
 			cntr.bt.setItemEvent("show_op","change", function() {
@@ -3099,11 +3109,13 @@ App.prototype.shgControlPosition = function(id, form) {
             	fetch_with_error(url,{method:"PUT",body:JSON.stringify(res)}).then(function(out){
             		dlg.setItemValue("position", adjNumN(out.Position));
             		dlg.setItemValue("leverage", out["Leverage[x]"].toFixed(2));
+            		dlg.setItemValue("pt", out["Price-neutral"].toFixed(2));
             		dlg.enableItem("ok",true);
             	});
             } else {
             		dlg.setItemValue("position", "");
             		dlg.setItemValue("leverage", "");            	
+            		dlg.setItemValue("pt","");
             		dlg.enableItem("ok",false);
             }
         };
