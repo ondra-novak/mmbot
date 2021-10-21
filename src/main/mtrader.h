@@ -253,6 +253,8 @@ public:
 	bool isInitialResetRequired() const {return need_initial_reset;}
 	double getAccumulated() const;
 
+	void recalcNorm();
+	void fixNorm();
 
 protected:
 
@@ -329,6 +331,8 @@ protected:
 
 	WalletDB::Key getWalletBalanceKey() const;
 	WalletDB::Key getWalletAssetKey() const;
+
+
 private:
 	template<typename Iter>
 	static SpreadCalcResult stCalcSpread(Iter beg, Iter end, unsigned int input_sma, unsigned int input_stdev);

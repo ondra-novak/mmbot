@@ -1584,3 +1584,100 @@ void MTrader::doWithdraw(const Status &st) {
 double MTrader::getAccumulated() const {
 	return accumulated;
 }
+
+void MTrader::recalcNorm() {
+	init();
+	if (trades.empty()) return;
+	auto st = getMarketStatus();
+	double cur = st.currencyBalance;
+	double pos = st.assetBalance;
+	double sumsz = std::accumulate(trades.begin(), trades.end(), 0.0, [&](double x, const IStatSvc::TradeRecord &rec){
+		return x+rec.eff_size;
+	});
+	pos-=sumsz;
+	if (minfo.leverage) {
+		double price = trades[0].eff_price;
+		double mypos = pos+ trades[0].eff_size;
+		double pnl = 0;
+		for (std::size_t i=1,cnt = trades.size(); i < cnt; i++) {
+			pnl += (trades[i].eff_price - price)*mypos;
+			mypos += trades[i].eff_size;
+			price = trades[i].eff_price;
+		}
+		cur -= pnl;
+	} else {
+		double sumpr = std::accumulate(trades.begin(), trades.end(), 0.0, [&](double x, const IStatSvc::TradeRecord &rec){
+			return x-rec.eff_size*rec.eff_price;
+		});
+		cur -= sumpr;
+	}
+	Strategy z = strategy;
+	z.reset();
+	auto getTicker = [](double p, std::uint64_t tm) {
+		return IStockApi::Ticker{p,p,p,tm};
+	};
+	double prevTrade = trades[0].eff_price;
+	double normp = 0, norma = 0;
+	for (std::size_t i=0, cnt = trades.size(); i< cnt; i++) {
+		z.onIdle(minfo, getTicker(trades[i].eff_price,trades[i].time), pos, cur);
+		double newpos = trades[i].eff_size+ pos;
+		double newcur = minfo.leverage?(trades[i].eff_price-prevTrade)*pos:cur-trades[i].eff_size*trades[i].eff_price;
+		auto res = z.onTrade(minfo, trades[i].eff_price, trades[i].eff_size, newpos, newcur);
+		if (!std::isfinite(res.normProfit)) res.normProfit = 0;
+		if (!std::isfinite(res.normAccum)) res.normAccum = 0;
+		if (trades[i].manual_trade){
+			res.normAccum = 0;
+			res.normProfit = 0;
+		}
+		normp += res.normProfit;
+		norma += res.normAccum;
+		trades[i].norm_profit = normp;
+		trades[i].norm_accum = norma;
+		trades[i].neutral_price = res.neutralPrice;
+		cur = newcur;
+		pos = newpos-=res.normAccum;
+	}
+	saveState();
+}
+
+void MTrader::fixNorm() {
+	init();
+	if (trades.empty()) return;
+	double normp = std::accumulate(trades.begin(), trades.end(),0.0,[z=0.0](double x,const IStatSvc::TradeRecord &rec) mutable {
+		double df = std::abs(rec.norm_profit-z);
+		z = rec.norm_profit;
+		return x+df;
+	});
+	double norma = std::accumulate(trades.begin(), trades.end(),0.0,[z=0.0](double x,const IStatSvc::TradeRecord &rec) mutable {
+		double df = std::abs(rec.norm_accum-z);
+		z = rec.norm_accum;
+		return x+df;
+	});
+	double avgp = normp/trades.size();
+	double avga = norma/trades.size();
+	double maxp = 2*std::abs(avgp);
+	double maxa = 2*std::abs(avga);
+	double cura = 0;
+	double curp = 0;
+	double lasta = 0;
+	double lastp = 0;
+	for (std::size_t i = 0,cnt = trades.size(); i < cnt; i++) {
+		double a = trades[i].norm_accum;
+		double p = trades[i].norm_profit;
+		double dfa =  a - lasta;
+		double dfp =  p - lastp;
+		if (!std::isfinite(dfa) || std::abs(dfa) > maxa) {
+			dfa = 0;
+		}
+		if (!std::isfinite(dfp) || std::abs(dfp) > maxp) {
+			dfp = 0;
+		}
+		cura += dfa;
+		curp += dfp;
+		lasta = a;
+		lastp = p;
+		trades[i].norm_accum = cura;
+		trades[i].norm_profit = curp;
+	}
+	saveState();
+}

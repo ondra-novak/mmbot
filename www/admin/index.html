@@ -1013,6 +1013,26 @@ the same order, they are ordered by its ID - this is the default ordering. Modif
 </div>
 </template>
 
+<template id="clear_stats">
+<div class="clearstats dialog">
+<div>
+<x-form>
+<h1>Repair/Clear statistics</h1>
+<label><span>How to clear:</span><select name="mode">
+			<option value="norm_drops">Repair: Find and clear invalid values</option>
+			<option value="norm_recalc">Repair: Recalculate normalized profit</option>
+			<option value="wipe">Clear: Reset statistics complete</option>
+</select></label>
+<div class="buttons">
+<button data-name="ok">Ok</button>
+<button data-name="cancel">Cancel</button>
+</div>
+</x-form>
+</div>
+</div>
+
+</template>
+
 <script src="../res/template.js" type="text/javascript"></script>
 <script src="../res/common.js" type="text/javascript"></script>
 <script src="../res/ui.js" type="text/javascript"></script>

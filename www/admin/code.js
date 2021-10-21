@@ -1157,17 +1157,22 @@ App.prototype.undoTrader = function(id) {
 }
 
 App.prototype.clearStatsTrader = function(id) {
-	this.dlgbox({"text":this.strtable.askreset,
-		"ok":this.strtable.yes,
-		"cancel":this.strtable.no},"confirm").then(function(){
-
+	var dlg = TemplateJS.View.fromTemplate("clear_stats");
+	dlg.openModal();
+	dlg.setDefaultAction(function(){
+		var d = dlg.readData();
 		var tr = this.traders[id];
 		this.waitScreen(fetch_with_error(
 			this.traderURL(tr.id)+"/clear_stats",
-			{method:"POST"})).then(function() {				
-						this.updateTopMenu(tr.id);				
-			}.bind(this));
-	}.bind(this));
+				{method:"POST",body:JSON.stringify(d.mode)}).then(function() {
+					this.updateTopMenu(tr.id);					
+				}.bind(this))
+		);
+		dlg.close();
+	}.bind(this),"ok");
+	dlg.setCancelAction(function(){
+		dlg.close();
+	},"cancel")
 }
 
 App.prototype.resetTrader = function(id, initial, budget, balance) {

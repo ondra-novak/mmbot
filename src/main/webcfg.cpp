@@ -641,7 +641,19 @@ bool WebCfg::reqTraders(simpleServer::HTTPRequest req, ondra_shared::StrViewA vp
 				auto cmd = urlDecode(StrViewA(splt()));
 				if (cmd == "clear_stats") {
 					if (!req.allowMethods({"POST"})) return true;
-					trl->clearStats();
+					Stream s = req.getBodyStream();
+					Value v = Value::parse(s);
+					auto cmd = v.getString();
+					if (cmd=="wipe") {
+						trl->clearStats();
+					} else if (cmd == "norm_recalc") {
+						trl->recalcNorm();
+					} else if (cmd == "norm_drops") {
+						trl->fixNorm();
+					} else {
+						req.sendErrorPage(400);
+						return true;
+					}
 					req.sendResponse(std::move(hdr), "true");
 				} else if (cmd == "stop") {
 					if (!req.allowMethods({"POST"})) return true;
