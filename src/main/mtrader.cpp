@@ -21,6 +21,7 @@
 #include "swap_broker.h"
 
 using ondra_shared::logDebug;
+using ondra_shared::logError;
 using ondra_shared::logInfo;
 using ondra_shared::logNote;
 using ondra_shared::logWarning;
@@ -68,6 +69,7 @@ void MTrader_Config::loadConfig(json::Value data, bool force_dry_run) {
 
 	force_spread = data["force_spread"].getValueOrDefault(0.0);
 	report_order = data["report_order"].getValueOrDefault(0.0);
+	secondary_order_distance = data["secondary_order"].getValueOrDefault(0.0)*0.01;
 	grant_trade_minutes = static_cast<unsigned int>(data["grant_trade_hours"].getValueOrDefault(0.0)*60);
 
 	spread_calc_sma_hours = data["spread_calc_sma_hours"].getValueOrDefault(24.0);
@@ -383,7 +385,9 @@ void MTrader::perform(bool manually) {
 					} else {
 
 							//calculate buy order
-						buyorder = calculateOrder(grant_trade?status.ticker.bid*1.5:centerPrice,
+						buyorder = calculateOrder(
+								strategy,
+								grant_trade?status.ticker.bid*1.5:centerPrice,
 														grant_trade?-0.1:-status.curStep*cfg.buy_step_mult,
 														dynmult.getBuyMult(),
 														status.ticker.bid,
@@ -391,7 +395,9 @@ void MTrader::perform(bool manually) {
 														status.currencyAvailBalance,
 														grant_trade?false:need_alerts);
 							//calculate sell order
-						sellorder = calculateOrder(grant_trade?status.ticker.ask*0.85:centerPrice,
+						sellorder = calculateOrder(
+								strategy,
+								grant_trade?status.ticker.ask*0.85:centerPrice,
 														 grant_trade?0.1:status.curStep*cfg.sell_step_mult,
 														 dynmult.getSellMult(),
 														 status.ticker.ask,
@@ -450,6 +456,24 @@ void MTrader::perform(bool manually) {
 			buy_alert.reset();
 		}
 
+		Strategy buy_state = strategy;
+		Strategy sell_state = strategy;
+		double buy_norm = 0;
+		double sell_norm = 0;
+		if (!cfg.hidden || cfg.secondary_order_distance>0) {
+			if (sell_alert.has_value()) {
+				sell_norm = sell_state.onTrade(minfo, *sell_alert, 0, position, status.currencyBalance).normProfit;
+			} else if (orders.sell.has_value()) {
+				sell_norm = sell_state.onTrade(minfo, orders.sell->price, orders.sell->size, position+orders.sell->size, status.currencyBalance).normProfit;
+			}
+			if (buy_alert.has_value()) {
+				buy_norm = buy_state.onTrade(minfo, *buy_alert, 0, position, status.currencyBalance).normProfit;
+			} else if (orders.buy.has_value()) {
+				buy_norm = buy_state.onTrade(minfo, orders.buy->price, orders.buy->size, position+orders.buy->size, status.currencyBalance).normProfit;
+			}
+		}
+
+
 		if (!cfg.hidden) {
 			int last_trade_dir = !anytrades?0:sgn(lastTradeSize);
 			if (fast_trade) {
@@ -476,22 +500,6 @@ void MTrader::perform(bool manually) {
 					budget_extra =  status.currencyUnadjustedBalance - locked - budget;
 				}
 			}
-
-			double buy_norm = 0;
-			double sell_norm = 0;
-			Strategy buy_state = strategy;
-			Strategy sell_state = strategy;
-			if (sell_alert.has_value()) {
-				sell_norm = sell_state.onTrade(minfo, *sell_alert, 0, position, status.currencyBalance).normProfit;
-			} else if (orders.sell.has_value()) {
-				sell_norm = sell_state.onTrade(minfo, orders.sell->price, orders.sell->size, position+orders.sell->size, status.currencyBalance).normProfit;
-			}
-			if (buy_alert.has_value()) {
-				buy_norm = buy_state.onTrade(minfo, *buy_alert, 0, position, status.currencyBalance).normProfit;
-			} else if (orders.buy.has_value()) {
-				buy_norm = buy_state.onTrade(minfo, orders.buy->price, orders.buy->size, position+orders.buy->size, status.currencyBalance).normProfit;
-			}
-
 
 			statsvc->reportMisc(IStatSvc::MiscData{
 				last_trade_dir,
@@ -531,6 +539,35 @@ void MTrader::perform(bool manually) {
 
 		lastTradeId  = status.new_trades.lastId;
 
+		if (cfg.secondary_order_distance > 0 && orders.buy.has_value() && orders.buy->price > 0) {
+			std::optional<double> alert;
+			try {
+				auto buyorder = calculateOrder(buy_state,orders.buy->price,-cfg.secondary_order_distance,
+												1.0,status.ticker.bid,position+orders.buy->size,
+												status.currencyAvailBalance,false);
+				setOrder(orders.buy2, buyorder, alert);
+			} catch (std::exception &e) {
+				logError("Failed to create secondary order: $1", e.what());
+			}
+		} else if (orders.buy2.has_value()) {
+			stock->placeOrder(cfg.pairsymb, 0, 0, json::Value(), orders.buy2->id, 0);
+		}
+
+
+		if (cfg.secondary_order_distance > 0 && orders.sell.has_value() && orders.sell->price > 0) {
+			std::optional<double> alert;
+			try {
+				auto sellorder = calculateOrder(sell_state,orders.sell->price, cfg.secondary_order_distance,
+													 1.0,status.ticker.ask, position+orders.sell->size,
+													 status.currencyAvailBalance,false);
+				setOrder(orders.sell2, sellorder, alert);
+			} catch (std::exception &e) {
+				logError("Failed to create secondary order: $1", e.what());
+			}
+		} else 	if (orders.sell2.has_value()) {
+			stock->placeOrder(cfg.pairsymb, 0, 0, json::Value(), orders.sell2->id, 0);
+		}
+
 
 
 		//save state
@@ -561,15 +598,29 @@ MTrader::OrderPair MTrader::getOrders() {
 				IStockApi::Order o(x);
 				if (o.size<0) {
 					if (ret.sell.has_value()) {
-						ondra_shared::logWarning("Multiple sell orders (trying to cancel)");
-						stock->placeOrder(cfg.pairsymb,0,0,json::Value(),x.id);
+						if (ret.sell2.has_value()) {
+							ondra_shared::logWarning("Multiple sell orders (trying to cancel)");
+							stock->placeOrder(cfg.pairsymb,0,0,json::Value(),x.id);
+						} else if (ret.sell->price > o.price) {
+							ret.sell2 = std::move(ret.sell);
+							ret.sell = o;
+						} else {
+							ret.sell2 = o;
+						}
 					} else {
 						ret.sell = o;
 					}
 				} else {
 					if (ret.buy.has_value()) {
-						ondra_shared::logWarning("Multiple buy orders (trying to cancel)");
-						stock->placeOrder(cfg.pairsymb,0,0,json::Value(),x.id);
+						if (ret.buy2.has_value()) {
+							ondra_shared::logWarning("Multiple buy orders (trying to cancel)");
+							stock->placeOrder(cfg.pairsymb,0,0,json::Value(),x.id);
+						} else if (ret.buy->price < o.price) {
+							ret.buy2 = std::move(ret.buy);
+							ret.buy = o;
+						} else {
+							ret.buy2 = o;
+						}
 					} else {
 						ret.buy = o;
 					}
@@ -788,6 +839,7 @@ bool MTrader::calculateOrderFeeLessAdjust(Order &order, double assets, double cu
 }
 
 MTrader::Order MTrader::calculateOrderFeeLess(
+		Strategy state,
 		double prevPrice,
 		double step,
 		double dynmult,
@@ -811,7 +863,7 @@ MTrader::Order MTrader::calculateOrderFeeLess(
 		newPrice = curPrice;
 		prevPrice = newPrice /exp(step*dynmult*m);
 	}
-	order= strategy.getNewOrder(minfo,curPrice, newPrice,dir, balance, currency, false);
+	order= state.getNewOrder(minfo,curPrice, newPrice,dir, balance, currency, false);
 
 	//Strategy can disable to place order using size=0 and disable alert
 	if (order.size == 0 && order.alert == IStrategy::Alert::disabled) return order;
@@ -837,7 +889,7 @@ MTrader::Order MTrader::calculateOrderFeeLess(
 				newPrice = curPrice;
 			}
 
-			order= strategy.getNewOrder(minfo,curPrice, newPrice,dir, balance, currency, true);
+			order= state.getNewOrder(minfo,curPrice, newPrice,dir, balance, currency, true);
 
 
 
@@ -870,6 +922,7 @@ MTrader::Order MTrader::calculateOrderFeeLess(
 }
 
 MTrader::Order MTrader::calculateOrder(
+		Strategy state,
 		double lastTradePrice,
 		double step,
 		double dynmult,
@@ -882,7 +935,7 @@ MTrader::Order MTrader::calculateOrder(
 		//remove fees from curPrice to effectively put order inside of bid/ask spread
 		minfo.removeFees(fakeSize, curPrice);
 		//calculate order
-		Order order(calculateOrderFeeLess(lastTradePrice, step,dynmult,curPrice,balance,currency,alerts));
+		Order order(calculateOrderFeeLess(state,lastTradePrice, step,dynmult,curPrice,balance,currency,alerts));
 		//apply fees
 		if (order.alert != IStrategy::Alert::stoploss && order.size) minfo.addFees(order.size, order.price);
 
@@ -1324,7 +1377,7 @@ void MTrader::acceptLoss(const Status &st, double dir) {
 		if (dynmult.getBuyMult() <= 1.0 && dynmult.getSellMult() <= 1.0) {
 			std::size_t e = st.chartItem.time>ttm?(st.chartItem.time-ttm)/(3600000):0;
 			double lastTradePrice = trades.back().eff_price;
-			auto order = calculateOrder(lastTradePrice, -st.curStep * 2 * dir, 1, lastTradePrice, st.assetBalance, st.currencyBalance, true);
+			auto order = calculateOrder(strategy, lastTradePrice, -st.curStep * 2 * dir, 1, lastTradePrice, st.assetBalance, st.currencyBalance, true);
 			double limitPrice = order.price;
 			if (e > cfg.accept_loss && (st.curPrice - limitPrice) * dir < 0) {
 				ondra_shared::logWarning("Accept loss in effect: price=$1, balance=$2", st.curPrice, st.assetBalance);

@@ -595,6 +595,7 @@ App.prototype.fillForm = function (src, trg) {
 	data.hp_fastclose=true;
 	data.hp_slowopen=false;
 	data.max_leverage = 3;
+	data.secondary_order = 0;
 	data.kb_keep_min = 0;
 	data.kb_keep_max = 100;
 	data.gamma_exp=2;
@@ -707,6 +708,7 @@ App.prototype.fillForm = function (src, trg) {
 	data.spread_mult = filledval(Math.log(defval(src.buy_step_mult,1))/Math.log(2)*100,0);
 	data.min_size = filledval(src.min_size,0);
 	data.max_size = filledval(src.max_size,0);
+	data.secondary_order = filledval(src.secondary_order,0);
 	data.internal_balance = filledval(src.internal_balance,0);
 	data.dont_allocate = filledval(src.dont_allocate,false);
 	data.detect_manual_trades = filledval(src.detect_manual_trades,false);
@@ -917,6 +919,7 @@ App.prototype.saveForm = function(form, src) {
 	trader.min_size = data.min_size;
 	trader.max_size = data.max_size;
 	trader.max_leverage = data.max_leverage;
+	trader.secondary_order = data.secondary_order;
 	trader.internal_balance = data.internal_balance;
 	trader.dont_allocate = data.dont_allocate;
 	trader.detect_manual_trades = data.detect_manual_trades;
@@ -1734,7 +1737,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		"dynmult_sliding","accept_loss",
 		"hp_trend_factor","hp_allowshort","hp_reinvest","hp_power","hp_asym","hp_reduction","sh_curv","hp_limit","hp_extbal","hp_powadj","hp_dynred",
 		"gs_external_assets","gs_rb_hi_a","gs_rb_lo_a","gs_rb_hi_p","gs_rb_lo_p",
-		"min_balance","max_balance","max_leverage","reduce_on_leverage","gamma_exp","gamma_rebalance","gamma_trend","gamma_fn","gamma_reinvest","gamma_maxrebal",
+		"min_balance","max_balance","max_leverage","secondary_order","reduce_on_leverage","gamma_exp","gamma_rebalance","gamma_trend","gamma_fn","gamma_reinvest","gamma_maxrebal",
 		"pincome_exp",
 		"pile_accum","pile_ratio",
 		"kv2_accum","kv2_boost","kv2_chngtm",

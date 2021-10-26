@@ -50,6 +50,7 @@ struct MTrader_Config {
 	double report_order;
 	double max_leverage;
 	double emulate_leveraged;
+	double secondary_order_distance;
 	unsigned int grant_trade_minutes;
 
 	double spread_calc_stdev_hours;
@@ -107,7 +108,7 @@ public:
 	};
 
 	struct OrderPair {
-		std::optional<IStockApi::Order> buy,sell;
+		std::optional<IStockApi::Order> buy,sell,buy2,sell2;
 	};
 
 	struct ZigZagInfo {
@@ -177,7 +178,9 @@ public:
 
 	Status getMarketStatus() const;
 
-	Order calculateOrder(double lastTradePrice,
+	Order calculateOrder(
+			Strategy state,
+			double lastTradePrice,
 			double step,
 			double dynmult,
 			double curPrice,
@@ -185,6 +188,7 @@ public:
 			double currency,
 			bool alerts) const;
 	Order calculateOrderFeeLess(
+			Strategy state,
 			double lastTradePrice,
 			double step,
 			double dynmult,
