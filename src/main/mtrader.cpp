@@ -110,6 +110,7 @@ MTrader::MTrader(IStockSelector &stock_selector,
 	//probe that broker is valid configured
 	stock->testBroker();
 	magic = this->statsvc->getHash() & 0xFFFFFFFF;
+	magic2 = ~magic; //magic number for secondary orders
 	std::random_device rnd;
 	uid = 0;
 	while (!uid) {
@@ -358,6 +359,10 @@ void MTrader::perform(bool manually) {
 						stock->placeOrder(cfg.pairsymb,0,0,magic,orders.buy->id,0);
 					if (orders.sell.has_value())
 						stock->placeOrder(cfg.pairsymb,0,0,magic,orders.sell->id,0);
+					if (orders.buy2.has_value())
+						stock->placeOrder(cfg.pairsymb,0,0,magic2,orders.buy2->id,0);
+					if (orders.sell2.has_value())
+						stock->placeOrder(cfg.pairsymb,0,0,magic2,orders.sell2->id,0);
 					if (!cfg.hidden) {
 						if (delayed_trade_detect) {
 							if (adj_wait>1) {
@@ -417,7 +422,7 @@ void MTrader::perform(bool manually) {
 					}
 
 					try {
-						setOrder(orders.buy, buyorder, buy_alert);
+						setOrder(orders.buy, buyorder, buy_alert, false);
 						if (!orders.buy.has_value()) {
 							acceptLoss(status, 1);
 						}
@@ -426,7 +431,7 @@ void MTrader::perform(bool manually) {
 						acceptLoss(status, 1);
 					}
 					try {
-						setOrder(orders.sell, sellorder, sell_alert);
+						setOrder(orders.sell, sellorder, sell_alert, false);
 						if (!orders.sell.has_value()) {
 							acceptLoss(status, -1);
 						}
@@ -542,10 +547,11 @@ void MTrader::perform(bool manually) {
 		if (cfg.secondary_order_distance > 0 && orders.buy.has_value() && orders.buy->price > 0) {
 			std::optional<double> alert;
 			try {
-				auto buyorder = calculateOrder(buy_state,orders.buy->price,-cfg.secondary_order_distance,
-												1.0,status.ticker.bid,position+orders.buy->size,
+				auto buyorder = calculateOrder(buy_state,orders.buy->price,-status.curStep,
+												cfg.secondary_order_distance,
+												status.ticker.bid,position+orders.buy->size,
 												status.currencyAvailBalance,false);
-				setOrder(orders.buy2, buyorder, alert);
+				setOrder(orders.buy2, buyorder, alert, true);
 			} catch (std::exception &e) {
 				logError("Failed to create secondary order: $1", e.what());
 			}
@@ -557,10 +563,11 @@ void MTrader::perform(bool manually) {
 		if (cfg.secondary_order_distance > 0 && orders.sell.has_value() && orders.sell->price > 0) {
 			std::optional<double> alert;
 			try {
-				auto sellorder = calculateOrder(sell_state,orders.sell->price, cfg.secondary_order_distance,
-													 1.0,status.ticker.ask, position+orders.sell->size,
+				auto sellorder = calculateOrder(sell_state,orders.sell->price, status.curStep,
+													 cfg.secondary_order_distance,
+													 status.ticker.ask, position+orders.sell->size,
 													 status.currencyAvailBalance,false);
-				setOrder(orders.sell2, sellorder, alert);
+				setOrder(orders.sell2, sellorder, alert, true);
 			} catch (std::exception &e) {
 				logError("Failed to create secondary order: $1", e.what());
 			}
@@ -598,31 +605,35 @@ MTrader::OrderPair MTrader::getOrders() {
 				IStockApi::Order o(x);
 				if (o.size<0) {
 					if (ret.sell.has_value()) {
-						if (ret.sell2.has_value()) {
-							ondra_shared::logWarning("Multiple sell orders (trying to cancel)");
-							stock->placeOrder(cfg.pairsymb,0,0,json::Value(),x.id);
-						} else if (ret.sell->price > o.price) {
-							ret.sell2 = std::move(ret.sell);
-							ret.sell = o;
-						} else {
-							ret.sell2 = o;
-						}
+						ondra_shared::logWarning("Multiple sell orders (trying to cancel)");
+						stock->placeOrder(cfg.pairsymb,0,0,json::Value(),x.id);
 					} else {
 						ret.sell = o;
 					}
 				} else {
 					if (ret.buy.has_value()) {
-						if (ret.buy2.has_value()) {
-							ondra_shared::logWarning("Multiple buy orders (trying to cancel)");
-							stock->placeOrder(cfg.pairsymb,0,0,json::Value(),x.id);
-						} else if (ret.buy->price < o.price) {
-							ret.buy2 = std::move(ret.buy);
-							ret.buy = o;
-						} else {
-							ret.buy2 = o;
-						}
+						ondra_shared::logWarning("Multiple buy orders (trying to cancel)");
+						stock->placeOrder(cfg.pairsymb,0,0,json::Value(),x.id);
 					} else {
 						ret.buy = o;
+					}
+				}
+			}
+			if (x.client_id == magic2) {
+				IStockApi::Order o(x);
+				if (o.size<0) {
+					if (ret.sell2.has_value()) {
+						ondra_shared::logWarning("Multiple secondary sell orders (trying to cancel)");
+						stock->placeOrder(cfg.pairsymb,0,0,json::Value(),x.id);
+					} else {
+						ret.sell2 = o;
+					}
+				} else {
+					if (ret.buy2.has_value()) {
+						ondra_shared::logWarning("Multiple secondary buy orders (trying to cancel)");
+						stock->placeOrder(cfg.pairsymb,0,0,json::Value(),x.id);
+					} else {
+						ret.buy2 = o;
 					}
 				}
 			}
@@ -634,7 +645,7 @@ MTrader::OrderPair MTrader::getOrders() {
 }
 
 
-void MTrader::setOrder(std::optional<IStockApi::Order> &orig, Order neworder, std::optional<double> &alert) {
+void MTrader::setOrder(std::optional<IStockApi::Order> &orig, Order neworder, std::optional<double> &alert, bool secondary) {
 	alert.reset();
 	try {
 		if (neworder.price < 0) {
@@ -667,7 +678,7 @@ void MTrader::setOrder(std::optional<IStockApi::Order> &orig, Order neworder, st
 			return;
 		}
 
-		IStockApi::Order n {json::undefined, magic, neworder.size, neworder.price};
+		IStockApi::Order n {json::undefined, secondary?magic2:magic, neworder.size, neworder.price};
 		try {
 			json::Value replaceid;
 			double replaceSize = 0;

@@ -141,7 +141,7 @@ public:
 	bool need_init() const;
 
 	OrderPair getOrders();
-	void setOrder(std::optional<IStockApi::Order> &orig, Order neworder, std::optional<double> &alert);
+	void setOrder(std::optional<IStockApi::Order> &orig, Order neworder, std::optional<double> &alert, bool secondary);
 
 
 	using ChartItem = IStatSvc::ChartItem;
@@ -300,6 +300,7 @@ protected:
 	std::optional<double> currency_balance;*/
 
 	size_t magic = 0;
+	size_t magic2 = 0;
 	size_t uid = 0;
 	PerformanceReport tempPr;
 

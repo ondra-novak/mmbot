@@ -1271,6 +1271,7 @@ bool WebCfg::reqSpread(simpleServer::HTTPRequest req)  {
 				Value dynmult_mode = args["mode"];
 				Value dynmult_sliding = args["sliding"];
 				Value dynmult_mult = args["dyn_mult"];
+				Value order2 = args["order2"];
 
 				auto fn = defaultSpreadFunction(sma.getNumber(), stdev.getNumber(), force_spread.getNumber());
 				VisSpread vs(fn, {
@@ -1282,6 +1283,7 @@ bool WebCfg::reqSpread(simpleServer::HTTPRequest req)  {
 								dynmult_mult.getBool(),
 						},
 						mult.getNumber(),
+						order2.getNumber(),
 						dynmult_sliding.getBool(),
 				});
 
@@ -1293,7 +1295,7 @@ bool WebCfg::reqSpread(simpleServer::HTTPRequest req)  {
 						if (data.invert_price) {
 							p = 1.0/p;
 							spinfo = VisSpread::Result{
-								true,1.0/spinfo.price,1.0/spinfo.high,1.0/spinfo.low,-spinfo.trade
+								true,1.0/spinfo.price,1.0/spinfo.high,1.0/spinfo.low,-spinfo.trade,1.0/spinfo.price2,-spinfo.trade2
 							};
 						}
 						chart.push_back(Value(json::object,{
@@ -1304,6 +1306,16 @@ bool WebCfg::reqSpread(simpleServer::HTTPRequest req)  {
 								Value("s",spinfo.trade),
 								Value("t",d.time)
 						}));
+						if (spinfo.trade2) {
+							chart.push_back(Value(json::object,{
+									Value("p",p),
+									Value("x",spinfo.price2),
+									Value("l",spinfo.low),
+									Value("h",spinfo.high),
+									Value("s",spinfo.trade2),
+									Value("t",d.time)
+							}));
+						}
 					}
 				}
 
@@ -1469,6 +1481,7 @@ bool WebCfg::generateTrades(const SharedObject<Traders> &trlist, PState state, j
 		Value dynmult_mult = args["dyn_mult"];
 		Value reverse=args["reverse"];
 		Value invert=args["invert"];
+		Value order2=args["order2"];
 
 
 		auto lkst = state.lock();
@@ -1527,6 +1540,7 @@ bool WebCfg::generateTrades(const SharedObject<Traders> &trlist, PState state, j
 					dynmult_mult.getBool()
 			},
 			mult.getNumber(),
+			order2.getNumber(),
 			dynmult_sliding.getBool()
 		});
 		auto itm = source();
@@ -1996,6 +2010,7 @@ bool WebCfg::reqBacktest_v2(simpleServer::HTTPRequest req, ondra_shared::StrView
 				Value reverse=args["reverse"];
 				Value invert=args["invert"];
 				Value ifutures=args["ifutures"];
+				Value order2 =args["order2"];
 
 				Value srcminute = storage.lock()->load_data(source.getString());
 				if (!srcminute.defined()) {
@@ -2013,6 +2028,7 @@ bool WebCfg::reqBacktest_v2(simpleServer::HTTPRequest req, ondra_shared::StrView
 							dynmult_mult.getBool()
 					},
 					mult.getNumber(),
+					order2.getNumber(),
 					dynmult_sliding.getBool()
 				});
 				if (reverse.getBool()) {
@@ -2036,6 +2052,9 @@ bool WebCfg::reqBacktest_v2(simpleServer::HTTPRequest req, ondra_shared::StrView
 					auto res = spreadCalc.point(v);
 					if (res.trade && res.valid) {
 						out.push_back({t, ifut?1.0/res.price:res.price});
+						if (res.trade2) {
+							out.push_back({t, ifut?1.0/res.price2:res.price2});
+						}
 					}
 					t+=60000;
 				}

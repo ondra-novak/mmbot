@@ -281,8 +281,8 @@ to enter a negative value and then the value of the assets held will decrease an
 
 <x-section class="adv"  ><x-section-caption>Orders</x-section-caption>
 <label class="adv"><span>Secondary order distance [%](experimental, 0=disabled)<span class="tooltip">Enables secondary order sets.
- It places additional buy and additional sell order at specifed distance. This feature is heavily experimental</span></span>
-<input type="number" data-name="secondary_order" step="1"></label>
+ It places additional buy and additional sell order at specifed distance as percent of current spread. This feature is heavily experimental</span></span>
+<x-slider data-name="secondary_order" data-min="0" data-max="200" data-mult="1"></x-slider></label>
 <label  class="adv"><span>Minimum order size (0&nbsp;=&nbsp;disabled)<span class="tooltip">
 Specifies minimal order size. If disabled, minimal size is defined by the exchange. This also
 specifies size of the "dust order"

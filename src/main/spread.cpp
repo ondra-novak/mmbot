@@ -45,7 +45,7 @@ std::unique_ptr<ISpreadFunction> defaultSpreadFunction(double sma, double stdev,
 }
 
 VisSpread::VisSpread(const std::unique_ptr<ISpreadFunction> &fn, const Config &cfg)
-:fn(fn),state(fn->start()),dynmult(cfg.dynmult),sliding(cfg.sliding),mult(cfg.mult)
+:fn(fn),state(fn->start()),dynmult(cfg.dynmult),sliding(cfg.sliding),mult(cfg.mult),order2(cfg.order2*0.01)
 {
 
 
@@ -79,23 +79,42 @@ VisSpread::Result VisSpread::point(double y) {
 		low = std::min(low_max, low);
 		high = std::max(high_min, high);
 	}
+	double low2 = low * std::exp(-spread*order2);
+	double high2 = high * std::exp(spread*order2);
 	int trade = 0;
+	int trade2 = 0;
+	double price = last_price;
+	double price2 = 0;
 	if (y > high) {
+		price = high;
 		last_price = high;
 		offset = high-center;
 		trade = -1;
+		if (order2 && y > high2) {
+			trade2 =-1;
+			price2 = high2;
+			offset = high2-center;
+			last_price = high2;
+		}
 		dynmult.update(false,true);
 	}
 	else if (y < low) {
+		price = low;
 		last_price = low;
 		offset = low-center;
 		trade = 1;
+		if (order2 && y < low2) {
+			last_price = low;
+			offset = low-center;
+			trade2 = 1;
+			price2 = low;
+		}
 		dynmult.update(true,false);
 	}
 	else {
 		dynmult.update(false,false);
 	}
-	return {true,last_price,low,high,trade};
+	return {true,price,low,high,trade,price2,trade2};
 }
 
 DefaulSpread::DefaulSpread(double sma, double stdev, double force_spread)

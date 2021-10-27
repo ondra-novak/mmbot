@@ -1623,7 +1623,7 @@ App.prototype.gen_backtest = function(form,anchor, template, inputs, updatefn) {
 App.prototype.init_spreadvis = function(form, id) {
 	var url = "api/spread"
 	form.enableItem("vis_spread",false);
-	var inputs = ["spread_calc_stdev_hours", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode","dynmult_sliding","dynmult_cap","dynmult_mult","force_spread","spread_mode"];
+	var inputs = ["spread_calc_stdev_hours","secondary_order", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode","dynmult_sliding","dynmult_cap","dynmult_mult","force_spread","spread_mode"];
 	this.gen_backtest(form,"spread_vis_anchor", "spread_vis",inputs,function(cntr){
 
 		cntr.showSpinner();
@@ -1640,6 +1640,7 @@ App.prototype.init_spreadvis = function(form, id) {
 			mode:data.dynmult_mode,
 			sliding:data.dynmult_sliding,
 			dyn_mult:data.dynmult_mult,
+			order2: data.secondary_order,
 			id: id
 		}
 		
@@ -1737,13 +1738,13 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		"dynmult_sliding","accept_loss",
 		"hp_trend_factor","hp_allowshort","hp_reinvest","hp_power","hp_asym","hp_reduction","sh_curv","hp_limit","hp_extbal","hp_powadj","hp_dynred",
 		"gs_external_assets","gs_rb_hi_a","gs_rb_lo_a","gs_rb_hi_p","gs_rb_lo_p",
-		"min_balance","max_balance","max_leverage","secondary_order","reduce_on_leverage","gamma_exp","gamma_rebalance","gamma_trend","gamma_fn","gamma_reinvest","gamma_maxrebal",
+		"min_balance","max_balance","max_leverage","reduce_on_leverage","gamma_exp","gamma_rebalance","gamma_trend","gamma_fn","gamma_reinvest","gamma_maxrebal",
 		"pincome_exp",
 		"pile_accum","pile_ratio",
 		"kv2_accum","kv2_boost","kv2_chngtm",
 		"hedge_short","hedge_long","hedge_drop",
 		"shg_w","shg_p","shg_b","shg_olt","shg_ol","shg_lp","shg_rnv","shg_avgsp","shg_boostmode"];
-	var spread_inputs = ["spread_calc_stdev_hours", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode","dynmult_sliding","dynmult_cap","dynmult_mult","force_spread","spread_mode"];
+	var spread_inputs = ["spread_calc_stdev_hours","secondary_order", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode","dynmult_sliding","dynmult_cap","dynmult_mult","force_spread","spread_mode"];
 	var leverage = form._leverage != "n/a";	
 	var balance = form._backtest_balance+(leverage?0:form._assets*invPrice(form._price,form._invprice));
 	var assets = 0;
@@ -2359,7 +2360,8 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 						reverse: reverse_chart,
 						invert: invert_chart,
 						ifutures: invert_price,			
-						source: this_bt.minute.id			
+						source: this_bt.minute.id,
+						order2: data.secondary_order			
 					}
 					ret = fetch_json(url+"/gen_trades",{method:"POST",body:JSON.stringify(sreq)})
 						.then(function(r) {

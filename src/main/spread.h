@@ -44,6 +44,7 @@ public:
 	struct Config {
 		DynMultControl::Config dynmult;
 		double mult;
+		double order2;
 		bool sliding;
 	};
 
@@ -51,6 +52,8 @@ public:
 		bool valid = false;
 		double price, low, high;
 		int trade; //0=no trade, -1=sell, 1=buy
+		double price2 = 0; //price of secondary trade
+		int trade2 = 0;  //0 = no secondary trade, -1=sell, 1=buy
 	};
 
 	VisSpread(const std::unique_ptr<ISpreadFunction> &fn, const Config &cfg);
@@ -62,6 +65,7 @@ protected:
 	DynMultControl dynmult;
 	bool sliding;
 	double mult;
+	double order2;
 	double offset = 0;
 	double last_price = 0;
 };
