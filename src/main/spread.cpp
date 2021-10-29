@@ -21,6 +21,7 @@ public:
 	public:
 		StreamSMA sma;
 		StreamSTDEV stdev;
+		StreamBest<double, std::greater<double> > maxSpread;
 
 		State(std::size_t sma_interval,std::size_t stdev_interval);
 	};
@@ -60,8 +61,43 @@ VisSpread::Result VisSpread::point(double y) {
 	}
 	if (!sp.valid) return {false};
 
-	double spread = sp.spread;
+	int trade = 0;
+	int trade2 = 0;
+	double price = last_price;
+	double price2 = 0;
+
 	double center = sliding?sp.center:0;
+	if (chigh.has_value() && y>*chigh) {
+		double high2 = *chigh * std::exp(cspread*order2);
+		price = *chigh;
+		last_price = *chigh;
+		offset = *chigh-center;
+		trade = -1;
+		if (order2 && y > high2) {
+			trade2 =-1;
+			price2 = high2;
+			offset = high2-center;
+			last_price = high2;
+		}
+		dynmult.update(false,true);
+	}
+	else if (clow.has_value() && y < *clow) {
+		double low2 = *clow * std::exp(-cspread*order2);
+		price = *clow;
+		last_price = *clow;
+		offset = *clow-center;
+		trade = 1;
+		if (order2 && y < low2) {
+			last_price = low2;
+			trade2 = 1;
+			offset = low2-center;
+			price2 = low2;
+		}
+		dynmult.update(true,false);
+	}
+	dynmult.update(false,false);
+
+	double spread = sp.spread;
 	double low = (center+offset) * std::exp(-spread*mult*dynmult.getBuyMult());
 	double high = (center+offset) * std::exp(spread*mult*dynmult.getSellMult());
 	if (sliding && last_price) {
@@ -79,41 +115,11 @@ VisSpread::Result VisSpread::point(double y) {
 		low = std::min(low_max, low);
 		high = std::max(high_min, high);
 	}
-	double low2 = low * std::exp(-spread*order2);
-	double high2 = high * std::exp(spread*order2);
-	int trade = 0;
-	int trade2 = 0;
-	double price = last_price;
-	double price2 = 0;
-	if (y > high) {
-		price = high;
-		last_price = high;
-		offset = high-center;
-		trade = -1;
-		if (order2 && y > high2) {
-			trade2 =-1;
-			price2 = high2;
-			offset = high2-center;
-			last_price = high2;
-		}
-		dynmult.update(false,true);
-	}
-	else if (y < low) {
-		price = low;
-		last_price = low;
-		offset = low-center;
-		trade = 1;
-		if (order2 && y < low2) {
-			last_price = low;
-			offset = low-center;
-			trade2 = 1;
-			price2 = low;
-		}
-		dynmult.update(true,false);
-	}
-	else {
-		dynmult.update(false,false);
-	}
+	low = std::min(low,y);
+	high = std::max(high,y);
+	chigh = high;
+	clow = low;
+	cspread = spread;
 	return {true,price,low,high,trade,price2,trade2};
 }
 
@@ -135,12 +141,12 @@ DefaulSpread::Result DefaulSpread::point(std::unique_ptr<ISpreadState> &state, d
 		return {true, force_spread, avg, 0};
 	} else {
 		double dv = st.stdev << (y - avg);
-		return {true, std::log((avg+dv)/avg), avg, 0};
+		return {true,  std::log((avg+dv)/avg), avg, 0};
 	}
 }
 
 inline DefaulSpread::State::State(std::size_t sma_interval, std::size_t stdev_interval)
-	:sma(sma_interval), stdev(stdev_interval)
+	:sma(sma_interval), stdev(stdev_interval),maxSpread(10)
 {
 
 }

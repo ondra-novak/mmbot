@@ -68,6 +68,8 @@ protected:
 	double order2;
 	double offset = 0;
 	double last_price = 0;
+	std::optional<double> chigh, clow;
+	double cspread;
 };
 
 

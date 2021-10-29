@@ -50,5 +50,47 @@ protected:
 
 };
 
+template<typename T, typename Cmp>
+class StreamBest {
+public:
+	StreamBest(std::size_t interval, Cmp cmp = Cmp()):cmp(cmp),interval(interval) {}
+	T operator<<(const T &val);
+	std::size_t size() const;
+protected:
+	Cmp cmp;
+	std::size_t interval;
+	std::deque<T> data;
+	std::optional<T> best;
+};
+
+template<typename T, typename Cmp>
+inline T StreamBest<T, Cmp>::operator <<(const T &val) {
+	if (!best.has_value()) best = val;
+	else if (cmp(val, *best)) {
+		best = val;
+		data.push_back(val);
+		if (data.size()>interval) data.pop_front();
+	} else {
+		data.push_back(val);
+		if (data.size() > interval) {
+			const T &l = data.front();
+			bool findmax = l == *best;
+			data.pop_front();
+			if (findmax) {
+				T curBest = val;
+				for (const T &x: data) {
+					if (cmp(x, curBest)) curBest = x;
+				}
+				best = curBest;
+			}
+		}
+	}
+	return *best;
+}
+
+template<typename T, typename Cmp>
+inline std::size_t StreamBest<T, Cmp>::size() const {
+	return data.size();
+}
 
 #endif /* SRC_MAIN_SERIES_H_ */
