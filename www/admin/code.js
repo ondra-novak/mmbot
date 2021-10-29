@@ -314,6 +314,27 @@ App.prototype.fillForm = function (src, trg) {
 	data.title = src.title;
 	data.symbol = src.pair_symbol;	
 	if (!this.fillFormCache) this.fillFormCache = {} 
+	var recalcStrategyFn = new DelayUpdate(function() {
+			var data = trg.readData()
+			var strategy = getStrategyData(data,trg._invprice);
+			var req = {
+					strategy:strategy,
+					price:invPrice(trg._price, trg._invprice),
+					assets:invSize(trg._assets, trg._invprice),
+					currency:trg._backtest_balance,
+					leverage:trg._leverage_num,
+					inverted: trg._invprice,
+					trader:src.id
+			};
+			fetch_json("api/strategy", {method:"POST",body:JSON.stringify(req)})
+				.then(function(r){
+					trg.setData({range_min_price:adjNum(r.min), range_max_price:adjNum(r.max), range_initial:adjNum(r.initial)});
+					initial_pos = adjNumN(r.initial);
+				},function(e){
+					console.error(e);
+			});
+		}.bind(this)
+    );
 	
 	
 	var apikey = this.config.apikeys && this.config.apikeys[src.broker];
@@ -394,6 +415,7 @@ App.prototype.fillForm = function (src, trg) {
 		trg._assets = state.position;
 		trg._price = invPrice(pair.price, pair.invert_price);
 		trg._leverage = data.leverage;
+		trg._leverage_num = pair.leverage;
 		trg._invprice = pair.invert_price;
 		trg._budget = avail.budget;	
 
@@ -455,45 +477,7 @@ App.prototype.fillForm = function (src, trg) {
 		data.open_orders_sect = {".hidden":!mp.length};
 
 
-		
-
-		function recalcStrategy() {
-			var data = trg.readData()
-			var strategy = getStrategyData(data,trg._invprice);
-			var req = {
-					strategy:strategy,
-					price:pair.price,
-					assets:state.position || state.pair.asset_balance,
-					currency:trg._balance,
-					leverage:pair.leverage,
-					inverted: pair.invert_price,
-					trader:src.id
-			};
-			if (recalcStrategy.ip) {
-				recalcStrategy.queued = true;
-			} else {
-				recalcStrategy.ip = true;
-				recalcStrategy.queued = false;
-				fetch_json("api/strategy", {method:"POST",body:JSON.stringify(req)})
-					.then(function(r){
-						recalcStrategy.ip = false;
-						trg.setData({range_min_price:adjNum(r.min), range_max_price:adjNum(r.max), range_initial:adjNum(r.initial)});
-						initial_pos = adjNumN(r.initial);
-						if (recalcStrategy.queued) {
-							recalcStrategy();
-						}
-					},function(e){
-						recalcStrategy.ip = false;
-						console.error(e);
-						if (recalcStrategy.queued) {
-							recalcStrategy();
-						}
-					})
-			}
-		}
-
-		recalc_strategy_fn = recalcStrategy.bind(this);
-		
+			
 
 		data.shg_control_pos ={
 			".disabled":state.need_initial_reset,
@@ -509,12 +493,12 @@ App.prototype.fillForm = function (src, trg) {
 			]
 			.forEach(function(item){
 				trg.findElements(item).forEach(function(elem){
-					elem.addEventListener("input", function(){recalc_strategy_fn();});
-					elem.addEventListener("change", function(){recalc_strategy_fn();});
+					elem.addEventListener("input", recalcStrategyFn.exec.bind(recalcStrategyFn));
+					elem.addEventListener("change",  recalcStrategyFn.exec.bind(recalcStrategyFn));
 				}.bind(this));
 			}.bind(this));
 
-			setTimeout(recalc_strategy_fn,1);
+			recalcStrategyFn.exec();
 			
 			data.vis_spread = {"!click": this.init_spreadvis.bind(this, trg, src.id), ".disabled":false};
 			data.show_backtest= {"!click": this.init_backtest.bind(this, trg, src.id, src.pair_symbol, src.broker), ".disabled":false};
