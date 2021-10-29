@@ -153,8 +153,6 @@ public:
 		backtest2,
 		spread,
 		strategy,
-		upload_prices,
-		upload_trades,
 		wallet,
 		btdata,
 		visstrategy,
@@ -182,8 +180,6 @@ protected:
 	bool reqEditor(simpleServer::HTTPRequest req);
 	bool reqBacktest(simpleServer::HTTPRequest req, ondra_shared::StrViewA rest);
 	bool reqSpread(simpleServer::HTTPRequest req);
-	bool reqUploadPrices(simpleServer::HTTPRequest req);
-	bool reqUploadTrades(simpleServer::HTTPRequest req);
 	bool reqStrategy(simpleServer::HTTPRequest req);
 	bool reqDumpWallet(simpleServer::HTTPRequest req, ondra_shared::StrViewA vpath);
 	bool reqBTData(simpleServer::HTTPRequest req);
@@ -198,7 +194,6 @@ protected:
 	PState state;
 	SharedObject<AbstractExtern> backtest_broker;
 	std::size_t upload_limit;
-	static bool generateTrades(const SharedObject<Traders> &trlist, PState state, json::Value args);
 
 
 	bool reqBacktest_v2(simpleServer::HTTPRequest req, ondra_shared::StrViewA rest);

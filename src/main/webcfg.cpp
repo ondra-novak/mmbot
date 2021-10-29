@@ -49,8 +49,6 @@ NamedEnum<WebCfg::Command> WebCfg::strCommand({
 	{WebCfg::backtest2, "backtest2"},
 	{WebCfg::spread, "spread"},
 	{WebCfg::strategy, "strategy"},
-	{WebCfg::upload_prices, "upload_prices"},
-	{WebCfg::upload_trades, "upload_trades"},
 	{WebCfg::wallet, "wallet"},
 	{WebCfg::btdata, "btdata"},
 	{WebCfg::visstrategy, "visstrategy"},
@@ -105,12 +103,10 @@ bool WebCfg::operator ()(const simpleServer::HTTPRequest &req,
 		case login: return reqLogin(req);
 		case logout_commit: return reqLogout(req,true);
 		case editor: return reqEditor(req);
-		case backtest: return reqBacktest(req, rest);
+		case backtest: return reqBacktest_v2(req, rest);
 		case backtest2: return reqBacktest_v2(req, rest);
 		case spread: return reqSpread(req);
 		case strategy: return reqStrategy(req);
-		case upload_prices: return reqUploadPrices(req);
-		case upload_trades: return reqUploadTrades(req);
 		case wallet: return reqDumpWallet(req, rest);
 		case btdata: return reqBTData(req);
 		case visstrategy: return reqVisStrategy(req, qp);
@@ -1357,213 +1353,6 @@ bool WebCfg::reqSpread(simpleServer::HTTPRequest req)  {
 	return true;
 }
 
-bool WebCfg::reqUploadPrices(simpleServer::HTTPRequest req)  {
-	if (!req.allowMethods({"POST"})) return true;
-	req.readBodyAsync(upload_limit,[&trlist = this->trlist,state =  this->state, dispatch = this->dispatch, btbroker = this->backtest_broker](simpleServer::HTTPRequest req)mutable{
-		try {
-			Value args = Value::fromString(json::map_bin2str(req.getUserBuffer()));
-			Value id = args["id"];
-			Value prices = args["prices"];
-
-
-
-			if (prices.getString() == "internal") {
-				auto lkst = state.lock();
-				lkst->prices_cache.clear();
-			} else if (prices.getString() == "update") {
-				auto lkst = state.lock();
-
-			} else {
-
-				auto trp = trlist.lock_shared()->find(id.getString());
-				if (trp.lock_shared()->need_init()) trp.lock()->init();
-				auto tr = trp.lock_shared();
-				if (tr == nullptr) {
-					req.sendErrorPage(404);
-					return;
-				}
-
-				IStockApi::MarketInfo minfo = tr->getMarketInfo();
-				std::vector<double> chart;
-
-				if (prices.getString() == "random") {
-
-
-					std::size_t seed = args["seed"].getUInt();
-					double volatility = args["volatility"].getValueOrDefault(0.1);
-					double noise = args["noise"].getValueOrDefault(0.0);
-					generate_random_chart(volatility*0.01, noise*0.01, 525600, seed, chart);
-
-				} else if (prices.getString() == "history_broker") {
-					Value asset = args["asset"];
-					Value currency = args["currency"];
-					auto from = std::chrono::system_clock::to_time_t(
-							std::chrono::system_clock::now()-std::chrono::hours(365*24)
-					);
-					from = (from/86400)*86400;
-					auto btb = btbroker.lock();
-					Value data = btb->jsonRequestExchange("minute", Object({{"asset", asset},{"currency",currency},{"from",from}}));
-					std::transform(data.begin(), data.end(), std::back_inserter(chart),[&](Value itm){
-						double p = itm.getNumber();
-						if (minfo.invert_price) p = 1.0/p;
-						return p;
-					});
-				} else {
-
-					std::transform(prices.begin(), prices.end(), std::back_inserter(chart),[&](Value itm){
-						double p = itm.getNumber();
-						if (minfo.invert_price) p = 1.0/p;
-						return p;
-					});
-
-				}
-
-
-				tr.release();
-				auto lkst = state.lock();
-				lkst->prices_cache = PricesCache(chart, id.toString().str());
-			}
-			generateTrades(trlist, state, args);
-			req.sendResponse("application/json", "0");
-		} catch (std::exception &e) {
-			req.sendErrorPage(400,"",e.what());
-		}
-	});
-	return true;
-}
-bool WebCfg::reqUploadTrades(simpleServer::HTTPRequest req)  {
-	if (!req.allowMethods({"POST"})) return true;
-	req.readBodyAsync(upload_limit,[&trlist = this->trlist,state =  this->state](simpleServer::HTTPRequest req)mutable{
-			try {
-				Value args = Value::fromString(map_bin2str(req.getUserBuffer()));
-				Value id = args["id"];
-				Value prices = args["prices"];
-				auto trp = trlist.lock_shared()->find(id.getString());
-				if (trp == nullptr) {
-						req.sendErrorPage(404);
-						return;
-				}
-				if (trp.lock_shared()->need_init()) trp.lock()->init();
-				auto tr = trp.lock_shared();
-				IStockApi::MarketInfo minfo = tr->getMarketInfo();
-				BacktestCacheSubj bt;
-				std::transform(prices.begin(), prices.end(), std::back_inserter(bt.prices), [&](const Value &itm) {
-						std::uint64_t tm = itm[0].getUIntLong();
-						double p = itm[1].getNumber();
-						if (minfo.invert_price) p = 1.0/p;
-						return BTPrice{tm, p};
-				});
-				bt.minfo = minfo;
-				bt.reversed = false;
-				bt.inverted = false;
-				tr.release();
-				auto lkst = state.lock();
-				lkst->backtest_cache = BacktestCache(bt, id.toString().str());
-				req.sendResponse("application/json", "true");
-			} catch (std::exception &e) {
-				req.sendErrorPage(400,"",e.what());
-			}
-		});
-	return true;
-}
-bool WebCfg::generateTrades(const SharedObject<Traders> &trlist, PState state, json::Value args) {
-	try {
-		Value id = args["id"];
-		Value sma = args["sma"];
-		Value stdev = args["stdev"];
-		Value force_spread = args["force_spread"];
-		Value mult = args["mult"];
-		Value dynmult_raise = args["raise"];
-		Value dynmult_fall = args["fall"];
-		Value dynmult_cap = args["cap"];
-		Value dynmult_mode = args["mode"];
-		Value dynmult_sliding = args["sliding"];
-		Value dynmult_mult = args["dyn_mult"];
-		Value reverse=args["reverse"];
-		Value invert=args["invert"];
-		Value order2=args["order2"];
-
-
-		auto lkst = state.lock();
-
-		auto tr = trlist.lock_shared()->find(id.getString()).lock_shared();
-		if (tr == nullptr) {
-			return false;
-		}
-
-		bool rev = reverse.getBool();
-
-		std::function<std::optional<MTrader::ChartItem>()> source;
-		if (!lkst->prices_cache.available(id.getString())) {
-			auto chart = tr->getChart();
-			source = [=,pos = std::size_t(0),sz = chart.size() ]() mutable {
-				if ( pos >= sz) {
-					return std::optional<MTrader::ChartItem>();
-				}
-				auto ps = rev?sz-pos-1:pos; ++pos;
-				return std::optional<MTrader::ChartItem>(chart[ps]);
-			};
-		} else {
-			auto prc = lkst->prices_cache.getSubject();
-			auto now = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-			source = [pos = std::size_t(0), sz = prc.size(), prc = std::move(prc), state , now,rev]() mutable {
-				if (pos >= sz) {
-					return std::optional<MTrader::ChartItem>();
-				}
-				auto ps = rev?sz-pos-1:pos; ++pos;
-				double p = prc[ps];
-				std::uint64_t ofs = (sz-pos);
-				return std::optional<MTrader::ChartItem>(MTrader::ChartItem{static_cast<uint64_t>(now - ofs*60000),p,p,p});
-			};
-		}
-		if (invert.getBool()) {
-			source = [src = std::move(source), fv = std::make_shared<double>(0)]()  {
-				std::optional<MTrader::ChartItem> v = src();
-				if (v.has_value()) {
-					if (*fv == 0) *fv = v->last*v->last;
-					return std::optional<MTrader::ChartItem>(MTrader::ChartItem{v->time,*fv/v->bid,*fv/v->ask,*fv/v->last});
-				} else {
-					return v;
-				}
-			};
-		}
-
-		lkst.release();
-		BacktestCacheSubj bt;
-		auto fn = defaultSpreadFunction(sma.getNumber(), stdev.getNumber(), force_spread.getNumber());
-		VisSpread spreadCalc(fn,{
-			{
-					dynmult_raise.getValueOrDefault(1.0),
-					dynmult_fall.getValueOrDefault(1.0),
-					dynmult_cap.getValueOrDefault(100.0),
-					strDynmult_mode[dynmult_mode.getValueOrDefault("independent")],
-					dynmult_mult.getBool()
-			},
-			mult.getNumber(),
-			order2.getNumber(),
-			dynmult_sliding.getBool()
-		});
-		auto itm = source();
-		while (itm.has_value()) {
-			auto r = spreadCalc.point(itm->last);
-			if (r.valid && r.trade) {
-				bt.prices.push_back(BTPrice{itm->time, r.price});
-			}
-			itm = source();
-		}
-
-		bt.minfo = tr->getMarketInfo();
-		bt.reversed = rev;
-		bt.inverted = invert.getBool();
-		lkst = state.lock();
-		lkst->backtest_cache = BacktestCache(bt, id.toString().str());
-		return true;
-	} catch (std::exception &e) {
-		logError("Error: $1", e.what());
-		return false;
-	}
-
-}
 
 bool WebCfg::reqStrategy(simpleServer::HTTPRequest req) {
 	if (!req.allowMethods({"POST"})) return true;
@@ -2182,8 +1971,7 @@ bool WebCfg::reqBacktest_v2(simpleServer::HTTPRequest req, ondra_shared::StrView
 					});
 				});
 
-				auto stream = req.sendResponse("application/json");
-				result.serialize(stream);
+				response = result;
 
 
 			}break;
