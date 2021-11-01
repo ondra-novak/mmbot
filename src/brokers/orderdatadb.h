@@ -19,7 +19,8 @@ public:
 
 	void store(json::Value orderId, json::Value data);
 	bool mark(json::Value orderId);
-	json::Value get(json::Value pair);
+	json::Value get(json::Value orderId);
+	json::Value getAndMark(json::Value orderId);
 protected:
 	std::string frontFile, backFile;
 	std::string lock_path;

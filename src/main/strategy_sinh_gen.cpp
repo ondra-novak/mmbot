@@ -190,6 +190,7 @@ double Strategy_Sinh_Gen::calcNewK(double tradePrice, double cb, double pnl, int
 	if (st.rebalance) return st.k;
 	double newk = st.k;
 	if (st.k != st.p) {
+		if (!pnl) return st.k;
 		double sprd = cfg.avgspread?(1.0+st.sum_spread/std::max(st.trades,10)):(tradePrice/st.p);
 		double refp = st.k*sprd;
 		double yield = cfg.calc->budget(st.k, pw, refp);

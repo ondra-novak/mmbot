@@ -100,11 +100,9 @@ void IStockApi::MarketInfo::addFees(double &assets, double &price) const {
 					break;
 	}
 
-	logDebug("Before round: $1 $2", assets, price);
 	if (invert_price) price = 1/(adjValue(1/price, currency_step, rounded));
 	else price = adjValue(price, currency_step, rounded);
 	assets = adjValue(assets, asset_step, nearZero);
-	logDebug("After round: $1 $2", assets, price);
 }
 
 void IStockApi::MarketInfo::removeFees(double &assets, double &price) const {

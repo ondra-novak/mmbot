@@ -81,6 +81,11 @@ json::Value OrderDataDB::get( json::Value orderId) {
 
 }
 
+json::Value OrderDataDB::getAndMark( json::Value orderId) {
+	mark(orderId);
+	return get(orderId);
+}
+
 unsigned int OrderDataDB::load(const std::string &file) {
 	std::ifstream in(file);
 	if (!in) return 0;

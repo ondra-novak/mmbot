@@ -37,8 +37,8 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 
 		double total_spend = 0;
 		double pl = 0;
-		double minsize = std::max(minfo.min_size, cfg.min_size);
 		for (price = priceSource();price.has_value();price = priceSource()) {
+			double minsize = std::max(minfo.min_size, cfg.min_size);
 			if (std::abs(price->price-bt.price.price) == 0) continue;
 			bt.event = BTEvent::no_event;
 			double p = price->price;
@@ -85,9 +85,17 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 					order.size = 0;
 				}
 			}
+			if (minfo.min_volume) {
+				double mvs = minfo.min_volume/bt.price.price;
+				minsize = std::max(minsize, mvs);
+			}
 			if (order.size && std::abs(order.size) < minsize) {
-				order.size = 0;
-				enable_alert = false;
+				if (std::abs(order.size)<minsize*0.5) {
+					order.size = 0;
+					enable_alert = false;
+				} else {
+					order.size = sgn(order.size)*minsize;
+				}
 			}
 			if (cfg.max_size && std::abs(order.size) > cfg.max_size) {
 				order.size = cfg.max_size*sgn(order.size);
@@ -96,7 +104,7 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 
 			if (!minfo.leverage) {
 				if (order.size+pos < 0) {
-					order.size = 0;
+					order.size = -pos;
 				}
 				double chg = order.size*p;
 				if (balance - chg < 0 || pos + order.size < -(std::abs(pos) + std::abs(order.size))*1e-10) {
