@@ -8,6 +8,8 @@
 #ifndef SRC_MAIN_EXT_STOCKAPI_H_
 #define SRC_MAIN_EXT_STOCKAPI_H_
 
+#include <limits>
+
 #include "istockapi.h"
 #include "abstractExtern.h"
 #include "apikeys.h"

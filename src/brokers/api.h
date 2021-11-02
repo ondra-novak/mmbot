@@ -9,6 +9,7 @@
 #define SRC_BROKERS_API_H_
 
 #include <iostream>
+#include <limits>
 
 #include <imtjson/value.h>
 #include "../main/apikeys.h"
