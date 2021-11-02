@@ -76,15 +76,6 @@ static Value apiKeyFmt ({
 		Object{{"name","secret"},{"label","Secret"},{"type","string"}}
 });
 
-class TooManyRequests: public std::runtime_error {
-public:
-	using Super = std::runtime_error;
-	TooManyRequests(std::string text, int retryAfter):Super(text),retryAfter(retryAfter) {}
-
-	const int retryAfter;
-
-};
-
 
 GokumarketIFC::GokumarketIFC(const std::string &cfg_file)
 	:AbstractBrokerAPI(cfg_file, apiKeyFmt)
@@ -266,30 +257,17 @@ json::Value GokumarketIFC::placeOrder(const std::string_view &pair, double size,
 		});
 	}
 	if (size) {
-		int cnt = 5;
-		while (true) {
-			try {
-				Value req = Object {
-					{"quantity", Value(std::abs(size)).toString()},
-					{"rate", Value(price).toString()},
-					{"currency_pair",pair}
-				};
-				std::string_view uri;
-				if (size<0) uri = "/exchange/placeSellLimitOrder";
-				else if (size>0) uri = "/exchange/placeBuyLimitOrder";
-				Value res = privatePOST(uri, req);
-				orderDB.store(res, clientId);
-				return res;
-			} catch (const TooManyRequests &r) {
-				if (cnt == 0 || r.retryAfter>=15) throw;
-				cnt--;
-				logNote("Waiting $1 seconds", r.retryAfter);
-				for (int i = 0; i < r.retryAfter; i++) {
-					this->need_more_time();
-					std::this_thread::sleep_for(std::chrono::seconds(1));
-				}
-			}
-		}
+			Value req = Object {
+				{"quantity", Value(std::abs(size)).toString()},
+				{"rate", Value(price).toString()},
+				{"currency_pair",pair}
+			};
+			std::string_view uri;
+			if (size<0) uri = "/exchange/placeSellLimitOrder";
+			else if (size>0) uri = "/exchange/placeBuyLimitOrder";
+			Value res = privatePOST(uri, req);
+			orderDB.store(res, clientId);
+			return res;
 	} else {
 		return nullptr;
 	}
@@ -325,7 +303,7 @@ Value GokumarketIFC::publicGET(const std::string_view &uri, Value query) const {
 	try {
 		return api.GET(buildUri(uri, query));
 	} catch (const HTTPJson::UnknownStatusException &e) {
-		processError(e);
+		processError(e,false);
 		throw;
 	}
 }
@@ -348,21 +326,21 @@ bool GokumarketIFC::hasKey() const {
 	return !( api_key.empty() || api_secret.empty());
 }
 
-Value GokumarketIFC::privateGET(const std::string_view &uri, Value query)  const{
+Value GokumarketIFC::privateGET(const std::string_view &uri, Value query, int retries)  const{
 	try {
 		std::string fulluri = buildUri(uri, query);
 		return processResponse(api.GET(fulluri,signRequest("GET", fulluri, query)));
 	} catch (const HTTPJson::UnknownStatusException &e) {
-		processError(e);
+		if (processError(e, retries>0)) return privateGET(uri, query, retries-1);
 		throw;
 	}
 }
 
-Value GokumarketIFC::privatePOST(const std::string_view &uri, Value args) const {
+Value GokumarketIFC::privatePOST(const std::string_view &uri, Value args, int retries) const {
 	try {
 		return processResponse(api.POST(uri, args, signRequest("POST", uri, args)));
 	} catch (const HTTPJson::UnknownStatusException &e) {
-		processError(e);
+		if (processError(e,retries>0)) return privatePOST(uri, args, retries-1);
 		throw;
 	}
 }
@@ -372,7 +350,7 @@ Value GokumarketIFC::privateDELETE(const std::string_view &uri, Value query) con
 		std::string fulluri = buildUri(uri, query);
 		return processResponse(api.DELETE(fulluri,Value(),signRequest("DELETE", fulluri, Value())));
 	} catch (const HTTPJson::UnknownStatusException &e) {
-		processError(e);
+		processError(e, false);
 		throw;
 	}
 }
@@ -385,7 +363,6 @@ Value GokumarketIFC::signRequest(const std::string_view &method, const std::stri
 		{"X-REQUEST-URL",function}
 	});
 	std::string digest = args.stringify().str();
-	logDebug("Digest $1", digest);
 	unsigned char sign[256];
 	unsigned int signLen(sizeof(sign));
 	HMAC(EVP_sha256(), api_secret.data(), api_secret.length(),
@@ -412,7 +389,7 @@ Value GokumarketIFC::signRequest(const std::string_view &method, const std::stri
 }
 
 
-void GokumarketIFC::processError(const HTTPJson::UnknownStatusException &e) const {
+bool GokumarketIFC::processError(const HTTPJson::UnknownStatusException &e, bool canRetry) const {
 	std::ostringstream buff;
 	buff << e.getStatusCode() << " " << e.getStatusMessage();
 	try {
@@ -422,11 +399,19 @@ void GokumarketIFC::processError(const HTTPJson::UnknownStatusException &e) cons
 	} catch (...) {
 
 	}
-	if (e.getStatusCode() == 429) {
-		throw TooManyRequests(buff.str(), e.response.getHeaders()["Retry-After"].getInt());
-	} else {
-		throw std::runtime_error(buff.str());
+	if (e.getStatusCode() == 429 && canRetry) {
+		int rt = e.response.getHeaders()["Retry-After"].getInt();
+		if (rt > 0 && rt < 15) {
+			logNote("Waiting $1 seconds", rt);
+			for (int i = 0; i < rt; i+=2) {
+				logNote("need more time");
+				std::this_thread::sleep_for(std::chrono::seconds(2));
+			}
+		}
+		return true;
 	}
+	throw std::runtime_error(buff.str());
+	return false;
 }
 
 double GokumarketIFC::getFees(const std::string_view &pair) {
@@ -489,7 +474,7 @@ json::Value GokumarketIFC::fetchTrades() {
 	if (tradeCache.defined()) return tradeCache;
 	tradeCache = privateGET("/exchange/getUserTrades",Object{{"limit","20"}});
 	if (!tradeCache.empty()) {
-		Value t = orderCache[0];
+		Value t = tradeCache[0];
 			Value maker = t["maker"];
 			Value taker = t["taker"];
 			Value details = maker.defined()?maker:taker;

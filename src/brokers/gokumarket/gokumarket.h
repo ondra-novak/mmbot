@@ -41,8 +41,8 @@ protected:
 	mutable std::string uriBuffer;
 protected:
 	Value publicGET(const std::string_view &uri, Value query) const;
-	Value privateGET(const std::string_view &uri, Value query) const;
-	Value privatePOST(const std::string_view &uri, Value args) const;
+	Value privateGET(const std::string_view &uri, Value query, int retries=2) const;
+	Value privatePOST(const std::string_view &uri, Value args, int retries=2) const;
 	Value privateDELETE(const std::string_view &uri, Value query) const;
 	Value signRequest(const std::string_view &method, const std::string_view &function, json::Value args) const;
 	const std::string &buildUri(const std::string_view &uri, Value query) const;
@@ -55,7 +55,7 @@ protected:
 	std::string api_key, api_secret;
 	bool hasKey() const;
 
-	void processError(const HTTPJson::UnknownStatusException &e) const;
+	bool processError(const HTTPJson::UnknownStatusException &e, bool canRetry) const;
 	json::Value processResponse(json::Value v) const;
 
 	void updateSymbols() const;
