@@ -9,6 +9,7 @@
 #define SRC_MAIN_SPREAD_H_
 
 #include <memory>
+#include <optional>
 #include "dynmult.h"
 
 class ISpreadState {
