@@ -14,6 +14,7 @@
 
 #include <imtjson/namedEnum.h>
 #include <memory>
+#include <limits>
 
 ///Interface definition for accessing a stockmarket
 /** Contains minimal set of operations need to be implemented to access the stockmarket */
