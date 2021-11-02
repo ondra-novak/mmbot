@@ -954,6 +954,9 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req)  {
 				bool exists = false;
 				bool need_initial_reset = true;
 
+				auto walletDB = trlist.lock_shared()->wcfg.walletDB;
+				auto extBal = trlist.lock_shared()->wcfg.externalBalance;
+
 
 				trlist.lock()->stockSelector.checkBrokerSubaccount(broker.getString());
 				auto tr = trlist.lock_shared()->find(trader.toString().str());
@@ -984,10 +987,6 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req)  {
 				} else {
 					p = symb.toString().str();
 				}
-
-				auto walletDB = trlist.lock_shared()->wcfg.walletDB;
-				auto extBal = trlist.lock_shared()->wcfg.externalBalance;
-
 
 				api->reset();
 				auto binfo = api->getBrokerInfo();
