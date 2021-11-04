@@ -156,18 +156,23 @@ void ExtStockApi::Connection::onConnect() {
 json::Value ExtStockApi::Connection::getBrokerInfo() const {
 	return broker_info;
 }
+
 void ExtStockApi::Connection::refreshBrokerInfo() {
 	broker_info = jsonRequestExchange("getBrokerInfo", json::Value());
 }
 ExtStockApi::BrokerInfo ExtStockApi::getBrokerInfo()  {
 
 	try {
-		auto resp = connection->getBrokerInfo();
-		if (!resp.defined()) {
-			connection->preload();
+		json::Value resp;
+		if (subaccount.empty()) {
 			resp = connection->getBrokerInfo();
+			if (!resp.defined()) {
+				connection->preload();
+				resp = connection->getBrokerInfo();
+			}
+		} else {
+			resp = requestExchange("getBrokerInfo", json::Value());
 		}
-		/*auto resp = requestExchange("getBrokerInfo", json::Value());*/
 		std::string name = connection->getName();
 		if (!subaccount.empty()) name = name + "~" + subaccount;
 		return BrokerInfo {

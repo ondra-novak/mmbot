@@ -79,6 +79,7 @@ protected:
 		bool isActive() const {return this->chldid != -1;}
 		virtual ~Connection() {}
 		json::Value getBrokerInfo() const;
+		json::Value getBrokerInfo(std::string_view subaccount) const;
 		void refreshBrokerInfo();
 	protected:
 		std::atomic<int> instance_counter = 0;
