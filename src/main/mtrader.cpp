@@ -85,6 +85,7 @@ void MTrader_Config::loadConfig(json::Value data, bool force_dry_run) {
 	swap_symbols= data["swap_symbols"].getValueOrDefault(false);
 	emulate_leveraged=data["emulate_leveraged"].getValueOrDefault(0.0);
 	reduce_on_leverage=data["reduce_on_leverage"].getBool();
+	freeze_spread=data["spread_freeze"].getBool();
 
 	if (dynmult_raise > 1e6) throw std::runtime_error("'dynmult_raise' is too big");
 	if (dynmult_raise < 0) throw std::runtime_error("'dynmult_raise' is too small");
@@ -310,8 +311,17 @@ void MTrader::perform(bool manually) {
 
 			if (recalc) {
 				double lp = status.curPrice;
+				int fst = 0;
 				if (!trades.empty()) {
-					lp = trades.back().eff_price;
+					const auto &tb = trades.back();
+					lp = tb.eff_price;
+					if (tb.size<0) {
+						fst = -1;
+					} else if (tb.size > 0) {
+						fst = 1;
+					} else {
+						fst = frozen_spread_side;
+					}
 					recalc = fast_trade || std::abs(lp-eq)/eq < 0.001;
 					if (!recalc) {
 						auto o = strategy.getNewOrder(minfo, lp, lp, sgn(lastTradeSize), status.assetBalance, status.curPrice, false);
@@ -324,6 +334,8 @@ void MTrader::perform(bool manually) {
 					update_dynmult(lastTradeSize > 0, lastTradeSize < 0);
 					lastTradePrice = lp;
 					lastPriceOffset = lastTradePrice - status.spreadCenter;
+					frozen_spread = status.curStep;
+					frozen_spread_side = fst;
 				}
 			}
 
@@ -388,12 +400,21 @@ void MTrader::perform(bool manually) {
 							sellorder = Order(0, status.ticker.bid*2, IStrategy::Alert::disabled);
 						}
 					} else {
+						double lspread = status.curStep;
+						double hspread = status.curStep;
+						if (cfg.freeze_spread) {
+							if (frozen_spread_side<0) {
+								lspread = std::min(frozen_spread, lspread);
+							} else if (frozen_spread_side>0) {
+								hspread = std::min(frozen_spread, hspread);
+							}
+						}
 
 							//calculate buy order
 						buyorder = calculateOrder(
 								strategy,
 								grant_trade?status.ticker.bid*1.5:centerPrice,
-														grant_trade?-0.1:-status.curStep*cfg.buy_step_mult,
+														grant_trade?-0.1:-lspread*cfg.buy_step_mult,
 														dynmult.getBuyMult(),
 														status.ticker.bid,
 														position,
@@ -403,7 +424,7 @@ void MTrader::perform(bool manually) {
 						sellorder = calculateOrder(
 								strategy,
 								grant_trade?status.ticker.ask*0.85:centerPrice,
-														 grant_trade?0.1:status.curStep*cfg.sell_step_mult,
+														 grant_trade?0.1:hspread*cfg.sell_step_mult,
 														 dynmult.getSellMult(),
 														 status.ticker.ask,
 														 position,
@@ -438,6 +459,13 @@ void MTrader::perform(bool manually) {
 					} catch (std::exception &e) {
 						sell_order_error = e.what();
 						acceptLoss(status,-1);
+					}
+
+					if (buy_alert.has_value() && *buy_alert > status.ticker.bid) {
+						buy_alert.reset();
+					}
+					if (sell_alert.has_value() && *sell_alert < status.ticker.ask) {
+						sell_alert.reset();
 					}
 
 					if (!recalc && !manually) {
@@ -783,6 +811,7 @@ MTrader::Status MTrader::getMarketStatus() const {
 	res.ticker = ticker;
 	res.curPrice = std::sqrt(ticker.ask*ticker.bid);
 
+	if (ticker.bid < 0 || ticker.ask < 0 || ticker.bid > ticker.ask) throw std::runtime_error("Broker error: Ticker invalid values");
 
 	res.chartItem.time = ticker.time;
 	res.chartItem.bid = ticker.bid;
@@ -1032,6 +1061,9 @@ void MTrader::loadState() {
 			lastTradeId = state["lastTradeId"];
 			lastPriceOffset = state["lastPriceOffset"].getNumber();
 			lastTradePrice = state["lastTradePrice"].getNumber();
+			frozen_spread_side = state["frozen_side"].getInt();
+			frozen_spread = state["frozen_spread"].getNumber();
+
 			bool cfg_sliding = state["cfg_sliding_spread"].getBool();
 			if (cfg_sliding != cfg.dynmult_sliding)
 				lastPriceOffset = 0;
@@ -1124,6 +1156,8 @@ void MTrader::saveState() {
 		st.set("cfg_sliding_spread",cfg.dynmult_sliding);
 		st.set("private_chart", minfo.private_chart||minfo.simulator);
 		st.set("accumulated",accumulated);
+		st.set("frozen_side", frozen_spread_side);
+		st.set("frozen_spread", frozen_spread);
 		if (achieve_mode) st.set("achieve_mode", achieve_mode);
 		if (cfg.swap_symbols) st.set("swapped", cfg.swap_symbols);
 		if (need_initial_reset) st.set("need_initial_reset", need_initial_reset);

@@ -66,6 +66,7 @@ struct MTrader_Config {
 	bool dynmult_mult;
 	bool swap_symbols;
 	bool reduce_on_leverage;
+	bool freeze_spread;
 
 	Strategy strategy = Strategy(nullptr);
 
@@ -280,6 +281,8 @@ protected:
 	double adj_wait_price = 0;
 	double lastPriceOffset = 0;
 	double lastTradePrice = 0;
+	int frozen_spread_side = 0;
+	double frozen_spread = 0;
 	json::Value test_backup;
 	json::Value lastTradeId = nullptr;
 	std::optional<double> sell_alert, buy_alert;

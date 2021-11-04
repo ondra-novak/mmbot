@@ -46,7 +46,7 @@ std::unique_ptr<ISpreadFunction> defaultSpreadFunction(double sma, double stdev,
 }
 
 VisSpread::VisSpread(const std::unique_ptr<ISpreadFunction> &fn, const Config &cfg)
-:fn(fn),state(fn->start()),dynmult(cfg.dynmult),sliding(cfg.sliding),mult(cfg.mult),order2(cfg.order2*0.01)
+:fn(fn),state(fn->start()),dynmult(cfg.dynmult),sliding(cfg.sliding),freeze(cfg.freeze),mult(cfg.mult),order2(cfg.order2*0.01)
 {
 
 
@@ -80,6 +80,10 @@ VisSpread::Result VisSpread::point(double y) {
 			last_price = high2;
 		}
 		dynmult.update(false,true);
+		/*if (frozen_side != -1)*/ {
+			frozen_side = -1;
+			frozen_spread = cspread;
+		}
 	}
 	else if (clow.has_value() && y < *clow) {
 		double low2 = *clow * std::exp(-cspread*order2);
@@ -94,15 +98,27 @@ VisSpread::Result VisSpread::point(double y) {
 			price2 = low2;
 		}
 		dynmult.update(true,false);
+		/*if (frozen_side != 1)*/ {
+			frozen_side = 1;
+			frozen_spread = cspread;
+		}
 	}
 	dynmult.update(false,false);
 
-	double spread = sp.spread;
-	double low = (center+offset) * std::exp(-spread*mult*dynmult.getBuyMult());
-	double high = (center+offset) * std::exp(spread*mult*dynmult.getSellMult());
+	double lspread = sp.spread;
+	double hspread = sp.spread;
+	if (freeze) {
+		if (frozen_side<0) {
+			lspread = std::min(frozen_spread, lspread);
+		} else if (frozen_side>0) {
+			hspread = std::min(frozen_spread, hspread);
+		}
+	}
+	double low = (center+offset) * std::exp(-lspread*mult*dynmult.getBuyMult());
+	double high = (center+offset) * std::exp(hspread*mult*dynmult.getSellMult());
 	if (sliding && last_price) {
-		double low_max = last_price*std::exp(-spread*0.01);
-		double high_min = last_price*std::exp(spread*0.01);
+		double low_max = last_price*std::exp(-lspread*0.01);
+		double high_min = last_price*std::exp(hspread*0.01);
 		if (low > low_max) {
 			high = low_max + (high-low);
 			low = low_max;
@@ -119,7 +135,7 @@ VisSpread::Result VisSpread::point(double y) {
 	high = std::max(high,y);
 	chigh = high;
 	clow = low;
-	cspread = spread;
+	cspread = sp.spread;
 	return {true,price,low,high,trade,price2,trade2};
 }
 

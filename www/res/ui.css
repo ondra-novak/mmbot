@@ -32,7 +32,7 @@ x-checkbox {
 	display: inline;
 }
 
-x-checkbox[disabled=true] {
+x-checkbox[disabled] {
 	opacity: 0.5;
 	pointer-events: none;
 }

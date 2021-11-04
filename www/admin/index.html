@@ -351,6 +351,11 @@ Specifies maximum allowed asset balance (or position, for short use negative val
 </x-switch>
 </div>
 <div><x-checkbox data-name="dynmult_sliding">Sliding</x-checkbox></div>
+<div>
+<x-switch data-name="spread_mode" data-value="adaptive" class="block">
+<x-checkbox data-name="spread_freeze">Freeze other side spread</x-checkbox>
+</x-switch>
+</div>
 </div></div>
 <div class="rightinfo"><button name="vis_spread"  disabled="disabled">Visualize spread</button></div>
 </x-section>
@@ -907,6 +912,7 @@ the same order, they are ordered by its ID - this is the default ordering. Modif
 <div class="fromexchoption">
 <x-checkbox data-name="from_broker">Download from the exchange</x-checkbox>
 <div class="error" data-name="not_available">(not available)</div>
+<div><x-checkbox data-name="save">Save data locally</x-checkbox></div>
 </div>
 <h2>Public source</h2>
 <label><span>Symbol for asset</span><select data-name="asset"><option data-name="symbols[]"></option></select></label>

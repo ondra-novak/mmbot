@@ -688,6 +688,7 @@ App.prototype.fillForm = function (src, trg) {
 	data.dynmult_fall = filledval(src.dynmult_fall, 5);
 	data.dynmult_mode = filledval(src.dynmult_mode, "independent");
 	data.dynmult_sliding = filledval(src.dynmult_sliding,false);
+	data.spread_freeze = filledval(src.spread_freeze,false);
 	data.dynmult_mult = filledval(src.dynmult_mult, true);
 	data.spread_mult = filledval(Math.log(defval(src.buy_step_mult,1))/Math.log(2)*100,0);
 	data.min_size = filledval(src.min_size,0);
@@ -896,6 +897,7 @@ App.prototype.saveForm = function(form, src) {
 	trader.dynmult_fall = data.dynmult_fall;
 	trader.dynmult_mode = data.dynmult_mode;
 	trader.dynmult_sliding = data.dynmult_sliding;
+	trader.spread_freeze = data.spread_freeze;
 	trader.dynmult_mult = data.dynmult_mult;
 	trader.dynmult_cap = data.dynmult_cap;
 	trader.buy_step_mult = Math.pow(2,data.spread_mult*0.01)
@@ -1607,7 +1609,7 @@ App.prototype.gen_backtest = function(form,anchor, template, inputs, updatefn) {
 App.prototype.init_spreadvis = function(form, id) {
 	var url = "api/spread"
 	form.enableItem("vis_spread",false);
-	var inputs = ["spread_calc_stdev_hours","secondary_order", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode","dynmult_sliding","dynmult_cap","dynmult_mult","force_spread","spread_mode"];
+	var inputs = ["spread_calc_stdev_hours","secondary_order", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode","dynmult_sliding","dynmult_cap","dynmult_mult","force_spread","spread_mode","spread_freeze"];
 	this.gen_backtest(form,"spread_vis_anchor", "spread_vis",inputs,function(cntr){
 
 		cntr.showSpinner();
@@ -1623,6 +1625,7 @@ App.prototype.init_spreadvis = function(form, id) {
 			fall:data.dynmult_fall,
 			mode:data.dynmult_mode,
 			sliding:data.dynmult_sliding,
+			spread_freeze:data.spread_freeze,
 			dyn_mult:data.dynmult_mult,
 			order2: data.secondary_order,
 			id: id
@@ -1728,7 +1731,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		"kv2_accum","kv2_boost","kv2_chngtm",
 		"hedge_short","hedge_long","hedge_drop",
 		"shg_w","shg_p","shg_b","shg_olt","shg_ol","shg_lp","shg_rnv","shg_avgsp","shg_boostmode"];
-	var spread_inputs = ["spread_calc_stdev_hours","secondary_order", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode","dynmult_sliding","dynmult_cap","dynmult_mult","force_spread","spread_mode"];
+	var spread_inputs = ["spread_calc_stdev_hours","secondary_order", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode","dynmult_sliding","dynmult_cap","dynmult_mult","force_spread","spread_mode","spread_freeze"];
 	var leverage = form._leverage != "n/a";	
 	var balance = form._backtest_balance+(leverage?0:form._assets*invPrice(form._price,form._invprice));
 	var assets = 0;
@@ -2041,16 +2044,22 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 					])).then(function(resp) {
 						function dlgRules() {
 							var en = !d.view.readData(["from_broker"]).from_broker;
+							var sv = !d.view.readData(["save"]).from_broker;
 							d.view.enableItem("asset",en);
 							d.view.enableItem("currency",en);
 							d.view.enableItem("smooth",en);							
+							d.view.enableItem("save",!en);							
 						};
 						var brkhist = resp[2].status==200;
 						var ddata = {
 							    from_broker:{
 							    	value:brkhist,
-							    	"disabled":!brkhist,
+							    	"disabled":brkhist?null:"",
 							    	"!change": dlgRules
+							    },
+							    save:{
+							    	"disabled":!brkhist?null:"",
+									"value":false
 							    },
 								symbols: resp[0].map(function(x){
 									return {"":x};
@@ -2061,7 +2070,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 						};
 						var d;
 						(d = this.dlgbox(ddata,"download_price_dlg")).then(function(){
-							ddata = d.view.readData(["asset","currency","smooth","from_broker"]);;
+							ddata = d.view.readData(["asset","currency","smooth","from_broker","save"]);;
 							if (ddata.from_broker) {
 								var dataid;
 								showProgress(fetch_json("api/brokers/"+encodeURIComponent(broker)+"/pairs/"+encodeURIComponent(pair)+"/history",{method:"POST"}).then(function(info){
@@ -2070,7 +2079,16 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 								})).then(function(dlg){
                                 		this_bt.minute={id:dataid};
 										this_bt.trades = null;
-										get_chart(cntr.update().then(function(){dlg.close();}), delayed_update_minute);
+										get_chart(cntr.update().then(function(){
+											dlg.close();
+											if (ddata.save) 
+											    var a  = document.createElement("a");
+											    a.setAttribute("href",url+"/"+dataid);
+											    a.setAttribute("download","minute_"+broker+"_"+pair+".csv");
+											    document.body.appendChild(a);
+											    a.click();
+											    document.body.removeChild(a);
+										}), delayed_update_minute);
                                 });
 							} else { 
 								this_bt.minute = {"mode":"historical_chart","args":ddata};
@@ -2340,6 +2358,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 						fall:data.dynmult_fall,
 						mode:data.dynmult_mode,
 						sliding:data.dynmult_sliding,
+						spread_freeze:data.spread_freeze,
 						dyn_mult:data.dynmult_mult,
 						reverse: reverse_chart,
 						invert: invert_chart,

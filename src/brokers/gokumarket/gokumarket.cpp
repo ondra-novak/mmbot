@@ -162,7 +162,9 @@ double GokumarketIFC::getBalance(const std::string_view &symb, const std::string
 	if (!balanceCache.defined()) {
 		balanceCache = privateGET("/wallet/getUserBalances", Object{{"wallet_type","trade"}});
 	}
-	return balanceCache[symb].getNumber() + calcLocked(symb);
+	Value n = balanceCache[symb];
+	if (!n.defined()) throw std::runtime_error(std::string("Balance unavailable for this symbol: ").append(symb).append(" - this pair cannot be traded, please contact Gokumarket's support!"));
+	return n.getNumber() + calcLocked(symb);
 }
 
 void GokumarketIFC::onInit() {

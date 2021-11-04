@@ -1267,6 +1267,7 @@ bool WebCfg::reqSpread(simpleServer::HTTPRequest req)  {
 				Value dynmult_sliding = args["sliding"];
 				Value dynmult_mult = args["dyn_mult"];
 				Value order2 = args["order2"];
+				Value spread_freeze = args["spread_freeze"];
 
 				auto fn = defaultSpreadFunction(sma.getNumber(), stdev.getNumber(), force_spread.getNumber());
 				VisSpread vs(fn, {
@@ -1275,11 +1276,12 @@ bool WebCfg::reqSpread(simpleServer::HTTPRequest req)  {
 								dynmult_fall.getValueOrDefault(1.0),
 								dynmult_cap.getValueOrDefault(100.0),
 								strDynmult_mode[dynmult_mode.getValueOrDefault("independent")],
-								dynmult_mult.getBool(),
+								dynmult_mult.getBool()
 						},
 						mult.getNumber(),
 						order2.getNumber(),
 						dynmult_sliding.getBool(),
+						spread_freeze.getBool()
 				});
 
 				json::Array chart;
@@ -1699,289 +1701,310 @@ static NamedEnum<BTAction> strBTAction({
 });
 
 bool WebCfg::reqBacktest_v2(simpleServer::HTTPRequest req, ondra_shared::StrViewA rest) {
-	if (!req.allowMethods({"POST"})) return true;
-	auto action = strBTAction[rest];
-	req.readBodyAsync(upload_limit,[action,
-									trlist = this->trlist,
-									state =  this->state,
-									prices = this->backtest_broker](simpleServer::HTTPRequest req) mutable{
-		Value args = Value::fromString(json::map_bin2str(req.getUserBuffer()));
-		auto storage = state.lock()->backtest_storage;
-		Value response;
+	if (!req.allowMethods({"POST","GET"})) return true;
+	if (req.getMethod() == "GET") {
+		auto storage = state.lock_shared()->backtest_storage;
+		json::Value v = storage.lock()->load_data(rest);
+		if (v.defined()) {
 
-		switch (action) {
-			case BTAction::upload_file: {
-				std::string id = storage.lock()->store_data(args);
-				response=Value(json::object, {Value("id",id)});
-			}break;
-			case BTAction::trader_minute_chart: {
-				Value trader = args["trader"];
-				auto tr  =trlist.lock()->find(trader.getString());
-				if (tr == nullptr) {req.sendErrorPage(404);return;}
-				auto chart = tr.lock_shared()->getChart();
-				Value chart_data (json::array, chart.begin(), chart.end(), [](const MTrader::ChartItem &itm)->Value{
-					return itm.last;
-				});
-				std::string id = storage.lock()->store_data(chart_data);
-				response=Value(json::object, {Value("id",id)});
-			}break;
-			case BTAction::trader_chart: {
-				Value trader = args["trader"];
-				auto tr  =trlist.lock()->find(trader.getString());
-				if (tr == nullptr) {req.sendErrorPage(404);return;}
-				auto trl = tr.lock_shared();
-				auto trd = trl->getTrades();
-				auto nfo = trl->getMarketInfo();
-				Value chart_data (json::array, trd.begin(), trd.end(), [&](const IStatSvc::TradeRecord &itm)->Value{
-					if (nfo.invert_price) return {itm.time, 1.0/itm.price};
-					else return {itm.time, itm.price};
-				});
-				std::string id = storage.lock()->store_data(chart_data);
-				response=Value(json::object, {Value("id",id)});
-			}break;
-			case BTAction::historical_chart: {
-				Value asset = args["asset"];
-				Value currency = args["currency"];
-				unsigned int smooth = args["smooth"].getUInt();
+			auto stream = req->sendResponse("text/csv");
+			for (Value val: v) {
+				stream.operator <<(val.toString().str()) << "\r\n";
+			}
+			stream.flush();
+			return true;
 
-				auto from = std::chrono::system_clock::to_time_t(
-						std::chrono::system_clock::now()-std::chrono::hours(365*24)
-				);
-				from = (from/86400)*86400;
-				auto btb = prices.lock();
-				Value chart_data = btb->jsonRequestExchange("minute", Object({{"asset", asset},{"currency",currency},{"from",from}}));
-				if (smooth>1) {
-					double accum = chart_data[0].getNumber()*smooth;
-					Value smth_data (json::array,chart_data.begin(), chart_data.end(),[&](const Value &d){
-						accum -= accum / smooth;
-						accum += d.getNumber();
-						return accum/smooth;
-					});
-					chart_data = smth_data;
-				}
-				std::string id = storage.lock()->store_data(chart_data);
-				response=Value(json::object, {Value("id",id)});
-			}break;
-			case BTAction::random_chart: {
-
-				std::size_t seed = args["seed"].getUInt();
-				double volatility = args["volatility"].getValueOrDefault(0.1);
-				double noise = args["noise"].getValueOrDefault(0.0);
-				std::vector<double> chart;
-				generate_random_chart(volatility*0.01, noise*0.01, 525600, seed, chart);
-				Value chart_data (json::array, chart.begin(), chart.end(), [](double &itm)->Value{return itm;});
-				std::string id = storage.lock()->store_data(chart_data);
-				response=Value(json::object, {Value("id",id)});
-			}break;
-			case BTAction::get_file: {
-				Value source = args["source"];
-				json::Value v = storage.lock()->load_data(source.getString());
-				if (v.defined()) {
-					response = v;
-				} else {
-					req.sendErrorPage(410);
-					return;
-				}
-			}break;
-			case BTAction::gen_trades: {
-				Value source = args["source"];
-				Value sma = args["sma"];
-				Value stdev = args["stdev"];
-				Value force_spread = args["force_spread"];
-				Value mult = args["mult"];
-				Value dynmult_raise = args["raise"];
-				Value dynmult_fall = args["fall"];
-				Value dynmult_cap = args["cap"];
-				Value dynmult_mode = args["mode"];
-				Value dynmult_sliding = args["sliding"];
-				Value dynmult_mult = args["dyn_mult"];
-				Value reverse=args["reverse"];
-				Value invert=args["invert"];
-				Value ifutures=args["ifutures"];
-				Value order2 =args["order2"];
-
-				Value srcminute = storage.lock()->load_data(source.getString());
-				if (!srcminute.defined()) {
-					req.sendErrorPage(410);
-					return;
-				}
-
-				auto fn = defaultSpreadFunction(sma.getNumber(), stdev.getNumber(), force_spread.getNumber());
-				VisSpread spreadCalc(fn,{
-					{
-							dynmult_raise.getValueOrDefault(1.0),
-							dynmult_fall.getValueOrDefault(1.0),
-							dynmult_cap.getValueOrDefault(100.0),
-							strDynmult_mode[dynmult_mode.getValueOrDefault("independent")],
-							dynmult_mult.getBool()
-					},
-					mult.getNumber(),
-					order2.getNumber(),
-					dynmult_sliding.getBool()
-				});
-				if (reverse.getBool()) {
-					srcminute = srcminute.reverse();
-				}
-				bool inv = invert.getBool();
-				bool ifut = ifutures.getBool();
-				double init = 0;
-				json::Array out;
-				out.reserve(srcminute.size());
-				auto t = std::chrono::duration_cast<std::chrono::milliseconds>((std::chrono::system_clock::now() - std::chrono::minutes(srcminute.size())).time_since_epoch()).count();
-				for (const auto &itm: srcminute) {
-					double v = itm.getNumber();
-					if (inv) {
-						if (init == 0) init = pow2(v);
-						v = init/v;
-					}
-					if (ifut) {
-						v = 1.0/v;
-					}
-					auto res = spreadCalc.point(v);
-					if (res.trade && res.valid) {
-						out.push_back({t, ifut?1.0/res.price:res.price});
-						if (res.trade2) {
-							out.push_back({t, ifut?1.0/res.price2:res.price2});
-						}
-					}
-					t+=60000;
-				}
-				Value chart_data(out);
-				std::string id = storage.lock()->store_data(chart_data);
-				response=Value(json::object, {Value("id",id)});
-			}break;
-			case BTAction::run: {
-
-				Value trader = args["trader"];
-				Value source = args["source"];
-
-				Value reverse=args["reverse"];
-				Value invert=args["invert"];
-
-				Value config = args["config"];
-				Value init_pos = args["init_pos"];
-				Value balance = args["balance"];
-				Value init_price = args["init_price"];
-				Value fill_atprice= args["fill_atprice"];
-				Value negbal= args["neg_bal"];
-				Value spend= args["spend"];
-
-				bool rev = reverse.getBool();
-				bool inv = invert.getBool();
-
-				auto tr  =trlist.lock()->find(trader.getString());
-				if (tr == nullptr) {req.sendErrorPage(404);return;}
-				auto minfo = tr.lock_shared()->getMarketInfo();
-
-				std::uint64_t start_date=args["start_date"].getUIntLong();
-
-				MTrader_Config mconfig;
-				mconfig.loadConfig(config,false);
-				std::optional<double> m_init_pos;
-				if (init_pos.hasValue()) m_init_pos = init_pos.getNumber();
-
-				Value jtrades = storage.lock()->load_data(source.getString());
-				if (!jtrades.defined()) {
-					req.sendErrorPage(410);
-					return;
-				}
-
-
-				std::vector<BTPrice> trades;
-				trades.reserve(jtrades.size());
-
-
-				for (Value x: jtrades) {
-					std::uint64_t tm = x[0].getUIntLong();
-					if (tm >= start_date) {
-						trades.push_back({tm, x[1].getNumber()});
-					}
-				}
-
-				if (rev) {
-					for (std::size_t i = 0, cnt = trades.size(); i<cnt/2; i++) {
-						std::swap(trades[i].price, trades[cnt-i-1].price);
-					}
-				}
-
-				double mlt = 1.0;
-				double avg = std::accumulate(trades.begin(), trades.end(),0.0,[](double a, const BTPrice &b){
-					return a + b.price;
-				})/trades.size();
-
-				double ip = init_price.getNumber();
-				double fv = trades.empty()?ip:trades[0].price;
-				if (ip && !trades.empty()) {
-					if (inv) fv = 2*avg - fv;
-					mlt = ip/fv;
-					fv = fv * mlt;
-				}
-
-				for (auto &x: trades) {
-					x.price *= mlt;
-				}
-
-				if (inv) {
-					for (auto &x: trades) {
-						x.price = pow2(fv)/x.price;
-					}
-				}
-				if (minfo.invert_price) {
-					for (auto &x: trades) {
-						x.price = 1.0/x.price;
-					}
-				}
-
-
-
-
-				BTTrades rs = backtest_cycle(mconfig,
-						[iter = trades.begin(), end = trades.end()]() mutable {
-					if (iter == end) return std::optional<BTPrice>();
-					else return std::optional<BTPrice>(*iter++);
-				},minfo,m_init_pos, balance.getNumber(), negbal.getBool(), spend.getBool());
-
-
-				Value result (json::array, rs.begin(), rs.end(), [](const BTTrade &x) {
-					Value event;
-					switch (x.event) {
-					default: event = btevent_no_event;break;
-					case BTEvent::accept_loss: event = btevent_accept_loss;break;
-					case BTEvent::liquidation: event = btevent_liquidation;break;
-					case BTEvent::margin_call: event = btevent_margin_call;break;
-					case BTEvent::no_balance: event = btevent_no_balance;break;
-					case BTEvent::error: event = btevent_error;break;
-					}
-					return Object({
-							{"np",x.neutral_price},
-							{"op",x.open_price},
-							{"na",x.norm_accum},
-							{"npl",x.norm_profit},
-							{"npla",x.norm_profit_total},
-							{"pl",x.pl},
-							{"ps",x.pos},
-							{"pr",x.price.price},
-							{"tm",x.price.time},
-							{"bal",x.bal},
-							{"ubal",x.unspend_balance},
-							{"info",x.info},
-							{"sz",x.size},
-							{"event", event}
-					});
-				});
-
-				response = result;
-
-
-			}break;
-			default:
-				req.sendErrorPage(404);
-				return;
+		} else {
+			req.sendErrorPage(404);
+			return true;
 		}
 
-		auto stream = req.sendResponse("application/json");
-		response.serialize(stream);
-	});
+	} else {
+		auto action = strBTAction[rest];
+		req.readBodyAsync(upload_limit,[action,
+										trlist = this->trlist,
+										state =  this->state,
+										prices = this->backtest_broker](simpleServer::HTTPRequest req) mutable{
+			Value args = Value::fromString(json::map_bin2str(req.getUserBuffer()));
+			auto storage = state.lock()->backtest_storage;
+			Value response;
+
+			switch (action) {
+				case BTAction::upload_file: {
+					std::string id = storage.lock()->store_data(args);
+					response=Value(json::object, {Value("id",id)});
+				}break;
+				case BTAction::trader_minute_chart: {
+					Value trader = args["trader"];
+					auto tr  =trlist.lock()->find(trader.getString());
+					if (tr == nullptr) {req.sendErrorPage(404);return;}
+					auto chart = tr.lock_shared()->getChart();
+					Value chart_data (json::array, chart.begin(), chart.end(), [](const MTrader::ChartItem &itm)->Value{
+						return itm.last;
+					});
+					std::string id = storage.lock()->store_data(chart_data);
+					response=Value(json::object, {Value("id",id)});
+				}break;
+				case BTAction::trader_chart: {
+					Value trader = args["trader"];
+					auto tr  =trlist.lock()->find(trader.getString());
+					if (tr == nullptr) {req.sendErrorPage(404);return;}
+					auto trl = tr.lock_shared();
+					auto trd = trl->getTrades();
+					auto nfo = trl->getMarketInfo();
+					Value chart_data (json::array, trd.begin(), trd.end(), [&](const IStatSvc::TradeRecord &itm)->Value{
+						if (nfo.invert_price) return {itm.time, 1.0/itm.price};
+						else return {itm.time, itm.price};
+					});
+					std::string id = storage.lock()->store_data(chart_data);
+					response=Value(json::object, {Value("id",id)});
+				}break;
+				case BTAction::historical_chart: {
+					Value asset = args["asset"];
+					Value currency = args["currency"];
+					unsigned int smooth = args["smooth"].getUInt();
+
+					auto from = std::chrono::system_clock::to_time_t(
+							std::chrono::system_clock::now()-std::chrono::hours(365*24)
+					);
+					from = (from/86400)*86400;
+					auto btb = prices.lock();
+					Value chart_data = btb->jsonRequestExchange("minute", Object({{"asset", asset},{"currency",currency},{"from",from}}));
+					if (smooth>1) {
+						double accum = chart_data[0].getNumber()*smooth;
+						Value smth_data (json::array,chart_data.begin(), chart_data.end(),[&](const Value &d){
+							accum -= accum / smooth;
+							accum += d.getNumber();
+							return accum/smooth;
+						});
+						chart_data = smth_data;
+					}
+					std::string id = storage.lock()->store_data(chart_data);
+					response=Value(json::object, {Value("id",id)});
+				}break;
+				case BTAction::random_chart: {
+
+					std::size_t seed = args["seed"].getUInt();
+					double volatility = args["volatility"].getValueOrDefault(0.1);
+					double noise = args["noise"].getValueOrDefault(0.0);
+					std::vector<double> chart;
+					generate_random_chart(volatility*0.01, noise*0.01, 525600, seed, chart);
+					Value chart_data (json::array, chart.begin(), chart.end(), [](double &itm)->Value{return itm;});
+					std::string id = storage.lock()->store_data(chart_data);
+					response=Value(json::object, {Value("id",id)});
+				}break;
+				case BTAction::get_file: {
+					Value source = args["source"];
+					json::Value v = storage.lock()->load_data(source.getString());
+					if (v.defined()) {
+						response = v;
+					} else {
+						req.sendErrorPage(410);
+						return;
+					}
+				}break;
+				case BTAction::gen_trades: {
+					Value source = args["source"];
+					Value sma = args["sma"];
+					Value stdev = args["stdev"];
+					Value force_spread = args["force_spread"];
+					Value mult = args["mult"];
+					Value dynmult_raise = args["raise"];
+					Value dynmult_fall = args["fall"];
+					Value dynmult_cap = args["cap"];
+					Value dynmult_mode = args["mode"];
+					Value dynmult_sliding = args["sliding"];
+					Value dynmult_mult = args["dyn_mult"];
+					Value reverse=args["reverse"];
+					Value invert=args["invert"];
+					Value ifutures=args["ifutures"];
+					Value order2 =args["order2"];
+					Value spread_freeze = args["spread_freeze"];
+
+					Value srcminute = storage.lock()->load_data(source.getString());
+					if (!srcminute.defined()) {
+						req.sendErrorPage(410);
+						return;
+					}
+
+					auto fn = defaultSpreadFunction(sma.getNumber(), stdev.getNumber(), force_spread.getNumber());
+					VisSpread spreadCalc(fn,{
+						{
+								dynmult_raise.getValueOrDefault(1.0),
+								dynmult_fall.getValueOrDefault(1.0),
+								dynmult_cap.getValueOrDefault(100.0),
+								strDynmult_mode[dynmult_mode.getValueOrDefault("independent")],
+								dynmult_mult.getBool()
+						},
+						mult.getNumber(),
+						order2.getNumber(),
+						dynmult_sliding.getBool(),
+						spread_freeze.getBool()
+					});
+					if (reverse.getBool()) {
+						srcminute = srcminute.reverse();
+					}
+					bool inv = invert.getBool();
+					bool ifut = ifutures.getBool();
+					double init = 0;
+					json::Array out;
+					out.reserve(srcminute.size());
+					auto t = std::chrono::duration_cast<std::chrono::milliseconds>((std::chrono::system_clock::now() - std::chrono::minutes(srcminute.size())).time_since_epoch()).count();
+					for (const auto &itm: srcminute) {
+						double v = itm.getNumber();
+						if (inv) {
+							if (init == 0) init = pow2(v);
+							v = init/v;
+						}
+						if (ifut) {
+							v = 1.0/v;
+						}
+						auto res = spreadCalc.point(v);
+						if (res.trade && res.valid) {
+							out.push_back({t, ifut?1.0/res.price:res.price});
+							if (res.trade2) {
+								out.push_back({t, ifut?1.0/res.price2:res.price2});
+							}
+						}
+						t+=60000;
+					}
+					Value chart_data(out);
+					std::string id = storage.lock()->store_data(chart_data);
+					response=Value(json::object, {Value("id",id)});
+				}break;
+				case BTAction::run: {
+
+					Value trader = args["trader"];
+					Value source = args["source"];
+
+					Value reverse=args["reverse"];
+					Value invert=args["invert"];
+
+					Value config = args["config"];
+					Value init_pos = args["init_pos"];
+					Value balance = args["balance"];
+					Value init_price = args["init_price"];
+					Value fill_atprice= args["fill_atprice"];
+					Value negbal= args["neg_bal"];
+					Value spend= args["spend"];
+
+					bool rev = reverse.getBool();
+					bool inv = invert.getBool();
+
+					auto tr  =trlist.lock()->find(trader.getString());
+					if (tr == nullptr) {req.sendErrorPage(404);return;}
+					auto minfo = tr.lock_shared()->getMarketInfo();
+
+					std::uint64_t start_date=args["start_date"].getUIntLong();
+
+					MTrader_Config mconfig;
+					mconfig.loadConfig(config,false);
+					std::optional<double> m_init_pos;
+					if (init_pos.hasValue()) m_init_pos = init_pos.getNumber();
+
+					Value jtrades = storage.lock()->load_data(source.getString());
+					if (!jtrades.defined()) {
+						req.sendErrorPage(410);
+						return;
+					}
+
+
+					std::vector<BTPrice> trades;
+					trades.reserve(jtrades.size());
+
+
+					for (Value x: jtrades) {
+						std::uint64_t tm = x[0].getUIntLong();
+						if (tm >= start_date) {
+							trades.push_back({tm, x[1].getNumber()});
+						}
+					}
+
+					if (rev) {
+						for (std::size_t i = 0, cnt = trades.size(); i<cnt/2; i++) {
+							std::swap(trades[i].price, trades[cnt-i-1].price);
+						}
+					}
+
+					double mlt = 1.0;
+					double avg = std::accumulate(trades.begin(), trades.end(),0.0,[](double a, const BTPrice &b){
+						return a + b.price;
+					})/trades.size();
+
+					double ip = init_price.getNumber();
+					double fv = trades.empty()?ip:trades[0].price;
+					if (ip && !trades.empty()) {
+						if (inv) fv = 2*avg - fv;
+						mlt = ip/fv;
+						fv = fv * mlt;
+					}
+
+					for (auto &x: trades) {
+						x.price *= mlt;
+					}
+
+					if (inv) {
+						for (auto &x: trades) {
+							x.price = pow2(fv)/x.price;
+						}
+					}
+					if (minfo.invert_price) {
+						for (auto &x: trades) {
+							x.price = 1.0/x.price;
+						}
+					}
+
+
+
+
+					BTTrades rs = backtest_cycle(mconfig,
+							[iter = trades.begin(), end = trades.end()]() mutable {
+						if (iter == end) return std::optional<BTPrice>();
+						else return std::optional<BTPrice>(*iter++);
+					},minfo,m_init_pos, balance.getNumber(), negbal.getBool(), spend.getBool());
+
+
+					Value result (json::array, rs.begin(), rs.end(), [](const BTTrade &x) {
+						Value event;
+						switch (x.event) {
+						default: event = btevent_no_event;break;
+						case BTEvent::accept_loss: event = btevent_accept_loss;break;
+						case BTEvent::liquidation: event = btevent_liquidation;break;
+						case BTEvent::margin_call: event = btevent_margin_call;break;
+						case BTEvent::no_balance: event = btevent_no_balance;break;
+						case BTEvent::error: event = btevent_error;break;
+						}
+						return Object({
+								{"np",x.neutral_price},
+								{"op",x.open_price},
+								{"na",x.norm_accum},
+								{"npl",x.norm_profit},
+								{"npla",x.norm_profit_total},
+								{"pl",x.pl},
+								{"ps",x.pos},
+								{"pr",x.price.price},
+								{"tm",x.price.time},
+								{"bal",x.bal},
+								{"ubal",x.unspend_balance},
+								{"info",x.info},
+								{"sz",x.size},
+								{"event", event}
+						});
+					});
+
+					response = result;
+
+
+				}break;
+				default:
+					req.sendErrorPage(404);
+					return;
+			}
+
+			auto stream = req.sendResponse("application/json");
+			response.serialize(stream);
+		});
+	}
 	return true;
 }
 

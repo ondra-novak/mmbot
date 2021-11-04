@@ -43,9 +43,10 @@ class VisSpread {
 public:
 	struct Config {
 		DynMultControl::Config dynmult;
-		double mult;
-		double order2;
-		bool sliding;
+		double mult = 1;
+		double order2 = 0;
+		bool sliding = false;
+		bool freeze = false;
 	};
 
 	struct Result {
@@ -64,12 +65,15 @@ protected:
 	std::unique_ptr<ISpreadState> state;
 	DynMultControl dynmult;
 	bool sliding;
+	bool freeze;
 	double mult;
 	double order2;
 	double offset = 0;
 	double last_price = 0;
 	std::optional<double> chigh, clow;
 	double cspread;
+	int frozen_side = 0;
+	double frozen_spread = 0;
 };
 
 
