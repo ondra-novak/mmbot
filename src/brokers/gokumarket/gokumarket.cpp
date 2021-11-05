@@ -292,8 +292,8 @@ IBrokerControl::AllWallets GokumarketIFC::getWallet() {
 
 IStockApi::Ticker GokumarketIFC::getTicker(const std::string_view &pair) {
 	Value v = publicGET("/orderbooks",Object{{"currency_pair",pair},{"limit",1}});
-	double ask = v["bids"][0][1].getNumber();
-	double bid = v["asks"][0][1].getNumber();
+	double bid = v["bids"][0][1].getNumber();
+	double ask = v["asks"][0][1].getNumber();
 	double mid = (ask+bid)*0.5;
 	return IStockApi::Ticker {
 		bid,ask,mid,static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(api.now().time_since_epoch()).count())
