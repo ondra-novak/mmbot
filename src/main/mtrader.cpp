@@ -806,12 +806,11 @@ MTrader::Status MTrader::getMarketStatus() const {
 	res.new_fees = stock->getFees(cfg.pairsymb);
 
 	auto ticker = stock->getTicker(cfg.pairsymb);
-	if (buy_alert.has_value() && *buy_alert > ticker.bid) ticker.bid = *buy_alert;
-	if (sell_alert.has_value() && *sell_alert < ticker.ask) ticker.ask = *sell_alert;
 	res.ticker = ticker;
 	res.curPrice = std::sqrt(ticker.ask*ticker.bid);
 
-	if (ticker.bid < 0 || ticker.ask < 0 || ticker.bid > ticker.ask) throw std::runtime_error("Broker error: Ticker invalid values");
+	if (ticker.bid < 0 || ticker.ask < 0 || ticker.bid > ticker.ask)
+		throw std::runtime_error("Broker error: Ticker invalid values");
 
 	res.chartItem.time = ticker.time;
 	res.chartItem.bid = ticker.bid;
