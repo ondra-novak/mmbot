@@ -426,11 +426,15 @@ void Report::setMisc(StrViewA symb, const MiscData &miscData) {
 	bool inverted = info["inverted"].getBool();
 
 	double spread;
+	double lp = miscData.lastTradePrice * std::exp(-miscData.spread);
+	double hp = miscData.lastTradePrice * std::exp(miscData.spread);
 	if (inverted) {
-		spread = 1.0/miscData.calc_price - 1.0/(miscData.spread+miscData.calc_price) ;
-	} else {
-		spread = miscData.spread;
+		lp = 1.0/lp;
+		hp = 1.0/hp;
 	}
+	spread = std::abs(hp-lp);
+
+
 
 	Object output;
 	output.setItems({{"ms", spread},

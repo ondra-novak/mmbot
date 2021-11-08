@@ -24,6 +24,7 @@ using ondra_shared::logDebug;
 using ondra_shared::logError;
 using ondra_shared::logInfo;
 using ondra_shared::logNote;
+using ondra_shared::logProgress;
 using ondra_shared::logWarning;
 using ondra_shared::StringView;
 using ondra_shared::StrViewA;
@@ -336,6 +337,9 @@ void MTrader::perform(bool manually) {
 					lastPriceOffset = lastTradePrice - status.spreadCenter;
 					frozen_spread = status.curStep;
 					frozen_spread_side = fst;
+					if (cfg.freeze_spread) {
+						logProgress("Spread frozen: dir=$1, value=$2", frozen_spread_side, frozen_spread);
+					}
 				}
 			}
 
@@ -538,7 +542,7 @@ void MTrader::perform(bool manually) {
 				last_trade_dir,
 				achieve_mode,
 				eq,
-				status.curPrice * (exp(status.curStep) - 1),
+				status.curStep*0.5*(cfg.buy_step_mult+cfg.sell_step_mult),
 				dynmult.getBuyMult(),
 				dynmult.getSellMult(),
 				minmax.min,
@@ -902,6 +906,8 @@ MTrader::Order MTrader::calculateOrderFeeLess(
 		newPrice = curPrice;
 		prevPrice = newPrice /exp(step*dynmult*m);
 	}
+
+
 	order= state.getNewOrder(minfo,curPrice, newPrice,dir, balance, currency, false);
 
 	//Strategy can disable to place order using size=0 and disable alert
@@ -927,6 +933,7 @@ MTrader::Order MTrader::calculateOrderFeeLess(
 			if ((newPrice - curPrice) * dir > 0) {
 				newPrice = curPrice;
 			}
+
 
 			order= state.getNewOrder(minfo,curPrice, newPrice,dir, balance, currency, true);
 

@@ -698,7 +698,7 @@ IStockApi::Ticker Interface::getTicker(const std::string_view &pair) {
 		tkr.ask = result["asks"][0][0].getNumber();
 		tkr.bid = result["bids"][0][0].getNumber();
 		tkr.last = (tkr.ask + tkr.bid)*0.5;
-		tkr.time = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now())*1000;
+		tkr.time = std::chrono::duration_cast<std::chrono::milliseconds>(connection.lock_shared()->api.now().time_since_epoch()).count();
 		return tkr;
 	} else {
 		throw std::runtime_error(resp.stringify().str());
