@@ -317,7 +317,7 @@ inline json::Value Interface::placeOrder(const std::string_view &pair,
 			} else {
 				if (size) {
 					Object order;
-					order.set({{"orderID", replaceId},
+					order.setItems({{"orderID", replaceId},
 							 {"orderQty", qty},
 							 {"price",price}});
 					Value resp = px.request("PUT","/api/v1/order",Value(),order);
@@ -336,7 +336,7 @@ inline json::Value Interface::placeOrder(const std::string_view &pair,
 		clId = clId.toString();
 	}
 	Object order;
-	order.set({{"symbol", pair},
+	order.setItems({{"symbol", pair},
 			 {"side",side},
 			 {"orderQty",qty},
 			 {"price",price},
@@ -403,7 +403,7 @@ Interface::BrokerInfo Interface::getBrokerInfo() {
 		"bitmex",
 		"BitMEX",
 		"https://www.bitmex.com/register/ns01mS",
-		"1.0",
+		"1.1",
 		R"mit(Copyright (c) 2019 Ondřej Novák
 
 Permission is hereby granted, free of charge, to any person

@@ -97,11 +97,11 @@ json::Value Proxy::request(
 	try {
 
 		if (verb == "POST") {
-			res = httpc.POST(url,fdata,headers);
+			res = httpc.POST(url,data,headers);
 		} else if (verb == "PUT") {
-			res = httpc.PUT(url, fdata, headers);
+			res = httpc.PUT(url, data, headers);
 		} else if (verb == "DELETE") {
-			res = httpc.DELETE(url,fdata,headers);
+			res = httpc.DELETE(url,data,headers);
 		} else {
 			res = httpc.GET(url, headers);
 		}
