@@ -49,6 +49,7 @@ public:
 		double openlimit;
 		bool reinvest;
 		bool avgspread;
+		bool lazyopen;
 		int boostmode;
 		json::String calcConfigHash() const;
 	};

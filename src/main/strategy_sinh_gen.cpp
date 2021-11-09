@@ -291,6 +291,7 @@ std::pair<IStrategy::OnTradeResult, PStrategy> Strategy_Sinh_Gen::onTrade(
 		nwst.sum_spread = st.sum_spread + (nwst.last_spread-1.0);
 	}
 
+	if (st.rebalance) np = 0;
 	return {
 		OnTradeResult{np,0,newk,0},
 		PStrategy(new Strategy_Sinh_Gen(cfg, std::move(nwst)))
@@ -396,21 +397,31 @@ IStrategy::OrderData Strategy_Sinh_Gen::getNewOrder(
 		return {cur_price, -assets, Alert::forced};
 	}
 
+	double calc_price = new_price;
+	if (cfg.lazyopen && !st.rebalance && dir * assets > 0 && st.trades>1) {
+		//calc_price - use average spread instead current price
+		calc_price = st.p * std::exp(-dir*st.sum_spread/st.trades);
+		if ((calc_price > new_price && calc_price > cur_price) ||
+				(calc_price < new_price && calc_price < cur_price)) {
+			//however can go beyond new_price
+			calc_price = new_price;
+		}
+	}
 
 	//calculate pnl
-	double pnl = assets*(new_price - st.p);
+	double pnl = assets*(calc_price - st.p);
 	//calculate new k for budgetr and pnl
-	double newk = calcNewK(new_price, st.val, pnl, cfg.boostmode);
+	double newk = calcNewK(calc_price, st.val, pnl, cfg.boostmode);
 	//calculate minimal allowed budget
 	//	double minbudget = st.budget*(1.0-cfg.stopOnLoss);
-	double pwadj = adjustPower(assets, newk, new_price);
+	double pwadj = adjustPower(assets, newk, calc_price);
 
 
-	double new_pos = limitPosition(cfg.calc->assets(newk, pw*pwadj, new_price));
+	double new_pos = limitPosition(cfg.calc->assets(newk, pw*pwadj, calc_price));
 	double dfa = new_pos -assets;
 	if ((new_pos * assets <0 || new_pos == 0) && (assets * dir < 0)){
 		//close current position (force alert)
-		return {new_price,-assets,Alert::forced};
+		return {calc_price,-assets,Alert::forced};
 	}
 	return {new_price, dfa};
 }
