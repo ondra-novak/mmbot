@@ -404,8 +404,8 @@ void MTrader::perform(bool manually) {
 							sellorder = Order(0, status.ticker.bid*2, IStrategy::Alert::disabled);
 						}
 					} else {
-						double lspread = status.curStep;
-						double hspread = status.curStep;
+						double lspread = status.curStep*cfg.buy_step_mult;
+						double hspread = status.curStep*cfg.sell_step_mult;
 						if (cfg.freeze_spread) {
 							if (frozen_spread_side<0) {
 								lspread = std::min(frozen_spread, lspread);
@@ -414,26 +414,39 @@ void MTrader::perform(bool manually) {
 							}
 						}
 
+						if (grant_trade) {
+							lspread = 0;
+							hspread = 0;
+							need_alerts = false;
+						}
 							//calculate buy order
-						buyorder = calculateOrder(
-								strategy,
-								grant_trade?status.ticker.bid*1.5:centerPrice,
-														grant_trade?-0.1:-lspread*cfg.buy_step_mult,
-														dynmult.getBuyMult(),
-														status.ticker.bid,
-														position,
-														status.currencyAvailBalance,
-														grant_trade?false:need_alerts);
+						buyorder = calculateOrder(strategy,centerPrice,-lspread,
+								dynmult.getBuyMult(),status.ticker.bid,
+								position,status.currencyAvailBalance,need_alerts);
 							//calculate sell order
-						sellorder = calculateOrder(
-								strategy,
-								grant_trade?status.ticker.ask*0.85:centerPrice,
-														 grant_trade?0.1:hspread*cfg.sell_step_mult,
-														 dynmult.getSellMult(),
-														 status.ticker.ask,
-														 position,
-														 status.currencyAvailBalance,
-														 grant_trade?false:need_alerts);
+						sellorder = calculateOrder(strategy,centerPrice,hspread,
+								dynmult.getSellMult(),status.ticker.ask,
+								position,status.currencyAvailBalance,need_alerts);
+
+						if (cfg.dynmult_sliding && !need_alerts) {
+							double bp = centerPrice*std::exp(-lspread);
+							double sp = centerPrice*std::exp(hspread);
+							if (status.ticker.bid > sp) {
+								auto b2 = calculateOrder(strategy,lastTradePrice,-lspread,
+										1.0,status.ticker.bid,
+										position,status.currencyAvailBalance,true);
+								if (b2.size) buyorder = b2;
+							}
+							if (status.ticker.ask < bp) {
+								auto s2 = calculateOrder(strategy,lastTradePrice,hspread,
+										1.0,status.ticker.ask,
+										position,status.currencyAvailBalance,true);
+								if (s2.size) sellorder = s2;
+
+							}
+						}
+
+
 
 					}
 					if (grant_trade) {
