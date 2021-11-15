@@ -311,6 +311,7 @@ int main(int argc, char **argv) {
 						auto backtest_section = app.config["backtest"];
 						auto history_broker = backtest_section.mandatory["history_source"];
 						auto backtest_cache_size = backtest_section["backtest_cache_size"].getUInt(8);
+						auto backtest_in_memory = backtest_section["in_memory"].getBool(false);
 						auto news_url=app.config["news"]["url"].getString();
 
 
@@ -366,7 +367,7 @@ int main(int argc, char **argv) {
 								jwt=AuthMapper::initJWT(jwt_type, jwt_pubkey);
 							}
 						}
-						SharedObject<WebCfg::State> webcfgstate = SharedObject<WebCfg::State>::make(sf->create("web_admin_conf"),new AuthUserList, new AuthUserList,backtest_cache_size);
+						SharedObject<WebCfg::State> webcfgstate = SharedObject<WebCfg::State>::make(sf->create("web_admin_conf"),new AuthUserList, new AuthUserList,backtest_cache_size,backtest_in_memory);
 						webcfgstate.lock()->setAdminAuth(webadmin_auth);
 						webcfgstate.lock()->applyConfig(traders);
 						aul = webcfgstate.lock_shared()->users;

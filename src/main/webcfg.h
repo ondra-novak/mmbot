@@ -86,12 +86,13 @@ public:
 		State( PStorage &&config,
 			  ondra_shared::RefCntPtr<AuthUserList> users,
 			  ondra_shared::RefCntPtr<AuthUserList> admins,
-			  std::size_t backtest_cache_size
+			  std::size_t backtest_cache_size,
+			  bool backtest_in_memory
 			):
 				  config(std::move(config)),
 				  users(users),
 				  admins(admins),
-				  backtest_storage(SharedObject<BacktestStorage>::make(backtest_cache_size))
+				  backtest_storage(SharedObject<BacktestStorage>::make(backtest_cache_size,backtest_in_memory))
 		{
 		}
 

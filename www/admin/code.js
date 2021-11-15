@@ -316,14 +316,14 @@ App.prototype.fillForm = function (src, trg) {
 	if (!this.fillFormCache) this.fillFormCache = {} 
 	var recalcStrategyFn = new DelayUpdate(function() {
 			var data = trg.readData()
-			var strategy = getStrategyData(data,trg._invprice);
+			var strategy = getStrategyData(data,trg._pair.invert_price);
 			var req = {
 					strategy:strategy,
-					price:invPrice(trg._price, trg._invprice),
-					assets:invSize(trg._assets, trg._invprice),
+					price:invPrice(trg._price, trg._pair.invert_price),
+					assets:invSize(trg._assets, trg._pair.invert_price),
 					currency:trg._backtest_balance,
-					leverage:trg._leverage_num,
-					inverted: trg._invprice,
+					leverage:trg._pair.leverage,
+					inverted: trg._pair.invert_price,
 					trader:src.id
 			};
 			fetch_json("api/strategy", {method:"POST",body:JSON.stringify(req)})
@@ -412,12 +412,10 @@ App.prototype.fillForm = function (src, trg) {
 		data.cur_pile_ratio = ((state.strategy && state.strategy.Ratio) || 0).toFixed(1);
 		trg._balance = pair.currency_balance+ext_ass.currency-avail.unavailable;
 		trg._backtest_balance = pair.currency_balance>trg._balance?pair.currency_balance:trg._balance;
-		trg._assets = state.position;
+		trg._assets = state.position || pair.asset_balance;
 		trg._price = invPrice(pair.price, pair.invert_price);
-		trg._leverage = data.leverage;
-		trg._leverage_num = pair.leverage;
-		trg._invprice = pair.invert_price;
 		trg._budget = avail.budget;	
+		trg._pair = pair;		
 
 		data.balance_currency_free = adjNum(trg._balance);
 
@@ -526,7 +524,7 @@ App.prototype.fillForm = function (src, trg) {
 					this.dlgbox(data,"pair_details");					
 				}.bind(this)			
 			};			
-			if (trg._invprice && tmp.shg_lp) {
+			if (trg._pair.invert_price && tmp.shg_lp) {
 				data.shg_lp = -parseInt(tmp.shg_lp);
 			}
 			data.shg_control_pos["!click"] = this.shgControlPosition.bind(this,src.id, trg);	        
@@ -882,7 +880,7 @@ App.prototype.saveForm = function(form, src) {
 	var data = form.readData();
 	var trader = {}
 	var goal = data.goal;
-	trader.strategy = getStrategyData(data, form._invprice);
+	trader.strategy = getStrategyData(data, form._pair.invert_price);
 	trader.id = src.id;
 	trader.broker =src.broker;
 	trader.pair_symbol = src.pair_symbol;
@@ -1735,16 +1733,17 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		"hedge_short","hedge_long","hedge_drop",
 		"shg_w","shg_p","shg_b","shg_olt","shg_ol","shg_lp","shg_rnv","shg_avgsp","shg_boostmode","shg_lazyopen"];
 	var spread_inputs = ["spread_calc_stdev_hours","secondary_order", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode","dynmult_sliding","dynmult_cap","dynmult_mult","force_spread","spread_mode","spread_freeze"];
-	var leverage = form._leverage != "n/a";	
-	var balance = form._backtest_balance+(leverage?0:form._assets*invPrice(form._price,form._invprice));
+	var leverage = form._pair.leverage != 0;	
+	var balance = form._backtest_balance+(leverage?0:form._assets*invPrice(form._price,form._pair.invert_price));
 	var assets = 0;
-	var invert_price = form._invprice;
+	var pairinfo = form._pair;
+	var invert_price = form._pair.invert_price;
 	var init_def_price = form._price;
 	var days = 45*60*60*24*1000;
     var offset = 0;
     var offset_max = 0;
 	var start_date = "";
-	var sttype =this.traders[id].strategy.type;
+	var sttype =form.readData(["strategy"]).strategy;
     var show_norm= ["halfhalf","pile","keepvalue","exponencial","errorfn","hypersquare","conststep"].indexOf(sttype) != -1?1:0;
 	var infoElm;
 	var this_bt=this.backtest[id];
@@ -2118,7 +2117,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
         function has_minute() {return this_bt.minute && this_bt.minute.chart;};
        	req = {
 			config: config,
-			trader: id,
+			minfo: pairinfo,
 			init_pos:isFinite(opts.initial_pos)?opts.initial_pos:undefined,
 			init_price:init_price,
 			balance:isFinite(opts.initial_balance)?opts.initial_balance:bal,
@@ -2398,6 +2397,11 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 					.then(function(r) {
 						this_bt.trades = r;
 						return get_chart(call_update(),delayed_update_trades);
+					},function(e){
+						if (e.status == 404) {
+							this_bt.trades = {chart:[]};
+							call_update();
+						}
 					})
 				}									
 			}
@@ -3081,7 +3085,7 @@ function showProgress(id) {
 
 
 App.prototype.shgControlPosition = function(id, form) {
-	var inv = form._invprice;
+	var inv = form._pair.invert_price;
 	var cur = form._backtest_balance;
 	var url = this.traderURL(id)+"/strategy";
     fetch_with_error(url).then(function(res){

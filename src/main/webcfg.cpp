@@ -316,25 +316,17 @@ static Value getPairInfo(const PStockApi &api, const std::string_view &pair, con
 	Value quote_currency = nfo.invert_price?Value(nfo.inverted_symbol):Value(nfo.currency_symbol);
 	Value quote_asset = nfo.invert_price?Value(nfo.currency_symbol):Value(nfo.asset_symbol);
 
-	if (quote_currency.getString() == "XBT") quote_currency = "BTC";
-	if (quote_asset.getString() == "XBT") quote_currency = "BTC";
+	Value resp = nfo.toJSON();
+	resp.setItems({
+		{"symbol",pair},
+		{"asset_balance", ab},
+		{"currency_balance", cb},
+		{"price",last},
+		{"quote_currency", quote_currency},
+		{"quote_asset", quote_asset},
+	});
 
-	Value resp = Object({{"symbol",pair},
-			{"asset_symbol", nfo.asset_symbol},
-			{"currency_symbol", nfo.currency_symbol},
-			{"fees",nfo.fees},
-			{"leverage", nfo.leverage},
-			{"invert_price", nfo.invert_price},
-			{"asset_balance", ab},
-			{"currency_balance", cb},
-			{"min_size", nfo.min_size},
-			{"min_volume", nfo.min_volume},
-			{"asset_step", nfo.asset_step},
-			{"currency_step",nfo.currency_step},
-			{"price",last},
-			{"quote_currency", quote_currency},
-			{"quote_asset", quote_asset},
-			{"wallet_id", nfo.wallet_id}});;
+
 	return resp;
 
 }
@@ -496,22 +488,7 @@ bool WebCfg::reqBrokerSpec(simpleServer::HTTPRequest req,
 						return true;
 					}  else if (orders == "info") {
 						IStockApi::MarketInfo minfo = api->getMarketInfo(p);
-						Value resp = Object({
-								{"asset_step", minfo.asset_step},
-								{"asset_symbol", minfo.asset_symbol},
-								{"currency_step", minfo.currency_step},
-								{"currency_symbol", minfo.currency_symbol},
-								{"feeScheme", (int)minfo.feeScheme},
-								{"fees", minfo.fees},
-								{"invert_price", minfo.invert_price},
-								{"inverted_symbol", minfo.inverted_symbol},
-								{"leverage", minfo.leverage},
-								{"min_size", minfo.min_size},
-								{"min_volume", minfo.min_volume},
-								{"private_chart", minfo.private_chart},
-								{"simulator", minfo.simulator},
-								{"wallet_id", minfo.wallet_id}
-						});
+						Value resp = minfo.toJSON();
 						req.sendResponse(std::move(hdr), resp.stringify().str());
 						return true;
 					}  else if (orders == "settings") {
@@ -1874,7 +1851,7 @@ bool WebCfg::reqBacktest_v2(simpleServer::HTTPRequest req, ondra_shared::StrView
 				}break;
 				case BTAction::run: {
 
-					Value trader = args["trader"];
+					Value minfo_val = args["minfo"];
 					Value source = args["source"];
 
 					Value reverse=args["reverse"];
@@ -1891,9 +1868,10 @@ bool WebCfg::reqBacktest_v2(simpleServer::HTTPRequest req, ondra_shared::StrView
 					bool rev = reverse.getBool();
 					bool inv = invert.getBool();
 
-					auto tr  =trlist.lock()->find(trader.getString());
-					if (tr == nullptr) {req.sendErrorPage(404);return;}
-					auto minfo = tr.lock_shared()->getMarketInfo();
+					if (!minfo_val.defined()) {
+						req.sendErrorPage(400,"Missing minfo");return;
+					}
+					auto minfo = IStockApi::MarketInfo::fromJSON(minfo_val);
 
 					std::uint64_t start_date=args["start_date"].getUIntLong();
 

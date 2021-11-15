@@ -15,7 +15,10 @@
 
 #include <imtjson/binjson.h>
 #include <imtjson/binjson.tcc>
-BacktestStorage::BacktestStorage( std::size_t max_files):max_files(std::max<std::size_t>(8,max_files)) {
+BacktestStorage::BacktestStorage( std::size_t max_files, bool in_memory)
+	:max_files(std::max<std::size_t>(8,max_files))
+	,in_memory(in_memory)
+{
 }
 
 BacktestStorage::~BacktestStorage() {
@@ -24,8 +27,12 @@ BacktestStorage::~BacktestStorage() {
 
 
 void BacktestStorage::cleanup() {
-	for (const auto &x: meta) {
-		std::filesystem::remove(x.fpath);
+	if (!in_memory) {
+		for (const auto &x: meta) {
+			std::filesystem::remove(x.fpath);
+		}
+	} else {
+		in_memory_files.clear();
 	}
 }
 
@@ -70,22 +77,31 @@ void BacktestStorage::add_metadata(const Metadata &md) {
 void BacktestStorage::remove_metadata(const std::vector<Metadata>::const_iterator &iter) {
 	auto p = iter->fpath;
 	meta.erase(iter);
-	std::filesystem::remove(p);
+	if (in_memory) {
+		in_memory_files.erase(p);
+	} else {
+		std::filesystem::remove(p);
+	}
 }
 
 void BacktestStorage::store_data(const json::Value &data, const std::string &id) {
-	auto tmpPath = std::filesystem::temp_directory_path();
-	std::string pid = std::to_string(getpid());
-	auto fpath = tmpPath / ("mmbot_backtest_"+pid+"x"+id);
-	std::ofstream f(fpath, std::ios::binary);
-	if (!(!f)) {
-		data.serializeBinary([&](char c){f.put(c);}, json::compressKeys);
+	if (in_memory) {
+		in_memory_files[id] =  data;
+		add_metadata({id,id,std::chrono::system_clock::now()});
+	} else {
+		auto tmpPath = std::filesystem::temp_directory_path();
+		std::string pid = std::to_string(getpid());
+		auto fpath = tmpPath / ("mmbot_backtest_"+pid+"x"+id);
+		std::ofstream f(fpath, std::ios::binary);
 		if (!(!f)) {
-			add_metadata({id,fpath.string(),std::chrono::system_clock::now()});
-			return;
+			data.serializeBinary([&](char c){f.put(c);}, json::compressKeys);
+			if (!(!f)) {
+				add_metadata({id,fpath.string(),std::chrono::system_clock::now()});
+				return;
+			}
 		}
+		throw std::runtime_error("Inaccessible temporary storage");
 	}
-	throw std::runtime_error("Inaccessible temporary storage");
 }
 
 std::string BacktestStorage::store_data(const json::Value &data) {
@@ -100,16 +116,21 @@ std::string BacktestStorage::store_data(const json::Value &data) {
 json::Value BacktestStorage::load_data(const std::string &id) {
 	auto iter = find(id);
 	if (iter == meta.end()) return json::Value();
-	std::ifstream f(iter->fpath, std::ios::binary);
-	if (!(!f)) {
-		json::Value v =json::Value::parseBinary([&](){return f.get();});
+	if (in_memory) {
+		mark_access(iter);
+		return in_memory_files[iter->fpath];
+	} else {
+		std::ifstream f(iter->fpath, std::ios::binary);
 		if (!(!f)) {
-			mark_access(iter);
-			return v;
+			json::Value v =json::Value::parseBinary([&](){return f.get();});
+			if (!(!f)) {
+				mark_access(iter);
+				return v;
+			}
 		}
+		remove_metadata(iter);
+		return json::Value();
 	}
-	remove_metadata(iter);
-	return json::Value();
 
 }
 

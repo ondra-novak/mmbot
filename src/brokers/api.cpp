@@ -170,21 +170,7 @@ static Value getFees(AbstractBrokerAPI &handler, const Value &req) {
 
 static Value getInfo(AbstractBrokerAPI &handler, const Value &req) {
 	AbstractBrokerAPI::MarketInfo nfo ( handler.getMarketInfo(req.getString()) );
-	return Object({
-			{"asset_step",nfo.asset_step},
-			{"currency_step", nfo.currency_step},
-			{"asset_symbol",nfo.asset_symbol},
-			{"currency_symbol", nfo.currency_symbol},
-			{"min_size", nfo.min_size},
-			{"min_volume", nfo.min_volume},
-			{"fees", nfo.fees},
-			{"feeScheme",AbstractBrokerAPI::strFeeScheme[nfo.feeScheme]},
-			{"leverage", nfo.leverage},
-			{"invert_price", nfo.invert_price},
-			{"inverted_symbol", nfo.inverted_symbol},
-			{"simulator", nfo.simulator},
-			{"private_chart", nfo.private_chart},
-			{"wallet_id", nfo.wallet_id}});
+	return nfo.toJSON();
 }
 
 static Value setApiKey(AbstractBrokerAPI &handler, const Value &req) {

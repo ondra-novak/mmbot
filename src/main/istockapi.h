@@ -187,6 +187,8 @@ public:
 			if (step == 0) return value;
 			return fn(value/step) * step;
 		}
+		json::Value toJSON() const;
+		static MarketInfo fromJSON(const json::Value &v);
 	};
 
 	struct BrokerInfo {
