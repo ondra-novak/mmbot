@@ -68,6 +68,8 @@ void BacktestStorage::add_metadata(const Metadata &md) {
 			auto rm = find_to_remove();
 			if (rm != meta.end()) {
 				remove_metadata(rm);
+			} else {
+				break;
 			}
 		}
 	}
