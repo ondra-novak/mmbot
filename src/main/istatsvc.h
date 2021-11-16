@@ -109,7 +109,7 @@ public:
 
 	};
 
-	virtual void reportOrders(const std::optional<IStockApi::Order> &buy,
+	virtual void reportOrders(int n, const std::optional<IStockApi::Order> &buy,
 							  const std::optional<IStockApi::Order> &sell) = 0;
 	virtual void reportTrades(double finalPos, ondra_shared::StringView<TradeRecord> trades) = 0;
 	virtual void reportPrice(double price) = 0;

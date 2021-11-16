@@ -459,23 +459,43 @@ void MTrader::perform(bool manually) {
 						}
 					}
 
-					try {
-						setOrder(orders.buy, buyorder, buy_alert, false);
-						if (!orders.buy.has_value()) {
-							acceptLoss(status, 1);
+					for (int _i=0;_i<2;_i++) {
+						try {
+							setOrder(orders.buy, buyorder, buy_alert, false);
+							if (!orders.buy.has_value()) {
+								acceptLoss(status, 1);
+							}
+							_i=1;
+						} catch (std::exception &e) {
+							if (!orders.buy2.has_value() || _i) {
+								buy_order_error = e.what();
+								acceptLoss(status, 1);
+								_i=1;
+							} else {
+								stock->placeOrder(cfg.pairsymb, 0, 0, json::Value(), orders.buy2->id, 0);
+								orders.buy2.reset();
+								logProgress("Canceled 2nd buy order because error $1",e.what());
+							}
 						}
-					} catch (std::exception &e) {
-						buy_order_error = e.what();
-						acceptLoss(status, 1);
 					}
-					try {
-						setOrder(orders.sell, sellorder, sell_alert, false);
-						if (!orders.sell.has_value()) {
-							acceptLoss(status, -1);
+					for (int _i=0;_i<2;_i++) {
+						try {
+							setOrder(orders.sell, sellorder, sell_alert, false);
+							if (!orders.sell.has_value()) {
+								acceptLoss(status, -1);
+							}
+							_i=1;
+						} catch (std::exception &e) {
+							if (!orders.sell2.has_value() || _i) {
+ 								sell_order_error = e.what();
+								acceptLoss(status,-1);
+								_i=1;
+							} else {
+								stock->placeOrder(cfg.pairsymb, 0, 0, json::Value(), orders.sell2->id, 0);
+								orders.sell2.reset();
+								logProgress("Canceled 2nd sell order because error $1",e.what());
+							}
 						}
-					} catch (std::exception &e) {
-						sell_order_error = e.what();
-						acceptLoss(status,-1);
 					}
 
 					if (buy_alert.has_value() && *buy_alert > status.ticker.bid) {
@@ -532,7 +552,7 @@ void MTrader::perform(bool manually) {
 			}
 
 			//report orders to UI
-			statsvc->reportOrders(orders.buy,orders.sell);
+			statsvc->reportOrders(1,orders.buy,orders.sell);
 			//report trades to UI
 			statsvc->reportTrades(position, trades);
 			//report price to UI
@@ -602,6 +622,7 @@ void MTrader::perform(bool manually) {
 			}
 		} else if (orders.buy2.has_value()) {
 			stock->placeOrder(cfg.pairsymb, 0, 0, json::Value(), orders.buy2->id, 0);
+			orders.buy2.reset();
 		}
 
 
@@ -618,7 +639,9 @@ void MTrader::perform(bool manually) {
 			}
 		} else 	if (orders.sell2.has_value()) {
 			stock->placeOrder(cfg.pairsymb, 0, 0, json::Value(), orders.sell2->id, 0);
+			orders.sell2.reset();
 		}
+		statsvc->reportOrders(2,orders.buy2,orders.sell2);
 
 
 

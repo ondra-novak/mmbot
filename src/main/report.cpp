@@ -72,12 +72,12 @@ void Report::sendStreamOrder(ME &me, const OKey &key, const OValue &data) {
 	});
 }
 
-void Report::setOrders(StrViewA symb, const std::optional<IStockApi::Order> &buy,
+void Report::setOrders(StrViewA symb, int n, const std::optional<IStockApi::Order> &buy,
 	  	  	  	  	  	  	  	     const std::optional<IStockApi::Order> &sell) {
 	const json::Value &info = infoMap[symb];
 	bool inverted = info["inverted"].getBool();
 
-	int buyid = inverted?-1:1;
+	int buyid = inverted?-n:n;
 
 	OKey buyKey {symb, buyid};
 	OKey sellKey {symb, -buyid};

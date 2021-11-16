@@ -33,9 +33,9 @@ public:
 			PPerfModule perfmod
 			) :rpt(rpt),name(name),perfmod(perfmod)  {}
 
-	virtual void reportOrders(const std::optional<IStockApi::Order> &buy,
+	virtual void reportOrders(int n, const std::optional<IStockApi::Order> &buy,
 							  const std::optional<IStockApi::Order> &sell) override {
-		rpt.lock()->setOrders(name, buy, sell);
+		rpt.lock()->setOrders(name, n, buy, sell);
 	}
 	virtual void reportTrades(double finalPos, ondra_shared::StringView<IStatSvc::TradeRecord> trades) override {
 		rpt.lock()->setTrades(name,finalPos, trades);

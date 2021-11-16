@@ -814,7 +814,9 @@ function app_start(){
 					class: dir,
 					norm: newnorm
 				})
-				ranges[o.symb][dir] = [o.price,o.size];
+				if (Math.abs(o.dir)<2) {
+				    ranges[o.symb][dir] = [o.price,o.size];
+				}
 			}) 
 			
 			for (var sm in stats.prices) if (infoMap[sm]) {
