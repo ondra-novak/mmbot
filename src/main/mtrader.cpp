@@ -955,7 +955,7 @@ MTrader::Order MTrader::calculateOrderFeeLess(
 	if ((order.price - curPrice) * dir < 0) {
 		if (calculateOrderFeeLessAdjust(order, balance, currency, dir, alerts, min_size)) skipcycle = true;;
 	}
-	double origOrderPrice = order.price;
+	double origOrderPrice = newPrice;
 
 
 	if (!skipcycle) {
