@@ -85,7 +85,10 @@ json::Value  ExtStockApi::placeOrder(const std::string_view & pair,
 
 
 bool ExtStockApi::reset() {
-	connection->housekeeping(5);
+	if (subaccount.empty()) {
+		//do housekeeping only if not subaccount, because subaccounts are always active
+		connection->housekeeping(5);
+	}
 	std::unique_lock _(connection->getLock());
 	//save housekeep counter to avoid reset treat as action
 	if (connection->isActive()) try {
