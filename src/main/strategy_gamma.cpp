@@ -334,7 +334,7 @@ Strategy_Gamma::NNRes Strategy_Gamma::calculateNewNeutral(double a, double price
 			newk = numeric_search_r2(0.5*state.k, [&](double k){
 				return cfg.intTable->calcBudget(calibK(k), state.w, state.p) - needb;
 			});
-			if (newk<state.k) newk = state.k;
+			if (newk<state.k) newk = (state.k+price)*0.5;
 		}
 	} else if (price < state.k){
 		if (cfg.maxrebalance && price > state.p) {
