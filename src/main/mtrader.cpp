@@ -112,7 +112,7 @@ MTrader::MTrader(IStockSelector &stock_selector,
 	//probe that broker is valid configured
 	stock->testBroker();
 	magic = this->statsvc->getHash() & 0xFFFFFFFF;
-	magic2 = ~magic; //magic number for secondary orders
+	magic2 = (~magic) & 0xFFFFFFFF;; //magic number for secondary orders
 	std::random_device rnd;
 	uid = 0;
 	while (!uid) {
