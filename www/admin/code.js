@@ -108,6 +108,7 @@ App.prototype.createTraderForm = function() {
 		form.showItem("strategy_hedge",state.strategy == "hedge");
 		form.showItem("strategy_sinhgen",state.strategy == "sinh_gen");
 		form.showItem("strategy_passive_income",state.strategy == "passive_income");
+		form.showItem("strategy_hodl_short",state.strategy == "hodlshort");
 		form.showItem("strategy_hyperbolic",["hyperbolic","linear","sinh","sinh_val","sinh2"].indexOf(state.strategy) != -1);
 		form.showItem("kv_valinc_h",state.strategy == "keepvalue");
 		form.showItem("show_curvature",["sinh","sinh_val","sinh2"].indexOf(state.strategy) != -1);
@@ -487,7 +488,7 @@ App.prototype.fillForm = function (src, trg) {
 			"hp_extbal", "hp_reduction","hp_dynred","sh_curv","gamma_exp","pincome_exp",
 			"gamma_trend","gamma_fn",
 			"shg_w","shg_p","shg_lp",
-			"pile_ratio"
+			"pile_ratio","hodlshort_z","hodlshort_wd"
 			]
 			.forEach(function(item){
 				trg.findElements(item).forEach(function(elem){
@@ -604,7 +605,9 @@ App.prototype.fillForm = function (src, trg) {
 	data.pile_accum=0;
 	data.kv2_accum=0;
 	data.kv2_chngtm=0;
-	data.kv2_boost=false;	
+	data.kv2_boost=false;
+	data.hodlshort_z = 1.0;
+	data.hodlshort_wd = 1.0;	
 
 	function powerCalc(x) {return adjNumN(Math.pow(10,x)*0.01);};
 
@@ -647,6 +650,9 @@ App.prototype.fillForm = function (src, trg) {
 		data.gamma_maxrebal = filledval(src.strategy.maxrebalance,false);
 	} else if (data.strategy == "passive_income") {
 		data.pincome_exp = filledval(src.strategy.exponent,40);
+	} else if (data.strategy == "hodlshort") {
+		data.hodlshort_z = filledval(src.strategy.z,1);
+		data.hodlshort_wd = filledval(src.strategy.wd,1);
 	} else if (data.strategy == "hedge") {
 		data.hedge_drop = filledval(src.strategy.drop,1);
 		data.hedge_long = filledval(src.strategy.long,true);
@@ -812,6 +818,12 @@ function getStrategyData(data, inv) {
 		strategy = {
 			type: data.strategy,
 			exponent: data.pincome_exp
+		};	
+	} else if (data.strategy == "hodlshort") {
+		strategy = {
+			type: data.strategy,
+			z: data.hodlshort_z,
+			wd: data.hodlshort_wd,
 		};	
 	} else if (data.strategy == "pile") {
 		strategy = {
@@ -1728,6 +1740,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		"gs_external_assets","gs_rb_hi_a","gs_rb_lo_a","gs_rb_hi_p","gs_rb_lo_p",
 		"min_balance","max_balance","max_leverage","reduce_on_leverage","gamma_exp","gamma_rebalance","gamma_trend","gamma_fn","gamma_reinvest","gamma_maxrebal",
 		"pincome_exp",
+		"hodlshort_z","hodlshort_wd",
 		"pile_accum","pile_ratio",
 		"kv2_accum","kv2_boost","kv2_chngtm",
 		"hedge_short","hedge_long","hedge_drop",

@@ -401,9 +401,8 @@ IStrategy::OrderData Strategy_Sinh_Gen::getNewOrder(
 	if (cfg.lazyopen && !st.rebalance && dir * assets > 0 && st.trades>1) {
 		//calc_price - use average spread instead current price
 		calc_price = getEquilibrium(assets) * std::exp(-dir*st.sum_spread/st.trades);
-		if ((calc_price > new_price && calc_price > cur_price) ||
-				(calc_price < new_price && calc_price < cur_price)) {
-			//however can go beyond new_price
+		if (calc_price*dir < new_price*dir) {
+			//however can't go beyond new_price
 			calc_price = new_price;
 		}
 	}

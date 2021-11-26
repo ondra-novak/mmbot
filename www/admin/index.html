@@ -69,6 +69,7 @@
 <option value="hypersquare">Hypersquare</option>
 <option value="exponencial">Exponencial</option>
 <option value="errorfn">Gauss/error function+rebalance</option>
+<option value="hodlshort">Hodl + short</option>
 <option value="gamma">Gamma</option>
 </optgroup>
 <optgroup label="Leveraged (advanced traders)">
@@ -233,14 +234,23 @@ to enter a negative value and then the value of the assets held will decrease an
 </x-section>
 
 <x-section data-name="strategy_passive_income" class="goal" hidden="hidden"><x-section-caption>Passive income</x-section-caption>
-<label><span>Exponent<span class="tooltip"></span></span><x-slider data-name="pincome_exp" data-min="1" data-max="60" data-mult="1" data-fixed="0"></label>
+<label><span>Exponent<span class="tooltip"></span></span><x-slider data-name="pincome_exp" data-min="1" data-max="60" data-mult="1" data-fixed="0"></x-slider></label>
+<div class="label"><span>Recomended initial position:</span><span data-name="range_initial">---</span></div>
+<div class="rightinfo"><button name="show_backtest" disabled="disabled">Backtest</button></div>
+</x-section>
+
+<x-section data-name="strategy_hodl_short" class="goal" hidden="hidden"><x-section-caption>Hodl and short</x-section-caption>
+<label><span>Exponent<span class="tooltip">Strenght of selling effect</span></span><x-slider data-name="hodlshort_z" data-min="0.01" data-max="2" data-mult="0.01" data-fixed="2"></x-slider></label>
+<label><span>Wideness (volatility) x<span class="tooltip">Specify wideness of trading channel.</span></span><x-slider data-name="hodlshort_wd" data-min="0.1" data-max="20" data-mult="0.1" data-fixed="1"></x-slider></label>
+<div class="label"><span>Min price:</span><span data-name="range_min_price">---</span></div>
+<div class="label"><span>Max price:</span><span data-name="range_max_price">---</span></div>
 <div class="label"><span>Recomended initial position:</span><span data-name="range_initial">---</span></div>
 <div class="rightinfo"><button name="show_backtest" disabled="disabled">Backtest</button></div>
 </x-section>
 
 
 <x-section data-name="strategy_hedge" class="goal" hidden="hidden"><x-section-caption>Hedge</x-section-caption>
-<label><span>Price change<span class="tooltip">How much the price need to drop from ATH or raise from ATL</span></span><x-slider data-name="hedge_drop" data-min="0" data-max="20" data-mult="0.1" data-fixed="1"></label>
+<label><span>Price change<span class="tooltip">How much the price need to drop from ATH or raise from ATL</span></span><x-slider data-name="hedge_drop" data-min="0" data-max="20" data-mult="0.1" data-fixed="1"></x-slider></label>
 <label><span>Trailing buy<span class="tooltip">Buy when price raises, sells when price drops</span></span><x-checkbox data-name="hedge_long"></label>
 <label><span>Trailing sell<span class="tooltip">Sell or open short when price going down and close when price goes up</span></span><x-checkbox data-name="hedge_short"></label>
 </x-section>

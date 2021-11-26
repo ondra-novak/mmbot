@@ -27,6 +27,7 @@
 #include "strategy_leveraged_base.tcc"
 #include "strategy_pile.h"
 #include "strategy_keepvalue2.h"
+#include "strategy_hodl_short.h"
 
 
 static json::NamedEnum<Strategy_Gamma::Function> strGammaFunction ({
@@ -147,6 +148,12 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 		cfg.h_short = config["short"].getBool();
 		cfg.ptc_drop = config["drop"].getNumber()*0.01;
 		return Strategy(new Strategy_Hedge(cfg));
+	} else if (id == Strategy_Hodl_Short::id) {
+		Strategy_Hodl_Short::Config cfg;
+		double wd = 1.0/config["wd"].getNumber();
+		double z = config["z"].getNumber();
+		cfg.intTable = std::make_shared<Strategy_Hodl_Short::IntegrationTable>(z,wd);
+		return Strategy(new Strategy_Hodl_Short(cfg));
 	} else if (id == "passive_income") {
 		Strategy_Gamma::Config cfg;
 		cfg.intTable = std::make_shared<Strategy_Gamma::IntegrationTable>(Strategy_Gamma::Function::halfhalf,config["exponent"].getNumber());
