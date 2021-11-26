@@ -278,7 +278,7 @@ IStockApi::Orders Interface::getOpenOrders(const std::string_view &pair) {
 		auto code = ord["Code"];
 		return Order{
 			code,
-			orderDB.get(code),
+			orderDB.getAndMark(code),
 			(ord["Type"].getString() == "sell"?-1:1)*ord["Amount"].getNumber(),
 			ord["LimitPrice"].getNumber()
 		};

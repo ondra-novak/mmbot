@@ -322,7 +322,7 @@ IStockApi::Orders Interface::getOpenOrders(const std::string_view &pair) {
 	for (Value v: data) {
 		if ((m && v[8].getString() == "LIMIT") || (!m && v[8].getString() == "EXCHANGE LIMIT")) {
 			int cid = v[2].getInt();
-			Value clientId = orderDB.get(cid);
+			Value clientId = orderDB.getAndMark(cid);
 			out.push_back({
 				v[0],
 				clientId,

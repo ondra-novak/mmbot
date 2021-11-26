@@ -437,7 +437,7 @@ IStockApi::Orders Interface::getOpenOrders(const std::string_view &pair) {
 	return mapJSON(data, [&](const Value row){
 		Order ord;
 		Value descr = row["descr"];
-		ord.client_id = orderDB.get({pair,row["userref"].getIntLong()});
+		ord.client_id = orderDB.getAndMark({pair,row["userref"].getIntLong()});
 		ord.id = row.getKey();
 		ord.price = descr["price"].getNumber();
 		ord.size = row["vol"].getNumber() - row["vol_exec"].getNumber();

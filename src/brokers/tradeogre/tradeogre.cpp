@@ -275,8 +275,7 @@ IStockApi::Orders TradeOgreIFC::getOpenOrders(const std::string_view &pair) {
 	});
 	return mapJSON(orders,[&](Value rw){
 		Value uuid = rw["uuid"];
-		orderDB.mark(uuid);
-		Value clientId = orderDB.get(uuid);
+		Value clientId = orderDB.getAndMark(uuid);
 		double price = rw["price"].getNumber();
 		double size = rw["quantity"].getNumber();
 		int dir = rw["type"].getString() == "sell"?-1:1;
