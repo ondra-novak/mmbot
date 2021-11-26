@@ -75,7 +75,7 @@ std::pair<IStrategy::OnTradeResult, ondra_shared::RefCntPtr<const IStrategy> > S
 
 	double chg = -tradePrice * tradeSize;
 	double c1 = cfg.intTable->calcCurrency(st.k, st.w, st.lastp);
-	double a2 = cfg.intTable->calcAssets(st.k, st.w, tradePrice);
+//	double a2 = cfg.intTable->calcAssets(st.k, st.w, tradePrice);
 	double newk = std::min(tradePrice,tradeSize?calcNewK( tradePrice):st.k);
 
 	double c2 = cfg.intTable->calcCurrency(newk, st.w, tradePrice);
