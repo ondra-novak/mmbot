@@ -103,7 +103,7 @@ public:
 
 protected:
 
-	double calculatePosition(double a,double price) const;
+	double calculatePosition(double a,double price, double minsize) const;
 	Strategy_Gamma init(const IStockApi::MarketInfo &minfo, double price, double assets, double currency) const;
 	double calculateCurPosition() const;
 
@@ -111,7 +111,7 @@ protected:
 		double k;
 		double w;
 	};
-	NNRes calculateNewNeutral(double a, double price) const;
+	NNRes calculateNewNeutral(double a, double price, double min_order_size) const;
 
 	double calibK(double k) const;
 

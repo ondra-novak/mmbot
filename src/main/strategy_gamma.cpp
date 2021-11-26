@@ -39,11 +39,15 @@ static double roundZero(double finpos, const IStockApi::MarketInfo &minfo, doubl
 	return finpos;
 }
 
+static double calcMinOrderSize(const IStockApi::MarketInfo &minfo, double price) {
+	return std::max({minfo.asset_step, minfo.min_size, minfo.min_volume/price});
+}
+
 
 IStrategy::OrderData Strategy_Gamma::getNewOrder(
 		const IStockApi::MarketInfo &minfo, double cur_price, double new_price,
 		double dir, double assets, double currency, bool rej) const {
-	double newPos = calculatePosition(assets,new_price);
+	double newPos = calculatePosition(assets,new_price, calcMinOrderSize(minfo, new_price));
 	double newPosz = roundZero(newPos, minfo, new_price, currency);
 	double dff = newPosz - assets;
 	double dffz = roundZero(dff, minfo, new_price, currency);
@@ -57,6 +61,7 @@ double Strategy_Gamma::calculateCurPosition() const {
 	return cfg.intTable->calcAssets(state.kk, state.w, state.p );
 }
 
+
 std::pair<IStrategy::OnTradeResult, ondra_shared::RefCntPtr<const IStrategy> > Strategy_Gamma::onTrade(
 		const IStockApi::MarketInfo &minfo, double tradePrice, double tradeSize,
 		double assetsLeft, double currencyLeft) const {
@@ -66,7 +71,7 @@ std::pair<IStrategy::OnTradeResult, ondra_shared::RefCntPtr<const IStrategy> > S
 
 	double cur_pos = assetsLeft - tradeSize;
 
-	auto nn = calculateNewNeutral(cur_pos, tradePrice);
+	auto nn = calculateNewNeutral(cur_pos, tradePrice, calcMinOrderSize(minfo, tradePrice));
 	if (tradeSize == 0 && std::abs(nn.k-tradePrice)>std::abs(state.k - tradePrice)) {
 		nn.k = state.k;
 		nn.w = state.w;
@@ -305,7 +310,7 @@ double Strategy_Gamma::IntegrationTable::get(double x) const {
 }
 
 
-Strategy_Gamma::NNRes Strategy_Gamma::calculateNewNeutral(double a, double price) const {
+Strategy_Gamma::NNRes Strategy_Gamma::calculateNewNeutral(double a, double price, double min_order_size) const {
 	if ((price-state.k)*(state.p - state.k) < 0) {
 		return {state.k, state.w};
 	}
@@ -334,7 +339,8 @@ Strategy_Gamma::NNRes Strategy_Gamma::calculateNewNeutral(double a, double price
 			newk = numeric_search_r2(0.5*state.k, [&](double k){
 				return cfg.intTable->calcBudget(calibK(k), state.w, state.p) - needb;
 			});
-			if (newk<state.k) newk = (state.k+price)*0.5;
+			if (newk<state.k /*&& cfg.intTable->calcAssets(newk, state.w, price)<min_order_size*/)
+				newk = (3*state.k+price)*0.25;
 		}
 	} else if (price < state.k){
 		if (cfg.maxrebalance && price > state.p) {
@@ -377,8 +383,8 @@ Strategy_Gamma::NNRes Strategy_Gamma::calculateNewNeutral(double a, double price
 
 }
 
-double Strategy_Gamma::calculatePosition(double a,double price) const  {
-	auto newk = calculateNewNeutral(a, price);
+double Strategy_Gamma::calculatePosition(double a,double price, double minsize) const  {
+	auto newk = calculateNewNeutral(a, price, minsize);
 	double newkk = calibK(newk.k);
 	return cfg.intTable->calcAssets(newkk, newk.w, price);
 }
