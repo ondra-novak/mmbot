@@ -751,6 +751,7 @@ the same order, they are ordered by its ID - this is the default ordering. Modif
     data-access_control="Access control"
     data-options="Options"
     data-wallet="Wallets"
+    data-messages="Messages"
     data-global_stop_confirm="Temporarily stops trading for all configured traders  and cancels all their orders. To re-enable trading, you have to click Apply button"
     data-conflict1="Configuration has been modified externally and cannot be overwritten."
     data-conflict2="Reload the configuration?"
@@ -1051,6 +1052,23 @@ the same order, they are ordered by its ID - this is the default ordering. Modif
 </div>
 </div>
 
+</template>
+
+<template id="news_messages">
+<div class="newsmessages">
+<div class="buttons">
+<button data-name="mark">Mark read</button>
+<button data-name="reload">Reload</button>
+<button data-name="goto">Open platform</button>
+</div>
+<div data-name="items[]" class="item">
+<div class="row">
+	<span data-name="date"></span>
+	<span data-name="topic"></span>
+</div>
+<div data-name="body" class="body"></div>
+</div>
+</div>
 </template>
 
 <script src="../res/template.js" type="text/javascript"></script>

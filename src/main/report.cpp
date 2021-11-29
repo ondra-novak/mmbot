@@ -42,7 +42,7 @@ json::Value Report::genReport_noStore() {
 	st.set("log", logLines);
 	st.set("performance", perfRep);
 	st.set("version", MMBOT_VERSION);
-	if (!news_url.empty()) st.set("news_url",news_url);
+	st.set("news", newsMessages);
 	return st;
 }
 
@@ -515,7 +515,6 @@ void Report::sendStreamGlobal(ME &me) const {
 		{"type","config"},
 		{"data",Object{
 			{"interval", interval_in_ms},
-			{"news_url",news_url.empty()?json::undefined:Value(news_url)}
 		}}
 	});
 	me.sendStream(Object{
@@ -552,6 +551,25 @@ json::Value Report::OValue::toJson() const {
 	});
 }
 
+void Report::setNewsMessages(unsigned int count) {
+	newsMessages = count;
+	sendNewsMessages(*this);
+
+
+}
+template<typename ME>
+void Report::sendNewsMessages(ME &me) const {
+	me.sendStream(
+			json::Object{
+				{"type","news"},
+				{"data",json::Object{
+					{"count", newsMessages}
+				}}
+
+			});
+
+}
+
 bool Report::stream_refresh(Stream &stream) const  {
 	class Helper {
 	public:
@@ -583,5 +601,6 @@ bool Report::stream_refresh(Stream &stream) const  {
 	for (const auto &item: orderMap) {
 		sendStreamOrder(hlp,item.first, item.second);
 	}
+	sendNewsMessages(hlp);
 	return hlp.ok;
 }

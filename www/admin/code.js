@@ -149,24 +149,31 @@ App.prototype.createTraderList = function(form) {
 	items.sort(function(a,b) {
 		return a.broker.localeCompare(b.broker);
 	});
+	if (this.news) {
+		items.unshift({
+			"image":"../res/messages.png",
+			"caption":this.strtable.messages,				
+			"id":"internal/news"	
+		});
+	}
 	items.unshift({
 		"image":"../res/wallet.png",
 		"caption":this.strtable.wallet,				
 		"id":"internal/wallet"		
-	})
+	});
 
 	items.unshift({
 		"image":"../res/options.png",
 		"caption":this.strtable.options,				
 		"id":"internal/options"
 		
-	})
+	});
 	items.unshift({
 		"image":"../res/security.png",
 		"caption":this.strtable.access_control,				
 		"id":"internal/security"
 		
-	})
+	});
 	items.push({
 		"image":"../res/add_icon.png",
 		"caption":"New trader",				
@@ -215,7 +222,14 @@ App.prototype.createTraderList = function(form) {
 				nf = this.walletForm();
 				this.desktop.setItemValue("content", nf);
 				this.curForm = nf;
-
+			} else if (iid == 'news') {
+				if (this.curForm) {
+					this.curForm.save();				
+					this.curForm = null;
+				}
+				nf = this.messagesForm();
+				this.desktop.setItemValue("content", nf);
+				this.curForm = nf;
 			} else if (iid == "add") {
 				this.brokerSelect().then(this.pairSelect.bind(this)).then(function(res) {
 					var broker = res[0];
@@ -953,9 +967,14 @@ App.prototype.init = function() {
 	top_panel.setItemEvent("login","click", function() {
 		location.href="api/login";
 	});
+		
 	
-	
-	return this.loadConfig().then(function() {
+	return Promise.all([
+	        this.loadConfig(),
+	        fetch("api/news")]
+	      ).then(function(x) {
+	    this.news = x[1].status == 200;
+	    if (this.news) this.news_content = x[1].json();
 		top_panel.showItem("login",false);
 		top_panel.showItem("save",true);
 		var menu = this.createTraderList();
@@ -2491,10 +2510,76 @@ App.prototype.optionsForm = function() {
 		clearInterval(tm);
 		var data = form.readData();		
 		this.config.report_interval = data.report_interval*86400000;
-		this.config.backtest_interval = data.backtest_interval*86400000;
+		this.config.backt
+		est_interval = data.backtest_interval*86400000;
 	}.bind(this);
 	return form;
 	
+}
+
+App.prototype.messagesForm = function() {
+	var form = TemplateJS.View.fromTemplate("news_messages");
+	var me = this;
+	form.save = function(){};
+	function update(src) {
+		var data = {};
+		var newest = src.items.reduce(function(a,b){
+			return b.time>a?b.time:a;
+		},0);
+		data.mark = {
+			".disabled": !src.items.find(function(x){return x.unread;}),
+			"!click": function() {
+				fetch("api/news",{
+					"method":"POST",
+					"body":JSON.stringify(newest+1)
+				}).then(function(e){
+					if (e.status != 202) {
+						fetch_error(e);
+					} else {
+						form.setData({"items":[]});
+						me.news_content = fetch_with_error("api/news")
+						me.news_content.then(update);
+					}
+				});
+			}
+		};
+		data.goto = {
+			"value":src.title,
+			"!click":function() {
+				window.open(src.url)
+			}
+		};
+		data.reload = {
+			"!click": function() {
+				form.setData({"items":[]});
+				me.news_content =fetch_with_error("api/news");
+				me.news_content.then(update);
+			}
+		};
+		data.items = src.items.sort(function(a,b){
+			return b.time-a.time;
+		}).map(function(x){
+			return {
+				"":{
+					classList:{
+						unread: x.unread,
+						hl: x.hl
+					}
+				},
+				"date":(new Date(x.time)).toLocaleDateString(),
+				"topic":x.title,
+				"body":x.body,
+			};
+		});
+		form.setData(data);						
+		var elem = form.getRoot().getElementsByClassName("item");
+		Array.prototype.forEach.call(elem,function(e) {
+			e.innerHTML = e.innerHTML.replace(/(https:\/\/[^\s]+)/g, "<a href='$1' target='_blank'>$1</a>");
+		});
+		
+	}
+	this.news_content.then(update)
+	return form;
 }
 
 App.prototype.walletForm = function() {

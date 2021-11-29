@@ -28,7 +28,7 @@ namespace json {
 
 struct ReportConfig {
 	std::size_t interval_in_ms;
-	std::string news_url;
+
 };
 
 
@@ -47,7 +47,6 @@ public:
 
 	Report(StoragePtr &&report, const ReportConfig &cfg)
 		:report(std::move(report)),interval_in_ms(cfg.interval_in_ms)
-		,news_url(cfg.news_url)
 		,counter(initCounter()){}
 
 	void addStream(Stream &&stream);
@@ -71,6 +70,7 @@ public:
 	void clear();
 
 	void perfReport(json::Value report);
+	void setNewsMessages(unsigned int count);
 
 	virtual void setError(StrViewA symb, const ErrorObj &errorObj);
 
@@ -113,6 +113,7 @@ protected:
 
 	StoragePtr report;
 	std::vector<Stream> streams;
+	unsigned int newsMessages = 0;
 
 	void sendStream(const json::Value &v);
 
@@ -123,7 +124,6 @@ protected:
 	void exportPrices(json::Object &&out);
 	void exportMisc(json::Object &&out);
 	std::uint64_t interval_in_ms;
-	std::string news_url;
 
 	std::size_t counter;
 
@@ -140,6 +140,7 @@ protected:
 	template<typename ME> static void sendStreamPrice(ME &me, const std::string_view &symb, double data);
 	template<typename ME> static void sendStreamError(ME &me, const std::string_view &symb, const json::Value &obj);
 	template<typename ME> void sendStreamGlobal(ME &me) const;
+	template<typename ME> void sendNewsMessages(ME &me) const;
 };
 
 

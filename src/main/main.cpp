@@ -332,7 +332,7 @@ int main(int argc, char **argv) {
 
 						StorageFactory rptf(rptpath,2,Storage::json);
 
-						PReport rpt = PReport::make(rptf.create("report.json"), ReportConfig{rptinterval,news_url});
+						PReport rpt = PReport::make(rptf.create("report.json"), ReportConfig{rptinterval});
 
 
 						PPerfModule perfmod;
@@ -367,7 +367,7 @@ int main(int argc, char **argv) {
 								jwt=AuthMapper::initJWT(jwt_type, jwt_pubkey);
 							}
 						}
-						SharedObject<WebCfg::State> webcfgstate = SharedObject<WebCfg::State>::make(sf->create("web_admin_conf"),new AuthUserList, new AuthUserList,backtest_cache_size,backtest_in_memory);
+						SharedObject<WebCfg::State> webcfgstate = SharedObject<WebCfg::State>::make(sf->create("web_admin_conf"),new AuthUserList, new AuthUserList,backtest_cache_size,backtest_in_memory,std::string(news_url));
 						webcfgstate.lock()->setAdminAuth(webadmin_auth);
 						webcfgstate.lock()->applyConfig(traders);
 						aul = webcfgstate.lock_shared()->users;
@@ -481,6 +481,18 @@ int main(int argc, char **argv) {
 							sch.each(std::chrono::seconds(30)) >> [=]()mutable{
 								rpt.lock()->pingStreams();
 							};
+
+							if (webcfgstate.lock_shared()->isNewsConfigured()) {
+
+								auto checkNews = [=]() mutable {
+									json::Value v = webcfgstate.lock_shared()->loadNews(false);
+									unsigned int count = v["items"].size();
+									rpt.lock()->setNewsMessages(count);
+								};
+
+								sch.each(std::chrono::minutes(10)) >> checkNews;
+								sch.immediate() >> checkNews;
+							}
 
 							return 0;
 						};

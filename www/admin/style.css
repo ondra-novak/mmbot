@@ -1410,6 +1410,38 @@ x-section-caption img {
     background: linear-gradient(to right,#ffffff73,#ffffff00);
 }
 
+.newsmessages {
+    color: #90905f;
+}
+.newsmessages .buttons {
+    text-align: center;
+    margin: 1em;
+}
+.newsmessages .item {
+    border-top: 1px solid;
+    padding: 1em;
+    opacity: 0.5;
+}
+.newsmessages .item.unread {background-color: #000;opacity: 1;}
+.newsmessages .item.hl {
+	color: white;
+}
+ 
+.newsmessages .item .row {
+	display: flex;
+	margin-bottom: 1em;
+	gap: 1em;
+	font-weight: bold;
+	color: #ebebb9;
+}
+.newsmessages .item.hl .row {
+	color: white;
+}
+
+.newsmessages .item .body {
+	white-space: pre-line;
+}
+
 @media all and (max-width: 15cm) { 
 
 .pairactions img {width: 1.3cm;height: 1.3cm;margin: -0.1cm;}

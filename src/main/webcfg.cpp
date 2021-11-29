@@ -14,6 +14,7 @@
 #include <imtjson/array.h>
 #include <imtjson/object.h>
 #include <imtjson/string.h>
+#include "../brokers/httpjson.h"
 #include "../imtjson/src/imtjson/binary.h"
 #include "../imtjson/src/imtjson/ivalue.h"
 #include "../imtjson/src/imtjson/parser.h"
@@ -53,7 +54,8 @@ NamedEnum<WebCfg::Command> WebCfg::strCommand({
 	{WebCfg::btdata, "btdata"},
 	{WebCfg::visstrategy, "visstrategy"},
 	{WebCfg::utilization, "utilization"},
-	{WebCfg::progress, "progress"}
+	{WebCfg::progress, "progress"},
+	{WebCfg::news, "news"}
 });
 
 WebCfg::WebCfg( const SharedObject<State> &state,
@@ -112,6 +114,7 @@ bool WebCfg::operator ()(const simpleServer::HTTPRequest &req,
 		case visstrategy: return reqVisStrategy(req, qp);
 		case utilization: return reqUtilization(req, qp);
 		case progress: return reqProgress(req,rest);
+		case news: return reqNews(req);
 		}
 	}
 	return false;
@@ -170,8 +173,11 @@ bool WebCfg::reqConfig(simpleServer::HTTPRequest req)  {
 						return;
 					}
 				}
-				data = data.replace("revision", lkst->write_serial+1);
-				data = data.replace("brokers", lkst->broker_config);
+				data.setItems({
+					{"revision",lkst->write_serial+1},
+					{"brokers", lkst->broker_config},
+					{"news_tm", lkst->news_tm}
+				});
 				Value apikeys = data["apikeys"];
 				lkst->config->store(data.replace("apikeys", Value()));
 				lkst->write_serial = serial+1;;
@@ -834,6 +840,7 @@ void WebCfg::State::applyConfig(SharedObject<Traders>  &st) {
 	if (newInterval.defined()) {
 		t->rpt.lock()->setInterval(newInterval.getUInt());
 	}
+	news_tm = data["news_tm"];
 }
 
 void WebCfg::State::setAdminAuth(const std::string_view &auth) {
@@ -2172,3 +2179,70 @@ void WebCfg::processBrokerHistory(simpleServer::HTTPRequest req,
 	}
 }
 
+bool WebCfg::reqNews(simpleServer::HTTPRequest req) {
+	if (!state.lock_shared()->isNewsConfigured()) return false;
+	if (!req.allowMethods({"GET","POST"})) return true;
+	if (req.getMethod() =="GET") {
+		auto resp = state.lock_shared()->loadNews(true);
+		Stream s = req.sendResponse(simpleServer::HTTPResponse(200)
+			.contentType("application/json")
+			.disableCache());
+		resp.serialize(s);
+		s.flush();
+		return true;
+	} else 	if (req.getMethod() =="POST") {
+		try {
+			auto dta = Value::parse(req.getBodyStream());
+			if (dta.type() == json::number) {
+				state.lock()->markNewsRead(dta);
+				req.sendErrorPage(202);
+				auto rpt = trlist.lock_shared()->rpt;
+				rpt.lock()->setNewsMessages(0);
+			} else {
+				req.sendErrorPage(400);
+			}
+		} catch (json::ParseError &e) {
+			req.sendErrorPage(400);
+		}
+		return true;
+	} else {
+		return false;
+	}
+}
+
+json::Value WebCfg::State::loadNews(bool all) const {
+	std::string url = news_url;
+	String tm;
+	if (!all && news_tm.defined()) {
+		tm = news_tm.toString();
+	}
+	auto p = url.find("${tm}");
+	if (p != url.npos) {
+		url = url.substr(0,p).append(tm.str()).append(url.substr(p+5));
+	}
+		HTTPJson httpc(simpleServer::HttpClient("", simpleServer::newHttpsProvider()),"");
+	json::Value v = httpc.GET(url);
+	if (all) {
+		auto tm = news_tm.getUIntLong();
+		v = v.replace("items", v["items"].map([&](json::Value z){
+			return z.replace("unread",z["time"].getUIntLong() >= tm);
+		}));
+	}
+	return v;
+
+}
+
+bool WebCfg::State::isNewsConfigured() const {
+	return !news_url.empty();
+}
+
+void WebCfg::State::markNewsRead(json::Value tm) {
+	news_tm = tm;
+	auto data = config->load();
+	if (data["news_tm"] != tm) {
+		data.setItems({
+			{"news_tm", tm}
+		});
+		config->store(data);
+	}
+}

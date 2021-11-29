@@ -1265,3 +1265,9 @@ body.daymode table.extended td:nth-child(4) b::after {
 	margin: 1em;
 	text-align: center;	
 }
+
+#newsbox{padding: 0.2em;border-top: 1px solid;border-bottom: 1px solid;position: sticky;bottom: 0;background-color: #5e3204;z-index: 2000;font-weight: bold;color: #e9e9a4;}
+
+
+#newsbox > a{white-space: nowrap;display: block;text-align: center;overflow: hidden;text-overflow: ellipsis;color: currentColor;}
+

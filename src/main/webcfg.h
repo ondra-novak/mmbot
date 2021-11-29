@@ -82,17 +82,21 @@ public:
 		PricesCache prices_cache;
 		std::map<std::size_t,std::pair<json::Value,bool> > progress_map;
 		SharedObject<BacktestStorage> backtest_storage;
+		std::string news_url;
+		json::Value news_tm;
 
 		State( PStorage &&config,
 			  ondra_shared::RefCntPtr<AuthUserList> users,
 			  ondra_shared::RefCntPtr<AuthUserList> admins,
 			  std::size_t backtest_cache_size,
-			  bool backtest_in_memory
+			  bool backtest_in_memory,
+			  std::string news_url
 			):
 				  config(std::move(config)),
 				  users(users),
 				  admins(admins),
-				  backtest_storage(SharedObject<BacktestStorage>::make(backtest_cache_size,backtest_in_memory))
+				  backtest_storage(SharedObject<BacktestStorage>::make(backtest_cache_size,backtest_in_memory)),
+				  news_url(news_url)
 		{
 		}
 
@@ -112,6 +116,10 @@ public:
 		void clearProgress(std::size_t i);
 		json::Value getProgress(std::size_t i) const;
 		void stopProgress(std::size_t i) ;
+
+		json::Value loadNews(bool all) const;
+		bool isNewsConfigured() const;
+		void markNewsRead(json::Value tm);
 	};
 
 
@@ -158,7 +166,8 @@ public:
 		btdata,
 		visstrategy,
 		utilization,
-		progress
+		progress,
+		news
 	};
 
 	AuthMapper auth;
@@ -187,6 +196,7 @@ protected:
 	bool reqVisStrategy(simpleServer::HTTPRequest req,  simpleServer::QueryParser &qp);
 	bool reqUtilization(simpleServer::HTTPRequest req,  simpleServer::QueryParser &qp);
 	bool reqProgress(simpleServer::HTTPRequest req, ondra_shared::StrViewA rest);
+	bool reqNews(simpleServer::HTTPRequest req);
 
 	using Sync = std::unique_lock<std::recursive_mutex>;
 
