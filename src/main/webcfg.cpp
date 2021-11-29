@@ -2212,23 +2212,39 @@ bool WebCfg::reqNews(simpleServer::HTTPRequest req) {
 
 json::Value WebCfg::State::loadNews(bool all) const {
 	std::string url = news_url;
-	String tm;
-	if (!all && news_tm.defined()) {
-		tm = news_tm.toString();
+	try {
+		String tm;
+		if (!all && news_tm.defined()) {
+			tm = news_tm.toString();
+		}
+		auto p = url.find("${tm}");
+		if (p != url.npos) {
+			url = url.substr(0,p).append(tm.str()).append(url.substr(p+5));
+		}
+			HTTPJson httpc(simpleServer::HttpClient("", simpleServer::newHttpsProvider()),"");
+		json::Value v = httpc.GET(url);
+		if (all) {
+			auto tm = news_tm.getUIntLong();
+			v = v.replace("items", v["items"].map([&](json::Value z){
+				return z.replace("unread",z["time"].getUIntLong() >= tm);
+			}));
+		}
+		return v;
+	} catch (std::exception &e) {
+		return Object {
+			{"title","Error"},
+			{"src","."},
+			{"items",{
+				Object {
+					{"title","Unable to download news: " + url},
+					{"body",e.what()},
+					{"time",0},
+					{"unread",true},
+					{"hl",true}
+				}
+			}}
+		};
 	}
-	auto p = url.find("${tm}");
-	if (p != url.npos) {
-		url = url.substr(0,p).append(tm.str()).append(url.substr(p+5));
-	}
-		HTTPJson httpc(simpleServer::HttpClient("", simpleServer::newHttpsProvider()),"");
-	json::Value v = httpc.GET(url);
-	if (all) {
-		auto tm = news_tm.getUIntLong();
-		v = v.replace("items", v["items"].map([&](json::Value z){
-			return z.replace("unread",z["time"].getUIntLong() >= tm);
-		}));
-	}
-	return v;
 
 }
 

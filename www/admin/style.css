@@ -1418,9 +1418,37 @@ x-section-caption img {
     margin: 1em;
 }
 .newsmessages .item {
-    border-top: 1px solid;
-    padding: 1em;
+    border-top: 1px solid #ccc;
+    padding: 0 1em;
     opacity: 0.5;
+    max-height: 3em;
+    overflow: hidden;
+    transition: 0.5s max-height;
+    box-sizing:border-box;
+    position: relative;
+}
+
+.newsmessages .item::before {
+	content:"▶";
+	display: block;
+	position: absolute;
+	width: 1em;
+	height: 1em;
+	top: 1em;
+	left: 0.5em;
+	transform: rotate(0deg);
+	transition: 0.25s transform;
+	line-height: 1em;
+	text-align: center;
+	pointer-events: none;
+}
+
+.newsmessages .item.open::before {
+		transform: rotate(90deg);
+}
+
+.newsmessages .item.open {
+	max-height: 50em;
 }
 .newsmessages .item.unread {background-color: #000;opacity: 1;}
 .newsmessages .item.hl {
@@ -1429,17 +1457,28 @@ x-section-caption img {
  
 .newsmessages .item .row {
 	display: flex;
-	margin-bottom: 1em;
 	gap: 1em;
 	font-weight: bold;
 	color: #ebebb9;
+	cursor: pointer;
+	height: 3em;
+	align-items: center;
+	justify-content: flex-start;
 }
+
+.newsmessages .item .row  span:first-child {
+	white-space: pre;
+	text-align: right;
+	width: 7em;
+}
+
 .newsmessages .item.hl .row {
 	color: white;
 }
 
 .newsmessages .item .body {
 	white-space: pre-line;
+	padding-bottom: 1em;
 }
 
 @media all and (max-width: 15cm) { 

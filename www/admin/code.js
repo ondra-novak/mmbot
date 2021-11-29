@@ -2523,11 +2523,12 @@ App.prototype.messagesForm = function() {
 	form.save = function(){};
 	function update(src) {
 		var data = {};
-		var newest = src.items.reduce(function(a,b){
+		var items = src.items || [];
+		var newest = items.reduce(function(a,b){
 			return b.time>a?b.time:a;
 		},0);
 		data.mark = {
-			".disabled": !src.items.find(function(x){return x.unread;}),
+			".disabled": !items.find(function(x){return x.unread;}),
 			"!click": function() {
 				fetch("api/news",{
 					"method":"POST",
@@ -2556,7 +2557,7 @@ App.prototype.messagesForm = function() {
 				me.news_content.then(update);
 			}
 		};
-		data.items = src.items.sort(function(a,b){
+		data.items = items.sort(function(a,b){
 			return b.time-a.time;
 		}).map(function(x){
 			return {
@@ -2566,13 +2567,18 @@ App.prototype.messagesForm = function() {
 						hl: x.hl
 					}
 				},
+				"rowx":{								
+					"!click": function() {
+						this.parentElement.classList.toggle("open");					
+					}
+				},
 				"date":(new Date(x.time)).toLocaleDateString(),
 				"topic":x.title,
 				"body":x.body,
 			};
 		});
 		form.setData(data);						
-		var elem = form.getRoot().getElementsByClassName("item");
+		var elem = form.getRoot().getElementsByClassName("body");
 		Array.prototype.forEach.call(elem,function(e) {
 			e.innerHTML = e.innerHTML.replace(/(https:\/\/[^\s]+)/g, "<a href='$1' target='_blank'>$1</a>");
 		});
