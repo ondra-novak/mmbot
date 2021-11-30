@@ -66,10 +66,9 @@
 <option value="pile">Pile strategy (improved Half-Half)</option>
 <option value="keepvalue2">Keep Value</option>
 <option value="conststep" data-hidden="true">Linear costs</option>
-<option value="hypersquare">Hypersquare</option>
-<option value="exponencial">Exponencial</option>
+<option value="hypersquare" data-hidden="true">Hypersquare</option>
+<option value="exponencial" data-hidden="true">Exponencial</option>
 <option value="errorfn">Gauss/error function+rebalance</option>
-<option value="hodlshort">Hodl + short</option>
 <option value="gamma">Gamma</option>
 </optgroup>
 <optgroup label="Leveraged (advanced traders)">
@@ -79,14 +78,15 @@
 </optgroup>
 <optgroup label="Experimental">
 <option value="passive_income">Passive Income</option>
+<option value="hodlshort">Hodl + short</option>
 </optgroup>
 <optgroup label="Utility">
 <option value="keep_balance">Keep balance</option>
-<option value="hedge">Hedge</option>
+<option value="hedge" data-hidden="true">Hedge</option>
 </optgroup>
 <optgroup label="Old and obsolete">
-<option value="halfhalf">Half-Half</option>
-<option value="keepvalue">Keep Value (old)</option>
+<option value="halfhalf" data-hidden="true">Half-Half</option>
+<option value="keepvalue" data-hidden="true">Keep Value (old)</option>
 </optgroup>
 </select></label>
 <div class="label strategygoal"><span>Startegy Goal:</span><div data-name="help_goal">
@@ -100,6 +100,7 @@
 <div class="gamma">A spot strategy to maximize yield in small price range, includes rebalance and reduction features.</div>
 <div class="passive_income">Experimental strategy complete built to generate profit through the budget extra. When the price raises, it extends the budget, when the price falls, its shrinks the budget, always increasing the extra budget. Note that when the price only falls, the most of profit is actually made by releasing already invested money, not an actual profit, and in compare to a hodl strategy, this can result to worse performance. However who know whether the price will raise back ever</div>
 <div class="sinh_gen">It is based on the ATL (Adding to loser) strategy. However, it uses a clever mathematical system to reduce the overall growing position in trend markets. You should always use the backtest function to find the optimal setting for your market. The strategy has no other protection against events, such as margin calls and liquidation. You can only set the maximum leverage, which is not complete protection. This strategy can bring a very good profit, but also includes a high risk and a high probability of losing the entire account. Don't put all your money into leverage trading! </div>
+<div class="hodlshort">Sell assets at a rising price, but buy back to the original quantity with a falling price. Neutral price indicates where the strategy fully buys the original deposit. You can use the strategy to hold assets (HODL) and to make a profit from trading. Selling an asset corresponds to its short and closing the short at a lower price (even at the spot). Profit comes mainly from buying at a lower price.</div>
 </div></div>
 <div class="label"><span>Options</span><div>
 <div><x-checkbox data-name="enabled">Enable automatic trading</x-checkbox></div>

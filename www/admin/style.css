@@ -1155,6 +1155,7 @@ label span:hover span.tooltip, div.label span:hover span.tooltip, span.tooltipan
 .strategygoal > div.sinh_gen > div.sinh_gen {display:block;}
 .strategygoal > div.sinh > div.sinh_gen {display:block;}
 .strategygoal > div.sinh_val > div.sinh_gen {display:block;}
+.strategygoal > div.hodlshort > div.hodlshort {display: block;}
 
 x-form.trading .buttons {text-align: center;}
 x-form.trading .buttons button {width: 40%}
