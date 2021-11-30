@@ -2463,7 +2463,6 @@ App.prototype.optionsForm = function() {
 	var form = TemplateJS.View.fromTemplate("options_form");
 	var data = {
 			report_interval: defval(this.config.report_interval,864000000)/86400000,
-			backtest_interval: defval(this.config.backtest_interval,864000000)/86400000,
 			stop:{"!click": function() {
 					this.waitScreen(fetch_with_error("api/stop",{"method":"POST"}));
 					for (var x in this.traders) this.stopped[x] = true;
@@ -2510,8 +2509,6 @@ App.prototype.optionsForm = function() {
 		clearInterval(tm);
 		var data = form.readData();		
 		this.config.report_interval = data.report_interval*86400000;
-		this.config.backt
-		est_interval = data.backtest_interval*86400000;
 	}.bind(this);
 	return form;
 	

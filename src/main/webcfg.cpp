@@ -841,6 +841,9 @@ void WebCfg::State::applyConfig(SharedObject<Traders>  &st) {
 		t->rpt.lock()->setInterval(newInterval.getUInt());
 	}
 	news_tm = data["news_tm"];
+	if (!news_tm.defined()) {
+		news_tm = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+	}
 }
 
 void WebCfg::State::setAdminAuth(const std::string_view &auth) {
