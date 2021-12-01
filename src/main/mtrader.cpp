@@ -498,11 +498,8 @@ void MTrader::perform(bool manually) {
 						}
 					}
 
-					if (buy_alert.has_value() && *buy_alert > status.ticker.bid) {
-						buy_alert.reset();
-					}
-					if (sell_alert.has_value() && *sell_alert < status.ticker.ask) {
-						sell_alert.reset();
+					if (buy_alert.has_value() && sell_alert.has_value() && *buy_alert > *sell_alert) {
+						std::swap(buy_alert, sell_alert);
 					}
 
 					if (!recalc && !manually) {
