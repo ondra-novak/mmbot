@@ -46,7 +46,8 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 			double prev_bal = balance;
 			bool enable_alert = true;
 
-			double dir = p>bt.price.price?-1:1;
+			double eq = s.getCenterPrice(bt.price.price,pos);
+			double dir = p>eq?-1:1;
 			s.onIdle(minfo,tk,pos,balance);
 			double adjbal = std::max(balance,0.0);
 			Strategy::OrderData order = s.getNewOrder(minfo, bt.price.price*0.9+p*0.1, p, dir, pos, adjbal,false);
