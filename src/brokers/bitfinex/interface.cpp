@@ -350,22 +350,29 @@ std::string numberToFixed(double numb, int fx) {
 json::Value Interface::placeOrder(const std::string_view &pair, double size, double price, json::Value clientId, json::Value replaceId, double replaceSize) {
 	try {
 		if (replaceId.hasValue()) {
-			if (size == 0 || replaceSize == 0) {
+			if (size != 0 && replaceSize != 0) {
+				double dir = size < 0?-1:1;
+				double oldsize = replaceSize * dir;
+				double delta = size - oldsize;
+				auto strdelta = numberToFixed(delta,8);
+				try {
+					Value resp = signedPOST("/v2/auth/w/order/update",Object({{"id", replaceId},
+																   {"price", numberToFixed(price,8)},
+																   {"delta", (strdelta == "0.00000000" || strdelta == "-0.00000000") ?Value():Value(strdelta)}}));
+					return resp[4][0];
+				} catch (std::exception &e) {
+					if (std::string_view(e.what()) != "error 10001 delta: invalid") {
+						throw;
+					}
+				}
+			}
+			{
 				Value resp = signedPOST("/v2/auth/w/order/cancel",Object({{"id", replaceId}}));
 				Value orderDetail = resp[4];
 				Value amount = orderDetail[6];
 				double remain = std::abs(amount.getNumber());
 				double repsz = std::abs(replaceSize);
 				if (remain < repsz*0.99) return nullptr;
-			} else {
-				double dir = size < 0?-1:1;
-				double oldsize = replaceSize * dir;
-				double delta = size - oldsize;
-				auto strdelta = numberToFixed(delta,8);
-				Value resp = signedPOST("/v2/auth/w/order/update",Object({{"id", replaceId},
-															   {"price", numberToFixed(price,8)},
-															   {"delta", strdelta == "0.00000000"?Value():Value(strdelta)}}));
-				return resp[4][0];
 			}
 		}
 		if (size) {
