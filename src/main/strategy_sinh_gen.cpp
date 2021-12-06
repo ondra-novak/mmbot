@@ -224,7 +224,7 @@ double Strategy_Sinh_Gen::calcNewK(double tradePrice, double cb, double pnl, int
 			if (newk<1e-200) newk = st.k;
 		}
 	} else {
-		newk = std::sqrt(st.k* tradePrice);
+		newk = st.k;
 	}
 
 	if (!((newk <= tradePrice && newk >=st.k) || (newk>=tradePrice && newk <= st.k))) {
