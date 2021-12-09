@@ -569,6 +569,12 @@ void Report::sendNewsMessages(ME &me) const {
 			});
 
 }
+template<typename ME>
+void Report::sendLogMessages(ME &me) const {
+	for (json::Value ln: logLines) {
+		me.sendStream(json::Object({{"type","log"},{"data",ln}}));
+	}
+}
 
 bool Report::stream_refresh(Stream &stream) const  {
 	class Helper {
@@ -602,5 +608,6 @@ bool Report::stream_refresh(Stream &stream) const  {
 		sendStreamOrder(hlp,item.first, item.second);
 	}
 	sendNewsMessages(hlp);
+	sendLogMessages(hlp);
 	return hlp.ok;
 }

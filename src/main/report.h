@@ -141,6 +141,7 @@ protected:
 	template<typename ME> static void sendStreamError(ME &me, const std::string_view &symb, const json::Value &obj);
 	template<typename ME> void sendStreamGlobal(ME &me) const;
 	template<typename ME> void sendNewsMessages(ME &me) const;
+	template<typename ME> void sendLogMessages(ME &me) const;
 };
 
 
