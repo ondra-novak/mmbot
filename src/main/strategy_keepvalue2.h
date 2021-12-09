@@ -19,6 +19,7 @@ public:
 		double accum;
 		double chngtm;
 		bool rebalance;
+		bool reinvest;
 	};
 
 

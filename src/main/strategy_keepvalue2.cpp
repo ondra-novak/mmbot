@@ -124,6 +124,11 @@ Strategy_KeepValue2::AccumInfo Strategy_KeepValue2::calcAccum(double new_price) 
 	double extra = pnl - bdiff + (init_p - st.base_pos)*st.kmult;
 	double accum = cfg.accum * (extra / new_price);
 	double normp = (1.0-cfg.accum) * extra;
+	if (cfg.reinvest) {
+		normp = extra;
+		newi += accum;
+		accum = 0;
+	}
 	return {
 		normp,
 		accum,

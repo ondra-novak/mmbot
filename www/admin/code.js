@@ -620,6 +620,7 @@ App.prototype.fillForm = function (src, trg) {
 	data.kv2_accum=0;
 	data.kv2_chngtm=0;
 	data.kv2_boost=false;
+	data.kv2_reinvest=false;
 	data.hodlshort_z = 1.0;
 	data.hodlshort_wd = 1.0;	
 
@@ -690,6 +691,7 @@ App.prototype.fillForm = function (src, trg) {
 		data.kv2_accum = filledval(src.strategy.accum,0);
 		data.kv2_boost = filledval(src.strategy.boost,false);
 		data.kv2_chngtm = filledval(src.strategy.chngtm, 0);
+		data.kv2_reinvest = filledval(src.strategy.reinvest, false);
 	}
 	data.shg_olt["!change"] = function() {
 		trg.enableItem("shg_ol", this.value != "0");
@@ -851,6 +853,7 @@ function getStrategyData(data, inv) {
 			accum: data.kv2_accum,
 			chngtm: data.kv2_chngtm,
 			boost: data.kv2_boost,
+			reinvest: data.kv2_reinvest
 		};
 	} else if (data.strategy == "hedge") {
 		strategy = {
@@ -1761,7 +1764,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		"pincome_exp",
 		"hodlshort_z","hodlshort_wd",
 		"pile_accum","pile_ratio",
-		"kv2_accum","kv2_boost","kv2_chngtm",
+		"kv2_accum","kv2_boost","kv2_chngtm","kv2_reinvest",
 		"hedge_short","hedge_long","hedge_drop",
 		"shg_w","shg_p","shg_b","shg_olt","shg_ol","shg_lp","shg_rnv","shg_avgsp","shg_boostmode","shg_lazyopen"];
 	var spread_inputs = ["spread_calc_stdev_hours","secondary_order", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode","dynmult_sliding","dynmult_cap","dynmult_mult","force_spread","spread_mode","spread_freeze"];

@@ -75,6 +75,7 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 		Strategy_KeepValue2::Config cfg;
 		cfg.accum = config["accum"].getNumber()*0.01;
 		cfg.ratio= 1.0;
+		cfg.reinvest = config["reinvest"].getBool();
 		cfg.rebalance = config["boost"].getBool();
 		cfg.chngtm = config["chngtm"].getNumber();
 		return Strategy(new Strategy_KeepValue2(cfg));
