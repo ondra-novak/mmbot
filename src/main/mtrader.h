@@ -67,6 +67,7 @@ struct MTrader_Config {
 	bool swap_symbols;
 	bool reduce_on_leverage;
 	bool freeze_spread;
+	bool trade_within_budget;
 
 	Strategy strategy = Strategy(nullptr);
 

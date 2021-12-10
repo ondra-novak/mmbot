@@ -102,6 +102,11 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 				order.size = cfg.max_size*sgn(order.size);
 			}
 
+			if (cfg.trade_within_budget && order.size * pos > 0 && s.calcCurrencyAllocation(order.size)<0) {
+				order.size = 0;
+				bt.event = BTEvent::no_balance;
+			}
+
 
 			if (!minfo.leverage) {
 				if (order.size+pos < 0) {

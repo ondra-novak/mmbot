@@ -87,6 +87,7 @@ void MTrader_Config::loadConfig(json::Value data, bool force_dry_run) {
 	emulate_leveraged=data["emulate_leveraged"].getValueOrDefault(0.0);
 	reduce_on_leverage=data["reduce_on_leverage"].getBool();
 	freeze_spread=data["spread_freeze"].getBool();
+	trade_within_budget = data["trade_within_budget"].getBool();
 
 	if (dynmult_raise > 1e6) throw std::runtime_error("'dynmult_raise' is too big");
 	if (dynmult_raise < 0) throw std::runtime_error("'dynmult_raise' is too small");
@@ -1631,8 +1632,15 @@ bool MTrader::checkEquilibriumClose(const Status &st, double lastTradePrice) {
 
 bool MTrader::checkLeverage(const Order &order,double position, double currency, double &maxSize) const {
 	double whole_pos = order.size + position;
+	if (cfg.trade_within_budget && order.size * position > 0) {
+		double alloc = strategy.calcCurrencyAllocation(order.price);
+		if (alloc < 0) {
+			maxSize = 0;
+			return false;
+		}
+	}
 	if (minfo.leverage && cfg.max_leverage) {
-		if (std::abs(whole_pos) < std::abs(position) && (whole_pos * position) > 0)
+		if (order.size * position < 0)
 			return true; //position reduce
 
 		double bal = currency;

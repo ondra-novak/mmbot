@@ -373,13 +373,9 @@ Specifies maximum allowed asset balance (or position, for short use negative val
 <div class="rightinfo"><button name="vis_spread"  disabled="disabled">Visualize spread</button></div>
 </x-section>
 <x-section class="adv"><x-section-caption>Misc</x-section-caption>
-<div class="label adv"><span>Options<span class="tooltip"
-><strong>Internal balance</strong> - track balance by trades - do not use balance from exchange<br><br>
- </span></span><div>
-<div><x-checkbox data-name="internal_balance">Internal balance</x-checkbox></div>
-<div><x-checkbox data-name="dont_allocate">No budget allocation</x-checkbox></div>
-</div>
-</div>
+<div class="label adv"><span>Internal balance<span class="tooltip">Track balance by trades - do not use balance from exchange. This allows to change balance on exchange without having impact on the trading</span></span><x-checkbox data-name="internal_balance"></x-checkbox></div>
+<div class="label adv"><span>No budget allocation<span class="tooltip">Don't report budget allocation, the trader will see whole live balance</span></span><x-checkbox data-name="dont_allocate"></x-checkbox></div>
+<div class="label adv"><span>Trade only within budget<span class="tooltip">Stops trading, when the strategy runs out of calculated budget even if there is still available balance to spend</span></span><x-checkbox data-name="trade_within_budget"></x-checkbox></div>
 <label class="adv"><span>Emulate leverage (0=disabled)<span class="tooltip">Emulates leverage on non-leveraged market. This changes, how current ballance is reported to the strategy. It uses currency balance and value of the held assets as collateral. The value specifies, how big leverage is emulated. Note that reported collateral is divided by leverage, so don't feel, that large number can increase trading power beyong actual held balance.</span></span><input type="number" step="0.1" data-name="emul_leverage"></label>
 <label class="adv"><span>Ordering (position in the report)<span class="tooltip">Specifies order in report page. The traders are ordered by this ascending number. If there are two traders with
 the same order, they are ordered by its ID - this is the default ordering. Modifying this number you can change the default ordering.

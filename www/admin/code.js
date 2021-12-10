@@ -623,7 +623,7 @@ App.prototype.fillForm = function (src, trg) {
 	data.kv2_boost=false;
 	data.kv2_reinvest=false;
 	data.hodlshort_z = 1.0;
-	data.hodlshort_wd = 1.0;	
+	data.hodlshort_wd = 1.0;
 
 	function powerCalc(x) {return adjNumN(Math.pow(10,x)*0.01);};
 
@@ -729,6 +729,8 @@ App.prototype.fillForm = function (src, trg) {
 	data.reduce_on_leverage = filledval(src.reduce_on_leverage, false);
 	data.adj_timeout = filledval(src.adj_timeout,60);
 	data.emul_leverage = filledval(src.emulate_leveraged,0);
+	data.trade_within_budget = filledval(src.trade_within_budget,true);
+
 	
 	data.icon_reset={"!click": function() {
 		this.resetTrader(src.id,initial_pos, trg._budget, trg._balance);
@@ -945,6 +947,7 @@ App.prototype.saveForm = function(form, src) {
 		trader.force_spread = Math.log(data.force_spread/100+1);
 	}
 	trader.emulate_leveraged = data.emul_leverage;
+	trader.trade_within_budget = data.trade_within_budget;
 	trader.adj_timeout = data.adj_timeout;
 	trader.reduce_on_leverage = data.reduce_on_leverage;
 	if (isFinite(data.min_balance)) trader.min_balance = data.min_balance;
@@ -1767,7 +1770,8 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		"pile_accum","pile_ratio",
 		"kv2_accum","kv2_boost","kv2_chngtm","kv2_reinvest",
 		"hedge_short","hedge_long","hedge_drop",
-		"shg_w","shg_p","shg_b","shg_olt","shg_ol","shg_lp","shg_rnv","shg_avgsp","shg_boostmode","shg_lazyopen"];
+		"shg_w","shg_p","shg_b","shg_olt","shg_ol","shg_lp","shg_rnv","shg_avgsp","shg_boostmode","shg_lazyopen",
+		"trade_within_budget"];
 	var spread_inputs = ["spread_calc_stdev_hours","secondary_order", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode","dynmult_sliding","dynmult_cap","dynmult_mult","force_spread","spread_mode","spread_freeze"];
 	var leverage = form._pair.leverage != 0;	
 	var balance = form._backtest_balance+(leverage?0:form._assets*invPrice(form._price,form._pair.invert_price));
