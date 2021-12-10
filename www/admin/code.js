@@ -429,10 +429,11 @@ App.prototype.fillForm = function (src, trg) {
 		trg._backtest_balance = pair.currency_balance>trg._balance?pair.currency_balance:trg._balance;
 		trg._assets = state.position || pair.asset_balance;
 		trg._price = invPrice(pair.price, pair.invert_price);
-		trg._budget = avail.budget;	
+		trg._budget = avail.allocated;	
 		trg._pair = pair;		
 
 		data.balance_currency_free = adjNum(trg._balance);
+		data.balance_currency_alloc = adjNum(trg._budget);
 
 
 

@@ -1164,7 +1164,6 @@ void MTrader::loadState() {
 	}
 	if (!cfg.internal_balance && minfo.leverage == 0) {
 		if (position_valid) {
-			auto key = getWalletAssetKey();
 			double accum = getAccumulated();
 			wcfg.walletDB.lock()->alloc(getWalletAssetKey(), position+accum);
 			wcfg.accumDB.lock()->alloc(getWalletAssetKey(), accum);
@@ -1377,11 +1376,18 @@ void MTrader::reset(const ResetOptions &ropt) {
 		strategy.onIdle(minfo, status.ticker, position, remain);
 		achieve_mode = ropt.achieve;
 		need_initial_reset = false;
+		wcfg.walletDB.lock()->alloc(getWalletBalanceKey(), strategy.calcCurrencyAllocation(status.curPrice));
+		if (!cfg.internal_balance && minfo.leverage == 0) {
+				wcfg.walletDB.lock()->alloc(getWalletAssetKey(), position+accumulated);
+				wcfg.accumDB.lock()->alloc(getWalletAssetKey(), accumulated);
+		}
+
 	} catch (...) {
 		need_initial_reset = true;
 		saveState();
 		throw;
 	}
+
 	saveState();
 }
 #if 0

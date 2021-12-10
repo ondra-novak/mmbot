@@ -1342,6 +1342,10 @@ table.utilization tr:last-child td {
 	position:relative;
 	cursor: pointer;
 }
+.wallet_form div.editanch::before {
+	content:"✎";
+	color: #fff8a4;
+}
 .wallet_form input.editval {position: absolute;/* left: 0; */right: 0;top: -0.1em;bottom: -0.1em;box-sizing: border-box;width: 90%;display: block;text-align: right;}
 .wallet_form div.money > div{
     flex-grow: 1;

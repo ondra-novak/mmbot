@@ -1003,6 +1003,7 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req)  {
 						{"settings", binfo.settings},
 						{"trading_enabled", binfo.trading_enabled}}));
 				Value pair = getPairInfo(api, p, internalBalance, internalCurrencyBalance);
+				auto alloc = walletDB.lock_shared()->query(WalletDB::KeyQuery(broker.getString(),minfo.wallet_id,minfo.currency_symbol,uid));
 				result.set("pair", pair);
 				result.set("allocations", Object({
 
@@ -1010,12 +1011,8 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req)  {
 								WalletDB::KeyQuery(
 													broker.getString(),minfo.wallet_id,minfo.asset_symbol,uid
 												),pair["asset_balance"].getNumber())},
-						{"budget",walletDB.lock_shared()->query(WalletDB::KeyQuery(
-												broker.getString(),minfo.wallet_id,minfo.currency_symbol,uid
-											)).thisTrader},
-						{"unavailable",walletDB.lock_shared()->query(WalletDB::KeyQuery(
-									broker.getString(),minfo.wallet_id,minfo.currency_symbol,uid
-									)).otherTraders}}));
+						{"allocated",alloc.thisTrader},
+						{"unavailable",alloc.otherTraders}}));
 				auto extBalL = extBal.lock_shared();
 				result.set("ext_ass", Object({
 						{"currency", extBalL->get(broker.getString(), minfo.wallet_id, minfo.currency_symbol)},
