@@ -1622,7 +1622,7 @@ std::pair<bool, double> MTrader::limitOrderMinMaxBalance(double balance, double 
 		}
 
 	}
-	if (cfg.max_costs.has_value() && orderSize * position >= 0) {
+	if (cfg.max_costs.has_value() && orderSize * balance >= 0) {
 		double cost = orderSize * price;
 		if (cost + spent_currency > cfg.max_costs) {
 			return {true,0};
