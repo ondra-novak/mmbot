@@ -27,6 +27,7 @@
 #include "../../shared/logOutput.h"
 
 using ondra_shared::logDebug;
+using ondra_shared::logError;
 
 using namespace json;
 
@@ -165,7 +166,11 @@ double TradeOgreIFC::getBalance(const std::string_view &symb, const std::string_
 }
 
 void TradeOgreIFC::onInit() {
-	reset();
+	try {
+		reset();
+	} catch (std::exception &e) {
+		logError("onInit Error (ignored): $1", e.what());
+	}
 }
 
 IStockApi::TradesSync TradeOgreIFC::syncTrades(json::Value lastId, const std::string_view &pair) {

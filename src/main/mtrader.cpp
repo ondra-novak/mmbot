@@ -56,8 +56,10 @@ void MTrader_Config::loadConfig(json::Value data, bool force_dry_run) {
 	max_size = data["max_size"].getValueOrDefault(0.0);
 	json::Value min_balance = data["min_balance"];
 	json::Value max_balance = data["max_balance"];
+	json::Value max_costs = data["max_costs"];
 	if (min_balance.type() == json::number) this->min_balance = min_balance.getNumber();
 	if (max_balance.type() == json::number) this->max_balance = max_balance.getNumber();
+	if (max_costs.type() == json::number) this->max_costs = max_costs.getNumber();
 
 	dynmult_raise = data["dynmult_raise"].getValueOrDefault(0.0);
 	dynmult_fall = data["dynmult_fall"].getValueOrDefault(1.0);
@@ -987,7 +989,7 @@ MTrader::Order MTrader::calculateOrderFeeLess(
 
 		} while (cnt < 1000 && order.size == 0 && ((sz - prevSz)*dir>0  || cnt < 10));
 	}
-	auto lmsz = limitOrderMinMaxBalance(balance, order.size);
+	auto lmsz = limitOrderMinMaxBalance(balance, order.size, order.price);
 	if (lmsz.first) {
 		order.size = lmsz.second;
 		if (!order.size) order.alert = IStrategy::Alert::forced;
@@ -1171,6 +1173,7 @@ void MTrader::loadState() {
 
 		}
 	}
+	updateEnterPrice();
 
 
 }
@@ -1287,10 +1290,40 @@ bool MTrader::processTrades(Status &st) {
 		tempPr.price = t.eff_price;
 		tempPr.change = assetBal * (t.eff_price - last_price);
 		tempPr.time = t.time;
+		tempPr.acb_pnl = t.eff_size * enter_price_pos < 0
+				?std::abs(t.eff_size > enter_price_pos)
+						?enter_price_pos * ( t.eff_price - enter_price_sum/enter_price_pos)
+						:-t.eff_size*(t.eff_price-enter_price_sum/enter_price_pos)
+				:0;
+		enter_price_pnl += tempPr.acb_pnl;
 		if (last_price) statsvc->reportPerformance(tempPr);
 		last_price = t.eff_price;
-		assetBal += t.eff_size;
 		if (minfo.leverage == 0) curBal -= t.price * t.size;
+		spent_currency += t.price*t.size;
+
+		if (t.eff_size) {
+			double initState = assetBal - enter_price_pos;
+			double size = t.eff_size;
+			double newpos = size+enter_price_pos;
+			if (newpos * enter_price_pos<= 0) {
+				enter_price_sum = 0;
+				enter_price_pos = 0;
+				size = newpos;
+
+				if (size * initState < 0) {
+					auto df = sgn(initState)*std::min(std::abs(size), std::abs(initState));
+					size += df;
+				}
+			}
+			if (t.eff_size * enter_price_pos >= 0) {
+				enter_price_sum += t.eff_price*size;
+			} else {
+				enter_price_sum += enter_price_sum * size/enter_price_pos;
+			}
+			enter_price_pos += size;
+		}
+
+		assetBal += t.eff_size;
 
 		if (!achieve_mode && (cfg.enabled || first_cycle)) {
 			auto norm = strategy.onTrade(minfo, t.eff_price, t.eff_size, assetBal, curBal);
@@ -1564,12 +1597,12 @@ MTrader::SpreadCalcResult MTrader::calcSpread() const {
 }
 
 
-bool MTrader::checkMinMaxBalance(double balance, double orderSize) const {
-	auto x = limitOrderMinMaxBalance(balance, orderSize);
+bool MTrader::checkMinMaxBalance(double balance, double orderSize, double price) const {
+	auto x = limitOrderMinMaxBalance(balance, orderSize, price);
 	return x.first;
 }
 
-std::pair<bool, double> MTrader::limitOrderMinMaxBalance(double balance, double orderSize) const {
+std::pair<bool, double> MTrader::limitOrderMinMaxBalance(double balance, double orderSize, double price) const {
 	const auto &min_balance = minfo.invert_price?cfg.max_balance:cfg.min_balance;
 	const auto &max_balance = minfo.invert_price?cfg.min_balance:cfg.max_balance;
 	double factor = minfo.invert_price?-1:1;
@@ -1586,6 +1619,13 @@ std::pair<bool, double> MTrader::limitOrderMinMaxBalance(double balance, double 
 			double m = *max_balance * factor;
 			if (balance > m) return {true,0};
 			if (balance+orderSize > m) return {true,m - balance};
+		}
+
+	}
+	if (cfg.max_costs.has_value() && orderSize * position >= 0) {
+		double cost = orderSize * price;
+		if (cost + spent_currency > cfg.max_costs) {
+			return {true,0};
 		}
 	}
 	return {false,orderSize};
@@ -1831,4 +1871,58 @@ void MTrader::fixNorm() {
 		trades[i].norm_profit = curp;
 	}
 	saveState();
+}
+
+double MTrader::getEnterPrice() const {
+	return enter_price_sum/enter_price_pos;
+}
+double MTrader::getEnterPricePos() const {
+	return enter_price_pos;
+}
+
+double MTrader::getCosts() const {
+	return spent_currency;
+}
+double MTrader::getRPnL() const {
+	return enter_price_pnl;
+}
+
+void MTrader::updateEnterPrice() {
+	double initState = (position_valid?position:0) - std::accumulate(trades.begin(), trades.end(), 0.0, [&](double a, const auto &tr) {
+		return a + tr.eff_size;
+	});
+	double pos = initState;
+	double eps = 0;
+	double pnl = 0;
+	spent_currency = 0;
+	for (const auto &tr : trades) {
+		if (tr.eff_size) {
+			double size = tr.eff_size;
+			double newpos = size+pos;
+			//new position is on other side or zero;
+			if (newpos * pos <= 0) {
+
+				pnl += pos * tr.eff_price - eps;
+				//reset entry_price
+				eps = 0;
+				//reset pos
+				pos = 0;
+				//calculate remain size
+				size = newpos;
+
+			}
+			if (tr.eff_size * pos >= 0) {
+				eps += tr.eff_price*size;
+			} else {
+				pnl -= size * (tr.eff_price - eps/pos);
+				eps += eps * size/pos;
+			}
+			pos += size;
+
+		}
+		spent_currency += tr.size * tr.price;
+	}
+	enter_price_sum = eps;
+	enter_price_pos = pos;
+	enter_price_pnl = pnl;
 }

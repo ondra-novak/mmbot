@@ -40,8 +40,13 @@
 <div class="label sepabove"><span>Live position:</span><span><span data-name="balance_asset"></span> <span data-name="asset" ></span></span></div>
 <div class="label"><span>Live balance:</span><span><span data-name="balance_currency"></span> <span data-name="currency" ></span></span></div>
 <div class="label sepabove"><span>Calculated position:</span><span><span data-name="hdr_position"></span> <span data-name="asset" ></span></span></div>
-<div class="label"><span>Allocated/available balance:</span><span><span data-name="balance_currency_alloc"></span>&nbsp;/&nbsp;<span data-name="balance_currency_free"></span> <span data-name="currency" ></span></span></div>
+<div class="label"><span>Allocated balance:</span><span><span data-name="balance_currency_alloc"></span> <span data-name="currency" ></span></span></div>
+<div class="label"><span>Available balance:</span><span><span data-name="balance_currency_free"></span> <span data-name="currency" ></span></span></div>
 <div class="label" hidden="hidden" data-name="show_accum"><span>Accumulated:</span><span><span data-name="accumulation"></span> <span data-name="asset" ></span></span></div>
+<div class="label sepabove"><span>Realized PnL</span><span><span data-name="rpnl"></span> <span data-name="currency" ></span></span></div>
+<div class="label "><span>Unrealized PnL</span><span><span data-name="upnl"></span> <span data-name="currency" ></span></span></div>
+<div class="label"><span>Enter price</span><span><span data-name="enter_price"></span> <span data-name="currency" ></span></span></div>
+<div class="label"><span>Current costs</span><span><span data-name="costs"></span> <span data-name="currency" ></span></span></div>
 <div class="label sepabove"><span>Fees</span><span><span data-name="fees"></span>%</span></div>
 <div class="label"><span>Market type:</span><span>
 	<span data-name="type_leveraged" hidden="hidden">Leveraged: <span data-name="leverage"></span></span>
@@ -328,6 +333,9 @@ Specifies minimum allowed asset balance (or position, for short use negative val
 <label  class="adv"><span>MAX asset balance/position<span class="tooltip">
 Specifies maximum allowed asset balance (or position, for short use negative value). When balance hits this value, no futher buys are allowed. In this situation 'Accept loss' rule can be applied
 </span></span><input type="number" data-name="max_balance" step="any"></label>
+<label  class="adv"><span>MAX total costs<span class="tooltip">
+Specifies maximum costs can be used by this trader. Orders which increases costs over specified limit are rejected.
+</span></span><input type="number" data-name="max_costs" step="any"></label>
 </x-section>
 <x-section class="adv" data-name="spread_vis_anchor"><x-section-caption>Spread</x-section-caption>
 <label  class="adv"><span>Spread mode</span><select data-name="spread_mode"><option value="adaptive">Adaptive</option><option value="fixed">Fixed</option></select></label>

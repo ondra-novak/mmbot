@@ -425,6 +425,10 @@ App.prototype.fillForm = function (src, trg) {
 		data.type_inverted={".hidden":!pair.invert_price};
 		data.hdr_position = adjNum(invSize(state.position,pair.invert_price));
 		data.cur_pile_ratio = ((state.strategy && state.strategy.Ratio) || 0).toFixed(1);
+		data.rpnl = adjNum(state.rpnl);
+		data.upnl = adjNum(state.enter_price_pos?(pair.price-state.enter_price)*state.enter_price_pos:0);
+		data.enter_price = adjNum(state.enter_price);
+		data.costs = adjNum(state.costs);
 		trg._balance = pair.currency_balance+ext_ass.currency-avail.unavailable;
 		trg._backtest_balance = pair.currency_balance>trg._balance?pair.currency_balance:trg._balance;
 		trg._assets = state.position || pair.asset_balance;
@@ -729,7 +733,8 @@ App.prototype.fillForm = function (src, trg) {
 	data.reduce_on_leverage = filledval(src.reduce_on_leverage, false);
 	data.adj_timeout = filledval(src.adj_timeout,60);
 	data.emul_leverage = filledval(src.emulate_leveraged,0);
-	data.trade_within_budget = filledval(src.trade_within_budget,true);
+	data.trade_within_budget = filledval(src.trade_within_budget,false);
+	data.max_costs = filledval(src.max_costs, "");
 
 	
 	data.icon_reset={"!click": function() {
@@ -952,6 +957,7 @@ App.prototype.saveForm = function(form, src) {
 	trader.reduce_on_leverage = data.reduce_on_leverage;
 	if (isFinite(data.min_balance)) trader.min_balance = data.min_balance;
 	if (isFinite(data.max_balance)) trader.max_balance = data.max_balance;
+	if (isFinite(data.max_costs)) trader.max_costs = data.max_costs;
 	return trader;
 	
 }

@@ -38,6 +38,7 @@ struct MTrader_Config {
 	double max_size;
 	std::optional<double> min_balance;
 	std::optional<double> max_balance;
+	std::optional<double> max_costs;
 
 	double dynmult_raise;
 	double dynmult_fall;
@@ -251,6 +252,10 @@ public:
 	std::optional<double> getInternalCurrencyBalance() const;
 	std::optional<double> getPosition() const;
 	std::optional<double> getCurrency() const;
+	double getEnterPrice() const;
+	double getEnterPricePos() const;
+	double getCosts() const;
+	double getRPnL() const;
 
 
 	void saveState();
@@ -297,6 +302,10 @@ protected:
 	double position = 0;
 	double currency = 0;
 	double accumulated = 0;
+	double spent_currency = 0;
+	double enter_price_sum = 0;
+	double enter_price_pos = 0;
+	double enter_price_pnl = 0;
 	bool position_valid = false;
 	bool currency_valid = false;
 
@@ -331,8 +340,8 @@ protected:
 
 
 	SpreadCalcResult calcSpread() const;
-	bool checkMinMaxBalance(double newBalance, double dir) const;
-	std::pair<bool, double> limitOrderMinMaxBalance(double balance, double orderSize) const;
+	bool checkMinMaxBalance(double newBalance, double dir, double price) const;
+	std::pair<bool, double> limitOrderMinMaxBalance(double balance, double orderSize, double price) const;
 
 	ZigZagLevels zigzaglevels;
 
@@ -367,6 +376,7 @@ private:
 
 	BalanceChangeEvent detectLeakedTrade(const Status &st) const;
 	void doWithdraw(const Status &st);
+	void updateEnterPrice();
 };
 
 

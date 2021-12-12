@@ -982,6 +982,10 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req)  {
 				Value strategy;
 				Value position;
 				Value tradeCnt;
+				Value enter_price;
+				Value enter_price_pos;
+				Value costs;
+				Value rpnl;
 				if (tr) {
 					Strategy stratobj=trl->getStrategy();
 					strategy = stratobj.dumpStatePretty(trl->getMarketInfo());
@@ -989,6 +993,10 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req)  {
 					auto assBal = trl->getPosition();
 					if (assBal.has_value()) position =*assBal;
 					tradeCnt = trades.size();
+					enter_price = trl->getEnterPrice();
+					costs = trl->getCosts();
+					enter_price_pos = trl->getEnterPricePos();
+					rpnl = trl->getRPnL();
 				}
 				std::optional<double> internalBalance, internalCurrencyBalance;
 				if (trl) {
@@ -1021,6 +1029,10 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req)  {
 				result.set("orders", getOpenOrders(api, p));
 				result.set("strategy", strategy);
 				result.set("position", position);
+				result.set("enter_price", enter_price);
+				result.set("enter_price_pos", enter_price_pos);
+				result.set("rpnl", rpnl);
+				result.set("costs", costs);
 				result.set("accumulation", trl == nullptr?0.0:trl->getAccumulated());
 				result.set("trades", tradeCnt);
 				result.set("exists", exists);

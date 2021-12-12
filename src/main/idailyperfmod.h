@@ -28,6 +28,8 @@
 		bool invert_price;
 		///time of execution
 		uint64_t time;
+		///pnl calculated by acb - from entry price
+		double acb_pnl;
 	};
 
 

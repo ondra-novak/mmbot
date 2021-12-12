@@ -376,14 +376,21 @@ void AbstractBrokerAPI::disconnectStreams() {
 
 void AbstractBrokerAPI::dispatch(std::istream& input, std::ostream& output, std::ostream &error, AbstractBrokerAPI &handler) {
 
+	bool inited = false;
 	handler.logProvider->setDefault();
 	try {
 		Value v = Value::fromStream(input);
 		handler.connectStreams(error, output);
-		handler.loadKeys();
-		handler.onInit();
 		bool binmode = false;
 		while (true) {
+			if (!inited) {
+				auto cmd = v[0].getString();
+				if (cmd != "bin" && cmd != "enableDebug") {
+					handler.loadKeys();
+					handler.onInit();
+					inited = true;
+				}
+			}
 			Value res = handler.callMethod(v[0].getString(), v[1]);
 			if (binmode) {
 				res.serializeBinary([&](char c){output.put(c);}, json::compressKeys);
