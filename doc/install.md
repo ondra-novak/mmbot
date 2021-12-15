@@ -222,7 +222,7 @@ This part you have to change for location of your mmbot socket as:
 
 ```
 location / {
-    proxy_pass http://unix:/home/your_user/mmbot/run/mmbot.socket:/;
+    proxy_pass http://unix:/home/your_user/mmbot/run/mmbot.socket;
  }
 ```
 With this settings location in nginx we will connect mmbot and nginx. When you edit file default save it.
