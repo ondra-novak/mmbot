@@ -179,7 +179,7 @@ IStrategy::MinMax Strategy_Hodl_Short::calcSafeRange(const IStockApi::MarketInfo
 	if (assets >= asst*0.999) {
 		mx = calcPriceFromAssets(st.k, st.w, cfg.z, st.w*0.00001);
 	} else {
-		assets = calcPriceFromAssets(st.k, st.w, cfg.z, asst-assets);
+		mx = calcPriceFromAssets(st.k, st.w, cfg.z, asst-assets);
 	}
 	return {st.k, mx};
 }
