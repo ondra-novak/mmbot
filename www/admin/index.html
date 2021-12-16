@@ -247,8 +247,9 @@ to enter a negative value and then the value of the assets held will decrease an
 </x-section>
 
 <x-section data-name="strategy_hodl_short" class="goal" hidden="hidden"><x-section-caption>Hodl and short</x-section-caption>
-<label><span>Exponent<span class="tooltip">Strenght of selling effect</span></span><x-slider data-name="hodlshort_z" data-min="0.01" data-max="2" data-mult="0.01" data-fixed="2"></x-slider></label>
-<label><span>Wideness (volatility) x<span class="tooltip">Specify wideness of trading channel.</span></span><x-slider data-name="hodlshort_wd" data-min="0.1" data-max="20" data-mult="0.1" data-fixed="1"></x-slider></label>
+<label><span>Exponent<span class="tooltip">Strenght of selling effect</span></span><x-slider data-name="hodlshort_z" data-min="0.1" data-max="10" data-mult="0.1" data-fixed="1"></x-slider></label>
+<label><span>Accumulation<span class="tooltip">Specifies how much assets are accumulated during trading.</span></span><x-slider data-name="hodlshort_acc" data-min="0" data-max="100" data-mult="0" data-fixed="0"></x-slider></label>
+<div class="label adv"><span>Reinvest accumulated<span class="tooltip">Put accumulated assets to the budget (reinvest)</span></span><x-checkbox data-name="hodlshort_rinvst"></x-checkbox></div>
 <div class="label"><span>Min price:</span><span data-name="range_min_price">---</span></div>
 <div class="label"><span>Max price:</span><span data-name="range_max_price">---</span></div>
 <div class="label"><span>Recomended initial position:</span><span data-name="range_initial">---</span></div>

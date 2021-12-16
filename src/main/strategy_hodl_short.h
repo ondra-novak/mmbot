@@ -16,34 +16,31 @@ class Strategy_Hodl_Short: public IStrategy {
 public:
 
 
-	struct IntegrationTable {
-		double z;
-		double wd;
-		std::vector<std::pair<double, double> > values;
-		IntegrationTable(double z, double wd);
-
-		double get(double x) const;
-		double inv(double a) const;
-		double mainFunction(double x) const;
-
-		double calcAssets(double k, double w, double x) const;
-		double calcBudget(double k, double w, double x) const;
-		double calcCurrency(double k, double w, double x) const;
-		double calcPrice(double k, double w, double a) const;
-
-
-	};
 
 
 	struct Config {
-		std::shared_ptr<IntegrationTable> intTable;
+		double z; 	//parameter exponent in formula
+		double acc;
+		bool reinvest;
 	};
 
 	struct State {
 		double w = 0;		//parameter w - initialized during init
 		double k = 0;       //parameter k - neutral price
 		double lastp = 0; // last price
+		double a = 0;
+		double val = 0;
+		double accm = 0;
 	};
+
+	static double calcAssets(double k, double w, double z, double x);
+	static double calcBudget(double k, double w, double z, double x);
+	static double calcFiat(double k, double w, double z, double x);
+	static double calcPriceFromAssets(double k, double w, double z, double a);
+	static double calcKFromAssets(double w, double z, double a, double x);
+
+
+
 
 	Strategy_Hodl_Short(const Config &cfg);
 	Strategy_Hodl_Short(const Config &cfg, State &&st);
@@ -86,7 +83,7 @@ protected:
 	Config cfg;
 	State st;
 
-	double calcNewK(double new_price) const;
+	double calcNewK(double new_price, double step) const;
 
 };
 

@@ -151,9 +151,12 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 		return Strategy(new Strategy_Hedge(cfg));
 	} else if (id == Strategy_Hodl_Short::id) {
 		Strategy_Hodl_Short::Config cfg;
-		double wd = 1.0/config["wd"].getNumber();
+		double acc = config["acc"].getNumber()*0.01;
+		bool reinvst = config["rinvst"].getBool();
 		double z = config["z"].getNumber();
-		cfg.intTable = std::make_shared<Strategy_Hodl_Short::IntegrationTable>(z,wd);
+		cfg.z = z;
+		cfg.reinvest = reinvst;
+		cfg.acc = acc;
 		return Strategy(new Strategy_Hodl_Short(cfg));
 	} else if (id == "passive_income") {
 		Strategy_Gamma::Config cfg;
