@@ -938,10 +938,11 @@ MTrader::Order MTrader::calculateOrderFeeLess(
 	double dir = sgn(-step);
 
 	double newPrice = prevPrice *exp(step*dynmult*m);
-	if ((newPrice - curPrice) * dir > 0) {
+	if ((newPrice - curPrice) * dir > 0 || !std::isfinite(newPrice) || newPrice <= 0) {
 		newPrice = curPrice;
 		prevPrice = newPrice /exp(step*dynmult*m);
 	}
+
 
 
 	order= state.getNewOrder(minfo,curPrice, newPrice,dir, balance, currency, false);
