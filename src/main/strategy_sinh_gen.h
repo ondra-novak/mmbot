@@ -47,6 +47,7 @@ public:
 		PFnCalc calc;
 		int disableSide;  //-1 disable short, 1 disable long
 		double openlimit;
+		double offset;
 		bool reinvest;
 		bool avgspread;
 		bool lazyopen;
@@ -117,6 +118,7 @@ protected:
 	static double calcPower(double cfgpw, const State &st);
 	static double calcPower(double cfgpw, const State &st, double k);
 	static double calcNewKFromValue(const Config &cfg, const State &st, double tradePrice, double pw, double enf_val);
+	double getEquilibrium_inner(double assets) const;
 };
 
 

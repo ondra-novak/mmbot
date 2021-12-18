@@ -179,6 +179,7 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 		cfg.avgspread= config["avgspread"].getBool();
 		cfg.boostmode= config["boostmode"].getUInt();
 		cfg.openlimit = config["openlimit"].getNumber();
+		cfg.offset = config["offset"].getNumber();
 		return Strategy(new Strategy_Sinh_Gen(cfg));
 	} else {
 		throw std::runtime_error(std::string("Unknown strategy: ").append(id));

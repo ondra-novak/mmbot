@@ -11,6 +11,7 @@
 
 #include <imtjson/string.h>
 #include <imtjson/value.h>
+#include <imtjson/binary.h>
 #include "../shared/logOutput.h"
 #include "numerical.h"
 #include "sgn.h"
@@ -124,7 +125,7 @@ bool Strategy_Sinh_Gen::isValid() const {
 PStrategy Strategy_Sinh_Gen::onIdle(const IStockApi::MarketInfo &minfo,
 		const IStockApi::Ticker &curTicker, double assets,
 		double currency) const {
-	if (!isValid()) return init(minfo, curTicker.last, assets, currency);
+	if (!isValid()) return init(minfo, curTicker.last, assets-cfg.offset, currency);
 	else return this;
 }
 
@@ -241,6 +242,8 @@ std::pair<IStrategy::OnTradeResult, PStrategy> Strategy_Sinh_Gen::onTrade(
 	if (!isValid()) return init(minfo, tradePrice, assetsLeft, currencyLeft)
 				->onTrade(minfo, tradePrice, tradeSize, assetsLeft, currencyLeft);
 
+	assetsLeft-=cfg.offset;
+
 	double absass = std::abs(assetsLeft);
 	if (absass < minfo.min_size || absass*tradePrice < minfo.min_volume || absass < (st.budget/1e8)/tradePrice) {
 		assetsLeft = 0;
@@ -270,7 +273,9 @@ std::pair<IStrategy::OnTradeResult, PStrategy> Strategy_Sinh_Gen::onTrade(
 
 
 	if (tradeSize == 0 && st.p == st.k) newk = tradePrice;
-	if (npos == 0) newk = tradePrice;
+	if (npos == -cfg.offset) {
+		newk = tradePrice;
+	}
 
 	State nwst;
 	nwst.use_last_price = ulp;
@@ -295,6 +300,7 @@ std::pair<IStrategy::OnTradeResult, PStrategy> Strategy_Sinh_Gen::onTrade(
 	};
 }
 
+
 json::Value Strategy_Sinh_Gen::exportState() const {
 	using namespace json;
 	return Value(object,{
@@ -308,7 +314,9 @@ json::Value Strategy_Sinh_Gen::exportState() const {
 			Value("trades", st.trades),
 			Value("val", st.val),
 			Value("pwadj", st.pwadj),
-			Value("hash", cfg.calcConfigHash())
+			Value("hash", cfg.calcConfigHash()),
+			Value("offset", json::base64url->encodeBinaryValue(json::BinaryView(
+					reinterpret_cast<const unsigned char *>(&cfg.offset), sizeof(cfg.offset))))
 	});
 }
 
@@ -352,6 +360,11 @@ PStrategy Strategy_Sinh_Gen::importState(json::Value src, const IStockApi::Marke
 		nwst.use_last_price = false;
 		nwst.rebalance = true;
 	}
+	json::Value binofs=json::base64url->encodeBinaryValue(json::BinaryView(
+						reinterpret_cast<const unsigned char *>(&cfg.offset), sizeof(cfg.offset)));
+	if(src["offset"].hasValue() && binofs != src["offset"]) {
+		nwst.rebalance = true;
+	}
 
 	return new Strategy_Sinh_Gen(cfg, std::move(nwst));
 }
@@ -371,7 +384,7 @@ json::Value Strategy_Sinh_Gen::dumpStatePretty(const IStockApi::MarketInfo &minf
 			Value("Price-neutral", getpx(st.k)),
 			Value("Budget-total", st.budget),
 			Value("Budget-current", st.val+st.budget),
-			Value("Position", getpos(a)),
+			Value("Position", getpos(a+cfg.offset)),
 			Value("Use last price",st.use_last_price),
 			Value("Profit per trade", -cfg.calc->budget(st.k, pw, st.k*sprd)),
 			Value("Profit per trade[%]", -cfg.calc->budget(st.k, pw, st.k*sprd)/st.budget*100)
@@ -381,6 +394,8 @@ json::Value Strategy_Sinh_Gen::dumpStatePretty(const IStockApi::MarketInfo &minf
 IStrategy::OrderData Strategy_Sinh_Gen::getNewOrder(
 		const IStockApi::MarketInfo &minfo, double cur_price, double new_price,
 		double dir, double assets, double currency, bool rej) const {
+
+	assets -= cfg.offset;
 
 	double absass = std::abs(assets);
 	if (absass < minfo.min_size || absass*new_price < minfo.min_volume || absass < (st.budget/1e8)/new_price) {
@@ -397,7 +412,7 @@ IStrategy::OrderData Strategy_Sinh_Gen::getNewOrder(
 	double calc_price = new_price;
 	if (cfg.lazyopen && !st.rebalance && dir * assets > 0 && st.trades>1) {
 		//calc_price - use average spread instead current price
-		calc_price = getEquilibrium(assets) * std::exp(-1.5*dir*st.sum_spread/st.trades);
+		calc_price = getEquilibrium_inner(assets) * std::exp(-1.5*dir*st.sum_spread/st.trades);
 		if (calc_price*dir < new_price*dir) {
 			//however can't go beyond new_price
 			calc_price = new_price;
@@ -423,17 +438,18 @@ IStrategy::OrderData Strategy_Sinh_Gen::getNewOrder(
 }
 
 double Strategy_Sinh_Gen::limitPosition(double pos) const {
-	if ((cfg.disableSide<0 || st.spot) && pos<0) {
-		return 0;
+	double apos = pos + cfg.offset;
+	if ((cfg.disableSide<0 || st.spot) && apos<0) {
+		return -cfg.offset;
 	}
-	if (cfg.disableSide>0 && pos>0) {
-		return 0;
+	if (cfg.disableSide>0 && apos>0) {
+		return -cfg.offset;
 	}
 	return pos;
 }
 
 IStrategy::MinMax Strategy_Sinh_Gen::calcSafeRange(
-		const IStockApi::MarketInfo &minfo, double assets,
+		const IStockApi::MarketInfo &minfo, double ,
 		double currencies) const {
 
 	double b = currencies;
@@ -448,6 +464,9 @@ IStrategy::MinMax Strategy_Sinh_Gen::calcSafeRange(
 }
 
 double Strategy_Sinh_Gen::getEquilibrium(double assets) const {
+	return getEquilibrium_inner(assets-cfg.offset);
+}
+double Strategy_Sinh_Gen::getEquilibrium_inner(double assets) const {
 	double r = cfg.calc->root(st.k, pw, assets);
 	return r;
 }
@@ -463,7 +482,7 @@ std::string_view Strategy_Sinh_Gen::getID() const {
 double Strategy_Sinh_Gen::calcInitialPosition(
 		const IStockApi::MarketInfo &minfo, double price, double assets,
 		double currency) const {
-	return 0;
+	return cfg.offset;
 }
 
 IStrategy::BudgetInfo Strategy_Sinh_Gen::getBudgetInfo() const {
