@@ -27,8 +27,8 @@ bool Strategy_Sinh_Gen::FnCalc::sortPoints(const Point &a, const Point &b) {
 	return a.first < b.first;
 }
 
-Strategy_Sinh_Gen::FnCalc::FnCalc(double wd, double boost)
-:wd(wd),boost(boost) {
+Strategy_Sinh_Gen::FnCalc::FnCalc(double wd, double boost, int side)
+:wd(wd),boost(boost),side(side) {
 
 		auto fillFn = [&](double x, double y) {
 			itable.push_back({x,y});
@@ -54,7 +54,12 @@ Strategy_Sinh_Gen::FnCalc::FnCalc(double wd, double boost)
 }
 
 double Strategy_Sinh_Gen::FnCalc::baseFn(double x) const {
-	double y = std::sinh(wd*(1-std::sqrt(x)))/(x*sqrt(wd));
+	double y;
+	double arg = wd*(1-std::sqrt(x));
+	if (side<0) y=0.5*std::exp(arg);
+	else if (side>0) y=-0.5*std::exp(-arg);
+	else y = std::sinh(arg);
+	y = y / (x*std::sqrt(wd));
 	return y + sgn(y) * boost;
 }
 
@@ -65,6 +70,8 @@ double Strategy_Sinh_Gen::FnCalc::root(double p) const {
 	while (y>p) {
 		guess = guess * guess;
 		y = baseFn(guess);
+		if (!std::isfinite(guess))
+			return std::numeric_limits<double>::max();
 	}
 	return numeric_search_r1(guess, [&](double x){return baseFn(x)-p;});
 }
@@ -141,16 +148,25 @@ PStrategy Strategy_Sinh_Gen::init(const IStockApi::MarketInfo &minfo,
 	nwst.last_spread = st.last_spread;
 	nwst.pwadj = 1.0;
 	double pw = cfg.power * currency/price;
+	double zero =  cfg.calc->assets(price, pw, price);;
 
 	for (int i=0;i < 5;i++) {
 		if (pos > 0) {
-			nwst.k = numeric_search_r2(price, [&](double x) {
-				return cfg.calc->assets(x, pw, price)-pos;
-			});
+			if (zero>=pos || pos * zero < 0) {
+				nwst.k = price;
+			} else {
+				nwst.k = numeric_search_r2(price, [&](double x) {
+					return cfg.calc->assets(x, pw, price)-pos;
+				});
+			}
 		} else if (pos < 0) {
-			nwst.k = numeric_search_r1(price, [&](double x) {
-				return cfg.calc->assets(x, pw, price)-pos;
-			});
+			if (zero<=pos || pos * zero < 0) {
+				nwst.k = price;
+			} else {
+				nwst.k = numeric_search_r1(price, [&](double x) {
+					return cfg.calc->assets(x, pw, price)-pos;
+				});
+			}
 		} else {
 			nwst.k = price;
 		}
@@ -189,6 +205,10 @@ double Strategy_Sinh_Gen::calcNewKFromValue(const Config &cfg, const State &st, 
 
 double Strategy_Sinh_Gen::calcNewK(double tradePrice, double cb, double pnl, int bmode) const {
 	if (st.rebalance) return st.k;
+	if (cb > 0) {
+		if (pnl >= 0) return st.k;
+		else return tradePrice;
+	}
 	double newk = st.k;
 	if (st.k != st.p) {
 		if (!pnl) return st.k;
@@ -210,7 +230,8 @@ double Strategy_Sinh_Gen::calcNewK(double tradePrice, double cb, double pnl, int
 		double nb = cb+pnl+refb; //current budget + pnl + yield = new budget
 
 		if (nb > 0) {
-			return tradePrice;
+			if (pnl>=0) return st.k;
+			else return tradePrice;
 		}
 
 		if (st.p < st.k) {
@@ -235,6 +256,16 @@ double Strategy_Sinh_Gen::calcNewK(double tradePrice, double cb, double pnl, int
 
 }
 
+double Strategy_Sinh_Gen::roundZero(double assetsLeft,
+		const IStockApi::MarketInfo &minfo, double tradePrice) const {
+	double absass = std::abs(assetsLeft);
+	if (absass < minfo.min_size || absass * tradePrice < minfo.min_volume
+			|| absass < (st.budget / 1e8) / tradePrice) {
+		assetsLeft = 0;
+	}
+	return assetsLeft;
+}
+
 std::pair<IStrategy::OnTradeResult, PStrategy> Strategy_Sinh_Gen::onTrade(
 		const IStockApi::MarketInfo &minfo, double tradePrice, double tradeSize,
 		double assetsLeft, double currencyLeft) const {
@@ -244,11 +275,7 @@ std::pair<IStrategy::OnTradeResult, PStrategy> Strategy_Sinh_Gen::onTrade(
 
 	assetsLeft-=cfg.offset;
 
-	double absass = std::abs(assetsLeft);
-	if (absass < minfo.min_size || absass*tradePrice < minfo.min_volume || absass < (st.budget/1e8)/tradePrice) {
-		assetsLeft = 0;
-	}
-
+	assetsLeft = roundZero(assetsLeft, minfo, tradePrice);
 	double prevPos = assetsLeft - tradeSize;
 	double cb = st.val;
 	double pnl = prevPos*(tradePrice - st.p);
@@ -273,7 +300,7 @@ std::pair<IStrategy::OnTradeResult, PStrategy> Strategy_Sinh_Gen::onTrade(
 
 
 	if (tradeSize == 0 && st.p == st.k) newk = tradePrice;
-	if (npos == -cfg.offset) {
+	if (roundZero(npos-cfg.offset, minfo, tradePrice) == 0) {
 		newk = tradePrice;
 	}
 
@@ -397,10 +424,7 @@ IStrategy::OrderData Strategy_Sinh_Gen::getNewOrder(
 
 	assets -= cfg.offset;
 
-	double absass = std::abs(assets);
-	if (absass < minfo.min_size || absass*new_price < minfo.min_volume || absass < (st.budget/1e8)/new_price) {
-		assets = 0;
-	}
+	assets = roundZero(assets, minfo, st.p);
 
 	if (st.rebalance) new_price = cur_price;
 
@@ -410,7 +434,7 @@ IStrategy::OrderData Strategy_Sinh_Gen::getNewOrder(
 	}
 
 	double calc_price = new_price;
-	if (cfg.lazyopen && !st.rebalance && dir * assets > 0 && st.trades>1) {
+	if (cfg.lazyopen && !st.rebalance && dir * assets >= 0 && st.trades>1) {
 		//calc_price - use average spread instead current price
 		calc_price = getEquilibrium_inner(assets) * std::exp(-1.5*dir*st.sum_spread/st.trades);
 		if (calc_price*dir < new_price*dir) {
@@ -429,8 +453,9 @@ IStrategy::OrderData Strategy_Sinh_Gen::getNewOrder(
 
 
 	double new_pos = limitPosition(cfg.calc->assets(newk, pw*pwadj, calc_price));
+	new_pos = roundZero(new_pos-cfg.offset, minfo, new_price)+cfg.offset;
 	double dfa = new_pos -assets;
-	if ((new_pos * assets <0 || new_pos == 0) && (assets * dir < 0)){
+	if ((new_pos * assets <0 || new_pos == 0) && (assets * dir <= 0)){
 		//close current position (force alert)
 		return {calc_price,-assets,Alert::forced};
 	}
@@ -457,9 +482,11 @@ IStrategy::MinMax Strategy_Sinh_Gen::calcSafeRange(
 	ret.min = numeric_search_r1(st.k, [&](double x){
 		return cfg.calc->budget(st.k, pw, x)+b;
 	});
+	if (ret.min < 1e-100) ret.min = 0;
 	ret.max = numeric_search_r2(st.k, [&](double x){
 		return cfg.calc->budget(st.k, pw, x)+b;
 	});
+	if (ret.max > 1e100) ret.max = std::numeric_limits<double>::infinity();
 	return ret;
 }
 
@@ -467,6 +494,8 @@ double Strategy_Sinh_Gen::getEquilibrium(double assets) const {
 	return getEquilibrium_inner(assets-cfg.offset);
 }
 double Strategy_Sinh_Gen::getEquilibrium_inner(double assets) const {
+	if (std::abs(assets) < std::abs(cfg.calc->assets(st.k, pw, st.k)))
+		return st.p;
 	double r = cfg.calc->root(st.k, pw, assets);
 	return r;
 }

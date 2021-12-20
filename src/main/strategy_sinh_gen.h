@@ -19,7 +19,7 @@ public:
 
 	class FnCalc {
 	public:
-		FnCalc(double wd, double boost);
+		FnCalc(double wd, double boost, int side);
 
 		double baseFn(double x) const;
 		double root(double x) const;
@@ -36,6 +36,7 @@ public:
 	protected:
 		double wd;
 		double boost;
+		int side;
 		std::vector<Point> itable;
 
 	};
@@ -119,6 +120,8 @@ protected:
 	static double calcPower(double cfgpw, const State &st, double k);
 	static double calcNewKFromValue(const Config &cfg, const State &st, double tradePrice, double pw, double enf_val);
 	double getEquilibrium_inner(double assets) const;
+	double roundZero(double assetsLeft, const IStockApi::MarketInfo &minfo,
+			double tradePrice) const;
 };
 
 
