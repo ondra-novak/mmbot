@@ -208,7 +208,12 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 						double df = pos * (bt.price - p);
 						pl += df;
 						balance += df;
-						bt.bal = balance;
+						bt.pos = 0;
+						bt.bal = balance + total_spend;
+						bt.unspend_balance = balance;
+						bt.norm_profit_total = 0;
+						bt.norm_profit = 0;
+						bt.norm_accum = 0;
 						bt.event = BTEvent::liquidation;
 						bt.size = -pos;
 						bt.pl = pl;
