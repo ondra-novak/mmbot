@@ -511,7 +511,11 @@ std::string_view Strategy_Sinh_Gen::getID() const {
 double Strategy_Sinh_Gen::calcInitialPosition(
 		const IStockApi::MarketInfo &minfo, double price, double assets,
 		double currency) const {
-	return cfg.offset;
+	auto me = init(minfo,price,assets,currency);
+	const Strategy_Sinh_Gen *mm = static_cast<const Strategy_Sinh_Gen *>((const IStrategy *)me);
+	double k = mm->st.k;
+	double pw = mm->pw;
+	return cfg.offset+cfg.calc->assets(k,pw,k);
 }
 
 IStrategy::BudgetInfo Strategy_Sinh_Gen::getBudgetInfo() const {
