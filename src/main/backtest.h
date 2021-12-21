@@ -17,6 +17,8 @@
 struct BTPrice {
 	std::uint64_t time = 0;
 	double price = 0;
+	double pmin = 0;
+	double pmax = 0;
 };
 
 enum class BTEvent {
@@ -30,7 +32,8 @@ enum class BTEvent {
 };
 
 struct BTTrade {
-	BTPrice price;
+	std::uint64_t time;
+	double price;
 	double size = 0;
 	double norm_profit = 0;
 	double norm_accum = 0;

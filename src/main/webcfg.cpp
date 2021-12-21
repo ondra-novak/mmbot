@@ -1177,8 +1177,8 @@ bool WebCfg::reqBacktest(simpleServer::HTTPRequest req, ondra_shared::StrViewA r
 								{"npla",x.norm_profit_total},
 								{"pl",x.pl},
 								{"ps",x.pos},
-								{"pr",x.price.price},
-								{"tm",x.price.time},
+								{"pr",x.price},
+								{"tm",x.time},
 								{"info",x.info},
 								{"sz",x.size},
 								{"event", event}
@@ -1843,28 +1843,42 @@ bool WebCfg::reqBacktest_v2(simpleServer::HTTPRequest req, ondra_shared::StrView
 					bool inv = invert.getBool();
 					bool ifut = ifutures.getBool();
 					double init = 0;
-					json::Array out;
+					std::vector<BTPrice> out;
 					out.reserve(srcminute.size());
-					auto t = std::chrono::duration_cast<std::chrono::milliseconds>((std::chrono::system_clock::now() - std::chrono::minutes(srcminute.size())).time_since_epoch()).count();
+					std::uint64_t t = std::chrono::duration_cast<std::chrono::milliseconds>((std::chrono::system_clock::now() - std::chrono::minutes(srcminute.size())).time_since_epoch()).count();
+					BTPrice tmp;
+					BTPrice *last = &tmp;
 					for (const auto &itm: srcminute) {
-						double v = itm.getNumber();
+						double w = itm.getNumber();
 						if (inv) {
-							if (init == 0) init = pow2(v);
-							v = init/v;
+							if (init == 0) init = pow2(w);
+							w = init/w;
 						}
+						double v = w;
 						if (ifut) {
 							v = 1.0/v;
 						}
 						auto res = spreadCalc.point(v);
 						if (res.trade && res.valid) {
-							out.push_back({t, ifut?1.0/res.price:res.price});
+							double p = ifut?1.0/res.price:res.price;
+							out.push_back({t, p,p,p});
+							last = &out.back();
 							if (res.trade2) {
-								out.push_back({t, ifut?1.0/res.price2:res.price2});
+								double p = ifut?1.0/res.price2:res.price2;
+								out.push_back({t, p,p,p});
+								last = &out.back();
 							}
+						} else if (w<last->pmin) {
+							last->pmin = w;
+						} else if (w>last->pmax) {
+							last->pmax = w;
 						}
+
 						t+=60000;
 					}
-					Value chart_data(out);
+					Value chart_data(json::array, out.begin(), out.end(), [](const BTPrice &bt)->json::Value{
+						return {bt.time, bt.price, {bt.pmin, bt.pmax}};
+					});
 					std::string id = storage.lock()->store_data(chart_data);
 					response=Value(json::object, {Value("id",id)});
 				}break;
@@ -1913,7 +1927,12 @@ bool WebCfg::reqBacktest_v2(simpleServer::HTTPRequest req, ondra_shared::StrView
 					for (Value x: jtrades) {
 						std::uint64_t tm = x[0].getUIntLong();
 						if (tm >= start_date) {
-							trades.push_back({tm, x[1].getNumber()});
+							Value r = x[2];
+							bool hasr = r.type() == json::array;
+							double p = x[1].getNumber();
+							double pmin = hasr?x[2][0].getNumber():p;
+							double pmax = hasr?x[2][1].getNumber():p;
+							trades.push_back({tm, p, pmin,pmax});
 						}
 					}
 
@@ -1938,16 +1957,24 @@ bool WebCfg::reqBacktest_v2(simpleServer::HTTPRequest req, ondra_shared::StrView
 
 					for (auto &x: trades) {
 						x.price *= mlt;
+						x.pmin *= mlt;
+						x.pmax *= mlt;
 					}
 
 					if (inv) {
 						for (auto &x: trades) {
 							x.price = pow2(fv)/x.price;
+							double tmp = pow2(fv)/x.pmin;
+							x.pmin = pow2(fv)/x.pmax;
+							x.pmax = tmp;
 						}
 					}
 					if (minfo.invert_price) {
 						for (auto &x: trades) {
 							x.price = 1.0/x.price;
+							double tmp = 1.0/x.pmin;
+							x.pmin = 1.0/x.pmax;
+							x.pmax = tmp;
 						}
 					}
 
@@ -1979,8 +2006,8 @@ bool WebCfg::reqBacktest_v2(simpleServer::HTTPRequest req, ondra_shared::StrView
 								{"npla",x.norm_profit_total},
 								{"pl",x.pl},
 								{"ps",x.pos},
-								{"pr",x.price.price},
-								{"tm",x.price.time},
+								{"pr",x.price},
+								{"tm",x.time},
 								{"bal",x.bal},
 								{"ubal",x.unspend_balance},
 								{"info",x.info},

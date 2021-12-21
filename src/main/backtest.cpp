@@ -22,15 +22,16 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 		Strategy s = cfg.strategy;
 
 		BTTrade bt;
-		bt.price = *price;
+		bt.price = price->price;
+		bt.time = price->time;
 
 		double pos;
 		if (init_pos.has_value() ) {
 			pos = *init_pos;
 			if (minfo.invert_price) pos = -pos;
 		}else {
-			pos = s.calcInitialPosition(minfo,bt.price.price,0,balance);
-			if (!minfo.leverage) balance -= pos * bt.price.price;
+			pos = s.calcInitialPosition(minfo,bt.price,0,balance);
+			if (!minfo.leverage) balance -= pos * bt.price;
 		}
 
 		trades.push_back(bt);
@@ -39,24 +40,24 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 		double pl = 0;
 		for (price = priceSource();price.has_value();price = priceSource()) {
 			double minsize = std::max(minfo.min_size, cfg.min_size);
-			if (std::abs(price->price-bt.price.price) == 0) continue;
+			if (std::abs(price->price-bt.price) == 0) continue;
 			bt.event = BTEvent::no_event;
 			double p = price->price;
 			Ticker tk{p,p,p,price->time};
 			double prev_bal = balance;
 			bool enable_alert = true;
 
-			double eq = s.getCenterPrice(bt.price.price,pos);
+			double eq = s.getCenterPrice(bt.price,pos);
 			double dir = p>eq?-1:1;
 			s.onIdle(minfo,tk,pos,balance);
 			double adjbal = std::max(balance,0.0);
-			Strategy::OrderData order = s.getNewOrder(minfo, bt.price.price*0.9+p*0.1, p, dir, pos, adjbal,false);
+			Strategy::OrderData order = s.getNewOrder(minfo, bt.price*0.9+p*0.1, p, dir, pos, adjbal,false);
 
 			if (order.price) {
 				p = order.price;
 			}
 
-			double dprice = (p - bt.price.price);
+			double dprice = (p - bt.price);
 			double pchange = pos * dprice;
 			pl = pl + pchange;
 			if (minfo.leverage) balance += pchange;
@@ -75,7 +76,7 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 			}
 			if (minfo.leverage) {
 				double max_lev = cfg.max_leverage?std::min(cfg.max_leverage,minfo.leverage):minfo.leverage;
-				double max_abs_pos = (adjbal * max_lev)/bt.price.price;
+				double max_abs_pos = (adjbal * max_lev)/bt.price;
 				double new_pos = std::abs(pos + order.size);
 				double cur_pos = std::abs(pos);
 				if (new_pos > cur_pos && new_pos > max_abs_pos) {
@@ -90,7 +91,7 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 				}
 			}
 			if (minfo.min_volume) {
-				double mvs = minfo.min_volume/bt.price.price;
+				double mvs = minfo.min_volume/bt.price;
 				minsize = std::max(minsize, mvs);
 			}
 			if (order.size && std::abs(order.size) < minsize) {
@@ -177,8 +178,8 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 			}
 
 			bt.size = order.size;
-			bt.price.price = p;
-			bt.price.time = price->time;
+			bt.price = p;
+			bt.time = price->time;
 			bt.pl = pl;
 			bt.pos = pos;
 			bt.bal = balance+total_spend;
@@ -189,13 +190,42 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 
 
 			trades.push_back(bt);
+
+			if (minfo.leverage) {
+				double minbal = std::abs(pos) * p/(2*minfo.leverage);
+				if (balance > minbal) {
+					double rbal1 = balance + pos * (price->pmin-p);
+					double rbal2 = balance + pos * (price->pmax-p);
+					bool trig = false;
+					if (rbal1 <= minbal) {
+						trig = true;
+						bt.price = price->pmin;
+					} else if (rbal2 <= minbal) {
+						trig = true;
+						bt.price = price->pmax;
+					}
+					if (trig) {
+						double df = pos * (bt.price - p);
+						pl += df;
+						balance += df;
+						bt.bal = balance;
+						bt.event = BTEvent::liquidation;
+						bt.size = -pos;
+						bt.pl = pl;
+						bt.info = json::object;
+						trades.push_back(bt);
+					}
+
+				}
+			}
+
 		}
 
 	} catch (std::exception &e) {
 		if (trades.empty()) throw;
 		else {
 			BTTrade bt = trades.back();
-			bt.price.time+=3600*1000;
+			bt.time+=3600*1000;
 			bt.info = json::Object({{"error", e.what()}});
 		}
 	}
@@ -205,7 +235,7 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 			x.neutral_price = 1.0/x.neutral_price;
 			x.open_price = 1.0/x.open_price;
 			x.pos = -x.pos;
-			x.price.price = 1.0/x.price.price;
+			x.price = 1.0/x.price;
 			x.size = -x.size;
 		}
 	}
