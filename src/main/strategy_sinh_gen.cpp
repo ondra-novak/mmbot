@@ -453,7 +453,7 @@ IStrategy::OrderData Strategy_Sinh_Gen::getNewOrder(
 
 
 	double new_pos = limitPosition(cfg.calc->assets(newk, pw*pwadj, calc_price));
-	new_pos = roundZero(new_pos-cfg.offset, minfo, new_price)+cfg.offset;
+	if (cfg.disableSide) new_pos = roundZero(new_pos-cfg.offset, minfo, new_price)+cfg.offset;
 	double dfa = new_pos -assets;
 	if ((new_pos * assets <0 || new_pos == 0) && (assets * dir <= 0)){
 		//close current position (force alert)

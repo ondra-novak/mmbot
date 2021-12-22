@@ -31,11 +31,17 @@ Strategy_Gamma::Strategy_Gamma(Strategy_Gamma &&other)
 	,state(std::move(other.state)) {}
 
 
-static double roundZero(double finpos, const IStockApi::MarketInfo &minfo, double price, double budget) {
+static double minSize(const IStockApi::MarketInfo &minfo, double price) {
+	return std::max({
+		minfo.min_size,
+		minfo.min_volume / price,
+		minfo.asset_step
+	});
+}
+
+static double roundZero(double finpos, const IStockApi::MarketInfo &minfo, double price) {
 	double afinpos = std::abs(finpos);
-	if (afinpos < minfo.min_size || afinpos < minfo.min_volume / price || afinpos < minfo.asset_step || afinpos < (budget * 1.0e-10 / price)) {
-		finpos = 0;
-	}
+	if (afinpos < minSize(minfo, price)) return 0;
 	return finpos;
 }
 
@@ -48,11 +54,13 @@ IStrategy::OrderData Strategy_Gamma::getNewOrder(
 		const IStockApi::MarketInfo &minfo, double cur_price, double new_price,
 		double dir, double assets, double currency, bool rej) const {
 	double newPos = calculatePosition(assets,new_price, calcMinOrderSize(minfo, new_price));
-	double newPosz = roundZero(newPos, minfo, new_price, currency);
+	double newPosz = roundZero(newPos, minfo, new_price);
 	double dff = newPosz - assets;
-	double dffz = roundZero(dff, minfo, new_price, currency);
+	double dffz = roundZero(dff, minfo, new_price);
 	if (dir < 0 && dffz == 0 && newPosz == 0) {
 		return {new_price,0,Alert::forced};
+	} else if (dir > 0 && dffz == 0 && newPosz == 0) {
+		return {0, minSize(minfo, new_price)};
 	}
 	return {0,dff};
 }

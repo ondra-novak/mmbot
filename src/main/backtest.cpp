@@ -65,6 +65,8 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 			if (order.size && order.size * dir < 0) {
 				order.size = 0;
 			}
+			double orgsize = order.size;
+
 			order.size  = IStockApi::MarketInfo::adjValue(order.size,minfo.asset_step,round);
 			if (cfg.max_balance.has_value()) {
 				if (pos > *cfg.max_balance) order.size = 0;
@@ -88,6 +90,7 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 						bt.event = BTEvent::margin_call;
 					}
 					order.size = 0;
+					orgsize = 0;
 				}
 			}
 			if (minfo.min_volume) {
@@ -97,7 +100,6 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 			if (order.size && std::abs(order.size) < minsize) {
 				if (std::abs(order.size)<minsize*0.5) {
 					order.size = 0;
-					if (order.alert != IStrategy::Alert::forced) enable_alert = false;
 				} else {
 					order.size = sgn(order.size)*minsize;
 				}
@@ -115,6 +117,7 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 			if (!minfo.leverage) {
 				if (order.size+pos < 0) {
 					order.size = -pos;
+					orgsize = order.size; //if zero - allow alert
 				}
 				double chg = order.size*p;
 				if (balance - chg < 0 || pos + order.size < -(std::abs(pos) + std::abs(order.size))*1e-10) {
@@ -127,6 +130,7 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 							bt.event = BTEvent::accept_loss;
 						}
 						order.size = 0;
+						orgsize = 0; //allow alert this time
 						chg = 0;
 					}
 				}
@@ -158,6 +162,10 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 					}
 				}
 				pos += order.size;
+			}
+
+			if (order.size == 0 && orgsize != 0 && order.alert != IStrategy::Alert::forced) {
+				enable_alert = false;
 			}
 
 			if (enable_alert) {
