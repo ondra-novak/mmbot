@@ -614,12 +614,13 @@ App.prototype.fillForm = function (src, trg) {
 	data.shg_w=50;
 	data.shg_p=50;
 	data.shg_b=0;
-	data.shg_ol=2;
+	data.shg_ol=0;
 	data.shg_olt={value:"-1"};
 	data.shg_lp="0";
 	data.shg_rnv=false;
 	data.shg_avgsp=false;
 	data.shg_lazyopen=false;
+	data.shg_lazyclose=false;
 	data.shg_boostmode=0;
 	data.shg_offset=0;
 	data.pincome_exp = 40;
@@ -690,8 +691,9 @@ App.prototype.fillForm = function (src, trg) {
 		data.shg_rnv=filledval(src.strategy.reinvest,false);
 		data.shg_avgsp=filledval(src.strategy.avgspread,false);
 		data.shg_lazyopen=filledval(src.strategy.lazyopen,false);
+		data.shg_lazyclose=filledval(src.strategy.lazyclose,false);
 		data.shg_boostmode=filledval(src.strategy.boostmode,0);
-		data.shg_ol=filledval(defval(Math.abs(src.strategy.openlimit),0),2);
+		data.shg_ol=filledval(defval(Math.abs(src.strategy.openlimit),0),0);
 		if (!src.strategy.openlimit || src.strategy.openlimit==0) data.shg_ol.disabled = true;
 		data.shg_olt={value:src.strategy.openlimit>0?1:src.strategy.openlimit<0?-1:0};
 		data.shg_offset = filledval(src.strategy.offset,0);		
@@ -888,6 +890,7 @@ function getStrategyData(data, inv) {
 			reinvest:data.shg_rnv,
 			avgspread:data.shg_avgsp,
 			lazyopen:data.shg_lazyopen,
+			lazyclose:data.shg_lazyclose,
 			boostmode:data.shg_boostmode,
 			offset: (inv?-1.0:1.0)*data.shg_offset
 		};		
@@ -1784,7 +1787,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		"pile_accum","pile_ratio",
 		"kv2_accum","kv2_boost","kv2_chngtm","kv2_reinvest",
 		"hedge_short","hedge_long","hedge_drop",
-		"shg_w","shg_p","shg_b","shg_olt","shg_ol","shg_lp","shg_rnv","shg_avgsp","shg_boostmode","shg_lazyopen","shg_offset",
+		"shg_w","shg_p","shg_b","shg_olt","shg_ol","shg_lp","shg_rnv","shg_avgsp","shg_boostmode","shg_lazyopen","shg_lazyclose","shg_offset",
 		"trade_within_budget"];
 	var spread_inputs = ["spread_calc_stdev_hours","secondary_order", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode","dynmult_sliding","dynmult_cap","dynmult_mult","force_spread","spread_mode","spread_freeze"];
 	var leverage = form._pair.leverage != 0;	

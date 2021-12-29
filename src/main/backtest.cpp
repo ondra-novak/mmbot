@@ -176,6 +176,14 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 				bt.norm_profit += std::isfinite(tres.normProfit)?tres.normProfit:0;
 				bt.open_price = tres.openPrice;
 				if (order.size*(order.size-norm_accum)>1) order.size -= norm_accum;
+				bt.info = s.dumpStatePretty(minfo);
+			} else {
+				bt.info = json::Object({
+					{"Rejected size", orgsize},
+					{"Min size", minsize },
+					{"Direction", dir},
+					{"Equilibrium", eq},
+				});
 			}
 			if (spend) {
 				double alloc = s.calcCurrencyAllocation(p);
@@ -193,7 +201,6 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 			bt.bal = balance+total_spend;
 			bt.unspend_balance= balance;
 			bt.norm_profit_total = bt.norm_profit + bt.norm_accum * p;
-			bt.info = s.dumpStatePretty(minfo);
 
 
 

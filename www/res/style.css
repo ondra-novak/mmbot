@@ -75,7 +75,8 @@ select > option[disabled] {
 #chartarea {
 	display:  flex;
 	flex-wrap: wrap;
-	justify-content: center;	
+	justify-content: center;
+	align-items: center;
 }
 
 .disable_na_p .disable_na {
@@ -889,9 +890,12 @@ table  tr > * {
 	background-color: #1b1b1b;
 	white-space: nowrap;
 }
+table.extended td.rightalg {
+	text-align:right;
+}
 table.extended td:nth-child(2) {text-align: right;padding-right:0.1em;}
-table.extended td:nth-child(4) {text-align: right;padding-right:0.1em;}
-table.extended td:nth-child(4) b::after {
+table.extended td.percent {text-align: right;padding-right:0.1em;}
+table.extended td.percent b::after {
 	content:" %";
 	font-weight:normal;
 	color: #cdcdcd;

@@ -480,7 +480,7 @@ function app_start(){
 					r.achg < 0?"↘":r.achg?"↗":"!",
 					r.achg?Math.abs(r.achg):"alert",
 					r.price,
-					r.rplDiff,
+					r.plDiff,
 					r.normch,
 				]
 				tr.classList.toggle("sell", r.achg<0);

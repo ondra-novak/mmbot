@@ -52,6 +52,7 @@ public:
 		bool reinvest;
 		bool avgspread;
 		bool lazyopen;
+		bool lazyclose;
 		int boostmode;
 		json::String calcConfigHash() const;
 	};
