@@ -62,7 +62,7 @@ public:
 			  	  	  	  	  	  const std::optional<IStockApi::Order> &sell);
 	void setTrades(StrViewA symb, double finalPos,  StringView<IStatSvc::TradeRecord> trades);
 	void setInfo(StrViewA symb, const InfoObj &info);
-	void setMisc(StrViewA symb, const MiscData &miscData);
+	void setMisc(StrViewA symb, const MiscData &miscData, bool initial);
 
 	void setPrice(StrViewA symb, double price);
 	void addLogLine(StrViewA ln);

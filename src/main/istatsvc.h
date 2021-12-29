@@ -33,6 +33,7 @@ public:
 	struct MiscData {
 		int trade_dir;
 		bool achieve_mode;
+		bool enabled;
 		double calc_price;
 		double spread;
 		double dynmult_buy;
@@ -49,6 +50,9 @@ public:
 		double position;
 		double cur_norm_buy;
 		double cur_norm_sell;
+		double entry_price;
+		double rpnl;
+		double upnl;
 	};
 
 
@@ -114,7 +118,7 @@ public:
 	virtual void reportTrades(double finalPos, ondra_shared::StringView<TradeRecord> trades) = 0;
 	virtual void reportPrice(double price) = 0;
 	virtual void setInfo(const Info &info) = 0;
-	virtual void reportMisc(const MiscData &miscData) = 0;
+	virtual void reportMisc(const MiscData &miscData, bool initial = false) = 0;
 	virtual void reportError(const ErrorObj &errorObj) = 0;
 	virtual void reportPerformance(const PerformanceReport &repItem) = 0;
 	virtual std::size_t getHash() const = 0;

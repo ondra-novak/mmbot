@@ -574,6 +574,7 @@ void MTrader::perform(bool manually) {
 			statsvc->reportMisc(IStatSvc::MiscData{
 				last_trade_dir,
 				achieve_mode,
+				cfg.enabled,
 				eq,
 				status.curStep*0.5*(cfg.buy_step_mult+cfg.sell_step_mult),
 				dynmult.getBuyMult(),
@@ -589,7 +590,10 @@ void MTrader::perform(bool manually) {
 				centerPrice,
 				position,
 				buy_norm,
-				sell_norm
+				sell_norm,
+				enter_price_sum/enter_price_pos,
+				enter_price_pnl,
+				status.curPrice*enter_price_pos - enter_price_sum
 			});
 
 		}
@@ -655,9 +659,11 @@ void MTrader::perform(bool manually) {
 		error.append(e.what());
 		statsvc->reportError(IStatSvc::ErrorObj(error.c_str()));
 		statsvc->reportMisc(IStatSvc::MiscData{
-			0,false,0,0,dynmult.getBuyMult(),dynmult.getSellMult(),0,0,0,0,accumulated,0,
-			trades.size(),trades.empty()?0UL:(trades.back().time-trades[0].time),lastTradePrice
-		});
+			0,false,cfg.enabled,0,0,dynmult.getBuyMult(),dynmult.getSellMult(),0,0,0,0,accumulated,0,
+			trades.size(),trades.empty()?0UL:(trades.back().time-trades[0].time),lastTradePrice,position,
+					0,0,enter_price_sum/enter_price_pos,enter_price_pnl,
+					lastTradePrice*enter_price_pos-enter_price_sum*enter_price_pos
+		},true);
 		statsvc->reportPrice(trades.empty()?1:trades.back().price);
 		throw;
 	}

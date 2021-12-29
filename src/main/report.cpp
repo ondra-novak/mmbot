@@ -420,8 +420,9 @@ void Report::sendStreamMisc(ME &me, const std::string_view &symb, const json::Va
 
 }
 
-void Report::setMisc(StrViewA symb, const MiscData &miscData) {
+void Report::setMisc(StrViewA symb, const MiscData &miscData, bool initial) {
 
+	if (initial && infoMap.find(symb) != infoMap.end()) return;
 	const json::Value &info = infoMap[symb];
 	bool inverted = info["inverted"].getBool();
 
@@ -443,7 +444,12 @@ void Report::setMisc(StrViewA symb, const MiscData &miscData) {
 		{"bt",miscData.budget_total},
 		{"a",miscData.achieve_mode},
 		{"accum",miscData.accumulated},
-		{"ba",miscData.budget_assets}});
+		{"ba",miscData.budget_assets},
+		{"en",miscData.enabled},
+		{"upnl",miscData.upnl},
+		{"rpnl",miscData.rpnl},
+	});
+
 
 	if (miscData.budget_extra.has_value())
 		output.set("be", *miscData.budget_extra);
@@ -460,6 +466,7 @@ void Report::setMisc(StrViewA symb, const MiscData &miscData) {
 			{"mdms", miscData.dynmult_buy},
 			{"cur_norm_buy",miscData.cur_norm_sell},
 			{"cur_norm_sell",miscData.cur_norm_buy},
+			{"op", 1.0/miscData.entry_price},
 			{"ltp", 1.0/miscData.lastTradePrice}});
 	} else {
 		output.setItems({
@@ -472,6 +479,7 @@ void Report::setMisc(StrViewA symb, const MiscData &miscData) {
 			{"mdms", miscData.dynmult_sell},
 			{"cur_norm_buy",miscData.cur_norm_buy},
 			{"cur_norm_sell",miscData.cur_norm_sell},
+			{"op", miscData.entry_price},
 			{"ltp", miscData.lastTradePrice}
 		});
 	}

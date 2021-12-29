@@ -40,8 +40,8 @@ public:
 	virtual void reportTrades(double finalPos, ondra_shared::StringView<IStatSvc::TradeRecord> trades) override {
 		rpt.lock()->setTrades(name,finalPos, trades);
 	}
-	virtual void reportMisc(const MiscData &miscData) override{
-		rpt.lock()->setMisc(name, miscData);
+	virtual void reportMisc(const MiscData &miscData,bool initial) override{
+		rpt.lock()->setMisc(name, miscData, initial);
 	}
 	virtual void reportError(const ErrorObj &errorObj) override{
 		rpt.lock()->setError(name, errorObj);

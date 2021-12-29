@@ -306,6 +306,8 @@ function app_start(){
 					misc.avgh_pp = misc.avgh/misc.bt*100;
 					misc.avgha_pp = misc.avgha/misc.ba*100;
 					misc.avghpl_pp = misc.avghpl/misc.bt*100;
+					misc.rpnl_pp = misc.rpnl/misc.bt*100;
+					misc.upnl_pp = misc.upnl/misc.bt*100;
 					misc.p0 = lastItem.p0 == undefined?"---":lastItem.p0
 					misc.pnorm = last_norm;
 					misc.pnormp = 100*last_norm/misc.mv;
@@ -478,7 +480,7 @@ function app_start(){
 					r.achg < 0?"↘":r.achg?"↗":"!",
 					r.achg?Math.abs(r.achg):"alert",
 					r.price,
-					r.plDiff,
+					r.rplDiff,
 					r.normch,
 				]
 				tr.classList.toggle("sell", r.achg<0);
@@ -547,11 +549,13 @@ function app_start(){
 		var lastPrice = 0;
 		var lastNacum = 0;
 		var lastPLn = 0;
+		var lastRPL = 0;
 		data.forEach(function(r) {
 			r.ident = ident;
 			r.normDiff = safediff(r.norm , lastNorm);
 			r.nacumDiff = safediff(r.nacum , lastNacum)
 			r.plDiff = safediff(r.pl , lastPL);
+			r.rplDiff = safediff(r.rpl , lastRPL);
 			r.priceDiff = safediff(r.price , lastPrice);
 			r.plnDiff = safediff(r.pln , lastPLn)
 			r.vol = r.volume;
@@ -561,6 +565,7 @@ function app_start(){
 			lastPrice += r.priceDiff;
 			lastNacum += r.nacumDiff;
 			lastPLn += r.plnDiff;
+			lastRPL = r.rpl;
 		});
 	}
 	
@@ -603,6 +608,7 @@ function app_start(){
 						pln:s[s.length-1].pln+r.plnDiff,
 						normDiff:r.normDiff,
 						plDiff:r.plDiff,
+						rplDiff:r.rplDiff,
 						plnDiff:r.plnDiff,
 						vol: r.volume,
 						rel: s[s.length-1].rel+ r.relDiff,
@@ -615,6 +621,7 @@ function app_start(){
 						pl:r.plDiff,
 						pln:r.plnDiff,
 						plDiff:r.plDiff,
+						rplDiff:r.rplDiff,
 						norm:r.normDiff,
 						normDiff:r.normDiff,
 						vol: r.volume,
