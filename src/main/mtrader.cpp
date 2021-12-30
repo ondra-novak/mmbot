@@ -1900,7 +1900,8 @@ void MTrader::updateEnterPrice() {
 		return a + tr.eff_size;
 	});
 	double pos = initState;
-	double eps = cfg.init_open*initState;
+	double eps = cfg.init_open?((minfo.invert_price?1.0/cfg.init_open:cfg.init_open)*initState):0;
+
 	double pnl = 0;
 	spent_currency = 0;
 	for (const auto &tr : trades) {
