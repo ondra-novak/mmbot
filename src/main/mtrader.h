@@ -58,6 +58,8 @@ struct MTrader_Config {
 	double spread_calc_stdev_hours;
 	double spread_calc_sma_hours;
 
+	double init_open;
+
 	bool dry_run;
 	bool internal_balance;
 	bool dont_allocate;

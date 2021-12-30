@@ -382,7 +382,8 @@ Specifies maximum costs can be used by this trader. Orders which increases costs
 </div></div>
 <div class="rightinfo"><button name="vis_spread"  disabled="disabled">Visualize spread</button></div>
 </x-section>
-<x-section class="adv"><x-section-caption>Misc</x-section-caption>
+<x-section><x-section-caption>Misc</x-section-caption>
+<label><span>Initial open price<span class="tooltip">Specifies inital open price (buy price) for initial assets-initial position. Changing this value affects calculation of total realized PnL</span></span><input type="number" step="0.1" data-name="init_open"></label>
 <div class="label adv"><span>Internal balance<span class="tooltip">Track balance by trades - do not use balance from exchange. This allows to change balance on exchange without having impact on the trading</span></span><x-checkbox data-name="internal_balance"></x-checkbox></div>
 <div class="label adv"><span>No budget allocation<span class="tooltip">Don't report budget allocation, the trader will see whole live balance</span></span><x-checkbox data-name="dont_allocate"></x-checkbox></div>
 <div class="label adv"><span>Trade only within budget<span class="tooltip">Stops trading, when the strategy runs out of calculated budget even if there is still available balance to spend</span></span><x-checkbox data-name="trade_within_budget"></x-checkbox></div>

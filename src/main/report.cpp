@@ -422,7 +422,7 @@ void Report::sendStreamMisc(ME &me, const std::string_view &symb, const json::Va
 
 void Report::setMisc(StrViewA symb, const MiscData &miscData, bool initial) {
 
-	if (initial && infoMap.find(symb) != infoMap.end()) return;
+	if (initial && miscMap.find(symb) != miscMap.end()) return;
 	const json::Value &info = infoMap[symb];
 	bool inverted = info["inverted"].getBool();
 

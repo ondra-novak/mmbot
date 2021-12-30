@@ -743,6 +743,7 @@ App.prototype.fillForm = function (src, trg) {
 	data.emul_leverage = filledval(src.emulate_leveraged,0);
 	data.trade_within_budget = filledval(src.trade_within_budget,false);
 	data.max_costs = filledval(src.max_costs, "");
+	data.init_open = filledval(src.init_open, 0);
 
 	
 	data.icon_reset={"!click": function() {
@@ -969,6 +970,7 @@ App.prototype.saveForm = function(form, src) {
 	if (isFinite(data.min_balance)) trader.min_balance = data.min_balance;
 	if (isFinite(data.max_balance)) trader.max_balance = data.max_balance;
 	if (isFinite(data.max_costs)) trader.max_costs = data.max_costs;
+	trader.init_open = data.init_open;
 	return trader;
 	
 }

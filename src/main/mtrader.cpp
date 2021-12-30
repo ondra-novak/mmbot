@@ -90,6 +90,7 @@ void MTrader_Config::loadConfig(json::Value data, bool force_dry_run) {
 	reduce_on_leverage=data["reduce_on_leverage"].getBool();
 	freeze_spread=data["spread_freeze"].getBool();
 	trade_within_budget = data["trade_within_budget"].getBool();
+	init_open = data["init_open"].getNumber();
 
 	if (dynmult_raise > 1e6) throw std::runtime_error("'dynmult_raise' is too big");
 	if (dynmult_raise < 0) throw std::runtime_error("'dynmult_raise' is too small");
@@ -1899,7 +1900,7 @@ void MTrader::updateEnterPrice() {
 		return a + tr.eff_size;
 	});
 	double pos = initState;
-	double eps = 0;
+	double eps = cfg.init_open*initState;
 	double pnl = 0;
 	spent_currency = 0;
 	for (const auto &tr : trades) {
