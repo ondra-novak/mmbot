@@ -20,19 +20,20 @@ bool Strategy_Hodl_Short::isValid() const {
 }
 
 double Strategy_Hodl_Short::calcAssets(double k, double w, double z, double x) {
-	return w*std::exp(z*(1-x/k));
+	return w*std::pow(k/x,z);
 }
 double Strategy_Hodl_Short::calcBudget(double k, double w, double z, double x) {
-	return w*(k - std::exp(z - (z*x)/k)*k)/z;
+	if (std::abs(z-1)<0.00001) return k*w*std::log(x/k);
+	return w*(k - std::pow(k/x,z)*x)/(z-1);
 }
 double Strategy_Hodl_Short::calcFiat(double k, double w, double z, double x) {
 	return calcBudget(k, w, z, x)-calcAssets(k, w, z, x)*x+k*w;
 }
 double Strategy_Hodl_Short::calcPriceFromAssets(double k, double w, double z, double a) {
-	return k - (k *std::log(a/w))/z;
+	return k * std::pow((a/w),(-1.0/z));
 }
 double Strategy_Hodl_Short::calcKFromAssets(double w, double z, double a, double x) {
-	return (x * z)/(z + std::log(w/a));
+	return x * std::pow((a/w),(1/z));
 }
 
 PStrategy Strategy_Hodl_Short::init(double price, double assets, double currency, bool leveraged) const {
@@ -71,6 +72,7 @@ PStrategy Strategy_Hodl_Short::init(double price, double assets, double currency
 double Strategy_Hodl_Short::calcNewK(double new_price, double step) const {
 
 	if (new_price > st.lastp) return st.k;
+	if ( new_price * st.w*0.001>st.accm) return st.k; //this helps a little to collect more normalized profit
 	if (new_price < st.k) return st.k;
 	double lk = st.k;
 	double hk = (new_price+st.k)*0.5;
@@ -211,8 +213,8 @@ double Strategy_Hodl_Short::calcInitialPosition(const IStockApi::MarketInfo &min
 
 IStrategy::BudgetInfo Strategy_Hodl_Short::getBudgetInfo() const {
 	return {
-		calcBudget(st.k, st.w, cfg.z, st.lastp)+calcAssets(st.k, st.w, cfg.z, st.lastp)*st.lastp,
-		calcAssets(st.k, st.w, cfg.z, st.lastp)
+		st.w * st.k,
+		st.w
 	};
 }
 
