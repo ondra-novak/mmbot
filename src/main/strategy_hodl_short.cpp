@@ -71,11 +71,12 @@ PStrategy Strategy_Hodl_Short::init(double price, double assets, double currency
 double Strategy_Hodl_Short::calcNewK(double new_price, double step) const {
 
 	if (new_price > st.lastp) return st.k;
-	double lk = st.k*0.99;
+	if (new_price < st.k) return st.k;
+	double lk = st.k;
 	double hk = (new_price+st.k)*0.5;
 	for (int i = 0; i < 50; i++) {
 		double m = (lk+hk)*0.5;
-		double newpos = IStockApi::MarketInfo::adjValue(calcAssets(m, st.w, cfg.z, new_price),step,[](double c){return std::ceil(c);});
+		double newpos = calcAssets(m, st.w, cfg.z, new_price);
 		double newdif = newpos - st.a;
 		double newval = std::max(calcFiat(m, st.w, cfg.z, new_price),0.0);
 		double np = (st.val - newval) - newdif * new_price+st.accm;
@@ -210,7 +211,7 @@ double Strategy_Hodl_Short::calcInitialPosition(const IStockApi::MarketInfo &min
 
 IStrategy::BudgetInfo Strategy_Hodl_Short::getBudgetInfo() const {
 	return {
-		calcBudget(st.k, st.w, cfg.z, st.lastp),
+		calcBudget(st.k, st.w, cfg.z, st.lastp)+calcAssets(st.k, st.w, cfg.z, st.lastp)*st.lastp,
 		calcAssets(st.k, st.w, cfg.z, st.lastp)
 	};
 }
