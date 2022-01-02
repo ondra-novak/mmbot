@@ -1810,7 +1810,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
     var offset_max = 0;
 	var start_date = "";
 	var sttype =form.readData(["strategy"]).strategy;
-    var show_norm= ["halfhalf","pile","keepvalue","exponencial","errorfn","hypersquare","conststep"].indexOf(sttype) != -1?1:0;
+    var show_norm= ["halfhalf","pile","keepvalue","exponencial","errorfn","hypersquare","conststep"].indexOf(sttype) != -1?2:0;
 	var infoElm;
 	var this_bt=this.backtest[id];
 	if (!this_bt) this.backtest[id]=this_bt={};
@@ -1844,6 +1844,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		var cnt_als = 0;
 		var last_dir = 0;
 		var lastp = v[0].pr;
+		var init_price = invPrice(v[0].pr, invert_price);
 
 		var c = [];
 		var ilst,acp = false;
@@ -1858,6 +1859,8 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 				    c.push(ilst);
 					ilst = null;
 				}
+				x.plb = x.pl/npr;
+				x.nplb = x.npl/npr;
 				c.push(x);				
 			} else {
 				ilst = x;
@@ -1905,6 +1908,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		var lastna;
 		var lastop;
 		var lastpl;
+		var lastpla;
 		if (offset) {
 			var x = Object.assign({}, last);
 			x.time = imax;
@@ -1914,7 +1918,8 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		lastnpl = last.npla;
 		lastop = last.op;
 		lastpl = last.pl;
-		lastna = last.na;		
+		lastna = last.na;
+		lastpla = last.plb;		
 
 		skip_norm = lastnpl == 0;
 		skip_accum = lastna == 0;
@@ -1936,9 +1941,14 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
         	"pc": adjNumBuySell(vlast.pl*3153600000000/(interval*balance),0),
         	"npc": adjNumBuySell(vlast.npl*3153600000000/(interval*balance),1),
         	"npca": adjNumBuySell(vlast.na*3153600000000/(interval*balance/form._price),1),
+			"pla": adjNumBuySell(lastpla),
+			"plya": adjNumBuySell(lastpla*3153600000000/interval),
+			"pca": adjNumBuySell(lastpla*3153600000000/(interval*balance/init_price)),
         	"showpl":{".hidden":show_norm!=0},
-        	"shownorm":{".hidden":show_norm!=1},
-        	"showaccum":{".hidden":show_norm!=2},
+        	"showpla":{".hidden":show_norm!=1},
+        	"shownorm":{".hidden":show_norm!=2},
+        	"showaccum":{".hidden":show_norm!=3},
+        	"graphtype":show_norm,
         	"trades": trades,
         	"buys": buys,
         	"sells": sells,
@@ -1970,10 +1980,12 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		} else {
 		    drawMap1=drawChart(chart1,c,"pr",lastnp?[{label:"neutral",pr:lastnp}]:[],"np");			
 		}
-		if (show_norm==1) {
+		if (show_norm==2) {
 		    drawMap2=drawChart(chart2,c,"npl",[{label:"PL",npla:lastpl}],"pl");
-		} else if (show_norm==2) {
+		} else if (show_norm==3) {
 		    drawMap2=drawChart(chart2,c,"na",[]);
+		} else if (show_norm==1) {
+		    drawMap2=drawChart(chart2,c,"plb",[],"nplb");
 		} else {
 		    drawMap2=drawChart(chart2,c,"pl",[{label:"norm",pl:lastnpl}],"npla");
 		}
@@ -2088,8 +2100,8 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 
 	function swapshowpl() {
 		show_norm = (show_norm+1)%3;
-		if (skip_norm && show_norm == 1) swapshowpl();
-		else if (skip_accum && show_norm == 2) swapshowpl();
+		if (skip_norm && show_norm == 2) swapshowpl();
+		else if (skip_accum && show_norm == 3) swapshowpl();
 		update_recalc();
 	}
 
@@ -2234,6 +2246,10 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 				if (has_minute()) this_bt.trades = null;
 				cntr.update();				
 			});
+			cntr.bt.setItemEvent("graphtype", "change", function(){
+				show_norm =  parseInt(this.value);
+				update_recalc();
+			})
 			cntr.bt.setItemValue("show_op", show_op);
 			cntr.bt.setItemValue("fill_atprice",fill_atprice);
 			cntr.bt.setItemValue("allow_neg_bal",allow_neg_balance);
@@ -2261,6 +2277,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 				cntr.update();
 			})
 			cntr.bt.setItemEvent("showpl","click",swapshowpl);
+			cntr.bt.setItemEvent("showpla","click",swapshowpl);
 			cntr.bt.setItemEvent("shownorm","click",swapshowpl);
 			cntr.bt.setItemEvent("showaccum","click",swapshowpl);
 			cntr.bt.setItemEvent("select_file","click",function(){

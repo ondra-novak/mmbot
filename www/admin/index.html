@@ -643,10 +643,20 @@ the same order, they are ordered by its ID - this is the default ordering. Modif
 <x-section class="backtest"><x-section-caption>Backtest</x-section-caption>
 <div class="tablecont up"><table>
 <tr>
-<th class="a" data-name="showpl" hidden="hidden">p&amp;l</th>
-<th class="a" data-name="showpl" hidden="hidden">p&amp;l/y</th>
-<th class="a" data-name="showpl" hidden="hidden">p&amp;l p.a.</th>
+<td rowspan="2"><select data-name="graphtype">
+<option value="0">equity</option>
+<option value="1">buy power</option>
+<option value="2">norm profit</option>
+<option value="3">accumulation</option>
+</select></td>
+<th class="a" data-name="showpl" hidden="hidden">equity</th>
+<th class="a" data-name="showpl" hidden="hidden">equity/y</th>
+<th class="a" data-name="showpl" hidden="hidden">equity p.a.</th>
 <th class="a" data-name="showpl" hidden="hidden">max pos</th>
+<th class="a" data-name="showpla" hidden="hidden">bp</th>
+<th class="a" data-name="showpla" hidden="hidden">bp/y</th>
+<th class="a" data-name="showpla" hidden="hidden">bp p.a.</th>
+<th class="a" data-name="showpla" hidden="hidden">max pos</th>
 <th class="a" data-name="shownorm" hidden="hidden">norm</th>
 <th class="a" data-name="shownorm" hidden="hidden">norm/y</th>
 <th class="a" data-name="shownorm" hidden="hidden">norm p.a.</th>
@@ -661,6 +671,10 @@ the same order, they are ordered by its ID - this is the default ordering. Modif
 <td class="colornumb a" data-name="ply showpl" hidden="hidden"></td>
 <td class="colornumb a pc" data-name="pc showpl" hidden="hidden"></td>
 <td class="colornumb a" data-name="max_pos showpl" hidden="hidden"></td>
+<td class="colornumb a" data-name="pla showpla" hidden="hidden"></td>
+<td class="colornumb a" data-name="plya showpla" hidden="hidden"></td>
+<td class="colornumb a pc" data-name="pca showpla" hidden="hidden"></td>
+<td class="colornumb a" data-name="max_pos showpla" hidden="hidden"></td>
 <td class="colornumb a" data-name="npl shownorm" hidden="hidden"></td>
 <td class="colornumb a" data-name="nply shownorm" hidden="hidden"></td>
 <td class="colornumb a pc" data-name="npc shownorm" hidden="hidden"></td>

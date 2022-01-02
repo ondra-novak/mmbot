@@ -708,7 +708,7 @@ a {
 .backtest th {
 	font-weight:normal;
 	white-space: nowrap;
-	width: 15%;
+	width: 14%;
 }
 .backtest th[data-name=options]:hover {
 	background-color: #FFF2;
@@ -735,6 +735,30 @@ a {
 
 .backtest td {
 	font-weight:bold;
+}
+.backtest tr:first-child td:first-child {
+    padding: 0;
+}
+.backtest table select {
+	display: block;
+	width: 7em;
+	border: 0;
+	background: transparent;
+	text-overflow: ellipsis;
+	padding: 4px;
+	text-align: center;
+}
+.backtest table select option {
+	background-color: black;
+}
+.backtest table select option:checked {
+	background-color: #888;
+}
+.backtest table select option:hover {
+	background-color: #888;
+}
+.backtest table select option:focus {
+	background-color: #888;
 }
 .backtest td.a,.backtest th.a {
 	cursor: pointer;
@@ -1509,6 +1533,7 @@ input,select,button,textarea {
 	width: 40%;
 
 }
+.backtest table select {font-size: 2vw;width: 12vw;}
 .backtest {
 	font-size: 2.5vw;
 }
