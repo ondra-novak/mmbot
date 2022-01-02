@@ -277,6 +277,7 @@ to enter a negative value and then the value of the assets held will decrease an
 <option value="-1">Long only</option>
 <option value="1">Short only</option>
 </select></label>
+<label class="adv" data-name="shg_show_asym" hidden><span>Long/short asymetry [%]<span class="tooltip">Asymetry, allows to prefer one side over second. The negative number increases tradable range for the short position, the positive number increases tradable range for the long position. NOTE: the meaning is reversed for inverted market</span></span><x-slider data-name="shg_z" data-min="-100" data-max="100" data-mult="1" data-fixed="0"></label>
 <div class="label"><span>Reinvest profit<span class="tooltip">Increase the collateral by realized profit</span></span><x-checkbox data-name="shg_rnv"></x-checkbox></div>
 <div class="label adv"><span>Derive profit from avg.spread<span class="tooltip">Instead using current spread, use average spread</span></span><x-checkbox data-name="shg_avgsp"></x-checkbox></div>
 <div class="label"><span>Lazy open<span class="tooltip">Open position slower (more trades - DCA)</span></span><x-checkbox data-name="shg_lazyopen"></x-checkbox></div>

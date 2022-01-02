@@ -27,8 +27,8 @@ bool Strategy_Sinh_Gen::FnCalc::sortPoints(const Point &a, const Point &b) {
 	return a.first < b.first;
 }
 
-Strategy_Sinh_Gen::FnCalc::FnCalc(double wd, double boost, int side)
-:wd(wd),boost(boost),side(side) {
+Strategy_Sinh_Gen::FnCalc::FnCalc(double wd, double boost, int side, double z)
+:wd(wd),boost(boost),z(z),side(side) {
 
 		auto fillFn = [&](double x, double y) {
 			itable.push_back({x,y});
@@ -59,7 +59,7 @@ double Strategy_Sinh_Gen::FnCalc::baseFn(double x) const {
 	if (side<0) y=0.5*std::exp(arg);
 	else if (side>0) y=-0.5*std::exp(-arg);
 	else y = std::sinh(arg);
-	y = y / (x*std::sqrt(wd));
+	y = y / (std::pow(x,wd*z+1)*std::sqrt(wd));
 	return y + sgn(y) * boost;
 }
 
@@ -214,7 +214,9 @@ double Strategy_Sinh_Gen::calcNewK(double tradePrice, double cb, double pnl, int
 		if (!pnl) return st.k;
 		double sprd = cfg.avgspread?(1.0+st.sum_spread/std::max(st.trades,10)):(tradePrice/st.p);
 		double refp = st.k*sprd;
-		double yield = cfg.calc->budget(st.k, pw, refp);
+		double yield_a = cfg.calc->budget(st.k, pw, refp);
+		double yield_b = cfg.calc->budget(st.k, pw, refp/pow2(sprd));
+		double yield = std::min(yield_b,yield_a);
 		double yield2 = yield+cfg.power*cfg.calc->getBoost()*std::abs(refp-st.k);
 		double refb;
 		switch (bmode) {

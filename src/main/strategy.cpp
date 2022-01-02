@@ -168,11 +168,12 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 		return Strategy(new Strategy_Gamma(cfg));
 	} else if (id == Strategy_Sinh_Gen::id) {
 		Strategy_Sinh_Gen::Config cfg;
+		cfg.disableSide = config["disableSide"].getInt();
 		double p = config["p"].getNumber()*0.01;
 		double w = config["w"].getNumber();
 		double b = config["b"].getNumber();
-		cfg.disableSide = config["disableSide"].getInt();
-		cfg.calc = std::make_shared<Strategy_Sinh_Gen::FnCalc>(w,b*0.01,cfg.disableSide);
+		double z = -cfg.disableSide?0:config["z"].getNumber()*0.002;
+		cfg.calc = std::make_shared<Strategy_Sinh_Gen::FnCalc>(w,b*0.01,cfg.disableSide,z);
 		cfg.power = p;
 		cfg.lazyopen = config["lazyopen"].getBool();
 		cfg.lazyclose = config["lazyclose"].getBool();
