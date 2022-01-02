@@ -419,10 +419,11 @@ void MTrader::perform(bool manually) {
 						}
 
 						if (grant_trade) {
-							lspread = 0;
-							hspread = 0;
+							lspread = hspread = 0;
 							need_alerts = false;
 						}
+						hspread = std::max(hspread,1e-10); //spread can't be zero, so put there small number
+						lspread = std::max(lspread,1e-10);
 							//calculate buy order
 						buyorder = calculateOrder(strategy,centerPrice,-lspread,
 								dynmult.getBuyMult(),status.ticker.bid,
@@ -453,6 +454,8 @@ void MTrader::perform(bool manually) {
 
 
 					}
+
+					/*
 					if (grant_trade) {
 						sellorder.alert = IStrategy::Alert::disabled;
 						buyorder.alert = IStrategy::Alert::disabled;
@@ -461,7 +464,7 @@ void MTrader::perform(bool manually) {
 						} else if (status.curPrice > eq) {
 							buyorder.size = 0;
 						}
-					}
+					}*/
 
 					for (int _i=0;_i<2;_i++) {
 						try {
