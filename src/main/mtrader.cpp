@@ -455,16 +455,11 @@ void MTrader::perform(bool manually) {
 
 					}
 
-					/*
+
 					if (grant_trade) {
 						sellorder.alert = IStrategy::Alert::disabled;
 						buyorder.alert = IStrategy::Alert::disabled;
-						if (status.curPrice < eq) {
-							sellorder.size = 0;
-						} else if (status.curPrice > eq) {
-							buyorder.size = 0;
-						}
-					}*/
+					}
 
 					for (int _i=0;_i<2;_i++) {
 						try {
