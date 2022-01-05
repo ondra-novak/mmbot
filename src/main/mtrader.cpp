@@ -456,7 +456,7 @@ void MTrader::perform(bool manually) {
 					}
 
 
-					if (grant_trade) {
+					if (achieve_mode) {
 						sellorder.alert = IStrategy::Alert::disabled;
 						buyorder.alert = IStrategy::Alert::disabled;
 					}
