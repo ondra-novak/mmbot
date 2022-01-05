@@ -1945,9 +1945,9 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 			"plya": adjNumBuySell(lastpla*3153600000000/interval),
 			"pca": adjNumBuySell(lastpla*3153600000000/(interval*balance/init_price)),
         	"showpl":{".hidden":show_norm!=0},
-        	"showpla":{".hidden":show_norm!=1},
-        	"shownorm":{".hidden":show_norm!=2},
-        	"showaccum":{".hidden":show_norm!=3},
+        	"showpla":{".hidden":show_norm!=3},
+        	"shownorm":{".hidden":show_norm!=1},
+        	"showaccum":{".hidden":show_norm!=2},
         	"graphtype":show_norm,
         	"trades": trades,
         	"buys": buys,
@@ -1980,11 +1980,11 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		} else {
 		    drawMap1=drawChart(chart1,c,"pr",lastnp?[{label:"neutral",pr:lastnp}]:[],"np");			
 		}
-		if (show_norm==2) {
+		if (show_norm==1) {
 		    drawMap2=drawChart(chart2,c,"npl",[{label:"PL",npla:lastpl}],"pl");
-		} else if (show_norm==3) {
+		} else if (show_norm==2) {
 		    drawMap2=drawChart(chart2,c,"na",[]);
-		} else if (show_norm==1) {
+		} else if (show_norm==3) {
 		    drawMap2=drawChart(chart2,c,"plb",[],"nplb");
 		} else {
 		    drawMap2=drawChart(chart2,c,"pl",[{label:"norm",pl:lastnpl}],"npla");
@@ -2100,8 +2100,8 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 
 	function swapshowpl() {
 		show_norm = (show_norm+1)%3;
-		if (skip_norm && show_norm == 2) swapshowpl();
-		else if (skip_accum && show_norm == 3) swapshowpl();
+		if (skip_norm && show_norm == 1) swapshowpl();
+		else if (skip_accum && show_norm == 2) swapshowpl();
 		update_recalc();
 	}
 

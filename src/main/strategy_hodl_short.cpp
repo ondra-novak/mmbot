@@ -171,6 +171,7 @@ PStrategy Strategy_Hodl_Short::importState(json::Value src, const IStockApi::Mar
 			src["lastp"].getNumber(),
 			src["a"].getNumber(),
 			src["val"].getNumber(),
+			src["acm"].getNumber(),
 
 	};
 	return new Strategy_Hodl_Short(cfg, std::move(st));
@@ -194,7 +195,8 @@ json::Value Strategy_Hodl_Short::exportState() const {
 		{"k",st.k},
 		{"a",st.a},
 		{"val",st.val},
-		{"lastp",st.lastp}
+		{"lastp",st.lastp},
+		{"acm",st.accm}
 	};
 }
 
