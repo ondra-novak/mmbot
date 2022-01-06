@@ -699,6 +699,7 @@ the same order, they are ordered by its ID - this is the default ordering. Modif
 	<div class="icon" data-name="random_chart"><img src="../res/random_chart.png" title="Generate random chart" ></div>
 	<div class="icon" data-name="icon_internal"><img src="../res/internal_data.png" title="Use internal data"></div> 
 	<div class="icon" data-name="icon_recalc"><img src="../res/recalc_data.png" title="Recalculate spread" ></div>
+	<div class="icon" data-name="icon_test"><img src="../res/stest.png" title="Stability test" ></div>
 	<div class="icon" data-name="export"><img src="../res/export_csv.png" title="Export CSV" > </div>
 	<div class="icon" data-name="icon_reset"><img src="../res/repair.png" title="Reset data" ></div>
 	</div>	
@@ -1091,6 +1092,26 @@ the same order, they are ordered by its ID - this is the default ordering. Modif
 	<span data-name="topic"></span>
 </div>
 <div data-name="body" class="body"></div>
+</div>
+</div>
+</template>
+
+<template id="stability_test">
+<div class="dialog">
+<div class="stabilitytest">
+<table>
+<tr><th>Event</th><th>Last</th><th>Min</th><th>Avg</th><th>Max</th></tr>
+<tr><th>Tests</th><td data-name="tests"></td></tr>
+<tr class="percent"><th>Profit</th><td class="colornumb" data-name="profit_last"></td><td class="colornumb"  data-name="profit_min"></td><td class="colornumb"  data-name="profit_avg"></td><td class="colornumb"  data-name="profit_max"></td></tr>
+<tr class="percent"><th>Norm profit</th><td class="colornumb"  data-name="norm_profit_last"></td><td class="colornumb"  data-name="norm_profit_min"></td><td class="colornumb"  data-name="norm_profit_avg"></td><td class="colornumb"  data-name="norm_profit_max"></td></tr>
+<tr><th>Alerts</th><td data-name="alerts_last"></td><td data-name="alerts_min"></td><td data-name="alerts_avg"></td><td data-name="alerts_max"></td></tr>
+<tr><th>Margin calls</th><td class="alertnumb" data-name="margin_last"></td><td class="alertnumb"  data-name="margin_min"></td><td class="alertnumb"  data-name="margin_avg"></td><td class="alertnumb"  data-name="margin_max"></td></tr>
+<tr><th>Liquidations</th><td class="liqnumb" data-name="liquid_last"></td><td class="liqnumb" data-name="liquid_min"></td><td class="liqnumb" data-name="liquid_avg"></td><td class="liqnumb" data-name="liquid_max"></td></tr>
+</table>
+<div class="error" data-name="error"></div>
+<div class="buttons">
+<button data-name="close">Close</button>
+</div>
 </div>
 </div>
 </template>

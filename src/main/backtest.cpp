@@ -34,6 +34,7 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 			if (!minfo.leverage) balance -= pos * bt.price;
 		}
 
+		bt.bal = balance;
 		trades.push_back(bt);
 
 		double total_spend = 0;

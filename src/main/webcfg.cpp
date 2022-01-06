@@ -1681,7 +1681,8 @@ enum class BTAction {
 	random_chart,
 	historical_chart,
 	gen_trades,
-	run
+	run,
+	probe
 };
 
 
@@ -1694,6 +1695,7 @@ static NamedEnum<BTAction> strBTAction({
 	{BTAction::historical_chart,"historical_chart"},
 	{BTAction::gen_trades, "gen_trades"},
 	{BTAction::run, "run"},
+	{BTAction::probe, "probe"},
 });
 
 bool WebCfg::reqBacktest_v2(simpleServer::HTTPRequest req, ondra_shared::StrViewA rest) {
@@ -1816,6 +1818,7 @@ bool WebCfg::reqBacktest_v2(simpleServer::HTTPRequest req, ondra_shared::StrView
 					Value ifutures=args["ifutures"];
 					Value order2 =args["order2"];
 					Value spread_freeze = args["spread_freeze"];
+					Value offset = args["offset"];
 
 					Value srcminute = storage.lock()->load_data(source.getString());
 					if (!srcminute.defined()) {
@@ -1848,7 +1851,11 @@ bool WebCfg::reqBacktest_v2(simpleServer::HTTPRequest req, ondra_shared::StrView
 					std::uint64_t t = std::chrono::duration_cast<std::chrono::milliseconds>((std::chrono::system_clock::now() - std::chrono::minutes(srcminute.size())).time_since_epoch()).count();
 					BTPrice tmp;
 					BTPrice *last = &tmp;
+					std::size_t ofs = offset.getUInt();
 					for (const auto &itm: srcminute) {
+						if (ofs) {
+							--ofs;continue;
+						}
 						double w = itm.getNumber();
 						if (inv) {
 							if (init == 0) init = pow2(w);
@@ -1882,6 +1889,7 @@ bool WebCfg::reqBacktest_v2(simpleServer::HTTPRequest req, ondra_shared::StrView
 					std::string id = storage.lock()->store_data(chart_data);
 					response=Value(json::object, {Value("id",id)});
 				}break;
+				case BTAction::probe:
 				case BTAction::run: {
 
 					Value minfo_val = args["minfo"];
@@ -1987,36 +1995,80 @@ bool WebCfg::reqBacktest_v2(simpleServer::HTTPRequest req, ondra_shared::StrView
 						else return std::optional<BTPrice>(*iter++);
 					},minfo,m_init_pos, balance.getNumber(), negbal.getBool(), spend.getBool());
 
+					if (action == BTAction::run) {
 
-					Value result (json::array, rs.begin(), rs.end(), [](const BTTrade &x) {
-						Value event;
-						switch (x.event) {
-						default: event = btevent_no_event;break;
-						case BTEvent::accept_loss: event = btevent_accept_loss;break;
-						case BTEvent::liquidation: event = btevent_liquidation;break;
-						case BTEvent::margin_call: event = btevent_margin_call;break;
-						case BTEvent::no_balance: event = btevent_no_balance;break;
-						case BTEvent::error: event = btevent_error;break;
-						}
-						return Object({
-								{"np",x.neutral_price},
-								{"op",x.open_price},
-								{"na",x.norm_accum},
-								{"npl",x.norm_profit},
-								{"npla",x.norm_profit_total},
-								{"pl",x.pl},
-								{"ps",x.pos},
-								{"pr",x.price},
-								{"tm",x.time},
-								{"bal",x.bal},
-								{"ubal",x.unspend_balance},
-								{"info",x.info},
-								{"sz",x.size},
-								{"event", event}
+						Value result (json::array, rs.begin(), rs.end(), [](const BTTrade &x) {
+							Value event;
+							switch (x.event) {
+							default: event = btevent_no_event;break;
+							case BTEvent::accept_loss: event = btevent_accept_loss;break;
+							case BTEvent::liquidation: event = btevent_liquidation;break;
+							case BTEvent::margin_call: event = btevent_margin_call;break;
+							case BTEvent::no_balance: event = btevent_no_balance;break;
+							case BTEvent::error: event = btevent_error;break;
+							}
+							return Object({
+									{"np",x.neutral_price},
+									{"op",x.open_price},
+									{"na",x.norm_accum},
+									{"npl",x.norm_profit},
+									{"npla",x.norm_profit_total},
+									{"pl",x.pl},
+									{"ps",x.pos},
+									{"pr",x.price},
+									{"tm",x.time},
+									{"bal",x.bal},
+									{"ubal",x.unspend_balance},
+									{"info",x.info},
+									{"sz",x.size},
+									{"event", event}
+							});
 						});
-					});
 
-					response = result;
+						response = result;
+					} else {
+						std::size_t accept_loss = 0, liquidation=0,margin_call=0,no_balance=0,error=0,alerts=0;
+						for (const auto &item: rs) {
+							switch (item.event) {
+								case BTEvent::accept_loss: ++accept_loss;break;
+								case BTEvent::liquidation: ++liquidation;break;
+								case BTEvent::margin_call: ++margin_call;break;
+								case BTEvent::no_balance: ++no_balance;break;
+								case BTEvent::error: ++error;break;
+								default:break;
+							}
+							if (item.size == 0) ++alerts;
+						}
+
+						double bal = 1;
+						double pl = 0;
+						double npl = 0;
+						double na = 0;
+
+						if (!rs.empty()) {
+							bal = rs[0].bal;
+							pl = rs.back().pl;
+							npl = rs.back().norm_profit;
+							na = rs.back().norm_accum;
+						}
+
+						response = json::Object {
+							{"events",json::Object {
+								{"accept_loss",accept_loss},
+								{"liquidation",liquidation},
+								{"margin_call",margin_call},
+								{"no_balance",no_balance},
+								{"error",error},
+								{"alerts",alerts},
+							}},
+							{"pl",pl},
+							{"npl",npl},
+							{"na",na},
+							{"pc_pl",pl/bal*100.0},
+							{"pc_npl",npl/bal*100.0}
+						};
+					}
+
 
 
 				}break;

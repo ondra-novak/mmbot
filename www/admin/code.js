@@ -1994,6 +1994,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		    infoElm.close();
 		    infoElm = null;
 		}
+		cntr.bt.showItem("icon_test",!!(this_bt.minute && this_bt.minute.id));
 
         show_info_fn = function(ev,clear) {
         	if (tm) clearTimeout(tm);
@@ -2113,7 +2114,33 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
     var show_info_fn = function(ev) {
     }    
 
-    	
+	function gen_spread(offset) {
+		var data = form.readData(spread_inputs);
+		var mult = Math.pow(2,data.spread_mult*0.01);
+		offset = offset || 0;
+		var sreq = {
+			sma:data.spread_calc_sma_hours,
+			stdev:data.spread_calc_stdev_hours,
+			force_spread:data.spread_mode=="fixed"?Math.log(data.force_spread/100+1):0,
+			mult:mult,
+			raise:data.dynmult_raise,
+			cap:data.dynmult_cap,
+			fall:data.dynmult_fall,
+			mode:data.dynmult_mode,
+			sliding:data.dynmult_sliding,
+			spread_freeze:data.spread_freeze,
+			dyn_mult:data.dynmult_mult,
+			reverse: reverse_chart,
+			invert: invert_chart,
+			ifutures: invert_price,			
+			source: this_bt.minute.id,
+			order2: data.secondary_order,
+			offset: offset
+		}
+		return fetch_json(url+"/gen_trades",{method:"POST",body:JSON.stringify(sreq)});
+	}
+ 	
+
 	this.gen_backtest(form,"backtest_anchor", "backtest_vis",inputs,function(cntr){
 
 		function download_historical_dlg() {
@@ -2249,7 +2276,8 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 			cntr.bt.setItemEvent("graphtype", "change", function(){
 				show_norm =  parseInt(this.value);
 				update_recalc();
-			})
+			});
+			cntr.bt.setItemEvent("icon_test", "click", stabilityTest.bind(this));
 			cntr.bt.setItemValue("show_op", show_op);
 			cntr.bt.setItemValue("fill_atprice",fill_atprice);
 			cntr.bt.setItemValue("allow_neg_bal",allow_neg_balance);
@@ -2378,6 +2406,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		}
 		
         var download_historical_fn = download_historical_dlg.bind(this);
+
 		
 		function call_update() {
 			
@@ -2431,38 +2460,17 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 				});
 			} else {
 				if (this_bt.minute && this_bt.minute.id) {
-					var data = form.readData(spread_inputs);
-					var mult = Math.pow(2,data.spread_mult*0.01);
-					var sreq = {
-						sma:data.spread_calc_sma_hours,
-						stdev:data.spread_calc_stdev_hours,
-						force_spread:data.spread_mode=="fixed"?Math.log(data.force_spread/100+1):0,
-						mult:mult,
-						raise:data.dynmult_raise,
-						cap:data.dynmult_cap,
-						fall:data.dynmult_fall,
-						mode:data.dynmult_mode,
-						sliding:data.dynmult_sliding,
-						spread_freeze:data.spread_freeze,
-						dyn_mult:data.dynmult_mult,
-						reverse: reverse_chart,
-						invert: invert_chart,
-						ifutures: invert_price,			
-						source: this_bt.minute.id,
-						order2: data.secondary_order			
-					}
-					ret = fetch_json(url+"/gen_trades",{method:"POST",body:JSON.stringify(sreq)})
-						.then(function(r) {
-							this_bt.trades = r;
-							return get_chart(call_update(),delayed_update_trades);
-						},function(e){
-							if (e.status == 410) {
-								delete this_bt.minute.id;
-								return call_update();
-							} else {
-								throw e;
-							}							
-						})
+					ret = gen_spread().then(function(r) {
+						this_bt.trades = r;
+						return get_chart(call_update(),delayed_update_trades);
+					},function(e){
+						if (e.status == 410) {
+							delete this_bt.minute.id;
+							return call_update();
+						} else {
+							throw e;
+						}							
+					});
 				} else if (this_bt.minute && this_bt.minute.chart) {
 					ret = fetch_json(url+"/upload", {method:"POST", body:JSON.stringify(this_bt.minute.chart)})
 					.then(function(r) {
@@ -2508,6 +2516,94 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
         
 		
 	}.bind(this));
+
+	function stabilityTest() {
+		var stop=false;
+		var cnt = 0;
+		var dlg = TemplateJS.View.fromTemplate("stability_test");
+		dlg.openModal();
+		dlg.setCancelAction(function() {
+			dlg.close();			
+			stop = true;
+		},"close");
+		function runTest() {
+            if (!stop) {
+            	gen_spread(cnt).then(
+                    function(r) {
+                    	req.source = r.id;
+                        fetch_json(url+"/probe", {method:"POST", body:JSON.stringify(req)}).then(function(v) {
+                            updateResults(v);
+                            cnt++;
+                            dlg.unmark();
+                            runTest();
+                        },function(e){
+                        	reportError(e).then(function(){
+                        	    runTest();
+                        	});
+                        })
+                    },function(e) {
+                    	reportError(e).then(function(){
+                    	    runTest();
+                    	})
+                    })
+            }
+    
+		}
+
+		runTest.call(this);
+
+        var stats = {
+        	profit:[0,0,0,0],
+        	norm_profit:[0,0,0,0],
+        	alerts:[0,0,0,0],
+        	margin:[0,0,0,0],
+        	liquid:[0,0,0,0]        
+        }
+
+        function reportError(e) {
+        	return parse_fetch_error(e).then(function(x) {
+        		dlg.setItemValue("error",x.t + " " +x.msg);
+        		dlg.mark("error");
+        		return TemplateJS.delay(5000);
+        	});
+        }
+
+        function updateStat(st, val) {
+			st[0] = val;
+			st[3] = st[3]+val;
+        	if (cnt) {
+				st[1] = st[1]<val?st[1]:val;
+				st[2] = st[2]>val?st[2]:val;
+        	} else {
+    			st[1] = st[2] = val;
+
+        	}
+        }
+
+        function fillData(st, prefix, data) {
+        	data[prefix+"_last"] = adjNumBuySell(st[0],0);
+        	data[prefix+"_min"] = adjNumBuySell(st[1],0);
+        	data[prefix+"_max"] = adjNumBuySell(st[2],0);
+        	data[prefix+"_avg"] = adjNumBuySell(st[3]/(cnt+1),0);
+        }
+
+		function updateResults(v) {
+            updateStat(stats.profit, v.pc_pl);
+            updateStat(stats.norm_profit, v.pc_npl);
+            updateStat(stats.alerts, v.events.alerts);
+            updateStat(stats.margin, v.events.margin_call);
+            updateStat(stats.liquid, v.events.liquidation);
+            var data = {};
+            fillData(stats.profit,"profit", data);
+            fillData(stats.norm_profit,"norm_profit", data);
+            fillData(stats.alerts,"alerts", data);
+            fillData(stats.margin,"margin", data);
+            fillData(stats.liquid,"liquid", data);
+            data["tests"] = cnt+1;
+            dlg.setData(data);
+		}
+
+	};
 }
 
 App.prototype.optionsForm = function() {
