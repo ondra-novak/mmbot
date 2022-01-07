@@ -20,6 +20,7 @@ public:
 
 	struct Config {
 		double z; 	//parameter exponent in formula
+		double b;
 		double acc;
 		bool reinvest;
 	};

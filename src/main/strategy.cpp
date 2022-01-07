@@ -155,6 +155,7 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 		bool reinvst = config["rinvst"].getBool();
 		double z = config["z"].getNumber();
 		cfg.z = z;
+		cfg.b = config["b"].getValueOrDefault(100.0)*0.01;
 		cfg.reinvest = reinvst;
 		cfg.acc = acc;
 		return Strategy(new Strategy_Hodl_Short(cfg));

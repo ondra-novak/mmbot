@@ -9,6 +9,7 @@
 #include <imtjson/object.h>
 #include "strategy_hodl_short.h"
 
+#include "sgn.h"
 #include "numerical.h"
 Strategy_Hodl_Short::Strategy_Hodl_Short(const Config &cfg):cfg(cfg) {}
 Strategy_Hodl_Short::Strategy_Hodl_Short(const Config &cfg, State &&st):cfg(cfg),st(std::move(st)) {}
@@ -69,6 +70,11 @@ PStrategy Strategy_Hodl_Short::init(double price, double assets, double currency
 	return out;
 }
 
+
+static double roundDown(double v, double step) {
+	return floor(v/step)*step;
+}
+
 double Strategy_Hodl_Short::calcNewK(double new_price, double step) const {
 
 	if (new_price > st.lastp) return st.k;
@@ -76,15 +82,17 @@ double Strategy_Hodl_Short::calcNewK(double new_price, double step) const {
 	if (new_price < st.k) return st.k;
 	double lk = st.k;
 	double hk = (new_price+st.k)*0.5;
+	double np;
+	double refval = std::max(calcFiat(st.k, st.w, cfg.z, new_price),0.0);
 	for (int i = 0; i < 50; i++) {
 		double m = (lk+hk)*0.5;
 		double newpos = calcAssets(m, st.w, cfg.z, new_price);
-		double newdif = newpos - st.a;
+		double newdif = roundDown(newpos - st.a, step);
 		double newval = std::max(calcFiat(m, st.w, cfg.z, new_price),0.0);
-		double np = (st.val - newval) - newdif * new_price+st.accm;
+		double rnp = refval + (newval - refval)*cfg.b;
+		np = (st.val - rnp) - newdif * new_price+st.accm;
 		if (np > 0) lk = m;
-		else if (np<0) hk=m;
-		else hk = lk = m;
+		else hk=m;
 	}
 	double newk = (hk+lk)*0.5;
 	return newk;
@@ -97,8 +105,8 @@ IStrategy::OrderData Strategy_Hodl_Short::getNewOrder(
 
 	if (new_price < st.k) {
 		double diff = st.w - assets;
-		double accm = std::max(0.0,st.accm)*cfg.acc;
-		diff+=accm/new_price;
+/*		double accm = std::max(0.0,st.accm)*cfg.acc;
+		diff+=accm/new_price;*/
 		return {0,diff,Alert::forced};
 	}
 
@@ -115,26 +123,22 @@ std::pair<IStrategy::OnTradeResult, ondra_shared::RefCntPtr<const IStrategy> > S
 			this->init(tradePrice, assetsLeft-tradeSize, currencyLeft, minfo.leverage != 0)
 				 ->onTrade(minfo, tradePrice, tradeSize, assetsLeft, currencyLeft);
 
-	double newk = tradePrice<st.k?tradePrice:calcNewK(tradePrice,minfo.asset_step);
+	bool achieved = (st.w-assetsLeft)<std::max({minfo.asset_step,minfo.min_size,minfo.min_volume/tradePrice});
+	double newk = tradePrice>st.k?calcNewK(tradePrice,minfo.asset_step)
+					:achieved?tradePrice:st.k;
 	double newval = std::max(calcFiat(newk, st.w, cfg.z, tradePrice),0.0);
-	double np = (st.val - newval) - tradePrice*tradeSize;
-	double accm = st.accm+np;
+	double rnp = st.val - newval - tradePrice*tradeSize ;
+	double np = tradeSize>=0?rnp*(1-cfg.b):st.accm;
+	double accm = st.accm+(rnp-np);
 	double a = 0;
 	double nw = st.w;
 
-	if (tradePrice < st.k) {
-		np = accm;
-		a = np*cfg.acc/tradePrice;
-		if (cfg.reinvest) {
-			nw = nw + a;
-			a = 0;
-		} else {
-			np = np * (1-cfg.acc);
-		}
-		accm = 0;
-
+	a = np*cfg.acc/tradePrice;
+	if (cfg.reinvest) {
+		nw = nw + a;
+		a = 0;
 	} else {
-		np = 0;
+		np = np * (1-cfg.acc);
 	}
 
 

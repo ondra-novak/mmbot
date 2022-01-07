@@ -632,6 +632,7 @@ App.prototype.fillForm = function (src, trg) {
 	data.kv2_boost=false;
 	data.kv2_reinvest=false;
 	data.hodlshort_z = 1.0;
+	data.hodlshort_b = 100;
 	data.hodlshort_acc = 0;
 	data.hodlshort_rinvst= false;
 
@@ -678,6 +679,7 @@ App.prototype.fillForm = function (src, trg) {
 		data.pincome_exp = filledval(src.strategy.exponent,40);
 	} else if (data.strategy == "hodlshort") {
 		data.hodlshort_z = filledval(src.strategy.z,1);
+		data.hodlshort_b = filledval(src.strategy.b,100);
 		data.hodlshort_acc = filledval(src.strategy.acc,0);
 		data.hodlshort_rinvst = filledval(src.strategy.rinvst,false);
 	} else if (data.strategy == "hedge") {
@@ -862,6 +864,7 @@ function getStrategyData(data, inv) {
 		strategy = {
 			type: data.strategy,
 			z: data.hodlshort_z,
+			b: data.hodlshort_b,
 			acc: data.hodlshort_acc,
 			rinvst: data.hodlshort_rinvst
 		};	
@@ -1792,7 +1795,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		"gs_external_assets","gs_rb_hi_a","gs_rb_lo_a","gs_rb_hi_p","gs_rb_lo_p",
 		"min_balance","max_balance","max_leverage","reduce_on_leverage","gamma_exp","gamma_rebalance","gamma_trend","gamma_fn","gamma_reinvest","gamma_maxrebal",
 		"pincome_exp",
-		"hodlshort_z","hodlshort_acc","hodlshort_rinvst",
+		"hodlshort_z","hodlshort_acc","hodlshort_rinvst","hodlshort_b",
 		"pile_accum","pile_ratio",
 		"kv2_accum","kv2_boost","kv2_chngtm","kv2_reinvest",
 		"hedge_short","hedge_long","hedge_drop",
