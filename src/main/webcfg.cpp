@@ -1819,6 +1819,8 @@ bool WebCfg::reqBacktest_v2(simpleServer::HTTPRequest req, ondra_shared::StrView
 					Value order2 =args["order2"];
 					Value spread_freeze = args["spread_freeze"];
 					Value offset = args["offset"];
+					Value limit = args["limit"];
+					Value begin_time = args["begin_time"];
 
 					Value srcminute = storage.lock()->load_data(source.getString());
 					if (!srcminute.defined()) {
@@ -1848,14 +1850,14 @@ bool WebCfg::reqBacktest_v2(simpleServer::HTTPRequest req, ondra_shared::StrView
 					double init = 0;
 					std::vector<BTPrice> out;
 					out.reserve(srcminute.size());
-					std::uint64_t t = std::chrono::duration_cast<std::chrono::milliseconds>((std::chrono::system_clock::now() - std::chrono::minutes(srcminute.size())).time_since_epoch()).count();
+					std::uint64_t t = begin_time.defined()?std::chrono::duration_cast<std::chrono::milliseconds>((std::chrono::system_clock::now() - std::chrono::minutes(srcminute.size())).time_since_epoch()).count()
+								:begin_time.getUIntLong();
 					BTPrice tmp;
 					BTPrice *last = &tmp;
 					std::size_t ofs = offset.getUInt();
-					for (const auto &itm: srcminute) {
-						if (ofs) {
-							--ofs;continue;
-						}
+					std::size_t lim = std::min(limit.defined()?limit.getUInt()+ofs:static_cast<std::size_t>(-1),srcminute.size());
+					for (std::size_t pos = ofs; pos < lim;++pos) {
+						const auto &itm =  srcminute[pos];
 						double w = itm.getNumber();
 						if (inv) {
 							if (init == 0) init = pow2(w);
@@ -1887,7 +1889,11 @@ bool WebCfg::reqBacktest_v2(simpleServer::HTTPRequest req, ondra_shared::StrView
 						return {bt.time, bt.price, {bt.pmin, bt.pmax}};
 					});
 					std::string id = storage.lock()->store_data(chart_data);
-					response=Value(json::object, {Value("id",id)});
+					response=Value(json::object, {
+							Value("id",id),
+							Value("samples",srcminute.size()),
+							Value("trades",chart_data.size())
+					});
 				}break;
 				case BTAction::probe:
 				case BTAction::run: {
@@ -2046,7 +2052,10 @@ bool WebCfg::reqBacktest_v2(simpleServer::HTTPRequest req, ondra_shared::StrView
 						double na = 0;
 
 						if (!rs.empty()) {
-							bal = rs[0].bal;
+							bal = balance.getNumber();
+							if (minfo.leverage==0) {
+								bal += init_pos.getNumber()*rs[0].price;
+							}
 							pl = rs.back().pl;
 							npl = rs.back().norm_profit;
 							na = rs.back().norm_accum;
