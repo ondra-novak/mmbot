@@ -1850,7 +1850,7 @@ bool WebCfg::reqBacktest_v2(simpleServer::HTTPRequest req, ondra_shared::StrView
 					double init = 0;
 					std::vector<BTPrice> out;
 					out.reserve(srcminute.size());
-					std::uint64_t t = begin_time.defined()?std::chrono::duration_cast<std::chrono::milliseconds>((std::chrono::system_clock::now() - std::chrono::minutes(srcminute.size())).time_since_epoch()).count()
+					std::uint64_t t = !begin_time.defined()?std::chrono::duration_cast<std::chrono::milliseconds>((std::chrono::system_clock::now() - std::chrono::minutes(srcminute.size())).time_since_epoch()).count()
 								:begin_time.getUIntLong();
 					BTPrice tmp;
 					BTPrice *last = &tmp;

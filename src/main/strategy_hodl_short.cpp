@@ -126,6 +126,11 @@ std::pair<IStrategy::OnTradeResult, ondra_shared::RefCntPtr<const IStrategy> > S
 	bool achieved = (st.w-assetsLeft)<std::max({minfo.asset_step,minfo.min_size,minfo.min_volume/tradePrice});
 	double newk = tradePrice>st.k?calcNewK(tradePrice,minfo.asset_step)
 					:achieved?tradePrice:st.k;
+	double vass = achieved?st.w:calcAssets(newk, st.w, cfg.z, tradePrice);
+	double minsz = std::max({minfo.min_size, minfo.asset_step, minfo.min_volume/tradePrice});
+	if (std::abs(vass - assetsLeft)>minsz && tradeSize>0) {
+		newk = st.k;
+	}
 	double newval = std::max(calcFiat(newk, st.w, cfg.z, tradePrice),0.0);
 	double rnp = st.val - newval - tradePrice*tradeSize ;
 	double np = tradeSize>=0?rnp*(1-cfg.b):st.accm;
@@ -153,7 +158,7 @@ std::pair<IStrategy::OnTradeResult, ondra_shared::RefCntPtr<const IStrategy> > S
 	}*/
 
 	State nst;
-	nst.a = assetsLeft;
+	nst.a = vass;
 	nst.k = newk;
 	nst.lastp = tradePrice;
 	nst.val = newval;
