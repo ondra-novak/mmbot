@@ -2003,8 +2003,24 @@ bool WebCfg::reqBacktest_v2(simpleServer::HTTPRequest req, ondra_shared::StrView
 
 					if (action == BTAction::run) {
 
-						Value result (json::array, rs.begin(), rs.end(), [](const BTTrade &x) {
+						ACB acb(0,0);
+						double prev_open = 0;
+						Value result (json::array, rs.begin(), rs.end(), [&](const BTTrade &x) {
 							Value event;
+							double open;
+							if (minfo.invert_price) {
+								acb = acb(1.0/x.price, -x.size);
+								open = 1.0/acb.getOpen();
+							} else {
+								acb = acb(x.price, x.size);
+								open = acb.getOpen();
+							}
+							if (acb.getPos() == 0) {
+								open = prev_open;
+							} else {
+								prev_open = open;
+							}
+
 							switch (x.event) {
 							default: event = btevent_no_event;break;
 							case BTEvent::accept_loss: event = btevent_accept_loss;break;
@@ -2015,7 +2031,9 @@ bool WebCfg::reqBacktest_v2(simpleServer::HTTPRequest req, ondra_shared::StrView
 							}
 							return Object({
 									{"np",x.neutral_price},
-									{"op",x.open_price},
+									{"op",open},
+									{"rpnl",acb.getRPnL()},
+									{"upnl",acb.getUPnL(x.price)},
 									{"na",x.norm_accum},
 									{"npl",x.norm_profit},
 									{"npla",x.norm_profit_total},

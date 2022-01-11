@@ -14,6 +14,8 @@
 
 #include <shared/ini_config.h>
 #include <imtjson/namedEnum.h>
+#include "acb.h"
+
 #include "dynmult.h"
 #include "idailyperfmod.h"
 #include "istatsvc.h"
@@ -305,9 +307,7 @@ protected:
 	double currency = 0;
 	double accumulated = 0;
 	double spent_currency = 0;
-	double enter_price_sum = 0;
-	double enter_price_pos = 0;
-	double enter_price_pnl = 0;
+	ACB acb_state;
 	bool position_valid = false;
 	bool currency_valid = false;
 

@@ -19,6 +19,7 @@
 #include "../shared/stdLogOutput.h"
 #include "sgn.h"
 #include "../../version.h"
+#include "acb.h"
 
 using ondra_shared::logError;
 using namespace std::chrono;
@@ -172,8 +173,7 @@ void Report::setTrades(StrViewA symb, double finalPos, StringView<IStatSvc::Trad
 		double pnp = 0;
 		double pap = 0;
 
-		double enter_price = t.eff_price;
-		double rpln = 0;
+		ACB acb(init_price, pos);
 		bool normaccum = false;
 
 		std::optional<IStatSvc::TradeRecord> tmpTrade;
@@ -193,21 +193,11 @@ void Report::setTrades(StrViewA symb, double finalPos, StringView<IStatSvc::Trad
 				double gain = (t.eff_price - prev_price)*pos ;
 
 				prev_price = t.eff_price;
-				double prev_pos = pos;
+
+				acb = acb(t.eff_price, t.eff_size);
 
 				cur_fromPos += gain;
 				pos += t.eff_size;
-				if (prev_pos * t.eff_size > 0) {
-					enter_price = (enter_price*prev_pos + t.eff_price * t.eff_size)/pos;
-				} else {
-					double sz = t.eff_size;
-					double ep = enter_price;
-					if (pos * prev_pos <=0) {
-						enter_price = t.eff_price;
-						sz = -prev_pos;
-					}
-					rpln += sz * (ep - t.eff_price);
-				}
 
 
 
@@ -229,7 +219,8 @@ void Report::setTrades(StrViewA symb, double finalPos, StringView<IStatSvc::Trad
 						{"nacum", normaccum?Value((inverted?-1:1)*t.norm_accum):Value()},
 						{"pos", (inverted?-1:1)*pos},
 						{"pl", cur_fromPos},
-						{"rpl", rpln},
+						{"rpl", acb.getRPnL()},
+						{"open", acb.getOpen()},
 						{"iid", std::to_string(iid)},
 						{"price", (inverted?1.0/t.price:t.price)},
 						{"p0",t.neutral_price?Value(inverted?1.0/t.neutral_price:t.neutral_price):Value()},

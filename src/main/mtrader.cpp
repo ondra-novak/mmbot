@@ -111,6 +111,7 @@ MTrader::MTrader(IStockSelector &stock_selector,
 ,wcfg(walletCfg)
 ,strategy(config.strategy)
 ,dynmult({cfg.dynmult_raise,cfg.dynmult_fall, cfg.dynmult_cap, cfg.dynmult_mode, cfg.dynmult_mult})
+,acb_state(0,0)
 ,spread_fn(defaultSpreadFunction(cfg.spread_calc_sma_hours, cfg.spread_calc_stdev_hours, cfg.force_spread))
 {
 	//probe that broker is valid configured
@@ -590,9 +591,9 @@ void MTrader::perform(bool manually) {
 				position,
 				buy_norm,
 				sell_norm,
-				enter_price_sum/enter_price_pos,
-				enter_price_pnl,
-				status.curPrice*enter_price_pos - enter_price_sum
+				acb_state.getOpen(),
+				acb_state.getRPnL(),
+				acb_state.getUPnL(status.curPrice)
 			});
 
 		}
@@ -660,8 +661,7 @@ void MTrader::perform(bool manually) {
 		statsvc->reportMisc(IStatSvc::MiscData{
 			0,false,cfg.enabled,0,0,dynmult.getBuyMult(),dynmult.getSellMult(),0,0,0,0,accumulated,0,
 			trades.size(),trades.empty()?0UL:(trades.back().time-trades[0].time),lastTradePrice,position,
-					0,0,enter_price_sum/enter_price_pos,enter_price_pnl,
-					lastTradePrice*enter_price_pos-enter_price_sum*enter_price_pos
+					0,0,acb_state.getOpen(),acb_state.getRPnL(),acb_state.getUPnL(lastTradePrice)
 		},true);
 		statsvc->reportPrice(trades.empty()?1:trades.back().price);
 		throw;
@@ -1291,43 +1291,19 @@ bool MTrader::processTrades(Status &st) {
 
 		res = true;
 
+		auto new_acb = acb_state(t.eff_price, t.eff_size);
+
 		tempPr.tradeId = t.id.toString().str();
 		tempPr.size = t.eff_size;
 		tempPr.price = t.eff_price;
 		tempPr.change = assetBal * (t.eff_price - last_price);
 		tempPr.time = t.time;
-		tempPr.acb_pnl = t.eff_size * enter_price_pos < 0
-				?std::abs(t.eff_size > enter_price_pos)
-						?enter_price_pos * ( t.eff_price - enter_price_sum/enter_price_pos)
-						:-t.eff_size*(t.eff_price-enter_price_sum/enter_price_pos)
-				:0;
-		enter_price_pnl += tempPr.acb_pnl;
+		tempPr.acb_pnl = new_acb.getRPnL() - acb_state.getRPnL();
 		if (last_price) statsvc->reportPerformance(tempPr);
 		last_price = t.eff_price;
 		if (minfo.leverage == 0) curBal -= t.price * t.size;
 		spent_currency += t.price*t.size;
 
-		if (t.eff_size) {
-			double initState = assetBal - enter_price_pos;
-			double size = t.eff_size;
-			double newpos = size+enter_price_pos;
-			if (newpos * enter_price_pos<= 0) {
-				enter_price_sum = 0;
-				enter_price_pos = 0;
-				size = newpos;
-
-				if (size * initState < 0) {
-					auto df = sgn(initState)*std::min(std::abs(size), std::abs(initState));
-					size += df;
-				}
-			}
-			if (t.eff_size * enter_price_pos >= 0) {
-				enter_price_sum += t.eff_price*size;
-			} else {
-				enter_price_sum += enter_price_sum * size/enter_price_pos;
-			}
-			enter_price_pos += size;
-		}
 
 		assetBal += t.eff_size;
 
@@ -1880,56 +1856,28 @@ void MTrader::fixNorm() {
 }
 
 double MTrader::getEnterPrice() const {
-	return enter_price_sum/enter_price_pos;
+	return acb_state.getOpen();
 }
 double MTrader::getEnterPricePos() const {
-	return enter_price_pos;
+	return acb_state.getPos();
 }
 
 double MTrader::getCosts() const {
 	return spent_currency;
 }
 double MTrader::getRPnL() const {
-	return enter_price_pnl;
+	return acb_state.getRPnL();
 }
 
 void MTrader::updateEnterPrice() {
 	double initState = (position_valid?position:0) - std::accumulate(trades.begin(), trades.end(), 0.0, [&](double a, const auto &tr) {
 		return a + tr.eff_size;
 	});
-	double pos = initState;
-	double eps = cfg.init_open?((minfo.invert_price?1.0/cfg.init_open:cfg.init_open)*initState):0;
-
-	double pnl = 0;
+	ACB acb(cfg.init_open, initState);
 	spent_currency = 0;
-	for (const auto &tr : trades) {
-		if (tr.eff_size) {
-			double size = tr.eff_size;
-			double newpos = size+pos;
-			//new position is on other side or zero;
-			if (newpos * pos <= 0) {
-
-				pnl += pos * tr.eff_price - eps;
-				//reset entry_price
-				eps = 0;
-				//reset pos
-				pos = 0;
-				//calculate remain size
-				size = newpos;
-
-			}
-			if (tr.eff_size * pos >= 0) {
-				eps += tr.eff_price*size;
-			} else {
-				pnl -= size * (tr.eff_price - eps/pos);
-				eps += eps * size/pos;
-			}
-			pos += size;
-
-		}
+	for (const auto &tr: trades) {
+		acb = acb(tr.eff_price, tr.eff_size);
 		spent_currency += tr.size * tr.price;
 	}
-	enter_price_sum = eps;
-	enter_price_pos = pos;
-	enter_price_pnl = pnl;
+	acb_state = acb;
 }

@@ -1912,6 +1912,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		var lastop;
 		var lastpl;
 		var lastpla;
+		var lastrpnl;
 		if (offset) {
 			var x = Object.assign({}, last);
 			x.time = imax;
@@ -1923,6 +1924,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		lastpl = last.pl;
 		lastna = last.na;
 		lastpla = last.plb;		
+		lastrpnl = last.rpnl;
 
 		skip_norm = lastnpl == 0;
 		skip_accum = lastna == 0;
@@ -1978,19 +1980,17 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		var drawChart = initChart(interval,ratio,scale,true);
 		var drawMap1;
 		var drawMap2;
-		if (show_op) {
+		if (show_norm==4) {
 		    drawMap1=drawChart(chart1,c,"pr",lastop?[{label:"open",pr:lastop}]:[],"op");
 		} else {
 		    drawMap1=drawChart(chart1,c,"pr",lastnp?[{label:"neutral",pr:lastnp}]:[],"np");			
 		}
-		if (show_norm==1) {
-		    drawMap2=drawChart(chart2,c,"npl",[{label:"PL",npla:lastpl}],"pl");
-		} else if (show_norm==2) {
-		    drawMap2=drawChart(chart2,c,"na",[]);
-		} else if (show_norm==3) {
-		    drawMap2=drawChart(chart2,c,"plb",[],"nplb");
-		} else {
-		    drawMap2=drawChart(chart2,c,"pl",[{label:"norm",pl:lastnpl}],"npla");
+		switch (show_norm) {
+			case 1: drawMap2=drawChart(chart2,c,"npl",[{label:"PL",npla:lastpl}],"pl");break;
+			case 2: drawMap2=drawChart(chart2,c,"na",[]);break;
+			case 3: drawMap2=drawChart(chart2,c,"plb",[],"nplb");break;
+			case 4:  drawMap2=drawChart(chart2,c,"rpnl",[],"pl");break;
+			default: drawMap2=drawChart(chart2,c,"pl",[{label:"norm",pl:lastnpl}],"npla");break;
 		}
 		var tm;
 		if (infoElm)  {
