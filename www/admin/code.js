@@ -1831,6 +1831,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		var min_pl = 0;
 		var max_pl = 0;		
 		var max_downdraw = 0;
+		var max_lev = 0;
 		var cost = 0;
 		var max_cost = 0;
 		var trades = 0;
@@ -1899,6 +1900,11 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 						case "accept_loss": cnt_als++;break;
 					}
 				}
+				if (x.pl>0) {
+					var lv = ap * npr / (x.pl+balance);
+					if (max_lev < lv) max_lev = lv;
+				}
+				
 			}
 		});
 		if (cur_streak > max_streak) max_streak = cur_streak;
@@ -1928,31 +1934,37 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 
 		skip_norm = lastnpl == 0;
 		skip_accum = lastna == 0;
-
+					   
+		var year_mlt = 31536000000/interval;
 		if (balance!==undefined) {
         cntr.bt.setData({
         	"pl":adjNumBuySell(vlast.pl),
-        	"ply":adjNumBuySell(vlast.pl*31536000000/interval),
+        	"ply":adjNumBuySell(vlast.pl*year_mlt),
         	"npl":adjNumBuySell(vlast.npl),
-        	"nply":adjNumBuySell(vlast.npl*31536000000/interval),
+        	"nply":adjNumBuySell(vlast.npl*year_mlt),
         	"npla":adjNumBuySell(vlast.na),
-        	"nplya":adjNumBuySell(vlast.na*31536000000/interval),
+        	"nplya":adjNumBuySell(vlast.na*year_mlt),
         	"max_pos":adjNum(max_pos),
         	"max_cost":adjNum(max_cost),
         	"max_loss":adjNumBuySell(-max_downdraw),
         	"max_loss_pc":adjNum(max_downdraw/balance*100,0),
         	"max_profit":adjNumBuySell(max_pl),
         	"pr": adjNum(max_pl/max_downdraw),
-        	"pc": adjNumBuySell(vlast.pl*3153600000000/(interval*balance),0),
-        	"npc": adjNumBuySell(vlast.npl*3153600000000/(interval*balance),1),
-        	"npca": adjNumBuySell(vlast.na*3153600000000/(interval*balance/form._price),1),
+        	"pc": adjNumBuySell(vlast.pl*year_mlt*100/balance,0),
+        	"npc": adjNumBuySell(vlast.npl*year_mlt*100/balance,1),
+        	"npca": adjNumBuySell(vlast.na*year_mlt*100/(balance/init_price),1),
 			"pla": adjNumBuySell(lastpla),
-			"plya": adjNumBuySell(lastpla*3153600000000/interval),
-			"pca": adjNumBuySell(lastpla*3153600000000/(interval*balance/init_price)),
+			"plya": adjNumBuySell(lastpla*year_mlt),
+			"pca": adjNumBuySell(lastpla*year_mlt*100/(balance/init_price),1),
+			"rpnl": adjNumBuySell(lastrpnl),
+			"rpnly": adjNumBuySell(lastrpnl*year_mlt),
+			"pcrpnl": adjNumBuySell(lastrpnl*year_mlt*100/balance,1),
+			"max_lev": adjNum(max_lev,2),
         	"showpl":{".hidden":show_norm!=0},
         	"showpla":{".hidden":show_norm!=3},
         	"shownorm":{".hidden":show_norm!=1},
         	"showaccum":{".hidden":show_norm!=2},
+			"showrpnl":{".hidden":show_norm!=4},
         	"graphtype":show_norm,
         	"trades": trades,
         	"buys": buys,
@@ -2309,6 +2321,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 			})
 			cntr.bt.setItemEvent("showpl","click",swapshowpl);
 			cntr.bt.setItemEvent("showpla","click",swapshowpl);
+			cntr.bt.setItemEvent("showrpnl","click",swapshowpl);
 			cntr.bt.setItemEvent("shownorm","click",swapshowpl);
 			cntr.bt.setItemEvent("showaccum","click",swapshowpl);
 			cntr.bt.setItemEvent("select_file","click",function(){
