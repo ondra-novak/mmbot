@@ -1874,7 +1874,14 @@ void MTrader::updateEnterPrice() {
 	double initState = (position_valid?position:0) - std::accumulate(trades.begin(), trades.end(), 0.0, [&](double a, const auto &tr) {
 		return a + tr.eff_size;
 	});
-	ACB acb(minfo.invert_price?1.0/cfg.init_open:cfg.init_open, initState);
+	double openPrice = cfg.init_open;
+	if (openPrice == 0) {
+		if (!trades.empty()) openPrice = trades[0].eff_price;
+	} else {
+		if (minfo.invert_price) openPrice = 1.0/openPrice;
+	}
+
+	ACB acb(openPrice, initState);
 	spent_currency = 0;
 	for (const auto &tr: trades) {
 		acb = acb(tr.eff_price, tr.eff_size);
