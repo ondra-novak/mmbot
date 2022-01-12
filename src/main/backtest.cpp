@@ -32,10 +32,10 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 		}else {
 			pos = s.calcInitialPosition(minfo,bt.price,0,balance);
 			if (!minfo.leverage) balance -= pos * bt.price;
+			bt.size = pos;
 		}
 
 		bt.bal = balance;
-		bt.size = pos;
 		bt.pos = pos;
 		trades.push_back(bt);
 

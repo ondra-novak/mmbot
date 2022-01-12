@@ -32,6 +32,7 @@ public:
 		double a = 0;
 		double val = 0;
 		double accm = 0;
+		double uv = 0;		//unprocessed volume
 	};
 
 	static double calcAssets(double k, double w, double z, double x);
@@ -39,6 +40,7 @@ public:
 	static double calcFiat(double k, double w, double z, double x);
 	static double calcPriceFromAssets(double k, double w, double z, double a);
 	static double calcKFromAssets(double w, double z, double a, double x);
+	static double calcKFromCurrency(double w, double z, double c, double x);
 
 
 
@@ -85,7 +87,7 @@ protected:
 	State st;
 
 	double calcNewK(double new_price, double step) const;
-
+	double calcNewA(double new_price, double dir) const;
 };
 
 #endif /* SRC_MAIN_STRATEGY_HODLSHORT_H_ */

@@ -36,6 +36,22 @@ double Strategy_Hodl_Short::calcPriceFromAssets(double k, double w, double z, do
 double Strategy_Hodl_Short::calcKFromAssets(double w, double z, double a, double x) {
 	return x * std::pow((a/w),(1/z));
 }
+double Strategy_Hodl_Short::calcKFromCurrency(double w, double z, double c, double x) {
+	//find maximum (because curev is convex)
+	double maxk = numeric_search_r1(x, [&](double k){
+		return calcFiat(k, w, z, x)-calcFiat(k*1.001, w, z, x);
+	});
+	//find value at maximum
+	double maxv = calcFiat(maxk, w, z, x);
+	//if more fiat is available, then maxk stays on maxk
+	if (c > maxv) return maxk;
+
+	double k = numeric_search_r1(x, [&](double k){
+		double v = k<maxk?maxv*2:calcFiat(k, w, z, x);
+		return v - c;
+	});
+	return k;
+}
 
 PStrategy Strategy_Hodl_Short::init(double price, double assets, double currency, bool leveraged) const {
 
@@ -98,22 +114,74 @@ double Strategy_Hodl_Short::calcNewK(double new_price, double step) const {
 	return newk;
 }
 
+double Strategy_Hodl_Short::calcNewA(double new_price, double dir) const {
+	double newa = calcAssets(st.k, st.w, cfg.z, new_price);
+	newa = std::min(st.w,newa);
+	if (dir > 0 && st.accm > st.w * new_price * 0.001 && cfg.b) {
+		double mina = st.a;
+		double maxa = st.w;
+		double acc = st.accm;
+		auto calcVNNP = [&](double a) {
+			double nk = calcKFromAssets(st.w, cfg.z, a, new_price);
+			double newval = calcFiat(nk, st.w, cfg.z, new_price);
+			double vnnp = (st.val - newval - new_price*(a-st.a))*cfg.b;
+			return vnnp+acc;
+		};
+		double l = st.a;
+		double h=st.w;
+		double m;
+		for (int i = 0; i < 25; i++) {
+				 m = (l + h) * 0.5;
+				double vnnp = calcVNNP(m)-calcVNNP(m*1.001);
+				if (vnnp < 0) {
+					h = m;
+				}
+				else if (vnnp> 0) {
+					l=m;
+				}
+			}
+
+		if (m>st.a) maxa=m;
+		else maxa=st.w;
+		double v_mina = calcVNNP(mina);
+		double v_maxa = calcVNNP(maxa);
+		if (v_mina * v_maxa > 0) {
+				return newa;
+		}
+		double mlt = sgn(v_mina-v_maxa);
+		for (int i = 0; i < 25; i++) {
+			 m = (mina + maxa) * 0.5;
+			double vnnp = calcVNNP(m);
+			if (vnnp > std::max({v_maxa, v_mina})) {
+				return newa;
+			} else if (vnnp * mlt < 0) {
+				maxa = m;
+				v_maxa = vnnp;
+			}
+			else if (vnnp * mlt > 0) {
+				mina = m;
+				v_mina = vnnp;
+			}
+		}
+
+		double extra = maxa == st.w?maxa:(mina + maxa) * 0.5;
+		newa = newa + (extra-newa) * cfg.b;
+	}
+	return std::min(st.w,newa);
+}
 
 IStrategy::OrderData Strategy_Hodl_Short::getNewOrder(
 		const IStockApi::MarketInfo &minfo, double cur_price, double new_price,
 		double dir, double assets, double currency, bool rej) const {
 
-	if (new_price < st.k) {
-		double diff = st.w - assets;
-/*		double accm = std::max(0.0,st.accm)*cfg.acc;
-		diff+=accm/new_price;*/
-		return {0,diff,Alert::forced};
-	}
 
-	double newk = calcNewK(new_price,minfo.asset_step);
-	double newa = calcAssets(newk, st.w, cfg.z, new_price);
+	double newa = calcNewA(new_price, dir);
+	double minpos = std::max({minfo.asset_step, minfo.min_size, minfo.min_volume/new_price});
+	if (newa < minpos) {
+		if (dir<0) newa = 0; else newa =minpos;
+	}
 	double diff = newa - assets;
-	return {0,diff};
+	return {0,diff, newa == st.w?Alert::forced:Alert::enabled};
 }
 
 std::pair<IStrategy::OnTradeResult, ondra_shared::RefCntPtr<const IStrategy> > Strategy_Hodl_Short::onTrade(
@@ -123,20 +191,27 @@ std::pair<IStrategy::OnTradeResult, ondra_shared::RefCntPtr<const IStrategy> > S
 			this->init(tradePrice, assetsLeft-tradeSize, currencyLeft, minfo.leverage != 0)
 				 ->onTrade(minfo, tradePrice, tradeSize, assetsLeft, currencyLeft);
 
-	bool achieved = (st.w-assetsLeft)<std::max({minfo.asset_step,minfo.min_size,minfo.min_volume/tradePrice});
-	double newk = tradePrice>st.k?calcNewK(tradePrice,minfo.asset_step)
-					:achieved?tradePrice:st.k;
-	double vass = achieved?st.w:calcAssets(newk, st.w, cfg.z, tradePrice);
-	double minsz = std::max({minfo.min_size, minfo.asset_step, minfo.min_volume/tradePrice});
-	if (std::abs(vass - assetsLeft)>minsz && tradeSize>0) {
-		newk = st.k;
-	}
-	double newval = std::max(calcFiat(newk, st.w, cfg.z, tradePrice),0.0);
-	double rnp = st.val - newval - tradePrice*tradeSize ;
-	double np = tradeSize>=0?rnp*(1-cfg.b):st.accm;
-	double accm = st.accm+(rnp-np);
-	double a = 0;
+	double newa = calcNewA(tradePrice, tradeSize);
+	double unprocessed = (assetsLeft - newa)*tradePrice;
+	double accm = st.accm;
+	double newk =  calcKFromAssets(st.w, cfg.z, newa, tradePrice);
+	double np = 0;
+	double newval = calcFiat(newk, st.w, cfg.z, tradePrice);
+	double vnnp = st.val - newval - tradePrice*(newa-st.a);
+	double nnp = st.val - newval - tradePrice*tradeSize;
 	double nw = st.w;
+	double a = 0;
+	double f = cfg.b;
+	accm = accm + vnnp * f;
+	bool achieved = newa == st.w && std::abs(assetsLeft-st.w)<std::max({minfo.asset_step,minfo.min_size,minfo.min_volume/tradePrice});
+	if (achieved) {
+		accm = 0;
+	}
+	np = np + nnp+(st.accm-accm);
+
+	if (tradeSize == 0 && achieved) {
+		np = 0;
+	}
 
 	a = np*cfg.acc/tradePrice;
 	if (cfg.reinvest) {
@@ -145,7 +220,6 @@ std::pair<IStrategy::OnTradeResult, ondra_shared::RefCntPtr<const IStrategy> > S
 	} else {
 		np = np * (1-cfg.acc);
 	}
-
 
 
 
@@ -158,12 +232,13 @@ std::pair<IStrategy::OnTradeResult, ondra_shared::RefCntPtr<const IStrategy> > S
 	}*/
 
 	State nst;
-	nst.a = vass;
+	nst.a = newa;
 	nst.k = newk;
 	nst.lastp = tradePrice;
 	nst.val = newval;
 	nst.w = nw;
 	nst.accm = accm;
+	nst.uv = unprocessed;
 
 
 	return {
@@ -214,6 +289,7 @@ std::string_view Strategy_Hodl_Short::getID() const {
 }
 
 double Strategy_Hodl_Short::getCenterPrice(double lastPrice, double assets) const {
+	if (assets == 0) return lastPrice;
 	return getEquilibrium(assets);
 }
 
@@ -234,7 +310,7 @@ double Strategy_Hodl_Short::getEquilibrium(double assets) const {
 }
 
 double Strategy_Hodl_Short::calcCurrencyAllocation(double ) const {
-	return calcFiat(st.k, st.w, cfg.z, st.lastp);
+	return calcFiat(st.k, st.w, cfg.z, st.lastp)+std::max(0.0,st.accm)-st.uv;
 
 }
 
