@@ -19,6 +19,8 @@
 #include "../shared/stdLogOutput.h"
 #include "sgn.h"
 #include "../../version.h"
+#include "alert.h"
+
 #include "acb.h"
 
 using ondra_shared::logError;
@@ -140,6 +142,20 @@ void Report::sendStreamTrades(ME &me, const std::string_view &symb, const json::
 	}
 }
 
+static json::NamedEnum<AlertReason> strAlertReason({
+	{AlertReason::unknown, "unknown"},
+	{AlertReason::below_minsize, "below_minsize"},
+	{AlertReason::accept_loss, "accept_loss"},
+	{AlertReason::max_cost, "max_cost"},
+	{AlertReason::no_funds, "no_funds"},
+	{AlertReason::max_leverage, "max_leverage"},
+	{AlertReason::out_of_budget, "out_of_budget"},
+	{AlertReason::position_limit, "position_limit"},
+	{AlertReason::strategy_enforced, "strategy_enforced"},
+	{AlertReason::strategy_outofsync, "strategy_outofsync"},
+	{AlertReason::initial_reset, "initial_reset"}
+});
+
 void Report::setTrades(StrViewA symb, double finalPos, StringView<IStatSvc::TradeRecord> trades) {
 
 	using ondra_shared::range;
@@ -225,7 +241,11 @@ void Report::setTrades(StrViewA symb, double finalPos, StringView<IStatSvc::Trad
 						{"price", (inverted?1.0/t.price:t.price)},
 						{"p0",t.neutral_price?Value(inverted?1.0/t.neutral_price:t.neutral_price):Value()},
 						{"volume", fabs(t.eff_price*t.eff_size)},
-						{"man",t.manual_trade}
+						{"man",t.manual_trade},
+						{"alert", t.size == 0?Value(Object{
+							{"reason",strAlertReason[static_cast<AlertReason>(t.alertReason)]},
+							{"side", t.alertSide}
+						}):json::Value()}
 					}));
 				}
 				prevTrade = nullptr;

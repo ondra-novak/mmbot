@@ -95,7 +95,7 @@ void IStockApi::MarketInfo::addFees(double &assets, double &price) const {
 					break;
 	case IStockApi::outcome:
 					if (assets<0 ) {
-						assets = assets*(1-fees);
+						assets = assets*(1+fees);
 					}
 					break;
 	}

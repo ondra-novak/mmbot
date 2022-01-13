@@ -242,7 +242,7 @@ x-tr x-td:nth-child(1):hover > div {
 }
 x-tr x-td:nth-child(2) {text-align: center;max-width: 13%;}
 x-tr x-td:nth-child(3) {text-align: center;max-width: 18%;font-size: 3.1vw;margin: 0 0.4em;cursor: pointer;}
-x-tr x-td:nth-child(4) {max-width: 3%;text-align: center}
+x-tr x-td:nth-child(4) {max-width: 4%;text-align: center;}
 x-tr x-td:nth-child(8) {text-align: right;max-width: 9%;font-size: 1.9vw;margin: 0.4em;text-overflow: clip;}
 
 @media (min-width: 20cm) {

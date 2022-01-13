@@ -24,6 +24,7 @@
 #include "spread.h"
 #include "strategy.h"
 #include "walletDB.h"
+#include "alert.h"
 
 class IStockApi;
 
@@ -94,11 +95,12 @@ public:
 	using Config = MTrader_Config;
 
 	struct Order: public Strategy::OrderData {
+		AlertReason ar;
 		bool isSimilarTo(const IStockApi::Order &other, double step, bool inverted);
-		Order(const Strategy::OrderData& o):Strategy::OrderData(o) {}
+		Order(const Strategy::OrderData& o, AlertReason ar):Strategy::OrderData(o),ar(ar) {}
 		Order() {}
-		Order(double size, double price, IStrategy::Alert alert)
-			:Strategy::OrderData {price, size, alert} {}
+		Order(double size, double price, IStrategy::Alert alert, AlertReason ar)
+			:Strategy::OrderData {price, size, alert},ar(ar) {}
 		void update(IStockApi::Order &o) {
 			o.price = price;
 			o.size = size;
@@ -149,7 +151,7 @@ public:
 	bool need_init() const;
 
 	OrderPair getOrders();
-	void setOrder(std::optional<IStockApi::Order> &orig, Order neworder, std::optional<double> &alert, bool secondary);
+	void setOrder(std::optional<IStockApi::Order> &orig, Order neworder, std::optional<AlertInfo> &alert, bool secondary);
 
 
 	using ChartItem = IStatSvc::ChartItem;
@@ -295,7 +297,7 @@ protected:
 	double frozen_spread = 0;
 	json::Value test_backup;
 	json::Value lastTradeId = nullptr;
-	std::optional<double> sell_alert, buy_alert;
+	std::optional<AlertInfo> sell_alert, buy_alert;
 
 	using TradeItem = IStockApi::Trade;
 	using TWBItem = IStatSvc::TradeRecord;
@@ -329,7 +331,7 @@ protected:
 	bool processTrades(Status &st);
 
 	void update_dynmult(bool buy_trade,bool sell_trade);
-	static void alertTrigger(Status &st, double price);
+	void alertTrigger(const Status &st, double price, int dir, AlertReason reason);
 
 	void acceptLoss(const Status &st, double dir);
 	json::Value getTradeLastId() const;
@@ -343,12 +345,12 @@ protected:
 
 	SpreadCalcResult calcSpread() const;
 	bool checkMinMaxBalance(double newBalance, double dir, double price) const;
-	std::pair<bool, double> limitOrderMinMaxBalance(double balance, double orderSize, double price) const;
+	std::pair<AlertReason, double> limitOrderMinMaxBalance(double balance, double orderSize, double price) const;
 
 	ZigZagLevels zigzaglevels;
 
 
-	bool checkLeverage(const Order &order, double assets, double currency, double &maxSize) const;
+	AlertReason checkLeverage(const Order &order, double assets, double currency, double &maxSize) const;
 
 	WalletDB::Key getWalletBalanceKey() const;
 	WalletDB::Key getWalletAssetKey() const;

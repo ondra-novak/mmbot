@@ -477,8 +477,10 @@ function app_start(){
 					dr.toLocaleString("default",{"day":"numeric","month":"2-digit"}),
 					dr.toLocaleString("default",{"hour":"2-digit","minute":"2-digit","second":"2-digit","hour12":false}),
 					r.ident?infoMap[r.ident].title:"",
-					r.achg < 0?"↘":r.achg?"↗":"!",
-					r.achg?Math.abs(r.achg):"alert",
+					r.alert?
+					    (r.alert.side<0?"↘|":r.alert.side>0?"↗|":"!")
+					    :(r.achg < 0?"↘":r.achg?"↗":"!"),
+					r.achg?Math.abs(r.achg):((r.alert && r.alert.reason && alert_texts[r.alert.reason] && alert_texts[r.alert.reason][1]) || "alert"),
 					r.price,
 					r.plDiff,
 					r.normch,
@@ -506,7 +508,7 @@ function app_start(){
 				});
 				
 				var trade_id_elem = document.createElement("div");
-				trade_id_elem.innerText =  r.ident + " " + r.id;
+				trade_id_elem.innerText =  (r.alert && alert_texts[r.alert.reason] && (alert_texts[r.alert.reason][1]+": "+alert_texts[r.alert.reason][0])) || r.id;
 				first_element.appendChild(trade_id_elem);
 			}
 			

@@ -86,9 +86,11 @@ public:
 		double norm_accum;
 		double neutral_price;
 		bool manual_trade = false;
+		char alertSide;
+		char alertReason;
 
-		TradeRecord(const IStockApi::Trade &t, double norm_profit, double norm_accum, double neutral_price, bool manual = false)
-			:IStockApi::Trade(t),norm_profit(norm_profit),norm_accum(norm_accum),neutral_price(neutral_price),manual_trade(manual) {}
+		TradeRecord(const IStockApi::Trade &t, double norm_profit, double norm_accum, double neutral_price, bool manual = false, char as = 0, char ar = 0)
+			:IStockApi::Trade(t),norm_profit(norm_profit),norm_accum(norm_accum),neutral_price(neutral_price),manual_trade(manual),alertSide(as),alertReason(ar) {}
 
 
 	    static TradeRecord fromJSON(json::Value v) {
@@ -96,17 +98,21 @@ public:
 	    	double ap = v["ap"].getNumber();
 	    	double p0 = v["p0"].getNumber();
 	    	bool m = v["man"].getBool();
+	    	char alertSize = static_cast<char>(v["as"].getInt());
+	    	char alertReason = static_cast<char>(v["ar"].getInt());
 	    	if (!std::isfinite(np)) np = 0;
 	    	if (!std::isfinite(ap)) ap = 0;
 	    	if (!std::isfinite(p0)) p0 = 0;
-	    	return TradeRecord(IStockApi::Trade::fromJSON(v), np, ap, p0, m);
+	    	return TradeRecord(IStockApi::Trade::fromJSON(v), np, ap, p0, m,alertSize,alertReason);
 	    }
 	    json::Value toJSON() const {
 	    	return IStockApi::Trade::toJSON().merge(json::Value(json::object,{
 	    			json::Value("np",norm_profit),
 					json::Value("ap",norm_accum),
 					json::Value("p0",neutral_price),
-	    			json::Value("man",manual_trade?json::Value(true):json::Value())
+	    			json::Value("man",manual_trade?json::Value(true):json::Value()),
+					json::Value("as", alertSide == 0?json::Value():json::Value(alertSide)),
+					json::Value("ar", alertReason == 0?json::Value():json::Value(alertReason))
 	    	}));
 	    }
 

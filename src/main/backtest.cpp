@@ -76,8 +76,8 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 				else if (order.size + pos > *cfg.max_balance) order.size = *cfg.max_balance - pos;
 			}
 			if (cfg.min_balance.has_value()) {
-				if (pos < *cfg.max_balance) order.size = 0;
-				else if (order.size + pos < *cfg.max_balance) order.size = *cfg.min_balance - pos;
+				if (pos < *cfg.min_balance) order.size = 0;
+				else if (order.size + pos < *cfg.min_balance) order.size = *cfg.min_balance - pos;
 			}
 			if (minfo.leverage) {
 				double max_lev = cfg.max_leverage?std::min(cfg.max_leverage,minfo.leverage):minfo.leverage;
