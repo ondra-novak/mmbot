@@ -661,7 +661,7 @@ void MTrader::perform(bool manually) {
 			stock->placeOrder(cfg.pairsymb, 0, 0, json::Value(), orders.sell2->id, 0);
 			orders.sell2.reset();
 		}
-		statsvc->reportOrders(2,orders.buy2,orders.sell2);
+		if (!cfg.hidden) statsvc->reportOrders(2,orders.buy2,orders.sell2);
 
 
 
@@ -670,17 +670,19 @@ void MTrader::perform(bool manually) {
 		first_cycle = false;
 
 	} catch (std::exception &e) {
-		statsvc->reportTrades(position,trades);
-		std::string error;
-		error.append(e.what());
-		statsvc->reportError(IStatSvc::ErrorObj(error.c_str()));
-		statsvc->reportMisc(IStatSvc::MiscData{
-			0,false,cfg.enabled,0,0,dynmult.getBuyMult(),dynmult.getSellMult(),0,0,0,0,accumulated,0,
-			trades.size(),trades.empty()?0UL:(trades.back().time-trades[0].time),lastTradePrice,position,
-					0,0,acb_state.getOpen(),acb_state.getRPnL(),acb_state.getUPnL(lastTradePrice)
-		},true);
-		statsvc->reportPrice(trades.empty()?1:trades.back().price);
-		throw;
+		if (!cfg.hidden) {
+			statsvc->reportTrades(position,trades);
+			std::string error;
+			error.append(e.what());
+			statsvc->reportError(IStatSvc::ErrorObj(error.c_str()));
+			statsvc->reportMisc(IStatSvc::MiscData{
+				0,false,cfg.enabled,0,0,dynmult.getBuyMult(),dynmult.getSellMult(),0,0,0,0,accumulated,0,
+				trades.size(),trades.empty()?0UL:(trades.back().time-trades[0].time),lastTradePrice,position,
+						0,0,acb_state.getOpen(),acb_state.getRPnL(),acb_state.getUPnL(lastTradePrice)
+			},true);
+			statsvc->reportPrice(trades.empty()?1:trades.back().price);
+			throw;
+		}
 	}
 }
 
@@ -1087,24 +1089,23 @@ void MTrader::initialize() {
 						cfg.report_order,
 						minfo.invert_price, minfo.leverage != 0, minfo.simulator });
 		}
-		else {
-			statsvc->clear();
-		}
 		minfo.min_size = std::max(minfo.min_size, cfg.min_size);
 	} catch (std::exception &e) {
-		this->statsvc->setInfo(
-				IStatSvc::Info {cfg.title, "???",
-								"???",
-								"???",
-								brokerImg,
-								cfg.broker,
-								"???",
-								cfg.report_order,
-								false,
-								false,
-								true});
-		this->statsvc->reportError(IStatSvc::ErrorObj(e.what()));
-		throw;
+		if (!cfg.hidden) {
+			this->statsvc->setInfo(
+					IStatSvc::Info {cfg.title, "???",
+									"???",
+									"???",
+									brokerImg,
+									cfg.broker,
+									"???",
+									cfg.report_order,
+									false,
+									false,
+									true});
+			this->statsvc->reportError(IStatSvc::ErrorObj(e.what()));
+			throw;
+		}
 	}
 }
 
@@ -1521,7 +1522,6 @@ void MTrader::acceptLoss(const Status &st, double dir) {
 
 void MTrader::dropState() {
 	storage->erase();
-	statsvc->clear();
 }
 
 

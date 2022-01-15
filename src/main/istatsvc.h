@@ -128,7 +128,6 @@ public:
 	virtual void reportError(const ErrorObj &errorObj) = 0;
 	virtual void reportPerformance(const PerformanceReport &repItem) = 0;
 	virtual std::size_t getHash() const = 0;
-	virtual void clear() = 0;
 
 	virtual ~IStatSvc() {}
 };

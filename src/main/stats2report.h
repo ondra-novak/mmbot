@@ -31,34 +31,33 @@ public:
 			std::string name,
 			const PReport &rpt,
 			PPerfModule perfmod
-			) :rpt(rpt),name(name),perfmod(perfmod)  {}
+			) :rpt(rpt),name(name),perfmod(perfmod)  {
+		rev = rpt.lock_shared()->getRev();
+	}
 
 	virtual void reportOrders(int n, const std::optional<IStockApi::Order> &buy,
 							  const std::optional<IStockApi::Order> &sell) override {
-		rpt.lock()->setOrders(name, n, buy, sell);
+		rpt.lock()->setOrders(rev, name, n, buy, sell);
 	}
 	virtual void reportTrades(double finalPos, ondra_shared::StringView<IStatSvc::TradeRecord> trades) override {
-		rpt.lock()->setTrades(name,finalPos, trades);
+		rpt.lock()->setTrades(rev, name,finalPos, trades);
 	}
 	virtual void reportMisc(const MiscData &miscData,bool initial) override{
-		rpt.lock()->setMisc(name, miscData, initial);
+		rpt.lock()->setMisc(rev, name, miscData, initial);
 	}
 	virtual void reportError(const ErrorObj &errorObj) override{
-		rpt.lock()->setError(name, errorObj);
+		rpt.lock()->setError(rev, name, errorObj);
 	}
 
 	virtual void setInfo(const Info &info) override{
-		rpt.lock()->setInfo(name, info);
+		rpt.lock()->setInfo(rev, name, info);
 	}
 	virtual void reportPrice(double price) override{
-		rpt.lock()->setPrice(name, price);
+		rpt.lock()->setPrice(rev, name, price);
 	}
 	virtual std::size_t getHash() const override {
 		std::hash<std::string> h;
 		return h(name);
-	}
-	virtual void clear() override {
-		rpt.lock()->clear(name);
 	}
 	virtual void reportPerformance(const PerformanceReport &repItem) override {
 		if (perfmod) perfmod.lock()->sendItem(repItem);
@@ -67,6 +66,7 @@ public:
 	PReport rpt;
 	std::string name;
 	PPerfModule perfmod;
+	std::size_t rev;
 
 
 };

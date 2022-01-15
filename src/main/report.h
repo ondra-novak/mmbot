@@ -47,7 +47,10 @@ public:
 
 	Report(StoragePtr &&report, const ReportConfig &cfg)
 		:report(std::move(report)),interval_in_ms(cfg.interval_in_ms)
-		,counter(initCounter()){}
+		,counter(initCounter())
+		,revize(1),refresh_after_clear(true)
+	{}
+
 
 	void addStream(Stream &&stream);
 	void pingStreams();
@@ -58,24 +61,26 @@ public:
 
 	using StrViewA = ondra_shared::StrViewA;
 	template<typename T> using StringView = ondra_shared::StringView<T>;
-	void setOrders(StrViewA symb, int n, const std::optional<IStockApi::Order> &buy,
+	void setOrders(std::size_t rev, StrViewA symb, int n, const std::optional<IStockApi::Order> &buy,
 			  	  	  	  	  	  const std::optional<IStockApi::Order> &sell);
-	void setTrades(StrViewA symb, double finalPos,  StringView<IStatSvc::TradeRecord> trades);
-	void setInfo(StrViewA symb, const InfoObj &info);
-	void setMisc(StrViewA symb, const MiscData &miscData, bool initial);
+	void setTrades(std::size_t rev, StrViewA symb, double finalPos,  StringView<IStatSvc::TradeRecord> trades);
+	void setInfo(std::size_t rev, StrViewA symb, const InfoObj &info);
+	void setMisc(std::size_t rev, StrViewA symb, const MiscData &miscData, bool initial);
 
-	void setPrice(StrViewA symb, double price);
+	void setPrice(std::size_t rev, StrViewA symb, double price);
 	void addLogLine(StrViewA ln);
-	void clear(StrViewA symb);
 	void clear();
 
 	void perfReport(json::Value report);
 	void setNewsMessages(unsigned int count);
 
-	virtual void setError(StrViewA symb, const ErrorObj &errorObj);
+	virtual void setError(std::size_t rev,StrViewA symb, const ErrorObj &errorObj);
 
 	static ondra_shared::PStdLogProviderFactory captureLog(const ondra_shared::SharedObject<Report> &rpt, ondra_shared::PStdLogProviderFactory target);
 
+	std::size_t getRev() const {
+		return revize;
+	}
 
 protected:
 
@@ -126,6 +131,8 @@ protected:
 	std::uint64_t interval_in_ms;
 
 	std::size_t counter;
+	std::size_t revize;
+	bool refresh_after_clear;
 
 
 	static std::size_t initCounter();

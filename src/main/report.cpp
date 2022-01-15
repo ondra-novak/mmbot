@@ -53,7 +53,16 @@ void Report::genReport() {
 	while (logLines.size()>30) logLines.erase(logLines.begin());
 	counter++;
 	report->store(genReport_noStore());
+
+	if (refresh_after_clear) {
+		refresh_after_clear = false;
+		for (auto &x : streams) {
+			x(nullptr); //< clear cache.
+			x("refresh") && stream_refresh(x) && x("end_refresh");
+		}
+	}
 }
+
 
 
 struct ChartData {
@@ -75,8 +84,9 @@ void Report::sendStreamOrder(ME &me, const OKey &key, const OValue &data) {
 	});
 }
 
-void Report::setOrders(StrViewA symb, int n, const std::optional<IStockApi::Order> &buy,
+void Report::setOrders(std::size_t rev, StrViewA symb, int n, const std::optional<IStockApi::Order> &buy,
 	  	  	  	  	  	  	  	     const std::optional<IStockApi::Order> &sell) {
+	if (rev != revize) return;
 	const json::Value &info = infoMap[symb];
 	bool inverted = info["inverted"].getBool();
 
@@ -156,7 +166,9 @@ static json::NamedEnum<AlertReason> strAlertReason({
 	{AlertReason::initial_reset, "initial_reset"}
 });
 
-void Report::setTrades(StrViewA symb, double finalPos, StringView<IStatSvc::TradeRecord> trades) {
+void Report::setTrades(std::size_t rev, StrViewA symb, double finalPos, StringView<IStatSvc::TradeRecord> trades) {
+
+	if (rev != revize) return;
 
 	using ondra_shared::range;
 
@@ -294,7 +306,10 @@ void Report::sendStreamInfo(ME &me, const std::string_view &symb, const json::Va
 
 }
 
-void Report::setInfo(StrViewA symb, const InfoObj &infoObj) {
+void Report::setInfo(std::size_t rev, StrViewA symb, const InfoObj &infoObj) {
+
+	if (rev != revize) return;
+
 	json::Value data = json::Object({
 		{"title",infoObj.title},
 		{"currency", infoObj.currencySymb},
@@ -320,7 +335,9 @@ void Report::sendStreamPrice(ME &me, const std::string_view &symb, double data) 
 		{ "data", data } });
 }
 
-void Report::setPrice(StrViewA symb, double price) {
+void Report::setPrice(std::size_t rev, StrViewA symb, double price) {
+
+	if (rev != revize) return;
 
 	const json::Value &info = infoMap[symb];
 	bool inverted = info["inverted"].getBool();
@@ -366,7 +383,8 @@ void Report::sendStreamError(ME &me, const std::string_view &symb, const json::V
 		{ "data", obj } });
 }
 
-void Report::setError(StrViewA symb, const ErrorObj &errorObj) {
+void Report::setError(std::size_t rev,StrViewA symb, const ErrorObj &errorObj) {
+	if (rev != revize) return;
 
 	const json::Value &info = infoMap[symb];
 	bool inverted = info["inverted"].getBool();
@@ -431,7 +449,9 @@ void Report::sendStreamMisc(ME &me, const std::string_view &symb, const json::Va
 
 }
 
-void Report::setMisc(StrViewA symb, const MiscData &miscData, bool initial) {
+void Report::setMisc(std::size_t rev, StrViewA symb, const MiscData &miscData, bool initial) {
+
+	if (rev != revize) return;
 
 	if (initial && miscMap.find(symb) != miscMap.end()) return;
 	const json::Value &info = infoMap[symb];
@@ -498,16 +518,9 @@ void Report::setMisc(StrViewA symb, const MiscData &miscData, bool initial) {
 	sendStreamMisc(*this,symb, output);
 }
 
-void Report::clear(StrViewA symb) {
-	tradeMap.erase(symb);
-	infoMap.erase(symb);
-	priceMap.erase(symb);
-	miscMap.erase(symb);
-	errorMap.erase(symb);
-	orderMap.clear();
-}
 
 void Report::clear() {
+	revize++;
 	tradeMap.clear();
 	infoMap.clear();
 	priceMap.clear();
@@ -515,6 +528,7 @@ void Report::clear() {
 	errorMap.clear();
 	orderMap.clear();
 	logLines.clear();
+	refresh_after_clear= true;
 }
 
 void Report::perfReport(json::Value report) {
@@ -522,6 +536,7 @@ void Report::perfReport(json::Value report) {
 }
 
 void Report::sendStream(const json::Value &v) {
+	if (refresh_after_clear) return;
 	auto iter = std::remove_if(streams.begin(), streams.end(), [&](const auto &s){
 		return !s(v);
 	});
@@ -558,7 +573,9 @@ std::size_t Report::initCounter() {
 }
 
 void Report::addStream(Stream &&stream) {
-	if (stream("refresh") && stream_refresh(stream) && stream("end_refresh")) {
+	if (refresh_after_clear) {
+		this->streams.push_back(std::move(stream));
+	} else if (stream("refresh") && stream_refresh(stream) && stream("end_refresh")) {
 		this->streams.push_back(std::move(stream));
 	}
 }

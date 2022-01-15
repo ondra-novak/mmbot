@@ -189,6 +189,10 @@ StreamState::StreamState(simpleServer::HTTPRequest req, simpleServer::Stream s):
 bool StreamState::sendAsync(json::Value v) {
 	std::lock_guard _(lock);
 	if (!ok) return false;
+	if (v == nullptr) {
+		hcache.clear();
+		return true;
+	}
 	json::Value ty = v.filter([](const json::Value &x){return x.getKey() != "data";});
 	if (!ty.empty()) {
 		std::hash<json::Value> h;
