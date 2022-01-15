@@ -52,19 +52,23 @@ protected:
 
 	using SymbolMap = ondra_shared::linear_map<std::string, MarketInfoEx, std::less<> >;
 	using BalanceMap = ondra_shared::linear_map<std::string, double, std::less<> >;
+	using OrderMap = std::vector<std::pair<std::string,Order> >;
 	mutable SymbolMap symbolMap;
 	mutable BalanceMap balanceMap;
+	mutable std::optional<OrderMap> orderMap;
 	mutable std::chrono::system_clock::time_point symbolExpires;
 	unsigned int nextId = 0;
 
 	std::string api_passphrase, api_key, api_secret;
 	bool hasKey() const;
 
+	///Function returns, if request must be retried - otherwise it throws exception
 	void processError(const HTTPJson::UnknownStatusException &e) const;
 	json::Value processResponse(json::Value v) const;
 
 	void updateSymbols() const;
 	const MarketInfoEx &findSymbol(const std::string_view &name) const;
+	void updateOrders();
 
 	void updateSymbolFees(const std::string_view &name) ;
 	void updateBalances();

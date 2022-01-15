@@ -167,14 +167,19 @@ uint64_t KucoinIFC::downloadMinuteData(const std::string_view &asset, const std:
 				double h = rw[3].getNumber();
 				double l = rw[4].getNumber();
 				double m = std::sqrt(h*l);
-				data.push_back({o,o,o,o});
+				while (tm+5*60 < minTime) {
+					minTime-=60;
+					data.push_back({c,c,c,c});
+				}
+				data.push_back({c,c,c,c});
 				data.push_back({l,l,l,l});
 				data.push_back({m,m,m,m});
 				data.push_back({h,h,h,h});
-				data.push_back({c,c,c,c});
-				minTime= std::min(minTime, tm);
+				data.push_back({o,o,o,o});
+				minTime = tm;
 			}
 		}
+		std::reverse(data.begin(), data.end());
 		if (data.empty()) {
 			return 0;
 		} else {
@@ -301,23 +306,41 @@ IStockApi::TradesSync KucoinIFC::syncTrades(json::Value lastId, const std::strin
 
 bool KucoinIFC::reset() {
 	balanceMap.clear();
+	orderMap.reset();
 	return true;
 }
 
+void KucoinIFC::updateOrders() {
+	if (!orderMap.has_value()) {
+		Value res = privateGET("/api/v1/orders",Object{
+			{"status","active"},
+			{"pageSize",500},
+		})["items"];
+
+		OrderMap orders;
+		orders.reserve(res.size());
+		for (Value row: res) {
+			orders.push_back({
+				row["symbol"].getString(),
+				Order {
+							row["id"].getString(),
+							parseOid(row["clientOid"]),
+							(row["size"].getNumber() - row["dealSize"].getNumber())*(row["side"].getString()=="buy"?1:-1),
+							row["price"].getNumber()
+						}
+			});
+		}
+		orderMap.emplace(std::move(orders));
+	}
+}
+
 IStockApi::Orders KucoinIFC::getOpenOrders(const std::string_view &pair) {
-	Value res = privateGET("/api/v1/orders",Object{
-		{"status","active"},
-		{"pageSize",500},
-		{"symbol", pair}
-	})["items"];
-	return mapJSON(res, [&](Value row){
-		return Order {
-			row["id"].getString(),
-			parseOid(row["clientOid"]),
-			(row["size"].getNumber() - row["dealSize"].getNumber())*(row["side"].getString()=="buy"?1:-1),
-			row["price"].getNumber()
-		};
-	}, IStockApi::Orders());
+	updateOrders();
+	Orders res;
+	for (const auto &x: *orderMap) {
+		if (x.first == pair) res.push_back(x.second);
+	}
+	return res;
 }
 
 json::Value KucoinIFC::placeOrder(const std::string_view &pair, double size, double price,
@@ -395,12 +418,15 @@ json::Value KucoinIFC::getApiKeyFields() const {
 }
 
 Value KucoinIFC::publicGET(const std::string_view &uri, Value query) const {
-	try {
-		return processResponse(api.GET(buildUri(uri, query)));
-	} catch (const HTTPJson::UnknownStatusException &e) {
-		processError(e);
-		throw;
+	for (int i = 0; i < 5; i++) {
+		try {
+			return processResponse(api.GET(buildUri(uri, query)));
+		} catch (const HTTPJson::UnknownStatusException &e) {
+			processError(e);
+		}
 	}
+	throw std::runtime_error("Market overloaded");
+
 }
 
 const std::string& KucoinIFC::buildUri(const std::string_view &uri, Value query) const {
@@ -422,32 +448,38 @@ bool KucoinIFC::hasKey() const {
 }
 
 Value KucoinIFC::privateGET(const std::string_view &uri, Value query)  const{
-	try {
-		std::string fulluri = buildUri(uri, query);
-		return processResponse(api.GET(fulluri,signRequest("GET", fulluri, Value())));
-	} catch (const HTTPJson::UnknownStatusException &e) {
-		processError(e);
-		throw;
+	for (int i = 0; i < 5; i++) {
+		try {
+			std::string fulluri = buildUri(uri, query);
+			return processResponse(api.GET(fulluri,signRequest("GET", fulluri, Value())));
+		} catch (const HTTPJson::UnknownStatusException &e) {
+			processError(e);
+		}
 	}
+	throw std::runtime_error("Market overloaded");
 }
 
 Value KucoinIFC::privatePOST(const std::string_view &uri, Value args) const {
-	try {
-		return processResponse(api.POST(uri, args, signRequest("POST", uri, args)));
-	} catch (const HTTPJson::UnknownStatusException &e) {
-		processError(e);
-		throw;
+	for (int i = 0; i < 5; i++) {
+		try {
+			return processResponse(api.POST(uri, args, signRequest("POST", uri, args)));
+		} catch (const HTTPJson::UnknownStatusException &e) {
+			processError(e);
+		}
 	}
+	throw std::runtime_error("Market overloaded");
 }
 
 Value KucoinIFC::privateDELETE(const std::string_view &uri, Value query) const {
-	try {
-		std::string fulluri = buildUri(uri, query);
-		return processResponse(api.DELETE(fulluri,Value(),signRequest("DELETE", fulluri, Value())));
-	} catch (const HTTPJson::UnknownStatusException &e) {
-		processError(e);
-		throw;
+	for (int i = 0; i < 5; i++) {
+		try {
+			std::string fulluri = buildUri(uri, query);
+			return processResponse(api.DELETE(fulluri,Value(),signRequest("DELETE", fulluri, Value())));
+		} catch (const HTTPJson::UnknownStatusException &e) {
+			processError(e);
+		}
 	}
+	throw std::runtime_error("Market overloaded");
 }
 
 Value KucoinIFC::signRequest(const std::string_view &method, const std::string_view &function, json::Value args) const {
@@ -478,6 +510,8 @@ void KucoinIFC::processError(const HTTPJson::UnknownStatusException &e) const {
 	try {
 		auto s = e.response.getBody();
 		json::Value error = json::Value::parse(s);
+		if (e.getStatusCode() == 429 && error["code"].getUInt() == 429000)
+			return;
 		buff <<  " - " << error["code"].getUInt() << " " << error["msg"].getString();
 	} catch (...) {
 
