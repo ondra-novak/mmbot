@@ -41,7 +41,6 @@ public:
 	virtual MarketInfo getMarketInfo(const std::string_view & pair) override;
 	virtual double getFees(const std::string_view & pair) override;
 	virtual std::vector<std::string> getAllPairs() override;
-	virtual void testBroker() override {connection->preload();}
 	virtual BrokerInfo getBrokerInfo()  override;
 	virtual void setApiKey(json::Value keyData) override;
 	virtual json::Value getApiKeyFields() const override;

@@ -113,8 +113,6 @@ MTrader::MTrader(IStockSelector &stock_selector,
 ,acb_state(0,0)
 ,spread_fn(defaultSpreadFunction(cfg.spread_calc_sma_hours, cfg.spread_calc_stdev_hours, cfg.force_spread))
 {
-	//probe that broker is valid configured
-	stock->testBroker();
 	magic = this->statsvc->getHash() & 0xFFFFFFFF;
 	magic2 = (~magic) & 0xFFFFFFFF;; //magic number for secondary orders
 	std::random_device rnd;

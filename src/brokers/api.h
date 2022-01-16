@@ -81,7 +81,6 @@ public:
 
 	}
 
-	virtual void testBroker() override {}
 
 	virtual void setApiKey(json::Value keyData) override;
 	virtual json::Value getApiKeyFields() const override;

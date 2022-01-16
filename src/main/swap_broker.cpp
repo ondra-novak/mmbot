@@ -72,9 +72,6 @@ IStockApi::BrokerInfo SwapBroker::getBrokerInfo() {
 	};
 }
 
-void SwapBroker::testBroker() {
-	target->testBroker();
-}
 
 double SwapBroker::getBalance(const std::string_view &symb, const std::string_view &pair) {
 	return target->getBalance(symb, pair);

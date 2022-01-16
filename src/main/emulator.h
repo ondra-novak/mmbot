@@ -32,7 +32,6 @@ public:
 	virtual MarketInfo getMarketInfo(const std::string_view & pair) override;
 	virtual double getFees(const std::string_view &pair) override;
 	virtual std::vector<std::string> getAllPairs() override;
-	virtual void testBroker() override {datasrc->testBroker();}
 	virtual BrokerInfo getBrokerInfo() override;
 	//saves image to disk to specified path
 	virtual void saveIconToDisk(const std::string &path) const override;

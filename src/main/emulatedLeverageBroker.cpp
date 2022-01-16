@@ -54,9 +54,6 @@ IStockApi::BrokerInfo EmulatedLeverageBroker::getBrokerInfo() {
 	};
 }
 
-void EmulatedLeverageBroker::testBroker() {
-	target->testBroker();
-}
 
 double EmulatedLeverageBroker::getBalance(const std::string_view &symb, const std::string_view &pair) {
 	double r = target->getBalance(symb, pair);;
