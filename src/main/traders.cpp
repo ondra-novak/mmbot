@@ -88,7 +88,6 @@ void StockSelector::clear() {
 
 Traders::Traders(ondra_shared::Scheduler sch,
 		const ondra_shared::IniConfig::Section &ini,
-		bool test,
 		PStorageFactory &sf,
 		const PReport &rpt,
 		const PPerfModule &perfMod,
@@ -96,13 +95,12 @@ Traders::Traders(ondra_shared::Scheduler sch,
 		int brk_timeout)
 
 :
-test(test)
-,sf(sf)
+sf(sf)
 ,rpt(rpt)
 ,perfMod(perfMod)
 ,iconPath(iconPath)
 {
-	stockSelector.loadBrokers(ini, test, brk_timeout);
+	stockSelector.loadBrokers(ini, false, brk_timeout);
 	wcfg.walletDB = PWalletDB::make();
 	wcfg.externalBalance = wcfg.externalBalance.make();
 	wcfg.balanceCache = wcfg.balanceCache.make();

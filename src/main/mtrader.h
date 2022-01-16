@@ -77,7 +77,7 @@ struct MTrader_Config {
 
 	Strategy strategy = Strategy(nullptr);
 
-	void loadConfig(json::Value data, bool force_dry_run);
+	void loadConfig(json::Value data);
 
 };
 

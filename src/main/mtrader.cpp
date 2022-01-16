@@ -40,7 +40,7 @@ json::NamedEnum<Dynmult_mode> strDynmult_mode  ({
 
 
 
-void MTrader_Config::loadConfig(json::Value data, bool force_dry_run) {
+void MTrader_Config::loadConfig(json::Value data) {
 	pairsymb = data["pair_symbol"].getString();
 	broker = data["broker"].getString();
 	title = data["title"].getString();
@@ -78,7 +78,7 @@ void MTrader_Config::loadConfig(json::Value data, bool force_dry_run) {
 	spread_calc_sma_hours = data["spread_calc_sma_hours"].getValueOrDefault(24.0);
 	spread_calc_stdev_hours = data["spread_calc_stdev_hours"].getValueOrDefault(4.0);
 
-	dry_run = force_dry_run || data["dry_run"].getValueOrDefault(false);
+	dry_run = data["dry_run"].getValueOrDefault(false);
 	internal_balance = data["internal_balance"].getValueOrDefault(false) || dry_run;
 	dont_allocate = data["dont_allocate"].getValueOrDefault(false) ;
 	enabled= data["enabled"].getValueOrDefault(true);

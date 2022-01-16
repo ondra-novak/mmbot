@@ -164,7 +164,7 @@ bool WebCfg::reqConfig(simpleServer::HTTPRequest req)  {
 				for (Value v: trs) {
 					StrViewA name = v.getKey();
 					try {
-						MTrader_Config().loadConfig(v,false);
+						MTrader_Config().loadConfig(v);
 					} catch (std::exception &e) {
 						std::string msg(name.data,name.length);
 						msg.append(" - ");
@@ -816,7 +816,7 @@ void WebCfg::State::applyConfig(SharedObject<Traders>  &st) {
 	for (Value v: data["traders"]) {
 		try {
 			MTrader_Config cfg;
-			cfg.loadConfig(v, t->test);
+			cfg.loadConfig(v);
 			t->addTrader(cfg,v.getKey());
 			traderNames.push_back(v.getKey());
 		} catch (std::exception &e) {
@@ -1098,7 +1098,7 @@ bool WebCfg::reqBacktest(simpleServer::HTTPRequest req, ondra_shared::StrViewA r
 					std::uint64_t start_date=data["start_date"].getUIntLong();
 
 					MTrader_Config mconfig;
-					mconfig.loadConfig(config,false);
+					mconfig.loadConfig(config);
 					std::optional<double> m_init_pos;
 					if (init_pos.hasValue()) m_init_pos = init_pos.getNumber();
 
@@ -1923,7 +1923,7 @@ bool WebCfg::reqBacktest_v2(simpleServer::HTTPRequest req, ondra_shared::StrView
 					std::uint64_t start_date=args["start_date"].getUIntLong();
 
 					MTrader_Config mconfig;
-					mconfig.loadConfig(config,false);
+					mconfig.loadConfig(config);
 					std::optional<double> m_init_pos;
 					if (init_pos.hasValue()) m_init_pos = init_pos.getNumber();
 

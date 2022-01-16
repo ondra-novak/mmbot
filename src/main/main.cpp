@@ -73,7 +73,6 @@ class App: public ondra_shared::DefaultApp {
 public:
 
 	App(): ondra_shared::DefaultApp({
-		App::Switch{'t',"dry_run",[this](auto &&){this->test = true;},"dry run"},
 		App::Switch{'V',"version",[this](auto &&cmd){
 			print_ver = true;
 		},"print version"},
@@ -102,15 +101,11 @@ public:
 				"status       - print status",
 				"pidof        - print pid",
 				"wait         - wait until service exits",
-				"get_all_pairs- print all tradable pairs - need broker name as argument",
-				"erase_trade  - erases trade. Need id of trader and id of trade",
-				"reset        - erases all trades expect the last one",
-				"repair       - repair pair",
 				"admin        - generate temporary admin login and password",
 		};
 
 		const char *intro[] = {
-				"Copyright (c) 2019 Ondrej Novak. All rights reserved.",
+				"Copyright (c) 2022 Ondrej Novak. All rights reserved.",
 				"",
 				"This work is licensed under the terms of the MIT license.",
 				"For a copy, see <https://opensource.org/licenses/MIT>",
@@ -357,7 +352,7 @@ int main(int argc, char **argv) {
 
 
 						traders = traders.make(
-								sch,app.config["brokers"], app.test,sf,rpt,perfmod, rptpath,  brk_timeout
+								sch,app.config["brokers"], sf,rpt,perfmod, rptpath,  brk_timeout
 						);
 
 						RefCntPtr<AuthUserList> aul;

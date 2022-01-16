@@ -49,7 +49,6 @@ public:
 	using TMap = ondra_shared::linear_map<std::string_view, SharedObject<NamedMTrader> >;
 	TMap traders;
     StockSelector stockSelector;
-	bool test;
 	PStorageFactory &sf;
 	PReport rpt;
 	PPerfModule perfMod;
@@ -57,7 +56,6 @@ public:
 
 	Traders(ondra_shared::Scheduler sch,
 			const ondra_shared::IniConfig::Section &ini,
-			bool test,
 			PStorageFactory &sf,
 			const PReport &rpt,
 			const PPerfModule &perfMod,
