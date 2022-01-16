@@ -18,7 +18,9 @@ SwapBroker::SwapBroker(PStockApi target):target(target) {
 
 
 std::vector<std::string> SwapBroker::getAllPairs() {
-	return target->getAllPairs();
+	auto sub = dynamic_cast<IBrokerControl *>(target.get());
+	if (sub == nullptr) return {};
+	return sub->getAllPairs();
 }
 
 IStockApi::MarketInfo SwapBroker::getMarketInfo(const std::string_view &pair) {
@@ -57,8 +59,10 @@ json::Value SwapBroker::getSettings(const std::string_view &pairHint) const {
 
 }
 
-IStockApi::BrokerInfo SwapBroker::getBrokerInfo() {
-	BrokerInfo binfo = target->getBrokerInfo();
+SwapBroker::BrokerInfo SwapBroker::getBrokerInfo() {
+	auto sub = dynamic_cast<IBrokerControl *>(target.get());
+	if (sub == nullptr) return {};
+	BrokerInfo binfo = sub->getBrokerInfo();
 	return BrokerInfo {
 		binfo.trading_enabled,
 		binfo.name,

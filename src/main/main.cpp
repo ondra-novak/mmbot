@@ -434,26 +434,7 @@ int main(int argc, char **argv) {
 
 						logNote("---- Starting service ----");
 
-						cntr.on("get_all_pairs") >> [&](auto &&args, std::ostream &stream){
-							if (args.length < 1) {
-								stream << "Append argument: <broker>" << std::endl;
-								return 1;
-							} else {
-								StockSelector ss;
-								ss.loadBrokers(app.config["brokers"], true, brk_timeout);
-								PStockApi stock = ss.getStock(args[0]);
-								if (stock != nullptr) {
-									for (auto &&k : stock->getAllPairs()) {
-										stream << k << std::endl;
-									}
-									return 0;
-								} else {
-									stream << "Stock is not defined" << std::endl;
-									return 2;
-								}
-							}
 
-						};
 
 						cntr.on("admin") >> [&](auto &&, std::ostream &out){
 							std::random_device rnd;

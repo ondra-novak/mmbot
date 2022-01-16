@@ -13,7 +13,9 @@ EmulatedLeverageBroker::EmulatedLeverageBroker(PStockApi target, double emulated
 }
 
 std::vector<std::string> EmulatedLeverageBroker::getAllPairs() {
-	return target->getAllPairs();
+	auto sub = dynamic_cast<IBrokerControl *>(target.get());
+	if (sub == nullptr) throw std::runtime_error("unsupported operation");
+	return sub->getAllPairs();
 }
 
 IStockApi::MarketInfo EmulatedLeverageBroker::getMarketInfo(const std::string_view &pair) {
@@ -39,8 +41,10 @@ json::Value EmulatedLeverageBroker::getSettings(const std::string_view &pairHint
 
 }
 
-IStockApi::BrokerInfo EmulatedLeverageBroker::getBrokerInfo() {
-	BrokerInfo binfo = target->getBrokerInfo();
+EmulatedLeverageBroker::BrokerInfo EmulatedLeverageBroker::getBrokerInfo() {
+	auto sub = dynamic_cast<IBrokerControl *>(target.get());
+	if (sub == nullptr) throw std::runtime_error("unsupported operation");
+	BrokerInfo binfo = sub->getBrokerInfo();
 	return BrokerInfo {
 		binfo.trading_enabled,
 		binfo.name,

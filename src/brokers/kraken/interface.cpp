@@ -31,7 +31,7 @@ Interface::MarketType Interface::getMarketType(std::string_view pair) {
 
 
 
-IStockApi::BrokerInfo Interface::getBrokerInfo() {
+IBrokerControl::BrokerInfo Interface::getBrokerInfo() {
 	return BrokerInfo{
 		hasKey(),
 		"kraken",

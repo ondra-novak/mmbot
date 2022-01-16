@@ -191,27 +191,6 @@ public:
 		static MarketInfo fromJSON(const json::Value &v);
 	};
 
-	struct BrokerInfo {
-		///must contain true to enlist broker in the web interface.
-		bool trading_enabled;
-		///Name of the broker
-		std::string name;
-		///Name of the exchange
-		std::string exchangeName;
-		///url to homepage of the exchange
-		std::string exchangeUrl;
-		///version identifier
-		std::string version;
-		///licence text
-		std::string licence;
-		///favicon binary image/png
-		std::string favicon;
-		///this option must be true,if the broker supports getSetting/setSettings
-		bool settings = false;
-		///this broker supports subaccounts
-		bool subaccounts = false;
-	};
-
 
 	struct TradesSync {
 		TradeHistory trades;
@@ -303,11 +282,6 @@ public:
 	 * @return MAKER fees (the MMBot doesn't generate TAKER's orders)
 	 */
 	virtual double getFees(const std::string_view &pair) = 0;
-
-	///Retrieve all available pairs
-	virtual std::vector<std::string> getAllPairs() = 0;
-
-	virtual BrokerInfo getBrokerInfo()  = 0;
 
 	virtual ~IStockApi() {}
 

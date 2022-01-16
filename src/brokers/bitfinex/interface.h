@@ -23,7 +23,7 @@ public:
 	virtual IStockApi::MarketInfo getMarketInfo(const std::string_view &pair) override;
 	virtual AbstractBrokerAPI* createSubaccount(
 			const std::string &secure_storage_path) override;
-	virtual IStockApi::BrokerInfo getBrokerInfo() override;
+	virtual BrokerInfo getBrokerInfo() override;
 	virtual void onLoadApiKey(json::Value keyData) override;
 	virtual double getBalance(const std::string_view &symb, const std::string_view &pair) override;
 	virtual IStockApi::TradesSync syncTrades(json::Value lastId, const std::string_view &pair) override;

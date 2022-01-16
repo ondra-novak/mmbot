@@ -73,7 +73,7 @@ KucoinIFC::KucoinIFC(const std::string &cfg_file)
 {
 }
 
-IStockApi::BrokerInfo KucoinIFC::getBrokerInfo() {
+IBrokerControl::BrokerInfo KucoinIFC::getBrokerInfo() {
 	return BrokerInfo {
 		hasKey(),
 		"kucoin",

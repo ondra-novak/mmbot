@@ -98,7 +98,7 @@ TradeOgreIFC::TradeOgreIFC(const std::string &cfg_file)
 	api.setForceJSON(true);
 }
 
-IStockApi::BrokerInfo TradeOgreIFC::getBrokerInfo() {
+IBrokerControl::BrokerInfo TradeOgreIFC::getBrokerInfo() {
 	return BrokerInfo {
 		hasKey(),
 		"tradeogre",

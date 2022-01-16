@@ -20,7 +20,7 @@ public:
 	virtual IBrokerControl::PageData fetchPage(const std::string_view &method,
 			const std::string_view&vpath, const IBrokerControl::PageData &pageData) override;
 	virtual json::Value getSettings(const std::string_view &pairHint) const override;
-	virtual IStockApi::BrokerInfo getBrokerInfo() override;
+	virtual BrokerInfo getBrokerInfo() override;
 	virtual double getBalance(const std::string_view &symb, const std::string_view &pair) override;
 	virtual json::Value setSettings(json::Value v) override;
 	virtual void restoreSettings(json::Value v) override;

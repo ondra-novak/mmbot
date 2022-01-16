@@ -84,7 +84,7 @@ GokumarketIFC::GokumarketIFC(const std::string &cfg_file)
 {
 }
 
-IStockApi::BrokerInfo GokumarketIFC::getBrokerInfo() {
+IBrokerControl::BrokerInfo GokumarketIFC::getBrokerInfo() {
 	return BrokerInfo {
 		hasKey(),
 		"gokumarket",

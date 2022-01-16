@@ -18,7 +18,7 @@ public:
 	virtual AbstractBrokerAPI* createSubaccount(
 			const std::string &secure_storage_path) override;
 	virtual void onLoadApiKey(json::Value keyData) override;
-	virtual IStockApi::BrokerInfo getBrokerInfo() override;
+	virtual IBrokerControl::BrokerInfo getBrokerInfo() override;
 	virtual uint64_t downloadMinuteData(const std::string_view &asset, const std::string_view &currency,
 			const std::string_view &hint_pair, uint64_t time_from, uint64_t time_to, std::vector<IHistoryDataSource::OHLC> &data) override;
 	virtual json::Value getMarkets() const override;

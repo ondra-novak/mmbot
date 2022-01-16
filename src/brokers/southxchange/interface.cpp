@@ -113,7 +113,7 @@ json::Value Interface::apiPOST(const std::string_view &uri, json::Value params) 
 }
 
 
-IStockApi::BrokerInfo Interface::getBrokerInfo() {
+IBrokerControl::BrokerInfo Interface::getBrokerInfo() {
 	return {
 		!api_key.empty() && !api_secret.empty(),
 		"SouthExchange",

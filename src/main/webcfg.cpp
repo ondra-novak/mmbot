@@ -233,7 +233,7 @@ static double getSafeBalance(const PStockApi &api, std::string_view symb,  std::
 	}
 }
 
-static json::Value brokerToJSON(const IStockApi::BrokerInfo &binfo) {
+static json::Value brokerToJSON(const IBrokerControl::BrokerInfo &binfo) {
 	json::String url;
 	if (StrViewA(binfo.exchangeUrl).begins("/")) url = {"./api/brokers/",simpleServer::urlEncode(binfo.name),"/page/"};
 	else url = binfo.exchangeUrl;
@@ -277,7 +277,10 @@ bool WebCfg::reqBrokers(simpleServer::HTTPRequest req, ondra_shared::StrViewA re
 			if (!req.allowMethods({"GET"})) return true;
 			Array res;
 			trlist.lock_shared()->stockSelector.forEachStock([&](std::string_view n, const PStockApi &api) {
-				res.push_back(brokerToJSON(api->getBrokerInfo()));
+				IBrokerControl *bc = dynamic_cast<IBrokerControl *>(api.get());
+				if (bc) {
+					res.push_back(brokerToJSON(bc->getBrokerInfo()));
+				}
 			});
 			req.sendResponse("application/json",Value(res).stringify().str());
 			return true;
@@ -361,22 +364,28 @@ bool WebCfg::reqBrokerSpec(simpleServer::HTTPRequest req,
 			api->reset();
 		}
 
+		IBrokerControl *bc = dynamic_cast<IBrokerControl *>(api.get());
+
+
 		if (entry.empty()) {
 			if (!req.allowMethods( { "GET" }))
 				return true;
-			auto binfo = api->getBrokerInfo();
+			if (bc == nullptr) return false;
+			auto binfo = bc->getBrokerInfo();
 			Value res = brokerToJSON(binfo).replace("entries", { "icon.png", "pairs","apikey","licence","page","subaccount" });
 			req.sendResponse(std::move(hdr),res.stringify().str());
 			return true;
 		} else if (entry == "licence") {
 			if (!req.allowMethods( { "GET" }))
 				return true;
-			auto binfo = api->getBrokerInfo();
+			if (bc == nullptr) return false;
+			auto binfo = bc->getBrokerInfo();
 			req.sendResponse(std::move(hdr),Value(binfo.licence).stringify().str());
 		} else if (entry == "icon.png") {
 			if (!req.allowMethods( { "GET" }))
 				return true;
-			auto binfo = api->getBrokerInfo();
+			if (bc == nullptr) return false;
+			auto binfo = bc->getBrokerInfo();
 			req.sendResponse(
 					HTTPResponse(200).contentType("image/png").cacheFor(600),binfo.favicon);
 			return true;
@@ -394,7 +403,8 @@ bool WebCfg::reqBrokerSpec(simpleServer::HTTPRequest req,
 		} else if (entry == "subaccount") {
 			if (!req.allowMethods( { "POST" }))
 				return true;
-			auto binfo = api->getBrokerInfo();
+			if (bc == nullptr) return false;
+			auto binfo = bc->getBrokerInfo();
 			if (!binfo.subaccounts) {
 				req.sendErrorPage(403);
 			} else {
@@ -411,7 +421,6 @@ bool WebCfg::reqBrokerSpec(simpleServer::HTTPRequest req,
 			}
 			return true;
 		}else if (entry == "page") {
-			IBrokerControl *bc = dynamic_cast<IBrokerControl *>(api.get());
 			if (bc == nullptr) {
 				req.sendErrorPage(403);return true;
 			}
@@ -467,7 +476,8 @@ bool WebCfg::reqBrokerSpec(simpleServer::HTTPRequest req,
 
 				}
 				Array p;
-				auto pairs = api->getAllPairs();
+				if (bc == nullptr) return false;
+				auto pairs = bc->getAllPairs();
 				for (auto &&k : pairs)
 					p.push_back(k);
 				Object obj({{"entries", p}});
@@ -562,13 +572,17 @@ bool WebCfg::reqBrokerSpec(simpleServer::HTTPRequest req,
 					}
 
 				} catch (...) {
-					auto pp = api->getAllPairs();
-					auto f = std::find(pp.begin(), pp.end(), p);
-					if (f == pp.end()) {
-						req.sendErrorPage(404);
-						return true;
-					} else {
+					if (bc == nullptr) {
 						throw;
+					} else {
+						auto pp = bc->getAllPairs();
+						auto f = std::find(pp.begin(), pp.end(), p);
+						if (f == pp.end()) {
+							req.sendErrorPage(404);
+							return true;
+						} else {
+							throw;
+						}
 					}
 
 				}
@@ -969,7 +983,8 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req)  {
 				}
 
 				api->reset();
-				auto binfo = api->getBrokerInfo();
+				auto bc = dynamic_cast<IBrokerControl *>(api.get());
+				auto binfo = bc?bc->getBrokerInfo():IBrokerControl::BrokerInfo{};
 
 
 				Value strategy;

@@ -107,7 +107,7 @@ void Interface::onLoadApiKey(json::Value keyData) {
 	api_secret = keyData["secret"].getString();
 }
 
-IStockApi::BrokerInfo Interface::getBrokerInfo() {
+IBrokerControl::BrokerInfo Interface::getBrokerInfo() {
 	return {
 		/*trading_enabled = */ !api_key.empty() && !api_passphrase.empty() && !api_secret.empty(),
 		/*name=*/ "okex",

@@ -167,7 +167,7 @@ AbstractBrokerAPI* Interface::createSubaccount(
 }
 
 
-IStockApi::BrokerInfo Interface::getBrokerInfo() {
+IBrokerControl::BrokerInfo Interface::getBrokerInfo() {
 	return BrokerInfo{
 		hasKey(),
 		"ftx",

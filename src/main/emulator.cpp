@@ -142,13 +142,6 @@ double EmulatorAPI::getFees(const std::string_view &pair) {
 	return minfo.fees;
 }
 
-std::vector<std::string> EmulatorAPI::getAllPairs() {
-	return datasrc->getAllPairs();
-}
-
-EmulatorAPI::BrokerInfo EmulatorAPI::getBrokerInfo() {
-	return datasrc->getBrokerInfo();
-}
 
 void EmulatorAPI::saveIconToDisk(const std::string &path) const {
 	const IBrokerIcon *icn = dynamic_cast<const IBrokerIcon *>(datasrc.get());

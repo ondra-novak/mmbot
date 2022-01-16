@@ -171,8 +171,8 @@ AbstractBrokerAPI* ByBitBroker::createSubaccount(const std::string &secure_stora
 	return new ByBitBroker(secure_storage_path);
 }
 
-IStockApi::BrokerInfo ByBitBroker::getBrokerInfo() {
-	return IStockApi::BrokerInfo{
+IBrokerControl::BrokerInfo ByBitBroker::getBrokerInfo() {
+	return IBrokerControl::BrokerInfo{
 		hasKeys(),
 		"bybit",
 		"ByBit",
