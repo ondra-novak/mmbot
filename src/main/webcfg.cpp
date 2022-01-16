@@ -306,11 +306,10 @@ static Value getOpenOrders(const PStockApi &api, const std::string_view &pair) {
 
 }
 
-static Value getPairInfo(const PStockApi &api, const std::string_view &pair, const std::optional<double> &internalBalance = std::optional<double>()
-		, const std::optional<double> &internalCurrencyBalance = std::optional<double>()) {
+static Value getPairInfo(const PStockApi &api, const std::string_view &pair) {
 	IStockApi::MarketInfo nfo = api->getMarketInfo(pair);
-	double ab = internalBalance.has_value()?*internalBalance:getSafeBalance(api, nfo.asset_symbol, pair);
-	double cb = internalCurrencyBalance.has_value()?*internalCurrencyBalance:getSafeBalance(api, nfo.currency_symbol, pair);
+	double ab = getSafeBalance(api, nfo.asset_symbol, pair);
+	double cb = getSafeBalance(api, nfo.currency_symbol, pair);
 	Value last;
 	try {
 		auto ticker = api->getTicker(pair);
@@ -687,11 +686,7 @@ bool WebCfg::reqTraders(simpleServer::HTTPRequest req, ondra_shared::StrViewA vp
 					out.set("ticker", Object({{"ask", ticker.ask},{"bid", ticker.bid},{"last", ticker.last},{"time", ticker.time}}));
 					out.set("orders", getOpenOrders(broker, trl->getConfig().pairsymb));
 					out.set("broker", trl->getConfig().broker);
-					std::optional<double> ibalance ;
-					if (trl != nullptr) {
-						ibalance = trl->getInternalBalance();
-					}
-					out.set("pair", getPairInfo(broker, trl->getConfig().pairsymb, ibalance));
+					out.set("pair", getPairInfo(broker, trl->getConfig().pairsymb));
 					if (trl != nullptr) {
 						auto strategy = trl->getStrategy();
 						double assets = *trl->getPosition();
@@ -715,12 +710,10 @@ bool WebCfg::reqTraders(simpleServer::HTTPRequest req, ondra_shared::StrViewA vp
 					if (req.getMethod() == "GET") {
 						auto st = trl->getMarketStatus();
 						json::Value v = strategy.exportState();
-						if (trl->getConfig().internal_balance) {
-							v = v.replace("internal_balance", Object({
+						v = v.replace("internal_balance", Object({
 									{"assets", st.assetBalance},
 									{"currency", st.currencyBalance}
 							}));
-						}
 						req.sendResponse(std::move(hdr), v.stringify().str());
 					} else {
 						json::Value v = json::Value::parse(req.getBodyStream());
@@ -998,11 +991,6 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req)  {
 					enter_price_pos = trl->getEnterPricePos();
 					rpnl = trl->getRPnL();
 				}
-				std::optional<double> internalBalance, internalCurrencyBalance;
-				if (trl) {
-					internalBalance = trl->getInternalBalance();
-					internalCurrencyBalance = trl->getInternalCurrencyBalance();
-				}
 				Object result;
 				result.set("broker",Object({
 						{"name", binfo.name},
@@ -1010,7 +998,7 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req)  {
 						{"version", binfo.version},
 						{"settings", binfo.settings},
 						{"trading_enabled", binfo.trading_enabled}}));
-				Value pair = getPairInfo(api, p, internalBalance, internalCurrencyBalance);
+				Value pair = getPairInfo(api, p);
 				auto alloc = walletDB.lock_shared()->query(WalletDB::KeyQuery(broker.getString(),minfo.wallet_id,minfo.currency_symbol,uid));
 				result.set("pair", pair);
 				result.set("allocations", Object({

@@ -79,7 +79,6 @@ void MTrader_Config::loadConfig(json::Value data) {
 	spread_calc_stdev_hours = data["spread_calc_stdev_hours"].getValueOrDefault(4.0);
 
 	dry_run = data["dry_run"].getValueOrDefault(false);
-	internal_balance = data["internal_balance"].getValueOrDefault(false) || dry_run;
 	dont_allocate = data["dont_allocate"].getValueOrDefault(false) ;
 	enabled= data["enabled"].getValueOrDefault(true);
 	hidden = data["hidden"].getValueOrDefault(false);
@@ -243,7 +242,7 @@ void MTrader::perform(bool manually) {
 		if (status.brokerCurrencyBalance.has_value()) {
 			wcfg.balanceCache.lock()->put(cfg.broker, minfo.wallet_id, minfo.currency_symbol, *status.brokerCurrencyBalance);
 		}
-		if (!cfg.internal_balance && minfo.leverage == 0 && position_valid) {
+		if (minfo.leverage == 0 && position_valid) {
 			double accum = getAccumulated();
 			if (status.brokerAssetBalance.has_value()) wcfg.balanceCache.lock()->put(cfg.broker, minfo.wallet_id, minfo.asset_symbol, *status.brokerAssetBalance);
 			wcfg.walletDB.lock()->alloc(getWalletAssetKey(), position+accum);
@@ -580,7 +579,7 @@ void MTrader::perform(bool manually) {
 			if (!trades.empty())
 			{
 				double last_price = trades.back().eff_price;
-				double locked = cfg.internal_balance?0:wcfg.walletDB.lock_shared()->query(WalletDB::KeyQuery(cfg.broker, minfo.wallet_id, minfo.currency_symbol, uid)).otherTraders;
+				double locked = wcfg.walletDB.lock_shared()->query(WalletDB::KeyQuery(cfg.broker, minfo.wallet_id, minfo.currency_symbol, uid)).otherTraders;
 				double budget = strategy.calcCurrencyAllocation(last_price);
 				if (budget) {
 					budget_extra =  status.currencyUnadjustedBalance - locked - budget;
@@ -836,35 +835,20 @@ MTrader::Status MTrader::getMarketStatus() const {
 		}
 	}
 
-//handle option internal_balance in case, that we have internal balance data
-	if (cfg.internal_balance && currency_valid && position_valid) {
-		auto sumt = std::accumulate(res.new_trades.trades.begin(),
-				res.new_trades.trades.end(),std::pair<double,double>(0,0),sumTrades<IStockApi::Trade>);
-		res.assetBalance = sumt.first;
-		res.currencyBalance = sumt.second;
-		if (minfo.leverage) res.currencyBalance = 0;
-		res.assetBalance += position;
-		res.currencyBalance += currency;;
-		res.currencyUnadjustedBalance = res.currencyBalance;
-		res.assetUnadjustedBalance = res.assetBalance;
-		res.assetAvailBalance = res.assetBalance;
-		res.currencyAvailBalance = res.currencyBalance;
+	res.brokerAssetBalance= stock->getBalance(minfo.asset_symbol, cfg.pairsymb);
+	res.brokerCurrencyBalance = stock->getBalance(minfo.currency_symbol, cfg.pairsymb);
+	res.currencyUnadjustedBalance = *res.brokerCurrencyBalance + wcfg.externalBalance.lock_shared()->get(cfg.broker, minfo.wallet_id, minfo.currency_symbol);
+	res.assetUnadjustedBalance = *res.brokerAssetBalance +  wcfg.externalBalance.lock_shared()->get(cfg.broker, minfo.wallet_id, minfo.asset_symbol);
+	auto wdb = wcfg.walletDB.lock_shared();
+	if (minfo.leverage == 0) {
+		res.assetBalance = wdb->adjAssets(WalletDB::KeyQuery(cfg.broker,minfo.wallet_id,minfo.asset_symbol,uid),res.assetUnadjustedBalance);
+		res.assetAvailBalance = wdb->adjAssets(WalletDB::KeyQuery(cfg.broker,minfo.wallet_id,minfo.asset_symbol,uid),*res.brokerAssetBalance);
 	} else {
-		res.brokerAssetBalance= stock->getBalance(minfo.asset_symbol, cfg.pairsymb);
-		res.brokerCurrencyBalance = stock->getBalance(minfo.currency_symbol, cfg.pairsymb);
-		res.currencyUnadjustedBalance = *res.brokerCurrencyBalance + wcfg.externalBalance.lock_shared()->get(cfg.broker, minfo.wallet_id, minfo.currency_symbol);
-		res.assetUnadjustedBalance = *res.brokerAssetBalance +  wcfg.externalBalance.lock_shared()->get(cfg.broker, minfo.wallet_id, minfo.asset_symbol);
-		auto wdb = wcfg.walletDB.lock_shared();
-		if (minfo.leverage == 0) {
-			res.assetBalance = wdb->adjAssets(WalletDB::KeyQuery(cfg.broker,minfo.wallet_id,minfo.asset_symbol,uid),res.assetUnadjustedBalance);
-			res.assetAvailBalance = wdb->adjAssets(WalletDB::KeyQuery(cfg.broker,minfo.wallet_id,minfo.asset_symbol,uid),*res.brokerAssetBalance);
-		} else {
-			res.assetBalance = res.assetUnadjustedBalance;
-			res.assetAvailBalance = res.assetBalance;
-		}
-		res.currencyBalance = wdb->adjBalance(WalletDB::KeyQuery(cfg.broker,minfo.wallet_id,minfo.currency_symbol,uid),	res.currencyUnadjustedBalance);
-		res.currencyAvailBalance = wdb->adjBalance(WalletDB::KeyQuery(cfg.broker,minfo.wallet_id,minfo.currency_symbol,uid),*res.brokerCurrencyBalance);
+		res.assetBalance = res.assetUnadjustedBalance;
+		res.assetAvailBalance = res.assetBalance;
 	}
+	res.currencyBalance = wdb->adjBalance(WalletDB::KeyQuery(cfg.broker,minfo.wallet_id,minfo.currency_symbol,uid),	res.currencyUnadjustedBalance);
+	res.currencyAvailBalance = wdb->adjBalance(WalletDB::KeyQuery(cfg.broker,minfo.wallet_id,minfo.currency_symbol,uid),*res.brokerCurrencyBalance);
 
 	res.new_fees = stock->getFees(cfg.pairsymb);
 
@@ -1205,7 +1189,7 @@ void MTrader::loadState() {
 	if (strategy.isValid() && !trades.empty()) {
 		wcfg.walletDB.lock()->alloc(getWalletBalanceKey(), strategy.calcCurrencyAllocation(trades.back().eff_price));
 	}
-	if (!cfg.internal_balance && minfo.leverage == 0) {
+	if (minfo.leverage == 0) {
 		if (position_valid) {
 			double accum = getAccumulated();
 			wcfg.walletDB.lock()->alloc(getWalletAssetKey(), position+accum);
@@ -1429,7 +1413,7 @@ void MTrader::reset(const ResetOptions &ropt) {
 		achieve_mode = ropt.achieve;
 		need_initial_reset = false;
 		wcfg.walletDB.lock()->alloc(getWalletBalanceKey(), strategy.calcCurrencyAllocation(status.curPrice));
-		if (!cfg.internal_balance && minfo.leverage == 0) {
+		if (minfo.leverage == 0) {
 				wcfg.walletDB.lock()->alloc(getWalletAssetKey(), position+accumulated);
 				wcfg.accumDB.lock()->alloc(getWalletAssetKey(), accumulated);
 		}
@@ -1558,10 +1542,6 @@ MTrader::SpreadCalcResult MTrader::stCalcSpread(Iter beg, Iter end, unsigned int
 	};
 }
 
-std::optional<double> MTrader::getInternalBalance() const {
-	if (cfg.internal_balance) return position;
-	else return std::optional<double>();
-}
 std::optional<double> MTrader::getPosition() const {
 	return position;
 }
@@ -1570,10 +1550,6 @@ std::optional<double> MTrader::getCurrency() const {
 	return currency;
 }
 
-std::optional<double> MTrader::getInternalCurrencyBalance() const {
-	if (cfg.internal_balance) return currency;
-	else return std::optional<double>();
-}
 
 
 MTrader::SpreadCalcResult MTrader::calcSpread() const {

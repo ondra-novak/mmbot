@@ -64,7 +64,6 @@ struct MTrader_Config {
 	double init_open;
 
 	bool dry_run;
-	bool internal_balance;
 	bool dont_allocate;
 	bool enabled;
 	bool hidden;
@@ -254,8 +253,6 @@ public:
 
 
 
-	std::optional<double> getInternalBalance() const;
-	std::optional<double> getInternalCurrencyBalance() const;
 	std::optional<double> getPosition() const;
 	std::optional<double> getCurrency() const;
 	double getEnterPrice() const;
