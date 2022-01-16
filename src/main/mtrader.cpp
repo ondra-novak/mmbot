@@ -1338,6 +1338,7 @@ bool MTrader::processTrades(Status &st) {
 		if (minfo.leverage == 0) curBal -= t.price * t.size;
 		spent_currency += t.price*t.size;
 
+		acb_state = new_acb;
 
 		assetBal += t.eff_size;
 
