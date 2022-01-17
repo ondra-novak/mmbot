@@ -31,12 +31,16 @@ a {
 	color: #CCC;
 	border: 0;
 	font-size: 0.3cm;
-	overflow: hidden;
+	overflow: hidden auto;
 	white-space: pre-wrap;
 	margin: 0;
+	max-height: 50vh;
 }
 #logfilearea{
-	position:relative;
+	position: fixed;
+	bottom: 0;
+	width: 100%;
+	z-index: 100;
 }
 #logfileactivate {
 	text-align: center;
@@ -102,6 +106,10 @@ select > option[disabled] {
 	scrollbar-width: none;
 }
 
+
+#lastevents {
+	margin-bottom: 0.75cm;
+}
 
 #lastevents table {
 		width: 100%;
@@ -473,14 +481,6 @@ x-trbgr.hdr {
 	content: "pos: ";
 	vertical-align: sub;
 	font-size: 0.7em;
-}
-
-#lastevents {
-}
-
-#lastevents::-webkit-scrollbar{
-	width: 0;	
-	
 }
 
 .summary {
