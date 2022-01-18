@@ -5,6 +5,7 @@
 #include <imtjson/value.h>
 #include <shared/linear_map.h>
 #include "../httpjson.h"
+#include <optional>
 
 using json::Value;
 
