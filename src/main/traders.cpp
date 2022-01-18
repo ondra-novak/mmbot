@@ -10,6 +10,7 @@
 
 #include "traders.h"
 
+#include <set>
 #include "../imtjson/src/imtjson/object.h"
 #include "../shared/countdown.h"
 #include "../shared/logOutput.h"
@@ -149,7 +150,20 @@ void Traders::addTrader(const MTrader::Config &mcfg ,ondra_shared::StrViewA n) {
 	try {
 		logProgress("Started trader $1 (for $2)", n, mcfg.pairsymb);
 		if (stockSelector.checkBrokerSubaccount(mcfg.broker)) {
-			auto t = SharedObject<NamedMTrader>::make(stockSelector, sf->create(n),
+
+			auto storage = sf->create(n);
+			if (!mcfg.paper_trading_src_state.empty()) {
+				json::Value out = storage->load();
+				if (!out.defined()) {
+					auto storage2 = sf->create(mcfg.paper_trading_src_state);
+					json::Value out = storage2->load();
+					if (out.defined()) {
+						storage->store(out);
+					}
+				}
+			}
+
+			auto t = SharedObject<NamedMTrader>::make(stockSelector, std::move(storage),
 				std::make_unique<StatsSvc>(n, rpt, perfMod), wcfg, mcfg, n);
 			auto lt = t.lock();
 			loadIcon(*lt);
@@ -206,9 +220,16 @@ void Traders::report_util(std::string_view ident, double ms) {
 
 void Traders::resetBrokers() {
 	auto t1 = std::chrono::system_clock::now();
-	stockSelector.forEachStock([](const std::string_view &, const PStockApi &api) {
-		resetBroker(api);
+	std::set<PStockApi> brokers;
+	stockSelector.forEachStock([&](const std::string_view &, const PStockApi &api) {
+		brokers.emplace(api);
 	});
+	for (const auto &t: traders) {
+		brokers.emplace(t.second.lock_shared()->getBroker());
+	}
+	for (const auto &c: brokers) {
+		resetBroker(c);
+	}
 	auto t2 = std::chrono::system_clock::now();
 	reset_time = std::chrono::duration_cast<std::chrono::milliseconds>(t2-t1).count();
 }

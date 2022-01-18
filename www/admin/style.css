@@ -263,6 +263,10 @@ div.trader.list .selected {
 	background-color: #333;
 }
 
+div.trader.list .paper > *{
+	filter: sepia(1) saturate(2);
+}
+
 div.float_info {
 	background-color: #000000ad;
 	border: 1px solid #AAA;
@@ -1043,6 +1047,8 @@ x-form.pair table.orders td button {
 	margin: 0.05cm;
 	/* float: right; */
 }
+x-form.pair .pairactions div.icon {
+}
 
 .pairactions div.icon.red img {
 	background-color: #6f1111;
@@ -1091,6 +1097,8 @@ x-form.pair table.orders td button {
 	background-color: #5f5133;
 }
 
+
+
 .toppanel {
 	margin-bottom: 0.2cm;
 	background: linear-gradient(to right, transparent,#3e3e3e);
@@ -1101,6 +1109,23 @@ x-form.pair table.orders td button {
 	box-sizing: border-box;
 }
 
+x-form.paper .toppanel {background: #5c3c00;position: relative;background: #ffff8814;}
+
+x-form.paper .toppanel::before {
+	content:"PAPER TRADING";
+	position: absolute;
+	left: 0;
+	top: 0;
+	right: 0;
+	bottom: 0;
+	/* text-align: center; */
+	font-size: 4em;
+	font-weight: bold;
+	color: #66664473;
+	white-space: nowrap;
+	overflow: hidden;
+	z-index: -100;
+}
 
 .toppanel > div > x-checkbox {
 	white-space:nowrap;

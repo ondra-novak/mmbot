@@ -14,6 +14,8 @@
 #include <random>
 
 #include "../shared/stringview.h"
+#include "papertrading.h"
+
 #include "emulatedLeverageBroker.h"
 #include "emulator.h"
 #include "ibrokercontrol.h"
@@ -78,7 +80,8 @@ void MTrader_Config::loadConfig(json::Value data) {
 	spread_calc_sma_hours = data["spread_calc_sma_hours"].getValueOrDefault(24.0);
 	spread_calc_stdev_hours = data["spread_calc_stdev_hours"].getValueOrDefault(4.0);
 
-	dry_run = data["dry_run"].getValueOrDefault(false);
+	if (data["dry_run"].getBool() == true) throw std::runtime_error("Paper trading option is no longer supported");
+	paper_trading = data["paper_trading"].getValueOrDefault(false);
 	dont_allocate = data["dont_allocate"].getValueOrDefault(false) ;
 	enabled= data["enabled"].getValueOrDefault(true);
 	hidden = data["hidden"].getValueOrDefault(false);
@@ -90,6 +93,10 @@ void MTrader_Config::loadConfig(json::Value data) {
 	freeze_spread=data["spread_freeze"].getBool();
 	trade_within_budget = data["trade_within_budget"].getBool();
 	init_open = data["init_open"].getNumber();
+
+	if (paper_trading) {
+		paper_trading_src_state = data["pp_source"].getString();
+	}
 
 	if (dynmult_raise > 1e6) throw std::runtime_error("'dynmult_raise' is too big");
 	if (dynmult_raise < 0) throw std::runtime_error("'dynmult_raise' is too small");
@@ -144,15 +151,15 @@ bool MTrader::Order::isSimilarTo(const IStockApi::Order& other, double step, boo
 
 PStockApi MTrader::selectStock(IStockSelector &stock_selector, const Config &conf) {
 	PStockApi s = stock_selector.getStock(conf.broker);
-	if (s == nullptr) throw std::runtime_error(std::string("Unknown stock market name: ")+std::string(conf.broker));
+	if (s == nullptr) throw std::runtime_error(std::string("Unknown broker name: ")+std::string(conf.broker));
 	if (conf.swap_symbols) {
 		s = std::make_shared<SwapBroker>(s);
 	}
 	if (conf.emulate_leveraged>0) {
 		s = std::make_shared<EmulatedLeverageBroker>(s,conf.emulate_leveraged);
 	}
-	if (conf.dry_run) {
-		auto new_s = std::make_shared<EmulatorAPI>(s, 0);
+	if (conf.paper_trading) {
+		auto new_s = std::make_shared<PaperTrading>(s);
 		return new_s;
 	} else {
 		return s;
@@ -1097,13 +1104,6 @@ void MTrader::loadState() {
 	need_load = false;
 
 
-	if (!cfg.dry_run) {
-		json::Value t = st["test_backup"];
-		if (t.defined()) {
-			st = t.replace("chart",st["chart"]);
-		}
-	}
-
 	if (st.defined()) {
 
 
@@ -1169,12 +1169,6 @@ void MTrader::loadState() {
 			strategy.importState(st["strategy"], minfo);
 		}
 
-		if (cfg.dry_run) {
-			test_backup = st["test_backup"];
-			if (!test_backup.hasValue()) {
-				test_backup = st.replace("chart",json::Value());
-			}
-		}
 
 	}
 	tempPr.broker = cfg.broker;

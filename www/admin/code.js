@@ -125,6 +125,7 @@ App.prototype.createTraderForm = function() {
 		form.setData({"help_goal":{"class":state.strategy}});
 		form.getRoot().classList.toggle("no_adv", !state["advanced"]);
 		form.getRoot().classList.toggle("no_experimental", !state["check_unsupp"]);
+		form.getRoot().classList.toggle("paper", !!this._paper);
 		if (form.onChangeStrategy) {
 			form.onChangeStrategy(state);
 		}
@@ -143,7 +144,8 @@ App.prototype.createTraderList = function(form) {
 			image:this.brokerImgURL(this.traders[x].broker),
 			caption: this.traders[x].title,
 			broker: this.traders[x].broker,
-			id: "trader/"+this.traders[x].id,			
+			id: "trader/"+this.traders[x].id,
+			"":{"classList":{"paper":this.traders[x].paper_trading}}			
 		};
 	},this);
 	items.sort(function(a,b) {
@@ -180,9 +182,9 @@ App.prototype.createTraderList = function(form) {
 		"id":"internal/add"
 	});
 	items.forEach(function(x) {
-		x[""] = {"!click":function(id) {
+		x[""] = Object.assign(x[""] || {},{"!click":function(id) {
 			form.select(id);
-		}.bind(null,x.id)}
+		}.bind(null,x.id)});
 	});
 	form.setData({"item": items});
 	form.select = function(id) {
@@ -572,7 +574,8 @@ App.prototype.fillForm = function (src, trg) {
 	data.broker_img = this.brokerImgURL(src.broker);
 	data.advanced = this.advanced;
 
-	
+	trg._paper = src.paper_trading;
+	data.is_paper_trading = src.paper_trading?"true":"false";
 	data.strategy = (src.strategy && src.strategy.type) || "";
 	data.cstep = 0;
 	data.acum_factor = 0;
@@ -720,7 +723,6 @@ App.prototype.fillForm = function (src, trg) {
 	};
 	data.enabled = src.enabled;
 	data.hidden = !!src.hidden;
-	data.dry_run = src.dry_run;
 	data.swap_symbols = !!src.swap_symbols;
 	data.accept_loss = filledval(src.accept_loss,0);
 	data.grant_trade_hours= filledval(src.grant_trade_hours,0);
@@ -761,6 +763,7 @@ App.prototype.fillForm = function (src, trg) {
 	data.icon_undo={"!click": this.undoTrader.bind(this, src.id)};
 	data.icon_trading={"!click":this.tradingForm.bind(this, src.id)};
 	data.icon_share={"!click":this.shareForm.bind(this, src.id, trg)};
+	data.icon_paper={"!click":this.paperTrading.bind(this, src.id, trg)};
 	data.advedit = {"!click": this.editStrategyState.bind(this, src.id)};
 	data.spread_mode["!change"] = function() {
 		trg.setItemValue(this.dataset.name,this.value);
@@ -979,6 +982,8 @@ App.prototype.saveForm = function(form, src) {
 	if (isFinite(data.max_balance)) trader.max_balance = data.max_balance;
 	if (isFinite(data.max_costs)) trader.max_costs = data.max_costs;
 	trader.init_open = data.init_open;
+	trader.paper_trading = src.paper_trading;
+	trader.pp_source = src.pp_source;
 	return trader;
 	
 }
@@ -3406,4 +3411,32 @@ App.prototype.shgControlPosition = function(id, form) {
         },this);
         dlg.setItemEvent("side","change",dlgRules);        
     }.bind(this));
+}
+
+App.prototype.paperTrading = function(id,trg) {
+	if (trg._paper) {
+        var txts = document.getElementById("strtable");
+        this.dlgbox({text: txts.dataset.paper_merge},"confirm").then(function() {
+        	trg.save();
+			this.curForm.close();
+			var orig_id = this.traders[id].pp_source;
+            var newcfg = Object.assign({},this.traders[id]);
+            var orig_trd = this.traders[orig_id];
+            newcfg.id = orig_id;
+            delete newcfg.paper_trading;
+            delete newcfg.pp_source;
+            this.traders[orig_id] = newcfg;
+            delete this.traders[id];
+            trg.save = function() {};
+            this.updateTopMenu(orig_id);
+		}.bind(this));        		
+	} else {
+		trg.save();
+		var new_id = id+"_paper";
+		var pap  =this.traders[new_id] = Object.assign({},this.traders[id]);
+		pap.id = new_id;
+		pap.paper_trading = true;
+		pap.pp_source = id;
+		this.updateTopMenu(new_id);		 
+	}	
 }

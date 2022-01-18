@@ -35,6 +35,8 @@ struct MTrader_Config {
 	std::string broker;
 	std::string title;
 
+	std::string paper_trading_src_state;
+
 	double buy_step_mult;
 	double sell_step_mult;
 	double min_size;
@@ -63,7 +65,7 @@ struct MTrader_Config {
 
 	double init_open;
 
-	bool dry_run;
+	bool paper_trading;
 	bool dont_allocate;
 	bool enabled;
 	bool hidden;

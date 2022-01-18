@@ -20,6 +20,10 @@
 	<div class="icon" data-name="icon_broker" hidden="hidden"><img src="../res/broker_settings.png" title="Broker settings" ></div>
 	<div class="icon" data-name="icon_clearStats hide_on_new" hidden="hidden"><img src="../res/reset_stats.png" title="Clear statistics"></div> 
 	<div class="icon" data-name="icon_reset hide_on_new" hidden="hidden"><img src="../res/repair.png" title="Restart strategy" > </div>
+	<div class="icon" data-name="icon_paper hide_on_new"  hidden="hidden">
+		<x-switch data-name="is_paper_trading" data-value="false"><img src="../res/paper.png" title="Clone to paper trading" ></x-switch>
+		<x-switch data-name="is_paper_trading" data-value="true"><img src="../res/paper_merge.png" title="Apply settings to original trader" ></x-switch>
+		 </div>
 	<div class="icon" data-name="icon_share"><img src="../res/share.png" title="Share settings" > </div>
 	<div class="icon red" data-name="icon_delete"><img src="../res/delete.png" title="Delete trader"></div></div>
 <div>
@@ -109,7 +113,6 @@
 </div></div>
 <div class="label"><span>Options</span><div>
 <div><x-checkbox data-name="enabled">Enable automatic trading</x-checkbox></div>
-<div><x-checkbox data-name="dry_run">Paper trade (simulation)</x-checkbox></div>
 <div><x-checkbox data-name="hidden">Hidden</x-checkbox></div>
 <div data-name="swap_symbols_hide" hidden="hidden"><x-checkbox data-name="swap_symbols">Swap symbols </x-checkbox> (<span data-name="currency"></span> &lt;=&gt; <span data-name="asset"></span>)</div>
 </div></div>
@@ -801,6 +804,7 @@ the same order, they are ordered by its ID - this is the default ordering. Modif
     data-btev_margin_call="Margin call!"
     data-sinhgen_overwrite="This action DESTROYS current strategy state. Operation cannot be undoed. Do you really want to set the new state?"
     data-sinhgen_na="State is not available yet. Ensure that trader is active. Then wait for aprx 1 minute"
+    data-paper_merge="Confirm you wish to apply settings to the original trader (rewrite its settings)."
     ></span>
 
 

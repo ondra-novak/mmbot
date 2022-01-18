@@ -42,6 +42,7 @@ add_executable (mmbot
 	spread.cpp
 	series.cpp
 	btstore.cpp
+	papertrading.cpp
 	../brokers/httpjson.cpp
 	)
 target_link_libraries (mmbot LINK_PUBLIC simpleServer imtjson )
