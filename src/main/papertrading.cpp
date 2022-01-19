@@ -249,6 +249,14 @@ void PaperTrading::restoreSettings(json::Value v) {
 }
 
 json::Value PaperTrading::setSettings(json::Value v) {
+	for (json::Value witem: v) {
+		wallet[witem.getKey()] = witem.getNumber();
+	}
+	if (collateral.has_value()) {
+		double eq = collateral->getEquity(ticker.last);
+		double diff = getBalance(minfo->currency_symbol, "") - eq;
+		collateral = ACB(collateral->getOpen(), collateral->getPos(), collateral->getRPnL()+diff);
+	}
 	return json::undefined;
 }
 
@@ -258,7 +266,14 @@ IBrokerControl::PageData PaperTrading::fetchPage(const std::string_view &method,
 }
 
 json::Value PaperTrading::getSettings(const std::string_view &pairHint) const {
-	return {};
+	return json::Value(json::array, wallet.begin(), wallet.end(),[](const Wallet::value_type &witem){
+		return json::Object {
+			{"name", witem.first},
+			{"label", witem.first},
+			{"type","number"},
+			{"default", witem.second}
+		};
+	});
 }
 
 IBrokerControl::BrokerInfo PaperTrading::getBrokerInfo() {
@@ -270,7 +285,7 @@ IBrokerControl::BrokerInfo PaperTrading::getBrokerInfo() {
 		"1.0.0",
 		"",
 		"",
-		false,
+		true,
 		false
 	};
 }

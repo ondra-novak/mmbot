@@ -485,7 +485,8 @@ App.prototype.fillForm = function (src, trg) {
 		data.strategy_fields = fields;
 		data.icon_broker = {
 					".hidden":!broker.settings,
-					"!click":this.brokerConfig.bind(this, src.broker, src.pair_symbol)
+					"!click":this.brokerConfig.bind(this, 
+                        (state.exists?this.traderPairURL(src.id, src.pair_symbol):this.pairURL(broker.name,src.pair_symbol))+"/settings")
 				};					
 		data.hide_on_new = {
 				".hidden":!state.exists,
@@ -526,7 +527,7 @@ App.prototype.fillForm = function (src, trg) {
 			data.inverted_price=pair.invert_price?"true":"false";
 			var tmp = trg.readData(["cstep","max_pos","shg_lp","shg_offset"]);
 			if (!src.strategy && typeof state.pair.price == "string" && state.pair.price.startsWith("trainer")){
-			    this.brokerConfig(src.broker, src.pair_symbol).then(updateHdr,updateHdr);
+			    this.brokerConfig(this.pairURL(broker.name, src.pair_symbol)+"/settings").then(updateHdr,updateHdr);
 			}
 			data.more_info={
 				".hidden":false,
@@ -3221,8 +3222,8 @@ App.prototype.cancelOrder = function(trader, pair, id) {
 	return fetch_with_error(url,{method:"POST",body: JSON.stringify(req)});
 }
 
-App.prototype.brokerConfig = function(id, pair) {
-	var burl = this.pairURL(id, pair)+"/settings";
+App.prototype.brokerConfig = function(burl) {
+//	var burl = (exists?this.traderPairURL(trade_id, pair):this.pairURL(broker.name, pair))+"/settings";
 	var form = fetch_with_error(burl).then(formBuilder);
 	return this.dlgbox({form:form}, "broker_options_dlg").then(function() {
 		form.then(function(f) {
@@ -3422,7 +3423,9 @@ App.prototype.paperTrading = function(id,trg) {
 			var orig_id = this.traders[id].pp_source;
             var newcfg = Object.assign({},this.traders[id]);
             var orig_trd = this.traders[orig_id];
+            newcfg.adj_timeout = orig_trd.adj_timeout;                        
             newcfg.id = orig_id;
+            newcfg.enabled = orig_trd.enabled;
             delete newcfg.paper_trading;
             delete newcfg.pp_source;
             this.traders[orig_id] = newcfg;
@@ -3433,10 +3436,15 @@ App.prototype.paperTrading = function(id,trg) {
 	} else {
 		trg.save();
 		var new_id = id+"_paper";
-		var pap  =this.traders[new_id] = Object.assign({},this.traders[id]);
-		pap.id = new_id;
-		pap.paper_trading = true;
-		pap.pp_source = id;
+		if (!this.traders[new_id]) {
+			var pap  =this.traders[new_id] = Object.assign({},this.traders[id]);
+			pap.id = new_id;
+			pap.paper_trading = true;
+			pap.pp_source = id;
+			pap.adj_timeout = 5;
+			pap.enabled = true;
+		}
 		this.updateTopMenu(new_id);		 
+
 	}	
 }
