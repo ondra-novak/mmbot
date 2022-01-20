@@ -17,7 +17,6 @@
 #include "papertrading.h"
 
 #include "emulatedLeverageBroker.h"
-#include "emulator.h"
 #include "ibrokercontrol.h"
 #include "sgn.h"
 #include "swap_broker.h"

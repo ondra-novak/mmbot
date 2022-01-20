@@ -7,8 +7,7 @@ add_executable (mmbot
 	ext_stockapi.cpp
 	mtrader.cpp
 	istockapi.cpp
-	storage.cpp
-	emulator.cpp
+	storage.cpp	
 	main.cpp
 	report.cpp
 	webcfg.cpp	
