@@ -1855,7 +1855,7 @@ bool WebCfg::reqBacktest_v2(simpleServer::HTTPRequest req, ondra_shared::StrView
 					BTPrice tmp;
 					BTPrice *last = &tmp;
 					std::size_t ofs = offset.getUInt();
-					std::size_t lim = std::min(limit.defined()?limit.getUInt()+ofs:static_cast<std::size_t>(-1),srcminute.size());
+					std::size_t lim = std::min<std::size_t>(limit.defined()?limit.getUInt()+ofs:static_cast<std::size_t>(-1),srcminute.size());
 					for (std::size_t pos = ofs; pos < lim;++pos) {
 						const auto &itm =  srcminute[pos];
 						double w = itm.getNumber();
