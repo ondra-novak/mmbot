@@ -87,7 +87,7 @@ bool PaperTrading::reset() {
 		if (!needLoadWallet && minfo->leverage && !collateral.has_value()) {
 			//so initialize now from wallet
 			//we need ticker to initialize collateral
-			collateral.emplace(ticker.last, getBalance(minfo->currency_symbol, pairId));
+			collateral.emplace(ticker.last, getBalance(minfo->asset_symbol, pairId), getBalance(minfo->currency_symbol, pairId));
 		}
 
 		TradeHistory trades;

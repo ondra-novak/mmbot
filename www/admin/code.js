@@ -1494,10 +1494,10 @@ App.prototype.dlgbox = function(data, template) {
 	})
 	var res = new Promise(function(ok, cancel) {
 		dlg.setCancelAction(function() {
-			dlg.close();cancel();
+			dlg.close();cancel(dlg.readData());
 		},"cancel");
 		dlg.setDefaultAction(function() {
-			dlg.close();ok();
+			dlg.close();ok(dlg.readData());
 		},"ok");
 	});		
 	res.view = dlg;
@@ -3436,15 +3436,25 @@ App.prototype.paperTrading = function(id,trg) {
 	} else {
 		trg.save();
 		var new_id = id+"_paper";
-		if (!this.traders[new_id]) {
-			var pap  =this.traders[new_id] = Object.assign({},this.traders[id]);
-			pap.id = new_id;
-			pap.paper_trading = true;
-			pap.pp_source = id;
-			pap.adj_timeout = 5;
-			pap.enabled = true;
-		}
-		this.updateTopMenu(new_id);		 
+		var b;
+		(b = this.dlgbox({"name":{
+			value: new_id,
+			"!input":function() {
+				b.view.enableItem("ok",!!this.value.length);
+			}}},"clone_enter_id")).then(function(x) {				
+			new_id = x.name.trim();			
+			if (new_id.length) {
+				if (!this.traders[new_id]) {
+					var pap  =this.traders[new_id] = Object.assign({},this.traders[id]);
+					pap.id = new_id;
+					pap.paper_trading = true;
+					pap.pp_source = id;
+					pap.adj_timeout = 5;
+					pap.enabled = true;
+				}
+				this.updateTopMenu(new_id);
+			}
+		}.bind(this));
 
 	}	
 }
