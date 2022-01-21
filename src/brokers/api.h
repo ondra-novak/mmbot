@@ -122,6 +122,11 @@ public:
 
 
 	bool binary_mode = false;
+	///tests, whether keys are valid
+	///default implementation calls getWallet_direct(), as the feature is not implemented on brokers yet
+	///however, this should be improved later
+	///Keys are not valid when getWallet fails
+	virtual void probeKeys();
 
 
 protected:

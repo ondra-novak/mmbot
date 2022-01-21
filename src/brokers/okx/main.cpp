@@ -7,7 +7,7 @@
 
 
 #include "../api.h"
-#include "interface.h"
+#include "../okx/interface.h"
 
 
 int main(int argc, char **argv) {
@@ -18,7 +18,7 @@ int main(int argc, char **argv) {
 		return 1;
 	}
 
-	okex::Interface ifc(argv[1]);
+	okx::Interface ifc(argv[1]);
 	ifc.dispatch();
 
 }

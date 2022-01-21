@@ -77,6 +77,10 @@ public:
 		bool settings = false;
 		///this broker supports subaccounts
 		bool subaccounts = false;
+		///this broker doesn't support setApiKey/getApiKeyFeilds (trainers, simulators)
+		bool nokeys = false;
+		///this broker can be used as market data source without keys
+		bool datasrc = true;
 	};
 
 

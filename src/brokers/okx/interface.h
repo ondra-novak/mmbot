@@ -5,8 +5,8 @@
  *      Author: ondra
  */
 
-#ifndef SRC_BROKERS_OKEX_INTERFACE_H_
-#define SRC_BROKERS_OKEX_INTERFACE_H_
+#ifndef SRC_BROKERS_OKX_INTERFACE_H_
+#define SRC_BROKERS_OKX_INTERFACE_H_
 
 #include <chrono>
 #include "../api.h"
@@ -14,7 +14,7 @@
 #include "../orderdatadb.h"
 
 
-namespace okex {
+namespace okx {
 
 
 class Interface: public AbstractBrokerAPI {
@@ -67,4 +67,4 @@ protected:
 }
 
 
-#endif /* SRC_BROKERS_OKEX_INTERFACE_H_ */
+#endif /* SRC_BROKERS_OKX_INTERFACE_H_ */

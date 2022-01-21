@@ -244,7 +244,10 @@ static json::Value brokerToJSON(const IBrokerControl::BrokerInfo &binfo) {
 		{"exchangeName", binfo.exchangeName},
 		{"exchangeUrl", url},
 		{"version", binfo.version},
-		{"subaccounts",binfo.subaccounts}});
+		{"subaccounts",binfo.subaccounts},
+		{"subaccount",binfo.name.substr(std::min(binfo.name.length()-1,binfo.name.rfind('~'))+1)},
+		{"nokeys", binfo.nokeys}
+	});
 	return res;
 }
 
@@ -395,10 +398,17 @@ bool WebCfg::reqBrokerSpec(simpleServer::HTTPRequest req,
 				req.sendErrorPage(403);
 				return true;
 			}
-			if (!req.allowMethods( { "GET" }))
+			if (!req.allowMethods( { "GET" , "PUT"}))
 				return true;
-			req.sendResponse(std::move(hdr),
-					kk->getApiKeyFields().toString().str());
+			if (req.getMethod()=="GET")	{
+				req.sendResponse(std::move(hdr),
+						kk->getApiKeyFields().toString().str());
+			} else if (req.getMethod() == "PUT") {
+				auto s = req.getBodyStream();
+				json::Value k = json::Value::parse(s);
+				kk->setApiKey(k);
+				req.sendResponse(std::move(hdr),"true");
+			}
 			return true;
 		} else if (entry == "subaccount") {
 			if (!req.allowMethods( { "POST" }))

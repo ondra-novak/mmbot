@@ -6,13 +6,13 @@
  */
 
 
+#include "../okx/interface.h"
+
 #include <imtjson/string.h>
 #include <imtjson/object.h>
 #include <imtjson/array.h>
 #include <imtjson/value.h>
 #include <imtjson/operations.h>
-#include "interface.h"
-
 #include <openssl/hmac.h>
 #include <ctime>
 #include <iomanip>
@@ -24,7 +24,7 @@
 #include "../../server/src/simpleServer/urlencode.h"
 
 
-namespace okex {
+namespace okx {
 
 using namespace json;
 using ondra_shared::logDebug;
@@ -51,7 +51,7 @@ Interface::Interface(const std::string &config_path)
 ,api(simpleServer::HttpClient(
 		"Mozilla/5.0 (compatible; MMBOT/2.0; +http://github.com/ondra-novak/mmbot.git)",
 		simpleServer::newHttpsProvider(), nullptr, simpleServer::newCachedDNSProvider(60)),
-		"https://www.okex.com")
+		"https://www.okx.com")
 {
 
 }
@@ -110,40 +110,18 @@ void Interface::onLoadApiKey(json::Value keyData) {
 IBrokerControl::BrokerInfo Interface::getBrokerInfo() {
 	return {
 		/*trading_enabled = */ !api_key.empty() && !api_passphrase.empty() && !api_secret.empty(),
-		/*name=*/ "okex",
-		/*exchangeName=*/ "OKEx",
-		/*exchangeUrl=*/ "https://www.okex.com/join/8655381",
+		/*name=*/ "okx",
+		/*exchangeName=*/ "OKX",
+		/*exchangeUrl=*/ "https://www.okx.com/join/8655381",
 		/*version=*/ "1.0",
 		/*licence=*/ "MIT",
-		/*favicon=*/ "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"
-		"giBOxz9qkb3VW/9a3gAAAABJRU5ErkJggg=="
-,
+		/*favicon=*/ "iVBORw0KGgoAAAANSUhEUgAAADgAAAA3CAQAAADz2UFAAAABK0lEQVRYw+2YwUoDMRCGv02VRaoH"
+		"C971cfoUQnFfp/Q9+gB9iV73KOth8dpCtVB3IR6WWjQT6EJ2BJ1/bsOQLxPCTzJwUs6MJRUNPlE0"
+		"VCyZkSOooEwG+hklxXfYhPlgsGPMmZyAw+M65NdheqUouqtSqgFL8hGPPKGlOyrHFE1NMyruFYEv"
+		"GQ0XisA2w6seaay7lpGQuxRr91wFOY+LACMd+kjxuZuL1RLdyGAyoAENeK7TbLgOcq+RJZ55CHKH"
+		"KLCXl74xDnIf8pMsDbCP4dktNaAB/whwK7pPEuC78DHYcEsWxA21+BPtaW32ajOgAf8hsBHdR9ZO"
+		"NIMkj6g0HbaqvNZRqwJrx1oVuHasVIEr9Vmb48BCrb/F8ZejPC/9hYkwKM+8O6lM9T8BYehYbksA"
+		"+78AAAAASUVORK5CYII=",
 		/*settings=*/ false,
 		/*subaccounts=*/ true
 

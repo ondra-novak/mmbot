@@ -674,7 +674,7 @@ inline Interface::BrokerInfo Interface::getBrokerInfo() {
 		"LPSuc0K97mbRdvfLggHdvxNmYU1IH8DdK3g5q5hqiyVyB32Ad78MJGCpt+sVuPtlwYCl1/VA735Z"
 		"MGDhCHoF7z6oa4IrV194mTNAH8AEXwJ2vDS/RVDs04TEr0saDqZL8Mr1yvWSXP8P78XWqfvv6HgA"
 		"AAAASUVORK5CYII=",
-		true
+		true,false,true,false
 	};
 }
 

@@ -172,7 +172,10 @@ ExtStockApi::BrokerInfo ExtStockApi::getBrokerInfo()  {
 			resp["licence"].getString(),
 			json::map_bin2str(resp["favicon"].getBinary()),
 			resp["settings"].getBool(),
-			subaccount.empty()?resp["subaccounts"].getBool():false
+			subaccount.empty()?resp["subaccounts"].getBool():false,
+			resp["nokeys"].getBool(),
+			resp["datasrc"].getBool(),
+
 		};
 	} catch (AbstractExtern::Exception &) {
 		return BrokerInfo {

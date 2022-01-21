@@ -354,7 +354,6 @@ App.prototype.fillForm = function (src, trg) {
     );
 	
 	
-	var apikey = this.config.apikeys && this.config.apikeys[src.broker];
 	var first_fetch = true;
 
 	var updateHdr = function(){
@@ -409,8 +408,6 @@ App.prototype.fillForm = function (src, trg) {
 		this.fillFormCache[src.id] = state;
 
 		data.broker = broker.exchangeName;
-		data.no_api_key = {".hidden": !!(apikey === undefined?broker.trading_enabled:apikey)};
-		data.api_key_not_saved = {".hidden": apikey === undefined || !(!broker.trading_enabled && apikey)};
 		data.broker_id = broker.name;
 		data.broker_ver = broker.version;
 		data.asset = pair.asset_symbol;
@@ -1038,32 +1035,58 @@ App.prototype.brokerSelect = function() {
 		var form = TemplateJS.View.fromTemplate("broker_select");
 		_this.waitScreen(fetch_with_error("api/brokers/_all")).then(function(x) {
 			form.openModal();
-			var show_excl = false;
-			var lst = x.map(function(z) {
-				var e = _this.config.apikeys && _this.config.apikeys[z];
-				var ex = e !== undefined || z.trading_enabled;
-				show_excl = show_excl || !ex;
-				return {
-					excl_info: {".hidden":ex},
-					image:_this.brokerImgURL(z.name),
-					caption: z.name,
-					"":{"!click": function() {
-							form.close();
-							ok(z.name);
-						}}
-				};
-			});
+			var lst = function(s){
+				return x.filter(function(z){return !s || z.subaccounts;})
+				.map(function(z) {
+					return {
+						image:_this.brokerImgURL(z.name),
+						caption: z.exchangeName+(z.subaccount?" ("+z.subaccount+")":""),
+						"":{"!click": function() {
+								var p;
+								if (s) {
+									p = this.createSubaccount(z.name)
+									.then(function(n){
+										return this.waitScreen(fetch_with_error(this.brokerURL(n)))
+											.then(function(r){
+												return [n, r.trading_enabled];
+											})
+									}.bind(this))
+								} else {
+									p = Promise.resolve([z.name, z.trading_enabled]);
+								}
+								p = p.then(function(v){									
+									if (!v[1]) {
+										return this.setApiKeyDlg(v[0]).then(function(){return v[0];});
+									} else {
+										return v[0];
+									}																		
+								}.bind(this));
+								p.then(function(n){
+									form.close();
+									ok(n);
+								});
+							}.bind(this),
+							classList:{"available":z.trading_enabled}
+						}							
+					}	
+				},this);
+			}.bind(this);
 			form.setData({
-				"item":lst,
-				"excl_info": {".hidden": !show_excl},
+				"item":lst(false),
+				"subaccount":{
+					value:false,
+					"!change":function(){
+						form.setData({"item":lst(form.readData(["subaccount"]).subaccount)})
+					}
+				}
 			});
 			form.setCancelAction(function() {
 				form.close();
 				cancel();
 			},"cancel");
 
-		});
-	});
+		}.bind(this));
+	}.bind(this));
 }
 
 App.prototype.pairSelect = function(broker) {
@@ -1330,8 +1353,74 @@ App.prototype.addUser = function() {
 			},"ok");
 		},"ok");
 	});
+};
+
+App.prototype.createSubaccount = function(z) {
+return new Promise(function(ok,cancel) {
+    var dlg = TemplateJS.View.fromTemplate("subaccount_dlg");
+	dlg.openModal();
+	dlg.setCancelAction(function(){dlg.close();cancel();},"cancel");
+	dlg.setDefaultAction(function(){
+		var d = dlg.readData();
+		if (d.name) {
+			dlg.enableItem("ok",false);
+			fetch_with_error(this.brokerURL(z)+"/subaccount",{method:"POST",body:JSON.stringify(d.name)})
+			.then(function(s){
+				dlg.close();
+				ok(s);
+			}.bind(this))
+		}
+	}.bind(this),"ok");
+	dlg.setItemEvent("name","input",function(){
+		dlg.enableItem("ok",!!this.value.length);
+	})
+	dlg.enableItem("ok",false);
+}.bind(this));
+};
+
+App.prototype.setApiKeyDlg = function(z) {
+	return new Promise(function(ok, cancel) {
+	var url = this.brokerURL(z)+"/apikey";
+	var w = fetch_with_error(url)
+		.then(function(ff) {
+			return formBuilder(ff)
+		},cancel);
+		
+	var lnk = fetch_with_error(this.brokerURL(z)).then(function(x) {
+		return {href:x.exchangeUrl,".hidden":false,"target":"_blank"};
+	});
+	var dlg = TemplateJS.View.fromTemplate("broker_keys");
+	dlg.setData({"form":w,"image":this.brokerImgURL(z), link:lnk});
+	dlg.setDefaultAction(function(){
+		
+		w.then(function(f){
+			var k = f.readData();
+			return fetch_with_error(url, {"method":"PUT","body":JSON.stringify(k)})
+		}).then(function(){
+			dlg.close();
+			ok();
+		})
+		
+	}.bind(this),"ok");
+	dlg.setCancelAction(function(){
+		dlg.close();
+		cancel();
+	},"cancel");
+	dlg.openModal();
+		
+}.bind(this));
 }
 
+
+App.prototype.eraseApiKeyDlg = function(z,name) {
+	var strtable = document.getElementById("strtable");
+	var txt = strtable.dataset.askdeletekey+": "+name;
+	return this.dlgbox({"text":txt},"confirm").then(function(){
+		this.waitScreen(fetch_with_error(this.brokerURL(z)+"/apikey",{
+			"method":"PUT","body":"null"
+		}));
+	}.bind(this));
+}
 
 App.prototype.securityForm = function() {
 	var form = TemplateJS.View.fromTemplate("security_form");
@@ -1365,81 +1454,37 @@ App.prototype.securityForm = function() {
 			}
 		},this)
 		
-		function setKey(flag, broker, binfo, cfg) {
-	
-			if (flag) {
-				fetch_with_error(this.brokerURL(broker)+"/apikey")
-				.then(function(ff){
-					var w = formBuilder(ff);
-					w.setData(cfg);
-					this.dlgbox({text:w},"confirm").then(function() {
-						if (!this.config.apikeys) this.config.apikeys = {};
-						this.config.apikeys[broker] = w.readData();
-						form.showItem("need_save",true);
-						update.call(this);
-					}.bind(this));
-				}.bind(this));
-			} else {
-				if (!this.config.apikeys) this.config.apikeys = {};
-				this.config.apikeys[broker] = null;
-				form.showItem("need_save",true);
-				update.call(this);
-				
-			}
-			
-		}
-		
+		var userbrokers = Object.keys(this.traders).reduce(function(a,b){
+			var t = this.traders[b];
+			a[t.broker] = 1;
+			return a;
+		}.bind(this),{});
 		var brokers = fetch_with_error(this.brokerURL("_all")).
 			then(function(x) {
-				return x.map(function(binfo) {
+				return x.filter(function(binfo){
+				    	return binfo.trading_enabled && !binfo.nokeys;
+				    }).map(function(binfo) {
 					var z = binfo.name;
-					var cfg = this.config.apikeys && this.config.apikeys[z]
-					var e = cfg === undefined?binfo.trading_enabled:cfg;
+					var sub = binfo.subaccount?"("+binfo.subaccount+")":"";
 					return {
-						img:this.brokerImgURL(z),
-						broker: z,
+						img:this.brokerImgURL(z),						
+						subaccount: sub,
 						exchange:  {
 								value:binfo.exchangeName,
 								href:binfo.exchangeUrl
 							},						
-						state: {
-								value: e?"✓":"∅",
-								classList:{set:e, notset:!e}
-							},
-						bset: {
-								".disabled": binfo.trading_enabled && cfg === undefined,
-								"!click": setKey.bind(this, true, z, binfo, cfg)
-							},
+						keyset: {
+							"!click":function(){
+								this.setApiKeyDlg(z).then(update.bind(this));
+							}.bind(this)
+						},
+						keyerase: {
+							"!click":function(){
+								this.eraseApiKeyDlg(z, binfo.exchangeName+" "+sub).then(update.bind(this));
+							}.bind(this),
+							".style.visibility":userbrokers[z]?"hidden":"visible"
+						},
 						
-						berase: {
-								".disabled":!binfo.trading_enabled && !cfg,
-								"!click": setKey.bind(this, false, z, binfo, cfg)
-							},
-						info_button: {
-								"!click": function() {
-									this.dlgbox({text:fetch_with_error(this.brokerURL(z)+"/licence")
-											.then(function(t) {
-												return {"value":t,class:"textdoc"};
-											}),
-										cancel:{".hidden":true}},"confirm")
-								}.bind(this)
-							},
-						sub_button: {
-							    "!click": function() {
-                                    var dlg = TemplateJS.View.fromTemplate("subaccount_dlg");
-                                    dlg.openModal();
-                                    dlg.setCancelAction(function(){dlg.close();},"cancel");
-                                    dlg.setDefaultAction(function(){
-                                    	var d = dlg.readData();
-                                    	if (d.name) {
-                                    		fetch_with_error(this.brokerURL(z)+"/subaccount",{method:"POST",body:JSON.stringify(d.name)})
-                                    		.then(update.bind(this))
-                                    	}
-                                    	dlg.close();
-                                    }.bind(this),"ok");
-							    }.bind(this),
-							    ".hidden": !binfo.subaccounts
-						}						
 					}
 				}.bind(this));
 			}.bind(this));
