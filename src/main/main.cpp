@@ -329,9 +329,9 @@ int main(int argc, char **argv) {
 							}
 						}
 
-						StorageFactory rptf(rptpath,2,Storage::json);
-
-						PReport rpt = PReport::make(rptf.create("report.json"), ReportConfig{rptinterval});
+						PStorage rptstore = std::make_unique<MemStorage>();
+						IStorage *rptjson=rptstore.get();
+						PReport rpt = PReport::make(std::move(rptstore), ReportConfig{rptinterval});
 
 
 						PPerfModule perfmod;
@@ -355,7 +355,7 @@ int main(int argc, char **argv) {
 								sch,app.config["brokers"], sf,rpt,perfmod, rptpath,  brk_timeout
 						);
 
-						RefCntPtr<AuthUserList> aul;
+						RefCntPtr<AuthUserList> aul,aaul;
 
 						StrViewA webadmin_auth = login_section["admin"].getString();
 						json::PJWTCrypto jwt;
@@ -370,6 +370,7 @@ int main(int argc, char **argv) {
 						webcfgstate.lock()->setAdminAuth(webadmin_auth);
 						webcfgstate.lock()->applyConfig(traders);
 						aul = webcfgstate.lock_shared()->users;
+						aaul = webcfgstate.lock_shared()->admins;
 
 						std::unique_ptr<simpleServer::MiniHttpServer> srv;
 
@@ -412,7 +413,12 @@ int main(int argc, char **argv) {
 								}
 							});
 							paths.push_back({
-								"/data",AuthMapper(name,aul,jwt, true) >>= [&](simpleServer::HTTPRequest req, const ondra_shared::StrViewA &) mutable {
+								"/data",[&](simpleServer::HTTPRequest req, const ondra_shared::StrViewA &) mutable {
+									req.redirect("api/data", simpleServer::Redirect::permanent);return true;
+								}
+							});
+							paths.push_back({
+								"/api/data",AuthMapper(name,aul,jwt, true) >>= [&](simpleServer::HTTPRequest req, const ondra_shared::StrViewA &) mutable {
 									simpleServer::Stream s = req.sendResponse(simpleServer::HTTPResponse(200)
 											.contentType("text/event-stream")
 											.disableCache()
@@ -426,6 +432,106 @@ int main(int argc, char **argv) {
 									return true;
 								}
 							});
+							paths.push_back({
+								"/api/user",[&](simpleServer::HTTPRequest req, const ondra_shared::StrViewA &) mutable {
+									AuthMapper viewer(name, aul, jwt, true);
+									AuthMapper admin(name, aaul, jwt, false);
+									bool isviewer = false;
+									bool isadmin = false;
+									bool isjwt = false;
+									json::Value cookie;
+									json::Value uname;
+									std::string_view path = req.getPath();
+									path = path.substr(0,path.length()-9);
+									if (path.empty()) path="/";
+									if (req.allowMethods({"GET","POST","DELETE"})) {
+										simpleServer::HTTPResponse hdrs(200);
+										hdrs.contentType("application/json");
+										if (req.getMethod() == "GET") {
+											json::Value usr = viewer.checkAuth_probe(req);
+											json::Value ausr = admin.checkAuth_probe(req);
+											if (usr.defined()) {
+												isjwt = usr.isContainer();
+												uname = usr;
+												isviewer = true;
+												isadmin = ausr.defined();
+												if (ausr.hasValue() && !uname.hasValue()) {
+													uname = ausr;
+												}
+											}
+										} else if (req.getMethod() == "POST"){
+											auto s = req.getBodyStream();
+											json::Value v;
+											try {
+												v = json::Value::parse(s);
+											} catch (...) {
+												req.sendErrorPage(400);
+												return true;
+											}
+											std::string user;
+											auto uname = v["user"];
+											auto pwd = v["password"];
+											auto setcookie = v["cookie"].getString();
+											if (uname.defined() && pwd.defined()) {
+												auto u = uname.getString();
+												auto hpwd = aul->hashPwd(u, pwd.getString());
+												isadmin = aaul->findUser(u,hpwd );
+												isviewer = aul->findUser(u, hpwd);
+												user = u;
+											} else {
+												json::Value usr = viewer.checkAuth_probe(req);
+												json::Value ausr = admin.checkAuth_probe(req);
+												if (usr.hasValue()) user = usr.getString();
+												else if (ausr.hasValue()) user = ausr.getString();
+												isadmin = ausr.defined();
+												isviewer = usr.defined();
+											}
+											if ((isadmin || isviewer) && setcookie != "") {
+												auto s = aul->createJWT(user);
+												if (setcookie == "permanent") {
+													s.append(";Max-Age=34560000");
+												} else if (setcookie != "temporary") {
+													cookie = s;
+													s.clear();
+												}
+												if (!s.empty()) {
+													std::string f = "auth=";
+													f.append(s);
+													f.append(";Path=");
+													f.append(path);
+													hdrs("Set-Cookie", f);
+												}
+											}
+										} else {
+											hdrs("Set-Cookie","auth=;Max-Age=0;Path="+std::string(path));
+										}
+										json::Value response = json::Object {
+											{"viewer",isviewer},
+											{"admin",isadmin},
+											{"jwt",isjwt},
+											{"user",uname},
+											{"cookie",cookie}
+										};
+										{
+											auto s = req.sendResponse(std::move(hdrs));
+											response.serialize(s);
+											s.flush();
+										}
+									}
+									return true;
+								}
+							});
+							paths.push_back({"/api/report.json", AuthMapper(name,aul,jwt, true) >>= [&](simpleServer::HTTPRequest req, const ondra_shared::StrViewA &) mutable {
+								auto data = rptjson->load();
+								if (data.defined()) {
+									auto s = req.sendResponse("application/json");
+									data.serialize(s);
+									s.flush();
+								} else {
+									req.sendErrorPage(204);
+								}
+								return true;
+							}});
 							(*srv)  >>=  (simpleServer::AutoHostMappingHandler() >> simpleServer::HttpStaticPathMapperHandler(paths));
 
 						}
@@ -457,7 +563,7 @@ int main(int argc, char **argv) {
 							};
 
 
-							trader_cycle(rpt, perfmod, sch, -1, std::chrono::steady_clock::now());
+							trader_cycle(rpt, perfmod, sch, 0, std::chrono::steady_clock::now());
 							sch.each(std::chrono::seconds(30)) >> [=]()mutable{
 								rpt.lock()->pingStreams();
 							};

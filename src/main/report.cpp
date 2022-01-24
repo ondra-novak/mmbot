@@ -19,6 +19,8 @@
 #include "../shared/stdLogOutput.h"
 #include "sgn.h"
 #include "../../version.h"
+#include "../imtjson/src/imtjson/string.h"
+
 #include "alert.h"
 
 #include "acb.h"
@@ -59,6 +61,10 @@ void Report::genReport() {
 		for (auto &x : streams) {
 			x(nullptr); //< clear cache.
 			x("refresh") && stream_refresh(x) && x("end_refresh");
+		}
+	} else {
+		for (auto &x : streams) {
+			x("update");
 		}
 	}
 }
@@ -269,6 +275,7 @@ void Report::setTrades(std::size_t rev, StrViewA symb, double finalPos, StringVi
 			} else {
 				tmpTrade = sumTrades(*prevTrade, *iter);
 				prevTrade = &(*tmpTrade);
+				--iid;
 			}
 
 			++iter;
@@ -315,7 +322,7 @@ void Report::setInfo(std::size_t rev, StrViewA symb, const InfoObj &infoObj) {
 		{"currency", infoObj.currencySymb},
 		{"asset", infoObj.assetSymb},
 		{"price_symb", infoObj.priceSymb},
-		{"brokerIcon", infoObj.brokerIcon},
+		{"brokerIcon", json::String({"data:image/png;base64,",infoObj.brokerIcon})},
 		{"brokerName", infoObj.brokerName},
 		{"inverted", infoObj.inverted},
 		{"walletId", infoObj.walletId},

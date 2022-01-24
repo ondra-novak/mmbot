@@ -138,6 +138,17 @@ static Value hashPswds(Value data) {
 	return data.replace("users", o);
 }
 
+static std::string genRandomUID() {
+	std::random_device rnd;
+	std::uniform_int_distribution<int> rchr(0,127);
+	std::string out;
+	out.reserve(32);
+	for (int i = 0; i < 32; i++) {
+		out.push_back(static_cast<char>(rchr(rnd)));
+	}
+	return out;
+}
+
 bool WebCfg::reqConfig(simpleServer::HTTPRequest req)  {
 
 	if (!req.allowMethods({"GET","PUT"})) return true;
@@ -158,6 +169,11 @@ bool WebCfg::reqConfig(simpleServer::HTTPRequest req)  {
 				if (serial != lkst->write_serial) {
 					req.sendErrorPage(409);
 					return ;
+				}
+				if (!data["uid"].defined()) {
+					data.setItems({
+						{"uid", genRandomUID()}
+					});
 				}
 				data = hashPswds(data);
 				Value trs = data["traders"];
@@ -811,6 +827,9 @@ void WebCfg::State::init(json::Value data) {
 			users->setUsers({});
 		}
 		AULFromJSON(data["users"],*admins, true);
+		std::string uid = data["uid"].getString();
+		users->setJWTPwd(uid);
+		admins->setJWTPwd(uid);
 	}
 
 }

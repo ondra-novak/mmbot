@@ -9,6 +9,7 @@
 #include "papertrading.h"
 
 #include <chrono>
+#include <imtjson/binary.h>
 #include "../imtjson/src/imtjson/object.h"
 
 PaperTrading::PaperTrading(PStockApi s):source(s) {
@@ -277,6 +278,27 @@ json::Value PaperTrading::getSettings(const std::string_view &pairHint) const {
 }
 
 IBrokerControl::BrokerInfo PaperTrading::getBrokerInfo() {
+	std::string img;
+	auto ptr = dynamic_cast<IBrokerControl *>(source.get());
+	if (ptr) img = ptr->getBrokerInfo().favicon;
+	else img = json::base64->decodeBinaryValue(
+			"iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAMAAABg3Am1AAAAM1BMVEVAAAAAAgAXGRYnKSc5OzhG"
+			"SEVYWldmaGV2eHWJjImXmZapq6i3urbKzcna3dnq7Ony9fHspJQpAAAAAXRSTlMAQObYZgAAArNJ"
+			"REFUSMetVotypDAMq0PIm8T//7UnOcDClm3vZs7D7NLWii3Ldvr19V9N5F98zT796cHZ59Y1yfdw"
+			"IqVGuR+c6jbMqtxPsZdSS/Fy/CqU1sdpXb6nKBWAzB/ceTBd59cjoMAkbUN1XM6eCH/3N0BGgCz1"
+			"5g7/Cciy+4cXh1gBWOLLv+RXhLYDQqvrARBGSKJn7lXeWYvU1lo46kpAln4C+nzvBR+6Z9Fqq6cQ"
+			"2QDtzGkTV+yLAEo3A/ijYhIZwmU9s5DFkhIUWSmdpIban/0gCyMEf0ZAMPo2kagKEuIqzF1Er/nC"
+			"eoxYRqzAwYbyq8A/X7tqst4ORI1akuoC1011lRUJ1WuDSsrZpNs7YhPFo2wXyBnAuLZr2+6sl0RA"
+			"pGgoK5JpbFtAIwC3AJQOEaKRKB4t4skadGHIiIzDfWIMAOmUpal9ZMveWBfJt5K+sUYCIhCkMHmN"
+			"1vMM4N9H0li7QsDYFviueNciZ0nfAZ4hwor0UR3w1RJ0WLhQ30r6dWtYFH9Tx9Ss21nXN83uJDqK"
+			"X/lMAdWhpE8BrlPXorZ0SO4sQHoCmHQ+sdf4HDsmzwAPAIcxLUYClPdZ6sYAc7Y97D9bHZn1iU3D"
+			"nKWNCw2aZX0C0L9QuhKbzFlqkFmyQyniAyARMKWTvdHR5SNZw9YHEoE5rQEketiHNbkOeBo85GGD"
+			"E2CstboJWLm9MHnU/yMJSDd6mADBGHPXsnQPgMwQGH+zvarB6qscvgfWXOI+vzZslzK9ETM+ADwS"
+			"QPdfVnKnc29lfb65OMCBe2WmxI+NbSSfLkbrg0Tp5sGZW8bFlD9dpMiJfVB5sM2mj9y5KMQnQCDr"
+			"IGSyxGQDAivXFfk9pZKXkIpJwocv8ePlbpfj1XJcfuA8r1+D8FKNXn50PlnDOUX3q++OWHP6i4Pf"
+			"/8X4zekPc88zkXyAgKsAAAAASUVORK5CYII="
+	).getString();
+
 	return BrokerInfo{
 		true,
 		"paper_trading",
@@ -284,7 +306,7 @@ IBrokerControl::BrokerInfo PaperTrading::getBrokerInfo() {
 		"",
 		"1.0.0",
 		"",
-		"",
+		img,
 		true,
 		false
 	};
@@ -309,4 +331,15 @@ IBrokerControl::AllWallets PaperTrading::getWallet() {
 	}
 	return aw;
 
+}
+
+std::string PaperTrading::getIconName() const {
+	auto ptr = dynamic_cast<IBrokerIcon *>(source.get());
+	if (ptr) return ptr->getIconName();
+	else return "";
+}
+
+void PaperTrading::saveIconToDisk(const std::string &path) const {
+	auto ptr = dynamic_cast<IBrokerIcon *>(source.get());
+	if (ptr) return ptr->saveIconToDisk(path);
 }

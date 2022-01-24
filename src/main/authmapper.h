@@ -15,7 +15,7 @@
 
 #include <simpleServer/http_parser.h>
 #include <shared/linear_map.h>
-#include "../server/src/simpleServer/http_pathmapper.h"
+#include <simpleServer/http_pathmapper.h>
 
 class AuthUserList: public ondra_shared::RefCntObj {
 public:
@@ -33,6 +33,9 @@ public:
 	void setCfgUsers(std::vector<std::pair<std::string, std::string> > &&users);
 	bool empty() const;
 	void setUser(const std::string &uname, const std::string &pwdhash);
+	void setJWTPwd(const std::string &pwd);
+	std::string createJWT(const std::string &user) const;
+	json::Value checkJWT(const std::string_view &jwt) const;
 
 protected:
 	mutable std::recursive_mutex lock;
@@ -40,6 +43,8 @@ protected:
 	UserMap users;
 	//user table from config
 	UserMap cfgusers;
+
+	json::PJWTCrypto jwt;
 };
 
 
@@ -50,6 +55,7 @@ public:
 	AuthMapper &operator >>= (simpleServer::HTTPHandler &&hndl);
 	AuthMapper &operator >>= (simpleServer::HTTPMappedHandler &&hndl);
 	bool checkAuth(const simpleServer::HTTPRequest &req) const;
+	json::Value checkAuth_probe(const simpleServer::HTTPRequest &req) const;
 	void operator()(const simpleServer::HTTPRequest &req) const;
 	bool operator()(const simpleServer::HTTPRequest &req, const ondra_shared::StrViewA &) const;
 	static void genError(simpleServer::HTTPRequest req, const std::string &realm) ;

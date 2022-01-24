@@ -6,7 +6,7 @@ body {
 	color:#CDCDCD;
 	font-family: Ruda;
 	margin:0;
-	font-size: 0.4cm;
+	font-size: 14px;
 	padding: 0;
 }
 
@@ -311,8 +311,11 @@ div.float_info td hr {
 
 div.trader.list {
 	display: flex;
-	justify-content:center;
 	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.4em;
+	justify-content: center;
+	margin-top: 0.4em;
 }
 div.trader.list > * {
 	cursor: pointer;
@@ -363,10 +366,16 @@ div.visstrategy > p {
 	margin: 1em 0 0 0;
 }
 
-div.trader.list > * {
-	margin: 0.2cm 0.1cm;
+div.trader.list > * >div {
 	text-align:center;
-	position: relative;
+}
+
+div.trader.list > * {
+	display: flex;
+	flex-direction: column;
+	text-align: center;
+	align-items: center;
+	transition: 0.4s all;
 }
 
 div.trader.list .exclamation {
@@ -404,8 +413,10 @@ div.broker.pair img {
 }
 .broker.select div.trader.list > * {
 	text-align:left;
-	margin: 0.1cm;
+	margin: 0 auto 0 0;
 	opacity: 0.75;
+	flex-direction: row;
+	gap: 0.3em;
 }
 .broker.select div.trader.list > .available {
 	font-weight: bold;
@@ -1615,7 +1626,7 @@ input,select,button,textarea {
 }
 .backtest table select {font-size: 2vw;width: 12vw;}
 .backtest {
-	font-size: 2.5vw;
+	font-size: 2vw;
 }
 table.utilization {
     width:100%;
@@ -1635,29 +1646,32 @@ x-section.backtest div.sidepanel {
 
 .vertical .menu {
 	position: absolute;
-	width: 6cm;
+	width: 5.5cm;
 }
 
 .vertical .content {
-	margin-left: 6cm;
+	margin-left: 5.5cm;
 	box-sizing:border-box;
-
 }
 
 .vertical div.trader.list {
 	flex-direction: column;
 	margin-top: 1em;
+	gap: 0;
+	align-items: flex-start;
 }
 .vertical div.trader.list > *{
-	flex-direction: column;
+	align-items: center;
+	flex-direction: row;
 	text-align: left;
 	margin: 0.1cm;
+	align-content: center;
+	gap: 0.3em;
+	width: 100%;
 }
 
 .vertical div.trader.list img {width:  1cm;height: 1cm;vertical-align:middle;}
-.vertical div.trader.list .item div {
-	display: inline-block;
-}
+.vertical div.trader.list .item div {flex-grow: 1;text-align: left;}
 .vertical .content x-form.sections {
 	display:flex;
 	flex-wrap:wrap;

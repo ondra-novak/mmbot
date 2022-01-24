@@ -13,8 +13,9 @@
 #include <openssl/pem.h>
 #include <thread>
 
-#include "../imtjson/src/imtjson/jwtcrypto.h"
-#include "../server/src/simpleServer/query_parser.h"
+#include <imtjson/jwtcrypto.h>
+#include <imtjson/object.h>
+#include <simpleServer/query_parser.h>
 bool AuthUserList::findUser(const std::string &user, const std::string &pwdhash) const {
 	Sync _(lock);
 	auto iter = users.find(user);
@@ -109,7 +110,7 @@ static StrViewA findAuthCookie(StrViewA cookie){
 	}
 }
 
-bool AuthMapper::checkAuth(const simpleServer::HTTPRequest &req) const {
+json::Value AuthMapper::checkAuth_probe(const simpleServer::HTTPRequest &req) const {
 	using namespace ondra_shared;
 	if (!users->empty() || (jwt != nullptr && !allow_empty)) {
 		StrViewA auths[2] = {
@@ -125,17 +126,28 @@ bool AuthMapper::checkAuth(const simpleServer::HTTPRequest &req) const {
 				if (type == "Basic") {
 					auto credobj = AuthUserList::decodeBasicAuth(cred);
 					if (users->findUser(credobj.first, credobj.second)) {
-						return true;
+						return credobj.first;
 					}
 				} else if (type == "Bearer" && jwt != nullptr) {
 					json::Value v = json::checkJWTTime(json::parseJWT(cred, jwt));
 					if (v.hasValue()) {
-						return true;
+						return v;
 					}
+				} else if (cred == "" && type.indexOf(".") != type.npos) {
+					return users->checkJWT(type);
 				}
 			}
 		}
+		return json::undefined;
+	}
+	return nullptr;;
 
+
+}
+
+bool AuthMapper::checkAuth(const simpleServer::HTTPRequest &req) const {
+
+	if (!checkAuth_probe(req).defined()) {
 		std::this_thread::sleep_for(std::chrono::seconds(1));
 		genError(req,realm);
 		return false;
@@ -155,7 +167,7 @@ void AuthMapper::operator()(const simpleServer::HTTPRequest &req) const {
 	}
 }
 bool AuthMapper::operator()(const simpleServer::HTTPRequest &req, const ondra_shared::StrViewA &vpath) const {
-	if (vpath.endsWith("/set_cookie")) return false;
+	if (vpath.endsWith("/set_cookie") || vpath.endsWith("/api/user")) return false;
 	if (checkAuth(req)) {
 		if (mphandler != nullptr) {
 			return mphandler(req, vpath);
@@ -249,4 +261,31 @@ bool AuthMapper::setCookieHandler(simpleServer::HTTPRequest req) {
 	});
 	return true;
 
+}
+
+void AuthUserList::setJWTPwd(const std::string &pwd) {
+	Sync _(lock);
+	jwt = new json::JWTCrypto_HS(pwd, 256);
+}
+
+std::string AuthUserList::createJWT(const std::string &user) const {
+	Sync _(lock);
+	auto now = std::chrono::system_clock::now();
+	return json::serializeJWT(json::Object{
+		{"iat", std::chrono::system_clock::to_time_t(now)},
+		{"exp", std::chrono::system_clock::to_time_t(now+std::chrono::hours(365*24))},
+		{"sub", user}
+	}, jwt);
+}
+
+json::Value AuthUserList::checkJWT(const std::string_view &jwt) const {
+	Sync _(lock);
+	json::Value resp = json::checkJWTTime(json::parseJWT(jwt, this->jwt));
+	if (resp.hasValue()) {
+		auto user = resp["sub"].getString();
+		auto iter = users.find(user);
+		return  iter != users.end()?json::Value(user):json::Value();
+	} else {
+		return json::Value();
+	}
 }

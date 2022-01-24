@@ -8,6 +8,7 @@
 #ifndef SRC_MAIN_STORAGE_H_
 #define SRC_MAIN_STORAGE_H_
 #include <memory>
+#include <mutex>
 
 #include <imtjson/value.h>
 #include <stack>
@@ -54,6 +55,17 @@ protected:
 	std::string path;
 	int versions;
 	Storage::Format format;
+};
+
+class MemStorage: public IStorage {
+public:
+	virtual void erase();
+	virtual json::Value load();
+	virtual void store(json::Value data);
+
+protected:
+	json::Value data;
+	std::mutex lock;
 };
 
 #endif /* SRC_MAIN_STORAGE_H_ */
