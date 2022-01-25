@@ -112,16 +112,6 @@ IStockApi::Ticker EmulatedLeverageBroker::getTicker(const std::string_view &piar
 	return target->getTicker(piar);
 }
 
-std::string EmulatedLeverageBroker::getIconName() const {
-	auto sub = dynamic_cast<const IBrokerIcon *>(target.get());
-	return sub?sub->getIconName():std::string("undefined.png");
-}
-
-void EmulatedLeverageBroker::saveIconToDisk(const std::string &path) const {
-	auto sub = dynamic_cast<const IBrokerIcon *>(target.get());
-	if (sub) sub->saveIconToDisk(path);
-}
-
 json::Value EmulatedLeverageBroker::getMarkets() const {
 	auto sub = dynamic_cast<IBrokerControl *>(target.get());
 	if (sub == nullptr) return json::object;

@@ -212,41 +212,6 @@ void ExtStockApi::restoreSettings(json::Value v) {
 }
 
 
-class IconFiles: public std::set<std::string> {
-public:
-    ~IconFiles() {
-        for (auto &&k: *this) {
-            std::remove(k.c_str());
-        }
-    }
-};
-
-
-static IconFiles iconFiles;
-
-void ExtStockApi::saveIconToDisk(const std::string &path) const {
-        std::unique_lock _(connection->getLock());
-
-
-        std::string name =getIconName();
-        std::string fullpath = path+"/"+name;
-        if (iconFiles.find(fullpath) == iconFiles.end()) {
-                std::ofstream f(fullpath, std::ios::out|std::ios::trunc|std::ios::binary);
-                BrokerInfo binfo = const_cast<ExtStockApi *>(this)->getBrokerInfo();
-                f.write(reinterpret_cast<const char *>(binfo.favicon.data()), binfo.favicon.size());
-                if (!f) {
-                    logError("Failed to create icon: $1", fullpath);
-                } else {
-                    iconFiles.insert(fullpath);
-                    ondra_shared::logProgress("Created icon: $1", fullpath);
-                }
-        }
-}
-
-std::string ExtStockApi::getIconName() const {
-	return "fav_"+connection->getName()+".png";
-}
-
 ExtStockApi::PageData ExtStockApi::fetchPage(const std::string_view &method,
 		const std::string_view &vpath, const PageData &pageData) {
 	json::Value v = json::Object({{"method", method},

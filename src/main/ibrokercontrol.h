@@ -94,13 +94,6 @@ public:
 	virtual ~IBrokerControl() {}
 };
 
-class IBrokerIcon {
-public:
-	//saves image to disk to specified path
-	virtual void saveIconToDisk(const std::string &path) const = 0;
-	//retrieves name of saved image
-	virtual std::string getIconName() const = 0;
-};
 
 class IStockApi;
 

@@ -2646,10 +2646,10 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
         }
 
         function fillData(st, prefix, data) {
-        	data[prefix+"_last"] = adjNumBuySell(st[0],0);
-        	data[prefix+"_min"] = adjNumBuySell(st[1],0);
-        	data[prefix+"_max"] = adjNumBuySell(st[2],0);
-        	data[prefix+"_avg"] = adjNumBuySell(st[3]/(cnt+1),0);
+        	data[prefix+"_last"] = adjNumBuySell(st[0],2);
+        	data[prefix+"_min"] = adjNumBuySell(st[1],2);
+        	data[prefix+"_max"] = adjNumBuySell(st[2],2);
+        	data[prefix+"_avg"] = adjNumBuySell(st[3]/(cnt+1),2);
         }
 
 		function updateResults(v) {

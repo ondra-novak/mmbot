@@ -16,7 +16,11 @@
 
 #include "istockapi.h"
 
-class PaperTrading: public IStockApi, public IBrokerControl, public IBrokerIcon {
+class AbstractPaperTrading: public IStockApi {
+
+};
+
+class PaperTrading: public IStockApi, public IBrokerControl {
 public:
 
 	PaperTrading(PStockApi s);
@@ -39,8 +43,6 @@ public:
 	virtual json::Value getSettings(const std::string_view &pairHint) const;
 	virtual IBrokerControl::BrokerInfo getBrokerInfo();
 	virtual IBrokerControl::AllWallets getWallet();
-	virtual std::string getIconName() const;
-	virtual void saveIconToDisk(const std::string &path) const;
 
 protected:
 	PStockApi source;

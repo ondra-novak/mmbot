@@ -135,12 +135,6 @@ void Traders::initExternalAssets(json::Value config) {
 	wcfg.externalBalance.lock()->load(config);
 }
 
-void Traders::loadIcon(MTrader &t) {
-	PStockApi api = t.getBroker();
-	const IBrokerIcon *bicon = dynamic_cast<const IBrokerIcon*>(api.get());
-	if (bicon)
-		bicon->saveIconToDisk(iconPath);
-}
 
 void Traders::addTrader(const MTrader::Config &mcfg ,ondra_shared::StrViewA n) {
 	using namespace ondra_shared;
@@ -166,7 +160,6 @@ void Traders::addTrader(const MTrader::Config &mcfg ,ondra_shared::StrViewA n) {
 			auto t = SharedObject<NamedMTrader>::make(stockSelector, std::move(storage),
 				std::make_unique<StatsSvc>(n, rpt, perfMod), wcfg, mcfg, n);
 			auto lt = t.lock();
-			loadIcon(*lt);
 			try {
 				lt->init();
 			} catch (...) {
@@ -278,14 +271,6 @@ SharedObject<NamedMTrader> Traders::find(std::string_view id) const {
 	else return iter->second;
 }
 
-void Traders::loadIcons(const std::string &path) {
-	for (auto &&t: traders) {
-		auto lt = t.second.lock_shared();
-		PStockApi api = lt->getBroker();
-		const IBrokerIcon *bicon = dynamic_cast<const IBrokerIcon *>(api.get());
-		if (bicon) bicon->saveIconToDisk(path);
-	}
-}
 
 void StockSelector::eraseSubaccounts() {
 	for (auto iter = stock_markets.begin(); iter != stock_markets.end();) {

@@ -72,7 +72,6 @@ public:
 
 	void addTrader(const MTrader::Config &mcfg, ondra_shared::StrViewA n);
 	void removeTrader(ondra_shared::StrViewA n, bool including_state);
-	void loadIcons(const std::string &path);
 
 
 	void report_util(std::string_view ident, double ms);
@@ -96,8 +95,7 @@ public:
 
 	void initExternalAssets(json::Value config);
 
-private:
-	void loadIcon(MTrader &t);
+
 };
 
 

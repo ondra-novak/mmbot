@@ -20,7 +20,6 @@
 class ExtStockApi: public IStockApi,
 				   public IApiKey,
 				   public IBrokerControl,
-				   public IBrokerIcon,
 				   public IBrokerSubaccounts,
 				   public IHistoryDataSource {
 public:
@@ -47,8 +46,6 @@ public:
 	virtual json::Value getSettings(const std::string_view & pairHint) const override;
 	virtual json::Value setSettings(json::Value v) override;
 	virtual void restoreSettings(json::Value v) override;
-	virtual void saveIconToDisk(const std::string &path) const override;
-	virtual std::string getIconName() const override;
 	virtual PageData fetchPage(const std::string_view &method, const std::string_view &vpath, const PageData &pageData) override;
 	virtual json::Value requestExchange(json::String name, json::Value args,  bool idle = false);
 	void stop();

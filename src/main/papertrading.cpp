@@ -333,13 +333,3 @@ IBrokerControl::AllWallets PaperTrading::getWallet() {
 
 }
 
-std::string PaperTrading::getIconName() const {
-	auto ptr = dynamic_cast<IBrokerIcon *>(source.get());
-	if (ptr) return ptr->getIconName();
-	else return "";
-}
-
-void PaperTrading::saveIconToDisk(const std::string &path) const {
-	auto ptr = dynamic_cast<IBrokerIcon *>(source.get());
-	if (ptr) return ptr->saveIconToDisk(path);
-}

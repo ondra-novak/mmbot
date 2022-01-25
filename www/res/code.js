@@ -835,7 +835,7 @@ function app_start(){
                 case "trade": if (!stats.charts_by_id[msg.symbol]) stats.charts_by_id[msg.symbol] = {};
                                   stats.charts_by_id[msg.symbol][msg.id] = msg.data;
                                   break;
-                case "misc": Object.assign(stats.misc[msg.symbol] || {},msg.data);break;
+                case "misc": stats.misc[msg.symbol] = Object.assign(stats.misc[msg.symbol] || {},msg.data);break;
                 case "price":  stats.prices[msg.symbol] = msg.data;break;
 				case "error": if (!stats.misc[msg.symbol]) stats.misc[msg.symbol] = {};
 				                  stats.misc[msg.symbol].error = msg.data;
