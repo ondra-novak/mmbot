@@ -33,6 +33,7 @@ public:
 
 	StockMarketMap stock_markets;
 
+
 	void loadBrokers(const ondra_shared::IniConfig::Section &ini, bool test, int brk_timeout);
 	bool checkBrokerSubaccount(const std::string &name);
 	virtual PStockApi getStock(const std::string_view &stockName) const override;
@@ -40,6 +41,7 @@ public:
 	virtual void forEachStock(EnumFn fn)  const override;
 	void clear();
 	void eraseSubaccounts();
+	void appendSimulator();
 };
 
 

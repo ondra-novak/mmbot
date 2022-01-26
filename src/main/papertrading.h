@@ -44,6 +44,7 @@ protected: //To override
 		TradeHistory trades;
 		Ticker ticker;
 		std::string pair;
+		std::string src_pair;
 		ACB collateral = ACB(0,0,0);
 		int orderCounter = 1;
 		bool needLoadWallet = true;
@@ -51,7 +52,7 @@ protected: //To override
 
 	virtual void processTrade(TradeState &st, const Trade &t);
 	///Updates wallet (must be implemented);
-	virtual void updateWallet(const std::string_view &symbol, double difference) = 0;
+	virtual void updateWallet(const TradeState &st, const std::string_view &symbol, double difference) = 0;
 
 	///Get trade state from pair
 	virtual TradeState &getState(const std::string_view &symbol) = 0;
@@ -122,7 +123,7 @@ protected:
 	virtual TradeState& getState(const std::string_view &symbol);
 	virtual json::Value saveState(const AbstractPaperTrading::TradeState &st);
 	double getBalanceFromWallet(const std::string_view &symb);
-	void updateWallet(const std::string_view &symbol, double difference) override;
+	void updateWallet(const TradeState &st, const std::string_view &symbol, double difference) override;
 	virtual RawBalance getRawBalance(const TradeState &st) const override;
 };
 

@@ -249,7 +249,7 @@ static double getSafeBalance(const PStockApi &api, std::string_view symb,  std::
 	}
 }
 
-static json::Value brokerToJSON(const IBrokerControl::BrokerInfo &binfo) {
+static json::Value brokerToJSON(const std::string_view &id, const IBrokerControl::BrokerInfo &binfo) {
 	json::String url;
 	if (StrViewA(binfo.exchangeUrl).begins("/")) url = {"./api/brokers/",simpleServer::urlEncode(binfo.name),"/page/"};
 	else url = binfo.exchangeUrl;
@@ -261,7 +261,7 @@ static json::Value brokerToJSON(const IBrokerControl::BrokerInfo &binfo) {
 		{"exchangeUrl", url},
 		{"version", binfo.version},
 		{"subaccounts",binfo.subaccounts},
-		{"subaccount",binfo.name.substr(std::min(binfo.name.length()-1,binfo.name.rfind('~'))+1)},
+		{"subaccount",id.substr(std::min(id.length()-1,id.rfind('~'))+1)},
 		{"nokeys", binfo.nokeys}
 	});
 	return res;
@@ -287,7 +287,7 @@ bool WebCfg::reqBrokers(simpleServer::HTTPRequest req, ondra_shared::StrViewA re
 			dispatch([=] {
 				trlist.lock_shared()->stockSelector.forEachStock([&](const std::string_view &,const PStockApi &x){
 					ExtStockApi *ex = dynamic_cast<ExtStockApi *>(x.get());
-					ex->stop();
+					if (ex) ex->stop();
 				});
 				req.sendResponse("application/json","true");
 			});
@@ -298,7 +298,7 @@ bool WebCfg::reqBrokers(simpleServer::HTTPRequest req, ondra_shared::StrViewA re
 			trlist.lock_shared()->stockSelector.forEachStock([&](std::string_view n, const PStockApi &api) {
 				IBrokerControl *bc = dynamic_cast<IBrokerControl *>(api.get());
 				if (bc) {
-					res.push_back(brokerToJSON(bc->getBrokerInfo()));
+					res.push_back(brokerToJSON(n,bc->getBrokerInfo()));
 				}
 			});
 			req.sendResponse("application/json",Value(res).stringify().str());
@@ -391,7 +391,7 @@ bool WebCfg::reqBrokerSpec(simpleServer::HTTPRequest req,
 				return true;
 			if (bc == nullptr) return false;
 			auto binfo = bc->getBrokerInfo();
-			Value res = brokerToJSON(binfo).replace("entries", { "icon.png", "pairs","apikey","licence","page","subaccount" });
+			Value res = brokerToJSON(broker_name,binfo).replace("entries", { "icon.png", "pairs","apikey","licence","page","subaccount" });
 			req.sendResponse(std::move(hdr),res.stringify().str());
 			return true;
 		} else if (entry == "licence") {

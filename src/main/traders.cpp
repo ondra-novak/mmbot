@@ -14,6 +14,8 @@
 #include "../imtjson/src/imtjson/object.h"
 #include "../shared/countdown.h"
 #include "../shared/logOutput.h"
+#include "simulator.h"
+
 #include "ext_stockapi.h"
 
 using ondra_shared::Countdown;
@@ -48,6 +50,12 @@ void StockSelector::loadBrokers(const ondra_shared::IniConfig::Section &ini, boo
 	}
 	StockMarketMap map(std::move(data));
 	stock_markets.swap(map);
+	appendSimulator();
+}
+
+void StockSelector::appendSimulator() {
+	PStockApi sim = std::make_shared<Simulator>(this);
+	stock_markets.emplace(dynamic_cast<IBrokerControl *>(sim.get())->getBrokerInfo().name, sim);
 }
 
 bool StockSelector::checkBrokerSubaccount(const std::string &name) {
@@ -73,10 +81,6 @@ PStockApi StockSelector::getStock(const std::string_view &stockName) const {
 	if (f == stock_markets.cend()) return nullptr;
 	return f->second;
 }
-/*
-void StockSelector::addStockMarket(ondra_shared::StrViewA name, PStockApi &&market) {
-	stock_markets.insert(std::pair(name,std::move(market)));
-}*/
 
 void StockSelector::forEachStock(EnumFn fn)  const {
 	for(auto &&x: stock_markets) {

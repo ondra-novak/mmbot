@@ -883,15 +883,22 @@ function app_start(){
 			var ranges = {};
 			
 			infoMap = stats.info;			
+			var charts = stats["charts"];
+
+			for (var n in infoMap) {
+				ranges[n] = [];
+				orders[n] = [];
+				if (!charts[n]) charts[n] = [];
+
+			}
 			
 			document.getElementById("logfile").innerText = " > "+ stats["log"].join("\r\n > ");
 			document.getElementById("newsbox").hidden = !stats["news"];
 			document.getElementById("msgcnt").textContent = stats["news"] || "0";
 
 			
-			var charts = stats["charts"];
 			var newTrades = [];
-			for (var n in charts) if (infoMap[n]) {
+			for (var n in infoMap) {
 				var ch = charts[n];				
 				orders[n] = [];
 				ranges[n] = {};
@@ -919,7 +926,8 @@ function app_start(){
 
 					
 			(stats.orders || []).forEach(function(o) {
-				var s = orders[o.symb];
+				if (!ranges[o.symb]) return;
+				var s = orders[o.symb] || [];
 				var sz = o.size;
 				var ch =  charts[o.symb];
 				var inv = infoMap[o.symb].inverted;
@@ -952,6 +960,7 @@ function app_start(){
 			
 			for (var sm in stats.prices) if (infoMap[sm]) {
 				var s = orders[sm];
+				if (!s) continue;
 				var ch =  charts[sm];
 				var inv = infoMap[sm].inverted;
 				var last;
@@ -960,7 +969,6 @@ function app_start(){
 				} else {
 					 last = ch[ch.length-1];
 				}
-				if (!s) orders[o.symb] = s = [];				
 				var gain = ((inv?1.0/stats.prices[sm]:stats.prices[sm])- (inv?1.0/last.price:last.price))* (inv?-1:1)*last.pos;
 				s.push({
 					price: stats.prices[sm],

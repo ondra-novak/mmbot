@@ -68,9 +68,12 @@ IStockApi::TradesSync AbstractPaperTrading::syncTrades(json::Value lastId,const 
 	});
 	TradeHistory out(itr, st.trades.end());
 
+	json::Value r = exportState(st);
+	if (!out.empty()) from = out.back().time;
+	r.setItems({{"l", from}});
 
 	return TradesSync{
-		std::move(out), exportState(st)
+		std::move(out),r
 	};
 }
 
@@ -79,11 +82,12 @@ IStockApi::MarketInfo AbstractPaperTrading::getMarketInfo(const std::string_view
 	std::lock_guard _(lock);
 	TradeState &st = getState(pair);
 
-	auto newminfo = st.source->getMarketInfo(pair);
+	auto newminfo = st.source->getMarketInfo(st.src_pair);
 	if (newminfo.leverage && !st.minfo.leverage) {
 		st.ticker = st.source->getTicker(pair);
 		st.collateral = ACB(st.ticker.last, getBalance(newminfo.asset_symbol, pair), 0);
 	}
+	newminfo.wallet_id = std::move(st.minfo.wallet_id);
 	newminfo.simulator = true;
 	st.minfo = std::move(newminfo);
 	return st.minfo;
@@ -102,11 +106,11 @@ void AbstractPaperTrading::processTrade(TradeState &st, const Trade &t) {
 		//update collateral
 		st.collateral = st.collateral(t.eff_price, t.eff_size);
 		//update wallet
-		updateWallet(st.minfo.currency_symbol, st.collateral.getRPnL());
+		updateWallet(st, st.minfo.currency_symbol, st.collateral.getRPnL());
 		st.collateral = st.collateral.resetRPnL();
 	} else {
-		updateWallet(st.minfo.asset_symbol, t.eff_size);
-		updateWallet(st.minfo.currency_symbol, - t.eff_size*t.eff_price);
+		updateWallet(st, st.minfo.asset_symbol, t.eff_size);
+		updateWallet(st, st.minfo.currency_symbol, - t.eff_size*t.eff_price);
 	}
 
 }
@@ -130,7 +134,7 @@ bool AbstractPaperTrading::canCreateOrder(const TradeState &st, double price, do
 //it loads ticker and performs simulation of market matching
 void AbstractPaperTrading::simulate(TradeState &st) {
 	//get ticker
-	st.ticker = st.source->getTicker(st.pair);
+	st.ticker = st.source->getTicker(st.src_pair);
 
 	auto now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
 
@@ -217,7 +221,7 @@ void AbstractPaperTrading::simulate(TradeState &st) {
 
 }
 
-void PaperTrading::updateWallet(const std::string_view &symbol, double difference) {
+void PaperTrading::updateWallet(const TradeState &st, const std::string_view &symbol, double difference) {
 	if (symbol == state.minfo.asset_symbol) asset += difference;
 	else if (symbol == state.minfo.currency_symbol) currency += difference;
 }
@@ -390,7 +394,7 @@ void AbstractPaperTrading::importState(TradeState &st, json::Value v) {
 }
 
 PaperTrading::TradeState& PaperTrading::getState(const std::string_view &symbol) {
-	if (state.pair.empty()) state.pair = symbol;
+	if (state.pair.empty()) state.src_pair= state.pair = symbol;
 	else if (state.pair != symbol) throw std::runtime_error("Market is closed");
 	return state;
 }
