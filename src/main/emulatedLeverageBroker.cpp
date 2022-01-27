@@ -88,8 +88,8 @@ IStockApi::TradesSync EmulatedLeverageBroker::syncTrades(json::Value lastId,
 	return target->syncTrades(lastId, pair);
 }
 
-bool EmulatedLeverageBroker::reset() {
-	return target->reset();
+void EmulatedLeverageBroker::reset(const std::chrono::system_clock::time_point &tp) {
+	return target->reset(tp);
 }
 
 IStockApi::Orders EmulatedLeverageBroker::getOpenOrders(const std::string_view &par) {
@@ -110,16 +110,6 @@ double EmulatedLeverageBroker::getFees(const std::string_view &pair) {
 
 IStockApi::Ticker EmulatedLeverageBroker::getTicker(const std::string_view &piar) {
 	return target->getTicker(piar);
-}
-
-std::string EmulatedLeverageBroker::getIconName() const {
-	auto sub = dynamic_cast<const IBrokerIcon *>(target.get());
-	return sub?sub->getIconName():std::string("undefined.png");
-}
-
-void EmulatedLeverageBroker::saveIconToDisk(const std::string &path) const {
-	auto sub = dynamic_cast<const IBrokerIcon *>(target.get());
-	if (sub) sub->saveIconToDisk(path);
 }
 
 json::Value EmulatedLeverageBroker::getMarkets() const {

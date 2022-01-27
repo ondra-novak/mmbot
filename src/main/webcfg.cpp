@@ -138,6 +138,17 @@ static Value hashPswds(Value data) {
 	return data.replace("users", o);
 }
 
+static std::string genRandomUID() {
+	std::random_device rnd;
+	std::uniform_int_distribution<int> rchr(0,127);
+	std::string out;
+	out.reserve(32);
+	for (int i = 0; i < 32; i++) {
+		out.push_back(static_cast<char>(rchr(rnd)));
+	}
+	return out;
+}
+
 bool WebCfg::reqConfig(simpleServer::HTTPRequest req)  {
 
 	if (!req.allowMethods({"GET","PUT"})) return true;
@@ -158,6 +169,11 @@ bool WebCfg::reqConfig(simpleServer::HTTPRequest req)  {
 				if (serial != lkst->write_serial) {
 					req.sendErrorPage(409);
 					return ;
+				}
+				if (!data["uid"].defined()) {
+					data.setItems({
+						{"uid", genRandomUID()}
+					});
 				}
 				data = hashPswds(data);
 				Value trs = data["traders"];
@@ -233,7 +249,7 @@ static double getSafeBalance(const PStockApi &api, std::string_view symb,  std::
 	}
 }
 
-static json::Value brokerToJSON(const IBrokerControl::BrokerInfo &binfo) {
+static json::Value brokerToJSON(const std::string_view &id, const IBrokerControl::BrokerInfo &binfo) {
 	json::String url;
 	if (StrViewA(binfo.exchangeUrl).begins("/")) url = {"./api/brokers/",simpleServer::urlEncode(binfo.name),"/page/"};
 	else url = binfo.exchangeUrl;
@@ -244,7 +260,10 @@ static json::Value brokerToJSON(const IBrokerControl::BrokerInfo &binfo) {
 		{"exchangeName", binfo.exchangeName},
 		{"exchangeUrl", url},
 		{"version", binfo.version},
-		{"subaccounts",binfo.subaccounts}});
+		{"subaccounts",binfo.subaccounts},
+		{"subaccount",id.substr(std::min(id.length()-1,id.rfind('~'))+1)},
+		{"nokeys", binfo.nokeys}
+	});
 	return res;
 }
 
@@ -267,8 +286,8 @@ bool WebCfg::reqBrokers(simpleServer::HTTPRequest req, ondra_shared::StrViewA re
 			if (!req.allowMethods({"POST"})) return true;
 			dispatch([=] {
 				trlist.lock_shared()->stockSelector.forEachStock([&](const std::string_view &,const PStockApi &x){
-					ExtStockApi *ex = dynamic_cast<ExtStockApi *>(x.get());
-					ex->stop();
+					IBrokerInstanceControl *ex = dynamic_cast<IBrokerInstanceControl  *>(x.get());
+					if (ex) ex->unload();
 				});
 				req.sendResponse("application/json","true");
 			});
@@ -279,7 +298,7 @@ bool WebCfg::reqBrokers(simpleServer::HTTPRequest req, ondra_shared::StrViewA re
 			trlist.lock_shared()->stockSelector.forEachStock([&](std::string_view n, const PStockApi &api) {
 				IBrokerControl *bc = dynamic_cast<IBrokerControl *>(api.get());
 				if (bc) {
-					res.push_back(brokerToJSON(bc->getBrokerInfo()));
+					res.push_back(brokerToJSON(n,bc->getBrokerInfo()));
 				}
 			});
 			req.sendResponse("application/json",Value(res).stringify().str());
@@ -361,7 +380,7 @@ bool WebCfg::reqBrokerSpec(simpleServer::HTTPRequest req,
 		pair = pairstr;
 
 		if (req.getPath().indexOf("reset=1") != StrViewA::npos) {
-			api->reset();
+			api->reset(std::chrono::system_clock::now());
 		}
 
 		IBrokerControl *bc = dynamic_cast<IBrokerControl *>(api.get());
@@ -372,7 +391,7 @@ bool WebCfg::reqBrokerSpec(simpleServer::HTTPRequest req,
 				return true;
 			if (bc == nullptr) return false;
 			auto binfo = bc->getBrokerInfo();
-			Value res = brokerToJSON(binfo).replace("entries", { "icon.png", "pairs","apikey","licence","page","subaccount" });
+			Value res = brokerToJSON(broker_name,binfo).replace("entries", { "icon.png", "pairs","apikey","licence","page","subaccount" });
 			req.sendResponse(std::move(hdr),res.stringify().str());
 			return true;
 		} else if (entry == "licence") {
@@ -395,10 +414,17 @@ bool WebCfg::reqBrokerSpec(simpleServer::HTTPRequest req,
 				req.sendErrorPage(403);
 				return true;
 			}
-			if (!req.allowMethods( { "GET" }))
+			if (!req.allowMethods( { "GET" , "PUT"}))
 				return true;
-			req.sendResponse(std::move(hdr),
-					kk->getApiKeyFields().toString().str());
+			if (req.getMethod()=="GET")	{
+				req.sendResponse(std::move(hdr),
+						kk->getApiKeyFields().toString().str());
+			} else if (req.getMethod() == "PUT") {
+				auto s = req.getBodyStream();
+				json::Value k = json::Value::parse(s);
+				kk->setApiKey(k);
+				req.sendResponse(std::move(hdr),"true");
+			}
 			return true;
 		} else if (entry == "subaccount") {
 			if (!req.allowMethods( { "POST" }))
@@ -414,6 +440,10 @@ bool WebCfg::reqBrokerSpec(simpleServer::HTTPRequest req,
 				} else {
 					std::string newname = binfo.name + "~";
 					for (auto &&k: n.getString()) if (isalnum(k)) newname.push_back(k);
+					if (newname.length() <= binfo.name.length()+1) {
+						req.sendErrorPage(400);
+						return true;
+					}
 					auto trl = trlist;
 					trl.lock()->stockSelector.checkBrokerSubaccount(newname);
 					req.sendResponse("application/json", Value(newname).stringify().str());
@@ -533,16 +563,16 @@ bool WebCfg::reqBrokerSpec(simpleServer::HTTPRequest req,
 									orders.stringify().str());
 							return true;
 						} else if (req.getMethod() == "DELETE") {
-							api->reset();
+							api->reset(std::chrono::system_clock::now());
 							auto ords = api->getOpenOrders(p);
 							for (auto &&x : ords) {
 								api->placeOrder(p, 0, 0, Value(), x.id, 0);
 							}
-							api->reset();
+							api->reset(std::chrono::system_clock::now());
 							req.sendResponse(std::move(hdr), "true");
 							return true;
 						} else {
-							api->reset();
+							api->reset(std::chrono::system_clock::now());
 							Stream s = req.getBodyStream();
 							Value parsed = Value::parse(s);
 							Value price = parsed["price"];
@@ -685,7 +715,7 @@ bool WebCfg::reqTraders(simpleServer::HTTPRequest req, ondra_shared::StrViewA vp
 					auto chartx = trl->getChart();
 					ondra_shared::StringView<MTrader::ChartItem> chart(chartx.data(), chartx.size());
 					PStockApi broker = trl->getBroker();
-					broker->reset();
+					broker->reset(std::chrono::system_clock::now());
 					if (chart.length>600) chart = chart.substr(chart.length-600);
 					out.set("chart", Value(json::array,chart.begin(), chart.end(),[&](auto &&item) {
 						return Object({{"time", item.time},{"last",item.last}});
@@ -801,6 +831,9 @@ void WebCfg::State::init(json::Value data) {
 			users->setUsers({});
 		}
 		AULFromJSON(data["users"],*admins, true);
+		std::string uid = data["uid"].getString();
+		users->setJWTPwd(uid);
+		admins->setJWTPwd(uid);
 	}
 
 }
@@ -815,7 +848,6 @@ void WebCfg::State::applyConfig(SharedObject<Traders>  &st) {
 
 	t->wcfg.walletDB.lock()->clear();
 	traderNames.clear();
-	t->stockSelector.eraseSubaccounts();
 	t->rpt.lock()->clear();
 
 	t->initExternalAssets(data["ext_assets"]);
@@ -982,7 +1014,7 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req)  {
 					p = symb.toString().str();
 				}
 
-				api->reset();
+				api->reset(std::chrono::system_clock::now());
 				auto bc = dynamic_cast<IBrokerControl *>(api.get());
 				auto binfo = bc?bc->getBrokerInfo():IBrokerControl::BrokerInfo{};
 
@@ -1007,12 +1039,7 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req)  {
 					rpnl = trl->getRPnL();
 				}
 				Object result;
-				result.set("broker",Object({
-						{"name", binfo.name},
-						{"exchangeName", binfo.exchangeName},
-						{"version", binfo.version},
-						{"settings", binfo.settings},
-						{"trading_enabled", binfo.trading_enabled}}));
+				result.set("broker",brokerToJSON(binfo.name, binfo));
 				Value pair = getPairInfo(api, p);
 				auto alloc = walletDB.lock_shared()->query(WalletDB::KeyQuery(broker.getString(),minfo.wallet_id,minfo.currency_symbol,uid));
 				result.set("pair", pair);
@@ -1478,7 +1505,7 @@ bool WebCfg::reqBTData(simpleServer::HTTPRequest req) {
 	if (!req.allowMethods({"GET"})) return true;
 
 	auto bb = backtest_broker.lock();
-	Value res = bb->jsonRequestExchange("symbols",json::Value(),false);
+	Value res = bb->jsonRequestExchange("symbols",json::Value());
 	bb->stop();
 
 	Stream s = req.sendResponse(HTTPResponse(200).contentType("application/json").cacheFor(80000));

@@ -23,7 +23,7 @@ public:
 	 * @param init_rpnl initializes RPnL
 	 */
 	ACB(double init_price, double init_pos, double init_rpnl = 0)
-		:suma(init_price * init_pos)
+		:suma(init_pos?init_price * init_pos:0)
 		,pos(init_pos)
 		,rpnl(init_rpnl)
 	{}
@@ -58,6 +58,14 @@ public:
 			res.pos = pos + size;
 			res.suma = avg * res.pos;
 		}
+		return res;
+	}
+
+	ACB resetRPnL() const {
+		ACB res;
+		res.suma = suma;
+		res.pos = pos;
+		res.rpnl = 0;
 		return res;
 	}
 

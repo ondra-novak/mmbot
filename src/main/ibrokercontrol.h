@@ -7,6 +7,8 @@
 
 #ifndef SRC_MAIN_IBROKERCONTROL_H_
 #define SRC_MAIN_IBROKERCONTROL_H_
+#include <chrono>
+
 #include <imtjson/value.h>
 #include <imtjson/string.h>
 
@@ -77,6 +79,10 @@ public:
 		bool settings = false;
 		///this broker supports subaccounts
 		bool subaccounts = false;
+		///this broker doesn't support setApiKey/getApiKeyFeilds (trainers, simulators)
+		bool nokeys = false;
+		///this broker can be used as market data source without keys
+		bool datasrc = true;
 	};
 
 
@@ -90,13 +96,6 @@ public:
 	virtual ~IBrokerControl() {}
 };
 
-class IBrokerIcon {
-public:
-	//saves image to disk to specified path
-	virtual void saveIconToDisk(const std::string &path) const = 0;
-	//retrieves name of saved image
-	virtual std::string getIconName() const = 0;
-};
 
 class IStockApi;
 
@@ -153,6 +152,21 @@ public:
 					  std::vector<OHLC> &data
 				) = 0;
 
+};
+
+///Allows to control brokers over their instances - not broker itself
+/**
+ * Unload - unload broker internals if no longer needed
+ * Housekeeping - unload broker after some time of idle
+ */
+class IBrokerInstanceControl {
+public:
+	///Returns true, if broker is idle
+	virtual bool isIdle(const std::chrono::system_clock::time_point &tp) const = 0;
+	///Unload broker unconditionaly
+	virtual void unload() = 0;
+
+	virtual ~IBrokerInstanceControl() {}
 };
 
 #endif /* SRC_MAIN_IBROKERCONTROL_H_ */

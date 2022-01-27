@@ -109,8 +109,8 @@ IStockApi::TradesSync SwapBroker::syncTrades(json::Value lastId, const std::stri
 	return data;
 }
 
-bool SwapBroker::reset() {
-	return target->reset();
+void SwapBroker::reset(const std::chrono::system_clock::time_point &tp) {
+	target->reset(tp);
 }
 
 IStockApi::Orders SwapBroker::getOpenOrders(const std::string_view &par) {
@@ -182,15 +182,6 @@ IStockApi::Ticker SwapBroker::getTicker(const std::string_view &pair) {
 	};
 }
 
-std::string SwapBroker::getIconName() const {
-	auto sub = dynamic_cast<const IBrokerIcon *>(target.get());
-	return sub?sub->getIconName():std::string("undefined.png");
-}
-
-void SwapBroker::saveIconToDisk(const std::string &path) const {
-	auto sub = dynamic_cast<const IBrokerIcon *>(target.get());
-	if (sub) sub->saveIconToDisk(path);
-}
 
 json::Value SwapBroker::getMarkets() const {
 	auto sub = dynamic_cast<IBrokerControl *>(target.get());

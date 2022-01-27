@@ -142,6 +142,8 @@ static Value getBrokerInfo(AbstractBrokerAPI &handler, const Value &req) {
 				 {"trading_enabled", nfo.trading_enabled},
 				 {"settings",nfo.settings},
 				 {"subaccounts",nfo.subaccounts},
+				 {"nokeys",nfo.nokeys},
+				 {"datasrc",nfo.datasrc},
 				 {"favicon",nfo.favicon}});
 }
 
@@ -450,12 +452,23 @@ void AbstractBrokerAPI::dispatch() {
 void AbstractBrokerAPI::setApiKey(json::Value keyData) {
 
 	onLoadApiKey(keyData);
+	try {
+		if (keyData.hasValue()) probeKeys();
 
-	umask( S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
-	std::ofstream f(secure_storage_path);
-	if (!f) throw std::runtime_error("Failed to store API key");
-	keyData.serializeBinary([&](char c){f.put(c);}, compressKeys);
-	if (!f) throw std::runtime_error("Failed to store API key");
+		umask( S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
+		std::ofstream f(secure_storage_path);
+		if (!f) throw std::runtime_error("Failed to store API key");
+		keyData.serializeBinary([&](char c){f.put(c);}, compressKeys);
+		if (!f) throw std::runtime_error("Failed to store API key");
+	} catch (...) {
+		try {
+			onLoadApiKey(nullptr);
+			loadKeys();
+		} catch (...) {
+		}
+		throw;
+
+	}
 }
 
 json::Value AbstractBrokerAPI::getApiKeyFields() const {
@@ -513,7 +526,11 @@ void AbstractBrokerAPI::need_more_time() {
 }
 
 AbstractBrokerAPI::AllWallets AbstractBrokerAPI::getWallet() {
-	throw std::runtime_error("Unsupported feature");
+	return {};
+}
+
+void AbstractBrokerAPI::probeKeys() {
+	getWallet_direct();
 }
 
 json::Value AbstractBrokerAPI::testCall(const std::string_view &method, json::Value args) {

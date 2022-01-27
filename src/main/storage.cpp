@@ -110,3 +110,18 @@ void Storage::erase() {
 		stack.pop();
 	}
 }
+
+void MemStorage::erase() {
+	std::lock_guard _(lock);
+	data = json::undefined;
+}
+
+json::Value MemStorage::load() {
+	std::lock_guard _(lock);
+	return data;
+}
+
+void MemStorage::store(json::Value data) {
+	std::lock_guard _(lock);
+	this->data=data;
+}

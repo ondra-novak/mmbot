@@ -354,7 +354,6 @@ App.prototype.fillForm = function (src, trg) {
     );
 	
 	
-	var apikey = this.config.apikeys && this.config.apikeys[src.broker];
 	var first_fetch = true;
 
 	var updateHdr = function(){
@@ -409,10 +408,9 @@ App.prototype.fillForm = function (src, trg) {
 		this.fillFormCache[src.id] = state;
 
 		data.broker = broker.exchangeName;
-		data.no_api_key = {".hidden": !!(apikey === undefined?broker.trading_enabled:apikey)};
-		data.api_key_not_saved = {".hidden": apikey === undefined || !(!broker.trading_enabled && apikey)};
 		data.broker_id = broker.name;
 		data.broker_ver = broker.version;
+		data.broker_subaccount = broker.subaccount?"("+broker.subaccount+")":"";
 		data.asset = pair.asset_symbol;
 		data.currency = pair.currency_symbol;
 		data.quote = pair.quote_currency
@@ -602,7 +600,7 @@ App.prototype.fillForm = function (src, trg) {
 	data.gs_rb_hi_a=1;
 	data.hp_fastclose=true;
 	data.hp_slowopen=false;
-	data.max_leverage = 3;
+	data.max_leverage = 5;
 	data.secondary_order = 0;
 	data.kb_keep_min = 0;
 	data.kb_keep_max = 100;
@@ -628,6 +626,7 @@ App.prototype.fillForm = function (src, trg) {
 	data.shg_lazyclose=false;
 	data.shg_boostmode=0;
 	data.shg_offset=0;
+	data.shg_show_asym={".hidden":false};
 	data.pincome_exp = 40;
 	data.pile_ratio=50;
 	data.pile_accum=0;
@@ -747,7 +746,7 @@ App.prototype.fillForm = function (src, trg) {
 	data.spread_mode = filledval(src.force_spread?"fixed":"adaptive","adaptive");
 	data.max_balance = filledval(src.max_balance,"");
 	data.min_balance = filledval(src.min_balance,"");
-	data.max_leverage = filledval(src.max_leverage,3);
+	data.max_leverage = filledval(src.max_leverage,5);
 	data.reduce_on_leverage = filledval(src.reduce_on_leverage, false);
 	data.adj_timeout = filledval(src.adj_timeout,60);
 	data.emul_leverage = filledval(src.emulate_leveraged,0);
@@ -942,7 +941,7 @@ App.prototype.saveForm = function(form, src) {
 	var data = form.readData();
 	var trader = {}
 	var goal = data.goal;
-	trader.strategy = getStrategyData(data, form._pair.invert_price);
+	trader.strategy = getStrategyData(data, form._pair && form._pair.invert_price);
 	trader.id = src.id;
 	trader.broker =src.broker;
 	trader.pair_symbol = src.pair_symbol;
@@ -1038,32 +1037,59 @@ App.prototype.brokerSelect = function() {
 		var form = TemplateJS.View.fromTemplate("broker_select");
 		_this.waitScreen(fetch_with_error("api/brokers/_all")).then(function(x) {
 			form.openModal();
-			var show_excl = false;
-			var lst = x.map(function(z) {
-				var e = _this.config.apikeys && _this.config.apikeys[z];
-				var ex = e !== undefined || z.trading_enabled;
-				show_excl = show_excl || !ex;
-				return {
-					excl_info: {".hidden":ex},
-					image:_this.brokerImgURL(z.name),
-					caption: z.name,
-					"":{"!click": function() {
-							form.close();
-							ok(z.name);
-						}}
-				};
-			});
+			var lst = function(s){
+				return x.filter(function(z){return !s || z.subaccounts;})
+				.map(function(z) {
+					return {
+						image:_this.brokerImgURL(z.name),
+						caption: z.exchangeName+(z.subaccount?" ("+z.subaccount+")":""),
+						"":{"!click": function() {
+								var p;
+								if (s) {
+									p = this.createSubaccount(z.name)
+									.then(function(n){
+										return this.waitScreen(fetch_with_error(this.brokerURL(n)))
+											.then(function(r){
+												return [n, r.trading_enabled];
+											})
+									}.bind(this))
+								} else {
+									p = Promise.resolve([z.name, z.trading_enabled]);
+								}
+								p = p.then(function(v){									
+									if (!v[1]) {
+										return this.setApiKeyDlg(v[0]).then(function(){return v[0];});
+									} else {
+										return v[0];
+									}																		
+								}.bind(this));
+								p.then(function(n){
+									form.close();
+									ok(n);
+								});
+							}.bind(this),
+							classList:{"available":z.trading_enabled}
+						}							
+					}	
+				},this)
+				.sort(function(a,b){return a.caption.localeCompare(b.caption);})
+			}.bind(this);
 			form.setData({
-				"item":lst,
-				"excl_info": {".hidden": !show_excl},
+				"item":lst(false),
+				"subaccount":{
+					value:false,
+					"!change":function(){
+						form.setData({"item":lst(form.readData(["subaccount"]).subaccount)})
+					}
+				}
 			});
 			form.setCancelAction(function() {
 				form.close();
 				cancel();
 			},"cancel");
 
-		});
-	});
+		}.bind(this));
+	}.bind(this));
 }
 
 App.prototype.pairSelect = function(broker) {
@@ -1330,8 +1356,74 @@ App.prototype.addUser = function() {
 			},"ok");
 		},"ok");
 	});
+};
+
+App.prototype.createSubaccount = function(z) {
+return new Promise(function(ok,cancel) {
+    var dlg = TemplateJS.View.fromTemplate("subaccount_dlg");
+	dlg.openModal();
+	dlg.setCancelAction(function(){dlg.close();cancel();},"cancel");
+	dlg.setDefaultAction(function(){
+		var d = dlg.readData();
+		if (d.name) {
+			dlg.enableItem("ok",false);
+			fetch_with_error(this.brokerURL(z)+"/subaccount",{method:"POST",body:JSON.stringify(d.name)})
+			.then(function(s){
+				dlg.close();
+				ok(s);
+			}.bind(this))
+		}
+	}.bind(this),"ok");
+	dlg.setItemEvent("name","input",function(){
+		dlg.enableItem("ok",!!this.value.length);
+	})
+	dlg.enableItem("ok",false);
+}.bind(this));
+};
+
+App.prototype.setApiKeyDlg = function(z) {
+	return new Promise(function(ok, cancel) {
+	var url = this.brokerURL(z)+"/apikey";
+	var w = fetch_with_error(url)
+		.then(function(ff) {
+			return formBuilder(ff)
+		},cancel);
+		
+	var lnk = fetch_with_error(this.brokerURL(z)).then(function(x) {
+		return {href:x.exchangeUrl,".hidden":false,"target":"_blank"};
+	});
+	var dlg = TemplateJS.View.fromTemplate("broker_keys");
+	dlg.setData({"form":w,"image":this.brokerImgURL(z), link:lnk});
+	dlg.setDefaultAction(function(){
+		
+		w.then(function(f){
+			var k = f.readData();
+			return fetch_with_error(url, {"method":"PUT","body":JSON.stringify(k)})
+		}).then(function(){
+			dlg.close();
+			ok();
+		})
+		
+	}.bind(this),"ok");
+	dlg.setCancelAction(function(){
+		dlg.close();
+		cancel();
+	},"cancel");
+	dlg.openModal();
+		
+}.bind(this));
 }
 
+
+App.prototype.eraseApiKeyDlg = function(z,name) {
+	var strtable = document.getElementById("strtable");
+	var txt = strtable.dataset.askdeletekey+": "+name;
+	return this.dlgbox({"text":txt},"confirm").then(function(){
+		this.waitScreen(fetch_with_error(this.brokerURL(z)+"/apikey",{
+			"method":"PUT","body":"null"
+		}));
+	}.bind(this));
+}
 
 App.prototype.securityForm = function() {
 	var form = TemplateJS.View.fromTemplate("security_form");
@@ -1365,81 +1457,37 @@ App.prototype.securityForm = function() {
 			}
 		},this)
 		
-		function setKey(flag, broker, binfo, cfg) {
-	
-			if (flag) {
-				fetch_with_error(this.brokerURL(broker)+"/apikey")
-				.then(function(ff){
-					var w = formBuilder(ff);
-					w.setData(cfg);
-					this.dlgbox({text:w},"confirm").then(function() {
-						if (!this.config.apikeys) this.config.apikeys = {};
-						this.config.apikeys[broker] = w.readData();
-						form.showItem("need_save",true);
-						update.call(this);
-					}.bind(this));
-				}.bind(this));
-			} else {
-				if (!this.config.apikeys) this.config.apikeys = {};
-				this.config.apikeys[broker] = null;
-				form.showItem("need_save",true);
-				update.call(this);
-				
-			}
-			
-		}
-		
+		var userbrokers = Object.keys(this.traders).reduce(function(a,b){
+			var t = this.traders[b];
+			a[t.broker] = 1;
+			return a;
+		}.bind(this),{});
 		var brokers = fetch_with_error(this.brokerURL("_all")).
 			then(function(x) {
-				return x.map(function(binfo) {
+				return x.filter(function(binfo){
+				    	return binfo.trading_enabled && !binfo.nokeys;
+				    }).map(function(binfo) {
 					var z = binfo.name;
-					var cfg = this.config.apikeys && this.config.apikeys[z]
-					var e = cfg === undefined?binfo.trading_enabled:cfg;
+					var sub = binfo.subaccount?"("+binfo.subaccount+")":"";
 					return {
-						img:this.brokerImgURL(z),
-						broker: z,
+						img:this.brokerImgURL(z),						
+						subaccount: sub,
 						exchange:  {
 								value:binfo.exchangeName,
 								href:binfo.exchangeUrl
 							},						
-						state: {
-								value: e?"✓":"∅",
-								classList:{set:e, notset:!e}
-							},
-						bset: {
-								".disabled": binfo.trading_enabled && cfg === undefined,
-								"!click": setKey.bind(this, true, z, binfo, cfg)
-							},
+						keyset: {
+							"!click":function(){
+								this.setApiKeyDlg(z).then(update.bind(this));
+							}.bind(this)
+						},
+						keyerase: {
+							"!click":function(){
+								this.eraseApiKeyDlg(z, binfo.exchangeName+" "+sub).then(update.bind(this));
+							}.bind(this),
+							".style.visibility":userbrokers[z]?"hidden":"visible"
+						},
 						
-						berase: {
-								".disabled":!binfo.trading_enabled && !cfg,
-								"!click": setKey.bind(this, false, z, binfo, cfg)
-							},
-						info_button: {
-								"!click": function() {
-									this.dlgbox({text:fetch_with_error(this.brokerURL(z)+"/licence")
-											.then(function(t) {
-												return {"value":t,class:"textdoc"};
-											}),
-										cancel:{".hidden":true}},"confirm")
-								}.bind(this)
-							},
-						sub_button: {
-							    "!click": function() {
-                                    var dlg = TemplateJS.View.fromTemplate("subaccount_dlg");
-                                    dlg.openModal();
-                                    dlg.setCancelAction(function(){dlg.close();},"cancel");
-                                    dlg.setDefaultAction(function(){
-                                    	var d = dlg.readData();
-                                    	if (d.name) {
-                                    		fetch_with_error(this.brokerURL(z)+"/subaccount",{method:"POST",body:JSON.stringify(d.name)})
-                                    		.then(update.bind(this))
-                                    	}
-                                    	dlg.close();
-                                    }.bind(this),"ok");
-							    }.bind(this),
-							    ".hidden": !binfo.subaccounts
-						}						
 					}
 				}.bind(this));
 			}.bind(this));
@@ -1561,11 +1609,11 @@ App.prototype.logout = function() {
 	this.desktop.setData({menu:"",content:""});
 	this.config = null;
 	if (document.cookie.indexOf("auth=") != -1) {
-		fetch("../set_cookie",{
-			"method":"POST",
-			"body":"auth="
+		fetch("../api/user",{
+			"method":"DELETE",
+			"body":"",
 		}).then(function(resp) {
-			if (resp.status == 202) {
+			if (resp.status == 200) {
 				location.reload();
 			}
 		});
@@ -1580,32 +1628,12 @@ App.prototype.logout = function() {
 
 App.prototype.remember = function() {
 	
-	function post(path, params, method='post') {
-
-		  const form = document.createElement('form');
-		  form.method = method;
-		  form.action = path;
-
-		  for (const key in params) {
-		    if (params.hasOwnProperty(key)) {
-		      const hiddenField = document.createElement('input');
-		      hiddenField.type = 'hidden';
-		      hiddenField.name = key;
-		      hiddenField.value = params[key];
-
-		      form.appendChild(hiddenField);
-		    }
-		  }
-
-		  document.body.appendChild(form);
-		  form.submit();
-	}
-	
-	post("../set_cookie", {
-		"auth":"auth",
-		"permanent":"true",
-		"redir":"admin/index.html"
-	});
+	fetch_with_error("../api/user",{
+		"method":"POST",
+		"body":JSON.stringify({"cookie":"permanent","needauth":true})
+	}).then(function(){
+		location.reload();
+	})	
 }
 
 
@@ -2601,10 +2629,10 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
         }
 
         function fillData(st, prefix, data) {
-        	data[prefix+"_last"] = adjNumBuySell(st[0],0);
-        	data[prefix+"_min"] = adjNumBuySell(st[1],0);
-        	data[prefix+"_max"] = adjNumBuySell(st[2],0);
-        	data[prefix+"_avg"] = adjNumBuySell(st[3]/(cnt+1),0);
+        	data[prefix+"_last"] = adjNumBuySell(st[0],2);
+        	data[prefix+"_min"] = adjNumBuySell(st[1],2);
+        	data[prefix+"_max"] = adjNumBuySell(st[2],2);
+        	data[prefix+"_avg"] = adjNumBuySell(st[3]/(cnt+1),2);
         }
 
 		function updateResults(v) {

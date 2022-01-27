@@ -1,5 +1,6 @@
 #include <imtjson/value.h>
 #include <imtjson/string.h>
+#include <imtjson/binary.h>
 #include "istockapi.h"
 #include "mtrader.h"
 #include "strategy.h"
@@ -1058,9 +1059,20 @@ MTrader::Order MTrader::calculateOrder(
 
 void MTrader::initialize() {
 	std::string brokerImg;
-	const IBrokerIcon *bicon = dynamic_cast<const IBrokerIcon*>(stock.get());
+	IBrokerControl *bicon = dynamic_cast<IBrokerControl*>(stock.get());
 	if (bicon)
-		brokerImg = bicon->getIconName();
+		json::base64->encodeBinaryValue(json::map_str2bin(bicon->getBrokerInfo().favicon),[&](std::string_view c){
+		brokerImg.append(c);
+	});
+	else
+		brokerImg =
+				"iVBORw0KGgoAAAANSUhEUgAAADAAAAAwBAMAAAClLOS0AAAAG1BMVEVxAAAAAQApKylNT0x8fnuX"
+				"mZaztbLNz8z4+vcarxknAAAAAXRSTlMAQObYZgAAASFJREFUOMulkzFPxDAMhRMhmGNE72YGdhiQ"
+				"boTtVkApN8KAriO3XPoDaPDPxk7SXpo6QogndfGnl/o5jlInaaNEwf0LSHX9ijhInhWS3gXDjoFg"
+				"0Yi+Q1yCBvHuUjprjR5ghwcBDEZvRVBxrGr/SF3dLkHHObwQfc3gIM2KLF6cIiBemwqQx87AFKUo"
+				"AkkJbLDQkAx9Cb7NL6BDl1ddBh4h01UGnvIm/wtSKso6B/SFVFu6kRFoYIBhpTgSgzCzG9svgH02"
+				"6oxD8VFfp6NID+oi7jKAGX/ecOVTnQfHvF3Sm9J71y+AO5IfIAYM12ViwBQqgml9GOQjCQ/HC7Oq"
+				"gvyoGZj2YwZqN/hhbWujWttm4I/rExvNNT6fxhWaRgeFuPYDghTP70Os5zoAAAAASUVORK5CYII=";
 
 	try {
 		minfo = stock->getMarketInfo(cfg.pairsymb);
@@ -1359,7 +1371,7 @@ void MTrader::stop() {
 void MTrader::reset(const ResetOptions &ropt) {
 	init();
 	dynmult.setMult(1, 1);
-	stock->reset();
+	stock->reset(std::chrono::system_clock::now());
 	//check whether lastTradeId is unable to retrieve trades
 	auto syncState = stock->syncTrades(lastTradeId, cfg.pairsymb);
 	//if no trades are received, we can freely reset lastTradeId;

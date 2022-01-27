@@ -142,27 +142,29 @@ std::vector<std::string> ByBitBroker::getAllPairs() {
 
 IStockApi::MarketInfo ByBitBroker::getMarketInfo(const std::string_view &pair) {
 	MarketInfoEx nfo = getSymbol(pair);
-	Value pos;
-	switch (nfo.type) {
-	case spot:break;
-	case inverse_futures:
-		pos = getInverseFuturePosition(nfo.name);
-		if (pos.defined() && pos["leverage"].defined()) {
-			nfo.leverage = pos["leverage"].getNumber();
+	if (hasKeys()) {
+		Value pos;
+		switch (nfo.type) {
+		case spot:break;
+		case inverse_futures:
+			pos = getInverseFuturePosition(nfo.name);
+			if (pos.defined() && pos["leverage"].defined()) {
+				nfo.leverage = pos["leverage"].getNumber();
+			}
+			break;
+		case inverse_perpetual:
+			pos = getInversePerpetualPosition(nfo.name);
+			if (pos.defined() && pos["leverage"].defined()) {
+				nfo.leverage = pos["leverage"].getNumber();
+			}
+			break;
+		case usdt_perpetual:
+			pos = getUSDTPerpetualPosition(nfo.name);
+			if (pos[0].defined() && pos[0]["leverage"].defined() && pos[1].defined() && pos[1]["leverage"].defined()) {
+				nfo.leverage = std::min(pos[0]["leverage"].getNumber(),pos[1]["leverage"].getNumber());
+			}
+			break;
 		}
-		break;
-	case inverse_perpetual:
-		pos = getInversePerpetualPosition(nfo.name);
-		if (pos.defined() && pos["leverage"].defined()) {
-			nfo.leverage = pos["leverage"].getNumber();
-		}
-		break;
-	case usdt_perpetual:
-		pos = getUSDTPerpetualPosition(nfo.name);
-		if (pos[0].defined() && pos[0]["leverage"].defined() && pos[1].defined() && pos[1]["leverage"].defined()) {
-			nfo.leverage = std::min(pos[0]["leverage"].getNumber(),pos[1]["leverage"].getNumber());
-		}
-		break;
 	}
 	return nfo;
 }

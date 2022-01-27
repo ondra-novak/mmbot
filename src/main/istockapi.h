@@ -8,6 +8,7 @@
 #ifndef SRC_MAIN_ISTOCKAPI_H_
 #define SRC_MAIN_ISTOCKAPI_H_
 
+#include <chrono>
 #include <imtjson/value.h>
 #include "../shared/linear_map.h"
 #include <string_view>
@@ -261,13 +262,12 @@ public:
 			double replaceSize = 0) = 0;
 	///Reset the API
 	/**
-	 * @retval true continue in trading
-	 * @retval false stop trading
+	 * @param tp time point for which reset is called. Multiple calls with the same timepoint
+	 * helps to detect additional unecessery calls (for example to reset broker which simulates
+	 * other broker)
 	 *
-	 * @note external brokers cannot send 'false' as result. This is reserved for
-	 * internal brokers and emulators.
 	 */
-	virtual bool reset() = 0;
+	virtual void reset(const std::chrono::system_clock::time_point &tp) = 0;
 
 	///Retrieve market information
 	/**

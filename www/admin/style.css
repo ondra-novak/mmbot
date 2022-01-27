@@ -6,7 +6,7 @@ body {
 	color:#CDCDCD;
 	font-family: Ruda;
 	margin:0;
-	font-size: 0.4cm;
+	font-size: 14px;
 	padding: 0;
 }
 
@@ -126,6 +126,7 @@ x-form  label, x-form  div.label {
 	align-items: center;
 	margin: 0.2em 0;
 	position: relative;
+	gap: 0.5em;
 }
 x-form  label > *, x-form  div.label > * {
 	display:block;
@@ -310,8 +311,11 @@ div.float_info td hr {
 
 div.trader.list {
 	display: flex;
-	justify-content:center;
 	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.4em;
+	justify-content: center;
+	margin-top: 0.4em;
 }
 div.trader.list > * {
 	cursor: pointer;
@@ -362,10 +366,16 @@ div.visstrategy > p {
 	margin: 1em 0 0 0;
 }
 
-div.trader.list > * {
-	margin: 0.2cm 0.1cm;
+div.trader.list > * >div {
 	text-align:center;
-	position: relative;
+}
+
+div.trader.list > * {
+	display: flex;
+	flex-direction: column;
+	text-align: center;
+	align-items: center;
+	transition: 0.4s all;
 }
 
 div.trader.list .exclamation {
@@ -388,6 +398,11 @@ div.broker.pair img {
 	width: 2cm;
 }
 
+.broker.select .bottom {
+	display: flex;
+	margin-top: 1em;
+	justify-content: space-between;
+}
 .broker.select div.trader.list {
 	flex-direction:column;
 	max-width: 30em;
@@ -398,7 +413,24 @@ div.broker.pair img {
 }
 .broker.select div.trader.list > * {
 	text-align:left;
-	margin: 0.1cm;
+	margin: 0 auto 0 0;
+	opacity: 0.75;
+	flex-direction: row;
+	gap: 0.3em;
+}
+.broker.select div.trader.list > .available {
+	font-weight: bold;
+	opacity: 1;
+}
+.broker.select div.trader.list > .available::after {
+	content: "";
+	display: inline-block;
+	width: 1em;
+	height: 1em;
+	background-image: url(../res/keys.png);
+	background-repeat: no-repeat;
+	background-size: 1em;
+	padding-left: 0.5em;
 }
 .broker.select div.trader.list > * > div:last-child {
 	display: inline;
@@ -444,6 +476,27 @@ div.dialog > div {
 	box-sizing: border-box;
 	padding: 5px;
 	max-width: 16cm;
+}
+
+div.broker  div.keys label>span {
+    width: 25%;
+    text-align: right;
+}
+div.broker  div.keys label>*:last-child {
+	width:75%;
+}
+div.broker div.right {
+	text-align:right;
+}
+div.broker div.right a[data-name=link]::after {
+	content:"";
+	width: 1em;
+	background-size: 1em;
+	height: 1em;
+	display:inline-block;
+	background-image: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgAQMAAABJtOi3AAAABlBMVEUAAAD9//w/VBoJAAAAAXRSTlMAQObYZgAAAEhJREFUCNdjYMAK5H9Aif/zfzAw/28EEc0goh1INPBbAAk5EGEDIioYgMQHINH4AEg0HzwAZDUCiQZGfMT//1CC8f//BgZcAADmmCYPf9Bi+gAAAABJRU5ErkJggg==);
+	background-repeat: no-repeat;
+	vertical-align: middle;
 }
 
 
@@ -596,28 +649,6 @@ a {
 .spinner.inline {
 	display: inline-block;
 	vertical-align: middle;
-}
-
-.security_form .apikeys img {
-	width: 32px;
-	vertical-align: inherit;
-	margin-right: 1em;
-}
-
-.security_form .apikeys td:nth-child(5) img {
-	width: 20px;
-}
-
-.security_form .apikeys td.set {
-	font-size: 2em;
-	color: green;
-}
-.security_form .apikeys td.notset {
-	font-size: 2em;
-	color: red;
-}
-.security_form .apikeys [data-name=info_button] {
-	cursor: pointer;
 }
 
 
@@ -1553,6 +1584,20 @@ div.stabilitytest div.error {
     font-weight: bold;
 }
 
+.sections .apikeys > div {display: flex;align-items: center;gap: 1em;width: 80%;justify-content: space-between;margin: auto;height: 2.5em;}
+.sections .apikeys > div > * {
+    white-space: nowrap;
+}
+.sections .apikeys > div > * > img {width: 2em;vertical-align: middle;}
+.sections .apikeys > div > *:nth-child(1) {}
+.sections .apikeys > div > *:nth-child(2) > img {
+    padding: 0 0.5em;
+    opacity: 0.7;
+    cursor: pointer;
+}
+.sections .apikeys > div > *:nth-child(3) {}
+.sections .apikeys > div > *:nth-child(4) {}
+
 @media all and (max-width: 15cm) { 
 
 .pairactions img {width: 1.3cm;height: 1.3cm;margin: -0.1cm;}
@@ -1581,7 +1626,7 @@ input,select,button,textarea {
 }
 .backtest table select {font-size: 2vw;width: 12vw;}
 .backtest {
-	font-size: 2.5vw;
+	font-size: 2vw;
 }
 table.utilization {
     width:100%;
@@ -1601,29 +1646,33 @@ x-section.backtest div.sidepanel {
 
 .vertical .menu {
 	position: absolute;
-	width: 6cm;
+	width: 5.5cm;
 }
 
 .vertical .content {
-	margin-left: 6cm;
+	margin-left: 5.5cm;
 	box-sizing:border-box;
-
+	padding-top: 0.5em;
 }
 
 .vertical div.trader.list {
 	flex-direction: column;
 	margin-top: 1em;
+	gap: 0;
+	align-items: flex-start;
 }
 .vertical div.trader.list > *{
-	flex-direction: column;
+	align-items: center;
+	flex-direction: row;
 	text-align: left;
 	margin: 0.1cm;
+	align-content: center;
+	gap: 0.3em;
+	width: 100%;
 }
 
 .vertical div.trader.list img {width:  1cm;height: 1cm;vertical-align:middle;}
-.vertical div.trader.list .item div {
-	display: inline-block;
-}
+.vertical div.trader.list .item div {flex-grow: 1;text-align: left;}
 .vertical .content x-form.sections {
 	display:flex;
 	flex-wrap:wrap;

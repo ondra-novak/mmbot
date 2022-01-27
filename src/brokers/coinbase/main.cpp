@@ -33,7 +33,6 @@ class Interface: public AbstractBrokerAPI {
 public:
 	HTTPJson httpc;
 	OrderDataDB orderdb;
-
 	Interface(const std::string &path)
 		:AbstractBrokerAPI(path,{
 			Object({
@@ -485,12 +484,12 @@ inline void Interface::onLoadApiKey(json::Value keyData) {
 	passphrase = keyData["passphrase"].getString();
 
 	auto site = keyData["site"].getString();
-	if (site == "live") {
-		simulator = false;
-		httpc.setBaseUrl("https://api.pro.coinbase.com");
-	} else {
+	if (site == "sandbox") {
 		simulator = true;
 		httpc.setBaseUrl("https://api-public.sandbox.pro.coinbase.com");
+	} else {
+		simulator = false;
+		httpc.setBaseUrl("https://api.pro.coinbase.com");
 	}
 }
 

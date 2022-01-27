@@ -475,8 +475,7 @@ x-trbgr.hdr {
 	font-size: 0.7em;
 }
 
-#lastevents {
-}
+#lastevents {min-height: 1em;}
 
 #lastevents::-webkit-scrollbar{
 	width: 0;	
@@ -560,8 +559,9 @@ x-trbgr.hdr {
 	top: 0.3cm;
 }
 
-#indicator.online { 
+#indicator.online {
 	background-color: #366d44;
+	animation: pulse 10s cubic-bezier(0.05, 0.92, 0.17, 0.84);
 }
 #indicator.fetching { 
 	background-color: #c1c12f;
@@ -620,10 +620,23 @@ x-tr.hdr [data-name=export_csv] {
 	width: 320px;
 	height: 229px;
 	margin: auto;
-	border: 1px solid;
+	/* border: 1px solid black; */
 	text-align:center;
 	color: black;
 	box-shadow: 5px 5px 10px 8px #0008;
+}
+
+#logo img {
+	display: block;
+}
+
+.logospin {
+	width: 1cm;
+	height: 1cm;
+	position: absolute;
+	bottom: 17px;
+	left: 17px;
+	animation: load3_show 1s;
 }
 
 #logo .line1 {
@@ -1270,3 +1283,56 @@ body.daymode table.extended td:nth-child(4) b::after {
 
 #newsbox > a{white-space: nowrap;display: block;text-align: center;overflow: hidden;text-overflow: ellipsis;color: currentColor;}
 
+.loader {
+  border-radius: 50%;
+  background: #ffffff;
+  background: -moz-linear-gradient(left, #ffffff 10%, rgba(255, 255, 255, 0) 42%);
+  background: -o-linear-gradient(left, #ffffff 10%, rgba(255, 255, 255, 0) 42%);
+  background: -ms-linear-gradient(left, #ffffff 10%, rgba(255, 255, 255, 0) 42%);
+  background: linear-gradient(to right, #ccccaa 10%, rgba(255, 255, 255, 0) 42%);
+  animation: load3 1.4s infinite linear, load3_show 5s cubic-bezier(0.43, 0.03, 0.33, -0.24);
+}
+.loader:before {
+  width: 50%;
+  height: 50%;
+  background: #ccccaa;
+  border-radius: 100% 0 0 0;
+  position: absolute;
+  top: 0;
+  left: 0;
+  content: '';
+}
+.loader:after {
+  background: #2c2c2c;
+  width: 60%;
+  height: 60%;
+  border-radius: 50%;
+  content: '';
+  margin: auto;
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  right: 0;
+}
+
+@keyframes load3 {
+  0% {
+    -webkit-transform: rotate(0deg);
+    transform: rotate(0deg);
+  }
+  100% {
+    -webkit-transform: rotate(360deg);
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes load3_show {
+	0% {opacity:0}
+	100% {opacity:1}
+}
+
+@keyframes pulse {
+	0% {background-color: #7aff9c;}
+	100% {background-color: #366d44;}
+}

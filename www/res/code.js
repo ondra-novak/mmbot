@@ -743,35 +743,162 @@ function app_start(){
 		}) !== undefined;
 	}
 
-	function update() {
-		
-		indicator.classList.remove("online");
-		indicator.classList.add("fetching");
-		return fetch_json("report.json?r="+Date.now()).then((stats)=>{
+    function setIndikator(mode, msg) {
+    	indicator.classList.toggle("online", mode == 0);
+    	indicator.classList.toggle("fetching", mode == 1);
+    	if (msg) indicator.setAttribute("title", msg); else indicator.removeAttribute("title");
+    	void indicator.offsetWidth;
+    }
 
-			if (stats.rev != last_rev[0]) {
-				last_rev = [stats.rev, Date.now()];
-				localStorage["last_rev"] = JSON.stringify(last_rev);
-			} else if (Date.now() - last_rev[1] > 100000) {
-				throw new Error("Outage detected");
-			}
-			
-			
+    
+    function initSSE() {
+    	setIndikator(1);
+        initSSE.handle = new EventSource("api/data", {withCredentials:true});
+        initSSE.handle.onmessage = function(ev) {
+        	updateFromSSE(JSON.parse(ev.data));
+        }
+        initSSE.handle.onerror = function(e) {        	
+            setIndikator(-1,"Connection lost - reconnecting");
+            fetch("api/user")
+                    .then(function(req){return req.json()})
+                    .then(function(x){
+                    	if (!x.viewer) location.href="index.html?relogin=1&tm="+Date.now();
+                    });
+            updateFromSSE(null);
+            initSSE.handle.close();
+            setTimeout(initSSE, 5000);
+        }
+    }
+
+    var updateFromSSE = (function(){
+        var stats ={};        
+        var rf = false;
+		var msgcnt = 0;		
+		var tm = null;
+
+        return function(msg) {
+        	if (msg === null) {
+        		clearInterval(tm);
+        		tm = null;
+        		return;
+        	}
+        	if (!tm) {
+        		tm = setInterval(function(){
+			    if (msgcnt == 0) {
+				    initSSE.handle.onerror();
+			    } else {
+				    msgcnt = 0;
+			    }        		
+		        },60000);
+        	}
+
+			msgcnt++;
+			if (typeof msg == "string") {
+				if ((msg == "update" && !rf) || msg == "end_refresh") {
+		        	setIndikator(1);
+					rf = false;				
+	            	try {
+	            		stats.charts = {};
+	            		for (var z in stats.charts_by_id) {
+	            			stats.charts[z] = [];
+	            			for(var zz in stats.charts_by_id[z]) {
+	            				stats.charts[z].push(stats.charts_by_id[z][zz]);
+	            			}
+	            			stats.charts[z].sort(function(a,b){
+	            				return a.time-b.time;
+	            			});
+	            		}
+	            	    update(stats)
+	                    logo.hidden = true;
+	                    setIndikator(0);
+	            	} catch (e) {
+	            		setIndikator(-1, e.toString());   
+	            		console.error(e);
+	            	}
+				} else if (msg == "refresh") {
+					stats = {
+						info:{},
+						charts_by_id:{},
+						misc:{},
+						prices:{},
+						log:[],
+						orders:[]
+					};
+					rf = true;
+		        	setIndikator(1);
+				}
+			} else switch(msg.type) {
+                case "config": Object.assign(stats, msg.data);break;
+                case "performance": stats.performance = msg.data;break;
+                case "version": stats.version = msg.data;break;
+                case "info": stats.info[msg.symbol] = msg.data;break;
+                case "trade": if (!stats.charts_by_id[msg.symbol]) stats.charts_by_id[msg.symbol] = {};
+                                  stats.charts_by_id[msg.symbol][msg.id] = msg.data;
+                                  break;
+                case "misc": stats.misc[msg.symbol] = Object.assign(stats.misc[msg.symbol] || {},msg.data);break;
+                case "price":  stats.prices[msg.symbol] = msg.data;break;
+				case "error": if (!stats.misc[msg.symbol]) stats.misc[msg.symbol] = {};
+				                  stats.misc[msg.symbol].error = msg.data;
+                case "news": stats.news = msg.data.count;break
+                case "order": var opos = stats.orders.findIndex(function(x){
+                	return x.symb == msg.symbol && x.dir == msg.dir;
+                    });
+                    if (opos == -1) {
+						if (msg.data.price) { 
+							stats.orders.push({
+		                    	symb: msg.symbol,
+		                    	dir: msg.dir,
+		                    	price: msg.data.price,
+		                    	size: msg.data.size
+							});					
+                    	} 
+					} else {	
+                    	var x = stats.orders[opos];
+						if (msg.data.price) {
+                    		x.price = msg.data.price;
+                    		x.size = msg.data.size;
+						} else {
+							stats.orders.splice(opos,1);
+						}
+                    };
+                    break;
+               case "log": stats.log.push(msg.data);
+                           if (stats.log.length>100) stats.log.shift();
+                           break;
+               	                   
+
+            }
+
+        }
+
+    })();
+
+
+
+	function update(stats) {
+	
 			
 			source_data = stats;
 			var orders = {};
 			var ranges = {};
 			
 			infoMap = stats.info;			
+			var charts = stats["charts"];
+
+			for (var n in infoMap) {
+				ranges[n] = [];
+				orders[n] = [];
+				if (!charts[n]) charts[n] = [];
+
+			}
 			
 			document.getElementById("logfile").innerText = " > "+ stats["log"].join("\r\n > ");
 			document.getElementById("newsbox").hidden = !stats["news"];
 			document.getElementById("msgcnt").textContent = stats["news"] || "0";
 
 			
-			var charts = stats["charts"];
 			var newTrades = [];
-			for (var n in charts) if (infoMap[n]) {
+			for (var n in infoMap) {
 				var ch = charts[n];				
 				orders[n] = [];
 				ranges[n] = {};
@@ -799,7 +926,8 @@ function app_start(){
 
 					
 			(stats.orders || []).forEach(function(o) {
-				var s = orders[o.symb];
+				if (!ranges[o.symb]) return;
+				var s = orders[o.symb] || [];
 				var sz = o.size;
 				var ch =  charts[o.symb];
 				var inv = infoMap[o.symb].inverted;
@@ -832,6 +960,7 @@ function app_start(){
 			
 			for (var sm in stats.prices) if (infoMap[sm]) {
 				var s = orders[sm];
+				if (!s) continue;
 				var ch =  charts[sm];
 				var inv = infoMap[sm].inverted;
 				var last;
@@ -840,7 +969,6 @@ function app_start(){
 				} else {
 					 last = ch[ch.length-1];
 				}
-				if (!s) orders[o.symb] = s = [];				
 				var gain = ((inv?1.0/stats.prices[sm]:stats.prices[sm])- (inv?1.0/last.price:last.price))* (inv?-1:1)*last.pos;
 				s.push({
 					price: stats.prices[sm],
@@ -960,18 +1088,9 @@ function app_start(){
 			
 			redraw();
 			document.getElementById("version").innerText = stats.version; 
+			
 
-			indicator.classList.remove("fetching");
-			indicator.classList.add("online");
 
-		}).catch(function(e) {
-			indicator.classList.remove("fetching");
-			if (e && e.status === 401) {
-				location.href = "index.html?relogin=1";
-			} else {
-				console.error(e);
-			}
-		});
 	}
 	
 
@@ -1051,19 +1170,8 @@ function app_start(){
 	
 	var logo = document.getElementById("logo");
 	
-	function removeLogo() {
-		update().then(function() {
-			logo.parentNode.removeChild(logo);
-			setInterval(update,60000);
-		});
-	}
-	
-	if (Date.now() - mmbot_time < 300*1000) {
-		removeLogo();
-	}  else {
-		logo.hidden = false;
-		setTimeout(removeLogo, 2000);
-	}
+    logo.hidden = false;
+    initSSE();
 	
 	opencloselog.addEventListener("click",function() {
 		var v = document.getElementById("logfile");

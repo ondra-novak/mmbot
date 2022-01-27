@@ -216,8 +216,11 @@ function initChart(chart_interval, ratio, base_interval, objret) {
 	var dattextstep = Math.ceil(120/(daystep*step));
 	var activeheight = (activewidth/ratio)|0;
 	var minmax = chart.concat(lines?lines:[]).reduce(function(c,x) {
-		if (c.min > x[fld]) c.min = x[fld];
-		if (c.max < x[fld]) c.max = x[fld];
+		var v = x[fld];
+		if (isFinite(v)) {
+			if (c.min > v) c.min = v;
+			if (c.max < v) c.max = v;
+		}
 		return c;
 	},{min:chart[0][fld],max:chart[0][fld]});
 	minmax.sz = minmax.max - minmax.min;

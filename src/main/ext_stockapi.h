@@ -20,9 +20,10 @@
 class ExtStockApi: public IStockApi,
 				   public IApiKey,
 				   public IBrokerControl,
-				   public IBrokerIcon,
 				   public IBrokerSubaccounts,
-				   public IHistoryDataSource {
+				   public IHistoryDataSource,
+				   public IBrokerInstanceControl
+				   {
 public:
 
 	ExtStockApi(const std::string_view & workingDir, const std::string_view & name, const std::string_view & cmdline, int timeout);
@@ -37,7 +38,7 @@ public:
 	virtual json::Value placeOrder(const std::string_view & pair,
 			double size, double price,json::Value clientId,
 			json::Value replaceId,double replaceSize) override;
-	virtual bool reset() override;
+	virtual void reset(const std::chrono::system_clock::time_point &tp) override;
 	virtual MarketInfo getMarketInfo(const std::string_view & pair) override;
 	virtual double getFees(const std::string_view & pair) override;
 	virtual std::vector<std::string> getAllPairs() override;
@@ -47,11 +48,10 @@ public:
 	virtual json::Value getSettings(const std::string_view & pairHint) const override;
 	virtual json::Value setSettings(json::Value v) override;
 	virtual void restoreSettings(json::Value v) override;
-	virtual void saveIconToDisk(const std::string &path) const override;
-	virtual std::string getIconName() const override;
 	virtual PageData fetchPage(const std::string_view &method, const std::string_view &vpath, const PageData &pageData) override;
-	virtual json::Value requestExchange(json::String name, json::Value args,  bool idle = false);
-	void stop();
+	virtual json::Value requestExchange(json::String name, json::Value args);
+	virtual void unload() override;
+	virtual bool isIdle(const std::chrono::system_clock::time_point &tp) const override;
 	virtual ExtStockApi *createSubaccount(const std::string &subaccount) const override;
 	virtual bool isSubaccount() const override;
 	virtual json::Value getMarkets() const override;
@@ -80,15 +80,19 @@ protected:
 		json::Value getBrokerInfo() const;
 		json::Value getBrokerInfo(std::string_view subaccount) const;
 		void refreshBrokerInfo();
+		std::chrono::system_clock::time_point getLastActivity();
+		json::Value jsonRequestExchange(json::String name, json::Value args);
 	protected:
 		std::atomic<int> instance_counter = 0;
 		json::Value broker_info;
+		std::chrono::system_clock::time_point lastActivity;
 	};
 
 	json::Value broker_config;
 	std::shared_ptr<Connection> connection;
 	int instance_counter = 0;
 	std::string subaccount;
+	std::chrono::system_clock::time_point lastActivity, lastReset;
 
 	ExtStockApi(std::shared_ptr<Connection> connection, const std::string &subaccid);
 };

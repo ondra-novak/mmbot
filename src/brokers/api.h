@@ -122,6 +122,13 @@ public:
 
 
 	bool binary_mode = false;
+	///tests, whether keys are valid
+	///default implementation calls getWallet_direct(), as the feature is not implemented on brokers yet
+	///however, this should be improved later
+	///Keys are not valid when getWallet fails
+	virtual void probeKeys();
+
+	virtual bool reset() = 0;
 
 
 protected:
@@ -140,6 +147,9 @@ protected:
 	ondra_shared::RefCntPtr<LogProvider> logProvider;
 
 	friend json::Value handleSubaccount(AbstractBrokerAPI &handler, const json::Value &req);
+
+	///function is not used here
+	virtual void reset(const std::chrono::system_clock::time_point &tp) {}
 
 };
 

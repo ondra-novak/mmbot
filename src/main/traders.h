@@ -30,16 +30,22 @@ public:
 class StockSelector: public IStockSelector{
 public:
 	using StockMarketMap =  ondra_shared::linear_map<std::string, PStockApi, std::less<>>;
+	using TemporaryStockMap = std::map<std::string, PStockApi, std::less<> >;
+	using PTemporaryStockMap = ondra_shared::SharedObject<TemporaryStockMap>;
 
 	StockMarketMap stock_markets;
+	PTemporaryStockMap temp_markets;
+
+
+	StockSelector();
 
 	void loadBrokers(const ondra_shared::IniConfig::Section &ini, bool test, int brk_timeout);
 	bool checkBrokerSubaccount(const std::string &name);
 	virtual PStockApi getStock(const std::string_view &stockName) const override;
-//	void addStockMarket(ondra_shared::StrViewA name, PStockApi &&market);
 	virtual void forEachStock(EnumFn fn)  const override;
 	void clear();
-	void eraseSubaccounts();
+	void housekeepingIdle(const std::chrono::system_clock::time_point &now);
+	void appendSimulator();
 };
 
 
@@ -72,7 +78,6 @@ public:
 
 	void addTrader(const MTrader::Config &mcfg, ondra_shared::StrViewA n);
 	void removeTrader(ondra_shared::StrViewA n, bool including_state);
-	void loadIcons(const std::string &path);
 
 
 	void report_util(std::string_view ident, double ms);
@@ -96,8 +101,8 @@ public:
 
 	void initExternalAssets(json::Value config);
 
-private:
-	void loadIcon(MTrader &t);
+	static void resetBroker(const PStockApi &api, const std::chrono::system_clock::time_point &now);
+
 };
 
 

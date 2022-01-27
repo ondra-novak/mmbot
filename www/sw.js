@@ -1,5 +1,5 @@
 var CACHE = 'cache-update-and-refresh';
-//serial 23opwkpo124
+//serial 23opwkpo124ttt
 
 self.addEventListener('install', function(evt) {
 	  console.log('The service worker is being installed.');
@@ -37,7 +37,7 @@ self.addEventListener('fetch', function(evt) {
 	  // for non-GET requests.
 	  if (evt.request.method != 'GET') return;
 	  if (evt.request.url.indexOf("?relogin=1") != -1) return;
-	  if (evt.request.url.indexOf("report.json") != -1) return;
+	  if (evt.request.url.indexOf("/api/data") != -1) return;
 	  if (evt.request.url.indexOf("/admin/") != -1) return;
 
 	  var p = fromCache(evt.request);
