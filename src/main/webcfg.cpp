@@ -262,7 +262,8 @@ static json::Value brokerToJSON(const std::string_view &id, const IBrokerControl
 		{"version", binfo.version},
 		{"subaccounts",binfo.subaccounts},
 		{"subaccount",id.substr(std::min(id.length()-1,id.rfind('~'))+1)},
-		{"nokeys", binfo.nokeys}
+		{"nokeys", binfo.nokeys},
+		{"settings",binfo.settings}
 	});
 	return res;
 }
