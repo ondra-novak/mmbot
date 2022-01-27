@@ -286,8 +286,8 @@ bool WebCfg::reqBrokers(simpleServer::HTTPRequest req, ondra_shared::StrViewA re
 			if (!req.allowMethods({"POST"})) return true;
 			dispatch([=] {
 				trlist.lock_shared()->stockSelector.forEachStock([&](const std::string_view &,const PStockApi &x){
-					ExtStockApi *ex = dynamic_cast<ExtStockApi *>(x.get());
-					if (ex) ex->stop();
+					IBrokerInstanceControl *ex = dynamic_cast<IBrokerInstanceControl  *>(x.get());
+					if (ex) ex->unload();
 				});
 				req.sendResponse("application/json","true");
 			});
@@ -380,7 +380,7 @@ bool WebCfg::reqBrokerSpec(simpleServer::HTTPRequest req,
 		pair = pairstr;
 
 		if (req.getPath().indexOf("reset=1") != StrViewA::npos) {
-			api->reset();
+			api->reset(std::chrono::system_clock::now());
 		}
 
 		IBrokerControl *bc = dynamic_cast<IBrokerControl *>(api.get());
@@ -440,6 +440,10 @@ bool WebCfg::reqBrokerSpec(simpleServer::HTTPRequest req,
 				} else {
 					std::string newname = binfo.name + "~";
 					for (auto &&k: n.getString()) if (isalnum(k)) newname.push_back(k);
+					if (newname.length() <= binfo.name.length()+1) {
+						req.sendErrorPage(400);
+						return true;
+					}
 					auto trl = trlist;
 					trl.lock()->stockSelector.checkBrokerSubaccount(newname);
 					req.sendResponse("application/json", Value(newname).stringify().str());
@@ -559,16 +563,16 @@ bool WebCfg::reqBrokerSpec(simpleServer::HTTPRequest req,
 									orders.stringify().str());
 							return true;
 						} else if (req.getMethod() == "DELETE") {
-							api->reset();
+							api->reset(std::chrono::system_clock::now());
 							auto ords = api->getOpenOrders(p);
 							for (auto &&x : ords) {
 								api->placeOrder(p, 0, 0, Value(), x.id, 0);
 							}
-							api->reset();
+							api->reset(std::chrono::system_clock::now());
 							req.sendResponse(std::move(hdr), "true");
 							return true;
 						} else {
-							api->reset();
+							api->reset(std::chrono::system_clock::now());
 							Stream s = req.getBodyStream();
 							Value parsed = Value::parse(s);
 							Value price = parsed["price"];
@@ -711,7 +715,7 @@ bool WebCfg::reqTraders(simpleServer::HTTPRequest req, ondra_shared::StrViewA vp
 					auto chartx = trl->getChart();
 					ondra_shared::StringView<MTrader::ChartItem> chart(chartx.data(), chartx.size());
 					PStockApi broker = trl->getBroker();
-					broker->reset();
+					broker->reset(std::chrono::system_clock::now());
 					if (chart.length>600) chart = chart.substr(chart.length-600);
 					out.set("chart", Value(json::array,chart.begin(), chart.end(),[&](auto &&item) {
 						return Object({{"time", item.time},{"last",item.last}});
@@ -844,7 +848,6 @@ void WebCfg::State::applyConfig(SharedObject<Traders>  &st) {
 
 	t->wcfg.walletDB.lock()->clear();
 	traderNames.clear();
-	t->stockSelector.eraseSubaccounts();
 	t->rpt.lock()->clear();
 
 	t->initExternalAssets(data["ext_assets"]);
@@ -1011,7 +1014,7 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req)  {
 					p = symb.toString().str();
 				}
 
-				api->reset();
+				api->reset(std::chrono::system_clock::now());
 				auto bc = dynamic_cast<IBrokerControl *>(api.get());
 				auto binfo = bc?bc->getBrokerInfo():IBrokerControl::BrokerInfo{};
 
@@ -1036,12 +1039,7 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req)  {
 					rpnl = trl->getRPnL();
 				}
 				Object result;
-				result.set("broker",Object({
-						{"name", binfo.name},
-						{"exchangeName", binfo.exchangeName},
-						{"version", binfo.version},
-						{"settings", binfo.settings},
-						{"trading_enabled", binfo.trading_enabled}}));
+				result.set("broker",brokerToJSON(binfo.name, binfo));
 				Value pair = getPairInfo(api, p);
 				auto alloc = walletDB.lock_shared()->query(WalletDB::KeyQuery(broker.getString(),minfo.wallet_id,minfo.currency_symbol,uid));
 				result.set("pair", pair);
@@ -1507,7 +1505,7 @@ bool WebCfg::reqBTData(simpleServer::HTTPRequest req) {
 	if (!req.allowMethods({"GET"})) return true;
 
 	auto bb = backtest_broker.lock();
-	Value res = bb->jsonRequestExchange("symbols",json::Value(),false);
+	Value res = bb->jsonRequestExchange("symbols",json::Value());
 	bb->stop();
 
 	Stream s = req.sendResponse(HTTPResponse(200).contentType("application/json").cacheFor(80000));

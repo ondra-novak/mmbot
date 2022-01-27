@@ -93,17 +93,17 @@ class PaperTrading: public AbstractPaperTrading, public IBrokerControl {
 public:
 
 	PaperTrading(PStockApi source);
-	virtual double getBalance(const std::string_view &symb, const std::string_view &pair);
-	virtual bool reset();
-	virtual json::Value getMarkets() const;
-	virtual std::vector<std::string> getAllPairs();
-	virtual void restoreSettings(json::Value v);
-	virtual json::Value setSettings(json::Value v);
+	virtual double getBalance(const std::string_view &symb, const std::string_view &pair) override;
+	virtual void reset(const std::chrono::system_clock::time_point &tp) override;
+	virtual json::Value getMarkets() const override;
+	virtual std::vector<std::string> getAllPairs() override;
+	virtual void restoreSettings(json::Value v) override;
+	virtual json::Value setSettings(json::Value v) override;
 	virtual IBrokerControl::PageData fetchPage(const std::string_view &method,
-			const std::string_view &vpath, const IBrokerControl::PageData &pageData);
-	virtual json::Value getSettings(const std::string_view &pairHint) const;
-	virtual IBrokerControl::BrokerInfo getBrokerInfo();
-	virtual IBrokerControl::AllWallets getWallet();
+			const std::string_view &vpath, const IBrokerControl::PageData &pageData) override;
+	virtual json::Value getSettings(const std::string_view &pairHint) const override;
+	virtual IBrokerControl::BrokerInfo getBrokerInfo() override;
+	virtual IBrokerControl::AllWallets getWallet() override;
 	virtual IStockApi::MarketInfo getMarketInfo(const std::string_view &pair) override;
 
 
@@ -117,6 +117,8 @@ protected:
 	double currency = 0;
 	bool asset_valid = false;
 	bool currency_valid = false;
+	std::chrono::system_clock::time_point lastReset;
+
 
 	virtual void loadState(const AbstractPaperTrading::TradeState &st,
 			json::Value state);

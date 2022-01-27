@@ -170,7 +170,6 @@ void AbstractExtern::spawn() {
 				exterr = std::move(proc_error.read);
 				extin = std::move(proc_input.write);
 				chldid = frk;
-				houseKeepingCounter = 0;
 			}
 		});
 	}
@@ -289,18 +288,6 @@ bool AbstractExtern::writeJSON(json::Value v, FD& fd, bool binary_mode, int time
 	}
 }
 
-void AbstractExtern::housekeeping(int counter) {
-	Sync _(lock);
-	if (chldid != -1) {
-		houseKeepingCounter++;
-		if (houseKeepingCounter >= counter) {
-			log.progress("Stopping the idle broker");
-			stop();
-		} else {
-			log.debug("HouseKeepCounter: $1", houseKeepingCounter);
-		}
-	}
-}
 
 
 
@@ -322,10 +309,9 @@ void AbstractExtern::stop() {
 	kill();
 }
 
-json::Value AbstractExtern::jsonExchange(json::Value request, bool idle) {
+json::Value AbstractExtern::jsonExchange(json::Value request) {
 	Sync _(lock);
 
-	if (!idle) houseKeepingCounter=0;
 
 	std::string z;
 	std::string lastStdErr;
@@ -400,10 +386,10 @@ json::Value AbstractExtern::jsonExchange(json::Value request, bool idle) {
 	while (true);
 }
 
-json::Value AbstractExtern::jsonRequestExchange(json::String name, json::Value args, bool idle) {
+json::Value AbstractExtern::jsonRequestExchange(json::String name, json::Value args) {
 	Sync _(lock);
 	try {
-		auto resp = jsonExchange({name, args}, idle);
+		auto resp = jsonExchange({name, args});
 		if (resp[0].getBool() == true) {
 			auto result = resp[1];
 			return result;

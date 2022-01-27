@@ -7,6 +7,8 @@
 
 #ifndef SRC_MAIN_IBROKERCONTROL_H_
 #define SRC_MAIN_IBROKERCONTROL_H_
+#include <chrono>
+
 #include <imtjson/value.h>
 #include <imtjson/string.h>
 
@@ -150,6 +152,21 @@ public:
 					  std::vector<OHLC> &data
 				) = 0;
 
+};
+
+///Allows to control brokers over their instances - not broker itself
+/**
+ * Unload - unload broker internals if no longer needed
+ * Housekeeping - unload broker after some time of idle
+ */
+class IBrokerInstanceControl {
+public:
+	///Returns true, if broker is idle
+	virtual bool isIdle(const std::chrono::system_clock::time_point &tp) const = 0;
+	///Unload broker unconditionaly
+	virtual void unload() = 0;
+
+	virtual ~IBrokerInstanceControl() {}
 };
 
 #endif /* SRC_MAIN_IBROKERCONTROL_H_ */

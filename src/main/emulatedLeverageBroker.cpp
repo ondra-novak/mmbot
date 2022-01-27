@@ -88,8 +88,8 @@ IStockApi::TradesSync EmulatedLeverageBroker::syncTrades(json::Value lastId,
 	return target->syncTrades(lastId, pair);
 }
 
-bool EmulatedLeverageBroker::reset() {
-	return target->reset();
+void EmulatedLeverageBroker::reset(const std::chrono::system_clock::time_point &tp) {
+	return target->reset(tp);
 }
 
 IStockApi::Orders EmulatedLeverageBroker::getOpenOrders(const std::string_view &par) {

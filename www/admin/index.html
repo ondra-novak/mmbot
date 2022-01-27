@@ -33,7 +33,7 @@
 
 <label><span>ID</span><span data-name="id" ></span></label>
 <label><span>Broker</span><span><img src="" data-name="broker_img" class="inline_img">
-	<span data-name="broker_id"></span> (<span data-name="broker"><span class="spinner fast inline"></span></span> <span data-name="broker_ver"></span>)</span>
+	<span data-name="broker"><span class="spinner fast inline"></span></span> <span data-name="broker_ver"></span><span data-name="broker_subaccount"></span></span>
 	</label>
 
 
@@ -284,13 +284,20 @@ to enter a negative value and then the value of the assets held will decrease an
 <div class="label adv"><span>Derive profit from avg.spread<span class="tooltip">Instead using current spread, use average spread</span></span><x-checkbox data-name="shg_avgsp"></x-checkbox></div>
 <div class="label"><span>Lazy open<span class="tooltip">Open position slower (more trades - DCA)</span></span><x-checkbox data-name="shg_lazyopen"></x-checkbox></div>
 <div class="label adv"><span>Lazy close<span class="tooltip">Close position slower (more trades - DCA)</span></span><x-checkbox data-name="shg_lazyclose"></x-checkbox></div>
-<div class="label adv"><span>Boost/Reduction<span class="tooltip">Configure boost/reduction mode</span></span><select data-name="shg_boostmode">
-	<option value="2">Boost +2</option>
-	<option value="1">Boost +1</option>
-	<option value="0">Default</option>
-	<option value="3">Reduce +1</option>
-	<option value="4">Reduce +2</option>
-	<option value="5">Reduce +3</option>
+<div class="label adv"><span>Reduction pattern (open/close)<span class="tooltip">After every trade a basic "yield" is calculated depend on spread. The profit can be used to cover looses, or it can be added to overall profit. Adding more yield increases profit but decreases effectivness of the reduction. You can choose the most suitable pattern. Each item defines multiplication of basic yield for opening and closing trade. A negative value means acceptance of a loss which can help with reduction</span></span><select data-name="shg_boostmode">
+	<option value="8">(2/2) boost profit for the lowest reduction (high risk)</option>
+	<option value="7">(2/0) 2x risk on open, full reduce on close</option>
+	<option value="6">(1/0) open more, full reduce on close</option>
+	<option value="2">(0/2) open less, left 2x yield on close</option>
+	<option value="1">(1/1) open more, left basic yield on close</option>
+	<option value="0">(0/1) default</option>
+	<option value="3">(0/0) whole profit s used to cover loss</option>
+	<option value="4">(-1/2) reduce more</option>
+	<option value="5">(-2/4) reduce more</option>
+	<option value="9">(1/-1)</option>
+	<option value="10">(2/-1)</option>
+	<option value="11">(0/-) dilution (special)</option>
+	<option value="12">(-/0) dilution (special)</option>
 </select></div>
 <label class="adv"><span>Position offset<span class="tooltip">Specify absolute position offset which is considered as neutral (zero position). This can increase the profit in the trend if the value is chosen with respect to the direction of the trend. If the market goes in reversed direction, the result can be a loss. If you do not have a good market analysis to correctly determine the trend, leave the value zero which is default.</span></span><input type="number" step="any" data-name="shg_offset"></label>
 <div class="label"><span>Min price:</span><span data-name="range_min_price">---</span></div>
@@ -794,7 +801,7 @@ the same order, they are ordered by its ID - this is the default ordering. Modif
     data-need_admin="You need to define at least one user with the administration role"
     data-backtest_lesstrades="There are less than 100 trades. Results can be inaccurate"
     data-backtest_nodata="Backtest is not available yet (no data). Run trader with minimal power to collect some trades. At least 100 trades is needed."
-    data-access_control="Access control"
+    data-access_control="Security"
     data-options="Options"
     data-wallet="Wallets"
     data-messages="Messages"

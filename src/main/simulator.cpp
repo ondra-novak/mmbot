@@ -34,7 +34,7 @@ static inline double getInitialBalance(const std::string_view &symb) {
 
 
 Simulator::Simulator(IStockSelector *exchanges, const std::string &sub)
-:exchanges(exchanges), sub(sub) {}
+:exchanges(exchanges), sub(sub),lastReset(std::chrono::system_clock::now()) {}
 
 
 bool Simulator::isSubaccount() const {
@@ -126,7 +126,7 @@ uint64_t Simulator::downloadMinuteData(const std::string_view &asset, const std:
 IBrokerControl::BrokerInfo Simulator::getBrokerInfo() {
 	std::lock_guard _(lock);
 
-	json::Value bin = json::base64->decodeBinaryValue("iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAMAAACdt4HsAAAAM1BMVEVAAAB2en17fXqJi4iVmJSf"
+	static json::Value bin = json::base64->decodeBinaryValue("iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAMAAACdt4HsAAAAM1BMVEVAAAB2en17fXqJi4iVmJSf"
 			"op6mqKWytLG5u7fExsDP0MjZ2tHj49vs7OP09Ov9//z///aDjkt0AAAAAXRSTlMAQObYZgAAAgNJ"
 			"REFUWMPtlsu2gyAMRSsobxL+/2tvAFGwSLUd3bXMoANJdkNyCLxejz322DULAUO0b6NDAax2P/zN"
 			"biXvoQ66h6DMQfuD/w0CuXkFb86XCeTkRM/1OsBx6HpeA1D+kzmPHxOyh2CeythbNAsMCFu3Z4Y9"
@@ -151,7 +151,7 @@ IBrokerControl::BrokerInfo Simulator::getBrokerInfo() {
 		"",
 		json::map_bin2str(bin.getBinary(json::base64)),
 		true,
-		true,
+		sub.empty(),
 		true,
 		false
 	};
@@ -263,15 +263,18 @@ void Simulator::restoreSettings(json::Value v) {
 }
 
 
-bool Simulator::reset() {
+void Simulator::reset(const std::chrono::system_clock::time_point &tp) {
 	std::lock_guard _(lock);
-	std::vector<std::string> todel;
-	for (auto &st: state) {
-		simulate(st.second);
-		if (++st.second.idle>10) todel.push_back(st.first);
+	if (lastReset < tp) {
+		lastReset = tp;
+		std::vector<std::string> todel;
+		for (auto &st: state) {
+			st.second.source->reset(tp);
+			simulate(st.second);
+			if (++st.second.idle>10) todel.push_back(st.first);
+		}
+		for (const auto &n: todel) state.erase(n);
 	}
-	for (const auto &n: todel) state.erase(n);
-	return true;
 
 }
 
@@ -435,4 +438,15 @@ Simulator::SourceInfo Simulator::parseSymbol(const std::string_view &symbol) {
 
 int Simulator::chooseWallet(const MarketInfo &minfo) {
 	if (minfo.leverage) return wallet_futures; else return wallet_spot;
+}
+
+bool Simulator::isIdle(const std::chrono::_V2::system_clock::time_point &tp) const {
+	std::lock_guard _(lock);
+	return std::chrono::duration_cast<std::chrono::minutes>(tp - lastReset).count() >= 15;
+}
+
+void Simulator::unload() {
+	std::lock_guard _(lock);
+	state.clear();
+	for (auto &w: wallet) w.clear();
 }

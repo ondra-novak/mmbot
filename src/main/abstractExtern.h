@@ -24,7 +24,6 @@ public:
 	bool preload();
 	virtual void onConnect() {}
 	void stop();
-	void housekeeping(int counter);
 
 	///Send request
 	/**
@@ -33,7 +32,7 @@ public:
 	 * @param idle set true if the command is called during idle, so it is not tread as action
 	 * @return result value
 	 */
-	json::Value jsonRequestExchange(json::String name, json::Value args, bool idle = false);
+	json::Value jsonRequestExchange(json::String name, json::Value args);
 
 	class Exception: public std::exception {
 	public:
@@ -83,10 +82,9 @@ protected:
 
 	static Pipe makePipe();
 	int msgCntr = 1;
-	int houseKeepingCounter = 0;
 	bool binary_mode = false;
 
-	json::Value jsonExchange(json::Value request, bool idle);
+	json::Value jsonExchange(json::Value request);
 	static bool writeJSON(json::Value v, FD &fd, bool binary_mode, int timeout);
 //	static json::Value readJSON(FD &fd, int timeout);
 	static bool writeString(std::string_view ss, int timeout, FD &fd);

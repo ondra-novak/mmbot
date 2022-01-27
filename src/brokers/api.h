@@ -128,6 +128,8 @@ public:
 	///Keys are not valid when getWallet fails
 	virtual void probeKeys();
 
+	virtual bool reset() = 0;
+
 
 protected:
 	bool debug_mode = false;
@@ -145,6 +147,9 @@ protected:
 	ondra_shared::RefCntPtr<LogProvider> logProvider;
 
 	friend json::Value handleSubaccount(AbstractBrokerAPI &handler, const json::Value &req);
+
+	///function is not used here
+	virtual void reset(const std::chrono::system_clock::time_point &tp) {}
 
 };
 

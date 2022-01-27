@@ -71,19 +71,27 @@ bool StockSelector::checkBrokerSubaccount(const std::string &name) {
 		IBrokerSubaccounts *ek = dynamic_cast<IBrokerSubaccounts *>(k);
 		if (ek == nullptr) return false;
 		IStockApi *nk = ek->createSubaccount(id);
-		stock_markets.emplace(name, PStockApi(nk));
+		temp_markets.lock()->emplace(name, PStockApi(nk));
 	}
 	return true;
 }
 
 PStockApi StockSelector::getStock(const std::string_view &stockName) const {
 	auto f = stock_markets.find(stockName);
-	if (f == stock_markets.cend()) return nullptr;
+	if (f == stock_markets.cend()) {
+		auto tmp = temp_markets.lock_shared();
+		auto f = tmp->find(stockName);
+		if (f == tmp->end()) return nullptr;
+		else return f->second;
+	}
 	return f->second;
 }
 
 void StockSelector::forEachStock(EnumFn fn)  const {
 	for(auto &&x: stock_markets) {
+		fn(x.first, x.second);
+	}
+	for (auto &&x: *temp_markets.lock_shared()) {
 		fn(x.first, x.second);
 	}
 }
@@ -200,11 +208,9 @@ void Traders::removeTrader(ondra_shared::StrViewA n, bool including_state) {
 	}
 }
 
-static void resetBroker(const PStockApi &api) {
-	AbstractExtern *extr = dynamic_cast<AbstractExtern *>(api.get());
-	if (extr) extr->housekeeping(5);
+void Traders::resetBroker(const PStockApi &api, const std::chrono::system_clock::time_point &now) {
 	try {
-		api->reset();
+		api->reset(now);
 	} catch (std::exception &e) {
 		logError("Exception when RESET: $1", e.what());
 	}
@@ -217,49 +223,15 @@ void Traders::report_util(std::string_view ident, double ms) {
 
 void Traders::resetBrokers() {
 	auto t1 = std::chrono::system_clock::now();
-	std::set<PStockApi> brokers;
-	stockSelector.forEachStock([&](const std::string_view &, const PStockApi &api) {
-		brokers.emplace(api);
-	});
 	for (const auto &t: traders) {
-		brokers.emplace(t.second.lock_shared()->getBroker());
+		auto brk = t.second.lock_shared()->getBroker();
+		resetBroker(brk, t1);
 	}
-	for (const auto &c: brokers) {
-		resetBroker(c);
-	}
+	stockSelector.housekeepingIdle(t1);
 	auto t2 = std::chrono::system_clock::now();
 	reset_time = std::chrono::duration_cast<std::chrono::milliseconds>(t2-t1).count();
 }
 
-/*void Traders::runTraders(bool manually) {
-
-	if (worker.defined()) {
-		Countdown cdn;
-		stockSelector.forEachStock([&cdn,worker=this->worker](json::StrViewA, IStockApi&api) {
-			cdn.inc();
-			worker >> [&cdn,&api] {
-				resetBroker(api);
-				cdn.dec();
-			};
-		});
-		for (auto &&t : traders) {
-			cdn.inc();
-			worker >> [t,manually,&cdn]() mutable {
-				auto lt = t.second.lock();
-				try {lt->perform(manually);} catch (...) {}
-				cdn.dec();
-			};
-		}
-		cdn.wait();
-	} else {
-		resetBrokers();
-		for (auto &&t : traders) {
-			auto lt = t.second.lock();
-			lt->perform(manually);
-		}
-	}
-}
-*/
 
 Traders::TMap::const_iterator Traders::begin() const {
 	return traders.begin();
@@ -275,10 +247,25 @@ SharedObject<NamedMTrader> Traders::find(std::string_view id) const {
 	else return iter->second;
 }
 
-
-void StockSelector::eraseSubaccounts() {
-	for (auto iter = stock_markets.begin(); iter != stock_markets.end();) {
-		IBrokerSubaccounts *sb = dynamic_cast<IBrokerSubaccounts *>(iter->second.get());
-		if (sb && sb->isSubaccount()) iter = stock_markets.erase(iter); else ++iter;
-	}
+StockSelector::StockSelector() {
+	temp_markets = temp_markets.make();
 }
+
+void StockSelector::housekeepingIdle(const std::chrono::system_clock::time_point &tp) {
+	std::vector<std::string> todel;
+	for (auto &&x: stock_markets) {
+		auto *c = dynamic_cast<IBrokerInstanceControl *>(x.second.get());
+		if (c && c->isIdle(tp))
+			c->unload();
+	}
+	for (auto &&x: *temp_markets.lock_shared()) {
+		auto *c = dynamic_cast<IBrokerInstanceControl *>(x.second.get());
+		if (c && c->isIdle(tp)) {
+			c->unload();
+			todel.push_back(x.first);
+		}
+	}
+	for (const auto &x: todel)
+		temp_markets.lock()->erase(x);
+}
+

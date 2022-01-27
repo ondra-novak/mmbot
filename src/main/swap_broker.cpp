@@ -109,8 +109,8 @@ IStockApi::TradesSync SwapBroker::syncTrades(json::Value lastId, const std::stri
 	return data;
 }
 
-bool SwapBroker::reset() {
-	return target->reset();
+void SwapBroker::reset(const std::chrono::system_clock::time_point &tp) {
+	target->reset(tp);
 }
 
 IStockApi::Orders SwapBroker::getOpenOrders(const std::string_view &par) {

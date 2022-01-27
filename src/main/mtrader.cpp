@@ -1371,7 +1371,7 @@ void MTrader::stop() {
 void MTrader::reset(const ResetOptions &ropt) {
 	init();
 	dynmult.setMult(1, 1);
-	stock->reset();
+	stock->reset(std::chrono::system_clock::now());
 	//check whether lastTradeId is unable to retrieve trades
 	auto syncState = stock->syncTrades(lastTradeId, cfg.pairsymb);
 	//if no trades are received, we can freely reset lastTradeId;

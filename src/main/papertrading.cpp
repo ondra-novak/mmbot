@@ -85,7 +85,8 @@ IStockApi::MarketInfo AbstractPaperTrading::getMarketInfo(const std::string_view
 	auto newminfo = st.source->getMarketInfo(st.src_pair);
 	if (newminfo.leverage && !st.minfo.leverage) {
 		st.ticker = st.source->getTicker(pair);
-		st.collateral = ACB(st.ticker.last, getBalance(newminfo.asset_symbol, pair), 0);
+		auto b = st.source->getBalance(newminfo.asset_symbol, st.src_pair);
+		st.collateral = ACB(st.ticker.last, b, 0);
 	}
 	newminfo.wallet_id = std::move(st.minfo.wallet_id);
 	newminfo.simulator = true;
@@ -413,12 +414,14 @@ void PaperTrading::loadState(const AbstractPaperTrading::TradeState &st,json::Va
 	}
 }
 
-bool PaperTrading::reset() {
+void PaperTrading::reset(const std::chrono::system_clock::time_point &tp) {
 	std::lock_guard _(lock);
-	if (!state.pair.empty()) {
-		simulate(state);
+	if (lastReset<tp) {
+		if (!state.pair.empty()) {
+			simulate(state);
+		}
+		lastReset = tp;
 	}
-	return true;
 }
 
 PaperTrading::RawBalance PaperTrading::getRawBalance(const TradeState &st) const {

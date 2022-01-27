@@ -84,19 +84,17 @@ json::Value  ExtStockApi::placeOrder(const std::string_view & pair,
 }
 
 
-bool ExtStockApi::reset() {
-	if (subaccount.empty()) {
-		//do housekeeping only if not subaccount, because subaccounts are always active
-		connection->housekeeping(5);
-	}
+void ExtStockApi::reset(const std::chrono::system_clock::time_point &tp) {
 	std::unique_lock _(connection->getLock());
-	//save housekeep counter to avoid reset treat as action
-	if (connection->isActive()) try {
-		requestExchange("reset",json::Value(),true);
-	} catch (...) {
-		requestExchange("reset",json::Value(),true);
+
+	if (lastReset < tp) {
+		if (connection->isActive()) try {
+			requestExchange("reset",json::Value());
+		} catch (...) {
+			requestExchange("reset",json::Value());
+		}
+		lastReset = tp;
 	}
-	return true;
 }
 
 ExtStockApi::MarketInfo ExtStockApi::getMarketInfo(const std::string_view & pair) {
@@ -132,7 +130,7 @@ void ExtStockApi::Connection::onConnect() {
 	bool debug= lg.isLogLevelEnabled(ondra_shared::LogLevel::debug);
 	if (debug) {
 		try {
-			jsonRequestExchange("enableDebug",debug, false);
+			jsonRequestExchange("enableDebug",debug);
 		} catch (AbstractExtern::Exception &) {
 
 		}
@@ -231,16 +229,17 @@ ExtStockApi::PageData ExtStockApi::fetchPage(const std::string_view &method,
 	return presp;
 }
 
-json::Value ExtStockApi::requestExchange(json::String name, json::Value args, bool idle) {
+json::Value ExtStockApi::requestExchange(json::String name, json::Value args) {
+	lastActivity = std::chrono::system_clock::now();
 	if (connection->wasRestarted(instance_counter)) {
 		if (broker_config.defined()) {
-			if (subaccount.empty()) connection->jsonRequestExchange("restoreSettings", broker_config, idle);
-			else connection->jsonRequestExchange("subaccount", {subaccount, "restoreSettings", broker_config}, idle);
+			if (subaccount.empty()) connection->jsonRequestExchange("restoreSettings", broker_config);
+			else connection->jsonRequestExchange("subaccount", {subaccount, "restoreSettings", broker_config});
 		}
 	}
-	if (subaccount.empty()) return connection->jsonRequestExchange(name, args, idle);
+	if (subaccount.empty()) return connection->jsonRequestExchange(name, args);
 	else try {
-		return connection->jsonRequestExchange("subaccount", {subaccount, name, args}, idle);
+		return connection->jsonRequestExchange("subaccount", {subaccount, name, args});
 	} catch (const AbstractExtern::Exception &e) {
 		throw AbstractExtern::Exception(std::string(e.getMsg()), connection->getName()+ "~" + subaccount, name.c_str());
 	} catch (std::exception &e) {
@@ -248,7 +247,7 @@ json::Value ExtStockApi::requestExchange(json::String name, json::Value args, bo
 	}
 }
 
-void ExtStockApi::stop() {
+void ExtStockApi::unload() {
 	connection->stop();
 }
 
@@ -341,6 +340,11 @@ std::uint64_t ExtStockApi::downloadMinuteData(const std::string_view &asset,
 
 }
 
+bool ExtStockApi::isIdle(const std::chrono::system_clock::time_point &tp) const {
+	auto idleTime = tp - (subaccount.empty()? connection->getLastActivity():lastActivity);
+	return std::chrono::duration_cast<std::chrono::minutes>(idleTime).count() >= 15;
+}
+
 ExtStockApi::ExtStockApi(std::shared_ptr<Connection> connection, const std::string &subaccount)
 	:connection(connection),subaccount(subaccount) {}
 
@@ -348,4 +352,14 @@ ExtStockApi::ExtStockApi(std::shared_ptr<Connection> connection, const std::stri
 ExtStockApi *ExtStockApi::createSubaccount(const std::string &subaccount) const  {
 	ExtStockApi *copy = new ExtStockApi(connection,subaccount);
 	return copy;
+}
+
+std::chrono::system_clock::time_point ExtStockApi::Connection::getLastActivity() {
+	return lastActivity;
+}
+
+json::Value ExtStockApi::Connection::jsonRequestExchange(json::String name, json::Value args) {
+	lastActivity = std::chrono::system_clock::now();
+	return AbstractExtern::jsonRequestExchange(name, args);
+
 }

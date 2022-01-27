@@ -10,7 +10,12 @@
 #include "ibrokercontrol.h"
 #include "papertrading.h"
 
-class Simulator: public AbstractPaperTrading, public IBrokerControl, public IBrokerSubaccounts, public IHistoryDataSource {
+class Simulator: public AbstractPaperTrading,
+				 public IBrokerControl,
+				 public IBrokerSubaccounts,
+				 public IHistoryDataSource,
+				 public IBrokerInstanceControl
+				 {
 public:
 
 	Simulator(IStockSelector *exchanges, const std::string &sub = std::string());
@@ -30,8 +35,11 @@ public:
 	virtual double getBalance(const std::string_view &symb, const std::string_view &pair) override;
 	virtual json::Value setSettings(json::Value v) override;
 	virtual void restoreSettings(json::Value v) override;
-	virtual bool reset() override;
+	virtual void reset(const std::chrono::system_clock::time_point &tp) override;
 	virtual IBrokerControl::AllWallets getWallet() override;
+	virtual bool isIdle(
+			const std::chrono::_V2::system_clock::time_point &tp) const;
+	virtual void unload();
 
 protected:
 	virtual void loadState(const AbstractPaperTrading::TradeState &st, json::Value state) override;
@@ -62,6 +70,7 @@ protected:
 	ActiveTradeStates state;
 	Wallet wallet[2];
 	mutable json::Value allPairs;
+	std::chrono::system_clock::time_point lastReset;
 
 	struct SourceInfo {
 		PStockApi exchange;

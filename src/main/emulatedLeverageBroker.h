@@ -25,7 +25,7 @@ public:
 	virtual void restoreSettings(json::Value v) override;
 	virtual IStockApi::TradesSync syncTrades(json::Value lastId,
 			const std::string_view &pair) override;
-	virtual bool reset() override;
+	virtual void reset(const std::chrono::system_clock::time_point &tp) override;
 	virtual IStockApi::Orders getOpenOrders(const std::string_view &par) override;
 	virtual json::Value placeOrder(const std::string_view &pair, double size, double price,
 			json::Value clientId, json::Value replaceId, double replaceSize) override;

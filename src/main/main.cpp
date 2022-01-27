@@ -479,6 +479,10 @@ int main(int argc, char **argv) {
 												isviewer = aul->findUser(u, hpwd);
 												user = u;
 											} else {
+												bool needauth = v["needauth"].getBool();
+												if (needauth && !viewer.checkAuth(req)) {
+													return true;
+												}
 												json::Value usr = viewer.checkAuth_probe(req);
 												json::Value ausr = admin.checkAuth_probe(req);
 												if (usr.hasValue()) user = usr.getString();

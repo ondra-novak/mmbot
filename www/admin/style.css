@@ -1652,6 +1652,7 @@ x-section.backtest div.sidepanel {
 .vertical .content {
 	margin-left: 5.5cm;
 	box-sizing:border-box;
+	padding-top: 0.5em;
 }
 
 .vertical div.trader.list {

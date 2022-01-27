@@ -410,6 +410,7 @@ App.prototype.fillForm = function (src, trg) {
 		data.broker = broker.exchangeName;
 		data.broker_id = broker.name;
 		data.broker_ver = broker.version;
+		data.broker_subaccount = broker.subaccount?"("+broker.subaccount+")":"";
 		data.asset = pair.asset_symbol;
 		data.currency = pair.currency_symbol;
 		data.quote = pair.quote_currency
@@ -599,7 +600,7 @@ App.prototype.fillForm = function (src, trg) {
 	data.gs_rb_hi_a=1;
 	data.hp_fastclose=true;
 	data.hp_slowopen=false;
-	data.max_leverage = 3;
+	data.max_leverage = 5;
 	data.secondary_order = 0;
 	data.kb_keep_min = 0;
 	data.kb_keep_max = 100;
@@ -625,6 +626,7 @@ App.prototype.fillForm = function (src, trg) {
 	data.shg_lazyclose=false;
 	data.shg_boostmode=0;
 	data.shg_offset=0;
+	data.shg_show_asym={".hidden":false};
 	data.pincome_exp = 40;
 	data.pile_ratio=50;
 	data.pile_accum=0;
@@ -744,7 +746,7 @@ App.prototype.fillForm = function (src, trg) {
 	data.spread_mode = filledval(src.force_spread?"fixed":"adaptive","adaptive");
 	data.max_balance = filledval(src.max_balance,"");
 	data.min_balance = filledval(src.min_balance,"");
-	data.max_leverage = filledval(src.max_leverage,3);
+	data.max_leverage = filledval(src.max_leverage,5);
 	data.reduce_on_leverage = filledval(src.reduce_on_leverage, false);
 	data.adj_timeout = filledval(src.adj_timeout,60);
 	data.emul_leverage = filledval(src.emulate_leveraged,0);
@@ -1069,7 +1071,8 @@ App.prototype.brokerSelect = function() {
 							classList:{"available":z.trading_enabled}
 						}							
 					}	
-				},this);
+				},this)
+				.sort(function(a,b){return a.caption.localeCompare(b.caption);})
 			}.bind(this);
 			form.setData({
 				"item":lst(false),
@@ -1606,11 +1609,11 @@ App.prototype.logout = function() {
 	this.desktop.setData({menu:"",content:""});
 	this.config = null;
 	if (document.cookie.indexOf("auth=") != -1) {
-		fetch("../set_cookie",{
-			"method":"POST",
-			"body":"auth="
+		fetch("../api/user",{
+			"method":"DELETE",
+			"body":"",
 		}).then(function(resp) {
-			if (resp.status == 202) {
+			if (resp.status == 200) {
 				location.reload();
 			}
 		});
@@ -1625,32 +1628,12 @@ App.prototype.logout = function() {
 
 App.prototype.remember = function() {
 	
-	function post(path, params, method='post') {
-
-		  const form = document.createElement('form');
-		  form.method = method;
-		  form.action = path;
-
-		  for (const key in params) {
-		    if (params.hasOwnProperty(key)) {
-		      const hiddenField = document.createElement('input');
-		      hiddenField.type = 'hidden';
-		      hiddenField.name = key;
-		      hiddenField.value = params[key];
-
-		      form.appendChild(hiddenField);
-		    }
-		  }
-
-		  document.body.appendChild(form);
-		  form.submit();
-	}
-	
-	post("../set_cookie", {
-		"auth":"auth",
-		"permanent":"true",
-		"redir":"admin/index.html"
-	});
+	fetch_with_error("../api/user",{
+		"method":"POST",
+		"body":JSON.stringify({"cookie":"permanent","needauth":true})
+	}).then(function(){
+		location.reload();
+	})	
 }
 
 
