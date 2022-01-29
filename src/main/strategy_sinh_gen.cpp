@@ -302,6 +302,8 @@ std::pair<IStrategy::OnTradeResult, PStrategy> Strategy_Sinh_Gen::onTrade(
 	double np = pnl - (nb - cb);
 	double npos = cfg.calc->assets(newk, newpw*pwadj, tradePrice);
 	npos = limitPosition(npos);
+	double ppos = cfg.calc->assets(st.k, pw, st.p);
+	ppos = limitPosition(ppos);
 	double posErr = std::abs(npos - assetsLeft)/(std::abs(assetsLeft)+std::abs(npos)); //< chyba pozice oproti vypoctu
 	ulp = ulp || (tradeSize == 0 && posErr>0.3); //pokud je alert a chyba pozice je vetsi nez 30% prepni na use_last_price
 	bool rbl = st.rebalance;
@@ -309,7 +311,7 @@ std::pair<IStrategy::OnTradeResult, PStrategy> Strategy_Sinh_Gen::onTrade(
 
 
 	if (tradeSize == 0 && st.p == st.k) newk = tradePrice;
-	if (roundZero(npos-cfg.offset, minfo, tradePrice) == 0) {
+	if (npos*ppos <= 0 && ppos) {
 		newk = tradePrice;
 	}
 

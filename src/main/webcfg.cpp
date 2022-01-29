@@ -149,9 +149,47 @@ static std::string genRandomUID() {
 	return out;
 }
 
+static json::Value mergeJSON(json::Value src, json::Value diff) {
+	if (diff.type() == json::object) {
+		if (diff.empty()) return json::undefined;
+		if (src.type() != json::object) src = json::object;
+		auto src_iter = src.begin(), src_end = src.end();
+		auto diff_iter = diff.begin(), diff_end = diff.end();
+		json::Object out;
+		while (src_iter != src_end && diff_iter != diff_end) {
+			auto src_v = *src_iter, diff_v = *diff_iter;
+			auto src_k = src_v.getKey(), diff_k = diff_v.getKey();
+			if (src_k < diff_k) {
+				out.set(src_v);
+				++src_iter;
+			} else if (src_k > diff_k) {
+				out.set(diff_k, mergeJSON(json::undefined, diff_v));
+				++diff_iter;
+			} else {
+				out.set(diff_k, mergeJSON(src_v, diff_v));
+				++src_iter;
+				++diff_iter;
+			}
+		}
+		while (src_iter != src_end) {
+			out.set(*src_iter);
+			++src_iter;
+		}
+		while (diff_iter != diff_end) {
+			auto diff_v = *diff_iter;
+			out.set(diff_v.getKey(), mergeJSON(json::undefined, diff_v));
+		}
+		return out;
+	} else if (diff.type() == json::undefined){
+		return src;
+	} else {
+		return diff;
+	}
+}
+
 bool WebCfg::reqConfig(simpleServer::HTTPRequest req)  {
 
-	if (!req.allowMethods({"GET","PUT"})) return true;
+	if (!req.allowMethods({"GET","PUT","POST"})) return true;
 	if (req.getMethod() == "GET") {
 
 		json::Value data = state.lock_shared()->config->load();
@@ -164,11 +202,19 @@ bool WebCfg::reqConfig(simpleServer::HTTPRequest req)  {
 		req.readBodyAsync(upload_limit, [state=this->state,traders=this->trlist,dispatch = this->dispatch](simpleServer::HTTPRequest req) mutable {
 			try {
 				auto lkst = state.lock();
+				unsigned int serial;
 				Value data = Value::fromString(map_bin2str(req.getUserBuffer()));
-				unsigned int serial = data["revision"].getUInt();
-				if (serial != lkst->write_serial) {
-					req.sendErrorPage(409);
-					return ;
+				if (req.getMethod()=="POST") { //sending diff
+					json::Value old_cfg = lkst->config->load();
+					if (!old_cfg.defined()) {old_cfg = json::object;}
+					data = data.type() == json::object?mergeJSON(old_cfg, data):old_cfg;
+					serial = lkst->write_serial;
+				} else {
+					serial = data["revision"].getUInt();
+					if (serial != lkst->write_serial) {
+						req.sendErrorPage(409);
+						return ;
+					}
 				}
 				if (!data["uid"].defined()) {
 					data.setItems({
@@ -176,43 +222,17 @@ bool WebCfg::reqConfig(simpleServer::HTTPRequest req)  {
 					});
 				}
 				data = hashPswds(data);
-				Value trs = data["traders"];
-				for (Value v: trs) {
-					StrViewA name = v.getKey();
-					try {
-						MTrader_Config().loadConfig(v);
-					} catch (std::exception &e) {
-						std::string msg(name.data,name.length);
-						msg.append(" - ");
-						msg.append(e.what());
-						req.sendErrorPage(406, StrViewA(), msg);
-						return;
-					}
-				}
 				data.setItems({
 					{"revision",lkst->write_serial+1},
 					{"brokers", lkst->broker_config},
 					{"news_tm", lkst->news_tm}
 				});
-				Value apikeys = data["apikeys"];
-				lkst->config->store(data.replace("apikeys", Value()));
 				lkst->write_serial = serial+1;;
 
 
 				try {
+					lkst->config->store(data);
 					lkst->applyConfig(traders);
-					if (apikeys.type() == json::object) {
-						for (Value v: apikeys) {
-							StrViewA broker = v.getKey();
-							auto trs = traders.lock();
-							trs->stockSelector.checkBrokerSubaccount(broker);
-							PStockApi b = trs->stockSelector.getStock(broker);
-							if (b != nullptr) {
-								IApiKey *apik = dynamic_cast<IApiKey *>(b.get());
-								apik->setApiKey(v);
-							}
-						}
-					}
 				} catch (std::exception &e) {
 					req.sendErrorPage(500,StrViewA(),e.what());
 					return;

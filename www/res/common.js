@@ -530,3 +530,69 @@ function doDownlaodFile(data,name,content_type) {
 	 URL.revokeObjectURL(downloadUrl);
 }
 
+function compareObjects(a, b) {
+	if (typeof a != typeof b) return false;
+	var t = typeof a;
+	if (t == "object") {
+		if (a === null) return b === null;
+		if (Array.isArray(a)) {
+			if (!Array.isArray(b)) return false;
+			if (a.length != b.length) return false;
+			var l = a.length;
+			for (var i = 0; i < l; i++) {
+				if (!compareObjects(a[i],b[i])) return false;
+			}
+			return true;
+		}
+		if (Array.isArray(b)) return false;
+		for (var n in a) {
+			if ((!b.hasOwnProperty(n) && b[n]!==undefined) || !compareObjects(a[n],b[n])) return false;
+		}
+		for (var n in b) {
+			if ((!a.hasOwnProperty(n)) && a[n]!==undefined) return false;
+		}
+		return true;
+	}
+	return a === b;	
+}
+
+function createDiff(a,b) {
+	var t = typeof b;
+	if (t == "object") {
+		if (b === null) return a === null?undefined:b
+		if (Array.isArray(b)) {
+			if (!Array.isArray(a)) return b;
+			if (a.length != b.length) return b;
+			var l = a.length;
+			for (var i = 0; i < l; i++) {
+				if (!compareObjects(a[i],b[i])) return b;
+			}
+			return undefined;
+		}
+		if (typeof a !="object" || Array.isArray(a)) a = {};
+		var out = {};
+		var anyout = false;
+		var empty = true;
+		for (var n in b) {
+			empty = false;
+			var va = a[n];
+			var vb = b[n];
+			var df = createDiff(va,vb);
+			if (df !== undefined) {
+				out[n] =df;
+				anyout = true;
+			}			
+		} 
+		for (var n in a) {			
+			if (!b.hasOwnProperty(n)) {
+				out[n] = {}; //empty object means delete command
+				anyout = true;
+			}
+		}
+		if (anyout) return out;
+		else if (empty) return {"~~~":{}};  //means - erase "~~~" however it also creates empty object
+		return undefined;
+	}
+	return a===b?undefined:b;	
+}
+

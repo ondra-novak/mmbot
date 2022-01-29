@@ -263,6 +263,19 @@ x-section.backtest   div.mainpanel div.chart > svg{}
 div.trader.list .selected {
 	background-color: #333;
 }
+div.trader.list .modified::after {
+	content:"*";
+	display: block;
+	position: absolute;
+	right: 0;
+	top: 0;
+	font-size: 1.5em;
+	color: yellow;
+	left: 0;
+	text-align: right;
+	text-shadow: 2px 2px 4px black, -2px -2px 4px black, -2px 2px 4px black, 2px -2px 4px black;
+}
+
 
 div.trader.list .paper > *{
 	filter: sepia(1) saturate(2);
@@ -376,6 +389,7 @@ div.trader.list > * {
 	text-align: center;
 	align-items: center;
 	transition: 0.4s all;
+	position: relative;
 }
 
 div.trader.list .exclamation {
@@ -1669,7 +1683,15 @@ x-section.backtest div.sidepanel {
 	align-content: center;
 	gap: 0.3em;
 	width: 100%;
+	position: relative;
 }
+
+div.trader.list .modified::after {
+    left: 1cm;
+    right: unset;
+    margin-left: -0.4em;
+}
+
 
 .vertical div.trader.list img {width:  1cm;height: 1cm;vertical-align:middle;}
 .vertical div.trader.list .item div {flex-grow: 1;text-align: left;}
