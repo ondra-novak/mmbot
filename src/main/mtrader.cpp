@@ -222,10 +222,12 @@ void MTrader::alertTrigger(const Status &st, double price, int dir, AlertReason 
 		auto norm = strategy.onTrade(minfo, price, 0, position, st.currencyBalance);
 		tr.eff_size-=norm.normAccum;
 		accumulated +=norm.normAccum;
+		position -=norm.normAccum;
 		trades.push_back(TWBItem(tr, last_np+=norm.normProfit, last_ap+=norm.normAccum, norm.neutralPrice, false, static_cast<char>(dir), static_cast<char>(reason)));
 	} else {
 		trades.push_back(TWBItem(tr, last_np, last_ap, 0, true, static_cast<char>(dir), static_cast<char>(reason)));
 	}
+	refresh_minfo = true;
 }
 
 void MTrader::dorovnani(Status &st, double assetBalance, double price) {
@@ -239,6 +241,7 @@ void MTrader::dorovnani(Status &st, double assetBalance, double price) {
 		price
 	});
 	lastTradePrice = price;
+	refresh_minfo = true;
 }
 
 void MTrader::perform(bool manually) {
@@ -246,7 +249,14 @@ void MTrader::perform(bool manually) {
 	try {
 		init();
 
-		updateMInfo();
+		if (refresh_minfo) {
+			try {
+				minfo = stock->getMarketInfo(cfg.pairsymb);
+				refresh_minfo = false;
+			} catch (std::exception &e) {
+				logWarning("Failed to refresh market info: $1", e.what());
+			}
+		}
 
 		//Get opened orders
 		auto orders = getOrders();
@@ -372,9 +382,6 @@ void MTrader::perform(bool manually) {
 					lastPriceOffset = lastTradePrice - status.spreadCenter;
 					frozen_spread = status.curStep;
 					frozen_spread_side = fst;
-					if (cfg.freeze_spread) {
-						logProgress("Spread frozen: dir=$1, value=$2", frozen_spread_side, frozen_spread);
-					}
 				}
 			}
 
@@ -826,17 +833,6 @@ static std::pair<double,double> sumTrades(const std::pair<double,double> &a, con
 	};
 }
 
-void MTrader::updateMInfo() {
-	auto now = std::chrono::system_clock::now();
-	if (now > refresh_minfo_time) {
-		try {
-			minfo = stock->getMarketInfo(cfg.pairsymb);
-			refresh_minfo_time = now + std::chrono::minutes(30);
-		} catch (std::exception &e) {
-			logWarning("Update MarketInfo failed with error: $1", e.what());
-		}
-	}
-}
 
 MTrader::Status MTrader::getMarketStatus() const {
 
@@ -1109,7 +1105,6 @@ void MTrader::initialize() {
 						minfo.invert_price, minfo.leverage != 0, minfo.simulator });
 		}
 		minfo.min_size = std::max(minfo.min_size, cfg.min_size);
-		refresh_minfo_time = std::chrono::system_clock::now()+std::chrono::minutes(30);
 	} catch (std::exception &e) {
 		if (!cfg.hidden) {
 			this->statsvc->setInfo(

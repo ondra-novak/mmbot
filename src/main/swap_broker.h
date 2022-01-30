@@ -32,6 +32,8 @@ public:
 protected:
 	Orders ords;
 	MarketInfo minfo;
+
+	std::pair<MarketInfo,Ticker> getMarketInfoAndTicker(const std::string_view &pair) ;
 };
 
 class SwapBroker: public InvertBroker {

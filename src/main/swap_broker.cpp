@@ -18,12 +18,17 @@ InvertBroker::InvertBroker(PStockApi target):AbstractBrokerProxy(target) {
 
 
 IStockApi::MarketInfo InvertBroker::getMarketInfo(const std::string_view &pair) {
+	return getMarketInfoAndTicker(pair).first;
+}
+
+std::pair<IStockApi::MarketInfo,IStockApi::Ticker> InvertBroker::getMarketInfoAndTicker(const std::string_view &pair) {
 	minfo = target->getMarketInfo(pair);
+	Ticker tk = target->getTicker(pair);
 	if (minfo.leverage || minfo.invert_price) throw std::runtime_error("Can't swap assets and currencies on leveraged markets");
-	return MarketInfo {
+	return {MarketInfo {
 		minfo.currency_symbol,
 		minfo.asset_symbol,
-		minfo.currency_step*minfo.asset_step,
+		tk.last * minfo.asset_step,
 		minfo.currency_step,
 		minfo.min_volume,
 		minfo.min_size,
@@ -35,15 +40,14 @@ IStockApi::MarketInfo InvertBroker::getMarketInfo(const std::string_view &pair) 
 		minfo.simulator,
 		minfo.private_chart,
 		minfo.wallet_id
-	};
+	},tk};
 }
 
 IStockApi::MarketInfo SwapBroker::getMarketInfo(const std::string_view &pair) {
-	auto minfo = InvertBroker::getMarketInfo(pair);
-	minfo.invert_price = false;
-	auto ticker = target->getTicker(pair);
-	minfo.currency_step = std::abs(1/ticker.last - 1/(ticker.last+minfo.currency_step));
-	return minfo;
+	auto x = InvertBroker::getMarketInfoAndTicker(pair);
+	x.first.invert_price = false;
+	x.first.currency_step = std::abs(1/x.second.last - 1/(x.second.last+minfo.currency_step));
+	return x.first;
 }
 
 
@@ -138,5 +142,6 @@ IStockApi::Ticker InvertBroker::getTicker(const std::string_view &pair) {
 		tk.time
 	};
 }
+
 
 

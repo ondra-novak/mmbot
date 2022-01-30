@@ -268,6 +268,7 @@ App.prototype.createTraderList = function(form) {
 				this.curForm.save = function() {
 					this.traders[iid] = this.saveForm(nf, this.traders[iid]);
 					var c = !compareObjects(this.traders[iid], this.config.traders[iid]);
+					if (c) console.log({"new":createDiff(this.config.traders[iid],this.traders[iid]),"old":createDiff(this.traders[iid],this.config.traders[iid])});
 					this.modified[iid] = c;
 					this.updateTopMenu();
 				}.bind(this);
@@ -1826,17 +1827,6 @@ function createCSV(chart) {
 	return rows.join("\r\n");
 }
 
-var fill_atprice=true;
-var show_op=false;
-var invert_chart = false;
-var reverse_chart = false;
-var allow_neg_balance = false;
-var spend_profit = false;
-var hist_smooth=0;
-var rnd_preset={
-		"volatility":1,
-		"noise":1,		
-};
 
 function DelayUpdate(fn) {
 	var tm;
@@ -1873,20 +1863,36 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		"trade_within_budget"];
 	var spread_inputs = ["spread_calc_stdev_hours","secondary_order", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode","dynmult_sliding","dynmult_cap","dynmult_mult","force_spread","spread_mode","spread_freeze"];
 	var leverage = form._pair.leverage != 0;	
-	var balance = form._backtest_balance+(leverage?0:form._assets*invPrice(form._price,form._pair.invert_price));
-	var assets = 0;
 	var pairinfo = form._pair;
 	var invert_price = form._pair.invert_price;
-	var init_def_price = form._price;
 	var days = 45*60*60*24*1000;
     var offset = 0;
     var offset_max = 0;
-	var start_date = "";
 	var sttype =form.readData(["strategy"]).strategy;
-    var show_norm= ["halfhalf","pile","keepvalue","exponencial","errorfn","hypersquare","conststep"].indexOf(sttype) != -1?2:0;
 	var infoElm;
+	var balance = form._backtest_balance+(leverage?0:form._assets*invPrice(form._price,form._pair.invert_price))
 	var this_bt=this.backtest[id];
 	if (!this_bt) this.backtest[id]=this_bt={};
+	if (!this.backtest_opts) this.backtest_opts = {};
+	var btopts = this.backtest_opts[id] || {
+			fill_atprice:true,
+			show_op:false,
+			invert_chart:false,
+			reverse_chart:false,
+			allow_neg_balance:false,
+			spend_profit:false,
+			hist_smooth:0,
+			rnd_preset:{
+				"volatility":1,
+				"noise":1
+			},			
+			show_norm:["halfhalf","pile","keepvalue","exponencial","errorfn","hypersquare","conststep"].indexOf(sttype) != -1?1:0,
+			initial_price:form._price,
+			initial_balance:balance,
+			initial_pos:undefined,			
+		};
+	this.backtest_opts[id] =  btopts;
+	
 
 
 	function draw(cntr, v, offset, balance) {
@@ -2030,12 +2036,12 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 			"rpnly": adjNumBuySell(lastrpnl*year_mlt),
 			"pcrpnl": adjNumBuySell(lastrpnl*year_mlt*100/balance,1),
 			"max_lev": adjNum(max_lev,2),
-        	"showpl":{".hidden":show_norm!=0},
-        	"showpla":{".hidden":show_norm!=3},
-        	"shownorm":{".hidden":show_norm!=1},
-        	"showaccum":{".hidden":show_norm!=2},
-			"showrpnl":{".hidden":show_norm!=4},
-        	"graphtype":show_norm,
+        	"showpl":{".hidden":btopts.show_norm!=0},
+        	"showpla":{".hidden":btopts.show_norm!=3},
+        	"shownorm":{".hidden":btopts.show_norm!=1},
+        	"showaccum":{".hidden":btopts.show_norm!=2},
+			"showrpnl":{".hidden":btopts.show_norm!=4},
+        	"graphtype":btopts.show_norm,
         	"trades": trades,
         	"buys": buys,
         	"sells": sells,
@@ -2062,12 +2068,12 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		var drawChart = initChart(interval,ratio,scale,true);
 		var drawMap1;
 		var drawMap2;
-		if (show_norm==4) {
+		if (btopts.show_norm==4) {
 		    drawMap1=drawChart(chart1,c,"pr",lastop?[{label:"open",pr:lastop}]:[],"op");
 		} else {
 		    drawMap1=drawChart(chart1,c,"pr",lastnp?[{label:"neutral",pr:lastnp}]:[],"np");			
 		}
-		switch (show_norm) {
+		switch (btopts.show_norm) {
 			case 1: drawMap2=drawChart(chart2,c,"npl",[{label:"PL",npla:lastpl}],"pl");break;
 			case 2: drawMap2=drawChart(chart2,c,"na",[]);break;
 			case 3: drawMap2=drawChart(chart2,c,"plb",[],"nplb");break;
@@ -2185,9 +2191,9 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
     var skip_norm = false;
 
 	function swapshowpl() {
-		show_norm = (show_norm+1)%3;
-		if (skip_norm && show_norm == 1) swapshowpl();
-		else if (skip_accum && show_norm == 2) swapshowpl();
+		btopts.show_norm = (btopts.show_norm+1)%3;
+		if (skip_norm && btopts.show_norm == 1) swapshowpl();
+		else if (skip_accum && btopts.show_norm == 2) swapshowpl();
 		update_recalc();
 	}
 
@@ -2215,8 +2221,8 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 			sliding:data.dynmult_sliding,
 			spread_freeze:data.spread_freeze,
 			dyn_mult:data.dynmult_mult,
-			reverse: reverse_chart,
-			invert: invert_chart,
+			reverse: btopts.reverse_chart,
+			invert: btopts.invert_chart,
 			ifutures: invert_price,			
 			source: this_bt.minute.id,
 			order2: data.secondary_order,
@@ -2259,7 +2265,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 								}),
 								asset:resp[1].quote_asset,
 								currency:resp[1].quote_currency,
-								smooth:hist_smooth,
+								smooth:btopts.hist_smooth,
 						};
 						var d;
 						(d = this.dlgbox(ddata,"download_price_dlg")).then(function(){
@@ -2274,19 +2280,20 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 										this_bt.trades = null;
 										get_chart(cntr.update().then(function(){
 											dlg.close();
-											if (ddata.save) 
+											if (ddata.save) {
 											    var a  = document.createElement("a");
 											    a.setAttribute("href",url+"/"+dataid);
 											    a.setAttribute("download","minute_"+broker+"_"+pair+".csv");
 											    document.body.appendChild(a);
 											    a.click();
 											    document.body.removeChild(a);
+											}
 										}), delayed_update_minute);
                                 });
 							} else { 
 								this_bt.minute = {"mode":"historical_chart","args":ddata};
 								this_bt.trades = null;
-								hist_smooth = ddata.smooth;
+								btopts.hist_smooth = ddata.smooth;
 								cntr.update();
 							}
 						}.bind(this));					
@@ -2297,13 +2304,14 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 
 		cntr.showSpinner();
 		config = this.saveForm(form,{});
-        opts = cntr.bt.readData(["initial_balance", "initial_pos","initial_price"]);
+        opts = frst?btopts:cntr.bt.readData(["initial_balance", "initial_pos","initial_price"]);
+		Object.assign(btopts, opts);
 		config.broker = broker;
 		config.pair_symbol = pair;
-		var init_price = isFinite(opts.initial_price)?opts.initial_price:init_def_price;
+		var init_price = isFinite(opts.initial_price)?opts.initial_price:form._price;
         var norm_init_price = invert_price?1.0/init_price:init_price;
         bal =( isFinite(opts.initial_balance)?opts.initial_balance:balance)
-                    + (leverage?0:(isFinite(opts.initial_pos)?opts.initial_pos:assets)*norm_init_price);
+                    + (leverage?0:(isFinite(opts.initial_pos)?opts.initial_pos:0)*norm_init_price);
 
         function has_minute() {return this_bt.minute && this_bt.minute.chart;};
        	req = {
@@ -2312,12 +2320,12 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 			init_pos:isFinite(opts.initial_pos)?opts.initial_pos:undefined,
 			init_price:init_price,
 			balance:isFinite(opts.initial_balance)?opts.initial_balance:bal,
-			fill_atprice:fill_atprice,
-			start_date: start_date,
-			reverse: reverse_chart,
-			invert: invert_chart,
-			neg_bal: allow_neg_balance,
-			spend: spend_profit,
+			fill_atprice:btopts.fill_atprice,
+			start_date:btopts.start_date,
+			reverse: btopts.reverse_chart,
+			invert: btopts.invert_chart,
+			neg_bal: btopts.allow_neg_balance,
+			spend: btopts.spend_profit,
 		};
 
 
@@ -2339,8 +2347,10 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 				})
 			});
 			
-			cntr.bt.setItemValue("initial_price",adjNumN(init_def_price));
-			cntr.bt.setItemValue("initial_balance",adjNumN(balance));
+			cntr.bt.setItemValue("initial_price",adjNumN(btopts.initial_price));
+			cntr.bt.setItemValue("initial_balance",adjNumN(btopts.initial_balance));
+			cntr.bt.setItemValue("initial_pos",adjNumN(btopts.initial_pos));
+			cntr.bt.setData({"start_date":{".valueAsNumber":btopts.start_date}});
 			cntr.bt.setItemEvent("options", "click", function() {
 				this.classList.toggle("sel");
 				cntr.bt.setData({"options_form":{classList:{shown:this.classList.contains("sel")}}});
@@ -2350,44 +2360,44 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 			cntr.bt.setItemEvent("initial_pos","input",cntr.update);
 			cntr.bt.setItemEvent("initial_price","input",cntr.update);
 			cntr.bt.setItemEvent("reverse_chart","change",function() {
-				reverse_chart = cntr.bt.readData(["reverse_chart"]).reverse_chart;
+				btopts.reverse_chart = cntr.bt.readData(["reverse_chart"]).reverse_chart;
 				if (has_minute()) this_bt.trades = null;
 				cntr.update();				
 			});
 			cntr.bt.setItemEvent("invert_chart","change",function() {
-				invert_chart = cntr.bt.readData(["invert_chart"]).invert_chart;
+				btopts.invert_chart = cntr.bt.readData(["invert_chart"]).invert_chart;
 				if (has_minute()) this_bt.trades = null;
 				cntr.update();				
 			});
 			cntr.bt.setItemEvent("graphtype", "change", function(){
-				show_norm =  parseInt(this.value);
+				btopts.show_norm =  parseInt(this.value);
 				update_recalc();
 			});
 			cntr.bt.setItemEvent("icon_test", "click", stabilityTest.bind(this));
-			cntr.bt.setItemValue("show_op", show_op);
-			cntr.bt.setItemValue("fill_atprice",fill_atprice);
-			cntr.bt.setItemValue("allow_neg_bal",allow_neg_balance);
-			cntr.bt.setItemValue("spend_profit",spend_profit);
-			cntr.bt.setItemValue("reverse_chart",reverse_chart);
-			cntr.bt.setItemValue("invert_chart",invert_chart);
+			cntr.bt.setItemValue("show_op", btopts.show_op);
+			cntr.bt.setItemValue("fill_atprice",btopts.fill_atprice);
+			cntr.bt.setItemValue("allow_neg_bal",btopts.allow_neg_balance);
+			cntr.bt.setItemValue("spend_profit",btopts.spend_profit);
+			cntr.bt.setItemValue("reverse_chart",btopts.reverse_chart);
+			cntr.bt.setItemValue("invert_chart",btopts.invert_chart);
 			cntr.bt.setItemEvent("allow_neg_bal","change", function() {
-				allow_neg_balance = cntr.bt.readData(["allow_neg_bal"]).allow_neg_bal;
+				btopts.allow_neg_balance = cntr.bt.readData(["allow_neg_bal"]).allow_neg_bal;
 				cntr.update();
 			})
 			cntr.bt.setItemEvent("spend_profit","change", function() {
-				spend_profit = cntr.bt.readData(["spend_profit"]).spend_profit;
+				btopts.spend_profit = cntr.bt.readData(["spend_profit"]).spend_profit;
 				cntr.update();
 			})
 			cntr.bt.setItemEvent("show_op","change", function() {
-				show_op = cntr.bt.readData(["show_op"]).show_op;
+				btopts.show_op = cntr.bt.readData(["show_op"]).show_op;
 				update();
 			})
 			cntr.bt.setItemEvent("start_date","input", function() {
-				start_date=this.valueAsNumber;
-				if (start_date>0) cntr.update();
+				btopts.start_date=this.valueAsNumber;
+				if (btopts.start_date>0 || isNaN(btopts.start_date)) cntr.update();
 			})
 			cntr.bt.setItemEvent("fill_atprice","change", function() {
-				fill_atprice = cntr.bt.readData(["fill_atprice"]).fill_atprice;
+				btopts.fill_atprice = cntr.bt.readData(["fill_atprice"]).fill_atprice;
 				cntr.update();
 			})
 			cntr.bt.setItemEvent("showpl","click",swapshowpl);
@@ -2401,14 +2411,14 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 				el.click();
 			});
 			cntr.bt.setItemEvent("random_chart","click",function(){
-				if (rnd_preset.seed === undefined) {
-				    rnd_preset.seed = (Math.random()*32768*65536)|0;
+				if (btopts.rnd_preset.seed === undefined) {
+				    btopts.rnd_preset.seed = (Math.random()*32768*65536)|0;
 				}
 				var d;
-				(d = this.dlgbox(rnd_preset,"random_dlg")).then(function(){
-					rnd_preset = d.view.readData();
+				(d = this.dlgbox(btopts.rnd_preset,"random_dlg")).then(function(){
+					btopts.rnd_preset = d.view.readData();
 					this_bt.trades = null;
-					this_bt.minute = {mode:"random_chart", args: rnd_preset};
+					this_bt.minute = {mode:"random_chart", args: btopts.rnd_preset};
 					cntr.update();
 				});
 

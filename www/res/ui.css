@@ -77,3 +77,19 @@ x-checkbox.checked >span>span  {
 	right: 0;
 	left: 50%;
 }
+
+x-checkbox.radio > span {width: 1em; border-radius: 1em}
+x-checkbox.radio > span > span {
+	  left: 0;
+	  right: 0;
+	  opacity: 0;
+}
+
+x-checkbox.radio.checked > span > span {
+	  opacity: 1;
+}
+
+
+x-checkbox.radio.checked {
+	
+}

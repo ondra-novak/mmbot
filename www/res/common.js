@@ -553,6 +553,10 @@ function compareObjects(a, b) {
 		}
 		return true;
 	}
+	if (t == "number") {
+		var sum = Math.abs(a)+Math.abs(b);
+		return Math.abs(a-b)<=sum*1e-8;
+	}
 	return a === b;	
 }
 
@@ -593,6 +597,6 @@ function createDiff(a,b) {
 		else if (empty) return {"~~~":{}};  //means - erase "~~~" however it also creates empty object
 		return undefined;
 	}
-	return a===b?undefined:b;	
+	return compareObjects(a,b)?undefined:b;	
 }
 

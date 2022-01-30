@@ -319,7 +319,7 @@ protected:
 	ACB acb_state;
 	bool position_valid = false;
 	bool currency_valid = false;
-	std::chrono::system_clock::time_point refresh_minfo_time;
+	bool refresh_minfo = false;
 
 
 /*	std::optional<double> asset_balance;
