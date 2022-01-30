@@ -178,6 +178,7 @@ static json::Value mergeJSON(json::Value src, json::Value diff) {
 		while (diff_iter != diff_end) {
 			auto diff_v = *diff_iter;
 			out.set(diff_v.getKey(), mergeJSON(json::undefined, diff_v));
+			++diff_iter;
 		}
 		return out;
 	} else if (diff.type() == json::undefined){
@@ -996,6 +997,7 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req)  {
 				Value broker = data["broker"];
 				Value trader = data["trader"];
 				Value symb = data["pair"];
+				Value swap = data["swap_mode"];
 				std::string p;
 				std::size_t uid;
 				bool exists = false;
@@ -1011,9 +1013,10 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req)  {
 				PStockApi api;
 				IStockApi::MarketInfo minfo;
 				if (tr == nullptr) {
-					api = trlist.lock_shared()->stockSelector.getStock(broker.toString().str());
-					if (api == nullptr) {
-						return req.sendErrorPage(410);
+					try {
+						api = MTrader::selectStock(trlist.lock()->stockSelector, broker.getString(), static_cast<SwapMode>(swap.getUInt()), 0, false);
+					} catch (std::exception &e) {
+						return req.sendErrorPage(410, e.what());
 					}
 					minfo = api->getMarketInfo(symb.getString());
 					uid = 0;
@@ -1872,6 +1875,7 @@ bool WebCfg::reqBacktest_v2(simpleServer::HTTPRequest req, ondra_shared::StrView
 					Value offset = args["offset"];
 					Value limit = args["limit"];
 					Value begin_time = args["begin_time"];
+					auto swap = args["swap"].getBool();
 
 					Value srcminute = storage.lock()->load_data(source.getString());
 					if (!srcminute.defined()) {
@@ -1910,6 +1914,7 @@ bool WebCfg::reqBacktest_v2(simpleServer::HTTPRequest req, ondra_shared::StrView
 					for (std::size_t pos = ofs; pos < lim;++pos) {
 						const auto &itm =  srcminute[pos];
 						double w = itm.getNumber();
+						if (swap) w = 1.0/w;
 						if (inv) {
 							if (init == 0) init = pow2(w);
 							w = init/w;

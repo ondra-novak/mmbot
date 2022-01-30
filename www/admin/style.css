@@ -512,7 +512,13 @@ div.broker div.right a[data-name=link]::after {
 	background-repeat: no-repeat;
 	vertical-align: middle;
 }
-
+div.broker.pair table.selector {
+    margin: auto;
+}
+div.broker.pair table.selector td {
+    text-align: left;
+    padding: 0 0.5em;
+}
 
 div.dialog div.confirm div[data-name=custom] {
 	text-align: justify;

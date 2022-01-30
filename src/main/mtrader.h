@@ -29,6 +29,11 @@
 class IStockApi;
 
 
+enum class SwapMode {
+	no_swap = 0,
+	swap = 1,
+	invert = 2
+};
 
 struct MTrader_Config {
 	std::string pairsymb;
@@ -65,13 +70,14 @@ struct MTrader_Config {
 
 	double init_open;
 
+	SwapMode swap_mode;
+
 	bool paper_trading;
 	bool dont_allocate;
 	bool enabled;
 	bool hidden;
 	bool dynmult_sliding;
 	bool dynmult_mult;
-	bool swap_symbols;
 	bool reduce_on_leverage;
 	bool freeze_spread;
 	bool trade_within_budget;
@@ -273,6 +279,8 @@ public:
 	void recalcNorm();
 	void fixNorm();
 
+	static PStockApi selectStock(IStockSelector &stock_selector, std::string_view broker_name, SwapMode swap_mode, int emulate_leverage, bool paper_trading);
+
 protected:
 
 	PStockApi stock;
@@ -311,6 +319,7 @@ protected:
 	ACB acb_state;
 	bool position_valid = false;
 	bool currency_valid = false;
+	std::chrono::system_clock::time_point refresh_minfo_time;
 
 
 /*	std::optional<double> asset_balance;
@@ -324,8 +333,6 @@ protected:
 	void loadState();
 
 	double raise_fall(double v, bool raise) const;
-
-	static PStockApi selectStock(IStockSelector &stock_selector, const Config &conf);
 
 	bool processTrades(Status &st);
 
@@ -380,6 +387,7 @@ private:
 	BalanceChangeEvent detectLeakedTrade(const Status &st) const;
 	void doWithdraw(const Status &st);
 	void updateEnterPrice();
+	void updateMInfo() ;
 };
 
 

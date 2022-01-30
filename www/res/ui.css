@@ -30,18 +30,20 @@ x-slider[disabled]>*{
 
 x-checkbox {
 	display: inline;
+	cursor: pointer;
 }
 
 x-checkbox[disabled] {
 	opacity: 0.5;
 	pointer-events: none;
+	cursor: default;
 }
 
-x-checkbox.checked {
+x-checkbox.checked  {
 	font-weight: bold;
 }
 
-x-checkbox > span{
+x-checkbox > span:first-child{
 	display: inline-block;
 	height: 1.2em;
 	width: 2.4em;
@@ -66,7 +68,7 @@ x-checkbox > span >span {
 	transition: all 0.2s;
 }
 
-x-checkbox.checked >span  {
+x-checkbox.checked >span:first-child  {
 	border: 2px solid #dcdcdc;
 }
 

@@ -239,13 +239,14 @@ App.prototype.createTraderList = function(form) {
 					var broker = res[0];
 					var pair = res[1];
 					var name = res[2];				
+					var swap_mode = parseInt(res[3]);
 					if (!this.traders[name]) this.traders[name] = {};
 					var t = this.traders[name];
 					t.broker = broker;
 					t.pair_symbol = pair;
 					t.id = name;
 					t.enabled = true;
-					t.dry_run = false;
+					t.swap_symbols = swap_mode;
 					if (!t.title) t.title = pair;
 					this.updateTopMenu(name);
 				}.bind(this))
@@ -368,7 +369,8 @@ App.prototype.fillForm = function (src, trg) {
 			body: JSON.stringify({
 				broker: src.broker,
 				trader: src.id,
-				pair: src.pair_symbol
+				pair: src.pair_symbol,
+				swap_mode: src.swap_symbols
 			})
 		});
 		return state.then(function(st) {
@@ -395,9 +397,6 @@ App.prototype.fillForm = function (src, trg) {
 					},
 					broker:"error"
 				};				
-				if (x.t.indexOf("swap assets") != -1) {
-				    data.swap_symbols_hide={".hidden":false};
-				}
 				trg.setData(data);
 			});
 		});			
@@ -561,7 +560,6 @@ App.prototype.fillForm = function (src, trg) {
 
 			first_fetch = false;
 		}
-		data.swap_symbols_hide = {".hidden":!!(pair.leverage || state.trades) && !src.swap_symbols};
 		if (!state.visstr)  
 		    state.visstr="api/visstrategy?id="+encodeURIComponent(src.id)+"&asset="+pair.asset_balance+"&currency="+pair.currency_balance+"&price="+pair.price+"&t="+Date.now();
 		data.visstr = state.visstr;
@@ -580,6 +578,7 @@ App.prototype.fillForm = function (src, trg) {
 	data.advanced = this.advanced;
 
 	trg._paper = src.paper_trading;
+	trg._swap_symbols = src.swap_symbols;
 	data.is_paper_trading = src.paper_trading?"true":"false";
 	data.strategy = (src.strategy && src.strategy.type) || "";
 	data.cstep = 0;
@@ -645,7 +644,6 @@ App.prototype.fillForm = function (src, trg) {
 	data.hodlshort_acc = 0;
 	data.hodlshort_rinvst= false;
 
-	function powerCalc(x) {return adjNumN(Math.pow(10,x)*0.01);};
 
 	
 	if (data.strategy == "halfhalf" || data.strategy == "keepvalue" || data.strategy == "exponencial"|| data.strategy == "hypersquare"||data.strategy == "conststep") {
@@ -728,8 +726,7 @@ App.prototype.fillForm = function (src, trg) {
 		trg.showItem("shg_show_asym", this.value == "0");
 	};
 	data.enabled = src.enabled;
-	data.hidden = !!src.hidden;
-	data.swap_symbols = !!src.swap_symbols;
+	data.hidden = !!src.hidden;	
 	data.accept_loss = filledval(src.accept_loss,0);
 	data.grant_trade_hours= filledval(src.grant_trade_hours,0);
 	data.spread_calc_stdev_hours = filledval(src.spread_calc_stdev_hours,4);
@@ -823,13 +820,6 @@ App.prototype.fillForm = function (src, trg) {
 		return x;
 	}
 
-/*	function spreadRules() {
-		var d = trg.readData(["spread_mode","dynmult_mode"]);
-		var a = d.spread_mode == "adaptive";
-		trg.
-		
-	
-	}*/
 	
 
 	return trg.setData(data).catch(function(){}).then(unhide_changed.bind(this)).then(trg.dlgRules.bind(trg));
@@ -952,8 +942,7 @@ App.prototype.saveForm = function(form, src) {
 	trader.pair_symbol = src.pair_symbol;
 	trader.title = data.title;
 	trader.enabled = data.enabled;	
-	trader.hidden = data.hidden;
-	trader.swap_symbols = data.swap_symbols;
+	trader.hidden = data.hidden;	
 	this.advanced = data.advanced;
 	trader.accept_loss = data.accept_loss;
 	trader.grant_trade_hours = data.grant_trade_hours;
@@ -987,6 +976,9 @@ App.prototype.saveForm = function(form, src) {
 	trader.init_open = data.init_open;
 	if (src.paper_trading) trader.paper_trading = true;
 	if (src.pp_source) trader.pp_source = true;
+	if (typeof src.swap_symbols == "boolean") trader.swap_symbols = src.swap_symbols?2:0;
+	else trader.swap_symbols = src.swap_symbols;
+
 	return trader;
 	
 }
@@ -1109,8 +1101,13 @@ App.prototype.pairSelect = function(broker) {
 			var d = form.readData();
 			if (!d.pair || !d.name) return;
 			var name = d.name.replace(/[^-a-zA-Z0-9_.~]/g,"_");
-			ok([broker, d.pair, name]);
+			ok([broker, d.pair, name, d.swap_mode]);
 		},"ok");
+
+        function onSelectPair(pair) {
+        	form.setItemValue("pair", p);
+        }
+
 		fetch_with_error(_this.pairURL(broker,"")).then(function(data) {
 		    var m;
             if (data.struct) m = data.struct;
@@ -1177,6 +1174,16 @@ App.prototype.pairSelect = function(broker) {
 		},function() {form.close();cancel();});
 		form.setItemValue("image", _this.brokerImgURL(broker));
 		var last_gen_name="";
+		var prev_pair="";
+		form.setData({
+		    "swap_ui":{".style.visibility":"hidden"},
+			"swap_mode":{
+				"value":"0",
+				"!change":function() {
+					form.setData({"swap_mode":this.dataset.value});
+				}	
+			}
+		});
 		function dlgRules() {
 			var d = form.readData(["pair","name"]);
 			if (d.name == last_gen_name) {
@@ -1184,6 +1191,24 @@ App.prototype.pairSelect = function(broker) {
 				form.setItemValue("name", last_gen_name);
 			}
 			form.enableItem("ok", d.pair != "" && d.name != "");			
+            if (prev_pair != d.pair) {
+            	prev_pair = d.pair;
+            	if (d.pair == "") {
+					form.setData({
+						"swap_ui":{".style.visibility":"hidden"},
+						"swap_mode":"0"
+					});
+                } else {
+					fetch_json(_this.pairURL(broker, d.pair)).then(function(x){
+						var data = {};
+						data.asset = x.asset_symbol;
+						data.currency = x.currency_symbol;	
+						data.swap_ui = {".style.visibility":"visible"};					
+						form.setData(data);
+					});
+                }
+            	                
+            }
 		};
 		
 		
@@ -2195,7 +2220,8 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 			ifutures: invert_price,			
 			source: this_bt.minute.id,
 			order2: data.secondary_order,
-			offset: offset
+			offset: offset,
+			swap:  form._swap_symbols == 1
 		}
 		return fetch_json(url+"/gen_trades",{method:"POST",body:JSON.stringify(sreq)});
 	}

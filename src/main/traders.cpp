@@ -53,6 +53,8 @@ void StockSelector::loadBrokers(const ondra_shared::IniConfig::Section &ini, boo
 	appendSimulator();
 }
 
+
+
 void StockSelector::appendSimulator() {
 	PStockApi sim = std::make_shared<Simulator>(this);
 	stock_markets.emplace(dynamic_cast<IBrokerControl *>(sim.get())->getBrokerInfo().name, sim);

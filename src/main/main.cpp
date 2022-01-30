@@ -489,6 +489,9 @@ int main(int argc, char **argv) {
 												else if (ausr.hasValue()) user = ausr.getString();
 												isadmin = ausr.defined();
 												isviewer = usr.defined();
+												if (needauth && !usr.hasValue() && !ausr.hasValue() && !admin.checkAuth(req)) {
+													return true;
+												}
 											}
 											if ((isadmin || isviewer) && setcookie != "") {
 												auto s = aul->createJWT(user);

@@ -9,37 +9,37 @@
 #define SRC_MAIN_SWAP_BROKER_H_
 
 #include <imtjson/value.h>
+#include "abstractbrokerproxy.h"
+
 #include "ibrokercontrol.h"
 #include "istockapi.h"
 
-class SwapBroker: public IStockApi, public IBrokerControl {
+class InvertBroker: public AbstractBrokerProxy {
 public:
-	SwapBroker(PStockApi target);
-	virtual std::vector<std::string> getAllPairs() override;
+	InvertBroker(PStockApi target);
+
 	virtual IStockApi::MarketInfo getMarketInfo(const std::string_view &pair) override;
-	virtual IBrokerControl::PageData fetchPage(const std::string_view &method,
-			const std::string_view&vpath, const IBrokerControl::PageData &pageData) override;
-	virtual json::Value getSettings(const std::string_view &pairHint) const override;
-	virtual BrokerInfo getBrokerInfo() override;
 	virtual double getBalance(const std::string_view &symb, const std::string_view &pair) override;
-	virtual json::Value setSettings(json::Value v) override;
-	virtual void restoreSettings(json::Value v) override;
-	virtual IStockApi::TradesSync syncTrades(json::Value lastId,
-			const std::string_view &pair) override;
 	virtual void reset(const std::chrono::system_clock::time_point &tp) override;
 	virtual IStockApi::Orders getOpenOrders(const std::string_view &par) override;
 	virtual json::Value placeOrder(const std::string_view &pair, double size, double price,
 			json::Value clientId, json::Value replaceId, double replaceSize) override;
 	virtual double getFees(const std::string_view &pair) override;
 	virtual IStockApi::Ticker getTicker(const std::string_view &piar) override;
-
-	virtual json::Value getMarkets() const override;
-	virtual AllWallets getWallet() override;
+	virtual IStockApi::TradesSync syncTrades(json::Value lastId,
+			const std::string_view &pair) override;
 
 protected:
-	PStockApi target;
 	Orders ords;
 	MarketInfo minfo;
+};
+
+class SwapBroker: public InvertBroker {
+public:
+	using InvertBroker ::InvertBroker ;
+
+	virtual IStockApi::MarketInfo getMarketInfo(const std::string_view &pair) override;
+
 };
 
 #endif /* SRC_MAIN_SWAP_BROKER_H_ */

@@ -73,10 +73,16 @@ TemplateJS.View.regCustomElement("X-CHECKBOX", new TemplateJS.CustomElement(
 					elem.dispatchEvent(new Event("change"));
 				});
 			}
-			elem.classList.toggle("checked", val);
+			var chk = elem.dataset.value !== undefined?(
+					typeof val == "string"?val == elem.dataset.value:
+					Array.isArray(val)?val.indexOf(elem.dataset.value) != -1:!!val):!!val; 			
+			elem.classList.toggle("checked", chk);
 		},
 		function(elem) {
-			return elem.classList.contains("checked");
+			var chk =  elem.classList.contains("checked");
+			if (elem.dataset.value !== undefined) return chk?elem.dataset.value:undefined;
+			else return chk;
+			
 		}
 		
 ));

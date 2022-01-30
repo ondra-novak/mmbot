@@ -286,6 +286,7 @@ public:
 	virtual ~IStockApi() {}
 
 	static json::NamedEnum<IStockApi::FeeScheme> strFeeScheme;
+
 };
 
 using PStockApi = std::shared_ptr<IStockApi>;
