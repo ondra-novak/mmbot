@@ -19,7 +19,7 @@ public:
 
 	class FnCalc {
 	public:
-		FnCalc(double wd, double boost, int side, double z);
+		FnCalc(double wd, double boost, double z);
 
 		double baseFn(double x) const;
 		double root(double x) const;
@@ -37,7 +37,6 @@ public:
 		double wd;
 		double boost;
 		double z;
-		int side;
 		std::vector<Point> itable;
 
 	};

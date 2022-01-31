@@ -128,19 +128,6 @@ public:
 		std::optional<IStockApi::Order> buy,sell,buy2,sell2;
 	};
 
-	struct ZigZagInfo {
-		//total amount covered by this level
-		double amount;
-		//average price on this level
-		double price;
-	};
-
-	struct ZigZagLevels {
-		//zigzag direction
-		double direction;
-		//levels
-		std::vector<ZigZagInfo> levels;
-	};
 
 
 
@@ -302,7 +289,6 @@ protected:
 	double lastTradePrice = 0;
 	int frozen_spread_side = 0;
 	double frozen_spread = 0;
-	json::Value test_backup;
 	json::Value lastTradeId = nullptr;
 	std::optional<AlertInfo> sell_alert, buy_alert;
 
@@ -353,7 +339,6 @@ protected:
 	bool checkMinMaxBalance(double newBalance, double dir, double price) const;
 	std::pair<AlertReason, double> limitOrderMinMaxBalance(double balance, double orderSize, double price) const;
 
-	ZigZagLevels zigzaglevels;
 
 
 	AlertReason checkLeverage(const Order &order, double assets, double currency, double &maxSize) const;

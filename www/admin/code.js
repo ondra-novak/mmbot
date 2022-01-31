@@ -1204,7 +1204,10 @@ App.prototype.pairSelect = function(broker) {
 						var data = {};
 						data.asset = x.asset_symbol;
 						data.currency = x.currency_symbol;	
-						data.swap_ui = {".style.visibility":"visible"};					
+						data.swap_ui = {".style.visibility":x.leverage?"hidden":"visible"};		
+						if (x.leverage) {
+							data.swap_mode = 0;
+						}
 						form.setData(data);
 					});
                 }

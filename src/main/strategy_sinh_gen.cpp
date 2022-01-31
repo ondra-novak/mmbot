@@ -27,8 +27,8 @@ bool Strategy_Sinh_Gen::FnCalc::sortPoints(const Point &a, const Point &b) {
 	return a.first < b.first;
 }
 
-Strategy_Sinh_Gen::FnCalc::FnCalc(double wd, double boost, int side, double z)
-:wd(wd),boost(boost),z(z),side(side) {
+Strategy_Sinh_Gen::FnCalc::FnCalc(double wd, double boost,  double z)
+:wd(wd),boost(boost),z(z) {
 
 		auto fillFn = [&](double x, double y) {
 			itable.push_back({x,y});
@@ -56,9 +56,7 @@ Strategy_Sinh_Gen::FnCalc::FnCalc(double wd, double boost, int side, double z)
 double Strategy_Sinh_Gen::FnCalc::baseFn(double x) const {
 	double y;
 	double arg = wd*(1-std::sqrt(x));
-	if (side<0) y=0.5*std::exp(arg);
-	else if (side>0) y=-0.5*std::exp(-arg);
-	else y = std::sinh(arg);
+	y = std::sinh(arg);
 	y = y / (std::pow(x,wd*z+1)*std::sqrt(wd));
 	return y + sgn(y) * boost;
 }
@@ -311,9 +309,12 @@ std::pair<IStrategy::OnTradeResult, PStrategy> Strategy_Sinh_Gen::onTrade(
 
 
 	if (tradeSize == 0 && st.p == st.k) newk = tradePrice;
-	if (npos*ppos <= 0 && ppos) {
-		newk = tradePrice;
+	if (npos*ppos <= 0) {
+		if (ppos || !npos) {
+			newk = tradePrice;
+		}
 	}
+
 
 	State nwst;
 	nwst.use_last_price = ulp;

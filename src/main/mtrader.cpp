@@ -1259,9 +1259,6 @@ void MTrader::saveState() {
 		}
 	}
 	obj.set("strategy",strategy.exportState());
-	if (test_backup.hasValue()) {
-		obj.set("test_backup", test_backup);
-	}
 	storage->store(obj);
 }
 

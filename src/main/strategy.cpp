@@ -174,7 +174,7 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 		double w = config["w"].getNumber();
 		double b = config["b"].getNumber();
 		double z = -cfg.disableSide?0:config["z"].getNumber()*0.002;
-		cfg.calc = std::make_shared<Strategy_Sinh_Gen::FnCalc>(w,b*0.01,cfg.disableSide,z);
+		cfg.calc = std::make_shared<Strategy_Sinh_Gen::FnCalc>(w,b*0.01,z);
 		cfg.power = p;
 		cfg.lazyopen = config["lazyopen"].getBool();
 		cfg.lazyclose = config["lazyclose"].getBool();
