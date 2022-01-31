@@ -93,6 +93,7 @@ struct WalletCfg {
 	PWalletDB accumDB;
 	PBalanceMap balanceCache;
 	PBalanceMap externalBalance;
+	PBalanceMap conflicts;
 };
 
 class MTrader {

@@ -869,6 +869,8 @@ void WebCfg::State::applyConfig(SharedObject<Traders>  &st) {
 	}
 
 	t->wcfg.walletDB.lock()->clear();
+	t->wcfg.accumDB.lock()->clear();
+	t->wcfg.conflicts.lock()->clear();
 	traderNames.clear();
 	t->rpt.lock()->clear();
 

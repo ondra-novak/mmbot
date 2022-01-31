@@ -976,7 +976,7 @@ App.prototype.saveForm = function(form, src) {
 	if (isFinite(data.max_costs)) trader.max_costs = data.max_costs;
 	trader.init_open = data.init_open;
 	if (src.paper_trading) trader.paper_trading = true;
-	if (src.pp_source) trader.pp_source = true;
+	if (src.pp_source) trader.pp_source = src.pp_source;
 	if (typeof src.swap_symbols == "boolean") trader.swap_symbols = src.swap_symbols?2:0;
 	else trader.swap_symbols = src.swap_symbols;
 

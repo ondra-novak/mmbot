@@ -1091,6 +1091,14 @@ void MTrader::initialize() {
 
 	try {
 		minfo = stock->getMarketInfo(cfg.pairsymb);
+		if (!cfg.dont_allocate || cfg.enabled) {
+			auto clk = wcfg.conflicts.lock();
+			auto r = clk->get(cfg.broker, minfo.wallet_id, cfg.pairsymb);
+			if (r != 0 && r != magic) {
+			      throw std::runtime_error("Conflict: Can't run multiple traders on a single pair \r\n\r\n(To have a disabled trader on the same pair you have to enable 'No budget allocation' on the disabled trader)");
+			}
+			clk->put(cfg.broker, minfo.wallet_id, cfg.pairsymb, magic);
+		}
 
 		if (!cfg.hidden) {
 			this->statsvc->setInfo(

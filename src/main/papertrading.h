@@ -117,6 +117,7 @@ protected:
 	double currency = 0;
 	bool asset_valid = false;
 	bool currency_valid = false;
+	std::string random_id;
 	std::chrono::system_clock::time_point lastReset;
 
 
