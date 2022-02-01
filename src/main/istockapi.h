@@ -275,13 +275,15 @@ public:
 	 * @return market information
 	 */
 	virtual MarketInfo getMarketInfo(const std::string_view & pair) = 0;
-	///Retrieves trading fees
-	/**
+	//Retrieves trading fees
+	/*
 	 *
 	 * @param pair trading pair
 	 * @return MAKER fees (the MMBot doesn't generate TAKER's orders)
+	 *
+	 * NOTE: Removed from API, fees are updated throught getMarketInfo - called after every trade
 	 */
-	virtual double getFees(const std::string_view &pair) = 0;
+	//virtual double getFees(const std::string_view &pair) = 0;
 
 	virtual ~IStockApi() {}
 

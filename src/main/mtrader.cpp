@@ -251,7 +251,7 @@ void MTrader::perform(bool manually) {
 
 		if (refresh_minfo) {
 			try {
-				minfo = stock->getMarketInfo(cfg.pairsymb);
+				update_minfo();
 				refresh_minfo = false;
 			} catch (std::exception &e) {
 				logWarning("Failed to refresh market info: $1", e.what());
@@ -277,8 +277,6 @@ void MTrader::perform(bool manually) {
 		bool delayed_trade_detect = false;
 		std::string buy_order_error;
 		std::string sell_order_error;
-		//update market fees
-		minfo.fees = status.new_fees;
 		//process all new trades
 		bool anytrades = processTrades(status);
 
@@ -870,7 +868,6 @@ MTrader::Status MTrader::getMarketStatus() const {
 	res.currencyBalance = wdb->adjBalance(WalletDB::KeyQuery(cfg.broker,minfo.wallet_id,minfo.currency_symbol,uid),	res.currencyUnadjustedBalance);
 	res.currencyAvailBalance = wdb->adjBalance(WalletDB::KeyQuery(cfg.broker,minfo.wallet_id,minfo.currency_symbol,uid),*res.brokerCurrencyBalance);
 
-	res.new_fees = stock->getFees(cfg.pairsymb);
 
 	auto ticker = stock->getTicker(cfg.pairsymb);
 	res.ticker = ticker;
@@ -1070,7 +1067,10 @@ MTrader::Order MTrader::calculateOrder(
 
 }
 
-
+void MTrader::update_minfo() {
+	minfo = stock->getMarketInfo(cfg.pairsymb);
+	minfo.min_size = std::max(minfo.min_size, cfg.min_size);
+}
 
 void MTrader::initialize() {
 	std::string brokerImg;
@@ -1090,7 +1090,7 @@ void MTrader::initialize() {
 				"gvyoGZj2YwZqN/hhbWujWttm4I/rExvNNT6fxhWaRgeFuPYDghTP70Os5zoAAAAASUVORK5CYII=";
 
 	try {
-		minfo = stock->getMarketInfo(cfg.pairsymb);
+		update_minfo();
 		if (!cfg.dont_allocate || cfg.enabled) {
 			auto clk = wcfg.conflicts.lock();
 			auto r = clk->get(cfg.broker, minfo.wallet_id, cfg.pairsymb);
@@ -1112,7 +1112,7 @@ void MTrader::initialize() {
 						cfg.report_order,
 						minfo.invert_price, minfo.leverage != 0, minfo.simulator });
 		}
-		minfo.min_size = std::max(minfo.min_size, cfg.min_size);
+
 	} catch (std::exception &e) {
 		if (!cfg.hidden) {
 			this->statsvc->setInfo(

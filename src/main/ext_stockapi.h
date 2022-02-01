@@ -40,7 +40,6 @@ public:
 			json::Value replaceId,double replaceSize) override;
 	virtual void reset(const std::chrono::system_clock::time_point &tp) override;
 	virtual MarketInfo getMarketInfo(const std::string_view & pair) override;
-	virtual double getFees(const std::string_view & pair) override;
 	virtual std::vector<std::string> getAllPairs() override;
 	virtual BrokerInfo getBrokerInfo()  override;
 	virtual void setApiKey(json::Value keyData) override;

@@ -266,11 +266,6 @@ json::Value AbstractPaperTrading::placeOrder(const std::string_view &pair, doubl
 
 }
 
-double AbstractPaperTrading::getFees(const std::string_view &pair) {
-	std::lock_guard _(lock);
-	TradeState &st = getState(pair);
-	return st.minfo.fees;
-}
 
 IStockApi::Ticker AbstractPaperTrading::getTicker(const std::string_view &pair) {
 	std::lock_guard _(lock);

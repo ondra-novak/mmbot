@@ -104,11 +104,6 @@ ExtStockApi::MarketInfo ExtStockApi::getMarketInfo(const std::string_view & pair
 
 }
 
-double ExtStockApi::getFees(const std::string_view& pair) {
-	json::Value v = requestExchange("getFees",pair);
-	return v.getNumber();
-
-}
 
 std::vector<std::string> ExtStockApi::getAllPairs() {
 	json::Value v = requestExchange("getAllPairs", json::Value());

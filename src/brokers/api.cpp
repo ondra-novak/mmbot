@@ -164,11 +164,6 @@ static Value getMarkets(AbstractBrokerAPI &handler, const Value &req) {
 	return handler.getMarkets();
 }
 
-static Value getFees(AbstractBrokerAPI &handler, const Value &req) {
-	return  handler.getFees(req.getString());
-}
-
-
 
 static Value getInfo(AbstractBrokerAPI &handler, const Value &req) {
 	AbstractBrokerAPI::MarketInfo nfo ( handler.getMarketInfo(req.getString()) );
@@ -328,7 +323,6 @@ static MethodMap methodMap ({
 			{"placeOrder",&placeOrder},
 			{"reset",&reset},
 			{"getAllPairs",&getAllPairs},
-			{"getFees",&getFees},
 			{"getInfo",&getInfo},
 			{"enableDebug",&enableDebug},
 			{"getBrokerInfo",&getBrokerInfo},

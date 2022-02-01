@@ -129,9 +129,6 @@ json::Value InvertBroker::placeOrder(const std::string_view &pair, double size, 
 	return target->placeOrder(pair, new_size, new_price, clientId, replaceId, new_replace);
 }
 
-double InvertBroker::getFees(const std::string_view &pair) {
-	return target->getFees(pair);
-}
 
 IStockApi::Ticker InvertBroker::getTicker(const std::string_view &pair) {
 	Ticker tk = target->getTicker(pair);

@@ -24,7 +24,6 @@ public:
 	virtual IStockApi::Orders getOpenOrders(const std::string_view &par) override;
 	virtual json::Value placeOrder(const std::string_view &pair, double size, double price,
 			json::Value clientId, json::Value replaceId, double replaceSize) override;
-	virtual double getFees(const std::string_view &pair) override;
 	virtual IStockApi::Ticker getTicker(const std::string_view &piar) override;
 	virtual IStockApi::TradesSync syncTrades(json::Value lastId,
 			const std::string_view &pair) override;

@@ -170,7 +170,6 @@ public:
 		///available balance on exchange (external assets not counted) for this trader
 		double currencyAvailBalance;
 
-		double new_fees;
 		double spreadCenter;
 		IStockApi::TradesSync new_trades;
 		ChartItem chartItem;
@@ -373,7 +372,7 @@ private:
 	BalanceChangeEvent detectLeakedTrade(const Status &st) const;
 	void doWithdraw(const Status &st);
 	void updateEnterPrice();
-	void updateMInfo() ;
+	void update_minfo();
 };
 
 
