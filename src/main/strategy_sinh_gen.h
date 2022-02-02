@@ -123,6 +123,8 @@ protected:
 	double getEquilibrium_inner(double assets) const;
 	double roundZero(double assetsLeft, const IStockApi::MarketInfo &minfo,
 			double tradePrice) const;
+
+	double calcRealPosValue(double k, double pw, double price, double pos) const;
 };
 
 

@@ -342,43 +342,79 @@ div.trader.list > *:active {
 }
 
 div.visstrategy {
-	display: block;
-	width: 70%;
+	/* border:  1px solid; */
+	max-width: 600px;
 	margin: 1em auto;
-	border: 1px solid #444;
-	padding: 2%;
+	background-color: #181818;
+	box-sizing: border-box;
+	padding: 0.5em;
+	text-align: center;
 }
+div.visstrategy span.axes {
+    display: block;
+    float: left;
+    height: 3em;
+    width: 6em;
+    position: relative;
+}
+div.visstrategy span.axes > span:first-child {
+    display: block;
+    position: absolute;
+    left: 1em;
+    top: 0;
+    right: 0;
+    text-align: left;
+}
+div.visstrategy span.axes > span:last-child {
+    display: block;
+    position: absolute;
+    top: 1em;
+    right: 0;
+}
+div.visstrategy span.axes > span:first-child::before {content: "↑";display: block;position: absolute;left: -0.5em;font-size: 2em;font-family: monospace;top: 0;}
+div.visstrategy span.axes > span:last-child::before {content: "→";font-size: 2em;font-family: monospace;position: absolute;left: -0.8em;top: -0.3em;}
 div.visstrategy > div {
-	position:relative;
-	padding-bottom:62.5%;
-	box-sizing:border-box;	
+	position: relative;
+	width: 100%;
+	height: 0;
+	padding-bottom: 66.66%;
+	line-height: 27;
 }
 
-div.visstrategy > div::before {
-	content:"⌛";
-	display:block;
-	position:absolute;
-	left:0;
-	top:0;
-	right:0;
-	bottom:0;
-	margin:auto;
-	text-align:center;
-	height: 1em;
-	opacity: 0.5;
+div.visstrategy svg {
+	width: 100%;
+	position: absolute;
+	left: 0;
+	right: 0;
+	top: 0;
+	bottom: 0;
+	margin: auto;
 }
 
-div.visstrategy > div>img {
-	display:block;
-	position:absolute;
-	width:100%;
-	background-color:#222;
+div.visstrategy svg polygon.yield {
+	fill: #005b9654;
 }
-div.visstrategy > p {
-	text-align:center;
-	margin: 1em 0 0 0;
+div.visstrategy svg line.yield {
+    stroke: #00a2ff6e;
 }
 
+
+div.visstrategy svg .axes.line {
+    stroke: #5c564a;
+}
+div.visstrategy svg .axes.text {
+    fill: wheat;
+    font-size: 12px;
+}
+
+div.visstrategy svg .budget {stroke: yellow;}
+div.visstrategy svg .held {stroke: lime;}
+div.visstrategy svg .tangent {stroke: #7efcfc;}
+div.visstrategy svg line.current {stroke: #ffffff;}
+div.visstrategy svg line.neutral {stroke: #7794a8;stroke-width: 1px;stroke-dasharray: 2 2;}
+div.visstrategy svg text.current,div.visstrategy svg text.neutral {fill: #ffffff;alignment-baseline:hanging;transform: translate(5px,0);opacity: 0.5;}
+div.visstrategy svg circle.current.held{fill: lime;r: 3;}
+div.visstrategy svg circle.current.budget{fill: #7af2f2;r: 3;}
 div.trader.list > * >div {
 	text-align:center;
 }

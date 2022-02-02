@@ -561,9 +561,32 @@ App.prototype.fillForm = function (src, trg) {
 
 			first_fetch = false;
 		}
-		if (!state.visstr)  
-		    state.visstr="api/visstrategy?id="+encodeURIComponent(src.id)+"&asset="+pair.asset_balance+"&currency="+pair.currency_balance+"&price="+pair.price+"&t="+Date.now();
-		data.visstr = state.visstr;
+		if (state.visstrategy) (function(){
+			var p = state.visstrategy.points;
+			if (Array.isArray(p) && p.length) {
+				var c = state.visstrategy.current;
+				var elem = trg.findElements("visstr")[0];
+				elem.innerText = "";
+				var chart = new XYChart(600,400);
+				var yld = p.map(function(x){return [x.x, x.y];});
+				var bg = p.map(function(x){return [x.x,x.b]});
+				var hld = p.map(function(x){return [x.x,x.h]});
+				var tng = state.visstrategy.tangent;
+				chart.initRange(yld.concat([[c.x,0]]));
+				chart.drawArea(yld,"yield");
+				chart.drawLines(yld,"yield");
+				chart.initRange(bg.filter(function(x) {return x[1]>=0;}).concat([[c.x,c.h],[c.x,0]]));
+				chart.drawAxes("axes");
+				chart.drawLines(bg,"budget");			
+				chart.drawLines(hld,"held");	
+				chart.drawLines(tng,"tangent");
+				chart.drawVLine(c.x,"current","p");
+				chart.drawVLine(state.visstrategy.neutral,"neutral","n");
+				chart.drawPoint(c.x,c.h,"current held");
+				chart.drawPoint(c.x,c.b,"current budget");
+				elem.appendChild(chart.elem);
+			}
+		}).call(this);
 		
 		
 	}.bind(this);

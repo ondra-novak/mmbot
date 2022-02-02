@@ -598,5 +598,153 @@ function createDiff(a,b) {
 		return undefined;
 	}
 	return compareObjects(a,b)?undefined:b;	
-}
+};
 
+function XYChart(width, height) {
+	this.width = width;
+	this.height = height;
+	this.elem = new_svg_el("svg",{viewBox:"0 0 "+width+" "+height});
+	this.range = [0,0,width,height]; 
+	this.mapx = function(x) {return x;}	
+	this.mapy = function(x) {return y;}	
+};
+
+XYChart.prototype.initRange = function(data) {
+	var range = data.reduce(function(a,b){
+		if (a[0]>b[0]) a[0] = b[0];
+		if (a[1]>b[1]) a[1] = b[1];
+		if (a[2]<b[0]) a[2] = b[0];
+		if (a[3]<b[1]) a[3] = b[1];
+		a[4]+=b[1];
+		a[5]++;
+		return a;
+	},[data[0][0],data[0][1],data[0][0],data[0][1],data[0][1],0]);
+	var avg = range[4]/range[5];
+	var width = range[2]-range[0];
+	var height = range[3]-range[1];
+	if (width == 0) width = this.width;
+	if (height == 0) height = avg;
+	if (height == 0) height = this.height;
+	range[0]-=width*0.05;
+	range[2]+=width*0.05;
+	range[1]-=height*0.05;
+	range[3]+=height*0.05;
+	var elem_width = this.width;
+	var elem_height = this.height;
+	width = range[2]-range[0];
+	height = range[3]-range[1];
+	this.mapx = function(x) {
+		return (x-range[0])/width * elem_width; 
+	};
+	this.mapy = function(y) {
+		return elem_height - (y-range[1])/height * elem_height; 
+	};
+	this.range = range;
+};
+
+XYChart.prototype.drawLines = function(data, cls) {
+	data.reduce(function(a,b){
+		new_svg_el("line",{
+			x1:this.mapx(a[0]),
+			y1:this.mapy(a[1]),
+			x2:this.mapx(b[0]),
+			y2:this.mapy(b[1])
+			,class:cls
+		},this.elem);
+		return b;
+	}.bind(this))
+};
+
+XYChart.prototype.drawArea = function(data, cls) {
+	data.reduce(function(a,b){
+		new_svg_el("polygon",{
+			points:this.mapx(a[0])+","+this.mapy(a[1])+" "+
+			      this.mapx(b[0])+","+this.mapy(b[1])+" "+
+			      this.mapx(b[0])+","+this.mapy(0)+" "+
+			      this.mapx(a[0])+","+this.mapy(0)+" "
+			,class:cls
+		},this.elem);
+		return b;
+	}.bind(this))
+};
+
+XYChart.prototype.calcStep = function(min, max) {
+	var dist = (max - min);
+	var mdist = dist/4;
+	var step = Math.pow(10,Math.floor(Math.log10(mdist)));
+	var cnt = Math.round(dist/step);
+	if (cnt>8) {
+		cnt = Math.round(dist/(step*2));
+		if (cnt>8) {
+			return step*5;
+		} else {
+			return step*2;
+		}
+	} else {
+		return step;
+	}
+	
+};
+
+XYChart.prototype.drawAxes = function(cls) {
+	var stepx = this.calcStep(this.range[0],this.range[2]);
+	var stepy = this.calcStep(this.range[1],this.range[3]);
+	var minx = Math.ceil(this.range[0]/stepx)*stepx;
+	var miny = Math.ceil(this.range[1]/stepy)*stepy;
+	var maxx = Math.ceil(this.range[2]/stepx)*stepx;
+	var maxy = Math.ceil(this.range[3]/stepy)*stepy;
+	for (var x = minx; x<maxx;x+=stepx) {
+		new_svg_el("line",{
+			x1:this.mapx(x),
+			y1:0,
+			x2:this.mapx(x),
+			y2:this.height,
+			class:cls+" vertical line"
+		},this.elem);
+		new_svg_el("text",{
+			x:this.mapx(x),
+			y:this.height,
+			class:cls+" text bottom"
+		},this.elem).textContent = adjNum(x)
+	}	
+	for (var y = miny; y<maxy;y+=stepy) {
+		new_svg_el("line",{
+			x1:0,
+			y1:this.mapy(y),
+			x2:this.width,
+			y2:this.mapy(y),
+			class:cls+" horizontal line"
+		},this.elem);
+		new_svg_el("text",{
+			x:0,
+			y:this.mapy(y),
+			class:cls+" text left"
+		},this.elem).textContent = adjNum(y)
+	}	
+};
+
+XYChart.prototype.drawVLine = function(x, cls, text) {
+	new_svg_el("line",{
+		x1:this.mapx(x),
+		y1:0,
+		x2:this.mapx(x),
+		y2:this.height,
+		class:cls
+	},this.elem);
+	if (text) {
+		new_svg_el("text",{
+			x:this.mapx(x),
+			y:0,
+			class:cls
+		},this.elem).textContent = text;
+	}
+};
+
+XYChart.prototype.drawPoint = function(x,y, cls) {
+	new_svg_el("circle",{
+		cx:this.mapx(x),
+		cy:this.mapy(y),
+		r:2.0,
+		class:cls
+	},this.elem);
+};

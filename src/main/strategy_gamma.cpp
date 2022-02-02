@@ -16,6 +16,7 @@
 #include "sgn.h"
 
 using ondra_shared::logDebug;
+using ondra_shared::logInfo;
 const std::string_view Strategy_Gamma::id = "gamma";
 
 
@@ -149,16 +150,20 @@ IStrategy::MinMax Strategy_Gamma::calcSafeRange(
 	} else {
 		mmx.max = std::numeric_limits<double>::infinity();
 	}
-	double cur = cfg.intTable->calcBudget(state.kk, state.w, state.p) - a*state.p;
-	double adjcur = minfo.leverage? (minfo.leverage*currencies  - assets * state.p):currencies;
-	if (cur>adjcur || cfg.intTable->fn == keepvalue) {
-		if (adjcur < 0) mmx.min = state.p;
-		else mmx.min = numeric_search_r1(state.p, [&](double p){
-			return cfg.intTable->calcBudget(state.kk, state.w, p)
-					- cfg.intTable->calcAssets(state.kk, state.w, p)*state.p
-					- cur + adjcur;
-		});
-	} else mmx.min = 0;
+	if (minfo.leverage) {
+		double cur = cfg.intTable->calcBudget(state.kk, state.w, state.p)-currencies;
+
+			mmx.min = numeric_search_r1(state.p, [&](double p){
+						return cfg.intTable->calcBudget(state.kk, state.w, p) - cur;
+			});
+
+	} else {
+		double cur = cfg.intTable->calcCurrency(state.kk, state.w, state.p)-currencies;
+			mmx.min = numeric_search_r1(state.p, [&](double p){
+						return cfg.intTable->calcCurrency(state.kk, state.w, p) - cur;
+			});
+
+	}
 	return mmx;
 }
 
@@ -285,9 +290,10 @@ Strategy_Gamma::IntegrationTable::IntegrationTable(Function fn, double z):fn(fn)
 	//starting by y and generate x,y table
 	generateIntTable([&](double x){
 		return mainFunction(x);
-	}, a, b, 0.0001, y, [&](double x,double y){
+	}, a, b, 0.0000001, y, [&](double x,double y){
 		values.push_back({x,y});
 	});
+	logInfo("Integration lookup table: $1 points", values.size());
 }
 
 double Strategy_Gamma::IntegrationTable::get(double x) const {

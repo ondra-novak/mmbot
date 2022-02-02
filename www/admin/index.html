@@ -62,8 +62,18 @@
 <tr data-name="orders[]"><td data-name="id">123456</td><td data-name="dir">buy</td><td data-name="price">123456</td><td data-name="size">123456</td><td data-name="action"></td></tr>
 </table></div>
 <div class="warning" data-name="err_failed_to_fetch">Failed to fetch</div>
-<div class="adv visstrategy"><div><img class="adv visstrategy" src="" data-name="visstr" onload="this.hidden=false;" onerror="this.hidden=true;"></div>
-<p><span style="color:#FFFFA0">Budget</span> - <span style="color:#00AA00">Held value</span> - <span style="color:#80FFFF">Current change</span> [<span data-name="currency"></span>]</p></div>
+<div class="adv visstrategy"><div data-name="visstr"><div class="spinner inline"></div></div>
+<p><span class="axes">
+<span>value</span>
+<span>price</span>
+</span><span title="Shows the effectiveness of spread trading. A higher value means a higher profit or a higher chance of covering losses" style="background-color:#102e41; padding: 0.5em">Yield (not in scale)</span>
+-
+<span title="Total budget calculated on given price" style="color:#FFFFA0">Budget</span>
+-
+<span title="The value of held assets at a given price. At the point where the green curve crosses the yellow curve, lever 1x is reached. In the spot market, this is the point where money runs out" style="color:#00AA00">Held value</span>
+-
+<span title="Development of the budget when the price moves without making a trade." style="color:#80FFFF">Current change</span> [<span data-name="currency"></span>]</p>
+</div>
 </x-section>
 <x-section><x-section-caption>General</x-section-caption>
 <label><span>Title</span><input type="text" data-name="title"></label>
