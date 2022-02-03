@@ -1085,8 +1085,9 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req)  {
 						double x = beg+(end-beg)*(i/200.0);
 						IStrategy::ChartPoint pt = stratobj.calcChart(x);
 						IStrategy::ChartPoint pt2 = stratobj.calcChart(x*1.02);
+						//if (!pt2.valid) pt2 = stratobj.calcChart(x*0.98);
 						if (pt.valid && std::isfinite(pt.budget) && std::isfinite(pt.position)) {
-							double y = pt.position*x*0.02+pt.budget-pt2.budget;
+							double y = pt2.valid?pt.position*x*0.02+pt.budget-pt2.budget:0;
 							if (y < 0) y = prev_y;
 							else prev_y = y;
 							points.push_back({

@@ -109,6 +109,7 @@ App.prototype.createTraderForm = function() {
 		form.showItem("strategy_hedge",state.strategy == "hedge");
 		form.showItem("strategy_sinhgen",state.strategy == "sinh_gen");
 		form.showItem("strategy_passive_income",state.strategy == "passive_income");
+		form.showItem("strategy_incvalue",state.strategy == "inc_value");
 		form.showItem("strategy_hodl_short",state.strategy == "hodlshort");
 		form.showItem("strategy_hyperbolic",["hyperbolic","linear","sinh","sinh_val","sinh2"].indexOf(state.strategy) != -1);
 		form.showItem("kv_valinc_h",state.strategy == "keepvalue");
@@ -515,7 +516,8 @@ App.prototype.fillForm = function (src, trg) {
 			"hp_extbal", "hp_reduction","hp_dynred","sh_curv","gamma_exp","pincome_exp",
 			"gamma_trend","gamma_fn",
 			"shg_w","shg_p","shg_z","shg_lp","shg_offset",
-			"pile_ratio","hodlshort_z"
+			"pile_ratio","hodlshort_z",
+			"incval_w","incval_z"
 			]
 			.forEach(function(item){
 				trg.findElements(item).forEach(function(elem){
@@ -667,6 +669,11 @@ App.prototype.fillForm = function (src, trg) {
 	data.hodlshort_b = 100;
 	data.hodlshort_acc = 0;
 	data.hodlshort_rinvst= false;
+	data.incval_w = 1;
+	data.incval_z = 1;
+	data.incval_r = 100;
+	data.incval_ms = 0;
+	data.incval_ri = false;
 
 
 	
@@ -741,6 +748,12 @@ App.prototype.fillForm = function (src, trg) {
 		data.kv2_boost = filledval(src.strategy.boost,false);
 		data.kv2_chngtm = filledval(src.strategy.chngtm, 0);
 		data.kv2_reinvest = filledval(src.strategy.reinvest, false);
+	} else if (data.strategy == "inc_value") {
+		data.incval_w = filledval(src.strategy.w,1);
+		data.incval_z = filledval(src.strategy.z,1);
+		data.incval_r = filledval(src.strategy.r,100);
+		data.incval_ms = filledval(src.strategy.ms,0);
+		data.incval_ri = filledval(src.strategy.ri,false);
 	}
 	data.shg_olt["!change"] = function() {
 		trg.enableItem("shg_ol", this.value != "0");
@@ -903,6 +916,15 @@ function getStrategyData(data, inv) {
 			boost: data.kv2_boost,
 			reinvest: data.kv2_reinvest
 		};
+	} else if (data.strategy == "inc_value") {
+		strategy = {
+			type: data.strategy,
+			r: data.incval_r,
+			w: data.incval_w,
+			z: data.incval_z,
+			ms: data.incval_ms,
+			ri: data.incval_ri
+		}
 	} else if (data.strategy == "hedge") {
 		strategy = {
 			type: data.strategy,
@@ -1884,6 +1906,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		"hodlshort_z","hodlshort_acc","hodlshort_rinvst","hodlshort_b",
 		"pile_accum","pile_ratio",
 		"kv2_accum","kv2_boost","kv2_chngtm","kv2_reinvest",
+		"incval_w","incval_r","incval_ms","incval_ri","incval_z",
 		"hedge_short","hedge_long","hedge_drop",
 		"shg_w","shg_p","shg_z","shg_b","shg_olt","shg_ol","shg_lp","shg_rnv","shg_avgsp","shg_boostmode","shg_lazyopen","shg_lazyclose","shg_offset",
 		"trade_within_budget"];

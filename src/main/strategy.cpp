@@ -28,6 +28,7 @@
 #include "strategy_pile.h"
 #include "strategy_keepvalue2.h"
 #include "strategy_hodl_short.h"
+#include "strategy_incvalue.h"
 
 
 static json::NamedEnum<Strategy_Gamma::Function> strGammaFunction ({
@@ -184,6 +185,14 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 		cfg.openlimit = config["openlimit"].getNumber();
 		cfg.offset = config["offset"].getNumber();
 		return Strategy(new Strategy_Sinh_Gen(cfg));
+	} else if (id == Strategy_IncValue::id) {
+		Strategy_IncValue::Config cfg;
+		cfg.r = config["r"].getNumber()*0.01;
+		cfg.w = config["w"].getNumber();
+		cfg.fn.z = std::max(config["z"].getNumber(),1.0);
+		cfg.ms = config["ms"].getNumber()*0.01;
+		cfg.reinvest = config["ri"].getBool();
+		return Strategy(new Strategy_IncValue(cfg));
 	} else {
 		throw std::runtime_error(std::string("Unknown strategy: ").append(id));
 	}
