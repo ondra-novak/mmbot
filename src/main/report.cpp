@@ -540,6 +540,7 @@ void Report::clear() {
 
 void Report::perfReport(json::Value report) {
 	perfRep = report;
+	sendStream(Object{{"type","performance"},{"data", perfRep}});
 }
 
 void Report::sendStream(const json::Value &v) {

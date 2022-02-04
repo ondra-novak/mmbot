@@ -21,9 +21,7 @@ public:
 public:
 	bool ignore_simulator;
 	json::Value reportCache;
-	static std::size_t daySeconds;
-	std::size_t dayIndex = 0;
-	std::size_t rnd;
+	bool flushCache = true;
 
 
 };
