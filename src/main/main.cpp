@@ -418,7 +418,12 @@ int main(int argc, char **argv) {
 								}
 							});
 							paths.push_back({
-								"/api/data",AuthMapper(name,aul,jwt, true) >>= [&](simpleServer::HTTPRequest req, const ondra_shared::StrViewA &) mutable {
+								"/api/data",[&](simpleServer::HTTPRequest req, const ondra_shared::StrViewA &) mutable {
+									AuthMapper auth(name,aul,jwt, true);
+									if (!auth.checkAuth_probe(req).defined()) {
+										req.sendErrorPage(403);
+										return true;
+									}
 									simpleServer::Stream s = req.sendResponse(simpleServer::HTTPResponse(200)
 											.contentType("text/event-stream")
 											.disableCache()

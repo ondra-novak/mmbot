@@ -762,7 +762,7 @@ function app_start(){
             fetch("api/user")
                     .then(function(req){return req.json()})
                     .then(function(x){
-                    	if (!x.viewer) location.href="api/login?redir=".encodeURIComponent(location.href);
+                    	if (!x.viewer) location.href="api/login?redir="+encodeURIComponent(location.href);
                     });
             updateFromSSE(null);
             initSSE.handle.close();
