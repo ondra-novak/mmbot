@@ -398,7 +398,7 @@ int main(int argc, char **argv) {
 
 							std::vector<simpleServer::HttpStaticPathMapper::MapRecord> paths;
 							paths.push_back(simpleServer::HttpStaticPathMapper::MapRecord{
-								"/",AuthMapper(name,aul,jwt, true) >>= simpleServer::HTTPMappedHandler(simpleServer::HttpFileMapper(std::string(rptpath), "index.html", 600))
+								"/",simpleServer::HTTPMappedHandler(simpleServer::HttpFileMapper(std::string(rptpath), "index.html", 600))
 							});
 
 							paths.push_back({
@@ -429,6 +429,14 @@ int main(int argc, char **argv) {
 										return state->sendAsync(v);
 									});
 
+									return true;
+								}
+							});
+							paths.push_back({
+								"/api/login",AuthMapper(name,aul,jwt, true) >>= [&](simpleServer::HTTPRequest req, const ondra_shared::StrViewA &v) mutable {
+									simpleServer::QueryParser qp(v);
+									StrViewA redir = qp["redir"];
+									req->redirect(redir, simpleServer::Redirect::temporary);
 									return true;
 								}
 							});

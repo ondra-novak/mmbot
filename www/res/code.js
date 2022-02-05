@@ -762,7 +762,7 @@ function app_start(){
             fetch("api/user")
                     .then(function(req){return req.json()})
                     .then(function(x){
-                    	if (!x.viewer) location.href="index.html?relogin=1&tm="+Date.now();
+                    	if (!x.viewer) location.href="api/login?redir=".encodeURIComponent(location.href);
                     });
             updateFromSSE(null);
             initSSE.handle.close();
@@ -1197,9 +1197,6 @@ function app_start(){
 	changeinterval = function() {
 		interval = (interval+1)%intervals.length;
 		redraw();
-	}
-	if (location.href.indexOf("?relogin=1") !== -1) {
-		location.href="index.html";
 	}
 }
 
