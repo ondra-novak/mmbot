@@ -1335,6 +1335,7 @@ bool MTrader::processTrades(Status &st) {
 		tempPr.change = assetBal * (t.eff_price - last_price);
 		tempPr.time = t.time;
 		tempPr.acb_pnl = new_acb.getRPnL() - acb_state.getRPnL();
+		tempPr.position = assetBal+t.eff_size;
 		if (last_price) statsvc->reportPerformance(tempPr);
 		last_price = t.eff_price;
 		if (minfo.leverage == 0) curBal -= t.price * t.size;

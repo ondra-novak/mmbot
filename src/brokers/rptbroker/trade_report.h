@@ -17,7 +17,6 @@
 class TradeReport {
 public:
 
-	using Month = DataBase::Month;
 	using Day = DataBase::Day;
 	using Date = Day;
 	using SymbolMap = std::map<std::string_view, double>;
@@ -25,7 +24,7 @@ public:
 	TradeReport(DataBase &db);
 
 	struct StandardReport {
-		std::vector<std::pair<Month, SymbolMap> > months;
+		std::vector<std::pair<Day, SymbolMap> > months;
 		std::vector<std::pair<Day, SymbolMap> > lastMonth;
 		SymbolMap total;
 	};
@@ -39,11 +38,11 @@ public:
 protected:
 	using SymbolSet = std::set<std::string, std::less<> >;
 
-	class Months: public AbstractAggregate<Month, SymbolMap, Month::Cmp> {
+	class Months: public AbstractAggregate<Day, SymbolMap, Day::Cmp> {
 	public:
 		Months(TradeReport &owner):owner(owner) {}
-		using AggRes = typename AbstractAggregate<Month, SymbolMap, Month::Cmp>::AggRes;
-		virtual AggRes reduce(const Month &month) const override;
+		using AggRes = typename AbstractAggregate<Day, SymbolMap, Day::Cmp>::AggRes;
+		virtual AggRes reduce(const Day &month) const override;
 		TradeReport &owner;
 	};
 

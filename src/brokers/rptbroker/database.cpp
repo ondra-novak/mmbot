@@ -35,19 +35,18 @@ void DataBase::buildIndex() {
 	Day last{0,0,0};
 	last_timestamp = 0;
 	unsorted_timestamp = -1;
-	monthMap.clear();
 	dayMap.clear();
-	scanFrom(0, [&](off_t pos, const Header &hdr, const Trade &trd){
-		if (hdr.time < last_timestamp) {
-			unsorted_timestamp = std::min(unsorted_timestamp, hdr.time);
+	scanTradesFrom(0, [&](off_t pos, const Header &hdr, const Trade &trd){
+		auto hdr_time = hdr.getTime();
+		if ( hdr_time < last_timestamp) {
+			unsorted_timestamp = std::min(unsorted_timestamp, hdr_time);
 		} else {
-			last_timestamp = hdr.time;
+			last_timestamp = hdr_time;
 		}
 		if (findTrader(hdr) == nullptr) throw std::runtime_error("Build index failed: Database is corrupted");
-		Day d = Day::fromTime(hdr.time);
+		Day d = Day::fromTime(hdr_time);
 		if (d != last) {
 			last = d;
-			monthMap.emplace(d, pos);
 			dayMap.emplace(d, pos);
 		}
 		records++;
@@ -57,10 +56,6 @@ void DataBase::buildIndex() {
 
 }
 
-bool DataBase::Month::Cmp::operator ()(const Month &a, const Month &b) const {
-	if (a.year != b.year) return a.year < b.year;
-	else return a.month < b.month;
-}
 
 const DataBase::TraderInfo *DataBase::findTrader(const Header &hdr) const {
 	auto iter = traderMap.find({hdr.uid, hdr.magic});
@@ -68,12 +63,6 @@ const DataBase::TraderInfo *DataBase::findTrader(const Header &hdr) const {
 	else return &iter->second;
 }
 
-std::streamoff DataBase::findMonth(const Month &m) const {
-	std::streamoff pos = fend;
-	auto iter = monthMap.lower_bound(m);
-	if (iter != monthMap.end()) pos = iter->second;
-	return pos;
-}
 
 std::streamoff DataBase::findDay(const Day &m) const {
 	std::streamoff pos = fend;
@@ -82,28 +71,30 @@ std::streamoff DataBase::findDay(const Day &m) const {
 	return pos;
 }
 
-bool DataBase::Month::operator ==(const Month &m) const {
-	return this->month == m.month && this->year == m.year;
-}
-
-void DataBase::addTrade(const Header &hdr, const Trade &trade) {
-	if (hdr.time == 0) throw std::runtime_error("Invalid time in header");
-	if (hdr.time <= last_timestamp) {
-		unsorted_timestamp = std::min(unsorted_timestamp, hdr.time);
-	} else {
-		last_timestamp = hdr.time;
-	}
-	fend = setPos(0, SEEK_END);
-	Day d = Day::fromTime(hdr.time);
-	monthMap.emplace(d, fend); //will not overwrite existing record
-	dayMap.emplace(d, fend); //will not overwrite existing record
+void DataBase::putTrade(Header hdr, const Trade &trade) {
+	hdr.type = recTrade;
 	write(hdr);
 	write(trade);
 	write(checksum(hdr,trade));
+
+}
+
+void DataBase::addTrade(const Header &hdr, const Trade &trade) {
+	auto hdr_time = hdr.getTime();
+	if (hdr_time == 0) throw std::runtime_error("Invalid time in header");
+	if (hdr_time <= last_timestamp) {
+		unsorted_timestamp = std::min(unsorted_timestamp, hdr_time);
+	} else {
+		last_timestamp = hdr_time;
+	}
+	fend = setPos(0, SEEK_END);
+	Day d = Day::fromTime(hdr_time);
+	dayMap.emplace(d, fend); //will not overwrite existing record
+	putTrade(hdr, trade);
 	fend = getPos();
 }
 
-void DataBase::replaceTrade(off_t pos, const Header &hdr, const Trade &trade) {
+void DataBase::replaceTrade(off_t pos, const Header &hdr, const OldTrade &trade) {
 	Header h;
 	setPos(pos, SEEK_SET);
 	if (!read(h) || h != hdr) {
@@ -115,6 +106,10 @@ void DataBase::replaceTrade(off_t pos, const Header &hdr, const Trade &trade) {
 
 template<typename T>
 void DataBase::write(const T &data) {
+	if (buffer.empty()) {
+		::lseek(fd, -buffer.size(), SEEK_CUR);
+		buffer = std::string_view();
+	}
 	auto s = ::write(fd, &data, sizeof(data));
 	if (s < 0) {
 		auto e = errno;
@@ -158,25 +153,19 @@ bool DataBase::read(T &data) {
 }
 
 void DataBase::addTrader(const Header &hdr, const TraderInfo &trd) {
-	if (hdr.time != 0) {
-		Header h = hdr;
-		h.time = 0;
-		addTrader(h, trd);
-	} else {
-		setPos(0,SEEK_END);
-		write(hdr);
-		write(trd);
-		write(checksum(hdr,trd));
-		fend = getPos();
-		traderMap.emplace(TraderKey{hdr.uid, hdr.magic},trd);
-	}
+	setPos(0,SEEK_END);
+	putTraderInfo(hdr, trd);
+	fend = getPos();
 
 }
 
-DataBase::Month  DataBase::Month::fromTime(std::uint64_t tm) {
-	std::time_t t = tm/1000;
-	const std::tm *tinfo = std::gmtime(&t);
-	return { tinfo->tm_year,tinfo->tm_mon+1};
+void DataBase::putTraderInfo(Header hdr, const TraderInfo &trd) {
+	hdr.type = recTraderInfo;
+	write(hdr);
+	write(trd);
+	write(checksum(hdr,trd));
+	traderMap[TraderKey{hdr.uid, hdr.magic}] = trd;
+
 }
 
 
@@ -202,6 +191,9 @@ void fillLegacy(T &src, const std::string_view text) {
 	}
 }
 
+std::string_view DataBase::OldTrade::getTradeId() const{
+	return legacy2strview(tradeId);
+}
 std::string_view DataBase::Trade::getTradeId() const{
 	return legacy2strview(tradeId);
 }
@@ -231,7 +223,7 @@ void DataBase::TraderInfo::setCurrency(const std::string_view &str){
 void DataBase::reconstruct( DataBase &db) {
 	setPos(0, SEEK_SET);
 	if (ftruncate(fd, 0)<0) throw std::system_error(errno, std::system_category());
-	db.scanFrom(0, [&](off_t, const Header &hdr, const Trade &trd) {
+	db.scanTradesFrom(0, [&](off_t, const Header &hdr, const Trade &trd) {
 
 		auto tinfo = findTrader(hdr);
 		if (tinfo == nullptr) {
@@ -242,19 +234,21 @@ void DataBase::reconstruct( DataBase &db) {
 		addTrade(hdr, trd);
 		return true;
 	});
+	buildIndex();
 }
 
 bool DataBase::Header::operator ==(const Header &h) const {
-	return time == h.time && magic == h.magic && uid == h.uid;
+	return magic == h.magic && uid == h.uid && lowtime == h.lowtime && hitime == h.hitime && type == h.type;
 }
 
 bool DataBase::Day::Cmp::operator ()(const Day &a, const Day &b) const {
-	if (a.Month::operator ==(b)) return a.day < b.day;
-	else return Month::Cmp()(a,b);
+	if (a.year != b.year) return a.year < b.year;
+	if (a.month != b.month) return a.month < b.month;
+	return a.day < b.day;
 }
 
 bool DataBase::Day::operator ==(const Day &d) const {
-	return Month::operator==(d) && day == d.day;
+	return year == d.year && month == d.month && day == d.day;
 }
 
 DataBase::Day DataBase::Day::fromTime(std::uint64_t tm) {
@@ -280,42 +274,25 @@ bool DataBase::sort_unsorted() {
 	Day d = Day::fromTime(unsorted_timestamp);
 	std::vector<std::pair<Header, TraderInfo> > traders;
 	std::vector<std::pair<Header, Trade> > trades;
-	auto offs = findDay(d);
-	setPos(offs, SEEK_SET);
-	Header h;
-	TraderInfo tinfo;
-	Trade tr;
-	std::uint64_t chksum;
-	while (read(h)) {
-		if (h.time == 0) {
-			read(tinfo);
-			read(chksum);
-			check_checksum(chksum, h, tinfo);
-			traders.emplace_back(h,tinfo);
-		} else {
-			read(tr);
-			read(chksum);
-			check_checksum(chksum, h, tr);
-			trades.emplace_back(h,tr);
+	auto offs = unsorted_timestamp?findDay(d):0;
+	scanFrom(offs, [&](off_t, const Header &hdr, const Payload &pl){
+		switch (pl.type) {
+		case recOldTrade: trades.emplace_back(hdr, Trade::fromOld(*pl.old_trade)) ;break;
+		case recTraderInfo: traders.emplace_back(hdr, *pl.tinfo);break;
+		case recTrade:trades.emplace_back(hdr, *pl.trade) ;break;
 		}
-	}
+		return true;
+	});
 	std::sort(trades.begin(), trades.end(), [&](const auto &a, const auto &b) {
-		return a.first.time < b.first.time;
+		return a.first.getTime() < b.first.getTime();
 	});
 	setPos(offs, SEEK_SET);
-	for (const auto &x: traders) {
-		write(x.first);
-		write(x.second);
-		write(checksum(x.first, x.second));
-	}
-	for (const auto &x: trades) {
-		write(x.first);
-		write(x.second);
-		write(checksum(x.first, x.second));
-	}
+	for (const auto &x: traders) putTraderInfo(x.first, x.second);
+	for (const auto &x: trades)  putTrade(x.first, x.second);
 	if (ftruncate(fd, getPos())) {
 		throw std::system_error(errno, std::system_category());
 	}
+	flush();
 	buildIndex();
 	return true;
 }
@@ -346,11 +323,11 @@ template<typename ... Args> void DataBase::check_checksum(std::uint64_t chk, con
 
 template bool DataBase::read(DataBase::Header &);
 template bool DataBase::read(DataBase::TraderInfo &);
-template bool DataBase::read(DataBase::Trade &);
+template bool DataBase::read(DataBase::OldTrade &);
 template bool DataBase::read(std::uint64_t &);
 template void DataBase::check_checksum(std::uint64_t, const DataBase::Header &, const DataBase::TraderInfo &);
 template void DataBase::check_checksum(std::uint64_t, const DataBase::Header&,
-		const DataBase::Trade&);
+		const DataBase::OldTrade&);
 
 off_t DataBase::setPos(off_t pos) {
 	return setPos(pos, SEEK_SET);
@@ -370,4 +347,27 @@ bool DataBase::lockFile(const std::string &name) {
 		}
 	}
 	return true;
+}
+
+void DataBase::Header::setTime(std::uint64_t tm) {
+	lowtime = static_cast<std::uint32_t>(tm & 0xFFFFFFFFL);
+	hitime = static_cast<std::uint16_t>(tm >> 32);
+}
+
+std::uint64_t DataBase::Header::getTime() const {
+	return (static_cast<std::uint64_t>(hitime) << 32) | lowtime;
+
+}
+
+DataBase::Trade DataBase::Trade::fromOld(const OldTrade &old) {
+	Trade x;
+	x.setTradeId(old.getTradeId());
+	x.price = old.price;
+	x.size = old.size;
+	x.pos = std::numeric_limits<double>::quiet_NaN();
+	x.change = old.change;
+	x.rpnl = old.rpnl;
+	x.invert_price = old.invert_price;
+	x.deleted = old.deleted;
+	return x;
 }

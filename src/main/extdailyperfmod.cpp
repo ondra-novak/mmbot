@@ -29,6 +29,7 @@ void ExtDailyPerfMod::sendItem(const PerformanceReport &report) {
 			jrep.set("magic",report.magic);
 			jrep.set("price",report.price);
 			jrep.set("size",report.size);
+			jrep.set("pos",report.position);
 			jrep.set("tradeId",report.tradeId);
 			jrep.set("uid",report.uid);
 			jrep.set("change",report.change);

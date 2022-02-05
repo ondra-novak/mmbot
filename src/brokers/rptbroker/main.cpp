@@ -37,11 +37,12 @@ void storeTrade(DataBase &main, DataBase &backup, TradeReport &rep, json::Value 
 	DataBase::Header hdr;
 	DataBase::Trade tr;
 
-	hdr.time = trade["time"].getUIntLong();
+	hdr.setTime(trade["time"].getUIntLong());
 	hdr.uid = trade["uid"].getUIntLong();
 	hdr.magic = trade["magic"].getUIntLong();
 	tr.change = trade["change"].getNumber();
 	tr.price= trade["price"].getNumber();
+	tr.pos = trade["pos"].getValueOrDefault(std::numeric_limits<double>::quiet_NaN());
 	tr.invert_price= trade["invert_price"].getBool();
 	tr.size = trade["size"].getNumber();
 	tr.deleted = trade["deleted"].getBool();
@@ -62,10 +63,10 @@ void storeTrade(DataBase &main, DataBase &backup, TradeReport &rep, json::Value 
 		main.flush();
 		backup.flush();
 	}
-	rep.invalidate(hdr.time);
+	rep.invalidate(hdr.getTime());
 }
 
-static std::uint64_t dateToTimestamp(const TradeReport::Month &m) {
+static std::uint64_t monthToTimestamp(const TradeReport::Day &m) {
 	std::tm t = {};
 	t.tm_year = m.year;
 	t.tm_mon = m.month+1; //day is 0 - calculates timestamp of the last day
@@ -97,7 +98,7 @@ json::Value genReport(TradeReport &rpt) {
 			if (iter == row.second.end()) return 0.0;
 			else return iter->second;
 		});
-		r.unshift(dateToTimestamp(row.first));
+		r.unshift(monthToTimestamp(row.first));
 		rows.push_back(r);
 	}
 	for (const auto &row: srp.lastMonth) {
@@ -127,41 +128,59 @@ void maintenance(DataBase &main, DataBase &backup, TradeReport &rep) {
 	}
 }
 
+template<typename T, typename U>
+class IOSelect {
+public:
+	IOSelect(bool x, const T &a, const U &b):x(x),a(a),b(b) {}
+	template<typename X> friend auto &operator<<(X &&str, const IOSelect &z) {
+		if (z.x) return str << z.a; else return str << z.b;
+	}
+protected:
+	bool x; const T &a; const U &b;
+};
+
+template<typename T, typename U>
+static auto ios_if(bool x, const T &a, const U &b) {
+	return IOSelect<T,U>(x,a,b);
+}
+
 static void createDump(DataBase &db, bool tocsv) {
 	char buff[40];
 	if (tocsv) {
-		std::cout << "Date,Trader,ID,DEL,Broker,Asset,Currency,Price,Size,Equity change,Realized PnL,INV" << std::endl;
+		std::cout << "Date,Trader,ID,DEL,Broker,Asset,Currency,Price,Size,Position,Equity change,Realized PnL,INV" << std::endl;
 	}
-	db.scanFrom(0, [&](off_t ofs, const DataBase::Header &hdr, const DataBase::Trade &trade){
+	db.scanTradesFrom(0, [&](off_t ofs, const DataBase::Header &hdr, const DataBase::Trade &trade){
 
 		const DataBase::TraderInfo *tinfo = db.findTrader(hdr);
 		if (tinfo) {
 			if (tocsv) {
 
-				std::time_t t = hdr.time/1000;
+				std::time_t t = hdr.getTime()/1000;
 				const std::tm *tm = gmtime(&t);
 				std::strftime(buff, sizeof(buff),"%Y-%m-%d %H:%M:%S", tm);
 				std::cout << buff << "," <<
 							 hdr.uid << "-" <<
 							 hdr.magic << "," <<
 							 "\""<<trade.getTradeId() << "\"," <<
-							 (trade.deleted?"deleted":"") << "," <<
+							 ios_if(trade.deleted,"deleted","") << "," <<
 							 tinfo->getBroker() << "," <<
 							 tinfo->getAsset() << "," <<
 							 tinfo->getCurrency() << "," <<
 							 trade.price << "," <<
 							 trade.size << "," <<
+							 ios_if(std::isfinite(trade.pos),trade.pos,"") << "," <<
 							 trade.change << "," <<
 							 trade.rpnl << "," <<
-							 (trade.invert_price?"inverted":"") << ","
+							 ios_if(trade.invert_price,"inverted","") << ","
 							 "";
 
 			} else {
 				json::Value row = json::Object {
-					{"time", hdr.time},
+					{"time", hdr.getTime()},
 					{"uid", hdr.uid},
 					{"magic", hdr.magic},
 					{"change", trade.change},
+					{"pos",std::isnan(trade.pos)?json::Value():json::Value(trade.pos)},
 					{"price", trade.price},
 					{"invert_price", trade.invert_price},
 					{"size", trade.size},
@@ -215,18 +234,34 @@ int main(int argc, char **argv) {
 		try {
 			db_main.buildIndex();
 		} catch (const std::exception &e) {
-			std::cerr << "Warning: " << e.what() << std::endl;
+			std::cerr << "Main DB - Warning: " << e.what() << std::endl;
 			DataBase db_backup(path_backup);
+			db_backup.buildIndex();
 			db_main.reconstruct(db_backup);
+			std::cerr << "Main DB - Restored" << std::endl;
 		}
+		std::cerr << "Main DB - OK" << std::endl;
 
 		DataBase db_backup(path_backup);
 		try {
 			db_backup.buildIndex();
 		} catch (const std::exception &e) {
-			std::cerr << "Warning: " << e.what() << std::endl;
+			std::cerr << "Backup DB - Warning: " << e.what() << std::endl;
 			db_backup.reconstruct(db_main);
+			std::cerr << "Backup DB - Restored" << std::endl;
 		}
+		std::cerr << "Backup DB - OK" << std::endl;
+
+		if (db_backup.size() < db_main.size()) {
+			std::cerr << "Syncing backup DB" << std::endl;
+			db_backup.reconstruct(db_main);
+			std::cerr << "Done" << std::endl;
+		} else if (db_main.size() < db_backup.size()) {
+			std::cerr << "Syncing main DB from backup DB" << std::endl;
+			db_main.reconstruct(db_backup);
+			std::cerr << "Done" << std::endl;
+		}
+
 
 		if (argc == 3) {
 			std::string_view cmd = argv[2];

@@ -14,7 +14,7 @@ TradeReport::TradeReport(DataBase &db):db(db),months(*this),days(*this) {
 
 TradeReport::SymbolMap TradeReport::buildMap(std::streampos from, std::streampos to) const {
 	SymbolMap r;
-	db.scanFrom(from, [&](std::streampos pos, const DataBase::Header &hdr, const DataBase::Trade &trd){
+	db.scanTradesFrom(from, [&](std::streampos pos, const DataBase::Header &hdr, const DataBase::Trade &trd){
 		if (pos >= to) return false;
 		if (!trd.deleted) {
 			double v = trd.rpnl;
@@ -36,10 +36,11 @@ TradeReport::SymbolMap TradeReport::buildMap(std::streampos from, std::streampos
 	return r;
 }
 
-TradeReport::Months::AggRes TradeReport::Months::reduce(const Month &month) const {
-	auto from = owner.db.findMonth(month);
-	Month m1 {month.year, month.month+1};
-	auto to = owner.db.findMonth(m1);
+TradeReport::Months::AggRes TradeReport::Months::reduce(const Day &month) const {
+	Day d1 { month.year, month.month,0};
+	Day d2 { month.year, month.month+1,0};
+	auto from = owner.db.findDay(d1);
+	auto to = owner.db.findDay(d2);
 	return {owner.buildMap(from, to), true};
 }
 
@@ -108,18 +109,15 @@ TradeReport::StandardReport TradeReport::generateReport(const Date &today)  {
 
 void TradeReport::invalidate(std::uint64_t tm) {
 	Day d = Day::fromTime(tm);
-	Month m = Month::fromTime(tm);
 	days.invalidate(d);
-	months.invalidate(m);
+	months.invalidate(Day{d.year, d.month});
 }
 
 void TradeReport::reset() {
 
-	for (const auto &x: db.months()) {
-		months.invalidate(x.first);
-	}
 	for (const auto &x: db.days()) {
 		days.invalidate(x.first);
+		months.invalidate(x.first.getMonth());
 	}
 
 }

@@ -20,8 +20,10 @@
 		double price;
 		///size of the trade
 		double size;
-		///account value change (assets are recalculated by current price)
+		///account value change (assets are recalculated by current price) (deprecated)
 		double change;
+		///absolute position
+		double position;
 		///set true, if the record is from simulator
 		bool simulator;
 		///set true, if the price is inverted
