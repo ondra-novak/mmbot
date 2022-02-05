@@ -117,12 +117,12 @@ public:
 	std::size_t size() const {return records;}
 
 	const TraderInfo *findTrader(const Header &hdr) const;
-	std::streamoff findDay(const Day &m) const;
+	off_t findDay(const Day &m) const;
 
 
 	void addTrade(const Header &hdr, const Trade &trade);
 	void addTrader(const Header &hdr,const TraderInfo &trd);
-	void replaceTrade(off_t pos, const Header &hdr, const OldTrade &trade);
+	void replaceTrade(off_t pos, const Header &hdr, const Trade &trade);
 
 	///Reconstruct database from other database, forexample, if corrupted - will clear this db
 	void reconstruct(DataBase &db);
@@ -131,6 +131,8 @@ public:
 
 	void flush();
 	bool sort_unsorted();
+
+	const auto &traders() const {return traderMap;}
 
 	static bool lockFile(const std::string &name);
 

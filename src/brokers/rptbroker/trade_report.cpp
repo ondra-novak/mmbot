@@ -121,3 +121,25 @@ void TradeReport::reset() {
 	}
 
 }
+
+TradeReport::Options TradeReport::getOptions() const {
+	const auto &traders = db.traders();
+	std::set<std::string_view> assets, currencies, brokers;
+	std::set<std::pair<std::uint64_t,std::uint64_t> > trlst;
+
+	for (const auto &tr: traders) {
+		assets.insert(tr.second.getAsset());
+		currencies.insert(tr.second.getCurrency());
+		brokers.insert(tr.second.getBroker());
+		trlst.insert(tr.first);
+	}
+
+
+	Options r;
+	r.assets.insert(r.assets.end(), assets.begin(), assets.end());
+	r.currencies.insert(r.currencies.end(), currencies.begin(), currencies.end());
+	r.brokers.insert(r.brokers.end(), brokers.begin(), brokers.end());
+	r.traders.insert(r.traders.end(), trlst.begin(), trlst.end());
+	return r;
+
+}

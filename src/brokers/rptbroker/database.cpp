@@ -64,8 +64,8 @@ const DataBase::TraderInfo *DataBase::findTrader(const Header &hdr) const {
 }
 
 
-std::streamoff DataBase::findDay(const Day &m) const {
-	std::streamoff pos = fend;
+off_t DataBase::findDay(const Day &m) const {
+	off_t pos = fend;
 	auto iter = dayMap.lower_bound(m);
 	if (iter != dayMap.end()) pos = iter->second;
 	return pos;
@@ -94,7 +94,7 @@ void DataBase::addTrade(const Header &hdr, const Trade &trade) {
 	fend = getPos();
 }
 
-void DataBase::replaceTrade(off_t pos, const Header &hdr, const OldTrade &trade) {
+void DataBase::replaceTrade(off_t pos, const Header &hdr, const Trade &trade) {
 	Header h;
 	setPos(pos, SEEK_SET);
 	if (!read(h) || h != hdr) {
@@ -106,7 +106,7 @@ void DataBase::replaceTrade(off_t pos, const Header &hdr, const OldTrade &trade)
 
 template<typename T>
 void DataBase::write(const T &data) {
-	if (buffer.empty()) {
+	if (!buffer.empty()) {
 		::lseek(fd, -buffer.size(), SEEK_CUR);
 		buffer = std::string_view();
 	}
@@ -254,7 +254,7 @@ bool DataBase::Day::operator ==(const Day &d) const {
 DataBase::Day DataBase::Day::fromTime(std::uint64_t tm) {
 	std::time_t t = tm/1000;
 	const std::tm *tinfo = std::gmtime(&t);
-	return { tinfo->tm_year,tinfo->tm_mon+1, tinfo->tm_mday};
+	return { tinfo->tm_year+1900,tinfo->tm_mon+1, tinfo->tm_mday};
 
 }
 
@@ -327,10 +327,10 @@ template bool DataBase::read(DataBase::OldTrade &);
 template bool DataBase::read(std::uint64_t &);
 template bool DataBase::read(DataBase::Trade&);
 template void DataBase::check_checksum(std::uint64_t, const DataBase::Header &, const DataBase::TraderInfo &);
-template void DataBase::check_checksum(std::uint64_t, const DataBase::Header&,
-		const DataBase::OldTrade&);
+template void DataBase::check_checksum(std::uint64_t, const DataBase::Header&, const DataBase::OldTrade&);
+template void DataBase::check_checksum(std::uint64_t, const DataBase::Header&, const DataBase::Trade &);
 
-off_t DataBase::setPos(off_t pos) {
+		off_t DataBase::setPos(off_t pos) {
 	return setPos(pos, SEEK_SET);
 }
 

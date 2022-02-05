@@ -66,20 +66,6 @@ void storeTrade(DataBase &main, DataBase &backup, TradeReport &rep, json::Value 
 	rep.invalidate(hdr.getTime());
 }
 
-static std::uint64_t monthToTimestamp(const TradeReport::Day &m) {
-	std::tm t = {};
-	t.tm_year = m.year;
-	t.tm_mon = m.month+1; //day is 0 - calculates timestamp of the last day
-	return timegm(&t);
-}
-
-static std::uint64_t dateToTimestamp(const TradeReport::Day &d) {
-	std::tm t = {};
-	t.tm_year = d.year;
-	t.tm_mon = d.month;
-	t.tm_mday = d.day;
-	return timegm(&t);
-}
 
 json::Value genReport(TradeReport &rpt) {
 	TradeReport::StandardReport srp = rpt.generateReport(TradeReport::Date::fromTime(
@@ -90,7 +76,8 @@ json::Value genReport(TradeReport &rpt) {
 	std::vector<std::string_view> header;
 	for (const auto &x: srp.total) header.push_back(x.first);
 	json::Value jhdr (json::array, header.begin(), header.end(), [&](const std::string_view &x){return json::Value(x);});
-	json::Array rows;
+	json::Array days;
+	json::Array months;
 	jhdr.unshift("");
 	for (const auto &row: srp.months) {
 		json::Value r(json::array, header.begin(), header.end(),[&](const std::string_view &x){
@@ -98,8 +85,8 @@ json::Value genReport(TradeReport &rpt) {
 			if (iter == row.second.end()) return 0.0;
 			else return iter->second;
 		});
-		r.unshift(monthToTimestamp(row.first));
-		rows.push_back(r);
+		r.unshift(json::Value({row.first.year,row.first.month}));
+		months.push_back(r);
 	}
 	for (const auto &row: srp.lastMonth) {
 		json::Value r(json::array, header.begin(), header.end(),[&](const std::string_view &x){
@@ -107,13 +94,14 @@ json::Value genReport(TradeReport &rpt) {
 			if (iter == row.second.end()) return 0.0;
 			else return iter->second;
 		});
-		r.unshift(dateToTimestamp(row.first));
-		rows.push_back(r);
+		r.unshift(json::Value({row.first.year,row.first.month, row.first.day}));
+		days.push_back(r);
 	}
 	json::Value sum(json::array,  header.begin(), header.end(), [&](const std::string_view &x){return json::Value(srp.total[x]);});
 	return json::Value(json::object,{
 			json::Value("hdr", jhdr),
-			json::Value("rows", rows),
+			json::Value("months", months),
+			json::Value("days", days),
 			json::Value("sums", sum),
 	});
 }
@@ -198,8 +186,130 @@ static void createDump(DataBase &db, bool tocsv) {
 		}
 		return true;
 	});
+}
 
+static json::Value runQuery(TradeReport &rpt, json::Value query) {
+	TradeReport::Date day_from, day_to;
+	off_t cursor;
 
+	json::Value v;
+	if ((v = query["year"]).defined()) {
+		day_from.year = v.getUInt();
+		if ((v = query["month"]).defined()) {
+			day_from.month = v.getUInt();
+			day_from.day = 1;
+			day_to = day_from;
+			++day_to.month;
+		} else {
+			day_from.month = 1;
+			day_from.day = 1;
+			day_to = day_from;
+			++day_to.year;
+		}
+	} else if ((v = query["start"]).defined()) {
+		day_from = day_from.fromTime(v.getUIntLong());
+		if ((v = query["end"]).defined()) {
+			day_to = day_from.fromTime(v.getUIntLong());
+		} else {
+			day_to = {9999,1,1};
+		}
+	} else {
+		throw std::runtime_error("'year' or 'start' fields are mandatory");
+	}
+
+	cursor = query["cursor"].getUIntLong();
+
+	TradeReport::Filter flt = {};
+	unsigned int limit = 1000;
+	if ((v = query["asset"]).defined()) flt.asset = v.getString();
+	if ((v = query["currency"]).defined()) flt.currency = v.getString();
+	if ((v = query["broker"]).defined()) flt.broker = v.getString();
+	if ((v = query["magic"]).defined()) flt.magic = v.getUIntLong();
+	if ((v = query["uid"]).defined()) flt.uid = v.getUIntLong();
+	if ((v = query["skip_deleted"]).defined()) flt.skip_deleted = v.getBool();
+	if ((v = query["limit"]).defined()) limit = v.getUInt();
+	json::Array rows;
+	bool complete = true;
+	rpt.query([&](off_t c, const DataBase::Header &hdr, const DataBase::Trade &trd, const DataBase::TraderInfo &nfo){
+		if (rows.size() >= limit) {
+			cursor = c;
+			complete = false;
+			return false;
+		}
+		rows.push_back({
+			c,
+			hdr.getTime(),
+			hdr.uid,
+			hdr.magic,
+			nfo.getAsset(),
+			nfo.getCurrency(),
+			nfo.getBroker(),
+			trd.getTradeId(),
+			trd.price,
+			trd.size,
+			trd.pos,
+			trd.change,
+			trd.rpnl,
+			trd.invert_price,
+			trd.deleted
+		});
+		return true;
+	}, day_from, day_to, cursor, flt);
+	return json::Object {
+		{"result", rows},
+		{"complete", complete},
+		{"cursor", complete?json::Value():json::Value(cursor)}
+	};
+}
+
+json::Value runOptions(TradeReport &rpt) {
+ 	auto opt = rpt.getOptions();
+	auto strarr = [](const std::string_view &x) {return json::Value(x);};
+	return json::Object{
+		{"currency", json::Value(json::array, opt.currencies.begin(),opt.currencies.end(),strarr)},
+		{"asset", json::Value(json::array, opt.assets.begin(),opt.assets.end(),strarr)},
+		{"broker", json::Value(json::array, opt.brokers.begin(),opt.brokers.end(),strarr)},
+		{"traders",json::Value(json::array, opt.traders.begin(),opt.traders.end(),[](const auto &x){
+			return json::Value({x.first, x.second});
+		})},
+	};
+}
+
+json::Value runSetDeleted(DataBase &main, DataBase &backup, json::Value args) {
+	json::Value ident = args["id"];
+	if (!ident.defined() || ident.type() != json::array || ident.size() != 4) {
+		throw std::runtime_error("Needs 'id' -  the first four numbers of the row returned by 'query'");
+	}
+	json::Value flag = args["deleted"];
+	if (flag.type() != json::boolean) {
+		throw std::runtime_error("Needs 'deleted' - true/false");
+	}
+
+	DataBase::Header hdr;
+	hdr.setTime(ident[1].getUIntLong());
+	hdr.uid = ident[2].getUIntLong();
+	hdr.magic = ident[3].getUIntLong();
+	hdr.type = DataBase::recTrade;
+	off_t c = ident[0].getUIntLong();
+
+	DataBase::Trade r;
+	main.scanTradesFrom(c, [&](off_t c, const DataBase::Header &h, const DataBase::Trade &t){
+		r = t;
+		return false;
+	});
+	r.deleted = flag.getBool();
+
+	main.replaceTrade(c, hdr, r);
+	main.flush();
+	try {
+		backup.replaceTrade(c, hdr, r);
+	} catch (std::exception &e) {
+		std::cerr << "Error updating backup " << e.what() << std::endl;
+		backup.reconstruct(main);
+		std::cerr << "Backup synced" << std::endl;
+	}
+	backup.flush();
+	return json::Value();
 }
 
 int main(int argc, char **argv) {
@@ -294,7 +404,18 @@ int main(int argc, char **argv) {
 				} else if (cmd == "getReport") {
 					Value rep = genReport(rpt);
 					resp = {true, rep};
-
+				} else if (cmd == "query") {
+					Value arg = req[1];
+					if (!arg.defined()) {
+						resp = {true, "supported"};
+					} else {
+						resp = {true, runQuery(rpt, arg)};
+					}
+				} else if (cmd == "options") {
+					resp = {true, runOptions(rpt)};
+				} else if (cmd == "deleted") {
+					json::Value arg = req[1];
+					resp = {true, runSetDeleted(db_main, db_backup, arg)};
 				} else {
 					throw std::runtime_error("unsupported function");
 				}
