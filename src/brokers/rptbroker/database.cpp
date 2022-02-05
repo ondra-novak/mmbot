@@ -325,6 +325,7 @@ template bool DataBase::read(DataBase::Header &);
 template bool DataBase::read(DataBase::TraderInfo &);
 template bool DataBase::read(DataBase::OldTrade &);
 template bool DataBase::read(std::uint64_t &);
+template bool DataBase::read(DataBase::Trade&);
 template void DataBase::check_checksum(std::uint64_t, const DataBase::Header &, const DataBase::TraderInfo &);
 template void DataBase::check_checksum(std::uint64_t, const DataBase::Header&,
 		const DataBase::OldTrade&);
