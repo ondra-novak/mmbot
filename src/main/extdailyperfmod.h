@@ -17,6 +17,12 @@ public:
 
 	virtual void sendItem(const PerformanceReport &report) override;
 	virtual json::Value getReport() override;
+	virtual bool querySupported() override;
+	virtual QueryResult query(const QueryParams &param) override;
+	virtual json::Value getOptions() override;
+	virtual void setTradeDeleted(const TradeLocation &loc, bool deleted) override;
+	virtual bool setTradeDeletedSupported() override;
+	virtual json::Value getTraders() override;
 
 public:
 	bool ignore_simulator;

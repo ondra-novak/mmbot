@@ -301,7 +301,7 @@ bool AbstractExtern::preload() {
 			return false;
 		}
 	} catch (std::exception &e) {
-		throw Exception(e.what(), this->name, "preload");
+		throw Exception(e.what(), this->name, "preload", false);
 	}
 }
 
@@ -395,17 +395,17 @@ json::Value AbstractExtern::jsonRequestExchange(json::String name, json::Value a
 			return result;
 		} else {
 			auto error = resp[1];
-			throw std::runtime_error(std::string(error.getString()));
+			throw Exception(error.getString(),this->name,name.str(),true);
 		}
 	} catch (const Exception &e) {
-		throw Exception(std::string(e.getMsg()), this->name, name.c_str());
+		throw ;
 	} catch (const std::exception &e) {
-		throw Exception(e.what(), this->name, name.c_str());
+		throw Exception(e.what(), this->name, name.c_str(), false);
 	}
 }
 
-AbstractExtern::Exception::Exception(std::string &&msg, const std::string &name, const std::string &command)
-	:whatmsg(name+": "+msg+ " ("+command+")"),msg(std::move(msg)),name(name),command(command) {}
+AbstractExtern::Exception::Exception(std::string &&msg, const std::string &name, const std::string &command, bool isResponse)
+	:response(isResponse),whatmsg(name+": "+msg+ " ("+command+")"),msg(std::move(msg)),name(name),command(command) {}
 
 const char* AbstractExtern::Exception::what() const noexcept{
 	return whatmsg.c_str();

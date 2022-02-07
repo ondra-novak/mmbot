@@ -236,9 +236,9 @@ json::Value ExtStockApi::requestExchange(json::String name, json::Value args) {
 	else try {
 		return connection->jsonRequestExchange("subaccount", {subaccount, name, args});
 	} catch (const AbstractExtern::Exception &e) {
-		throw AbstractExtern::Exception(std::string(e.getMsg()), connection->getName()+ "~" + subaccount, name.c_str());
+		throw;
 	} catch (std::exception &e) {
-		throw AbstractExtern::Exception(e.what(), connection->getName() + "~" + subaccount, name.c_str());
+		throw AbstractExtern::Exception(e.what(), connection->getName() + "~" + subaccount, name.c_str(), false);
 	}
 }
 

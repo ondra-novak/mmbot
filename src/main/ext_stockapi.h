@@ -55,14 +55,14 @@ public:
 	virtual bool isSubaccount() const override;
 	virtual json::Value getMarkets() const override;
 	virtual AllWallets getWallet()  override;
-	virtual bool areMinuteDataAvailable(const std::string_view &asset, const std::string_view &currency);
+	virtual bool areMinuteDataAvailable(const std::string_view &asset, const std::string_view &currency) override;
 	virtual std::uint64_t downloadMinuteData(const std::string_view &asset,
 					  const std::string_view &currency,
 					  const std::string_view &hint_pair,
 					  std::uint64_t time_from,
 					  std::uint64_t time_to,
 					  std::vector<OHLC> &data
-				);
+				) override;
 
 
 

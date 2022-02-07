@@ -25,6 +25,14 @@ public:
 	virtual void sendItem(const PerformanceReport &report) override;
 	virtual json::Value getReport()  override;
 
+	virtual bool querySupported() override {return false;}
+	virtual QueryResult query(const QueryParams &param) override {return {};}
+	virtual json::Value getOptions() override {return json::Value();}
+	virtual void setTradeDeleted(const TradeLocation &loc, bool deleted) override {}
+	virtual bool setTradeDeletedSupported() override {return false;}
+	virtual json::Value getTraders() override {return json::Value();}
+
+
 protected:
 	PStorage storage;
 	unsigned int dayIndex;

@@ -149,7 +149,7 @@ protected:
 	friend json::Value handleSubaccount(AbstractBrokerAPI &handler, const json::Value &req);
 
 	///function is not used here
-	virtual void reset(const std::chrono::system_clock::time_point &tp) {}
+	virtual void reset(const std::chrono::system_clock::time_point &tp) override {}
 
 	///obsolete for compatibility
 	virtual double getFees(const std::string_view &) {return 0;}

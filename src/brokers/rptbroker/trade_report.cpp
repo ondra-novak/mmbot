@@ -17,17 +17,15 @@ TradeReport::SymbolMap TradeReport::buildMap(std::streampos from, std::streampos
 	db.scanTradesFrom(from, [&](std::streampos pos, const DataBase::Header &hdr, const DataBase::Trade &trd){
 		if (pos >= to) return false;
 		if (!trd.deleted) {
-			double v = trd.rpnl;
-			if (v) {
-				const DataBase::TraderInfo *tinfo = db.findTrader(hdr);
-				if (tinfo) {
-					auto s = tinfo->getCurrency();
-					auto iter = r.find(s);
-					if (iter == r.end()) {
-						r.emplace(storeSymbol(s), v);
-					} else {
-						iter->second += v;
-					}
+			AggrVal v { trd.rpnl, trd.change};
+			const DataBase::TraderInfo *tinfo = db.findTrader(hdr);
+			if (tinfo) {
+				auto s = tinfo->getCurrency();
+				auto iter = r.find(s);
+				if (iter == r.end()) {
+					r.emplace(storeSymbol(s), v);
+				} else {
+					iter->second += v;
 				}
 			}
 		}
@@ -143,3 +141,9 @@ TradeReport::Options TradeReport::getOptions() const {
 	return r;
 
 }
+
+TradeReport::SymbolMap &operator+=(TradeReport::SymbolMap &a, const TradeReport::SymbolMap &b) {
+	for (const auto &x : b) a[x.first] += x.second;
+	return a;
+}
+

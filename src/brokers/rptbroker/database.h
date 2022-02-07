@@ -53,6 +53,16 @@ public:
 		void setCurrency(const std::string_view &str);
 	};
 
+	struct TraderInfoExt: public TraderInfo {
+		std::uint64_t firstSeen;
+		std::uint64_t lastSeen;
+		double profit, equity, volume;
+		unsigned int trades;
+		TraderInfoExt(const TraderInfo &base):TraderInfo(base),firstSeen(-1),lastSeen(0),profit(0),equity(0), volume(0),trades(0) {}
+		TraderInfoExt() {}
+		void update(std::uint64_t time, double change, double rpnl, double volume);
+	};
+
 	struct OldTrade {
 		double price;
 		double size;
@@ -81,6 +91,7 @@ public:
 
 		void setTradeId(const std::string_view &str);
 		std::string_view getTradeId() const;
+		double getVolume() const;
 };
 
 	struct Payload {
@@ -116,7 +127,8 @@ public:
 
 	std::size_t size() const {return records;}
 
-	const TraderInfo *findTrader(const Header &hdr) const;
+	const TraderInfoExt *findTrader(const Header &hdr) const;
+	TraderInfoExt *findTrader(const Header &hdr);
 	off_t findDay(const Day &m) const;
 
 
@@ -138,7 +150,7 @@ public:
 
 protected:
 	using TraderKey = std::pair<std::uint64_t, std::uint64_t>;
-	using TraderMap = std::map<TraderKey, TraderInfo>;
+	using TraderMap = std::map<TraderKey, TraderInfoExt>;
 
 	mutable TraderMap traderMap;
 
@@ -175,6 +187,7 @@ inline void DataBase::scanFrom(off_t pos, Fn &&fn)  {
 	setPos(pos);
 	Header hdr;
 	std::uint64_t chksum;
+	Payload p;
 	while (read(hdr)) {
 		switch(hdr.type) {
 		case recOldTrade: {
@@ -183,25 +196,29 @@ inline void DataBase::scanFrom(off_t pos, Fn &&fn)  {
 				TraderInfo nfo;
 				read(nfo);read(chksum);
 				check_checksum(chksum, hdr, nfo);
-				if (!fn(pos, hdr, Payload{recTraderInfo, .tinfo = &nfo})) return;
+				p.type = recTraderInfo;p.tinfo = &nfo;
+				if (!fn(pos, hdr, p)) return;
 			} else {
 				OldTrade trd;
 				read(trd);read(chksum);
 				check_checksum(chksum, hdr, trd);
-				if (!fn(pos, hdr, Payload{recOldTrade, .old_trade =  &trd})) return;
+				p.type = recOldTrade;p.old_trade = &trd;
+				if (!fn(pos, hdr, p)) return;
 			}
 		}break;
 		case recTraderInfo:{
 			TraderInfo nfo;
 			read(nfo);read(chksum);
 			check_checksum(chksum, hdr, nfo);
-			if (!fn(pos, hdr, Payload{recTraderInfo, .tinfo =  &nfo})) return;
+			p.type = recTraderInfo;p.tinfo = &nfo;
+			if (!fn(pos, hdr, p)) return;
 		}break;
 		case recTrade:{
 			Trade nfo;
 			read(nfo);read(chksum);
 			check_checksum(chksum, hdr, nfo);
-			if (!fn(pos, hdr, Payload{recTrade, .trade=  &nfo})) return;
+			p.type = recTrade;p.trade = &nfo;
+			if (!fn(pos, hdr, p)) return;
 		}break;
 		default: throw std::runtime_error("Database corrupted, unsupported record");
 		};

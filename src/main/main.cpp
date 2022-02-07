@@ -41,6 +41,7 @@
 #include "traders.h"
 #include "../../version.h"
 #include "../imtjson/src/imtjson/operations.h"
+#include "rptapi.h"
 
 using ondra_shared::StdLogFile;
 using ondra_shared::StrViewA;
@@ -355,9 +356,8 @@ int main(int argc, char **argv) {
 								sch,app.config["brokers"], sf,rpt,perfmod, rptpath,  brk_timeout
 						);
 
-						RefCntPtr<AuthUserList> aul,aaul;
+						WebCfg::Users users;
 
-						StrViewA webadmin_auth = login_section["admin"].getString();
 						json::PJWTCrypto jwt;
 						{
 							auto jwt_type = login_section["jwt_type"].getString();
@@ -366,11 +366,13 @@ int main(int argc, char **argv) {
 								jwt=AuthMapper::initJWT(jwt_type, jwt_pubkey);
 							}
 						}
-						SharedObject<WebCfg::State> webcfgstate = SharedObject<WebCfg::State>::make(sf->create("web_admin_conf"),new AuthUserList, new AuthUserList,backtest_cache_size,backtest_in_memory,std::string(news_url));
-						webcfgstate.lock()->setAdminAuth(webadmin_auth);
+						SharedObject<WebCfg::State> webcfgstate = SharedObject<WebCfg::State>::make(sf->create("web_admin_conf"),WebCfg::Users{
+									new AuthUserList,
+									new AuthUserList,
+									new AuthUserList
+						},backtest_cache_size,backtest_in_memory,std::string(news_url));
 						webcfgstate.lock()->applyConfig(traders);
-						aul = webcfgstate.lock_shared()->users;
-						aaul = webcfgstate.lock_shared()->admins;
+						users = webcfgstate.lock_shared()->users;
 
 						std::unique_ptr<simpleServer::MiniHttpServer> srv;
 
@@ -419,7 +421,7 @@ int main(int argc, char **argv) {
 							});
 							paths.push_back({
 								"/api/data",[&](simpleServer::HTTPRequest req, const ondra_shared::StrViewA &) mutable {
-									AuthMapper auth(name,aul,jwt, true);
+									AuthMapper auth(name,users.users,jwt, true);
 									if (!auth.checkAuth_probe(req).defined()) {
 										req.sendErrorPage(403);
 										return true;
@@ -438,7 +440,7 @@ int main(int argc, char **argv) {
 								}
 							});
 							paths.push_back({
-								"/api/login",AuthMapper(name,aul,jwt, true) >>= [&](simpleServer::HTTPRequest req, const ondra_shared::StrViewA &v) mutable {
+								"/api/login",AuthMapper(name,users.users,jwt, true) >>= [&](simpleServer::HTTPRequest req, const ondra_shared::StrViewA &v) mutable {
 									simpleServer::QueryParser qp(v);
 									StrViewA redir = qp["redir"];
 									req->redirect(redir, simpleServer::Redirect::temporary);
@@ -447,10 +449,12 @@ int main(int argc, char **argv) {
 							});
 							paths.push_back({
 								"/api/user",[&](simpleServer::HTTPRequest req, const ondra_shared::StrViewA &) mutable {
-									AuthMapper viewer(name, aul, jwt, true);
-									AuthMapper admin(name, aaul, jwt, false);
+									AuthMapper viewer(name, users.users, jwt, true);
+									AuthMapper admin(name, users.admins, jwt, false);
+									AuthMapper reports(name, users.reports, jwt, false);
 									bool isviewer = false;
 									bool isadmin = false;
+									bool isreport = false;
 									bool isjwt = false;
 									json::Value cookie;
 									json::Value uname;
@@ -463,13 +467,18 @@ int main(int argc, char **argv) {
 										if (req.getMethod() == "GET") {
 											json::Value usr = viewer.checkAuth_probe(req);
 											json::Value ausr = admin.checkAuth_probe(req);
+											json::Value rusr = reports.checkAuth_probe(req);
 											if (usr.defined()) {
 												isjwt = usr.isContainer();
 												uname = usr;
 												isviewer = true;
 												isadmin = ausr.defined();
+												isreport = rusr.defined();
 												if (ausr.hasValue() && !uname.hasValue()) {
 													uname = ausr;
+												}
+												if (rusr.hasValue() && !uname.hasValue()) {
+													uname = rusr;
 												}
 											}
 										} else if (req.getMethod() == "POST"){
@@ -487,9 +496,10 @@ int main(int argc, char **argv) {
 											auto setcookie = v["cookie"].getString();
 											if (uname.defined() && pwd.defined()) {
 												auto u = uname.getString();
-												auto hpwd = aul->hashPwd(u, pwd.getString());
-												isadmin = aaul->findUser(u,hpwd );
-												isviewer = aul->findUser(u, hpwd);
+												auto hpwd = users.users->hashPwd(u, pwd.getString());
+												isadmin = users.admins->findUser(u,hpwd );
+												isviewer = users.users->findUser(u, hpwd);
+												isreport = users.reports->findUser(u, hpwd);
 												user = u;
 											} else {
 												bool needauth = v["needauth"].getBool();
@@ -498,16 +508,19 @@ int main(int argc, char **argv) {
 												}
 												json::Value usr = viewer.checkAuth_probe(req);
 												json::Value ausr = admin.checkAuth_probe(req);
+												json::Value rusr = admin.checkAuth_probe(req);
 												if (usr.hasValue()) user = usr.getString();
 												else if (ausr.hasValue()) user = ausr.getString();
+												else if (rusr.hasValue()) user = rusr.getString();
 												isadmin = ausr.defined();
 												isviewer = usr.defined();
+												isreport = rusr.defined();
 												if (needauth && !usr.hasValue() && !ausr.hasValue() && !admin.checkAuth(req)) {
 													return true;
 												}
 											}
 											if ((isadmin || isviewer) && setcookie != "") {
-												auto s = aul->createJWT(user);
+												auto s = users.users->createJWT(user);
 												if (setcookie == "permanent") {
 													s.append(";Max-Age=34560000");
 												} else if (setcookie != "temporary") {
@@ -528,6 +541,7 @@ int main(int argc, char **argv) {
 										json::Value response = json::Object {
 											{"viewer",isviewer},
 											{"admin",isadmin},
+											{"rpt_viewer",isreport},
 											{"jwt",isjwt},
 											{"user",uname},
 											{"cookie",cookie}
@@ -541,7 +555,7 @@ int main(int argc, char **argv) {
 									return true;
 								}
 							});
-							paths.push_back({"/api/report.json", AuthMapper(name,aul,jwt, true) >>= [&](simpleServer::HTTPRequest req, const ondra_shared::StrViewA &) mutable {
+							paths.push_back({"/api/report.json", AuthMapper(name,users.users,jwt, true) >>= [&](simpleServer::HTTPRequest req, const ondra_shared::StrViewA &) mutable {
 								auto data = rptjson->load();
 								if (data.defined()) {
 									auto s = req.sendResponse("application/json");
@@ -552,9 +566,16 @@ int main(int argc, char **argv) {
 								}
 								return true;
 							}});
+
+							paths.push_back({"/api/reports", AuthMapper(name,users.reports,jwt, true) >>= [&](simpleServer::HTTPRequest req, const ondra_shared::StrViewA &vpath) mutable {
+								RptApi api(perfmod);
+								return api.handle(req, vpath);
+							}});
+
 							(*srv)  >>=  (simpleServer::AutoHostMappingHandler() >> simpleServer::HttpStaticPathMapperHandler(paths));
 
 						}
+
 
 
 

@@ -66,7 +66,7 @@ WebCfg::WebCfg( const SharedObject<State> &state,
 		SharedObject<AbstractExtern> backtest_broker,
 		std::size_t upload_limit
 )
-	:auth(realm, state.lock_shared()->admins,jwt, false)
+	:auth(realm, state.lock_shared()->users.admins,jwt, false)
 	,trlist(traders)
 	,dispatch(std::move(dispatch))
 	,state(state)
@@ -823,8 +823,13 @@ bool WebCfg::reqTraders(simpleServer::HTTPRequest req, ondra_shared::StrViewA vp
 }
 
 
+enum class ListRole {
+	normal,
+	admin,
+	report
+};
 
-static void AULFromJSON(json::Value js, AuthUserList &aul, bool admin) {
+static void AULFromJSON(json::Value js, AuthUserList &aul, ListRole role) {
 	using UserVector = std::vector<AuthUserList::LoginPwd>;
 	using LoginPwd = AuthUserList::LoginPwd;
 
@@ -833,8 +838,16 @@ static void AULFromJSON(json::Value js, AuthUserList &aul, bool admin) {
 		Value username = r["username"];
 		Value password = r["pwdhash"];
 		Value isadmin = r["admin"];
+		Value isreport = r["report"];
 
-		if (!admin || isadmin.getBool()) {
+		bool put = false;
+		switch (role) {
+		case ListRole::normal: put = true;break;
+		case ListRole::report: put = isadmin.getBool() || isreport.getBool();break;
+		case ListRole::admin: put = isadmin.getBool();break;
+		}
+
+		if (put) {
 			curVal.push_back(LoginPwd(username.toString().str(), password.toString().str()));
 		}
 		return std::move(curVal);
@@ -848,14 +861,16 @@ void WebCfg::State::init(json::Value data) {
 	if (data.defined()) {
 		this->write_serial = data["revision"].getUInt();
 		if (data["guest"].getBool() == false) {
-				AULFromJSON(data["users"],*users, false);
+				AULFromJSON(data["users"],*users.users, ListRole::normal);
 		}else {
-			users->setUsers({});
+			users.users->setUsers({});
 		}
-		AULFromJSON(data["users"],*admins, true);
+		AULFromJSON(data["users"],*users.admins, ListRole::admin);
+		AULFromJSON(data["users"],*users.reports, ListRole::report);
 		std::string uid = data["uid"].getString();
-		users->setJWTPwd(uid);
-		admins->setJWTPwd(uid);
+		users.users->setJWTPwd(uid);
+		users.admins->setJWTPwd(uid);
+		users.reports->setJWTPwd(uid);
 	}
 
 }
@@ -909,17 +924,11 @@ void WebCfg::State::applyConfig(SharedObject<Traders>  &st) {
 	}
 }
 
-void WebCfg::State::setAdminAuth(const std::string_view &auth) {
-	auto ulist = AuthUserList::decodeMultipleBasicAuth(auth);
-	auto ulist2 = ulist;
-	users->setCfgUsers(std::move(ulist));
-	admins->setCfgUsers(std::move(ulist2));
-}
 
 void WebCfg::State::setAdminUser(const std::string &uname, const std::string &pwd) {
 	auto hash = AuthUserList::hashPwd(uname,pwd);
-	users->setUser(uname, hash);
-	admins->setUser(uname, hash);
+	users.users->setUser(uname, hash);
+	users.admins->setUser(uname, hash);
 }
 
 

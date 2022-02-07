@@ -206,12 +206,12 @@ PStrategy  Strategy_IncValue::init(bool spot, double price, double assets, doubl
 
 	if (k > 1e200) k = price;
 
-	double v = cfg.fn.budget(calcW(cfg.w, 1, k), k, price);
+	double nb = cfg.fn.budget(calcW(cfg.w, 1, k), k, price)+1;
 	//x + v*x = b
 	//x*(1+v) = b
 	//x = b/(1+v)
 
-	nst.b = b/(1+v);
+	nst.b = b/nb;
 	nst.v = cfg.fn.budget(calcW(cfg.w, nst.b, k), k, price);
 	nst.k = k;
 	nst.p = price;
@@ -257,9 +257,9 @@ double Strategy_IncValue::Function::budget(double w, double k, double x) const {
 }
 
 double Strategy_IncValue::Function::currency(double w, double k, double x) const {
-	if (z == 1) return k*w*std::log(x/k);
-	if (z == 2) return w*k*(1 - k/x + std::log(k/x) + (k - x)/std::pow(x,z-1));
-	else return w*std::pow(k,z-1)*(std::pow(x,1-z)*(x/(z-2)-k/(z-1))-std::pow(k,1-z)*(k/(z-2)-k/(z-1)) - std::pow((k - x),z));
+	double b = budget(w,k,x);
+	double v = pos(w,k,x)*x;
+	return b - v;
 }
 
 double Strategy_IncValue::Function::root(double w, double k, double a) const {

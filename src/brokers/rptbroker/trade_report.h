@@ -19,7 +19,13 @@ public:
 
 	using Day = DataBase::Day;
 	using Date = Day;
-	using SymbolMap = std::map<std::string_view, double>;
+	struct AggrVal {
+		double rpnl = 0;
+		double eq = 0;
+		AggrVal &operator+=(const AggrVal &v) {rpnl += v.rpnl; eq += v.eq;return *this;}
+		AggrVal operator+(const AggrVal &v) const {return {rpnl + v.rpnl, eq + v.eq};}
+	};
+	using SymbolMap = std::map<std::string_view, AggrVal>;
 
 	TradeReport(DataBase &db);
 
@@ -42,6 +48,8 @@ public:
 
 	template<typename Fn>
 	void query(Fn &&fn, const Date &start, const Date &end, off_t cursor, const Filter &filter);
+	template<typename Fn>
+	void aggrQuery(Fn &&fn, const Date &start, const Date &end, const Filter &filter);
 
 
 	struct Options {
@@ -50,6 +58,8 @@ public:
 	};
 
 	Options getOptions() const;
+
+	friend SymbolMap &operator+=(SymbolMap &a, const SymbolMap &b);
 
 protected:
 	using SymbolSet = std::set<std::string, std::less<> >;
@@ -100,13 +110,43 @@ inline void TradeReport::query(Fn &&fn, const Date &start, const Date &end, off_
 			if (filter.broker.has_value() && nfo->getBroker() != *filter.broker) return true;
 		}
 		if (filter.uid.has_value() && hdr.uid != *filter.uid) return true;
-		if (filter.magic.has_value() && hdr.uid != *filter.magic) return true;
+		if (filter.magic.has_value() && hdr.magic != *filter.magic) return true;
 		if (!nfo) {
 			nfo = db.findTrader(hdr);
 			if (!nfo) return true;
 		}
 		return fn(pos,hdr,trade, *nfo);
 	});
+}
+
+template<typename Fn>
+inline void TradeReport::aggrQuery(Fn &&fn, const Date &start, const Date &end, const Filter &flt) {
+	if (!flt.asset.has_value() && !flt.broker.has_value() && !flt.uid.has_value() && !flt.magic.has_value()) {
+		SymbolMap tmp;
+		for (auto iter = days.lower_bound(start), iend = days.upper_bound(end); iter != iend; ++iter) {
+			const SymbolMap &smap = days.update(iter);
+			if (flt.currency.has_value()) {
+				auto c = smap.find(*flt.currency);
+				if (c == smap.end()) tmp[*flt.currency] =AggrVal{};
+				else tmp[*flt.currency] = c->second;
+				if (!fn(iter->first, tmp)) break;
+			} else {
+				if (!fn(iter->first, smap)) break;
+			}
+		}
+	} else {
+		for (auto iter = days.lower_bound(start), iend = days.upper_bound(end); iter != iend; ++iter) {
+			Day a = iter->first;
+			Day b = a;
+			b.day+=1;
+			SymbolMap tmp;
+			query([&](off_t, const DataBase::Header &hdr, const DataBase::Trade &trd, const DataBase::TraderInfo &nfo){
+				tmp[nfo.currency] += AggrVal{trd.rpnl, trd.change};
+				return true;
+			},a,b,0,flt);
+			if (!tmp.empty() && !fn(iter->first, tmp)) break;
+		}
+	}
 }
 
 #endif /* SRC_BROKERS_RPTBROKER_TRADE_REPORT_H_ */

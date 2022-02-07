@@ -121,9 +121,9 @@ protected:
 
 
 	virtual void loadState(const AbstractPaperTrading::TradeState &st,
-			json::Value state);
-	virtual TradeState& getState(const std::string_view &symbol);
-	virtual json::Value saveState(const AbstractPaperTrading::TradeState &st);
+			json::Value state) override;
+	virtual TradeState& getState(const std::string_view &symbol) override;
+	virtual json::Value saveState(const AbstractPaperTrading::TradeState &st) override;
 	double getBalanceFromWallet(const std::string_view &symb);
 	void updateWallet(const TradeState &st, const std::string_view &symbol, double difference) override;
 	virtual RawBalance getRawBalance(const TradeState &st) const override;

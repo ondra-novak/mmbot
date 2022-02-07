@@ -69,3 +69,67 @@ json::Value ExtDailyPerfMod::getReport() {
 	}
 	return reportCache;
 }
+
+bool ExtDailyPerfMod::querySupported() {
+	try {
+		jsonRequestExchange("query", json::Value());
+		return true;
+	} catch (const Exception &e) {
+		if (e.isResponse()) return false;
+		throw;
+	}
+}
+
+ExtDailyPerfMod::QueryResult ExtDailyPerfMod::query(const QueryParams &param) {
+
+	json::Object flt;
+	flt.set("cursor", param.cursor);
+	if (param.year) flt.set("year",param.year);
+	if (param.month) flt.set("month",param.month);
+	flt.set("start",param.start_date);
+	if (param.end_date) flt.set("end",param.end_date);
+	if (!param.asset.empty()) flt.set("asset", param.asset);
+	if (!param.currency.empty()) flt.set("currency", param.currency);
+	if (!param.broker.empty()) flt.set("broker", param.broker);
+	if (param.uid.has_value()) flt.set("uid", *param.uid);
+	if (param.magic.has_value()) flt.set("magic", *param.magic);
+	if (param.magic.has_value()) flt.set("magic", *param.magic);
+	flt.set("aggregate", param.aggregate);
+	flt.set("skip_deleted", param.skip_deleted);
+	flt.set("limit", param.limit);
+
+	json::Value out = jsonRequestExchange("query", flt);
+	return {
+		out["complete"].getBool(),
+		out["cursor"].getUIntLong(),
+		out["result"]
+	};
+
+
+
+}
+
+json::Value ExtDailyPerfMod::getOptions() {
+	return jsonRequestExchange("options", json::Value());
+}
+
+void ExtDailyPerfMod::setTradeDeleted(const TradeLocation &loc, bool deleted) {
+	jsonRequestExchange("deleted", json::Object{
+		{"id",{loc.cursor, loc.time, loc.uid, loc.magic}},
+		{"deleted", deleted}
+	});
+}
+
+bool ExtDailyPerfMod::setTradeDeletedSupported() {
+	try {
+		jsonRequestExchange("deleted", json::Value());
+		return true;
+	} catch (const Exception &e) {
+		if (e.isResponse()) return false;
+		throw;
+	}
+}
+
+json::Value ExtDailyPerfMod::getTraders() {
+	return jsonRequestExchange("traders", json::Value());
+}

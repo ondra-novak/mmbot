@@ -43,7 +43,9 @@ void DataBase::buildIndex() {
 		} else {
 			last_timestamp = hdr_time;
 		}
-		if (findTrader(hdr) == nullptr) throw std::runtime_error("Build index failed: Database is corrupted");
+		TraderInfoExt *tnfo = findTrader(hdr);
+		if (tnfo == nullptr) throw std::runtime_error("Build index failed: Database is corrupted");
+		tnfo->update(hdr_time,  trd.change, trd.rpnl, trd.getVolume());
 		Day d = Day::fromTime(hdr_time);
 		if (d != last) {
 			last = d;
@@ -57,7 +59,13 @@ void DataBase::buildIndex() {
 }
 
 
-const DataBase::TraderInfo *DataBase::findTrader(const Header &hdr) const {
+const DataBase::TraderInfoExt *DataBase::findTrader(const Header &hdr) const {
+	auto iter = traderMap.find({hdr.uid, hdr.magic});
+	if (iter == traderMap.end()) return nullptr;
+	else return &iter->second;
+}
+
+DataBase::TraderInfoExt *DataBase::findTrader(const Header &hdr)  {
 	auto iter = traderMap.find({hdr.uid, hdr.magic});
 	if (iter == traderMap.end()) return nullptr;
 	else return &iter->second;
@@ -87,6 +95,9 @@ void DataBase::addTrade(const Header &hdr, const Trade &trade) {
 	} else {
 		last_timestamp = hdr_time;
 	}
+	auto tinfo = findTrader(hdr);
+	if (tinfo == nullptr) throw std::runtime_error("Can't add trade, if trader is not registered");
+	tinfo->update(hdr_time,  trade.change, trade.rpnl,trade.getVolume());
 	fend = setPos(0, SEEK_END);
 	Day d = Day::fromTime(hdr_time);
 	dayMap.emplace(d, fend); //will not overwrite existing record
@@ -371,4 +382,18 @@ DataBase::Trade DataBase::Trade::fromOld(const OldTrade &old) {
 	x.invert_price = old.invert_price;
 	x.deleted = old.deleted;
 	return x;
+}
+
+void DataBase::TraderInfoExt::update(std::uint64_t hdr_time, double change, double rpnl, double volume) {
+	firstSeen = std::min(hdr_time,firstSeen);
+	lastSeen = std::max(hdr_time,lastSeen);
+	this->profit += rpnl;
+	this->equity += change;
+	this->trades++;
+	this->volume += volume;
+
+}
+
+double DataBase::Trade::getVolume() const {
+	return std::abs(size*(invert_price?1.0/price:price));
 }

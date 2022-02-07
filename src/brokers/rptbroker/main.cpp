@@ -83,7 +83,7 @@ json::Value genReport(TradeReport &rpt) {
 		json::Value r(json::array, header.begin(), header.end(),[&](const std::string_view &x){
 			auto iter = row.second.find(x);
 			if (iter == row.second.end()) return 0.0;
-			else return iter->second;
+			else return iter->second.rpnl;
 		});
 		r.unshift(json::Value({row.first.year,row.first.month}));
 		months.push_back(r);
@@ -92,12 +92,12 @@ json::Value genReport(TradeReport &rpt) {
 		json::Value r(json::array, header.begin(), header.end(),[&](const std::string_view &x){
 			auto iter = row.second.find(x);
 			if (iter == row.second.end()) return 0.0;
-			else return iter->second;
+			else return iter->second.rpnl;
 		});
 		r.unshift(json::Value({row.first.year,row.first.month, row.first.day}));
 		days.push_back(r);
 	}
-	json::Value sum(json::array,  header.begin(), header.end(), [&](const std::string_view &x){return json::Value(srp.total[x]);});
+	json::Value sum(json::array,  header.begin(), header.end(), [&](const std::string_view &x){return json::Value(srp.total[x].rpnl);});
 	return json::Value(json::object,{
 			json::Value("hdr", jhdr),
 			json::Value("months", months),
@@ -217,8 +217,6 @@ static json::Value runQuery(TradeReport &rpt, json::Value query) {
 		throw std::runtime_error("'year' or 'start' fields are mandatory");
 	}
 
-	cursor = query["cursor"].getUIntLong();
-
 	TradeReport::Filter flt = {};
 	unsigned int limit = 1000;
 	if ((v = query["asset"]).defined()) flt.asset = v.getString();
@@ -228,33 +226,51 @@ static json::Value runQuery(TradeReport &rpt, json::Value query) {
 	if ((v = query["uid"]).defined()) flt.uid = v.getUIntLong();
 	if ((v = query["skip_deleted"]).defined()) flt.skip_deleted = v.getBool();
 	if ((v = query["limit"]).defined()) limit = v.getUInt();
-	json::Array rows;
+
+	cursor = query["cursor"].getUIntLong();
+	json::Value aggr = query["aggregate"];
 	bool complete = true;
-	rpt.query([&](off_t c, const DataBase::Header &hdr, const DataBase::Trade &trd, const DataBase::TraderInfo &nfo){
-		if (rows.size() >= limit) {
-			cursor = c;
-			complete = false;
-			return false;
-		}
-		rows.push_back({
-			c,
-			hdr.getTime(),
-			hdr.uid,
-			hdr.magic,
-			nfo.getAsset(),
-			nfo.getCurrency(),
-			nfo.getBroker(),
-			trd.getTradeId(),
-			trd.price,
-			trd.size,
-			trd.pos,
-			trd.change,
-			trd.rpnl,
-			trd.invert_price,
-			trd.deleted
-		});
-		return true;
-	}, day_from, day_to, cursor, flt);
+	json::Array rows;
+
+	if (aggr.getBool()) {
+		rpt.aggrQuery([&](const TradeReport::Date &dt, const TradeReport::SymbolMap &res){
+			rows.push_back({{dt.day,dt.month, dt.day},json::Value(json::object, res.begin(), res.end(), [](const auto &item){
+				return json::Value(item.first,{item.second.rpnl,item.second.eq});
+			})});
+			return true;
+		}, day_from, day_to, flt);
+
+
+
+	} else {
+
+
+		rpt.query([&](off_t c, const DataBase::Header &hdr, const DataBase::Trade &trd, const DataBase::TraderInfo &nfo){
+			if (rows.size() >= limit) {
+				cursor = c;
+				complete = false;
+				return false;
+			}
+			rows.push_back({
+				c,
+				hdr.getTime(),
+				hdr.uid,
+				hdr.magic,
+				nfo.getAsset(),
+				nfo.getCurrency(),
+				nfo.getBroker(),
+				trd.getTradeId(),
+				trd.price,
+				trd.size,
+				trd.pos,
+				trd.change,
+				trd.rpnl,
+				trd.invert_price,
+				trd.deleted
+			});
+			return true;
+		}, day_from, day_to, cursor, flt);
+	}
 	return json::Object {
 		{"result", rows},
 		{"complete", complete},
@@ -310,6 +326,23 @@ json::Value runSetDeleted(DataBase &main, DataBase &backup, json::Value args) {
 	}
 	backup.flush();
 	return json::Value();
+}
+
+json::Value runTraders(DataBase &main) {
+	return json::Value(json::array, main.traders().begin(), main.traders().end(),[](const auto &itm){
+		return json::Object {
+			{"id",{itm.first.first, itm.first.second}},
+			{"broker",itm.second.getBroker()},
+			{"asset",itm.second.getAsset()},
+			{"started", itm.second.firstSeen},
+			{"stopped", itm.second.lastSeen},
+			{"currency",itm.second.getCurrency()},
+			{"rpnl", itm.second.profit},
+			{"eq", itm.second.equity},
+			{"trades", itm.second.trades},
+			{"volume", itm.second.volume},
+		};
+	});
 }
 
 int main(int argc, char **argv) {
@@ -413,9 +446,15 @@ int main(int argc, char **argv) {
 					}
 				} else if (cmd == "options") {
 					resp = {true, runOptions(rpt)};
+				} else if (cmd == "traders") {
+					resp = {true, runTraders(db_main)};
 				} else if (cmd == "deleted") {
 					json::Value arg = req[1];
-					resp = {true, runSetDeleted(db_main, db_backup, arg)};
+					if (arg.defined()) {
+						resp = {true, runSetDeleted(db_main, db_backup, arg)};
+					} else {
+						resp = {true, "supported"};
+					}
 				} else {
 					throw std::runtime_error("unsupported function");
 				}

@@ -16,7 +16,7 @@
 class ByBitBroker: public AbstractBrokerAPI {
 public:
 	ByBitBroker(const std::string &secure_storage_path);
-	virtual void onInit();
+	virtual void onInit() override;
 	virtual double getBalance(const std::string_view & symb) {return 0;}
 	virtual json::Value testCall(const std::string_view &method, json::Value args) override;
 	virtual std::vector<std::string> getAllPairs() override;
@@ -38,10 +38,10 @@ public:
 	virtual IStockApi::Ticker getTicker(const std::string_view &piar) override;
 	virtual IBrokerControl::AllWallets getWallet() override;
 	virtual bool areMinuteDataAvailable(const std::string_view &asset,
-			const std::string_view &currency);
+			const std::string_view &currency) override;
 	virtual uint64_t downloadMinuteData(const std::string_view &asset, const std::string_view &currency,
 			const std::string_view &hint_pair, uint64_t time_from, uint64_t time_to,
-			std::vector<IHistoryDataSource::OHLC> &data);
+			std::vector<IHistoryDataSource::OHLC> &data) override;
 
 protected:
 	bool hasKeys() const;

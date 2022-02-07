@@ -166,7 +166,7 @@ IStockApi::MarketInfo ByBitBroker::getMarketInfo(const std::string_view &pair) {
 			break;
 		}
 	}
-	return nfo;
+	return std::move(nfo);
 }
 
 AbstractBrokerAPI* ByBitBroker::createSubaccount(const std::string &secure_storage_path) {
