@@ -1093,36 +1093,45 @@ Value Interface::getWallet_direct()  {
 		double n = x["free"].getNumber()+x["locked"].getNumber();
 		if (n) return Value(n); else return Value();
 	}));
-	Object fut;
-	fut.set("USDT", fapi_getCollateral("USDT"));
-	fut.set("BUSD", fapi_getCollateral("BUSD"));
-	Value dacc = dapi_readAccount();
-	for (Value x:dacc["assets"]) {
-		double n = x["walletBalance"].getNumber()+x["unrealizedProfit"].getNumber();
-		if (n) {
-			fut.set(x["asset"].getString(), n);
+	try {
+		Object fut;
+		fut.set("USDT", fapi_getCollateral("USDT"));
+		fut.set("BUSD", fapi_getCollateral("BUSD"));
+		Value dacc = dapi_readAccount();
+		for (Value x:dacc["assets"]) {
+			double n = x["walletBalance"].getNumber()+x["unrealizedProfit"].getNumber();
+			if (n) {
+				fut.set(x["asset"].getString(), n);
+			}
 		}
-	}
-	out.set("futures", fut);
+		out.set("futures", fut);
 
-	fapi_getPosition("");
+		fapi_getPosition("");
 
-	Object poss;
-	for (Value x:fapi_positions) {
-		double n = x["positionAmt"].getNumber();
-		if (n) {
-			poss.set(x["symbol"].getString(), n);
+		Object poss;
+		for (Value x:fapi_positions) {
+			double n = x["positionAmt"].getNumber();
+			if (n) {
+				poss.set(x["symbol"].getString(), n);
+			}
 		}
-	}
 
-	dapi_getPosition("");
-	for (Value x:dapi_positions) {
-		double n = x["positionAmt"].getNumber();
-		if (n) {
-			poss.set(x["symbol"].getString(), n);
-		}
+	} catch (std::exception &e) {
+		//empty
 	}
-	out.set("positions", poss);
+	try {
+		Object poss;
+		dapi_getPosition("");
+		for (Value x:dapi_positions) {
+			double n = x["positionAmt"].getNumber();
+			if (n) {
+				poss.set(x["symbol"].getString(), n);
+			}
+		}
+		out.set("positions", poss);
+	} catch (...) {
+		//empty
+	}
 	return out;
 
 }
