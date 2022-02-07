@@ -8,7 +8,7 @@
 #ifndef SRC_MAIN_IDAILYPERFMOD_H_
 #define SRC_MAIN_IDAILYPERFMOD_H_
 #include <string>
-
+#include <optional>
 
 	struct PerformanceReport {
 		std::size_t magic;
