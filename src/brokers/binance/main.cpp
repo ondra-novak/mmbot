@@ -1116,11 +1116,8 @@ Value Interface::getWallet_direct()  {
 			}
 		}
 
-	} catch (std::exception &e) {
-		//empty
-	}
-	try {
-		Object poss;
+
+
 		dapi_getPosition("");
 		for (Value x:dapi_positions) {
 			double n = x["positionAmt"].getNumber();
