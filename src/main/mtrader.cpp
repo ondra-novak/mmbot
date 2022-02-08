@@ -597,9 +597,9 @@ void MTrader::perform(bool manually) {
 			std::optional<double> budget_extra;
 			if (!trades.empty())
 			{
-				double last_price = trades.back().eff_price;
+//				double last_price = trades.back().eff_price;
 				double locked = wcfg.walletDB.lock_shared()->query(WalletDB::KeyQuery(cfg.broker, minfo.wallet_id, minfo.currency_symbol, uid)).otherTraders;
-				double budget = strategy.calcCurrencyAllocation(last_price);
+				double budget = strategy.calcCurrencyAllocation(status.curPrice);
 				if (budget) {
 					budget_extra =  status.currencyUnadjustedBalance - locked - budget;
 				}

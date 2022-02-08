@@ -563,10 +563,18 @@ IStrategy::BudgetInfo Strategy_Sinh_Gen::getBudgetInfo() const {
 	};
 }
 
-double Strategy_Sinh_Gen::calcCurrencyAllocation(double) const {
-	return std::max(0.0, st.budget+cfg.calc->budget(st.k, pw, st.p)
-			-(st.spot?cfg.calc->assets(st.k, pw, st.p)*st.p:0));
+double Strategy_Sinh_Gen::calcCurrencyAllocation(double p) const {
+	if (st.spot) {
+		return std::max(0.0, st.budget+cfg.calc->budget(st.k, pw, st.p)
+				-cfg.calc->assets(st.k, pw, st.p)*st.p);
+	} else {
+		double assets = cfg.calc->assets(st.k, pw, st.p);
+		double pnl = (p - st.p) * assets;
+		double newk = calcNewK(p, st.val, pnl, cfg.boostmode);
+		return std::max(0.0, st.budget+cfg.calc->budget(newk, calcPower(cfg.power, st, newk), p));
+	}
 }
+
 
 IStrategy::ChartPoint Strategy_Sinh_Gen::calcChart(double price) const {
 	return {

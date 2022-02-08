@@ -1065,77 +1065,81 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req)  {
 				Value rpnl;
 				Value visstrategy;
 				if (tr) {
-					Strategy stratobj=trl->getStrategy();
-					strategy = stratobj.dumpStatePretty(trl->getMarketInfo());
-					auto trades = trl->getTrades();
-					auto assBal = trl->getPosition();
-					if (assBal.has_value()) position =*assBal;
-					tradeCnt = trades.size();
-					enter_price = trl->getEnterPrice();
-					costs = trl->getCosts();
-					enter_price_pos = trl->getEnterPricePos();
-					rpnl = trl->getRPnL();
-					double price = trades.empty()?pair["price"].getNumber():trades.back().price;
-					double pos = position.getNumber();
-					double cur = stratobj.calcCurrencyAllocation(price);
-					double optmiddle = stratobj.getEquilibrium(stratobj.calcInitialPosition(minfo, price, pos,cur));
-					auto minmax = stratobj.calcSafeRange(minfo, pos, cur);
-					if (optmiddle<minmax.min) minmax.min = (minmax.max>optmiddle*2)?0:2*optmiddle-minmax.max;
-					if (optmiddle>minmax.max) minmax.max = 2*optmiddle-minmax.min;
+					try {
+						Strategy stratobj=trl->getStrategy();
+						strategy = stratobj.dumpStatePretty(trl->getMarketInfo());
+						auto trades = trl->getTrades();
+						auto assBal = trl->getPosition();
+						if (assBal.has_value()) position =*assBal;
+						tradeCnt = trades.size();
+						enter_price = trl->getEnterPrice();
+						costs = trl->getCosts();
+						enter_price_pos = trl->getEnterPricePos();
+						rpnl = trl->getRPnL();
+						double price = trades.empty()?pair["price"].getNumber():trades.back().price;
+						double pos = position.getNumber();
+						double cur = stratobj.calcCurrencyAllocation(price);
+						double optmiddle = stratobj.getEquilibrium(stratobj.calcInitialPosition(minfo, price, pos,cur));
+						auto minmax = stratobj.calcSafeRange(minfo, pos, cur);
+						if (optmiddle<minmax.min) minmax.min = (minmax.max>optmiddle*2)?0:2*optmiddle-minmax.max;
+						if (optmiddle>minmax.max) minmax.max = 2*optmiddle-minmax.min;
 
-					double beg = std::max(std::min(minmax.min,price),0.0);
-					double end = std::max(std::min(minmax.max, 2.5*optmiddle-minmax.min),price);
-					struct Pt {
-						double x,b,h,p,y;
-					};
-					std::vector<Pt> points;
-					double prev_y = 0;
-					for (int i = 0; i < 200; i++) {
-						double x = beg+(end-beg)*(i/200.0);
-						IStrategy::ChartPoint pt = stratobj.calcChart(x);
-						IStrategy::ChartPoint pt2 = stratobj.calcChart(x*1.02);
-						//if (!pt2.valid) pt2 = stratobj.calcChart(x*0.98);
-						if (pt.valid && std::isfinite(pt.budget) && std::isfinite(pt.position)) {
-							double y = pt2.valid?pt.position*x*0.02+pt.budget-pt2.budget:0;
-							if (y < 0) y = prev_y;
-							else prev_y = y;
-							points.push_back({
-								minfo.invert_price?1.0/x:x,
-									pt.budget,
-									std::abs(pt.position*x),
-									pt.position,y});
+						double beg = std::max(std::min(minmax.min,price),0.0);
+						double end = std::max(std::min(minmax.max, 2.5*optmiddle-minmax.min),price);
+						struct Pt {
+							double x,b,h,p,y;
+						};
+						std::vector<Pt> points;
+						double prev_y = 0;
+						for (int i = 0; i < 200; i++) {
+							double x = beg+(end-beg)*(i/200.0);
+							IStrategy::ChartPoint pt = stratobj.calcChart(x);
+							IStrategy::ChartPoint pt2 = stratobj.calcChart(x*1.02);
+							//if (!pt2.valid) pt2 = stratobj.calcChart(x*0.98);
+							if (pt.valid && std::isfinite(pt.budget) && std::isfinite(pt.position)) {
+								double y = pt2.valid?pt.position*x*0.02+pt.budget-pt2.budget:0;
+								if (y < 0) y = prev_y;
+								else prev_y = y;
+								points.push_back({
+									minfo.invert_price?1.0/x:x,
+										pt.budget,
+										std::abs(pt.position*x),
+										pt.position,y});
+							}
 						}
-					}
-					while (!points.empty() && std::abs(points.back().p) < minfo.asset_step) {
-						points.pop_back();
-					}
-					IStrategy::ChartPoint cp = stratobj.calcChart(price);
+						while (!points.empty() && std::abs(points.back().p) < minfo.asset_step) {
+							points.pop_back();
+						}
+						IStrategy::ChartPoint cp = stratobj.calcChart(price);
 
-					json::Array tangent;
-					for (int i = -50; i <50;i++) {
-						double x = price+(end-beg)*(i/200.0);
-						tangent.push_back({
-							minfo.invert_price?1.0/x:x,
-							cp.position*(x-price)+cp.budget
-						});
+						json::Array tangent;
+						for (int i = -50; i <50;i++) {
+							double x = price+(end-beg)*(i/200.0);
+							tangent.push_back({
+								minfo.invert_price?1.0/x:x,
+								cp.position*(x-price)+cp.budget
+							});
+						}
+
+						double neutral = stratobj.onTrade(minfo, price, 0, pos, cur).neutralPrice;
+
+						visstrategy = json::Object{
+							{"points",json::Value(json::array,points.begin(), points.end(), [](const Pt &pt){
+								return json::Object{
+									{"x",pt.x},{"y",pt.y},{"h",pt.h},{"b",pt.b}
+								};
+							})},
+							{"neutral", neutral},
+							{"tangent",tangent},
+							{"current",json::Object{
+								{"x",minfo.invert_price?1.0/price:price},
+								{"b",cp.budget},
+								{"h",std::abs(cp.position*price)},
+							}}
+						};
+					} catch (std::exception &e) {
+						logWarning("Strategy error: $1", e.what());
 					}
-
-					double neutral = stratobj.onTrade(minfo, price, 0, pos, cur).neutralPrice;
-
-					visstrategy = json::Object{
-						{"points",json::Value(json::array,points.begin(), points.end(), [](const Pt &pt){
-							return json::Object{
-								{"x",pt.x},{"y",pt.y},{"h",pt.h},{"b",pt.b}
-							};
-						})},
-						{"neutral", neutral},
-						{"tangent",tangent},
-						{"current",json::Object{
-							{"x",minfo.invert_price?1.0/price:price},
-							{"b",cp.budget},
-							{"h",std::abs(cp.position*price)},
-						}}
-					};
 
 
 				}

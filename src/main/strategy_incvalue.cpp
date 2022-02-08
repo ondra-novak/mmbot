@@ -151,9 +151,9 @@ double Strategy_IncValue::getEquilibrium(double assets) const {
 	return cfg.fn.root(calcW(), st.k, assets);
 }
 
-double Strategy_IncValue::calcCurrencyAllocation(double) const {
+double Strategy_IncValue::calcCurrencyAllocation(double p) const {
 	if (st.spot) return cfg.fn.currency(calcW(), st.k, st.p)+st.b;
-	else return cfg.fn.budget(calcW(), st.k, st.p)+st.b;
+	else return cfg.fn.budget(calcW(), st.k, p)+st.b;
 }
 
 IStrategy::ChartPoint Strategy_IncValue::calcChart(double price) const {
