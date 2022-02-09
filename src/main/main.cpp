@@ -41,6 +41,8 @@
 #include "traders.h"
 #include "../../version.h"
 #include "../imtjson/src/imtjson/operations.h"
+#include "../shared/logOutput.h"
+
 #include "rptapi.h"
 
 using ondra_shared::StdLogFile;
@@ -58,6 +60,7 @@ using ondra_shared::parseCmdLine;
 using ondra_shared::Scheduler;
 using ondra_shared::Worker;
 using ondra_shared::Dispatcher;
+using ondra_shared::logWarning;
 using ondra_shared::RefCntObj;
 using ondra_shared::RefCntPtr;
 using ondra_shared::schedulerGetWorker;
@@ -404,7 +407,7 @@ int main(int argc, char **argv) {
 							});
 
 							paths.push_back({
-								"/admin",ondra_shared::shared_function<bool(simpleServer::HTTPRequest, ondra_shared::StrViewA)>(WebCfg(webcfgstate,
+								"/api/admin",ondra_shared::shared_function<bool(simpleServer::HTTPRequest, ondra_shared::StrViewA)>(WebCfg(webcfgstate,
 										name,
 										traders,
 										[=](WebCfg::Action &&a) mutable {sch.immediate() >> std::move(a);},jwt, phb, upload_limit))
@@ -417,6 +420,17 @@ int main(int argc, char **argv) {
 							paths.push_back({
 								"/data",[&](simpleServer::HTTPRequest req, const ondra_shared::StrViewA &) mutable {
 									req.redirect("api/data", simpleServer::Redirect::permanent);return true;
+								}
+							});
+							paths.push_back({
+								"/admin/api",[&](simpleServer::HTTPRequest req, const ondra_shared::StrViewA &vpath) mutable {
+									StrViewA fullPath = req.getPath();
+									StrViewA prefix = fullPath.substr(0,fullPath.length-vpath.length-10);
+									std::string rpath(prefix);
+									rpath.append("/api/admin");
+									rpath.append(vpath);
+									logWarning("Using old API /admin/api - will be removed in future version - use /api/admin ($1 -> $2)", fullPath, rpath);
+									req.redirect(rpath, simpleServer::Redirect::permanent);return true;
 								}
 							});
 							paths.push_back({

@@ -293,11 +293,11 @@ App.prototype.processConfig = function(x) {
 }
 
 App.prototype.loadConfig = function() {
-	return fetch_with_error("api/config").then(this.processConfig.bind(this));
+	return fetch_with_error("../api/admin/config").then(this.processConfig.bind(this));
 }
 
 App.prototype.brokerURL = function(broker) {
-	return "api/brokers/"+encodeURIComponent(broker);
+	return "../api/admin/brokers/"+encodeURIComponent(broker);
 }
 App.prototype.pairURL = function(broker, pair) {
 	return this.brokerURL(broker) + "/pairs/" + encodeURIComponent(pair);	
@@ -306,10 +306,10 @@ App.prototype.brokerImgURL = function(broker) {
 	return this.brokerURL(broker) + "/icon.png";	
 }
 App.prototype.traderURL = function(trader) {
-	return "api/traders/"+encodeURIComponent(trader);
+	return "../api/admin/traders/"+encodeURIComponent(trader);
 }
 App.prototype.traderPairURL = function(trader, pair) {
-	return "api/traders/"+encodeURIComponent(trader)+"/broker/pairs/" + encodeURIComponent(pair);	
+	return "../api/admin/traders/"+encodeURIComponent(trader)+"/broker/pairs/" + encodeURIComponent(pair);	
 }
 App.prototype.reload_trader_header=function() {}
 
@@ -352,7 +352,7 @@ App.prototype.fillForm = function (src, trg) {
 					inverted: trg._pair.invert_price,
 					trader:src.id
 			};
-			fetch_json("api/strategy", {method:"POST",body:JSON.stringify(req)}).then(
+			fetch_json("../api/admin/strategy", {method:"POST",body:JSON.stringify(req)}).then(
 				function(r){
 					trg.setData({range_min_price:adjNum(r.min), range_max_price:adjNum(r.max), range_initial:adjNum(r.initial)});
 					initial_pos = adjNumN(r.initial);
@@ -366,7 +366,7 @@ App.prototype.fillForm = function (src, trg) {
 	var first_fetch = true;
 
 	var updateHdr = function(){
-		var state = fetch_json("api/editor",{
+		var state = fetch_json("../api/admin/editor",{
 			method:"POST",
 			body: JSON.stringify({
 				broker: src.broker,
@@ -1045,13 +1045,13 @@ App.prototype.init = function() {
 	this.desktop.setItemValue("top_panel", top_panel);
 	top_panel.setItemEvent("save","click", this.save.bind(this));
 	top_panel.setItemEvent("login","click", function() {
-		location.href="api/login";
+		location.href="../api/admin/login";
 	});
 		
 	
 	return Promise.all([
 	        this.loadConfig(),
-	        fetch("api/news")]
+	        fetch("../api/admin/news")]
 	      ).then(function(x) {
 	    this.news = x[1].status == 200;
 	    if (this.news) this.news_content = x[1].json();
@@ -1076,7 +1076,7 @@ App.prototype.brokerSelect = function() {
 	return new Promise(function(ok, cancel) {
 		
 		var form = TemplateJS.View.fromTemplate("broker_select");
-		_this.waitScreen(fetch_with_error("api/brokers/_all")).then(function(x) {
+		_this.waitScreen(fetch_with_error("../api/admin/brokers/_all")).then(function(x) {
 			form.openModal();
 			var lst = function(s){
 				return x.filter(function(z){return !s || z.subaccounts;})
@@ -1634,7 +1634,7 @@ App.prototype.saveConfig = function(x) {
 	return this.validate(x).then(function(config) {
 		var dff = createDiff(this.org_config, config)
 		if (dff === undefined) dff = null;		
-		return fetch_json("api/config",{
+		return fetch_json("../api/admin/config",{
 			method: "POST",
 			headers: {
 				"Content-Type":"application/json",
@@ -1705,7 +1705,7 @@ App.prototype.logout = function() {
 			}
 		});
 	} else {
-		fetch("api/logout").then(function(resp) {
+		fetch("../api/admin/logout").then(function(resp) {
 			if (resp.status == 200) {
 				location.reload();
 			}
@@ -1794,7 +1794,7 @@ App.prototype.gen_backtest = function(form,anchor, template, inputs, updatefn) {
 }
 
 App.prototype.init_spreadvis = function(form, id) {
-	var url = "api/spread"
+	var url = "../api/admin/spread"
 	form.enableItem("vis_spread",false);
 	var inputs = ["spread_calc_stdev_hours","secondary_order", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode","dynmult_sliding","dynmult_cap","dynmult_mult","force_spread","spread_mode","spread_freeze"];
 	this.gen_backtest(form,"spread_vis_anchor", "spread_vis",inputs,function(cntr){
@@ -1895,7 +1895,7 @@ function DelayUpdate(fn) {
 };
 
 App.prototype.init_backtest = function(form, id, pair, broker) {
-	var url = "api/backtest2";
+	var url = "../api/admin/backtest2";
 	form.enableItem("show_backtest",false);		
 	var inputs = ["strategy","external_assets", "acum_factor","kv_valinc","kv_halfhalf","min_size","max_size","linear_suggest","linear_suggest_maxpos",
 		"dynmult_sliding","accept_loss",
@@ -2286,9 +2286,9 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 
 		function download_historical_dlg() {
 					this.waitScreen(Promise.all([
-						fetch_json("api/btdata"), 
-						fetch_json("api/brokers/"+encodeURIComponent(broker)+"/pairs/"+encodeURIComponent(pair)),
-						fetch("api/brokers/"+encodeURIComponent(broker)+"/pairs/"+encodeURIComponent(pair)+"/history")
+						fetch_json("../api/admin/btdata"), 
+						fetch_json("../api/admin/brokers/"+encodeURIComponent(broker)+"/pairs/"+encodeURIComponent(pair)),
+						fetch("../api/admin/brokers/"+encodeURIComponent(broker)+"/pairs/"+encodeURIComponent(pair)+"/history")
 					])).then(function(resp) {
 						function dlgRules() {
 							var en = !d.view.readData(["from_broker"]).from_broker;
@@ -2321,7 +2321,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 							ddata = d.view.readData(["asset","currency","smooth","from_broker","save"]);;
 							if (ddata.from_broker) {
 								var dataid;
-								showProgress(fetch_json("api/brokers/"+encodeURIComponent(broker)+"/pairs/"+encodeURIComponent(pair)+"/history",{method:"POST"}).then(function(info){
+								showProgress(fetch_json("../api/admin/brokers/"+encodeURIComponent(broker)+"/pairs/"+encodeURIComponent(pair)+"/history",{method:"POST"}).then(function(info){
                                 	dataid = info.data;
                                 	return info.progress;
 								})).then(function(dlg){
@@ -2757,17 +2757,17 @@ App.prototype.optionsForm = function() {
 	var data = {
 			report_interval: defval(this.config.report_interval,864000000)/86400000,
 			stop:{"!click": function() {
-					this.waitScreen(fetch_with_error("api/stop",{"method":"POST"}));
+					this.waitScreen(fetch_with_error("../api/admin/stop",{"method":"POST"}));
 					for (var x in this.traders) this.stopped[x] = true;
 			}.bind(this)},
 			reload_brokers:{"!click":function() {
-				this.waitScreen(fetch_with_error("api/brokers/_reload",{"method":"POST"}));
+				this.waitScreen(fetch_with_error("../api/admin/brokers/_reload",{"method":"POST"}));
 			}.bind(this)}
 			
 	};
 	var utm = Date.now();
 	function updateUtilz() {
-		fetch_json("./api/utilization?tm="+utm).then(function(data) {
+		fetch_json("../api/admin/utilization?tm="+utm).then(function(data) {
 			var f = {
 				p:{".style.width":(data.reset/600).toFixed(1)+"%"},
 				v:(data.reset/600).toFixed(1)
@@ -2820,7 +2820,7 @@ App.prototype.messagesForm = function() {
 		data.mark = {
 			".disabled": !items.find(function(x){return x.unread;}),
 			"!click": function() {
-				fetch("api/news",{
+				fetch("../api/admin/news",{
 					"method":"POST",
 					"body":JSON.stringify(newest+1)
 				}).then(function(e){
@@ -2828,7 +2828,7 @@ App.prototype.messagesForm = function() {
 						fetch_error(e);
 					} else {
 						form.setData({"items":[]});
-						me.news_content = fetch_with_error("api/news")
+						me.news_content = fetch_with_error("../api/admin/news")
 						me.news_content.then(update);
 					}
 				});
@@ -2843,7 +2843,7 @@ App.prototype.messagesForm = function() {
 		data.reload = {
 			"!click": function() {
 				form.setData({"items":[]});
-				me.news_content =fetch_with_error("api/news");
+				me.news_content =fetch_with_error("../api/admin/news");
 				me.news_content.then(update);
 			}
 		};
@@ -2921,7 +2921,7 @@ App.prototype.walletForm = function() {
 	    return r;
 	}
 	function update() {			
-		var data = fetch_json("api/wallet").then(function(data) {
+		var data = fetch_json("../api/admin/wallet").then(function(data) {
 			var allocs = data.wallet.map(function(x) {
 				var bal = x.balance;
 				var out = Object.assign({},x);
@@ -2958,7 +2958,7 @@ App.prototype.walletForm = function() {
 					incntr.focus();
 					incntr.select();
 				}};
-				out.img="api/brokers/"+encodeURIComponent(x.broker)+"/icon.png";
+				out.img="../api/admin/brokers/"+encodeURIComponent(x.broker)+"/icon.png";
 				return out;
 			}.bind(this));
 			var brokers = data.entries;
@@ -2970,7 +2970,7 @@ App.prototype.walletForm = function() {
 				if (idx == -1) {
 					wallets.push({"@id":brk});
 				}							
-				return fetch_json("api/wallet/"+encodeURIComponent(brk)).then(
+				return fetch_json("../api/admin/wallet/"+encodeURIComponent(brk)).then(
 				function(wdata) {
 					var wlts = [];
 					for (var x in wdata) {
@@ -2987,7 +2987,7 @@ App.prototype.walletForm = function() {
 						});
 					}
 					return {			
-						broker_icon:"api/brokers/"+encodeURIComponent(brk)+"/icon.png",
+						broker_icon:"../api/admin/brokers/"+encodeURIComponent(brk)+"/icon.png",
 						broker_name:brk,
 						account_wallets: wlts,
 						spinner:{".hidden":true}
@@ -3451,12 +3451,12 @@ function showProgress(id) {
 	});
 	return Promise.resolve(id).then(function(id) {
 		dlg.setItemEvent("stop","click",function(){
-				fetch("api/progress/"+id, {"method":"DELETE"});
+				fetch("../api/admin/progress/"+id, {"method":"DELETE"});
 		});
 		return new Promise(function(ok) {
 			
 			var intr = setInterval(function(){
-				fetch("api/progress/"+id).then(
+				fetch("../api/admin/progress/"+id).then(
 				function(resp){
 					if (resp.status == 204) {
 						clearInterval(intr);

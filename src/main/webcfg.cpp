@@ -84,10 +84,8 @@ bool WebCfg::operator ()(const simpleServer::HTTPRequest &req,
 
 	QueryParser qp(vpath);
 	StrViewA path = qp.getPath();
-	auto splt = path.split("/",3);
+	auto splt = path.split("/",2);
 	splt();
-	StrViewA pfx = splt();
-	if (pfx != "api") return false;
 	StrViewA c = splt();
 	StrViewA rest = splt();
 	auto cmd = strCommand.find(c);
@@ -1184,7 +1182,7 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req)  {
 }
 
 bool WebCfg::reqLogin(simpleServer::HTTPRequest req)  {
-	req.redirect("../index.html", simpleServer::Redirect::temporary_repeat);
+	req.redirect("../../admin/index.html", simpleServer::Redirect::temporary_repeat);
 	return true;
 }
 
