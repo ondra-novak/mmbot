@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>MM Bot</title>
+<title>MMBot</title>
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="../res/chart.css">
   <link rel="stylesheet" href="../res/ui.css">
@@ -62,8 +62,18 @@
 <tr data-name="orders[]"><td data-name="id">123456</td><td data-name="dir">buy</td><td data-name="price">123456</td><td data-name="size">123456</td><td data-name="action"></td></tr>
 </table></div>
 <div class="warning" data-name="err_failed_to_fetch">Failed to fetch</div>
-<div class="adv visstrategy"><div><img class="adv visstrategy" src="" data-name="visstr" onload="this.hidden=false;" onerror="this.hidden=true;"></div>
-<p><span style="color:#FFFFA0">Budget</span> - <span style="color:#00AA00">Held value</span> - <span style="color:#80FFFF">Current change</span> [<span data-name="currency"></span>]</p></div>
+<div class="adv visstrategy"><div data-name="visstr"><div class="spinner inline"></div></div>
+<p><span class="axes">
+<span>value</span>
+<span>price</span>
+</span><span title="Shows the effectiveness of spread trading. A higher value means a higher profit or a higher chance of covering losses" style="background-color:#102e41; padding: 0.5em">Yield (not in scale)</span>
+-
+<span title="Total budget calculated on given price" style="color:#FFFFA0">Budget</span>
+-
+<span title="The value of held assets at a given price. At the point where the green curve crosses the yellow curve, lever 1x is reached. In the spot market, this is the point where money runs out" style="color:#00AA00">Held value</span>
+-
+<span title="Development of the budget when the price moves without making a trade." style="color:#80FFFF">Current change</span> [<span data-name="currency"></span>]</p>
+</div>
 </x-section>
 <x-section><x-section-caption>General</x-section-caption>
 <label><span>Title</span><input type="text" data-name="title"></label>
@@ -72,6 +82,8 @@
 <optgroup label="Exchanges">
 <option value="pile">Pile strategy (improved Half-Half)</option>
 <option value="keepvalue2">Keep Value</option>
+<option value="inc_value">DCA Enhanced</option>
+<option value="hodlshort">Hodl + short</option>
 <option value="conststep" data-hidden="true">Linear costs</option>
 <option value="hypersquare" data-hidden="true">Hypersquare</option>
 <option value="exponencial" data-hidden="true">Exponencial</option>
@@ -80,12 +92,11 @@
 </optgroup>
 <optgroup label="Leveraged (advanced traders)">
 <option value="sinh_gen">Simple leveraged</option>
-<option value="sinh">Sinh/exponencial (advanced)</option>
-<option value="sinh_val">Volume based Sinh (advanced)</option>
+<option value="sinh">Sinh/exponencial (legacy)</option>
+<option value="sinh_val">Volume based Sinh (legacy)</option>
 </optgroup>
 <optgroup label="Experimental">
 <option value="passive_income">Passive Income</option>
-<option value="hodlshort">Hodl + short</option>
 </optgroup>
 <optgroup label="Utility">
 <option value="keep_balance">Keep balance</option>
@@ -158,6 +169,21 @@ to enter a negative value and then the value of the assets held will decrease an
 </x-section>
 <div class="rightinfo"><button name="show_backtest" disabled="disabled">Backtest</button></div>
 </x-section>
+
+<x-section data-name="strategy_incvalue" class="goal" hidden="hidden"><x-section-caption>DCA Enhanced</x-section-caption>
+<label><span>Buy power <span class="tooltip">Specifies strength of buying. Amount of buy depends on current spread</span></span><x-slider data-name="incval_w" data-min="0.1" data-max="20" data-mult="0.1" data-fixed="1"></x-slider></label>
+<label><span>Exponent <span class="tooltip">Specifies exponent of increasing buying volume. For classic DCA set this value to 1. For mantingale, you can increase this value - check effect on backtest</span></span><x-slider data-name="incval_z" data-min="1" data-max="10" data-mult="0.1" data-fixed="1"></x-slider></label>
+<label><span>Reduction level<span class="tooltip">Specifies level of reduction</span></span><x-slider data-name="incval_r" data-min="0" data-max="200" data-mult="1" data-fixed="0"></x-slider></label>
+<label class="adv"><span>Max spread [%]<span class="tooltip">Specifies maximum spread used to calculate buy order size. To use this option effectively, you need to use dynamic spread (at least to enable spread multiplier)</span></span><x-slider data-name="incval_ms" data-min="0" data-max="10" data-mult="0.1" data-fixed="1"></x-slider></label>
+<div class="label"><span>Reinvest profit<span class="tooltip">Increase the budget by realized profit</span></span><x-checkbox data-name="incval_ri"></x-checkbox></div>
+<x-section>
+<div class="label"><span>Min price:</span><span data-name="range_min_price">---</span></div>
+<div class="label"><span>Max price:</span><span data-name="range_max_price">---</span></div>
+<div class="label"><span>Recomended initial position:</span><span data-name="range_initial">---</span></div>
+</x-section>
+<div class="rightinfo"><button name="show_backtest" disabled="disabled">Backtest</button></div>
+</x-section>
+
 
 <x-section data-name="strategy_keepbalance" class="goal" hidden="hidden"><x-section-caption>Keep Balance</x-section-caption>
 <label><span>Min.balance [<span data-name="currency"></span>]</span><input type="number" step="any" data-name="kb_keep_min"></label>
@@ -448,6 +474,16 @@ the same order, they are ordered by its ID - this is the default ordering. Modif
 <span data-name="sect[]"><select data-name="pair"><option data-name="item[]"></option></select></span>
 <input data-name="pair" type="hidden"> 
 <div data-name="spinner" class="spinner fast"></div>
+<div data-name="swap_ui">
+<h3>Symbol order</h3>
+
+<table class="selector">
+<tr><td title="Trade pair exactly as it is on exchange"><x-checkbox class="radio" data-name="swap_mode" data-value="0"><span data-name="asset"></span>&nbsp;/&nbsp;<span data-name="currency"></span> (default)</x-checkbox></td><td>Profit in <span data-name="currency"></span></td><td>Quoted in <span data-name="currency"></span></td></tr> 
+<tr><td title="Trade pair on inverted market. Similar to inverted futures. Your position is converted to short position. Quoted price stays as it is"><x-checkbox class="radio" data-name="swap_mode" data-value="2"><span data-name="asset"></span>&nbsp;/&nbsp;<span data-name="currency"></span> inverted</x-checkbox></td><td>Profit in <span data-name="asset"></span></td><td>Quoted in <span data-name="currency"></span></td></tr> 
+<tr><td title="Trade pair swapped"><x-checkbox class="radio" data-name="swap_mode" data-value="1"><span data-name="currency"></span>&nbsp;/&nbsp;<span data-name="asset"></span></x-checkbox></td><td>Profit in <span data-name="asset"></span></td><td>Quoted in <span data-name="asset"></span></td></tr> 
+</table>
+</div>
+
 <h2>Enter trader's UID</h2>
 <input type="text" data-name="name">
 </div>
@@ -797,7 +833,6 @@ the same order, they are ordered by its ID - this is the default ordering. Modif
     data-askdelete="Confirm trader deletion. This also cancels all orders."
     data-yes="Yes"
     data-no="No"
-    data-reload="↻ Reload"
     data-need_admin="You need to define at least one user with the administration role"
     data-backtest_lesstrades="There are less than 100 trades. Results can be inaccurate"
     data-backtest_nodata="Backtest is not available yet (no data). Run trader with minimal power to collect some trades. At least 100 trades is needed."
@@ -806,8 +841,6 @@ the same order, they are ordered by its ID - this is the default ordering. Modif
     data-wallet="Wallets"
     data-messages="Messages"
     data-global_stop_confirm="Temporarily stops trading for all configured traders  and cancels all their orders. To re-enable trading, you have to click Apply button"
-    data-conflict1="Configuration has been modified externally and cannot be overwritten."
-    data-conflict2="Reload the configuration?"
     data-buy="BUY"
     data-sell="SELL"
     data-trade_ask_stop="This trader is currently in auto trading mode. Do you want to stop automatic trading to allow manual trading? To re-enable trading, you have to click Apply button"

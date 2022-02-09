@@ -11,25 +11,24 @@
 #include <cmath>
 
 #include "sgn.h"
-SwapBroker::SwapBroker(PStockApi target):target(target) {
+InvertBroker::InvertBroker(PStockApi target):AbstractBrokerProxy(target) {
 	// TODO Auto-generated constructor stub
 
 }
 
 
-std::vector<std::string> SwapBroker::getAllPairs() {
-	auto sub = dynamic_cast<IBrokerControl *>(target.get());
-	if (sub == nullptr) return {};
-	return sub->getAllPairs();
+IStockApi::MarketInfo InvertBroker::getMarketInfo(const std::string_view &pair) {
+	return getMarketInfoAndTicker(pair).first;
 }
 
-IStockApi::MarketInfo SwapBroker::getMarketInfo(const std::string_view &pair) {
+std::pair<IStockApi::MarketInfo,IStockApi::Ticker> InvertBroker::getMarketInfoAndTicker(const std::string_view &pair) {
 	minfo = target->getMarketInfo(pair);
+	Ticker tk = target->getTicker(pair);
 	if (minfo.leverage || minfo.invert_price) throw std::runtime_error("Can't swap assets and currencies on leveraged markets");
-	return MarketInfo {
+	return {MarketInfo {
 		minfo.currency_symbol,
 		minfo.asset_symbol,
-		minfo.currency_step*minfo.asset_step,
+		tk.last * minfo.asset_step,
 		minfo.currency_step,
 		minfo.min_volume,
 		minfo.min_size,
@@ -41,60 +40,22 @@ IStockApi::MarketInfo SwapBroker::getMarketInfo(const std::string_view &pair) {
 		minfo.simulator,
 		minfo.private_chart,
 		minfo.wallet_id
-	};
+	},tk};
+}
+
+IStockApi::MarketInfo SwapBroker::getMarketInfo(const std::string_view &pair) {
+	auto x = InvertBroker::getMarketInfoAndTicker(pair);
+	x.first.invert_price = false;
+	x.first.currency_step = std::abs(1/x.second.last - 1/(x.second.last+minfo.currency_step));
+	return x.first;
 }
 
 
-IBrokerControl::PageData SwapBroker::fetchPage(const std::string_view &method,
-		const std::string_view &vpath, const IBrokerControl::PageData &pageData) {
-	auto sub = dynamic_cast<IBrokerControl *>(target.get());
-	if (sub == nullptr) throw std::runtime_error("unsupported operation");
-	return sub->fetchPage(method, vpath, pageData);
-}
-
-json::Value SwapBroker::getSettings(const std::string_view &pairHint) const {
-	auto sub = dynamic_cast<const IBrokerControl *>(target.get());
-	if (sub == nullptr) return json::Value();
-	return sub->getSettings(pairHint);
-
-}
-
-SwapBroker::BrokerInfo SwapBroker::getBrokerInfo() {
-	auto sub = dynamic_cast<IBrokerControl *>(target.get());
-	if (sub == nullptr) return {};
-	BrokerInfo binfo = sub->getBrokerInfo();
-	return BrokerInfo {
-		binfo.trading_enabled,
-		binfo.name,
-		binfo.exchangeName,
-		binfo.exchangeUrl,
-		binfo.version,
-		binfo.licence,
-		binfo.favicon,
-		binfo.settings && dynamic_cast<const IBrokerControl *>(target.get()) != nullptr,
-		binfo.subaccounts && dynamic_cast<const IBrokerSubaccounts *>(target.get()) != nullptr,
-	};
-}
-
-
-double SwapBroker::getBalance(const std::string_view &symb, const std::string_view &pair) {
+double InvertBroker::getBalance(const std::string_view &symb, const std::string_view &pair) {
 	return target->getBalance(symb, pair);
 }
 
-json::Value SwapBroker::setSettings(json::Value v) {
-	auto sub = dynamic_cast<IBrokerControl *>(target.get());
-	if (sub == nullptr) return json::Value();
-	return sub->setSettings(v);
-
-}
-
-void SwapBroker::restoreSettings(json::Value v) {
-	auto sub = dynamic_cast<IBrokerControl *>(target.get());
-	if (sub == nullptr) return ;
-	return sub->restoreSettings(v);
-}
-
-IStockApi::TradesSync SwapBroker::syncTrades(json::Value lastId, const std::string_view &pair) {
+IStockApi::TradesSync InvertBroker::syncTrades(json::Value lastId, const std::string_view &pair) {
 	IStockApi::TradesSync data = target->syncTrades(lastId, pair);
 	std::transform(data.trades.begin(), data.trades.end(), data.trades.begin(), [](const Trade &tr){
 		return Trade {
@@ -109,11 +70,11 @@ IStockApi::TradesSync SwapBroker::syncTrades(json::Value lastId, const std::stri
 	return data;
 }
 
-void SwapBroker::reset(const std::chrono::system_clock::time_point &tp) {
+void InvertBroker::reset(const std::chrono::system_clock::time_point &tp) {
 	target->reset(tp);
 }
 
-IStockApi::Orders SwapBroker::getOpenOrders(const std::string_view &par) {
+IStockApi::Orders InvertBroker::getOpenOrders(const std::string_view &par) {
 	ords = target->getOpenOrders(par);
 	Orders new_orders;
 	std::transform(ords.begin(), ords.end(), std::back_inserter(new_orders), [](const Order &ord){
@@ -139,7 +100,7 @@ static double floor_fn(double x) {
 	return std::floor(x);
 }
 
-json::Value SwapBroker::placeOrder(const std::string_view &pair, double size, double price, json::Value clientId, json::Value replaceId, double replaceSize) {
+json::Value InvertBroker::placeOrder(const std::string_view &pair, double size, double price, json::Value clientId, json::Value replaceId, double replaceSize) {
 	double new_size = minfo.adjValue(-size * price, minfo.asset_step, tozero_fn);
 	double new_price = price?minfo.adjValue(1.0/price, minfo.currency_step, round_fn):0;
 
@@ -168,11 +129,8 @@ json::Value SwapBroker::placeOrder(const std::string_view &pair, double size, do
 	return target->placeOrder(pair, new_size, new_price, clientId, replaceId, new_replace);
 }
 
-double SwapBroker::getFees(const std::string_view &pair) {
-	return target->getFees(pair);
-}
 
-IStockApi::Ticker SwapBroker::getTicker(const std::string_view &pair) {
+IStockApi::Ticker InvertBroker::getTicker(const std::string_view &pair) {
 	Ticker tk = target->getTicker(pair);
 	return Ticker{
 		1.0/tk.ask,
@@ -183,15 +141,4 @@ IStockApi::Ticker SwapBroker::getTicker(const std::string_view &pair) {
 }
 
 
-json::Value SwapBroker::getMarkets() const {
-	auto sub = dynamic_cast<IBrokerControl *>(target.get());
-	if (sub == nullptr) return json::object;
-	return sub->getMarkets();
-}
-
-SwapBroker::AllWallets SwapBroker::getWallet()  {
-	auto sub = dynamic_cast<IBrokerControl *>(target.get());
-	if (sub == nullptr) return {};
-	return sub->getWallet();
-}
 

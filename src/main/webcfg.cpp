@@ -66,7 +66,7 @@ WebCfg::WebCfg( const SharedObject<State> &state,
 		SharedObject<AbstractExtern> backtest_broker,
 		std::size_t upload_limit
 )
-	:auth(realm, state.lock_shared()->admins,jwt, false)
+	:auth(realm, state.lock_shared()->users.admins,jwt, false)
 	,trlist(traders)
 	,dispatch(std::move(dispatch))
 	,state(state)
@@ -84,10 +84,8 @@ bool WebCfg::operator ()(const simpleServer::HTTPRequest &req,
 
 	QueryParser qp(vpath);
 	StrViewA path = qp.getPath();
-	auto splt = path.split("/",3);
+	auto splt = path.split("/",2);
 	splt();
-	StrViewA pfx = splt();
-	if (pfx != "api") return false;
 	StrViewA c = splt();
 	StrViewA rest = splt();
 	auto cmd = strCommand.find(c);
@@ -149,9 +147,48 @@ static std::string genRandomUID() {
 	return out;
 }
 
+static json::Value mergeJSON(json::Value src, json::Value diff) {
+	if (diff.type() == json::object) {
+		if (diff.empty()) return json::undefined;
+		if (src.type() != json::object) src = json::object;
+		auto src_iter = src.begin(), src_end = src.end();
+		auto diff_iter = diff.begin(), diff_end = diff.end();
+		json::Object out;
+		while (src_iter != src_end && diff_iter != diff_end) {
+			auto src_v = *src_iter, diff_v = *diff_iter;
+			auto src_k = src_v.getKey(), diff_k = diff_v.getKey();
+			if (src_k < diff_k) {
+				out.set(src_v);
+				++src_iter;
+			} else if (src_k > diff_k) {
+				out.set(diff_k, mergeJSON(json::undefined, diff_v));
+				++diff_iter;
+			} else {
+				out.set(diff_k, mergeJSON(src_v, diff_v));
+				++src_iter;
+				++diff_iter;
+			}
+		}
+		while (src_iter != src_end) {
+			out.set(*src_iter);
+			++src_iter;
+		}
+		while (diff_iter != diff_end) {
+			auto diff_v = *diff_iter;
+			out.set(diff_v.getKey(), mergeJSON(json::undefined, diff_v));
+			++diff_iter;
+		}
+		return out;
+	} else if (diff.type() == json::undefined){
+		return src;
+	} else {
+		return diff;
+	}
+}
+
 bool WebCfg::reqConfig(simpleServer::HTTPRequest req)  {
 
-	if (!req.allowMethods({"GET","PUT"})) return true;
+	if (!req.allowMethods({"GET","PUT","POST"})) return true;
 	if (req.getMethod() == "GET") {
 
 		json::Value data = state.lock_shared()->config->load();
@@ -164,11 +201,19 @@ bool WebCfg::reqConfig(simpleServer::HTTPRequest req)  {
 		req.readBodyAsync(upload_limit, [state=this->state,traders=this->trlist,dispatch = this->dispatch](simpleServer::HTTPRequest req) mutable {
 			try {
 				auto lkst = state.lock();
+				unsigned int serial;
 				Value data = Value::fromString(map_bin2str(req.getUserBuffer()));
-				unsigned int serial = data["revision"].getUInt();
-				if (serial != lkst->write_serial) {
-					req.sendErrorPage(409);
-					return ;
+				if (req.getMethod()=="POST") { //sending diff
+					json::Value old_cfg = lkst->config->load();
+					if (!old_cfg.defined()) {old_cfg = json::object;}
+					data = data.type() == json::object?mergeJSON(old_cfg, data):old_cfg;
+					serial = lkst->write_serial;
+				} else {
+					serial = data["revision"].getUInt();
+					if (serial != lkst->write_serial) {
+						req.sendErrorPage(409);
+						return ;
+					}
 				}
 				if (!data["uid"].defined()) {
 					data.setItems({
@@ -176,43 +221,17 @@ bool WebCfg::reqConfig(simpleServer::HTTPRequest req)  {
 					});
 				}
 				data = hashPswds(data);
-				Value trs = data["traders"];
-				for (Value v: trs) {
-					StrViewA name = v.getKey();
-					try {
-						MTrader_Config().loadConfig(v);
-					} catch (std::exception &e) {
-						std::string msg(name.data,name.length);
-						msg.append(" - ");
-						msg.append(e.what());
-						req.sendErrorPage(406, StrViewA(), msg);
-						return;
-					}
-				}
 				data.setItems({
 					{"revision",lkst->write_serial+1},
 					{"brokers", lkst->broker_config},
 					{"news_tm", lkst->news_tm}
 				});
-				Value apikeys = data["apikeys"];
-				lkst->config->store(data.replace("apikeys", Value()));
 				lkst->write_serial = serial+1;;
 
 
 				try {
+					lkst->config->store(data);
 					lkst->applyConfig(traders);
-					if (apikeys.type() == json::object) {
-						for (Value v: apikeys) {
-							StrViewA broker = v.getKey();
-							auto trs = traders.lock();
-							trs->stockSelector.checkBrokerSubaccount(broker);
-							PStockApi b = trs->stockSelector.getStock(broker);
-							if (b != nullptr) {
-								IApiKey *apik = dynamic_cast<IApiKey *>(b.get());
-								apik->setApiKey(v);
-							}
-						}
-					}
 				} catch (std::exception &e) {
 					req.sendErrorPage(500,StrViewA(),e.what());
 					return;
@@ -802,8 +821,13 @@ bool WebCfg::reqTraders(simpleServer::HTTPRequest req, ondra_shared::StrViewA vp
 }
 
 
+enum class ListRole {
+	normal,
+	admin,
+	report
+};
 
-static void AULFromJSON(json::Value js, AuthUserList &aul, bool admin) {
+static void AULFromJSON(json::Value js, AuthUserList &aul, ListRole role) {
 	using UserVector = std::vector<AuthUserList::LoginPwd>;
 	using LoginPwd = AuthUserList::LoginPwd;
 
@@ -812,8 +836,16 @@ static void AULFromJSON(json::Value js, AuthUserList &aul, bool admin) {
 		Value username = r["username"];
 		Value password = r["pwdhash"];
 		Value isadmin = r["admin"];
+		Value isreport = r["report"];
 
-		if (!admin || isadmin.getBool()) {
+		bool put = false;
+		switch (role) {
+		case ListRole::normal: put = true;break;
+		case ListRole::report: put = isadmin.getBool() || isreport.getBool();break;
+		case ListRole::admin: put = isadmin.getBool();break;
+		}
+
+		if (put) {
 			curVal.push_back(LoginPwd(username.toString().str(), password.toString().str()));
 		}
 		return std::move(curVal);
@@ -827,14 +859,16 @@ void WebCfg::State::init(json::Value data) {
 	if (data.defined()) {
 		this->write_serial = data["revision"].getUInt();
 		if (data["guest"].getBool() == false) {
-				AULFromJSON(data["users"],*users, false);
+				AULFromJSON(data["users"],*users.users, ListRole::normal);
 		}else {
-			users->setUsers({});
+			users.users->setUsers({});
 		}
-		AULFromJSON(data["users"],*admins, true);
+		AULFromJSON(data["users"],*users.admins, ListRole::admin);
+		AULFromJSON(data["users"],*users.reports, ListRole::report);
 		std::string uid = data["uid"].getString();
-		users->setJWTPwd(uid);
-		admins->setJWTPwd(uid);
+		users.users->setJWTPwd(uid);
+		users.admins->setJWTPwd(uid);
+		users.reports->setJWTPwd(uid);
 	}
 
 }
@@ -848,6 +882,8 @@ void WebCfg::State::applyConfig(SharedObject<Traders>  &st) {
 	}
 
 	t->wcfg.walletDB.lock()->clear();
+	t->wcfg.accumDB.lock()->clear();
+	t->wcfg.conflicts.lock()->clear();
 	traderNames.clear();
 	t->rpt.lock()->clear();
 
@@ -886,17 +922,11 @@ void WebCfg::State::applyConfig(SharedObject<Traders>  &st) {
 	}
 }
 
-void WebCfg::State::setAdminAuth(const std::string_view &auth) {
-	auto ulist = AuthUserList::decodeMultipleBasicAuth(auth);
-	auto ulist2 = ulist;
-	users->setCfgUsers(std::move(ulist));
-	admins->setCfgUsers(std::move(ulist2));
-}
 
 void WebCfg::State::setAdminUser(const std::string &uname, const std::string &pwd) {
 	auto hash = AuthUserList::hashPwd(uname,pwd);
-	users->setUser(uname, hash);
-	admins->setUser(uname, hash);
+	users.users->setUser(uname, hash);
+	users.admins->setUser(uname, hash);
 }
 
 
@@ -976,6 +1006,7 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req)  {
 				Value broker = data["broker"];
 				Value trader = data["trader"];
 				Value symb = data["pair"];
+				Value swap = data["swap_mode"];
 				std::string p;
 				std::size_t uid;
 				bool exists = false;
@@ -991,9 +1022,10 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req)  {
 				PStockApi api;
 				IStockApi::MarketInfo minfo;
 				if (tr == nullptr) {
-					api = trlist.lock_shared()->stockSelector.getStock(broker.toString().str());
-					if (api == nullptr) {
-						return req.sendErrorPage(410);
+					try {
+						api = MTrader::selectStock(trlist.lock()->stockSelector, broker.getString(), static_cast<SwapMode>(swap.getUInt()), 0, false);
+					} catch (std::exception &e) {
+						return req.sendErrorPage(410, e.what());
 					}
 					minfo = api->getMarketInfo(symb.getString());
 					uid = 0;
@@ -1020,6 +1052,8 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req)  {
 				auto binfo = bc?bc->getBrokerInfo():IBrokerControl::BrokerInfo{};
 
 
+				Value pair = getPairInfo(api, p);
+
 				Value strategy;
 				Value position;
 				Value tradeCnt;
@@ -1027,21 +1061,88 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req)  {
 				Value enter_price_pos;
 				Value costs;
 				Value rpnl;
+				Value visstrategy;
 				if (tr) {
-					Strategy stratobj=trl->getStrategy();
-					strategy = stratobj.dumpStatePretty(trl->getMarketInfo());
-					auto trades = trl->getTrades();
-					auto assBal = trl->getPosition();
-					if (assBal.has_value()) position =*assBal;
-					tradeCnt = trades.size();
-					enter_price = trl->getEnterPrice();
-					costs = trl->getCosts();
-					enter_price_pos = trl->getEnterPricePos();
-					rpnl = trl->getRPnL();
+					try {
+						Strategy stratobj=trl->getStrategy();
+						strategy = stratobj.dumpStatePretty(trl->getMarketInfo());
+						auto trades = trl->getTrades();
+						auto assBal = trl->getPosition();
+						if (assBal.has_value()) position =*assBal;
+						tradeCnt = trades.size();
+						enter_price = trl->getEnterPrice();
+						costs = trl->getCosts();
+						enter_price_pos = trl->getEnterPricePos();
+						rpnl = trl->getRPnL();
+						double price = trades.empty()?pair["price"].getNumber():trades.back().price;
+						double pos = position.getNumber();
+						double cur = stratobj.calcCurrencyAllocation(price);
+						double optmiddle = stratobj.getEquilibrium(stratobj.calcInitialPosition(minfo, price, pos,cur));
+						auto minmax = stratobj.calcSafeRange(minfo, pos, cur);
+						if (optmiddle<minmax.min) minmax.min = (minmax.max>optmiddle*2)?0:2*optmiddle-minmax.max;
+						if (optmiddle>minmax.max) minmax.max = 2*optmiddle-minmax.min;
+
+						double beg = std::max(std::min(minmax.min,price),0.0);
+						double end = std::max(std::min(minmax.max, 2.5*optmiddle-minmax.min),price);
+						struct Pt {
+							double x,b,h,p,y;
+						};
+						std::vector<Pt> points;
+						double prev_y = 0;
+						for (int i = 0; i < 200; i++) {
+							double x = beg+(end-beg)*(i/200.0);
+							IStrategy::ChartPoint pt = stratobj.calcChart(x);
+							IStrategy::ChartPoint pt2 = stratobj.calcChart(x*1.02);
+							//if (!pt2.valid) pt2 = stratobj.calcChart(x*0.98);
+							if (pt.valid && std::isfinite(pt.budget) && std::isfinite(pt.position)) {
+								double y = pt2.valid?pt.position*x*0.02+pt.budget-pt2.budget:0;
+								if (y < 0) y = prev_y;
+								else prev_y = y;
+								points.push_back({
+									minfo.invert_price?1.0/x:x,
+										pt.budget,
+										std::abs(pt.position*x),
+										pt.position,y});
+							}
+						}
+						while (!points.empty() && std::abs(points.back().p) < minfo.asset_step) {
+							points.pop_back();
+						}
+						IStrategy::ChartPoint cp = stratobj.calcChart(price);
+
+						json::Array tangent;
+						for (int i = -50; i <50;i++) {
+							double x = price+(end-beg)*(i/200.0);
+							tangent.push_back({
+								minfo.invert_price?1.0/x:x,
+								cp.position*(x-price)+cp.budget
+							});
+						}
+
+						double neutral = stratobj.onTrade(minfo, price, 0, pos, cur).neutralPrice;
+
+						visstrategy = json::Object{
+							{"points",json::Value(json::array,points.begin(), points.end(), [](const Pt &pt){
+								return json::Object{
+									{"x",pt.x},{"y",pt.y},{"h",pt.h},{"b",pt.b}
+								};
+							})},
+							{"neutral", neutral},
+							{"tangent",tangent},
+							{"current",json::Object{
+								{"x",minfo.invert_price?1.0/price:price},
+								{"b",cp.budget},
+								{"h",std::abs(cp.position*price)},
+							}}
+						};
+					} catch (std::exception &e) {
+						logWarning("Strategy error: $1", e.what());
+					}
+
+
 				}
 				Object result;
 				result.set("broker",brokerToJSON(binfo.name, binfo));
-				Value pair = getPairInfo(api, p);
 				auto alloc = walletDB.lock_shared()->query(WalletDB::KeyQuery(broker.getString(),minfo.wallet_id,minfo.currency_symbol,uid));
 				result.set("pair", pair);
 				result.set("allocations", Object({
@@ -1068,6 +1169,7 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req)  {
 				result.set("trades", tradeCnt);
 				result.set("exists", exists);
 				result.set("need_initial_reset",need_initial_reset);
+				result.set("visstrategy", visstrategy);
 
 
 
@@ -1080,7 +1182,7 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req)  {
 }
 
 bool WebCfg::reqLogin(simpleServer::HTTPRequest req)  {
-	req.redirect("../index.html", simpleServer::Redirect::temporary_repeat);
+	req.redirect("../../admin/index.html", simpleServer::Redirect::temporary_repeat);
 	return true;
 }
 
@@ -1852,6 +1954,7 @@ bool WebCfg::reqBacktest_v2(simpleServer::HTTPRequest req, ondra_shared::StrView
 					Value offset = args["offset"];
 					Value limit = args["limit"];
 					Value begin_time = args["begin_time"];
+					auto swap = args["swap"].getBool();
 
 					Value srcminute = storage.lock()->load_data(source.getString());
 					if (!srcminute.defined()) {
@@ -1890,6 +1993,7 @@ bool WebCfg::reqBacktest_v2(simpleServer::HTTPRequest req, ondra_shared::StrView
 					for (std::size_t pos = ofs; pos < lim;++pos) {
 						const auto &itm =  srcminute[pos];
 						double w = itm.getNumber();
+						if (swap) w = 1.0/w;
 						if (inv) {
 							if (init == 0) init = pow2(w);
 							w = init/w;

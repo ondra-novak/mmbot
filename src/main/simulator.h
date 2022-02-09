@@ -38,8 +38,8 @@ public:
 	virtual void reset(const std::chrono::system_clock::time_point &tp) override;
 	virtual IBrokerControl::AllWallets getWallet() override;
 	virtual bool isIdle(
-			const std::chrono::_V2::system_clock::time_point &tp) const;
-	virtual void unload();
+			const std::chrono::_V2::system_clock::time_point &tp) const override;
+	virtual void unload()override;
 
 protected:
 	virtual void loadState(const AbstractPaperTrading::TradeState &st, json::Value state) override;

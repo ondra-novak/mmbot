@@ -66,6 +66,7 @@ function App() {
 	this.curForm = null;
 	this.advanced = false;
 	this.ext_assets=[];
+	this.modified={};
 }
 
 TemplateJS.View.prototype.showWithAnim = function(item, state) {	
@@ -108,6 +109,7 @@ App.prototype.createTraderForm = function() {
 		form.showItem("strategy_hedge",state.strategy == "hedge");
 		form.showItem("strategy_sinhgen",state.strategy == "sinh_gen");
 		form.showItem("strategy_passive_income",state.strategy == "passive_income");
+		form.showItem("strategy_incvalue",state.strategy == "inc_value");
 		form.showItem("strategy_hodl_short",state.strategy == "hodlshort");
 		form.showItem("strategy_hyperbolic",["hyperbolic","linear","sinh","sinh_val","sinh2"].indexOf(state.strategy) != -1);
 		form.showItem("kv_valinc_h",state.strategy == "keepvalue");
@@ -145,7 +147,8 @@ App.prototype.createTraderList = function(form) {
 			caption: this.traders[x].title,
 			broker: this.traders[x].broker,
 			id: "trader/"+this.traders[x].id,
-			"":{"classList":{"paper":this.traders[x].paper_trading}}			
+			"":{"classList":{"paper":this.traders[x].paper_trading,"modified":!!this.modified[x]}}			
+
 		};
 	},this);
 	items.sort(function(a,b) {
@@ -185,7 +188,7 @@ App.prototype.createTraderList = function(form) {
 		x[""] = Object.assign(x[""] || {},{"!click":function(id) {
 			form.select(id);
 		}.bind(null,x.id)});
-	});
+	},this);
 	form.setData({"item": items});
 	form.select = function(id) {
 		var update = items.map(function(x) {
@@ -237,13 +240,14 @@ App.prototype.createTraderList = function(form) {
 					var broker = res[0];
 					var pair = res[1];
 					var name = res[2];				
+					var swap_mode = parseInt(res[3]);
 					if (!this.traders[name]) this.traders[name] = {};
 					var t = this.traders[name];
 					t.broker = broker;
 					t.pair_symbol = pair;
 					t.id = name;
 					t.enabled = true;
-					t.dry_run = false;
+					t.swap_symbols = swap_mode;
 					if (!t.title) t.title = pair;
 					this.updateTopMenu(name);
 				}.bind(this))
@@ -264,6 +268,10 @@ App.prototype.createTraderList = function(form) {
 				this.curForm = nf;
 				this.curForm.save = function() {
 					this.traders[iid] = this.saveForm(nf, this.traders[iid]);
+					var orig = (this.config && this.config.traders && this.config.traders[iid]) || {}
+					var c = !compareObjects(this.traders[iid], orig);
+					if (c) console.log({"new":createDiff(orig,this.traders[iid]),"old":createDiff(this.traders[iid],orig)});
+					this.modified[iid] = c;
 					this.updateTopMenu();
 				}.bind(this);
 				this.curTrader = this.traders[iid];
@@ -276,19 +284,21 @@ App.prototype.createTraderList = function(form) {
 
 App.prototype.processConfig = function(x) {	
 	this.config = x;
+	this.org_config = JSON.parse(JSON.stringify(x));
 	this.users = x["users"] || [];
-	this.traders = x["traders"] || {}
+	this.traders = Object.assign({},x["traders"] || {});
 	this.ext_assets=x["ext_assets"] || []
 	for (var id in this.traders) this.traders[id].id = id;
+	this.modified={};
 	return x;	
 }
 
 App.prototype.loadConfig = function() {
-	return fetch_with_error("api/config").then(this.processConfig.bind(this));
+	return fetch_with_error("../api/admin/config").then(this.processConfig.bind(this));
 }
 
 App.prototype.brokerURL = function(broker) {
-	return "api/brokers/"+encodeURIComponent(broker);
+	return "../api/admin/brokers/"+encodeURIComponent(broker);
 }
 App.prototype.pairURL = function(broker, pair) {
 	return this.brokerURL(broker) + "/pairs/" + encodeURIComponent(pair);	
@@ -297,10 +307,10 @@ App.prototype.brokerImgURL = function(broker) {
 	return this.brokerURL(broker) + "/icon.png";	
 }
 App.prototype.traderURL = function(trader) {
-	return "api/traders/"+encodeURIComponent(trader);
+	return "../api/admin/traders/"+encodeURIComponent(trader);
 }
 App.prototype.traderPairURL = function(trader, pair) {
-	return "api/traders/"+encodeURIComponent(trader)+"/broker/pairs/" + encodeURIComponent(pair);	
+	return "../api/admin/traders/"+encodeURIComponent(trader)+"/broker/pairs/" + encodeURIComponent(pair);	
 }
 App.prototype.reload_trader_header=function() {}
 
@@ -343,8 +353,8 @@ App.prototype.fillForm = function (src, trg) {
 					inverted: trg._pair.invert_price,
 					trader:src.id
 			};
-			fetch_json("api/strategy", {method:"POST",body:JSON.stringify(req)})
-				.then(function(r){
+			fetch_json("../api/admin/strategy", {method:"POST",body:JSON.stringify(req)}).then(
+				function(r){
 					trg.setData({range_min_price:adjNum(r.min), range_max_price:adjNum(r.max), range_initial:adjNum(r.initial)});
 					initial_pos = adjNumN(r.initial);
 				},function(e){
@@ -357,12 +367,13 @@ App.prototype.fillForm = function (src, trg) {
 	var first_fetch = true;
 
 	var updateHdr = function(){
-		var state = fetch_json("api/editor",{
+		var state = fetch_json("../api/admin/editor",{
 			method:"POST",
 			body: JSON.stringify({
 				broker: src.broker,
 				trader: src.id,
-				pair: src.pair_symbol
+				pair: src.pair_symbol,
+				swap_mode: src.swap_symbols
 			})
 		});
 		return state.then(function(st) {
@@ -389,9 +400,6 @@ App.prototype.fillForm = function (src, trg) {
 					},
 					broker:"error"
 				};				
-				if (x.t.indexOf("swap assets") != -1) {
-				    data.swap_symbols_hide={".hidden":false};
-				}
 				trg.setData(data);
 			});
 		});			
@@ -509,7 +517,8 @@ App.prototype.fillForm = function (src, trg) {
 			"hp_extbal", "hp_reduction","hp_dynred","sh_curv","gamma_exp","pincome_exp",
 			"gamma_trend","gamma_fn",
 			"shg_w","shg_p","shg_z","shg_lp","shg_offset",
-			"pile_ratio","hodlshort_z"
+			"pile_ratio","hodlshort_z",
+			"incval_w","incval_z"
 			]
 			.forEach(function(item){
 				trg.findElements(item).forEach(function(elem){
@@ -555,10 +564,32 @@ App.prototype.fillForm = function (src, trg) {
 
 			first_fetch = false;
 		}
-		data.swap_symbols_hide = {".hidden":!!(pair.leverage || state.trades) && !src.swap_symbols};
-		if (!state.visstr)  
-		    state.visstr="api/visstrategy?id="+encodeURIComponent(src.id)+"&asset="+pair.asset_balance+"&currency="+pair.currency_balance+"&price="+pair.price+"&t="+Date.now();
-		data.visstr = state.visstr;
+		if (state.visstrategy) (function(){
+			var p = state.visstrategy.points;
+			if (Array.isArray(p) && p.length) {
+				var c = state.visstrategy.current;
+				var elem = trg.findElements("visstr")[0];
+				elem.innerText = "";
+				var chart = new XYChart(600,400);
+				var yld = p.map(function(x){return [x.x, x.y];});
+				var bg = p.map(function(x){return [x.x,x.b]});
+				var hld = p.map(function(x){return [x.x,x.h]});
+				var tng = state.visstrategy.tangent;
+				chart.initRange(yld.concat([[c.x,0]]));
+				chart.drawArea(yld,"yield");
+				chart.drawLines(yld,"yield");
+				chart.initRange(bg.filter(function(x) {return x[1]>=0;}).concat([[c.x,c.h],[c.x,0]]));
+				chart.drawAxes("axes");
+				chart.drawLines(bg,"budget");			
+				chart.drawLines(hld,"held");	
+				chart.drawLines(tng,"tangent");
+				chart.drawVLine(c.x,"current","p");
+				chart.drawVLine(state.visstrategy.neutral,"neutral","n");
+				chart.drawPoint(c.x,c.h,"current held");
+				chart.drawPoint(c.x,c.b,"current budget");
+				elem.appendChild(chart.elem);
+			}
+		}).call(this);
 		
 		
 	}.bind(this);
@@ -574,6 +605,7 @@ App.prototype.fillForm = function (src, trg) {
 	data.advanced = this.advanced;
 
 	trg._paper = src.paper_trading;
+	trg._swap_symbols = src.swap_symbols;
 	data.is_paper_trading = src.paper_trading?"true":"false";
 	data.strategy = (src.strategy && src.strategy.type) || "";
 	data.cstep = 0;
@@ -638,8 +670,12 @@ App.prototype.fillForm = function (src, trg) {
 	data.hodlshort_b = 100;
 	data.hodlshort_acc = 0;
 	data.hodlshort_rinvst= false;
+	data.incval_w = 1;
+	data.incval_z = 1;
+	data.incval_r = 100;
+	data.incval_ms = 0;
+	data.incval_ri = false;
 
-	function powerCalc(x) {return adjNumN(Math.pow(10,x)*0.01);};
 
 	
 	if (data.strategy == "halfhalf" || data.strategy == "keepvalue" || data.strategy == "exponencial"|| data.strategy == "hypersquare"||data.strategy == "conststep") {
@@ -713,6 +749,12 @@ App.prototype.fillForm = function (src, trg) {
 		data.kv2_boost = filledval(src.strategy.boost,false);
 		data.kv2_chngtm = filledval(src.strategy.chngtm, 0);
 		data.kv2_reinvest = filledval(src.strategy.reinvest, false);
+	} else if (data.strategy == "inc_value") {
+		data.incval_w = filledval(src.strategy.w,1);
+		data.incval_z = filledval(src.strategy.z,1);
+		data.incval_r = filledval(src.strategy.r,100);
+		data.incval_ms = filledval(src.strategy.ms,0);
+		data.incval_ri = filledval(src.strategy.ri,false);
 	}
 	data.shg_olt["!change"] = function() {
 		trg.enableItem("shg_ol", this.value != "0");
@@ -722,8 +764,7 @@ App.prototype.fillForm = function (src, trg) {
 		trg.showItem("shg_show_asym", this.value == "0");
 	};
 	data.enabled = src.enabled;
-	data.hidden = !!src.hidden;
-	data.swap_symbols = !!src.swap_symbols;
+	data.hidden = !!src.hidden;	
 	data.accept_loss = filledval(src.accept_loss,0);
 	data.grant_trade_hours= filledval(src.grant_trade_hours,0);
 	data.spread_calc_stdev_hours = filledval(src.spread_calc_stdev_hours,4);
@@ -740,7 +781,6 @@ App.prototype.fillForm = function (src, trg) {
 	data.max_size = filledval(src.max_size,0);
 	data.secondary_order = filledval(src.secondary_order,0);
 	data.dont_allocate = filledval(src.dont_allocate,false);
-	data.detect_manual_trades = filledval(src.detect_manual_trades,false);
 	data.report_order = filledval(src.report_order,0);
 	data.force_spread = filledval((Math.exp(src.force_spread || Math.log(1.01))*100-100).toFixed(3),"1.000");
 	data.spread_mode = filledval(src.force_spread?"fixed":"adaptive","adaptive");
@@ -818,13 +858,6 @@ App.prototype.fillForm = function (src, trg) {
 		return x;
 	}
 
-/*	function spreadRules() {
-		var d = trg.readData(["spread_mode","dynmult_mode"]);
-		var a = d.spread_mode == "adaptive";
-		trg.
-		
-	
-	}*/
 	
 
 	return trg.setData(data).catch(function(){}).then(unhide_changed.bind(this)).then(trg.dlgRules.bind(trg));
@@ -884,6 +917,15 @@ function getStrategyData(data, inv) {
 			boost: data.kv2_boost,
 			reinvest: data.kv2_reinvest
 		};
+	} else if (data.strategy == "inc_value") {
+		strategy = {
+			type: data.strategy,
+			r: data.incval_r,
+			w: data.incval_w,
+			z: data.incval_z,
+			ms: data.incval_ms,
+			ri: data.incval_ri
+		}
 	} else if (data.strategy == "hedge") {
 		strategy = {
 			type: data.strategy,
@@ -946,10 +988,8 @@ App.prototype.saveForm = function(form, src) {
 	trader.broker =src.broker;
 	trader.pair_symbol = src.pair_symbol;
 	trader.title = data.title;
-	trader.enabled = data.enabled;
-	trader.dry_run = data.dry_run;
-	trader.hidden = data.hidden;
-	trader.swap_symbols = data.swap_symbols;
+	trader.enabled = data.enabled;	
+	trader.hidden = data.hidden;	
 	this.advanced = data.advanced;
 	trader.accept_loss = data.accept_loss;
 	trader.grant_trade_hours = data.grant_trade_hours;
@@ -969,7 +1009,6 @@ App.prototype.saveForm = function(form, src) {
 	trader.max_leverage = data.max_leverage;
 	trader.secondary_order = data.secondary_order;
 	trader.dont_allocate = data.dont_allocate;
-	trader.detect_manual_trades = data.detect_manual_trades;
 	trader.report_order = data.report_order;
 	if (data.spread_mode == "fixed") {
 		trader.force_spread = Math.log(data.force_spread/100+1);
@@ -982,8 +1021,11 @@ App.prototype.saveForm = function(form, src) {
 	if (isFinite(data.max_balance)) trader.max_balance = data.max_balance;
 	if (isFinite(data.max_costs)) trader.max_costs = data.max_costs;
 	trader.init_open = data.init_open;
-	trader.paper_trading = src.paper_trading;
-	trader.pp_source = src.pp_source;
+	if (src.paper_trading) trader.paper_trading = true;
+	if (src.pp_source) trader.pp_source = src.pp_source;
+	if (typeof src.swap_symbols == "boolean") trader.swap_symbols = src.swap_symbols?2:0;
+	else trader.swap_symbols = src.swap_symbols;
+
 	return trader;
 	
 }
@@ -1004,13 +1046,13 @@ App.prototype.init = function() {
 	this.desktop.setItemValue("top_panel", top_panel);
 	top_panel.setItemEvent("save","click", this.save.bind(this));
 	top_panel.setItemEvent("login","click", function() {
-		location.href="api/login";
+		location.href="../api/admin/login";
 	});
 		
 	
 	return Promise.all([
 	        this.loadConfig(),
-	        fetch("api/news")]
+	        fetch("../api/admin/news")]
 	      ).then(function(x) {
 	    this.news = x[1].status == 200;
 	    if (this.news) this.news_content = x[1].json();
@@ -1035,7 +1077,7 @@ App.prototype.brokerSelect = function() {
 	return new Promise(function(ok, cancel) {
 		
 		var form = TemplateJS.View.fromTemplate("broker_select");
-		_this.waitScreen(fetch_with_error("api/brokers/_all")).then(function(x) {
+		_this.waitScreen(fetch_with_error("../api/admin/brokers/_all")).then(function(x) {
 			form.openModal();
 			var lst = function(s){
 				return x.filter(function(z){return !s || z.subaccounts;})
@@ -1046,10 +1088,10 @@ App.prototype.brokerSelect = function() {
 						"":{"!click": function() {
 								var p;
 								if (s) {
-									p = this.createSubaccount(z.name)
-									.then(function(n){
-										return this.waitScreen(fetch_with_error(this.brokerURL(n)))
-											.then(function(r){
+									p = this.createSubaccount(z.name).then(
+									function(n){
+										return this.waitScreen(fetch_with_error(this.brokerURL(n))).then(
+											function(r){
 												return [n, r.trading_enabled];
 											})
 									}.bind(this))
@@ -1106,8 +1148,13 @@ App.prototype.pairSelect = function(broker) {
 			var d = form.readData();
 			if (!d.pair || !d.name) return;
 			var name = d.name.replace(/[^-a-zA-Z0-9_.~]/g,"_");
-			ok([broker, d.pair, name]);
+			ok([broker, d.pair, name, d.swap_mode]);
 		},"ok");
+
+        function onSelectPair(pair) {
+        	form.setItemValue("pair", p);
+        }
+
 		fetch_with_error(_this.pairURL(broker,"")).then(function(data) {
 		    var m;
             if (data.struct) m = data.struct;
@@ -1174,6 +1221,16 @@ App.prototype.pairSelect = function(broker) {
 		},function() {form.close();cancel();});
 		form.setItemValue("image", _this.brokerImgURL(broker));
 		var last_gen_name="";
+		var prev_pair="";
+		form.setData({
+		    "swap_ui":{".style.visibility":"hidden"},
+			"swap_mode":{
+				"value":"0",
+				"!change":function() {
+					form.setData({"swap_mode":this.dataset.value});
+				}	
+			}
+		});
 		function dlgRules() {
 			var d = form.readData(["pair","name"]);
 			if (d.name == last_gen_name) {
@@ -1181,6 +1238,27 @@ App.prototype.pairSelect = function(broker) {
 				form.setItemValue("name", last_gen_name);
 			}
 			form.enableItem("ok", d.pair != "" && d.name != "");			
+            if (prev_pair != d.pair) {
+            	prev_pair = d.pair;
+            	if (d.pair == "") {
+					form.setData({
+						"swap_ui":{".style.visibility":"hidden"},
+						"swap_mode":"0"
+					});
+                } else {
+					fetch_json(_this.pairURL(broker, d.pair)).then(function(x){
+						var data = {};
+						data.asset = x.asset_symbol;
+						data.currency = x.currency_symbol;	
+						data.swap_ui = {".style.visibility":x.leverage?"hidden":"visible"};		
+						if (x.leverage) {
+							data.swap_mode = 0;
+						}
+						form.setData(data);
+					});
+                }
+            	                
+            }
 		};
 		
 		
@@ -1219,9 +1297,9 @@ App.prototype.cancelAllOrdersNoDlg = function(id) {
 			{method:"POST"}).catch(function() {});
 
 
-		return this.waitScreen(Promise.all([cr,dr]))
-			.catch(function(){})
-			.then(function() {
+		return this.waitScreen(Promise.all([cr,dr])).catch(
+			function(){}).then(
+			function() {
 				this.stopped[id] = true;				
 			}.bind(this));
 
@@ -1310,8 +1388,8 @@ App.prototype.resetTrader = function(id, initial, budget, balance) {
 App.prototype.cancelAllOrders = function(id) {
 	return this.dlgbox({"text":this.strtable.askcancel,
 		"ok":this.strtable.yes,
-		"cancel":this.strtable.no},"confirm").then(this.cancelAllOrdersNoDlg.bind(this,id))
-			.then(function() {
+		"cancel":this.strtable.no},"confirm").then(this.cancelAllOrdersNoDlg.bind(this,id)).then(
+			function() {
 						this.updateTopMenu(id);
 					}.bind(this));
 
@@ -1367,8 +1445,8 @@ return new Promise(function(ok,cancel) {
 		var d = dlg.readData();
 		if (d.name) {
 			dlg.enableItem("ok",false);
-			fetch_with_error(this.brokerURL(z)+"/subaccount",{method:"POST",body:JSON.stringify(d.name)})
-			.then(function(s){
+			fetch_with_error(this.brokerURL(z)+"/subaccount",{method:"POST",body:JSON.stringify(d.name)}).then(
+			function(s){
 				dlg.close();
 				ok(s);
 			}.bind(this))
@@ -1384,8 +1462,8 @@ return new Promise(function(ok,cancel) {
 App.prototype.setApiKeyDlg = function(z) {
 	return new Promise(function(ok, cancel) {
 	var url = this.brokerURL(z)+"/apikey";
-	var w = fetch_with_error(url)
-		.then(function(ff) {
+	var w = fetch_with_error(url).then(
+		function(ff) {
 			return formBuilder(ff)
 		},cancel);
 		
@@ -1552,6 +1630,40 @@ App.prototype.dlgbox = function(data, template) {
 	return res;
 }
 
+
+App.prototype.saveConfig = function(x) {
+	return this.validate(x).then(function(config) {
+		var dff = createDiff(this.org_config, config)
+		if (dff === undefined) dff = null;		
+		return fetch_json("../api/admin/config",{
+			method: "POST",
+			headers: {
+				"Content-Type":"application/json",
+			},
+			body:JSON.stringify(dff)
+		}).then(function(x) {
+			this.processConfig(x);
+			return x;
+		}.bind(this));
+	}.bind(this));
+}
+
+App.prototype.applyEffect = function(x) {
+		var top = this.top_panel;
+		top.showItem("saveprogress",true);
+		top.showItem("saveok",false);
+		function hide() {
+			top.showItem("saveprogress",false);
+			top.showItem("saveok",true);			
+		}
+		function hide_err(e) {
+			top.showItem("saveprogress",false);
+			return Promise.reject(e);			
+		}
+		x.then(hide,hide_err);
+		return x;
+}
+
 App.prototype.save = function() {
 	if (this.curForm) {
 		this.curForm.save();
@@ -1561,47 +1673,23 @@ App.prototype.save = function() {
 		this.init();
 		return;
 	}
-	var top = this.top_panel;
-	top.showItem("saveprogress",true);
-	top.showItem("saveok",false);
 	this.config.users = this.users;
 	this.config.traders = this.traders;
 	this.config.ext_assets = this.ext_assets.filter(function(x){
 		return x.balance;
 	});
-	this.validate(this.config).then(function(config) {		
-		fetch_json("api/config",{
-			method: "PUT",
-			headers: {
-				"Content-Type":"application/json",
-			},
-			body:JSON.stringify(config)
-		}).then(function(x) {
-			top.showItem("saveprogress",false);
-			top.showItem("saveok",true);
-			this.processConfig(x);
+	return this.applyEffect(this.saveConfig(this.config).then(function(){
 			this.updateTopMenu();
 			this.stopped = {};
 			this.reload_trader_header();
-		}.bind(this),function(e){			
-			top.showItem("saveprogress",false);
-			if (e.status == 409) {
-				this.dlgbox({hdr:this.strtable.conflict1, 
-							text:this.strtable.conflict2,
-							ok:this.strtable.reload}, "confirm")
-				.then(function() {
-					location.reload();
-				})
+		}.bind(this)),function(e){
+			if (e.trader) {   
+				this.menu.select("trader/"+e.trader);		
+				this.dlgbox({text:e.message},"validation_error");
 			} else {
-				fetch_error(e);
-			}
-			
-		}.bind(this));
-	}.bind(this), function(e) {
-		top.showItem("saveprogress",false);
-		if (e.trader)   
-			this.menu.select("trader/"+e.trader);		
-		this.dlgbox({text:e.message},"validation_error");
+				fetch_error(e);	
+			}		
+
 	}.bind(this));
 }
 
@@ -1618,7 +1706,7 @@ App.prototype.logout = function() {
 			}
 		});
 	} else {
-		fetch("api/logout").then(function(resp) {
+		fetch("../api/admin/logout").then(function(resp) {
 			if (resp.status == 200) {
 				location.reload();
 			}
@@ -1677,9 +1765,9 @@ App.prototype.gen_backtest = function(form,anchor, template, inputs, updatefn) {
 			pending_update = true;
 		} else {
 			update_in_progress = true;
-			updatefn(obj)
-				.catch(function(){})
-				.then(function() {
+			updatefn(obj).catch(
+				function(){}).then(
+				function() {
 					update_in_progress = false;
 					if (pending_update) {
 						pending_update = false;
@@ -1707,7 +1795,7 @@ App.prototype.gen_backtest = function(form,anchor, template, inputs, updatefn) {
 }
 
 App.prototype.init_spreadvis = function(form, id) {
-	var url = "api/spread"
+	var url = "../api/admin/spread"
 	form.enableItem("vis_spread",false);
 	var inputs = ["spread_calc_stdev_hours","secondary_order", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode","dynmult_sliding","dynmult_cap","dynmult_mult","force_spread","spread_mode","spread_freeze"];
 	this.gen_backtest(form,"spread_vis_anchor", "spread_vis",inputs,function(cntr){
@@ -1788,17 +1876,6 @@ function createCSV(chart) {
 	return rows.join("\r\n");
 }
 
-var fill_atprice=true;
-var show_op=false;
-var invert_chart = false;
-var reverse_chart = false;
-var allow_neg_balance = false;
-var spend_profit = false;
-var hist_smooth=0;
-var rnd_preset={
-		"volatility":1,
-		"noise":1,		
-};
 
 function DelayUpdate(fn) {
 	var tm;
@@ -1819,7 +1896,7 @@ function DelayUpdate(fn) {
 };
 
 App.prototype.init_backtest = function(form, id, pair, broker) {
-	var url = "api/backtest2";
+	var url = "../api/admin/backtest2";
 	form.enableItem("show_backtest",false);		
 	var inputs = ["strategy","external_assets", "acum_factor","kv_valinc","kv_halfhalf","min_size","max_size","linear_suggest","linear_suggest_maxpos",
 		"dynmult_sliding","accept_loss",
@@ -1830,25 +1907,42 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		"hodlshort_z","hodlshort_acc","hodlshort_rinvst","hodlshort_b",
 		"pile_accum","pile_ratio",
 		"kv2_accum","kv2_boost","kv2_chngtm","kv2_reinvest",
+		"incval_w","incval_r","incval_ms","incval_ri","incval_z",
 		"hedge_short","hedge_long","hedge_drop",
 		"shg_w","shg_p","shg_z","shg_b","shg_olt","shg_ol","shg_lp","shg_rnv","shg_avgsp","shg_boostmode","shg_lazyopen","shg_lazyclose","shg_offset",
 		"trade_within_budget"];
 	var spread_inputs = ["spread_calc_stdev_hours","secondary_order", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode","dynmult_sliding","dynmult_cap","dynmult_mult","force_spread","spread_mode","spread_freeze"];
 	var leverage = form._pair.leverage != 0;	
-	var balance = form._backtest_balance+(leverage?0:form._assets*invPrice(form._price,form._pair.invert_price));
-	var assets = 0;
 	var pairinfo = form._pair;
 	var invert_price = form._pair.invert_price;
-	var init_def_price = form._price;
 	var days = 45*60*60*24*1000;
     var offset = 0;
     var offset_max = 0;
-	var start_date = "";
 	var sttype =form.readData(["strategy"]).strategy;
-    var show_norm= ["halfhalf","pile","keepvalue","exponencial","errorfn","hypersquare","conststep"].indexOf(sttype) != -1?2:0;
 	var infoElm;
+	var balance = form._backtest_balance+(leverage?0:form._assets*invPrice(form._price,form._pair.invert_price))
 	var this_bt=this.backtest[id];
 	if (!this_bt) this.backtest[id]=this_bt={};
+	if (!this.backtest_opts) this.backtest_opts = {};
+	var btopts = this.backtest_opts[id] || {
+			fill_atprice:true,
+			show_op:false,
+			invert_chart:false,
+			reverse_chart:false,
+			allow_neg_balance:false,
+			spend_profit:false,
+			hist_smooth:0,
+			rnd_preset:{
+				"volatility":1,
+				"noise":1
+			},			
+			show_norm:["halfhalf","pile","keepvalue","exponencial","errorfn","hypersquare","conststep"].indexOf(sttype) != -1?1:0,
+			initial_price:form._price,
+			initial_balance:balance,
+			initial_pos:undefined,			
+		};
+	this.backtest_opts[id] =  btopts;
+	
 
 
 	function draw(cntr, v, offset, balance) {
@@ -1992,12 +2086,12 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 			"rpnly": adjNumBuySell(lastrpnl*year_mlt),
 			"pcrpnl": adjNumBuySell(lastrpnl*year_mlt*100/balance,1),
 			"max_lev": adjNum(max_lev,2),
-        	"showpl":{".hidden":show_norm!=0},
-        	"showpla":{".hidden":show_norm!=3},
-        	"shownorm":{".hidden":show_norm!=1},
-        	"showaccum":{".hidden":show_norm!=2},
-			"showrpnl":{".hidden":show_norm!=4},
-        	"graphtype":show_norm,
+        	"showpl":{".hidden":btopts.show_norm!=0},
+        	"showpla":{".hidden":btopts.show_norm!=3},
+        	"shownorm":{".hidden":btopts.show_norm!=1},
+        	"showaccum":{".hidden":btopts.show_norm!=2},
+			"showrpnl":{".hidden":btopts.show_norm!=4},
+        	"graphtype":btopts.show_norm,
         	"trades": trades,
         	"buys": buys,
         	"sells": sells,
@@ -2024,12 +2118,12 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		var drawChart = initChart(interval,ratio,scale,true);
 		var drawMap1;
 		var drawMap2;
-		if (show_norm==4) {
+		if (btopts.show_norm==4) {
 		    drawMap1=drawChart(chart1,c,"pr",lastop?[{label:"open",pr:lastop}]:[],"op");
 		} else {
 		    drawMap1=drawChart(chart1,c,"pr",lastnp?[{label:"neutral",pr:lastnp}]:[],"np");			
 		}
-		switch (show_norm) {
+		switch (btopts.show_norm) {
 			case 1: drawMap2=drawChart(chart2,c,"npl",[{label:"PL",npla:lastpl}],"pl");break;
 			case 2: drawMap2=drawChart(chart2,c,"na",[]);break;
 			case 3: drawMap2=drawChart(chart2,c,"plb",[],"nplb");break;
@@ -2126,8 +2220,8 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 
     function get_bt_file(what) {
     	if (what && what.id) {
-    	    fetch_json(url+"/get_file",{method:"POST",body:JSON.stringify({source:what.id})})
-    	    .then(function(x){what.chart = x;});
+    	    fetch_json(url+"/get_file",{method:"POST",body:JSON.stringify({source:what.id})}).then(
+				function(x){what.chart = x;});
     	}
     }
 
@@ -2147,9 +2241,9 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
     var skip_norm = false;
 
 	function swapshowpl() {
-		show_norm = (show_norm+1)%3;
-		if (skip_norm && show_norm == 1) swapshowpl();
-		else if (skip_accum && show_norm == 2) swapshowpl();
+		btopts.show_norm = (btopts.show_norm+1)%3;
+		if (skip_norm && btopts.show_norm == 1) swapshowpl();
+		else if (skip_accum && btopts.show_norm == 2) swapshowpl();
 		update_recalc();
 	}
 
@@ -2177,12 +2271,13 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 			sliding:data.dynmult_sliding,
 			spread_freeze:data.spread_freeze,
 			dyn_mult:data.dynmult_mult,
-			reverse: reverse_chart,
-			invert: invert_chart,
+			reverse: btopts.reverse_chart,
+			invert: btopts.invert_chart,
 			ifutures: invert_price,			
 			source: this_bt.minute.id,
 			order2: data.secondary_order,
-			offset: offset
+			offset: offset,
+			swap:  form._swap_symbols == 1
 		}
 		return fetch_json(url+"/gen_trades",{method:"POST",body:JSON.stringify(sreq)});
 	}
@@ -2192,9 +2287,9 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 
 		function download_historical_dlg() {
 					this.waitScreen(Promise.all([
-						fetch_json("api/btdata"), 
-						fetch_json("api/brokers/"+encodeURIComponent(broker)+"/pairs/"+encodeURIComponent(pair)),
-						fetch("api/brokers/"+encodeURIComponent(broker)+"/pairs/"+encodeURIComponent(pair)+"/history")
+						fetch_json("../api/admin/btdata"), 
+						fetch_json("../api/admin/brokers/"+encodeURIComponent(broker)+"/pairs/"+encodeURIComponent(pair)),
+						fetch("../api/admin/brokers/"+encodeURIComponent(broker)+"/pairs/"+encodeURIComponent(pair)+"/history")
 					])).then(function(resp) {
 						function dlgRules() {
 							var en = !d.view.readData(["from_broker"]).from_broker;
@@ -2220,14 +2315,14 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 								}),
 								asset:resp[1].quote_asset,
 								currency:resp[1].quote_currency,
-								smooth:hist_smooth,
+								smooth:btopts.hist_smooth,
 						};
 						var d;
 						(d = this.dlgbox(ddata,"download_price_dlg")).then(function(){
 							ddata = d.view.readData(["asset","currency","smooth","from_broker","save"]);;
 							if (ddata.from_broker) {
 								var dataid;
-								showProgress(fetch_json("api/brokers/"+encodeURIComponent(broker)+"/pairs/"+encodeURIComponent(pair)+"/history",{method:"POST"}).then(function(info){
+								showProgress(fetch_json("../api/admin/brokers/"+encodeURIComponent(broker)+"/pairs/"+encodeURIComponent(pair)+"/history",{method:"POST"}).then(function(info){
                                 	dataid = info.data;
                                 	return info.progress;
 								})).then(function(dlg){
@@ -2235,19 +2330,20 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 										this_bt.trades = null;
 										get_chart(cntr.update().then(function(){
 											dlg.close();
-											if (ddata.save) 
+											if (ddata.save) {
 											    var a  = document.createElement("a");
 											    a.setAttribute("href",url+"/"+dataid);
 											    a.setAttribute("download","minute_"+broker+"_"+pair+".csv");
 											    document.body.appendChild(a);
 											    a.click();
 											    document.body.removeChild(a);
+											}
 										}), delayed_update_minute);
                                 });
 							} else { 
 								this_bt.minute = {"mode":"historical_chart","args":ddata};
 								this_bt.trades = null;
-								hist_smooth = ddata.smooth;
+								btopts.hist_smooth = ddata.smooth;
 								cntr.update();
 							}
 						}.bind(this));					
@@ -2258,13 +2354,14 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 
 		cntr.showSpinner();
 		config = this.saveForm(form,{});
-        opts = cntr.bt.readData(["initial_balance", "initial_pos","initial_price"]);
+        opts = frst?btopts:cntr.bt.readData(["initial_balance", "initial_pos","initial_price"]);
+		Object.assign(btopts, opts);
 		config.broker = broker;
 		config.pair_symbol = pair;
-		var init_price = isFinite(opts.initial_price)?opts.initial_price:init_def_price;
+		var init_price = isFinite(opts.initial_price)?opts.initial_price:form._price;
         var norm_init_price = invert_price?1.0/init_price:init_price;
         bal =( isFinite(opts.initial_balance)?opts.initial_balance:balance)
-                    + (leverage?0:(isFinite(opts.initial_pos)?opts.initial_pos:assets)*norm_init_price);
+                    + (leverage?0:(isFinite(opts.initial_pos)?opts.initial_pos:0)*norm_init_price);
 
         function has_minute() {return this_bt.minute && this_bt.minute.chart;};
        	req = {
@@ -2273,12 +2370,12 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 			init_pos:isFinite(opts.initial_pos)?opts.initial_pos:undefined,
 			init_price:init_price,
 			balance:isFinite(opts.initial_balance)?opts.initial_balance:bal,
-			fill_atprice:fill_atprice,
-			start_date: start_date,
-			reverse: reverse_chart,
-			invert: invert_chart,
-			neg_bal: allow_neg_balance,
-			spend: spend_profit,
+			fill_atprice:btopts.fill_atprice,
+			start_date:btopts.start_date,
+			reverse: btopts.reverse_chart,
+			invert: btopts.invert_chart,
+			neg_bal: btopts.allow_neg_balance,
+			spend: btopts.spend_profit,
 		};
 
 
@@ -2300,8 +2397,10 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 				})
 			});
 			
-			cntr.bt.setItemValue("initial_price",adjNumN(init_def_price));
-			cntr.bt.setItemValue("initial_balance",adjNumN(balance));
+			cntr.bt.setItemValue("initial_price",adjNumN(btopts.initial_price));
+			cntr.bt.setItemValue("initial_balance",adjNumN(btopts.initial_balance));
+			cntr.bt.setItemValue("initial_pos",adjNumN(btopts.initial_pos));
+			cntr.bt.setData({"start_date":{".valueAsNumber":btopts.start_date}});
 			cntr.bt.setItemEvent("options", "click", function() {
 				this.classList.toggle("sel");
 				cntr.bt.setData({"options_form":{classList:{shown:this.classList.contains("sel")}}});
@@ -2311,44 +2410,44 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 			cntr.bt.setItemEvent("initial_pos","input",cntr.update);
 			cntr.bt.setItemEvent("initial_price","input",cntr.update);
 			cntr.bt.setItemEvent("reverse_chart","change",function() {
-				reverse_chart = cntr.bt.readData(["reverse_chart"]).reverse_chart;
+				btopts.reverse_chart = cntr.bt.readData(["reverse_chart"]).reverse_chart;
 				if (has_minute()) this_bt.trades = null;
 				cntr.update();				
 			});
 			cntr.bt.setItemEvent("invert_chart","change",function() {
-				invert_chart = cntr.bt.readData(["invert_chart"]).invert_chart;
+				btopts.invert_chart = cntr.bt.readData(["invert_chart"]).invert_chart;
 				if (has_minute()) this_bt.trades = null;
 				cntr.update();				
 			});
 			cntr.bt.setItemEvent("graphtype", "change", function(){
-				show_norm =  parseInt(this.value);
+				btopts.show_norm =  parseInt(this.value);
 				update_recalc();
 			});
 			cntr.bt.setItemEvent("icon_test", "click", stabilityTest.bind(this));
-			cntr.bt.setItemValue("show_op", show_op);
-			cntr.bt.setItemValue("fill_atprice",fill_atprice);
-			cntr.bt.setItemValue("allow_neg_bal",allow_neg_balance);
-			cntr.bt.setItemValue("spend_profit",spend_profit);
-			cntr.bt.setItemValue("reverse_chart",reverse_chart);
-			cntr.bt.setItemValue("invert_chart",invert_chart);
+			cntr.bt.setItemValue("show_op", btopts.show_op);
+			cntr.bt.setItemValue("fill_atprice",btopts.fill_atprice);
+			cntr.bt.setItemValue("allow_neg_bal",btopts.allow_neg_balance);
+			cntr.bt.setItemValue("spend_profit",btopts.spend_profit);
+			cntr.bt.setItemValue("reverse_chart",btopts.reverse_chart);
+			cntr.bt.setItemValue("invert_chart",btopts.invert_chart);
 			cntr.bt.setItemEvent("allow_neg_bal","change", function() {
-				allow_neg_balance = cntr.bt.readData(["allow_neg_bal"]).allow_neg_bal;
+				btopts.allow_neg_balance = cntr.bt.readData(["allow_neg_bal"]).allow_neg_bal;
 				cntr.update();
 			})
 			cntr.bt.setItemEvent("spend_profit","change", function() {
-				spend_profit = cntr.bt.readData(["spend_profit"]).spend_profit;
+				btopts.spend_profit = cntr.bt.readData(["spend_profit"]).spend_profit;
 				cntr.update();
 			})
 			cntr.bt.setItemEvent("show_op","change", function() {
-				show_op = cntr.bt.readData(["show_op"]).show_op;
+				btopts.show_op = cntr.bt.readData(["show_op"]).show_op;
 				update();
 			})
 			cntr.bt.setItemEvent("start_date","input", function() {
-				start_date=this.valueAsNumber;
-				if (start_date>0) cntr.update();
+				btopts.start_date=this.valueAsNumber;
+				if (btopts.start_date>0 || isNaN(btopts.start_date)) cntr.update();
 			})
 			cntr.bt.setItemEvent("fill_atprice","change", function() {
-				fill_atprice = cntr.bt.readData(["fill_atprice"]).fill_atprice;
+				btopts.fill_atprice = cntr.bt.readData(["fill_atprice"]).fill_atprice;
 				cntr.update();
 			})
 			cntr.bt.setItemEvent("showpl","click",swapshowpl);
@@ -2362,14 +2461,14 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 				el.click();
 			});
 			cntr.bt.setItemEvent("random_chart","click",function(){
-				if (rnd_preset.seed === undefined) {
-				    rnd_preset.seed = (Math.random()*32768*65536)|0;
+				if (btopts.rnd_preset.seed === undefined) {
+				    btopts.rnd_preset.seed = (Math.random()*32768*65536)|0;
 				}
 				var d;
-				(d = this.dlgbox(rnd_preset,"random_dlg")).then(function(){
-					rnd_preset = d.view.readData();
+				(d = this.dlgbox(btopts.rnd_preset,"random_dlg")).then(function(){
+					btopts.rnd_preset = d.view.readData();
 					this_bt.trades = null;
-					this_bt.minute = {mode:"random_chart", args: rnd_preset};
+					this_bt.minute = {mode:"random_chart", args: btopts.rnd_preset};
 					cntr.update();
 				});
 
@@ -2495,14 +2594,14 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 							}							
 						});
 			} else if (this_bt.trades && this_bt.trades.chart) {
-				ret = fetch_json(url+"/upload", {method:"POST", body:JSON.stringify(this_bt.trades.chart)})
-				.then(function(r) {
+				ret = fetch_json(url+"/upload", {method:"POST", body:JSON.stringify(this_bt.trades.chart)}).then(
+				function(r) {
 					this_bt.trades.id = r.id;
 					return call_update();
 				});				
 			} else if (this_bt.trades && this_bt.trades.mode) {
-				ret = fetch_json(url+"/"+this_bt.trades.mode, {method:"POST", body:JSON.stringify(this_bt.trades.args)})
-				.then(function(r) {
+				ret = fetch_json(url+"/"+this_bt.trades.mode, {method:"POST", body:JSON.stringify(this_bt.trades.args)}).then(
+				function(r) {
 					this_bt.trades.id = r;
 					return get_chart(call_update(),delayed_update_trades);
 				});
@@ -2520,20 +2619,20 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 						}							
 					});
 				} else if (this_bt.minute && this_bt.minute.chart) {
-					ret = fetch_json(url+"/upload", {method:"POST", body:JSON.stringify(this_bt.minute.chart)})
-					.then(function(r) {
+					ret = fetch_json(url+"/upload", {method:"POST", body:JSON.stringify(this_bt.minute.chart)}).then(
+					function(r) {
 						this_bt.minute.id = r.id;
 						return call_update();
 					})
 				} else if (this_bt.minute && this_bt.minute.mode) {
-					ret = fetch_json(url+"/"+this_bt.minute.mode, {method:"POST", body:JSON.stringify(this_bt.minute.args)})
-					.then(function(r) {
+					ret = fetch_json(url+"/"+this_bt.minute.mode, {method:"POST", body:JSON.stringify(this_bt.minute.args)}).then(
+					function(r) {
 						this_bt.minute = r;
 						return get_chart(call_update(),delayed_update_minute);
 					})
 				} else {
-					ret = fetch_json(url+"/trader_chart",{method:"POST",body:JSON.stringify({"trader":id})})
-					.then(function(r) {
+					ret = fetch_json(url+"/trader_chart",{method:"POST",body:JSON.stringify({"trader":id})}).then(
+					function(r) {
 						this_bt.trades = r;
 						return get_chart(call_update(),delayed_update_trades);
 					},function(e){
@@ -2659,17 +2758,17 @@ App.prototype.optionsForm = function() {
 	var data = {
 			report_interval: defval(this.config.report_interval,864000000)/86400000,
 			stop:{"!click": function() {
-					this.waitScreen(fetch_with_error("api/stop",{"method":"POST"}));
+					this.waitScreen(fetch_with_error("../api/admin/stop",{"method":"POST"}));
 					for (var x in this.traders) this.stopped[x] = true;
 			}.bind(this)},
 			reload_brokers:{"!click":function() {
-				this.waitScreen(fetch_with_error("api/brokers/_reload",{"method":"POST"}));
+				this.waitScreen(fetch_with_error("../api/admin/brokers/_reload",{"method":"POST"}));
 			}.bind(this)}
 			
 	};
 	var utm = Date.now();
 	function updateUtilz() {
-		fetch_json("./api/utilization?tm="+utm).then(function(data) {
+		fetch_json("../api/admin/utilization?tm="+utm).then(function(data) {
 			var f = {
 				p:{".style.width":(data.reset/600).toFixed(1)+"%"},
 				v:(data.reset/600).toFixed(1)
@@ -2722,7 +2821,7 @@ App.prototype.messagesForm = function() {
 		data.mark = {
 			".disabled": !items.find(function(x){return x.unread;}),
 			"!click": function() {
-				fetch("api/news",{
+				fetch("../api/admin/news",{
 					"method":"POST",
 					"body":JSON.stringify(newest+1)
 				}).then(function(e){
@@ -2730,7 +2829,7 @@ App.prototype.messagesForm = function() {
 						fetch_error(e);
 					} else {
 						form.setData({"items":[]});
-						me.news_content = fetch_with_error("api/news")
+						me.news_content = fetch_with_error("../api/admin/news")
 						me.news_content.then(update);
 					}
 				});
@@ -2745,7 +2844,7 @@ App.prototype.messagesForm = function() {
 		data.reload = {
 			"!click": function() {
 				form.setData({"items":[]});
-				me.news_content =fetch_with_error("api/news");
+				me.news_content =fetch_with_error("../api/admin/news");
 				me.news_content.then(update);
 			}
 		};
@@ -2823,7 +2922,7 @@ App.prototype.walletForm = function() {
 	    return r;
 	}
 	function update() {			
-		var data = fetch_json("api/wallet").then(function(data) {
+		var data = fetch_json("../api/admin/wallet").then(function(data) {
 			var allocs = data.wallet.map(function(x) {
 				var bal = x.balance;
 				var out = Object.assign({},x);
@@ -2860,7 +2959,7 @@ App.prototype.walletForm = function() {
 					incntr.focus();
 					incntr.select();
 				}};
-				out.img="api/brokers/"+encodeURIComponent(x.broker)+"/icon.png";
+				out.img="../api/admin/brokers/"+encodeURIComponent(x.broker)+"/icon.png";
 				return out;
 			}.bind(this));
 			var brokers = data.entries;
@@ -2872,8 +2971,8 @@ App.prototype.walletForm = function() {
 				if (idx == -1) {
 					wallets.push({"@id":brk});
 				}							
-				return fetch_json("api/wallet/"+encodeURIComponent(brk))
-				.then(function(wdata) {
+				return fetch_json("../api/admin/wallet/"+encodeURIComponent(brk)).then(
+				function(wdata) {
 					var wlts = [];
 					for (var x in wdata) {
 						var assts = [];
@@ -2889,7 +2988,7 @@ App.prototype.walletForm = function() {
 						});
 					}
 					return {			
-						broker_icon:"api/brokers/"+encodeURIComponent(brk)+"/icon.png",
+						broker_icon:"../api/admin/brokers/"+encodeURIComponent(brk)+"/icon.png",
 						broker_name:brk,
 						account_wallets: wlts,
 						spinner:{".hidden":true}
@@ -3148,8 +3247,8 @@ App.prototype.tradingForm = function(id) {
 				
 				form.setData(formdata);				
 				return rs;
-			})
-			.then(function(x){running_update=false;return x;},function(x){running_update=false;console.error(x);});
+			}).then(
+				function(x){running_update=false;return x;},function(x){running_update=false;console.error(x);});
 			
 		return f;
 	}
@@ -3193,8 +3292,8 @@ App.prototype.tradingForm = function(id) {
 
 		function postOrder() {
 			if (!_this.stopped[id] && cfg.enable) {
-				_this.dlgbox({text:_this.strtable.trade_ask_stop},"confirm")
-					.then(function() {
+				_this.dlgbox({text:_this.strtable.trade_ask_stop},"confirm").then(
+					function() {
 						return _this.waitScreen(fetch_with_error(_this.traderURL(cfg.id)+"/stop",{method:"POST"}));
 					}).then(function() {
 						_this.stopped[id] = true;
@@ -3256,8 +3355,8 @@ App.prototype.brokerConfig = function(burl) {
 	return this.dlgbox({form:form}, "broker_options_dlg").then(function() {
 		form.then(function(f) {
 			var d = f.readData();
-			return fetch_with_error(burl, {method:"PUT",body:JSON.stringify(d)})
-			.then(function(a){
+			return fetch_with_error(burl, {method:"PUT",body:JSON.stringify(d)}).then(
+			function(a){
 				this.reload_trader_header();return a;
 			}.bind(this));				
 		}.bind(this))
@@ -3336,8 +3435,8 @@ App.prototype.editStrategyState = function(id) {
 		dlg.setDefaultAction(function(){
 			var data = dlg.readData().json_data;
 			var vald = JSON.parse(data);
-			this.waitScreen(fetch_with_error(url,{"method":"PUT","body":data}))
-			 .then(function() {
+			this.waitScreen(fetch_with_error(url,{"method":"PUT","body":data})).then(
+			function() {
 				dlg.close();
 				this.undoTrader(id);
 			 }.bind(this));
@@ -3353,13 +3452,13 @@ function showProgress(id) {
 	});
 	return Promise.resolve(id).then(function(id) {
 		dlg.setItemEvent("stop","click",function(){
-				fetch("api/progress/"+id, {"method":"DELETE"});
+				fetch("../api/admin/progress/"+id, {"method":"DELETE"});
 		});
 		return new Promise(function(ok) {
 			
 			var intr = setInterval(function(){
-				fetch("api/progress/"+id)
-				.then(function(resp){
+				fetch("../api/admin/progress/"+id).then(
+				function(resp){
 					if (resp.status == 204) {
 						clearInterval(intr);
 						dlg.setData({"progress":100})
@@ -3401,8 +3500,8 @@ App.prototype.shgControlPosition = function(id, form) {
                         this.waitScreen(fetch_with_error(url).then(function(res){
 							res.sinh_gen.budget = rd.wantbudget;
 							res.sinh_gen.find_k = invSize((rd.wantbudget-rd.curbudget) * parseInt(rd.side),inv);
-                        	return fetch_with_error(url,{method:"PUT",body:JSON.stringify(res)})
-                        	.then(function(){
+                        	return fetch_with_error(url,{method:"PUT",body:JSON.stringify(res)}).then(
+							function(){
                         		this.undoTrader(id);
                         	}.bind(this));
                         }.bind(this)));

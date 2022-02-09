@@ -24,7 +24,6 @@ public:
 
 	virtual IStockApi::TradesSync syncTrades(json::Value lastId,
 			const std::string_view &pair) override;
-	virtual double getFees(const std::string_view &pair) override;
 	virtual IStockApi::Ticker getTicker(const std::string_view &piar) override;
 	virtual IStockApi::Orders getOpenOrders(const std::string_view &par) override;
 	virtual json::Value placeOrder(const std::string_view &pair, double size, double price,
@@ -117,13 +116,14 @@ protected:
 	double currency = 0;
 	bool asset_valid = false;
 	bool currency_valid = false;
+	std::string random_id;
 	std::chrono::system_clock::time_point lastReset;
 
 
 	virtual void loadState(const AbstractPaperTrading::TradeState &st,
-			json::Value state);
-	virtual TradeState& getState(const std::string_view &symbol);
-	virtual json::Value saveState(const AbstractPaperTrading::TradeState &st);
+			json::Value state) override;
+	virtual TradeState& getState(const std::string_view &symbol) override;
+	virtual json::Value saveState(const AbstractPaperTrading::TradeState &st) override;
 	double getBalanceFromWallet(const std::string_view &symb);
 	void updateWallet(const TradeState &st, const std::string_view &symbol, double difference) override;
 	virtual RawBalance getRawBalance(const TradeState &st) const override;

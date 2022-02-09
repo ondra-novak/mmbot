@@ -104,11 +104,6 @@ ExtStockApi::MarketInfo ExtStockApi::getMarketInfo(const std::string_view & pair
 
 }
 
-double ExtStockApi::getFees(const std::string_view& pair) {
-	json::Value v = requestExchange("getFees",pair);
-	return v.getNumber();
-
-}
 
 std::vector<std::string> ExtStockApi::getAllPairs() {
 	json::Value v = requestExchange("getAllPairs", json::Value());
@@ -241,9 +236,9 @@ json::Value ExtStockApi::requestExchange(json::String name, json::Value args) {
 	else try {
 		return connection->jsonRequestExchange("subaccount", {subaccount, name, args});
 	} catch (const AbstractExtern::Exception &e) {
-		throw AbstractExtern::Exception(std::string(e.getMsg()), connection->getName()+ "~" + subaccount, name.c_str());
+		throw;
 	} catch (std::exception &e) {
-		throw AbstractExtern::Exception(e.what(), connection->getName() + "~" + subaccount, name.c_str());
+		throw AbstractExtern::Exception(e.what(), connection->getName() + "~" + subaccount, name.c_str(), false);
 	}
 }
 

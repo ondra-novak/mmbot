@@ -204,23 +204,6 @@ Retrieves basic informations about specific market. Return value is JSON object:
 * **private_chart** (boolean) - set to **true** when prices read from this broker cannot be shared. This can be because price is not actual price, but it is derived from other market parameters.
 * **wallet_id** (string) - if the exchange uses multiple wallets for set of markets, for example it has separate wallet for spot and leveraged markets. There can be any arbitrary string which identifies the wallet (for example: "spot" for spot markets and "leveraged" for leveraged markets) - this helps to determine, which symbols shares the same balance. If there is no such feature, leave this field empty
 
-#### getFees
-
-```
-[ "getFees" , "<market>" ]
-```
-
-Used to update fees in given market. It is called once per cycle (for given trader). It allows to update fees when user reaches some volume level and receives discount on the fees
-
-**Returns** number 
-
-Example:
-
-```
-[ true, 0.005 ]
-```
-
-Note - value can be cahced. It should be updated on or after **reset**
 
 #### getTicker
 

@@ -120,7 +120,7 @@ server {
    ...
    
    location / {
-   		proxy_pass http://unix:/<cesta na mmbot>/run/mmbot.socket:/;
+   		proxy_pass http://unix:/<cesta na mmbot>/run/mmbot.socket;
    }
 }
 ```

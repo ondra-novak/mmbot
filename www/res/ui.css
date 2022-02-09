@@ -30,18 +30,20 @@ x-slider[disabled]>*{
 
 x-checkbox {
 	display: inline;
+	cursor: pointer;
 }
 
 x-checkbox[disabled] {
 	opacity: 0.5;
 	pointer-events: none;
+	cursor: default;
 }
 
-x-checkbox.checked {
+x-checkbox.checked  {
 	font-weight: bold;
 }
 
-x-checkbox > span{
+x-checkbox > span:first-child{
 	display: inline-block;
 	height: 1.2em;
 	width: 2.4em;
@@ -66,7 +68,7 @@ x-checkbox > span >span {
 	transition: all 0.2s;
 }
 
-x-checkbox.checked >span  {
+x-checkbox.checked >span:first-child  {
 	border: 2px solid #dcdcdc;
 }
 
@@ -74,4 +76,20 @@ x-checkbox.checked >span>span  {
 	background-color: #4CAF50;
 	right: 0;
 	left: 50%;
+}
+
+x-checkbox.radio > span {width: 1em; border-radius: 1em}
+x-checkbox.radio > span > span {
+	  left: 0;
+	  right: 0;
+	  opacity: 0;
+}
+
+x-checkbox.radio.checked > span > span {
+	  opacity: 1;
+}
+
+
+x-checkbox.radio.checked {
+	
 }

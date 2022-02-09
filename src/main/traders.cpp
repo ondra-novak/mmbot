@@ -53,6 +53,8 @@ void StockSelector::loadBrokers(const ondra_shared::IniConfig::Section &ini, boo
 	appendSimulator();
 }
 
+
+
 void StockSelector::appendSimulator() {
 	PStockApi sim = std::make_shared<Simulator>(this);
 	stock_markets.emplace(dynamic_cast<IBrokerControl *>(sim.get())->getBrokerInfo().name, sim);
@@ -118,12 +120,15 @@ sf(sf)
 	wcfg.externalBalance = wcfg.externalBalance.make();
 	wcfg.balanceCache = wcfg.balanceCache.make();
 	wcfg.accumDB = wcfg.accumDB.make();
+	wcfg.conflicts = wcfg.conflicts.make();
 }
 
 void Traders::clear() {
 	traders.clear();
 	stockSelector.clear();
 	wcfg.walletDB = wcfg.walletDB.make();
+	wcfg.accumDB = wcfg.accumDB.make();
+	wcfg.conflicts = wcfg.conflicts.make();
 }
 
 json::Value Traders::getUtilization(std::size_t lastUpdate) const {

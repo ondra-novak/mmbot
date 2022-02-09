@@ -9,6 +9,8 @@
 #include "papertrading.h"
 
 #include <chrono>
+#include <random>
+
 #include <imtjson/binary.h>
 #include "../imtjson/src/imtjson/object.h"
 
@@ -16,7 +18,9 @@
 PaperTrading::PaperTrading(PStockApi source)
 :state{source}
 {
-
+	std::random_device x;
+	std::uniform_int_distribution<int> rnd('A','Z');
+	for (int i = 0;i<16;i++) random_id.push_back(static_cast<char>(rnd(x)));
 }
 
 double PaperTrading::getBalance(const std::string_view &symb, const std::string_view &pair) {
@@ -88,7 +92,6 @@ IStockApi::MarketInfo AbstractPaperTrading::getMarketInfo(const std::string_view
 		auto b = st.source->getBalance(newminfo.asset_symbol, st.src_pair);
 		st.collateral = ACB(st.ticker.last, b, 0);
 	}
-	newminfo.wallet_id = std::move(st.minfo.wallet_id);
 	newminfo.simulator = true;
 	st.minfo = std::move(newminfo);
 	return st.minfo;
@@ -96,7 +99,7 @@ IStockApi::MarketInfo AbstractPaperTrading::getMarketInfo(const std::string_view
 
 IStockApi::MarketInfo PaperTrading::getMarketInfo(const std::string_view &pair)  {
 	auto nfo = AbstractPaperTrading::getMarketInfo(pair);
-	nfo.wallet_id.append("(paper_trading)");
+	nfo.wallet_id.append("-").append(random_id);
 	return nfo;
 }
 
@@ -263,11 +266,6 @@ json::Value AbstractPaperTrading::placeOrder(const std::string_view &pair, doubl
 
 }
 
-double AbstractPaperTrading::getFees(const std::string_view &pair) {
-	std::lock_guard _(lock);
-	TradeState &st = getState(pair);
-	return st.minfo.fees;
-}
 
 IStockApi::Ticker AbstractPaperTrading::getTicker(const std::string_view &pair) {
 	std::lock_guard _(lock);

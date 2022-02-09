@@ -136,6 +136,7 @@ public:
 	void put(const std::string_view &broker, const std::string_view &wallet, const std::string_view &symbol, double val);
 	void load(json::Value map);
 	json::Value dump() const;
+	void clear() {table.clear();}
 
 protected:
 	Table table;

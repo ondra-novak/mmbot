@@ -102,11 +102,6 @@ json::Value EmulatedLeverageBroker::placeOrder(const std::string_view &pair,
 	return target->placeOrder(pair, size, price, clientId, replaceId, replaceSize);
 }
 
-double EmulatedLeverageBroker::getFees(const std::string_view &pair) {
-	return target->getFees(pair);
-
-
-}
 
 IStockApi::Ticker EmulatedLeverageBroker::getTicker(const std::string_view &piar) {
 	return target->getTicker(piar);

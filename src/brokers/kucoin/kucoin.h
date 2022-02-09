@@ -35,7 +35,7 @@ public:
 	virtual double getFees(const std::string_view &pair) override;
 	virtual IBrokerControl::AllWallets getWallet() override;
 	virtual IStockApi::Ticker getTicker(const std::string_view &piar) override;
-	virtual json::Value getApiKeyFields() const;
+	virtual json::Value getApiKeyFields() const override;
 
 protected:
 	mutable HTTPJson api;

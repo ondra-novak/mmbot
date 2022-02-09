@@ -58,7 +58,7 @@ public:
 	virtual Interface *createSubaccount(const std::string &path) override {
 		return new Interface(path);
 	}
-	virtual double getBalance(const std::string_view & symb, const std::string_view & pair);
+	virtual double getBalance(const std::string_view & symb, const std::string_view & pair) override;
 	virtual AllWallets getWallet() override;
 	virtual json::Value getMarkets() const override ;
 

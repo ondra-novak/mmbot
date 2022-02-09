@@ -30,6 +30,9 @@ public:
 
 	using Action = std::function<void()>;
 	using Dispatch = ondra_shared::shared_function<void(Action &&)>;
+	struct Users {
+		ondra_shared::RefCntPtr<AuthUserList> users, admins, reports;
+	};
 
 	template<typename T>
 	class Cache {
@@ -74,7 +77,7 @@ public:
 	public:
 		unsigned int write_serial = 0;
 		PStorage config;
-		ondra_shared::RefCntPtr<AuthUserList> users, admins;
+		Users users;
 		std::vector<std::string> traderNames;
 		json::Value broker_config;
 		BacktestCache backtest_cache;
@@ -86,15 +89,13 @@ public:
 		json::Value news_tm;
 
 		State( PStorage &&config,
-			  ondra_shared::RefCntPtr<AuthUserList> users,
-			  ondra_shared::RefCntPtr<AuthUserList> admins,
+			  Users users,
 			  std::size_t backtest_cache_size,
 			  bool backtest_in_memory,
 			  std::string news_url
 			):
 				  config(std::move(config)),
 				  users(users),
-				  admins(admins),
 				  backtest_storage(SharedObject<BacktestStorage>::make(backtest_cache_size,backtest_in_memory)),
 				  news_url(news_url)
 		{
@@ -104,7 +105,6 @@ public:
 		void init();
 		void init(json::Value v);
 		void applyConfig(SharedObject<Traders> &t);
-		void setAdminAuth(const std::string_view &auth);
 		void setAdminUser(const std::string &uname, const std::string &pwd);
 		ondra_shared::linear_set<std::string> logout_users;
 

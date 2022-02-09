@@ -25,7 +25,7 @@ template<typename String>
 			"%d-%d-%dT%d:%d:%f%c%d:%d",
 			"%d-%d-%dT%d:%d:%f",
 	};
- 	 int y,M,d,h,m,tmh=0,tmm=0;
+ 	 int y=2000,M=0,d=1,h=0,m=0,tmh=0,tmm=0;
  	 float s = 0;
  	 char c = 0;
  	 sscanf(date.c_str(), formats[static_cast<int>(format)], &y, &M, &d, &h, &m, &s, &c, &tmh, &tmm);

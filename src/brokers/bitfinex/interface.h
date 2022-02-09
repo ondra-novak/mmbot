@@ -38,10 +38,10 @@ public:
 	virtual json::Value getMarkets() const override;
 	virtual json::Value getWallet_direct() override;
 	virtual bool areMinuteDataAvailable(const std::string_view &asset,
-			const std::string_view &currency);
+			const std::string_view &currency) override;
 	virtual uint64_t downloadMinuteData(const std::string_view &asset, const std::string_view &currency,
 			const std::string_view &hint_pair, uint64_t time_from, uint64_t time_to,
-			std::vector<IHistoryDataSource::OHLC> &data);
+			std::vector<IHistoryDataSource::OHLC> &data) override;
 
 protected:
 	mutable HTTPJson api_pub;

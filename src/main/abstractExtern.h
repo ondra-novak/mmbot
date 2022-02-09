@@ -36,13 +36,16 @@ public:
 
 	class Exception: public std::exception {
 	public:
-		Exception(std::string &&msg, const std::string &name, const std::string &command);
+		Exception(std::string &&msg, const std::string &name, const std::string &command, bool isResponse);
 		const std::string& getCommand() const {	return command;}
 		const std::string& getMsg() const {	return msg;}
 		const std::string& getName() const { return name;}
 		virtual const char *what() const noexcept override;
 
+		bool isResponse() const {return response;}
+
 	protected:
+		bool response;
 		const std::string whatmsg;
 		const std::string msg;
 		const std::string name;

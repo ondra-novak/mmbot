@@ -29,6 +29,11 @@
 class IStockApi;
 
 
+enum class SwapMode {
+	no_swap = 0,
+	swap = 1,
+	invert = 2
+};
 
 struct MTrader_Config {
 	std::string pairsymb;
@@ -65,13 +70,14 @@ struct MTrader_Config {
 
 	double init_open;
 
+	SwapMode swap_mode;
+
 	bool paper_trading;
 	bool dont_allocate;
 	bool enabled;
 	bool hidden;
 	bool dynmult_sliding;
 	bool dynmult_mult;
-	bool swap_symbols;
 	bool reduce_on_leverage;
 	bool freeze_spread;
 	bool trade_within_budget;
@@ -87,6 +93,7 @@ struct WalletCfg {
 	PWalletDB accumDB;
 	PBalanceMap balanceCache;
 	PBalanceMap externalBalance;
+	PBalanceMap conflicts;
 };
 
 class MTrader {
@@ -122,19 +129,6 @@ public:
 		std::optional<IStockApi::Order> buy,sell,buy2,sell2;
 	};
 
-	struct ZigZagInfo {
-		//total amount covered by this level
-		double amount;
-		//average price on this level
-		double price;
-	};
-
-	struct ZigZagLevels {
-		//zigzag direction
-		double direction;
-		//levels
-		std::vector<ZigZagInfo> levels;
-	};
 
 
 
@@ -176,7 +170,6 @@ public:
 		///available balance on exchange (external assets not counted) for this trader
 		double currencyAvailBalance;
 
-		double new_fees;
 		double spreadCenter;
 		IStockApi::TradesSync new_trades;
 		ChartItem chartItem;
@@ -273,6 +266,8 @@ public:
 	void recalcNorm();
 	void fixNorm();
 
+	static PStockApi selectStock(IStockSelector &stock_selector, std::string_view broker_name, SwapMode swap_mode, int emulate_leverage, bool paper_trading);
+
 protected:
 
 	PStockApi stock;
@@ -294,7 +289,6 @@ protected:
 	double lastTradePrice = 0;
 	int frozen_spread_side = 0;
 	double frozen_spread = 0;
-	json::Value test_backup;
 	json::Value lastTradeId = nullptr;
 	std::optional<AlertInfo> sell_alert, buy_alert;
 
@@ -311,6 +305,7 @@ protected:
 	ACB acb_state;
 	bool position_valid = false;
 	bool currency_valid = false;
+	bool refresh_minfo = false;
 
 
 /*	std::optional<double> asset_balance;
@@ -324,8 +319,6 @@ protected:
 	void loadState();
 
 	double raise_fall(double v, bool raise) const;
-
-	static PStockApi selectStock(IStockSelector &stock_selector, const Config &conf);
 
 	bool processTrades(Status &st);
 
@@ -346,7 +339,6 @@ protected:
 	bool checkMinMaxBalance(double newBalance, double dir, double price) const;
 	std::pair<AlertReason, double> limitOrderMinMaxBalance(double balance, double orderSize, double price) const;
 
-	ZigZagLevels zigzaglevels;
 
 
 	AlertReason checkLeverage(const Order &order, double assets, double currency, double &maxSize) const;
@@ -380,6 +372,7 @@ private:
 	BalanceChangeEvent detectLeakedTrade(const Status &st) const;
 	void doWithdraw(const Status &st);
 	void updateEnterPrice();
+	void update_minfo();
 };
 
 

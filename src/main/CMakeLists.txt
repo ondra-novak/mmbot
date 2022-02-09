@@ -29,6 +29,7 @@ add_executable (mmbot
 	strategy_gamma.cpp
 	strategy_hedge.cpp
 	strategy_pile.cpp
+	strategy_incvalue.cpp
 	simulator.cpp
 	localdailyperfmod.cpp
 	extdailyperfmod.cpp
@@ -43,6 +44,7 @@ add_executable (mmbot
 	series.cpp
 	btstore.cpp
 	papertrading.cpp
+	rptapi.cpp
 	../brokers/httpjson.cpp
 	)
 target_link_libraries (mmbot LINK_PUBLIC simpleServer imtjson )

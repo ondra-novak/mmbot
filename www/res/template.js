@@ -1043,9 +1043,10 @@ var TemplateJS = function(){
 		}
 		
 		
-		function processItem(itm, elemArr, val) {
+		function processItem(itm, elemArr, value) {
 					var out = [];
 					elemArr.forEach(function(elem) {
+						var val = value;
 						var res /* = undefined*/;
 						if (elem) {
 							var eltype = elem.tagName;
@@ -1061,7 +1062,7 @@ var TemplateJS = function(){
 									if (!("value" in val)) {
 										return;
 									}else {
-										val = val.value;
+										var val = val.value;
 										if (typeof val == "object" && checkSpecialValue(val,elem)) return;
 									}
 								}

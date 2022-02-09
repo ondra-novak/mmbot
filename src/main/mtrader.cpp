@@ -51,6 +51,13 @@ void MTrader_Config::loadConfig(json::Value data) {
 	auto strstr = strdata["type"].toString();
 	strategy = Strategy::create(strstr.str(), strdata);
 
+	auto swp = data["swap_symbols"];
+	if (swp.type() == json::boolean) {
+		swap_mode = swp.getBool()?SwapMode::invert:SwapMode::no_swap;
+	} else {
+		swap_mode = static_cast<SwapMode>(data["swap_symbols"].getUInt());
+	}
+
 
 	buy_step_mult = data["buy_step_mult"].getValueOrDefault(1.0);
 	sell_step_mult = data["sell_step_mult"].getValueOrDefault(1.0);
@@ -87,7 +94,6 @@ void MTrader_Config::loadConfig(json::Value data) {
 	hidden = data["hidden"].getValueOrDefault(false);
 	dynmult_sliding = data["dynmult_sliding"].getValueOrDefault(false);
 	dynmult_mult = data["dynmult_mult"].getValueOrDefault(false);
-	swap_symbols= data["swap_symbols"].getValueOrDefault(false);
 	emulate_leveraged=data["emulate_leveraged"].getValueOrDefault(0.0);
 	reduce_on_leverage=data["reduce_on_leverage"].getBool();
 	freeze_spread=data["spread_freeze"].getBool();
@@ -110,7 +116,7 @@ MTrader::MTrader(IStockSelector &stock_selector,
 		PStatSvc &&statsvc,
 		const WalletCfg &walletCfg,
 		Config config)
-:stock(selectStock(stock_selector,config))
+:stock(selectStock(stock_selector,config.broker, config.swap_mode, config.emulate_leveraged, config.paper_trading))
 ,cfg(config)
 ,storage(std::move(storage))
 ,statsvc(std::move(statsvc))
@@ -149,16 +155,18 @@ bool MTrader::Order::isSimilarTo(const IStockApi::Order& other, double step, boo
 }
 
 
-PStockApi MTrader::selectStock(IStockSelector &stock_selector, const Config &conf) {
-	PStockApi s = stock_selector.getStock(conf.broker);
-	if (s == nullptr) throw std::runtime_error(std::string("Unknown broker name: ")+std::string(conf.broker));
-	if (conf.swap_symbols) {
-		s = std::make_shared<SwapBroker>(s);
+PStockApi MTrader::selectStock(IStockSelector &stock_selector, std::string_view broker_name, SwapMode swap_mode, int emulate_leverage, bool paper_trading) {
+	PStockApi s = stock_selector.getStock(broker_name);
+	if (s == nullptr) throw std::runtime_error(std::string("Unknown broker name: ")+std::string(broker_name));
+	switch (swap_mode) {
+	case SwapMode::invert: s = std::make_shared<InvertBroker>(s);break;
+	case SwapMode::swap: s = std::make_shared<SwapBroker>(s);break;
+	default: break;
 	}
-	if (conf.emulate_leveraged>0) {
-		s = std::make_shared<EmulatedLeverageBroker>(s,conf.emulate_leveraged);
+	if (emulate_leverage>0) {
+		s = std::make_shared<EmulatedLeverageBroker>(s,emulate_leverage);
 	}
-	if (conf.paper_trading) {
+	if (paper_trading) {
 		auto new_s = std::make_shared<PaperTrading>(s);
 		return new_s;
 	} else {
@@ -214,10 +222,12 @@ void MTrader::alertTrigger(const Status &st, double price, int dir, AlertReason 
 		auto norm = strategy.onTrade(minfo, price, 0, position, st.currencyBalance);
 		tr.eff_size-=norm.normAccum;
 		accumulated +=norm.normAccum;
+		position -=norm.normAccum;
 		trades.push_back(TWBItem(tr, last_np+=norm.normProfit, last_ap+=norm.normAccum, norm.neutralPrice, false, static_cast<char>(dir), static_cast<char>(reason)));
 	} else {
 		trades.push_back(TWBItem(tr, last_np, last_ap, 0, true, static_cast<char>(dir), static_cast<char>(reason)));
 	}
+	refresh_minfo = true;
 }
 
 void MTrader::dorovnani(Status &st, double assetBalance, double price) {
@@ -231,6 +241,7 @@ void MTrader::dorovnani(Status &st, double assetBalance, double price) {
 		price
 	});
 	lastTradePrice = price;
+	refresh_minfo = true;
 }
 
 void MTrader::perform(bool manually) {
@@ -238,6 +249,14 @@ void MTrader::perform(bool manually) {
 	try {
 		init();
 
+		if (refresh_minfo) {
+			try {
+				update_minfo();
+				refresh_minfo = false;
+			} catch (std::exception &e) {
+				logWarning("Failed to refresh market info: $1", e.what());
+			}
+		}
 
 		//Get opened orders
 		auto orders = getOrders();
@@ -258,8 +277,6 @@ void MTrader::perform(bool manually) {
 		bool delayed_trade_detect = false;
 		std::string buy_order_error;
 		std::string sell_order_error;
-		//update market fees
-		minfo.fees = status.new_fees;
 		//process all new trades
 		bool anytrades = processTrades(status);
 
@@ -363,9 +380,6 @@ void MTrader::perform(bool manually) {
 					lastPriceOffset = lastTradePrice - status.spreadCenter;
 					frozen_spread = status.curStep;
 					frozen_spread_side = fst;
-					if (cfg.freeze_spread) {
-						logProgress("Spread frozen: dir=$1, value=$2", frozen_spread_side, frozen_spread);
-					}
 				}
 			}
 
@@ -583,9 +597,9 @@ void MTrader::perform(bool manually) {
 			std::optional<double> budget_extra;
 			if (!trades.empty())
 			{
-				double last_price = trades.back().eff_price;
+//				double last_price = trades.back().eff_price;
 				double locked = wcfg.walletDB.lock_shared()->query(WalletDB::KeyQuery(cfg.broker, minfo.wallet_id, minfo.currency_symbol, uid)).otherTraders;
-				double budget = strategy.calcCurrencyAllocation(last_price);
+				double budget = strategy.calcCurrencyAllocation(status.curPrice);
 				if (budget) {
 					budget_extra =  status.currencyUnadjustedBalance - locked - budget;
 				}
@@ -817,13 +831,12 @@ static std::pair<double,double> sumTrades(const std::pair<double,double> &a, con
 	};
 }
 
+
 MTrader::Status MTrader::getMarketStatus() const {
 
 	Status res;
 
 	IStockApi::Trade ftrade = {json::Value(), 0, 0, 0, 0, 0}, *last_trade = &ftrade;
-
-
 
 // merge trades here
 	auto new_trades = stock->syncTrades(lastTradeId, cfg.pairsymb);
@@ -855,7 +868,6 @@ MTrader::Status MTrader::getMarketStatus() const {
 	res.currencyBalance = wdb->adjBalance(WalletDB::KeyQuery(cfg.broker,minfo.wallet_id,minfo.currency_symbol,uid),	res.currencyUnadjustedBalance);
 	res.currencyAvailBalance = wdb->adjBalance(WalletDB::KeyQuery(cfg.broker,minfo.wallet_id,minfo.currency_symbol,uid),*res.brokerCurrencyBalance);
 
-	res.new_fees = stock->getFees(cfg.pairsymb);
 
 	auto ticker = stock->getTicker(cfg.pairsymb);
 	res.ticker = ticker;
@@ -1055,7 +1067,10 @@ MTrader::Order MTrader::calculateOrder(
 
 }
 
-
+void MTrader::update_minfo() {
+	minfo = stock->getMarketInfo(cfg.pairsymb);
+	minfo.min_size = std::max(minfo.min_size, cfg.min_size);
+}
 
 void MTrader::initialize() {
 	std::string brokerImg;
@@ -1075,7 +1090,15 @@ void MTrader::initialize() {
 				"gvyoGZj2YwZqN/hhbWujWttm4I/rExvNNT6fxhWaRgeFuPYDghTP70Os5zoAAAAASUVORK5CYII=";
 
 	try {
-		minfo = stock->getMarketInfo(cfg.pairsymb);
+		update_minfo();
+		if (!cfg.dont_allocate || cfg.enabled) {
+			auto clk = wcfg.conflicts.lock();
+			auto r = clk->get(cfg.broker, minfo.wallet_id, cfg.pairsymb);
+			if (r != 0 && r != magic) {
+			      throw std::runtime_error("Conflict: Can't run multiple traders on a single pair \r\n\r\n(To have a disabled trader on the same pair you have to enable 'No budget allocation' on the disabled trader)");
+			}
+			clk->put(cfg.broker, minfo.wallet_id, cfg.pairsymb, magic);
+		}
 
 		if (!cfg.hidden) {
 			this->statsvc->setInfo(
@@ -1089,7 +1112,7 @@ void MTrader::initialize() {
 						cfg.report_order,
 						minfo.invert_price, minfo.leverage != 0, minfo.simulator });
 		}
-		minfo.min_size = std::max(minfo.min_size, cfg.min_size);
+
 	} catch (std::exception &e) {
 		if (!cfg.hidden) {
 			this->statsvc->setInfo(
@@ -1119,7 +1142,6 @@ void MTrader::loadState() {
 
 
 		auto state = st["state"];
-		bool swapped = cfg.swap_symbols;
 		if (state.defined()) {
 			dynmult.setMult(state["buy_dynmult"].getNumber(),state["sell_dynmult"].getNumber());
 			position_valid = state["internal_balance"].hasValue();
@@ -1144,7 +1166,6 @@ void MTrader::loadState() {
 				lastPriceOffset = 0;
 			achieve_mode = state["achieve_mode"].getBool();
 			need_initial_reset = state["need_initial_reset"].getBool();
-			swapped = state["swapped"].getBool();
 			adj_wait = state["adj_wait"].getUInt();
 			adj_wait_price = state["adj_wait_price"].getNumber();
 			accumulated = state["accumulated"].getNumber();
@@ -1176,9 +1197,7 @@ void MTrader::loadState() {
 				}
 			}
 		}
-		if (cfg.swap_symbols == swapped) {
-			strategy.importState(st["strategy"], minfo);
-		}
+		strategy.importState(st["strategy"], minfo);
 
 
 	}
@@ -1228,7 +1247,6 @@ void MTrader::saveState() {
 		st.set("frozen_side", frozen_spread_side);
 		st.set("frozen_spread", frozen_spread);
 		if (achieve_mode) st.set("achieve_mode", achieve_mode);
-		if (cfg.swap_symbols) st.set("swapped", cfg.swap_symbols);
 		if (need_initial_reset) st.set("need_initial_reset", need_initial_reset);
 		st.set("adj_wait",adj_wait);
 		if (adj_wait) st.set("adj_wait_price", adj_wait_price);
@@ -1249,9 +1267,6 @@ void MTrader::saveState() {
 		}
 	}
 	obj.set("strategy",strategy.exportState());
-	if (test_backup.hasValue()) {
-		obj.set("test_backup", test_backup);
-	}
 	storage->store(obj);
 }
 
@@ -1320,6 +1335,7 @@ bool MTrader::processTrades(Status &st) {
 		tempPr.change = assetBal * (t.eff_price - last_price);
 		tempPr.time = t.time;
 		tempPr.acb_pnl = new_acb.getRPnL() - acb_state.getRPnL();
+		tempPr.position = assetBal+t.eff_size;
 		if (last_price) statsvc->reportPerformance(tempPr);
 		last_price = t.eff_price;
 		if (minfo.leverage == 0) curBal -= t.price * t.size;

@@ -20,3 +20,5 @@ generated
 /update_version
 www/src/.cache
 /core
+/new_web
+/www/new

@@ -27,8 +27,8 @@ bool Strategy_Sinh_Gen::FnCalc::sortPoints(const Point &a, const Point &b) {
 	return a.first < b.first;
 }
 
-Strategy_Sinh_Gen::FnCalc::FnCalc(double wd, double boost, int side, double z)
-:wd(wd),boost(boost),z(z),side(side) {
+Strategy_Sinh_Gen::FnCalc::FnCalc(double wd, double boost,  double z)
+:wd(wd),boost(boost),z(z) {
 
 		auto fillFn = [&](double x, double y) {
 			itable.push_back({x,y});
@@ -56,9 +56,7 @@ Strategy_Sinh_Gen::FnCalc::FnCalc(double wd, double boost, int side, double z)
 double Strategy_Sinh_Gen::FnCalc::baseFn(double x) const {
 	double y;
 	double arg = wd*(1-std::sqrt(x));
-	if (side<0) y=0.5*std::exp(arg);
-	else if (side>0) y=-0.5*std::exp(-arg);
-	else y = std::sinh(arg);
+	y = std::sinh(arg);
 	y = y / (std::pow(x,wd*z+1)*std::sqrt(wd));
 	return y + sgn(y) * boost;
 }
@@ -275,6 +273,25 @@ double Strategy_Sinh_Gen::roundZero(double assetsLeft,
 	return assetsLeft;
 }
 
+double Strategy_Sinh_Gen::calcRealPosValue(double k, double pw, double price, double pos) const {
+/*	double newk;
+	if (pos < 0) {
+		newk = numeric_search_r1(price, [&](double k){
+			return cfg.calc->assets(k, pw, price) - pos;
+		});
+	} else if (pos > 0) {
+		newk = numeric_search_r2(price, [&](double k){
+			return cfg.calc->assets(k, pw, price) - pos;
+		});
+	} else {
+		newk = price;
+	}
+	return cfg.calc->budget(newk,pw, price);*/
+	double eq = cfg.calc->root(k, pw, pos);
+	return cfg.calc->budget(k, pw, eq);
+
+}
+
 std::pair<IStrategy::OnTradeResult, PStrategy> Strategy_Sinh_Gen::onTrade(
 		const IStockApi::MarketInfo &minfo, double tradePrice, double tradeSize,
 		double assetsLeft, double currencyLeft) const {
@@ -298,20 +315,29 @@ std::pair<IStrategy::OnTradeResult, PStrategy> Strategy_Sinh_Gen::onTrade(
 		pwadj = std::sqrt(pwadj); //a sniz zmenu poweru o mocninu... - aby nebyla tak drasticka redukce
 	}
 
+//	double nb = calcRealPosValue(newk, newpw*pwadj, tradePrice, assetsLeft);
 	double nb = cfg.calc->budget(newk, newpw*pwadj, tradePrice);
+
 	double np = pnl - (nb - cb);
 	double npos = cfg.calc->assets(newk, newpw*pwadj, tradePrice);
 	npos = limitPosition(npos);
+	double ppos = cfg.calc->assets(st.k, pw, st.p);
+	ppos = limitPosition(ppos);
 	double posErr = std::abs(npos - assetsLeft)/(std::abs(assetsLeft)+std::abs(npos)); //< chyba pozice oproti vypoctu
 	ulp = ulp || (tradeSize == 0 && posErr>0.3); //pokud je alert a chyba pozice je vetsi nez 30% prepni na use_last_price
 	bool rbl = st.rebalance;
 	if (posErr < 0.3) rbl = false; //rebalance se vypne, pokud je pozice s mensi chybou, nez je 30%
 
+	//if (npos) newk = st.k + (newk-st.k)*std::abs(assetsLeft/npos);
+
 
 	if (tradeSize == 0 && st.p == st.k) newk = tradePrice;
-	if (roundZero(npos-cfg.offset, minfo, tradePrice) == 0) {
-		newk = tradePrice;
+	if (npos*ppos <= 0) {
+		if (ppos || !npos) {
+			newk = tradePrice;
+		}
 	}
+
 
 	State nwst;
 	nwst.use_last_price = ulp;
@@ -508,8 +534,6 @@ double Strategy_Sinh_Gen::getEquilibrium(double assets) const {
 	return getEquilibrium_inner(assets-cfg.offset);
 }
 double Strategy_Sinh_Gen::getEquilibrium_inner(double assets) const {
-	if (std::abs(assets) < std::abs(cfg.calc->assets(st.k, pw, st.k)))
-		return st.p;
 	double r = cfg.calc->root(st.k, pw, assets);
 	return r;
 }
@@ -539,10 +563,18 @@ IStrategy::BudgetInfo Strategy_Sinh_Gen::getBudgetInfo() const {
 	};
 }
 
-double Strategy_Sinh_Gen::calcCurrencyAllocation(double) const {
-	return std::max(0.0, st.budget+cfg.calc->budget(st.k, pw, st.p)
-			-(st.spot?cfg.calc->assets(st.k, pw, st.p)*st.p:0));
+double Strategy_Sinh_Gen::calcCurrencyAllocation(double p) const {
+	if (st.spot) {
+		return std::max(0.0, st.budget+cfg.calc->budget(st.k, pw, st.p)
+				-cfg.calc->assets(st.k, pw, st.p)*st.p);
+	} else {
+		double assets = cfg.calc->assets(st.k, pw, st.p);
+		double pnl = (p - st.p) * assets;
+		double newk = calcNewK(p, st.val, pnl, cfg.boostmode);
+		return std::max(0.0, st.budget+cfg.calc->budget(newk, calcPower(cfg.power, st, newk), p));
+	}
 }
+
 
 IStrategy::ChartPoint Strategy_Sinh_Gen::calcChart(double price) const {
 	return {
