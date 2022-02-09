@@ -1,30 +1,5 @@
 #!/bin/sh
-
-
-zenity_feed () {
-			echo "# Updating..."
-			while read LINE; do
-				echo $LINE >&2
-			done
-}
- 
- 
-if [ "$1" != "nodialog" ] ; then	
-	DIALOG=`which dialog`
-	ZENITY=`which zenity`
-	if [ "$ZENITY" != "" ] ; then
-		echo 100 | $ZENITY --progress --auto-close
-		if [ "$?" = "0" ] ; then
-			$0 nodialog $* | zenity_feed | $ZENITY --width=600 --progress --auto-kill --auto-close --pulsate --title="Updating, please wait..."
-			exit $?
-		fi
-	fi
-	$0 nodialog $*
-	exit $? 
-else
-	shift 
-fi
- 	
+	
 git submodule foreach git reset --hard
 git submodule update --init
 git -c user.name="Update" -c user.email="update@localhost.localdomain"  commit -a -m "" --allow-empty-message 
@@ -32,4 +7,4 @@ set -e
 git  -c user.name="Update" -c user.email="update@localhost.localdomain" pull --no-commit
 git submodule update --init
 ./build $*
-
+/bin/sh ./update_new_web
