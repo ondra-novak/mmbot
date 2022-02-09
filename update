@@ -6,5 +6,4 @@ git -c user.name="Update" -c user.email="update@localhost.localdomain"  commit -
 set -e
 git  -c user.name="Update" -c user.email="update@localhost.localdomain" pull --no-commit
 git submodule update --init
-./build $*
-/bin/sh ./update_new_web
+/bin/sh ./post_update.sh
