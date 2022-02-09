@@ -268,8 +268,9 @@ App.prototype.createTraderList = function(form) {
 				this.curForm = nf;
 				this.curForm.save = function() {
 					this.traders[iid] = this.saveForm(nf, this.traders[iid]);
-					var c = !compareObjects(this.traders[iid], this.config.traders[iid]);
-					if (c) console.log({"new":createDiff(this.config.traders[iid],this.traders[iid]),"old":createDiff(this.traders[iid],this.config.traders[iid])});
+					var orig = (this.config && this.config.traders && this.config.traders[iid]) || {}
+					var c = !compareObjects(this.traders[iid], orig);
+					if (c) console.log({"new":createDiff(orig,this.traders[iid]),"old":createDiff(this.traders[iid],orig)});
 					this.modified[iid] = c;
 					this.updateTopMenu();
 				}.bind(this);
