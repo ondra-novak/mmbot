@@ -50,9 +50,9 @@ public:
 
 	///Summary of the strategy state
 	/**
-	 * This state is stored witing MTrader, initially undefined, and strategy must
+	 * This state is stored within MTrader, initially undefined, and strategy must
 	 * define it first by calling onCycle. If the state is not initialized
-	 * the trading can ve is stopped
+	 * the trading can be is stopped
 	 */
 	struct StateSummary {
 		///equilibrium
@@ -90,7 +90,7 @@ public:
 	};
 
 	enum OrderResponseType {
-		std_order, ///< standard order - can be converted to alert if cannot be fullfilled
+		std_order, ///< standard order - can be converted to alert if cannot be fulfilled
 		disable,  ///< order is disabled - no order will be generated
 		alert, ///< generates alert - if the size is filled, then alert is generated when order cannot be fullfiled
 		reject, ///< reject attempt, function can suggest optimal price
@@ -148,7 +148,7 @@ public:
 	 * strategy must initialize the object and fill the values, otherwise, the trading is stopped.
 	 * If the variable is initialized, the strategy can update the values. During idle
 	 * situation, the variable keeps values from the previous cycle. The variable is reset
-	 * when trader is started/restarted or immediately afte any trade
+	 * when trader is started/restarted or immediately after any trade
 	 *
 	 * @return if strategy changed its state, function returns new instance.
 	 *           Otherwise it can return self
@@ -168,7 +168,7 @@ public:
 	 * howver strategy can also use price and size to calculate effective fees
 	 */
 	virtual PStrategy2 onTrade(const MarketState &mst, const IStockApi::Trade &trade) = 0;
-	///Called when strategie is not valid (before onInit)
+	///Called when strategy is not valid (before onInit)
 	/**
 	 * @param mst market  state
 	 */
@@ -182,7 +182,7 @@ public:
 	virtual json::Value saveState() const = 0;
 	///load state
 	virtual PStrategy2 loadState(json::Value state) const = 0;
-	///calculate safe tradable range
+	///calculate safe tradeable range
 	/**
 	 * @param mst market state
 	 * @param actual_assets actual assets on the market (can be different than position, especially when
