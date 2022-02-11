@@ -31,6 +31,7 @@
 #include "strategy_incvalue.h"
 
 
+
 static json::NamedEnum<Strategy_Gamma::Function> strGammaFunction ({
 	{Strategy_Gamma::halfhalf,""},
 	{Strategy_Gamma::halfhalf,"halfhalf"},
