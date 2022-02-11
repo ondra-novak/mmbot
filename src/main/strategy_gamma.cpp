@@ -24,7 +24,7 @@ const std::string_view Strategy_Gamma::id = "gamma";
 Strategy_Gamma::Strategy_Gamma(const Config &cfg):cfg(cfg) {
 }
 
-Strategy_Gamma::Strategy_Gamma(const Config &cfg, State &&st):cfg(cfg),state(st) {
+Strategy_Gamma::Strategy_Gamma(const Config &cfg, State &&st):cfg(cfg),state(std::move(st)) {
 }
 
 Strategy_Gamma::Strategy_Gamma(Strategy_Gamma &&other)
