@@ -30,6 +30,7 @@ add_executable (mmbot
 	strategy_hedge.cpp
 	strategy_pile.cpp
 	strategy_incvalue.cpp
+	invert_strategy.cpp
 	simulator.cpp
 	localdailyperfmod.cpp
 	extdailyperfmod.cpp

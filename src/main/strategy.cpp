@@ -11,6 +11,8 @@
 #include <imtjson/namedEnum.h>
 #include <imtjson/object.h>
 #include "../shared/stringview.h"
+#include "invert_strategy.h"
+
 #include "sgn.h"
 #include "strategy_halfhalf.h"
 #include "strategy_keepvalue.h"
@@ -61,7 +63,7 @@ void initConfig(Cfg &cfg, json::Value config,
 	cfg.reinvest_profit = config["reinvest_profit"].getValueOrDefault(false);
 }
 
-Strategy Strategy::create(std::string_view id, json::Value config) {
+Strategy Strategy::create_base(std::string_view id, json::Value config) {
 
 	if (id == Strategy_HalfHalf::id) {
 		Strategy_HalfHalf::Config cfg;
@@ -199,6 +201,17 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 	}
 
 }
+
+Strategy Strategy::invert() const {
+	return Strategy(new InvertStrategy(ptr));
+}
+
+Strategy Strategy::create(std::string_view id, json::Value config) {
+	Strategy s = create_base(id, config);
+	if (config["invert_proxy"].getBool()) return s.invert();
+	else return s;
+}
+
 
 json::Value Strategy::exportState() const {
 	return json::Object({{ptr->getID(), ptr->exportState()}});

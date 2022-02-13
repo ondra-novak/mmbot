@@ -140,8 +140,10 @@ public:
 		return ptr->calcCurrencyAllocation(price);
 	}
 
+	static Strategy create_base(std::string_view id, json::Value config);
 	static Strategy create(std::string_view id, json::Value config);
 
+	Strategy invert() const;
 
 
 

@@ -518,7 +518,8 @@ App.prototype.fillForm = function (src, trg) {
 			"gamma_trend","gamma_fn",
 			"shg_w","shg_p","shg_z","shg_lp","shg_offset",
 			"pile_ratio","hodlshort_z",
-			"incval_w","incval_z"
+			"incval_w","incval_z",
+			"invert_proxy"
 			]
 			.forEach(function(item){
 				trg.findElements(item).forEach(function(elem){
@@ -532,6 +533,7 @@ App.prototype.fillForm = function (src, trg) {
 			data.vis_spread = {"!click": this.init_spreadvis.bind(this, trg, src.id), ".disabled":false};
 			data.show_backtest= {"!click": this.init_backtest.bind(this, trg, src.id, src.pair_symbol, src.broker), ".disabled":false};
 			data.inverted_price=pair.invert_price?"true":"false";
+			data.show_invert_proxy = {".hidden":!pair.leverage};
 			var tmp = trg.readData(["cstep","max_pos","shg_lp","shg_offset"]);
 			if (!src.strategy && typeof state.pair.price == "string" && state.pair.price.startsWith("trainer")){
 			    this.brokerConfig(this.pairURL(broker.name, src.pair_symbol)+"/settings").then(updateHdr,updateHdr);
@@ -765,6 +767,7 @@ App.prototype.fillForm = function (src, trg) {
 	};
 	data.enabled = src.enabled;
 	data.hidden = !!src.hidden;	
+	data.invert_proxy = filledval(!!(src.strategy && src.strategy.invert_proxy),false);
 	data.accept_loss = filledval(src.accept_loss,0);
 	data.grant_trade_hours= filledval(src.grant_trade_hours,0);
 	data.spread_calc_stdev_hours = filledval(src.spread_calc_stdev_hours,4);
@@ -975,6 +978,7 @@ function getStrategyData(data, inv) {
 				keep_max: data.kb_keep_min > data.kb_keep_max?data.kb_keep_min:data.kb_keep_max
 		};
 	}
+	strategy.invert_proxy = data.invert_proxy;
 	return strategy;
 }
 
@@ -1904,6 +1908,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		"gs_external_assets","gs_rb_hi_a","gs_rb_lo_a","gs_rb_hi_p","gs_rb_lo_p",
 		"min_balance","max_balance","max_leverage","reduce_on_leverage","gamma_exp","gamma_rebalance","gamma_trend","gamma_fn","gamma_reinvest","gamma_maxrebal",
 		"pincome_exp",
+		"invert_proxy",
 		"hodlshort_z","hodlshort_acc","hodlshort_rinvst","hodlshort_b",
 		"pile_accum","pile_ratio",
 		"kv2_accum","kv2_boost","kv2_chngtm","kv2_reinvest",
@@ -1975,6 +1980,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		var last_dir = 0;
 		var lastp = v[0].pr;
 		var init_price = invPrice(v[0].pr, invert_price);
+		var init_bp = v[0].bal/init_price;
 
 		var c = [];
 		var ilst,acp = false;
@@ -1989,7 +1995,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 				    c.push(ilst);
 					ilst = null;
 				}
-				x.plb = x.pl/npr;
+				x.plb = x.bal/npr-init_bp;
 				x.nplb = x.npl/npr;
 				c.push(x);				
 			} else {

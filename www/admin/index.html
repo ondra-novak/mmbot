@@ -120,6 +120,7 @@
 <div class="sinh_gen">It is based on the ATL (Adding to loser) strategy. However, it uses a clever mathematical system to reduce the overall growing position in trend markets. You should always use the backtest function to find the optimal setting for your market. The strategy has no other protection against events, such as margin calls and liquidation. You can only set the maximum leverage, which is not complete protection. This strategy can bring a very good profit, but also includes a high risk and a high probability of losing the entire account. Don't put all your money into leverage trading! </div>
 <div class="hodlshort">Sell assets at a rising price, but buy back to the original quantity with a falling price. Neutral price indicates where the strategy fully buys the original deposit. You can use the strategy to hold assets (HODL) and to make a profit from trading. Selling an asset corresponds to its short and closing the short at a lower price (even at the spot). Profit comes mainly from buying at a lower price.</div>
 </div></div>
+
 <div class="label"><span>Options</span><div>
 <div><x-checkbox data-name="enabled">Enable automatic trading</x-checkbox></div>
 <div><x-checkbox data-name="hidden">Hidden</x-checkbox></div>
@@ -427,6 +428,8 @@ Specifies maximum costs can be used by this trader. Orders which increases costs
 the same order, they are ordered by its ID - this is the default ordering. Modifying this number you can change the default ordering.
 </span></span><input type="number" step="any" data-name="report_order"></label>
 <label class="adv"><span>Wait for trade confirmation [min]<span class="tooltip">Specifies timeout after which a fake (ADJ) trade is put to trade history if there is a difference between calculated position and actual position reported by the broker. This allows to detect deposits and withdraws and report them as a trade, however, on some markets, trading data may be delayed, which causes puting wrong ADJ trades before the updated list of trades is being populated from the market. The value is in minutes, default value is set to 5min (which is also minimal value). If you have experienced such wrong ADJ trades, you can increase the timeout</span></span><input type="number" step="any" data-name="adj_timeout"></label>
+<label data-name="show_invert_proxy" class="adv" hidden="hidden"><span>Invert strategy (advanced feature)<span class="tooltip">Inverts strategy, allows to trade the strategy on the "short" side of the market. This converts market to inverted market for the strategy (experimental). Note that you will see profit at "buy power" chart, because the profit will probably copy the current price for the most of the time </span></span><x-checkbox data-name="invert_proxy">Invert (experimental)</x-checkbox></label>
+
 </x-section>
 <div></div>
 </x-form>
