@@ -462,11 +462,11 @@ void MTrader::perform(bool manually) {
 							//calculate buy order
 						buyorder = calculateOrder(strategy,centerPrice,-lspread,
 								dynmult.getBuyMult(),status.ticker.bid,
-								position,status.currencyAvailBalance,need_alerts);
+								position,status.currencyBalance,need_alerts);
 							//calculate sell order
 						sellorder = calculateOrder(strategy,centerPrice,hspread,
 								dynmult.getSellMult(),status.ticker.ask,
-								position,status.currencyAvailBalance,need_alerts);
+								position,status.currencyBalance,need_alerts);
 
 						if (cfg.dynmult_sliding && !need_alerts) {
 							double bp = centerPrice*std::exp(-lspread);
@@ -474,13 +474,13 @@ void MTrader::perform(bool manually) {
 							if (status.ticker.bid > sp) {
 								auto b2 = calculateOrder(strategy,lastTradePrice,-lspread,
 										1.0,status.ticker.bid,
-										position,status.currencyAvailBalance,true);
+										position,status.currencyBalance,true);
 								if (b2.size) buyorder = b2;
 							}
 							if (status.ticker.ask < bp) {
 								auto s2 = calculateOrder(strategy,lastTradePrice,hspread,
 										1.0,status.ticker.ask,
-										position,status.currencyAvailBalance,true);
+										position,status.currencyBalance,true);
 								if (s2.size) sellorder = s2;
 
 							}
@@ -653,7 +653,7 @@ void MTrader::perform(bool manually) {
 				auto buyorder = calculateOrder(buy_state,orders.buy->price,-status.curStep,
 												cfg.secondary_order_distance,
 												status.ticker.bid,position+orders.buy->size,
-												status.currencyAvailBalance,false);
+												status.currencyBalance,false);
 				setOrder(orders.buy2, buyorder, alert, true);
 			} catch (std::exception &e) {
 				logError("Failed to create secondary order: $1", e.what());
@@ -670,7 +670,7 @@ void MTrader::perform(bool manually) {
 				auto sellorder = calculateOrder(sell_state,orders.sell->price, status.curStep,
 													 cfg.secondary_order_distance,
 													 status.ticker.ask, position+orders.sell->size,
-													 status.currencyAvailBalance,false);
+													 status.currencyBalance,false);
 				setOrder(orders.sell2, sellorder, alert, true);
 			} catch (std::exception &e) {
 				logError("Failed to create secondary order: $1", e.what());
@@ -893,7 +893,7 @@ MTrader::Status MTrader::getMarketStatus() const {
 	return res;
 }
 
-bool MTrader::calculateOrderFeeLessAdjust(Order &order, double assets, double currency, int dir, bool alerts, double min_size) const {
+bool MTrader::calculateOrderFeeLessAdjust(Order &order, double position, double currency, int dir, bool alerts, double min_size) const {
 
 	//order is reversed to requested direction
 	if (order.size * dir < 0) {
@@ -911,7 +911,7 @@ bool MTrader::calculateOrderFeeLessAdjust(Order &order, double assets, double cu
 
 	//check leverage
 	double d;
-	auto chkres = checkLeverage(order, assets, currency, d);
+	auto chkres = checkLeverage(order, position, currency, d);
 	if (chkres != AlertReason::unknown)  {
 		//adjust order when leverage reached
 		order.size = d;
@@ -955,7 +955,7 @@ MTrader::Order MTrader::calculateOrderFeeLess(
 		double step,
 		double dynmult,
 		double curPrice,
-		double balance,
+		double position,
 		double currency,
 		bool alerts) const {
 
@@ -978,7 +978,7 @@ MTrader::Order MTrader::calculateOrderFeeLess(
 
 
 	order= Order(
-			state.getNewOrder(minfo,curPrice, newPrice,dir, balance, currency, false),
+			state.getNewOrder(minfo,curPrice, newPrice,dir, position, currency, false),
 			AlertReason::strategy_enforced
 			);
 
@@ -989,7 +989,7 @@ MTrader::Order MTrader::calculateOrderFeeLess(
 
 	if (order.price <= 0) order.price = newPrice;
 	if ((order.price - curPrice) * dir < 0) {
-		if (calculateOrderFeeLessAdjust(order, balance, currency, dir, alerts, min_size)) skipcycle = true;;
+		if (calculateOrderFeeLessAdjust(order, position, currency, dir, alerts, min_size)) skipcycle = true;;
 	}
 	double origOrderPrice = newPrice;
 
@@ -1008,7 +1008,7 @@ MTrader::Order MTrader::calculateOrderFeeLess(
 
 
 			order= Order(
-					state.getNewOrder(minfo,curPrice, newPrice,dir, balance, currency, true),
+					state.getNewOrder(minfo,curPrice, newPrice,dir, position, currency, true),
 					AlertReason::strategy_enforced
 					);
 
@@ -1021,14 +1021,14 @@ MTrader::Order MTrader::calculateOrderFeeLess(
 
 			sz = order.size;
 
-			if (calculateOrderFeeLessAdjust(order, balance, currency, dir, alerts, min_size)) break;;
+			if (calculateOrderFeeLessAdjust(order, position, currency, dir, alerts, min_size)) break;;
 
 			cnt++;
 			m = m*1.1;
 
 		} while (cnt < 1000 && order.size == 0 && ((sz - prevSz)*dir>0  || cnt < 10));
 	}
-	auto lmsz = limitOrderMinMaxBalance(balance, order.size, order.price);
+	auto lmsz = limitOrderMinMaxBalance(position, order.size, order.price);
 	if (lmsz.first != AlertReason::unknown) {
 		order.size = lmsz.second;
 		if (!order.size) {
