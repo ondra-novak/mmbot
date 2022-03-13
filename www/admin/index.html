@@ -97,6 +97,7 @@
 </optgroup>
 <optgroup label="Experimental">
 <option value="passive_income">Passive Income</option>
+<option value="enter_price_angle">Enter price angle</option>
 </optgroup>
 <optgroup label="Utility">
 <option value="keep_balance">Keep balance</option>
@@ -108,6 +109,7 @@
 </optgroup>
 </select></label>
 <div class="label strategygoal"><span>Startegy Goal:</span><div data-name="help_goal">
+<div class="enter_price_angle">TBD.</div>
 <div class="plfrompos">A simple strategy for trading on leveraged stock exchanges and futures, generally on stock exchanges with the ability to open long or short positions. This strategy is the only one that works well with a negative value in "assets" (meaning position)</div>
 <div class="halfhalf">This strategy keeps the value of assets and money on the stock exchange in a ratio 1:1. Whenever this ratio is disrupted, the strategy executes a trade in such a volume to achieve the defined ratio. <a href="https://www.desmos.com/calculator/9fdvux8fms">Interactive graph</a></div>
 <div class="keepvalue">This strategy keeps the value of assets on the stock exchange at the same value. If the value of assets falls or rises (due to changing price), the strategy executes a trade in such a volume to achieve the same value of the assets as before.</div>
@@ -149,6 +151,23 @@ fixed constant. The robot is forced to buy assets, but if the price of assets ri
 sell part of the assets and use the currency to buy assets at a better price. It is also possible
 to enter a negative value and then the value of the assets held will decrease and allow slower but more efficient sales.</span></span>
 <input type="number" step="any" data-name="kv_valinc"></label>
+<x-section>
+<div class="label"><span>Min price:</span><span data-name="range_min_price">---</span></div>
+<div class="label"><span>Max price:</span><span data-name="range_max_price">---</span></div>
+<div class="label"><span>Recomended initial position:</span><span data-name="range_initial">---</span></div>
+</x-section>
+<div class="rightinfo"><button name="show_backtest" disabled="disabled">Backtest</button></div>
+</x-section>
+
+<x-section data-name="strategy_epa" class="goal" hidden="hidden"><x-section-caption>Levels</x-section-caption>
+<label><span>Minimum asset threshold [% of budget]<span class="tooltip"></span></span><x-slider data-name="min_asset_perc_of_budget" data-min="0.1" data-max="100" data-mult="0.1" data-fixed="1"></label>
+<label><span>Initial bet [% of budget]<span class="tooltip"></span></span><x-slider data-name="initial_bet_perc_of_budget" data-min="0.1" data-max="100" data-mult="0.1" data-fixed="1"></label>
+<label><span>Maximum distance to enter price for enter [%]<span class="tooltip"></span></span><x-slider data-name="max_enter_price_distance" data-min="0.1" data-max="50" data-mult="0.1" data-fixed="1"></label>
+<label><span>Enter power multiplicator<span class="tooltip"></span></span><x-slider data-name="power_mult" data-min="0.1" data-max="10" data-mult="0.1" data-fixed="2"></label>
+<label><span>Enter power cap<span class="tooltip"></span></span><x-slider data-name="power_cap" data-min="0.1" data-max="10" data-mult="0.1" data-fixed="2"></label>
+<label><span>Enter price attack vector angle [°]<span class="tooltip"></span></span><x-slider data-name="angle" data-min="0.1" data-max="90" data-mult="0.1" data-fixed="1"></label>
+<label><span>Minimum distance to enter price for exit [%]<span class="tooltip"></span></span><x-slider data-name="target_exit_price_distance" data-min="0.1" data-max="50" data-mult="0.1" data-fixed="1"></label>
+<label><span>Exit power multiplicator<span class="tooltip"></span></span><x-slider data-name="exit_power_mult" data-min="0.1" data-max="10" data-mult="0.1" data-fixed="2"></label>
 <x-section>
 <div class="label"><span>Min price:</span><span data-name="range_min_price">---</span></div>
 <div class="label"><span>Max price:</span><span data-name="range_max_price">---</span></div>
