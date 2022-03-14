@@ -44,11 +44,14 @@ IStrategy::OrderData Strategy_Epa::getNewOrder(
 
 	double size;
 	if (std::isnan(st.enter) || (effectiveAssets * new_price) < st.budget * cfg.min_asset_perc_of_budget) {
+		// buy
 		size = (st.budget * cfg.initial_bet_perc_of_budget) / new_price;
 	}	else if (new_price < st.enter) {
 		if (st.currency / new_price < effectiveAssets) {
+			// sell
 			size = (((st.currency / new_price) + effectiveAssets) * 0.5) - effectiveAssets;
 		} else {
+			// buy
 			double angleRad = cfg.angle * M_PI / 180;
 			double sqrtTan = std::sqrt(std::tan(angleRad));
 			double cost = std::sqrt(st.ep) / sqrtTan;
@@ -62,6 +65,7 @@ IStrategy::OrderData Strategy_Epa::getNewOrder(
 			size = std::isnan(newSize) ? 0 : std::max(0.0, newSize);
 		}
 	} else {
+		// sell
 		double dist = (new_price - st.enter) / new_price;
 		double norm = dist / cfg.target_exit_price_distance;
 		double power = std::pow(norm, 4) * cfg.exit_power_mult;
@@ -160,7 +164,20 @@ std::string_view Strategy_Epa::getID() const {
 
 double Strategy_Epa::getCenterPrice(double lastPrice, double assets) const {
 	// center price for spreads
-	return lastPrice;
+
+	if (std::isnan(st.enter)) {
+		return lastPrice;
+	}
+
+	double effectiveAssets = std::min(st.assets, assets);
+	double center = st.currency / effectiveAssets;
+
+	return std::min(st.enter, center);
+
+	// st.currency / affectiveAssets = X
+
+	//st.currency / new_price < effectiveAssets
+	// what the point when to buy and when it is sell all way up?
 
 	//return getEquilibrium(assets);
 	// if (std::isnan(st.enter) || (st.assets * lastPrice) < st.budget * cfg.min_asset_perc_of_budget) {
