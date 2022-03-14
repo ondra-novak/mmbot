@@ -166,13 +166,13 @@ std::string_view Strategy_Epa::getID() const {
 
 double Strategy_Epa::getCenterPrice(double lastPrice, double assets) const {
 	// center price for spreads
+	double effectiveAssets = std::min(st.assets, assets);
 
-	if (std::isnan(st.enter)) {
+	if (std::isnan(st.enter) || (effectiveAssets * lastPrice) < st.budget * cfg.min_asset_perc_of_budget) {
 		logInfo("getCenterPrice: lastPrice=$1, assets=$2 -*> $3", lastPrice, assets, lastPrice);
-		return lastPrice;
+		return 2 * lastPrice; // make sure we can buy at any price
 	}
 
-	double effectiveAssets = std::min(st.assets, assets);
 	double center = st.currency / effectiveAssets;
 	center = std::min(st.enter, center);
 
