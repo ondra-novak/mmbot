@@ -35,29 +35,25 @@ PStrategy Strategy_Epa::init(double price, double assets, double currency, bool 
 	return out;
 }
 
-IStrategy::OrderData Strategy_Epa::getNewOrder(
-		const IStockApi::MarketInfo &minfo, double cur_price, double new_price,
-		double dir, double assets, double currency, bool rej) const {
-	logInfo("getNewOrder: assets=$1, currency=$2", assets, currency);
-
+double Strategy_Epa::calculateSize(double price, double assets) const {
 	double effectiveAssets = std::min(st.assets, assets);
 
 	double size;
-	if (std::isnan(st.enter) || (effectiveAssets * new_price) < st.budget * cfg.min_asset_perc_of_budget) {
+	if (std::isnan(st.enter) || (effectiveAssets * price) < st.budget * cfg.min_asset_perc_of_budget) {
 		// buy
-		size = (st.budget * cfg.initial_bet_perc_of_budget) / new_price;
-	}	else if (new_price < st.enter) {
-		if (st.currency / new_price < effectiveAssets) {
+		size = (st.budget * cfg.initial_bet_perc_of_budget) / price;
+	}	else if (price < st.enter) {
+		if (st.currency / price < effectiveAssets) {
 			// sell
-			size = (((st.currency / new_price) + effectiveAssets) * 0.5) - effectiveAssets;
+			size = (((st.currency / price) + effectiveAssets) * 0.5) - effectiveAssets;
 		} else {
 			// buy
 			double angleRad = cfg.angle * M_PI / 180;
 			double sqrtTan = std::sqrt(std::tan(angleRad));
 			double cost = std::sqrt(st.ep) / sqrtTan;
-			double candidateSize = cost / new_price;
+			double candidateSize = cost / price;
 
-			double dist = (st.enter - new_price) / st.enter;
+			double dist = (st.enter - price) / st.enter;
 			double norm = dist / cfg.max_enter_price_distance;
 			double power = std::min(std::pow(norm, 4) * cfg.power_mult, cfg.power_cap);
 			double newSize = candidateSize * power;
@@ -66,17 +62,11 @@ IStrategy::OrderData Strategy_Epa::getNewOrder(
 		}
 	} else {
 		// sell
-		double dist = (new_price - st.enter) / new_price;
+		double dist = (price - st.enter) / price;
 		double norm = dist / cfg.target_exit_price_distance;
 		double power = std::pow(norm, 4) * cfg.exit_power_mult;
 		size = -assets * power;
 	}
-
-	// if (sgn(dir) != sgn(size)) {
-	// 	logInfo("getNewOrder - alert: size=$1, dir=$2", size, dir);
-	// }
-
-	//logInfo("getNewOrder: size=$1, dir=$2", size, dir);
 
 	// correction for missing assets on exchange
 	if (size > 0 && size < st.assets - assets) {
@@ -85,10 +75,22 @@ IStrategy::OrderData Strategy_Epa::getNewOrder(
 
 	// explicitly trade only within budget
 	if (size > 0) {
-		size = std::min(size, st.currency / new_price);
+		size = std::min(size, st.currency / price);
 	} else {
 		size = std::max(size, -effectiveAssets);
 	}
+
+	return size;
+}
+
+IStrategy::OrderData Strategy_Epa::getNewOrder(
+		const IStockApi::MarketInfo &minfo, double cur_price, double new_price,
+		double dir, double assets, double currency, bool rej) const {
+	logInfo("getNewOrder: new_price=$1, assets=$2, currency=$3, dir=$4", new_price, assets, currency, dir);
+
+	double size = calculateSize(new_price, assets);
+
+	logInfo("   -> $1", size);
 
 	// price where order is put. If this field is 0, recommended price is used
   // size of the order, +buy, -sell. If this field is 0, the order is not placed
@@ -166,13 +168,17 @@ double Strategy_Epa::getCenterPrice(double lastPrice, double assets) const {
 	// center price for spreads
 
 	if (std::isnan(st.enter)) {
+		logInfo("getCenterPrice: lastPrice=$1, assets=$2 -*> $3", lastPrice, assets, lastPrice);
 		return lastPrice;
 	}
 
 	double effectiveAssets = std::min(st.assets, assets);
 	double center = st.currency / effectiveAssets;
+	center = std::min(st.enter, center);
 
-	return std::min(st.enter, center);
+	logInfo("getCenterPrice: lastPrice=$1, assets=$2 -> $3", lastPrice, assets, center);
+
+	return center;
 
 	// st.currency / affectiveAssets = X
 
@@ -197,7 +203,7 @@ double Strategy_Epa::calcInitialPosition(const IStockApi::MarketInfo &minfo, dou
 IStrategy::BudgetInfo Strategy_Epa::getBudgetInfo() const {
 	return {
 		st.budget, //calcBudget(st.ratio, st.kmult, st.lastp), // total
-		0 //calcPosition(st.ratio, st.kmult, st.lastp) // assets
+		0 //->last price st.assets + calculateSize(new_price, st.assets) //calcPosition(st.ratio, st.kmult, st.lastp) // assets
 	};
 }
 
@@ -212,10 +218,12 @@ double Strategy_Epa::calcCurrencyAllocation(double price) const {
 }
 
 IStrategy::ChartPoint Strategy_Epa::calcChart(double price) const {
+	double size = calculateSize(price, st.assets);
+	
 	return ChartPoint{
-		false, //true
-		0, //calcPosition(st.ratio, st.kmult, price),
-		0, //calcBudget(st.ratio, st.kmult, price)
+		true, //true
+		st.assets + size, //calcPosition(st.ratio, st.kmult, price),
+		st.currency - (size * price) //st.budget, //calcBudget(st.ratio, st.kmult, price)
 	};
 }
 

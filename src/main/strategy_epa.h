@@ -76,7 +76,7 @@ protected:
 	Config cfg;
 	State st;
 
-	std::pair<double,double> calcAccum(double new_price) const;
+	double calculateSize(double price, double assets) const;
 };
 
 #endif /* SRC_MAIN_STRATEGY_EPA_H_ */
