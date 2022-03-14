@@ -223,7 +223,7 @@ IStrategy::ChartPoint Strategy_Epa::calcChart(double price) const {
 	return ChartPoint{
 		true, //true
 		st.assets + size, //calcPosition(st.ratio, st.kmult, price),
-		st.currency - (size * price) //st.budget, //calcBudget(st.ratio, st.kmult, price)
+		st.budget, //calcBudget(st.ratio, st.kmult, price)
 	};
 }
 
