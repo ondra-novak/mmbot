@@ -116,7 +116,7 @@ std::pair<IStrategy::OnTradeResult, ondra_shared::RefCntPtr<const IStrategy> > S
 
 	return {
 		// norm. p, accum, neutral pos, open price
-		{ norm_profit, 0, 0, 0 },
+		{ norm_profit, 0, std::isnan(enter) ? 0 : enter, 0 },
 		PStrategy(new Strategy_Epa(cfg, State { ep, enter, st.budget, newAsset, st.currency - cost }))
 	};
 
