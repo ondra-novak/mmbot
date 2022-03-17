@@ -123,7 +123,7 @@ std::pair<IStrategy::OnTradeResult, ondra_shared::RefCntPtr<const IStrategy> > S
 	return {
 		// norm. p, accum, neutral pos, open price
 		{ norm_profit, 0, std::isnan(enter) ? 0 : enter, 0 },
-		PStrategy(new Strategy_Epa(cfg, State { ep, enter, st.budget, newAsset, st.currency - cost }))
+		PStrategy(new Strategy_Epa(cfg, State { ep, enter, st.budget, newAsset, st.currency - cost, st.backtest }))
 	};
 
 }
@@ -134,7 +134,8 @@ PStrategy Strategy_Epa::importState(json::Value src, const IStockApi::MarketInfo
 			src["enter"].getNumber(),
 			src["budget"].getNumber(),
 			src["assets"].getNumber(),
-			src["currency"].getNumber()
+			src["currency"].getNumber(),
+			src["backtest"].getBool()
 	};
 	return new Strategy_Epa(cfg, std::move(st));
 }
@@ -156,7 +157,8 @@ json::Value Strategy_Epa::exportState() const {
 		{"enter", st.enter},
 		{"budget", st.budget},
 		{"assets", st.assets},
-		{"currency", st.currency}
+		{"currency", st.currency},
+		{"backtest", st.backtest}
 	};
 }
 
@@ -169,8 +171,10 @@ double Strategy_Epa::getCenterPrice(double lastPrice, double assets) const {
 	double effectiveAssets = std::min(st.assets, assets);
 
 	if (std::isnan(st.enter) || (effectiveAssets * lastPrice) < st.budget * cfg.min_asset_perc_of_budget) {
-		logInfo("getCenterPrice: lastPrice=$1, assets=$2 -*> $3", lastPrice, assets, lastPrice);
-		return 2 * lastPrice; // make sure we can buy at any price
+		// make sure we can buy at any price for backtest
+		double cp = st.backtest ? 2 * lastPrice : lastPrice;
+		logInfo("getCenterPrice: lastPrice=$1, assets=$2 -*> $3", lastPrice, assets, cp);
+		return cp;
 	}
 
 	double center = st.currency / effectiveAssets;
@@ -179,19 +183,6 @@ double Strategy_Epa::getCenterPrice(double lastPrice, double assets) const {
 	logInfo("getCenterPrice: lastPrice=$1, assets=$2 -> $3", lastPrice, assets, center);
 
 	return center;
-
-	// st.currency / affectiveAssets = X
-
-	//st.currency / new_price < effectiveAssets
-	// what the point when to buy and when it is sell all way up?
-
-	//return getEquilibrium(assets);
-	// if (std::isnan(st.enter) || (st.assets * lastPrice) < st.budget * cfg.min_asset_perc_of_budget) {
-	// 	return lastPrice;
-	// }
-
-	// todo: depending on currency?
-	//return st.enter;
 }
 
 double Strategy_Epa::calcInitialPosition(const IStockApi::MarketInfo &minfo, double price, double assets, double currency) const {
@@ -244,6 +235,7 @@ json::Value Strategy_Epa::dumpStatePretty(const IStockApi::MarketInfo &minfo) co
 		{"Enter price", st.enter},
 		{"Budget", st.budget},
 		{"Assets", st.assets},
-		{"Currency", st.currency}
+		{"Currency", st.currency},
+		{"Backtest mode", st.backtest}
 	};
 }
