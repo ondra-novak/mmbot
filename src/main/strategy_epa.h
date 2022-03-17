@@ -28,6 +28,8 @@ public:
 
 		double target_exit_price_distance;
     double exit_power_mult;
+
+		bool backtest;
 	};
 
 	struct State {
@@ -36,7 +38,6 @@ public:
 		double budget = std::numeric_limits<double>::quiet_NaN();
 		double assets = 0;
 		double currency = 0;
-		bool backtest = 0;
 	};
 
 	Strategy_Epa(const Config &cfg);

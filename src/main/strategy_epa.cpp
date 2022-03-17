@@ -123,7 +123,7 @@ std::pair<IStrategy::OnTradeResult, ondra_shared::RefCntPtr<const IStrategy> > S
 	return {
 		// norm. p, accum, neutral pos, open price
 		{ norm_profit, 0, std::isnan(enter) ? 0 : enter, 0 },
-		PStrategy(new Strategy_Epa(cfg, State { ep, enter, st.budget, newAsset, st.currency - cost, st.backtest }))
+		PStrategy(new Strategy_Epa(cfg, State { ep, enter, st.budget, newAsset, st.currency - cost }))
 	};
 
 }
@@ -134,8 +134,7 @@ PStrategy Strategy_Epa::importState(json::Value src, const IStockApi::MarketInfo
 			src["enter"].getNumber(),
 			src["budget"].getNumber(),
 			src["assets"].getNumber(),
-			src["currency"].getNumber(),
-			src["backtest"].getBool()
+			src["currency"].getNumber()
 	};
 	return new Strategy_Epa(cfg, std::move(st));
 }
@@ -157,8 +156,7 @@ json::Value Strategy_Epa::exportState() const {
 		{"enter", st.enter},
 		{"budget", st.budget},
 		{"assets", st.assets},
-		{"currency", st.currency},
-		{"backtest", st.backtest}
+		{"currency", st.currency}
 	};
 }
 
@@ -172,7 +170,7 @@ double Strategy_Epa::getCenterPrice(double lastPrice, double assets) const {
 
 	if (std::isnan(st.enter) || (effectiveAssets * lastPrice) < st.budget * cfg.min_asset_perc_of_budget) {
 		// make sure we can buy at any price for backtest
-		double cp = st.backtest ? 2 * lastPrice : lastPrice;
+		double cp = cfg.backtest ? 2 * lastPrice : lastPrice;
 		logInfo("getCenterPrice: lastPrice=$1, assets=$2 -*> $3", lastPrice, assets, cp);
 		return cp;
 	}
@@ -235,7 +233,6 @@ json::Value Strategy_Epa::dumpStatePretty(const IStockApi::MarketInfo &minfo) co
 		{"Enter price", st.enter},
 		{"Budget", st.budget},
 		{"Assets", st.assets},
-		{"Currency", st.currency},
-		{"Backtest mode", st.backtest}
+		{"Currency", st.currency}
 	};
 }

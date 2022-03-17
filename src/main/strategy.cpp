@@ -73,6 +73,7 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 		cfg.angle = config["angle"].getNumber();
 		cfg.target_exit_price_distance = config["target_exit_price_distance"].getNumber();
 		cfg.exit_power_mult = config["exit_power_mult"].getNumber();
+		cfg.backtest = config["backtest"].getBool();
 		return Strategy(new Strategy_Epa(cfg));
 	} else if (id == Strategy_HalfHalf::id) {
 		Strategy_HalfHalf::Config cfg;
