@@ -9,6 +9,7 @@
 #define SRC_MAIN_STRATEGY_HALFHALF_H_
 #include "istrategy.h"
 
+
 class Strategy_HalfHalf: public IStrategy {
 public:
 	struct Config {
@@ -49,5 +50,8 @@ protected:
 	double calcNormProfit(double s, double n) const;
 	double calcNewA(double n) const;
 };
+
+
+
 
 #endif /* SRC_MAIN_STRATEGY_HALFHALF_H_ */

@@ -47,5 +47,6 @@ add_executable (mmbot
 	papertrading.cpp
 	rptapi.cpp
 	../brokers/httpjson.cpp
+	strategy3.cpp
 	)
 target_link_libraries (mmbot LINK_PUBLIC simpleServer imtjson )
