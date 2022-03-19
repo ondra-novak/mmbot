@@ -190,6 +190,8 @@ public:
 		}
 		json::Value toJSON() const;
 		static MarketInfo fromJSON(const json::Value &v);
+		std::int64_t priceToTick(double price) const;
+		double tickToPrice(std::int64_t tick) const;
 	};
 
 

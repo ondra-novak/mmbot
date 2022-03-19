@@ -192,3 +192,19 @@ IStockApi::MarketInfo IStockApi::MarketInfo::fromJSON(const json::Value &v) {
 	return res;
 }
 
+std::int64_t IStockApi::MarketInfo::priceToTick(double price) const {
+	if (invert_price) {
+		return -static_cast<std::int64_t>(std::round((1.0/price)/currency_step));
+	} else {
+		return static_cast<std::int64_t>(std::round(price/currency_step));
+	}
+}
+double IStockApi::MarketInfo::tickToPrice(std::int64_t tick) const {
+	if (invert_price) {
+		return -currency_step/tick;
+	} else {
+		return tick*currency_step;
+	}
+}
+
+
