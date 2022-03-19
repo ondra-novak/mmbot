@@ -465,10 +465,13 @@ void MTrader::perform(bool manually) {
 							auto sellTick = buyTick;
 							auto bidTick = minfo.priceToTick(status.ticker.bid);
 							auto askTick = minfo.priceToTick(status.ticker.ask);
+//							logDebug("TICKS: buyTick=$1, sellTick=$2, bidTick=$3, askTick=$4, step=$5", buyTick, sellTick, bidTick, askTick, minfo.currency_step);
 							while (buyTick >= askTick) buyTick--;
 							while (sellTick <= bidTick) sellTick++;
 							buyBase = minfo.tickToPrice(buyTick);
 							sellBase = minfo.tickToPrice(sellTick);
+//							logDebug("TICKS: buyTick=$1, sellTick=$2, bidTick=$3, askTick=$4, step=$5", buyTick, sellTick, bidTick, askTick, minfo.currency_step);
+//							logDebug("TICKS: buyBase=$1, sellBase=$2, 1/buyBase=$3, 1/sellBase=$4", buyBase, sellBase, 1.0/buyBase, 1.0/sellBase);
 						}
 
 

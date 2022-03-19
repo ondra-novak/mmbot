@@ -201,7 +201,7 @@ std::int64_t IStockApi::MarketInfo::priceToTick(double price) const {
 }
 double IStockApi::MarketInfo::tickToPrice(std::int64_t tick) const {
 	if (invert_price) {
-		return -currency_step/tick;
+		return -1.0/(tick*currency_step);
 	} else {
 		return tick*currency_step;
 	}
