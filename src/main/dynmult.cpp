@@ -8,19 +8,31 @@
 #include "dynmult.h"
 
 void DynMultControl::setMult(double buy, double sell) {
-	this->mult_buy = buy;
-	this->mult_sell = sell;
+	state = DynMult(buy,sell);
 }
 
 double DynMultControl::getBuyMult() const {
-	return mult_buy;
+	return state.getBuyMult();
 }
 
 double DynMultControl::getSellMult() const {
-	return mult_sell;
+	return state.getSellMult();
 }
 
-double DynMultControl::raise_fall(double v, bool israise) {
+double DynMultControl::raise_fall(double v, bool israise) const {
+	return DynMult::raise_fall(cfg, v, israise);
+}
+
+void DynMultControl::update(bool buy_trade, bool sell_trade) {
+
+	state = state.update(cfg, buy_trade, sell_trade);
+}
+
+void DynMultControl::reset() {
+	state = DynMult();
+}
+
+double DynMult::raise_fall(const Config &cfg, double v, bool israise) {
 	if (israise) {
 		double rr = cfg.raise/100.0;
 		return std::min(cfg.mult?v*(1+rr):v + rr, cfg.cap);
@@ -30,14 +42,13 @@ double DynMultControl::raise_fall(double v, bool israise) {
 	}
 
 }
-
-void DynMultControl::update(bool buy_trade, bool sell_trade) {
-
+DynMult DynMult::update(const Config &cfg, bool buy_trade,bool sell_trade) const {
+	double b = mult_buy;
+	double s = mult_sell;
 	switch (cfg.mode) {
 	case Dynmult_mode::disabled:
-		mult_buy = 1.0;
-		mult_sell = 1.0;
-		return;
+		return DynMult();
+	default:
 	case Dynmult_mode::independent:
 		break;
 	case Dynmult_mode::together:
@@ -45,21 +56,15 @@ void DynMultControl::update(bool buy_trade, bool sell_trade) {
 		sell_trade = buy_trade;
 		break;
 	case Dynmult_mode::alternate:
-		if (buy_trade) mult_sell = 0;
-		else if (sell_trade) mult_buy = 0;
+		if (buy_trade) s = 0;
+		else if (sell_trade) s = 0;
 		break;
 	case Dynmult_mode::half_alternate:
-		if (buy_trade) mult_sell = ((mult_sell-1) * 0.5) + 1;
-		else if (sell_trade) mult_buy = ((mult_buy-1) * 0.5) + 1;
+		if (buy_trade) s = ((s-1) * 0.5) + 1;
+		else if (sell_trade) b = ((b-1) * 0.5) + 1;
 		break;
 	}
-	mult_buy= raise_fall(mult_buy, buy_trade);
-	mult_sell= raise_fall(mult_sell, sell_trade);
-}
+	return DynMult(raise_fall(cfg, b, buy_trade),raise_fall(cfg, b, sell_trade));
 
-void DynMultControl::reset() {
-	mult_buy = 1.0;
-	mult_sell = 1.0;
 }
-
 

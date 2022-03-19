@@ -21,13 +21,13 @@ class AbstractTraderControl;
 using PStrategy3 = ondra_shared::RefCntPtr<const IStrategy3>;
 
 enum class MarketEvent {
-	///trader started, strategy should initialize internals by its state
+	///trader has started, strategy should initialize internals by its state
 	start,
-	///idle cycle, nothing happened, except price changed
+	///idle cycle, nothing has happened, just price has changed
 	idle,
-	///trade detected
+	///trade was detected
 	trade,
-	///alert detected
+	///alert was detected
 	alert
 };
 
@@ -85,9 +85,9 @@ struct MarketState {
 	double last_trade_price;
 	///size of the last trade
 	double last_trade_size;
-	///assets live on market - can be different then position - can be used to calculate tradeable range
+	///assets live on market - can be different than position - can be used to calculate tradeable range
 	double live_assets;
-	///currencies live on markat - can be different then position - can be used to calculate tradeable range
+	///currencies live on markat - can be different than position - can be used to calculate tradeable range
 	double live_currencies;
 };
 
@@ -96,7 +96,7 @@ enum class OrderRequestResult {
 	accepted,
 	///order was partially accepted - not full size can be fulfilled. You can find final size in additional info
 	partially_accepted,
-	///order side is invalid, size must be positive, no additional info
+	///order size is invalid, size must be positive, no additional info (only for buy() or sell())
 	invalid_size,
 	///order price is invalid, no additional info
 	invalid_price,
@@ -143,7 +143,7 @@ public:
 	 * @retval max_leverage place failed because max leverage was reached
 	 * @retval user_limited place failed because user limited position somehow (min or max position, max cost etc)
 	 */
-	virtual NewOrderResult change_pos(double new_pos, double price = 0) = 0;
+	virtual NewOrderResult alter_position(double new_pos, double price = 0) = 0;
 	///Place buy order
 	/**
 	 * @param price order price. It can be set to 0, then opt_buy_price will be used
@@ -154,7 +154,7 @@ public:
 	 *
 	 * @note No other is placed or canceled without calling this function.
 	 */
-	virtual NewOrderResult  buy(double price, double size) = 0;
+	virtual NewOrderResult  limit_buy(double price, double size) = 0;
 	///Place sell order
 	/**
 	 * @param price order price. It can be set to 0, then opt_sell_price will be used
@@ -165,17 +165,17 @@ public:
 	 *
 	 * @note No other is placed or canceled without calling this function.
 	 */
-	virtual NewOrderResult  sell(double price, double size) = 0;
+	virtual NewOrderResult  limit_sell(double price, double size) = 0;
 	///Clear the buy order
 	/** If there is no buy order, function does nothing. You don't need to call this function
 	 * if you plan to immediately place a buy order as there cannot be multiple buy orders
 	 */
-	virtual void clear_buy() = 0;
+	virtual void cancel_buy() = 0;
 	///Clear the sell order
 	/** If there is no sell order, function does nothing. You don't need to call this function
 	 * if you plan to immediately place a sell order as there cannot be multiple buy orders
 	 */
-	virtual void clear_sell() = 0;
+	virtual void cancel_sell() = 0;
 	///Sets new equilibrium price
 	/**
 	 * @param price new equilibrium price

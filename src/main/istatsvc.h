@@ -8,6 +8,8 @@
 #ifndef SRC_MAIN_ISTATSVC_H_
 #define SRC_MAIN_ISTATSVC_H_
 
+
+#include <shared/stringview.h>
 #include "istatsvc.h"
 
 #include <cmath>
