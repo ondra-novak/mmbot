@@ -457,15 +457,35 @@ void MTrader::perform(bool manually) {
 							lspread = hspread = 0;
 							need_alerts = false;
 						}
+
+						double buyBase;
+						double sellBase;
+						{
+							auto buyTick = minfo.priceToTick((status.ticker.bid+status.ticker.ask)*0.5);
+							auto sellTick = buyTick;
+							auto bidTick = minfo.priceToTick(status.ticker.bid);
+							auto askTick = minfo.priceToTick(status.ticker.ask);
+//							logDebug("TICKS: buyTick=$1, sellTick=$2, bidTick=$3, askTick=$4, step=$5", buyTick, sellTick, bidTick, askTick, minfo.currency_step);
+							while (buyTick >= askTick) buyTick--;
+							while (sellTick <= bidTick) sellTick++;
+							buyBase = minfo.tickToPrice(buyTick);
+							sellBase = minfo.tickToPrice(sellTick);
+//							logDebug("TICKS: buyTick=$1, sellTick=$2, bidTick=$3, askTick=$4, step=$5", buyTick, sellTick, bidTick, askTick, minfo.currency_step);
+//							logDebug("TICKS: buyBase=$1, sellBase=$2, 1/buyBase=$3, 1/sellBase=$4", buyBase, sellBase, 1.0/buyBase, 1.0/sellBase);
+						}
+
+
+
+
 						hspread = std::max(hspread,1e-10); //spread can't be zero, so put there small number
 						lspread = std::max(lspread,1e-10);
 							//calculate buy order
 						buyorder = calculateOrder(strategy,centerPrice,-lspread,
-								dynmult.getBuyMult(),status.ticker.bid,
+								dynmult.getBuyMult(),buyBase,
 								position,status.currencyBalance,need_alerts);
 							//calculate sell order
 						sellorder = calculateOrder(strategy,centerPrice,hspread,
-								dynmult.getSellMult(),status.ticker.ask,
+								dynmult.getSellMult(),sellBase,
 								position,status.currencyBalance,need_alerts);
 
 						if (cfg.dynmult_sliding && !need_alerts) {

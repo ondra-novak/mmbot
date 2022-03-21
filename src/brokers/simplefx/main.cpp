@@ -313,6 +313,7 @@ inline bool Interface::reset() {
 	return true;
 }
 
+
 inline Interface::MarketInfo Interface::getMarketInfo(const std::string_view &pair) {
 	std::string symbol (pair);
 	const SymbolInfo &sinfo = getSymbolInfo(symbol);
@@ -328,7 +329,7 @@ inline Interface::MarketInfo Interface::getMarketInfo(const std::string_view &pa
 		std::string(pair),
 		sinfo.currency_symbol,
 		sinfo.step*sinfo.mult,
-		0,
+		0.00001,
 		sinfo.step*sinfo.mult,
 		0,
 		0,
