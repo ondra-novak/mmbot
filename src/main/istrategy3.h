@@ -35,11 +35,9 @@ enum class MarketEvent {
 ///market state - constants
 struct MarketState {
 	///market info
-	const IStockApi::MarketInfo &minfo;
-	///minute data
-	const AbstractArray<double> &minute_data;
+	const IStockApi::MarketInfo *minfo;
 	///all trades
-	const AbstractArray<IStockApi::Trade> &trades;
+	const AbstractArray<IStockApi::Trade> *trades;
 
 	///Event causing this operation
 	MarketEvent event;

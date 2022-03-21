@@ -1073,22 +1073,6 @@ void MTrader::update_minfo() {
 }
 
 void MTrader::initialize() {
-	std::string brokerImg;
-	IBrokerControl *bicon = dynamic_cast<IBrokerControl*>(stock.get());
-	if (bicon)
-		json::base64->encodeBinaryValue(json::map_str2bin(bicon->getBrokerInfo().favicon),[&](std::string_view c){
-		brokerImg.append(c);
-	});
-	else
-		brokerImg =
-				"iVBORw0KGgoAAAANSUhEUgAAADAAAAAwBAMAAAClLOS0AAAAG1BMVEVxAAAAAQApKylNT0x8fnuX"
-				"mZaztbLNz8z4+vcarxknAAAAAXRSTlMAQObYZgAAASFJREFUOMulkzFPxDAMhRMhmGNE72YGdhiQ"
-				"boTtVkApN8KAriO3XPoDaPDPxk7SXpo6QogndfGnl/o5jlInaaNEwf0LSHX9ijhInhWS3gXDjoFg"
-				"0Yi+Q1yCBvHuUjprjR5ghwcBDEZvRVBxrGr/SF3dLkHHObwQfc3gIM2KLF6cIiBemwqQx87AFKUo"
-				"AkkJbLDQkAx9Cb7NL6BDl1ddBh4h01UGnvIm/wtSKso6B/SFVFu6kRFoYIBhpTgSgzCzG9svgH02"
-				"6oxD8VFfp6NID+oi7jKAGX/ecOVTnQfHvF3Sm9J71y+AO5IfIAYM12ViwBQqgml9GOQjCQ/HC7Oq"
-				"gvyoGZj2YwZqN/hhbWujWttm4I/rExvNNT6fxhWaRgeFuPYDghTP70Os5zoAAAAASUVORK5CYII=";
-
 	try {
 		update_minfo();
 		if (!cfg.dont_allocate || cfg.enabled) {
@@ -1102,33 +1086,27 @@ void MTrader::initialize() {
 
 		if (!cfg.hidden) {
 			this->statsvc->setInfo(
-				IStatSvc::Info { cfg.title, minfo.asset_symbol,
-						minfo.currency_symbol,
-								minfo.invert_price ?
-										minfo.inverted_symbol :
-										minfo.currency_symbol, brokerImg,
-										cfg.broker,
-										minfo.wallet_id,
-						cfg.report_order,
-						minfo.invert_price, minfo.leverage != 0, minfo.simulator });
+				IStatSvc::Info {
+				cfg.title,
+				cfg.broker,
+				minfo,
+				stock,
+				cfg.report_order
+			});
 		}
 
 	} catch (std::exception &e) {
 		if (!cfg.hidden) {
-			this->statsvc->setInfo(
-					IStatSvc::Info {cfg.title, "???",
-									"???",
-									"???",
-									brokerImg,
-									cfg.broker,
-									"???",
-									cfg.report_order,
-									false,
-									false,
-									true});
-			this->statsvc->reportError(IStatSvc::ErrorObj(e.what()));
-			throw;
+				this->statsvc->setInfo(
+					IStatSvc::Info {
+					cfg.title,
+					cfg.broker,
+					minfo,
+					nullptr,
+					cfg.report_order
+				});
 		}
+
 	}
 }
 

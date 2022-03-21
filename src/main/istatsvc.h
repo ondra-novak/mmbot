@@ -60,16 +60,10 @@ public:
 
 	struct Info {
 		std::string_view title;
-		std::string_view assetSymb;
-		std::string_view currencySymb;
-		std::string_view priceSymb;
-		std::string_view brokerIcon;
 		std::string_view brokerName;
-		std::string_view walletId;
+		IStockApi::MarketInfo minfo;
+		PStockApi exchange;
 		double order;
-		bool inverted;
-		bool margin;
-		bool emulated;
 	};
 
 	struct ErrorObj {

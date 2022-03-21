@@ -38,6 +38,8 @@ public:
 	    double eff_size;
 	    ///effective price after applying fees
 	    double eff_price;
+	    ///OrderId - if available
+	    json::Value order_id;
 
 	    static Trade fromJSON(json::Value v);
 	    json::Value toJSON() const;

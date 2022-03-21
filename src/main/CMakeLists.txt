@@ -48,7 +48,7 @@ add_executable (mmbot
 	rptapi.cpp
 	../brokers/httpjson.cpp
 	strategy3.cpp
-	mtrader3.cpp
+	trader.cpp
 	default_spread_generator.cpp
 	)
 target_link_libraries (mmbot LINK_PUBLIC simpleServer imtjson )

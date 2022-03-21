@@ -16,34 +16,17 @@
 using ondra_shared::logDebug;
 
 IStockApi::Trade IStockApi::Trade::fromJSON(json::Value x) {
-
-	json::Value f = x["fee"];
-	double size = x["size"].getNumber();
-	double price = x["price"].getNumber();
-
-	if (f.defined()) {
-		double fee = x["fee"].getNumber();
-
-		return IStockApi::Trade {
-			x["id"].stripKey(),
-			x["time"].getUIntLong(),
-			size,
-			price,
-			size,
-			price+fee/size
-		};
-	} else {
-		return IStockApi::Trade {
-			x["id"].stripKey(),
-			x["time"].getUIntLong(),
-			size,
-			price,
-			x["eff_size"].getNumber(),
-			x["eff_price"].getNumber()
-		};
-	}
-
+	return IStockApi::Trade {
+		x["id"].stripKey(),
+		x["time"].getUIntLong(),
+		x["size"].getNumber(),
+		x["price"].getNumber(),
+		x["eff_size"].getNumber(),
+		x["eff_price"].getNumber(),
+		x["order_id"]
+	};
 }
+
 
 json::Value IStockApi::Trade::toJSON() const {
 
@@ -53,7 +36,8 @@ json::Value IStockApi::Trade::toJSON() const {
 		{"price",price},
 		{"eff_price",eff_price},
 		{"eff_size",eff_size},
-		{"id",id}
+		{"id",id},
+		{"order_id",order_id}
 	});
 }
 
@@ -64,12 +48,6 @@ json::NamedEnum<IStockApi::FeeScheme> IStockApi::strFeeScheme ({
 	{IStockApi::income, "income"},
 	{IStockApi::outcome, "outcome"}
 });
-/*
-static double awayZero(double v) {
-	if (v < 0) return floor(v);
-	else return ceil(v);
-}
-*/
 static double nearZero(double v) {
 	return sgn(v) * floor(std::abs(v));
 }

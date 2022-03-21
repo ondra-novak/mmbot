@@ -12,14 +12,16 @@
 #include <imtjson/array.h>
 #include <chrono>
 #include <numeric>
+#include <imtjson/binary.h>
+#include <imtjson/string.h>
 
-#include "../shared/linear_map.h"
-#include "../shared/logOutput.h"
-#include "../shared/range.h"
-#include "../shared/stdLogOutput.h"
+#include <shared/linear_map.h>
+#include <shared/logOutput.h>
+#include <shared/range.h>
+#include <shared/stdLogOutput.h>
 #include "sgn.h"
 #include "../../version.h"
-#include "../imtjson/src/imtjson/string.h"
+#include "ibrokercontrol.h"
 
 #include "alert.h"
 
@@ -317,16 +319,39 @@ void Report::setInfo(std::size_t rev, StrViewA symb, const InfoObj &infoObj) {
 
 	if (rev != revize) return;
 
+	std::string brokerImg;
+
+
+	auto broker = dynamic_cast<IBrokerControl *>(infoObj.exchange.get());
+	if (broker) {
+		try {
+			json::base64->encodeBinaryValue(json::map_str2bin(broker->getBrokerInfo().favicon),[&](std::string_view c){
+				brokerImg.append(c);
+			});
+		} catch (...) {}
+
+	}
+	if (brokerImg.empty()) {
+		brokerImg =
+				"iVBORw0KGgoAAAANSUhEUgAAADAAAAAwBAMAAAClLOS0AAAAG1BMVEVxAAAAAQApKylNT0x8fnuX"
+				"mZaztbLNz8z4+vcarxknAAAAAXRSTlMAQObYZgAAASFJREFUOMulkzFPxDAMhRMhmGNE72YGdhiQ"
+				"boTtVkApN8KAriO3XPoDaPDPxk7SXpo6QogndfGnl/o5jlInaaNEwf0LSHX9ijhInhWS3gXDjoFg"
+				"0Yi+Q1yCBvHuUjprjR5ghwcBDEZvRVBxrGr/SF3dLkHHObwQfc3gIM2KLF6cIiBemwqQx87AFKUo"
+				"AkkJbLDQkAx9Cb7NL6BDl1ddBh4h01UGnvIm/wtSKso6B/SFVFu6kRFoYIBhpTgSgzCzG9svgH02"
+				"6oxD8VFfp6NID+oi7jKAGX/ecOVTnQfHvF3Sm9J71y+AO5IfIAYM12ViwBQqgml9GOQjCQ/HC7Oq"
+				"gvyoGZj2YwZqN/hhbWujWttm4I/rExvNNT6fxhWaRgeFuPYDghTP70Os5zoAAAAASUVORK5CYII=";
+	}
+
 	json::Value data = json::Object({
 		{"title",infoObj.title},
-		{"currency", infoObj.currencySymb},
-		{"asset", infoObj.assetSymb},
-		{"price_symb", infoObj.priceSymb},
-		{"brokerIcon", json::String({"data:image/png;base64,",infoObj.brokerIcon})},
+		{"currency", infoObj.minfo.currency_symbol},
+		{"asset", infoObj.minfo.asset_symbol},
+		{"price_symb", infoObj.minfo.invert_price?infoObj.minfo.inverted_symbol:infoObj.minfo.currency_symbol},
+		{"brokerIcon", json::String({"data:image/png;base64,",brokerImg})},
 		{"brokerName", infoObj.brokerName},
-		{"inverted", infoObj.inverted},
-		{"walletId", infoObj.walletId},
-		{"emulated",infoObj.emulated},
+		{"inverted", infoObj.minfo.invert_price},
+		{"walletId", infoObj.minfo.wallet_id},
+		{"emulated",infoObj.minfo.simulator},
 		{"order", infoObj.order}
 	});
 	infoMap[symb] = data;

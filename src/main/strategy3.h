@@ -16,6 +16,7 @@ class Strategy3 {
 public:
 
 	Strategy3(PStrategy3 ptr):ptr(ptr) {}
+	Strategy3();
 
 	void run(AbstractTraderControl &cntr)  {ptr = ptr->run(cntr);}
 	void load(const json::Value &state) {ptr = ptr->load(state);}
