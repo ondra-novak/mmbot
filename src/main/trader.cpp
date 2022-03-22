@@ -167,8 +167,19 @@ void Trader::processTrades() {
 	trade_lastid = newtrades.lastId;
 }
 
-MarketState Trader::getMarketState() {
-	MarketState mst;
+void Trader::run() {
+	if (!inited) init();
+
+	processTrades();
+	MarketStateEx mst = getMarketState();
+
+	if (std::fabs(mst.broker_assets-last_known_live_position)>minfo.getMinSize(mst.cur_price)) {
+
+	}
+}
+
+Trader::MarketStateEx Trader::getMarketState() {
+	MarketStateEx mst;
 	mst.trades = &trarr;
 	mst.minfo = &minfo;
 	mst.event = MarketEvent::idle;
@@ -176,6 +187,35 @@ MarketState Trader::getMarketState() {
 	IStockApi::Ticker ticker = env.exchange->getTicker(cfg.pairsymb);
 	mst.cur_price = ticker.last;
 	mst.timestamp = ticker.time;
+	//Remove fees from prices, because fees will be added back later - strategy counts without fees
+	mst.highest_buy_price = minfo.priceRemoveFees(minfo.tickToPrice(minfo.priceToTick(ticker.ask)-1),1);
+	mst.lowest_sell_price = minfo.priceRemoveFees(minfo.tickToPrice(minfo.priceToTick(ticker.bid)+1),-1);
+	mst.opt_buy_price = minfo.priceRemoveFees(env.spread_gen.get_order_price(1, equilibrium),1);
+	mst.opt_sell_price = minfo.priceRemoveFees(env.spread_gen.get_order_price(1, equilibrium),-1);
+	mst.buy_rejected = rej_buy;
+	mst.sell_rejected = rej_sell;
+
+	mst.broker_assets =  env.exchange->getBalance(minfo.asset_symbol, cfg.pairsymb);
+	mst.broker_currency =  env.exchange->getBalance(minfo.currency_symbol, cfg.pairsymb);
+	mst.position = position;
+
+	auto extBal = env.externalBalance.lock_shared();
+
+	double currencyUnadjustedBalance = mst.live_currencies + extBal->get(cfg.broker, minfo.wallet_id, minfo.currency_symbol);
+	auto wdb = env.walletDB.lock_shared();
+	mst.balance = wdb->adjBalance(WalletDB::KeyQuery(cfg.broker,minfo.wallet_id,minfo.currency_symbol,uid),	currencyUnadjustedBalance);
+	mst.live_currencies = wdb->adjBalance(WalletDB::KeyQuery(cfg.broker,minfo.wallet_id,minfo.currency_symbol,uid),mst.broker_currency);
+	mst.live_assets = wdb->adjBalance(WalletDB::KeyQuery(cfg.broker,minfo.wallet_id,minfo.asset_symbol,uid),mst.broker_assets);
+	mst.equity = minfo.leverage? mst.balance:mst.cur_price * mst.position + mst.balance;
+	mst.last_trade_price = last_trade_price;
+	mst.last_trade_size = last_trade_size;
+	mst.open_price = acb_state.getOpen();
+	mst.rpnl = acb_state.getRPnL();
+	mst.upnl = acb_state.getUPnL(mst.cur_price);
+	mst.cur_leverage = mst.position*mst.cur_price/mst.equity;
+	mst.trade_now = false;
+
+	return mst;
 
 
 

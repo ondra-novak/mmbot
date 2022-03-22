@@ -52,14 +52,23 @@ static double nearZero(double v) {
 	return sgn(v) * floor(std::abs(v));
 }
 
-static double rounded(double v) {
-	return std::round(v);
+double IStockApi::MarketInfo::priceAddFees(double price, double side) const {
+	price = price*(1 - side*fees);
+	auto roundFn = [&](double x) {
+		return side<0?floor(x):side>0?ceil(x):0;
+	};
+	if (invert_price) price = 1/(adjValue(1/price, currency_step, roundFn));
+	else price = adjValue(price, currency_step, roundFn);
+	return price;
 }
 
+double IStockApi::MarketInfo::priceRemoveFees(double price, double side) const{
+	return price/(1- side*fees);
+}
 
 void IStockApi::MarketInfo::addFees(double &assets, double &price) const {
 	//always shift price
-    price = price*(1 - sgn(assets)*fees);
+    price = priceAddFees(price,sgn(assets));
 	switch (feeScheme) {
 	case IStockApi::currency:
 				   break;
@@ -78,13 +87,11 @@ void IStockApi::MarketInfo::addFees(double &assets, double &price) const {
 					break;
 	}
 
-	if (invert_price) price = 1/(adjValue(1/price, currency_step, rounded));
-	else price = adjValue(price, currency_step, rounded);
 	assets = adjValue(assets, asset_step, nearZero);
 }
 
 void IStockApi::MarketInfo::removeFees(double &assets, double &price) const {
-	   price = price/(1- sgn(assets)*fees);
+	price = priceRemoveFees(price, sgn(assets));
 	switch (feeScheme) {
 	case IStockApi::currency:
 				   break;
@@ -185,4 +192,6 @@ double IStockApi::MarketInfo::tickToPrice(std::int64_t tick) const {
 	}
 }
 
-
+double IStockApi::MarketInfo::getMinSize(double price) const {
+	return std::max<double>({asset_step, min_size, min_volume/price});
+}

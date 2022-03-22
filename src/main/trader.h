@@ -102,9 +102,16 @@ protected:
 		TradesArray(Trader &owner):owner(owner) {}
 		virtual std::size_t size() const override;
 		virtual IStockApi::Trade operator [](std::size_t idx) const override;
+		virtual ~TradesArray() {}
 
 	protected:
 		Trader &owner;
+	};
+
+
+	struct MarketStateEx: public MarketState {
+		double broker_assets;
+		double broker_currency;
 	};
 
 
@@ -134,6 +141,13 @@ protected:
 	///last known live balance - can be complete different, but used to detect lost trades
 	double last_known_live_balance= 0;
 
+	double equilibrium = 0;
+
+	///last trade price - reported to strategy
+	double last_trade_price = 0;
+	///last trade size - reported to strategy
+	double last_trade_size = 0;
+
 	///spent currency
 	double spent_currency = 0;
 	///current unconfirmed position difference - in case of partial execution
@@ -149,12 +163,17 @@ protected:
 
 	std::uint64_t prevTickerTime = 0;
 
+	///Buy was previously rejected
+	bool rej_buy = false;
+	///Sell was previously rejected
+	bool rej_sell = false;
+
 	void load_state();
 	void updateEnterPrice();
 	void save_state();
 
 	void processTrades();
-	MarketState getMarketState();
+	MarketStateEx getMarketState();
 
 };
 

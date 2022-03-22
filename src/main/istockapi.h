@@ -185,6 +185,9 @@ public:
 		void addFees(double &assets, double &price) const;
 		void removeFees(double &assets, double &price) const;
 
+		double priceAddFees(double price, double side) const;
+		double priceRemoveFees(double price, double side) const;
+
 		template<typename Fn>
 		static double adjValue(double value, double step, Fn &&fn)  {
 			if (step == 0) return value;
@@ -194,6 +197,7 @@ public:
 		static MarketInfo fromJSON(const json::Value &v);
 		std::int64_t priceToTick(double price) const;
 		double tickToPrice(std::int64_t tick) const;
+		double getMinSize(double price) const;
 	};
 
 
