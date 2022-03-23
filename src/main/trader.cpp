@@ -9,6 +9,38 @@
 #include <random>
 #include "trader.h"
 
+class Trader::Control: public AbstractTraderControl {
+public:
+	Control(Trader &owner, const MarketState &state);
+	virtual const MarketState &get_state() const override;
+	virtual NewOrderResult alter_position(double new_pos, double price) override;
+	virtual NewOrderResult alter_position_market(double new_pos) override;
+	virtual NewOrderResult limit_buy(double price, double size) override;
+	virtual NewOrderResult limit_sell(double price, double size) override;
+	virtual NewOrderResult market_buy(double size) override;
+	virtual NewOrderResult market_sell(double size) override;
+	virtual void cancel_buy() override;
+	virtual void cancel_sell() override;
+	virtual void set_equilibrium_price(double price) override;
+	virtual void set_safe_range(const MinMax &minmax) override;
+	virtual void set_currency_allocation(double allocation) override;
+	virtual void set_equity_allocation(double allocation) override;
+	virtual void report_neutral_price(double neutral_price) override;
+	virtual void report_price(std::string_view title, double value) override;
+	virtual void report_position(std::string_view title, double value) override;
+	virtual void report_percent(std::string_view title, double value) override;
+	virtual void report_percent(std::string_view title, double value, double base) override;
+	virtual void report_number(std::string_view title, double value) override;
+	virtual void report_string(std::string_view title, std::string_view string) override;
+	virtual void report_bool(std::string_view title, bool value) override;
+	virtual void report_nothing(std::string_view title) override;
+protected:
+	Trader &owner;
+	const MarketState &state;
+	json::Object rpt;
+
+};
+
 Trader::Trader(const Trader_Config &cfg, Trader_Env &&env)
 :cfg(cfg), env(std::move(env)),pos_diff(0,0),acb_state(0,0),trarr(*this) {
 
@@ -81,7 +113,7 @@ void Trader::load_state() {
 		if (position_valid) position = tmp.getNumber();
 		completted_trades = state["confirmed_trades"].getUInt();
 		prevTickerTime = state["prevTickerTime"].getUIntLong();
-		unconfirmed_position_diff = state["unconfirmed_position"].getNumber();
+		unconfirmed_position = state["unconfirmed_position"].getNumber();
 		last_known_live_position = state["last_known_live_position"].getNumber();
 		last_known_live_balance = state["last_known_live_balance"].getNumber();
 	}
@@ -106,7 +138,7 @@ void Trader::save_state() {
 		if (position_valid) state.set("position", position);
 		state.set("confimed_trades", completted_trades);
 		state.set("prevTickerTime", prevTickerTime);
-		state.set("unconfirmed_position", unconfirmed_position_diff);
+		state.set("unconfirmed_position", unconfirmed_position);
 		state.set("last_known_live_position", last_known_live_position);
 		state.set("last_known_live_balance", last_known_live_balance);
 	}
@@ -151,11 +183,13 @@ IStockApi::Trade Trader::TradesArray::operator [](std::size_t idx) const {
 	return owner.trades[idx];
 }
 
-void Trader::processTrades() {
+bool Trader::processTrades() {
 	auto newtrades = env.exchange->syncTrades(trade_lastid, cfg.pairsymb);
 	double prev_neutral = 0;
 	if (!trades.empty()) {
 		prev_neutral = trades.back().neutral_price;
+	}  else {
+		return false;
 	}
 
 	for (const IStockApi::Trade &t: newtrades.trades) {
@@ -165,17 +199,63 @@ void Trader::processTrades() {
 		trades.push_back(Trade(t, 0, 0, prev_neutral));
 	}
 	trade_lastid = newtrades.lastId;
+	return true;
+}
+
+void Trader::detect_lost_trades(bool any_trades, const MarketStateEx &mst) {
+	if (!any_trades) {
+		//detection of lost trades
+		if (std::fabs(mst.broker_assets - last_known_live_position)
+				> minfo.getMinSize(mst.cur_price)) {
+			//possible lost trade
+			//for leveraged market, it is always lost trade
+			if (minfo.leverage) {
+				unconfirmed_position += mst.broker_assets
+						- last_known_live_position;
+				last_known_live_position = mst.broker_assets;
+			} else {
+				double pos_change = mst.broker_assets
+						- last_known_live_position;
+				double balance_change = mst.broker_currency
+						- last_known_live_balance;
+				last_known_live_position = mst.broker_assets;
+				last_known_live_balance = mst.broker_currency;
+				double pos_change_2 = -balance_change / mst.cur_price;
+				if (std::abs(pos_change - pos_change_2) / pos_change > 0.1) {
+					//possible lost trade
+					unconfirmed_position += pos_change;
+				}
+			}
+		}
+	} else {
+		unconfirmed_position = acb_state.getPos();
+		//after trade, we reset unconfirmed position
+	}
+	if (std::abs(unconfirmed_position - acb_state.getPos())
+			> minfo.getMinSize(mst.cur_price)) {
+		close_all_orders();
+		save_state();
+		throw std::runtime_error("Lost trade detected");
+	}
 }
 
 void Trader::run() {
-	if (!inited) init();
+	try {
+		if (!inited) init();
 
-	processTrades();
-	MarketStateEx mst = getMarketState();
+		bool any_trades = processTrades();
+		MarketStateEx mst = getMarketState();
 
-	if (std::fabs(mst.broker_assets-last_known_live_position)>minfo.getMinSize(mst.cur_price)) {
+		detect_lost_trades(any_trades, mst);
 
+	} catch (std::exception &e) {
+		if (!cfg.hidden) {
+			std::string error;
+			error.append(e.what());
+			env.statsvc->reportError(IStatSvc::ErrorObj(error.c_str()));
+		}
 	}
+
 }
 
 Trader::MarketStateEx Trader::getMarketState() {
@@ -219,4 +299,85 @@ Trader::MarketStateEx Trader::getMarketState() {
 
 
 
+}
+
+void Trader::close_all_orders() {
+	IStockApi::Orders orders = env.exchange->getOpenOrders(cfg.pairsymb);
+	for (const auto &x: orders) {
+		if (x.client_id.getUIntLong() == magic || x.client_id.getUIntLong() == magic2) {
+			env.exchange->placeOrder(cfg.pairsymb, 0, 0, nullptr, x.id, 0);
+		}
+	}
+}
+
+const MarketState& Trader::Control::get_state() const {
+}
+
+NewOrderResult Trader::Control::alter_position(double new_pos,
+		double price) {
+}
+
+NewOrderResult Trader::Control::alter_position_market(double new_pos) {
+}
+
+NewOrderResult Trader::Control::limit_buy(double price, double size) {
+}
+
+NewOrderResult Trader::Control::limit_sell(double price, double size) {
+}
+
+NewOrderResult Trader::Control::market_buy(double size) {
+}
+
+NewOrderResult Trader::Control::market_sell(double size) {
+}
+
+void Trader::Control::cancel_buy() {
+}
+
+void Trader::Control::cancel_sell() {
+}
+
+void Trader::Control::set_equilibrium_price(double price) {
+}
+
+void Trader::Control::set_safe_range(const MinMax &minmax) {
+}
+
+void Trader::Control::set_currency_allocation(double allocation) {
+}
+
+void Trader::Control::set_equity_allocation(double allocation) {
+}
+
+void Trader::Control::report_neutral_price(double neutral_price) {
+}
+
+void Trader::Control::report_price(std::string_view title, double value) {
+}
+
+void Trader::Control::report_position(std::string_view title, double value) {
+}
+
+void Trader::Control::report_percent(std::string_view title, double value) {
+}
+
+void Trader::Control::report_percent(std::string_view title, double value, double base) {
+}
+
+void Trader::Control::report_number(std::string_view title, double value) {
+}
+
+void Trader::Control::report_string(std::string_view title, std::string_view string) {
+}
+
+void Trader::Control::report_bool(std::string_view title, bool value) {
+}
+
+void Trader::Control::report_nothing(std::string_view title) {
+}
+
+inline Trader::Control::Control(Trader &owner, const MarketState &state)
+:owner(owner),state(state),rpt(owner.strategy_report_state)
+{
 }

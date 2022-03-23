@@ -142,6 +142,20 @@ public:
 	 * @retval user_limited place failed because user limited position somehow (min or max position, max cost etc)
 	 */
 	virtual NewOrderResult alter_position(double new_pos, double price = 0) = 0;
+
+
+
+	///Change position immediately - using market order
+	/**
+	 * @param new_pos requested position
+	 * @retval accepted order accepted
+	 * @retval partially accepted order accepted partially. Additional info contains final position after execution
+	 * @retval invalid_price can't place order at specified price
+	 * @retval too_small result order was too small. Additional info contains suggested position.
+	 * @retval max_leverage place failed because max leverage was reached
+	 * @retval user_limited place failed because user limited position somehow (min or max position, max cost etc)
+	 */
+	virtual NewOrderResult alter_position_market(double new_pos) = 0;
 	///Place buy order
 	/**
 	 * @param price order price. It can be set to 0, then opt_buy_price will be used
@@ -161,13 +175,35 @@ public:
 	 *
 	 * @note You cannot place multiple orders. Any additional request replaces previous request.
 	 *
-	 * @note No other is placed or canceled without calling this function.
+	 * @note No order is placed or canceled without calling this function.
 	 */
 	virtual NewOrderResult  limit_sell(double price, double size) = 0;
+
+	///Place market buy order
+	/**
+	 * You can only have one pending market order. Another call to this method
+	 * replaces an already pending order (the order is scheduled and executed as
+	 * soon as the strategy returns control to the Trader)
+	 * @param size size of order
+	 * @return validation status
+	 */
+	virtual NewOrderResult  market_buy(double size) = 0;
+
+	///Place market buy order
+	/**
+	 * You can only have one pending market order. Another call to this method
+	 * replaces an already pending order (the order is scheduled and executed as
+	 * soon as the strategy returns control to the Trader)
+	 * @param size size of order
+	 * @return validation status
+	 */
+	virtual NewOrderResult  market_sell(double size) = 0;
 	///Clear the buy order
 	/** If there is no buy order, function does nothing. You don't need to call this function
 	 * if you plan to immediately place a buy order as there cannot be multiple buy orders
 	 */
+
+
 	virtual void cancel_buy() = 0;
 	///Clear the sell order
 	/** If there is no sell order, function does nothing. You don't need to call this function
@@ -250,7 +286,8 @@ public:
 	virtual void report_string(std::string_view title, std::string_view string) = 0;
 	///Report arbitrary boolean
 	virtual void report_bool(std::string_view title, bool value) = 0;
-	virtual void report_nothing(std::string_view title);
+	///Removes item identified by the tittle
+	virtual void report_nothing(std::string_view title) = 0;.
 	virtual ~AbstractTraderControl() {}
 
 
