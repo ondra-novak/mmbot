@@ -339,9 +339,55 @@ Retrieves currently opened (active) orders (LIMIT orders)
 * **id** - id of the order - can be any arbitrary JSON (not null)
 * **price** - price of the order
 * **size** - size of the order. The negative value is SELL, the positive value is BUY
-* **clientOrderId** - contains an ID associated with the order which was set by **placeOrder** call. The robot uses this ID to mark orders to distinguish its orders from orders created by the user manually.
+* **clientOrderId** - contains an ID associated with the order which was set by **placeOrders** call. The robot uses this ID to mark orders to distinguish its orders from orders created by the user manually.
+
+#### placeOrders
+
+Place multiple orders 
+
+```
+[ "placeOrders", [ {
+	"pair":<string>,
+	"size":<number>,
+	"price":<number>,
+	"clientOrderId":<unsigned number>,
+	"replaceOrderId":<any>,
+	"replaceOrderSize":<number>
+}, .... ] ]
+```
+
+Function expect an array of orders. Each order has thiese fields
+* **pair** - symbol for market where the order will be put
+* **size** - size of the order. `+buy`, `-sell`. Set to zero to skip placing new order - it is used
+to cancel existing order by specifying `replaceOrderId`
+* **price** - price of LIMIT order. Set to 0 to place MARKET order
+* **clientOrderId** - mmbot marks orders by arbitrary number, which helps to filter out orders not placed by it. The broker must somehow assign these numbers to orders and must return these numbers back through the `getOpenOrders`
+* **replaceOrderId** - id of the order to cancel before new order is placed. If the exchange supports the editing feature, the broker can use it to speed up the operation
+* **replaceOrderSize** - size of the replacing order, this helps to determine, whether place or reject placing the new order. If the canceling or editing order has remaining size lower then specified size, the new order should not be placed, or current order should not be edited. If there is zero, the constrain is not applied
+
+**Return value**: For each order, array of two fields is returned:
+
+```
+[
+   [<id>,"<error>"],
+   ...
+]
+```
+
+* **id** -  id of newly placed order. Can be **null** in case that no new order were placed
+* **error** - can be an empty string (no error) or string description of error, if the order cannot be placed.
+
+**Note**: Every broker should recognize following errors and reports it as standrad "enum" in format <enum>:<description>
+
+* **not enough funds to place orders** -> must be reported as "no funds: not enough funds to place orders"
+* **invalid tick size, amount size, min size** -> must be reported as "minfo: invalid tick size"
+ 
+"minfo" as error causes that trader calls getInfo()
+
 
 #### placeOrder
+
+[ deprecated - used only if `placeOrders` is not supported ]
 
 ```
 [ "placeOrder", {
