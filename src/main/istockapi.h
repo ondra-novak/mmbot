@@ -268,6 +268,66 @@ public:
 			json::Value clientId = json::Value(),
 			json::Value replaceId = json::Value(),
 			double replaceSize = 0) = 0;
+
+
+
+	struct NewOrder {
+		///Symbol or pair
+		/** Note this field is just string_view. Ensure, that contains a valid content before
+		 * the function is called
+		 */
+		std::string_view symbol;
+		///Order size and direction.
+		/** A positive value is buy, a negative value is sell. If this field is set to zero, no
+		 * order is placed
+		 */
+		double size;
+		///Price where the order place
+		/**
+		 * If zero is set a MARKET order is placed, otherwise a LIMIT order is placed at specified price.
+		 * Note that LIMIT orders are post-only to keep fees lowest
+		 **/
+		double price;
+		///Allows to mark order with arbitrary client_id. However it is recommended to use uint32. The
+		/// value don't need to be unique
+		json::Value client_id;
+		/// Specifies ID of order to be replaced or edited.
+		/**If the exachange supports order editing, the
+		 * order can be edited, which is ofter much faster then cancel+place. The implementation chooses
+		 * optimal way how to replace a specified order (note: use exchange's id, not clinet_id)
+		 */
+		json::Value replace_order_id;
+		/// Specifies size condition when editing is allowed
+		/** Expected size of the replacing order to edit or place new order. This helps against duplicate
+		 * executions especially when the first execution is partially only. The feature refuses to
+		 * place or edit the order, if the size of the replacing order is below the specified size. It can
+		 * mean, that there is unprocessed execution, so the new order cannot be placed. The most
+		 * exchanges reports the final size of the order after cancelation. If such order has remaining
+		 * size below specified constrain, the new order is not placed and it is expected, that
+		 * execution will be processed during the next cycle. The value should be always positive, regardless
+		 * on, whether it was buy or sell. To cancel order uncoditionally, set this field to zero
+		 */
+		double replace_excepted_size;
+	};
+
+
+	///Place multiple orders
+	/**
+	 * @param pair selected pair - you can place multiple orders for single pair (symbol)
+	 * @param orders list of orders to place
+	 * @param ids when function returns, contains list of IDS of new orders. When null is returned,
+	 * order was not placed
+	 * @param errors for each order, an error can apper. If no error reported, the apropriate string
+	 * is empty
+	 *
+	 * @note for every order there is one item in ids and one item in errors. Only if an item within
+	 * 'errors' is non-empty string means there were an error. It can happen, that null + empty string
+	 * is returned which means, that order was not placed, but no error was generated. This can
+	 * also happen, when order is canceled without placing a new order
+	 */
+	virtual void batchPlaceOrder(const std::vector<NewOrder> &orders,
+			std::vector<json::Value> &ret_ids, std::vector<std::string> &ret_errors) = 0;
+
 	///Reset the API
 	/**
 	 * @param tp time point for which reset is called. Multiple calls with the same timepoint

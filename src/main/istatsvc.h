@@ -70,10 +70,11 @@ public:
 		std::string_view genError;
 		std::string_view buyError;
 		std::string_view sellError;
-		explicit ErrorObj(const char *what): genError(what) {}
-		ErrorObj(const std::string_view &buy_error,const std::string_view &sell_error)
-			: buyError(buy_error),sellError(sell_error) {}
-
+	};
+	struct ErrorObjEx: public ErrorObj {
+		explicit ErrorObjEx(const char *what): ErrorObj{what,"",""} {}
+		ErrorObjEx(const std::string_view &buy_error,const std::string_view &sell_error)
+			: ErrorObj{"",buy_error,sellError} {}
 	};
 
 	struct TradeRecord: public IStockApi::Trade {

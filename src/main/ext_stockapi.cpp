@@ -83,6 +83,45 @@ json::Value  ExtStockApi::placeOrder(const std::string_view & pair,
 		{"replaceOrderSize",replaceSize}}));
 }
 
+void ExtStockApi::batchPlaceOrder(const std::vector<NewOrder> &orders, std::vector<json::Value> &ret_ids, std::vector<std::string> &ret_errors)  {
+
+	ret_ids.clear();
+	ret_errors.clear();
+	if (connection->supportBatchPlace()) {
+
+		json::Value req (json::array, orders.begin(), orders.end(), [](const NewOrder &ord){
+					return json::Value(json::object,{
+						json::Value("pair", ord.symbol),
+						json::Value("price", ord.price),
+						json::Value("size", ord.size),
+						json::Value("clientOrderId", ord.client_id),
+						json::Value("replaceOrderId", ord.replace_order_id),
+						json::Value("replaceOrderSize", std::abs(ord.replace_excepted_size)),
+					});
+			}
+		);
+		json::Value out = requestExchange("placeOrders", req);
+		for (json::Value x: out) {
+			ret_ids.push_back(x.isContainer()?x[0]:x);
+			ret_errors.push_back(x[1].getString());
+		}
+	} else {
+		for (const auto &x: orders) {
+			try {
+				json::Value id = placeOrder(x.symbol, x.size, x.price, x.client_id, x.replace_order_id, std::abs(x.replace_excepted_size));
+				ret_ids.push_back(id);
+				ret_errors.push_back(std::string());
+			} catch (std::exception &e) {
+				ret_ids.push_back(nullptr);
+				ret_errors.push_back(e.what());
+
+			}
+		}
+	}
+
+}
+
+
 
 void ExtStockApi::reset(const std::chrono::system_clock::time_point &tp) {
 	std::unique_lock _(connection->getLock());
@@ -357,4 +396,18 @@ json::Value ExtStockApi::Connection::jsonRequestExchange(json::String name, json
 	lastActivity = std::chrono::system_clock::now();
 	return AbstractExtern::jsonRequestExchange(name, args);
 
+}
+
+bool ExtStockApi::Connection::supportBatchPlace() {
+	if (batchPlace_supported.has_value()) return *batchPlace_supported;
+	else {
+		try {
+			AbstractExtern::jsonRequestExchange("placeOrders", json::array);
+			batchPlace_supported = true;
+		} catch (Exception &e) {
+			if (e.isResponse()) batchPlace_supported = false;
+			else throw;
+		}
+		return *batchPlace_supported;
+	}
 }

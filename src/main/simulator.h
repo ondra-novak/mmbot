@@ -40,7 +40,9 @@ public:
 	virtual bool isIdle(
 			const std::chrono::_V2::system_clock::time_point &tp) const override;
 	virtual void unload()override;
-
+	virtual void batchPlaceOrder(const std::vector<IStockApi::NewOrder> &orders,
+			std::vector<json::Value> &ret_ids,
+			std::vector<std::string> &ret_errors) override;
 protected:
 	virtual void loadState(const AbstractPaperTrading::TradeState &st, json::Value state) override;
 	virtual AbstractPaperTrading::RawBalance getRawBalance(const AbstractPaperTrading::TradeState &st) const override;

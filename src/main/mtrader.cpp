@@ -421,12 +421,12 @@ void MTrader::perform(bool manually) {
 					if (!cfg.hidden) {
 						if (delayed_trade_detect) {
 							if (adj_wait>1) {
-								statsvc->reportError(IStatSvc::ErrorObj("Trade detected, waiting for confirmation (ADJ Timeout)"));
+								statsvc->reportError(IStatSvc::ErrorObjEx("Trade detected, waiting for confirmation (ADJ Timeout)"));
 							}
 						} else if (!cfg.enabled) {
-							statsvc->reportError(IStatSvc::ErrorObj("Automatic trading is disabled"));
+							statsvc->reportError(IStatSvc::ErrorObjEx("Automatic trading is disabled"));
 						} else {
-							statsvc->reportError(IStatSvc::ErrorObj("Reset required"));
+							statsvc->reportError(IStatSvc::ErrorObjEx("Reset required"));
 						}
 					}
 				} else {
@@ -564,11 +564,11 @@ void MTrader::perform(bool manually) {
 					}
 
 					//report order errors to UI
-					if (!cfg.hidden) statsvc->reportError(IStatSvc::ErrorObj(buy_order_error, sell_order_error));
+					if (!cfg.hidden) statsvc->reportError(IStatSvc::ErrorObjEx(buy_order_error, sell_order_error));
 
 				}
 			} else {
-				if (!cfg.hidden) statsvc->reportError(IStatSvc::ErrorObj("Initializing, please wait\n(5 minutes aprox.)"));
+				if (!cfg.hidden) statsvc->reportError(IStatSvc::ErrorObjEx("Initializing, please wait\n(5 minutes aprox.)"));
 			}
 
 			recalc = false;
@@ -712,7 +712,7 @@ void MTrader::perform(bool manually) {
 			statsvc->reportTrades(position,trades);
 			std::string error;
 			error.append(e.what());
-			statsvc->reportError(IStatSvc::ErrorObj(error.c_str()));
+			statsvc->reportError(IStatSvc::ErrorObjEx(error.c_str()));
 			statsvc->reportMisc(IStatSvc::MiscData{
 				0,false,cfg.enabled,0,0,dynmult.getBuyMult(),dynmult.getSellMult(),0,0,0,0,accumulated,0,
 				trades.size(),trades.empty()?0UL:(trades.back().time-trades[0].time),lastTradePrice,position,

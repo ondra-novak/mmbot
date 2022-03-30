@@ -450,3 +450,25 @@ void Simulator::unload() {
 	state.clear();
 	for (auto &w: wallet) w.clear();
 }
+
+void Simulator::batchPlaceOrder(const std::vector<IStockApi::NewOrder> &orders,
+		std::vector<json::Value> &ret_ids,
+		std::vector<std::string> &ret_errors) {
+
+	ret_ids.clear();
+	ret_errors.clear();
+
+	for (const auto &x: orders) {
+		try {
+			json::Value id = placeOrder(x.symbol, x.size, x.price, x.client_id, x.replace_order_id, std::abs(x.replace_excepted_size));
+			ret_ids.push_back(id);
+			ret_errors.push_back(std::string());
+		} catch (std::exception &e) {
+			ret_ids.push_back(nullptr);
+			ret_errors.push_back(e.what());
+
+		}
+	}
+
+
+}

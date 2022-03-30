@@ -263,7 +263,23 @@ json::Value AbstractPaperTrading::placeOrder(const std::string_view &pair, doubl
 	} else {
 		return nullptr;
 	}
+}
 
+void AbstractPaperTrading::batchPlaceOrder(const std::vector<NewOrder> &orders,
+		std::vector<json::Value> &ret_ids, std::vector<std::string> &ret_errors) {
+	ret_ids.clear();
+	ret_errors.clear();
+	for (const auto &x: orders) {
+		try {
+			ret_ids.push_back(
+					placeOrder(x.symbol, x.size, x.price, x.client_id, x.replace_order_id, x.replace_excepted_size)
+			);
+			ret_errors.push_back(std::string());
+		} catch (std::exception &e) {
+			ret_ids.push_back(nullptr);
+			ret_errors.push_back(e.what());
+		}
+	}
 }
 
 

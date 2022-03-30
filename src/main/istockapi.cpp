@@ -52,6 +52,10 @@ static double nearZero(double v) {
 	return sgn(v) * floor(std::abs(v));
 }
 
+static double farZero(double v) {
+	return sgn(v) * ceil(std::abs(v));
+}
+
 double IStockApi::MarketInfo::priceAddFees(double price, double side) const {
 	price = price*(1 - side*fees);
 	auto roundFn = [&](double x) {
@@ -87,7 +91,7 @@ void IStockApi::MarketInfo::addFees(double &assets, double &price) const {
 					break;
 	}
 
-	assets = adjValue(assets, asset_step, nearZero);
+	assets = adjValue(assets, asset_step, farZero);
 }
 
 void IStockApi::MarketInfo::removeFees(double &assets, double &price) const {

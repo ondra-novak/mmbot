@@ -8,6 +8,7 @@
 #ifndef SRC_MAIN_SWAP_BROKER_H_
 #define SRC_MAIN_SWAP_BROKER_H_
 
+#include <mutex>
 #include <imtjson/value.h>
 #include "abstractbrokerproxy.h"
 
@@ -27,12 +28,22 @@ public:
 	virtual IStockApi::Ticker getTicker(const std::string_view &piar) override;
 	virtual IStockApi::TradesSync syncTrades(json::Value lastId,
 			const std::string_view &pair) override;
+	virtual void batchPlaceOrder(const std::vector<NewOrder> &orders, std::vector<json::Value> &ret_ids, std::vector<std::string> &ret_errors) override;
 
 protected:
 	Orders ords;
 	MarketInfo minfo;
+	std::recursive_mutex mx;
 
 	std::pair<MarketInfo,Ticker> getMarketInfoAndTicker(const std::string_view &pair) ;
+	std::vector<NewOrder> convord;
+	std::vector<json::Value> convord_ret;
+	std::vector<std::string> convord_err;
+	std::vector<json::Value> filtered;
+	std::vector<json::Value> tmp_ret;
+	std::vector<std::string> tmp_err;
+	std::vector<NewOrder> tmp_ord;
+
 };
 
 class SwapBroker: public InvertBroker {

@@ -102,6 +102,11 @@ json::Value EmulatedLeverageBroker::placeOrder(const std::string_view &pair,
 	return target->placeOrder(pair, size, price, clientId, replaceId, replaceSize);
 }
 
+void EmulatedLeverageBroker::batchPlaceOrder(const std::vector<NewOrder> &orders,
+		std::vector<json::Value> &ret_ids, std::vector<std::string> &ret_errors) {
+	target->batchPlaceOrder(orders, ret_ids, ret_errors);
+}
+
 
 IStockApi::Ticker EmulatedLeverageBroker::getTicker(const std::string_view &piar) {
 	return target->getTicker(piar);

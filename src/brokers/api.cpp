@@ -124,6 +124,41 @@ static Value placeOrder(AbstractBrokerAPI &handler, const Value &req) {
 			req["replaceOrderSize"].getNumber());
 }
 
+struct PlaceOrdersState {
+	std::vector<IStockApi::NewOrder> olist;
+	std::vector<json::Value> ret;
+	std::vector<std::string> errors;
+
+};
+
+
+static thread_local PlaceOrdersState place_order_state;
+
+static Value placeOrders(AbstractBrokerAPI &handler, const Value &req) {
+	place_order_state.olist.clear();
+	for (json::Value x: req) {
+		place_order_state.olist.push_back({
+			req["pair"].getString(),
+			req["size"].getNumber(),
+			req["price"].getNumber(),
+			req["clientOrderId"],
+			req["replaceOrderId"],
+			req["replaceOrderSize"].getNumber(),
+		});
+	}
+	place_order_state.errors.clear();
+	place_order_state.ret.clear();
+	handler.batchPlaceOrder(place_order_state.olist, place_order_state.ret, place_order_state.errors);
+	json::Array out;
+	std::size_t i=0, cnt = place_order_state.ret.size();
+	while (i < cnt) {
+		out.push_back({place_order_state.ret[i],place_order_state.errors[i]});
+		++i;
+	}
+
+	return out;
+}
+
 static Value enableDebug(AbstractBrokerAPI &handler, const Value &req) {
 	AbstractBrokerAPI *h = dynamic_cast<AbstractBrokerAPI *>(&handler);
 	if (h) {
@@ -261,6 +296,12 @@ Value enableBinary(AbstractBrokerAPI &handle, const Value &) {
 	return json::undefined;
 }
 
+void AbstractBrokerAPI::batchPlaceOrder(const std::vector<NewOrder> &orders,
+		std::vector<json::Value> &ret_ids,
+		std::vector<std::string> &ret_errors) {
+	throw std::runtime_error("Unsupported");
+}
+
 Value handleSubaccount(AbstractBrokerAPI &handler, const Value &req) {
 	static std::unordered_map<Value, std::unique_ptr<AbstractBrokerAPI> > subList;
 	if (req.hasValue()) {
@@ -321,6 +362,7 @@ static MethodMap methodMap ({
 			{"getOpenOrders",&getOpenOrders},
 			{"getTicker",&getTicker},
 			{"placeOrder",&placeOrder},
+			{"placeOrders",&placeOrders},
 			{"reset",&reset},
 			{"getAllPairs",&getAllPairs},
 			{"getInfo",&getInfo},

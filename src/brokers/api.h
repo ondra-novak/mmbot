@@ -130,6 +130,9 @@ public:
 
 	virtual bool reset() = 0;
 
+	virtual void batchPlaceOrder(const std::vector<NewOrder> &orders,
+				std::vector<json::Value> &ret_ids, std::vector<std::string> &ret_errors) override;
+
 
 protected:
 	bool debug_mode = false;

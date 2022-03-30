@@ -102,15 +102,25 @@ enum class OrderRequestResult {
 	too_small,
 	///order cannot be placed, because max leverage is reached, no additional info
 	max_leverage,
-	///order cannot be placed, because limited by user, no additional info
-	user_limited
+	///
+	no_funds,
+
+	max_position,
+
+	min_position,
+
+	max_costs
 };
+
+
 
 struct NewOrderResult {
 	///state of operation
 	OrderRequestResult state;
 	///additional information
 	double v;
+
+	bool isOk() const {return state == OrderRequestResult::accepted||state == OrderRequestResult::partially_accepted;};
 };
 
 
@@ -144,18 +154,6 @@ public:
 	virtual NewOrderResult alter_position(double new_pos, double price = 0) = 0;
 
 
-
-	///Change position immediately - using market order
-	/**
-	 * @param new_pos requested position
-	 * @retval accepted order accepted
-	 * @retval partially accepted order accepted partially. Additional info contains final position after execution
-	 * @retval invalid_price can't place order at specified price
-	 * @retval too_small result order was too small. Additional info contains suggested position.
-	 * @retval max_leverage place failed because max leverage was reached
-	 * @retval user_limited place failed because user limited position somehow (min or max position, max cost etc)
-	 */
-	virtual NewOrderResult alter_position_market(double new_pos) = 0;
 	///Place buy order
 	/**
 	 * @param price order price. It can be set to 0, then opt_buy_price will be used
@@ -287,9 +285,29 @@ public:
 	///Report arbitrary boolean
 	virtual void report_bool(std::string_view title, bool value) = 0;
 	///Removes item identified by the tittle
-	virtual void report_nothing(std::string_view title) = 0;.
+	virtual void report_nothing(std::string_view title) = 0;
 	virtual ~AbstractTraderControl() {}
 
+	///Sets buy order error
+	/** Allows to show error message with the order
+	 *
+	 * @param text displayed text
+	 * @param display_price displayed price. If set to 0, ---- is used instead price
+	 * @param display_size displayed size. The price must be set to display size
+	 *
+	 * @note automatically cancels buy order
+	 */
+	virtual void set_buy_order_error(std::string_view text, double display_price = 0, double display_size = 0) = 0;
+	///Sets sell order error
+	/** Allows to show error message with the order
+	 *
+	 * @param text displayed text
+	 * @param display_price displayed price. If set to 0, ---- is used instead price
+	 * @param display_size displayed size. The price must be set to display size
+	 *
+	 * @note automatically cancels sell order
+	 */
+	virtual void set_sell_order_error(std::string_view text, double display_price = 0, double display_size = 0) = 0;
 
 };
 
