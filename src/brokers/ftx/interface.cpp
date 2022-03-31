@@ -730,7 +730,7 @@ const Interface::AccountInfo& Interface::getAccountInfo() {
 		} else {
 			AccountInfo nfo;
 			nfo.colateral = 10000;
-			nfo.fees = 0.002;
+			nfo.fees = 0.0002;
 			nfo.leverage=20;
 			nfo.positions = {};
 			curAccount = std::move(nfo);
