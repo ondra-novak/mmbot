@@ -36,7 +36,7 @@ public:
 		int trade_dir;
 		bool achieve_mode;
 		bool enabled;
-		double calc_price;
+		double equilibrium;
 		double spread;
 		double dynmult_buy;
 		double dynmult_sell;
@@ -45,7 +45,7 @@ public:
 		double budget_total;
 		double budget_assets;
 		double accumulated;
-		std::optional<double> budget_extra;
+		double budget_extra;
 		std::size_t total_trades;
 		std::uint64_t total_time;
 		double lastTradePrice;

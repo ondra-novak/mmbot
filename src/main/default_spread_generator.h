@@ -36,6 +36,8 @@ public:
 
 	static std::string_view id;
 
+	virtual double get_buy_mult() const override;
+	virtual double get_sell_mult() const override;
 	static void reg(ISpreadGeneratorRegistration &reg);
 
 
@@ -83,6 +85,10 @@ public:
 	static void reg(ISpreadGeneratorRegistration &reg);
 
 	static std::string_view id;
+
+	virtual double get_buy_mult() const override;
+	virtual double get_sell_mult() const override;
+
 protected:
 
 	class RefCntCfg: public ondra_shared::RefCntObj, public Config {

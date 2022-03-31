@@ -514,15 +514,14 @@ void Report::setMisc(std::size_t rev, StrViewA symb, const MiscData &miscData, b
 	});
 
 
-	if (miscData.budget_extra.has_value())
-		output.set("be", *miscData.budget_extra);
+	output.set("be", miscData.budget_extra);
 
 	if (inverted) {
 
 		output.setItems({
 			{"t",-miscData.trade_dir},
 			{"pos",-miscData.position},
-			{"mcp", 1.0/miscData.calc_price},
+			{"Map", 1.0/miscData.equilibrium},
 			{"ml",1.0/miscData.highest_price},
 			{"mh",1.0/miscData.lowest_price},
 			{"mdmb", miscData.dynmult_sell},
@@ -535,7 +534,7 @@ void Report::setMisc(std::size_t rev, StrViewA symb, const MiscData &miscData, b
 		output.setItems({
 			{"t",miscData.trade_dir},
 			{"pos",miscData.position},
-			{"mcp", miscData.calc_price},
+			{"mcp", miscData.equilibrium},
 			{"ml",miscData.lowest_price},
 			{"mh",miscData.highest_price},
 			{"mdmb", miscData.dynmult_buy},

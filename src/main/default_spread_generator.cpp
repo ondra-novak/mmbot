@@ -110,14 +110,34 @@ void AdaptiveSpreadGenerator::reg(ISpreadGeneratorRegistration &reg) {
 				cfg["cap"].getNumber(),
 				strDynmult_mode[cfg["mode"].getString()],
 				cfg["mult_factor"].getBool(),
-				cfg["sma_interval"].getNumber(),
-				cfg["stdev_interval"].getNumber(),
-				cfg["mult"].getNumber(),
+				cfg["sma_interval"].getNumber()*60.0,
+				cfg["stdev_interval"].getNumber()*60.0,
+				std::pow(2.0,cfg["mult"].getNumber()/100.0),
 				cfg["sliding"].getBool(),
 				cfg["freeze"].getBool()
 			});
 		}
 		virtual std::string_view get_id() const override {return id;}
+		virtual json::Value get_form_def() const {
+			return json::Value({
+				json::Object{{"name","sma_interval"},{"label","Moving average (hours)"},{"type","slider"},{"min", 1},{"max", 100},{"step", 1},{"decimals",1}},
+				json::Object{{"name","stdev_interval"},{"label","Standard deviation (hours)"},{"type","slider"},{"min", 1},{"max", 100},{"step", 1},{"decimals",1}},
+				json::Object{{"name","mult"},{"label","Spread adjust"},{"type","slider"},{"min", -100},{"max", 100},{"step", 1},{"decimals",1}},
+				json::Object{{"name","raise"},{"label","Dynamic multiplicator raise"},{"type","slider"},{"min", 1},{"max", 1000},{"step", 1},{"decimals",1}},
+				json::Object{{"name","fall"},{"label","Dynamic multiplicator fall"},{"type","slider"},{"min", 1},{"max", 200},{"step", 1},{"decimals",1}},
+				json::Object{{"name","cap"},{"label","Dynamic multiplicator cap"},{"type","number"},{"step", 1}},
+				json::Object{{"name","mode"},{"label","Dynamic multiplicator mode"},{"type","enum"},{"options", json::Object{
+					{"disabled","Disabled"},
+					{"independent","Independent"},
+					{"together","Together"},
+					{"alternate","Alternate"},
+					{"half_alternate","Half alternate"},
+				}}},
+				json::Object{{"name","mult_factor"},{"label","Multiply raise and falls on trade (instead adding)"},{"type","boolean"}},
+				json::Object{{"name","sliding"},{"label","Sliding"},{"type","boolean"}},
+				json::Object{{"name","freeze"},{"label","Freeze distance of the opposite order on a trade"},{"type","boolean"}},
+			});
+		}
 	};
 	reg.reg(std::make_unique<F>());
 }
@@ -189,10 +209,32 @@ void FixedSpreadGenerator::reg(ISpreadGeneratorRegistration &reg) {
 			});
 		}
 		virtual std::string_view get_id() const override {return id;}
+		virtual json::Value get_form_def() const {
+			return json::Value({
+				json::Object{{"name","spread_pct"},{"label","Fixed spread [%]"},{"type","slider"},{"min", 0.1},{"max", 10},{"step", 0.1},{"decimals",1}},
+				json::Object{{"name","raise"},{"label","Dynamic multiplicator raise"},{"type","slider"},{"min", 1},{"max", 1000},{"step", 1},{"decimals",1}},
+				json::Object{{"name","fall"},{"label","Dynamic multiplicator fall"},{"type","slider"},{"min", 1},{"max", 200},{"step", 1},{"decimals",1}},
+				json::Object{{"name","cap"},{"label","Dynamic multiplicator cap"},{"type","number"},{"step", 1}},
+				json::Object{{"name","mode"},{"label","Dynamic multiplicator mode"},{"type","enum"},{"options", json::Object{
+					{"disabled","Disabled"},
+					{"independent","Independent"},
+					{"together","Together"},
+					{"alternate","Alternate"},
+					{"half_alternate","Half alternate"},
+				}}},
+				json::Object{{"name","mult_factor"},{"label","Multiply raise and falls on trade (instead adding)"},{"type","boolean"}},
+				json::Object{{"name","sliding"},{"label","Sliding"},{"type","boolean"}},
+			});
+		}
 	};
 	reg.reg(std::make_unique<F>());
 }
 
 FixedSpreadGenerator::FixedSpreadGenerator(const PConfig &cfg, State &&state):cfg(cfg),state(std::move(state)) {
 }
+
+double AdaptiveSpreadGenerator::get_buy_mult() const {return state.dynState.getBuyMult();}
+double AdaptiveSpreadGenerator::get_sell_mult() const {return state.dynState.getSellMult();}
+double FixedSpreadGenerator::get_buy_mult() const {return state.dynState.getBuyMult();}
+double FixedSpreadGenerator::get_sell_mult() const {return state.dynState.getSellMult();}
 

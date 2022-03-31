@@ -310,6 +310,10 @@ public:
 		double replace_excepted_size;
 	};
 
+	using OrderList = std::vector<NewOrder>;
+	using OrderIdList = std::vector<json::Value>;
+	using OrderPlaceErrorList = std::vector<std::string>;
+
 
 	///Place multiple orders
 	/**
@@ -325,8 +329,7 @@ public:
 	 * is returned which means, that order was not placed, but no error was generated. This can
 	 * also happen, when order is canceled without placing a new order
 	 */
-	virtual void batchPlaceOrder(const std::vector<NewOrder> &orders,
-			std::vector<json::Value> &ret_ids, std::vector<std::string> &ret_errors) = 0;
+	virtual void batchPlaceOrder(const OrderList &orders, OrderIdList &ret_ids, OrderPlaceErrorList &ret_errors) = 0;
 
 	///Reset the API
 	/**

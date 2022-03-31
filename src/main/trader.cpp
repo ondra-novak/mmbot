@@ -10,10 +10,32 @@
 #include <random>
 #include "trader.h"
 
+#include <imtjson/string.h>
+#include "swap_broker.h"
+
+#include "papertrading.h"
+
 #include "sgn.h"
 using ondra_shared::logInfo;
 
 #include "../shared/logOutput.h"
+
+PStockApi selectStock(PStockApi s, SwapMode3 swap_mode, bool paper_trading) {
+
+	switch (swap_mode) {
+		case SwapMode3::invert: s = std::make_shared<InvertBroker>(s);break;
+		case SwapMode3::swap: s = std::make_shared<SwapBroker>(s);break;
+		default: break;
+	}
+	if (paper_trading) {
+		auto new_s = std::make_shared<PaperTrading>(s);
+		return new_s;
+	} else {
+		return s;
+	}
+}
+
+
 class Trader::Control: public AbstractTraderControl {
 public:
 	Control(Trader &owner, const MarketState &state);
@@ -74,10 +96,15 @@ public:
 };
 
 Trader::Trader(const Trader_Config &cfg, Trader_Env &&env)
-:cfg(cfg), env(std::move(env)),pos_diff(0,0),acb_state(0,0),trarr(*this) {
+:cfg(cfg), env(std::move(env)),pos_diff(0,0),acb_state(0,0),trarr(*this),safeRange{0, std::numeric_limits<double>::infinity()} {
 
-	magic = env.statsvc->getHash() & 0xFFFFFFFF;
-	magic2 = (~magic) & 0xFFFFFFFF;; //magic number for secondary orders
+	if (env.statsvc != nullptr) {
+		magic = env.statsvc->getHash() & 0xFFFFFFFF;
+		magic2 = (~magic) & 0xFFFFFFFF;; //magic number for secondary orders
+	} else {
+		magic = 100;
+		magic2 = 101;
+	}
 	std::random_device rnd;
 	uid = 0;
 	while (!uid) {
@@ -89,13 +116,18 @@ Trader::Trader(const Trader_Config &cfg, Trader_Env &&env)
 		env.walletDB = env.walletDB.make();
 	}
 
+	if (cfg.hidden) {
+		env.statsvc = nullptr;
+	}
+	env.exchange = selectStock(env.exchange, cfg.swap_mode, cfg.paper_trading);
+
 }
 
 void Trader::update_minfo() {
 	minfo = env.exchange->getMarketInfo(cfg.pairsymb);
 	minfo.min_size = std::max(minfo.min_size, cfg.min_size);
 
-	if (!cfg.hidden) {
+	if (env.statsvc != nullptr) {
 		env.statsvc->setInfo(
 			IStatSvc::Info {
 			cfg.title,
@@ -167,12 +199,20 @@ void Trader::save_state() {
 		auto state = out.object("state");
 		state.set("trade_lastid", trade_lastid);
 		state.set("uid",  uid);
-		if (position_valid) state.set("position", position);
-		state.set("confimed_trades", completted_trades);
+		if (position_valid) {
+			state.set("position", position);
+			state.set("unconfirmed_position", unconfirmed_position);
+		}
+		state.set("completted_trades", completted_trades);
 		state.set("prevTickerTime", prevTickerTime);
-		state.set("unconfirmed_position", unconfirmed_position);
 		state.set("last_known_live_position", last_known_live_position);
 		state.set("last_known_live_balance", last_known_live_balance);
+		state.set("last_trade_price",last_trade_price);
+		state.set("last_trade_size", last_trade_size);
+		if (last_trade_eq_extra.has_value()) {
+			state.set("last_trade_eq_extra", *last_trade_eq_extra);
+		}
+
 	}
 	out.set("trades", json::Value(json::array, trades.begin(), trades.end(), [&](const Trade &tr){
 		return tr.toJSON();
@@ -219,9 +259,11 @@ bool Trader::processTrades() {
 	auto newtrades = env.exchange->syncTrades(trade_lastid, cfg.pairsymb);
 	double prev_neutral = 0;
 	double prev_norm = 0;
+	double last_price = 0;
 	if (!trades.empty()) {
 		prev_neutral = trades.back().neutral_price;
 		prev_norm = trades.back().norm_profit;
+		last_price = trades.back().eff_price;
 	}  else {
 		return false;
 	}
@@ -231,6 +273,18 @@ bool Trader::processTrades() {
 		acb_state = acb_state(t.eff_price, t.eff_size);
 		spent_currency += t.size * t.price;
 		trades.push_back(Trade(t, prev_norm, 0, prev_neutral));
+		if (env.perfscv != nullptr) {
+			env.perfscv.lock()->sendItem(PerformanceReport{
+				magic, uid, t.id.toString().str(), minfo.currency_symbol,
+				minfo.asset_symbol,cfg.broker,
+				t.price, t.size, last_price?(t.eff_price-last_price)*(acb_state.getPos() - t.eff_price):0,
+				acb_state.getPos(),
+				minfo.simulator,
+				minfo.invert_price,
+				t.time,
+				acb_state.getRPnL()
+			});
+		}
 	}
 	trade_lastid = newtrades.lastId;
 	return true;
@@ -283,9 +337,18 @@ void Trader::run() {
 		bool any_trades = processTrades();
 		MarketStateEx mst = getMarketState();
 
+		if (env.histData != nullptr) {
+			env.histData->store({
+				mst.timestamp, mst.cur_price
+			});
+		}
+
+
 //		detect_lost_trades(any_trades, mst);
 
-		if (first_run) mst.event = MarketEvent::start;
+		if (first_run) {
+			mst.event = MarketEvent::start;
+		}
 		else {
 			mst.event = MarketEvent::idle;
 			if (target_buy.has_value()) {
@@ -299,6 +362,7 @@ void Trader::run() {
 				last_trade_size = mst.last_trade_size = pos_diff.getPos();
 				position = mst.position = position + pos_diff.getPos();
 				pos_diff = ACB(0,0);
+				completted_trades = trades.size();
 			}
 		}
 		Control cntr(*this,mst);
@@ -306,8 +370,12 @@ void Trader::run() {
 		if (cntr.eq_allocation.has_value()) {
 			eq_allocation = *cntr.eq_allocation;
 		}
+		if (minfo.leverage) cur_allocation = eq_allocation; else cur_allocation = eq_allocation - mst.position*mst.cur_price;
 		if (cntr.new_neutral_price.has_value()) {
 			neutral_price = *cntr.new_neutral_price;
+		}
+		if (cntr.safeRange.has_value()) {
+			safeRange = *cntr.safeRange;
 		}
 
 		if (mst.event == MarketEvent::trade) {
@@ -340,50 +408,59 @@ void Trader::run() {
 		placeAllOrders(cntr, cur_orders);
 
 		std::string_view buy_error, sell_error, gen_error;
-		{
-			newOrders.clear();
-			std::transform(schOrders.begin(), schOrders.end(), std::back_inserter(newOrders), [&](const ScheduledOrder &o){
-				json::Value replace_id;
-				double replace_size;
-				if (o.size > 0) {
-					if (cur_orders.buy.has_value()) {
-						replace_id = cur_orders.buy->id;
-						replace_size = cur_orders.buy->size;
-						cur_orders.buy.reset();
-					}
-				} else if (o.size < 0) {
-					if (cur_orders.sell.has_value()) {
-						replace_id = cur_orders.sell->id;
-						replace_size = cur_orders.sell->size;
-						cur_orders.sell.reset();
-					}
+		newOrders.clear();
+		std::transform(schOrders.begin(), schOrders.end(), std::back_inserter(newOrders), [&](const ScheduledOrder &o){
+			json::Value replace_id;
+			double replace_size;
+			if (o.size > 0) {
+				if (cur_orders.buy.has_value()) {
+					replace_id = cur_orders.buy->id;
+					replace_size = cur_orders.buy->size;
+					cur_orders.buy.reset();
 				}
+			} else if (o.size < 0) {
+				if (cur_orders.sell.has_value()) {
+					replace_id = cur_orders.sell->id;
+					replace_size = cur_orders.sell->size;
+					cur_orders.sell.reset();
+				}
+			}
 
-				return IStockApi::NewOrder {
-					cfg.pairsymb,
-					o.size,
-					o.price,
-					replace_id,
-					replace_size
-				};
-			});
-			env.exchange->batchPlaceOrder(newOrders, newOrders_ids, newOrders_err);
-			for (std::size_t cnt = newOrders.size(), i = 0; i < cnt; ++i) {
-				if (!newOrders_err[i].empty()) {
-					if (newOrders[i].size>0) {
-						buy_error = newOrders_err[i];
-					} else if (newOrders[i].size<0) {
-						sell_error = newOrders_err[i];
-					} else {
-						gen_error = newOrders_err[i];
-					}
+			return IStockApi::NewOrder {
+				cfg.pairsymb,
+				o.size,
+				o.price,
+				replace_id,
+				replace_size
+			};
+		});
+		env.exchange->batchPlaceOrder(newOrders, newOrders_ids, newOrders_err);
+		for (std::size_t cnt = newOrders.size(), i = 0; i < cnt; ++i) {
+			if (!newOrders_err[i].empty()) {
+				if (newOrders[i].size>0) {
+					buy_error = newOrders_err[i];
+					rej_buy = true;
+				} else if (newOrders[i].size<0) {
+					sell_error = newOrders_err[i];
+					rej_sell = true;
+				} else {
+					gen_error = newOrders_err[i];
 				}
 			}
 		}
 
-		if (!cfg.hidden) {
+		if (env.statsvc != nullptr) {
 
 			std::optional<IStockApi::Order> new_buy, new_sell;
+
+			if (cur_orders.buy.has_value()) {
+				new_buy = IStockApi::Order({nullptr,nullptr, cur_orders.buy->price, cur_orders.buy->size});
+			}
+
+			if (cur_orders.sell.has_value()) {
+				new_sell = IStockApi::Order({nullptr,nullptr, cur_orders.sell->price, cur_orders.sell->size});
+			}
+
 			if (cntr.buy_error.has_value()) {
 				buy_error = cntr.buy_error->get_reason();
 				if (cntr.buy_error->price) {
@@ -400,16 +477,43 @@ void Trader::run() {
 				if (x.size<0) new_sell = IStockApi::Order{nullptr, nullptr, x.price, x.size};
 				else if (x.size>0) new_buy = IStockApi::Order{nullptr, nullptr, x.price, x.size};;
 			}
+
+
 			env.statsvc->reportTrades(acb_state.getPos(), trades);
 			env.statsvc->reportPrice(mst.cur_price);
 			env.statsvc->reportOrders(1, new_buy, new_sell);
 			env.statsvc->reportError({gen_error,buy_error, sell_error});
+			env.statsvc->reportMisc({
+					any_trades?sgn(trades.back().size):0,
+					false, //achieve
+					cfg.enabled,
+					equilibrium,
+					env.spread_gen.get_base_spread()*mst.cur_leverage,
+					env.spread_gen.get_buy_mult(),
+					env.spread_gen.get_sell_mult(),
+					safeRange.min,
+					safeRange.max,
+					eq_allocation,
+					1,	//TODO - not used now
+					0,  //TODO - not used now
+					mst.equity - eq_allocation,
+					trades.size(),
+					trades.empty()?0:trades.back().time - trades[0].time,
+					mst.last_trade_price,
+					acb_state.getPos(),
+					0, //TODO
+					0, //TODO
+					acb_state.getOpen(),
+					acb_state.getRPnL(),
+					acb_state.getUPnL(mst.cur_price)
+			}, false);
 		}
 
-
+		save_state();
+		first_run = false;
 
 	} catch (std::exception &e) {
-		if (!cfg.hidden) {
+		if (env.statsvc != nullptr) {
 			std::string error;
 			error.append(e.what());
 			env.statsvc->reportError(IStatSvc::ErrorObjEx(error.c_str()));
@@ -715,6 +819,53 @@ bool Trader::isSameOrder(const std::optional<IStockApi::Order> &curOrder, const 
 
 }
 
+Strategy3 Trader::get_stategy() const {
+	return env.strategy;
+}
+
+SpreadGenerator Trader::get_spread() const {
+	return env.spread_gen;
+}
+
+json::Value Trader::get_strategy_report() const {
+	return strategy_report_state;
+}
+
+double Trader::get_strategy_position() const {
+	return position;
+}
+
+const ACB& Trader::get_position() const {
+	return acb_state;
+}
+
+const ACB& Trader::get_position_offset() const {
+	return pos_diff;
+}
+
+double Trader::get_equity_allocation() const {
+	return eq_allocation;
+}
+
+double Trader::get_currency_allocation() const {
+	return cur_allocation;
+}
+
+double Trader::get_equilibrium() const {
+	return equilibrium;
+}
+
+double Trader::get_neutral_price() const {
+	return neutral_price;
+}
+
+double Trader::get_complete_trades() const {
+	return completted_trades;
+}
+
+double Trader::get_last_trade_eq_extra() const {
+	return last_trade_eq_extra.has_value()?*last_trade_eq_extra:0;
+}
 
 void Trader::placeAllOrders(const Control &cntr, const OrderPair &pair) {
 

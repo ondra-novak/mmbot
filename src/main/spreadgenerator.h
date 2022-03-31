@@ -26,6 +26,8 @@ public:
 	virtual PSpreadGenerator reset_dynmult() const = 0;
 	virtual double get_order_price(double side, double equilibrium, bool dynmult = true) const = 0;
 	virtual double get_base_spread() const = 0;
+	virtual double get_buy_mult() const = 0;
+	virtual double get_sell_mult() const = 0;
 	virtual json::Value save() const = 0;
 	virtual PSpreadGenerator load(json::Value) const = 0;
 	virtual std::string_view get_id() const = 0;
@@ -37,6 +39,7 @@ public:
 	virtual ~ISpreadGeneratorFactory() {}
 	virtual PSpreadGenerator create(json::Value cfg) = 0;
 	virtual std::string_view get_id() const = 0;
+	virtual json::Value get_form_def() const = 0;
 };
 
 class ISpreadGeneratorRegistration {
@@ -49,7 +52,7 @@ public:
 class SpreadGenerator {
 public:
 	SpreadGenerator(PSpreadGenerator ptr):ptr(ptr) {}
-	SpreadGenerator();
+	SpreadGenerator() {}
 
 	void add_point(double price) {ptr = ptr->add_point(price);}
 	void report_trade(double price, double size) {ptr=ptr->report_trade(price, size);}
@@ -69,10 +72,35 @@ public:
 	std::string_view get_id() const {
 		return ptr->get_id();
 	}
+	double get_buy_mult() const {
+		return ptr->get_buy_mult();
+	}
+	double get_sell_mult() const {
+		return ptr->get_sell_mult();
+	}
+
 
 
 protected:
 	PSpreadGenerator ptr;
+};
+
+class SpreadRegister: public ISpreadGeneratorRegistration {
+public:
+
+	SpreadGenerator create(std::string_view id, json::Value config);
+	virtual void reg(std::unique_ptr<ISpreadGeneratorFactory> &&factory) override;
+
+	static SpreadRegister &getInstance();
+
+	using SpreadMap = std::unordered_map<std::string_view, std::unique_ptr<ISpreadGeneratorFactory> >;
+	auto begin() const {return smap.begin();}
+	auto end() const {return smap.end();}
+	auto find(const std::string_view &id) const {return smap.find(id);}
+
+protected:
+
+	SpreadMap smap;
 };
 
 #endif /* SRC_MAIN_SPREADGENERATOR_H_ */

@@ -45,6 +45,8 @@
 
 #include "rptapi.h"
 
+#include "registrations.h"
+
 using ondra_shared::StdLogFile;
 using ondra_shared::StrViewA;
 using ondra_shared::LogLevel;
@@ -247,6 +249,7 @@ void StreamState::sendBuffer(ondra_shared::BinaryView b) {
 int main(int argc, char **argv) {
 
 	json::enableParsePreciseNumbers = true;
+	init_registrations();
 	try {
 
 		App app;

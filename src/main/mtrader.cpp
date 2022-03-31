@@ -614,7 +614,7 @@ void MTrader::perform(bool manually) {
 			//report misc
 			auto minmax = strategy.calcSafeRange(minfo,status.assetAvailBalance,status.currencyAvailBalance);
 			auto budget = strategy.getBudgetInfo();
-			std::optional<double> budget_extra;
+			double budget_extra = 0;
 			if (!trades.empty())
 			{
 //				double last_price = trades.back().eff_price;
