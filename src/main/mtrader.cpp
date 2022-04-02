@@ -31,14 +31,6 @@ using ondra_shared::logWarning;
 using ondra_shared::StringView;
 using ondra_shared::StrViewA;
 
-json::NamedEnum<Dynmult_mode> strDynmult_mode  ({
-	{Dynmult_mode::disabled, "disabled"},
-	{Dynmult_mode::independent, "independent"},
-	{Dynmult_mode::together, "together"},
-	{Dynmult_mode::alternate, "alternate"},
-	{Dynmult_mode::half_alternate, "half_alternate"}
-});
-
 
 
 

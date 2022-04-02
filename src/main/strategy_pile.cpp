@@ -221,7 +221,8 @@ PStrategy3 Strategy3_Pile::run(AbstractTraderControl &cntr) const {
 	const auto &st = cntr.get_state();
 	if (constant <= 0) { //if constant is zero, not inited
 		double c = calcConstant(ratio, st.cur_price, st.equity);
-		return Strategy3_Pile(ratio,c).run(cntr);
+		if (c <= 0) throw std::runtime_error("Strategy - failed initialize");
+		return (new Strategy3_Pile(ratio,c))->run(cntr);
 	}
 
 	for (double p: {st.opt_buy_price, st.opt_sell_price}) {
@@ -289,7 +290,7 @@ std::string_view Strategy3_Pile::get_id() const {return id;}
 
 void Strategy3_Pile::reg(AbstractStrategyRegister &r) {
 	r.reg(id, [](json::Value cfg){
-		double ratio = cfg["ratio"].getNumber();
+		double ratio = cfg["ratio"].getNumber()*0.01;
 		return new Strategy3_Pile(ratio);
 	}, {
 		json::Object {
@@ -309,3 +310,7 @@ double Strategy3_Pile::calcConstant(double r, double price, double eq) {
 }
 
 std::string_view Strategy3_Pile::id = "pile3";
+
+PStrategy3 Strategy3_Pile::reset() const {
+	return new Strategy3_Pile(ratio);
+}

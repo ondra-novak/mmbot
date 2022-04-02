@@ -40,6 +40,33 @@ struct HistMinuteDataItem {
 };
 
 
+struct Trader_Reset {
+	///reset revision id - reset is only applied, if revision is different from stored id
+	/** first revision must have 1 */
+	unsigned int revision = 0;
+	///allocate position from current assets/position
+	/**
+	 * If not set, then whole available amount is allocated
+	 *
+	 * Overallocation is allowed.
+	 */
+	std::optional<double> alloc_position;
+	///trade position
+	/** buys or sells to set achieve given position
+	 */
+	std::optional<double> trade_position;
+	///Allocate currency
+	/**
+	 * How much ballance is reported to the strategy during reset
+	 */
+	std::optional<double> alloc_currency;
+
+	///if set true, overwrites trade_position. Retrieves optimal position from strategy and enables achieve
+	bool trade_optimal_position = false;
+
+
+};
+
 struct Trader_Config {
 	std::string pairsymb;
 	std::string broker;
@@ -64,6 +91,8 @@ struct Trader_Config {
 	bool enabled;
 	bool hidden;
 	bool trade_within_budget;
+
+	Trader_Reset reset;
 };
 
 struct Trader_Env {
@@ -100,6 +129,7 @@ public:
 	void run();
 
 
+	IStockApi &get_exchange();
 public:
 	//backtest reporting
 
@@ -134,8 +164,12 @@ protected:
 
 
 	struct MarketStateEx: public MarketState {
+		///assets reported by broker
 		double broker_assets;
+		///currencies reported by broker
 		double broker_currency;
+		///extra assets / position from perspective of this trader
+		double avail_assets;
 	};
 
 	struct LimitOrder {
@@ -172,6 +206,10 @@ protected:
 		void place_market(double size) {push_back({0,size,nullptr,0});}
 	};
 
+	struct AchieveMode {
+		double position;
+		double balance;
+	};
 
 	///trader's configuration
 	const Trader_Config cfg;
@@ -189,6 +227,8 @@ protected:
 	std::size_t uid;
 	///this field is true when instance has been inited and prepared to run, false if not yet
 	bool inited = false;
+
+	unsigned int reset_rev = 0;
 
 	///current trader position
 	double position = 0;
@@ -214,6 +254,7 @@ protected:
 	 */
 	std::optional<double> last_trade_eq_extra ;
 
+	std::optional<AchieveMode> achieve_mode;
 
 
 	///last trade price - reported to strategy
@@ -262,7 +303,7 @@ protected:
 	void save_state();
 
 	bool processTrades();
-	MarketStateEx getMarketState();
+	MarketStateEx getMarketState(bool trades_finished);
 	void close_all_orders();
 	void detect_lost_trades(bool any_trades, const MarketStateEx &mst);
 
@@ -279,6 +320,9 @@ protected:
 	 */
 	void placeAllOrders(const Control &cntr, const OrderPair &pair);
 	bool isSameOrder(const std::optional<IStockApi::Order> &curOrder, const LimitOrder &newOrder) const;
+
+	void do_reset(MarketStateEx &st);
+	static bool do_achieve(const AchieveMode &ach, Control &st);
 };
 
 

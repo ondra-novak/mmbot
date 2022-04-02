@@ -7,6 +7,16 @@
 
 #include "dynmult.h"
 
+json::NamedEnum<Dynmult_mode> strDynmult_mode  ({
+	{Dynmult_mode::disabled, "disabled"},
+	{Dynmult_mode::independent, "independent"},
+	{Dynmult_mode::together, "together"},
+	{Dynmult_mode::alternate, "alternate"},
+	{Dynmult_mode::half_alternate, "half_alternate"}
+});
+
+
+
 void DynMultControl::setMult(double buy, double sell) {
 	state = DynMult(buy,sell);
 }
@@ -64,7 +74,7 @@ DynMult DynMult::update(const Config &cfg, bool buy_trade,bool sell_trade) const
 		else if (sell_trade) b = ((b-1) * 0.5) + 1;
 		break;
 	}
-	return DynMult(raise_fall(cfg, b, buy_trade),raise_fall(cfg, b, sell_trade));
+	return DynMult(raise_fall(cfg, b, buy_trade),raise_fall(cfg, s, sell_trade));
 
 }
 

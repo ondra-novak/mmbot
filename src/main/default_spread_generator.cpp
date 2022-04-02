@@ -12,6 +12,8 @@
 
 #include "sgn.h"
 
+
+
 std::string_view AdaptiveSpreadGenerator::id = "adaptive";
 std::string_view FixedSpreadGenerator::id = "fixed";
 
@@ -26,7 +28,7 @@ double AdaptiveSpreadGenerator::get_order_price(double side, double equilibrium,
 	double s = get_base_spread();
 	if (side * state.freeze>0) s = std::min(s, side*state.freeze);
 	double dm = dynmult?side>0?state.dynState.getBuyMult():state.dynState.getSellMult():1.0;
-	double p = m*std::exp(cfg->mult*s*dm);
+	double p = m*std::exp(cfg->mult*s*dm*-side);
 	return p;
 }
 
@@ -54,7 +56,7 @@ PSpreadGenerator AdaptiveSpreadGenerator::reset_dynmult() const {
 }
 
 double AdaptiveSpreadGenerator::get_base_spread() const {
-	return std::log((state.ema+state.ema2)/state.ema);
+	return std::log((state.ema+std::sqrt(state.ema2))/state.ema);
 }
 
 PSpreadGenerator AdaptiveSpreadGenerator::report_trade(double price, double size) const {
@@ -140,6 +142,10 @@ void AdaptiveSpreadGenerator::reg(ISpreadGeneratorRegistration &reg) {
 		}
 	};
 	reg.reg(std::make_unique<F>());
+}
+
+bool AdaptiveSpreadGenerator::is_valid() const {
+	return state.valid;
 }
 
 AdaptiveSpreadGenerator::AdaptiveSpreadGenerator(const PConfig &cfg, State &&state):cfg(cfg),state(std::move(state)) {

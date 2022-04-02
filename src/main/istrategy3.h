@@ -323,6 +323,7 @@ public:
 	virtual ~IStrategy3() {}
 	virtual PStrategy3 run(AbstractTraderControl &cntr) const = 0;
 	virtual PStrategy3 load(const json::Value &state) const = 0;
+	virtual PStrategy3 reset() const = 0;
 	virtual json::Value save() const = 0;
 	virtual ChartPoint get_chart_point(double price) const = 0;
 	virtual double calc_initial_position(const MarketState &st) const = 0;

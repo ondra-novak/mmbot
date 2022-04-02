@@ -38,6 +38,7 @@ public:
 
 	virtual double get_buy_mult() const override;
 	virtual double get_sell_mult() const override;
+	virtual bool is_valid() const override;
 	static void reg(ISpreadGeneratorRegistration &reg);
 
 
@@ -81,6 +82,7 @@ public:
 	virtual json::Value save() const override;
 	virtual PSpreadGenerator load(json::Value) const override;
 	virtual std::string_view get_id() const override {return id;}
+	virtual bool is_valid() const override {return true;}
 
 	static void reg(ISpreadGeneratorRegistration &reg);
 

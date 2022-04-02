@@ -109,7 +109,7 @@ Backtest::Backtest(const Trader_Config_Ex &cfg,
 		 double assets,
 		 double currency)
 :cfg(cfg)
-,source(std::make_shared<Source>(minfo, assets, currency))
+,source(std::make_shared<Source>(minfo, currency,assets))
 {
 }
 
@@ -122,7 +122,7 @@ void Backtest::start(std::vector<double> &&prices, std::uint64_t start_time) {
 		StrategyRegister::getInstance().create(cfg.strategy_id, cfg.strategy_config),
 		SpreadRegister::getInstance().create(cfg.spread_id, cfg.spread_config),
 		source,
-		nullptr,
+		std::make_unique<Reporting>(*this),
 		nullptr,
 		nullptr,
 		nullptr,
@@ -133,12 +133,14 @@ void Backtest::start(std::vector<double> &&prices, std::uint64_t start_time) {
 		PBalanceMap::make(),
 	});
 	this->start_time = start_time;
+	trader->get_exchange().reset(std::chrono::system_clock::now());
 }
 
 bool Backtest::next() {
 	if (pos >= prices.size()) return false;
 	Source *src = static_cast<Source *>(source.get());
-	src->setPrice(prices[pos], start_time+static_cast<std::uint64_t>(pos)*60000);
+	trader->get_exchange().reset(std::chrono::system_clock::now());
+	src->setPrice(prices[pos], get_cur_time());
 	trader->run();
 	++pos;
 	return true;
@@ -150,7 +152,10 @@ inline void Backtest::Reporting::reportTrades(double finalPos, ondra_shared::Str
 }
 
 inline void Backtest::Reporting::reportError( const IStatSvc::ErrorObj &errorObj) {
-	owner.error = errorObj;
+	owner.buy_err = errorObj.buyError;
+	owner.sell_err = errorObj.sellError;
+	owner.gen_err = errorObj.genError;
+
 }
 
 inline std::size_t Backtest::Reporting::getHash() const {
@@ -178,4 +183,12 @@ inline void Backtest::Reporting::reportPerformance(const PerformanceReport &) {
 inline void Backtest::Reporting::setInfo(const IStatSvc::Info &info) {
 	owner.info = info;
 
+}
+
+Trader& Backtest::get_trader() {
+	return *trader;
+}
+
+std::uint64_t Backtest::get_cur_time() const {
+	return start_time+static_cast<std::uint64_t>(pos)*60000;
 }

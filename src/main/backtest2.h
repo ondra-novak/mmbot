@@ -38,7 +38,52 @@ public:
 
 	Trader &get_trader();
 
+	std::optional<IStockApi::Order> get_buy_order() const {
+		return buy;
+	}
+
+	double get_cur_price() const {
+		return cur_price;
+	}
+
+
+	const IStatSvc::Info& get_info() const {
+		return info;
+	}
+
+	const IStatSvc::MiscData& get_misc_data() const {
+		return miscData;
+	}
+
+	double get_position() const {
+		return position;
+	}
+
+	std::optional<IStockApi::Order> get_sell_order() const {
+		return sell;
+	}
+
+	const ondra_shared::StringView<IStatSvc::TradeRecord>& get_trades() const {
+		return trades;
+	}
+
+	std::uint64_t get_cur_time() const;
+
+	const std::string& getBuyErr() const {
+		return buy_err;
+	}
+
+	const std::string& getGenErr() const {
+		return gen_err;
+	}
+
+	const std::string& getSellErr() const {
+		return sell_err;
+	}
+
 	class Reporting;
+
+
 
 
 protected:
@@ -51,7 +96,7 @@ protected:
 
 protected: //reported data;
 	ondra_shared::StringView<IStatSvc::TradeRecord> trades;
-	IStatSvc::ErrorObj error;
+	std::string buy_err, sell_err, gen_err;
 	IStatSvc::MiscData miscData;
 	IStatSvc::Info info;
 	std::optional<IStockApi::Order> buy;

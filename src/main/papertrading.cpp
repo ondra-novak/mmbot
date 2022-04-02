@@ -66,15 +66,15 @@ IStockApi::TradesSync AbstractPaperTrading::syncTrades(json::Value lastId,const 
 	}
 
 	std::uint64_t from = lastId["l"].getUIntLong();
+	if (from == st.trades.size()) return TradesSync{{},lastId};
 
-	auto itr = std::upper_bound(st.trades.begin(), st.trades.end(),  Trade{nullptr,from, 0,0,0,0}, [](const Trade &a, const Trade &b){
-		return a.time < b.time;
-	});
+	if (from > st.trades.size()) from = st.trades.size();
+	auto itr = st.trades.begin()+from;
+
 	TradeHistory out(itr, st.trades.end());
 
 	json::Value r = exportState(st);
-	if (!out.empty()) from = out.back().time;
-	r.setItems({{"l", from}});
+	r.setItems({{"l", st.trades.size()}});
 
 	return TradesSync{
 		std::move(out),r
@@ -140,7 +140,7 @@ void AbstractPaperTrading::simulate(TradeState &st) {
 	//get ticker
 	st.ticker = st.source->getTicker(st.src_pair);
 
-	auto now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+	auto now = st.ticker.time;
 
 	if (st.minfo.leverage) {
 		double eq = st.collateral.getEquity(st.ticker.last) + getRawBalance(st).currency;
@@ -174,7 +174,7 @@ void AbstractPaperTrading::simulate(TradeState &st) {
 			//partial execution is not simulated
 
 			char tradeID[100];
-			snprintf(tradeID,100,"%lX-%X", now, cnt);
+ 			snprintf(tradeID,100,"%lX-%X", now, cnt);
 			//create trade from order
 			Trade t;
 			t.id = tradeID;
@@ -409,7 +409,10 @@ void AbstractPaperTrading::importState(TradeState &st, json::Value v) {
 }
 
 PaperTrading::TradeState& PaperTrading::getState(const std::string_view &symbol) {
-	if (state.pair.empty()) state.src_pair= state.pair = symbol;
+	if (state.pair.empty()) {
+		state.src_pair= state.pair = symbol;
+		state.ticker = state.source->getTicker(symbol);
+	}
 	else if (state.pair != symbol) throw std::runtime_error("Market is closed");
 	return state;
 }

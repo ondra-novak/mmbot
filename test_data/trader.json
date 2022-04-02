@@ -1,0 +1,47 @@
+{
+	"init": {
+		"assets": 1,
+		"currency": 50000
+	},
+	"minfo": {
+		"asset_step": 1e-4,
+		"asset_symbol": "BTC",
+		"currency_step": 1,
+		"currency_symbol": "USD",
+		"feeScheme": "currency",
+		"fees": 0,
+		"invert_price": false,
+		"inverted_symbol": "",
+		"leverage": 0,
+		"min_size": 1e-3,
+		"min_volume": 0,
+		"private_chart": false,
+		"simulator": false,
+		"wallet_id": "futures"
+	},
+	"trader": {
+		"pair_symbol": "BTC-PERP",
+		"broker": "ftx",
+		"title": "Test",
+		"strategy": {
+			"type": "pile3",
+			"ratio": 50
+		},
+		"spread": {
+			"type": "adaptive",
+			"raise": 500,
+			"fall": 3,
+			"cap": 100,
+			"mode": "half_alternate",
+			"mult_factor": false,
+			"sma_interval": 18,
+			"stdev_interval": 8,
+			"mult": 0,
+			"sliding": false,
+			"freezee": false
+		},
+		"reset":{
+			"revision": 1
+		}
+	}
+}

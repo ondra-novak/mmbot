@@ -21,16 +21,47 @@ class ISpreadGenerator: public ondra_shared::RefCntObj {
 public:
 
 	virtual ~ISpreadGenerator() {}
+	///Add new point - returns new instance
+	/**
+	 * @param price price of new point
+	 * @return new instance
+	 */
 	virtual PSpreadGenerator add_point(double price) const = 0;
+	///Report executed trade
+	/**
+	 * @param price price of trade
+	 * @param size size of trade
+	 * @return new instance
+	 */
 	virtual PSpreadGenerator report_trade(double price, double size) const = 0;
+	///Reset dynamic multiplier
+	/**
+	 * Resets dynamic multiplier (if implemented)
+	 * @return new instance
+	 */
 	virtual PSpreadGenerator reset_dynmult() const = 0;
+	///Calculates order price
+	/**
+	 * @param side side -1 or 1
+	 * @param equilibrium price equilibrium
+	 * @param dynmult use dynamic multiplicator
+	 * @return price
+	 */
 	virtual double get_order_price(double side, double equilibrium, bool dynmult = true) const = 0;
+	///calculate base spread
 	virtual double get_base_spread() const = 0;
+	///get buy multiplicator
 	virtual double get_buy_mult() const = 0;
+	///get sell multiplicator
 	virtual double get_sell_mult() const = 0;
+	///save state
 	virtual json::Value save() const = 0;
+	///load state
 	virtual PSpreadGenerator load(json::Value) const = 0;
+	///get id
 	virtual std::string_view get_id() const = 0;
+	///returns true if state is valid, false if not valid
+	virtual bool is_valid() const = 0;
 
 };
 
@@ -61,7 +92,7 @@ public:
 		return ptr->get_order_price(side, equilibrium, dynmult);
 	}
 	double get_base_spread() const {
-		return get_base_spread();
+		return ptr->get_base_spread();
 	}
 	json::Value save() const {
 		return ptr->save();

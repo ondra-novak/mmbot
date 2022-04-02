@@ -93,6 +93,7 @@ public:
 
 	static std::string_view id;
 
+	virtual PStrategy3 reset() const override;
 	static void reg(AbstractStrategyRegister &r);
 
 protected:

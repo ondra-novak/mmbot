@@ -119,7 +119,7 @@ Trader::Trader(const Trader_Config &cfg, Trader_Env &&env)
 	if (cfg.hidden) {
 		env.statsvc = nullptr;
 	}
-	env.exchange = selectStock(env.exchange, cfg.swap_mode, cfg.paper_trading);
+	this->env.exchange = selectStock(this->env.exchange, cfg.swap_mode, cfg.paper_trading);
 
 }
 
@@ -180,6 +180,16 @@ void Trader::load_state() {
 		unconfirmed_position = state["unconfirmed_position"].getNumber();
 		last_known_live_position = state["last_known_live_position"].getNumber();
 		last_known_live_balance = state["last_known_live_balance"].getNumber();
+		reset_rev = state["reset_rev"].getUInt();
+		json::Value ach = state["achieve"];
+		if (ach.type() == json::object) {
+			achieve_mode = AchieveMode {
+				ach["position"].getNumber(),
+				ach["balance"].getNumber()
+			};
+		} else {
+			achieve_mode.reset();
+		}
 	}
 
 	trades.clear();
@@ -203,6 +213,7 @@ void Trader::save_state() {
 			state.set("position", position);
 			state.set("unconfirmed_position", unconfirmed_position);
 		}
+		state.set("reset_rev", reset_rev);
 		state.set("completted_trades", completted_trades);
 		state.set("prevTickerTime", prevTickerTime);
 		state.set("last_known_live_position", last_known_live_position);
@@ -211,6 +222,12 @@ void Trader::save_state() {
 		state.set("last_trade_size", last_trade_size);
 		if (last_trade_eq_extra.has_value()) {
 			state.set("last_trade_eq_extra", *last_trade_eq_extra);
+		}
+		if (achieve_mode.has_value()) {
+			state.set("achieve", json::Object{
+				{"position", achieve_mode->position},
+				{"balance", achieve_mode->balance},
+			});
 		}
 
 	}
@@ -257,6 +274,9 @@ IStockApi::Trade Trader::TradesArray::operator [](std::size_t idx) const {
 
 bool Trader::processTrades() {
 	auto newtrades = env.exchange->syncTrades(trade_lastid, cfg.pairsymb);
+	if (newtrades.trades.empty()) {
+		return false;
+	}
 	double prev_neutral = 0;
 	double prev_norm = 0;
 	double last_price = 0;
@@ -264,14 +284,14 @@ bool Trader::processTrades() {
 		prev_neutral = trades.back().neutral_price;
 		prev_norm = trades.back().norm_profit;
 		last_price = trades.back().eff_price;
-	}  else {
-		return false;
 	}
+
 
 	for (const IStockApi::Trade &t: newtrades.trades) {
 		pos_diff = pos_diff(t.eff_price, t.eff_size);
 		acb_state = acb_state(t.eff_price, t.eff_size);
-		spent_currency += t.size * t.price;
+		double volume = t.size * t.price;
+		spent_currency += volume;
 		trades.push_back(Trade(t, prev_norm, 0, prev_neutral));
 		if (env.perfscv != nullptr) {
 			env.perfscv.lock()->sendItem(PerformanceReport{
@@ -285,6 +305,10 @@ bool Trader::processTrades() {
 				acb_state.getRPnL()
 			});
 		}
+		if (achieve_mode.has_value()) {
+			achieve_mode->balance -= volume;
+		}
+		env.spread_gen.report_trade(t.price, t.size);
 	}
 	trade_lastid = newtrades.lastId;
 	return true;
@@ -333,9 +357,28 @@ void Trader::run() {
 		if (!inited) init();
 
 		openOrderCache.reset();
+		schOrders.clear();
 
 		bool any_trades = processTrades();
-		MarketStateEx mst = getMarketState();
+		bool trades_finished = false;
+		if (!first_run) { //do not process trades on first cycle
+			if (target_buy.has_value()) {
+				trades_finished = trades_finished || (pos_diff.getPos() >= *target_buy);
+			}
+			if (target_sell.has_value()) {
+				trades_finished = trades_finished ||  (pos_diff.getPos() <= *target_sell);
+			}
+			if (trades_finished) {
+				last_trade_price  = pos_diff.getOpen();
+				last_trade_size  = pos_diff.getPos();
+				position = position + pos_diff.getPos();
+				pos_diff = ACB(0,0);
+				completted_trades = trades.size();
+				equilibrium = last_trade_price;
+			}
+		}
+
+		MarketStateEx mst = getMarketState(trades_finished);
 
 		if (env.histData != nullptr) {
 			env.histData->store({
@@ -344,56 +387,62 @@ void Trader::run() {
 		}
 
 
+		if (reset_rev < cfg.reset.revision) {
+			do_reset(mst);
+		}
+
+		if (!position_valid) throw std::runtime_error("Need reset");
+
 //		detect_lost_trades(any_trades, mst);
 
-		if (first_run) {
-			mst.event = MarketEvent::start;
-		}
-		else {
-			mst.event = MarketEvent::idle;
-			if (target_buy.has_value()) {
-				if (pos_diff.getPos() >= *target_buy) mst.event = MarketEvent::trade;
-			}
-			if (target_sell.has_value()) {
-				if (pos_diff.getPos() <= *target_sell) mst.event = MarketEvent::trade;
-			}
-			if (mst.event == MarketEvent::trade) {
-				last_trade_price = mst.last_trade_price = pos_diff.getOpen();
-				last_trade_size = mst.last_trade_size = pos_diff.getPos();
-				position = mst.position = position + pos_diff.getPos();
-				pos_diff = ACB(0,0);
-				completted_trades = trades.size();
-			}
-		}
 		Control cntr(*this,mst);
-		env.strategy.run(cntr);
-		if (cntr.eq_allocation.has_value()) {
-			eq_allocation = *cntr.eq_allocation;
-		}
-		if (minfo.leverage) cur_allocation = eq_allocation; else cur_allocation = eq_allocation - mst.position*mst.cur_price;
-		if (cntr.new_neutral_price.has_value()) {
-			neutral_price = *cntr.new_neutral_price;
-		}
-		if (cntr.safeRange.has_value()) {
-			safeRange = *cntr.safeRange;
-		}
+		bool skip_strategy = false;
 
-		if (mst.event == MarketEvent::trade) {
-			double eq_extra = acb_state.getEquity(last_trade_price) - eq_allocation;
-			double chng = last_trade_eq_extra.has_value()?eq_extra - *last_trade_eq_extra:0;
-			last_trade_eq_extra = eq_extra;
-			if (!trades.empty()) {
-				auto &tb = trades.back();
-				tb.norm_profit+=chng;
-				neutral_price = tb.neutral_price = cntr.new_neutral_price.has_value()?*cntr.new_neutral_price:0;
-			}
-			equilibrium = cntr.new_equilibrium.has_value()?*cntr.new_equilibrium:last_trade_price;
-		} else {
-			if (cntr.new_equilibrium.has_value()) {
-				equilibrium = *cntr.new_equilibrium;
+
+		if (achieve_mode.has_value()) {
+			if (!do_achieve(*achieve_mode, cntr)) {
+				if (achieve_mode->balance < 0) {
+					throw std::runtime_error("Achieve has failed - negative available balance - please reset again");
+				}
+				mst.balance = achieve_mode->balance;
+				achieve_mode.reset();
+			} else  {
+				skip_strategy = true;
 			}
 		}
+		if (!skip_strategy){
 
+			if (first_run) {
+				mst.event = MarketEvent::start;
+			}
+			env.strategy.run(cntr);
+			if (cntr.eq_allocation.has_value()) {
+				eq_allocation = *cntr.eq_allocation;
+			}
+			if (minfo.leverage) cur_allocation = eq_allocation; else cur_allocation = eq_allocation - mst.position*mst.cur_price;
+			if (cntr.new_neutral_price.has_value()) {
+				neutral_price = *cntr.new_neutral_price;
+			}
+			if (cntr.safeRange.has_value()) {
+				safeRange = *cntr.safeRange;
+			}
+
+			if (mst.event == MarketEvent::trade) {
+				double eq_extra = acb_state.getEquity(last_trade_price) - eq_allocation;
+				double chng = last_trade_eq_extra.has_value()?eq_extra - *last_trade_eq_extra:0;
+				last_trade_eq_extra = eq_extra;
+				if (!trades.empty()) {
+					auto &tb = trades.back();
+					tb.norm_profit+=chng;
+					neutral_price = tb.neutral_price = cntr.new_neutral_price.has_value()?*cntr.new_neutral_price:0;
+				}
+				equilibrium = cntr.new_equilibrium.has_value()?*cntr.new_equilibrium:last_trade_price;
+			} else {
+				if (cntr.new_equilibrium.has_value()) {
+					equilibrium = *cntr.new_equilibrium;
+				}
+			}
+		}
 
 		env.balanceCache.lock()->put(cfg.broker, minfo.wallet_id, minfo.asset_symbol, mst.broker_assets);
 		env.balanceCache.lock()->put(cfg.broker, minfo.wallet_id, minfo.currency_symbol, mst.broker_currency);
@@ -430,11 +479,14 @@ void Trader::run() {
 				cfg.pairsymb,
 				o.size,
 				o.price,
+				magic,
 				replace_id,
 				replace_size
 			};
 		});
-		env.exchange->batchPlaceOrder(newOrders, newOrders_ids, newOrders_err);
+		if (!newOrders.empty()) {
+			env.exchange->batchPlaceOrder(newOrders, newOrders_ids, newOrders_err);
+		}
 		for (std::size_t cnt = newOrders.size(), i = 0; i < cnt; ++i) {
 			if (!newOrders_err[i].empty()) {
 				if (newOrders[i].size>0) {
@@ -469,8 +521,8 @@ void Trader::run() {
 			}
 			if (cntr.sell_error.has_value()) {
 				buy_error = cntr.sell_error->get_reason();
-				if (cntr.buy_error->price) {
-					new_buy = IStockApi::Order {nullptr, nullptr, cntr.buy_error->price, cntr.buy_error->size};
+				if (cntr.sell_error->price) {
+					new_sell = IStockApi::Order {nullptr, nullptr, cntr.sell_error->price, cntr.sell_error->size};
 				}
 			}
 			for (const auto &x: schOrders) {
@@ -522,20 +574,24 @@ void Trader::run() {
 
 }
 
-Trader::MarketStateEx Trader::getMarketState() {
+Trader::MarketStateEx Trader::getMarketState(bool trades_finished) {
 	MarketStateEx mst;
 	mst.trades = &trarr;
 	mst.minfo = &minfo;
-	mst.event = MarketEvent::idle;
+	mst.event = trades_finished?MarketEvent::trade:MarketEvent::idle;
 
 	IStockApi::Ticker ticker = env.exchange->getTicker(cfg.pairsymb);
 	mst.cur_price = ticker.last;
 	mst.timestamp = ticker.time;
+	double eq = equilibrium?equilibrium:mst.cur_price;
+	env.spread_gen.add_point(mst.cur_price);
 	//Remove fees from prices, because fees will be added back later - strategy counts without fees
 	mst.highest_buy_price = minfo.priceRemoveFees(minfo.tickToPrice(minfo.priceToTick(ticker.ask)-1),1);
 	mst.lowest_sell_price = minfo.priceRemoveFees(minfo.tickToPrice(minfo.priceToTick(ticker.bid)+1),-1);
-	mst.opt_buy_price = minfo.priceRemoveFees(env.spread_gen.get_order_price(1, equilibrium),1);
-	mst.opt_sell_price = minfo.priceRemoveFees(env.spread_gen.get_order_price(1, equilibrium),-1);
+	mst.opt_buy_price = std::min(mst.highest_buy_price,
+				minfo.priceRemoveFees(env.spread_gen.get_order_price(1, eq),1));
+	mst.opt_sell_price = std::max(mst.lowest_sell_price,
+			minfo.priceRemoveFees(env.spread_gen.get_order_price(-1, eq),-1));
 	mst.buy_rejected = rej_buy;
 	mst.sell_rejected = rej_sell;
 
@@ -545,13 +601,15 @@ Trader::MarketStateEx Trader::getMarketState() {
 
 	auto extBal = env.externalBalance.lock_shared();
 
-	double currencyUnadjustedBalance = mst.live_currencies + extBal->get(cfg.broker, minfo.wallet_id, minfo.currency_symbol);
+	double currencyUnadjustedBalance = mst.broker_currency + extBal->get(cfg.broker, minfo.wallet_id, minfo.currency_symbol);
+	double assetsUnadjustedBalance = mst.broker_assets + extBal->get(cfg.broker, minfo.wallet_id, minfo.asset_symbol);
 	auto wdb = env.walletDB.lock_shared();
 	mst.balance = wdb->adjBalance(WalletDB::KeyQuery(cfg.broker,minfo.wallet_id,minfo.currency_symbol,uid),	currencyUnadjustedBalance);
+	mst.avail_assets = wdb->adjBalance(WalletDB::KeyQuery(cfg.broker,minfo.wallet_id,minfo.asset_symbol,uid), assetsUnadjustedBalance);
 	mst.live_currencies = wdb->adjBalance(WalletDB::KeyQuery(cfg.broker,minfo.wallet_id,minfo.currency_symbol,uid),mst.broker_currency);
 	mst.live_assets = wdb->adjBalance(WalletDB::KeyQuery(cfg.broker,minfo.wallet_id,minfo.asset_symbol,uid),mst.broker_assets);
 	mst.equity = minfo.leverage? mst.balance:mst.cur_price * mst.position + mst.balance;
-	mst.last_trade_price = last_trade_price;
+	mst.last_trade_price = last_trade_price?last_trade_size:mst.cur_price;
 	mst.last_trade_size = last_trade_size;
 	mst.open_price = acb_state.getOpen();
 	mst.rpnl = acb_state.getRPnL();
@@ -727,7 +785,7 @@ NewOrderResult Trader::Control::checkBuySize(double price, double size) {
 		if (sz < minsize) return {OrderRequestResult::max_costs,0};
 	}
 
-	if (sz > owner.cfg.max_size) {
+	if (owner.cfg.max_size && sz > owner.cfg.max_size) {
 		sz = owner.cfg.max_size;
 	}
 
@@ -787,7 +845,7 @@ NewOrderResult Trader::Control::checkSellSize(double price, double size) {
 		if (sz < minsize) return {state.minfo->invert_price?OrderRequestResult::max_position:OrderRequestResult::min_position,0};;
 	}
 
-	if (sz > owner.cfg.max_size) {
+	if (owner.cfg.max_size && sz > owner.cfg.max_size) {
 		sz = owner.cfg.max_size;
 	}
 
@@ -812,7 +870,7 @@ NewOrderResult Trader::Control::checkSellSize(double price, double size) {
 bool Trader::isSameOrder(const std::optional<IStockApi::Order> &curOrder, const LimitOrder &newOrder) const {
 	if (curOrder.has_value()) {
 		return minfo.priceToTick(curOrder->price) == minfo.priceToTick(newOrder.price)
-			|| std::abs(curOrder->size - newOrder.size) > minfo.getMinSize(newOrder.price);
+			&& std::abs(curOrder->size - newOrder.size) < minfo.getMinSize(newOrder.price);
 	} else {
 		return false;
 	}
@@ -996,3 +1054,71 @@ Trader::OrderPair Trader::fetchOpenOrders(std::size_t magic) {
 	return res;
 }
 
+void Trader::do_reset(MarketStateEx &st) {
+	auto alloc_pos = cfg.reset.alloc_position;
+	if (!alloc_pos.has_value() && !position_valid) {
+		alloc_pos = std::max(st.avail_assets,0.0);
+	}
+
+	if (alloc_pos.has_value()) {
+		if (position_valid) {
+			double dff = *alloc_pos - position;
+			if (std::abs(dff)>minfo.asset_step) {
+				trades.push_back(Trade({
+					st.timestamp,st.timestamp,dff,st.cur_price,dff,st.cur_price,nullptr
+				},0,0,0,true));
+			}
+			acb_state = acb_state(st.cur_price, dff);
+			pos_diff = ACB(0,0);
+			position = *alloc_pos;
+		} else {
+			position = *alloc_pos;
+			position_valid = true;
+			double openPrice = cfg.init_open;
+			if (openPrice <= 0) {
+				if (minfo.invert_price) openPrice = 1.0/st.cur_price;
+				else openPrice =st.cur_price;
+			}
+			acb_state = ACB(openPrice, position, st.equity);
+			pos_diff = ACB(0,0);
+		}
+	}
+	st.position = position;
+	if (cfg.reset.alloc_currency.has_value()) {
+		st.balance = *cfg.reset.alloc_currency;
+		st.equity = minfo.leverage?st.balance:st.balance+position*st.cur_price;
+	}
+	env.strategy.reset();
+	reset_rev = cfg.reset.revision;
+
+	if (cfg.reset.trade_position.has_value()) {
+		achieve_mode = AchieveMode{
+			*cfg.reset.trade_position,
+			st.balance
+		};
+	}
+	if (cfg.reset.trade_optimal_position) {
+		achieve_mode = AchieveMode{
+			env.strategy.calc_initial_position(st),
+			st.balance
+		};
+
+	}
+}
+
+IStockApi& Trader::get_exchange() {
+	return *env.exchange;
+}
+
+bool Trader::do_achieve(const AchieveMode &ach, Control &cntr) {
+	const MarketState &state = cntr.get_state();
+	double diff = ach.position - state.position;
+	///difference is less then minimal size, we reached our target
+	if (std::abs(diff) < state.minfo->getMinSize(state.cur_price)) return false;
+
+	cntr.cancel_buy();
+	cntr.cancel_sell();
+	if (diff < 0) cntr.limit_sell(-diff, state.lowest_sell_price);
+	else cntr.limit_buy(diff, state.highest_buy_price);
+	return true;
+}

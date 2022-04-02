@@ -26,6 +26,7 @@ public:
 	ChartPoint get_chart_point(double price) const {return ptr->get_chart_point(price);}
 	double calc_initial_position(const MarketState &st) const {return ptr->calc_initial_position(st);}
 	std::string_view get_id() const {return ptr->get_id();}
+	void reset() {ptr = ptr->reset();}
 
 	static json::NamedEnum<OrderRequestResult> strOrderRequestResult;
 protected:
