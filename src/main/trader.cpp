@@ -113,7 +113,7 @@ Trader::Trader(const Trader_Config &cfg, Trader_Env &&env)
 
 	if (cfg.dont_allocate) {
 		//create independed wallet db
-		env.walletDB = env.walletDB.make();
+		env.walletDB = nullptr;
 	}
 
 	if (cfg.hidden) {
@@ -147,12 +147,14 @@ void Trader::init() {
 	update_minfo();
 
 	if (!cfg.dont_allocate || cfg.enabled) {
-		auto clk = env.conflicts.lock();
-		auto r = clk->get(cfg.broker, minfo.wallet_id, cfg.pairsymb);
-		if (r != 0 && r != magic) {
-		      throw std::runtime_error("Conflict: Can't run multiple traders on a single pair \r\n\r\n(To have a disabled trader on the same pair you have to enable 'No budget allocation' on the disabled trader)");
+		if (env.conflicts != nullptr) {
+			auto clk = env.conflicts.lock();
+			auto r = clk->get(cfg.broker, minfo.wallet_id, cfg.pairsymb);
+			if (r != 0 && r != magic) {
+				  throw std::runtime_error("Conflict: Can't run multiple traders on a single pair \r\n\r\n(To have a disabled trader on the same pair you have to enable 'No budget allocation' on the disabled trader)");
+			}
+			clk->put(cfg.broker, minfo.wallet_id, cfg.pairsymb, magic);
 		}
-		clk->put(cfg.broker, minfo.wallet_id, cfg.pairsymb, magic);
 	}
 
 
@@ -369,12 +371,15 @@ void Trader::run() {
 				trades_finished = trades_finished ||  (pos_diff.getPos() <= *target_sell);
 			}
 			if (trades_finished) {
-				last_trade_price  = pos_diff.getOpen();
-				last_trade_size  = pos_diff.getPos();
-				position = position + pos_diff.getPos();
-				pos_diff = ACB(0,0);
-				completted_trades = trades.size();
-				equilibrium = last_trade_price;
+				double open = pos_diff.getOpen();
+				if (std::isfinite(open)) {
+					last_trade_price  = pos_diff.getOpen();
+					last_trade_size  = pos_diff.getPos();
+					position = position + pos_diff.getPos();
+					pos_diff = ACB(0,0);
+					completted_trades = trades.size();
+					equilibrium = last_trade_price;
+				}
 			}
 		}
 
@@ -429,7 +434,7 @@ void Trader::run() {
 
 			if (mst.event == MarketEvent::trade) {
 				double eq_extra = acb_state.getEquity(last_trade_price) - eq_allocation;
-				double chng = last_trade_eq_extra.has_value()?eq_extra - *last_trade_eq_extra:0;
+				double chng = last_trade_eq_extra.has_value()?eq_extra - *last_trade_eq_extra:0.0;
 				last_trade_eq_extra = eq_extra;
 				if (!trades.empty()) {
 					auto &tb = trades.back();
@@ -444,12 +449,16 @@ void Trader::run() {
 			}
 		}
 
-		env.balanceCache.lock()->put(cfg.broker, minfo.wallet_id, minfo.asset_symbol, mst.broker_assets);
-		env.balanceCache.lock()->put(cfg.broker, minfo.wallet_id, minfo.currency_symbol, mst.broker_currency);
-		env.walletDB.lock()->alloc({cfg.broker, minfo.wallet_id, minfo.currency_symbol, uid},minfo.leverage
+		if (env.balanceCache != nullptr) {
+			env.balanceCache.lock()->put(cfg.broker, minfo.wallet_id, minfo.asset_symbol, mst.broker_assets);
+			env.balanceCache.lock()->put(cfg.broker, minfo.wallet_id, minfo.currency_symbol, mst.broker_currency);
+		}
+		if (env.walletDB != nullptr) {
+			env.walletDB.lock()->alloc({cfg.broker, minfo.wallet_id, minfo.currency_symbol, uid},minfo.leverage
 					?eq_allocation :eq_allocation-mst.last_trade_price*acb_state.getPos());
-		if (!minfo.leverage)  {
-			env.walletDB.lock()->alloc({cfg.broker, minfo.wallet_id, minfo.asset_symbol, uid},acb_state.getPos());
+			if (!minfo.leverage)  {
+				env.walletDB.lock()->alloc({cfg.broker, minfo.wallet_id, minfo.asset_symbol, uid},acb_state.getPos());
+			}
 		}
 
 		strategy_report_state = cntr.rpt;
@@ -460,7 +469,7 @@ void Trader::run() {
 		newOrders.clear();
 		std::transform(schOrders.begin(), schOrders.end(), std::back_inserter(newOrders), [&](const ScheduledOrder &o){
 			json::Value replace_id;
-			double replace_size;
+			double replace_size =0;
 			if (o.size > 0) {
 				if (cur_orders.buy.has_value()) {
 					replace_id = cur_orders.buy->id;
@@ -599,15 +608,30 @@ Trader::MarketStateEx Trader::getMarketState(bool trades_finished) {
 	mst.broker_currency =  env.exchange->getBalance(minfo.currency_symbol, cfg.pairsymb);
 	mst.position = position;
 
-	auto extBal = env.externalBalance.lock_shared();
+	double currencyUnadjustedBalance;
+	double assetsUnadjustedBalance;
+	if (env.externalBalance == nullptr) {
 
-	double currencyUnadjustedBalance = mst.broker_currency + extBal->get(cfg.broker, minfo.wallet_id, minfo.currency_symbol);
-	double assetsUnadjustedBalance = mst.broker_assets + extBal->get(cfg.broker, minfo.wallet_id, minfo.asset_symbol);
-	auto wdb = env.walletDB.lock_shared();
-	mst.balance = wdb->adjBalance(WalletDB::KeyQuery(cfg.broker,minfo.wallet_id,minfo.currency_symbol,uid),	currencyUnadjustedBalance);
-	mst.avail_assets = wdb->adjBalance(WalletDB::KeyQuery(cfg.broker,minfo.wallet_id,minfo.asset_symbol,uid), assetsUnadjustedBalance);
-	mst.live_currencies = wdb->adjBalance(WalletDB::KeyQuery(cfg.broker,minfo.wallet_id,minfo.currency_symbol,uid),mst.broker_currency);
-	mst.live_assets = wdb->adjBalance(WalletDB::KeyQuery(cfg.broker,minfo.wallet_id,minfo.asset_symbol,uid),mst.broker_assets);
+		currencyUnadjustedBalance = mst.broker_currency;
+		assetsUnadjustedBalance = mst.broker_assets;
+	} else {
+		auto extBal = env.externalBalance.lock_shared();
+		currencyUnadjustedBalance = mst.broker_currency + extBal->get(cfg.broker, minfo.wallet_id, minfo.currency_symbol);
+		assetsUnadjustedBalance = mst.broker_assets + extBal->get(cfg.broker, minfo.wallet_id, minfo.asset_symbol);
+	}
+	if (env.walletDB == nullptr) {
+		mst.balance = currencyUnadjustedBalance;
+		mst.avail_assets = assetsUnadjustedBalance;
+		mst.live_currencies = mst.broker_currency;
+		mst.live_assets = mst.broker_assets;
+	} else {
+		auto wdb = env.walletDB.lock_shared();
+		mst.balance = wdb->adjBalance(WalletDB::KeyQuery(cfg.broker,minfo.wallet_id,minfo.currency_symbol,uid),	currencyUnadjustedBalance);
+		mst.avail_assets = wdb->adjBalance(WalletDB::KeyQuery(cfg.broker,minfo.wallet_id,minfo.asset_symbol,uid), assetsUnadjustedBalance);
+		mst.live_currencies = wdb->adjBalance(WalletDB::KeyQuery(cfg.broker,minfo.wallet_id,minfo.currency_symbol,uid),mst.broker_currency);
+		mst.live_assets = wdb->adjBalance(WalletDB::KeyQuery(cfg.broker,minfo.wallet_id,minfo.asset_symbol,uid),mst.broker_assets);
+
+	}
 	mst.equity = minfo.leverage? mst.balance:mst.cur_price * mst.position + mst.balance;
 	mst.last_trade_price = last_trade_price?last_trade_size:mst.cur_price;
 	mst.last_trade_size = last_trade_size;
@@ -767,7 +791,7 @@ NewOrderResult Trader::Control::checkBuySize(double price, double size) {
 
 	if (!std::isfinite(price) || price <= 0 || price > state.highest_buy_price) return {OrderRequestResult::invalid_price,0};
 	double minsize = state.minfo->getMinSize(price);
-	double sz = size;
+	double sz = owner.minfo.adjValue(size, owner.minfo.asset_step, [](double x){return std::round(x);});
 	if (sz < minsize) return {OrderRequestResult::too_small, minsize};
 
 	const auto &max_pos = state.minfo->invert_price?owner.cfg.min_position:owner.cfg.max_position;
@@ -833,7 +857,8 @@ NewOrderResult Trader::Control::checkSellSize(double price, double size) {
 
 	if (!std::isfinite(price) || price < state.lowest_sell_price) return {OrderRequestResult::invalid_price,0};
 	double minsize = state.minfo->getMinSize(price);
-	double sz = size;
+	double sz = owner.minfo.adjValue(size, owner.minfo.asset_step, [](double x){return std::round(x);});
+
 	if (sz < minsize) return {OrderRequestResult::too_small, minsize};
 
 	const auto &min_pos = state.minfo->invert_price?owner.cfg.max_position:owner.cfg.min_position;
@@ -1079,7 +1104,7 @@ void Trader::do_reset(MarketStateEx &st) {
 				if (minfo.invert_price) openPrice = 1.0/st.cur_price;
 				else openPrice =st.cur_price;
 			}
-			acb_state = ACB(openPrice, position, st.equity);
+			acb_state = ACB(openPrice, position);
 			pos_diff = ACB(0,0);
 		}
 	}
@@ -1104,6 +1129,7 @@ void Trader::do_reset(MarketStateEx &st) {
 		};
 
 	}
+	st.equity = minfo.leverage?st.balance:st.balance+st.cur_price*st.position;
 }
 
 IStockApi& Trader::get_exchange() {

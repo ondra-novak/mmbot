@@ -67,6 +67,8 @@ struct Trader_Reset {
 
 };
 
+
+
 struct Trader_Config {
 	std::string pairsymb;
 	std::string broker;
@@ -104,7 +106,7 @@ struct Trader_Env {
 	PStorage state_storage;
 	PHistStorage<HistMinuteDataItem> histData;
 	PWalletDB walletDB;
-	PWalletDB accumDB;
+//	PWalletDB accumDB;
 	PBalanceMap balanceCache;
 	PBalanceMap externalBalance;
 	PBalanceMap conflicts;

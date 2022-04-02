@@ -32,7 +32,7 @@
 			"raise": 500,
 			"fall": 3,
 			"cap": 100,
-			"mode": "half_alternate",
+			"mode": "independent",
 			"mult_factor": false,
 			"sma_interval": 18,
 			"stdev_interval": 8,

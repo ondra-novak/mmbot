@@ -126,11 +126,11 @@ void Backtest::start(std::vector<double> &&prices, std::uint64_t start_time) {
 		nullptr,
 		nullptr,
 		nullptr,
-		PWalletDB::make(),
-		PWalletDB::make(),
-		PBalanceMap::make(),
-		PBalanceMap::make(),
-		PBalanceMap::make(),
+		nullptr,//PWalletDB::make(),
+		//PWalletDB::make(),
+		nullptr,//PBalanceMap::make(),
+		nullptr,//PBalanceMap::make(),
+		nullptr,//PBalanceMap::make(),
 	});
 	this->start_time = start_time;
 	trader->get_exchange().reset(std::chrono::system_clock::now());
