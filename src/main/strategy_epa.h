@@ -29,6 +29,8 @@ public:
 		double target_exit_price_distance;
     double exit_power_mult;
 
+		double reduction_midpoint = 0.5d;
+
 		bool backtest;
 	};
 

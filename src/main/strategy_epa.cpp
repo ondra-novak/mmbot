@@ -43,9 +43,13 @@ double Strategy_Epa::calculateSize(double price, double assets) const {
 		// buy
 		size = (st.budget * cfg.initial_bet_perc_of_budget) / price;
 	}	else if (price < st.enter) {
-		if (st.currency / price < effectiveAssets) {
+
+		double half = ((st.currency / price) + effectiveAssets) * cfg.reduction_midpoint;
+		double hhSize = half - effectiveAssets;
+		
+		if (half < effectiveAssets) {
 			// sell
-			size = (((st.currency / price) + effectiveAssets) * 0.5) - effectiveAssets;
+			size = hhSize;
 		} else {
 			// buy
 			double angleRad = cfg.angle * M_PI / 180;
@@ -58,7 +62,7 @@ double Strategy_Epa::calculateSize(double price, double assets) const {
 			double power = std::min(std::pow(norm, 4) * cfg.power_mult, cfg.power_cap);
 			double newSize = candidateSize * power;
 
-			size = std::isnan(newSize) ? 0 : std::max(0.0, newSize);
+			size = std::isnan(newSize) ? 0 : std::max(0.0, std::min(hhSize, newSize));
 		}
 	} else {
 		// sell
@@ -181,7 +185,7 @@ double Strategy_Epa::getCenterPrice(double lastPrice, double assets) const {
 		return cp;
 	}
 
-	double center = st.currency / effectiveAssets;
+	double center = st.currency * cfg.reduction_midpoint / effectiveAssets / (1 - cfg.reduction_midpoint);
 	center = std::min(st.enter, center);
 
 	logInfo("getCenterPrice: lastPrice=$1, assets=$2 -> $3", lastPrice, assets, center);
