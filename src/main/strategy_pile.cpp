@@ -218,22 +218,21 @@ ChartPoint Strategy3_Pile::get_chart_point(double price) const {
 }
 
 PStrategy3 Strategy3_Pile::run(AbstractTraderControl &cntr) const {
-	const auto &st = cntr.get_state();
+	const MarketState &st = cntr.get_state();
 	if (constant <= 0) { //if constant is zero, not inited
 		double c = calcConstant(ratio, st.cur_price, st.equity);
 		if (c <= 0) throw std::runtime_error("Strategy - failed initialize");
 		return (new Strategy3_Pile(ratio,c))->run(cntr);
 	}
 
-	for (double p: {st.opt_buy_price, st.opt_sell_price}) {
+	for (double p: {st.sug_buy_price, st.sug_sell_price}) {
 		auto r = cntr.alter_position(calcPos(ratio, constant, p),p);
 		if (r.state == OrderRequestResult::too_small) cntr.alter_position(r.v, calcPriceFromPos(ratio, constant, r.v));
 	}
 
 	cntr.set_equilibrium_price(calcPriceFromPos(ratio, constant, st.position));
 	double alloc = calcAlloc(ratio, constant, st.last_trade_price);
-	double budget = calcBudget(ratio, constant, st.cur_price);
-	cntr.set_currency_allocation(alloc);
+	double budget = calcBudget(ratio, constant, st.event_price);
 	cntr.set_equity_allocation(budget);
 	cntr.set_safe_range({
 		st.live_currencies>=alloc

@@ -38,22 +38,17 @@ struct MarketState {
 	const IStockApi::MarketInfo *minfo;
 	///all trades
 	const AbstractArray<IStockApi::Trade> *trades;
-
 	///Event causing this operation
-	MarketEvent event;
-
-	///Timestamp for the event.
-	/**
-	 * If multiple events happened, the timestamp can be same for all events
-	 */
-	std::uint64_t timestamp;
-
+	MarketEvent event; //start, idle, trade
+	///Current time - time when the strategy is called
+	std::uint64_t cur_time;
+	///Event time - time when reported event happened
+	std::uint64_t event_time;
 	///current position
 	double position;
 	///balance (currency)
 	double balance;
-	///equity
-	/** Equity contains position*cur_price+balance, but it is only balance on leveraged market */
+	///equity - position*cur_price+balance, but it is only balance on leveraged market */
 	double equity;
 	///current open price
 	double open_price;
@@ -61,14 +56,26 @@ struct MarketState {
 	double cur_leverage;
 	///current price aggregated
 	double cur_price;
+	///price for to current event
+	double event_price;
+	///equity calculated for the event
+	double event_equity;
 	///lowest price where you can put sell order
 	double lowest_sell_price;
 	///highest price where you can put buy order
 	double highest_buy_price;
 	///optimal buy price - calculated by spread generator
-	double opt_buy_price;
+	double sug_buy_price;
 	///optimal sell price - calculated by spread generator
-	double opt_sell_price;
+	double sug_sell_price;
+	///price of last trade
+	double last_trade_price;
+	///size of the last trade
+	double last_trade_size;
+	///assets live on market - can be different than position - can be used to calculate safe range
+	double live_assets;
+	///currencies live on market - can be different than position - can be used to calculate safe range
+	double live_currencies;
 	///current realized pnl
 	double rpnl;
 	///current unrealized pnl
@@ -77,16 +84,9 @@ struct MarketState {
 	bool buy_rejected;
 	///is set to true, when sell order was rejected by the stock market during previous cycle
 	bool sell_rejected;
-	///trade now is active. Strategy should place order at op_sell_price or op_buy_price
+	///trade now is active. Strategy should place order to be executed as soon as possible
+	/// By default sug_buy_price and sug_sell_price are set accordingly
 	bool trade_now;
-	///price of last trade
-	double last_trade_price;
-	///size of the last trade
-	double last_trade_size;
-	///assets live on market - can be different than position - can be used to calculate tradeable range
-	double live_assets;
-	///currencies live on markat - can be different than position - can be used to calculate tradeable range
-	double live_currencies;
 };
 
 enum class OrderRequestResult {
@@ -231,12 +231,28 @@ public:
 	 * @note The strategy should call this function during `start` event and should
 	 * update allocation appropriately as situation changes on market. On spot markets, this
 	 * can be done during `trade` event
+	 *
+	 * @note It is recommended to use set_equity_allocation
 	 */
 	virtual void set_currency_allocation(double allocation) = 0;
 	///Sets equity allocation
 	/**
-	 * Allocates equity. Useful for leveraged markets, however it is used also for
-	 * some calculations for UI. If not set (at least once), currency_allocation + last_trade_price*position is used
+	 * Allocates equity. Equity consists of currency and value of held assets.
+	 * To measure normalized profit, the trader will compare reported allocation
+	 * between each trade by following formula
+	 *
+	 * equity_current_trade - equity_alloc_current_trade - equity_prev_trade +equity_alloc_prev_trade
+	 *
+	 * It is possible to calculate equity allocation when MarketEvent::idle using the current
+	 * price, however you should use last_trade_price to calculate equity allocation when MarketEvent::trade
+	 *
+	 * @param allocation current equity allocation
+	 *
+	 * This function also sets currency allocation simply by substracting position
+	 * value from the equity and result value is used to calculate extra balance
+	 *
+	 * @note function should be used instead set_currency_allocation()equity_prev_trade
+	 *
 	 */
 	virtual void set_equity_allocation(double allocation) = 0;
 

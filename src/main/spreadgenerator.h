@@ -109,6 +109,9 @@ public:
 	double get_sell_mult() const {
 		return ptr->get_sell_mult();
 	}
+	const ISpreadGenerator *operator->() const {
+		return ptr;
+	}
 
 
 

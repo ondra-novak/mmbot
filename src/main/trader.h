@@ -172,6 +172,8 @@ protected:
 		double broker_currency;
 		///extra assets / position from perspective of this trader
 		double avail_assets;
+
+		PSpreadGenerator spread_new_state;
 	};
 
 	struct LimitOrder {
@@ -280,7 +282,7 @@ protected:
 	std::uint64_t prevTickerTime = 0;
 
 	///target amounts, fetch from orders to determine, when report trade to the strategy
-	std::optional<double> target_buy, target_sell;
+	double target_buy = 0, target_sell = 0;
 
 	///Buy was previously rejected
 	bool rej_buy = false;
@@ -305,7 +307,7 @@ protected:
 	void save_state();
 
 	bool processTrades();
-	MarketStateEx getMarketState(bool trades_finished);
+	MarketStateEx getMarketState(bool trades_finished) const;
 	void close_all_orders();
 	void detect_lost_trades(bool any_trades, const MarketStateEx &mst);
 
