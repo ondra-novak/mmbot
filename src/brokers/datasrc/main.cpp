@@ -8,8 +8,6 @@
 #include <sstream>
 #include <imtjson/value.h>
 #include <imtjson/operations.h>
-#include <simpleServer/urlencode.h>
-#include <simpleServer/http_client.h>
 #include <imtjson/string.h>
 #include "../httpjson.h"
 #include "shared/stringview.h"
@@ -17,7 +15,7 @@
 using json::String;
 using json::Value;
 
-static HTTPJson httpc(simpleServer::HttpClient(simpleServer::HttpClient::defUserAgent, simpleServer::newHttpsProvider(), nullptr,nullptr),"");
+static HTTPJson httpc("");
 
 String transformString(std::string_view str, int (*fn)(int)) {
 	return String(str.size(), [&](char *s){
@@ -29,7 +27,6 @@ String transformString(std::string_view str, int (*fn)(int)) {
 }
 
 Value readPrices(const std::string_view &asset, const std::string_view &currency, std::uint64_t fromTime) {
-	std::ostringstream url;
 
 	httpc.set_reading_fn([next_tm = std::chrono::system_clock::now()]()mutable{
 		auto n = std::chrono::system_clock::now();
@@ -41,12 +38,11 @@ Value readPrices(const std::string_view &asset, const std::string_view &currency
 	});
 
 
-	url << "https://prices.mmbot.trade/minute?asset="
-			<< simpleServer::urlEncode(asset)
-			<< "&currency=" << simpleServer::urlEncode(currency)
-			<< "&from=" << fromTime;
-
-	return httpc.GET(url.str()).map([&](Value v){return v[1];});
+	return httpc.GETq("https://prices.mmbot.trade/minute",json::Object {
+		{"asset",asset},
+		{"currency",currency},
+		{"from", fromTime}
+	}).map([&](Value v){return v[1];});
 
 }
 

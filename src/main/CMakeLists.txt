@@ -18,4 +18,4 @@ add_executable (mmbot
 		report.cpp
 		papertrading.cpp
 	)
-target_link_libraries (mmbot LINK_PUBLIC simpleServer imtjson )
+target_link_libraries (mmbot LINK_PUBLIC userver imtjson )

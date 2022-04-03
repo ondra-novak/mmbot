@@ -121,7 +121,7 @@ using namespace json;
 ByBitBroker::ByBitBroker(const std::string &secure_storage_path)
 	:AbstractBrokerAPI(secure_storage_path, APIKeyFormat)
  	 ,curTime(15)
- 	 ,api(simpleServer::HttpClient("MMBOT (+https://www.mmbot.trade)", simpleServer::newHttpsProvider(), nullptr, simpleServer::newCachedDNSProvider(15)),"https://api.bybit.com")
+ 	 ,api("https://api.bybit.com")
 {
 	nonce = std::time(nullptr);
 }
@@ -770,13 +770,13 @@ json::Value ByBitBroker::privateDELETESpot(std::string_view uri, json::Value par
 }
 
 void ByBitBroker::handleException(const HTTPJson::UnknownStatusException &ex) {
-	auto s = ex.response.getBody();
-	try {
-		Value r (Value::parse(s));
-		handleError(r);
-	} catch (const ParseError &er) {
+	auto s = ex.body;
+	if (s.defined() ){
+		handleError(s);
+	} else {
+		throw std::runtime_error(std::to_string(ex.code)+" "+ex.message);
 	}
-	throw std::runtime_error(std::to_string(ex.code)+" "+ex.message);
+
 }
 
 Value ByBitBroker::publicGET(std::string_view uri) const {

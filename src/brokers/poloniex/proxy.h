@@ -28,14 +28,12 @@ public:
 	json::Value getTicker();
 
 
-	json::Value public_request(std::string method, json::Value data);
-	json::Value private_request(std::string method, json::Value data);
+	json::Value public_request(std::string_view method, json::Value data);
+	json::Value private_request(std::string_view method, json::Value data);
 
 	bool hasKey() const;
 	bool debug = false;
 
-private:
-	void buildParams(const json::Value& params, std::ostream& data);
 };
 
 

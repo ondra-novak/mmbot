@@ -1,4 +1,3 @@
-#include <simpleServer/urlencode.h>
 #include <imtjson/string.h>
 #include <imtjson/object.h>
 
@@ -9,6 +8,7 @@
 
 #include <shared/countdown.h>
 #include <shared/logOutput.h>
+#include "../../userver/ssl.h"
 #include "../httpjson.h"
 #include "../log.h"
 #include "tradingengine.h"
@@ -18,10 +18,16 @@ using ondra_shared::logDebug;
 using ondra_shared::logError;
 using ondra_shared::logWarning;
 
-QuoteStream::QuoteStream(simpleServer::HttpClient &httpc, std::string url, ReceiveQuotesFn &&cb)
+QuoteStream::QuoteStream(std::string url, ReceiveQuotesFn &&cb)
 :url(url)
 ,cb(std::move(cb))
-,httpc(httpc)
+,httpc({
+	"Mozilla/5.0 (compatible; MMBot/3.0; +https://github.com/ondra-novak/mmbot)",
+	10000,10000,
+	nullptr,
+	userver::sslConnectFn(),
+	nullptr
+})
 {
 
 }
@@ -30,17 +36,48 @@ QuoteStream::~QuoteStream() {
 	stopped = true;
 	Sync _(lock);
 	if (ws != nullptr) {
-		ws.close();
+		ws->close();
 		_.unlock();
 		thr.join();
 		_.lock();
 	}
 }
 
+static std::string urlEncode(std::string_view x) {
+	std::string out;
+	json::urlEncoding->encodeBinaryValue(json::map_str2bin(x),[&](std::string_view x){
+		out.append(x);
+	});
+	return out;
+}
+
+inline std::shared_ptr<userver::WSStream> wsConnect(userver::HttpClient &httpclient, const userver::HttpClient::URL &url, std::string_view cookie, int *code_out = nullptr) {
+
+	using namespace userver;
+	if (code_out) *code_out = 0;
+	std::unique_ptr<HttpClientRequest> req = httpclient.open("GET", url);
+	if (req == nullptr) return nullptr;
+	req->addHeader("Connection", "upgrade");
+	req->addHeader("Upgrade","websocket");
+	req->addHeader("Sec-WebSocket-Version","13");
+	req->addHeader("Sec-WebSocket-Key","dGhlIHNhbXBsZSBub25jZQ==");
+	req->addHeader("Cookie",cookie);
+	int code = req->send();
+	if (code_out) *code_out = code;
+	if (code != 101) return nullptr;
+	if (req->get("Upgrade") != "websocket") {
+		if (code_out) *code_out = -1;
+		return nullptr;
+	}
+	return std::make_shared<WSStream>(std::move(req->getStream()), true);
+}
+
+
 SubscribeFn QuoteStream::connect() {
 	Sync _(lock);
+	using namespace ondra_shared;
 
-	HTTPJson hj(simpleServer::HttpClient(httpc),url);
+	HTTPJson hj(url);
 	json::Value headers;
 	json::Value v = hj.GET("negotiate?clientProtocol=1.5&connectionData=%5B%7B%22name%22%3A%22quotessubscribehub%22%7D%5D&_="+std::to_string(TradingEngine::now()),std::move(headers));
 	json::Value cookie = headers["set-cookie"];
@@ -49,26 +86,34 @@ SubscribeFn QuoteStream::connect() {
 
 
 
-	std::string enctoken = simpleServer::urlEncode(v["ConnectionToken"].toString());
+	std::string enctoken = urlEncode(v["ConnectionToken"].toString());
 
 	std::string wsurl = url+"connect?transport=webSockets&ConnectionToken="+enctoken+"&clientProtocol=1.5&connectionData=%5B%7B%22name%22%3A%22quotessubscribehub%22%7D%5D";
 	logDebug("Opening stream: $1", wsurl);
 
-	ws = simpleServer::connectWebSocket(httpc, wsurl, simpleServer::SendHeaders()("cookie", cookeText));
-	ws.getStream().setIOTimeout(30000);
+	int code;
+	ws = wsConnect(hj.getClient(),wsurl, cookeText, &code);
+	if (ws == nullptr) throw std::runtime_error(std::string("Failed to connect: error ")+std::to_string(code));
+
 
 	ondra_shared::Countdown cnt(1);
 
 	std::thread t2([this, &cnt]{
-		bool rr = ws.readFrame();
-		while (rr && ws.getFrameType() != simpleServer::WSFrameType::text) {
-			logDebug("Received frame type: $1", (int)ws.getFrameType());
-			rr = ws.readFrame();
+		auto  t = ws->recvSync();
+		while (t != userver::WSFrameType::text) {
+			logDebug("Received frame type: $1", (int)t);
+			if (t == userver::WSFrameType::incomplete || t == userver::WSFrameType::connClose) {
+				break;
+			}
+			t = ws->recvSync();
+
 		}
-		logDebug("Received initial frame : $1 - connected", ws.getText());
+		logDebug("Received initial frame : $1 - connected", ws->getData());
 		cnt.dec();
 		try {
-			if (rr) processMessages(); else {
+			if (t != userver::WSFrameType::incomplete) {
+				processMessages();
+			} else {
 				std::this_thread::sleep_for(std::chrono::seconds(10));
 				reconnect();
 			}
@@ -84,14 +129,8 @@ SubscribeFn QuoteStream::connect() {
 	try {
 		hj.GET(starturl,std::move(reqhdrs));
 	} catch (const HTTPJson::UnknownStatusException &e) {
-		std::string s;
-		auto body = e.response.getBody();
-		StrViewA c = StrViewA(body.read());
-		while (!c.empty()) {
-			s.append(c.data, c.length);
-			c = StrViewA(body.read());
-		}
-		logError("Unable to start stream: $1", s);
+		auto body = e.body;
+		logError("Unable to start stream: $1", body.toString().str());
 		throw;
 	}
 
@@ -104,13 +143,13 @@ SubscribeFn QuoteStream::connect() {
 			{"M","getLastPrices"},
 			{"A",A},
 			{"I",this->cnt++}});
-		ws.postText(data.stringify().str());
+		ws->send(userver::WSFrameType::text, data.stringify().str());
 		data = json::Object({
 			{"H","quotessubscribehub"},
 			{"M","subscribeList"},
 			{"A",A},
 			{"I",this->cnt++}});
-		ws.postText(data.stringify().str());
+		ws->send(userver::WSFrameType::text, data.stringify().str());
 
 		subscribed.insert(std::string(symbol));
 		logDebug("+++ Subscribed $1, currently: $2", symbol, LogRange<decltype(subscribed.begin())>(subscribed.begin(), subscribed.end(), ","));
@@ -136,28 +175,28 @@ void QuoteStream::processQuotes(const json::Value& quotes) {
 					{"M","unsubscribeList"},
 					{"A", json::Value(json::array, {json::Value(json::array, { s }) })},
 					{"I", this->cnt++}});
-			ws.postText(data.stringify().str());
+			ws->send(userver::WSFrameType::text, data.stringify().str());
 			subscribed.erase(s.getString());
 			logDebug("--- Unsubscribed $1, currently: $2", s, LogRange<decltype(subscribed.begin())>(subscribed.begin(), subscribed.end(), ","));
 		}
 	}
 }
 
-json::NamedEnum<simpleServer::WSFrameType> frameTypes({
-	{simpleServer::WSFrameType::binary,"binary"},
-	{simpleServer::WSFrameType::connClose,"connClose"},
-	{simpleServer::WSFrameType::incomplete,"incomplete (EOF)"},
-	{simpleServer::WSFrameType::init,"init"},
-	{simpleServer::WSFrameType::ping,"ping"},
-	{simpleServer::WSFrameType::pong,"pong"},
-	{simpleServer::WSFrameType::text,"text"},
+json::NamedEnum<userver::WSFrameType> frameTypes({
+	{userver::WSFrameType::binary,"binary"},
+	{userver::WSFrameType::connClose,"connClose"},
+	{userver::WSFrameType::incomplete,"incomplete (EOF)"},
+	{userver::WSFrameType::init,"init"},
+	{userver::WSFrameType::ping,"ping"},
+	{userver::WSFrameType::pong,"pong"},
+	{userver::WSFrameType::text,"text"},
 });
 
 void QuoteStream::processMessages() {
 	do {
-		if (ws.getFrameType() == simpleServer::WSFrameType::text) {
+		if (ws->getFrameType() == userver::WSFrameType::text) {
 			try {
-				json::Value data = json::Value::fromString(ws.getText());
+				json::Value data = json::Value::fromString(ws->getData());
 
 				json::Value R = data["R"];
 				if (R.defined()) {
@@ -179,12 +218,12 @@ void QuoteStream::processMessages() {
 					}
 				}
 			} catch (std::exception &e) {
-				logError("Exception: $1 (discarded frame: $2)", e.what(), ws.getText());
+				logError("Exception: $1 (discarded frame: $2)", e.what(), ws->getData());
 			}
 		}
-	} while (ws.readFrame());
+	} while (ws->recvSync() != userver::WSFrameType::incomplete);
 
-	logWarning("Stream closed - reconnect (frameType: $1)", frameTypes[ws.getFrameType()]);
+	logWarning("Stream closed - reconnect (frameType: $1)", frameTypes[ws->getFrameType()]);
 
 	std::this_thread::sleep_for(std::chrono::seconds(3));
 

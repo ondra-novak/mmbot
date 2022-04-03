@@ -12,4 +12,4 @@ add_executable (simplefx
 	 market.cpp
 	 
 )
-target_link_libraries (simplefx LINK_PUBLIC brokers_common simpleServer imtjson)
+target_link_libraries (simplefx LINK_PUBLIC brokers_common userver imtjson)

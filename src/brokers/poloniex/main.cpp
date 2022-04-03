@@ -7,7 +7,6 @@
 #include <iostream>
 #include <unordered_map>
 
-#include <rpc/rpcServer.h>
 #include <imtjson/operations.h>
 #include "proxy.h"
 #include <cmath>
@@ -17,6 +16,7 @@
 #include "../isotime.h"
 #include <imtjson/stringValue.h>
 #include <shared/linear_map.h>
+#include "../../shared/stringview.h"
 #include "../orderdatadb.h"
 
 using namespace json;
@@ -219,14 +219,14 @@ json::Value Interface::placeOrder(const std::string_view & pair,
 			{"currencyPair", pair},
 			{"orderNumber",  replaceId}
 		}));
-		StrViewA msg = z["message"].getString();
+		auto msg = z["message"].getString();
 		if (z["success"].getUInt() != 1  ||
 				z["amount"].getNumber()<std::fabs(replaceSize)*0.999999)
 				throw std::runtime_error(
-						std::string("Place order failed on cancel (replace): ").append(msg.data, msg.length));
+						std::string("Place order failed on cancel (replace): ").append(msg));
 	}
 
-	StrViewA fn;
+	std::string_view fn;
 	if (size < 0) {
 		fn = "sell";
 		size = -size;
@@ -263,9 +263,9 @@ bool Interface::reset() {
 
 inline Interface::MarketInfo Interface::getMarketInfo(const std::string_view &pair) {
 
-	auto splt = StrViewA(pair).split("_",2);
-	StrViewA cur = splt();
-	StrViewA asst = splt();
+	auto splt = ondra_shared::StrViewA(pair).split("_",2);
+	auto cur = splt();
+	auto asst = splt();
 
 	auto currencies = px.public_request("returnCurrencies", Value());
 	if (!currencies[cur].defined() ||

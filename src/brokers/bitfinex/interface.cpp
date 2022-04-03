@@ -14,7 +14,6 @@
 #include <map>
 
 #include <imtjson/object.h>
-#include <simpleServer/http_client.h>
 #include <imtjson/operations.h>
 #include <imtjson/parser.h>
 #include <imtjson/string.h>
@@ -38,10 +37,8 @@ Interface::Interface(const std::string &secure_storage_path)
 							{"label","API Key secret"},
 							{"type","string"}})
 			}),
-	api_pub(simpleServer::HttpClient(userAgent,simpleServer::newHttpsProvider(), nullptr,simpleServer::newCachedDNSProvider(60)),
-			"https://api-pub.bitfinex.com"),
-	api(simpleServer::HttpClient(userAgent,simpleServer::newHttpsProvider(), nullptr,simpleServer::newCachedDNSProvider(60)),
-			"https://api.bitfinex.com"),
+	api_pub("https://api-pub.bitfinex.com"),
+	api("https://api.bitfinex.com"),
 	orderDB(secure_storage_path+".db")
 {
 	nonce = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now())*10;
@@ -348,7 +345,6 @@ std::string numberToFixed(double numb, int fx) {
 }
 
 json::Value Interface::placeOrder(const std::string_view &pair, double size, double price, json::Value clientId, json::Value replaceId, double replaceSize) {
-	try {
 		if (replaceId.hasValue()) {
 			if (size != 0 && replaceSize != 0) {
 				double dir = size < 0?-1:1;
@@ -395,14 +391,6 @@ json::Value Interface::placeOrder(const std::string_view &pair, double size, dou
 		} else {
 			return nullptr;
 		}
-	} catch (HTTPJson::UnknownStatusException &e) {
-		try {
-			json::Value v = json::Value::parse(e.response.getBody());
-			throw std::runtime_error(v.toString().str());
-		} catch (...) {
-			throw;
-		}
-	}
 }
 
 double Interface::getFees(const std::string_view &pair) {
@@ -556,29 +544,11 @@ double Interface::getFeeFromTrade(Value trade, const PairInfo &pair) {
 }
 
 Value Interface::signedPOST(std::string_view path, Value body) const {
-	try {
-		return api.POST(path, body,signRequest(path, body));
-	} catch (HTTPJson::UnknownStatusException &e) {
-		try {
-			json::Value v = json::Value::parse(e.response.getBody());
-			throw std::runtime_error(v.join(" ").str());
-		} catch (...) {
-			throw;
-		}
-	}
+	return api.POST(path, body,signRequest(path, body));
 }
 
 Value Interface::publicGET(std::string_view path) const {
-	try {
-		return api_pub.GET(path);
-	} catch (HTTPJson::UnknownStatusException &e) {
-		try {
-			json::Value v = json::Value::parse(e.response.getBody());
-			throw std::runtime_error(v.join(" ").str());
-		} catch (...) {
-			throw;
-		}
-	}
+	return api_pub.GET(path);
 }
 
 json::Value Interface::getMarkets() const {

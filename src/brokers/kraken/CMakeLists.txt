@@ -8,4 +8,4 @@ add_executable (kraken main.cpp
 					interface.cpp
 					
 )
-target_link_libraries (kraken LINK_PUBLIC brokers_common simpleServer imtjson )
+target_link_libraries (kraken LINK_PUBLIC brokers_common userver imtjson )

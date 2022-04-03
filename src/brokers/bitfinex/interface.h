@@ -8,6 +8,7 @@
 #ifndef SRC_BITFINEX_INTERFACE_H_
 #define SRC_BITFINEX_INTERFACE_H_
 #include <chrono>
+#include <map>
 #include <optional>
 
 #include "../api.h"

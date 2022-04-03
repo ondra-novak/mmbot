@@ -12,7 +12,6 @@
 #include <imtjson/string.h>
 #include <imtjson/binjson.tcc>
 #include <imtjson/serializer.h>
-#include <simpleServer/urlencode.h>
 #include "../api.h"
 #include "../httpjson.h"
 
@@ -184,7 +183,7 @@ static json::Value createAuthStr(const std::string_view &username, const std::st
 inline DBConn::DBConn(const std::string_view &url,
 		const std::string_view &login, const std::string_view &password,
 		const std::string_view &ident)
-:api(simpleServer::HttpClient("", simpleServer::newHttpsProvider(), 0, 0), url)
+:api(url)
 ,auth(createAuthStr(login, password))
 ,ident(ident)
 {
@@ -196,7 +195,7 @@ inline void DBConn::put(const std::string_view &name, const json::Value &data) {
 		json::Value res = api.PUT(buildPath(name), data, json::Value(auth));
 		rev = res["rev"];
 	} catch (HTTPJson::UnknownStatusException &e) {
-		if (e.getStatusCode() == 409) {
+		if (e.code == 409) {
 			updateRev();
 			json::Value res = api.PUT(buildPath(name), data, json::Value(auth));
 			rev = res["rev"];
@@ -221,16 +220,12 @@ inline std::string DBConn::buildPath(const std::string_view &name) const {
 	std::string out;
 	out.reserve(100);
 	out.push_back('/');
-	auto fn = [&](char c) {
-		out.push_back(c);
-	};
 	out.append(cfg_prefix);
-	simpleServer::UrlEncode<decltype(fn) &> encoder(fn);
-	for (char c: ident) encoder(c);
+	json::urlEncoding->encodeBinaryValue(json::map_str2bin(ident), [&](const std::string_view &x){out.append(x);});
 	out.push_back('/');
 	if (name.empty()) out.append("empty_empty");
 	else if (name[0] == '_') out.push_back('X');
-	for (char c: name) encoder(c);
+	json::urlEncoding->encodeBinaryValue(json::map_str2bin(name), [&](const std::string_view &x){out.append(x);});
 	if (rev.defined()) {
 		out.append("?rev=");
 		out.append(rev.getString());
@@ -247,8 +242,8 @@ inline void DBConn::put_trade(const json::Value &trade) {
 		buff.push_back(c);
 	});
 	id = trade_prefix;
-	base64url->encodeBinaryValue(json::map_str2bin(buff),[&](StrViewA str){
-		id.append(str.data, str.length);
+	base64url->encodeBinaryValue(json::map_str2bin(buff),[&](std::string_view str){
+		id.append(str.data(), str.length());
 	});
 	Value doc = trade.replace("_id", id).replace("ident", ident);
 	trades.push_back(doc);
@@ -289,25 +284,24 @@ inline json::Value DBConn::get_report(bool rep) {
 		Value day_date_to = {ident, ""};
 
 		std::string uri;
-		auto srl_to_url=[&](char c){uri.push_back(c);};
-		simpleServer::UrlEncode<decltype(srl_to_url) &> enc(srl_to_url);
+		auto srl_to_url=[&](std::string_view c){uri.append(c);};
 
 		uri.reserve(200);
 		uri.append("/_design/report/_view/month?group_level=3");
 		uri.append("&exclude_end=false");
 		uri.append("&start_key=");
-		month_date_from.serialize(enc);
+		json::urlEncoding->encodeBinaryValue(json::map_str2bin(month_date_from.stringify().str()), srl_to_url);
 		uri.append("&end_key=");
-		month_date_to.serialize(enc);
+		json::urlEncoding->encodeBinaryValue(json::map_str2bin(month_date_to.stringify().str()), srl_to_url);
 
 		Value month_data = api.GET(uri, Value(auth))["rows"];
 
 		uri.clear();
 		uri.append("/_design/report/_view/day?group_level=3");
 		uri.append("&start_key=");
-		day_date_from.serialize(enc);
+		json::urlEncoding->encodeBinaryValue(json::map_str2bin(day_date_from.stringify().str()), srl_to_url);
 		uri.append("&end_key=");
-		day_date_to.serialize(enc);
+		json::urlEncoding->encodeBinaryValue(json::map_str2bin(day_date_to.stringify().str()), srl_to_url);
 
 		Value day_data = api.GET(uri, Value(auth))["rows"];
 
@@ -378,13 +372,13 @@ inline json::Value DBConn::get_report(bool rep) {
 				Value("sums", jsums),
 		});
 	} catch (HTTPJson::UnknownStatusException &e) {
-		if (e.getStatusCode() == 404) {
+		if (e.code == 404) {
 			try {
 				api.POST("/", design_document, Value(auth));
 				if (rep) return get_report(false);
 				else throw;
 			} catch (HTTPJson::UnknownStatusException &e) {
-				if (e.getStatusCode() == 403) {
+				if (e.code == 403) {
 					return Value(object,{
 							Value("hdrs", {"Date","Error"}),
 							Value("rows", {std::chrono::system_clock::to_time_t(std::chrono::system_clock::now()),"Database account need temporary admin level to initialize database"}),

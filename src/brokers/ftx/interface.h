@@ -12,8 +12,8 @@
 #include <thread>
 
 #include <imtjson/string.h>
-#include "../../server/src/simpleServer/websockets_stream.h"
-#include "../../shared/shared_object.h"
+#include <shared/shared_object.h>
+#include "../../userver/websockets_stream.h"
 
 #include "../api.h"
 #include "../httpjson.h"
@@ -62,10 +62,7 @@ protected:
 							    const std::string_view &path,
 								const json::Value &body) ;
 
-		std::int64_t time_diff = 0;
-		std::int64_t time_sync = 0;
 		int order_nonce;
-		void setTime(std::int64_t t);
 		std::int64_t now();
 		int genOrderNonce();
 
@@ -147,7 +144,7 @@ protected:
 	double getMarkPrice(const std::string_view &pair);
 
 	std::recursive_mutex wslock;
-	simpleServer::WebSocketStream ws;
+	std::shared_ptr<userver::WSStream> ws;
 	std::thread ws_reader;
 	bool checkWSHealth();
 	void ws_disconnect();

@@ -59,7 +59,7 @@ public:
 					{"sandbox","Sandbox (test)"}})}
 			})
 		})
-	,httpc(simpleServer::HttpClient("MMBot 2.0 coinbase API client", simpleServer::newHttpsProvider(), nullptr, nullptr),"https://api.pro.coinbase.com")
+	,httpc("https://api.pro.coinbase.com")
 	,orderdb(path+".db")
 
 	{
@@ -117,19 +117,6 @@ std::int64_t timeOffset = 0;
 std::uint64_t timeOffsetValidity = 0;
 
 
-static void handleError() {
-	try {
-		throw;
-	} catch (const HTTPJson::UnknownStatusException &exp) {
-		json::Value resp;
-		try {resp = json::Value::parse(exp.response.getBody());} catch (...) {}
-		if (resp.hasValue()) {
-			throw std::runtime_error(resp["message"].getString());
-		} else {
-			throw;
-		}
-	}
-}
 
 std::string toUpperCase(std::string_view z) {
 	std::string r;
@@ -175,21 +162,18 @@ Value Interface::createHeaders(std::string_view method, std::string_view path, V
 
 
 double Interface::getBalance(const std::string_view& symb, const std::string_view & pair) {
-	try {
-		if (!balanceCache.hasValue()) {
-			std::string path = "/accounts";
-			balanceCache = httpc.GET(path,createHeaders("GET",path,Value()));
-		}
-		Value f = balanceCache.find([&](Value v) {
-			return v["currency"].getString() == symb;
-		});
-		return f["balance"].getNumber();
-	} catch (...) {handleError();throw;}
+	if (!balanceCache.hasValue()) {
+		std::string path = "/accounts";
+		balanceCache = httpc.GET(path,createHeaders("GET",path,Value()));
+	}
+	Value f = balanceCache.find([&](Value v) {
+		return v["currency"].getString() == symb;
+	});
+	return f["balance"].getNumber();
 }
 
 
 inline Interface::TradesSync Interface::syncTrades(json::Value lastId,const std::string_view& pair) {
-	try {
 		std::string path = "/fills?product_id=";
 		path.append(pair);
 		std::size_t plen = path.length();
@@ -244,7 +228,6 @@ inline Interface::TradesSync Interface::syncTrades(json::Value lastId,const std:
 		}
 
 		return {};
-	} catch (...) {handleError();throw;}
 }
 /*
 static Value decodeClientID(const Value coid) {
@@ -265,7 +248,6 @@ static Value encodeClientID(const Value coid, std::uint64_t nonce) {
 }
 */
 inline Interface::Orders Interface::getOpenOrders(const std::string_view& pair) {
-	try {
 		if (!orderCache.hasValue()) {
 			std::string path="/orders";
 			orderCache = httpc.GET(path,createHeaders("GET",path,Value()));
@@ -285,11 +267,9 @@ inline Interface::Orders Interface::getOpenOrders(const std::string_view& pair) 
 				ord["price"].getNumber()
 			};
 		},Orders());
-	} catch (...) {handleError();throw;}
 }
 
 inline Interface::Ticker Interface::getTicker(const std::string_view& pair) {
-	try {
 		std::ostringstream buff;
 		buff << "/products/" << pair << "/ticker";
 		Value v = httpc.GET(buff.str());
@@ -299,14 +279,12 @@ inline Interface::Ticker Interface::getTicker(const std::string_view& pair) {
 			v["price"].getNumber(),
 			parseTime(v["time"].toString(), ParseTimeFormat::iso)
 		};
-	} catch (...) {handleError();throw;}
 
 }
 
 inline json::Value Interface::placeOrder(const std::string_view& pair,
 		double size, double price, json::Value clientId, json::Value replaceId,
 		double replaceSize) {
-	try {
 		if (replaceId.hasValue()) {
 			std::string path = "/orders/"; path.append(replaceId.getString());
 			httpc.DELETE(path,Value(),createHeaders("DELETE",path,Value()));
@@ -327,9 +305,6 @@ inline json::Value Interface::placeOrder(const std::string_view& pair,
 		}
 
 		return nullptr;
-	} catch (...) {
-		handleError();throw;
-	}
 
 
 
@@ -380,16 +355,12 @@ inline double Interface::getFees(const std::string_view& pair) {
 }
 
 inline std::vector<std::string> Interface::getAllPairs() {
-	try {
 		Value v = httpc.GET("/products");
 		auto res = mapJSON(v, [&](Value x) {
 			return x["id"].toString().str();
 		},std::vector<std::string>());
 		std::sort(res.begin(), res.end());
 		return res;
-	} catch (...) {
-		handleError();throw;
-	}
 }
 
 bool Interface::canTrade() const {

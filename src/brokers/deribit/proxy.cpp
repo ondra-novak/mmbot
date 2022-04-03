@@ -19,17 +19,13 @@
 
 #include <imtjson/string.h>
 #include <imtjson/object.h>
-#include <simpleServer/http_client.h>
 #include <imtjson/parser.h>
 #include <shared/logOutput.h>
 
 using ondra_shared::logDebug;
-using namespace simpleServer;
 
 Proxy::Proxy()
-:httpc(HttpClient("MMBot Deribit broker",
-		newHttpsProvider(),
-		newNoProxyProvider(), newCachedDNSProvider(60)), "")
+:httpc("")
  {
 	setTestnet(false);
 }
@@ -62,16 +58,7 @@ json::Value Proxy::request(std::string_view method, json::Value params, bool aut
 	try {
 		resp = httpc.POST(apiUrl,req,headers);
 	} catch (const HTTPJson::UnknownStatusException &e) {
-		try {
-			resp = json::Value::parse(e.response.getBody());
-		} catch (...) {
-			std::string buff;
-			auto stream = e.response.getBody();
-			for (StrViewA x (stream.read());!x.empty();x = StrViewA(stream.read())) {
-				buff.append(x.data, x.length);
-			}
-			resp = json::Object({{"error", json::Object({{"code",e.getStatusCode()},{"message", buff}})}});
-		}
+		resp = json::Object({{"error", json::Object({{"code",e.code},{"message", e.body}})}});
 	}
 	json::Value success = resp["result"];
 	json::Value error = resp["error"];

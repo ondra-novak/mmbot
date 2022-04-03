@@ -8,4 +8,4 @@ add_executable (bitfinex main.cpp
 					interface.cpp
 					structs.cpp
 )
-target_link_libraries (bitfinex LINK_PUBLIC brokers_common simpleServer imtjson )
+target_link_libraries (bitfinex LINK_PUBLIC brokers_common userver imtjson )

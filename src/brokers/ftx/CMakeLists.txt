@@ -7,4 +7,4 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin/brokers/)
 add_executable (ftx main.cpp
 					interface.cpp					
 )
-target_link_libraries (ftx LINK_PUBLIC brokers_common simpleServer imtjson )
+target_link_libraries (ftx LINK_PUBLIC brokers_common userver imtjson )

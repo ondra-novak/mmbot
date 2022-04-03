@@ -9,7 +9,6 @@
 #include <imtjson/binjson.tcc>
 #include <imtjson/operations.h>
 #include <shared/toString.h>
-#include <simpleServer/urlencode.h>
 #include "../../shared/logOutput.h"
 #include "gokumarket.h"
 
@@ -79,7 +78,7 @@ static Value apiKeyFmt ({
 
 GokumarketIFC::GokumarketIFC(const std::string &cfg_file)
 	:AbstractBrokerAPI(cfg_file, apiKeyFmt)
-	,api(simpleServer::HttpClient("mmbot (+https://www.mmbot.trade)",simpleServer::newHttpsProvider(), 0, simpleServer::newCachedDNSProvider(15)),"https://publicapi.gokumarket.com")
+	,api("https://publicapi.gokumarket.com")
 	,orderDB(cfg_file+".db")
 {
 }
@@ -303,25 +302,11 @@ IStockApi::Ticker GokumarketIFC::getTicker(const std::string_view &pair) {
 
 Value GokumarketIFC::publicGET(const std::string_view &uri, Value query) const {
 	try {
-		return api.GET(buildUri(uri, query));
+		return api.GETq(uri, query);
 	} catch (const HTTPJson::UnknownStatusException &e) {
 		processError(e,false);
 		throw;
 	}
-}
-
-const std::string& GokumarketIFC::buildUri(const std::string_view &uri, Value query) const {
-	uriBuffer.clear();
-	uriBuffer.append(uri);
-	char c='?';
-	for (Value v: query) {
-		uriBuffer.push_back(c);
-		uriBuffer.append(v.getKey());
-		uriBuffer.push_back('=');
-		simpleServer::urlEncoder([&](char x){uriBuffer.push_back(x);})(v.toString());
-		c = '&';
-	}
-	return uriBuffer;
 }
 
 bool GokumarketIFC::hasKey() const {
@@ -330,7 +315,8 @@ bool GokumarketIFC::hasKey() const {
 
 Value GokumarketIFC::privateGET(const std::string_view &uri, Value query, int retries)  const{
 	try {
-		std::string fulluri = buildUri(uri, query);
+		std::string fulluri (uri);
+		HTTPJson::buildQuery(query, fulluri, "?");
 		return processResponse(api.GET(fulluri,signRequest("GET", fulluri, query)));
 	} catch (const HTTPJson::UnknownStatusException &e) {
 		if (processError(e, retries>0)) return privateGET(uri, query, retries-1);
@@ -349,7 +335,8 @@ Value GokumarketIFC::privatePOST(const std::string_view &uri, Value args, int re
 
 Value GokumarketIFC::privateDELETE(const std::string_view &uri, Value query) const {
 	try {
-		std::string fulluri = buildUri(uri, query);
+		std::string fulluri (uri);
+		HTTPJson::buildQuery(query, fulluri, "?");
 		return processResponse(api.DELETE(fulluri,Value(),signRequest("DELETE", fulluri, Value())));
 	} catch (const HTTPJson::UnknownStatusException &e) {
 		processError(e, false);
@@ -393,16 +380,12 @@ Value GokumarketIFC::signRequest(const std::string_view &method, const std::stri
 
 bool GokumarketIFC::processError(const HTTPJson::UnknownStatusException &e, bool canRetry) const {
 	std::ostringstream buff;
-	buff << e.getStatusCode() << " " << e.getStatusMessage();
-	try {
-		auto s = e.response.getBody();
-		json::Value error = json::Value::parse(s);
-		buff <<  " - " <<  error["message"].getString();
-	} catch (...) {
-
+	buff << e.code << " " << e.message;
+	if (e.body.defined()) {
+		buff <<  " - " <<  e.body["message"].getString();
 	}
-	if (e.getStatusCode() == 429 && canRetry) {
-		int rt = e.response.getHeaders()["Retry-After"].getInt();
+	if (e.code == 429 && canRetry) {
+		int rt = e.headers["Retry-After"].getInt();
 		if (rt > 0 && rt < 15) {
 			logNote("Waiting $1 seconds", rt);
 			for (int i = 0; i < rt; i+=2) {

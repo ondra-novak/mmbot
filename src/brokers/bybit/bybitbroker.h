@@ -5,6 +5,7 @@
  *      Author: ondra
  */
 
+#include <map>
 #include <shared/linear_map.h>
 #include "../api.h"
 #include "../timesync.h"

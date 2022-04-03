@@ -9,6 +9,8 @@
 #define SRC_BROKERS_SOUTHXCHANGE_INTERFACE_H_
 
 #include <chrono>
+#include <map>
+
 #include "../api.h"
 #include "../httpjson.h"
 #include "../orderdatadb.h"

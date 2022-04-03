@@ -18,58 +18,27 @@
 
 #include <imtjson/string.h>
 #include <imtjson/parser.h>
-#include <simpleServer/http_client.h>
-#include <simpleServer/urlencode.h>
 #include <imtjson/object.h>
 #include <shared/logOutput.h>
 
 using ondra_shared::logDebug;
-using namespace simpleServer;
 
 
 Proxy::Proxy(const std::string &apiUrl, const std::string &timeUri)
-:httpc(HttpClient("+https://mmbot.trade",
-		newHttpsProvider(),
-		newNoProxyProvider()), apiUrl)
-,timeUri(timeUri)
+:httpc(apiUrl)
 
 {
 }
 
 
 std::uint64_t Proxy::now() {
-	return std::chrono::duration_cast<std::chrono::milliseconds>(
-						 std::chrono::steady_clock::now().time_since_epoch()
-						 ).count() + this->time_diff;
-
+	return std::chrono::duration_cast<std::chrono::milliseconds>(httpc.now().time_since_epoch()).count();
 }
 
-void Proxy::setTime(std::uint64_t t ) {
-	this->time_diff = 0;
-	auto n = now();
-	this->time_diff = t - n;
-}
 
-void Proxy::buildParams(const json::Value& params, std::ostream& data) {
-	std::string_view sep = "?";
-	for (json::Value field : params) {
-		data << sep << field.getKey() << "=";
-		json::String s = field.toString();
-		if (!s.empty()) {
-			data << simpleServer::urlEncode(s);
-		}
-		sep = "&";
-	}
-}
 
 json::Value Proxy::public_request(std::string method, json::Value data) {
-	std::ostringstream urlbuilder;
-	urlbuilder << apiUrl <<  method;
-	buildParams(data, urlbuilder);
-	std::ostringstream response;
-
-	return httpc.GET(urlbuilder.str());
-
+	return httpc.GETq(method, data);
 }
 
 static std::string signData(std::string_view key, std::string_view data) {
@@ -91,30 +60,16 @@ json::Value Proxy::private_request(Method method, const std::string &command, js
 		throw std::runtime_error("Function requires valid API keys");
 
 	auto n = now();
-	if (n > time_sync) {
-		json::Value tdata = public_request(timeUri,json::Value());
-		auto m = tdata["serverTime"].getUIntLong();
-		setTime(m);
-		n = now();
-		time_sync = n + (3600*1000); //- one hour
-		logDebug("Time sync: $1. Next sync at: $2", n, time_sync);
-
-	}
 	data = data.replace("timestamp", n);
-
 
 	std::ostringstream urlbuilder;
 	urlbuilder << command;
 
-	std::ostringstream databld;
-	buildParams(data, databld);
-
-	std::string request = databld.str().substr(1);
+	std::string request;
+	HTTPJson::buildQuery(data, request);
 	std::string sign = signData(privKey.str(),request);
 	std::string url = urlbuilder.str();
 	request.append("&signature=").append(sign);
-
-
 
 	std::ostringstream response;
 
@@ -123,31 +78,18 @@ json::Value Proxy::private_request(Method method, const std::string &command, js
 	json::Object headers;
 	headers.set("X-MBX-APIKEY",pubKey);
 
-	try {
-		if (method == GET) {
-			url = url + "?" + request;
-			res = httpc.GET(url, headers);
-		} else if (method == DELETE) {
-			url = url + "?" + request;
-			res = httpc.DELETE(url,json::String(), headers);
+	if (method == GET) {
+		url = url + "?" + request;
+		res = httpc.GET(url, headers);
+	} else if (method == DELETE) {
+		url = url + "?" + request;
+		res = httpc.DELETE(url,json::String(), headers);
+	} else {
+		headers.set("Content-Type","application/x-www-form-urlencoded");
+		if (method == POST) {
+			res = httpc.POST(url, request, headers);
 		} else {
-			headers.set("Content-Type","application/x-www-form-urlencoded");
-			if (method == POST) {
-				res = httpc.POST(url, request, headers);
-			} else {
-				res = httpc.PUT(url, request, headers);
-			}
-		}
-	} catch (const HTTPJson::UnknownStatusException &e) {
-		json::Value err;
-		try {err = json::Value::parse(e.response.getBody());} catch (...) {}
-		if (!err.hasValue()) throw;
-		if (err["code"].defined()) {
-			json::String msg({err["code"].toString()," ",err["msg"].toString()});
-			throw std::runtime_error(msg.c_str());
-		}
-		else {
-			throw std::runtime_error(err.toString().c_str());
+			res = httpc.PUT(url, request, headers);
 		}
 	}
 	return res;

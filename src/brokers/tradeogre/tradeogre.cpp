@@ -20,10 +20,6 @@
 #include <imtjson/operations.h>
 #include "../../main/ibrokercontrol.h"
 #include "../../main/istockapi.h"
-#include "../../server/src/simpleServer/abstractStream.h"
-#include "../../server/src/simpleServer/exceptions.h"
-#include "../../server/src/simpleServer/http_client.h"
-#include "../../server/src/simpleServer/urlencode.h"
 #include "../../shared/logOutput.h"
 
 using ondra_shared::logDebug;
@@ -92,7 +88,7 @@ static std::pair<std::string_view,std::string_view> extractSymbols(std::string_v
 
 TradeOgreIFC::TradeOgreIFC(const std::string &cfg_file)
 	:AbstractBrokerAPI(cfg_file, apiKeyFmt)
-	,api(simpleServer::HttpClient("mmbot (+https://www.mmbot.trade)",simpleServer::newHttpsProvider(), 0, simpleServer::newCachedDNSProvider(15)),"https://tradeogre.com/api")
+	,api("https://tradeogre.com/api")
 	,orderDB(cfg_file+".db", 1000)
 {
 	api.setForceJSON(true);
@@ -373,7 +369,7 @@ const std::string& TradeOgreIFC::buildUri(const std::string_view &uri, Value que
 			snprintf(buff,200,"%.8f", v.getNumber());
 			uriBuffer.append(buff);
 		} else {
-			simpleServer::urlEncoder([&](char x){uriBuffer.push_back(x);})(v.toString());
+			uriBuffer.append(HTTPJson::urlEncode(v.toString()));
 		}
 		c = '&';
 	}
@@ -411,13 +407,10 @@ Value TradeOgreIFC::privatePOST(const std::string_view &uri, Value args) const {
 
 void TradeOgreIFC::processError(const HTTPJson::UnknownStatusException &e) const {
 	std::ostringstream buff;
-	buff << e.getStatusCode() << " " << e.getStatusMessage();
-	try {
-		auto s = e.response.getBody();
-		json::Value error = json::Value::parse(s);
+	buff << e.code << " " << e.message;
+	if (e.body.defined()) {
+		auto error = e.body;
 		buff <<  " - " << error["code"].getUInt() << " " << error["msg"].getString();
-	} catch (...) {
-
 	}
 	throw std::runtime_error(buff.str());
 }

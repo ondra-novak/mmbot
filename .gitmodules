@@ -7,3 +7,6 @@
 [submodule "src/shared"]
 	path = src/shared
 	url = https://www.github.com/ondra-novak/ondra_shared.git
+[submodule "src/userver"]
+	path = src/userver
+	url = https://github.com/ondra-novak/userver.git

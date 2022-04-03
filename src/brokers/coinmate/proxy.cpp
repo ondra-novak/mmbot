@@ -17,17 +17,15 @@
 #include <chrono>
 
 #include <imtjson/string.h>
-#include <simpleServer/http_client.h>
-#include <simpleServer/urlencode.h>
 #include <imtjson/object.h>
 #include <shared/logOutput.h>
 
 using ondra_shared::logDebug;
-using namespace simpleServer;
+
 
 static constexpr std::uint64_t start_time = 1557858896532;
 Proxy::Proxy()
-	:httpc(HttpClient("MMBot coinmate broker", newHttpsProvider(), newNoProxyProvider()), "https://coinmate.io/api/")
+	:httpc("https://coinmate.io/api/")
 	{
 	auto now = std::chrono::system_clock::now();
 	std::uint64_t init_time = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count() - start_time;
@@ -80,23 +78,16 @@ json::Value Proxy::request(Method method, std::string path, json::Value data) {
 	return v["data"];
 }
 
-std::string Proxy::createQuery(json::Value data) {
-	std::ostringstream out;
+const std::string &Proxy::createQuery(json::Value data) {
+	buffer.clear();
 	if (hasKey()) {
 		auto sig = createSignature();
-		out << "clientId=" << clientid
-			<< "&publicKey=" << pubKey
-			<< "&nonce=" << sig.second
-			<< "&signature=" << sig.first;
+		buffer.append("clientId=").append(clientid)
+			  .append("&publicKey=").append(pubKey)
+			  .append("&nonce=").append(std::to_string(sig.second))
+			  .append("&signature=").append(sig.first);
 	}
-
-	for(json::Value x: data) {
-		out << "&" << x.getKey() << "=";
-		json::String s = x.toString();
-		if (!s.empty()) {
-			out << urlEncode(s.str());
-		}
-	}
-	return out.str();
+	HTTPJson::buildQuery(data, buffer, "&");
+	return buffer;
 
 }

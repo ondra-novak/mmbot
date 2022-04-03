@@ -9,18 +9,20 @@
 #define SRC_SIMPLEFX_QUOTESTREAM_H_
 
 #include <thread>
-#include <simpleServer/websockets_stream.h>
-#include <simpleServer/http_client.h>
 #include <shared/linear_set.h>
+#include "../../userver/http_client.h"
+#include "../../userver/websockets_stream.h"
 
 
 #include "datasrc.h"
+
+using userver::WSStream;
 
 
 class QuoteStream {
 public:
 
-	QuoteStream(simpleServer::HttpClient &httpc, std::string url, ReceiveQuotesFn &&cb);
+	QuoteStream(std::string url, ReceiveQuotesFn &&cb);
 	~QuoteStream();
 
 	SubscribeFn connect();
@@ -33,8 +35,8 @@ protected:
 	ReceiveQuotesFn cb;
 	bool stopped = false;
 
-	simpleServer::HttpClient &httpc;
-	simpleServer::WebSocketStream ws;
+	userver::HttpClient httpc;
+	std::shared_ptr<userver::WSStream> ws;
 
 	std::thread thr;
 	std::recursive_mutex lock;

@@ -7,21 +7,25 @@
 
 #include <imtjson/string.h>
 #include <imtjson/parser.h>
+#include <imtjson/serializer.h>
 #include "httpjson.h"
 
-#include <simpleServer/urlencode.h>
 #include "../shared/logOutput.h"
+#include <userver/ssl.h>
+
 #include "log.h"
 
 using ondra_shared::logDebug;
-using simpleServer::urlEncode;
 
-HTTPJson::HTTPJson(simpleServer::HttpClient &&httpc,
-		const std::string_view &baseUrl)
-:httpc(std::move(httpc)),baseUrl(baseUrl)
-{
-	httpc.setConnectTimeout(5000);
-	httpc.setIOTimeout(10000);
+HTTPJson::HTTPJson(const std::string_view &baseUrl)
+:httpc({
+	"Mozilla/5.0 (compatible; MMBot/3.0; +https://github.com/ondra-novak/mmbot)",
+	10000,10000,
+	nullptr,
+	userver::sslConnectFn(),
+	nullptr
+}),baseUrl(baseUrl),baseUrlSz(baseUrl.size()){
+
 }
 
 
@@ -31,80 +35,98 @@ enum class BodyType {
 	json
 };
 
-static simpleServer::SendHeaders hdrs(const json::Value &headers) {
-
-	simpleServer::SendHeaders hdr;
-	for (json::Value v: headers) {
-		auto k = v.getKey();
-		if (k != "Connection") {
-			hdr(k, v.toString().str());
+class Hdrs {
+public:
+	Hdrs(const json::Value &v) {
+		lines.reserve(v.size()+2);
+		bool add_accept = true;
+		for (json::Value x: v) {
+			if (!userver::HeaderValue::iequal(x.getKey(),"connection")) {
+				lines.push_back({
+					x.getKey(), x.toString().str()
+				});
+			}
+			if (userver::HeaderValue::iequal(x.getKey(),"accept")) add_accept = false;
 		}
-
+		lines.push_back({"Connection","close"});
+		if (add_accept) {
+			lines.push_back({"Accept","application/json"});
+		}
 	}
-	hdr("Connection","close");
-	if (!headers["Accept"].defined()) hdr("Accept","application/json");
-	return hdr;
-}
+	operator userver::HttpClient::HeaderList() const {
+		return userver::HttpClient::HeaderList(lines.data(), lines.size());
+	}
 
-json::Value HTTPJson::parseResponse(simpleServer::HttpResponse &resp, json::Value &headers) {
+protected:
+	std::vector<userver::HttpClient::HeaderPair> lines;
+
+};
+
+json::Value HTTPJson::parseResponse(userver::PHttpClientRequest &resp, json::Value &headers) {
 	json::Value r;
 	json::Object hh;
-	StrViewA ctx = resp.getHeaders()["Content-Type"];
-	for (auto &&k: resp.getHeaders()) {
+	auto ctx = resp->get("Content-Type");
+	for (auto &&k: *resp) {
 		std::string name;
 		std::transform(k.first.begin(), k.first.end(), std::back_inserter(name), tolower);
 		hh.set(name, std::string_view(k.second));
 	}
-	if (force_json || ctx.indexOf("application/json") != ctx.npos) {
-		BinaryView b;
-		std::size_t pos = 0;
-		auto s = resp.getBody();
+	if (force_json || ctx.find("application/json") != ctx.npos) {
+		auto &s = resp->getResponse();
 		r = json::Value::parse([&]{
-			if (pos >= b.length) {
-				b = s.read();
-				if (b.empty()) return -1;
-				pos = 0;
-				if (reading_fn != nullptr) reading_fn();
-			}
-			return int(b[pos++]);
+			return s.getChar();
 		});
 	} else {
-		std::ostringstream buff;
-		auto s = resp.getBody();
-		BinaryView b = s.read();
-		while (!b.empty()) {
-			buff.write(reinterpret_cast<const char*>(b.data), b.length);
-			if (reading_fn != nullptr) reading_fn();
-			b = s.read();
+		buffer.clear();
+		auto &s = resp->getResponse();
+		int i=s.getChar();
+		while(i>=0){
+			buffer.push_back(static_cast<char>(i));
+			i=s.getChar();
 		}
-		r = buff.str();
+
+		r = std::string_view(buffer.data(),buffer.size());
 	}
 	headers =hh;
 	return r;
 }
 
-
 json::Value HTTPJson::GET(const std::string_view &path, json::Value &&headers, unsigned int expectedCode) {
-	std::string url = baseUrl;
-	url.append(path);
+	return GETq(path,json::Value(),std::move(headers), expectedCode);
+}
 
-	logDebug("GET $1", url);
 
-	auto resp = httpc.request("GET", url, hdrs(headers));
-	const simpleServer::ReceivedHeaders &hdrs = resp.getHeaders();
-	simpleServer::HeaderValue datehdr = hdrs["Date"];
-	if (datehdr.defined()) {
+json::Value HTTPJson::GETq(const std::string_view &path,const json::Value &query, json::Value &&headers, unsigned int expectedCode) {
+	baseUrl.resize(baseUrlSz);
+	baseUrl.append(path);
+	buildQuery(query, baseUrl, "?");
+
+	logDebug("GET $1", baseUrl);
+
+	userver::PHttpClientRequest resp(httpc.GET(baseUrl,Hdrs(headers)));
+	if (resp == nullptr) throw std::runtime_error("Failed to connect service");
+
+	auto datehdr =resp->get("Date");
+	if (datehdr.defined) {
 		if (parseHttpDate(datehdr, lastServerTime)) {
 			lastLocalTime = std::chrono::steady_clock::now();
 		}
 	}
-	unsigned int st = resp.getStatus();
-	if ((expectedCode && st != expectedCode) || (!expectedCode && st/100 != 2)) {
-		throw UnknownStatusException(st, resp.getMessage(),resp);
+
+	unsigned int st = resp->getStatus();
+	if ((expectedCode && st == expectedCode) || (!expectedCode && st/100==2)) {
+		json::Value r = parseResponse(resp, headers);
+		logDebug("RECV: $1", r);
+		return r;
+	} else {
+		json::Value err;
+		try {
+			err = parseResponse(resp, headers);
+		} catch (...) {
+
+		}
+		throw UnknownStatusException(st, std::string(resp->getStatusMessage()),err, headers);
 	}
-	json::Value r = parseResponse(resp, headers);
-	logDebug("RECV: $1", r);
-	return r;
 }
 
 
@@ -113,8 +135,9 @@ json::Value HTTPJson::SEND(const std::string_view &path,
 		json::Value &&headers,
 		unsigned int expectedCode) {
 
-	std::string url = baseUrl;
-	url.append(path);
+	baseUrl.resize(baseUrlSz);
+	baseUrl.append(path);
+
 	auto sdata = data.defined()?data.toString():json::String("");
 
 	if (!headers["Content-Type"].defined()) {
@@ -125,20 +148,26 @@ json::Value HTTPJson::SEND(const std::string_view &path,
 		}
 	}
 
-	logDebug("$1 $2 - data $3", method, url, data);
+	logDebug("$1 $2 - data $3", method, baseUrl, data);
 
+	userver::PHttpClientRequest resp = httpc.sendRequest(method, baseUrl, Hdrs(headers), sdata.str());
+	if (resp == nullptr) throw std::runtime_error("Failed to connect service");
 
-	auto resp = httpc.request(method, url, hdrs(headers), sdata.str());
-	const simpleServer::ReceivedHeaders &hdrs = resp.getHeaders();
-	simpleServer::HeaderValue datehdr = hdrs["Date"];
-	if (datehdr.defined()) {
+	userver::HeaderValue datehdr = resp->get("Date");;
+	if (datehdr.defined) {
 		if (parseHttpDate(datehdr, lastServerTime)) {
 			lastLocalTime = std::chrono::steady_clock::now();
 		}
 	}
-	unsigned int st = resp.getStatus();
+	unsigned int st = resp->getStatus();
 	if ((expectedCode && st != expectedCode) || (!expectedCode && st/100 != 2)) {
-		throw UnknownStatusException(st, resp.getMessage(), resp);
+		json::Value err;
+		try {
+			err = parseResponse(resp, headers);
+		} catch (...) {
+
+		}
+		throw UnknownStatusException(st, std::string(resp->getStatusMessage()),err,headers);
 	}
 	json::Value r = parseResponse(resp, headers);
 	logDebug("RECV: $1", r);
@@ -294,4 +323,41 @@ std::chrono::system_clock::time_point HTTPJson::now() {
 	} else {
 		return lastServerTime + (std::chrono::steady_clock::now() - lastLocalTime);
 	}
+}
+
+const char* HTTPJson::UnknownStatusException::what() const noexcept {
+	if (whatMsg.empty()) {
+		whatMsg = std::to_string(code);
+		whatMsg.append(" ");
+		whatMsg.append(message);
+		if (body.defined()) {
+			whatMsg.append(" ");
+			body.serialize([&](char c){whatMsg.push_back(c);});
+		}
+	}
+	return whatMsg.c_str();
+}
+
+void HTTPJson::buildQuery(const json::Value items, std::string &out, std::string_view sep) {
+	for (json::Value field : items) {
+		out.append(sep);
+		out.append(field.getKey());
+		out.push_back('=');
+		json::String s = field.toString();
+		if (!s.empty()) {
+			json::urlEncoding->encodeBinaryValue(json::map_str2bin(s), [&](std::string_view x){
+				out.append(x);
+			});
+		}
+		sep = "&";
+	}
+}
+
+
+std::string HTTPJson::urlEncode(std::string_view x) {
+	std::string out;
+	json::urlEncoding->encodeBinaryValue(json::map_str2bin(x),[&](std::string_view x){
+		out.append(x);
+	});
+	return out;
 }

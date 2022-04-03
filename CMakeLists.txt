@@ -22,7 +22,7 @@ add_compile_options(-std=c++17)
 add_compile_options(-Wall -Wno-noexcept-type)
 
 add_subdirectory (src/imtjson/src/imtjson EXCLUDE_FROM_ALL)
-add_subdirectory (src/server/src/simpleServer EXCLUDE_FROM_ALL)
+add_subdirectory (src/userver EXCLUDE_FROM_ALL)
 add_subdirectory (src/brokers EXCLUDE_FROM_ALL)
 add_subdirectory (src/main)
 add_subdirectory (src/brokers/rptbroker)

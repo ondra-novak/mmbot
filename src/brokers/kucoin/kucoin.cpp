@@ -11,7 +11,6 @@
 #include <imtjson/binjson.tcc>
 #include <imtjson/operations.h>
 #include <shared/toString.h>
-#include <simpleServer/urlencode.h>
 #include "../../shared/logOutput.h"
 
 using ondra_shared::logDebug;
@@ -69,7 +68,7 @@ static Value apiKeyFmt ({
 
 KucoinIFC::KucoinIFC(const std::string &cfg_file)
 	:AbstractBrokerAPI(cfg_file, apiKeyFmt)
-	,api(simpleServer::HttpClient("mmbot (+https://www.mmbot.trade)",simpleServer::newHttpsProvider(), 0, simpleServer::newCachedDNSProvider(15)),"https://api.kucoin.com")
+	,api("https://api.kucoin.com")
 {
 }
 
@@ -432,14 +431,7 @@ Value KucoinIFC::publicGET(const std::string_view &uri, Value query) const {
 const std::string& KucoinIFC::buildUri(const std::string_view &uri, Value query) const {
 	uriBuffer.clear();
 	uriBuffer.append(uri);
-	char c='?';
-	for (Value v: query) {
-		uriBuffer.push_back(c);
-		uriBuffer.append(v.getKey());
-		uriBuffer.push_back('=');
-		simpleServer::urlEncoder([&](char x){uriBuffer.push_back(x);})(v.toString());
-		c = '&';
-	}
+	HTTPJson::buildQuery(query, uriBuffer, "?");
 	return uriBuffer;
 }
 
@@ -506,15 +498,12 @@ Value KucoinIFC::signRequest(const std::string_view &method, const std::string_v
 
 void KucoinIFC::processError(const HTTPJson::UnknownStatusException &e) const {
 	std::ostringstream buff;
-	buff << e.getStatusCode() << " " << e.getStatusMessage();
-	try {
-		auto s = e.response.getBody();
-		json::Value error = json::Value::parse(s);
-		if (e.getStatusCode() == 429 && error["code"].getUInt() == 429000)
+	buff << e.code << " " << e.message;
+	if (e.body.defined()) {
+		json::Value error = e.body;
+		if (e.code == 429 && error["code"].getUInt() == 429000)
 			return;
 		buff <<  " - " << error["code"].getUInt() << " " << error["msg"].getString();
-	} catch (...) {
-
 	}
 	throw std::runtime_error(buff.str());
 }

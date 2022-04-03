@@ -17,18 +17,13 @@
 #include <chrono>
 
 #include <imtjson/string.h>
-#include <simpleServer/http_client.h>
-#include <simpleServer/urlencode.h>
 #include <imtjson/object.h>
 #include <imtjson/parser.h>
 #include <shared/logOutput.h>
 
 using ondra_shared::logDebug;
-using namespace simpleServer;
 static constexpr std::uint64_t start_time = 1557858896532;
-Proxy::Proxy():httpc(HttpClient("MMBot Poloniex broker",
-		newHttpsProvider(),
-		newNoProxyProvider(), newCachedDNSProvider(60)), "")
+Proxy::Proxy():httpc("")
  {
 
 	apiPrivUrl="https://poloniex.com/tradingApi";
@@ -49,23 +44,12 @@ json::Value Proxy::getTicker() {
 	return public_request("returnTicker", json::Value());
 }
 
-void Proxy::buildParams(const json::Value& params, std::ostream& data) {
-	for (json::Value field : params) {
-		data << "&" << field.getKey() << "=";
-		json::String s = field.toString();
-		if (!s.empty()) {
-			data << urlEncode(s);
-		}
-	}
-}
-
-json::Value Proxy::public_request(std::string method, json::Value data) {
-	std::ostringstream urlbuilder;
-	urlbuilder << apiPublicUrl << "?command=" << method;
-	buildParams(data, urlbuilder);
-	std::ostringstream response;
-
-	return httpc.GET(urlbuilder.str());
+json::Value Proxy::public_request(std::string_view method, json::Value data) {
+	auto l = apiPublicUrl.size();
+	apiPublicUrl.append(method);
+	auto r = httpc.GETq(apiPublicUrl, data);
+	apiPublicUrl.resize(l);
+	return r;
 }
 
 static std::string signData(std::string_view key, std::string_view data) {
@@ -82,15 +66,15 @@ static std::string signData(std::string_view key, std::string_view data) {
 	return digest.str();
 }
 
-json::Value Proxy::private_request(std::string method, json::Value data) {
+json::Value Proxy::private_request(std::string_view method, json::Value data) {
 	if (!hasKey())
 		throw std::runtime_error("Function requires valid API keys");
 
-	std::ostringstream databld;
-	buildParams({json::Value("command", method), json::Value("nonce", ++nonce)}, databld);
-	buildParams(data, databld);
 
-	std::string request = databld.str().substr(1);
+
+	std::string request;
+	HTTPJson::buildQuery({json::Value("command", method), json::Value("nonce", ++nonce)}, request);
+	HTTPJson::buildQuery(data, request);
 	std::ostringstream response;
 	std::istringstream src(request);
 
@@ -107,8 +91,7 @@ json::Value Proxy::private_request(std::string method, json::Value data) {
 		if (v["error"].defined()) throw std::runtime_error(v["error"].toString().c_str());
 		return v;
 	} catch (const HTTPJson::UnknownStatusException &e) {
-		json::Value err;
-		try {err = json::Value::parse(e.response.getBody());} catch (...) {}
+		json::Value err = e.body;
 		if (!err.hasValue()) throw;
 		if (err["error"].defined()) throw std::runtime_error(err["error"].toString().c_str());
 		else throw std::runtime_error(err.toString().c_str());

@@ -11,17 +11,21 @@
 #include <chrono>
 #include <string_view>
 #include <imtjson/value.h>
-#include <simpleServer/http_client.h>
+#include <userver/http_client.h>
+
 
 
 class HTTPJson {
 public:
 
-	HTTPJson(simpleServer::HttpClient &&httpc, const std::string_view &baseUrl);
+	HTTPJson(const std::string_view &baseUrl);
 	void setToken(const std::string_view &token);
 
 
 	json::Value GET(const std::string_view &path,
+			json::Value &&headers = json::Value(),
+			unsigned int expectedCode = 0);
+	json::Value GETq(const std::string_view &path,const json::Value &query,
 			json::Value &&headers = json::Value(),
 			unsigned int expectedCode = 0);
 
@@ -47,19 +51,25 @@ public:
 			unsigned int expectedCode = 0);
 
 
-	class UnknownStatusException: public simpleServer::HTTPStatusException {
+	class UnknownStatusException: public std::exception {
 	public:
-		UnknownStatusException(int code, const std::string &message, simpleServer::HttpResponse response)
-			:simpleServer::HTTPStatusException(code,message),response(response) {}
-		UnknownStatusException(int code, std::string &&message, simpleServer::HttpResponse response)
-			:simpleServer::HTTPStatusException(code,std::move(message)),response(response) {}
+		UnknownStatusException(int code, const std::string &message, json::Value body, json::Value headers)
+			:code(code),message(message),body(body),headers(headers) {}
+		UnknownStatusException(int code, std::string &&message, json::Value body, json::Value headers)
+			:code(code),message(std::move(message)),body(body),headers(headers) {}
 
-		simpleServer::HttpResponse response;
+		const int code;
+		const std::string message;
+		const json::Value body;
+		const json::Value headers;
+		mutable std::string whatMsg;
+
+		const virtual char* what() const noexcept override;
 	};
 
 
 	void setBaseUrl(const std::string &url);
-	simpleServer::HttpClient &getClient() {return httpc;}
+	userver::HttpClient &getClient() {return httpc;}
 
 	const auto &getLastServerTime() const {return lastServerTime;}
 	std::chrono::system_clock::time_point now();
@@ -68,17 +78,23 @@ public:
 	void setForceJSON(bool force) {force_json = force;}
 	bool getForceJSON() const {return force_json;}
 
+	static void buildQuery(const json::Value items, std::string &out, std::string_view prefix = std::string_view());
+	static std::string urlEncode(std::string_view x);
+
 protected:
-	simpleServer::HttpClient httpc;
+	userver::HttpClient httpc;
 	std::string baseUrl;
+	std::size_t baseUrlSz;
 	std::chrono::system_clock::time_point lastServerTime;
 	std::chrono::steady_clock::time_point lastLocalTime;
 	std::function<void()> reading_fn;
 	bool force_json = false;
+	std::vector<char> buffer;
+
 
 
 	static bool parseHttpDate(const std::string_view &date, std::chrono::system_clock::time_point & tp);
-	json::Value parseResponse(simpleServer::HttpResponse &resp, json::Value &headers);
+	json::Value parseResponse(userver::PHttpClientRequest &resp, json::Value &headers);
 };
 
 

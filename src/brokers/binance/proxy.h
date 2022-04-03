@@ -40,13 +40,7 @@ public:
 
 	bool debug = false;
 
-	std::string timeUri;
 
-
-private:
-	std::int64_t time_diff = 0;
-	std::uint64_t time_sync = 0;
-	void buildParams(const json::Value& params, std::ostream& data);
 };
 
 

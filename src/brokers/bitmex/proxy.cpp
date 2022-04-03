@@ -20,19 +20,14 @@
 #include <imtjson/string.h>
 #include <imtjson/object.h>
 #include <imtjson/value.h>
-#include <simpleServer/http_client.h>
-#include <simpleServer/urlencode.h>
 #include <imtjson/parser.h>
 #include <shared/logOutput.h>
 
 using json::Value;
 using ondra_shared::logDebug;
-using namespace simpleServer;
 
 Proxy::Proxy()
-:httpc(HttpClient("MMBot Bitmex broker",
-		newHttpsProvider(),
-		newNoProxyProvider()), "")
+:httpc("")
  {
 	setTestnet(false);
 }
@@ -43,25 +38,6 @@ bool Proxy::hasKey() const {
 }
 
 
-void Proxy::urlEncode(const std::string_view &text, std::ostream &out) {
-	out << simpleServer::urlEncode(text);
-}
-
-std::string Proxy::buildPath(const std::string_view path, const json::Value &query) {
-	std::ostringstream pathbuild;
-	pathbuild << path;
-	if (query.type() == json::object && !query.empty()) {
-		char sep = '?';
-		for (Value v : query) {
-			pathbuild << sep;
-			sep = '&';
-			urlEncode(v.getKey(), pathbuild);
-			pathbuild << '=';
-			urlEncode(v.toString().str(), pathbuild);
-		}
-	}
-	return pathbuild.str();
-}
 
 json::Value Proxy::request(
 		const std::string_view &verb,
@@ -69,7 +45,8 @@ json::Value Proxy::request(
 		const json::Value &query,
 		const json::Value &data) {
 
-	std::string fpath = buildPath(path, query);
+	std::string fpath(path);
+	HTTPJson::buildQuery(query, fpath, "?");
 	std::string fdata = data.hasValue()?data.stringify().str():json::StringView();
 
 	json::Object headers;
@@ -107,15 +84,16 @@ json::Value Proxy::request(
 		}
 		return res;
 	} catch (HTTPJson::UnknownStatusException &e) {
+
 		std::string errmsg;
-		try {
-			Value p = Value::parse(e.response.getBody());
-			errmsg = std::to_string(e.getStatusCode()).append(" ")
+		Value p = e.body;
+		if (p.defined()) {
+			errmsg = std::to_string(e.code).append(" ")
 					.append(std::string_view(p["error"]["message"].getString()))
 					.append(" ")
 					.append(std::string_view(p["error"]["ordRejReason"].getString()));
-		} catch (...) {
-			errmsg = std::to_string(e.getStatusCode()).append(" ").append(e.getStatusMessage());
+		} else {
+			errmsg = std::to_string(e.code).append(" ").append(e.message);
 		}
 		throw std::runtime_error(errmsg);
 	}

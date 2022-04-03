@@ -49,8 +49,6 @@ public:
 								const std::string_view &data);
 
 
-	void urlEncode(const std::string_view &text, std::ostream &out);
-	std::string buildPath(const std::string_view path, const json::Value &query);
 
 
 };

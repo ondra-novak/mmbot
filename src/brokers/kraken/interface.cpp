@@ -15,11 +15,12 @@
 #include "interface.h"
 
 #include <iomanip>
+
+#include "../../shared/stringview.h"
 using json::Object;
 using json::Value;
 using json::String;
 
-static const StrViewA userAgent("+https://mmbot.trade");
 
 
 Interface::MarketType Interface::getMarketType(std::string_view pair) {
@@ -91,8 +92,7 @@ Interface::Interface(const std::string &secure_storage_path)
 						})
 			})
 
-	,api(simpleServer::HttpClient(userAgent,simpleServer::newHttpsProvider(), nullptr,simpleServer::newCachedDNSProvider(60)),
-			"https://api.kraken.com"),
+	,api("https://api.kraken.com"),
 	orderDB(secure_storage_path+".db")
 {
 	json::enableParsePreciseNumbers=true;
@@ -213,7 +213,7 @@ json::Value Interface::private_POST(std::string_view path, json::Value req) {
 
 	unsigned int hmac_digest_len = sizeof (hmac_digest);
 	HMAC(EVP_sha512(), apiSecret.data(), apiSecret.size(), reinterpret_cast<const unsigned char *>(toSign.data()), toSign.length(), hmac_digest, &hmac_digest_len);
-	Value sign = json::base64->encodeBinaryValue(BinaryView(hmac_digest, hmac_digest_len));
+	Value sign = json::base64->encodeBinaryValue(json::BinaryView(hmac_digest, hmac_digest_len));
 	Value headers = Object({
 		{"API-Key", apiKey},
 		{"API-Sign", sign},
@@ -228,7 +228,7 @@ json::Value Interface::private_POST(std::string_view path, json::Value req) {
 }
 
 void Interface::processError(HTTPJson::UnknownStatusException &e) {
-	json::Value resp = json::Value::parse(e.response.getBody());
+	json::Value resp = e.body;
 	json::Value err = resp["error"];
 	if (err.hasValue()) throw std::runtime_error(err.join(" ").str());
 	throw e;
@@ -316,8 +316,8 @@ double Interface::getPosition(const std::string_view &market) {
 
 double Interface::getBalance(const std::string_view &symb, const std::string_view &pair) {
 	updateSymbols();
-	StrViewA tsymb = isymbolMap[symb].getString();
-	StrViewA market = stripPrefix(pair);
+	auto tsymb = isymbolMap[symb].getString();
+	auto market = stripPrefix(pair);
 	switch (getMarketType(pair)) {
 	case MarketType::exchange:  return getSpotBalance(tsymb);
 	case MarketType::leveraged:
@@ -358,7 +358,7 @@ IStockApi::TradesSync Interface::syncTrades(json::Value lastId, const std::strin
 
 	auto symb = stripPrefix(pair);
 //	auto mt = getMarketType(pair);
-	StrViewA altname = pairMap[symb]["altname"].getString();
+	auto altname = pairMap[symb]["altname"].getString();
 
 	Value trades = apires["result"]["trades"].map([&](Value x){
 		Value id = x.getKey();
@@ -424,11 +424,11 @@ IStockApi::Orders Interface::getOpenOrders(const std::string_view &pair) {
 	if (!orderMap.defined()) {
 		orderMap =  private_POST("/0/private/OpenOrders",Value());
 	}
-	StrViewA altname = pairMap[symb]["altname"].getString();
+	auto altname = pairMap[symb]["altname"].getString();
 	Value data = orderMap["result"]["open"];
 	data = data.filter([&](Value row) {
 		Value descr = row["descr"];
-		StrViewA pair = descr["pair"].getString();
+		auto pair = descr["pair"].getString();
 		return (symb == pair || altname ==  pair)
 				&& (mt == MarketType::hybrid || (mt == MarketType::exchange) == (descr["leverage"].getString() == "none"))
 				&& descr["ordertype"].getString() == "limit"
@@ -517,8 +517,8 @@ json::Value Interface::placeOrder(const std::string_view &pair, double size, dou
 		case MarketType::leveraged: lev = true;break;
 		case MarketType::hybrid: {
 			double pos = getPosition(symb);
-			StrViewA base = symbinfo["base"].getString();
-			StrViewA quote = symbinfo["quote"].getString();
+			auto base = symbinfo["base"].getString();
+			auto quote = symbinfo["quote"].getString();
 			/*
 			 * If position is opened, and can be closed or reduced, then close or reduce position
 			 * If position is not opened, and order can be placed on spot, then place order on spot
@@ -544,7 +544,7 @@ json::Value Interface::placeOrder(const std::string_view &pair, double size, dou
 		try {
 			return placeOrderImp(pair, size, price, clientId, lev);
 		} catch (const std::exception &e) {
-			StrViewA msg(e.what());
+			ondra_shared::StrViewA msg(e.what());
 			if (msg.indexOf("Insufficient funds") != msg.npos && mt == MarketType::hybrid && !lev) {
 				return placeOrderImp(pair, size, price, clientId, true);
 			} else {

@@ -7,7 +7,6 @@
 #include <iostream>
 #include <unordered_map>
 
-#include <rpc/rpcServer.h>
 #include <imtjson/operations.h>
 #include "proxy.h"
 #include <shared/linear_map.h>
@@ -448,8 +447,7 @@ inline uint64_t Interface::downloadMinuteData(const std::string_view &asset,
 	auto st = std::find_if(std::begin(histDataSets), std::end(histDataSets),[&](const HistDataSet &x){
 		return x.toMS() > hpt;
 	});
-	HTTPJson hapi(cm.httpc);
-	hapi.setBaseUrl("https://coinmate.io/");
+	HTTPJson hapi("https://coinmate.io/");
 	if (st == std::end(histDataSets)) return 0;
 	std::uint64_t start = std::max(now - st->toMS(), time_from);
 	json::Value hdata = hapi.GET(std::string("guirest/rateGraph?currencyPairName=").append(name.getString()).append("&interval=").append(std::to_string(st->interval)));

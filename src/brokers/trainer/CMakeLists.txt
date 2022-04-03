@@ -7,4 +7,4 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin/brokers/)
 add_custom_command(OUTPUT generated/index.html.cpp COMMAND ./txt2cpp.sh index.html MAIN_DEPENDENCY index.html)
 
 add_executable (trainer cryptowatch.cpp main.cpp ../bitfinex/structs.cpp generated/index.html.cpp)
-target_link_libraries (trainer LINK_PUBLIC brokers_common imtjson simpleServer)
+target_link_libraries (trainer LINK_PUBLIC brokers_common imtjson userver)

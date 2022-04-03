@@ -8,7 +8,6 @@
 #include <sstream>
 #include <unordered_map>
 
-#include <rpc/rpcServer.h>
 #include <imtjson/operations.h>
 #include "shared/toString.h"
 #include "proxy.h"
@@ -312,15 +311,15 @@ static json::Value readTrades(Proxy &proxy, const std::string &command, std::str
 		 TradeHistory h(mapJSON(r,[&](Value x){
 			 double size = x["qty"].getNumber();
 			 double price = x["price"].getNumber();
-			 StrViewA comass = x["commissionAsset"].getString();
+			 auto comass = x["commissionAsset"].getString();
 			 if (!x["isBuyer"].getBool()) size = -size;
 			 double comms = x["commission"].getNumber();
 			 double eff_size = size;
 			 double eff_price = price;
-			 if (comass == StrViewA(minfo.asset_symbol)) {
+			 if (comass == minfo.asset_symbol) {
 				 eff_size -= comms;
 				 eff_price =  std::abs(size * price / eff_size);
-			 } else if (comass == StrViewA(minfo.currency_symbol)) {
+			 } else if (comass == minfo.currency_symbol) {
 				 eff_price += comms/size;
 			 }
 
@@ -346,8 +345,8 @@ static json::Value readTrades(Proxy &proxy, const std::string &command, std::str
 }
 
 
-static Value extractOrderID(StrViewA id) {
-	if (id.begins("mmbot")) {
+static Value extractOrderID(std::string_view id) {
+	if (id.compare(0,5,"mmbot") == 0) {
 		Value bin = base64url->decodeBinaryValue(id.substr(5));
 		try {
 			auto stream = json::fromBinary(bin.getBinary(base64url));

@@ -202,7 +202,7 @@ inline Interface::TradesSync Interface::syncTrades(json::Value lastId,  const st
 	for (Value item: trades) {
 		lastExecId = item["execID"];
 		lastExecTime = item["transactTime"];
-		StrViewA side = item["side"].getString();
+		auto side = item["side"].getString();
 		double mult = side=="Buy"?1:side=="Sell"?-1:0;
 		if (mult == 0) continue;
 		if (s.inverse) mult=-mult;
@@ -238,7 +238,7 @@ inline Interface::Orders Interface::getOpenOrders(const std::string_view &pair) 
 		double mult = ord["side"].getString() == "Sell"?-1:1;
 		double size = ord["orderQty"].getNumber();
 		double price = ord["price"].getNumber();
-		StrViewA clid = ord["clOrdID"].getString();
+		auto clid = ord["clOrdID"].getString();
 		Value id = ord["orderID"];
 		Value clientId;
 		if (!clid.empty()) try{

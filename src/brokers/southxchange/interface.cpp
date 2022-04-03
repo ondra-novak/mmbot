@@ -13,6 +13,7 @@
 #include <imtjson/string.h>
 #include <imtjson/operations.h>
 #include <imtjson/array.h>
+#include "../../shared/stringview.h"
 #include "../isotime.h"
 using json::Array;
 using json::Object;
@@ -32,9 +33,7 @@ Interface::Interface(const std::string &config_path)
 			{"type","string"}
 		})
 })
-,api(simpleServer::HttpClient(
-		"Mozilla/5.0 (compatible; MMBOT/2.0; +http://github.com/ondra-novak/mmbot.git)",
-		simpleServer::newHttpsProvider(), nullptr, simpleServer::newCachedDNSProvider(60)),
+,api(
 		"https://www.southxchange.com/api")
 ,orderDB(std::string(config_path)+".orders", 1000)
 {
@@ -199,7 +198,7 @@ IStockApi::TradesSync Interface::syncTrades(json::Value lastId, const std::strin
 	std::vector<Trade> trades;
 	Array newLastId;
 	for (Value z: a_tx["Result"]) {
-		if (z["Type"].getString() == "trade" && z["OtherCurrency"].getString() == StrViewA(splt.second)) {
+		if (z["Type"].getString() == "trade" && z["OtherCurrency"].getString() == ondra_shared::StrViewA(splt.second)) {
 			Value id = z["TradeId"];
 			newLastId.push_back(id);
 			if (lastId.type() == json::array && lastId.indexOf(id) == Value::npos) {

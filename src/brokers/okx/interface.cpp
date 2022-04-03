@@ -21,7 +21,6 @@
 #include "../isotime.h"
 #include <shared/logOutput.h>
 #include "../../imtjson/src/imtjson/binary.h"
-#include "../../server/src/simpleServer/urlencode.h"
 
 
 namespace okx {
@@ -48,10 +47,7 @@ Interface::Interface(const std::string &config_path)
 			{"type","string"}
 		})
 })
-,api(simpleServer::HttpClient(
-		"Mozilla/5.0 (compatible; MMBOT/2.0; +http://github.com/ondra-novak/mmbot.git)",
-		simpleServer::newHttpsProvider(), nullptr, simpleServer::newCachedDNSProvider(60)),
-		"https://www.okx.com")
+,api("https://www.okx.com")
 {
 
 }
@@ -209,7 +205,7 @@ double Interface::getBalance(const std::string_view &symb,
 IStockApi::TradesSync Interface::syncTrades(json::Value lastId,
 		const std::string_view &pair) {
 	std::ostringstream buff;
-	buff << "/api/v5/trade/fills?instId=" << simpleServer::urlDecode(pair);
+	buff << "/api/v5/trade/fills?instId=" << pair;
 	if (!lastId.hasValue()) {
 		buff << "&limit=1";
 		Value res = authReq("GET", buff.str(), Value())["data"];
@@ -240,9 +236,9 @@ IStockApi::TradesSync Interface::syncTrades(json::Value lastId,
 					double eff_size = size;
 					double eff_price = price;
 					if (fee!=0) {
-						if (feeCcy.str() == StrViewA(mk.asset_symbol)) {
+						if (feeCcy.str() == mk.asset_symbol) {
 							eff_size+=fee;
-						} else if (feeCcy.str() == StrViewA(mk.currency_symbol)) {
+						} else if (feeCcy.str() == mk.currency_symbol) {
 							if (size) {
 								eff_price=(size*price+fee)/size;
 							}
@@ -269,7 +265,7 @@ IStockApi::TradesSync Interface::syncTrades(json::Value lastId,
 
 IStockApi::Orders Interface::getOpenOrders(const std::string_view &pair) {
 	std::string uri="/api/v5/trade/orders-pending?ordType=post_only&instId=01234567890123456789";
-	uri.resize(uri.length()-20);uri.append(simpleServer::urlEncode(pair));
+	uri.resize(uri.length()-20);uri.append(pair);
 
 	Value res = authReq("GET", uri, Value())["data"];
 	return mapJSON(res, [&](Value x){
@@ -327,7 +323,7 @@ double Interface::getFees(const std::string_view &pair) {
 	if (api_key.empty() || api_secret.empty() || api_passphrase.empty()) return 0.001;
 	else {
 		std::string uri="/api/v5/account/trade-fee?instType=SPOT&instId=01234567890123456789";
-		uri.resize(uri.length()-20);uri.append(simpleServer::urlEncode(pair));
+		uri.resize(uri.length()-20);uri.append(pair);
 		Value res = authReq("GET", uri, Value());
 		return -res["data"][0]["maker"].getNumber();
 	}
@@ -392,22 +388,9 @@ json::Value Interface::authReq(std::string_view method, std::string_view uri, js
 		}
 		return v;
 	} catch (const HTTPJson::UnknownStatusException &excp) {
-		auto s = excp.response.getBody();
-		std::ostringstream sbuff;
-		auto c = s.read();
-		while (!c.empty()) {
-			sbuff.write(reinterpret_cast<const char *>(c.data), c.length);
-			c = s.read();
-		}
-		logError("HTTP-error: $1 $2", excp.code, sbuff.str());
-		Value out;
-		try {
-			json::Value v = Value::fromString(sbuff.str());
-			out = v["error_message"];
-			if (!out.defined()) out = v;
-		} catch (...) {
-			out = sbuff.str();
-		}
+		auto s = excp.body;
+		logError("HTTP-error: $1 $2", excp.code, s.toString().str());
+		Value out = s["error_message"];
 		String zs {std::to_string(excp.code)," ",excp.message," ",out.toString()};
 		throw std::runtime_error(zs.str());
 	}
@@ -420,7 +403,7 @@ std::string Interface::createTag(const Value &clientId) {
 	auto hash = h(clientId) & 0xFFFFFFFF;
 	std::string buff="mm";
 	base64url->encodeBinaryValue(json::BinaryView(reinterpret_cast<const unsigned char *>(&hash),4),
-			[&](StrViewA c){buff.append(c.data, c.length);});
+			[&](std::string_view c){buff.append(c);});
 	clientIdMap[buff] = clientId;
 	return buff;
 }

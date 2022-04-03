@@ -18,7 +18,6 @@
 #include <imtjson/object.h>
 #include <imtjson/string.h>
 #include <imtjson/operations.h>
-#include <simpleServer/http_client.h>
 #include "../httpjson.h"
 #include <shared/logOutput.h>
 
@@ -32,7 +31,7 @@ using json::String;
 using ondra_shared::logDebug;
 using ondra_shared::logError;
 using ondra_shared::StrViewA;
-using namespace simpleServer;
+
 
 
 static Value setupForm = {};
@@ -237,7 +236,7 @@ static std::size_t genIDCnt() {
 				std::chrono::system_clock::now().time_since_epoch()).count();
 }
 
-static HTTPJson httpc(simpleServer::HttpClient("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36",newHttpsProvider(), newNoProxyProvider()),"");
+static HTTPJson httpc("");
 
 
 class Interface: public AbstractBrokerAPI {

@@ -8,7 +8,6 @@
 #include <sstream>
 #include <unordered_map>
 
-#include <rpc/rpcServer.h>
 #include <imtjson/operations.h>
 #include "shared/toString.h"
 #include "proxy.h"
@@ -182,7 +181,7 @@ inline Interface::Orders Interface::getOpenOrders(const std::string_view &pair) 
 	return mapJSON(resp, [&](Value v){
 
 		Value client_id;
-		StrViewA label = v["label"].getString();
+		auto label = v["label"].getString();
 		if (!label.empty()) {try {
 				client_id = Value::fromString(label);
 			} catch (...) {

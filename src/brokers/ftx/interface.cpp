@@ -11,18 +11,19 @@
 #include <openssl/evp.h>
 #include <openssl/hmac.h>
 #include <cmath>
+#include <cstring>
 #include <future>
 
 #include <imtjson/object.h>
-#include <simpleServer/http_client.h>
+#include <imtjson/binary.h>
 #include "../isotime.h"
 #include <imtjson/operations.h>
 #include <imtjson/parser.h>
 #include <imtjson/string.h>
 #include <imtjson/value.h>
-#include <simpleServer/urlencode.h>
 #include <shared/logOutput.h>
 #include <shared/stringview.h>
+#include "../../userver/websockets_client.h"
 #include "shared/worker.h"
 using json::Object;
 using json::String;
@@ -34,11 +35,9 @@ using ondra_shared::logError;
 
 
 
-static const StrViewA userAgent("+https://mmbot.trade");
 
 Interface::Connection::Connection()
-	:api(simpleServer::HttpClient(userAgent,simpleServer::newHttpsProvider(), nullptr,simpleServer::newCachedDNSProvider(60)),
-		"https://ftx.com/api") {
+	:api("https://ftx.com/api") {
 	auto nonce = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now())*10;
 	order_nonce = nonce & 0xFFFFFFF;
 
@@ -120,7 +119,7 @@ void Interface::updatePairs() {
 
 			if (minfo.type == "move") {
 				newsmap.emplace_back(name.str(), minfo);
-				StrViewA srch;
+				std::string_view srch;
 				if (minfo.expiration == "Next Week") srch = "This Week";
 				else if (minfo.expiration == "Next Day") srch = "Today";
 				Value s = result.find([&](Value c) {
@@ -259,6 +258,14 @@ double Interface::getBalance(const std::string_view &symb, const std::string_vie
 	}
 }
 
+std::string urlEncode(const std::string_view &text) {
+	std::string out;
+	json::urlEncoding->encodeBinaryValue(json::map_str2bin(text), [&](std::string_view x){
+		out.append(x);
+	});
+	return out;
+}
+
 
 IStockApi::TradesSync Interface::syncTrades(json::Value lastId, const std::string_view &pair) {
 	std::ostringstream uri;
@@ -270,7 +277,7 @@ IStockApi::TradesSync Interface::syncTrades(json::Value lastId, const std::strin
 	auto readTrades = [&](const std::string_view &pair) {
 
 		uri.str("");uri.clear();
-		uri << "/fills?market=" << simpleServer::urlEncode(pair);
+		uri << "/fills?market=" << urlEncode(pair);
 		if (lastId.hasValue()) {
 			auto start_time = lastId[0].getUIntLong()/1000;
 			uri << "&limit=100"
@@ -399,7 +406,7 @@ static json::String rawSign(const std::string_view &api_secret, const std::strin
 void Interface::ws_disconnect() {
 	std::unique_lock _(wslock);
 	if (ws != nullptr) {
-		ws.close();
+		ws->close();
 		_.unlock();
 		ws_reader.join();
 		_.lock();
@@ -407,16 +414,14 @@ void Interface::ws_disconnect() {
 	}
 }
 
-static void ws_post(simpleServer::WebSocketStream ws, std::string_view txt) {
+static void ws_post(std::shared_ptr<userver::WSStream> &ws, std::string_view txt) {
 	logDebug("WSPOST: $1", txt);
-	ws.postText(txt);
+	ws->send(userver::WSFrameType::text, txt);
 }
 
 void Interface::ws_login() {
 	std::unique_lock _(wslock);
-	simpleServer::WebSocketStream ws = this->ws;
 	auto conn = connection.lock();
-	_.unlock();
 	if (ws!= nullptr) {
 		std::ostringstream message;
 		auto now = conn->now();
@@ -466,7 +471,6 @@ void Interface::ws_onMessage(const std::string_view &text) {
 }
 
 bool Interface::checkWSHealth() {
-	using namespace simpleServer;
 	std::unique_lock _(wslock);
 	if (ws == nullptr) {
 		if (ws_reader.joinable()) ws_reader.join();
@@ -474,36 +478,41 @@ bool Interface::checkWSHealth() {
 		closeEventMap.clear();
 		auto conn = connection.lock();
 		auto &client = conn->api.getClient();
-		ws = simpleServer::connectWebSocket(client, "https://ftx.com/ws");
+		int code;
+		ws = std::shared_ptr<userver::WSStream>(userver::wsConnect(client, "https://ftx.com/ws", &code));
+		if (ws == nullptr) throw HTTPJson::UnknownStatusException(code, "", json::Value(), json::Value());
 		ws_reader = std::thread([ws = this->ws, this]() mutable {
 			try {
 				bool cont = true;
-				bool tm = false;
 				auto nextPing = std::chrono::steady_clock::now();
-				while (cont && ws.readFrame()) {
-					switch (ws.getFrameType()) {
+				bool frame = true;
+				while (cont) {
+					auto t = ws->recvSync();
+					switch (t) {
 					default:
-					case WSFrameType::binary: break;
-					case WSFrameType::connClose: cont = false;break;
-					case WSFrameType::ping:break;
-					case WSFrameType::text: ws_onMessage(ws.getText());
-											break;
-					}
-					tm = false;
-					do {
-						auto now = std::chrono::steady_clock::now();
-						if (now > nextPing) {
-							ws_post(ws, "{\"op\":\"ping\"}");
-							nextPing = now + std::chrono::seconds(10);
-							if (tm) {
-								logError("Closing websocket,  because timeout");
-								std::unique_lock _(wslock);
-								this->ws = nullptr;
-								return;
-							}
-							tm = true;
+					case userver::WSFrameType::binary: break;
+					case userver::WSFrameType::connClose: cont = false;break;
+					case userver::WSFrameType::ping:frame = true;break;
+					case userver::WSFrameType::pong:frame = true;break;
+					case userver::WSFrameType::text: ws_onMessage(ws->getData()); frame = true; break;
+					case userver::WSFrameType::incomplete:
+						if (!ws->timeouted() || !frame) {
+							logError("Closing websocket,  because error/timeout");
+							std::unique_lock _(wslock);
+							this->ws = nullptr;
+							return;
 						}
-					}	while (!ws.getStream().waitForInput(10000));
+						ws->clearTimeout();
+						frame = false;
+						break;
+					}
+
+					auto now = std::chrono::steady_clock::now();
+					if (now > nextPing) {
+						ws_post(ws, "{\"op\":\"ping\"}");
+						nextPing = now + std::chrono::seconds(10);
+					}
+
 				}
 			} catch (std::exception &e) {
 				logError("WS exception: $1", e.what());
@@ -544,7 +553,7 @@ IStockApi::Orders Interface::getOpenOrders(const std::string_view &pair) {
 	std::unique_lock _(wslock);
 	IStockApi::Orders orders;
 	for (const auto &item: activeOrderMap) {
-		if (item.second["market"].getString() == StrViewA(symb)) {
+		if (item.second["market"].getString() == symb) {
 			Value v = item.second;
 			orders.push_back({
 				v["id"],
@@ -573,7 +582,7 @@ json::Value Interface::placeOrderImpl(PConnection conn, const std::string_view &
 bool Interface::cancelOrderImpl(PConnection conn, json::Value cancelId) {
 	std::ostringstream uri;
 	if (cancelId.hasValue()) {
-		uri << "/orders/" << simpleServer::urlEncode(cancelId.toString());
+		uri << "/orders/" << urlEncode(cancelId.toString());
 		try {
 			Value resp = conn.lock()->requestDELETE(uri.str());
 			if (!resp["success"].getBool()) {
@@ -581,7 +590,7 @@ bool Interface::cancelOrderImpl(PConnection conn, json::Value cancelId) {
 			}
 			return true;
 		} catch (const std::exception &e) {
-			if (strstr(e.what(),"Order already closed") != 0) {
+			if (std::strstr(e.what(),"Order already closed") != 0) {
 				std::unique_lock _(wslock);
 				auto id = cancelId.getIntLong();
 				activeOrderMap.erase(id);
@@ -690,7 +699,7 @@ IStockApi::Ticker Interface::getTicker(const std::string_view &pair) {
 	if (iter == smap.end()) throw std::runtime_error("unknown symbol");
 	std::string symb = iter->second.this_period.empty()?std::string(pair):iter->second.this_period;
 	std::ostringstream uri;
-	uri << "/markets/" << simpleServer::urlEncode(symb) << "/orderbook?depth=1";
+	uri << "/markets/" << urlEncode(symb) << "/orderbook?depth=1";
 	json::Value resp = publicGET(uri.str());
 	if (resp["success"].getBool()) {
 		auto result = resp["result"];
@@ -749,13 +758,11 @@ json::Value Interface::Connection::requestGET(std::string_view path) {
 	try {
 		return api.GET(path, signHeaders("GET",path, Value()));
 	} catch (HTTPJson::UnknownStatusException &e) {
-		try {
-			json::Value v = json::Value::parse(e.response.getBody());
-			throw std::runtime_error(v["error"].toString().str());
-		} catch (...) {
-
+		if (e.body.defined()) {
+			throw std::runtime_error(e.body["error"].toString().str());
+		} else {
+			throw;
 		}
-		throw;
 	}
 }
 
@@ -767,10 +774,9 @@ json::Value Interface::Connection::requestPOST(std::string_view path, json::Valu
 	try {
 		return api.POST(path, params, signHeaders("POST",path, params));
 	} catch (HTTPJson::UnknownStatusException &e) {
-		try {
-			json::Value v = json::Value::parse(e.response.getBody());
-			throw std::runtime_error(v["error"].toString().str());
-		} catch (...) {
+		if (e.body.defined()) {
+			throw std::runtime_error(e.body["error"].toString().str());
+		} else {
 			throw;
 		}
 	}
@@ -784,10 +790,9 @@ json::Value Interface::Connection::requestDELETE(std::string_view path, json::Va
 	try {
 		return api.DELETE(path, params, signHeaders("DELETE",path, params));
 	} catch (HTTPJson::UnknownStatusException &e) {
-		try {
-			json::Value v = json::Value::parse(e.response.getBody());
-			throw std::runtime_error(v["error"].toString().str());
-		} catch (...) {
+		if (e.body.defined()) {
+			throw std::runtime_error(e.body["error"].toString().str());
+		} else {
 			throw;
 		}
 	}
@@ -798,10 +803,9 @@ json::Value Interface::Connection::requestDELETE(std::string_view path) {
 	try {
 		return api.DELETE(path, Value(), signHeaders("DELETE",path, Value()));
 	} catch (HTTPJson::UnknownStatusException &e) {
-		try {
-			json::Value v = json::Value::parse(e.response.getBody());
-			throw std::runtime_error(v["error"].toString().str());
-		} catch (...) {
+		if (e.body.defined()) {
+			throw std::runtime_error(e.body["error"].toString().str());
+		} else {
 			throw;
 		}
 	}
@@ -836,27 +840,9 @@ json::Value Interface::signHeaders(const std::string_view &method,
 
 
 std::int64_t Interface::Connection::now() {
-	auto n =  std::chrono::duration_cast<std::chrono::milliseconds>(
-						 std::chrono::steady_clock::now().time_since_epoch()
-						 ).count() + this->time_diff;
-	if (n > time_sync) {
-		HTTPJson timeapi(simpleServer::HttpClient(userAgent,simpleServer::newHttpsProvider(), nullptr,simpleServer::newCachedDNSProvider(60)),
-				"https://otc.ftx.com/api");
-		Value resp = timeapi.GET("/time");
-		if (resp["success"].getBool()) {
-			n = parseTime(resp["result"].toString(), ParseTimeFormat::iso_tm);
-			time_sync = n + (3600*1000); //- one hour
-			setTime(n);
-		}
-	}
+	auto n =  std::chrono::duration_cast<std::chrono::milliseconds>(api.now().time_since_epoch()).count();
 	return n;
 
-}
-
-void Interface::Connection::setTime(std::int64_t t ) {
-	this->time_diff = 0;
-	auto n = now();
-	this->time_diff = t - n;
 }
 
 
@@ -942,7 +928,7 @@ json::Value Interface::getWallet_direct() {
 }
 
 double Interface::getMarkPrice(const std::string_view &pair) {
-	std::string uri = "/futures/"+simpleServer::urlDecode(pair);
+	std::string uri = "/futures/"+urlEncode(pair);
 	Value resp = publicGET(uri);
 	if (resp["success"].getBool()) {
 		double x = resp["result"]["mark"].getNumber();
@@ -983,7 +969,7 @@ uint64_t Interface::downloadMinuteData(const std::string_view &asset, const std:
 		});
 		if (iter == smap.end())  return 0;
 	}
-	std::string uri ="/markets/"+simpleServer::urlEncode(iter->first)+"/candles?resolution=300&start_time="+std::to_string(time_from/1000)+"&end_time="+std::to_string(time_to/1000);
+	std::string uri ="/markets/"+urlEncode(iter->first)+"/candles?resolution=300&start_time="+std::to_string(time_from/1000)+"&end_time="+std::to_string(time_to/1000);
 	Value hdata = publicGET(uri);
 
 	auto insert_val = [&](double n){

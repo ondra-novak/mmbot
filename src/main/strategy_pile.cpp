@@ -224,12 +224,10 @@ PStrategy3 Strategy3_Pile::run(AbstractTraderControl &cntr) const {
 		if (c <= 0) throw std::runtime_error("Strategy - failed initialize");
 		return (new Strategy3_Pile(ratio,c))->run(cntr);
 	}
-
 	for (double p: {st.sug_buy_price, st.sug_sell_price}) {
 		auto r = cntr.alter_position(calcPos(ratio, constant, p),p);
 		if (r.state == OrderRequestResult::too_small) cntr.alter_position(r.v, calcPriceFromPos(ratio, constant, r.v));
 	}
-
 	cntr.set_equilibrium_price(calcPriceFromPos(ratio, constant, st.position));
 	double alloc = calcAlloc(ratio, constant, st.last_trade_price);
 	double budget = calcBudget(ratio, constant, st.event_price);

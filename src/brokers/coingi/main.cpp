@@ -49,7 +49,7 @@ public:
 				{"label","Private key"},
 				{"type", "string"}}),
 		})
-	,httpc(simpleServer::HttpClient("MMBot 2.0 coingi API client", simpleServer::newHttpsProvider(), nullptr, nullptr),"https://api.coingi.com")
+	,httpc("https://api.coingi.com")
 	,orderdb(path+".db")
 
 	{
@@ -100,29 +100,6 @@ public:
 	Value readTradePage(unsigned int pageId, const std::string_view &pair);
 };
 
-static void handleError() {
-	try {
-		throw;
-	} catch (const HTTPJson::UnknownStatusException &exp) {
-		json::Value resp;
-		try {resp = json::Value::parse(exp.response.getBody());} catch (...) {}
-		if (resp.hasValue()) {
-			std::ostringstream buff;
-			Value e = resp["errors"];
-			if (e.hasValue()) {
-				for (Value v: e) {
-					buff << v["code"].getUIntLong() << " " << v["message"].getString() << std::endl;
-				}
-			} else {
-				e.toStream(buff);
-			}
-			throw std::runtime_error(buff.str());
-		} else {
-			throw;
-		}
-	}
-}
-
 std::string toUpperCase(std::string_view z) {
 	std::string r;
 	r.reserve(z.size());
@@ -161,18 +138,15 @@ void Interface::createSigned(Object &payload) {
 }
 
 double Interface::getBalance(const std::string_view& symb, const std::string_view & pair) {
-	try {
 		Object req;
 		createSigned(req);
 		req.set("currencies", toLowerCase(symb));
 		Value response = httpc.POST("/user/balance",req);
 		Value r = response[0];
 		return r["available"].getNumber()+r["inOrders"].getNumber();
-	} catch (...) {handleError();throw;}
 }
 
 inline Value Interface::readTradePage(unsigned int pageId, const std::string_view &pair) {
-	try {
 		Object req;
 		createSigned(req);
 		req.setItems({
@@ -182,7 +156,6 @@ inline Value Interface::readTradePage(unsigned int pageId, const std::string_vie
 		});
 
 		return httpc.POST("/user/transactions", req);
-	} catch (...) {handleError();throw;}
 }
 
 
@@ -247,7 +220,6 @@ inline Interface::TradesSync Interface::syncTrades(json::Value lastId,
 }
 
 inline Interface::Orders Interface::getOpenOrders(const std::string_view& pair) {
-	try {
 		Object obj;
 		createSigned(obj);
 		obj.setItems({
@@ -275,11 +247,9 @@ inline Interface::Orders Interface::getOpenOrders(const std::string_view& pair) 
 				o["id"],clientId,(o["type"].getUInt()?-1:1)*o["baseAmount"].getNumber(),o["price"].getNumber()
 			};
 		}, Orders());
-	} catch (...) {handleError();throw;}
 }
 
 inline Interface::Ticker Interface::getTicker(const std::string_view& pair) {
-	try {
 	std::string url = "/current/order-book/";
 	url.append(pair);
 	url.append("/1/1/1");
@@ -290,14 +260,12 @@ inline Interface::Ticker Interface::getTicker(const std::string_view& pair) {
 	return Ticker {
 		bid,ask,std::sqrt(ask*bid),now()
 	};
-	} catch (...) {handleError();throw;}
 
 }
 
 inline json::Value Interface::placeOrder(const std::string_view& pair,
 		double size, double price, json::Value clientId, json::Value replaceId,
 		double replaceSize) {
-	try {
 
 		if (replaceId.hasValue()) {
 			Object obj;createSigned(obj);
@@ -337,9 +305,6 @@ inline json::Value Interface::placeOrder(const std::string_view& pair,
 			return new_id;
 		}
 		return nullptr;
-	} catch (...) {
-		handleError();throw;
-	}
 
 
 
@@ -384,7 +349,6 @@ inline double Interface::getFees(const std::string_view& pair) {
 }
 
 json::Value Interface::getAllPairsJSON() {
-	try {
 	auto resp = httpc.GET("/current/currency-pairs");
 	Object items;
 	for (json::Value v: resp) {
@@ -392,7 +356,6 @@ json::Value Interface::getAllPairsJSON() {
 		items.set(id, v);
 	}
 	return items;
-	} catch (...) {handleError();throw;}
 
 
 }

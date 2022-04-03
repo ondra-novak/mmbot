@@ -54,7 +54,6 @@ static Value keyFormat = {Object({
 class Interface: public AbstractBrokerAPI {
 public:
 
-	simpleServer::HttpClient httpc;
 	HTTPJson hjsn;
 	HTTPJson hjsn_c;
 	HTTPJson hjsn_utils;
@@ -71,7 +70,7 @@ public:
 		try {
 			if (market == nullptr) {
 				PQuoteDistributor qdist = new QuoteDistributor();
-				qstream = std::make_unique<QuoteStream>(httpc,"https://web-quotes.simplefx.com/signalr/", qdist->createReceiveFn());
+				qstream = std::make_unique<QuoteStream>("https://web-quotes.simplefx.com/signalr/", qdist->createReceiveFn());
 				qdist->connect(qstream->connect());
 				market = std::make_unique<Market>(qdist, [this](const std::string &symbol, double amount, double last_price){
 					auto z = this->execCommand(symbol, amount, last_price);
@@ -89,11 +88,9 @@ public:
 	void login();
 
 	Interface(const std::string &path):AbstractBrokerAPI(path, keyFormat)
-	,httpc("+mmbot/2.0 simplefx_broker (https://github.com/ondra-novak/mmbot)",
-			simpleServer::newHttpsProvider(),nullptr,simpleServer::newCachedDNSProvider(10))
-	,hjsn(simpleServer::HttpClient(httpc),"https://rest.simplefx.com")
-	,hjsn_c(simpleServer::HttpClient(httpc),"https://candles.simplefx.com/api/CandlesController")
-	,hjsn_utils(simpleServer::HttpClient(httpc),"https://simplefx.com")
+	,hjsn("https://rest.simplefx.com")
+	,hjsn_c("https://candles.simplefx.com/api/CandlesController")
+	,hjsn_utils("https://simplefx.com")
 	{
 	}
 
@@ -590,15 +587,15 @@ inline void Interface::login() {
 					c["displayCurrency"].getValueOrDefault(currency).getString()
 				});
 
-				if (login.toString().str() == StrViewA(authAccount)) {
+				if (login.toString().str() == authAccount) {
 					defaultAccount = login.getUInt();
 				}
 			}
 			if (!defaultAccount) throw std::runtime_error("Can't find specified account (API key is invalid)");
 			updatePositions();
 		}
-	} catch (const simpleServer::HTTPStatusException &e) {
-		if (e.getStatusCode() == 409) throw std::runtime_error("Invalid API key");
+	} catch (const HTTPJson::UnknownStatusException &e) {
+		if (e.code == 409) throw std::runtime_error("Invalid API key");
 		else throw;
 	}
 }
