@@ -41,7 +41,7 @@ double Strategy_Epa::calculateSize(double price, double assets) const {
 	double size;
 	if (std::isnan(st.enter) || (effectiveAssets * price) < st.budget * cfg.min_asset_perc_of_budget) {
 		// buy
-		size = (st.budget * cfg.initial_bet_perc_of_budget) / price;
+		size = (st.currency * cfg.initial_bet_perc_of_budget) / price;
 	}	else if (price < st.enter) {
 
 		double half = ((st.currency / price) + effectiveAssets) * cfg.reduction_midpoint;
@@ -127,7 +127,7 @@ std::pair<IStrategy::OnTradeResult, ondra_shared::RefCntPtr<const IStrategy> > S
 	return {
 		// norm. p, accum, neutral pos, open price
 		{ norm_profit, 0, std::isnan(enter) ? 0 : enter, 0 },
-		PStrategy(new Strategy_Epa(cfg, State { ep, enter, st.budget, newAsset, st.currency - cost, tradePrice }))
+		PStrategy(new Strategy_Epa(cfg, State { ep, enter, st.budget, newAsset, std::min(st.budget, st.currency - cost), tradePrice }))
 	};
 
 }
