@@ -17,5 +17,6 @@ add_executable (mmbot
 		swap_broker.cpp
 		report.cpp
 		papertrading.cpp
+		auth.cpp
 	)
 target_link_libraries (mmbot LINK_PUBLIC userver imtjson )
