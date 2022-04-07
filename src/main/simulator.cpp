@@ -33,8 +33,8 @@ static inline double getInitialBalance(const std::string_view &symb) {
 }
 
 
-Simulator::Simulator(IStockSelector *exchanges, const std::string &sub)
-:exchanges(exchanges), sub(sub),lastReset(std::chrono::system_clock::now()) {}
+Simulator::Simulator(AbstractBrokerList *exchanges, std::string &&sub)
+:exchanges(exchanges), sub(std::move(sub)),lastReset(std::chrono::system_clock::now()) {}
 
 
 bool Simulator::isSubaccount() const {
@@ -42,7 +42,7 @@ bool Simulator::isSubaccount() const {
 }
 PStockApi Simulator::findSuitableHistoryBroker(const std::string_view &asset, const std::string_view &currency) {
 	PStockApi src;
-	exchanges->forEachStock([&](std::string_view id, const PStockApi &s){
+	exchanges->enum_brokers([&](std::string_view id, const PStockApi &s){
 
 		IBrokerControl *b = dynamic_cast<IBrokerControl *>(s.get());
 		if (b) {
@@ -75,8 +75,8 @@ std::vector<std::string> Simulator::getAllPairs() {
 
 }
 
-IStockApi* Simulator::createSubaccount(const std::string &name) const {
-	return new Simulator(exchanges, name);
+IStockApi* Simulator::createSubaccount(const std::string_view &name) const {
+	return new Simulator(exchanges, std::string(name));
 }
 
 IBrokerControl::PageData Simulator::fetchPage(const std::string_view &method,
@@ -176,7 +176,7 @@ json::Value Simulator::getMarkets() const {
 	ondra_shared::Worker wrk = ondra_shared::Worker::create(4);
 	ondra_shared::Countdown cnt(0);
 	std::mutex lk;
-	exchanges->forEachStock([&](std::string_view id, const PStockApi &s){
+	exchanges->enum_brokers([&](std::string_view id, const PStockApi &s){
 		if (s.get() != this) {
 			IBrokerControl *b = dynamic_cast<IBrokerControl *>(s.get());
 			if (b) {
@@ -418,7 +418,7 @@ Simulator::SourceInfo Simulator::parseSymbol(const std::string_view &symbol) {
 	if (sep == symbol.npos) throw std::runtime_error("Invalid market symbol");
 	std::string_view exchangeName = symbol.substr(0,sep);
 	std::string_view pair = symbol.substr(sep+1);
-	auto p = exchanges->getStock(exchangeName);
+	auto p = exchanges->get_broker(exchangeName);
 	if (p == nullptr) throw std::runtime_error("Invalid market symbol - data source is not available");
 	IBrokerControl *bc = dynamic_cast<IBrokerControl *>(p.get());
 	if (bc) {

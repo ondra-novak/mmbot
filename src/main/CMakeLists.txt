@@ -18,5 +18,9 @@ add_executable (mmbot
 		report.cpp
 		papertrading.cpp
 		auth.cpp
+		stock_selector.cpp
+		simulator.cpp
+		ext_stockapi.cpp
+		abstractExtern.cpp
 	)
 target_link_libraries (mmbot LINK_PUBLIC userver imtjson )

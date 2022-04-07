@@ -101,7 +101,7 @@ class IStockApi;
 
 class IBrokerSubaccounts {
 public:
-	virtual IStockApi *createSubaccount(const std::string &subaccount) const= 0;
+	virtual IStockApi *createSubaccount(const std::string_view &subaccount) const= 0;
 	virtual bool isSubaccount() const = 0;
 	virtual ~IBrokerSubaccounts() {}
 };

@@ -19,6 +19,7 @@
 #include "../httpjson.h"
 #include "../orderdatadb.h"
 
+#include <shared/linear_map.h>
 
 
 

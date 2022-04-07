@@ -9,6 +9,8 @@
 #define SRC_MAIN_SIMULATOR_H_
 #include "ibrokercontrol.h"
 #include "papertrading.h"
+#include "brokerlist.h"
+#include <shared/linear_map.h>
 
 class Simulator: public AbstractPaperTrading,
 				 public IBrokerControl,
@@ -18,13 +20,13 @@ class Simulator: public AbstractPaperTrading,
 				 {
 public:
 
-	Simulator(IStockSelector *exchanges, const std::string &sub = std::string());
+	Simulator(AbstractBrokerList *exchanges, std::string &&sub = std::string());
 
 
 	virtual bool isSubaccount() const override;
 	virtual bool areMinuteDataAvailable(const std::string_view &asset,	const std::string_view &currency) override;
 	virtual std::vector<std::string> getAllPairs() override;
-	virtual IStockApi* createSubaccount(const std::string &subaccount) const override;
+	virtual IStockApi* createSubaccount(const std::string_view &subaccount) const override;
 	virtual IBrokerControl::PageData fetchPage(const std::string_view &method, const std::string_view &vpath, const IBrokerControl::PageData &pageData) override;
 	virtual json::Value getSettings(const std::string_view &pairHint) const override;
 	virtual uint64_t downloadMinuteData(const std::string_view &asset, const std::string_view &currency,
@@ -54,7 +56,7 @@ protected:
 protected:
 	///We can store pointer only, because this broker is always part of the exchanges itself
 	///So it is not possible, that broker will have invalid address
-	IStockSelector *exchanges;
+	AbstractBrokerList *exchanges;
 	std::string sub;
 
 	struct TradeState: AbstractPaperTrading::TradeState {

@@ -52,7 +52,7 @@ public:
 	virtual json::Value requestExchange(json::String name, json::Value args);
 	virtual void unload() override;
 	virtual bool isIdle(const std::chrono::system_clock::time_point &tp) const override;
-	virtual ExtStockApi *createSubaccount(const std::string &subaccount) const override;
+	virtual ExtStockApi *createSubaccount(const std::string_view &subaccount) const override;
 	virtual bool isSubaccount() const override;
 	virtual json::Value getMarkets() const override;
 	virtual AllWallets getWallet()  override;
@@ -97,7 +97,7 @@ protected:
 	std::string subaccount;
 	std::chrono::system_clock::time_point lastActivity, lastReset;
 
-	ExtStockApi(std::shared_ptr<Connection> connection, const std::string &subaccid);
+	ExtStockApi(std::shared_ptr<Connection> connection, std::string &&subaccid);
 };
 
 

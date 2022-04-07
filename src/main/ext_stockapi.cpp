@@ -379,12 +379,12 @@ bool ExtStockApi::isIdle(const std::chrono::system_clock::time_point &tp) const 
 	return std::chrono::duration_cast<std::chrono::minutes>(idleTime).count() >= 15;
 }
 
-ExtStockApi::ExtStockApi(std::shared_ptr<Connection> connection, const std::string &subaccount)
-	:connection(connection),subaccount(subaccount) {}
+ExtStockApi::ExtStockApi(std::shared_ptr<Connection> connection, std::string &&subaccount)
+	:connection(connection),subaccount(std::move(subaccount)) {}
 
 
-ExtStockApi *ExtStockApi::createSubaccount(const std::string &subaccount) const  {
-	ExtStockApi *copy = new ExtStockApi(connection,subaccount);
+ExtStockApi *ExtStockApi::createSubaccount(const std::string_view &subaccount) const  {
+	ExtStockApi *copy = new ExtStockApi(connection,std::string(subaccount));
 	return copy;
 }
 

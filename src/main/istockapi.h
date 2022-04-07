@@ -8,14 +8,11 @@
 #ifndef SRC_MAIN_ISTOCKAPI_H_
 #define SRC_MAIN_ISTOCKAPI_H_
 
+#include <memory>
 #include <chrono>
 #include <imtjson/value.h>
-#include "../shared/linear_map.h"
-#include <string_view>
-
 #include <imtjson/namedEnum.h>
-#include <memory>
-#include <limits>
+#include <userver/callback.h>
 
 ///Interface definition for accessing a stockmarket
 /** Contains minimal set of operations need to be implemented to access the stockmarket */
@@ -363,15 +360,6 @@ public:
 };
 
 using PStockApi = std::shared_ptr<IStockApi>;
-
-class IStockSelector{
-public:
-
-	using EnumFn = std::function<void(std::string_view, const PStockApi &)>;
-
-	virtual PStockApi getStock(const std::string_view &stockName) const = 0;
-	virtual void forEachStock(EnumFn fn) const = 0;
-};
 
 
 #endif /* SRC_MAIN_ISTOCKAPI_H_ */

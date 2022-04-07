@@ -13,25 +13,50 @@
 
 #include <imtjson/value.h>
 #include <imtjson/jwt.h>
+#include <imtjson/namedEnum.h>
+
+namespace userver {
+	class HttpServerRequest;
+}
+
+enum class ACL {
+	viewer=1,
+	reports=2,
+	admin_view=3,
+	admin_edit=4
+};
+
+extern json::NamedEnum<ACL> strACL;
+
+struct ACLSet {
+	unsigned int val = 0;
+	bool is_set (const ACL &x) const {return (val & (1<<static_cast<unsigned int>(x)));}
+	void set (const ACL &x) { val = (val | (1<<static_cast<unsigned int>(x)));}
+	void reset (const ACL &x) {val = (val & ~(1<<static_cast<unsigned int>(x)));}
+	void toggle(const ACL &x, bool val) {
+		if (val) set(x); else reset(x);
+	}
+	bool toggle(const ACL &x) {
+		bool z = !is_set(x);
+		if (z) set(x); else reset(x);
+		return z;
+	}
+	void set_all() {val = ~0;}
+	void reset_all() {val = 0;}
+};
+
 
 class Auth {
 public:
 
-	struct ACL {
-		///true, if user exists
+	struct User {
 		bool exists = false;
-		///true, if user is viewer
-		bool viewer = false;
-		///true, if user can see reports
-		bool reports = false;
-		///true, if user can view settings
-		bool admin_view = false;
-		///true, if user can edit settings
-		bool admin_edit = false;
+		std::string_view name;
+		ACLSet acl;
 	};
 
 
-	ACL getUserACL(const std::string &token) ;
+	User get_user(const std::string_view &token) ;
 
 	///clear all settings
 	void clear();
@@ -41,7 +66,7 @@ public:
 	 * @param hash_pwd password - use empty if user can't use password login
 	 * @param acl user's acl
 	 */
-	void add_user(std::string &&uname, std::string &&hash_pwd, const ACL &acl);
+	void add_user(std::string &&uname, std::string &&hash_pwd, const ACLSet &acl);
 	///set session secret
 	void set_secret(const std::string &secret);
 	///generate session secret
@@ -51,41 +76,65 @@ public:
 	 * @param jwtsrv token initialized with public key
 	 * @param default_acl default ACL for non-existing users
 	 */
-	void set_jwtsrv(json::PJWTCrypto jwtsrv, const ACL &default_acl);
+	void set_jwtsrv(json::PJWTCrypto jwtsrv, const ACLSet &default_acl);
 
 	static std::string encode_password(const std::string_view& user, const std::string_view& pwd);
+
+	std::string create_session(const User &user, unsigned int exp_sec);
+
+
+	static ACLSet acl_from_JSON(json::Value acl);
+
+	bool init_from_JSON(json::Value config);
+
 
 protected:
 
 
 	struct UserInfo {
 		std::string password_hash;
-		ACL acl;
+		ACLSet acl;
 	};
 
 	using UserMap = std::unordered_map<std::string, UserInfo>;
 
 	struct TokenInfo {
+
 		std::string token;
 		std::string uname;
+		ACLSet acl;
 		std::chrono::system_clock::time_point exp;
 	};
 
 	using TokenCache = std::vector<TokenInfo>;
 
-	static bool cmpTokenCache(const TokenInfo &a, const TokenInfo &b);
+	static bool cmpTokenCache(const TokenInfo &a, const std::string_view &b);
 
-	void cacheToken(const std::string_view &token, const std::string_view &user, const std::chrono::system_clock::time_point &now, const std::chrono::system_clock::time_point &exp);
+	void cacheToken(const std::string_view &token, const std::string_view &user, const ACLSet &acl, const std::chrono::system_clock::time_point &now, const std::chrono::system_clock::time_point &exp);
 
 	UserMap userMap;
 	TokenCache tokenCache, cache_tmp;
-	ACL non_auth_acl;
-	ACL jwt_default_acl;
+	ACLSet jwt_default_acl;
 	json::PJWTCrypto jwtsrv;
 	json::PJWTCrypto session_jwt;
 
 };
 
+
+class AuthService: public Auth {
+public:
+
+	User get_user(const userver::HttpServerRequest &req) ;
+	bool init_from_JSON(json::Value config);
+	bool check_auth(const User &user, userver::HttpServerRequest &req, bool basic_auth = false) const;
+	bool check_auth(const User &user, ACL acl, userver::HttpServerRequest &req, bool basic_auth = false) const;
+
+
+protected:
+
+	bool admin_party = true;
+
+};
 
 
 #endif /* SRC_MAIN_AUTH_H_ */

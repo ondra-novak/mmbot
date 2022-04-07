@@ -27,26 +27,6 @@ public:
 
 };
 
-class StockSelector: public IStockSelector{
-public:
-	using StockMarketMap =  ondra_shared::linear_map<std::string, PStockApi, std::less<>>;
-	using TemporaryStockMap = std::map<std::string, PStockApi, std::less<> >;
-	using PTemporaryStockMap = ondra_shared::SharedObject<TemporaryStockMap>;
-
-	StockMarketMap stock_markets;
-	PTemporaryStockMap temp_markets;
-
-
-	StockSelector();
-
-	void loadBrokers(const ondra_shared::IniConfig::Section &ini, bool test, int brk_timeout);
-	bool checkBrokerSubaccount(const std::string &name);
-	virtual PStockApi getStock(const std::string_view &stockName) const override;
-	virtual void forEachStock(EnumFn fn)  const override;
-	void clear();
-	void housekeepingIdle(const std::chrono::system_clock::time_point &now);
-	void appendSimulator();
-};
 
 
 class Traders {
