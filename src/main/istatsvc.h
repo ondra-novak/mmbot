@@ -124,7 +124,11 @@ public:
 	virtual void reportMisc(const MiscData &miscData, bool initial = false) = 0;
 	virtual void reportError(const ErrorObj &errorObj) = 0;
 	virtual void reportPerformance(const PerformanceReport &repItem) = 0;
+	virtual void reportLogMsg(std::uint64_t timestamp, const std::string_view &text) = 0;
 	virtual std::size_t getHash() const = 0;
+
+	///inicialize report instance - called once the trader is started and initialized
+	virtual void init() = 0;
 
 	virtual ~IStatSvc() {}
 };

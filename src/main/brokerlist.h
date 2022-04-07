@@ -27,4 +27,6 @@ public:
 };
 
 
+using PBrokerList = std::shared_ptr<AbstractBrokerList>;
+
 #endif /* SRC_MAIN_BROKERLIST_H_ */

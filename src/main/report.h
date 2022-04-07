@@ -13,10 +13,10 @@
 #include <optional>
 #include "istockapi.h"
 #include "storage.h"
-#include "../shared/linear_map.h"
-#include "../shared/shared_object.h"
-#include "../shared/stdLogOutput.h"
-#include "../shared/stringview.h"
+#include <shared/linear_map.h>
+#include <shared/shared_object.h>
+#include <shared/stdLogOutput.h>
+#include <shared/stringview.h>
 #include "istatsvc.h"
 #include "strategy.h"
 
@@ -59,22 +59,23 @@ public:
 	void genReport();
 	json::Value genReport_noStore();
 
-	using StrViewA = ondra_shared::StrViewA;
 	template<typename T> using StringView = ondra_shared::StringView<T>;
-	void setOrders(std::size_t rev, StrViewA symb, int n, const std::optional<IStockApi::Order> &buy,
+	void setOrders(std::size_t rev, std::string_view symb, int n, const std::optional<IStockApi::Order> &buy,
 			  	  	  	  	  	  const std::optional<IStockApi::Order> &sell);
-	void setTrades(std::size_t rev, StrViewA symb, double finalPos,  StringView<IStatSvc::TradeRecord> trades);
-	void setInfo(std::size_t rev, StrViewA symb, const InfoObj &info);
-	void setMisc(std::size_t rev, StrViewA symb, const MiscData &miscData, bool initial);
+	void setTrades(std::size_t rev, std::string_view symb, double finalPos,  StringView<IStatSvc::TradeRecord> trades);
+	void setInfo(std::size_t rev, std::string_view symb, const InfoObj &info);
+	void setMisc(std::size_t rev, std::string_view symb, const MiscData &miscData, bool initial);
 
-	void setPrice(std::size_t rev, StrViewA symb, double price);
-	void addLogLine(StrViewA ln);
+	void setPrice(std::size_t rev, std::string_view symb, double price);
+	void addLogLine(std::string_view ln);
 	void clear();
 
 	void perfReport(json::Value report);
 	void setNewsMessages(unsigned int count);
 
-	virtual void setError(std::size_t rev,StrViewA symb, const ErrorObj &errorObj);
+	virtual void reportLogMsg(std::size_t rev, const std::string_view &symb, std::uint64_t timestamp, const std::string_view &text);
+
+	virtual void setError(std::size_t rev,std::string_view symb, const ErrorObj &errorObj);
 
 	static ondra_shared::PStdLogProviderFactory captureLog(const ondra_shared::SharedObject<Report> &rpt, ondra_shared::PStdLogProviderFactory target);
 
@@ -102,10 +103,10 @@ protected:
 	};
 
 	using OrderMap = ondra_shared::linear_map<OKey,OValue, OKeyCmp>;
-	using TradeMap = ondra_shared::linear_map<std::string, json::Value>;
-	using InfoMap = ondra_shared::linear_map<std::string, json::Value>;
-	using MiscMap = ondra_shared::linear_map<std::string, json::Value>;
-	using PriceMap = ondra_shared::linear_map<std::string, double>;
+	using TradeMap = ondra_shared::linear_map<std::string, json::Value, std::less<> >;
+	using InfoMap = ondra_shared::linear_map<std::string, json::Value, std::less<> >;
+	using MiscMap = ondra_shared::linear_map<std::string, json::Value, std::less<> >;
+	using PriceMap = ondra_shared::linear_map<std::string, double, std::less<> >;
 
 	OrderMap orderMap;
 	TradeMap tradeMap;
@@ -133,6 +134,7 @@ protected:
 	std::size_t counter;
 	std::size_t revize;
 	bool refresh_after_clear;
+	std::string buff;
 
 
 	static std::size_t initCounter();
@@ -150,6 +152,8 @@ protected:
 	template<typename ME> void sendNewsMessages(ME &me) const;
 	template<typename ME> void sendLogMessages(ME &me) const;
 };
+
+using PReport = ondra_shared::SharedObject<Report>;
 
 
 

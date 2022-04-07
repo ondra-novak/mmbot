@@ -92,7 +92,7 @@ void Report::sendStreamOrder(ME &me, const OKey &key, const OValue &data) {
 	});
 }
 
-void Report::setOrders(std::size_t rev, StrViewA symb, int n, const std::optional<IStockApi::Order> &buy,
+void Report::setOrders(std::size_t rev, std::string_view symb, int n, const std::optional<IStockApi::Order> &buy,
 	  	  	  	  	  	  	  	     const std::optional<IStockApi::Order> &sell) {
 	if (rev != revize) return;
 	const json::Value &info = infoMap[symb];
@@ -100,8 +100,8 @@ void Report::setOrders(std::size_t rev, StrViewA symb, int n, const std::optiona
 
 	int buyid = inverted?-n:n;
 
-	OKey buyKey {symb, buyid};
-	OKey sellKey {symb, -buyid};
+	OKey buyKey {std::string(symb), buyid};
+	OKey sellKey {std::string(symb), -buyid};
 	OValue data;
 
 	if (buy.has_value()) {
@@ -174,7 +174,7 @@ static json::NamedEnum<AlertReason> strAlertReason({
 	{AlertReason::initial_reset, "initial_reset"}
 });
 
-void Report::setTrades(std::size_t rev, StrViewA symb, double finalPos, StringView<IStatSvc::TradeRecord> trades) {
+void Report::setTrades(std::size_t rev, std::string_view symb, double finalPos, StringView<IStatSvc::TradeRecord> trades) {
 
 	if (rev != revize) return;
 
@@ -315,7 +315,7 @@ void Report::sendStreamInfo(ME &me, const std::string_view &symb, const json::Va
 
 }
 
-void Report::setInfo(std::size_t rev, StrViewA symb, const InfoObj &infoObj) {
+void Report::setInfo(std::size_t rev, std::string_view symb, const InfoObj &infoObj) {
 
 	if (rev != revize) return;
 
@@ -367,7 +367,7 @@ void Report::sendStreamPrice(ME &me, const std::string_view &symb, double data) 
 		{ "data", data } });
 }
 
-void Report::setPrice(std::size_t rev, StrViewA symb, double price) {
+void Report::setPrice(std::size_t rev, std::string_view symb, double price) {
 
 	if (rev != revize) return;
 
@@ -415,7 +415,7 @@ void Report::sendStreamError(ME &me, const std::string_view &symb, const json::V
 		{ "data", obj } });
 }
 
-void Report::setError(std::size_t rev,StrViewA symb, const ErrorObj &errorObj) {
+void Report::setError(std::size_t rev,std::string_view symb, const ErrorObj &errorObj) {
 	if (rev != revize) return;
 
 	const json::Value &info = infoMap[symb];
@@ -438,9 +438,21 @@ void Report::exportMisc(json::Object &&out) {
 	}
 }
 
-void Report::addLogLine(StrViewA ln) {
+void Report::addLogLine(std::string_view ln) {
 	logLines.push_back(std::string_view(ln));
 	sendStream(json::Object({{"type","log"},{"data",std::string_view(ln)}}));
+}
+
+void Report::reportLogMsg(std::size_t rev, const std::string_view &symb, std::uint64_t timestamp, const std::string_view &text) {
+	if (rev != revize) return;
+	sendStream(json::Object({
+		{"type","slog"},
+		{"symbol", std::string_view(symb)},
+		{"data",json::Object {
+			{"tm", timestamp},
+			{"text", text},
+		}}
+	}));
 }
 
 using namespace ondra_shared;
@@ -481,7 +493,7 @@ void Report::sendStreamMisc(ME &me, const std::string_view &symb, const json::Va
 
 }
 
-void Report::setMisc(std::size_t rev, StrViewA symb, const MiscData &miscData, bool initial) {
+void Report::setMisc(std::size_t rev, std::string_view symb, const MiscData &miscData, bool initial) {
 
 	if (rev != revize) return;
 

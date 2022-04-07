@@ -7,6 +7,76 @@
 
 #ifndef SRC_MAIN_TRADERS_H_
 #define SRC_MAIN_TRADERS_H_
+
+#include <shared/linear_map.h>
+#include <shared/worker.h>
+
+#include "report.h"
+#include "brokerlist.h"
+#include "idailyperfmod.h"
+#include "utilization.h"
+#include "hist_data_storage.h"
+#include "trader.h"
+
+
+
+class Traders {
+public:
+
+	Traders(PBrokerList brokers,
+			PStorageFactory sf,
+			PHistStorageFactory<HistMinuteDataItem> hsf,
+			PReport rpt,
+			PPerfModule perfMod,
+			PBalanceMap balanceCache,
+			PBalanceMap extBalances);
+
+	void run_cycle(ondra_shared::Worker wrk, PUtilization utls, userver::Callback<void(bool)> &&done);
+	void stop_cycle();
+
+	///Initialize restart with new traders
+	void begin_add();
+	///add new trader - prepare
+	/**
+	 * @param id trader's
+	 * @param config trader's config
+	 */
+	void add_trader(std::string_view id, const json::Value &config);
+	///commit changes, restart cycle
+	/** function can throw an exception if something fails, in this case, new traders are not
+	 * started. Some currently running traders may be disabled, especially when
+	 * they are going to be deleted
+	 */
+	void commit_add();
+
+
+
+protected:
+	PBrokerList brokers;
+	PStorageFactory sf;
+	PReport rpt;
+	PPerfModule perfMod;
+	PBalanceMap balanceCache;
+	PBalanceMap extBalances;
+	PHistStorageFactory<HistMinuteDataItem> hsf;
+
+
+	PBalanceMap prepared_trader_conflict_map;
+	PWalletDB prepared_walletDB;
+	PWalletDB walletDB;
+
+	std::mutex mx;
+
+	using TraderList = ondra_shared::linear_map<std::string, PTrader>;
+
+	TraderList traders, prepared;
+	std::atomic<bool> stop = false;
+
+
+};
+
+
+#if 0
 #include "../shared/scheduler.h"
 #include "../shared/shared_object.h"
 #include "../shared/worker.h"
@@ -86,6 +156,6 @@ public:
 };
 
 
-
+#endif
 
 #endif /* SRC_MAIN_TRADERS_H_ */

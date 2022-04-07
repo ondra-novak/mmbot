@@ -26,11 +26,11 @@ using PStorage = std::unique_ptr<IStorage>;
 
 class IStorageFactory {
 public:
-	virtual PStorage create(std::string name) const = 0;
+	virtual PStorage create(const std::string_view &name) const = 0;
 	virtual ~IStorageFactory() {}
 };
 
-using PStorageFactory = std::unique_ptr<IStorageFactory>;
+using PStorageFactory = std::shared_ptr<IStorageFactory>;
 
 
 ///Two storages, first is primary, other is secondary
@@ -70,7 +70,7 @@ public:
 	BackedStorageFactory(PStorageFactory &&primary, PStorageFactory &&secondary)
 			:primary(std::move(primary))
 			,secondary(std::move(secondary)) {}
-	virtual PStorage create(std::string name) const override {
+	virtual PStorage create(const std::string_view &name) const override {
 		return PStorage(new BackedStorage(primary->create(name), secondary->create(name)));
 	}
 protected:

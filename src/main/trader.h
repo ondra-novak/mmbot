@@ -11,6 +11,8 @@
 #include <optional>
 #include <string>
 #include <imtjson/value.h>
+#include <shared/shared_object.h>
+
 #include "stats2report.h"
 
 #include "acb.h"
@@ -102,7 +104,6 @@ struct Trader_Env {
 	SpreadGenerator spread_gen;
 	PStockApi exchange;
 	PStatSvc statsvc;
-	PPerfModule perfscv;
 	PStorage state_storage;
 	PHistStorage<HistMinuteDataItem> histData;
 	PWalletDB walletDB;
@@ -127,8 +128,12 @@ public:
 	Trader(const Trader_Config &cfg, Trader_Env &&env);
 	void init();
 	void update_minfo();
-
 	void run();
+	void reset_broker(const std::chrono::system_clock::time_point &mark);
+	void report_exception();
+
+	void stop();
+	void erase_state();
 
 
 	IStockApi &get_exchange();
@@ -216,7 +221,7 @@ protected:
 	};
 
 	///trader's configuration
-	const Trader_Config cfg;
+	Trader_Config cfg;
 	///trader's environment - external objects (which can by changed)
 	Trader_Env env;
 	///Market information
@@ -328,6 +333,8 @@ protected:
 	void do_reset(MarketStateEx &st);
 	static bool do_achieve(const AchieveMode &ach, Control &st);
 };
+
+using PTrader = ondra_shared::SharedObject<Trader>;
 
 
 #endif /* SRC_MAIN_TRADER_H_ */

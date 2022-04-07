@@ -11,6 +11,8 @@
 #include "trader.h"
 
 #include <imtjson/string.h>
+#include "errhandler.h"
+
 #include "swap_broker.h"
 
 #include "papertrading.h"
@@ -62,6 +64,7 @@ public:
 	virtual void report_nothing(std::string_view title) override;
 	virtual void set_buy_order_error(std::string_view text, double display_price, double display_size) override;
 	virtual void set_sell_order_error(std::string_view text, double display_price, double display_size) override;
+	virtual void log(std::string_view text) override;
 
 	void set_std_buy_error(NewOrderResult rs, double price, double size);
 	void set_std_sell_error(NewOrderResult rs, double price, double size);
@@ -87,6 +90,7 @@ public:
 	};
 
 	std::optional<OrderError> buy_error, sell_error;
+
 
 	bool canceled_buy=false;
 	bool canceled_sell=false;
@@ -143,6 +147,10 @@ void Trader::update_minfo() {
 
 void Trader::init() {
 	if (inited) return;
+
+	if (env.statsvc != nullptr) {
+		env.statsvc->init();
+	}
 
 	update_minfo();
 
@@ -295,8 +303,8 @@ bool Trader::processTrades() {
 		double volume = t.size * t.price;
 		spent_currency += volume;
 		trades.push_back(Trade(t, prev_norm, 0, prev_neutral));
-		if (env.perfscv != nullptr) {
-			env.perfscv.lock()->sendItem(PerformanceReport{
+		if (env.statsvc != nullptr) {
+			env.statsvc->reportPerformance(PerformanceReport{
 				magic, uid, t.id.toString().str(), minfo.currency_symbol,
 				minfo.asset_symbol,cfg.broker,
 				t.price, t.size, last_price?(t.eff_price-last_price)*(acb_state.getPos() - t.eff_price):0,
@@ -352,6 +360,14 @@ void Trader::detect_lost_trades(bool any_trades, const MarketStateEx &mst) {
 	}
 }
 
+
+void Trader::reset_broker(const std::chrono::system_clock::time_point &mark) {
+	try {
+		env.exchange->reset(mark);
+	} catch (...) {
+		report_exception();
+	}
+}
 
 void Trader::run() {
 	try {
@@ -573,14 +589,31 @@ void Trader::run() {
 		save_state();
 		first_run = false;
 
-	} catch (std::exception &e) {
-		if (env.statsvc != nullptr) {
-			std::string error;
-			error.append(e.what());
-			env.statsvc->reportError(IStatSvc::ErrorObjEx(error.c_str()));
-		}
+	} catch (...) {
+		report_exception();
 	}
 
+}
+
+void Trader::report_exception() {
+	if (!inited) {	//we need to initialize report class enable appear the trader in the report
+		try {
+			update_minfo();
+		} catch (...) {
+			REPORT_UNHANDLED();
+		}
+	}
+	if (env.statsvc) {
+		try {
+			throw;
+		} catch (std::exception &e) {
+			env.statsvc->reportError(IStatSvc::ErrorObjEx(e.what()));
+		} catch (...) {
+			env.statsvc->reportError(IStatSvc::ErrorObjEx("Undetermined error"));
+		}
+	} else {
+		REPORT_UNHANDLED();
+	}
 }
 
 Trader::MarketStateEx Trader::getMarketState(bool trades_finished) const {
@@ -886,6 +919,12 @@ inline void Trader::Control::set_std_sell_error(NewOrderResult rs, double price,
 	cancel_sell();
 }
 
+inline void Trader::Control::log(std::string_view text) {
+	if (owner.env.statsvc != nullptr) {
+		owner.env.statsvc->reportLogMsg(state.cur_time, text);
+	}
+}
+
 NewOrderResult Trader::Control::checkSellSize(double price, double size) {
 
 	if (!std::isfinite(price) || price < state.lowest_sell_price) return {OrderRequestResult::invalid_price,0};
@@ -1168,6 +1207,17 @@ void Trader::do_reset(MarketStateEx &st) {
 
 IStockApi& Trader::get_exchange() {
 	return *env.exchange;
+}
+
+void Trader::stop() {
+	cfg.enabled = false;
+}
+
+void Trader::erase_state() {
+	if (env.state_storage != nullptr) {
+		env.state_storage->erase();
+		env.state_storage = nullptr;
+	}
 }
 
 bool Trader::do_achieve(const AchieveMode &ach, Control &cntr) {

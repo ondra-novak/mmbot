@@ -84,6 +84,12 @@ public:
 	class Reporting;
 
 
+	struct LogMsg {
+		std::uint64_t time;
+		std::string text;
+	};
+
+	const std::vector<LogMsg> &get_log_msgs() const;
 
 
 protected:
@@ -101,8 +107,11 @@ protected: //reported data;
 	IStatSvc::Info info;
 	std::optional<IStockApi::Order> buy;
 	std::optional<IStockApi::Order> sell;
+	std::vector<LogMsg> log_msgs;
 	double cur_price = 0;
 	double position = 0;
+
+
 
 
 

@@ -48,7 +48,7 @@ public:
 	StorageFactory(std::string path):path(path),versions(5),format(Storage::json) {}
 	StorageFactory(std::string path, bool binary):path(path),versions(5),format(binary?Storage::binjson:Storage::json) {}
 	StorageFactory(std::string path, int versions, Storage::Format format):path(path),versions(versions),format(format) {}
-	virtual PStorage create(std::string name) const override;
+	virtual PStorage create(const std::string_view &name) const override;
 
 
 protected:

@@ -5,7 +5,130 @@
  *      Author: ondra
  */
 
+#include "traders.h"
 
+#include "trader_factory.h"
+
+#include "errhandler.h"
+
+Traders::Traders(PBrokerList brokers,
+				PStorageFactory sf,
+				PHistStorageFactory<HistMinuteDataItem> hsf,
+				PReport rpt,
+				PPerfModule perfMod,
+				PBalanceMap balanceCache,
+				PBalanceMap extBalances)
+:brokers(brokers)
+,sf(sf)
+,rpt(rpt)
+,perfMod(perfMod)
+,balanceCache(balanceCache)
+,extBalances(extBalances)
+,hsf(hsf)
+{
+}
+
+
+struct State {
+
+	std::chrono::system_clock::time_point start;
+	std::atomic<std::size_t> counter;
+	userver::Callback<void(bool)> done;
+	PUtilization utls;
+	State(std::chrono::system_clock::time_point start, std::size_t sz, userver::Callback<void(bool)> &&done, PUtilization utls)
+		:start(start),counter(sz),done(std::move(done)),utls(utls) {}
+
+};
+
+
+void Traders::run_cycle(ondra_shared::Worker wrk, PUtilization utls, userver::Callback<void(bool)> &&done) {
+	auto &stop = this->stop;
+
+	if (stop.load()) {done(false);return;}
+	std::unique_lock lk(mx);
+	if (stop.load()) {done(false);return;}
+	auto st = std::make_shared<State>(
+		std::chrono::system_clock::now(),
+		traders.size(),
+		std::move(done),
+		utls
+	);
+
+	for (auto &t: traders) {
+		wrk >> [&stop,  trader = t.second, name = std::string_view(t.first), st]() mutable {
+			try {
+				auto trstr = std::chrono::system_clock::now();
+				auto trlk = trader.lock();
+				if (!stop.load()) {
+					trlk->reset_broker(st->start);
+					if (!stop.load()) {
+						trlk->run();
+						auto trend = std::chrono::system_clock::now();
+						st->utls.lock()->report_trader(name, std::chrono::duration_cast<std::chrono::milliseconds>(trstr - trend));
+					}
+				}
+			} catch (...) {
+				REPORT_UNHANDLED();
+			}
+			if (--st->counter == 0) {
+				auto end = std::chrono::system_clock::now();
+				st->utls.lock()->report_overall(std::chrono::duration_cast<std::chrono::milliseconds>(end - st->start));
+				st->done(!stop.load());
+			}
+		};
+	}
+}
+
+void Traders::stop_cycle() {
+	stop.store(true);
+}
+
+void Traders::begin_add() {
+	prepared.clear();
+	prepared_trader_conflict_map = prepared_trader_conflict_map.make();
+	prepared_walletDB = prepared_walletDB.make();
+}
+
+void Traders::add_trader(std::string_view id, const json::Value &config) {
+	Trader_Config_Ex tcfg;
+	tcfg.parse(config);
+	Trader_Env env;
+	env.balanceCache = balanceCache;
+	env.conflicts = prepared_trader_conflict_map;
+	env.exchange = brokers->get_broker(tcfg.broker);
+	env.externalBalance = extBalances;
+	env.histData = hsf->create(id);
+	env.spread_gen = SpreadRegister::getInstance().create(tcfg.spread_id, tcfg.spread_config);
+	env.state_storage = sf->create(id);
+	env.statsvc = std::make_unique<Stats2Report>(id, rpt, perfMod);
+	env.strategy = StrategyRegister::getInstance().create(tcfg.spread_id, tcfg.spread_config);
+	env.walletDB = prepared_walletDB;
+	PTrader trd = PTrader::make(tcfg, std::move(env));
+	prepared.emplace(std::string(id), trd);
+
+}
+
+void Traders::commit_add() {
+	for (auto &k: traders) {
+		if (prepared.find(k.first) == prepared.end()) {
+			auto trlk = k.second.lock();
+			trlk->stop();
+			trlk->erase_state();
+		}
+	}
+	rpt.lock()->clear();
+	traders = std::move(prepared);
+	for (auto &k: traders) {
+		auto trlk = k.second.lock();
+		try {
+			trlk->init();
+		} catch (...) {
+			trlk->report_exception();
+		}
+	}
+}
+
+#if 0
 
 
 #include "traders.h"
@@ -189,3 +312,4 @@ SharedObject<NamedMTrader> Traders::find(std::string_view id) const {
 	else return iter->second;
 }
 
+#endif

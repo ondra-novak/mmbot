@@ -325,6 +325,13 @@ public:
 	 */
 	virtual void set_sell_order_error(std::string_view text, double display_price = 0, double display_size = 0) = 0;
 
+	///Write anything to trade's log file
+	/** Each call creates one line. It is logged along with timestamp
+	 *
+	 * @param text
+	 */
+	virtual void log(std::string_view text) = 0;
+
 };
 
 struct ChartPoint {

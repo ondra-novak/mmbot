@@ -8,6 +8,7 @@
 #ifndef SRC_MAIN_HIST_DATA_STORAGE_H_
 #define SRC_MAIN_HIST_DATA_STORAGE_H_
 
+#include <filesystem>
 #include <vector>
 #include <fstream>
 
@@ -20,7 +21,22 @@ public:
 
 	virtual std::vector<T> read(std::size_t limit) = 0;
 	virtual void store(const T &value) = 0;
+	virtual void erase() = 0;
 };
+
+template<typename T> using PHistStorage = std::unique_ptr<AbstractHistDataStorage<T> >;
+
+
+template<typename T>
+class AbstractHIstDataStorageFactory {
+public:
+	virtual ~AbstractHIstDataStorageFactory() {}
+
+	virtual PHistStorage<T> create(const std::string_view &name) = 0;
+};
+
+template<typename T> using PHistStorageFactory = std::shared_ptr<AbstractHIstDataStorageFactory<T> >;
+
 
 template<typename T>
 class PODFileHistDataStorage: public AbstractHistDataStorage<T> {
@@ -30,6 +46,7 @@ public:
 
 	virtual std::vector<T> read(std::size_t limit) ;
 	virtual void store(const T &value);
+	virtual void erase();
 
 
 protected:
@@ -67,6 +84,12 @@ void PODFileHistDataStorage<T>::store(const T &value) {
 	bkfl.flush();
 }
 
-template<typename T> using PHistStorage = std::unique_ptr<AbstractHistDataStorage<T> >;
+
+template<typename T>
+inline void PODFileHistDataStorage<T>::erase() {
+	bkfl.close();
+	std::filesystem::remove(fname);
+
+}
 
 #endif /* SRC_MAIN_HIST_DATA_STORAGE_H_ */

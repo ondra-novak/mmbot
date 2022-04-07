@@ -10,6 +10,7 @@
 #include <string>
 #include <optional>
 #include <imtjson/value.h>
+#include <shared/shared_object.h>
 
 	struct PerformanceReport {
 		std::size_t magic;
@@ -81,6 +82,6 @@ public:
 	virtual ~IDailyPerfModule() {}
 };
 
-
+using PPerfModule = ondra_shared::SharedObject<IDailyPerfModule, ondra_shared::SharedObjectVirtualTraits<IDailyPerfModule> >;
 
 #endif /* SRC_MAIN_IDAILYPERFMOD_H_ */

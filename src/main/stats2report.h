@@ -28,10 +28,14 @@ public:
 
 
 	Stats2Report(
-			std::string name,
+			const std::string_view &name,
 			const PReport &rpt,
 			PPerfModule perfmod
 			) :rpt(rpt),name(name),perfmod(perfmod)  {
+		rev = rpt.lock_shared()->getRev();
+	}
+
+	virtual void init() override {
 		rev = rpt.lock_shared()->getRev();
 	}
 
@@ -61,6 +65,9 @@ public:
 	}
 	virtual void reportPerformance(const PerformanceReport &repItem) override {
 		if (perfmod) perfmod.lock()->sendItem(repItem);
+	}
+	virtual void reportLogMsg(std::uint64_t timestamp, const std::string_view &text) override {
+		rpt.lock()->reportLogMsg(rev, name, timestamp, text);
 	}
 
 	PReport rpt;

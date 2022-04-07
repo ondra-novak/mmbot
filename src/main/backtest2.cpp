@@ -49,6 +49,8 @@ public:
 	virtual void reportPrice(double price) override;
 	virtual void reportPerformance(const PerformanceReport &repItem) override;
 	virtual void setInfo(const IStatSvc::Info &info) override;
+	virtual void reportLogMsg(uint64_t timestamp, const std::string_view &text) override;
+	virtual void init() override {};
 
 protected:
 	Backtest &owner;
@@ -125,7 +127,6 @@ void Backtest::start(std::vector<double> &&prices, std::uint64_t start_time) {
 		std::make_unique<Reporting>(*this),
 		nullptr,
 		nullptr,
-		nullptr,
 		nullptr,//PWalletDB::make(),
 		//PWalletDB::make(),
 		nullptr,//PBalanceMap::make(),
@@ -137,6 +138,7 @@ void Backtest::start(std::vector<double> &&prices, std::uint64_t start_time) {
 }
 
 bool Backtest::next() {
+	log_msgs.clear();
 	if (pos >= prices.size()) return false;
 	Source *src = static_cast<Source *>(source.get());
 	trader->get_exchange().reset(std::chrono::system_clock::now());
@@ -191,4 +193,14 @@ Trader& Backtest::get_trader() {
 
 std::uint64_t Backtest::get_cur_time() const {
 	return start_time+static_cast<std::uint64_t>(pos)*60000;
+}
+
+inline void Backtest::Reporting::reportLogMsg(uint64_t timestamp, const std::string_view &text) {
+	owner.log_msgs.push_back({
+		timestamp, std::string(text)
+	});
+}
+
+const std::vector<Backtest::LogMsg>& Backtest::get_log_msgs() const {
+	return log_msgs;
 }
