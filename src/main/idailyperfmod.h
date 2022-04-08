@@ -82,6 +82,6 @@ public:
 	virtual ~IDailyPerfModule() {}
 };
 
-using PPerfModule = ondra_shared::SharedObject<IDailyPerfModule, ondra_shared::SharedObjectVirtualTraits<IDailyPerfModule> >;
+using PPerfModule = std::shared_ptr<IDailyPerfModule>;
 
 #endif /* SRC_MAIN_IDAILYPERFMOD_H_ */

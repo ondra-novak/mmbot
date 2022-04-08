@@ -9,7 +9,7 @@
 #define SRC_MAIN_STORAGE_H_
 #include <memory>
 #include <mutex>
-
+#include <filesystem>
 #include <imtjson/value.h>
 #include <stack>
 
@@ -52,7 +52,7 @@ public:
 
 
 protected:
-	std::string path;
+	std::filesystem::path path;
 	int versions;
 	Storage::Format format;
 };

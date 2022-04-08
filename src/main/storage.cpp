@@ -99,8 +99,8 @@ json::Value Storage::load() {
 	}
 }
 
-PStorage StorageFactory::create(std::string name) const {
-	return std::make_unique<Storage>(path+"/"+ name, versions, format);
+PStorage StorageFactory::create(const std::string_view &name) const {
+	return std::make_unique<Storage>(path/name, versions, format);
 }
 
 void Storage::erase() {

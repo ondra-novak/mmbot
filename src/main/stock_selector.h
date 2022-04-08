@@ -28,7 +28,7 @@ public:
 	virtual void enum_brokers(AbstractBrokerList::EnumFn &&fn) const override;
 	StockSelector();
 
-	void loadBrokers(const ondra_shared::IniConfig::Section &ini, bool test, int brk_timeout);
+	void loadBrokers(const ondra_shared::IniConfig::Section &ini);
 	bool checkBrokerSubaccount(const std::string &name);
 	void clear();
 	void housekeepingIdle(const std::chrono::system_clock::time_point &now);

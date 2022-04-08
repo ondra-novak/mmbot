@@ -21,9 +21,13 @@ add_executable (mmbot
 		stock_selector.cpp
 		simulator.cpp
 		ext_stockapi.cpp
+		ext_storage.cpp
 		abstractExtern.cpp
 		traders.cpp
 		utilization.cpp
 		errhandler.cpp
+		core.cpp
+		storage.cpp
+		extdailyperfmod.cpp
 	)
 target_link_libraries (mmbot LINK_PUBLIC userver imtjson )

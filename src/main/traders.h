@@ -75,6 +75,8 @@ protected:
 
 };
 
+using PTraders = ondra_shared::SharedObject<Traders>;
+
 
 #if 0
 #include "../shared/scheduler.h"

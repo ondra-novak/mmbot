@@ -17,7 +17,7 @@ public:
 
 	ExtStorage(const std::string_view & workingDir, const std::string_view & name, const std::string_view & cmdline, int timeout);
 
-	virtual PStorage create(std::string name) const;
+	virtual PStorage create(const std::string_view &name) const;
 
 	~ExtStorage();
 
@@ -36,7 +36,7 @@ protected:
 
 	class Handle: public IStorage {
 	public:
-		Handle(std::string name,ondra_shared::RefCntPtr<Proxy> proxy);
+		Handle(const std::string_view &name,ondra_shared::RefCntPtr<Proxy> proxy);
 		~Handle();
 
 		virtual void store(json::Value data) override;

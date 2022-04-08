@@ -11,13 +11,15 @@
 
 #include "ext_stockapi.h"
 #include "simulator.h"
-void StockSelector::loadBrokers(const ondra_shared::IniConfig::Section &ini, bool test, int brk_timeout) {
+void StockSelector::loadBrokers(const ondra_shared::IniConfig::Section &ini) {
+	auto brk_timeout = ini["timeout"].getInt(10000);
 	std::vector<StockMarketMap::value_type> data;
 	for (auto &&def: ini) {
-		ondra_shared::StrViewA name = def.first;
-		ondra_shared::StrViewA cmdline = def.second.getString();
+		std::string_view name = def.first.getView();
+		if (name == "timeout") continue;
+		std::string_view cmdline = def.second.getString();
 		if (!cmdline.empty()) {
-			ondra_shared::StrViewA workDir = def.second.getCurPath();
+			std::string_view workDir = def.second.getCurPath();
 			data.push_back(StockMarketMap::value_type(name,std::make_shared<ExtStockApi>(workDir, name, cmdline, brk_timeout)));
 		}
 	}

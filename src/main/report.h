@@ -26,12 +26,6 @@ namespace json {
 	class Value;
 }
 
-struct ReportConfig {
-	std::size_t interval_in_ms;
-
-};
-
-
 
 class Report {
 
@@ -45,8 +39,8 @@ public:
 	using InfoObj = IStatSvc::Info;
 	using Sync = std::unique_lock<std::recursive_mutex>;
 
-	Report(StoragePtr &&report, const ReportConfig &cfg)
-		:report(std::move(report)),interval_in_ms(cfg.interval_in_ms)
+	Report(StoragePtr &&report)
+		:report(std::move(report)),interval_in_ms(30L*86400000L)
 		,counter(initCounter())
 		,revize(1),refresh_after_clear(true)
 	{}
@@ -73,9 +67,9 @@ public:
 	void perfReport(json::Value report);
 	void setNewsMessages(unsigned int count);
 
-	virtual void reportLogMsg(std::size_t rev, const std::string_view &symb, std::uint64_t timestamp, const std::string_view &text);
+	void reportLogMsg(std::size_t rev, const std::string_view &symb, std::uint64_t timestamp, const std::string_view &text);
 
-	virtual void setError(std::size_t rev,std::string_view symb, const ErrorObj &errorObj);
+	void setError(std::size_t rev,std::string_view symb, const ErrorObj &errorObj);
 
 	static ondra_shared::PStdLogProviderFactory captureLog(const ondra_shared::SharedObject<Report> &rpt, ondra_shared::PStdLogProviderFactory target);
 

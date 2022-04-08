@@ -12,7 +12,7 @@ ExtStorage::ExtStorage(const std::string_view &workingDir,
 :proxy(new Proxy(workingDir, name, cmdline, timeout))
 {}
 
-PStorage ExtStorage::create(std::string name) const {
+PStorage ExtStorage::create(const std::string_view &name) const {
 	return PStorage(new Handle(name, proxy));
 }
 
@@ -32,7 +32,7 @@ void ExtStorage::Proxy::erase(const std::string &name) {
 	jsonRequestExchange("erase", name);
 }
 
-ExtStorage::Handle::Handle(std::string name, ondra_shared::RefCntPtr<Proxy> proxy)
+ExtStorage::Handle::Handle(const std::string_view &name, ondra_shared::RefCntPtr<Proxy> proxy)
 :name(name),proxy(proxy) {}
 
 void ExtStorage::Handle::store(json::Value data) {

@@ -20,7 +20,7 @@ using CalcSpreadQueue = std::function<void(CalcSpreadFn &&) >;
 
 
 using PReport = ondra_shared::SharedObject<Report>;
-using PPerfModule = ondra_shared::SharedObject<IDailyPerfModule, ondra_shared::SharedObjectVirtualTraits<IDailyPerfModule> >;
+
 
 class Stats2Report: public IStatSvc {
 public:
@@ -64,7 +64,7 @@ public:
 		return h(name);
 	}
 	virtual void reportPerformance(const PerformanceReport &repItem) override {
-		if (perfmod) perfmod.lock()->sendItem(repItem);
+		if (perfmod) perfmod->sendItem(repItem);
 	}
 	virtual void reportLogMsg(std::uint64_t timestamp, const std::string_view &text) override {
 		rpt.lock()->reportLogMsg(rev, name, timestamp, text);

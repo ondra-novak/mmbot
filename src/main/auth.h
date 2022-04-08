@@ -14,6 +14,7 @@
 #include <imtjson/value.h>
 #include <imtjson/jwt.h>
 #include <imtjson/namedEnum.h>
+#include <shared/shared_object.h>
 
 namespace userver {
 	class HttpServerRequest;
@@ -135,6 +136,8 @@ protected:
 	bool admin_party = true;
 
 };
+
+using PAuthService = ondra_shared::SharedObject<AuthService>;
 
 
 #endif /* SRC_MAIN_AUTH_H_ */
