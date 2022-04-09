@@ -129,6 +129,7 @@ public:
 	bool init_from_JSON(json::Value config);
 	bool check_auth(const User &user, userver::HttpServerRequest &req, bool basic_auth = false) const;
 	bool check_auth(const User &user, ACL acl, userver::HttpServerRequest &req, bool basic_auth = false) const;
+	static void basic_auth(userver::HttpServerRequest &req);
 
 
 protected:

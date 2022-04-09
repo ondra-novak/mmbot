@@ -40,7 +40,7 @@ protected:
 		~Handle();
 
 		virtual void store(json::Value data) override;
-		virtual json::Value load()  override;
+		virtual json::Value load() const  override;
 		virtual void erase()  override;
 	protected:
 		std::string name;

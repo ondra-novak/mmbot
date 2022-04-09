@@ -69,7 +69,7 @@ void Storage::store(json::Value data) {
 	rename(tmpname, to);
 }
 
-json::Value Storage::load() {
+json::Value Storage::load() const {
 
 	auto loadFile=[](const std::string &file) {
 		std::ifstream f(file, std::ios::in);
@@ -116,7 +116,7 @@ void MemStorage::erase() {
 	data = json::undefined;
 }
 
-json::Value MemStorage::load() {
+json::Value MemStorage::load() const {
 	std::lock_guard _(lock);
 	return data;
 }

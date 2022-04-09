@@ -39,7 +39,7 @@ void ExtStorage::Handle::store(json::Value data) {
 	proxy->store(name, data);
 }
 
-json::Value ExtStorage::Handle::load() {
+json::Value ExtStorage::Handle::load() const {
 	return proxy->load(name);
 }
 

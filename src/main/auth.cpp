@@ -250,6 +250,10 @@ AuthService::User AuthService::get_user(const userver::HttpServerRequest  &req) 
 }
 
 
+void AuthService::basic_auth(userver::HttpServerRequest &req) {
+	req.set("WWW-Authenticate","Basic realm=MMBOT, charset=\"UTF-8\"");
+	req.sendErrorPage(401);
+}
 
 bool AuthService::check_auth(const User &user, userver::HttpServerRequest &req, bool basic_auth) const {
 	if (user.exists) return true;

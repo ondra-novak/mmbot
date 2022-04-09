@@ -11,12 +11,13 @@
 #include <imtjson/array.h>
 #include <string_view>
 #include <optional>
-#include "istockapi.h"
-#include "storage.h"
 #include <shared/linear_map.h>
 #include <shared/shared_object.h>
 #include <shared/stdLogOutput.h>
 #include <shared/stringview.h>
+#include <userver/callback.h>
+#include "istockapi.h"
+#include "storage.h"
 #include "istatsvc.h"
 #include "strategy.h"
 
@@ -31,7 +32,21 @@ class Report {
 
 
 public:
-	using Stream = std::function<bool(json::Value)>;
+	struct StreamData {
+		bool command;
+		json::Value event;
+		std::size_t hdr_hash;
+		std::size_t data_hash;
+		void set_event(const json::Value &hdr, const json::Value &data);
+	};
+
+	static StreamData ev_clear_cache;
+	static StreamData ev_refresh;
+	static StreamData ev_end_refresh;
+	static StreamData ev_update;
+	static StreamData ev_ping;
+
+	using Stream = userver::Callback<bool(const StreamData &)>;
 
 	using StoragePtr = PStorage;
 	using MiscData = IStatSvc::MiscData;
@@ -115,7 +130,7 @@ protected:
 	std::vector<Stream> streams;
 	unsigned int newsMessages = 0;
 
-	void sendStream(const json::Value &v);
+	void sendStream(const json::Value &hdr, const json::Value &data);
 
 
 	void exportCharts(json::Object&& out);

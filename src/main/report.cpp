@@ -53,6 +53,14 @@ json::Value Report::genReport_noStore() {
 	return st;
 }
 
+Report::StreamData Report::ev_clear_cache = {true,nullptr, 0, 0};
+Report::StreamData Report::ev_refresh = {true,"refresh", 0, 0};
+Report::StreamData Report::ev_end_refresh = {true,"end_refresh", 0, 0};
+Report::StreamData Report::ev_update = {true,"update",0,0};
+Report::StreamData Report::ev_ping = {true,"ping",0,0};
+
+
+
 void Report::genReport() {
 	while (logLines.size()>30) logLines.erase(logLines.begin());
 	counter++;
@@ -60,14 +68,16 @@ void Report::genReport() {
 
 	if (refresh_after_clear) {
 		refresh_after_clear = false;
+
 		for (auto &x : streams) {
-			x(nullptr); //< clear cache.
-			x("refresh") && stream_refresh(x) && x("end_refresh");
+			x(ev_clear_cache); //< clear cache.
+			x(ev_refresh) && stream_refresh(x) && x(ev_end_refresh);
 		}
 	} else {
 		for (auto &x : streams) {
-			x("update");
+			x(ev_update);
 		}
+		sendStreamGlobal(*this);
 	}
 }
 
@@ -87,9 +97,9 @@ void Report::sendStreamOrder(ME &me, const OKey &key, const OValue &data) {
 			json::Object{
 		{ "type", "order" },
 		{ "symbol", key.symb },
-		{ "dir", key.dir },
-		{ "data", data.toJson()}
-	});
+		{ "dir", key.dir }},
+		data.toJson()
+	);
 }
 
 void Report::setOrders(std::size_t rev, std::string_view symb, int n, const std::optional<IStockApi::Order> &buy,
@@ -154,9 +164,9 @@ void Report::sendStreamTrades(ME &me, const std::string_view &symb, const json::
 			json::Object{
 			{ "type", "trade" },
 			{ "symbol",symb},
-			{ "id", rw["iid"]},
-			{ "data",rw.replace("iid",json::undefined) }
-		});
+			{ "id", rw["iid"]}},
+			rw.replace("iid",json::undefined)
+		);
 	}
 }
 
@@ -310,8 +320,7 @@ template<typename ME>
 void Report::sendStreamInfo(ME &me, const std::string_view &symb, const json::Value &object) {
 	me.sendStream(json::Object{
 			{"type","info"},
-			{"symbol",symb},
-			{"data",object}});
+			{"symbol",symb}},object);
 
 }
 
@@ -363,8 +372,7 @@ template<typename ME>
 void Report::sendStreamPrice(ME &me, const std::string_view &symb, double data) {
 	me.sendStream(json::Object{
 		{ "type", "price" },
-		{ "symbol",symb },
-		{ "data", data } });
+		{ "symbol",symb }},data );
 }
 
 void Report::setPrice(std::size_t rev, std::string_view symb, double price) {
@@ -411,8 +419,7 @@ template<typename ME>
 void Report::sendStreamError(ME &me, const std::string_view &symb, const json::Value &obj) {
 	me.sendStream(json::Object {
 		{"type", "error" },
-		{"symbol",symb},
-		{ "data", obj } });
+		{"symbol",symb}},obj );
 }
 
 void Report::setError(std::size_t rev,std::string_view symb, const ErrorObj &errorObj) {
@@ -440,19 +447,19 @@ void Report::exportMisc(json::Object &&out) {
 
 void Report::addLogLine(std::string_view ln) {
 	logLines.push_back(std::string_view(ln));
-	sendStream(json::Object({{"type","log"},{"data",std::string_view(ln)}}));
+	sendStream(json::Object{{"type","log"}},std::string_view(ln));
 }
 
 void Report::reportLogMsg(std::size_t rev, const std::string_view &symb, std::uint64_t timestamp, const std::string_view &text) {
 	if (rev != revize) return;
-	sendStream(json::Object({
+	sendStream(json::Object{
 		{"type","slog"},
-		{"symbol", std::string_view(symb)},
-		{"data",json::Object {
+		{"symbol", std::string_view(symb)}},
+		json::Object {
 			{"tm", timestamp},
 			{"text", text},
-		}}
-	}));
+		}
+	);
 }
 
 using namespace ondra_shared;
@@ -485,11 +492,10 @@ ondra_shared::PStdLogProviderFactory Report::captureLog(const ondra_shared::Shar
 
 template<typename ME>
 void Report::sendStreamMisc(ME &me, const std::string_view &symb, const json::Value &object) {
-	me.sendStream(json::Object({
+	me.sendStream(json::Object{
 		{"type","misc"},
-		{"symbol",std::string_view(symb)},
-		{"data",object}
-	}));
+		{"symbol",std::string_view(symb)}},object
+	);
 
 }
 
@@ -576,13 +582,25 @@ void Report::clear() {
 
 void Report::perfReport(json::Value report) {
 	perfRep = report;
-	sendStream(Object{{"type","performance"},{"data", perfRep}});
+	sendStream(Object{{"type","performance"}},perfRep);
 }
 
-void Report::sendStream(const json::Value &v) {
+void Report::StreamData::set_event(const json::Value &hdr, const json::Value &data) {
+	std::hash<json::Value> h;
+	command = false;
+	hdr_hash = h(hdr.stripKey());
+	data_hash = h(data.stripKey());
+	event = hdr;
+	event.setItems({{"data", data}});
+
+}
+
+void Report::sendStream(const json::Value &hdr, const json::Value &data) {
 	if (refresh_after_clear) return;
+	StreamData sdata;
+	sdata.set_event(hdr, data);
 	auto iter = std::remove_if(streams.begin(), streams.end(), [&](const auto &s){
-		return !s(v);
+		return !s(sdata);
 	});
 	streams.erase(iter, streams.end());
 }
@@ -590,25 +608,27 @@ void Report::sendStream(const json::Value &v) {
 template<typename ME>
 void Report::sendStreamGlobal(ME &me) const {
 	me.sendStream(Object{
-		{"type","config"},
-		{"data",Object{
+		{"type","config"}},
+		Object{
 			{"interval", interval_in_ms},
-		}}
-	});
+		}
+	);
 	me.sendStream(Object{
-		{"type","performance"},
-		{"data", perfRep}
-	});
+		{"type","performance"}},
+		perfRep
+	);
 	me.sendStream(Object{
-		{"type","version"},
-		{"data", MMBOT_VERSION}
-	});
+		{"type","version"}},
+		MMBOT_VERSION
+	);
 }
 
 void Report::pingStreams() {
 	if (!streams.empty()) {
-		sendStream("ping");
-		sendStreamGlobal(*this);
+		auto iter = std::remove_if(streams.begin(), streams.end(), [&](const auto &s){
+			return !s(ev_ping);
+		});
+		streams.erase(iter, streams.end());
 	}
 }
 
@@ -619,7 +639,7 @@ std::size_t Report::initCounter() {
 void Report::addStream(Stream &&stream) {
 	if (refresh_after_clear) {
 		this->streams.push_back(std::move(stream));
-	} else if (stream("refresh") && stream_refresh(stream) && stream("end_refresh")) {
+	} else if (stream(ev_refresh) && stream_refresh(stream) && stream(ev_end_refresh)) {
 		this->streams.push_back(std::move(stream));
 	}
 }
@@ -641,18 +661,18 @@ template<typename ME>
 void Report::sendNewsMessages(ME &me) const {
 	me.sendStream(
 			json::Object{
-				{"type","news"},
-				{"data",json::Object{
-					{"count", newsMessages}
-				}}
+				{"type","news"}},
+				json::Object{
+				 {"count", newsMessages}
+				}
 
-			});
+			);
 
 }
 template<typename ME>
 void Report::sendLogMessages(ME &me) const {
 	for (json::Value ln: logLines) {
-		me.sendStream(json::Object({{"type","log"},{"data",ln}}));
+		me.sendStream(json::Object{{"type","log"}},ln);
 	}
 }
 
@@ -660,8 +680,10 @@ bool Report::stream_refresh(Stream &stream) const  {
 	class Helper {
 	public:
 		Helper(Stream &stream):stream(stream) {}
-		void sendStream(const Value &x) {
-			ok = ok && stream(x);
+		void sendStream(const Value &hdr, const Value &data) {
+			StreamData dt;
+			dt.set_event(hdr, data);
+			ok = ok && stream(dt);
 		}
 		Stream &stream;
 		bool ok = true;

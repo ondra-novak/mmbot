@@ -29,7 +29,7 @@ public:
 	Storage(std::string file, int versions, Format format);
 
 	virtual void store(json::Value data) override;
-	virtual json::Value load() override;
+	virtual json::Value load() const override;
 	virtual void erase() override;
 
 
@@ -60,12 +60,12 @@ protected:
 class MemStorage: public IStorage {
 public:
 	virtual void erase();
-	virtual json::Value load();
+	virtual json::Value load() const;
 	virtual void store(json::Value data);
 
 protected:
 	json::Value data;
-	std::mutex lock;
+	mutable std::mutex lock;
 };
 
 #endif /* SRC_MAIN_STORAGE_H_ */

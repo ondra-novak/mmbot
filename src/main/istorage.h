@@ -14,7 +14,7 @@ class IStorage {
 public:
 
 	virtual void store(json::Value data) = 0;
-	virtual json::Value load() = 0;
+	virtual json::Value load() const = 0;
 	virtual void erase() = 0;
 	virtual ~IStorage() {}
 
@@ -46,7 +46,7 @@ public:
 		try {primary->store(data);} catch (...) {secondary->store(data);throw;}
 		try {secondary->store(data);} catch (...) {}
 	}
-	virtual json::Value load() {
+	virtual json::Value load() const {
 		try {
 			json::Value v = primary->load();
 			if (v.defined()) return v;

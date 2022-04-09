@@ -29,5 +29,7 @@ add_executable (mmbot
 		core.cpp
 		storage.cpp
 		extdailyperfmod.cpp
+		httpapi.cpp
+		ssestream.cpp
 	)
 target_link_libraries (mmbot LINK_PUBLIC userver imtjson )
