@@ -181,7 +181,11 @@ std::string Auth::create_session(const User &user, unsigned int exp_sec) {
 		{"iat",now}
 	};
 
-	return json::serializeJWT(payload, session_jwt);
+	if (session_jwt != nullptr) {
+		return json::serializeJWT(payload, session_jwt);
+	} else {
+		throw AdminPartyException();
+	}
 }
 
 
@@ -291,4 +295,8 @@ bool AuthService::check_auth(const User &user, ACL acl, userver::HttpServerReque
 	if (user.acl.is_set(acl)) return true;
 	req.sendErrorPage(403);
 	return false;
+}
+
+AdminPartyException::AdminPartyException():std::runtime_error("Can't create session in 'admin_party' mode") {
+
 }

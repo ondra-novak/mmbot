@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 2.8)
 add_compile_options(-std=c++17)
 
 add_executable (mmbot
+		../brokers/httpjson.cpp
 		start.cpp  
 		strategy3.cpp		
 		spreadgenerator.cpp
@@ -33,5 +34,6 @@ add_executable (mmbot
 		ssestream.cpp
 		licence.cpp
 		server.cpp
+		progress.cpp
 	)
 target_link_libraries (mmbot LINK_PUBLIC userver imtjson )

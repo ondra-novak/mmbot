@@ -11,6 +11,7 @@
 #include <shared/refcnt.h>
 #include <userver/openapi.h>
 #include <userver/static_webserver.h>
+#include "progress.h"
 
 #include "core.h"
 
@@ -26,7 +27,8 @@ public:
 	HttpAPI(std::unique_ptr<BotCore> &&core,std::size_t max_upload, const std::string_view &www_root)
 		:core(std::move(core))
 		,static_pages({www_root,"index.html",0})
-		,max_upload(max_upload) {};
+		,max_upload(max_upload)
+		,progress(PProgressMap::make()) {}
 
 
 	void init(std::shared_ptr<userver::OpenAPIServer> server);
@@ -39,6 +41,7 @@ protected:
 	userver::StaticWebserver static_pages;
 	std::size_t max_upload;
 	std::shared_ptr<userver::OpenAPIServer> cur_server;
+	PProgressMap progress;
 
 
 	bool get_root(Req& req, const std::string_view &vpath);
@@ -51,9 +54,20 @@ protected:
 	bool post_api_user(Req& req, const Args& args);
 	bool delete_api_user(Req& req, const Args& args);
 
+	bool get_api_admin_broker(Req &req, const Args &args);
+	bool delete_api_admin_broker(Req &req, const Args &args);
+	bool get_api_admin_broker_icon_png(Req &req, const Args &args);
+	bool get_api_admin_broker_licence(Req &req, const Args &args);
+	bool get_api_admin_broker_apikey(Req &req, const Args &args);
+	bool put_api_admin_broker_apikey(Req &req, const Args &args);
+	bool get_api_admin_broker_pairs(Req &req, const Args &args);
+	bool get_api_progress(Req &req, const Args &args);
+	bool get_api_admin_broker_pairs_pair(Req &req, const Args &args);;
+
 	void send_json(Req &req, const json::Value &v);
 
 	bool post_set_cookie(Req& req, const Args& args);
+
 };
 
 

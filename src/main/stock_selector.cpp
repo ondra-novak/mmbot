@@ -59,7 +59,8 @@ void StockSelector::enum_brokers(AbstractBrokerList::EnumFn &&fn)  const {
 	for(auto &&x: stock_markets) {
 		fn(x.first, x.second);
 	}
-	for (auto &&x: *temp_markets.lock_shared()) {
+	auto tmp = temp_markets.lock_shared();
+	for (auto &&x: *tmp) {
 		fn(x.first, x.second);
 	}
 }
@@ -99,6 +100,7 @@ PStockApi StockSelector::get_broker(const std::string_view &name) {
 	if (n == name.npos) return nullptr;
 	std::string_view baseName = name.substr(0,n);
 	std::string_view id = name.substr(n+1);
+	for (char c : id) if (!isalnum(c)) return nullptr;
 	f = stock_markets.find(baseName);
 	if (f == stock_markets.end()) return nullptr;
 	auto k = f->second.get();
@@ -106,7 +108,9 @@ PStockApi StockSelector::get_broker(const std::string_view &name) {
 	if (ek == nullptr) return nullptr;
 	auto sub = ek->createSubaccount(id);
 	if (sub == nullptr) return nullptr;
-	temp_markets.lock()->emplace(name, sub);
-	return PStockApi(sub);
+	tmp.release();
+	auto ret = PStockApi(sub);
+	temp_markets.lock()->emplace(name, ret);
+	return ret;
 }
 

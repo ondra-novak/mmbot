@@ -146,6 +146,11 @@ protected:
 
 };
 
+class AdminPartyException: public std::runtime_error {
+public:
+	AdminPartyException();
+};
+
 using PAuthService = ondra_shared::SharedObject<AuthService>;
 
 
