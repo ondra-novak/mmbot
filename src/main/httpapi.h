@@ -29,7 +29,7 @@ public:
 		,max_upload(max_upload) {};
 
 
-	void init(userver::OpenAPIServer &server);
+	void init(std::shared_ptr<userver::OpenAPIServer> server);
 
 
 
@@ -38,19 +38,22 @@ protected:
 	std::unique_ptr<BotCore> core;
 	userver::StaticWebserver static_pages;
 	std::size_t max_upload;
+	std::shared_ptr<userver::OpenAPIServer> cur_server;
 
 
-	bool get_root(Req& req, const Args& args);
+	bool get_root(Req& req, const std::string_view &vpath);
 	bool get_api__up(Req& req, const Args& args);
 	bool get_api_data(Req& req, const Args& args);
 	bool get_api_report_json(Req& req, const Args& args);
 	bool get_api_login(Req& req, const Args& args);
 	bool get_api_logout(Req& req, const Args& args);
+	bool get_api_user(Req& req, const Args& args);
+	bool post_api_user(Req& req, const Args& args);
+	bool delete_api_user(Req& req, const Args& args);
 
 	void send_json(Req &req, const json::Value &v);
 
 	bool post_set_cookie(Req& req, const Args& args);
-
 };
 
 

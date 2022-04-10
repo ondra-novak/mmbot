@@ -130,9 +130,12 @@ BotCore::~BotCore() {
 	in_progress.wait();
 }
 
-void BotCore::run() {
+void BotCore::run(bool suspended) {
 	applyConfig(cfg_storage->load());
-	init_cycle(std::chrono::steady_clock::now());
+	if (!suspended) init_cycle(std::chrono::steady_clock::now());
+	sch.each(std::chrono::seconds(45)) >> [&]{
+		rpt.lock()->pingStreams();
+	};
 }
 
 void BotCore::applyConfig(json::Value cfg) {

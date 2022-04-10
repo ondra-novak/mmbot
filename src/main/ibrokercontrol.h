@@ -152,6 +152,7 @@ public:
 					  std::vector<OHLC> &data
 				) = 0;
 
+	virtual ~IHistoryDataSource() {}
 };
 
 ///Allows to control brokers over their instances - not broker itself

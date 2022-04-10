@@ -44,6 +44,11 @@ struct State {
 void Traders::run_cycle(ondra_shared::Worker wrk, PUtilization utls, userver::Callback<void(bool)> &&done) {
 	auto &stop = this->stop;
 
+	if (traders.empty()) {
+		done(!stop.load());
+		return;
+	}
+
 	if (stop.load()) {done(false);return;}
 	std::unique_lock lk(mx);
 	if (stop.load()) {done(false);return;}

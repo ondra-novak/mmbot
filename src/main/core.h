@@ -20,7 +20,7 @@ public:
 
 	BotCore(const ondra_shared::IniConfig &cfg);
 	~BotCore();
-	void run();
+	void run(bool suspended);
 	void setConfig(json::Value cfg);
 
 	PAuthService get_auth() {

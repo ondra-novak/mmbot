@@ -15,6 +15,7 @@
 class SSEStream: public ondra_shared::RefCntObj {
 public:
 	SSEStream(userver::PHttpServerRequest &&req);
+	~SSEStream();
 	void init();
 	bool on_event(const Report::StreamData &sdata);
 protected:

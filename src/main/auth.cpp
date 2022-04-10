@@ -32,7 +32,7 @@ Auth::User Auth::get_user(const std::string_view &token) {
 
 	auto iter = std::lower_bound(tokenCache.begin(), tokenCache.end(), token, cmpTokenCache);
 	if (iter != tokenCache.end() && iter->token == token && iter->exp > now) {
-		return {true, iter->uname, iter->acl};
+		return {true, iter->uname, iter->acl, iter->jwt};
 	} else {
 		std::string_view t = token;
 		auto type = userver::splitAt(" ", t);
@@ -45,8 +45,8 @@ Auth::User Auth::get_user(const std::string_view &token) {
 			auto ut = userMap.find(username);
 			if (ut == userMap.end()) return {};
 			if (ut->second.password_hash == pwhash) {
-				cacheToken(token, ut->first, ut->second.acl, now, now+std::chrono::hours(1));
-				return {true, ut->first, ut->second.acl};
+				cacheToken(token, ut->first, ut->second.acl,false,now, now+std::chrono::hours(1));
+				return {true, ut->first, ut->second.acl,false};
 			} else {
 				return {};
 			}
@@ -76,20 +76,20 @@ Auth::User Auth::get_user(const std::string_view &token) {
 				if (!aclset.has_value()) {
 					auto ut = userMap.find(uid.getString());
 					if (ut == userMap.end()) return {};
-					cacheToken(token, ut->first, ut->second.acl, now, exp);
-					return {true, ut->first, ut->second.acl};
+					cacheToken(token, ut->first, ut->second.acl,isjwt, now, exp);
+					return {true, ut->first, ut->second.acl,isjwt};
 				} else {
-					cacheToken(token, uid.getString(), *aclset, now, exp);
-					return {true, uid.getString(), *aclset};
+					cacheToken(token, uid.getString(), *aclset, isjwt,now, exp);
+					return {true, uid.getString(), *aclset,isjwt};
 				}
 			} else {
 				static std::string_view name("(default)");
 				if (aclset.has_value()) {
-					cacheToken(token, name, *aclset, now, exp);
-					return {true, name, *aclset};
+					cacheToken(token, name, *aclset, isjwt,now, exp);
+					return {true, name, *aclset,isjwt};
 				} else if (isjwt) {
-					cacheToken(token, name, jwt_default_acl, now, exp);
-					return {true, name, jwt_default_acl};
+					cacheToken(token, name, jwt_default_acl, isjwt,now, exp);
+					return {true, name, jwt_default_acl,isjwt};
 				} else {
 					return {};
 				}
@@ -146,8 +146,11 @@ std::string Auth::encode_password(const std::string_view& user, const std::strin
 	return out;
 }
 
-void Auth::cacheToken(const std::string_view &token, const std::string_view &user, const ACLSet &acl,const std::chrono::system_clock::time_point &now, const std::chrono::system_clock::time_point &exp) {
-	TokenInfo nwtk { std::string(token), std::string(user), acl, exp};
+void Auth::cacheToken(const std::string_view &token, const std::string_view &user,
+					  const ACLSet &acl, bool jwt,
+					  const std::chrono::system_clock::time_point &now,
+					  const std::chrono::system_clock::time_point &exp) {
+	TokenInfo nwtk { std::string(token), std::string(user), acl, jwt, exp};
 	cache_tmp.clear();
 	TokenCache::iterator iter = tokenCache.begin();
 	TokenCache::iterator end = tokenCache.end();
@@ -191,6 +194,15 @@ ACLSet Auth::acl_from_JSON(json::Value acl) {
 	return aclset;
 }
 
+Auth::User Auth::get_user(const std::string_view &username, const std::string_view &password) const {
+	std::string pwdhash = encode_password(username, password);
+	auto iter = userMap.find(username);
+	if (iter == userMap.end() || iter->second.password_hash != pwdhash) return {};
+	return {
+		true, iter->first, iter->second.acl, false
+	};
+}
+
 bool Auth::init_from_JSON(json::Value config) {
 	clear();
 	json::Value secret = config["session_hash"];
@@ -212,6 +224,14 @@ bool Auth::cmpTokenCache(const TokenInfo &a, const std::string_view &b) {
 
 bool AuthService::init_from_JSON(json::Value config) {
 	bool r = Auth::init_from_JSON(config);
+	public_acl.reset_all();
+	has_public_acl = false;
+	if (r) {
+		if (config["guest"].getBool()) {
+			has_public_acl = true;
+			public_acl.set(ACL::viewer);
+		}
+	}
 	admin_party = !r;
 	return r;
 }
@@ -246,7 +266,7 @@ AuthService::User AuthService::get_user(const userver::HttpServerRequest  &req) 
 		User u = Auth::get_user(auth_cookie);
 		if (u.exists) return u;
 	}
-	return {};
+	return {has_public_acl, "", public_acl, false};
 }
 
 

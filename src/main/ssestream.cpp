@@ -11,6 +11,10 @@
 SSEStream::SSEStream(userver::PHttpServerRequest &&req)
 		:req(std::move(req)), closed(false),flushing(false) {
 }
+SSEStream::~SSEStream() {
+	req->log(userver::LogLevel::debug, "SSEStream closed");
+
+}
 
 void SSEStream::flush() {
 	ondra_shared::RefCntPtr<SSEStream> me(this); //<create reference to this object
@@ -28,6 +32,7 @@ void SSEStream::init() {
 	req->set("Connection","close");				//<don't reuse connection
 	req->set("X-Accel-Buffering","no");			//<disable NGINX buffering
 	req->setStatus(200);						//<set status 200 OK
+	req->log(userver::LogLevel::debug, "SSEStream init");
 	stream = req->send();						//<send response - get stream to body
 	flush();									//<flush http response
 	monitor();									//initialize monitoring
@@ -36,7 +41,9 @@ bool SSEStream::on_event(const Report::StreamData &sdata) {
 	//we need to lock to avoid async clashing
 	std::lock_guard _(mx);
 	//if stream is closed, report to the caller
-	if (closed) return false;
+	if (closed) {
+		return false;
+	}
 	//if data is not command (so it is event)
 	if (!sdata.command) {
 		//find header in hash map
@@ -117,6 +124,7 @@ void SSEStream::monitor() {
 					//exit
 					return;
 				}
+				me->req->log(userver::LogLevel::debug, "SSEStream disconnected");
 			}
 		}
 		//mark stream closed
