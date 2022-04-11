@@ -52,12 +52,14 @@ void Traders::run_cycle(ondra_shared::Worker wrk, PUtilization utls, userver::Ca
 	if (stop.load()) {done(false);return;}
 	std::unique_lock lk(mx);
 	if (stop.load()) {done(false);return;}
+	last_reset = std::chrono::system_clock::now();
 	auto st = std::make_shared<State>(
-		std::chrono::system_clock::now(),
+		last_reset,
 		traders.size(),
 		std::move(done),
 		utls
 	);
+
 
 	for (auto &t: traders) {
 		wrk >> [&stop,  trader = t.second, name = std::string_view(t.first), st]() mutable {

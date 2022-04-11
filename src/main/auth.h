@@ -138,6 +138,8 @@ public:
 	static void basic_auth(userver::HttpServerRequest &req);
 
 
+	static json::Value conv_pwd_to_hash(json::Value users);
+
 protected:
 
 	bool admin_party = true;

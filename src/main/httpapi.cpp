@@ -54,6 +54,26 @@ static OpenAPIServer::SchemaItem stdForm ={
 		}
 };
 
+static std::initializer_list<OpenAPIServer::SchemaItem> marketInfo={
+		{"asset_step","number","amount granuality"},
+		{"currency_step", "number", "tick size (price step)"},
+		{"asset_symbol","string", "symbol for asset"},
+		{"currency_symbol","string","symbol for currency"},
+		{"min_size", "number", "minimal order amount"},
+		{"min_volume", "number", "minimal order volume (amount x price)"},
+		{"fees", "number", "fees as part of 1 (0.1%=0.001) "},
+		{"feeScheme","number", "how fees are calculated (income, asset, currency)"},
+		{"leverage", "number", "leverage amount, 0 = spot"},
+		{"invert_price","boolean", "inverted market (price is inverted)" },
+		{"inverted_symbol", "string","quoting symbol (inverted symbol)"},
+		{"simulator", "boolean", "true if simulator"},
+		{"private_chart", "boolean", "true if price is derived, and should not be presented as official asset price"},
+		{"wallet_id", "string","id of wallet used for trading"}};
+
+static std::initializer_list<OpenAPIServer::SchemaItem> tickerStruct={
+		{"ask","number"},{"bid","number"},{"last","number"},{"time","number"}
+};
+
 
 static std::string ctx_json = "application/json";
 
@@ -69,7 +89,11 @@ void HttpAPI::init(std::shared_ptr<OpenAPIServer> server) {
 			.method(me,&HttpAPI::post_set_cookie);
 	server->addPath("/api/_up").GET("Monitoring","Returns 200 if server is running")
 			.method(me,&HttpAPI::get_api__up);
-	server->addPath("/api/data").GET("Statistics","Statistics datastream SSE")
+	server->addPath("/api/data").GET("Statistics","Statistics datastream SSE","",{},{
+			{200,"SSE Stream",{
+					{"text/event-stream","Event stream","string","Each line starts with data: followed with JSON event (see detailed documentation)"}
+			}}
+	})
 			.method(me,&HttpAPI::get_api_data);
 	server->addPath("/api/report.json").GET("Statistics","Statistics report snapshot")
 			.method(me,&HttpAPI::get_api_report_json);
@@ -177,22 +201,50 @@ void HttpAPI::init(std::shared_ptr<OpenAPIServer> server) {
 	}).method(me, &HttpAPI::get_api_admin_broker_pairs);
 
 	server->addPath("/api/admin/broker/{broker}/pairs/{pair}").GET("Brokers","Market information","",{brokerId,pairId},{
-		{OpenAPIServer::ResponseObject{200, "OK", {{ctx_json, "", "object", "", {
-				{"asset_step","number","amount granuality"},
-				{"currency_step", "number", "tick size (price step)"},
-				{"asset_symbol","string", "symbol for asset"},
-				{"currency_symbol","string","symbol for currency"},
-				{"min_size", "number", "minimal order amount"},
-				{"min_volume", "number", "minimal order volume (amount x price)"},
-				{"fees", "number", "fees as part of 1 (0.1%=0.001) "},
-				{"feeScheme","number", "how fees are calculated (income, asset, currency)"},
-				{"leverage", "number", "leverage amount, 0 = spot"},
-				{"invert_price","boolean", "inverted market (price is inverted)" },
-				{"inverted_symbol", "string","quoting symbol (inverted symbol)"},
-				{"simulator", "boolean", "true if simulator"},
-				{"private_chart", "boolean", "true if price is derived, and should not be presented as official asset price"},
-				{"wallet_id", "string","id of wallet used for trading"}}}}}}
+		{OpenAPIServer::ResponseObject{200, "OK", {{ctx_json, "", "object", "", marketInfo}}}}
 	}).method(me, &HttpAPI::get_api_admin_broker_pairs_pair);
+
+	server->addPath("/api/admin/broker/{broker}/pairs/{pair}/ticker").GET("Brokers","Get ticker","",{brokerId,pairId},{
+		{OpenAPIServer::ResponseObject{200, "OK", {{ctx_json, "", "object", "ticker information",tickerStruct}}}}
+	}).method(me, &HttpAPI::get_api_admin_broker_pairs_ticker);
+
+	server->addPath("/api/admin/broker/{broker}/settings").GET("Brokers","Get broker settings (form)","",{brokerId,{"pair","query","string","selected pair"}},{
+		{OpenAPIServer::ResponseObject{200, "OK", {{ctx_json, "", "array", "Form fields",{stdForm}}}}}
+	}).method(me, &HttpAPI::get_api_admin_broker_pairs_settings).PUT("Brokers","Store broker settings","",{brokerId},"",{
+			{OpenAPIServer::MediaObject{"application/json","apikey","assoc","key:value",{
+					{"","anyOf","key:value",{{"","string"},{"","number"},{"","boolean"}}}
+			}}}},{
+			{OpenAPIServer::ResponseObject{200,"OK",{{ctx_json,"","object","all settings"}}}},
+	}).method(me, &HttpAPI::put_api_admin_broker_pairs_settings);;
+
+	server->addPath("/api/admin/broker/{broker}/pairs/{pair}/orders").GET("Brokers","Get open orders","",{brokerId,pairId},{
+		{OpenAPIServer::ResponseObject{200, "OK", {{ctx_json, "", "array", "opened orders",{}}}}}
+	}).method(me, &HttpAPI::get_api_admin_broker_pairs_orders).POST("Brokers","Create order","",{brokerId,pairId},"",{
+		{OpenAPIServer::MediaObject{ctx_json,"","object","Order parameters",{
+				{"price","oneOf","Order price",{
+						{"","enum","Ask or bid",{{"ask"},{"bid"}}},
+						{"","number","price"}
+				}},
+				{"size","number","Order size"},
+				{"replace_id","","ID of order to replace",{},true},
+		}}}
+	},{{201,"Order created",{{ctx_json,"","string","New order ID"}}}})
+		.method(me,&HttpAPI::put_api_admin_broker_pairs_orders).DELETE("Brokers","Cancel one or all orders","",{brokerId,pairId},"",{
+				{ctx_json, "", "object","",{{"id","string","orderid",{},true}}},
+				{"<empty>","Cancel all orders","string","Empty body"}
+		},{
+				{OpenAPIServer::ResponseObject{202,"Orders are deleted",{{ctx_json,"","boolean","true"}}}}
+		})
+		.method(me, &HttpAPI::delete_api_admin_broker_pairs_orders);
+
+
+	server->addPath("/api/admin/config").GET("Configuration","Get configuration file","",{},{
+			{200,"OK",{{ctx_json, "", "object"}}}
+	}).method(me, &HttpAPI::get_api_admin_config).POST("Configuration","Apply config diff, restart trading and return whole config","",{},"",{
+			{ctx_json,"","object","Configuration diff (transfer only changed fields, use {} to delete fields)"}
+	},{
+			{202,"Accepted",{{ctx_json,"","object","whole merged configuration"}}}
+	}).method(me, &HttpAPI::post_api_admin_config);
 
 
 	server->addSwagBrowser("/swagger");
@@ -271,6 +323,7 @@ bool HttpAPI::get_api_login(Req &req, const Args &args) {
 		req->setStatus(302);
 		req->set("Location", redir);
 	}
+	req->setContentType("text/plain");
 	req->send("Logged in");
 	return true;
 }
@@ -381,11 +434,11 @@ bool HttpAPI::post_api_user(Req &req, const Args &args) {
 			out.set("cookie", retCookie);
 			me->send_json(req, out);
 		} catch (json::UnknownEnumException &e){
-			req->sendErrorPage(400, e.what());
+			me->api_error(req,400, e.what());
 		} catch (json::ParseError &e) {
-			req->sendErrorPage(400, e.what());
+			me->api_error(req,400, e.what());
 		} catch (AdminPartyException &e) {
-			req->sendErrorPage(403, e.what());
+			me->api_error(req,403, e.what());
 		}
 	};
 	return true;
@@ -464,7 +517,7 @@ bool HttpAPI::get_api_admin_broker_licence(Req &req, const Args &args) {
 		auto binfo = bc->getBrokerInfo();
 		send_json(req, binfo.licence);
 	} else {
-		req->sendErrorPage(404);
+		api_error(req,404);
 	}
 	return true;
 }
@@ -476,7 +529,7 @@ bool HttpAPI::get_api_admin_broker_apikey(Req &req, const Args &args) {
 	if (bc) {
 		send_json(req,bc->getApiKeyFields());
 	} else {
-		req->sendErrorPage(404);
+		api_error(req,404);
 	}
 	return true;
 }
@@ -494,8 +547,7 @@ bool HttpAPI::put_api_admin_broker_apikey(Req &req, const Args &args) {
 					bc->setApiKey(data);
 				} catch (const AbstractExtern::Exception &e) {
 					if (e.isResponse()) {
-						req->setStatus(409);
-						me->send_json(req,e.what());
+						me->api_error(req, 409, e.what());
 						return;
 					} else {
 						throw;
@@ -503,10 +555,10 @@ bool HttpAPI::put_api_admin_broker_apikey(Req &req, const Args &args) {
 				}
 				me->send_json(req,true);
 			} else {
-				req->sendErrorPage(404);
+				me->api_error(req,404);
 			}
 		} catch (ParseError &e) {
-			req->sendErrorPage(400, e.what());
+			me->api_error(req,400, e.what());
 		}
 	};
 	return true;
@@ -530,7 +582,7 @@ bool HttpAPI::get_api_admin_broker_pairs(Req &req, const Args &args) {
 		}
 		send_json(req,v);
 	} else {
-		req->sendErrorPage(404);
+		api_error(req,404);
 	}
 	return true;
 
@@ -544,8 +596,7 @@ bool HttpAPI::get_api_progress(Req &req, const Args &args) {
 			{"desc", res->desc.empty()?Value():Value(res->desc)},
 		});
 	} else {
-		req->setStatus(410);
-		send_json(req, nullptr);
+		api_error(req, 410, "done");
 	}
 	return true;
 }
@@ -558,13 +609,61 @@ bool HttpAPI::get_api_admin_broker_pairs_pair(Req &req, const Args &args) {
 			IStockApi::MarketInfo minfo = brk->getMarketInfo(pair);
 			send_json(req, minfo.toJSON());
 		} catch (AbstractExtern::Exception &e) {
-			req->sendErrorPage(404, e.what());
+			api_error(req,404, e.what());
 		}
 	} else {
-		req->sendErrorPage(404, "Broker not found");
+		api_error(req,404, "Broker not found");
 	}
 	return true;
 }
+
+static json::Value tickerToJSON(const IStockApi::Ticker &tk) {
+	return Object {
+		{"bid",tk.bid},
+		{"ask", tk.ask},
+		{"last", tk.last},
+		{"time", tk.time}
+	};
+}
+
+static json::Value ordersToJSON(const IStockApi::Orders &ords) {
+	return Value(json::array, ords.begin(), ords.end(),
+			[&](const IStockApi::Order &ord) {
+				return Object({{"price", ord.price},{
+						"size", ord.size},{"clientId",
+						ord.client_id},{"id", ord.id}});
+			});
+}
+
+bool HttpAPI::get_api_admin_broker_pairs_ticker(Req &req, const Args &args) {
+	auto brk = core->get_broker_list()->get_broker(args["broker"]);
+	std::string_view pair = args["pair"];
+	if (brk != nullptr) {
+		std::unique_lock lk(core->get_cycle_lock(),std::try_to_lock);
+		try {
+			if (lk.owns_lock()) brk->reset(std::chrono::system_clock::now());
+			IStockApi::Ticker tk = brk->getTicker(pair);
+			send_json(req, tickerToJSON(tk));
+		} catch (AbstractExtern::Exception &e) {
+			api_error(req,404, e.what());
+		}
+	} else {
+		api_error(req,404, "Broker not found");
+	}
+	return true;
+}
+
+void HttpAPI::api_error(Req &req, int err, std::string_view desc) {
+	if (desc.empty()) {
+		desc = getStatusCodeMsg(err);
+	}
+	req->setStatus(err);
+	send_json(req, Object {{"error",Object{
+		{"code", err},
+		{"message",desc }}}
+	});
+}
+
 
 bool HttpAPI::post_set_cookie(Req &req, const Args &args) {
 	req->readBody(req,max_upload)
@@ -589,5 +688,211 @@ bool HttpAPI::post_set_cookie(Req &req, const Args &args) {
 			}
 			req->send("");
 		};
+	return true;
+}
+
+bool HttpAPI::get_api_admin_broker_pairs_settings(Req &req, const Args &args) {
+	if (!check_acl(req, ACL::admin_view)) return true;
+	auto brk = core->get_broker_list()->get_broker(args["broker"]);
+	std::string_view pair = args["pair"];
+	auto bc = dynamic_cast<IBrokerControl *>(brk.get());
+	if (bc != nullptr) {
+		try {
+			send_json(req, bc->getSettings(pair));
+		} catch (AbstractExtern::Exception &e) {
+			api_error(req,404, e.what());
+		}
+	} else {
+		api_error(req,404);
+	}
+	return true;
+}
+
+bool HttpAPI::put_api_admin_broker_pairs_settings(Req &req, const Args &args) {
+	if (!check_acl(req, ACL::admin_edit)) return true;
+	auto brk = core->get_broker_list()->get_broker(args["broker"]);
+    auto bc = dynamic_cast<IBrokerControl *>(brk.get());
+	if (bc != nullptr) {
+		req->readBody(req,max_upload) >> [bc,brk,me=PHttpAPI(this)](Req &req, std::string_view body) {
+			(void)brk;
+			try {
+				Value v = Value::fromString(body);
+				Value all_settings = bc->setSettings(v);
+				me->send_json(req, all_settings);
+			} catch (AbstractExtern::Exception &e) {
+				me->api_error(req,409, e.what());
+			} catch (ParseError &e) {
+				me->api_error(req,400, e.what());
+			}
+		};
+	} else {
+		api_error(req,404);
+	}
+	return true;
+}
+
+bool HttpAPI::get_api_admin_broker_pairs_orders(Req &req, const Args &args) {
+	if (!check_acl(req, ACL::admin_view)) return true;
+	auto brk = core->get_broker_list()->get_broker(args["broker"]);
+	std::string_view pair = args["pair"];
+	if (brk != nullptr) {
+		std::unique_lock lk(core->get_cycle_lock(),std::try_to_lock);
+		try {
+			if (lk.owns_lock()) brk->reset(std::chrono::system_clock::now());
+			send_json(req, ordersToJSON(brk->getOpenOrders(pair)));
+		} catch (AbstractExtern::Exception &e) {
+			if (e.isResponse()) api_error(req,404, e.what()); else throw;
+		}
+	} else {
+		api_error(req,404, "Broker not found");
+	}
+	return true;
+}
+
+bool HttpAPI::put_api_admin_broker_pairs_orders(Req &req, const Args &args) {
+	if (!check_acl(req, ACL::admin_edit)) return true;
+	auto brk = core->get_broker_list()->get_broker(args["broker"]);
+	std::string pair ( args["pair"]);
+	if (brk != nullptr) {
+		req->readBody(req, max_upload) >> [brk,pair, me=PHttpAPI(this)](Req &req, std::string_view body) {
+			try {
+				Value parsed = Value::fromString(body);
+				Value price = parsed["price"];
+				if (price.type() == json::string) {
+					std::unique_lock lk(me->core->get_cycle_lock(), std::try_to_lock);
+					if (lk.owns_lock()) brk->reset(std::chrono::system_clock::now());
+					auto ticker = brk->getTicker(pair);
+					if (price.getString() == "ask")
+						price = ticker.ask;
+					else if (price.getString() == "bid")
+						price = ticker.bid;
+					else {
+						me->api_error(req, 400, "Invalid price (bid or ask or number)");
+						return;
+					}
+				}
+				Value res = brk->placeOrder(pair,
+								parsed["size"].getNumber(),
+								price.getNumber(), json::Value(),
+								parsed["replace_id"],0);
+				me->send_json(req, res);
+
+			} catch (ParseError &e) {
+				me->api_error(req,400, e.what());
+			} catch (AbstractExtern::Exception &e) {
+				if (e.isResponse()) me->api_error(req,409,e.what()); else throw;
+			}
+		};
+	} else {
+		api_error(req,404, "Broker not found");
+	}
+	return true;
+}
+
+
+bool HttpAPI::delete_api_admin_broker_pairs_orders(Req &req, const Args &args) {
+	if (!check_acl(req, ACL::admin_edit)) return true;
+	auto brk = core->get_broker_list()->get_broker(args["broker"]);
+	std::string pair ( args["pair"]);
+	if (brk != nullptr) {
+		req->readBody(req, max_upload) >> [brk,pair, me=PHttpAPI(this)](Req &req, std::string_view body) {
+			try {
+				Value parsed = body.empty()?Value(json::object):Value::fromString(body);
+				Value id = parsed["id"];
+				if (id.hasValue()) {
+					brk->placeOrder(pair,0,0,json::Value(),id,0);
+				} else {
+					std::unique_lock lk(me->core->get_cycle_lock(), std::try_to_lock);
+					if (lk.owns_lock()) brk->reset(std::chrono::system_clock::now());
+					IStockApi::Orders ords = brk->getOpenOrders(pair);
+					IStockApi::OrderList olist;
+					for (const auto &o : ords) {
+						olist.push_back({
+							pair, 0,0,json::Value(),o.id,0
+						});
+					}
+					IStockApi::OrderIdList rets;
+					IStockApi::OrderPlaceErrorList errs;
+					brk->batchPlaceOrder(olist,rets,errs);
+				}
+				me->send_json(req, true);
+			} catch (ParseError &e) {
+				me->api_error(req,400, e.what());
+			} catch (AbstractExtern::Exception &e) {
+				if (e.isResponse()) me->api_error(req,409,e.what()); else throw;
+			}
+		};
+	} else {
+		api_error(req,404, "Broker not found");
+	}
+	return true;
+}
+
+json::Value HttpAPI::merge_JSON(json::Value src, json::Value diff) {
+	if (diff.type() == json::object) {
+		if (diff.empty()) return json::undefined;
+		if (src.type() != json::object) src = json::object;
+		auto src_iter = src.begin(), src_end = src.end();
+		auto diff_iter = diff.begin(), diff_end = diff.end();
+		json::Object out;
+		while (src_iter != src_end && diff_iter != diff_end) {
+			auto src_v = *src_iter, diff_v = *diff_iter;
+			auto src_k = src_v.getKey(), diff_k = diff_v.getKey();
+			if (src_k < diff_k) {
+				out.set(src_v);
+				++src_iter;
+			} else if (src_k > diff_k) {
+				out.set(diff_k, merge_JSON(json::undefined, diff_v));
+				++diff_iter;
+			} else {
+				out.set(diff_k, merge_JSON(src_v, diff_v));
+				++src_iter;
+				++diff_iter;
+			}
+		}
+		while (src_iter != src_end) {
+			out.set(*src_iter);
+			++src_iter;
+		}
+		while (diff_iter != diff_end) {
+			auto diff_v = *diff_iter;
+			out.set(diff_v.getKey(), merge_JSON(json::undefined, diff_v));
+			++diff_iter;
+		}
+		return out;
+	} else if (diff.type() == json::undefined){
+		return src;
+	} else {
+		return diff;
+	}
+}
+
+
+bool HttpAPI::get_api_admin_config(Req &req, const Args &) {
+	if (!check_acl(req, ACL::admin_view)) return true;
+	send_json(req, core->get_config());
+	return true;
+}
+
+
+bool HttpAPI::post_api_admin_config(Req &req, const Args &v) {
+	req->readBody(req, max_upload) >> [me = PHttpAPI(this)](Req &req, const std::string_view &text) {
+		if (!me->check_acl(req, ACL::admin_edit)) return ;
+		try {
+			Value cfg_diff = Value::fromString(text);
+			Value cfg = me->core->get_config();
+			Value cfg_merged = merge_JSON(cfg, cfg_diff);
+			Value users = cfg_merged["users"];
+			if (users.defined()) {
+				users = AuthService::conv_pwd_to_hash(users);
+				cfg_merged.setItems({{"users",users}});
+			}
+			me->core->setConfig(cfg_merged);
+			me->send_json(req, cfg_merged);
+		} catch (const ParseError &e) {
+			me->api_error(req, 400, e.what());
+		}
+
+	};
 	return true;
 }

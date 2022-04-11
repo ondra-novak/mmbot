@@ -39,11 +39,18 @@ class Hdrs {
 public:
 	Hdrs(const json::Value &v) {
 		lines.reserve(v.size()+2);
-		bool add_accept = true;
+		json::Object repl(v);
 		for (json::Value x: v) {
+			if ((x.type() != json::string) || (x.flags() & json::binaryString)) {
+				repl.set(x.getKey(), x.toString());
+			}
+		}
+		hld = repl;
+		bool add_accept = true;
+		for (json::Value x: hld) {
 			if (!userver::HeaderValue::iequal(x.getKey(),"connection")) {
 				lines.push_back({
-					x.getKey(), x.toString().str()
+					x.getKey(), x.getString()
 				});
 			}
 			if (userver::HeaderValue::iequal(x.getKey(),"accept")) add_accept = false;
@@ -59,6 +66,7 @@ public:
 
 protected:
 	std::vector<userver::HttpClient::HeaderPair> lines;
+	json::Value hld;
 
 };
 

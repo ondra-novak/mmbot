@@ -43,6 +43,9 @@ protected:
 	std::shared_ptr<userver::OpenAPIServer> cur_server;
 	PProgressMap progress;
 
+	static json::Value merge_JSON(json::Value src, json::Value diff);
+
+	void api_error(Req &req, int err, std::string_view desc = std::string_view());
 
 	bool get_root(Req& req, const std::string_view &vpath);
 	bool get_api__up(Req& req, const Args& args);
@@ -63,10 +66,20 @@ protected:
 	bool get_api_admin_broker_pairs(Req &req, const Args &args);
 	bool get_api_progress(Req &req, const Args &args);
 	bool get_api_admin_broker_pairs_pair(Req &req, const Args &args);;
+	bool get_api_admin_broker_pairs_ticker(Req &req, const Args &args);
+	bool get_api_admin_broker_pairs_settings(Req &req, const Args &args);
+	bool put_api_admin_broker_pairs_settings(Req &req, const Args &args);
+
+	bool get_api_admin_broker_pairs_orders(Req &req, const Args &args);
+	bool put_api_admin_broker_pairs_orders(Req &req, const Args &args);
+	bool delete_api_admin_broker_pairs_orders(Req &req, const Args &args);
 
 	void send_json(Req &req, const json::Value &v);
 
 	bool post_set_cookie(Req& req, const Args& args);
+
+	bool get_api_admin_config(Req &req, const Args &v);
+	bool post_api_admin_config(Req &req, const Args &v);
 
 };
 

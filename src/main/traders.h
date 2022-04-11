@@ -49,7 +49,10 @@ public:
 	 */
 	void commit_add();
 
-
+	///Retrieve reset time of last cycle
+	auto get_last_reset() const {
+		return last_reset;
+	}
 
 protected:
 	PBrokerList brokers;
@@ -71,6 +74,7 @@ protected:
 
 	TraderList traders, prepared;
 	std::atomic<bool> stop = false;
+	std::chrono::system_clock::time_point last_reset;
 
 
 };

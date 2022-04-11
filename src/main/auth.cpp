@@ -12,8 +12,10 @@
 #include <random>
 
 #include <imtjson/binary.h>
+#include <imtjson/array.h>
 #include <userver/helpers.h>
 #include <userver/header_value.h>
+#include "../imtjson/src/imtjson/array.h"
 #include "../imtjson/src/imtjson/jwtcrypto.h"
 #include "../imtjson/src/imtjson/object.h"
 #include "../userver/http_client.h"
@@ -40,7 +42,7 @@ Auth::User Auth::get_user(const std::string_view &token) {
 			json::Value d = json::base64->decodeBinaryValue(t);
 			std::string astr = json::map_bin2str(d.getBinary(json::base64));
 			std::string_view password = astr;
-			std::string username = userver::splitAt(":", username);
+			std::string username ( userver::splitAt(":", password));
 			std::string pwhash = encode_password(username, password);
 			auto ut = userMap.find(username);
 			if (ut == userMap.end()) return {};
@@ -106,8 +108,11 @@ Auth::User Auth::get_user(const std::string_view &token) {
 void Auth::clear() {
 }
 
-void Auth::add_user(std::string &&uname, std::string &&hash_pwd,
-		const ACLSet &acl) {
+void Auth::add_user(std::string &&uname, std::string &&hash_pwd, const ACLSet &acl) {
+	auto &x = userMap[std::move(uname)];
+	x.acl = acl;
+	x.password_hash = std::move(hash_pwd);
+	x.jwt = false;
 }
 
 void Auth::set_secret(const std::string &secret) {
@@ -215,7 +220,7 @@ bool Auth::init_from_JSON(json::Value config) {
 	if (users.empty()) return false;
 	for (json::Value u: users) {
 		auto name = u["uid"];
-		auto password = u["pwd"];
+		auto password = u["pwd_hash"];
 		auto acl = u["acl"];
 		add_user(name.getString(), password.getString(), acl_from_JSON(acl));
 	}
@@ -299,4 +304,19 @@ bool AuthService::check_auth(const User &user, ACL acl, userver::HttpServerReque
 
 AdminPartyException::AdminPartyException():std::runtime_error("Can't create session in 'admin_party' mode") {
 
+}
+
+json::Value AuthService::conv_pwd_to_hash(json::Value users) {
+	json::Array res;
+	for (json::Value x: users) {
+		if (x["pwd"].defined()) {
+			json::Object y(x);
+			y.set("pwd_hash",  encode_password(x["uid"].getString(), x["pwd"].getString()));
+			y.unset("pwd");
+			res.push_back(y);
+		} else {
+			res.push_back(x);
+		}
+	}
+	return res;
 }

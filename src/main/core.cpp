@@ -109,7 +109,7 @@ BotCore::BotCore(const ondra_shared::IniConfig &cfg)
 ,news_tm(json::undefined)
 ,traders(PTraders::make(brokerList, storageFactory, histStorageFactory, rpt,perfmod, balanceCache, extBalance))
 ,cfg_storage(storageFactory->create("config.json"))
-,in_progress(0)
+,in_progres(1)
 {
 
 }
@@ -127,12 +127,22 @@ void BotCore::setConfig(json::Value cfg) {
 BotCore::~BotCore() {
 	traders.lock()->stop_cycle();
 	sch.clear();
-	in_progress.wait();
+	in_progres.wait();
 }
 
 void BotCore::run(bool suspended) {
 	applyConfig(cfg_storage->load());
-	if (!suspended) init_cycle(std::chrono::steady_clock::now());
+	if (suspended) {
+		sch.each(std::chrono:: minutes(1)) >> [&]{
+			rpt.lock()->genReport();
+		};
+		sch.after(std::chrono::seconds(1)) >> [&]{
+			rpt.lock()->genReport();
+		};
+	} else{
+		init_cycle(std::chrono::steady_clock::now());
+	}
+
 	sch.each(std::chrono::seconds(45)) >> [&]{
 		rpt.lock()->pingStreams();
 	};
@@ -166,14 +176,22 @@ void BotCore::applyConfig(json::Value cfg) {
 
 }
 
+json::Value BotCore::get_config() const {
+	json::Value out = cfg_storage->load();
+	if (!out.hasValue()) out = json::object;
+	return out;
+}
+
 void BotCore::init_cycle(std::chrono::steady_clock::time_point next_start) {
 	auto start = std::max(std::chrono::steady_clock::now(), next_start);
 	sch.at(start) >> [this,start]{
+		in_progres.lock();
 		traders.lock()->run_cycle(this->wrk, utlz, [this, start](bool cont){
 			if (cont) {
 				rpt.lock()->genReport();
 				init_cycle(start+std::chrono::minutes(1));
 			}
+			in_progres.unlock();
 		});
 	};
 }

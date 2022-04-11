@@ -95,7 +95,7 @@ PStockApi StockSelector::get_broker(const std::string_view &name) {
 	if (f != stock_markets.end()) return f->second;
 	auto tmp = temp_markets.lock_shared();
 	auto g = tmp->find(name);
-	if (g != tmp->end()) return f->second;
+	if (g != tmp->end()) return g->second;
 	auto n = name.rfind("~");
 	if (n == name.npos) return nullptr;
 	std::string_view baseName = name.substr(0,n);

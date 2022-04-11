@@ -11,6 +11,8 @@
 #include <shared/scheduler.h>
 #include <shared/worker.h>
 #include <shared/countdown.h>
+#include "../shared/semaphore.h"
+
 #include "auth.h"
 
 #include "traders.h"
@@ -47,10 +49,6 @@ public:
 		return histStorageFactory;
 	}
 
-	const ondra_shared::Countdown& get_in_progress() const {
-		return in_progress;
-	}
-
 
 	const PPerfModule& get_perfmod() const {
 		return perfmod;
@@ -84,6 +82,13 @@ public:
 		return wrk;
 	}
 
+	auto &get_cycle_lock() {
+		return in_progres;
+	}
+
+	json::Value get_config() const;
+
+
 protected:
 
 
@@ -104,7 +109,7 @@ protected:
 	json::Value news_tm;
 	PTraders traders;
 	PStorage cfg_storage;
-	ondra_shared::Countdown in_progress;
+	ondra_shared::Semaphore in_progres;
 
 
 	void applyConfig(json::Value cfg);
