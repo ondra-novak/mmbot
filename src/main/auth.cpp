@@ -187,7 +187,7 @@ std::string Auth::create_session(const User &user, unsigned int exp_sec) {
 	};
 
 	if (session_jwt != nullptr) {
-		return json::serializeJWT(payload, session_jwt);
+		return std::string("Bearer ").append(json::serializeJWT(payload, session_jwt));
 	} else {
 		throw AdminPartyException();
 	}
@@ -224,6 +224,7 @@ bool Auth::init_from_JSON(json::Value config) {
 		auto acl = u["acl"];
 		add_user(name.getString(), password.getString(), acl_from_JSON(acl));
 	}
+	set_secret(secret.getString());
 	return true;
 }
 
@@ -246,7 +247,7 @@ bool AuthService::init_from_JSON(json::Value config) {
 }
 
 static std::string_view findAuthCookie(std::string_view cookies) {
-	while (cookies.empty()) {
+	while (!cookies.empty()) {
 		auto row = userver::splitAt(";", cookies);
 		userver::trim(row);
 		auto key = userver::splitAt("=", row);

@@ -123,7 +123,7 @@ void HttpAPI::init(std::shared_ptr<OpenAPIServer> server) {
 					{"Authorization","header","string","Bearer JWT token/Basic authorization",{}, false}
 			},"",{
 					{ctx_json,"","object","User credentials. The credentials can be also send as cookie 'auth' (JWT) or as Basic authentification (Authorization)",{
-						{"username","string","Username to log-in",{},true},
+						{"user","string","Username to log-in",{},true},
 						{"password","string","Password",{},true},
 						{"token","string","A valid JWT token (or session)",{},true},
 						{"exp","unsigned","Session expiration. If not specified, creates unspecified long session (permanent login)",{},true},
@@ -414,7 +414,9 @@ bool HttpAPI::post_api_user(Req &req, const Args &args) {
 					std::string cookie = "auth=";
 					cookie.append(retCookie.getString());
 					cookie.append(";Path=");
-					cookie.append(req->getRootPath());
+					auto root_path = req->getRootPath();
+					if (root_path.empty()) root_path = "/";
+					cookie.append(root_path);
 					if (md == UserSetCookie::permanent) {
 						cookie.append(";Max-Age=");
 						cookie.append(std::to_string(exp));
