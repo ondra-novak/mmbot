@@ -680,7 +680,7 @@ bool Interface::areMinuteDataAvailable(const std::string_view &asset,const std::
 
 uint64_t Interface::downloadMinuteData(const std::string_view &asset, const std::string_view &currency,
 		const std::string_view &hint_pair, uint64_t time_from, uint64_t time_to,
-		std::vector<IHistoryDataSource::OHLC> &data) {
+		std::vector<double> &data) {
 
 	updateSymbols();
 	std::string_view psymb = stripPrefix(hint_pair);
@@ -703,7 +703,7 @@ uint64_t Interface::downloadMinuteData(const std::string_view &asset, const std:
 		buff << "/0/public/OHLC?pair=" << name << "&since=" << time_from << "&interval=" << curset;
 		int dups = curset/5;
 		auto insert_val = [&](double n){
-				for (int i = 0; i < dups; i++) data.push_back({n,n,n,n});
+				for (int i = 0; i < dups; i++) data.push_back(n);
 		};
 
 		std::string url = buff.str();

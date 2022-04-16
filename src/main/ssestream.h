@@ -16,11 +16,13 @@ class SSEStream: public ondra_shared::RefCntObj {
 public:
 	SSEStream(userver::PHttpServerRequest &&req);
 	~SSEStream();
-	void init();
+	bool init();
 	bool on_event(const Report::StreamData &sdata);
+	void close();
 protected:
 	userver::PHttpServerRequest req;
 	userver::Stream stream;
+	bool needsse;
 	bool closed;
 	bool flushing;
 	std::recursive_mutex mx;
@@ -31,9 +33,11 @@ protected:
 	void flush();
 	void monitor();
 
+	std::string_view prefix, suffix;
+
 };
 
-
+using PSSEStream = ondra_shared::RefCntPtr<SSEStream>;
 
 
 #endif /* SRC_MAIN_SSESTREAM_H_ */

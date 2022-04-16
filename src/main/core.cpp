@@ -7,6 +7,7 @@
 
 #include "core.h"
 
+#include "btstore.h"
 #include "extdailyperfmod.h"
 #include "stock_selector.h"
 #include "hist_data_storage.h"
@@ -92,6 +93,19 @@ static auto initWorker(const ondra_shared::IniConfig::Section &section) {
 	return ondra_shared::Worker::create(threads);
 }
 
+static PBacktestStorage initBacktestStorage(const ondra_shared::IniConfig::Section &section) {
+	auto cache_size = section["backtest_cache_size"].getUInt(8);
+	auto in_memory = section["in_memory"].getBool(false);
+	return PBacktestStorage::make(cache_size, in_memory);
+
+}
+
+static PBacktestBroker initBacktestBroker(const ondra_shared::IniConfig::Section &section) {
+	auto path = section["history_source"];
+	if (!path.defined() || path.getString().empty()) return nullptr;
+	return std::make_unique<BacktestBroker>(path.getCurPath(), "backtest_broker", path.getPath(), 120000);
+}
+
 BotCore::BotCore(const ondra_shared::IniConfig &cfg)
 :sch(sch.create())
 ,wrk(initWorker(cfg["traders"]))
@@ -109,15 +123,21 @@ BotCore::BotCore(const ondra_shared::IniConfig &cfg)
 ,news_tm(json::undefined)
 ,traders(PTraders::make(brokerList, storageFactory, histStorageFactory, rpt,perfmod, balanceCache, extBalance))
 ,cfg_storage(storageFactory->create("config.json"))
+,backtest_storage(initBacktestStorage(cfg["backtest"]))
+,backtest_broker(initBacktestBroker(cfg["backtest"]))
 ,in_progres(1)
 {
 
 }
 
+void BotCore::storeConfig(json::Value cfg) {
+	cfg_storage->store(cfg);
+}
+
 void BotCore::setConfig(json::Value cfg) {
 	try {
 		applyConfig(cfg);
-		cfg_storage->store(cfg);
+		storeConfig(cfg);
 	} catch (...) {
 		applyConfig(cfg_storage->load());
 		throw;

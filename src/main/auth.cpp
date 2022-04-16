@@ -13,6 +13,7 @@
 
 #include <imtjson/binary.h>
 #include <imtjson/array.h>
+#include <imtjson/operations.h>
 #include <userver/helpers.h>
 #include <userver/header_value.h>
 #include "../imtjson/src/imtjson/array.h"
@@ -26,6 +27,7 @@ json::NamedEnum<ACL> strACL({
 	{ACL::reports, "reports"},
 	{ACL::admin_edit, "admin_edit"},
 	{ACL::admin_view, "admin_view"},
+	{ACL::backtest, "backtest"},
 });
 
 Auth::User Auth::get_user(const std::string_view &token) {
@@ -106,6 +108,12 @@ Auth::User Auth::get_user(const std::string_view &token) {
 }
 
 void Auth::clear() {
+	userMap.clear();
+	tokenCache.clear();
+	cache_tmp.clear();
+
+
+
 }
 
 void Auth::add_user(std::string &&uname, std::string &&hash_pwd, const ACLSet &acl) {
@@ -305,6 +313,27 @@ bool AuthService::check_auth(const User &user, ACL acl, userver::HttpServerReque
 
 AdminPartyException::AdminPartyException():std::runtime_error("Can't create session in 'admin_party' mode") {
 
+}
+
+bool AuthService::change_password(json::Value &cfg, const User &user, const std::string_view &old_pwd, const std::string_view &new_pwd) {
+	bool ok = false;
+	json::Value old_encoded = encode_password(user.name, old_pwd);
+	json::Value new_encoded = encode_password(user.name, new_pwd);
+	json::Value new_users = cfg["users"].map([&](const json::Value &x){
+		if (x["uid"].getString() == user.name && x["pwd_hash"] == old_encoded) {
+			json::Value m = x;
+			m.setItems({{"pwd_hash", new_encoded}});
+			ok = true;
+			return m;
+		} else {
+			return x;
+		}
+	});
+	if (ok) {
+		cfg.setItems({{"users", new_users}});
+		init_from_JSON(cfg);
+	}
+	return ok;
 }
 
 json::Value AuthService::conv_pwd_to_hash(json::Value users) {

@@ -5,7 +5,6 @@ add_executable (mmbot
 		../brokers/httpjson.cpp
 		start.cpp  
 		strategy3.cpp		
-		spreadgenerator.cpp
 		default_spread_generator.cpp
 		registrations.cpp
 		dynmult.cpp
@@ -34,6 +33,6 @@ add_executable (mmbot
 		ssestream.cpp
 		licence.cpp
 		server.cpp
-		progress.cpp
+		btstore.cpp
 	)
 target_link_libraries (mmbot LINK_PUBLIC userver imtjson )

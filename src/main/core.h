@@ -12,10 +12,17 @@
 #include <shared/worker.h>
 #include <shared/countdown.h>
 #include "../shared/semaphore.h"
+#include "backtest_broker.h"
+
+#include "abstractExtern.h"
+
+#include "btstore.h"
 
 #include "auth.h"
 
 #include "traders.h"
+
+
 
 class BotCore {
 public:
@@ -24,6 +31,7 @@ public:
 	~BotCore();
 	void run(bool suspended);
 	void setConfig(json::Value cfg);
+	void storeConfig(json::Value cfg);
 
 	PAuthService get_auth() {
 		return authService;
@@ -88,6 +96,13 @@ public:
 
 	json::Value get_config() const;
 
+	PBacktestStorage get_backtest_storage() const {
+		return backtest_storage;
+	}
+
+	const PBacktestBroker &get_backtest_broker() const {
+		return backtest_broker;
+	}
 
 protected:
 
@@ -109,6 +124,8 @@ protected:
 	json::Value news_tm;
 	PTraders traders;
 	PStorage cfg_storage;
+	PBacktestStorage backtest_storage;
+	PBacktestBroker backtest_broker;
 	ondra_shared::Semaphore in_progres;
 
 

@@ -12,6 +12,8 @@
 #include "shared/refcnt.h"
 #include <imtjson/value.h>
 
+#include "tool_register.h"
+
 
 class ISpreadGenerator;
 
@@ -65,20 +67,9 @@ public:
 
 };
 
-class ISpreadGeneratorFactory {
-public:
-	virtual ~ISpreadGeneratorFactory() {}
-	virtual PSpreadGenerator create(json::Value cfg) = 0;
-	virtual std::string_view get_id() const = 0;
-	virtual json::Value get_form_def() const = 0;
-};
-
-class ISpreadGeneratorRegistration {
-public:
-	virtual ~ISpreadGeneratorRegistration() {}
-	virtual void reg(std::unique_ptr<ISpreadGeneratorFactory> &&factory) = 0;
-};
-
+using SpreadGenRegister = AbstractToolRegister<PSpreadGenerator>;
+using SpreadGenFactory = AbstractToolFactory<PSpreadGenerator>;
+using SpreadRegister = ToolRegister<PSpreadGenerator>;
 
 class SpreadGenerator {
 public:
@@ -112,29 +103,13 @@ public:
 	const ISpreadGenerator *operator->() const {
 		return ptr;
 	}
-
-
-
 protected:
 	PSpreadGenerator ptr;
 };
 
-class SpreadRegister: public ISpreadGeneratorRegistration {
+template<> class ToolName<PSpreadGenerator> {
 public:
-
-	SpreadGenerator create(std::string_view id, json::Value config);
-	virtual void reg(std::unique_ptr<ISpreadGeneratorFactory> &&factory) override;
-
-	static SpreadRegister &getInstance();
-
-	using SpreadMap = std::unordered_map<std::string_view, std::unique_ptr<ISpreadGeneratorFactory> >;
-	auto begin() const {return smap.begin();}
-	auto end() const {return smap.end();}
-	auto find(const std::string_view &id) const {return smap.find(id);}
-
-protected:
-
-	SpreadMap smap;
+	static std::string_view get();
 };
 
 #endif /* SRC_MAIN_SPREADGENERATOR_H_ */

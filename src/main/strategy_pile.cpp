@@ -286,20 +286,24 @@ double Strategy3_Pile::calc_initial_position(const MarketState &st) const {
 std::string_view Strategy3_Pile::get_id() const {return id;}
 
 void Strategy3_Pile::reg(AbstractStrategyRegister &r) {
-	r.reg(id, [](json::Value cfg){
+	static auto def = json::Value::fromString(R"json(
+			[{"name":"ratio",
+	          "type":"slider",
+	          "min":0,
+	          "max":100,
+	          "step":1,
+	          "decimals":0
+			}])json");
+
+	r.reg_tool({
+		std::string(Strategy3_Pile::id),
+		"Pile Strategy",
+		"spot",def
+
+	}) >> [](json::Value cfg) {
 		double ratio = cfg["ratio"].getNumber()*0.01;
 		return new Strategy3_Pile(ratio);
-	}, {
-		json::Object {
-			{"name","ratio"},
-			{"label","Ratio [%]"},
-			{"type","slider"},
-			{"min", 0},
-			{"max", 100},
-			{"step", 1},
-			{"decimals",0}
-		}
-	});
+	};
 }
 
 double Strategy3_Pile::calcConstant(double r, double price, double eq) {

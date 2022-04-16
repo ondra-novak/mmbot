@@ -25,5 +25,7 @@ struct Trader_Config_Ex: public Trader_Config {
 };
 
 
+json::Value get_trader_form();
+
 
 #endif /* SRC_MAIN_TRADER_FACTORY_H_ */

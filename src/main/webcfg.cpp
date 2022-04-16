@@ -2321,8 +2321,8 @@ struct WebCfg::DataDownloaderTask {
 	std::string dwnid;
 	AsyncProvider async;
 
-	std::vector<IHistoryDataSource::OHLC> tmpVect;
-	std::stack<std::vector<IHistoryDataSource::OHLC> > datastack;
+	std::vector<double> tmpVect;
+	std::stack<std::vector<double> > datastack;
 	std::uint64_t end_tm ;
 	std::uint64_t start_tm;
 	std::size_t cnt;

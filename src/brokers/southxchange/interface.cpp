@@ -435,7 +435,7 @@ bool Interface::areMinuteDataAvailable(const std::string_view &asset,
 
 uint64_t Interface::downloadMinuteData(const std::string_view &asset, const std::string_view &currency,
 		const std::string_view &hint_pair, uint64_t time_from, uint64_t time_to,
-		std::vector<IHistoryDataSource::OHLC, std::allocator<IHistoryDataSource::OHLC> > &data) {
+		std::vector<double, std::allocator<double> > &data) {
 
 	time_from = std::max(time_to - 1000*5*60000, time_from);
 	std::ostringstream uri;
@@ -451,11 +451,11 @@ uint64_t Interface::downloadMinuteData(const std::string_view &asset, const std:
 			auto l = v["PriceLow"].getNumber();
 			auto c = v["PriceClose"].getNumber();
 			auto m = std::sqrt(h*l);
-			data.push_back({o,o,o,o});
-			data.push_back({l,l,l,l});
-			data.push_back({m,m,m,m});
-			data.push_back({h,h,h,h});
-			data.push_back({c,c,c,c});
+			data.push_back(o);
+			data.push_back(l);
+			data.push_back(m);
+			data.push_back(h);
+			data.push_back(c);
 		}
 	}
 	if (data.empty()) return 0;

@@ -46,7 +46,7 @@ public:
 	virtual json::Value testCall(const std::string_view &method, json::Value args) override;
 	virtual bool areMinuteDataAvailable(const std::string_view &asset, const std::string_view &currency) override;
 	virtual uint64_t downloadMinuteData(const std::string_view &asset, const std::string_view &currency,
-			const std::string_view &hint_pair, uint64_t time_from, uint64_t time_to, std::vector<IHistoryDataSource::OHLC> &data) override;
+			const std::string_view &hint_pair, uint64_t time_from, uint64_t time_to, std::vector<double> &data) override;
 
 protected:
 

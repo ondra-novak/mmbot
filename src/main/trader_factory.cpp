@@ -5,6 +5,7 @@
  *      Author: ondra
  */
 
+#include <imtjson/object.h>
 #include <imtjson/string.h>
 #include "trader_factory.h"
 
@@ -50,10 +51,47 @@ void Trader_Config_Ex::parse(json::Value data) {
 	json::Value rset = data["reset"];
 	json::Value tmp;
 
-	reset.revision = rset["revision"].getUInt();
-	if ((tmp = rset["alloc_position"]).defined()) reset.alloc_position = tmp.getNumber();
-	if ((tmp = rset["alloc_currency"]).defined()) reset.alloc_currency= tmp.getNumber();
-	if ((tmp = rset["trade_position"]).defined()) reset.trade_position= tmp.getNumber();
-	if ((tmp = rset["trade_optimal_position"]).defined()) reset.trade_optimal_position = tmp.getBool();
+	reset.revision = data["reset_revision"].getUInt();
+	bool reset_alloc_pos_100 = data["reset_alloc_position_100"].getBool();
+	bool reset_alloc_cur_100 = data["reset_alloc_currency_100"].getBool();
+	bool reset_set_position = data["reset_set_position"].getBool();
 
+	if (reset_alloc_pos_100) reset.alloc_position = data["reset_alloc_position"].getNumber();
+	if (reset_alloc_cur_100) reset.alloc_currency = data["reset_alloc_currencty"].getNumber();
+	if (reset_set_position) {
+		reset.trade_optimal_position = data["reset_set_optimal_position"].getBool();
+		reset.trade_position= data["reset_set_position_value"].getNumber();
+	}
+
+}
+
+
+json::Value get_trader_form() {
+	using namespace json;
+
+	static json::Value def = json::Value::fromString(R"json(
+	[{"category":"general","name":"title","type":"string"},
+	 {"category":"general","name":"enabled","type":"checkbox","default":true},
+	 {"category":"general","name":"hidden","type":"checkbox","default":false},
+	 {"category":"general","name":"dont_allocate","type":"checkbox","default":false},
+	 {"category":"init","name":"reset_revision","type":"rev_checkbox","default":false},
+	 {"category":"init","name":"reset_alloc_position_100","type":"checkbox","default":true,"hideif":{"reset_revision":false}},		
+	 {"category":"init","name":"reset_alloc_position","type":"number","default":0,"hideif":{"reset_revision":false,"reset_alloc_position_100":true}},		
+	 {"category":"init","name":"reset_alloc_currencty_100","type":"checkbox","default":true,"hideif":{"reset_revision":false}},		
+	 {"category":"init","name":"reset_alloc_currencty","type":"number","default":0,"hideif":{"reset_revision":false,"reset_alloc_currencty_100":true}},		
+	 {"category":"init","name":"reset_keep_position","type":"checkbox","default":true,"hideif":{"reset_revision":false}},		
+	 {"category":"init","name":"reset_set_optimal_position","type":"checkbox","default":true,"hideif":{"reset_revision":false,"reset_keep_position":true}},		
+	 {"category":"init","name":"reset_set_position_value","type":"number","default":0,"hideif":{"reset_revision":false,"reset_keep_position":true,"reset_set_optimal_position":true}},
+	 {"category":"constrains","name":"min_size","type":"number","min":0,"default":0},		
+	 {"category":"constrains","name":"max_size","type":"number","min":0,"default":0},		
+	 {"category":"constrains","name":"min_pos","type":"number"},		
+	 {"category":"constrains","name":"max_pos","type":"number"},		
+	 {"category":"constrains","name":"max_costs","type":"number"},		
+	 {"category":"constrains","name":"max_leverage","type":"number","min":0,"default":4},
+	 {"category":"constrains","name":"trade_with_budget","type":"checkbox","default":false},
+	 {"category":"misc","name":"init_open","type":"number","default":0},
+	 {"category":"misc","name":"report_order","type":"number","default":0}
+	])json");
+
+	return def;
 }

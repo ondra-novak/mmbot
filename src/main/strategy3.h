@@ -33,32 +33,6 @@ protected:
 	PStrategy3 ptr;
 };
 
-class StrategyRegister: public AbstractStrategyRegister {
-public:
-
-	Strategy3 create(std::string_view id, json::Value config);
-	virtual void reg_strategy(std::unique_ptr<AbstractStrategyFactory> &&factory) override;
-
-	static StrategyRegister &getInstance();
-
-	using StrategyMap = std::unordered_map<std::string_view, std::unique_ptr<AbstractStrategyFactory> >;
-	auto begin() const {return smap.begin();}
-	auto end() const {return smap.end();}
-	auto find(const std::string_view &id) const {return smap.find(id);}
-
-protected:
-
-	StrategyMap smap;
-};
-
-class UnknownStrategyException: public std::exception {
-public:
-	UnknownStrategyException(std::string_view id);
-	const virtual char* what() const noexcept override;
-protected:
-	mutable std::string msg;
-	std::string id;
-};
 
 
 #endif /* SRC_MAIN_STRATEGY3_H_ */

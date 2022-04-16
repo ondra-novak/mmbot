@@ -24,7 +24,8 @@ enum class ACL {
 	viewer=1,
 	reports=2,
 	admin_view=3,
-	admin_edit=4
+	admin_edit=4,
+	backtest=5
 };
 
 extern json::NamedEnum<ACL> strACL;
@@ -136,6 +137,7 @@ public:
 	bool check_auth(const User &user, userver::HttpServerRequest &req, bool basic_auth = false) const;
 	bool check_auth(const User &user, ACL acl, userver::HttpServerRequest &req, bool basic_auth = false) const;
 	static void basic_auth(userver::HttpServerRequest &req);
+	bool change_password(json::Value &cfg, const User &user, const std::string_view &old_pwd, const std::string_view &new_pwd);
 
 
 	static json::Value conv_pwd_to_hash(json::Value users);

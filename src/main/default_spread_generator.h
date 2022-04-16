@@ -39,7 +39,7 @@ public:
 	virtual double get_buy_mult() const override;
 	virtual double get_sell_mult() const override;
 	virtual bool is_valid() const override;
-	static void reg(ISpreadGeneratorRegistration &reg);
+	static void reg(SpreadGenRegister &reg);
 
 
 protected:
@@ -84,7 +84,7 @@ public:
 	virtual std::string_view get_id() const override {return id;}
 	virtual bool is_valid() const override {return true;}
 
-	static void reg(ISpreadGeneratorRegistration &reg);
+	static void reg(SpreadGenRegister &reg);
 
 	static std::string_view id;
 

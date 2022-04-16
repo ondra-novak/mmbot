@@ -13,6 +13,11 @@
 #include "sgn.h"
 
 
+std::string_view ToolName<PSpreadGenerator>::get()
+{
+	return "spread generator";
+}
+
 
 std::string_view AdaptiveSpreadGenerator::id = "adaptive";
 std::string_view FixedSpreadGenerator::id = "fixed";
@@ -102,10 +107,23 @@ PSpreadGenerator AdaptiveSpreadGenerator::load(json::Value value) const {
 			});
 }
 
-void AdaptiveSpreadGenerator::reg(ISpreadGeneratorRegistration &reg) {
-	class F: public ISpreadGeneratorFactory {
-	public:
-		virtual PSpreadGenerator create(json::Value cfg) override {
+void AdaptiveSpreadGenerator::reg(SpreadGenRegister &reg) {
+	static auto def = json::Value::fromString(R"json(
+	[{"name":"sma_interval","type":"slider","min":0,"max":240,"step":0.1,"decimals":1, "default":24},
+	 {"name":"stdev_interval","type":"slider","min":0,"max":240,"step":0.1,"decimals":1, "default":8},
+	 {"name":"mult","type":"slider","min":-100,"max":100,"step":0.1,"decimals":1, "default":0},
+	 {"name":"raise","type":"slider","min":0,"max":1000,"step":0.1,"decimals":1, "default": 400},
+	 {"name":"fall","type":"slider","min":0,"max":10,"step":0.1,"decimals":1, "default": 3},
+	 {"name":"cap","type":"number","min":0,"max":100,"default": 100},
+	 {"name":"mode","type":"enum","options":["disabled","independent","together","alternate","half_alternate"], "default":"independent"},
+ 	 {"name":"mult_factor","type":"checkbox","default":false},
+ 	 {"name":"sliding","type":"checkbox","default":false},
+	 {"name":"freeze","type":"checkbox","default":false}
+	])json");
+
+	reg.reg_tool({
+		std::string(id),"Adaptive","default",def
+		}) >> [] (json::Value cfg) {
 			return new AdaptiveSpreadGenerator(Config{
 				cfg["raise"].getNumber(),
 				cfg["fall"].getNumber(),
@@ -118,30 +136,7 @@ void AdaptiveSpreadGenerator::reg(ISpreadGeneratorRegistration &reg) {
 				cfg["sliding"].getBool(),
 				cfg["freeze"].getBool()
 			});
-		}
-		virtual std::string_view get_id() const override {return id;}
-		virtual json::Value get_form_def() const {
-			return json::Value({
-				json::Object{{"name","sma_interval"},{"label","Moving average (hours)"},{"type","slider"},{"min", 1},{"max", 100},{"step", 1},{"decimals",1}},
-				json::Object{{"name","stdev_interval"},{"label","Standard deviation (hours)"},{"type","slider"},{"min", 1},{"max", 100},{"step", 1},{"decimals",1}},
-				json::Object{{"name","mult"},{"label","Spread adjust"},{"type","slider"},{"min", -100},{"max", 100},{"step", 1},{"decimals",1}},
-				json::Object{{"name","raise"},{"label","Dynamic multiplicator raise"},{"type","slider"},{"min", 1},{"max", 1000},{"step", 1},{"decimals",1}},
-				json::Object{{"name","fall"},{"label","Dynamic multiplicator fall"},{"type","slider"},{"min", 1},{"max", 200},{"step", 1},{"decimals",1}},
-				json::Object{{"name","cap"},{"label","Dynamic multiplicator cap"},{"type","number"},{"step", 1}},
-				json::Object{{"name","mode"},{"label","Dynamic multiplicator mode"},{"type","enum"},{"options", json::Object{
-					{"disabled","Disabled"},
-					{"independent","Independent"},
-					{"together","Together"},
-					{"alternate","Alternate"},
-					{"half_alternate","Half alternate"},
-				}}},
-				json::Object{{"name","mult_factor"},{"label","Multiply raise and falls on trade (instead adding)"},{"type","boolean"}},
-				json::Object{{"name","sliding"},{"label","Sliding"},{"type","boolean"}},
-				json::Object{{"name","freeze"},{"label","Freeze distance of the opposite order on a trade"},{"type","boolean"}},
-			});
-		}
-	};
-	reg.reg(std::make_unique<F>());
+		};
 }
 
 bool AdaptiveSpreadGenerator::is_valid() const {
@@ -201,10 +196,18 @@ PSpreadGenerator FixedSpreadGenerator::load(json::Value value) const {
 			});
 }
 
-void FixedSpreadGenerator::reg(ISpreadGeneratorRegistration &reg) {
-	class F: public ISpreadGeneratorFactory {
-	public:
-		virtual PSpreadGenerator create(json::Value cfg) override {
+void FixedSpreadGenerator::reg(SpreadGenRegister &reg) {
+	static auto def = json::Value::fromString(R"json(
+	[{"name":"spread_pct","type":"slider","min":0.05,"max":20,"step":0.05,"decimals":2, "default":1},
+	 {"name":"raise","type":"slider","min":0,"max":1000,"step":0.1,"decimals":1, "default": 400},
+	 {"name":"fall","type":"slider","min":0,"max":10,"step":0.1,"decimals":1, "default": 3},
+	 {"name":"cap","type":"number","min":0,"max":100,"default": 100},
+	 {"name":"mode","type":"enum","options":["disabled","independent","together","alternate","half_alternate"], "default":"independent"},
+ 	 {"name":"mult_factor","type":"checkbox","default":false},
+ 	 {"name":"sliding","type":"checkbox","default":false}
+	])json");
+
+	reg.reg_tool({std::string(id),"Fixed","default", def}) >> [] (json::Value cfg) {
 			return new FixedSpreadGenerator(Config{
 				cfg["raise"].getNumber(),
 				cfg["fall"].getNumber(),
@@ -213,27 +216,7 @@ void FixedSpreadGenerator::reg(ISpreadGeneratorRegistration &reg) {
 				cfg["mult_factor"].getBool(),
 				cfg["spread_pct"].getNumber(),
 			});
-		}
-		virtual std::string_view get_id() const override {return id;}
-		virtual json::Value get_form_def() const {
-			return json::Value({
-				json::Object{{"name","spread_pct"},{"label","Fixed spread [%]"},{"type","slider"},{"min", 0.1},{"max", 10},{"step", 0.1},{"decimals",1}},
-				json::Object{{"name","raise"},{"label","Dynamic multiplicator raise"},{"type","slider"},{"min", 1},{"max", 1000},{"step", 1},{"decimals",1}},
-				json::Object{{"name","fall"},{"label","Dynamic multiplicator fall"},{"type","slider"},{"min", 1},{"max", 200},{"step", 1},{"decimals",1}},
-				json::Object{{"name","cap"},{"label","Dynamic multiplicator cap"},{"type","number"},{"step", 1}},
-				json::Object{{"name","mode"},{"label","Dynamic multiplicator mode"},{"type","enum"},{"options", json::Object{
-					{"disabled","Disabled"},
-					{"independent","Independent"},
-					{"together","Together"},
-					{"alternate","Alternate"},
-					{"half_alternate","Half alternate"},
-				}}},
-				json::Object{{"name","mult_factor"},{"label","Multiply raise and falls on trade (instead adding)"},{"type","boolean"}},
-				json::Object{{"name","sliding"},{"label","Sliding"},{"type","boolean"}},
-			});
-		}
 	};
-	reg.reg(std::make_unique<F>());
 }
 
 FixedSpreadGenerator::FixedSpreadGenerator(const PConfig &cfg, State &&state):cfg(cfg),state(std::move(state)) {

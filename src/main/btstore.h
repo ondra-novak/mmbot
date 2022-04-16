@@ -12,6 +12,7 @@
 #include <vector>
 
 #include <imtjson/value.h>
+#include <shared/shared_object.h>
 
 
 
@@ -48,8 +49,9 @@ protected:
 	void add_metadata(const Metadata &md);
 	void remove_metadata(const std::vector<Metadata>::const_iterator &iter);
 	void mark_access(const std::vector<Metadata>::const_iterator &iter);
-
-
 };
+
+
+using PBacktestStorage = ondra_shared::SharedObject<BacktestStorage>;
 
 #endif /* SRC_MAIN_BTSTORE_H_ */

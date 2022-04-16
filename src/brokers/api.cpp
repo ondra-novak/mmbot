@@ -275,7 +275,7 @@ Value areMinuteDataAvailable(AbstractBrokerAPI &handler, const Value &req) {
 	return handler.areMinuteDataAvailable(req[0].getString(), req[1].getString());
 }
 Value downloadMinuteData(AbstractBrokerAPI &handler, const Value &req) {
-	std::vector<AbstractBrokerAPI::OHLC> vect;
+	std::vector<double> vect;
 	auto start_time = handler.downloadMinuteData(req["asset"].getString(),
 				req["currency"].getString(),
 				req["hint_pair"].getString(),
@@ -284,8 +284,8 @@ Value downloadMinuteData(AbstractBrokerAPI &handler, const Value &req) {
 
 	return Object{
 		{"start", start_time},
-		{"data",Value(json::array, vect.begin(), vect.end(), [](const AbstractBrokerAPI::OHLC &x){
-			return Value({x.open, x.high, x.low, x.close});
+		{"data",Value(json::array, vect.begin(), vect.end(), [](const auto &x){
+			return Value(x);
 		})}
 	};
 }
@@ -579,7 +579,7 @@ bool AbstractBrokerAPI::areMinuteDataAvailable(const std::string_view &, const s
 }
 std::uint64_t AbstractBrokerAPI::downloadMinuteData(const std::string_view &,
 				  const std::string_view &,const std::string_view &,std::uint64_t ,std::uint64_t ,
-				  std::vector<OHLC> &) {
+				  std::vector<double> &) {
 	//if not overridden, there are no historical data available
 	return 0;
 }

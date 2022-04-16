@@ -11,6 +11,7 @@
 #include <shared/refcnt.h>
 
 #include "abstractarray.h"
+#include "tool_register.h"
 
 #include "istockapi.h"
 
@@ -353,44 +354,14 @@ public:
 	virtual std::string_view get_id() const = 0;
 };
 
-class AbstractStrategyFactory {
+
+using AbstractStrategyRegister = AbstractToolRegister<PStrategy3>;
+using AbstractStrategyFactory = AbstractToolFactory<PStrategy3>;
+using StrategyRegister = ToolRegister<PStrategy3>;
+template<> class ToolName<PStrategy3> {
 public:
-	virtual ~AbstractStrategyFactory() {}
-	virtual PStrategy3 create(json::Value config) = 0;
-	virtual std::string_view get_id() const = 0;
-	virtual json::Value get_form_def() const = 0;
+	static std::string_view get();
 };
-
-class AbstractStrategyRegister {
-public:
-	virtual ~AbstractStrategyRegister() {}
-	virtual void reg_strategy(std::unique_ptr<AbstractStrategyFactory> &&factory) = 0;
-
-	template<typename Fn>
-	void reg(std::string_view id, Fn &&fn, json::Value form_def) {
-		class Call: public AbstractStrategyFactory {
-		public:
-			Call(std::string_view id, Fn &&fn, json::Value form_def)
-				:id(id),fn(std::forward<Fn>(fn)), form_def(form_def) {}
-			PStrategy3 create(json::Value config) override {
-				return fn(config);
-			}
-			virtual std::string_view get_id() const override {
-				return id;
-			}
-			virtual json::Value get_form_def() const override {
-				return form_def;
-			}
-		protected:
-			std::string id;
-			Fn fn;
-			json::Value form_def;
-		};
-		reg_strategy(std::make_unique<Call>(id,std::forward<Fn>(fn), form_def));
-	}
-
-};
-
 
 
 #endif /* SRC_MAIN_ISTRATEGY3_H_ */

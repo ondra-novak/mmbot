@@ -108,12 +108,6 @@ public:
 
 class IHistoryDataSource {
 public:
-	struct OHLC {
-		double open;
-		double high;
-		double low;
-		double close;
-	};
 
 	///Asks to broker, whether there are available historical minute data
 	/**
@@ -149,7 +143,7 @@ public:
 					  const std::string_view &hint_pair,
 					  std::uint64_t time_from,
 					  std::uint64_t time_to,
-					  std::vector<OHLC> &data
+					  std::vector<double> &data
 				) = 0;
 
 	virtual ~IHistoryDataSource() {}

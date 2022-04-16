@@ -11,9 +11,14 @@
 #include <shared/refcnt.h>
 #include <userver/openapi.h>
 #include <userver/static_webserver.h>
-#include "progress.h"
+#include <userver/callback.h>
+#include <shared/linear_map.h>
+
+#include "ssestream.h"
 
 #include "core.h"
+#include "longrun.h"
+
 
 class HttpAPI;
 
@@ -28,20 +33,26 @@ public:
 		:core(std::move(core))
 		,static_pages({www_root,"index.html",0})
 		,max_upload(max_upload)
-		,progress(PProgressMap::make()) {}
+		,reg_op_map(PRegOpMap::make())
+		,cancel_map(PCancelMap::make()) {}
 
 
 	void init(std::shared_ptr<userver::OpenAPIServer> server);
 
-
-
 	bool check_acl(Req& req, ACL acl);
 protected:
+
+
 	std::unique_ptr<BotCore> core;
 	userver::StaticWebserver static_pages;
 	std::size_t max_upload;
 	std::shared_ptr<userver::OpenAPIServer> cur_server;
-	PProgressMap progress;
+	PRegOpMap reg_op_map;
+	PCancelMap cancel_map;
+	std::mutex cfg_lock;
+
+
+
 
 	static json::Value merge_JSON(json::Value src, json::Value diff);
 
@@ -64,7 +75,6 @@ protected:
 	bool get_api_admin_broker_apikey(Req &req, const Args &args);
 	bool put_api_admin_broker_apikey(Req &req, const Args &args);
 	bool get_api_admin_broker_pairs(Req &req, const Args &args);
-	bool get_api_progress(Req &req, const Args &args);
 	bool get_api_admin_broker_pairs_pair(Req &req, const Args &args);;
 	bool get_api_admin_broker_pairs_ticker(Req &req, const Args &args);
 	bool get_api_admin_broker_pairs_settings(Req &req, const Args &args);
@@ -81,6 +91,19 @@ protected:
 	bool get_api_admin_config(Req &req, const Args &v);
 	bool post_api_admin_config(Req &req, const Args &v);
 
+	bool get_api_admin_form(Req &req, const Args &v);
+	bool get_api_user_set_password(Req &req, const Args &v);
+	bool get_api_backtest_data(Req &req, const Args &v);
+	bool post_api_backtest_data(Req &req, const Args &v);
+	bool post_api_backtest_historical_data(Req &req, const Args &v);
+	bool get_api_backtest_historical_data(Req &req, const Args &v);
+	bool get_api_backtest_historical_data_broker_pair(Req &req, const Args &v);
+	bool post_api_backtest_historical_data_broker_pair(Req &req, const Args &v);
+	bool get_api_run(Req &req, const Args &v);
+	bool delete_api_run(Req &req, const Args &v);
+
+
+	class DataDownloaderTask;
 };
 
 

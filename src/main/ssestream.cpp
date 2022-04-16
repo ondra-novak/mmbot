@@ -9,7 +9,7 @@
 #include "ssestream.h"
 
 SSEStream::SSEStream(userver::PHttpServerRequest &&req)
-		:req(std::move(req)), closed(false),flushing(false) {
+		:req(std::move(req)), needsse(false), closed(false),flushing(false) {
 }
 SSEStream::~SSEStream() {
 	req->log(userver::LogLevel::debug, "SSEStream closed");
@@ -24,10 +24,31 @@ void SSEStream::flush() {
 	};
 }
 
-void SSEStream::init() {
+bool SSEStream::init() {
 	std::lock_guard _(mx);
+	auto accept = req->get("Accept");
+	needsse = false;
+	if (accept.defined) {
+		if (accept == "text/event-stream") needsse = true;
+		else if (accept != "application/json-seq" && accept != "*/*") {
+			req->setStatus(406);
+			req->setContentType("text/plain");
+			req->send("text/event-stream\r\napplication/json-seq\r\n");
+			return false;
+		}
+	}
+
+
 	//initialize response
-	req->setContentType("text/event-stream");  //<correct content type
+	if (needsse) {
+		req->setContentType("text/event-stream");  //<correct content type
+		prefix = "data: ";
+		suffix = "\r\n\r\n";
+	} else {
+		prefix = "\x1E";
+		suffix = "\n";
+		req->setContentType("application/json-seq");  //<correct content type
+	}
 	req->set("Cache-Control", "no-cache");		//<we don't need cache
 	req->set("Connection","close");				//<don't reuse connection
 	req->set("X-Accel-Buffering","no");			//<disable NGINX buffering
@@ -36,6 +57,7 @@ void SSEStream::init() {
 	stream = req->send();						//<send response - get stream to body
 	flush();									//<flush http response
 	monitor();									//initialize monitoring
+	return true;
 }
 bool SSEStream::on_event(const Report::StreamData &sdata) {
 	//we need to lock to avoid async clashing
@@ -70,15 +92,15 @@ bool SSEStream::on_event(const Report::StreamData &sdata) {
 	if (flushing) {
 		//in this case, store event to the buffer exactly as it will be send
 		//data: {json} <enter><enter>
-		buffer.append("data: ");
+		buffer.append(prefix);
 		sdata.event.serialize([&](char c){buffer.push_back(c);});
-		buffer.append("\r\n\r\n");
+		buffer.append(suffix);
 	} else {
 		//state is not flushing, we can push data directly to the stream
 		//data: {json} <enter><enter>
-		stream.writeNB("data: ");
+		stream.writeNB(prefix);
 		sdata.event.serialize([&](char c){stream.putCharNB(c);});
-		stream.writeNB("\r\n\r\n");
+		stream.writeNB(suffix);
 		flush();
 	}
 	//done and it is ok
@@ -133,4 +155,7 @@ void SSEStream::monitor() {
 	};
 }
 
-
+void SSEStream::close() {
+	std::lock_guard _(mx);
+	closed = true;
+}
