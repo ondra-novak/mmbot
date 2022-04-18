@@ -1012,7 +1012,8 @@ json::Value HttpAPI::make_JSON_diff(json::Value src, json::Value trg) {
 		out.set(trg_k, make_JSON_diff(json::undefined, trg_v));
 		++trg_iter;
 	}
-	return out;
+	json::Value o = out;
+	if (o.empty()) return json::undefined; else return o;
 
 }
 
@@ -1404,6 +1405,7 @@ public:
 	static void run(std::unique_ptr<BacktestState> &&me);
 	Done done;
 	CheckCancel check_cancel;
+	std::chrono::system_clock::time_point next_progress_report;
 
 
 
@@ -1575,6 +1577,17 @@ void HttpAPI::BacktestState::run(std::unique_ptr<BacktestState> &&ptr) {
 	static std::hash<std::string> hstr;
 	static auto no_error = 3*hstr("");
 	while (!me->check_cancel() && me->bt->next()) {
+
+		auto now = std::chrono::system_clock::now();
+		if (now > me->next_progress_report) {
+			if (!me->sse->on_event({true,Object{
+				{"event","progress"},
+				{"progress", me->bt->get_progress()}
+			}})) {
+				break;
+			}
+			me->next_progress_report = now + std::chrono::seconds(1);
+		}
 
 		const auto &trades = me->bt->get_trades();
 		int trade_count = trades.length - me->trade_counter;

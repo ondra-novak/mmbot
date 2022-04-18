@@ -216,3 +216,6 @@ const std::vector<Backtest::LogMsg>& Backtest::get_log_msgs() const {
 	return log_msgs;
 }
 
+double Backtest::get_progress() const {
+	return pos/(prices.size()/1000+1)*0.1;
+}

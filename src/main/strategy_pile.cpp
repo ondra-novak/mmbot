@@ -243,9 +243,9 @@ PStrategy3 Strategy3_Pile::run(AbstractTraderControl &cntr) const {
 }
 
 json::Value Strategy3_Pile::save() const {
-	return json::Object({
+	return json::Object{{
 		"constant",constant
-	});
+	}};
 }
 
 PStrategy3 Strategy3_Pile::load(const json::Value &state) const {
@@ -292,7 +292,8 @@ void Strategy3_Pile::reg(AbstractStrategyRegister &r) {
 	          "min":0,
 	          "max":100,
 	          "step":1,
-	          "decimals":0
+	          "decimals":0,
+			  "default":50
 			}])json");
 
 	r.reg_tool({

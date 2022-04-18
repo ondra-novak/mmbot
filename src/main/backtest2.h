@@ -104,6 +104,8 @@ public:
 		return sim_position;
 	}
 
+	double get_progress() const;
+
 
 
 
