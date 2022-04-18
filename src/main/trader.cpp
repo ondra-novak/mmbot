@@ -185,7 +185,7 @@ void Trader::load_state() {
 		uid = state["uid"].getUInt();
 		position_valid = (tmp = state["position"]).defined();
 		if (position_valid) position = tmp.getNumber();
-		completted_trades = state["confirmed_trades"].getUInt();
+		completed_trades = state["confirmed_trades"].getUInt();
 		prevTickerTime = state["prevTickerTime"].getUIntLong();
 		unconfirmed_position = state["unconfirmed_position"].getNumber();
 		last_known_live_position = state["last_known_live_position"].getNumber();
@@ -224,7 +224,7 @@ void Trader::save_state() {
 			state.set("unconfirmed_position", unconfirmed_position);
 		}
 		state.set("reset_rev", reset_rev);
-		state.set("completted_trades", completted_trades);
+		state.set("completted_trades", completed_trades);
 		state.set("prevTickerTime", prevTickerTime);
 		state.set("last_known_live_position", last_known_live_position);
 		state.set("last_known_live_balance", last_known_live_balance);
@@ -267,7 +267,7 @@ void Trader::updateEnterPrice() {
 	}
 	acb_state = acb;
 	ACB diff(0,0);
-	for (std::size_t p = completted_trades, cnt = trades.size(); p != cnt; ++p) {
+	for (std::size_t p = completed_trades, cnt = trades.size(); p != cnt; ++p) {
 		const auto &tr = trades[p];
 		diff = diff(tr.eff_price, tr.eff_size);
 	}
@@ -275,7 +275,7 @@ void Trader::updateEnterPrice() {
 }
 
 std::size_t Trader::TradesArray::size() const {
-	return owner.completted_trades;
+	return owner.completed_trades;
 }
 
 IStockApi::Trade Trader::TradesArray::operator [](std::size_t idx) const {
@@ -391,7 +391,7 @@ void Trader::run() {
 				last_trade_size  = pos_diff.getPos();
 				position = position + pos_diff.getPos();
 				pos_diff = ACB(0,0);
-				completted_trades = trades.size();
+				completed_trades = trades.size();
 				equilibrium = last_trade_price;
 			} else {
 				trades_finished = false;
@@ -974,7 +974,7 @@ bool Trader::isSameOrder(const std::optional<IStockApi::Order> &curOrder, const 
 
 }
 
-Strategy3 Trader::get_stategy() const {
+Strategy3 Trader::get_strategy() const {
 	return env.strategy;
 }
 
@@ -1015,7 +1015,7 @@ double Trader::get_neutral_price() const {
 }
 
 double Trader::get_complete_trades() const {
-	return completted_trades;
+	return completed_trades;
 }
 
 double Trader::get_last_trade_eq_extra() const {

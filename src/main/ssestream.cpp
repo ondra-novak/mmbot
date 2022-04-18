@@ -24,7 +24,7 @@ void SSEStream::flush() {
 	};
 }
 
-bool SSEStream::init() {
+bool SSEStream::init(bool monitor_close) {
 	std::lock_guard _(mx);
 	auto accept = req->get("Accept");
 	needsse = false;
@@ -56,7 +56,7 @@ bool SSEStream::init() {
 	req->log(userver::LogLevel::debug, "SSEStream init");
 	stream = req->send();						//<send response - get stream to body
 	flush();									//<flush http response
-	monitor();									//initialize monitoring
+	if (monitor_close) monitor();									//initialize monitoring
 	return true;
 }
 bool SSEStream::on_event(const Report::StreamData &sdata) {
@@ -108,7 +108,7 @@ bool SSEStream::on_event(const Report::StreamData &sdata) {
 }
 void SSEStream::flushComplete(bool result) {
 	//lock the state
-	std::lock_guard _(mx);
+	std::unique_lock _(mx);
 	//if result is true, we can continue
 	if (result) {
 		//if buffer is empty, nothing to flush
@@ -127,6 +127,14 @@ void SSEStream::flushComplete(bool result) {
 		//in case of error, close this stream (client will reconnect)
 		closed = true;
 	}
+	decltype(flush_cb) tmp;
+	std::swap(tmp, flush_cb);
+	_.unlock();
+
+	for (const auto &x: tmp) {
+		x();
+	}
+
 }
 ///monitors opened connection - waits for closing
 void SSEStream::monitor() {

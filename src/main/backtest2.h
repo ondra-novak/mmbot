@@ -33,7 +33,7 @@ public:
 
 
 
-	void start(std::vector<double> &&prices, std::uint64_t start_time);
+	void start(std::vector<float> &&prices, std::uint64_t start_time);
 	bool next();
 
 	Trader &get_trader();
@@ -87,16 +87,32 @@ public:
 	struct LogMsg {
 		std::uint64_t time;
 		std::string text;
+
 	};
 
 	const std::vector<LogMsg> &get_log_msgs() const;
+
+	double get_sim_balance() const {
+		return sim_balance;
+	}
+
+	double get_sim_equity() const {
+		return sim_equity;
+	}
+
+	double get_sim_position() const {
+		return sim_position;
+	}
+
+
+
 
 
 protected:
 	Trader_Config_Ex cfg;
 	PStockApi source;
 	std::unique_ptr<Trader> trader;
-	std::vector<double> prices;
+	std::vector<float> prices;
 	std::size_t pos = 0;
 	std::uint64_t start_time = 0;
 
@@ -110,6 +126,9 @@ protected: //reported data;
 	std::vector<LogMsg> log_msgs;
 	double cur_price = 0;
 	double position = 0;
+	double sim_balance = 0;
+	double sim_equity = 0;
+	double sim_position = 0;
 
 
 

@@ -12,6 +12,10 @@
 #include "httpapi.h"
 
 #include "../brokers/httpjson.h"
+#include "backtest2.h"
+
+#include "istrategy3.h"
+
 #include "trader_factory.h"
 
 #include "abstractExtern.h"
@@ -282,7 +286,8 @@ void HttpAPI::init(std::shared_ptr<OpenAPIServer> server) {
 			},{
 					{200,"Stored data",{{ctx_json,"","array","",{{"number","number"}}}}},
 					{404,"ID is not valud - need reupload"}
-			}).method(me, &HttpAPI::get_api_backtest_data)
+			}).method(me, &HttpAPI::get_api_backtest_data);
+	reg("/api/backtest/data")
 		.POST("Backtest","Upload minute price data - one item per minute","",{},"",{
 				{ctx_json,"data","array","Minute data - numbers, one number per minute",{{"","number","",}}},
 			},{
@@ -314,6 +319,49 @@ void HttpAPI::init(std::shared_ptr<OpenAPIServer> server) {
 			{404,"Data are not available, cannot be downloaded"}
 		}).method(me, &HttpAPI::post_api_backtest_historical_data_broker_pair);
 
+	reg("/api/backtest")
+		.POST("Backtest","Create new backtest. ID of test returned and can be executed through /api/run/<id>","",{
+			{"stream","query","boolean","Prepare operation to by streamed as executed (SSE) - default is false - result is returned directly to the response"},
+			{"Accept","header","enum","Requested conten type",{{"text/event-stream"},{"application/json-seq"}}}
+		},"",{
+				{ctx_json, "config","object","backtest configuration",{
+						{"makret","object","Market information",marketInfo},
+						{"source","object","source definition",{
+								{"id","string","Data source - ID of uploaded minute data"},
+								{"offset","integer","(optional) skip specified count of minutes"},
+								{"limit","integer","(optional) limit count of minutes"},
+								{"start_time","int64","(optional) javascript timestamp (milliseconds) of starting date. If not set, current date is used"},
+								{"init_price","number","(optional) initial price, if not set (or zero), it uses prices from supplied minute data"},
+								{"backward","boolean","(optional) process data backward"},
+								{"invert","boolean","(optional) invert data - swap top and bottom"},
+								{"mirror","boolean","(optional) extends data with mirrored version of itself"}
+						}},
+						{"trader","object","Trader configuration (complete) - see other doc"},
+						{"init","object","Initial conditions",{
+								{"position","number","initial position. If not set, recommended position is used"},
+								{"balance","number","initial currency balance. Mandatory"}
+						}},
+						{"output","object","Specify additional output",{
+								{"freq","enum","how often is output generated (default is trade)",{{"trade"},{"minute"}}},
+								{"strategy_state","boolean","include state of strategy (defaulf is false)"},
+								{"log","boolean","include log messages (default is false)"},
+								{"strategy_raw_state","boolean","include raw state of strategy (default is false)"},
+								{"spread_raw_state","boolean","include raw state of spread (default is false)"},
+								{"orders","boolean","include open orders (default false, for freq=minute)"},
+								{"stats","boolean","include current position, balance, profit, norm-profit, etc (default false)"},
+								{"debug","boolean","include more verbose (possible duplicated) informations (default is false)"},
+								{"diff","boolean","send diff - each event is diff-object to previous event default is false)"},
+						}}
+
+				}}},{
+						{200,"OK",{{"text/event-stream","","","Events"},{"application/json-seq","","","Events"}}},
+						{201,"Created",{{ctx_json,"","object","",{{"id","string"}}}},{{"Location","header","string","Resource location"}}},
+						{400,"Bad request - syntaxt errors"},
+						{409,"Conflict - formal errors"},
+						{416,"Invalid range: offset and limit out of range"},
+				}).method(me, &HttpAPI::post_api_backtest);
+
+
 	server->addSwagBrowser("/swagger");
 
 }
@@ -336,7 +384,7 @@ bool HttpAPI::get_api_data(Req &req, const Args &args) {
 	if (!check_acl(req, ACL::viewer)) return true;
 	auto rpt = core->get_report().lock();
 	ondra_shared::RefCntPtr<SSEStream> sse = new SSEStream(std::move(req));
-	if (!sse->init()) return true;
+	if (!sse->init(true)) return true;
 	rpt->addStream([sse](const Report::StreamData &sdata) mutable {
 		return sse->on_event(sdata);
 	});
@@ -360,6 +408,7 @@ void HttpAPI::send_json(Req &req, const json::Value &v) {
 	req->setContentType(ctx_json);
 	Stream stream = req->send();
 	v.serialize([&](char c){stream.putCharNB(c);});
+	stream.putCharNB('\n');
 	stream.flush() >> [req = std::move(req)](Stream &s){
 		//closure is necessary to keep pointers alive during async operation
 		//destroy stream before the request
@@ -917,6 +966,55 @@ json::Value HttpAPI::merge_JSON(json::Value src, json::Value diff) {
 	}
 }
 
+json::Value HttpAPI::make_JSON_diff(json::Value src, json::Value trg) {
+	if (trg.type() != json::object) {
+		if (trg.defined()) {
+			if (trg != src)	return trg;
+			else return json::undefined;
+		}
+		else if (src.defined()) return json::object;
+		else return json::undefined;
+	}
+	if (src.type() != json::object) {
+		if (trg.type() == json::object && trg.empty()) {
+			return json::Value(json::object, {json::Value("",json::object)});
+		} else {
+			src = json::object;
+		}
+	}
+	auto src_iter = src.begin(), src_end = src.end();
+	auto trg_iter = trg.begin(), trg_end = trg.end();
+	json::Object out;
+	while (src_iter != src_end && trg_iter != trg_end) {
+		auto src_v = *src_iter, trg_v = *trg_iter;
+		auto src_k = src_v.getKey(), trg_k = trg_v.getKey();
+		if (src_k < trg_k) {
+			out.set(src_k, make_JSON_diff(src_v, json::undefined));
+			++src_iter;
+		} else if (src_k > trg_k) {
+			out.set(trg_k, make_JSON_diff(json::undefined, trg_v));
+			++trg_iter;
+		} else {
+			out.set(trg_k, make_JSON_diff(src_v, trg_v));
+			++src_iter;
+			++trg_iter;
+		}
+	}
+	while (src_iter != src_end) {
+		auto src_v = *src_iter;
+		auto src_k = src_v.getKey();
+		out.set(src_k, make_JSON_diff(src_v, json::undefined));
+		++src_iter;
+	}
+	while (trg_iter != trg_end) {
+		auto trg_v = *trg_iter;
+		auto trg_k = trg_v.getKey();
+		out.set(trg_k, make_JSON_diff(json::undefined, trg_v));
+		++trg_iter;
+	}
+	return out;
+
+}
 
 bool HttpAPI::get_api_admin_config(Req &req, const Args &) {
 	if (!check_acl(req, ACL::admin_view)) return true;
@@ -1032,7 +1130,7 @@ bool HttpAPI::post_api_backtest_data(Req &req, const Args &v) {
 				if (!x.defined()) {
 					auto bk = me->core->get_backtest_storage().lock();
 					std::string id = bk->store_data(data);
-					req->set("Location",std::string("./").append(id));
+					req->set("Location",std::string(req->getRootPath()).append("/api/backtest/data/").append(id));
 					req->setStatus(201);
 					me->send_json(req, Object{{"id",id}});
 					return;
@@ -1220,7 +1318,7 @@ void HttpAPI::DataDownloaderTask::done() {
 
 
 bool HttpAPI::post_api_backtest_historical_data_broker_pair(Req &req,const Args &v) {
-	if (!check_acl(req, ACL::admin_view)) return true;
+	if (!check_acl(req, ACL::backtest)) return true;
 	try {
 		auto brk = core->get_broker_list()->get_broker(v["broker"]);
 		auto bc = dynamic_cast<IHistoryDataSource *>(brk.get());
@@ -1234,13 +1332,7 @@ bool HttpAPI::post_api_backtest_historical_data_broker_pair(Req &req,const Args 
 				task.init();
 				async.runAsync(std::move(task));
 			});
-			req->setStatus(201);
-			std::string url = std::string(req->getRootPath()).append("/api/run/").append(std::to_string(ret));
-			req->set("Location",url);
-			send_json(req, Object {
-				{"id", ret},
-				{"link", url}
-			});
+			redir_to_run(ret, req);
 		} else {
 			api_error(req,404, "Broker not found");
 		}
@@ -1258,7 +1350,7 @@ bool HttpAPI::get_api_run(Req &req, const Args &v) {
 	auto mp = reg_op_map.lock();
 	if (mp->check(id)) {
 		PSSEStream s = new SSEStream(std::move(req));
-		if (s->init()) {
+		if (s->init(true)) {
 			auto cb = mp->pop(id);
 			if (cb != nullptr) {
 				cb(s,id);
@@ -1285,4 +1377,322 @@ bool HttpAPI::delete_api_run(Req &req, const Args &v) {
 	}
 	return true;
 
+}
+
+class HttpAPI::BacktestState {
+public:
+
+	using Done = userver::Callback<void()>;
+	using CheckCancel = userver::Callback<bool()>;
+
+	PSSEStream sse;
+	std::unique_ptr<Backtest> bt;
+	bool trades_only;
+	bool output_strategy_state;
+	bool output_strategy_raw_state;
+	bool output_spread_raw_state;
+	bool output_orders;
+	bool output_stats;
+	bool output_debug;
+	bool output_log;
+	bool output_diff;
+	json::Value prev_output;
+	int trade_counter = 0;
+
+	std::size_t prev_err_hash = 0;
+
+	static void run(std::unique_ptr<BacktestState> &&me);
+	Done done;
+	CheckCancel check_cancel;
+
+
+
+};
+
+void HttpAPI::redir_to_run(int id, Req &req) {
+	req->setStatus(201);
+	std::string loc(req->getRootPath());
+	loc.append("/api/run/");
+	loc.append(std::to_string(id));
+	req->set("Location", loc);
+	send_json(req, Object { { "id", id }, { "link", loc } });
+}
+
+bool HttpAPI::post_api_backtest(Req &req, const Args &v) {
+	bool need_stream = v["stream"] == "true";
+	req->readBody(req, max_upload) >> [me=PHttpAPI(this), need_stream](Req &req, const std::string_view &text) {
+		if (!me->check_acl(req, ACL::backtest)) return;
+		try {
+			Value r = Value::fromString(text);
+			auto source = r["source"];
+			auto output = r["output"];
+			auto init = r["init"];
+			std::string source_id (source["id"].getString());
+			json::Value jdata = source["data"];
+			json::Value price_data;
+			if (!jdata.empty()) {
+				price_data = jdata;
+			} else {
+				auto bstr = me->core->get_backtest_storage().lock();
+				price_data = bstr->load_data(source_id);
+			}
+
+			if (price_data.type() != json::array) {
+				me->api_error(req, 404, "Source data are not available");return;
+			}
+
+
+			auto offset = source["offset"].getUInt();
+			if (offset >= price_data.size()) {
+				me->api_error(req, 416, "Offset out of range");return;
+			}
+			auto limit = source["limit"].getUInt();
+
+			std::vector<float> data; //prices are stored as float - to save some memory
+			auto count = std::min<UInt>(price_data.size()-offset,limit?limit:price_data.size());
+			data.reserve(count);
+			for (UInt i = 0; i < count; i++) {
+				double v = price_data[i+offset].getNumber();
+				if (v <= 0.0) {
+					me->api_error(req, 409, "Unusable data, contains zero, NaN or negative price");
+				}
+				data.push_back(v);
+			}
+
+			if (source["backward"].getBool()) {
+				for (UInt mx = count/2, i = 0;i<mx;i++) {
+					std::swap(data[i], data[count-i]);
+				}
+			}
+			if (source["invert"].getBool()) {
+				double fval = data[0];
+				std::transform(data.begin(), data.end(), data.begin(), [&](double x){
+					return fval*fval/x;
+				});
+			}
+			bool mirror = source["mirror"].getBool();
+
+			{
+				double init_price = source["init_price"].getNumber();
+				if (init_price) {
+					double m = init_price/data[0];
+					std::transform(data.begin(), data.end(), data.begin(), [&](double x){
+						return x*m;
+					});
+				}
+			}
+
+
+			Trader_Config_Ex tcfg;
+			tcfg.parse(r["trader"]);
+			auto strategy = StrategyRegister::getInstance().create(tcfg.strategy_id, tcfg.strategy_config);
+			auto spread = SpreadRegister::getInstance().create(tcfg.spread_id, tcfg.spread_config);
+			auto minfo = IStockApi::MarketInfo::fromJSON(r["market"]);
+
+
+			double init_balance = init["balance"].getNumber();
+			auto init_position_j = init["position"];
+			double init_position;
+			if (init_position_j.type() == json::number) {
+				init_position = init_position_j.getNumber();
+			} else {
+				MarketState st = {};
+				st.minfo = &minfo;
+				st.balance = st.equity = st.event_equity = init_balance;
+				st.cur_price = st.open_price = st.event_price = data[0];
+
+				init_position = strategy->calc_initial_position(st);
+				if (minfo.leverage <= 0) {
+					init_balance -= init_position * data[0];
+				}
+			}
+			if (init_balance <= 0 && init_position == 0) {
+				me->api_error(req, 409, "No initial balance");return;
+			}
+
+			if (mirror) {
+				UInt p = data.size();
+				data.reserve(p*2);
+				while (p) {
+					p--;
+					data.push_back(data[p]);
+				}
+			}
+
+			auto st = std::make_unique<BacktestState>();
+
+			st->bt = std::make_unique<Backtest>(tcfg,minfo,init_position, init_balance);
+
+			std::uint64_t start_time = source["start_time"].getUIntLong();
+			if (start_time == 0) start_time = std::chrono::duration_cast<std::chrono::milliseconds>(
+					std::chrono::system_clock::now().time_since_epoch()).count();
+
+			st->bt->start(std::move(data), start_time);
+			st->trades_only = output["freq"].getString() != "minute";
+			st->output_strategy_state = output["strategy_state"].getBool();
+			st->output_strategy_raw_state = output["strategy_raw_state"].getBool();
+			st->output_spread_raw_state = output["strategy_raw_state"].getBool();
+			st->output_orders = output["orders"].getBool();
+			st->output_diff = output["diff"].getBool();
+			st->output_stats = output["stats"].getBool();
+			st->output_debug = output["debug"].getBool();
+			st->output_log = output["log"].getBool();
+
+			if (need_stream) {
+
+				HttpAPI *thisptr = me; //we don't need refcounted ptr, this would create cycle
+				int id = me->reg_op_map.lock()->push([thisptr,st = std::move(st)](PSSEStream sse, int id) mutable {
+					thisptr->cancel_map.lock()->lock(id);
+					auto cancel_map = thisptr->cancel_map;
+					st->sse = sse;
+					st->check_cancel = [cancel_map, id]() mutable {
+						return cancel_map.lock_shared()->is_canceled(id);
+					};
+					st->done = [cancel_map, id]() mutable {
+						cancel_map.lock()->unlock(id);
+					};
+					st->run(std::move(st));
+				});
+				redir_to_run(id, req);
+			} else{
+				st->sse = new SSEStream(std::move(req));
+				st->sse->init(false);
+				st->check_cancel = []() {return false;};
+				st->done = [](){};
+				st->run(std::move(st));
+			}
+		} catch (const ParseError &e) {
+			me->api_error(req,400, e.what());
+		}
+	};
+	return true;
+
+
+}
+
+void HttpAPI::BacktestState::run(std::unique_ptr<BacktestState> &&ptr) {
+	BacktestState *me = ptr.get();
+	static std::hash<std::string> hstr;
+	static auto no_error = 3*hstr("");
+	while (!me->check_cancel() && me->bt->next()) {
+
+		const auto &trades = me->bt->get_trades();
+		int trade_count = trades.length - me->trade_counter;
+		me->trade_counter =trades.length;
+		const auto lg = me->bt->get_log_msgs();
+		const std::string buy_error = me->bt->getBuyErr();
+		const std::string sell_error = me->bt->getSellErr();
+		const std::string gen_error = me->bt->getGenErr();
+		std::size_t errh = hstr(buy_error)+hstr(sell_error)+hstr(gen_error);
+		bool err_event = errh != me->prev_err_hash && errh != no_error;
+		bool err_clear_event = errh != me->prev_err_hash && errh == no_error;
+
+		me->prev_err_hash = errh;
+		bool log_event = (me->output_log && !lg.empty());
+		if (!me->trades_only || trade_count || log_event || err_event || err_clear_event){
+
+
+			Object output;
+			output.setItems({
+				{"time",me->bt->get_cur_time()},
+				{"price",me->bt->get_cur_price()},
+				{"event",trade_count?"trade":err_event?"error":log_event?"log_msg":err_clear_event?"error_clear":"minute"}
+			});
+			if (trade_count) {
+				auto jtrl = output.array("trades");
+				for (int t = 0; t < trade_count; t++) {
+					const IStatSvc::TradeRecord &tr = trades[trades.length-trade_count+t];
+					jtrl.push_back(tr.toJSON());
+				}
+			}
+			if (me->output_orders) {
+				auto ord = output.object("orders");
+				std::optional<IStockApi::Order> buy_order = me->bt->get_buy_order();
+				std::optional<IStockApi::Order> sell_order = me->bt->get_buy_order();
+				if (buy_order.has_value()) ord.set("buy",buy_order->toJSON());
+				if (sell_order.has_value()) ord.set("sell",sell_order->toJSON());
+			}
+			if (me->output_stats) {
+				auto stats = output.object("stats");
+				const auto &misc = me->bt->get_misc_data();
+				stats.setItems({
+					{"position", me->bt->get_sim_position()},
+					{"balance", me->bt->get_sim_balance()},
+					{"equity",me->bt->get_sim_equity()},
+					{"alloc_equity",me->bt->get_trader().get_equity_allocation()},
+					{"equilibrium",misc.equilibrium},
+					{"highest_price",misc.highest_price},
+					{"entry_price",misc.entry_price},
+					{"lowest_price",misc.lowest_price},
+					{"budget_extra",misc.budget_extra},
+					{"rpnl",misc.rpnl},
+					{"upnl",misc.upnl},
+					{"neutral_price", me->bt->get_trader().get_neutral_price()},
+				});
+			}
+			if (me->output_strategy_state) {
+				output.set("strategy", me->bt->get_trader().get_strategy_report());
+			}
+			if (me->output_strategy_raw_state) {
+				output.set("strategy_raw", me->bt->get_trader().get_strategy().save());
+			}
+			if (me->output_spread_raw_state) {
+				output.set("spread_raw", me->bt->get_trader().get_spread().save());
+			}
+			{
+				auto err = output.object("errors");
+				if (!buy_error.empty()) err.set("buy",buy_error);
+				if (!sell_error.empty()) err.set("sell",sell_error);
+				if (!gen_error.empty()) err.set("generic",gen_error);
+			}
+			if (me->output_debug) {
+				const auto &misc = me->bt->get_misc_data();
+				auto debug = output.object("debug");
+				debug.setItems({
+					{"accumulated",misc.accumulated},
+					{"achieve_mode",misc.achieve_mode},
+					{"budget_assets",misc.budget_assets},
+					{"budget_total",misc.budget_total},
+					{"dynmult_buy",misc.dynmult_buy},
+					{"dynmult_sell",misc.dynmult_sell},
+					{"lastTradePrice",misc.lastTradePrice},
+					{"position",misc.position},
+					{"spread",misc.spread},
+					{"trade_dir",misc.trade_dir},
+					{"report_position",me->bt->get_position()},
+				});
+			}
+
+			if (me->output_log && lg.empty()) {
+				output.set("log",Value(array, lg.begin(), lg.end(), [&](const Backtest::LogMsg &msg){
+					return msg.text;
+				}));
+			};
+
+			json::Value out_raw = output;
+			json::Value out;
+			if (me->output_diff) {
+				out = make_JSON_diff(me->prev_output, out_raw);
+				me->prev_output = out_raw;
+			} else {
+				out = out_raw;
+			}
+
+			if (!me->sse->on_event({true, out})) {
+				break;
+			}
+
+			if (me->sse->wait_if_buffer_full(100000, [&]{
+				return [me = std::move(ptr)]() mutable {
+					me->run(std::move(me));
+				};
+			})) {
+				return;
+			}
+		}
+
+	}
+	me->sse->on_event({true, Object{{"event","done"}}});
+	me->sse->close();
+	me->done();
 }

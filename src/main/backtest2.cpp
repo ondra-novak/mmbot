@@ -115,10 +115,11 @@ Backtest::Backtest(const Trader_Config_Ex &cfg,
 {
 }
 
-void Backtest::start(std::vector<double> &&prices, std::uint64_t start_time) {
+void Backtest::start(std::vector<float> &&prices, std::uint64_t start_time) {
 	this->prices=std::move(prices);
 	this->pos=0;
 	cfg.paper_trading = true;
+	cfg.reset.revision = 1;
 
 	trader=std::make_unique<Trader>(cfg,Trader_Env{
 		StrategyRegister::getInstance().create(cfg.strategy_id, cfg.strategy_config),
@@ -141,10 +142,20 @@ bool Backtest::next() {
 	log_msgs.clear();
 	if (pos >= prices.size()) return false;
 	Source *src = static_cast<Source *>(source.get());
-	trader->get_exchange().reset(std::chrono::system_clock::now());
+	auto &exch = trader->get_exchange();
+	exch.reset(std::chrono::system_clock::now());
 	src->setPrice(prices[pos], get_cur_time());
 	trader->run();
 	++pos;
+	sim_balance = exch.getBalance(info.minfo.currency_symbol, cfg.pairsymb);
+	sim_position = exch.getBalance(info.minfo.asset_symbol, cfg.pairsymb);
+	if (info.minfo.leverage) {
+		sim_equity = sim_balance;
+	}
+	else {
+		sim_equity = sim_balance + sim_position*prices[pos];
+	}
+
 	return true;
 }
 
@@ -204,3 +215,4 @@ inline void Backtest::Reporting::reportLogMsg(uint64_t timestamp, const std::str
 const std::vector<Backtest::LogMsg>& Backtest::get_log_msgs() const {
 	return log_msgs;
 }
+

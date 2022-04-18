@@ -135,12 +135,11 @@ public:
 	void stop();
 	void erase_state();
 
-
 	IStockApi &get_exchange();
 public:
 	//backtest reporting
 
-	Strategy3 get_stategy() const;
+	Strategy3 get_strategy() const;
 	SpreadGenerator get_spread() const;
 	json::Value get_strategy_report() const;
 	double get_strategy_position() const;
@@ -282,7 +281,7 @@ protected:
 	///abstract array to access trades by strategy
 	TradesArray trarr;
 	///count of confirmed trades (from trades)
-	std::size_t completted_trades = 0;
+	std::size_t completed_trades = 0;
 
 	std::uint64_t prevTickerTime = 0;
 

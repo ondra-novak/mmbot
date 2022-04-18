@@ -1,9 +1,12 @@
 {
-	"init": {
-		"assets": 1,
-		"currency": 50000
+	"source":{
+		"id":"13942690456246665180"
 	},
-	"minfo": {
+	"init": {
+		"position": 1,
+		"balance": 50000
+	},
+	"market": {
 		"asset_step": 1e-4,
 		"asset_symbol": "BTC",
 		"currency_step": 1,
@@ -39,9 +42,17 @@
 			"mult": 0,
 			"sliding": false,
 			"freezee": false
-		},
-		"reset":{
-			"revision": 1
 		}
+		
+	},
+	"output":{
+		"stats":true,
+		"diff":true,
+		"freq":"minute",
+		"strategy_state":true,
+		"strategy_raw_state":true,
+		"spread_raw_state":true,
+		"orders":true
 	}
 }
+

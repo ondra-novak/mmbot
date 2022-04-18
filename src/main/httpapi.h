@@ -55,8 +55,9 @@ protected:
 
 
 	static json::Value merge_JSON(json::Value src, json::Value diff);
+	static json::Value make_JSON_diff(json::Value src, json::Value trg);
 
-	void api_error(Req &req, int err, std::string_view desc = std::string_view());
+	static void api_error(Req &req, int err, std::string_view desc = std::string_view());
 
 	bool get_root(Req& req, const std::string_view &vpath);
 	bool get_api__up(Req& req, const Args& args);
@@ -84,7 +85,7 @@ protected:
 	bool put_api_admin_broker_pairs_orders(Req &req, const Args &args);
 	bool delete_api_admin_broker_pairs_orders(Req &req, const Args &args);
 
-	void send_json(Req &req, const json::Value &v);
+	static void send_json(Req &req, const json::Value &v);
 
 	bool post_set_cookie(Req& req, const Args& args);
 
@@ -101,9 +102,11 @@ protected:
 	bool post_api_backtest_historical_data_broker_pair(Req &req, const Args &v);
 	bool get_api_run(Req &req, const Args &v);
 	bool delete_api_run(Req &req, const Args &v);
-
+	bool post_api_backtest(Req &req, const Args &v);
+	static void redir_to_run(int id, Req &req);
 
 	class DataDownloaderTask;
+	class BacktestState;
 };
 
 

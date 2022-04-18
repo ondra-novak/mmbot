@@ -10,23 +10,30 @@
 struct RegOpMap {
 		int next_id = 0;
 		using CB = userver::Callback<void(PSSEStream, int id)>;
-		std::deque<CB> reg_list;
+		struct Item {
+			CB cb;
+			std::chrono::system_clock::time_point expires;
+		};
+		std::deque<Item> reg_list;
 		int push(CB &&x) {
-			reg_list.push_back(std::move(x));
+			auto now = std::chrono::system_clock::now();
+			while (!reg_list.empty() && reg_list.front().expires < now) {
+				reg_list.pop_back();
+			}
+			reg_list.push_back({std::move(x),now+std::chrono::seconds(30)});
 			auto out = next_id++;
-			if (reg_list.size()>64) reg_list.pop_back();
 			return out;
 		}
 		bool check(int id) const {
 			auto pos = id - next_id + reg_list.size();
-			if (pos >= 0 && id < next_id) return reg_list[pos] != nullptr;
+			if (pos >= 0 && id < next_id) return reg_list[pos].cb != nullptr;
 			else return false;
 		}
 		CB pop(int id)  {
 			auto pos = id - next_id + reg_list.size();
 			if (pos >= 0 && id < next_id) {
 				CB out;
-				std::swap(out, reg_list[pos]);
+				std::swap(out, reg_list[pos].cb);
 				return out;
 			}
 			else return CB();

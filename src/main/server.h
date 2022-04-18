@@ -17,9 +17,10 @@ class Server: public userver::OpenAPIServer {
 public:
 	Server();
 
-	virtual void log(userver::ReqEvent event, const userver::HttpServerRequest &req) override;
-	virtual void log(const userver::HttpServerRequest &req, const std::string_view &msg) override;
-	virtual void unhandled() override;
+	virtual void log(userver::ReqEvent event, const userver::HttpServerRequest &req) noexcept  override ;
+	virtual void log(const userver::HttpServerRequest &req, const std::string_view &msg) noexcept  override ;
+	virtual void unhandled() noexcept  override;
+	virtual void error_page(userver::HttpServerRequest &r, int status, const std::string_view &desc) noexcept override;
 protected:
 	std::mutex mx;
 	ondra_shared::LogObject lo;
