@@ -27,17 +27,27 @@ void SSEStream::flush() {
 bool SSEStream::init(bool monitor_close) {
 	std::lock_guard _(mx);
 	auto accept = req->get("Accept");
-	needsse = false;
+	bool expect_sse = false;
+	bool expect_seq = false;
+	bool expect_any = false;
 	if (accept.defined) {
-		if (accept == "text/event-stream") needsse = true;
-		else if (accept != "application/json-seq" && accept != "*/*") {
-			req->setStatus(406);
-			req->setContentType("text/plain");
-			req->send("text/event-stream\r\napplication/json-seq\r\n");
-			return false;
-		}
+		accept.enumValues([&](std::string_view v){
+			auto w = userver::splitAt(";", v);
+			if (w == "*/*") expect_any = true;
+			else if (w == "text/event-stream") expect_sse = true;
+			else if (w == "application/json-seq") expect_seq = true;
+		});
+	} else {
+		expect_any = true;
 	}
 
+	if (expect_sse) needsse = true;
+	else if (!expect_seq && !expect_any) {
+		req->setStatus(406);
+		req->setContentType("text/plain");
+		req->send("text/event-stream\r\napplication/json-seq\r\n");
+		return false;
+	}
 
 	//initialize response
 	if (needsse) {

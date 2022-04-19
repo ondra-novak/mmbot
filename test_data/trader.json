@@ -48,7 +48,7 @@
 	"output":{
 		"stats":true,
 		"diff":true,
-		"freq":"minute",
+		"freq":"trades",
 		"strategy_state":true,
 		"strategy_raw_state":true,
 		"spread_raw_state":true,
