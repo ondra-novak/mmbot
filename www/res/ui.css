@@ -93,3 +93,73 @@ x-checkbox.radio.checked > span > span {
 x-checkbox.radio.checked {
 	
 }
+
+x-form {
+	display:block;
+}
+
+x-form-item {
+	display: flex;
+align-items: center;
+min-height: 2em;}
+x-form-item[hidden] {
+	display: none;
+}
+
+x-form-item > *:last-child {
+	width: 40%;
+}
+
+x-form-item > *:first-child {
+	/* width: 60%; */
+	
+flex-grow: 1;}
+
+x-form-item > input {
+	height: 1.5em;
+		text-align: center;
+
+}
+x-popup {
+	display:block;
+	position:fixed;
+	left:0;
+	right:0;
+	top:0;
+	bottom:0;
+	text-align: center;
+overflow: auto;white-space: nowrap;}
+
+x-popup::before {
+	content: "";
+	display: inline-block;
+	height: 90%;
+vertical-align: middle;}
+x-dialog {
+	display: inline-block;
+		background-color: black;	
+	border: 1px solid wheat;
+	text-align:left;vertical-align: middle;white-space: normal;min-width: 400px;box-shadow: 15px 14px 13px 0px black;}
+x-dialog > x-form,x-dialog > form {
+	padding: 1em;
+}
+x-dialog > x-dlg-title {display: block;padding: 0.5em;background-color: #584d08;color: yellow;font-weight: bold;text-align: center;}
+
+
+x-form-item.error {
+	display: none;
+	color: red;
+	text-align:right;
+	min-height: 0;
+}
+
+x-form-item.error.mark {
+	display:block;
+}
+
+x-button-bar {
+	display: block;
+	text-align: center;
+	margin-top: 1em;
+	
+}

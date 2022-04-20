@@ -1,0 +1,1205 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>MMBot</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="../res/chart.css">
+  <link rel="stylesheet" href="../res/ui.css">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="icon" type="image/png" href="../res/icon64.png" />
+</head>
+<body>
+<template id="trader_form">
+<x-form class="pair no_adv sections">
+<x-section><x-section-caption>Info</x-section-caption>
+<div class="toppanel">
+<div class="pairactions">
+	<div class="icon" data-name="icon_undo"><img src="../res/undo.png" title="Undo changes" ></div>
+	<div class="icon" data-name="icon_trading hide_on_new" hidden="hidden"><img src="../res/trading.png" title="Trading UI" ></div>
+	<div class="icon" data-name="icon_broker" hidden="hidden"><img src="../res/broker_settings.png" title="Broker settings" ></div>
+	<div class="icon" data-name="icon_clearStats hide_on_new" hidden="hidden"><img src="../res/reset_stats.png" title="Clear statistics"></div> 
+	<div class="icon" data-name="icon_reset hide_on_new" hidden="hidden"><img src="../res/repair.png" title="Restart strategy" > </div>
+	<div class="icon" data-name="icon_paper hide_on_new"  hidden="hidden">
+		<x-switch data-name="is_paper_trading" data-value="false"><img src="../res/paper.png" title="Clone as paper trading" ></x-switch>
+		<x-switch data-name="is_paper_trading" data-value="true"><img src="../res/paper_merge.png" title="Apply settings to original trader" ></x-switch>
+		 </div>
+	<div class="icon" data-name="icon_share"><img src="../res/share.png" title="Share settings" > </div>
+	<div class="icon red" data-name="icon_delete"><img src="../res/delete.png" title="Delete trader"></div></div>
+<div>
+<x-checkbox data-name="advanced">Show&nbsp;all</x-checkbox>
+</div>
+</div>
+
+<label><span>ID</span><span data-name="id" ></span></label>
+<label><span>Broker</span><span><img src="" data-name="broker_img" class="inline_img">
+	<span data-name="broker"><span class="spinner fast inline"></span></span> <span data-name="broker_ver"></span><span data-name="broker_subaccount"></span></span>
+	</label>
+
+
+<div class="label sepabove"><span>Symbol</span><span data-name="symbol" ></span></div>
+<div class="label"><span>Price</span><span><span data-name="price"></span> <span data-name="quote"></span></span></div>
+<div class="label sepabove"><span>Live position:</span><span><span data-name="balance_asset"></span> <span data-name="asset" ></span></span></div>
+<div class="label"><span>Live balance:</span><span><span data-name="balance_currency"></span> <span data-name="currency" ></span></span></div>
+<div class="label sepabove"><span>Calculated position:</span><span><span data-name="hdr_position"></span> <span data-name="asset" ></span></span></div>
+<div class="label"><span>Allocated balance:</span><span><span data-name="balance_currency_alloc"></span> <span data-name="currency" ></span></span></div>
+<div class="label"><span>Available balance:</span><span><span data-name="balance_currency_free"></span> <span data-name="currency" ></span></span></div>
+<div class="label" hidden="hidden" data-name="show_accum"><span>Accumulated:</span><span><span data-name="accumulation"></span> <span data-name="asset" ></span></span></div>
+<div class="label sepabove"><span>Realized PnL</span><span><span data-name="rpnl"></span> <span data-name="currency" ></span></span></div>
+<div class="label "><span>Unrealized PnL</span><span><span data-name="upnl"></span> <span data-name="currency" ></span></span></div>
+<div class="label"><span>Enter price</span><span><span data-name="enter_price"></span> <span data-name="quote" ></span></span></div>
+<div class="label"><span>Current costs</span><span><span data-name="costs"></span> <span data-name="currency" ></span></span></div>
+<div class="label sepabove"><span>Fees</span><span><span data-name="fees"></span>%</span></div>
+<div class="label"><span>Market type:</span><span>
+	<span data-name="type_leveraged" hidden="hidden">Leveraged: <span data-name="leverage"></span></span>
+	<span data-name="type_spot" hidden="hidden">Exchange</span>
+	<span data-name="type_inverted" hidden="hidden">Inverted</span>
+	<span class="info_icon" data-name="more_info" hidden="hidden" title="Click for more details...">i</span>
+	</span>
+</div>
+<div data-name="open_orders_sect" hidden="hidden"><table class="orders"><caption>Open orders</caption>
+<tr><th>ID</th><th>Direction</th><th>Price</th><th>Size</th></tr>
+<tr data-name="orders[]"><td data-name="id">123456</td><td data-name="dir">buy</td><td data-name="price">123456</td><td data-name="size">123456</td><td data-name="action"></td></tr>
+</table></div>
+<div class="warning" data-name="err_failed_to_fetch">Failed to fetch</div>
+<div class="adv visstrategy"><div data-name="visstr"><div class="spinner inline"></div></div>
+<p><span class="axes">
+<span>value</span>
+<span>price</span>
+</span><span title="Shows the effectiveness of spread trading. A higher value means a higher profit or a higher chance of covering losses" style="background-color:#102e41; padding: 0.5em">Yield (not in scale)</span>
+-
+<span title="Total budget calculated on given price" style="color:#FFFFA0">Budget</span>
+-
+<span title="The value of held assets at a given price. At the point where the green curve crosses the yellow curve, lever 1x is reached. In the spot market, this is the point where money runs out" style="color:#00AA00">Held value</span>
+-
+<span title="Development of the budget when the price moves without making a trade." style="color:#80FFFF">Current change</span> [<span data-name="currency"></span>]</p>
+</div>
+</x-section>
+<x-section><x-section-caption>General</x-section-caption>
+<label><span>Title</span><input type="text" data-name="title"></label>
+<label><span>Strategy</span><select data-name="strategy">
+<option value="">--- select ---</option>
+<optgroup label="Exchanges">
+<option value="pile">Pile strategy (improved Half-Half)</option>
+<option value="keepvalue2">Keep Value</option>
+<option value="inc_value">DCA Enhanced</option>
+<option value="hodlshort">Hodl + short</option>
+<option value="conststep" data-hidden="true">Linear costs</option>
+<option value="hypersquare" data-hidden="true">Hypersquare</option>
+<option value="exponencial" data-hidden="true">Exponencial</option>
+<option value="errorfn">Gauss/error function+rebalance</option>
+<option value="gamma">Gamma</option>
+</optgroup>
+<optgroup label="Leveraged (advanced traders)">
+<option value="sinh_gen">Simple leveraged</option>
+<option value="sinh">Sinh/exponencial (legacy)</option>
+<option value="sinh_val">Volume based Sinh (legacy)</option>
+</optgroup>
+<optgroup label="Experimental">
+<option value="passive_income">Passive Income</option>
+</optgroup>
+<optgroup label="Utility">
+<option value="keep_balance">Keep balance</option>
+<option value="hedge" data-hidden="true">Hedge</option>
+</optgroup>
+<optgroup label="Old and obsolete">
+<option value="halfhalf" data-hidden="true">Half-Half</option>
+<option value="keepvalue" data-hidden="true">Keep Value (old)</option>
+</optgroup>
+</select></label>
+<div class="label strategygoal"><span>Startegy Goal:</span><div data-name="help_goal">
+<div class="plfrompos">A simple strategy for trading on leveraged stock exchanges and futures, generally on stock exchanges with the ability to open long or short positions. This strategy is the only one that works well with a negative value in "assets" (meaning position)</div>
+<div class="halfhalf">This strategy keeps the value of assets and money on the stock exchange in a ratio 1:1. Whenever this ratio is disrupted, the strategy executes a trade in such a volume to achieve the defined ratio. <a href="https://www.desmos.com/calculator/9fdvux8fms">Interactive graph</a></div>
+<div class="keepvalue">This strategy keeps the value of assets on the stock exchange at the same value. If the value of assets falls or rises (due to changing price), the strategy executes a trade in such a volume to achieve the same value of the assets as before.</div>
+<div class="exponencial">Strategy based on exponencial function to trade pairs on exchanges. If correctly configured, it can work in range of (0,infinity) like Half-Half, however, its effectivty ends after 400% gain on the price of the underlying asset. So this strategy is ideal to trade altcoins where is less chance of a long running positive trend. The profit is realized through the normalized profit. <a href="https://www.desmos.com/calculator/gln1sxxgyo" target="_blank">Interactive graph</a></div>
+<div class="hypersquare">This strategi is similar to Exponencial, but it is based on square hyperbolic function. Area for target average price is much wider then exponencial. <a href="https://www.desmos.com/calculator/pbfisabvcm" target="_blank">Interactive graph</a></div>
+<div class="errorfn">The best strategy for exchanges, can reach highest normalized profit. The core of the strategy is based on Gauss Error Function. The optimal range between -50% to +50%. If the price goes out of the optimal range, the Rebalance is performed to keep price in the optimal range<a href="https://www.desmos.com/calculator/uhkqt4ajvp">Interactive graph</a></div>
+<div class="keep_balance">Not quite a strategy, more a utility. It balances the currency balance. If the account has a larger balance than the specified maximum, the excess money will be used to purchase the asset. If the account has a smaller balance than the specified minimum, some assets will be sold to replenish the balance </div>
+<div class="gamma">A spot strategy to maximize yield in small price range, includes rebalance and reduction features.</div>
+<div class="passive_income">Experimental strategy complete built to generate profit through the budget extra. When the price raises, it extends the budget, when the price falls, its shrinks the budget, always increasing the extra budget. Note that when the price only falls, the most of profit is actually made by releasing already invested money, not an actual profit, and in compare to a hodl strategy, this can result to worse performance. However who know whether the price will raise back ever</div>
+<div class="sinh_gen">It is based on the ATL (Adding to loser) strategy. However, it uses a clever mathematical system to reduce the overall growing position in trend markets. You should always use the backtest function to find the optimal setting for your market. The strategy has no other protection against events, such as margin calls and liquidation. You can only set the maximum leverage, which is not complete protection. This strategy can bring a very good profit, but also includes a high risk and a high probability of losing the entire account. Don't put all your money into leverage trading! </div>
+<div class="hodlshort">Sell assets at a rising price, but buy back to the original quantity with a falling price. Neutral price indicates where the strategy fully buys the original deposit. You can use the strategy to hold assets (HODL) and to make a profit from trading. Selling an asset corresponds to its short and closing the short at a lower price (even at the spot). Profit comes mainly from buying at a lower price.</div>
+</div></div>
+
+<div class="label"><span>Options</span><div>
+<div><x-checkbox data-name="enabled">Enable automatic trading</x-checkbox></div>
+<div><x-checkbox data-name="hidden">Hidden</x-checkbox></div>
+<div data-name="swap_symbols_hide" hidden="hidden"><x-checkbox data-name="swap_symbols">Swap symbols </x-checkbox> (<span data-name="currency"></span> &lt;=&gt; <span data-name="asset"></span>)</div>
+</div></div>
+
+<div class="label adv"><span>Strategy state (<span class="link" data-name="advedit">modify</span>)</span><x-section>
+	<div class="label" data-name="strategy_fields[]"><span data-name="key"></span><input type="text" readonly="readonly" data-name="value"></div>
+	</x-section></div>
+</x-section>
+<x-section data-name="strategy_pile" class="goal" hidden="hidden"><x-section-caption>Pile strategy</x-section-caption>
+<label><span>Ratio [%] (need reset):<span class="tooltip">(advise only, requires to set position during reset)</span></span><x-slider data-name="pile_ratio" data-min="5" data-max="95" data-mult="1" data-fixed="0"></x-slider></label>
+<label><span>Accumulation [%]: <span class="tooltip">Specifies amount of normalized profit used to buy assets. This extra assets are not considered as the position</span></span><x-slider data-name="pile_accum" data-min="0" data-max="100" data-mult="1" data-fixed="0"></x-slider></label>
+<x-section>
+<div class="label"><span>Current ratio:</span><span data-name="cur_pile_ratio">---</span></div>
+<div class="label"><span>Recomended initial position:</span><span data-name="range_initial">---</span></div>
+</x-section>
+<div class="rightinfo"><button name="show_backtest" disabled="disabled">Backtest</button></div>
+</x-section>
+
+<x-section data-name="strategy_halfhalf" class="goal" hidden="hidden"><x-section-caption>Half-Half / Keep Value / Exponencial</x-section-caption>
+<label><span>External assets (<span data-name="asset"></span>)<span class="tooltip">Amount of assets held outside of exchange. They are included into calculations.</span></span><input type="number" step="any" data-name="external_assets"></label>
+<label class="adv"><span>Accumulation <span class="tooltip">Amount of the profit used to buy extra assets</span></span><x-slider data-name="acum_factor" data-min="0" data-max="100" data-mult="1"></x-slider></label>
+<label class="adv" data-name="kv_valinc_h"><span>Change kept value over time <span style="white-space: nowrap">(<span data-name="currency"></span> monthly)</span><span class="tooltip">
+This option is designed for regular investments. The value of held assets is increased monthly by a
+fixed constant. The robot is forced to buy assets, but if the price of assets rises faster, it can
+sell part of the assets and use the currency to buy assets at a better price. It is also possible
+to enter a negative value and then the value of the assets held will decrease and allow slower but more efficient sales.</span></span>
+<input type="number" step="any" data-name="kv_valinc"></label>
+<x-section>
+<div class="label"><span>Min price:</span><span data-name="range_min_price">---</span></div>
+<div class="label"><span>Max price:</span><span data-name="range_max_price">---</span></div>
+<div class="label"><span>Recomended initial position:</span><span data-name="range_initial">---</span></div>
+</x-section>
+<div class="rightinfo"><button name="show_backtest" disabled="disabled">Backtest</button></div>
+</x-section>
+
+<x-section data-name="strategy_kv2" class="goal" hidden="hidden"><x-section-caption>Keep Value</x-section-caption>
+<label><span>Accumulation <span class="tooltip">Amount of the profit used to buy extra assets</span></span><x-slider data-name="kv2_accum" data-min="0" data-max="100" data-mult="1"></x-slider></label>
+<label><span>Reinvest accumulated<span class="tooltip">All accumulated assets allocated for the strategy, which increases strategy budget. In this case, accumulation is not reported as accumulation.</span></span><x-checkbox data-name="kv2_reinvest"></x-checkbox></label>
+<label><span>Enable DCA - monthly value increase (<span data-name="currency"></span>/month): <span class="tooltip">Use Keep Value as DCA strategy. Increases kept value over time. The value specifies increase per month</span></span><input data-name="kv2_chngtm" step="any" type="number"></label>
+<label class="adv"><span>Boost up<span class="tooltip">Slightly boost normalized profit during uptrend. On other side, it also increases minimal tradeable price</span></span><x-checkbox data-name="kv2_boost"></x-checkbox></label>
+<x-section>
+<div class="label"><span>Min price:</span><span data-name="range_min_price">---</span></div>
+<div class="label"><span>Max price:</span><span data-name="range_max_price">---</span></div>
+<div class="label"><span>Recomended initial position:</span><span data-name="range_initial">---</span></div>
+</x-section>
+<div class="rightinfo"><button name="show_backtest" disabled="disabled">Backtest</button></div>
+</x-section>
+
+<x-section data-name="strategy_incvalue" class="goal" hidden="hidden"><x-section-caption>DCA Enhanced</x-section-caption>
+<label><span>Buy power <span class="tooltip">Specifies strength of buying. Amount of buy depends on current spread</span></span><x-slider data-name="incval_w" data-min="0.1" data-max="20" data-mult="0.1" data-fixed="1"></x-slider></label>
+<label><span>Exponent <span class="tooltip">Specifies exponent of increasing buying volume. For classic DCA set this value to 1. For mantingale, you can increase this value - check effect on backtest</span></span><x-slider data-name="incval_z" data-min="1" data-max="10" data-mult="0.1" data-fixed="1"></x-slider></label>
+<label><span>Reduction level<span class="tooltip">Specifies level of reduction</span></span><x-slider data-name="incval_r" data-min="0" data-max="200" data-mult="1" data-fixed="0"></x-slider></label>
+<label class="adv"><span>Max spread [%]<span class="tooltip">Specifies maximum spread used to calculate buy order size. To use this option effectively, you need to use dynamic spread (at least to enable spread multiplier)</span></span><x-slider data-name="incval_ms" data-min="0" data-max="10" data-mult="0.1" data-fixed="1"></x-slider></label>
+<div class="label"><span>Reinvest profit<span class="tooltip">Increase the budget by realized profit</span></span><x-checkbox data-name="incval_ri"></x-checkbox></div>
+<x-section>
+<div class="label"><span>Min price:</span><span data-name="range_min_price">---</span></div>
+<div class="label"><span>Max price:</span><span data-name="range_max_price">---</span></div>
+<div class="label"><span>Recomended initial position:</span><span data-name="range_initial">---</span></div>
+</x-section>
+<div class="rightinfo"><button name="show_backtest" disabled="disabled">Backtest</button></div>
+</x-section>
+
+
+<x-section data-name="strategy_keepbalance" class="goal" hidden="hidden"><x-section-caption>Keep Balance</x-section-caption>
+<label><span>Min.balance [<span data-name="currency"></span>]</span><input type="number" step="any" data-name="kb_keep_min"></label>
+<label><span>Max.balance [<span data-name="currency"></span>]</span><input type="number" step="any" data-name="kb_keep_max"></label>
+</x-section>
+
+<x-section data-name="strategy_gauss" class="goal" hidden="hidden"><x-section-caption>Gauss error function</x-section-caption>
+<label><span>External assets <span class="tooltip">Amount of assets held outside of exchange. They are included into calculations.</span></span><input type="number" step="any" data-name="gs_external_assets"></label>
+<x-section class="adv"><x-section-caption>Rebalance settings</x-section-caption>
+<table width="100%">
+<thead><tr><th>Rebalance</th><th>Ratio [%]</th><th>Change [%]</th></tr></thead>
+<tbody>
+<tr><th><span class="tooltipanchor">Below ratio (high price)<span class="tooltip">Specifies how many times is total budget increased, if the value of the held assets drops below specified percent to overall budget. This happens, when the price raises too high outside of the optimal trading area. When triggered, the rebalancer executes trade to buy more assets</span></span></th>
+<td><x-slider data-name="gs_rb_lo_p" data-min="1" data-max="49" data-mult="1" data-fixed="0"></x-slider></td>
+<td><x-slider data-name="gs_rb_lo_a" data-min="1" data-max="100" data-mult="1" data-fixed="0"></x-slider></td>
+</tr>
+<tr><th><span class="tooltipanchor">Above ratio (low price)<span class="tooltip">Specifies how many times is total budget reduced, if the value of the held assets is significantly high in compare to overall budget. This happens, when the price drops too low outside of the optimal trading area.  When triggered, the rebalancer executes trade to sell some assets</span></span></th>
+<td><x-slider data-name="gs_rb_hi_p" data-min="51" data-max="100" data-mult="1" data-fixed="0"></x-slider></td>
+<td><x-slider data-name="gs_rb_hi_a" data-min="1" data-max="100" data-mult="1" data-fixed="0"></x-slider></td>
+</tr>
+</tbody>
+</table>
+</x-section>
+
+<x-section>
+<div class="label"><span>Min price:</span><span data-name="range_min_price">---</span></div>
+<div class="label"><span>Max price:</span><span data-name="range_max_price">---</span></div>
+<div class="label"><span>Recomended initial position:</span><span data-name="range_initial">---</span></div>
+</x-section>
+<div class="rightinfo"><button name="show_backtest" disabled="disabled">Backtest</button></div>
+</x-section>
+
+<x-section data-name="strategy_hyperbolic" class="goal" hidden="hidden"><x-section-caption>Linear/Hyperbolic/Sinh</x-section-caption>
+<label><span>Power<span class="tooltip">How balance is multiplied. Can boost profits and losses as well. Conservative value is 1</span></span><input data-name="hp_power" type="number" step="0.1" value="1.0"></label>
+<label class="adv"><span>Dynamic power<span class="tooltip">How much is power adjusted with increase of the position</span></span><input data-name="hp_powadj" type="number" step="0.1" value="1.0"></label>
+<label><span>Collateral (0=use balance)<span class="tooltip">Specify total amount of collateral used to calculate power including collateral held on stockmarket and also held out of stockmarket. If this field is zero, then strategy is initialized with collateral currently available on stockmarket.</span></span><input data-name="hp_extbal" type="number" value="0"></label>
+<label data-name="show_curvature"><span>Curvature<span class="tooltip">Specifies curvature of the function. Small value works better on low volatility and flat market. High value works better on high volatility and trending markets. Value must be backtested, otherwise leave default value</span></span><x-slider data-name="sh_curv" data-min="0" data-max="40" data-mult="0.1" data-fixed="1"></label>
+<label class="adv"><span>Reduction (0=automatic)<span class="tooltip">Reduction of current position, 0=automatic mode, 100=use all profit to reduce, 200=reduce twice more (can generate loss)</span></span><x-slider data-name="hp_reduction" data-min="0" data-max="200" data-mult="1" data-fixed="0"></label>
+<label class="adv"><span>Trend factor<span class="tooltip">Specifies how much trend is used for calculation</span></span><x-slider data-name="hp_trend_factor" data-min="-100" data-max="100" data-mult="1" data-fixed="0"></label>
+<label class="adv"><span>Open limitter (0=disabled)<span class="tooltip">Limits size of openning order relative to position: sz_limit=1+1/x (0.5=3x, 1=2x, 2=1x)</span></span><x-slider data-name="hp_limit" data-min="0" data-max="5" data-mult="0.1" data-fixed="1"></label>
+<label class="adv"><span>Dynamic reduction<span class="tooltip">How much is reduction increased with increase of the position. The value 1 means by 100% when position is exact to internal multiplicator (advenced feature)</span></span><input data-name="hp_dynred" type="number" step="0.1" value="1.0"></label>
+<label class="adv"><span>Recalculation mode<span class="tooltip">How position is recalculated when values are changed. <br><br><b>Keep position</b> - calculate new neutral price to keep current position<br><b>Keep neutral</b> - keep neutral price. Position is traded to new calculated value (this can result to a loss)</span></span>
+<select data-name="hp_recalc">
+<option value="position" selected="selected">Keep position</option>
+<option value="neutral">Keep neutral</option>
+</select>
+</label>
+<div class="label adv"><span>Close position faster<span class="tooltip">Reduce spread for reduction orders, so they are likely executed</span></span><x-checkbox data-name="hp_fastclose"></x-checkbox></div>
+<div class="label adv"><span>Open position slower<span class="tooltip">Increase spread for opening orders, so they should be executed after the market performs a significant move</span></span><x-checkbox data-name="hp_slowopen"></x-checkbox></div>
+<label><span>Allow <x-switch data-name="inverted_price" data-value="false">SHORTs</x-switch><x-switch data-name="inverted_price" data-value="true">LONGs</x-switch> <span class="tooltip">Prevents to trade on dangerous side of the market. It is short for normal futures and long for inverted futures</span></span><x-checkbox data-name="hp_allowshort"></x-checkbox></label>
+<div class="label adv"><span>Reinvest profit<span class="tooltip">Increase the collateral by realized profit</span></span><x-checkbox data-name="hp_reinvest"></x-checkbox></div>
+<x-section>
+<div class="label"><span>Min price:</span><span data-name="range_min_price">---</span></div>
+<div class="label"><span>Max price:</span><span data-name="range_max_price">---</span></div>
+<div class="label"><span>Recomended initial position:</span><span data-name="range_initial">---</span></div>
+</x-section>
+<div class="rightinfo"><button name="show_backtest" disabled="disabled">Backtest</button></div>
+</x-section>
+
+<x-section data-name="strategy_gamma" class="goal" hidden="hidden"><x-section-caption>Gamma</x-section-caption>
+<label><span>Underlying function:</span><select data-name="gamma_fn">
+<option value="halfhalf">Half-Half</option>
+<option value="keepvalue">Keep Value</option>
+<option value="exponencial">Exponencial</option>
+<option value="invsqrtsinh">Cosecant</option>
+<option value="gauss">Gauss</option>
+</select></label>
+<label><span>Exponent<span class="tooltip"></span></span><x-slider data-name="gamma_exp" data-min="1" data-max="20" data-mult="0.1" data-fixed="1"></label>
+<label><span>Trend preference<span class="tooltip"></span></span><x-slider data-name="gamma_trend" data-min="-100" data-max="100" data-mult="1" data-fixed="0"></label>
+<label><span>Rebalance<span class="tooltip"></span></span><select data-name="gamma_rebalance">
+	<option value="0">No rebalace</option>
+	<option value="1">After buy</option>
+	<option value="2">After sell</option>
+	<option value="3">Always</option>
+	<option value="4">Smart</option>
+	</select></label>
+<div class="label adv"><span>Reinvest profit<span class="tooltip">Increase the budget by realized profit</span></span><x-checkbox data-name="gamma_reinvest"></x-checkbox></div>
+<div class="label"><span>Min price:</span><span data-name="range_min_price">---</span></div>
+<div class="label"><span>Max price:</span><span data-name="range_max_price">---</span></div>
+<div class="label"><span>Recomended initial position:</span><span data-name="range_initial">---</span></div>
+<div class="rightinfo"><button name="show_backtest" disabled="disabled">Backtest</button></div>
+</x-section>
+
+<x-section data-name="strategy_passive_income" class="goal" hidden="hidden"><x-section-caption>Passive income</x-section-caption>
+<label><span>Exponent<span class="tooltip"></span></span><x-slider data-name="pincome_exp" data-min="1" data-max="60" data-mult="1" data-fixed="0"></x-slider></label>
+<div class="label"><span>Recomended initial position:</span><span data-name="range_initial">---</span></div>
+<div class="rightinfo"><button name="show_backtest" disabled="disabled">Backtest</button></div>
+</x-section>
+
+<x-section data-name="strategy_hodl_short" class="goal" hidden="hidden"><x-section-caption>Hodl and short</x-section-caption>
+<label><span>Exponent<span class="tooltip">Strenght of selling effect</span></span><x-slider data-name="hodlshort_z" data-min="0.1" data-max="10" data-mult="0.1" data-fixed="1"></x-slider></label>
+<label><span>Buy back ratio[%]<span class="tooltip">How much is money is spend to buy relative to calculated value. Specify zero to put all extra money to the profit. Specify 100% to use extra money to buy assets back</span></span><x-slider data-name="hodlshort_b" data-min="0" data-max="100" data-mult="1" data-fixed="0"></x-slider></label>
+<label><span>Accumulation<span class="tooltip">Specifies how much assets are accumulated during trading.</span></span><x-slider data-name="hodlshort_acc" data-min="0" data-max="100" data-mult="1" data-fixed="0"></x-slider></label>
+<div class="label adv"><span>Reinvest accumulated<span class="tooltip">Put accumulated assets to the budget (reinvest)</span></span><x-checkbox data-name="hodlshort_rinvst"></x-checkbox></div>
+<div class="label"><span>Min price:</span><span data-name="range_min_price">---</span></div>
+<div class="label"><span>Max price:</span><span data-name="range_max_price">---</span></div>
+<div class="label"><span>Recomended initial position:</span><span data-name="range_initial">---</span></div>
+<div class="rightinfo"><button name="show_backtest" disabled="disabled">Backtest</button></div>
+</x-section>
+
+
+<x-section data-name="strategy_hedge" class="goal" hidden="hidden"><x-section-caption>Hedge</x-section-caption>
+<label><span>Price change<span class="tooltip">How much the price need to drop from ATH or raise from ATL</span></span><x-slider data-name="hedge_drop" data-min="0" data-max="20" data-mult="0.1" data-fixed="1"></x-slider></label>
+<label><span>Trailing buy<span class="tooltip">Buy when price raises, sells when price drops</span></span><x-checkbox data-name="hedge_long"></label>
+<label><span>Trailing sell<span class="tooltip">Sell or open short when price going down and close when price goes up</span></span><x-checkbox data-name="hedge_short"></label>
+</x-section>
+
+<x-section data-name="strategy_sinhgen backtest_anchor" class="goal" hidden="hidden"><x-section-caption>Simple Leveraged</x-section-caption>
+<label><span>Power[%]<span class="tooltip">Relative amount of you balance used in calculation in percent</span></span><x-slider data-name="shg_p" data-min="1" data-max="200" data-mult="1" data-fixed="0"></label>
+<label><span>Aggressiveness[%]<span class="tooltip">How much aggresive is strategy is to open positions. In order to ensure sufficient money management, smaller positions may be opened first and larger positions will be opened later </span></span><x-slider data-name="shg_w" data-min="1" data-max="200" data-mult="1" data-fixed="0"></label>
+<label class="adv"><span>Initial boost[%]<span class="tooltip">Boosts position when it is initially opened</span></span><x-slider data-name="shg_b" data-min="0" data-max="10" data-mult="0.1" data-fixed="1"></label>
+<label class="adv"><span>Open limiter - <select data-name="shg_olt">
+<option value="0">disabled</option>
+<option value="-1">max leverage</option>
+<option value="1">mult. of pos.</option>
+</select><span class="tooltip">Limits the size of the new position as a multiple of the underlying collateral. This function starts at a lever of 0.25x. It also temporarily reduces the strength of the strategy. This protects against sudden high volatility, which can quickly increase risk.</span></span><x-slider data-name="shg_ol" data-min="0.1" data-max="10" data-mult="0.1" data-fixed="1"></x-slider></label>
+<label><span>Limit position side:</span><select data-name="shg_lp">
+<option value="0">Long &amp; Short</option>
+<option value="-1">Long only</option>
+<option value="1">Short only</option>
+</select></label>
+<label class="adv" data-name="shg_show_asym" hidden><span>Long/short asymetry [%]<span class="tooltip">Asymetry, allows to prefer one side over second. The negative number increases tradable range for the short position, the positive number increases tradable range for the long position. NOTE: the meaning is reversed for inverted market</span></span><x-slider data-name="shg_z" data-min="-100" data-max="100" data-mult="1" data-fixed="0"></label>
+<div class="label"><span>Reinvest profit<span class="tooltip">Increase the collateral by realized profit</span></span><x-checkbox data-name="shg_rnv"></x-checkbox></div>
+<div class="label adv"><span>Derive profit from avg.spread<span class="tooltip">Instead using current spread, use average spread</span></span><x-checkbox data-name="shg_avgsp"></x-checkbox></div>
+<div class="label"><span>Lazy open<span class="tooltip">Open position slower (more trades - DCA)</span></span><x-checkbox data-name="shg_lazyopen"></x-checkbox></div>
+<div class="label adv"><span>Lazy close<span class="tooltip">Close position slower (more trades - DCA)</span></span><x-checkbox data-name="shg_lazyclose"></x-checkbox></div>
+<div class="label adv"><span>Reduction pattern (open/close)<span class="tooltip">After every trade a basic "yield" is calculated depend on spread. The profit can be used to cover looses, or it can be added to overall profit. Adding more yield increases profit but decreases effectivness of the reduction. You can choose the most suitable pattern. Each item defines multiplication of basic yield for opening and closing trade. A negative value means acceptance of a loss which can help with reduction</span></span><select data-name="shg_boostmode">
+	<option value="8">(2/2) boost profit for the lowest reduction (high risk)</option>
+	<option value="7">(2/0) 2x risk on open, full reduce on close</option>
+	<option value="6">(1/0) open more, full reduce on close</option>
+	<option value="2">(0/2) open less, left 2x yield on close</option>
+	<option value="1">(1/1) open more, left basic yield on close</option>
+	<option value="0">(0/1) default</option>
+	<option value="3">(0/0) whole profit s used to cover loss</option>
+	<option value="4">(-1/2) reduce more</option>
+	<option value="5">(-2/4) reduce more</option>
+	<option value="9">(1/-1)</option>
+	<option value="10">(2/-1)</option>
+	<option value="11">(0/-) dilution (special)</option>
+	<option value="12">(-/0) cover loss (special)</option>
+</select></div>
+<label class="adv"><span>Position offset<span class="tooltip">Specify absolute position offset which is considered as neutral (zero position). This can increase the profit in the trend if the value is chosen with respect to the direction of the trend. If the market goes in reversed direction, the result can be a loss. If you do not have a good market analysis to correctly determine the trend, leave the value zero which is default.</span></span><input type="number" step="any" data-name="shg_offset"></label>
+<div class="label"><span>Min price:</span><span data-name="range_min_price">---</span></div>
+<div class="label"><span>Max price:</span><span data-name="range_max_price">---</span></div>
+<div class="label"><span>Recomended initial position:</span><span data-name="range_initial">---</span></div>
+<div class="rightinfo"><button name="shg_control_pos hide_on_new" disabled="disabled">Control position</button> <button name="show_backtest" disabled="disabled">Backtest</button></div>
+</x-section>
+
+
+
+
+<x-section class="adv"  ><x-section-caption>Orders</x-section-caption>
+<label class="adv"><span>Secondary order distance [%](experimental, 0=disabled)<span class="tooltip">Enables secondary order sets.
+ It places additional buy and additional sell order at specifed distance as percent of current spread. This feature is heavily experimental</span></span>
+<x-slider data-name="secondary_order" data-min="0" data-max="200" data-mult="1"></x-slider></label>
+<label  class="adv"><span>Minimum order size (0&nbsp;=&nbsp;disabled)<span class="tooltip">
+Specifies minimal order size. If disabled, minimal size is defined by the exchange. This also
+specifies size of the "dust order"
+</span></span><input type="number" data-name="min_size" step="any"></label>
+<label  class="adv"><span>Maximum order size (0&nbsp;=&nbsp;disabled)<span class="tooltip">
+Specifies maximal order size. 
+</span></span><input type="number" data-name="max_size" step="any"></label>
+<label  class="adv"><span>Maximum leverage (0&nbsp;=&nbsp;disabled)<span class="tooltip">
+Specifies maximal allowed leverage. If the size of the order is larger then specified leverage, then the order is not placed. This can also trigger <b>Accept loss</b> feature when it is enabled  
+</span></span><input type="number" data-name="max_leverage" step="1"></label>
+<label  class="adv"><span>Reduce on maximum leverage<span class="tooltip">
+Perform reduction of the position, when current position is over leverage. Note that reduction is not happen always, it is still controlled by spread, so this still doesn't protect against liquidation when liquidation price reached first. Also note that any such reduction a lot decreases any future profit as well  
+</span></span><span><x-checkbox data-name="reduce_on_leverage"></x-checkbox></span></label>
+<label class="adv"><span>Accept loss after hours (0&nbsp;=&nbsp;disabled)<span class="tooltip">
+Enable to the Bot accept partial loss, when trading is not possible due insufficient balance or when
+"Hard max position" is reached. The value specified amount of hours after last trade, when
+extra "virtual" trade with zero size is generated to shift the center of the spread. This can
+reenable trading, but it also finally costs some profit
+</span></span><input type="number" data-name="accept_loss" step="0.1"></label>
+<label class="adv"><span>Enforce a trade after (hours) (0&nbsp;=&nbsp;disabled)<span class="tooltip">
+If there is no trade after given hours, the bot tries to put an order to a top of the orderbook,
+which increases chance to execute a trade. The size of the order is calculated by the strategy. Not
+recommended with strategy "stairs". If the strategy cannot calculate the order for the current
+price, the order is not placed (alerts are disabled during this event). In this case, order can be placed once the
+price moves. 
+</span></span><input type="number" data-name="grant_trade_hours" step="0.1"></label>
+<label  class="adv"><span>MIN asset balance/position<span class="tooltip">
+Specifies minimum allowed asset balance (or position, for short use negative value). When balance hits this value, no futher sells are allowed. In this situation 'Accept loss' rule can be applied
+</span></span><input type="number" data-name="min_balance" step="any"></label>
+<label  class="adv"><span>MAX asset balance/position<span class="tooltip">
+Specifies maximum allowed asset balance (or position, for short use negative value). When balance hits this value, no futher buys are allowed. In this situation 'Accept loss' rule can be applied
+</span></span><input type="number" data-name="max_balance" step="any"></label>
+<label  class="adv"><span>MAX total costs<span class="tooltip">
+Specifies maximum costs can be used by this trader. Orders which increases costs over specified limit are rejected.
+</span></span><input type="number" data-name="max_costs" step="any"></label>
+</x-section>
+<x-section class="adv" data-name="spread_vis_anchor"><x-section-caption>Spread</x-section-caption>
+<label  class="adv"><span>Spread mode</span><select data-name="spread_mode"><option value="adaptive">Adaptive</option><option value="fixed">Fixed</option></select></label>
+<x-switch data-name="spread_mode" data-value="fixed"  class="block">
+<label  class="adv"><span>Fixed spread [%] <span class="tooltip"
+>Specifies fixed spread. Dynamic spread is still applied unless it is disabled</span></span><input type="number" step="any" data-name="force_spread"></x-slider></label></x-switch>
+<x-switch data-name="spread_mode" data-value="adaptive" class="block">
+<label  class="adv"><span>Spread width: st.dev hours <span class="tooltip"
+>Specifies how many hours is used to calculate a standard deviation for spread value</span></span><x-slider data-name="spread_calc_stdev_hours" data-min="1" data-max="240" data-mult="1"></x-slider></label>
+<label  class="adv"><span>Spread width: smooth hours <span class="tooltip"
+>Specifies smooth in hours. The program uses SMA (simple moving average) to calculate volatility smooth. By setting 1, it means, deviation longest than 1 hour is not considered as local deviation.</span></span><x-slider data-name="spread_calc_sma_hours" data-min="1" data-max="240" data-mult="1"></x-slider></label>
+<label  class="adv"><span>Spread width: manual adjust <span class="tooltip"
+>Specify manual adjust. Values above zero causes wider spread up to 2x. Values below zero causes narrow spread up to 1/2</span></span><x-slider data-name="spread_mult" data-min="-100" data-max="100" data-mult="1" data-fixed="0"></x-slider></label>
+</x-switch>
+<label class="adv"><span>Dynamic spread behaviour</span><select data-name="dynmult_mode">
+<option value="disabled">Disabled</option>
+<option value="independent"  selected="selected">Independent</option>
+<option value="together">Together</option>
+<option value="alternate">Alternate</option>
+<option value="half_alternate">Half alternate</option>
+</select></label>
+<x-switch data-name="dynmult_mode" data-separator="," data-value="independent,together,alternate,half_alternate" class="block">
+<label class="adv"><span>Dynamic spread mult. raise<span class="tooltip"
+>Specifies [in %] how much is dynamic multiplicator raised after trade.</span></span><x-slider data-name="dynmult_raise" data-min="1" data-max="1000" data-mult="1"></x-slider></label>
+<label class="adv"><span>Dynamic spread mult. fall<span class="tooltip"
+>Specifies [in %] how much is dynamic multiplicator falls every minute without trade.</span></span><x-slider data-name="dynmult_fall" data-min="0.1" data-max="10" data-mult="0.1" data-fixed="1"></x-slider></label>
+<label class="adv"><span>Dynamic spread mult. cap<span class="tooltip"
+>Specifies cap for spread multiplicator.</span></span><input type="number" step="1" data-name="dynmult_cap"></label>
+</x-switch>
+<div class="label adv"><span>Options</span><div>
+<div>
+<x-switch data-name="dynmult_mode" data-separator="," data-value="independent,together,alternate,half_alternate">
+<x-checkbox data-name="dynmult_mult">Multiply factor</x-checkbox>
+</x-switch>
+</div>
+<div><x-checkbox data-name="dynmult_sliding">Sliding</x-checkbox></div>
+<div>
+<x-switch data-name="spread_mode" data-value="adaptive" class="block">
+<x-checkbox data-name="spread_freeze">Freeze other side spread</x-checkbox>
+</x-switch>
+</div>
+</div></div>
+<div class="rightinfo"><button name="vis_spread"  disabled="disabled">Visualize spread</button></div>
+</x-section>
+<x-section><x-section-caption>Misc</x-section-caption>
+<label><span>Initial open price<span class="tooltip">Specifies inital open price (buy price) for initial assets-initial position. Changing this value affects calculation of total realized PnL</span></span><input type="number" step="0.1" data-name="init_open"></label>
+<div class="label adv"><span>No budget allocation<span class="tooltip">Don't report budget allocation, the trader will see whole live balance</span></span><x-checkbox data-name="dont_allocate"></x-checkbox></div>
+<div class="label adv"><span>Trade only within budget<span class="tooltip">Stops trading, when the strategy runs out of calculated budget even if there is still available balance to spend</span></span><x-checkbox data-name="trade_within_budget"></x-checkbox></div>
+<label class="adv"><span>Emulate leverage (0=disabled)<span class="tooltip">Emulates leverage on non-leveraged market. This changes, how current ballance is reported to the strategy. It uses currency balance and value of the held assets as collateral. The value specifies, how big leverage is emulated. Note that reported collateral is divided by leverage, so don't feel, that large number can increase trading power beyong actual held balance.</span></span><input type="number" step="0.1" data-name="emul_leverage"></label>
+<label class="adv"><span>Ordering (position in the report)<span class="tooltip">Specifies order in report page. The traders are ordered by this ascending number. If there are two traders with
+the same order, they are ordered by its ID - this is the default ordering. Modifying this number you can change the default ordering.
+</span></span><input type="number" step="any" data-name="report_order"></label>
+<label class="adv"><span>Wait for trade confirmation [min]<span class="tooltip">Specifies timeout after which a fake (ADJ) trade is put to trade history if there is a difference between calculated position and actual position reported by the broker. This allows to detect deposits and withdraws and report them as a trade, however, on some markets, trading data may be delayed, which causes puting wrong ADJ trades before the updated list of trades is being populated from the market. The value is in minutes, default value is set to 5min (which is also minimal value). If you have experienced such wrong ADJ trades, you can increase the timeout</span></span><input type="number" step="any" data-name="adj_timeout"></label>
+<label data-name="show_invert_proxy" class="adv" hidden="hidden"><span>Invert strategy (advanced feature)<span class="tooltip">Inverts strategy, allows to trade the strategy on the "short" side of the market. This converts market to inverted market for the strategy (experimental). Note that you will see profit at "buy power" chart, because the profit will probably copy the current price for the most of the time </span></span><x-checkbox data-name="invert_proxy">Invert (experimental)</x-checkbox></label>
+
+</x-section>
+<div></div>
+</x-form>
+</template>
+
+<template id="trader_list">
+<div class="trader list">
+<div class="item" data-name="item[]">
+<img src="" data-name="image">
+<div data-name="caption"></div>
+</div>
+</div>
+</template>
+
+<template id="desktop"><div class="desktop vertical">
+<div class="top_panel" data-name="top_panel"></div>
+<div class="menu" data-name="menu"></div>
+<div class="content" data-name="content"></div>
+</div>
+</template>
+
+<template id="broker_select">
+<div class="dialog">
+<div class="broker select">
+<h2>Select Exchange</h2>
+<div class="trader list">
+<div class="item" data-name="item[]">
+<img src="" data-name="image">
+<div><span data-name="caption"></span></div>
+</div>
+</div>
+<div class="bottom">
+<x-checkbox data-name="subaccount">Setup new subaccount</x-checkbox><button data-name="cancel">Cancel</button>
+</div>
+</div>
+</div>
+</template>
+
+<template id="broker_pair">
+<div class="dialog">
+<div class="broker pair">
+<div class="form">
+<img src="" data-name="image">
+<h2>Choose market</h2>
+<span data-name="sect[]"><select data-name="pair"><option data-name="item[]"></option></select></span>
+<input data-name="pair" type="hidden"> 
+<div data-name="spinner" class="spinner fast"></div>
+<div data-name="swap_ui">
+<h3>Symbol order</h3>
+
+<table class="selector">
+<tr><td title="Trade pair exactly as it is on exchange"><x-checkbox class="radio" data-name="swap_mode" data-value="0"><span data-name="asset"></span>&nbsp;/&nbsp;<span data-name="currency"></span> (default)</x-checkbox></td><td>Profit in <span data-name="currency"></span></td><td>Quoted in <span data-name="currency"></span></td></tr> 
+<tr><td title="Trade pair on inverted market. Similar to inverted futures. Your position is converted to short position. Quoted price stays as it is"><x-checkbox class="radio" data-name="swap_mode" data-value="2"><span data-name="asset"></span>&nbsp;/&nbsp;<span data-name="currency"></span> inverted</x-checkbox></td><td>Profit in <span data-name="asset"></span></td><td>Quoted in <span data-name="currency"></span></td></tr> 
+<tr><td title="Trade pair swapped"><x-checkbox class="radio" data-name="swap_mode" data-value="1"><span data-name="currency"></span>&nbsp;/&nbsp;<span data-name="asset"></span></x-checkbox></td><td>Profit in <span data-name="asset"></span></td><td>Quoted in <span data-name="asset"></span></td></tr> 
+</table>
+</div>
+
+<h2>Enter trader's UID</h2>
+<input type="text" data-name="name">
+</div>
+<button data-name="ok">OK</button>
+<button data-name="cancel">Cancel</button>
+</div>
+</div>
+</template>
+
+<template id="broker_keys">
+<div class="dialog">
+<div class="broker pair">
+<div class="form">
+<img src="" data-name="image">
+<h2>Enter API key</h2>
+<div data-name="form" class="keys"></div>
+<div class="right"><a href="#" data-name="link" hidden>Create new account</a></div>
+</div>
+<div class="buttons">
+<button data-name="ok">OK</button>
+<button data-name="cancel">Cancel</button>
+</div>
+</div>
+</div>
+</template>
+
+<template id="top_panel">
+<div class="flexpanel">
+<div><a href="../"><span class="fonticon backicon">&lt;</span></a> MMBot administration</div>
+<div>
+<div data-name="login" class="panelbutton">
+	<img src="../res/security.png" class="fonticon"> Login 
+</div>
+<div data-name="save" class="panelbutton" hidden="hidden">
+	<img src="../res/save_icon.png" class="fonticon"> Apply settings <div data-name="saveok"  class="save hide ok" hidden="hidden">✓</div>
+	<div data-name="saveprogress" class="save spinner fast" hidden="hidden"></div></div>
+</div>
+</div>
+</template>
+
+<template id="main_form_wait">
+<div class="main_form_wait">
+<x-form class="pair sections">
+<x-section><x-section-caption>Info</x-section-caption>
+<div class="spinner"></div>
+</x-section>
+</x-form>
+</div>
+
+</template>
+
+<template id="security_form">
+<x-form  class="pair security_form sections">
+<x-section><x-section-caption>Access control</x-section-caption>
+<table>
+<tr><th>User</th><th>Role</th><th>Comment</th><th>Action</th></tr>
+
+<tr data-name="rows[]">
+<td data-name="user"></td>
+<td><select data-name="role">
+<option value="admin">Administrator</option>
+<option value="viewer">Viewer</option>
+</select></td>
+<td data-name="comment"></td>
+<td><button data-name="drop" data-question="Confirm drop user: ">Drop</button></td>
+</tr>
+<tr><td>&lt;public&gt;</td><td><select data-name="guest_role">
+<option value="none">No access</option>
+<option value="viewer">Viewer</option></select></td>
+<td>All anonymous visitors</td><td>&nbsp;</td>
+</tr>
+<tr><td></td><td colspan="3"><x-checkbox data-name="remember">Remember login for this device</x-checkbox>
+</table>
+<div class="buttons">
+<button class="logout" data-name="logout"><img src="../res/logout.png">&nbsp;Logout</button>
+<button class="add" data-name="add"><img src="../res/adduser.png">&nbsp;Add&nbsp;user</button>
+</div>
+</x-section>
+<x-section class="apikeys"><x-section-caption>Active API Keys</x-section-caption>
+<div data-name="brokers[]">
+<div><img src="" data-name="img"> <a href="" data-name="exchange" target="_blank"></a> <span data-name="subaccount"></span></div>
+<div><img data-name="keyset" src="../res/keys.png" title="Set new api key"><img data-name="keyerase" src="../res/delete.png" title="Erase key"></div>
+</div>
+<div class="waitdlg"  data-name="spinner">
+<div class="spinner"></div>
+</div>
+</x-section>
+</x-form>
+</template>
+
+<template id="add_user_dlg">
+<div class="dialog">
+<div class="add user">
+<x-form>
+<h2>Add user</h2>
+<label><span>Username:</span><input type="text" data-name="username"></label>
+<label><span>Comment:</span><textarea data-name="comment" rows="3" cols="40"></textarea></label>
+<button data-name="ok">Add</button>
+<button data-name="cancel">Cancel</button>
+</div>
+</div>
+</template>
+
+<template id="password_dlg">
+<div class="dialog"><div class="add user">
+<x-form>
+<h2>Please new enter password:</h2>
+<label><span>Username:</span><input type="text" data-name="username" readonly="readonly" tabindex="-1"></label>
+<label><span>Password:</span><input type="password" data-name="pwd"></label>
+<label><span>Retype password:</span><input type="password" data-name="pwd2"></label>
+<div class="error" data-name="errpwd">Passwords are not same</div>
+<button data-name="ok">OK</button>
+<button data-name="cancel">Cancel</button>
+</x-form>
+</div></div>
+</template>
+
+<template id="subaccount_dlg">
+<div class="dialog"><div class="subaccount_dlg">
+<x-form>
+<h2>Add sub-account:</h2>
+<p>Enter any short unique name:<br/><input type="text" data-name="name"></p>
+<button data-name="ok">OK</button>
+<button data-name="cancel">Cancel</button>
+</x-form>
+</div></div>
+</template>
+
+<template id="share_dlg">
+<div class="dialog"><div class="sharedlg">
+<x-form>
+<h2>Share the settings</h2>
+<p>Share following block, or click on "import" to import another settings</p>
+<textarea name="share_input"></textarea>
+<button data-name="import">Import</button>
+<button data-name="copy">Copy</button>
+<button data-name="paste">Paste</button>
+<button data-name="ok">Apply</button>
+<button data-name="cancel">Close</button>
+</x-form>
+</div></div>
+</template>
+
+
+<template id="confirm">
+<div class="dialog">
+<div class="confirm">
+<h2 data-name="hdr"></h2>
+<p data-name="text"></p>
+<div data-name="custom"></div>
+<button data-name="ok">OK</button>
+<button data-name="cancel">Cancel</button>
+</div>
+</div>
+</template>
+
+<template id="broker_options_dlg">
+<div class="dialog">
+<div class="confirm">
+<h2 data-name="hdr">Broker options</h2>
+<div data-name="form"><div class="waitdlg"><div class="spinner"></div></div></div>
+<button data-name="ok">OK</button>
+<button data-name="cancel">Cancel</button>
+</div>
+</div>
+</template>
+
+
+<template id="network_error">
+<div class="dialog">
+<div class="confirm">
+<p>Unable to fetch data from the server</p>
+<p data-name="text"></p>
+<p data-name="desc"></p>
+<button data-name="ok">OK</button>
+</div>
+</div>
+</template>
+
+<template id="validation_error">
+<div class="dialog">
+<div class="confirm">
+<h2>Can't apply the new settings</h2>
+<p data-name="text"></p>
+<button data-name="ok">OK</button>
+</div>
+</div>
+</template>
+
+
+<template id="waitdlg">
+<div class="dialog">
+<div class="waitdlg">
+<div class="spinner"></div>
+<div></div>
+</div>
+</div>
+
+</template>
+
+<template id="spread_vis">
+<x-section class="backtest"><x-section-caption>Spread visualizer</x-section-caption>
+<div class="charts spread_vis">
+<div data-name="chart1"><div><em>Loading data, please wait...</em></div></div>
+<div data-name="chart2"></div>
+<div class="spinner fast save" data-name="spinner" hidden="hidden"></div>
+</div>
+</x-section>
+</template>
+
+<template id="backtest_vis">
+<x-section class="backtest"><x-section-caption>Backtest</x-section-caption>
+<div class="tablecont up"><table>
+<tr>
+<td rowspan="2"><select data-name="graphtype">
+<option value="0">equity</option>
+<option value="1">norm profit</option>
+<option value="2">accumulation</option>
+<option value="3">buy power</option>
+<option value="4">RPnL/eq.</option>
+</select></td>
+<th class="a" data-name="showpl" hidden="hidden">equity</th>
+<th class="a" data-name="showpl" hidden="hidden">equity/y</th>
+<th class="a" data-name="showpl" hidden="hidden">equity p.a.</th>
+<th class="a" data-name="showpl" hidden="hidden">max pos</th>
+<th class="a" data-name="showrpnl" hidden="hidden">RPnL</th>
+<th class="a" data-name="showrpnl" hidden="hidden">RPnL/y</th>
+<th class="a" data-name="showrpnl" hidden="hidden">RPnL p.a.</th>
+<th class="a" data-name="showrpnl" hidden="hidden">max levr.</th>
+<th class="a" data-name="showpla" hidden="hidden">bp</th>
+<th class="a" data-name="showpla" hidden="hidden">bp/y</th>
+<th class="a" data-name="showpla" hidden="hidden">bp p.a.</th>
+<th class="a" data-name="showpla" hidden="hidden">max pos</th>
+<th class="a" data-name="shownorm" hidden="hidden">norm</th>
+<th class="a" data-name="shownorm" hidden="hidden">norm/y</th>
+<th class="a" data-name="shownorm" hidden="hidden">norm p.a.</th>
+<th class="a" data-name="shownorm"  hidden="hidden">max cost</th>
+<th class="a" data-name="showaccum" hidden="hidden">accum</th>
+<th class="a" data-name="showaccum" hidden="hidden">accum/y</th>
+<th class="a" data-name="showaccum" hidden="hidden">accum p.a.</th>
+<th class="a" data-name="showaccum"  hidden="hidden">max cost</th>
+<th>max profit</th><th colspan="2">drawdown</th><th>RRR</th>
+<tr>
+<td class="colornumb a" data-name="pl showpl" hidden="hidden"></td>
+<td class="colornumb a" data-name="ply showpl" hidden="hidden"></td>
+<td class="colornumb a pc" data-name="pc showpl" hidden="hidden"></td>
+<td class="colornumb a" data-name="max_pos showpl" hidden="hidden"></td>
+<td class="colornumb a" data-name="pla showpla" hidden="hidden"></td>
+<td class="colornumb a" data-name="plya showpla" hidden="hidden"></td>
+<td class="colornumb a pc" data-name="pca showpla" hidden="hidden"></td>
+<td class="colornumb a" data-name="max_pos showpla" hidden="hidden"></td>
+<td class="colornumb a" data-name="rpnl showrpnl" hidden="hidden"></td>
+<td class="colornumb a" data-name="rpnly showrpnl" hidden="hidden"></td>
+<td class="colornumb a pc" data-name="pcrpnl showrpnl" hidden="hidden"></td>
+<td class="colornumb a" data-name="max_lev showrpnl" hidden="hidden"></td>
+<td class="colornumb a" data-name="npl shownorm" hidden="hidden"></td>
+<td class="colornumb a" data-name="nply shownorm" hidden="hidden"></td>
+<td class="colornumb a pc" data-name="npc shownorm" hidden="hidden"></td>
+<td class="colornumb a" data-name="max_cost shownorm" hidden="hidden"></td>
+<td class="colornumb a" data-name="npla showaccum" hidden="hidden"></td>
+<td class="colornumb a" data-name="nplya showaccum" hidden="hidden"></td>
+<td class="colornumb a pc" data-name="npca showaccum" hidden="hidden"></td>
+<td class="colornumb a" data-name="max_cost showaccum" hidden="hidden"></td>
+<td class="colornumb" data-name="max_profit"></td>
+<td class="colornumb" data-name="max_loss"></td>
+<td class="colornumb sell pc" data-name="max_loss_pc"></td>
+<td class="colornumb" data-name="pr"></td>
+</tr>
+</table>
+</div>
+<div class="middle">
+<div class="sidepanel">
+<div>
+	<div class="icon" data-name="options"><img src="../res/hamburger.png" title="Show more options"></div>
+	<div class="icon" data-name="download_prices"><img src="../res/dwn_history.png" title="Download prices" ></div>
+	<div class="icon" data-name="select_file"><img src="../res/upload_data.png" title="Upload 1minute data or exported trades in CSV" ></div>
+	<div class="icon" data-name="random_chart"><img src="../res/random_chart.png" title="Generate random chart" ></div>
+	<div class="icon" data-name="icon_internal"><img src="../res/internal_data.png" title="Use internal data"></div> 
+	<div class="icon" data-name="icon_recalc"><img src="../res/recalc_data.png" title="Recalculate spread" ></div>
+	<div class="icon" data-name="icon_test"><img src="../res/stest.png" title="Stability test" ></div>
+	<div class="icon" data-name="export"><img src="../res/export_csv.png" title="Export CSV" > </div>
+	<div class="icon" data-name="icon_reset"><img src="../res/repair.png" title="Reset data" ></div>
+	</div>	
+</div>
+<div class="options">
+<div class="floating" data-name="options_form">
+
+<input hidden="hidden" type="file"  data-name="price_file">
+<div>Start date</div><input type="date" data-name="start_date">
+<div>Assets/Position</div><input type="number" step="any" data-name="initial_pos">
+<div>Currency</div><input type="number" step="any" data-name="initial_balance">
+<div>Initial price</div><input type="number" step="any" data-name="initial_price">
+<div>Reverse/Invert chart</div><span><x-checkbox data-name="reverse_chart">Rev</x-checkbox> <x-checkbox data-name="invert_chart">Inv</x-checkbox></span>
+<div>Neg.balance</div><x-checkbox data-name="allow_neg_bal">Enabled</x-checkbox>
+<div>Spend profit</div><x-checkbox data-name="spend_profit">Enabled</x-checkbox>
+</div>
+</div>
+<div class="mainpanel">
+<div class="charts spread_vis">
+<div data-name="chart1" class="chart"><div><em>Loading data, please wait...</em></div></div>
+<p>Price / neutral price</p>
+<div data-name="chart2" class="chart"></div>
+<p>Profit from position / normalized profit</p>
+<div class="spinner fast save" data-name="spinner" hidden="hidden"></div>
+<div class="scrollbar"><input name="pos" type="range" min="-100" max="0" step="0.1" value="0" class="thick"></div>
+<div class="error" data-name="error_window">Error message example</div>
+</div>
+</div>
+</div>
+<div class="tablecont bottom"><table>
+<tr>
+<th data-name="ev_liq_hid" class="mark_crit" hidden="hidden">Liquidations</th>
+<th data-name="ev_mcall_hid" class="mark_warn" hidden="hidden">Mrg.calls</th>
+<th data-name="ev_nobal_hid" class="mark_warn" hidden="hidden">No bal.</th>
+<th data-name="ev_aclos_hid" class="mark_warn" hidden="hidden">Acpt.loss</th>
+<th>Trades</th>
+<th>Buys</th>
+<th>Sells</th>
+<th>Alerts</th>
+<th>Ascents</th>
+<th>Descents</th>
+<th>Max streak</th>
+<tr>
+<td data-name="ev_liq ev_liq_hid" class="mark_crit" hidden="hidden"></td>
+<td data-name="ev_mcall ev_mcall_hid" class="mark_warn" hidden="hidden"></td>
+<td data-name="ev_nobal ev_nobal_hid" class="mark_warn" hidden="hidden"></td>
+<td data-name="ev_aclos ev_aclos_hid" class="mark_warn" hidden="hidden"></td>
+<td data-name="trades"></td>
+<td data-name="buys"></td>
+<td data-name="sells"></td>
+<td data-name="alerts"></td>
+<td data-name="ascents"></td>
+<td data-name="descents"></td>
+<td data-name="streak"></td>
+</tr>
+</table>
+
+
+</div>
+</x-section>
+</template>
+
+<span id="strtable"
+    data-askcancel="Do you want to cancel all orders?&#10;This will also temporarily stop auto trading until you click Apply button"
+    data-askreset="Do you wish to clear statistics for this trader? This operation cannot be undone"
+    data-askrepair="This operation resets an internal state of the strategy. The purpose of this operation to solve any strange behaviour of the strategy. However, this can also cause poor performance or loss, because the internal state of the strategy can hold important informations about state of your trading.&#10;&#10;Do you wish to restart strategy for this trader?&#10;&#10;The operation cannot be undone"
+    data-askdelete="Confirm trader deletion. This also cancels all orders."
+    data-yes="Yes"
+    data-no="No"
+    data-need_admin="You need to define at least one user with the administration role"
+    data-backtest_lesstrades="There are less than 100 trades. Results can be inaccurate"
+    data-backtest_nodata="Backtest is not available yet (no data). Run trader with minimal power to collect some trades. At least 100 trades is needed."
+    data-access_control="Security"
+    data-options="Options"
+    data-wallet="Wallets"
+    data-messages="Messages"
+    data-global_stop_confirm="Temporarily stops trading for all configured traders  and cancels all their orders. To re-enable trading, you have to click Apply button"
+    data-buy="BUY"
+    data-sell="SELL"
+    data-trade_ask_stop="This trader is currently in auto trading mode. Do you want to stop automatic trading to allow manual trading? To re-enable trading, you have to click Apply button"
+    data-please_login="Your session has expired. Please log in to contine"
+    data-import_failed="Import failed. The code is probably damaged"
+    data-import_invalid_format="Unrecognized File Format"
+    data-btev_liquidation="Liquidation!"
+    data-btev_no_balance="No balance (need funding)"
+    data-btev_accept_loss="Accept loss"
+    data-btev_margin_call="Margin call!"
+    data-sinhgen_overwrite="This action DESTROYS current strategy state. Operation cannot be undoed. Do you really want to set the new state?"
+    data-sinhgen_na="State is not available yet. Ensure that trader is active. Then wait for aprx 1 minute"
+    data-paper_merge="Confirm you wish to apply settings to the original trader (to rewrite its settings)."
+    data-askdeletekey="Confirm you wish to delete selected API key"
+    ></span>
+
+
+	
+	
+<template id="options_form">
+<x-form  class="pair options_form sections">
+<x-section><x-section-caption>Options</x-section-caption>
+<label><span>Graph for last days: </span><x-slider data-min="1" data-max="60" data-mult="1" data-name="report_interval"></x-slider></label>
+</x-section>
+<x-section><x-section-caption>Troubleshoting</x-section-caption>
+<div class="trouble_sect"><div>Temporarily stops trading for all configured traders  and cancels all their orders. To re-enable trading, you have to click Apply button<div><button data-name="stop">Global Stop</button></div></div>
+<div>Reloads all brokers. This can fix some problems with certain brokers<div><button data-name="reload_brokers">Reload brokers</button></div></div>
+</div>
+</x-section>
+<x-section><x-section-caption>Utilization</x-section-caption>
+<p>Shows utilization for each trader and total. If the utilization is higher than 100%, the performance of the program may be significantly reduced. In this case, consider to start separate instance.</p>
+<p>Note: Utilization is calculated from the total time spent in a single trader during the cycle. It consists of total CPU usage and API latency</p>  
+<table class="utilization">
+<tr><td><img src="../res/options.png">API common</td><td><div class="progress"><div data-name="p"></div><span data-name="v"></span></div></td></tr>
+<tr data-name="items[]"><td><img data-name="icon"><span data-name="name"></span></td><td><div class="progress"><div data-name="p"></div><span data-name="v"></span></div></td></tr>
+<tr><td>Total</td><td><div class="progress"><div data-name="total_p"></div><span data-name="total_v"></span></div></td></tr>
+</table>
+</x-section>
+<div>
+</div>
+</x-form>
+</template>
+
+	
+<template id="trading_form">
+<x-form class="trading sections">
+<x-section class="wide backtest"><x-section-caption>Chart</x-section-caption>
+<div class="chart" data-name="chart"><div class="spinner"></div></div>
+</x-section>
+<x-section class="small_box"><x-section-caption>Ticker</x-section-caption>
+<label><span>Balance currency</span><input type="text" data-name="bal_currency" readonly="readonly" class="number"></label>
+<label><span>Balance assets</span><input type="text" data-name="bal_assets" readonly="readonly"  class="number"></label>
+<label><span>Ask</span><input type="text" data-name="ask_price" readonly="readonly" class="number"></label>
+<label><span>Last</span><input type="text" data-name="last_price" readonly="readonly"  class="number"></label>
+<label><span>Bid</span><input type="text" data-name="bid_price" readonly="readonly"  class="number"></label>
+</x-section>
+<x-section  class="small_box"><x-section-caption>Open orders</x-section-caption>
+<table class="orders">
+<tr><th>Direction</th><th>Price</th><th>Size</th><th></th></tr>
+<tr data-name="orders[]">
+<td data-name="dir">buy</td>
+<td data-name="price">123456</td>
+<td data-name="size">123456</td>
+<td><button data-name="cancel">X</button><div class="spinner fast" hidden="hidden" data-name="spinner"></div></td></tr>
+</table>
+</x-section>
+<x-section class="center_box"><x-section-caption>New order</x-section-caption>
+<label><span>Edit order</span><select name="edit_order"><option value="">-- new order --</option><option name="edit_orders[]" value=""></option></select></label>
+<label><span>Order size</span><input type="number" step="any" data-name="order_size"></label>
+<label><span>Price</span><input type="number" step="any" data-name="order_price"></label>
+<div class="buttons">
+<button data-name="button_buy" class="buy">BUY</button>
+<button data-name="button_sell" class="sell">SELL</button>
+<button data-name="button_buybid" class="buy">BUY at bid</button>
+<button data-name="button_sellask" class="sell">SELL at ask</button>
+</div>
+</x-section>
+</x-form>
+</template>
+
+<template id="upload_chart_wait">
+<div class="dialog">
+<div class="upload_dialog">
+<p>Simulating trades, it takes a while</p>
+<p>(Please, do not refresh the page)</p>
+<div class="progress"><div data-name="progress"></div>
+<span data-name="upload_mark">Uploading...</span>
+<span data-name="process_mark" hidden="hidden">Processing...</span>
+</div>
+<button data-name="stop">Stop</button>
+</div>
+</div>
+</template>
+
+<template id="advedit_dlg">
+<div class="dialog"><div class="adveditdlg">
+<x-form>
+<h2>Modify strategy state</h2>
+<p>This feature is for advanced users. If you do not know what each value means, do not change it, because the change will probably result in a loss.</p>
+<textarea name="json_data"></textarea>
+<button data-name="ok">Apply</button>
+<button data-name="cancel">Close</button>
+</x-form>
+</div></div>
+</template>
+
+
+<template id="reset_strategy">
+<div class="dialog"><div class="reset_strategy">
+<h2>Reset strategy</h2>
+<p>This operation resets an internal state of the strategy. The purpose of this operation is to solve any strange behavior of the strategy. However, this can also cause poor performance or loss, because the internal state of the strategy can hold important informations about your trading</p>
+<x-form>
+<label><span>Recommended initial position</span><input type="number" readonly="readonly" data-name="rpos" tabindex="-1"></label>
+<label><span>Set position</span><input type="number" placeholder="Do not change position" data-name="setpos"></label>
+<div class="note">Sends orders to achieve specified position</div>
+<label><span>Allocate currency:</span><x-slider data-name="cur_pct" data-min="1" data-max="100" data-mult="10" data-fixed="0"></x-slider></label>
+<div class="note">Allocate fraction of the currency balance to leave money for others</div>
+<label><span>Alert/Accept loss</span><x-checkbox data-name="accept_loss">Add alert</x-checkbox></label>
+<div class="buttons">
+<button data-name="ok">Reset</button>
+<button data-name="cancel">Cancel</button>
+</div>
+</x-form>
+</div>
+</div>
+</template> 
+
+<template id="backtest_info">
+<div class="float_info">
+<table>
+<tr><th>Price</th><td data-name="pr"></td></tr>
+<tr><th>Size</th><td class="colornumb" data-name="sz"></td></tr>
+<tr><th>Position</th><td class="colornumb" data-name="ps"></td></tr>
+<tr><th>Equity</th><td class="colornumb" data-name="pl"></td></tr>
+<tr><th>Norm PnL</th><td class="colornumb" data-name="npl"></td></tr>
+<tr><th>Balance</th><td class="colornumb" data-name="bal"></td></tr>
+<tr data-name="ubal_row"><th>Avail.balance</th><td class="colornumb" data-name="ubal"></td></tr>
+<tr data-name="accum_row"><th>Accum:</th><td class="colornumb" data-name="na"></td></tr>
+<tr data-name="bt_event_row"><th>Event</th><td>
+<x-switch data-name="bt_event" data-value="liquidation" class="mark_crit">Liquidation!</x-switch>
+<x-switch data-name="bt_event" data-value="margin_call" class="mark_warn">Margin&nbsp;call!</x-switch>
+<x-switch data-name="bt_event" data-value="no_balance" class="mark_warn">No&nbsp;balance</x-switch>
+<x-switch data-name="bt_event" data-value="accept_loss" class="mark_warn">Accept&nbsp;loss</x-switch>
+</td></tr>
+
+<tr><td colspan="2"><hr></td></tr>
+<tr data-name="info[]" class="strategy_info"><th data-name="key"><td data-name="value"></tr>
+</table>
+</div>
+</template>
+
+<template id="random_dlg">
+<div class="dialog"><div class="randomdlg">
+<x-form>
+<h2>Generate random chart</h2>
+<label><span>Volatility [%]</span><input type="number" step="0.1" data-name="volatility"></label>
+<label><span>Noise [%]</span><input type="number" step="0.1" data-name="noise"></label>
+<label><span>Seed</span><input type="number" step="1" data-name="seed"></label>
+<button data-name="ok">Generate</button>
+<button data-name="cancel">Close</button>
+</x-form>
+</div></div>
+</template>
+
+<template id="download_price_dlg">
+<div class="dialog"><div class="download_prices">
+<x-form>
+<h2>Download historical prices</h2>
+<div class="fromexchoption">
+<x-checkbox data-name="from_broker">Download from the exchange</x-checkbox>
+<div class="error" data-name="not_available">(not available)</div>
+<div><x-checkbox data-name="save">Save data locally</x-checkbox></div>
+</div>
+<h2>Public source</h2>
+<label><span>Symbol for asset</span><select data-name="asset"><option data-name="symbols[]"></option></select></label>
+<label><span>Symbol for currency</span><select data-name="currency"><option data-name="symbols[]"></option></select></label>
+<label><span>Smooth [min]</span><input type="number" step="1" data-name="smooth"></label>
+<button data-name="ok">OK</button>
+<button data-name="cancel">Cancel</button>
+</x-form>
+</div></div>
+</template>
+
+<template id="no_data_panel">
+<div class="no_data_panel">
+<p>No data available. </p>
+<p><button data-name="download">Get public historical data</button></p>
+</div>
+</template>
+
+<template id="wallet_form">
+<x-form  class="pair wallet_form sections">
+<x-section><x-section-caption>Budget allocations</x-section-caption>
+<div data-name="spinner" class="spinner inline fast"></div>
+<div class="table">
+<div class="hdr">
+<div>Trader</div><div>Wallet</div><div class="money"><div>Allocated</div><div>Balance</div></div>
+</div>
+<div data-name="allocs[]">
+<div><img data-name="img">&nbsp;<span data-name="broker"></span></div>
+<div data-name="wallet"></div>
+<div><div class="money"><div><span data-name="allocated"></span>&nbsp;<span data-name="symbol"></span></div>
+<div><div class="editanch" data-name="editval"><span data-name="balance"></span>&nbsp;<span data-name="symbol"></span></div></div>
+</div></div>
+</div>
+</div>
+</x-section>
+<x-section data-name="wallets[]"><x-section-caption><img data-name="broker_icon">&nbsp;<span data-name="broker_name"></span></x-section-caption>
+<div class="brk_wallets">
+<div data-name="spinner" class="spinner inline fast"></div>
+<div class="acc_wallet" data-name="account_wallets[]">
+<div class="acc_wallet_name" data-name="wallet_name"></div>
+<div>
+<div class="acc_balances" data-name="balances[]">
+	<div class="value" data-name="value"></div>
+	<div class="symbol" data-name="symbol"></div>
+</div>
+</div>
+</div>
+</div>
+</x-section>
+</x-form>
+</template>
+
+<template id="pair_details">
+<div class="dialog pairdetails"><div>
+<x-form>
+<div class="label"><span>Tick size:</span><span><span data-name="tick_size"></span> <span data-name="quote_symbol"></span></span></div>
+<div class="label"><span>Order size granuality:</span><span><span data-name="asset_step"></span> <span data-name="asset_symbol"></span></span></div>
+<div class="label"><span>Minimal order size:</span><span><span data-name="min_size"></span> <span data-name="asset_symbol"></span></span></div>
+<div class="label"><span>Minimal order size at <span data-name="price"></span>&nbsp;<span data-name="quote_symbol"></span>:</span><span><span data-name="min_volume"></span> <span data-name="asset_symbol"></span></span></div>
+<div class="label"><span>Leverage:</span><span><span data-name="leverage"></span>x</span></div>
+<div class="label"><span>P/L formula:</span><span>
+	<x-switch data-name="inverted_price" data-value="false">(p<sub>c</sub> - p<sub>e</sub>) × q</x-switch>
+	<x-switch data-name="inverted_price" data-value="true">(<span class="fraction"><span>1</span><span>p<sub>e</sub></span></span> - <span class="fraction"><span>1</span><span>p<sub>c</sub></span></span>) × q</x-switch>
+	</span>
+</div>
+<button data-name="ok">OK</button>
+</x-form>
+</div></div>
+</template>
+
+
+
+<template id="progress_dlg"><div class="dialog">
+<div class="progressdlg">
+<p>Processing...</p>
+<x-progress data-name="progress"></x-progress>
+<p><button data-name="stop" disabled="true">Stop</button></p>
+<div></div>
+</div>
+</div>
+
+</template>
+
+<template id="shg_control_position">
+<div class="shgcontrol dialog">
+<div>
+<x-form>
+<h1>Control position</h1>
+<label><span>Current budget:</span><input type="number" data-name="curbudget"></label>
+<label><span>Profit [%]:</span><input type="number" data-name="profit"></label>
+<label><span>Wan't budget:</span><input type="number" data-name="wantbudget"></label>
+
+<label><span>Side:</span><select data-name="side">
+		<option value="0"> --- select--- </option>
+		<option value="-1">Long</option>
+		<option value="1">Short</option>
+	</select></label>
+<label><span>Aprox. profit target:</span><input type="number" data-name="pt" readonly="readonly"></label>
+<label><span>Position:</span><input type="number" data-name="position" readonly="readonly"></label>
+<label><span>Leverage:</span><input type="number" data-name="leverage" readonly="readonly"></label>
+<div class="buttons">
+<button data-name="ok">Make it happen</button>
+<button data-name="cancel">Cancel</button>
+</div>
+</x-form>
+</div>
+</div>
+</template>
+
+<template id="clear_stats">
+<div class="clearstats dialog">
+<div>
+<x-form>
+<h1>Repair/Clear statistics</h1>
+<label><span>How to clear:</span><select name="mode">
+			<option value="norm_drops">Repair: Find and clear invalid values</option>
+			<option value="norm_recalc">Repair: Recalculate normalized profit</option>
+			<option value="wipe">Clear: Reset statistics complete</option>
+</select></label>
+<div class="buttons">
+<button data-name="ok">Ok</button>
+<button data-name="cancel">Cancel</button>
+</div>
+</x-form>
+</div>
+</div>
+
+</template>
+
+<template id="news_messages">
+<div class="newsmessages">
+<div class="buttons">
+<button data-name="mark">Mark read</button>
+<button data-name="reload">Reload</button>
+<button data-name="goto">Open platform</button>
+</div>
+<div data-name="items[]" class="item">
+<div data-name="rowx" class="row">
+	<span data-name="date"></span>
+	<span data-name="topic"></span>
+</div>
+<div data-name="body" class="body"></div>
+</div>
+</div>
+</template>
+
+<template id="stability_test">
+<div class="dialog">
+<div class="stabilitytest">
+<table>
+<tr><th>Event</th><th>Last</th><th>Min</th><th>Avg</th><th>Max</th></tr>
+<tr><th>Tests</th><td data-name="tests"></td></tr>
+<tr class="percent"><th>Profit</th><td class="colornumb" data-name="profit_last"></td><td class="colornumb"  data-name="profit_min"></td><td class="colornumb"  data-name="profit_avg"></td><td class="colornumb"  data-name="profit_max"></td></tr>
+<tr class="percent"><th>Norm profit</th><td class="colornumb"  data-name="norm_profit_last"></td><td class="colornumb"  data-name="norm_profit_min"></td><td class="colornumb"  data-name="norm_profit_avg"></td><td class="colornumb"  data-name="norm_profit_max"></td></tr>
+<tr><th>Alerts</th><td data-name="alerts_last"></td><td data-name="alerts_min"></td><td data-name="alerts_avg"></td><td data-name="alerts_max"></td></tr>
+<tr><th>Margin calls</th><td class="alertnumb" data-name="margin_last"></td><td class="alertnumb"  data-name="margin_min"></td><td class="alertnumb"  data-name="margin_avg"></td><td class="alertnumb"  data-name="margin_max"></td></tr>
+<tr><th>Liquidations</th><td class="liqnumb" data-name="liquid_last"></td><td class="liqnumb" data-name="liquid_min"></td><td class="liqnumb" data-name="liquid_avg"></td><td class="liqnumb" data-name="liquid_max"></td></tr>
+</table>
+<div class="error" data-name="error"></div>
+<div class="buttons">
+<button data-name="close">Close</button>
+</div>
+</div>
+</div>
+</template>
+
+
+<template id="clone_enter_id">
+<div class="dialog">
+<div class="cloneenterid">
+<x-form>
+<h2>Clone as paper trading</h2>
+<p>Edit trader's ID:<br/><input type="text" data-name="name" size="40"></p>
+<button data-name="ok">OK</button>
+<button data-name="cancel">Cancel</button>
+</x-form>
+</div>
+</div>
+</template>
+
+<script src="../res/template.js" type="text/javascript"></script>
+<script src="../res/common.js" type="text/javascript"></script>
+<script src="../res/ui.js" type="text/javascript"></script>
+<script src="code.js" type="text/javascript"></script>
+</body>
+</html>
+

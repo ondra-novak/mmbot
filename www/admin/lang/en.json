@@ -1,0 +1,40 @@
+{
+	"root":{
+		"statistics":"Statistics",
+		"reports":"Reports",
+		"apply":"Apply changes"
+	},
+	"trader":{
+		"title":"Title",
+		"enabled":"Trading enabled",
+		"hidden":"Hidden",
+		"dont_allocate":"Don't allocate budget",
+		"reset":"Initial settings",
+		"reset_alloc_position_100":"Alokuj všechny dostupné assety jako pozici",
+		"reset_alloc_position":"Množství alokovaných assetů pro pozici",
+		"reset_alloc_currency_100":"Alokuj veškerou balanci",
+		"reset_alloc_currency":"Množství alokované balance",
+		"reset_keep_position":"Ponechej aktuální pozici",
+		"reset_set_optimal_position":"Nakup/prodej optimální pozici",
+		"reset_set_position_value":"Požadovaná počáteční pozice",
+		"min_size":"Minimální množství v pokynu",
+		"max_size":"Maximální množství v pokynu",
+		"min_pos":"Minimální povolená pozice",
+		"max_pos":"Maximální povolená pozice",
+		"max_costs":"Maximální náklady",
+		"max_leverage":"Maximální páka",
+		"trade_within_budget":"Nepřekračuj vyhrazený rozpočet",
+		"init_open":"Vstupní cena assetů (0=automaticky)",
+		"report_order":"Pořadí ve výpisu"
+	},
+	"login":{
+		"user":"Username",
+		"password":"Password",
+		"login_dlg":"Login",
+		"login":"Login",
+		"logerror":"Failed to login"
+	},
+	"choose_lang": {
+		"Choose language":"Choose language"
+	}
+}

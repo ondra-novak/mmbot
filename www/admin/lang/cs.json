@@ -1,0 +1,53 @@
+{
+	"root":{
+		"statistics":"Statistiky",
+		"reports":"Přehledy",
+		"apply":"Aplikovat změny"
+	},
+	"gendlg":{
+		"io_error":"Operace se nezdařila",
+		"unknownerror":"Neočekávaná chyba",
+		"fetcherror":"Požadavek nebyl zpracován",
+		"ok":"OK",
+		"status_403":"K provedení operace nemáte dostatečné oprávnění",
+		"status_500":"Interní chyba systému",
+		"status_501":"Operace není implementovaná v této verzi",
+		"status_502":"Spojení se serverem odmítunto",
+		"status_503":"Služba momentálně není k dispozici",
+		"status_504":"Server neodpověděl ve vyhrazeném čase",
+		"status_404":"Požadovaná funkce nebyla nalezena"
+	},
+	"trader":{
+		"title":"Titulek",
+		"enabled":"Obchodování povoleno",
+		"hidden":"Skrytý",
+		"dont_allocate":"Neblokuj rozpočet",
+		"reset":"Počáteční nastavení",
+		"reset_alloc_position_100":"Alokuj všechny dostupné assety jako pozici",
+		"reset_alloc_position":"Množství alokovaných assetů pro pozici",
+		"reset_alloc_currency_100":"Alokuj veškerou balanci",
+		"reset_alloc_currency":"Množství alokované balance",
+		"reset_keep_position":"Ponechej aktuální pozici",
+		"reset_set_optimal_position":"Nakup/prodej optimální pozici",
+		"reset_set_position_value":"Požadovaná počáteční pozice",
+		"min_size":"Minimální množství v pokynu",
+		"max_size":"Maximální množství v pokynu",
+		"min_pos":"Minimální povolená pozice",
+		"max_pos":"Maximální povolená pozice",
+		"max_costs":"Maximální náklady",
+		"max_leverage":"Maximální páka",
+		"trade_within_budget":"Nepřekračuj vyhrazený rozpočet",
+		"init_open":"Vstupní cena assetů (0=automaticky)",
+		"report_order":"Pořadí ve výpisu"
+	},
+	"login":{
+		"user":"Uživatelské jméno",
+		"password":"Heslo",
+		"login_dlg":"Přihlášení",
+		"login":"Přihlásit se",
+		"logerror":"Špatné uživatelské jméno nebo heslo"
+	},
+	"choose_lang": {
+		"Choose language":"Vyber jazyk"
+	}
+}
