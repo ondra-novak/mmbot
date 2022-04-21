@@ -2,8 +2,13 @@
 async function ui_fetch(url, opts) {
 	
 	const req = await fetch(url, opts);
-    if (req.status == 401) {
-        return ui_login().then(() => { return ui_fetch(url, opts); });
+    if (req.status >= 401 && req.status <=403) {
+		var rep = await error_forbidden(req);
+		if (rep) {
+			return ui_fetch(url, opts);			
+		} else {
+			throw  {"io_error":true, "req":req, dialog_shown:true};
+		}		
     } else if (req.status >= 200 && req.status < 300){		
         return await req.json();
     } else {
@@ -11,7 +16,32 @@ async function ui_fetch(url, opts) {
 	}
 }	
 
+function error_forbidden(req) {
+	return new Promise((ok)=>{
+		var dlg = create_form([
+			{type:"label",name:"fetcherror"},
+			{type:"label",name:"status_"+req.status,label:req.status+" "+req.statusText},
+			{type:"button",bottom:true,name:"login"},
+			{type:"button",bottom:true,name:"ok"}],"gendlg","","io_error");		
+		dlg.openModal();
+		dlg.setDefaultAction(async ()=>{
+			try {
+				dlg.close();
+				await ui_login();
+				ok(true);
+			} catch (e) {
+				ok(false);
+			}
+		},"login");
+		dlg.setCancelAction(()=>{
+			dlg.close();
+			ok(false);
+		},"ok");
+	});
+}
+
 async function errorDialog(exc) {
+	if (exc.dialog_shown) return;
 	if (exc.io_error) {
 	  var ainfo ;
 	  try {

@@ -77,23 +77,23 @@ Auth::User Auth::get_user(const std::string_view &token) {
 			}
 			auto exp = std::chrono::system_clock::from_time_t(p["exp"].getUIntLong());
 			if (uid.type() == json::string) {
+				auto ut = userMap.find(uid.getString());
 				if (!aclset.has_value()) {
-					auto ut = userMap.find(uid.getString());
 					if (ut == userMap.end()) return {};
 					cacheToken(token, ut->first, ut->second.acl,isjwt, now, exp);
 					return {true, ut->first, ut->second.acl,isjwt};
 				} else {
 					cacheToken(token, uid.getString(), *aclset, isjwt,now, exp);
-					return {true, uid.getString(), *aclset,isjwt};
+					return {ut!=userMap.end(), uid.getString(), *aclset,isjwt};
 				}
 			} else {
 				static std::string_view name("(default)");
 				if (aclset.has_value()) {
 					cacheToken(token, name, *aclset, isjwt,now, exp);
-					return {true, name, *aclset,isjwt};
+					return {false, name, *aclset,isjwt};
 				} else if (isjwt) {
 					cacheToken(token, name, jwt_default_acl, isjwt,now, exp);
-					return {true, name, jwt_default_acl,isjwt};
+					return {false, name, jwt_default_acl,isjwt};
 				} else {
 					return {};
 				}
@@ -271,7 +271,7 @@ AuthService::User AuthService::get_user(const userver::HttpServerRequest  &req) 
 	if (admin_party) {
 		ACLSet all;
 		all.set_all();
-		return {true, "admin_party", all};
+		return {false, "admin_party", all};
 	}
 	auto auth_hdr = req.get("Authorization");
 	std::string_view cookies = req.get("Cookie");
@@ -305,8 +305,8 @@ bool AuthService::check_auth(const User &user, userver::HttpServerRequest &req, 
 }
 
 bool AuthService::check_auth(const User &user, ACL acl, userver::HttpServerRequest &req, bool basic_auth) const {
-	if (!check_auth(user, req, basic_auth)) return false;
 	if (user.acl.is_set(acl)) return true;
+	if (!check_auth(user, req, basic_auth)) return false;
 	req.sendErrorPage(403);
 	return false;
 }

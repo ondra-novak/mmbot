@@ -4,6 +4,21 @@
 		"reports":"Reports",
 		"apply":"Apply changes"
 	},
+	"gendlg":{
+		"io_error":"I/O Error",
+		"unknownerror":"Unknown error",
+		"fetcherror":"Request rejected on server",
+		"ok":"OK",
+		"status_403":"You do not have sufficient permissions to do this",
+		"status_401":"You must be logged in to perform the operation",
+		"status_500":"Internal error",
+		"status_501":"Not implemented (yet)",
+		"status_502":"Connection to the server denied",
+		"status_503":"The service is currently unavailable",
+		"status_504":"The server did not respond within the allotted time",
+		"status_404":"The requested function was not found",
+		"login":"Login as ..."
+	},
 	"trader":{
 		"title":"Title",
 		"enabled":"Trading enabled",
@@ -32,6 +47,7 @@
 		"password":"Password",
 		"login_dlg":"Login",
 		"login":"Login",
+		"cancel":"Cancel",
 		"logerror":"Failed to login"
 	},
 	"choose_lang": {

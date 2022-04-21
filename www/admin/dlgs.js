@@ -31,12 +31,14 @@ function dialogBox(formdesc, langcat, title, validate) {
 
 
 function ui_login() {
-	return new Promise((ok)=>{	
+	return new Promise((ok,cancel)=>{	
 		var dlg = create_form([
 			{name:"user",type:"string",attrs:{"autocomplete":"username"}},
 			{name:"password",type:"password",attrs:{"autocomplete":"current-password"}},
 			{name:"logerror",type:"errmsg"},
-			{name:"login",type:"button",bottom:true}],"login","","login_dlg");			
+			{name:"login",type:"button",bottom:true},
+			{name:"cancel",type:"button",bottom:true}]
+							  ,"login","","login_dlg");			
 		dlg.openModal();
 		dlg.setDefaultAction(async()=>{
 			var data = dlg.readData();
@@ -52,6 +54,10 @@ function ui_login() {
 				errorDialog(e);
 			}			
 		},"login");
+		dlg.setCancelAction(()=>{
+			dlg.close();
+			cancel();
+		},"cancel")
 	});
 		
 }

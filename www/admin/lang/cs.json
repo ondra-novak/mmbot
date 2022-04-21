@@ -10,12 +10,14 @@
 		"fetcherror":"Požadavek nebyl zpracován",
 		"ok":"OK",
 		"status_403":"K provedení operace nemáte dostatečné oprávnění",
+		"status_401":"K provedení operace je třeba se přihlásit",
 		"status_500":"Interní chyba systému",
 		"status_501":"Operace není implementovaná v této verzi",
-		"status_502":"Spojení se serverem odmítunto",
+		"status_502":"Spojení se serverem odmítnuto",
 		"status_503":"Služba momentálně není k dispozici",
 		"status_504":"Server neodpověděl ve vyhrazeném čase",
-		"status_404":"Požadovaná funkce nebyla nalezena"
+		"status_404":"Požadovaná funkce nebyla nalezena",
+		"login":"Přihlásit se jako..."
 	},
 	"trader":{
 		"title":"Titulek",
@@ -45,6 +47,7 @@
 		"password":"Heslo",
 		"login_dlg":"Přihlášení",
 		"login":"Přihlásit se",
+		"cancel":"Storno",
 		"logerror":"Špatné uživatelské jméno nebo heslo"
 	},
 	"choose_lang": {
