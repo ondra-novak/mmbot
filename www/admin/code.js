@@ -686,6 +686,8 @@ App.prototype.fillForm = function (src, trg) {
 	data.target_exit_price_distance = 1;
 	data.exit_power_mult = 1;
 	data.reduction_midpoint = 0.5;
+	data.dip_rescue_perc_of_budget = 0;
+	data.dip_rescue_enter_price_distance = 0.2;
 	data.epa_backtest = false;
 
 
@@ -699,6 +701,8 @@ App.prototype.fillForm = function (src, trg) {
 		data.target_exit_price_distance = filledval(defval(src.strategy.target_exit_price_distance,0.01)*100,1);
 		data.exit_power_mult = filledval(src.strategy.exit_power_mult,1);
 		data.reduction_midpoint = filledval(src.strategy.reduction_midpoint,0.5);
+		data.dip_rescue_perc_of_budget = filledval(defval(src.strategy.dip_rescue_perc_of_budget,0)*100,1);
+		data.dip_rescue_enter_price_distance = filledval(defval(src.strategy.dip_rescue_enter_price_distance,0.2)*100,1);
 		data.epa_backtest = filledval(src.strategy.backtest, false);
 	}	else if (data.strategy == "halfhalf" || data.strategy == "keepvalue" || data.strategy == "exponencial"|| data.strategy == "hypersquare"||data.strategy == "conststep") {
 		data.acum_factor = filledval(defval(src.strategy.accum,0)*100,0);
@@ -900,6 +904,8 @@ function getStrategyData(data, inv) {
 			target_exit_price_distance: data.target_exit_price_distance/100.0,
 			exit_power_mult: data.exit_power_mult,
 			reduction_midpoint: data.reduction_midpoint,
+			dip_rescue_perc_of_budget: data.dip_rescue_perc_of_budget/100.0,
+			dip_rescue_enter_price_distance: data.dip_rescue_enter_price_distance/100.0,
 			backtest: data.epa_backtest
 		};
 	} else if (data.strategy == "halfhalf" || data.strategy == "keepvalue" || data.strategy == "exponencial"|| data.strategy == "hypersquare"||data.strategy == "conststep") {
@@ -1946,7 +1952,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		"incval_w","incval_r","incval_ms","incval_ri","incval_z",
 		"hedge_short","hedge_long","hedge_drop",
 		"shg_w","shg_p","shg_z","shg_b","shg_olt","shg_ol","shg_lp","shg_rnv","shg_avgsp","shg_boostmode","shg_lazyopen","shg_lazyclose","shg_offset",
-		"trade_within_budget","min_asset_perc_of_budget","min_asset_perc_of_budget","initial_bet_perc_of_budget","max_enter_price_distance","power_mult","power_cap","angle","target_exit_price_distance","exit_power_mult","reduction_midpoint","epa_backtest"];
+		"trade_within_budget","min_asset_perc_of_budget","min_asset_perc_of_budget","initial_bet_perc_of_budget","max_enter_price_distance","power_mult","power_cap","angle","target_exit_price_distance","exit_power_mult","reduction_midpoint","dip_rescue_perc_of_budget","dip_rescue_enter_price_distance","epa_backtest"];
 	var spread_inputs = ["spread_calc_stdev_hours","secondary_order", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode","dynmult_sliding","dynmult_cap","dynmult_mult","force_spread","spread_mode","spread_freeze"];
 	var leverage = form._pair.leverage != 0;	
 	var pairinfo = form._pair;

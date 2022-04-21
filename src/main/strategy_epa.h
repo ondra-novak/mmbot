@@ -31,6 +31,9 @@ public:
 
 		double reduction_midpoint = 0.5d;
 
+		double dip_rescue_perc_of_budget = 0.0d;
+		double dip_rescue_enter_price_distance = 0.2d;
+
 		bool backtest;
 	};
 
