@@ -2,7 +2,11 @@
 	"root":{
 		"statistics":"Statistics",
 		"reports":"Reports",
-		"apply":"Apply changes"
+		"apply":"Apply changes",
+		"changelang":"Change language",
+		"changepwd":"Change password",
+		"login":"Login",
+		"logout":"Logout"
 	},
 	"gendlg":{
 		"io_error":"I/O Error",
@@ -52,5 +56,26 @@
 	},
 	"choose_lang": {
 		"Choose language":"Choose language"
+	},
+	"change_password":{
+		"Change password":"Change password",
+		"old_password":"Old password",
+		"new_password":"New password",
+		"retype_password":"New password again",
+		"ok":"Change password",
+		"cancel":"Cancel",
+		"not_match":"Invalid password"
+	},
+	"logout_dlg":{
+		"ask_logout":"Confirm you really want to logout",
+		"ok":"Logout",
+		"cancel":"Cancel",
+		"Confirm logout":"Confirm logout"
+	},
+	"pwd_changed":{
+		"pwd_changed":"Password has been changed",
+		"ok":"OK"
 	}
+	
+	
 }

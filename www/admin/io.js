@@ -1,5 +1,7 @@
 "use strict";
 async function ui_fetch(url, opts) {
+
+	if (url.startsWith("/")) url = app_config.api_base+url;
 	
 	const req = await fetch(url, opts);
     if (req.status >= 401 && req.status <=403) {
@@ -56,6 +58,7 @@ async function errorDialog(exc) {
 		    {type:"label",label:ainfo || ""},
 			{type:"button",bottom:true,name:"ok"}],"gendlg","io_error");		
 	} else {
+		console.error(exc);
 	  var txt = exc.toString();
 	  if (txt == "[object Object]") txt = JSON.stringify(exc);
       await dialogBox([

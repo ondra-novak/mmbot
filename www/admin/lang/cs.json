@@ -2,7 +2,12 @@
 	"root":{
 		"statistics":"Statistiky",
 		"reports":"Přehledy",
-		"apply":"Aplikovat změny"
+		"apply":"Aplikovat změny",
+		"changelang":"Změnit jazyk",
+		"changepwd":"Změnit heslo",
+		"login":"Přihlásit se",
+		"logout":"Odhlásit se"
+		
 	},
 	"gendlg":{
 		"io_error":"Operace se nezdařila",
@@ -52,5 +57,24 @@
 	},
 	"choose_lang": {
 		"Choose language":"Vyber jazyk"
+	},
+	"change_password":{
+		"Change password":"Změna hesla",
+		"old_password":"Původní heslo",
+		"new_password":"Nové heslo",
+		"retype_password":"Nové heslo znovu",
+		"ok":"Změnit heslo",
+		"cancel":"Storno",
+		"not_match":"Nesprávné heslo"
+	},
+	"logout_dlg":{
+		"ask_logout":"Opravdu se chcete odhlásit?",
+		"ok":"Odhlásit",
+		"cancel":"Storno",
+		"Confirm logout":"Potvrzení"
+	},
+	"pwd_changed":{
+		"pwd_changed":"Heslo bylo změněno",
+		"ok":"OK"
 	}
 }

@@ -439,7 +439,9 @@ bool HttpAPI::get_api_login(Req &req, const Args &args) {
 
 bool HttpAPI::get_api_logout(Req &req, const Args &args) {
 	std::string cookie = "auth=;Max-Age=0;Path=";
-	cookie.append(req->getRootPath());
+	auto path = req->getRootPath();
+	if (path.empty()) path = "/";
+	cookie.append(path);
 	req->set("Set-Cookie",cookie);
 
 	HeaderValue auth = req->get("Authorization");
@@ -449,10 +451,12 @@ bool HttpAPI::get_api_logout(Req &req, const Args &args) {
 			req->set("Refresh", std::to_string(1).append(";").append(redir));
 		}
 		AuthService::basic_auth(*req);
-	} else {
+	} else if (redir.defined) {
 		req->set("Location", redir);
 		req->setStatus(302);
 		req->send("");
+	} else {
+		send_json(req, true);
 	}
 	return true;
 }

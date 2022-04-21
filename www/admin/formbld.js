@@ -159,7 +159,7 @@ class FormBuilder {
 		} else {
 			var el = this.create_standalone_element(def);
 			if (el) {
-				el.addEventListener("change",dlg_rules_fn);
+				el.addEventListener(def.event?def.event:"change",dlg_rules_fn);
 				itm_blk.appendChild(el);
 			}
 		}
@@ -212,7 +212,7 @@ class FormBuilder {
 				if (n=="$or") c = this.evaluate_or(def[n]);
 				else if (n == "$and") c = this.evaluate_and(def[n]);
 				else if (n == "$not") c = !this.evaluate_and(def[n]);
-				else c = this.evaluate_value(def[n], data[n]); 
+				else c = this.evaluate_value(def[n], data[n], data); 
 				
 			}			
 			return c;
@@ -225,24 +225,28 @@ class FormBuilder {
 				if (n=="$or") c = this.evaluate_or(def[n]);
 				else if (n == "$and") c = this.evaluate_and(def[n]);
 				else if (n == "$not") c = !this.evaluate_or(def[n]);
-				else c = this.evaluate_value(def[n], data[n]); 
+				else c = this.evaluate_value(def[n], data[n], data); 
 				
 			}			
 			return c;
 		},false);
 	}
 	
-	evaluate_value(def, value) {
+	evaluate_value(def, value, data) {
 		if (typeof(def) == "object" && !Array.isArray(def)) {
 			return Object.keys(def).reduce((c,n)=>{
 				if (c) {
-					if (n=="<") c = value < def[n];
-					else if (n==">") c = value > def[n];
-					else if (n=="<=") c = value <= def[n];
-					else if (n==">=") c = value >= def[n];
-					else if (n=="!=") c = value != def[n];
-					else if (n=="==") c = value == def[n];
-					else if (n=="in") c = Array.isArray(def[n]) && def[n].find(z=>z == value) != undefined;
+					var val = def[n];
+					if (typeof val == "object" && val["$name"]) {
+						val = data[val["$name"]];
+					}
+					if (n=="<") c = value < val;
+					else if (n==">") c = value > val;
+					else if (n=="<=") c = value <= val;
+					else if (n==">=") c = value >= val;
+					else if (n=="!=") c = value != val;
+					else if (n=="==") c = value == val;
+					else if (n=="in") c = Array.isArray(val) && val.find(z=>z == value) != undefined;
 					else c=false;  
 					
 				}			

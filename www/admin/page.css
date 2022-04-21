@@ -76,10 +76,48 @@ x-switch.block[hidden] {
 	display:hidden;
 }
 
-div.toppanel {display: flex;justify-content: space-between;align-items: center;align-content: space-between;padding: 1%;background-color: #2c3834;}
+div.toppanel {display: flex;justify-content: space-between;align-items: center;align-content: space-between;/* padding: 1%; */background-color: #443;}
 div.toppanel > div.menuleft {display: flex;justify-content: flex-start;gap: 1em;width: 47%;}
 div.toppanel > div.menuright {display: flex;justify-content: flex-end;gap:  1em;/* width: 47%; */}
-div.panelbutton {display:flex;flex-wrap: wrap;align-items: center;justify-items: center;align-content: center;justify-content: center;}
-div.panelbutton img {width: 40px;}
-div.panelbutton span {white-space: nowrap;}
+div.panelbutton {display:flex;flex-wrap: wrap;align-items: center;justify-items: center;align-content: center;justify-content: center; cursor: pointer;padding: 0 0.5vw;height: 4em;position:relative}
 
+div.panelbutton.usermenu >svg> .svgicon {fill: #d6d6d6;}
+div.panelbutton.usermenu.jwt >svg> .svgicon {fill: yellow;}
+div.panelbutton.usermenu.exists >svg> .svgicon {fill: #65b065;}
+div.panelbutton img, div.panelbutton svg {width: 40px;}
+div.panelbutton span {white-space: nowrap;}
+svg .svgicon {
+	fill:white;
+}
+div.panelbutton:hover {
+	background-color: gray;
+}
+div.panelbutton > div.right.submenu {
+	position: absolute;
+	top: 4em;
+	/* width: 10em; */
+	right:0;
+	/* height: 5em; */
+	border: 1px solid;
+	background-color: #442;
+	display:none;
+}
+div.panelbutton:hover > div.right.submenu {
+	display: block;
+}
+
+ul.menu {
+	padding: 0;
+white-space: nowrap;margin: 0;}
+
+ul.menu > li {list-style: none;padding: 0.2em 0.5em;margin: 0;}
+
+ul.menu > li svg {
+	width: 32px;
+vertical-align: middle;height: 32px;}
+
+ul.menu > li:hover {background-color: #663;}
+
+div.smalltitle {
+	
+text-align: center;padding: 0.5em;font-weight: bold;border-bottom: 1px solid;}

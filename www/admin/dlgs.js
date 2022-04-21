@@ -1,13 +1,13 @@
 "use strict";
 
 function create_form(formdesc, langcat, category, dialog) {
-	var fbld = new FormBuilder(formdesc,langobj,langcat, category);
+	var fbld = new FormBuilder(formdesc,theApp.langobj,langcat, category);
 	return fbld.create_form(dialog);
 }
 
 function load_template(id) {
 	var form = TemplateJS.View.fromTemplate(id);
-	langobj.translate_node(form.getRoot(), id);
+	theApp.langobj.translate_node(form.getRoot(), id);
 	return form;
 }
 
@@ -43,10 +43,11 @@ function ui_login() {
 		dlg.setDefaultAction(async()=>{
 			var data = dlg.readData();
 			try {
-			  var unfo = await post_json("../api/user",{"user":data.user,"password":data.password,"cookie":"permanent"});
+			  var unfo = await post_json("/user",{"user":data.user,"password":data.password,"cookie":"permanent"});
 		      if (unfo.exists) {
 					dlg.close();
-					ok(unfo); 					
+					ok(unfo);
+					on_login(unfo); 					
 			  } else {
 				 dlg.mark("logerror");	
 			  }
@@ -62,3 +63,44 @@ function ui_login() {
 		
 }
 
+function chooselang_dlg(languages) {
+	return new Promise((ok,cancel)=>{
+		let dlg = create_form(languages.map(x=>{
+			return {
+				"bottom":true,
+				"type":"imgbutton",
+				"src":x[1],
+				"name":x[0]				
+			}}),"choose_lang","","Choose language");				
+		languages.forEach(x=>{
+			let l = x[0];
+			dlg.setItemEvent(l,"click",async ()=>{				
+				dlg.close();				
+				ok(l);						
+			});	
+		});
+		dlg.setCancelAction(()=>{
+			dlg.close();
+			cancel();
+		})
+		dlg.openModal();
+	});
+	}
+
+
+async function dialog_change_pwd(cb) {
+	var chdata = await dialogBox([
+		{name:"old_password",type:"password","event":"input"},
+		{name:"not_match",type:"errmsg"},
+		{name:"new_password",type:"password","event":"input"},
+		{name:"retype_password",type:"password","event":"input"},
+		{name:"ok",type:"button",bottom:true,"enableif":{
+				"old_password":{"!=":""},
+				"new_password":{"!=":""},
+				"retype_password":{"==":{"$name":"new_password"}, "!=":{"$name":"old_password"}},
+			}
+		},
+		{name:"cancel",type:"button",bottom:true}
+		],"change_password","Change password",cb);
+		return chdata;
+}
