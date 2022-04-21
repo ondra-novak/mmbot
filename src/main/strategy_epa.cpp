@@ -84,7 +84,7 @@ double Strategy_Epa::calculateSize(double price, double assets) const {
 
 	// explicitly trade only within budget
 	if (size > 0) {
-		size = std::min(size, st.currency / price);
+		size = std::min(size, st.availableCurrency / price);
 	} else {
 		size = std::max(size, -effectiveAssets);
 	}
