@@ -6,6 +6,7 @@
  */
 
 #include <unistd.h>
+#include <limits>
 #include <ctime>
 #include <ext/stdio_filebuf.h>
 #include "database.h"
