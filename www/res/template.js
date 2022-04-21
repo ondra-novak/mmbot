@@ -434,6 +434,7 @@ var TemplateJS = function(){
 		return removeElement(this.root).then(function() {		
 			if (this.modal_elem && this.modal_elem.isConnected) 
 				this.modal_elem.parentElement.removeChild(this.modal_elem);			
+			this.modal_elem = null;
 		}.bind(this));
 	}
 
