@@ -37,14 +37,19 @@ PStrategy Strategy_Epa::init(double price, double assets, double currency, bool 
 
 double Strategy_Epa::calculateSize(double price, double assets) const {
 	double effectiveAssets = std::min(st.assets, assets);
+	double availableCurrency = std::max(0.0, st.currency - (st.budget * cfg.dip_rescue_perc_of_budget));
 
 	double size;
 	if (std::isnan(st.enter) || (effectiveAssets * price) < st.budget * cfg.min_asset_perc_of_budget) {
 		// buy
-		size = (st.currency * cfg.initial_bet_perc_of_budget) / price;
+		size = (availableCurrency * cfg.initial_bet_perc_of_budget) / price;
 	}	else if (price < st.enter) {
+		double dist = (st.enter - price) / st.enter;
+		if (dist >= cfg.dip_rescue_enter_price_distance) {
+			availableCurrency = st.currency;
+		}
 
-		double half = ((st.currency / price) + effectiveAssets) * cfg.reduction_midpoint;
+		double half = ((availableCurrency / price) + effectiveAssets) * cfg.reduction_midpoint;
 		double hhSize = half - effectiveAssets;
 		
 		if (half < effectiveAssets) {
@@ -185,7 +190,12 @@ double Strategy_Epa::getCenterPrice(double lastPrice, double assets) const {
 		return cp;
 	}
 
-	double center = st.currency * cfg.reduction_midpoint / effectiveAssets / (1 - cfg.reduction_midpoint);
+	double availableCurrency = std::max(0.0, st.currency - (st.budget * cfg.dip_rescue_perc_of_budget));
+	double dist = (st.enter - lastPrice) / st.enter;
+	if (dist >= cfg.dip_rescue_enter_price_distance) {
+		availableCurrency = st.currency;
+	}
+	double center = availableCurrency * cfg.reduction_midpoint / effectiveAssets / (1 - cfg.reduction_midpoint);
 	center = std::min(st.enter, center);
 
 	logInfo("getCenterPrice: lastPrice=$1, assets=$2 -> $3", lastPrice, assets, center);
