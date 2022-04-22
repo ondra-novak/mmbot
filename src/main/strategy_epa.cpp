@@ -177,30 +177,34 @@ std::string_view Strategy_Epa::getID() const {
 
 double Strategy_Epa::getCenterPrice(double lastPrice, double assets) const {
 	// center price for spreads
-	double effectiveAssets = std::min(st.assets, assets);
-
+	
 	if (!std::isnan(st.last_price) && st.last_price > 0) {
 		lastPrice = st.last_price;
 	}
 
-	if (std::isnan(st.enter) || (effectiveAssets * lastPrice) < st.budget * cfg.min_asset_perc_of_budget) {
-		// make sure we can buy at any price for backtest
-		double cp = cfg.backtest ? 2 * lastPrice : lastPrice;
-		logInfo("getCenterPrice: lastPrice=$1, assets=$2 -*> $3", lastPrice, assets, cp);
-		return cp;
-	}
+	double cp = cfg.backtest ? 2 * lastPrice : lastPrice;
+	logInfo("getCenterPrice: lastPrice=$1, assets=$2 -*> $3", lastPrice, assets, cp);
+	return cp;
 
-	double availableCurrency = std::max(0.0, st.currency - (st.budget * cfg.dip_rescue_perc_of_budget));
-	double dist = (st.enter - lastPrice) / st.enter;
-	if (dist >= cfg.dip_rescue_enter_price_distance) {
-		availableCurrency = st.currency;
-	}
-	double center = availableCurrency * cfg.reduction_midpoint / effectiveAssets / (1 - cfg.reduction_midpoint);
-	center = std::min(st.enter, center);
+	// double effectiveAssets = std::min(st.assets, assets);
+	// if (std::isnan(st.enter) || (effectiveAssets * lastPrice) < st.budget * cfg.min_asset_perc_of_budget) {
+	// 	// make sure we can buy at any price for backtest
+	// 	double cp = cfg.backtest ? 2 * lastPrice : lastPrice;
+	// 	logInfo("getCenterPrice: lastPrice=$1, assets=$2 -*> $3", lastPrice, assets, cp);
+	// 	return cp;
+	// }
 
-	logInfo("getCenterPrice: lastPrice=$1, assets=$2 -> $3", lastPrice, assets, center);
+	// double availableCurrency = std::max(0.0, st.currency - (st.budget * cfg.dip_rescue_perc_of_budget));
+	// double dist = (st.enter - lastPrice) / st.enter;
+	// if (dist >= cfg.dip_rescue_enter_price_distance) {
+	// 	availableCurrency = st.currency;
+	// }
+	// double center = availableCurrency * cfg.reduction_midpoint / effectiveAssets / (1 - cfg.reduction_midpoint);
+	// center = std::min(st.enter, center);
 
-	return center;
+	// logInfo("getCenterPrice: lastPrice=$1, assets=$2 -> $3", lastPrice, assets, center);
+
+	// return center;
 }
 
 double Strategy_Epa::calcInitialPosition(const IStockApi::MarketInfo &minfo, double price, double assets, double currency) const {
