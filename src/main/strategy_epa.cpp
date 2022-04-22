@@ -40,7 +40,7 @@ double Strategy_Epa::calculateSize(double price, double assets) const {
 	double availableCurrency = std::max(0.0, st.currency - (st.budget * cfg.dip_rescue_perc_of_budget));
 
 	double size;
-	if (std::isnan(st.enter) || (effectiveAssets * price) < st.budget * cfg.min_asset_perc_of_budget) {
+	if (std::isnan(st.enter) || (effectiveAssets * price) < st.budget * cfg.min_asset_perc_of_budget * (1 - cfg.dip_rescue_perc_of_budget)) {
 		// buy
 		size = (availableCurrency * cfg.initial_bet_perc_of_budget) / price;
 	}	else if (price < st.enter) {
