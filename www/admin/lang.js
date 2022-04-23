@@ -12,6 +12,11 @@ class Lang {
 		});
     };
 
+	async get_list() {
+		var req =await fetch("lang/index.json");
+		return await req.json();
+	}
+
 	translate_node(node, def_cat) {
 		var lst = node.querySelectorAll("[data-strid]");
 		Array.prototype.forEach.call(lst,el=>{

@@ -1,8 +1,4 @@
 "use strict";
-var avail_langs = [
-	["en","data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEgAAAAwBAMAAABAsiHYAAAAMFBMVEUAG2oAIWvKACrIEzBPWYHOT1bRYGnXfICdnq7bm6Djqava19vz1dTy3uH5+Pj9//yRXFQ4AAABZ0lEQVQ4y+2VIU9DMRDH/1+BZAJdEgSSy0jATU/OokCj0XyBZ/AI8FN4FBqHnR0T4wPAOPra3r3rrSQTBMUlL3vt+9/11+7uijtmftxT4weiMx7G080lnWP8wvx185Nof31Pp++ID/PHpC0aPb1SjIIYLS64bIu61QFFHuQfxapECSh+RA6oWFaUgSIM9G3iRSP1h8ZcelGnJLCDSmScYcNakcWAG4uo8oSLLKKKAY6xiOrdwO02i9y5wJ1bFrkTRrHp5iL08bNoFUJaXb6ysyRy9ouia2czorGfA+1g/yLa7TD/+A+WpIvvbyHMVfQcDheadCV9Y+p+zuhK0jem7i0drSV9SyHIbCkE8bGF0PXx6WQxlFS/Oh3PTUmZKS1OdSsiG3woc4MFNx4ahvGEi2xaz8AAx2ibmDrD7bZqh4IBd25VYxV/WKCtFl1IYIG2m30OAQvUuDYSDCxQ4wJKWLBArausx/oG0moFWcbnpY4AAAAASUVORK5CYII="],
-	["cs","data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEgAAAAwBAMAAABAsiHYAAAAMFBMVEXXAAAAQn8CRXwYRX3NGSfXFxo5QnqtKkp5OGg6XYxBX4qLmrOOnLXK0drv9Pb9//ye4wQMAAAAzElEQVQ4y43SzQ3CMAyG4ewBA3AtlhA/547gGTJBN8gajMAKGYEVOkJGAJVWIXUSf/7Oz+GVZRc/eO4+GxAdkwHRy4KGtwHRbTYgmPVD9LQgkLUi0q+1ITokA1KzMhqiAWlZf6RkFaifVSKKFtTL2iF6JAPq/JZA7SyJmlkSNbMq1MqqkXf1pLmOXE2iy8QYBcbIM0atIImaQRIFxsgzRp2gHeoFlegcGCPPGJ1GjJSgjLSgjDxjpAZtSA9aEQhakWeMUNCCYNCCAjb8BbPXr46aiiSEAAAAAElFTkSuQmCC"]
-];
 
 async function formTest() {
 	var def = await (await fetch("/api/admin/forms")).json();
@@ -22,6 +18,7 @@ class App {
 	}
 	
 	async start() {
+		this.lang_list = this.lang.get_list();
 		var r = await Promise.all([
 			ui_fetch("/forms"),
 			(async ()=>{
@@ -40,16 +37,18 @@ class App {
 	async chooselang() {
 		const lang = localStorage["lang"];
 		if (!lang) {
-			var l = await chooselang_dlg(avail_langs);
-			localStorage["lang"] = l;
-			this.langobj.load(l);
+			var l = chooselang_dlg(await this.lang_list);
+			l.then(l=>{
+				localStorage["lang"] = l;
+				this.langobj.load(l);
+			});
 		} else {
 			return this.langobj.load(lang);
 		}
 	}
 
 	async chooselang_dlg() {
-		var l = await chooselang_dlg(avail_langs);
+		var l = await chooselang_dlg(await this.lang_list);
 		localStorage["lang"] = l;
 		this.chooselang();
 	}
@@ -173,25 +172,131 @@ class App {
 	}
 	page_options_users() {
 		
-		 const acl_to_list = (acls)=> {
+		 const acl_to_list = (acls)=> {		
 			var lst = Object.keys(acls).filter(x=>acls[x]);
-			return lst.map(x=>{return {"":this.langobj.get_text("acls",x,x)};});				
-		}
+			return lst.map(x=>{return {"":{"value":this.langobj.get_text("user_dlg",x,x),".dataset.strid":"user_dlg."+x}}});				
+		};
+				
 		
+		
+		const acl_buttons = () =>{
+			return this.form_defs.acls.map(x=>{
+				return {name:x,type:"checkbox",default:x!="must_change_pwd"}
+			});
+		};
+		
+		const new_user_dlg=()=>{
+			var fdef = acl_buttons();
+			fdef = [{name:"user",type:"string",event:"input"},
+			 {name:"err_exists",type:"errmsg"},
+			 {name:"pwd",type:"string",default:Math.random().toString(36).slice(2),event:"input"},
+			 {name:"ok",type:"button",bottom:true,"enableif":{user:{"!=":""},pwd:{"!=":""}}},
+			 {name:"cancel",type:"button",bottom:true},
+			 {name:"acls",type:"label"}
+			].concat(fdef);
+			
+			
+			var dlg = create_form(fdef,"user_dlg","","create_user");
+			dlg.openModal();
+			dlg.setDefaultAction(()=>{
+				var d = dlg.readData();
+				var r = {user:d.user,pwd:d.pwd,acl:d};
+				delete d.user; delete d.pwd;
+				if (!this.config.users.find(x=>x.user == r.user)) { 
+					this.config.users.push(r);
+					dlg.close();			
+					refresh();
+				} else {
+					dlg.mark("err_exists");
+				}
+			},"ok");
+			dlg.setCancelAction(()=>{
+				dlg.close();
+			},"cancel");
+		};
+
+		const edit_user_dlg=(user)=>{
+			var fdef = acl_buttons();
+			fdef = [{name:"user",type:"string",event:"input","disableif":{}},
+					{name:"set_pwd",type:"checkbox",default:!!user.pwd},
+				    {name:"pwd",type:"string",showif:{set_pwd:true},default:Math.random().toString(36).slice(2),event:"input"},
+					{name:"ok",type:"button",bottom:true,"disableif":{pwd:"",set_pwd:true}},
+					{name:"delete",type:"button",bottom:true},
+					{name:"cancel",type:"button",bottom:true},
+					{name:"acls",type:"label"}
+			].concat(fdef);
+			var data = Object.assign({
+				user:user.user,
+				pwd:user.pwd,
+			},user.acl);
+			var dlg = create_form(fdef,"user_dlg","","edit_user");
+			dlg.setData(data);
+			dlg.openModal();
+			dlg.setItemEvent("delete","click",()=>{
+				this.config.users = this.config.users.filter(x=>x.user != user.user);
+				dlg.close();			
+				refresh();				
+			});
+			dlg.setDefaultAction(()=>{
+				var d = dlg.readData();
+				var r = {user:d.user,acl:d};
+				if (d.set_pwd) r.pwd = d.pwd;
+				delete d.user; delete d.pwd; delete d.set_pwd;
+				delete user.pwd;
+				Object.assign(user, r);
+				dlg.close();			
+				refresh();
+			},"ok");
+			dlg.setCancelAction(()=>{
+				dlg.close();
+			},"cancel");			
+		}
+
+		const edit_public_dlg=(cur_acl)=>{
+			var fdef = acl_buttons();
+			fdef = [
+				{name:"acls",type:"label"},
+				{name:"viewer",type:"checkbox",default:!!cur_acl.viewer},
+			 {name:"reports",type:"checkbox",default:!!cur_acl.reports},
+			 {name:"config_view",type:"checkbox",default:!!cur_acl.config_view},
+			 {name:"ok",type:"button",bottom:true,"enableif":{username:{"!=":""},password:{"!=":""}}},
+			 {name:"cancel",type:"button",bottom:true}];
+			
+			var dlg = create_form(fdef,"user_dlg","","edit_public_access");
+			dlg.openModal();
+			dlg.setDefaultAction(()=>{
+				var pub = this.config.users.find(x=>!!x.public);
+				if (!pub) {
+					pub = {public:true}; this.config.users.push(pub);
+				}
+				pub.acl = dlg.readData();
+				dlg.close();			
+				refresh();				
+			},"ok");
+			dlg.setCancelAction(()=>{
+				dlg.close();
+			},"cancel");
+		};	
 		var page = load_template("page_users");
 		this.page_root.setData({"workspace":page});
-		var users = this.config["users"] || [];
-		var pacl = (users.find(x=>!!x.public) || {public:true, acl:{
-				viewer:true,reports:true,config_view:true,
-				config_edit:true,backtest:true,users:true,
-				wallet_view:true,manual_trading:true,api_key:true,
-				must_change_pwd:true
-
-		}}).acl;
-		var fdata = {
-			public_acl: acl_to_list(pacl)
+		if (!this.config.users) this.config.users = [];
+		const refresh = () => {
+			var users = this.config.users;
+			var pacl_src = (users.find(x=>!!x.public) || {acl:{}}).acl;
+			var pacl = acl_to_list(pacl_src);
+			var fdata = {
+				public_user:{classList:{accdis:pacl.length==0},"!click":()=>edit_public_dlg(pacl_src)},
+				public_acl: pacl,
+				add_user: {"!click":new_user_dlg},
+				users:users.filter(x=>!x.public).map(x=>{
+					var pacl = acl_to_list(x.acl);
+					return {user:x.user, acl:pacl ,"":{classList:{accdis:pacl.length==0},"!click":()=>edit_user_dlg(x)}};
+				})
+			};
+			page.setData(fdata);
+			load_icons(page.getRoot());
 		};
-		page.setData(fdata);
+		refresh();
 
 		
 					

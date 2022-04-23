@@ -94,7 +94,9 @@ div.toppanel {display: flex;justify-content: space-between;align-items: center;a
 
 .page.users .list {display: flex;flex-wrap: wrap;margin-top: 2em;gap: 1em;;}
 
-.page.users .list .user {border: 1px solid #442;width: 18em;padding: 1em;cursor: pointer;border-radius: 5px 5px;font-size: 1.2em;text-align: justify;}
+.page.users .list .user {border: 1px solid #442;width: 18em;padding: 1em;cursor: pointer;border-radius: 5px 5px;font-size: 1.2em;text-align: justify;position: relative;}
+
+.page.users .list .user.accdis::after {content: "";display: block;position: absolute;top: 1em;right: 1em;left: 1em;bottom: 1em;background-image: url(cross.svg);background-size: 100% 100%;opacity: 0.3;}
 
 .page.users .list .acl {flex-direction: row;align-items: flex-end;font-size: 0.7em;font-style: italic;}
 .page.users .list .acl > * {display: inline-block;}
@@ -103,7 +105,7 @@ div.toppanel {display: flex;justify-content: space-between;align-items: center;a
 
 .page.users .list .user:hover {background-color: #333;}
 
-.page.users .list svg {;;height: 3em;vertical-align: middle;}
+.page.users .list svg {height: 3em;vertical-align: middle;}
 
 .optionsgrid {display: flex;flex-wrap: wrap;align-items: center;justify-content: center;gap: 1px;}
 

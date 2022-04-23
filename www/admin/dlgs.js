@@ -70,11 +70,11 @@ function chooselang_dlg(languages) {
 			return {
 				"bottom":true,
 				"type":"imgbutton",
-				"src":x[1],
-				"name":x[0]				
+				"src":x.icon,
+				"name":x.id,				
 			}}),"choose_lang","","Choose language");				
 		languages.forEach(x=>{
-			let l = x[0];
+			let l = x.id;
 			dlg.setItemEvent(l,"click",async ()=>{				
 				dlg.close();				
 				ok(l);						
@@ -111,6 +111,7 @@ function load_icons(root) {
 		let id = el.dataset.icon;
 		let img = TemplateJS.loadTemplate(id);
 		el.insertBefore(img,el.firstChild);
+		delete el.dataset.icon;
 	});
 
 }

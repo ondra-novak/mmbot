@@ -755,7 +755,7 @@ bool HttpAPI::get_api_admin_form(Req &req, const Args &v) {
 	append_tool("spread_generators", SpreadRegister::getInstance());
 	forms.set("trader", get_trader_form());
 
-	json::Value acls(array,strACL.begin(), strACL.end(), [](const NamedEnum<ACL>::Def &d) {
+	json::Value acls(array,strACL.sorted_by_value().begin(), strACL.sorted_by_value().end(), [](const NamedEnum<ACL>::Def &d) {
 		return d.name;
 	});
 	forms.set("acls", acls);

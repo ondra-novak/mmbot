@@ -79,6 +79,46 @@
 		"pwd_changed":"Password has been changed",
 		"ok":"OK"
 	},
-	"unknown_page":{"unknown_page":"Unknown page"}
+	"unknown_page":{"unknown_page":"Unknown page"},
+	"options_grid":{
+			"apikeys":"API Keys",
+			"wallet":"Wallet",
+			"misc":"Misc.",
+			"exchanges":"Exchanges and accounts",
+			"archive":"Archived robots",
+			"messages":"Messages from platform",
+			"util": "Instance utilization",
+			"global_stop": "Stop all robots",
+			"reload_brokers": "Re-connect all API connections",
+			"users":"Users"
+	},
+	"user_dlg":{
+		"viewer":"View statistics",
+		"reports":"View reports",
+		"config_view":"View configuration",
+		"config_edit":"Add and modify robots",
+		"backtest":"Run backtest",
+		"users":"Manage users",
+		"wallet_view":"View balances on exchanges",
+		"manual_trading":"Manual trading",
+		"api_key":"Configure API keys",
+		"must_change_pwd":"Change password on next login",
+		"acls":"Permissions:",
+		"user":"Username",
+		"pwd":"Password",
+		"ok":"OK",
+		"cancel":"Cancel",
+		"set_pwd":"Set password",
+		"edit_user":"Edit user",
+		"edit_public_access":"Edit public access",		
+		"delete","Delete"
+					
+	},
+	"page_users":{
+		"public":"Public access",
+		"add":"Add user",
+		"title":"Users"
+	}
+	
 	
 }

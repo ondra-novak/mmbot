@@ -88,18 +88,34 @@
 			"messages":"Zprávy z platformy",
 			"util": "Vytížení instance",
 			"global_stop": "Zastavit všechny roboty",
-			"reload_brokers": "Restartovat všechna API"
+			"reload_brokers": "Restartovat všechna API",
+			"users":"Uživatelé"
 	},
-	"acls":{
+	"user_dlg":{
 		"viewer":"Prohlížet statistiky",
 		"reports":"Prohlížet sestavy",
 		"config_view":"Prohlížet nastavení",
-		"config_edit":"Měnit nastavení, přidávat a upravovat roboty",
+		"config_edit":"Měnit nastavení robotů",
 		"backtest":"Spouštět backtest",
 		"users":"Správa uživatelů",
 		"wallet_view":"Vidět zůstatky na burzách",
 		"manual_trading":"Ručně obchodovat",
 		"api_key":"Nastavovat klíče API",
-		"must_change_pwd":"Musí si změnit heslo při přihlášení"	
+		"must_change_pwd":"Musí si změnit heslo při přihlášení",
+		"create_user":"Přidat uživatele",
+		"acls":"Oprávnění:",
+		"user":"Přihlašovací jméno",
+		"pwd":"Heslo",
+		"ok":"OK",
+		"cancel":"Storno",
+		"set_pwd":"Nastvit heslo",
+		"edit_user":"Upravit uživatele",
+		"edit_public_access":"Přístup bez přihlášení",
+		"delete":"Smazat"		
+	},
+	"page_users":{
+		"public":"Bez přihlášení",
+		"add":"Přidat uživatele",
+		"title":"Uživatelé"
 	}
 }

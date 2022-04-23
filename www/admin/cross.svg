@@ -1,0 +1,4 @@
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg version="1.1" baseProfile="full" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:ev="http://www.w3.org/2001/xml-events" viewBox="0 0 10 10" preserveAspectRatio="none">
+<g stroke="#F00" stroke-width="1"><line x1="0" y1="0" x2="10" y2="10" /><line x1="0" y2="0" x2="10" y1="10" /></g>
+</svg>
