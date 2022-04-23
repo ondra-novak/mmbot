@@ -30,6 +30,7 @@ add_executable (mmbot
 		storage.cpp
 		extdailyperfmod.cpp
 		httpapi.cpp
+		httpapi_def.cpp
 		ssestream.cpp
 		licence.cpp
 		server.cpp

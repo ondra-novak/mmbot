@@ -84,4 +84,13 @@ function put_json(url, json) {
 	});
 } 
 
+async function base64_arraybuffer(data) {
+    const base64url = await new Promise((r) => {
+        const reader = new FileReader()
+        reader.onload = () => r(reader.result)
+        reader.readAsDataURL(new Blob([data]))
+    })
+    return base64url.split(",", 2)[1]
+}
+
 

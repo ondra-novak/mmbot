@@ -23,9 +23,14 @@ namespace userver {
 enum class ACL {
 	viewer=1,
 	reports=2,
-	admin_view=3,
-	admin_edit=4,
-	backtest=5
+	config_view=3,
+	config_edit=4,
+	backtest=5,
+	users=6,
+	wallet_view=7,
+	manual_trading=8,
+	api_key=9,
+	must_change_pwd=10
 };
 
 extern json::NamedEnum<ACL> strACL;
@@ -121,7 +126,7 @@ protected:
 
 	UserMap userMap;
 	TokenCache tokenCache, cache_tmp;
-	ACLSet jwt_default_acl;
+	ACLSet jwt_default_acl, public_acl;
 	json::PJWTCrypto jwtsrv;
 	json::PJWTCrypto session_jwt;
 
@@ -145,8 +150,6 @@ public:
 protected:
 
 	bool admin_party = true;
-	bool has_public_acl = false;
-	ACLSet public_acl;
 
 };
 

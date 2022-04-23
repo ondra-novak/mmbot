@@ -42,6 +42,7 @@ public:
 	bool check_acl(Req& req, ACL acl);
 protected:
 
+	static std::string ctx_json;
 
 	std::unique_ptr<BotCore> core;
 	userver::StaticWebserver static_pages;

@@ -6,8 +6,9 @@
 		"changelang":"Změnit jazyk",
 		"changepwd":"Změnit heslo",
 		"login":"Přihlásit se",
-		"logout":"Odhlásit se"
-		
+		"logout":"Odhlásit se",
+		"options":"Základní nastavení",		
+		"addbot":"Přidat robota"
 	},
 	"gendlg":{
 		"io_error":"Operace se nezdařila",
@@ -76,5 +77,29 @@
 	"pwd_changed":{
 		"pwd_changed":"Heslo bylo změněno",
 		"ok":"OK"
+	},
+	"unknown_page":{"unknown_page":"Neznámá stránka"},
+	"options_grid":{
+			"apikeys":"API Klíče",
+			"wallet":"Peněženka",
+			"misc":"Další volby",
+			"exchanges":"Účty na směnárnách",
+			"archive":"Archivovaní roboti",
+			"messages":"Zprávy z platformy",
+			"util": "Vytížení instance",
+			"global_stop": "Zastavit všechny roboty",
+			"reload_brokers": "Restartovat všechna API"
+	},
+	"acls":{
+		"viewer":"Prohlížet statistiky",
+		"reports":"Prohlížet sestavy",
+		"config_view":"Prohlížet nastavení",
+		"config_edit":"Měnit nastavení, přidávat a upravovat roboty",
+		"backtest":"Spouštět backtest",
+		"users":"Správa uživatelů",
+		"wallet_view":"Vidět zůstatky na burzách",
+		"manual_trading":"Ručně obchodovat",
+		"api_key":"Nastavovat klíče API",
+		"must_change_pwd":"Musí si změnit heslo při přihlášení"	
 	}
 }

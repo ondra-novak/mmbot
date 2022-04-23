@@ -22,12 +22,18 @@ class App {
 	}
 	
 	async start() {
-		await this.chooselang();
-		on_login();
-		
-		this.page_root = load_template("root");
-		document.body.appendChild(this.page_root.root);
-		
+		var r = await Promise.all([
+			ui_fetch("/forms"),
+			(async ()=>{
+				await this.chooselang();
+				this.page_root = load_template("root");
+				document.body.appendChild(this.page_root.root);
+				await this.on_login();
+				await this.update_ui();
+			})()]);
+		this.form_defs=r[0];
+		window.addEventListener("hashchange",this.router.bind(this));		
+		this.router();
 	}
 
 
@@ -59,14 +65,13 @@ class App {
 				logout:{".hidden":!usr.exists && !usr.jwt,
 					   "!click":this.logout.bind(this)},
 				login:{".hidden":usr.exists,
-					   "!click":ui_login
-					  },
+					   "!click":this.login.bind(this)},
 				usermenu:{classList:{
 					exists:usr.exists,
 					jwt:usr.jwt
 				}}
 			}
-			
+			this.cur_user = usr;
 			this.page_root.setData(data);
 		} catch (e) {
 			errorDialog(e);		
@@ -111,6 +116,90 @@ class App {
 			errorDialog(e);
 		}
 	}
+	
+	async update_ui() {
+		if (this.cur_user.config_view) {
+			try {
+				this.orig_config = await ui_fetch("/config")
+				this.config = JSON.parse(JSON.stringify(this.orig_config));
+				if (!this.config.session_hash) {
+					var array = new Uint8Array(24);
+					crypto.getRandomValues(array);
+					this.config.session_hash = await base64_arraybuffer(array);
+				}
+			} catch (e) {
+				errorDialog(e);
+			}
+			
+		}
+	}
+	
+	async login() {
+		this.cur_user = await ui_login();
+		await update_ui();
+	}
+	
+	router() {
+		let h = location.hash;
+		if (h) {
+			h = h.substring(1);
+			let req = h.split("&").reduce((a,b)=>{
+				let kv = b.split("=").map(decodeURIComponent);
+				a[kv[0]] = kv[1];return a;
+			},{});
+
+			var fn;			
+			if (req.menu=="options") {
+				fn = this["page_options"+(req.submenu?("_"+req.submenu):"")] 				
+			}
+			if (fn) {
+				fn.call(this);
+			} else {
+				this.unknown_page();
+			}
+		}
+	}
+	route(req) {
+		let h = "#"+Object.keys(req).map(x=>encodeURIComponent(x)+"="+encodeURIComponent(req[x]))
+					  .join("&");
+		location.hash = h;
+	}
+	
+	
+	
+	page_options() {
+		var page = load_template("options_grid");
+		this.page_root.setData({"workspace":page});									 		
+	}
+	page_options_users() {
+		
+		 const acl_to_list = (acls)=> {
+			var lst = Object.keys(acls).filter(x=>acls[x]);
+			return lst.map(x=>{return {"":this.langobj.get_text("acls",x,x)};});				
+		}
+		
+		var page = load_template("page_users");
+		this.page_root.setData({"workspace":page});
+		var users = this.config["users"] || [];
+		var pacl = (users.find(x=>!!x.public) || {public:true, acl:{
+				viewer:true,reports:true,config_view:true,
+				config_edit:true,backtest:true,users:true,
+				wallet_view:true,manual_trading:true,api_key:true,
+				must_change_pwd:true
+
+		}}).acl;
+		var fdata = {
+			public_acl: acl_to_list(pacl)
+		};
+		page.setData(fdata);
+
+		
+					
+	}
+	unknown_page() {
+		this.page_root.setData({"workspace":load_template("unknown_page")});
+	}
+		
 }
 
 var theApp = new App();

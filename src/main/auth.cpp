@@ -25,9 +25,13 @@
 json::NamedEnum<ACL> strACL({
 	{ACL::viewer, "viewer"},
 	{ACL::reports, "reports"},
-	{ACL::admin_edit, "admin_edit"},
-	{ACL::admin_view, "admin_view"},
+	{ACL::config_edit, "config_edit"},
+	{ACL::config_view, "config_view"},
 	{ACL::backtest, "backtest"},
+	{ACL::users, "users"},
+	{ACL::api_key, "api_key"},
+	{ACL::manual_trading, "manual_trading"},
+	{ACL::must_change_pwd, "must_change_pwd"},
 });
 
 Auth::User Auth::get_user(const std::string_view &token) {
@@ -52,7 +56,7 @@ Auth::User Auth::get_user(const std::string_view &token) {
 				cacheToken(token, ut->first, ut->second.acl,false,now, now+std::chrono::hours(1));
 				return {true, ut->first, ut->second.acl,false};
 			} else {
-				return {};
+				return {false, std::string(), public_acl};
 			}
 		} else if (userver::HeaderValue::iequal(type, "bearer")) {
 			json::Value p = json::parseJWT(t, session_jwt);
@@ -62,10 +66,10 @@ Auth::User Auth::get_user(const std::string_view &token) {
 				isjwt = true;
 			}
 			if (!p.hasValue()) {
-				return {};
+				return {false, std::string(), public_acl};
 			}
 			if (!json::checkJWTTime(p, now).hasValue()) {
-				return {};
+				return {false, std::string(), public_acl};
 			}
 			std::optional<ACLSet> aclset;
 			auto uid = p["sub"];
@@ -100,7 +104,7 @@ Auth::User Auth::get_user(const std::string_view &token) {
 
 			}
 		} else {
-			return {};
+			return {false,std::string(), public_acl,false};
 		}
 	}
 
@@ -226,11 +230,17 @@ bool Auth::init_from_JSON(json::Value config) {
 	if (!secret.defined()) return false;
 	json::Value users = config["users"];
 	if (users.empty()) return false;
+	public_acl.reset_all();
 	for (json::Value u: users) {
 		auto name = u["uid"];
 		auto password = u["pwd_hash"];
 		auto acl = u["acl"];
-		add_user(name.getString(), password.getString(), acl_from_JSON(acl));
+		auto public_access = u["public"].getBool();
+		if (public_access) {
+			public_acl = acl_from_JSON(acl);
+		} else {
+			add_user(name.getString(), password.getString(), acl_from_JSON(acl));
+		}
 	}
 	set_secret(secret.getString());
 	return true;
@@ -242,14 +252,6 @@ bool Auth::cmpTokenCache(const TokenInfo &a, const std::string_view &b) {
 
 bool AuthService::init_from_JSON(json::Value config) {
 	bool r = Auth::init_from_JSON(config);
-	public_acl.reset_all();
-	has_public_acl = false;
-	if (r) {
-		if (config["guest"].getBool()) {
-			has_public_acl = true;
-			public_acl.set(ACL::viewer);
-		}
-	}
 	admin_party = !r;
 	return r;
 }
@@ -284,7 +286,7 @@ AuthService::User AuthService::get_user(const userver::HttpServerRequest  &req) 
 		User u = Auth::get_user(auth_cookie);
 		if (u.exists) return u;
 	}
-	return {has_public_acl, "", public_acl, false};
+	return {false, "", public_acl,false};
 }
 
 

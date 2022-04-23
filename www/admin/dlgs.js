@@ -8,6 +8,7 @@ function create_form(formdesc, langcat, category, dialog) {
 function load_template(id) {
 	var form = TemplateJS.View.fromTemplate(id);
 	theApp.langobj.translate_node(form.getRoot(), id);
+	load_icons(form.getRoot());
 	return form;
 }
 
@@ -103,4 +104,13 @@ async function dialog_change_pwd(cb) {
 		{name:"cancel",type:"button",bottom:true}
 		],"change_password","Change password",cb);
 		return chdata;
+}
+
+function load_icons(root) {
+	Array.prototype.forEach.call(root.querySelectorAll("[data-icon]"),el=>{
+		let id = el.dataset.icon;
+		let img = TemplateJS.loadTemplate(id);
+		el.insertBefore(img,el.firstChild);
+	});
+
 }
