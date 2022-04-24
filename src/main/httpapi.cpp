@@ -696,23 +696,30 @@ bool HttpAPI::get_api_admin_config(Req &req, const Args &) {
 
 
 bool HttpAPI::post_api_admin_config(Req &req, const Args &v) {
-	req->readBody(req, max_upload) >> [me = PHttpAPI(this)](Req &req, const std::string_view &text) {
+	req->readBody(req, max_upload) >> [me = PHttpAPI(this)](Req &req, std::string_view text) {
 		auto auth = me->core->get_auth().lock();
 		auto user = auth->get_user(*req);
 		if (!auth->check_auth(user, ACL::config_edit, *req)) return;
 		try {
+			auth.release();
 			std::lock_guard _(me->cfg_lock);
-			Value cfg_diff = Value::fromString(text);
-			if (!user.acl.is_set(ACL::users)) cfg_diff.setItems({
-				{"users",json::undefined},
-				{"session_hash",json::undefined}
-			});
 			Value cfg = me->core->get_config();
-			Value cfg_merged = merge_JSON(cfg, cfg_diff);
-			Value users = cfg_merged["users"];
-			if (users.defined()) {
-				users = AuthService::conv_pwd_to_hash(users);
-				cfg_merged.setItems({{"users",users}});
+			Value cfg_merged;
+			userver::trim(text);
+			if (text.empty()) {
+				cfg_merged = cfg;
+			} else {
+				Value cfg_diff = Value::fromString(text);
+				if (!user.acl.is_set(ACL::users)) cfg_diff.setItems({
+					{"users",json::undefined},
+					{"session_hash",json::undefined}
+				});
+				cfg_merged = merge_JSON(cfg, cfg_diff);
+				Value users = cfg_merged["users"];
+				if (users.defined()) {
+					users = AuthService::conv_pwd_to_hash(users);
+					cfg_merged.setItems({{"users",users}});
+				}
 			}
 			me->core->setConfig(cfg_merged);
 			req->setStatus(202);

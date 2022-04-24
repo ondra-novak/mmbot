@@ -9,6 +9,11 @@
 <body onload="start()">
 
 <x-icons>
+<template id="svg_apply">
+<svg viewBox="50 50 300 300">
+<g><path d="M 212.142 235.592 C 204.979 243.902 197.772 243.939 190.523 235.705 L 134.597 172.185 C 127.347 163.95 130.929 159.796 145.342 159.721 L 161.149 159.639 L 161.149 74.018 C 161.149 68.495 165.626 64.018 171.149 64.018 L 232.274 64.018 C 237.797 64.018 242.274 68.495 242.274 74.018 L 242.274 159.216 L 256.53 159.142 C 270.943 159.067 274.568 163.185 267.405 171.494 L 212.142 235.592 Z M 289.735 295.53 C 289.735 304.826 282.075 312.362 272.627 312.362 C 263.179 312.362 255.519 304.826 255.519 295.53 C 255.519 286.234 263.179 278.698 272.627 278.698 C 282.075 278.698 289.735 286.234 289.735 295.53 Z M 86.64 256.622 L 310.712 256.622 C 321.377 256.622 330.022 264.692 330.022 274.647 L 330.022 319.171 C 330.022 329.127 321.377 337.196 310.712 337.196 L 86.64 337.196 C 75.975 337.196 67.329 329.127 67.329 319.171 L 67.329 274.647 C 67.329 264.692 75.975 256.622 86.64 256.622 Z M 89.709 289.042 L 89.709 304.28 C 89.709 311.746 96.193 317.799 104.192 317.799 L 295.824 317.799 C 303.822 317.799 310.307 311.746 310.307 304.28 L 310.307 289.042 C 310.307 281.576 303.822 275.523 295.824 275.523 L 104.192 275.523 C 96.193 275.523 89.709 281.576 89.709 289.042 Z" style="stroke: rgb(0, 0, 0); fill: rgb(0, 200, 100); stroke-width: 2px;"></path></g>
+</svg>
+</template>
 <template id="svg_user">
 <svg version="1.1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
 <path class="svgicon" d="M454.426,392.582c-5.439-16.32-15.298-32.782-29.839-42.362c-27.979-18.572-60.578-28.479-92.099-39.085
@@ -144,13 +149,16 @@
 <div>
 <div class="toppanel">
 <div class="menuleft">
-<div class="panelbutton"><a href="../index.html" data-strid="statistics">Statistics</a></div>
-<div class="panelbutton"><a href="" data-strid="reports">Reports</a></div>
+<div class="panelbutton clickable"><a href="../index.html" data-strid="statistics">Statistics</a></div>
+<div class="panelbutton clickable"><a href="" data-strid="reports">Reports</a></div>
 </div>
 <div class="menuright">
-<div data-name="save" class="panelbutton">
-	<img src="../res/save_icon.png" class="fonticon"><span data-strid="apply">Apply settings</span><div data-name="saveok" class="save hide ok" hidden="hidden">✓</div>
-	<div data-name="saveprogress" class="save spinner fast" hidden="hidden"></div></div>
+<div class="panelbutton clickable" data-name="save">
+	<div class="circle-loader"></div>
+	<span  data-icon="svg_apply"></span>
+	<span data-strid="apply">Apply settings</span>
+
+	</div>
 <div class="panelbutton usermenu" data-name="usermenu" data-icon="svg_user">
 <div class="right submenu">
 <div data-name="uname"  class="smalltitle"></div>
@@ -186,9 +194,9 @@
 <div class="optionsgrid">
 <a href="#menu=options&submenu=users" data-name="users" class="block" data-icon="svg_users">
 <span data-strid="users">Users</span></a>
-<a href="#menu=options&submenu=apikeys" class="block" data-icon="svg_apikeys">
+<a href="#menu=options&submenu=apikeys" data-name="apikeys" class="block" data-icon="svg_apikeys">
 <span data-strid="apikeys">API keys</span></a>
-<a href="#menu=options&submenu=wallet" class="block" data-icon="svg_wallet">
+<a href="#menu=options&submenu=wallet" class="block" data-name="walletview" data-icon="svg_wallet">
 <span data-strid="wallet">Wallet</span></a>
 <a href="#menu=options&submenu=misc" class="block" data-icon="svg_misc">
 <span data-strid="misc">Misc. settings</span></a>

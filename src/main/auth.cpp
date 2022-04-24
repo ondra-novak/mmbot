@@ -29,6 +29,7 @@ json::NamedEnum<ACL> strACL({
 	{ACL::config_view, "config_view"},
 	{ACL::backtest, "backtest"},
 	{ACL::users, "users"},
+	{ACL::wallet_view, "wallet_view"},
 	{ACL::api_key, "api_key"},
 	{ACL::manual_trading, "manual_trading"},
 	{ACL::must_change_pwd, "must_change_pwd"},

@@ -111,7 +111,7 @@
 		"set_pwd":"Set password",
 		"edit_user":"Edit user",
 		"edit_public_access":"Edit public access",		
-		"delete","Delete"
+		"delete":"Delete"
 					
 	},
 	"page_users":{

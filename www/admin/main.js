@@ -9,7 +9,8 @@ async function formTest() {
 class App {
 	
     lang = new Lang();
-	page_root = null;	
+	page_root = null;
+	page_refresh = null;	
 	
 	constructor() {
 		this.langobj = new Lang();
@@ -18,7 +19,7 @@ class App {
 	}
 	
 	async start() {
-		this.lang_list = this.lang.get_list();
+		this.lang_list = app_config.available_languages;
 		var r = await Promise.all([
 			ui_fetch("/forms"),
 			(async ()=>{
@@ -68,7 +69,8 @@ class App {
 				usermenu:{classList:{
 					exists:usr.exists,
 					jwt:usr.jwt
-				}}
+				}},
+				save:{"!click":this.save_config.bind(this)}
 			}
 			this.cur_user = usr;
 			this.page_root.setData(data);
@@ -110,7 +112,7 @@ class App {
 		],"logout_dlg","Confirm logout");
 		try {
 			await ui_fetch("/user",{method:"DELETE"});
-			this.on_login({"user":"","exists":false});
+			location.href="?";
 		}catch (e) {
 			errorDialog(e);
 		}
@@ -130,12 +132,15 @@ class App {
 				errorDialog(e);
 			}
 			
+		} else {
+			this.orig_config = this.config = {};
 		}
 	}
 	
 	async login() {
 		this.cur_user = await ui_login();
-		await update_ui();
+		await this.update_ui();
+		if (this.page_refresh) this.page_refresh();
 	}
 	
 	router() {
@@ -163,143 +168,55 @@ class App {
 					  .join("&");
 		location.hash = h;
 	}
-	
-	
+
+	toggle_saving(b) {		
+		this.saving_in_progess = b;
+		this.page_root.setData({save:{classList:{processing:b===true,done:b===false}}})
+	}
+
+	async save_config() {
+		try {
+			if (this.saving_in_progess) return;
+			this.toggle_saving(true);
+			var cfgdiff = createDiff(this.orig_config,this.config);
+			var fincfg = await post_json("/config", cfgdiff);
+			this.orig_config = fincfg;
+			this.config = JSON.parse(JSON.stringify(fincfg));
+			
+			this.toggle_saving(false);
+		} catch (e) {
+			this.toggle_saving(null);
+			errorDialog(e);
+			return;
+		}
+		if (this.page_refresh) this.page_refresh();
+	}	
+		
+	async set_active_page(page, refresh_fn) {
+		this.page_root.setData({"workspace":page});
+		this.page_refresh = refresh_fn;
+		if (refresh_fn) return await refresh_fn();
+		else return null;
+	}
+		
 	
 	page_options() {
 		var page = load_template("options_grid");
-		this.page_root.setData({"workspace":page});									 		
+		this.set_active_page(page,()=>{
+			const me = this.cur_user;
+			var data={
+				users:{".hidden":!me.users},
+				apikeys:{".hidden":!me.api_key},
+				walletview:{".hidden":!me.wallet_view}
+			};
+			page.setData(data);
+			
+		});
+		this.page_refresh();
 	}
 	page_options_users() {
-		
-		 const acl_to_list = (acls)=> {		
-			var lst = Object.keys(acls).filter(x=>acls[x]);
-			return lst.map(x=>{return {"":{"value":this.langobj.get_text("user_dlg",x,x),".dataset.strid":"user_dlg."+x}}});				
-		};
-				
-		
-		
-		const acl_buttons = () =>{
-			return this.form_defs.acls.map(x=>{
-				return {name:x,type:"checkbox",default:x!="must_change_pwd"}
-			});
-		};
-		
-		const new_user_dlg=()=>{
-			var fdef = acl_buttons();
-			fdef = [{name:"user",type:"string",event:"input"},
-			 {name:"err_exists",type:"errmsg"},
-			 {name:"pwd",type:"string",default:Math.random().toString(36).slice(2),event:"input"},
-			 {name:"ok",type:"button",bottom:true,"enableif":{user:{"!=":""},pwd:{"!=":""}}},
-			 {name:"cancel",type:"button",bottom:true},
-			 {name:"acls",type:"label"}
-			].concat(fdef);
-			
-			
-			var dlg = create_form(fdef,"user_dlg","","create_user");
-			dlg.openModal();
-			dlg.setDefaultAction(()=>{
-				var d = dlg.readData();
-				var r = {user:d.user,pwd:d.pwd,acl:d};
-				delete d.user; delete d.pwd;
-				if (!this.config.users.find(x=>x.user == r.user)) { 
-					this.config.users.push(r);
-					dlg.close();			
-					refresh();
-				} else {
-					dlg.mark("err_exists");
-				}
-			},"ok");
-			dlg.setCancelAction(()=>{
-				dlg.close();
-			},"cancel");
-		};
-
-		const edit_user_dlg=(user)=>{
-			var fdef = acl_buttons();
-			fdef = [{name:"user",type:"string",event:"input","disableif":{}},
-					{name:"set_pwd",type:"checkbox",default:!!user.pwd},
-				    {name:"pwd",type:"string",showif:{set_pwd:true},default:Math.random().toString(36).slice(2),event:"input"},
-					{name:"ok",type:"button",bottom:true,"disableif":{pwd:"",set_pwd:true}},
-					{name:"delete",type:"button",bottom:true},
-					{name:"cancel",type:"button",bottom:true},
-					{name:"acls",type:"label"}
-			].concat(fdef);
-			var data = Object.assign({
-				user:user.user,
-				pwd:user.pwd,
-			},user.acl);
-			var dlg = create_form(fdef,"user_dlg","","edit_user");
-			dlg.setData(data);
-			dlg.openModal();
-			dlg.setItemEvent("delete","click",()=>{
-				this.config.users = this.config.users.filter(x=>x.user != user.user);
-				dlg.close();			
-				refresh();				
-			});
-			dlg.setDefaultAction(()=>{
-				var d = dlg.readData();
-				var r = {user:d.user,acl:d};
-				if (d.set_pwd) r.pwd = d.pwd;
-				delete d.user; delete d.pwd; delete d.set_pwd;
-				delete user.pwd;
-				Object.assign(user, r);
-				dlg.close();			
-				refresh();
-			},"ok");
-			dlg.setCancelAction(()=>{
-				dlg.close();
-			},"cancel");			
-		}
-
-		const edit_public_dlg=(cur_acl)=>{
-			var fdef = acl_buttons();
-			fdef = [
-				{name:"acls",type:"label"},
-				{name:"viewer",type:"checkbox",default:!!cur_acl.viewer},
-			 {name:"reports",type:"checkbox",default:!!cur_acl.reports},
-			 {name:"config_view",type:"checkbox",default:!!cur_acl.config_view},
-			 {name:"ok",type:"button",bottom:true,"enableif":{username:{"!=":""},password:{"!=":""}}},
-			 {name:"cancel",type:"button",bottom:true}];
-			
-			var dlg = create_form(fdef,"user_dlg","","edit_public_access");
-			dlg.openModal();
-			dlg.setDefaultAction(()=>{
-				var pub = this.config.users.find(x=>!!x.public);
-				if (!pub) {
-					pub = {public:true}; this.config.users.push(pub);
-				}
-				pub.acl = dlg.readData();
-				dlg.close();			
-				refresh();				
-			},"ok");
-			dlg.setCancelAction(()=>{
-				dlg.close();
-			},"cancel");
-		};	
-		var page = load_template("page_users");
-		this.page_root.setData({"workspace":page});
 		if (!this.config.users) this.config.users = [];
-		const refresh = () => {
-			var users = this.config.users;
-			var pacl_src = (users.find(x=>!!x.public) || {acl:{}}).acl;
-			var pacl = acl_to_list(pacl_src);
-			var fdata = {
-				public_user:{classList:{accdis:pacl.length==0},"!click":()=>edit_public_dlg(pacl_src)},
-				public_acl: pacl,
-				add_user: {"!click":new_user_dlg},
-				users:users.filter(x=>!x.public).map(x=>{
-					var pacl = acl_to_list(x.acl);
-					return {user:x.user, acl:pacl ,"":{classList:{accdis:pacl.length==0},"!click":()=>edit_user_dlg(x)}};
-				})
-			};
-			page.setData(fdata);
-			load_icons(page.getRoot());
-		};
-		refresh();
-
-		
-					
+		page_options_users(this, this.config.users);					
 	}
 	unknown_page() {
 		this.page_root.setData({"workspace":load_template("unknown_page")});

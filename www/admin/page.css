@@ -109,8 +109,8 @@ div.toppanel {display: flex;justify-content: space-between;align-items: center;a
 
 .optionsgrid {display: flex;flex-wrap: wrap;align-items: center;justify-content: center;gap: 1px;}
 
-.optionsgrid > * {width: 120px;height: 120px;text-align: center;padding: 0.5em;background-color: #222;display: flex !important;flex-direction: column;align-items: center;justify-content: center;align-content: center;border-radius: 20px 20px;cursor: pointer;}
-
+.optionsgrid > * {width: 120px;height: 120px;text-align: center;padding: 0.5em;background-color: #222;display: flex;flex-direction: column;align-items: center;justify-content: center;align-content: center;border-radius: 20px 20px;cursor: pointer;}
+.optionsgrid > a.block {display: flex;} 
 .optionsgrid > *:hover {background-color: #442;}
 
 .optionsgrid span {display: block;margin-top: 0.5em;}
@@ -120,30 +120,33 @@ div.toppanel {display: flex;justify-content: space-between;align-items: center;a
 	/* content: ""; */
 display: block;padding-top: 100%;float: left;} 
 div.toppanel > div.menuleft {display: flex;justify-content: flex-start;gap: 1em;width: 47%;}
-div.toppanel > div.menuright {display: flex;justify-content: flex-end;gap:  1em;/* width: 47%; */}
-div.panelbutton {display:flex;flex-wrap: wrap;align-items: center;justify-items: center;align-content: center;justify-content: center; cursor: pointer;padding: 0 0.5vw;height: 4em;position:relative}
+div.toppanel > div.menuright {display: flex;justify-content: flex-end;}
+div.panelbutton {display:flex;flex-wrap: wrap;align-items: center;justify-items: center;align-content: center;justify-content: center; cursor: pointer;padding: 0 0.5vw;height: 4em;position:relative;text-shadow: 2px 2px 5px black;}
+
+.panelbutton.clickable:active {transform: translate(2px,2px);text-shadow: 0px 0px 5px black;}
 
 div.panelbutton.usermenu >svg> .svgicon {fill: #d6d6d6;}
 div.panelbutton.usermenu.jwt >svg> .svgicon {fill: yellow;}
 div.panelbutton.usermenu.exists >svg> .svgicon {fill: #65b065;}
-div.panelbutton img, div.panelbutton svg {width: 40px;}
-div.panelbutton span {white-space: nowrap;}
+div.panelbutton img, div.panelbutton svg {width: 40px;filter: drop-shadow(2px 2px 6px black);}
+div.panelbutton.clickable:active img, div.panelbutton.clickable:active svg {width: 40px;filter: drop-shadow(0px 0px 6px black);}
+div.panelbutton span {white-space: nowrap;padding: 0.3em;}
 svg .svgicon {
 	fill: #cdcdcd;
 }
 div.panelbutton:hover {
-	background-color: gray;
+	background-color: #554;
 }
 div.panelbutton > div.right.submenu {
 	position: absolute;
 	top: 4em;
 	
-	right:0;
+	z-index: 2;right:0;
 	
 	border: 1px solid #883;
 	background-color: #442;
 	display:none;
-box-shadow: 0px 10px 11px 0px black;}
+box-shadow: 0px 10px 11px 0px black;opacity: 0.99;}
 div.panelbutton:hover > div.right.submenu {
 	display: block;
 }
@@ -163,3 +166,94 @@ ul.menu > li:hover {background-color: #663;}
 div.smalltitle {
 	
 text-align: center;padding: 0.5em;font-weight: bold;border-bottom: 1px solid;}
+
+.circle-loader {
+  display:none;
+  position: relative;
+  vertical-align: middle;
+  width: 2em;
+  height: 2em;
+  box-sizing: border-box;
+}
+
+.done .circle-loader {
+	animation: circle-loader-vanish 2s linear;
+	animation-fill-mode: forwards;
+}
+
+.circle-loader::before {
+  position: absolute;
+  left:0;
+  top:0;
+  right:0;
+  bottom:0;
+  content:"";
+  display:block;	
+  border-radius: 50%;
+  background-color: #0800;
+  animation: loader-spin 0.5s infinite linear;
+  border: 0.3em solid rgba(0, 0, 0, 0.2);
+  border-left-color: #ff4;
+  border-right-color: #ff4;
+}
+
+.processing .circle-loader::before {
+}
+
+.done .circle-loader::before {
+  display: inline-block;
+  border-width: 0;
+  background-color: #080F;
+  animation: circle-loader-bg 0.5s linear;
+}
+
+.processing .circle-loader,.done .circle-loader {
+	display: inline-block;
+overflow: hidden;}
+
+.done .circle-loader > .checkmark {
+   display: block; 
+}
+.circle-loader > .checkmark {
+   display: none; 
+}
+
+.circle-loader::after {
+  height: 1em;
+  width: 0.5em;
+  transform-origin: left top;
+  border-right: 0.4em solid white;
+  border-top: 0.4em solid white;
+  content: "";
+  left: 0.4em;
+  top: 1.1em;
+  position: absolute;  
+  transform: scaleX(-1) rotate(135deg);
+  opacity: 0;
+}
+.done .circle-loader::after {  
+  animation-duration: 400ms;
+  animation-timing-function: ease;
+  animation-name: checkmark;
+  animation-fill-mode: forwards;opacity: 1;
+}
+
+@keyframes loader-spin {
+  0% {  transform: rotate(0deg); }
+  100% {  transform: rotate(360deg); }
+}
+@keyframes checkmark {
+  0% {   height: 0;  width: 0; }
+  50% {   height: 0;   width: 0.3em; }
+  100% {   height: 0.8em;   width: 0.3em; }  
+}
+
+@keyframes circle-loader-vanish {
+	0% {max-width: 2em;	opacity: 1;}
+	80%{max-width: 2em;opacity: 1;}
+	100% {	max-width: 0;	opacity: 0;}
+}
+@keyframes circle-loader-bg {
+	0% {background-color: #0000;}
+	100% {background-color: #080F;}
+}
