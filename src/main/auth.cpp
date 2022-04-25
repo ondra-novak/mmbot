@@ -314,6 +314,20 @@ bool AuthService::check_auth(const User &user, ACL acl, userver::HttpServerReque
 	return false;
 }
 
+bool AuthService::check_auth(const User &user, const ACLSet &acl, userver::HttpServerRequest &req, bool basic_auth) const {
+	if (user.acl.is_set(acl)) return true;
+	if (!check_auth(user, req, basic_auth)) return false;
+	req.sendErrorPage(403);
+	return false;
+}
+
+bool AuthService::check_auth_all(const User &user, const ACLSet &acl, userver::HttpServerRequest &req, bool basic_auth) const {
+	if (user.acl.is_set_all(acl)) return true;
+	if (!check_auth(user, req, basic_auth)) return false;
+	req.sendErrorPage(403);
+	return false;
+}
+
 AdminPartyException::AdminPartyException():std::runtime_error("Can't create session in 'admin_party' mode") {
 
 }

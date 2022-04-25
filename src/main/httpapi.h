@@ -39,7 +39,9 @@ public:
 
 	void init(std::shared_ptr<userver::OpenAPIServer> server);
 
-	bool check_acl(Req& req, ACL acl);
+	template<typename ACL>
+	bool check_acl(Req& req, const ACL &acl);
+
 protected:
 
 	static std::string ctx_json;
@@ -71,11 +73,13 @@ protected:
 	bool delete_api_user(Req& req, const Args& args);
 
 	bool get_api_admin_broker(Req &req, const Args &args);
+	bool get_api_admin_broker_broker(Req &req, const Args &args);
 	bool delete_api_admin_broker(Req &req, const Args &args);
 	bool get_api_admin_broker_icon_png(Req &req, const Args &args);
 	bool get_api_admin_broker_licence(Req &req, const Args &args);
 	bool get_api_admin_broker_apikey(Req &req, const Args &args);
 	bool put_api_admin_broker_apikey(Req &req, const Args &args);
+	bool delete_api_admin_broker_apikey(Req &req, const Args &args);
 	bool get_api_admin_broker_pairs(Req &req, const Args &args);
 	bool get_api_admin_broker_pairs_pair(Req &req, const Args &args);;
 	bool get_api_admin_broker_pairs_ticker(Req &req, const Args &args);

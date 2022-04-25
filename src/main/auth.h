@@ -36,20 +36,25 @@ enum class ACL {
 extern json::NamedEnum<ACL> strACL;
 
 struct ACLSet {
+	constexpr ACLSet() {}
+	constexpr explicit ACLSet(const std::initializer_list<ACL> &acl) {for (const auto &x: acl) set(x);}
+	constexpr explicit ACLSet(bool x) {if (x) set_all(); else reset_all();}
 	unsigned int val = 0;
-	bool is_set (const ACL &x) const {return (val & (1<<static_cast<unsigned int>(x)));}
-	void set (const ACL &x) { val = (val | (1<<static_cast<unsigned int>(x)));}
-	void reset (const ACL &x) {val = (val & ~(1<<static_cast<unsigned int>(x)));}
-	void toggle(const ACL &x, bool val) {
+	constexpr bool is_set (const ACL &x) const {return (val & (1<<static_cast<unsigned int>(x)));}
+	constexpr bool is_set_all (const ACLSet &x) const {return (val & x.val) == x.val;}
+	constexpr bool is_set (const ACLSet &x) const {return (val & x.val) != 0;}
+	constexpr void set (const ACL &x) { val = (val | (1<<static_cast<unsigned int>(x)));}
+	constexpr void reset (const ACL &x) {val = (val & ~(1<<static_cast<unsigned int>(x)));}
+	constexpr void toggle(const ACL &x, bool val) {
 		if (val) set(x); else reset(x);
 	}
-	bool toggle(const ACL &x) {
+	constexpr bool toggle(const ACL &x) {
 		bool z = !is_set(x);
 		if (z) set(x); else reset(x);
 		return z;
 	}
-	void set_all() {val = ~0;}
-	void reset_all() {val = 0;}
+	constexpr void set_all() {val = ~0;}
+	constexpr void reset_all() {val = 0;}
 };
 
 
@@ -141,6 +146,8 @@ public:
 	bool init_from_JSON(json::Value config);
 	bool check_auth(const User &user, userver::HttpServerRequest &req, bool basic_auth = false) const;
 	bool check_auth(const User &user, ACL acl, userver::HttpServerRequest &req, bool basic_auth = false) const;
+	bool check_auth(const User &user, const ACLSet &acl, userver::HttpServerRequest &req, bool basic_auth = false) const;
+	bool check_auth_all(const User &user, const ACLSet &acl, userver::HttpServerRequest &req, bool basic_auth = false) const;
 	static void basic_auth(userver::HttpServerRequest &req);
 	bool change_password(json::Value &cfg, const User &user, const std::string_view &old_pwd, const std::string_view &new_pwd);
 

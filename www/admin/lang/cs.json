@@ -117,5 +117,30 @@
 		"public":"Bez přihlášení",
 		"add":"Přidat uživatele",
 		"title":"Uživatelé"
+	},
+	"subaccount_dlg":{
+		"create_subaccount":"Vytvoření podúčtu",
+		"id":"Jméno podúčtu (pouze písmena a číslice)",
+		"ok":"OK",
+		"cancel":"Storno"
+	},
+	"delete_api_key_dlg":{
+		"delask":"Opravdu si přejete smazat tento klíč?",
+		"name":"Směnárna",
+		"subaccount":"Podúčet",
+		"ok":"Ano (Smazat klíč)",
+		"cancel":"Storno"
+	},
+	"broker_select":{
+		"title":"Vyber směnárnu",
+		"cancel":"Storno",
+		"subaccount":"Přidat podúčet (další účet ve stejné směnárně)"
+	},
+	"okcanceldlg":{
+		"create_account":"Registrovat nový účet"
+	},
+	"page_apikeys":{
+		"title":"API Klíče",
+		"add":"Přidat klíč"
 	}
 }

@@ -21,14 +21,14 @@ public:
 
 	Interface(const std::string &path)
 		:AbstractBrokerAPI(path,{Object({
-				{"name","pubKey"},
-				{"label","Public key"},
-				{"type", "string"}
+			{"name","privKey"},
+			{"label","Private key"},
+			{"type", "string"}
 		}),
 			Object({
-				{"name","privKey"},
-				{"label","Private key"},
-				{"type", "string"}
+			{"name","pubKey"},
+			{"label","Public key"},
+			{"type", "string"}
 		}),
 			Object({
 				{"name","clientId"},

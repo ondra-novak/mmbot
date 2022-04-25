@@ -32,7 +32,8 @@ bool HttpAPI::get_api__up(Req &req, const Args &args) {
 	return true;
 }
 
-bool HttpAPI::check_acl(Req &req, ACL acl) {
+template<typename ACL>
+bool HttpAPI::check_acl(Req &req,const ACL &acl) {
 	auto auth = core->get_auth().lock();
 	auto user = auth->get_user(*req);
 	return auth->check_auth(user, acl, *req);
@@ -41,7 +42,7 @@ bool HttpAPI::check_acl(Req &req, ACL acl) {
 
 
 bool HttpAPI::get_api_data(Req &req, const Args &args) {
-	if (!check_acl(req, ACL::viewer)) return true;
+	if (!check_acl(req, ACLSet({ACL::viewer,ACL::config_view}))) return true;
 	auto rpt = core->get_report().lock();
 	ondra_shared::RefCntPtr<SSEStream> sse = new SSEStream(std::move(req));
 	if (!sse->init(true)) return true;
@@ -246,7 +247,7 @@ static json::Value brokerToJSON(const std::string_view &id, const IBrokerControl
 
 
 bool HttpAPI::get_api_admin_broker(Req &req, const Args &args) {
-	if (!check_acl(req, ACL::config_view)) return true;
+	if (!check_acl(req, ACLSet{ACL::config_view,ACL::api_key})) return true;
 	Array out;
 	core->get_broker_list()->enum_brokers([&](const std::string_view &name, const PStockApi &api){
 		IBrokerControl *binfo = dynamic_cast<IBrokerControl *>(api.get());
@@ -255,6 +256,20 @@ bool HttpAPI::get_api_admin_broker(Req &req, const Args &args) {
 		}
 	});
 	send_json(req, out);
+	return true;
+}
+
+bool HttpAPI::get_api_admin_broker_broker(Req &req, const Args &args) {
+	if (!check_acl(req, ACLSet{ACL::config_view,ACL::api_key})) return true;
+	Array out;
+	PStockApi api = core->get_broker_list()->get_broker(args["broker"]);
+	IBrokerControl *binfo = dynamic_cast<IBrokerControl *>(api.get());
+	if (binfo) {
+		out.push_back(brokerToJSON(args["broker"], binfo->getBrokerInfo(), req->getRootPath()));
+		send_json(req, out);
+	} else {
+		api_error(req, 404, "Broker not found");
+	}
 	return true;
 }
 
@@ -298,7 +313,7 @@ bool HttpAPI::get_api_admin_broker_licence(Req &req, const Args &args) {
 }
 
 bool HttpAPI::get_api_admin_broker_apikey(Req &req, const Args &args) {
-	if (!check_acl(req, ACL::config_view)) return true;
+	if (!check_acl(req, ACL::api_key)) return true;
 	auto brk = core->get_broker_list()->get_broker(args["broker"]);
 	auto bc = dynamic_cast<IApiKey *>(brk.get());
 	if (bc) {
@@ -312,7 +327,7 @@ bool HttpAPI::get_api_admin_broker_apikey(Req &req, const Args &args) {
 bool HttpAPI::put_api_admin_broker_apikey(Req &req, const Args &args) {
 	req->readBody(req, max_upload) >> [me=PHttpAPI(this), broker = std::string(args["broker"])]
 				(Req &req, const std::string_view &body) {
-		if (!me->check_acl(req, ACL::config_edit)) return;
+		if (!me->check_acl(req, ACL::api_key)) return;
 		try {
 			json::Value data = json::Value::fromString(body);
 			auto brk = me->core->get_broker_list()->get_broker(broker);
@@ -339,6 +354,30 @@ bool HttpAPI::put_api_admin_broker_apikey(Req &req, const Args &args) {
 	return true;
 
 }
+
+bool HttpAPI::delete_api_admin_broker_apikey(Req &req, const Args &args) {
+	auto broker = std::string(args["broker"]);
+	if (!check_acl(req, ACL::api_key)) return true;
+	auto brk = core->get_broker_list()->get_broker(broker);
+	auto bc = dynamic_cast<IApiKey *>(brk.get());
+	if (bc) {
+		try {
+			bc->setApiKey(nullptr);
+		} catch (const AbstractExtern::Exception &e) {
+			if (e.isResponse()) {
+				api_error(req, 409, e.what());
+				return true;
+			} else {
+				throw;
+			}
+		}
+		send_json(req,true);
+	} else {
+		api_error(req,404);
+	}
+	return true;
+}
+
 
 bool HttpAPI::get_api_admin_broker_pairs(Req &req, const Args &args) {
 	auto brk = core->get_broker_list()->get_broker(args["broker"]);

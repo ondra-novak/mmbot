@@ -118,7 +118,29 @@
 		"public":"Public access",
 		"add":"Add user",
 		"title":"Users"
+	},
+	"subaccount_dlg":{
+		"create_subaccount":"Create subaccount",
+		"id":"Name of subaccount (numbers and letters)",
+		"ok":"OK",
+		"cancel":"Cancel"
+	},
+	"delete_api_key_dlg":{
+		"delask":"Confirm you really want to erase this key?",
+		"name":"Exchange",
+		"subaccount":"Subaccount",
+		"ok":"Yes (Delete key)",
+		"cancel":"Cancel"
+	},
+	"broker_select":{
+		"title":"Select exchange",
+		"cancel":"Cancel",
+		"subaccount":"Setup a new subaccount"
+	},
+	"okcanceldlg":{
+		"create_account":"Register a new account"
 	}
+	
 	
 	
 }

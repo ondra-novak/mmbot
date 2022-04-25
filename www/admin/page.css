@@ -12,11 +12,12 @@ body {
 
 a,.link {color: yellow; text-decoration: underline; cursor: pointer;}
 
-a.block {display: block;color: inherit;text-decoration: none;flex-grow: 1;}
+a.block {display: block;color: inherit;text-decoration: none;/* flex-grow: 1; */}
 
 a.block:visited {color: inherit;}
 a:visited {color: #ffa800;}
 
+svg {filter: drop-shadow(2px 2px 6px black);}
 
 [hidden] {display: none !important;}
 input,select,button,textarea {
@@ -39,7 +40,7 @@ input[readonly] {
 	cursor: default;
 }
 input[disabled],select[disabled],button[disabled],button[disabled]:hover {
-	background-color: #444;
+	background-color: #373737;
 	color: #888;
 	
 }
@@ -80,7 +81,7 @@ x-switch.block[hidden] {
 	display:hidden;
 }
 
-div.toppanel {display: flex;justify-content: space-between;align-items: center;align-content: space-between;background-color: #443;border-bottom: 1px solid #884;box-shadow: 0px 8px 20px black;position: sticky;;top: 0;}
+div.toppanel {display: flex;justify-content: space-between;align-items: center;align-content: space-between;background-color: #443;border-bottom: 1px solid #884;box-shadow: 0px 8px 20px black;position: sticky;;top: 0;z-index: 1000;}
 
 .desktop {margin: 1em 1vw;display: flex;gap: 1em;;}
 
@@ -92,26 +93,42 @@ div.toppanel {display: flex;justify-content: space-between;align-items: center;a
 
 .page h1 {background: linear-gradient(90deg, #332, transparent);padding: 0.5em;border-radius: 10px 10px;border: 1px solid #663;margin: 0;}
 
-.page.users .list {display: flex;flex-wrap: wrap;margin-top: 2em;gap: 1em;;}
+.page .list {display: flex;flex-wrap: wrap;margin-top: 2em;gap: 1em;;}
 
-.page.users .list .user {border: 1px solid #442;width: 18em;padding: 1em;cursor: pointer;border-radius: 5px 5px;font-size: 1.2em;text-align: justify;position: relative;}
+.page .list .item {border: 1px solid #442;width: 18em;padding: 1em;border-radius: 5px 5px;font-size: 1.2em;text-align: justify;z-index: 0;position: relative;}
 
-.page.users .list .user.accdis::after {content: "";display: block;position: absolute;top: 1em;right: 1em;left: 1em;bottom: 1em;background-image: url(cross.svg);background-size: 100% 100%;opacity: 0.3;}
+.page.apikeys .list .item {padding-right: 3em;}
+
+.page.apikeys .item a svg {height: 1.4em;}
+
+.page.apikeys .item .buttons {position: absolute;right: 0.5em;top: 0;bottom: 0;height: 2em;margin: auto;}
+
+.page.apikeys .item .buttons svg {height: 2em;}
+
+.active {cursor: pointer;}
+
+.page.apikeys .list .item .name {display: inline-block;vertical-align: middle;}
+
+.page.apikeys .list .item .name >div:last-child {font-style: italic;}
+
+.page .list .item.accdis::after {content: "";display: block;position: absolute;top: 1em;right: 1em;left: 1em;bottom: 1em;background-image: url(cross.svg);background-size: 100% 100%;opacity: 0.3;}
 
 .page.users .list .acl {flex-direction: row;align-items: flex-end;font-size: 0.7em;font-style: italic;}
 .page.users .list .acl > * {display: inline-block;}
 .page.users .list .acl > *::after {content: ",\00A0";}
 .page.users .list .acl > *:last-child::after {content:none;}
 
-.page.users .list .user:hover {background-color: #333;}
+.active:hover {background-color: #333;}
 
-.page.users .list svg {height: 3em;vertical-align: middle;}
+.page .list svg,.page .list img {height: 3em;vertical-align: middle;}
 
 .optionsgrid {display: flex;flex-wrap: wrap;align-items: center;justify-content: center;gap: 1px;}
 
 .optionsgrid > * {width: 120px;height: 120px;text-align: center;padding: 0.5em;background-color: #222;display: flex;flex-direction: column;align-items: center;justify-content: center;align-content: center;border-radius: 20px 20px;cursor: pointer;}
 .optionsgrid > a.block {display: flex;} 
 .optionsgrid > *:hover {background-color: #442;}
+.optionsgrid > *:active {transform: translate(2px,2px);}
+.optionsgrid > *:active svg {filter: drop-shadow(0px 0px 6px black);}
 
 .optionsgrid span {display: block;margin-top: 0.5em;}
 
@@ -128,7 +145,7 @@ div.panelbutton {display:flex;flex-wrap: wrap;align-items: center;justify-items:
 div.panelbutton.usermenu >svg> .svgicon {fill: #d6d6d6;}
 div.panelbutton.usermenu.jwt >svg> .svgicon {fill: yellow;}
 div.panelbutton.usermenu.exists >svg> .svgicon {fill: #65b065;}
-div.panelbutton img, div.panelbutton svg {width: 40px;filter: drop-shadow(2px 2px 6px black);}
+div.panelbutton img, div.panelbutton svg {width: 40px;}
 div.panelbutton.clickable:active img, div.panelbutton.clickable:active svg {width: 40px;filter: drop-shadow(0px 0px 6px black);}
 div.panelbutton span {white-space: nowrap;padding: 0.3em;}
 svg .svgicon {
@@ -149,7 +166,7 @@ div.panelbutton > div.right.submenu {
 box-shadow: 0px 10px 11px 0px black;opacity: 0.99;}
 div.panelbutton:hover > div.right.submenu {
 	display: block;
-}
+z-index: 1;}
 
 ul.menu {
 	padding: 0;
@@ -163,9 +180,11 @@ vertical-align: middle;height: 40px;flex-shrink: 0;}
 
 ul.menu > li:hover {background-color: #663;}
 
-div.smalltitle {
-	
-text-align: center;padding: 0.5em;font-weight: bold;border-bottom: 1px solid;}
+.apikey-popup x-form-item > *:last-child {
+	width: 70%;
+}
+
+div.smalltitle {text-align: center;padding: 0.5em;font-weight: bold;border-bottom: 1px solid;}
 
 .circle-loader {
   display:none;
@@ -211,6 +230,8 @@ text-align: center;padding: 0.5em;font-weight: bold;border-bottom: 1px solid;}
 	display: inline-block;
 overflow: hidden;}
 
+x-form .spinner.processing {text-align: center;}
+
 .done .circle-loader > .checkmark {
    display: block; 
 }
@@ -238,6 +259,11 @@ overflow: hidden;}
   animation-fill-mode: forwards;opacity: 1;
 }
 
+.not-authorized {text-align: center;max-width: 24em;margin: auto;}
+.not-authorized svg {width: 100px;}
+.not-authorized > div {font-size: 1.5em;white-space: normal;font-weight: bold;}
+
+
 @keyframes loader-spin {
   0% {  transform: rotate(0deg); }
   100% {  transform: rotate(360deg); }
@@ -257,3 +283,4 @@ overflow: hidden;}
 	0% {background-color: #0000;}
 	100% {background-color: #080F;}
 }
+

@@ -183,7 +183,9 @@ void HttpAPI::init(std::shared_ptr<OpenAPIServer> server) {
 			{200,"",{{ctx_json,"","array","",{brokerFormat}}}}}).method(me, &HttpAPI::get_api_admin_broker)
 		.DELETE("Brokers","Reload brokers","Terminates all brokers and reloads each when it is accessed. This operation should not be considered as harmful and can solve any temporary issue with a broker",{},"",{},{
 			{202,"Accepted",{}}}).method(me, &HttpAPI::delete_api_admin_broker);
-
+	reg("/api/broker/{broker}")
+		.GET("Brokers","Get info of particular broker","",{brokerId},{
+			{200,"",{{ctx_json,"","array","",{brokerFormat}}}}}).method(me, &HttpAPI::get_api_admin_broker_broker);
 
 	reg("/api/broker/{broker}/icon.png")
 		.GET("Brokers","Broker's favicon","",{brokerId},
@@ -202,7 +204,8 @@ void HttpAPI::init(std::shared_ptr<OpenAPIServer> server) {
 			}}}},{
 			{OpenAPIServer::ResponseObject{200,"OK",{{ctx_json,"","boolean","true"}}}},
 			{OpenAPIServer::ResponseObject{409,"Conflict (invalid api key)",{{ctx_json,"","string","Error message returned by exchange API server"}}}}
-			}).method(me, &HttpAPI::put_api_admin_broker_apikey);
+			}).method(me, &HttpAPI::put_api_admin_broker_apikey)
+		.DELETE("Brokers","Delete APIKEY","",{brokerId},"").method(me, &HttpAPI::delete_api_admin_broker_apikey);
 
 	reg("/api/broker/{broker}/pairs")
 		.GET("Brokers","List of available pairs","",{brokerId,{"flat","query","boolean","return flat structure (default false)",{},false}},

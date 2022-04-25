@@ -134,7 +134,12 @@ class App {
 			
 		} else {
 			this.orig_config = this.config = {};
+			let dlg = load_template("not_authorized");
+			dlg.openModal();
+			dlg.setDefaultAction(()=>{this.login();dlg.close();},"ok");
+			dlg.setCancelAction(()=>{dlg.close();},"cancel");
 		}
+		this.page_root.showItem("save", this.cur_user.config_edit);
 	}
 	
 	async login() {
@@ -207,7 +212,14 @@ class App {
 			var data={
 				users:{".hidden":!me.users},
 				apikeys:{".hidden":!me.api_key},
-				walletview:{".hidden":!me.wallet_view}
+				walletview:{".hidden":!me.config_view},
+				misc:{".hidden":!me.config_view},
+				exchanges:{".hidden":!me.wallet_view},
+				archive:{".hidden":!me.config_view},
+				global_stop:{".hidden":!me.config_edit},
+				reload_brokers:{".hidden":!me.config_edit},
+				messages:{".hidden":!me.config_view || !me.exists},
+				utilization:{".hidden":!me.config_view}
 			};
 			page.setData(data);
 			
@@ -221,6 +233,10 @@ class App {
 	unknown_page() {
 		this.page_root.setData({"workspace":load_template("unknown_page")});
 	}
+	page_options_apikeys() {
+		page_options_apikeys.call(this);
+	} 
+	
 		
 }
 

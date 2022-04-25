@@ -106,7 +106,17 @@ class FormBuilder {
 									this.langobj.set_node_text(opt, this.langcat, x,x);
 									el.appendChild(opt);
 								});
-						  };
+						  } else if (typeof def.options =="object") {
+								Object.keys(def.options).forEach(x=>{
+									let opt = document.createElement("OPTION");
+									opt.setAttribute("value",def.options[x]);
+									this.langobj.set_node_text(opt, this.langcat, def.options[x],x);
+									el.appendChild(opt);									
+								});
+						  }
+							
+							
+						
 						  break;
 			case "checkbox": el = document.createElement("X-CHECKBOX");
 							 this.langobj.set_node_text(el, this.langcat, def.name+":checkbox","");
@@ -135,6 +145,7 @@ class FormBuilder {
 
 		if (el) {
 			el.dataset.name = def.name;
+			if (def.disableif) el.disabled = true;
 		}
 		if (def.attrs) {
 			Object.keys(def.attrs).forEach(name=>el.setAttribute(name, def.attrs[name]));
@@ -252,6 +263,8 @@ class FormBuilder {
 				}			
 				return c;
 			},true);			
+		} else if (typeof(def) == "function") {
+			return def(value);
 		} else {
 			return def == value;
 		}

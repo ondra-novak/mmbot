@@ -1,7 +1,11 @@
 "use strict";
+function api_uri(url) {
+	return app_config.api_base+url;
+}
+
 async function ui_fetch(url, opts) {
 
-	if (url.startsWith("/")) url = app_config.api_base+url;
+	if (url.startsWith("/")) url = api_uri(url);
 	
 	const req = await fetch(url, opts);
     if (req.status >= 401 && req.status <=403) {
@@ -93,4 +97,8 @@ async function base64_arraybuffer(data) {
     return base64url.split(",", 2)[1]
 }
 
+function broker_path(broker, rest) {
+	var s = api_uri("/broker/")+encodeURIComponent(broker)+(rest?rest:"");
+	return s;
+}
 
