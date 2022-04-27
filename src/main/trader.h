@@ -135,6 +135,8 @@ public:
 	void stop();
 	void erase_state();
 
+	bool is_stopped() const {return stopped;}
+
 	std::size_t get_UUID() const {return uid;}
 	Trader_Config get_config() const {return cfg;}
 
@@ -317,7 +319,8 @@ protected:
 	bool rej_sell = false;
 	///active on first cycle;
 	bool first_run = true;
-
+	///temporary stopped
+	bool stopped = false;
 
 	MinMax safeRange;
 
@@ -354,6 +357,8 @@ protected:
 
 	void do_reset(MarketStateEx &st);
 	static bool do_achieve(const AchieveMode &ach, Control &st);
+
+	void stop_trader();
 
 	bool mst_valid = false;
 	MarketStateEx mst;

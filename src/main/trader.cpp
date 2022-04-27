@@ -416,12 +416,17 @@ void Trader::run() {
 			});
 		}
 
+		if (stopped || !cfg.enabled) {
+			stop_trader();
+			return;
+		}
 
 		if (reset_rev < cfg.reset.revision) {
 			do_reset(mst);
 		}
 
 		if (!position_valid) throw std::runtime_error("Need reset");
+
 
 //		detect_lost_trades(any_trades, mst);
 
@@ -1221,7 +1226,7 @@ IStockApi::MarketInfo Trader::get_market_info() const {
 
 
 void Trader::stop() {
-	cfg.enabled = false;
+	stopped= true;
 }
 
 void Trader::erase_state() {
@@ -1235,7 +1240,7 @@ bool Trader::do_achieve(const AchieveMode &ach, Control &cntr) {
 	const MarketState &state = cntr.get_state();
 	double diff = ach.position - state.position;
 	///difference is less then minimal size, we reached our target
-	if (std::abs(diff) < state.minfo->getMinSize(state.cur_price)) return false;
+	if (std::abs(diff) < 2*state.minfo->getMinSize(state.cur_price)) return false;
 
 	cntr.cancel_buy();
 	cntr.cancel_sell();
@@ -1251,4 +1256,19 @@ MarketState Trader::get_market_state() const {
 
 std::size_t Trader::get_incomplete_trade_count() const {
 	return trades.size() - completed_trades;
+}
+
+void Trader::stop_trader() {
+	try {
+		auto orders = env.exchange->getOpenOrders(cfg.pairsymb);
+		for (const IStockApi::Order &z: orders) {
+			if (z.client_id == magic || z.client_id == magic2) {
+				env.exchange->placeOrder(cfg.pairsymb, 0, 0, json::Value(), z.id, 0);
+			}
+		}
+		env.statsvc->reportError(IStatSvc::ErrorObjEx("Stopped"));
+		env.statsvc->reportOrders(1, {}, {});
+	} catch (...) {
+		report_exception();
+	}
 }

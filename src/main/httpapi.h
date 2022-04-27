@@ -85,6 +85,7 @@ protected:
 	bool get_api_broker_pairs_ticker(Req &req, const Args &args);
 	bool get_api_broker_pairs_settings(Req &req, const Args &args);
 	bool put_api_broker_pairs_settings(Req &req, const Args &args);
+	bool get_api_broker_pairs_traderinfo(Req &req, const Args &args);
 
 	bool get_api_broker_pairs_orders(Req &req, const Args &args);
 	bool put_api_broker_pairs_orders(Req &req, const Args &args);
@@ -112,10 +113,16 @@ protected:
 	bool get_api_wallet(Req &req, const Args &v);
 	bool get_api_utilization(Req &req, const Args &v);
 	bool get_api_broker_wallet(Req &req, const Args &v);
+	bool get_api_trader(Req &req, const Args &v);
+	bool get_api_trader_trader(Req &req, const Args &v);
+	bool delete_api_trader_trader(Req &req, const Args &v);
 	static void redir_to_run(int id, Req &req);
 
 	class DataDownloaderTask;
 	class BacktestState;
+
+
+	void trader_info(Req &req, std::string_view trader_id, std::string_view broker_id, std::string_view pair_id, unsigned int swap_id, bool vis);
 };
 
 

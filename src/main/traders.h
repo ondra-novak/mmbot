@@ -62,6 +62,9 @@ public:
 	PTrader get_trader(const std::string_view &name) const;
 
 
+	auto begin() const {return traders.begin();}
+	auto end() const {return traders.end();}
+
 protected:
 	PBrokerList brokers;
 	PStorageFactory sf;

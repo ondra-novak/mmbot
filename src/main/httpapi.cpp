@@ -784,6 +784,7 @@ bool HttpAPI::post_api_config(Req &req, const Args &v) {
 					{"session_hash",json::undefined}
 				});
 				cfg_merged = merge_JSON(cfg, cfg_diff);
+				if (!cfg_merged.defined()) cfg_merged = cfg;
 				Value users = cfg_merged["users"];
 				if (users.defined()) {
 					users = AuthService::conv_pwd_to_hash(users);
@@ -1169,6 +1170,7 @@ public:
 
 };
 
+
 void HttpAPI::redir_to_run(int id, Req &req) {
 	req->setStatus(201);
 	std::string loc(req->getRootPath());
@@ -1478,225 +1480,234 @@ bool HttpAPI::post_api_editor(Req &req, const Args &v)  {
 				Value rtrader = data["trader"];
 				Value rsymb = data["pair"];
 				Value rswap = data["swap_mode"];
-				std::string pair;
-				std::string broker;
-				std::size_t uid;
-				bool exists = false;
 
-				auto traders = me->core->get_traders().lock_shared();
-
-				PTrader tr = traders->get_trader(rtrader.getString());
-
-
-				PStockApi api;
-				MarketState mst = {};
-				IStockApi::MarketInfo minfo;
-				Value strategy_state;
-				Value strategy_raw_state;
-				Value spread_raw_state;
-				Value visstrategy;
-				MinMax safe_range = {};
-				IStockApi::Orders open_orders;
-				std::size_t partial_executions = 0;
-				ACB partial_offset(0.0, 0.0);
-				double live_assets = 0;
-				double live_currency = 0;
-				double neutral_price = 0;
-				double eq_alloc = 0;
-				double eq = 0;
-				double target_buy = 0, target_sell =0;
-				std::optional<Trader::AchieveMode> achieve;
-				if (tr == nullptr) {
-                                   					auto extBal = me->core->get_ext_balance().lock_shared();
-					pair = rsymb.getString();
-					broker = rbroker.getString();
-					std::unique_lock  lk(me->core->get_cycle_lock(),std::try_to_lock);
-					try {
-						api = me->core->get_broker_list()->get_broker(broker);
-						api = selectStock(api, static_cast<SwapMode3>(rswap.getUInt()), false);
-						if (api == nullptr) {
-							api_error(req,409,"Broker not found");
-							return;
-						}
-						if (lk.owns_lock()) api->reset(std::chrono::system_clock::now());
-						minfo = api->getMarketInfo(pair);
-						IStockApi::Ticker ticker = api->getTicker(pair);
-						mst.cur_time = mst.event_time = ticker.time;
-						mst.cur_price = mst.event_price = ticker.last;
-						live_assets = api->getBalance(minfo.asset_symbol, pair);
-						live_currency = api->getBalance(minfo.currency_symbol, pair);
-						mst.event = MarketEvent::idle;
-						mst.live_assets = live_assets+extBal->get(broker, minfo.wallet_id, minfo.asset_symbol);
-						mst.live_currencies = live_currency+extBal->get(broker, minfo.wallet_id, minfo.currency_symbol);
-						mst.sug_sell_price=mst.lowest_sell_price = ticker.ask;
-						mst.sug_buy_price=mst.highest_buy_price = ticker.bid;
-						uid = 0;
-						exists=false;
-					} catch (std::exception &e) {
-						return api_error(req, 409, e.what());
-					}
-				} else {
-					auto trl = tr.lock_shared();
-					auto balCache = me->core->get_balance_cache().lock_shared();
-					auto walletDB = traders->get_wallet_db().lock_shared();
-					auto cfg = trl->get_config();
-					pair = cfg.pairsymb;
-					broker = cfg.broker;
-					api = trl->get_exchange();
-					mst = trl->get_market_state();
-					minfo = *mst.minfo;
-					uid = trl->get_UUID();
-					partial_executions = trl->get_incomplete_trade_count();
-					partial_offset = trl->get_position_offset();
-					target_buy = trl->get_target_buy();
-					target_sell = trl->get_target_sell();
-					eq_alloc = trl->get_equity_allocation();
-					eq = trl->get_equilibrium();
-					auto stratobj = trl->get_strategy();
-					strategy_state = trl->get_strategy_report();
-					strategy_raw_state = stratobj.save();
-					spread_raw_state = trl->get_spread().save();
-					exists = true;
-					neutral_price = trl->get_neutral_price();
-					live_assets = balCache->get(broker, minfo.wallet_id, minfo.asset_symbol);
-					live_currency = balCache->get(broker, minfo.wallet_id, minfo.currency_symbol);
-
-					safe_range = trl->get_safe_range();
-
-					double g_beg = std::min<double>(std::max<double>(0,safe_range.min),mst.cur_price*0.9);
-					double g_end = std::max<double>(std::min<double>(safe_range.max, 4*mst.cur_price - g_beg),mst.cur_price*1.1);
-
-					struct Pt {
-						double x,b,h,p,y;
-					};
-					std::vector<Pt> points;
-					double prev_y = 0;
-					for (int i = 0; i < 200; i++) {
-						double x = g_beg+(g_end-g_beg)*(i/200.0);
-						auto pt = stratobj.get_chart_point(x);
-						auto pt2 = stratobj.get_chart_point(x*1.01);
-						if (pt.valid && std::isfinite(pt.equity) && std::isfinite(pt.position)) {
-							double y = pt2.valid?pt.position*x*0.01+pt.equity-pt2.equity:0;
-							if (y < 0) y = prev_y;
-							else prev_y = y;
-							points.push_back({
-								minfo.invert_price?1.0/x:x,
-									pt.equity,
-									std::abs(pt.position*x),
-									pt.position,y});
-						}
-					}
-
-					while (!points.empty() && std::abs(points.back().p) < minfo.asset_step) {
-						points.pop_back();
-					}
-					auto cp = stratobj.get_chart_point(mst.cur_price);
-
-					json::Array tangent;
-					for (int i = -50; i <50;i++) {
-						double x = mst.cur_price+(g_end-g_beg)*(i/200.0);
-						tangent.push_back({
-							minfo.invert_price?1.0/x:x,
-							cp.position*(x-mst.cur_price)+cp.equity
-						});
-					}
-
-
-
-
-					visstrategy = json::Object{
-						{"points",json::Value(json::array,points.begin(), points.end(), [](const Pt &pt){
-							return json::Object{
-								{"x",pt.x},{"y",pt.y},{"h",pt.h},{"b",pt.b}
-							};
-						})},
-						{"neutral", neutral_price},
-						{"tangent",tangent},
-						{"current",json::Object{
-							{"x",minfo.invert_price?1.0/mst.cur_price:mst.cur_price},
-							{"b",cp.equity},
-							{"h",std::abs(cp.position*mst.cur_price)},
-						}}
-					};
-
-
-				}
-				mst.minfo = &minfo;
-
-				Object result;
-				IBrokerControl *bcontrol = dynamic_cast<IBrokerControl *>(api.get());
-				if (bcontrol) {
-					auto binfo = bcontrol->getBrokerInfo();
-					result.set("broker",brokerToJSON(broker, binfo, req->getRootPath()));
-				}
-
-				open_orders = api->getOpenOrders(pair);
-
-
-				result.set("pair", pair);
-				result.set("orders", json::Value(json::array, open_orders.begin(), open_orders.end(),[](const IStockApi::Order &ord) {
-					return ord.toJSON();
-				}));
-				result.set("visstrategy",visstrategy);
-				result.set("strategy_raw_state", strategy_raw_state);
-				result.set("spread_raw_state", spread_raw_state);
-				result.set("strategy_state", strategy_state);
-				result.set("safe_range", json::Object {
-					{"min", safe_range.min},
-					{"max", safe_range.max}
-				});
-				result.set("market_info", minfo.toJSON());
-				result.set("state", json::Object {
-					{"balance",mst.balance},
-					{"cur_leverage",mst.cur_leverage},
-					{"cur_price",mst.event_price},
-					{"time",mst.event_time},
-					{"equity",mst.event_equity},
-					{"event",strMarketEvent[mst.event]},
-					{"bid",mst.highest_buy_price},
-					{"ask",mst.lowest_sell_price},
-					{"last_trade",json::Object{
-						{"price",mst.last_trade_price},
-						{"size",mst.last_trade_size},
-					}},
-					{"available",json::Object {
-						{"assets",mst.live_assets},
-						{"currencies",mst.live_currencies},
-					}},
-					{"open_price",mst.open_price},
-					{"position",mst.position},
-					{"rpnl",mst.rpnl},
-					{"spread_buy_price",mst.sug_buy_price},
-					{"spread_sell_price",mst.sug_sell_price},
-					{"upnl",mst.upnl},
-					{"neutral_price",neutral_price?json::Value(neutral_price):json::Value()},
-					{"equilibrium",eq},
-					{"equity_allocation",eq_alloc},
-					{"partial", json::Object {
-						{"trades",partial_executions},
-						{"position_offset",partial_offset.getPos()},
-						{"open_price",partial_offset.getOpen()},
-						{"target_buy",target_buy?Value(target_buy+mst.position):Value(nullptr)},
-						{"target_sell",target_buy?Value(target_sell+mst.position):Value(nullptr)},
-					}},
-					{"achieve",achieve.has_value()?json::Value(json::Object({
-							{"position", achieve->position},
-							{"balance", achieve->balance},
-							{"remain", achieve->position - mst.position}
-					})):json::Value(nullptr)}
-				});
-				result.set("live", json::Object {
-					{"assets", live_assets},
-					{"currencies", live_currency},
-				});
-				result.set("exists", exists);
-				result.set("uid", uid);
-				send_json(req,result);
+				me->trader_info(req, rtrader.getString(), rbroker.getString(), rsymb.getString(), rswap.getUInt(), true);
 			} catch (ParseError &e) {
 				api_error(req, 400, e.what());
 			}
-		};
+	};
 	return true;
+}
+
+
+void HttpAPI::trader_info(Req &req, std::string_view trader_id, std::string_view broker_id, std::string_view pair_id, unsigned int swap_id, bool vis) {
+	std::size_t uid;
+	bool exists = false;
+	bool stopped = false;
+
+	auto traders = core->get_traders().lock_shared();
+
+	PTrader tr = traders->get_trader(trader_id);
+
+
+	PStockApi api;
+	MarketState mst = {};
+	IStockApi::MarketInfo minfo;
+	Value strategy_state;
+	Value strategy_raw_state;
+	Value spread_raw_state;
+	Value visstrategy;
+	MinMax safe_range = {};
+	IStockApi::Orders open_orders;
+	Trader_Config cfg;
+	std::size_t partial_executions = 0;
+	ACB partial_offset(0.0, 0.0);
+	double live_assets = 0;
+	double live_currency = 0;
+	double neutral_price = 0;
+	double eq_alloc = 0;
+	double eq = 0;
+	double target_buy = 0, target_sell =0;
+	std::optional<Trader::AchieveMode> achieve;
+	if (tr == nullptr) {
+		auto extBal = core->get_ext_balance().lock_shared();
+		std::unique_lock  lk(core->get_cycle_lock(),std::try_to_lock);
+		try {
+			api = core->get_broker_list()->get_broker(broker_id);
+			api = selectStock(api, static_cast<SwapMode3>(swap_id), false);
+			if (api == nullptr) {
+				api_error(req,409,"Broker not found");
+				return;
+			}
+			if (lk.owns_lock()) api->reset(std::chrono::system_clock::now());
+			minfo = api->getMarketInfo(pair_id);
+			IStockApi::Ticker ticker = api->getTicker(pair_id);
+			mst.cur_time = mst.event_time = ticker.time;
+			mst.cur_price = mst.event_price = ticker.last;
+			live_assets = api->getBalance(minfo.asset_symbol, pair_id);
+			live_currency = api->getBalance(minfo.currency_symbol, pair_id);
+			mst.event = MarketEvent::idle;
+			mst.live_assets = live_assets+extBal->get(broker_id, minfo.wallet_id, minfo.asset_symbol);
+			mst.live_currencies = live_currency+extBal->get(broker_id, minfo.wallet_id, minfo.currency_symbol);
+			mst.sug_sell_price=mst.lowest_sell_price = ticker.ask;
+			mst.sug_buy_price=mst.highest_buy_price = ticker.bid;
+			uid = 0;
+			exists=false;
+		} catch (std::exception &e) {
+			api_error(req, 409, e.what());
+			return;
+		}
+	} else {
+		auto trl = tr.lock_shared();
+		auto balCache = core->get_balance_cache().lock_shared();
+		auto walletDB = traders->get_wallet_db().lock_shared();
+		cfg = trl->get_config();
+		pair_id = cfg.pairsymb;
+		broker_id = cfg.broker;
+		api = trl->get_exchange();
+		mst = trl->get_market_state();
+		stopped = trl->is_stopped();
+		minfo = *mst.minfo;
+		uid = trl->get_UUID();
+		partial_executions = trl->get_incomplete_trade_count();
+		partial_offset = trl->get_position_offset();
+		target_buy = trl->get_target_buy();
+		target_sell = trl->get_target_sell();
+		eq_alloc = trl->get_equity_allocation();
+		eq = trl->get_equilibrium();
+		auto stratobj = trl->get_strategy();
+		strategy_state = trl->get_strategy_report();
+		strategy_raw_state = stratobj.save();
+		spread_raw_state = trl->get_spread().save();
+		exists = true;
+		neutral_price = trl->get_neutral_price();
+		live_assets = balCache->get(broker_id, minfo.wallet_id, minfo.asset_symbol);
+		live_currency = balCache->get(broker_id, minfo.wallet_id, minfo.currency_symbol);
+
+		safe_range = trl->get_safe_range();
+
+		if (vis) {
+			double g_beg = std::min<double>(std::max<double>(0,safe_range.min),mst.cur_price*0.9);
+			double g_end = std::max<double>(std::min<double>(safe_range.max, 4*mst.cur_price - g_beg),mst.cur_price*1.1);
+
+			struct Pt {
+				double x,b,h,p,y;
+			};
+			std::vector<Pt> points;
+			double prev_y = 0;
+			for (int i = 0; i < 200; i++) {
+				double x = g_beg+(g_end-g_beg)*(i/200.0);
+				auto pt = stratobj.get_chart_point(x);
+				auto pt2 = stratobj.get_chart_point(x*1.01);
+				if (pt.valid && std::isfinite(pt.equity) && std::isfinite(pt.position)) {
+					double y = pt2.valid?pt.position*x*0.01+pt.equity-pt2.equity:0;
+					if (y < 0) y = prev_y;
+					else prev_y = y;
+					points.push_back({
+						minfo.invert_price?1.0/x:x,
+							pt.equity,
+							std::abs(pt.position*x),
+							pt.position,y});
+				}
+			}
+
+			while (!points.empty() && std::abs(points.back().p) < minfo.asset_step) {
+				points.pop_back();
+			}
+			auto cp = stratobj.get_chart_point(mst.cur_price);
+
+			json::Array tangent;
+			for (int i = -50; i <50;i++) {
+				double x = mst.cur_price+(g_end-g_beg)*(i/200.0);
+				tangent.push_back({
+					minfo.invert_price?1.0/x:x,
+					cp.position*(x-mst.cur_price)+cp.equity
+				});
+			}
+
+
+
+
+			visstrategy = json::Object{
+				{"points",json::Value(json::array,points.begin(), points.end(), [](const Pt &pt){
+					return json::Object{
+						{"x",pt.x},{"y",pt.y},{"h",pt.h},{"b",pt.b}
+					};
+				})},
+				{"neutral", neutral_price},
+				{"tangent",tangent},
+				{"current",json::Object{
+					{"x",minfo.invert_price?1.0/mst.cur_price:mst.cur_price},
+					{"b",cp.equity},
+					{"h",std::abs(cp.position*mst.cur_price)},
+				}}
+			};
+		}
+
+
+	}
+	mst.minfo = &minfo;
+
+	Object result;
+	IBrokerControl *bcontrol = dynamic_cast<IBrokerControl *>(api.get());
+	if (bcontrol) {
+		auto binfo = bcontrol->getBrokerInfo();
+		result.set("broker",brokerToJSON(broker_id, binfo, req->getRootPath()));
+	}
+
+	open_orders = api->getOpenOrders(pair_id);
+
+
+	result.set("pair", pair_id);
+	result.set("orders", json::Value(json::array, open_orders.begin(), open_orders.end(),[](const IStockApi::Order &ord) {
+		return ord.toJSON();
+	}));
+	result.set("visstrategy",visstrategy);
+	result.set("strategy_raw_state", strategy_raw_state);
+	result.set("spread_raw_state", spread_raw_state);
+	result.set("strategy_state", strategy_state);
+	result.set("safe_range", json::Object {
+		{"min", safe_range.min},
+		{"max", safe_range.max}
+	});
+	result.set("market_info", minfo.toJSON());
+	result.set("state", json::Object {
+		{"balance",mst.balance},
+		{"cur_leverage",mst.cur_leverage},
+		{"cur_price",mst.event_price},
+		{"time",mst.event_time},
+		{"equity",mst.event_equity},
+		{"event",strMarketEvent[mst.event]},
+		{"bid",mst.highest_buy_price},
+		{"ask",mst.lowest_sell_price},
+		{"last_trade",json::Object{
+			{"price",mst.last_trade_price},
+			{"size",mst.last_trade_size},
+		}},
+		{"available",json::Object {
+			{"assets",mst.live_assets},
+			{"currencies",mst.live_currencies},
+		}},
+		{"open_price",mst.open_price},
+		{"position",mst.position},
+		{"rpnl",mst.rpnl},
+		{"spread_buy_price",mst.sug_buy_price},
+		{"spread_sell_price",mst.sug_sell_price},
+		{"upnl",mst.upnl},
+		{"neutral_price",neutral_price?json::Value(neutral_price):json::Value()},
+		{"equilibrium",eq},
+		{"equity_allocation",eq_alloc},
+		{"partial", json::Object {
+			{"trades",partial_executions},
+			{"position_offset",partial_offset.getPos()},
+			{"open_price",partial_offset.getOpen()},
+			{"target_buy",target_buy?Value(target_buy+mst.position):Value(nullptr)},
+			{"target_sell",target_buy?Value(target_sell+mst.position):Value(nullptr)},
+		}},
+		{"achieve",achieve.has_value()?json::Value(json::Object({
+				{"position", achieve->position},
+				{"balance", achieve->balance},
+				{"remain", achieve->position - mst.position}
+		})):json::Value(nullptr)}
+	});
+	result.set("live", json::Object {
+		{"assets", live_assets},
+		{"currencies", live_currency},
+	});
+	result.set("exists", exists);
+	result.set("stopped", stopped);
+	result.set("uid", uid);
+	send_json(req,result);
 }
 
 bool HttpAPI::get_api_wallet(Req &req, const Args &v) {
@@ -1735,3 +1746,49 @@ bool HttpAPI::get_api_utilization(Req &req, const Args &v) {
 	return true;
 }
 
+bool HttpAPI::get_api_trader(Req &req, const Args &v) {
+	if (!check_acl(req, ACL::config_view)) return true;
+	auto trs = core->get_traders().lock_shared();
+	send_json(req, json::Value(json::array, trs->begin(), trs->end(),[](const auto &x){
+		return x.first;
+	}));
+	return true;
+}
+
+bool HttpAPI::get_api_trader_trader(Req &req, const Args &v) {
+	if (!check_acl(req, ACL::config_view)) return true;
+	auto trls = core->get_traders().lock_shared();
+	PTrader tr = trls->get_trader(v["trader"]);
+	if (tr != nullptr) {
+		trader_info(req, v["trader"],"","",0, v["vis"] == "true");
+	} else {
+		api_error(req, 404, "Trader not found");
+	}
+	return true;
+}
+
+bool HttpAPI::get_api_broker_pairs_traderinfo(Req &req, const Args &args) {
+	if (!check_acl(req, ACL::config_view)) return true;
+	std::string_view broker = args["broker"];
+	std::string_view pair = args["pair"];
+	unsigned int swap_mode = args["swap_mode"].getUInt();
+
+	trader_info(req, "", broker,pair, swap_mode, false);
+	return true;
+
+}
+
+bool HttpAPI::delete_api_trader_trader(Req &req, const Args &v) {
+	if (!check_acl(req, ACL::config_edit)) return true;
+	auto trls = core->get_traders().lock_shared();
+	PTrader tr = trls->get_trader(v["trader"]);
+	if (tr != nullptr) {
+		tr.lock()->stop();
+		req->setStatus(202);
+		send_json(req, true);
+	} else {
+		api_error(req, 404, "Trader not found");
+	}
+	return true;
+
+}

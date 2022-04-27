@@ -68,6 +68,7 @@ static std::initializer_list<OpenAPIServer::SchemaItem> tickerStruct={
 
 static OpenAPIServer::ParameterObject brokerId = {"broker","path","string","Broker's ID"};
 static OpenAPIServer::ParameterObject pairId = {"pair","path","string","Pair ID"};
+static OpenAPIServer::ParameterObject traderId = {"trader","path","string","Trader's ID"};
 
 
 std::string HttpAPI::ctx_json = "application/json";
@@ -231,6 +232,12 @@ void HttpAPI::init(std::shared_ptr<OpenAPIServer> server) {
 			{OpenAPIServer::ResponseObject{200, "OK", {{ctx_json, "", "object", "ticker information",tickerStruct}}}}
 			}).method(me, &HttpAPI::get_api_broker_pairs_ticker);
 
+	reg("/api/broker/{broker}/pairs/{pair}/trader_info")
+		.GET("Brokers","Generate trader infomation of not-yet created trader","",{
+				brokerId,pairId, {"swap_mode","query","int","Swap mode"}},{
+			{OpenAPIServer::ResponseObject{200, "OK"}}
+			}).method(me, &HttpAPI::get_api_broker_pairs_traderinfo);
+
 	reg("/api/broker/{broker}/settings")
 		.GET("Brokers","Get broker settings (form)","",{brokerId,{"pair","query","string","selected pair"}},{
 				{OpenAPIServer::ResponseObject{200, "OK", {{ctx_json, "", "array", "Form fields",{stdForm}}}}}
@@ -391,6 +398,17 @@ void HttpAPI::init(std::shared_ptr<OpenAPIServer> server) {
 				}}}}}}
 		})
 			.method(me, &HttpAPI::get_api_utilization);
+
+
+	reg("/api/trader")
+		.GET("Trader","List of active traders", "",{},{{200,"OK"}}).method(me, &HttpAPI::get_api_trader);
+	reg("/api/trader/{trader}")
+		.GET("Trader","Get trader state", "",{
+				traderId,{"vis","query","boolean","Include strategy visualisation",{},false}},{{200,"OK"}})
+					.method(me, &HttpAPI::get_api_trader_trader)
+		.DELETE("Trader","Stop trader, cancel all orders","",{traderId},"",{},{{202,"Accepted"},{404,"Not found"}})
+					.method(me, &HttpAPI::delete_api_trader_trader);
+
 	server->addSwagBrowser("/swagger");
 
 }
