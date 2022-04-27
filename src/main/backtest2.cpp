@@ -135,20 +135,20 @@ void Backtest::start(std::vector<float> &&prices, std::uint64_t start_time) {
 		nullptr,//PBalanceMap::make(),
 	});
 	this->start_time = start_time;
-	trader->get_exchange().reset(std::chrono::system_clock::now());
+	trader->get_exchange()->reset(std::chrono::system_clock::now());
 }
 
 bool Backtest::next() {
 	log_msgs.clear();
 	if (pos >= prices.size()) return false;
 	Source *src = static_cast<Source *>(source.get());
-	auto &exch = trader->get_exchange();
-	exch.reset(std::chrono::system_clock::now());
+	auto exch = trader->get_exchange();
+	exch->reset(std::chrono::system_clock::now());
 	src->setPrice(prices[pos], get_cur_time());
 	trader->run();
 	++pos;
-	sim_balance = exch.getBalance(info.minfo.currency_symbol, cfg.pairsymb);
-	sim_position = exch.getBalance(info.minfo.asset_symbol, cfg.pairsymb);
+	sim_balance = exch->getBalance(info.minfo.currency_symbol, cfg.pairsymb);
+	sim_position = exch->getBalance(info.minfo.asset_symbol, cfg.pairsymb);
 	if (info.minfo.leverage) {
 		sim_equity = sim_balance;
 	}

@@ -200,6 +200,7 @@ json::Value HTTPJson::DELETE(const std::string_view &path,
 
 void HTTPJson::setBaseUrl(const std::string &url) {
 	baseUrl = url;
+	baseUrlSz = baseUrl.size();
 }
 
 static bool parse_char(std::string_view &date, char c) {

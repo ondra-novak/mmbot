@@ -329,14 +329,17 @@ function page_options_apikeys() {
 					}
 				},
 				"delete_key":{
-					"!click": async(ev)=>{
+					"!click": async()=>{
 					        await delete_api_key_dlg(x.name, x.exchangeName,x.subaccount);
 							refresh();
 					}
 				}
 			}
 		});
-		const data = { "keys": lst ,"add":{"!click":async ()=>{
+		const data = { "spinner":{".hidden":true},
+					   "keys": lst ,
+					   "add":{".hidden":false,
+		                      "!click":async ()=>{
 												await broker_select(true);
 											   refresh();
 											  }}};
@@ -348,7 +351,7 @@ function page_options_apikeys() {
 }
 
 
-async function broker_select(new_key) {
+function broker_select(new_key) {
 	return new Promise(async function(ok, cancel) {
 
 		var form = load_template("broker_select");
@@ -412,4 +415,135 @@ async function broker_select(new_key) {
 		}
 	});
 
+}
+
+function pair_select(broker) {
+	return new Promise(async (ok, cancel)=>{
+		var form=load_template("broker_pair");
+		form.openModal();
+		form.setCancelAction(()=>{dlg.close();cancel();},"cancel");
+		form.setDefaultAction(function() {
+			form.close();
+			var d = form.readData();
+			if (!d.pair || !d.name) return;
+			var name = d.name.replace(/[^-a-zA-Z0-9_.~]/g,"_");
+			ok([broker, d.pair, name, d.swap_mode]);
+		},"ok");
+
+        function onSelectPair(pair) {
+        	form.setItemValue("pair", p);
+        }
+
+		try {
+			var m = await ui_fetch(broker_path(broker,"/pairs"));
+            function refreshItems() {
+            	var cur = form.readData(["sect"]).sect;
+            	var path = cur?cur.map(function(z) {
+            		return z["pair"];
+            	}):[]
+            	var sect = [];
+            	var p =m;
+            	var nxt;
+            	for (var i = 0; i < path.length; i++) {
+            		if (p[path[i]] === undefined) break;
+            		var keys = Object.keys(p); 
+            		sect.push ({
+            			pair: {
+            				"classList":{"noarrow":keys.length < 2},
+            				"value":path[i],
+            				"!change": refreshItems
+            			},
+            			item: keys.map(function(k) {
+            				return {"":{".value": k, ".label":k,".selected":path[i] == k}}
+            			})});
+            		p = p[path[i]];
+            		if (typeof p != "object") break;
+            	}
+            	while (typeof p == "object" && Object.keys(p).length == 1) {
+            		var k = Object.keys(p)[0];
+            		var v = p[k];
+            		sect.push({
+            			item: [{"":{".value":k, ".label": k, ".selected":true}}],
+            			pair:{"classList":{"noarrow":true}}
+            		});
+            		p = p[k];
+            	}
+            	if (typeof p == "object") {            		
+            		sect.push ({
+            			pair: {
+            				"classList":{"noarrow":false},
+            				"value":"",
+            				"!change": refreshItems
+            			},
+            			item: [{"":{".value":"",".label":"---",".selected":true}}].concat(Object.keys(p).map(function(k) {
+            				return {"":{".value": k, ".label":k}} 
+            			}))});           		
+            	}
+            	form.setData({"sect":sect});
+            	if (typeof p == "string") {
+                    form.setItemValue("pair", p);
+            	} else {
+                    form.setItemValue("pair", "");
+            	}
+            	dlgRules();
+            }
+
+            refreshItems();
+
+            form.showItem("spinner",false);
+		} catch (e) {
+			form.close();
+			errorDialog(e);
+			cancel();
+		};
+		form.setItemValue("image", broker_path(broker,"/image.png"));
+		var last_gen_name="";
+		var prev_pair="";
+		form.setData({
+		    "swap_ui":{".style.visibility":"hidden"},
+			"swap_mode":{
+				"value":"0",
+				"!change":function() {
+					form.setData({"swap_mode":this.dataset.value});
+				}	
+			}
+		});
+		async function dlgRules() {
+			var d = form.readData(["pair","name"]);
+			if (d.name == last_gen_name) {
+				d.name = last_gen_name = broker+"_"+d.pair;
+				form.setItemValue("name", last_gen_name);
+			}
+			form.enableItem("ok", d.pair != "" && d.name != "");			
+            if (prev_pair != d.pair) {
+            	prev_pair = d.pair;
+            	if (d.pair == "") {
+					form.setData({
+						"swap_ui":{".style.visibility":"hidden"},
+						"swap_mode":"0"
+					});
+                } else {
+					try {
+						var x = await ui_fetch(broker_pair_path(broker,d.pair));					
+						var data = {};
+						data.asset = x.asset_symbol;
+						data.currency = x.currency_symbol;	
+						data.swap_ui = {".style.visibility":x.leverage?"hidden":"visible"};		
+						if (x.leverage) {
+							data.swap_mode = 0;
+						}
+						form.setData(data);
+					} catch (e) {
+						errorDialog(e);
+					}
+                }
+            	                
+            }
+		};
+		
+		
+		form.setItemEvent("pair","change",dlgRules);
+		form.setItemEvent("name","change",dlgRules);
+		dlgRules();
+	});
 }

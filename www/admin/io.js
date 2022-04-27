@@ -102,3 +102,7 @@ function broker_path(broker, rest) {
 	return s;
 }
 
+function broker_pair_path(broker, pair, rest) {
+	var s = api_uri("/broker/")+encodeURIComponent(broker)+"/pairs/"+encodeURIComponent(pair)+(rest?rest:"");
+	return s;
+}

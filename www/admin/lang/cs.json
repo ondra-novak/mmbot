@@ -141,6 +141,7 @@
 	},
 	"page_apikeys":{
 		"title":"API Klíče",
-		"add":"Přidat klíč"
+		"add":"Přidat klíč",
+		"wait":"Prosím čekejte …"
 	}
 }

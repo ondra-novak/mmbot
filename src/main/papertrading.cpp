@@ -178,7 +178,7 @@ void AbstractPaperTrading::simulate(TradeState &st) {
 			//create trade from order
 			Trade t;
 			t.id = tradeID;
-			t.time = static_cast<uint64_t>(now) * 1000;
+			t.time = static_cast<uint64_t>(now);
 			t.price = ord.price;
 			t.size = ord.size;
 			t.eff_price = t.price;

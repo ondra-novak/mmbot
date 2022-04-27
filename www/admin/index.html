@@ -273,12 +273,14 @@
 
 <template id="page_apikeys"><div class="page apikeys">
 <h1 data-icon="svg_apikeys" data-strid="title">API Keys</h1>
-<div class="list"><div class="item active" data-name="keys[]">
+<div class="list">
+<div class="item processing" data-name="spinner"><div class="circle-loader"></div><div class="name" data-strid="wait">Please wait...</div></div>
+<div class="item active" data-name="keys[]">
 <img src="" data-name="exchange_img">
 <div class="name"><div><a data-name="exchange_lnk"><span data-name="exchange_name"></span><span data-icon="svg_external_lnk"></span></a></div><div data-name="subaccount_name"></div></div>
 <div class="buttons">
 <div data-icon="svg_trash" data-name="delete_key" class="active"></div></div>
-</div><div class="item active" data-name="add"><div data-icon="svg_plus"><div class="name" data-strid="add">Add key</div>
+</div><div class="item active" hidden="hidden" data-name="add"><div data-icon="svg_plus"><div class="name" data-strid="add">Add key</div>
 </div></div></div></div>
 </template>
 
@@ -311,6 +313,37 @@
 </x-popup>
 </template>
 
+<template id="broker_pair">
+<x-popup>
+<x-dialog>
+<x-dlg-title data-strid="title">Choose market</x-dlg-title>
+<x-form class="broker-pair">
+<span data-name="sect[]"><select data-name="pair"><option data-name="item[]"></option></select></span>
+<input data-name="pair" type="hidden"> 
+<div data-name="spinner" class="spinner fast"></div>
+<div data-name="swap_ui">
+
+<h3>Symbol order</h3>
+</div>
+
+
+<table class="selector">
+<tr><td title="Trade pair exactly as it is on exchange"><x-checkbox class="radio" data-name="swap_mode" data-value="0"><span data-name="asset"></span>&nbsp;/&nbsp;<span data-name="currency"></span> (default)</x-checkbox></td><td>Profit in <span data-name="currency"></span></td><td>Quoted in <span data-name="currency"></span></td></tr> 
+<tr><td title="Trade pair on inverted market. Similar to inverted futures. Your position is converted to short position. Quoted price stays as it is"><x-checkbox class="radio" data-name="swap_mode" data-value="2"><span data-name="asset"></span>&nbsp;/&nbsp;<span data-name="currency"></span> inverted</x-checkbox></td><td>Profit in <span data-name="asset"></span></td><td>Quoted in <span data-name="currency"></span></td></tr> 
+<tr><td title="Trade pair swapped"><x-checkbox class="radio" data-name="swap_mode" data-value="1"><span data-name="currency"></span>&nbsp;/&nbsp;<span data-name="asset"></span></x-checkbox></td><td>Profit in <span data-name="asset"></span></td><td>Quoted in <span data-name="asset"></span></td></tr> 
+</table>
+
+<h2>Enter trader's UID</h2>
+<input type="text" data-name="name">
+
+<x-button-bar>
+<button data-name="ok">OK</button>
+<button data-name="cancel">Cancel</button>
+</x-button-bar>
+</x-form>
+</x-dialog>
+</x-popup>
+</template>
 
 <script type="text/javascript" src="../res/common.js"></script>
 <script type="text/javascript" src="../res/template.js"></script>

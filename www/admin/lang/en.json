@@ -139,7 +139,13 @@
 	},
 	"okcanceldlg":{
 		"create_account":"Register a new account"
+	},
+	"page_apikeys":{
+		"title":"API Keys",
+		"add":"Add key",
+		"wait":"Please wait …"
 	}
+	
 	
 	
 	

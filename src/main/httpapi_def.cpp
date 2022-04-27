@@ -180,65 +180,72 @@ void HttpAPI::init(std::shared_ptr<OpenAPIServer> server) {
 
 	reg("/api/broker")
 		.GET("Brokers","List of configured brokers","",{},{
-			{200,"",{{ctx_json,"","array","",{brokerFormat}}}}}).method(me, &HttpAPI::get_api_admin_broker)
+			{200,"",{{ctx_json,"","array","",{brokerFormat}}}}}).method(me, &HttpAPI::get_api_broker)
 		.DELETE("Brokers","Reload brokers","Terminates all brokers and reloads each when it is accessed. This operation should not be considered as harmful and can solve any temporary issue with a broker",{},"",{},{
-			{202,"Accepted",{}}}).method(me, &HttpAPI::delete_api_admin_broker);
+			{202,"Accepted",{}}}).method(me, &HttpAPI::delete_api_broker);
 	reg("/api/broker/{broker}")
 		.GET("Brokers","Get info of particular broker","",{brokerId},{
-			{200,"",{{ctx_json,"","array","",{brokerFormat}}}}}).method(me, &HttpAPI::get_api_admin_broker_broker);
+			{200,"",{{ctx_json,"","array","",{brokerFormat}}}}}).method(me, &HttpAPI::get_api_broker_broker);
 
 	reg("/api/broker/{broker}/icon.png")
 		.GET("Brokers","Broker's favicon","",{brokerId},
-			{{200,"OK",{{"image/png","","","Broker's favicon"}}}}).method(me, &HttpAPI::get_api_admin_broker_icon_png);
+			{{200,"OK",{{"image/png","","","Broker's favicon"}}}}).method(me, &HttpAPI::get_api_broker_icon_png);
 
 	reg("/api/broker/{broker}/licence")
 		.GET("Brokers","Licence file","",{brokerId},
-			{{200,"OK",{{ctx_json,"","string","Licence text"}}}}).method(me, &HttpAPI::get_api_admin_broker_licence);
+			{{200,"OK",{{ctx_json,"","string","Licence text"}}}}).method(me, &HttpAPI::get_api_broker_licence);
+
 
 	reg("/api/broker/{broker}/apikey")
 		.GET("Brokers","Retrieve APIKEY format","",{brokerId},
-			{{200,"OK",{{ctx_json,"","array","List of field",{stdForm}}}}}).method(me, &HttpAPI::get_api_admin_broker_apikey)
+			{{200,"OK",{{ctx_json,"","array","List of field",{stdForm}}}}}).method(me, &HttpAPI::get_api_broker_apikey)
 		.PUT("Brokers","Set APIKEY","",{brokerId},"",{
 			{OpenAPIServer::MediaObject{"application/json","apikey","assoc","key:value of apikey",{
 					{"","anyOf","key:value",{{"","string"},{"","number"},{"","boolean"}}}
 			}}}},{
 			{OpenAPIServer::ResponseObject{200,"OK",{{ctx_json,"","boolean","true"}}}},
 			{OpenAPIServer::ResponseObject{409,"Conflict (invalid api key)",{{ctx_json,"","string","Error message returned by exchange API server"}}}}
-			}).method(me, &HttpAPI::put_api_admin_broker_apikey)
-		.DELETE("Brokers","Delete APIKEY","",{brokerId},"").method(me, &HttpAPI::delete_api_admin_broker_apikey);
+			}).method(me, &HttpAPI::put_api_broker_apikey)
+		.DELETE("Brokers","Delete APIKEY","",{brokerId},"").method(me, &HttpAPI::delete_api_broker_apikey);
+
+	reg("/api/broker/{broker}/wallet")
+		.GET("Brokers","Dump account wallet","",{brokerId},{
+				{200,"OK"}
+				}).method(me, &HttpAPI::get_api_broker_wallet);
+
 
 	reg("/api/broker/{broker}/pairs")
 		.GET("Brokers","List of available pairs","",{brokerId,{"flat","query","boolean","return flat structure (default false)",{},false}},
 			{{200,"OK",{{ctx_json,"","oneOf","depend on 'flat' argument",{
 					{"","assoc","Structure (flat=false)",{{"","string","pairid"}}},
 					{"","array","Flat (flat=true",{{"","string","pairid"}}}
-			}}}}}).method(me, &HttpAPI::get_api_admin_broker_pairs);
+			}}}}}).method(me, &HttpAPI::get_api_broker_pairs);
 
 	reg("/api/broker/{broker}/pairs/{pair}")
 		.GET("Brokers","Market information","",{brokerId,pairId},{
 				{OpenAPIServer::ResponseObject{200, "OK", {{ctx_json, "", "object", "", marketInfo}}}}
-				}).method(me, &HttpAPI::get_api_admin_broker_pairs_pair);
+				}).method(me, &HttpAPI::get_api_broker_pairs_pair);
 
 	reg("/api/broker/{broker}/pairs/{pair}/ticker")
 		.GET("Brokers","Get ticker","",{brokerId,pairId},{
 			{OpenAPIServer::ResponseObject{200, "OK", {{ctx_json, "", "object", "ticker information",tickerStruct}}}}
-			}).method(me, &HttpAPI::get_api_admin_broker_pairs_ticker);
+			}).method(me, &HttpAPI::get_api_broker_pairs_ticker);
 
 	reg("/api/broker/{broker}/settings")
 		.GET("Brokers","Get broker settings (form)","",{brokerId,{"pair","query","string","selected pair"}},{
 				{OpenAPIServer::ResponseObject{200, "OK", {{ctx_json, "", "array", "Form fields",{stdForm}}}}}
-			}).method(me, &HttpAPI::get_api_admin_broker_pairs_settings)
+			}).method(me, &HttpAPI::get_api_broker_pairs_settings)
 		.PUT("Brokers","Store broker settings","",{brokerId},"",{
 			{OpenAPIServer::MediaObject{"application/json","apikey","assoc","key:value",{
 					{"","anyOf","key:value",{{"","string"},{"","number"},{"","boolean"}}}
 			}}}},{
 			{OpenAPIServer::ResponseObject{200,"OK",{{ctx_json,"","object","all settings"}}}},
-			}).method(me, &HttpAPI::put_api_admin_broker_pairs_settings);;
+			}).method(me, &HttpAPI::put_api_broker_pairs_settings);;
 
 	reg("/api/broker/{broker}/pairs/{pair}/orders")
 		.GET("Brokers","Get open orders","",{brokerId,pairId},{
 			{OpenAPIServer::ResponseObject{200, "OK", {{ctx_json, "", "array", "opened orders",{}}}}}
-			}).method(me, &HttpAPI::get_api_admin_broker_pairs_orders)
+			}).method(me, &HttpAPI::get_api_broker_pairs_orders)
 		.POST("Brokers","Create order","",{brokerId,pairId},"",{
 			{OpenAPIServer::MediaObject{ctx_json,"","object","Order parameters",{
 				{"price","oneOf","Order price",{
@@ -249,24 +256,24 @@ void HttpAPI::init(std::shared_ptr<OpenAPIServer> server) {
 				{"replace_id","","ID of order to replace",{},true},
 			}}}
 			},{{201,"Order created",{{ctx_json,"","string","New order ID"}}}})
-			.method(me,&HttpAPI::put_api_admin_broker_pairs_orders)
+			.method(me,&HttpAPI::put_api_broker_pairs_orders)
 		.DELETE("Brokers","Cancel one or all orders","",{brokerId,pairId},"",{
 				{ctx_json, "", "object","",{{"id","string","orderid",{},true}}},
 				{"<empty>","Cancel all orders","string","Empty body"}},
 				{{OpenAPIServer::ResponseObject{202,"Orders are deleted",{{ctx_json,"","boolean","true"}}}}
-				}).method(me, &HttpAPI::delete_api_admin_broker_pairs_orders);
+				}).method(me, &HttpAPI::delete_api_broker_pairs_orders);
 
 
 	reg("/api/config")
 		.GET("Configuration","Get configuration file","",{},{
-			{200,"OK",{{ctx_json, "", "object"}}}}).method(me, &HttpAPI::get_api_admin_config)
+			{200,"OK",{{ctx_json, "", "object"}}}}).method(me, &HttpAPI::get_api_config)
 		.POST("Configuration","Apply config diff, restart trading and return whole config","",{},"",{
 			{ctx_json,"","object","Configuration diff (transfer only changed fields, use {} to delete fields)"}},
 			{{202,"Accepted",{{ctx_json,"","object","whole merged configuration"}}}
-			}).method(me, &HttpAPI::post_api_admin_config);
+			}).method(me, &HttpAPI::post_api_config);
 	reg("/api/forms")
 		.GET("Configuration","Retrieve form definition for specified object","",{},
-			{{200,"OK",{{ctx_json,"","object"}}}}).method(me, &HttpAPI::get_api_admin_form);
+			{{200,"OK",{{ctx_json,"","object"}}}}).method(me, &HttpAPI::get_api_form);
 
 	reg("/api/backtest/data/{id}")
 		.GET("Backtest","Retrieve minute price data (data must be uploaded, or imported from exchange)","",{
@@ -350,8 +357,41 @@ void HttpAPI::init(std::shared_ptr<OpenAPIServer> server) {
 				}).method(me, &HttpAPI::post_api_backtest);
 
 
+	reg("/api/editor")
+		.POST("Editor","Retrieve detailed info about trader (even if it is not yet saved)","",{},"",{
+				{ctx_json,"","object","",{
+					{"trader","string","Name of the trader. When not yet created, other fields are used"},
+					{"broker","string","Broker - madatory only if pair is not yet created"},
+					{"pair","string","Pair id - madatory only if pair is not yet created"},
+					{"swap_mode","number","Swap mode - madatory only if pair is not yet created (0,1,2)"}
+				}}
+			},{
+					{200,"OK-Data",{{ctx_json,"","object"}}}
+				}).method(me, &HttpAPI::post_api_editor);
+
+	reg("/api/wallet")
+		.GET("Editor","Shows current wallet state (balance and allocation)","",{},{})
+			.method(me, &HttpAPI::get_api_wallet);
+	server->addSwagBrowser("/swagger");
+
+	reg("/api/utilization")
+		.GET("Editor","Shows instance utilization","",{
+				{"tm","query","int64","Time of last check"}
+		},{{200,"OK",{{ctx_json,"","object","",{
+				{"overall","object","overall time of one cycle. Note it can be less than sum of each traders",{
+						{"dur","number","duration in milliseconds"},
+						{"updated","boolean","true=value has been updated after last check"},
+				}},
+				{"tm","number","timestamp of current check, pass this value as argument for next check"},
+				{"traders","assoc","Associative array of traders", {
+						{"","object","",{
+								{"dur","number","duration in milliseconds"},
+								{"updated","boolean","true=value has been updated after last check"}}
+						}
+				}}}}}}
+		})
+			.method(me, &HttpAPI::get_api_utilization);
 	server->addSwagBrowser("/swagger");
 
 }
-
 

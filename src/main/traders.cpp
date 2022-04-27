@@ -71,7 +71,7 @@ void Traders::run_cycle(ondra_shared::Worker wrk, PUtilization utls, userver::Ca
 					if (!stop.load()) {
 						trlk->run();
 						auto trend = std::chrono::system_clock::now();
-						st->utls.lock()->report_trader(name, std::chrono::duration_cast<std::chrono::milliseconds>(trstr - trend));
+						st->utls.lock()->report_trader(name,trstr,trend );
 					}
 				}
 			} catch (...) {
@@ -79,7 +79,7 @@ void Traders::run_cycle(ondra_shared::Worker wrk, PUtilization utls, userver::Ca
 			}
 			if (--st->counter == 0) {
 				auto end = std::chrono::system_clock::now();
-				st->utls.lock()->report_overall(std::chrono::duration_cast<std::chrono::milliseconds>(end - st->start));
+				st->utls.lock()->report_overall(st->start,end);
 				st->done(!stop.load());
 			}
 		};
@@ -108,7 +108,7 @@ void Traders::add_trader(std::string_view id, const json::Value &config) {
 	env.spread_gen = SpreadRegister::getInstance().create(tcfg.spread_id, tcfg.spread_config);
 	env.state_storage = sf->create(id);
 	env.statsvc = std::make_unique<Stats2Report>(id, rpt, perfMod);
-	env.strategy = StrategyRegister::getInstance().create(tcfg.spread_id, tcfg.spread_config);
+	env.strategy = StrategyRegister::getInstance().create(tcfg.strategy_id, tcfg.strategy_config);
 	env.walletDB = prepared_walletDB;
 	PTrader trd = PTrader::make(tcfg, std::move(env));
 	prepared.emplace(std::string(id), trd);
@@ -133,6 +133,12 @@ void Traders::commit_add() {
 			trlk->report_exception();
 		}
 	}
+	walletDB = std::move(prepared_walletDB);
+}
+
+PTrader Traders::get_trader(const std::string_view &name) const {
+	auto iter = traders.find(name);
+	if (iter == traders.end()) return PTrader(); else return iter->second;
 }
 
 #if 0

@@ -22,13 +22,14 @@ public:
 	struct UtilInfo {
 		Dur ellapsed;
 		Tp updated;
+
+		json::Value to_json(const Tp &lastCheck) const;
 	};
 	using Map = ondra_shared::linear_map<std::string, UtilInfo , std::less<> >;
 
 	void clear();
-	void report_reset(const Dur &dur);
-	void report_overall(const Dur &dur);
-	void report_trader(const std::string_view name, const Dur &dur);
+	void report_overall(const Tp &begin, const Tp &end);
+	void report_trader(const std::string_view name, const Tp &begin, const Tp &end);
 	json::Value getUtilization(std::size_t lastUpdate) const;
 
 

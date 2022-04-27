@@ -54,6 +54,14 @@ public:
 		return last_reset;
 	}
 
+
+	const PWalletDB get_wallet_db() const {
+		return walletDB;
+	}
+
+	PTrader get_trader(const std::string_view &name) const;
+
+
 protected:
 	PBrokerList brokers;
 	PStorageFactory sf;
@@ -70,7 +78,7 @@ protected:
 
 	std::mutex mx;
 
-	using TraderList = ondra_shared::linear_map<std::string, PTrader>;
+	using TraderList = ondra_shared::linear_map<std::string, PTrader, std::less<> >;
 
 	TraderList traders, prepared;
 	std::atomic<bool> stop = false;

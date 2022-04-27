@@ -135,9 +135,20 @@ public:
 	void stop();
 	void erase_state();
 
-	IStockApi &get_exchange();
+	std::size_t get_UUID() const {return uid;}
+	Trader_Config get_config() const {return cfg;}
+
+	PStockApi get_exchange() const;
 public:
+	struct AchieveMode {
+		double position;
+		double balance;
+	};
+
+
 	//backtest reporting
+
+
 
 	Strategy3 get_strategy() const;
 	SpreadGenerator get_spread() const;
@@ -149,10 +160,25 @@ public:
 	double get_currency_allocation() const;
 	double get_equilibrium() const;
 	double get_neutral_price() const;
-	double get_complete_trades() const;
 	double get_last_trade_eq_extra() const;
+	IStockApi::MarketInfo get_market_info() const;
+	std::size_t get_incomplete_trade_count() const;
 
+	MarketState get_market_state() const;
 
+	MinMax get_safe_range() const {return safeRange;}
+
+	double get_target_buy() const {
+		return target_buy;
+	}
+
+	double get_target_sell() const {
+		return target_sell;
+	}
+
+	std::optional<AchieveMode> get_achieve_mode() const {
+		return achieve_mode;
+	}
 
 
 protected:
@@ -163,6 +189,7 @@ protected:
 		virtual std::size_t size() const override;
 		virtual IStockApi::Trade operator [](std::size_t idx) const override;
 		virtual ~TradesArray() {}
+
 
 	protected:
 		Trader &owner;
@@ -214,10 +241,6 @@ protected:
 		void place_market(double size) {push_back({0,size,nullptr,0});}
 	};
 
-	struct AchieveMode {
-		double position;
-		double balance;
-	};
 
 	///trader's configuration
 	Trader_Config cfg;
@@ -331,6 +354,10 @@ protected:
 
 	void do_reset(MarketStateEx &st);
 	static bool do_achieve(const AchieveMode &ach, Control &st);
+
+	bool mst_valid = false;
+	MarketStateEx mst;
+
 };
 
 using PTrader = ondra_shared::SharedObject<Trader>;

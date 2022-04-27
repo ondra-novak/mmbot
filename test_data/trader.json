@@ -23,7 +23,7 @@
 		"wallet_id": "futures"
 	},
 	"trader": {
-		"pair_symbol": "BTC-PERP",
+		"pair_symbol": "ftx:BTC/USD",
 		"broker": "ftx",
 		"title": "Test",
 		"strategy": {

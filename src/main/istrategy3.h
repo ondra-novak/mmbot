@@ -16,6 +16,10 @@
 #include "istockapi.h"
 
 
+namespace json {
+	template<typename T> class NamedEnum;
+}
+
 class IStrategy3;
 class AbstractTraderControl;
 
@@ -32,6 +36,8 @@ enum class MarketEvent {
 	alert
 };
 
+
+extern json::NamedEnum<MarketEvent> strMarketEvent;
 
 ///market state - constants
 struct MarketState {

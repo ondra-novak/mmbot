@@ -185,11 +185,13 @@ void Trader::load_state() {
 		uid = state["uid"].getUInt();
 		position_valid = (tmp = state["position"]).defined();
 		if (position_valid) position = tmp.getNumber();
-		completed_trades = state["confirmed_trades"].getUInt();
+		completed_trades = state["completed_trades"].getUInt();
 		prevTickerTime = state["prevTickerTime"].getUIntLong();
 		unconfirmed_position = state["unconfirmed_position"].getNumber();
 		last_known_live_position = state["last_known_live_position"].getNumber();
 		last_known_live_balance = state["last_known_live_balance"].getNumber();
+		last_trade_price = state["last_trade_price"].getNumber();
+		last_trade_size = state["last_trade_size"].getNumber();
 		reset_rev = state["reset_rev"].getUInt();
 		json::Value ach = state["achieve"];
 		if (ach.type() == json::object) {
@@ -199,6 +201,9 @@ void Trader::load_state() {
 			};
 		} else {
 			achieve_mode.reset();
+		}
+		if ((tmp = state["last_trade_eq_extra"]).defined()) {
+			last_trade_eq_extra = tmp.getNumber();
 		}
 	}
 
@@ -224,7 +229,7 @@ void Trader::save_state() {
 			state.set("unconfirmed_position", unconfirmed_position);
 		}
 		state.set("reset_rev", reset_rev);
-		state.set("completted_trades", completed_trades);
+		state.set("completed_trades", completed_trades);
 		state.set("prevTickerTime", prevTickerTime);
 		state.set("last_known_live_position", last_known_live_position);
 		state.set("last_known_live_balance", last_known_live_balance);
@@ -244,6 +249,8 @@ void Trader::save_state() {
 	out.set("trades", json::Value(json::array, trades.begin(), trades.end(), [&](const Trade &tr){
 		return tr.toJSON();
 	}));
+
+	env.state_storage->store(out);
 
 }
 
@@ -285,6 +292,7 @@ IStockApi::Trade Trader::TradesArray::operator [](std::size_t idx) const {
 bool Trader::processTrades() {
 	auto newtrades = env.exchange->syncTrades(trade_lastid, cfg.pairsymb);
 	if (newtrades.trades.empty()) {
+		trade_lastid = newtrades.lastId;
 		return false;
 	}
 	double prev_neutral = 0;
@@ -398,7 +406,8 @@ void Trader::run() {
 			}
 		}
 
-		MarketStateEx mst = getMarketState(trades_finished);
+		mst = getMarketState(trades_finished);
+		mst_valid = true;
 		env.spread_gen = mst.spread_new_state;
 
 		if (env.histData != nullptr) {
@@ -435,6 +444,7 @@ void Trader::run() {
 
 			if (first_run) {
 				mst.event = MarketEvent::start;
+				first_run = false;
 			}
 			env.strategy.run(cntr);
 			if (cntr.eq_allocation.has_value()) {
@@ -531,28 +541,28 @@ void Trader::run() {
 			std::optional<IStockApi::Order> new_buy, new_sell;
 
 			if (cur_orders.buy.has_value()) {
-				new_buy = IStockApi::Order({nullptr,nullptr, cur_orders.buy->price, cur_orders.buy->size});
+				new_buy = IStockApi::Order({nullptr,nullptr, cur_orders.buy->size, cur_orders.buy->price});
 			}
 
 			if (cur_orders.sell.has_value()) {
-				new_sell = IStockApi::Order({nullptr,nullptr, cur_orders.sell->price, cur_orders.sell->size});
+				new_sell = IStockApi::Order({nullptr,nullptr, cur_orders.sell->size, cur_orders.sell->price});
 			}
 
 			if (cntr.buy_error.has_value()) {
 				buy_error = cntr.buy_error->get_reason();
 				if (cntr.buy_error->price) {
-					new_buy = IStockApi::Order {nullptr, nullptr, cntr.buy_error->price, cntr.buy_error->size};
+					new_buy = IStockApi::Order {nullptr, nullptr, cntr.buy_error->size, cntr.buy_error->price};
 				}
 			}
 			if (cntr.sell_error.has_value()) {
 				buy_error = cntr.sell_error->get_reason();
 				if (cntr.sell_error->price) {
-					new_sell = IStockApi::Order {nullptr, nullptr, cntr.sell_error->price, cntr.sell_error->size};
+					new_sell = IStockApi::Order {nullptr, nullptr, cntr.sell_error->size, cntr.sell_error->price};
 				}
 			}
 			for (const auto &x: schOrders) {
-				if (x.size<0) new_sell = IStockApi::Order{nullptr, nullptr, x.price, x.size};
-				else if (x.size>0) new_buy = IStockApi::Order{nullptr, nullptr, x.price, x.size};;
+				if (x.size<0) new_sell = IStockApi::Order{nullptr, nullptr, x.size, x.price};
+				else if (x.size>0) new_buy = IStockApi::Order{nullptr, nullptr, x.size, x.price};;
 			}
 
 
@@ -587,7 +597,6 @@ void Trader::run() {
 		}
 
 		save_state();
-		first_run = false;
 
 	} catch (...) {
 		report_exception();
@@ -641,9 +650,9 @@ Trader::MarketStateEx Trader::getMarketState(bool trades_finished) const {
 	mst.highest_buy_price = minfo.priceRemoveFees(minfo.tickToPrice(minfo.priceToTick(ticker.ask)-1),1);
 	mst.lowest_sell_price = minfo.priceRemoveFees(minfo.tickToPrice(minfo.priceToTick(ticker.bid)+1),-1);
 	mst.sug_buy_price = std::min(mst.highest_buy_price,
-				minfo.priceRemoveFees(env.spread_gen.get_order_price(1, eq),1));
+				minfo.priceRemoveFees(mst.spread_new_state->get_order_price(1, eq),1));
 	mst.sug_sell_price = std::max(mst.lowest_sell_price,
-			minfo.priceRemoveFees(env.spread_gen.get_order_price(-1, eq),-1));
+				minfo.priceRemoveFees(mst.spread_new_state->get_order_price(-1, eq),-1));
 	mst.buy_rejected = rej_buy;
 	mst.sell_rejected = rej_sell;
 
@@ -1014,9 +1023,6 @@ double Trader::get_neutral_price() const {
 	return neutral_price;
 }
 
-double Trader::get_complete_trades() const {
-	return completed_trades;
-}
 
 double Trader::get_last_trade_eq_extra() const {
 	return last_trade_eq_extra.has_value()?*last_trade_eq_extra:0;
@@ -1155,7 +1161,7 @@ Trader::OrderPair Trader::fetchOpenOrders(std::size_t magic) {
 void Trader::do_reset(MarketStateEx &st) {
 	auto alloc_pos = cfg.reset.alloc_position;
 	if (!alloc_pos.has_value() && !position_valid) {
-		alloc_pos = std::max(st.avail_assets,0.0);
+		alloc_pos = std::max(st.avail_assets,0.0);//HACK - what if leverage?
 	}
 
 	if (alloc_pos.has_value()) {
@@ -1205,9 +1211,14 @@ void Trader::do_reset(MarketStateEx &st) {
 	st.equity = minfo.leverage?st.balance:st.balance+st.cur_price*st.position;
 }
 
-IStockApi& Trader::get_exchange() {
-	return *env.exchange;
+PStockApi Trader::get_exchange() const {
+	return env.exchange;
 }
+
+IStockApi::MarketInfo Trader::get_market_info() const {
+	return minfo;
+}
+
 
 void Trader::stop() {
 	cfg.enabled = false;
@@ -1228,7 +1239,16 @@ bool Trader::do_achieve(const AchieveMode &ach, Control &cntr) {
 
 	cntr.cancel_buy();
 	cntr.cancel_sell();
-	if (diff < 0) cntr.limit_sell(-diff, state.lowest_sell_price);
-	else cntr.limit_buy(diff, state.highest_buy_price);
+	if (diff < 0) cntr.limit_sell(state.lowest_sell_price,-diff);
+	else cntr.limit_buy(state.highest_buy_price,diff);
 	return true;
+}
+
+MarketState Trader::get_market_state() const {
+	if (mst_valid) return mst;
+	else return getMarketState(false);
+}
+
+std::size_t Trader::get_incomplete_trade_count() const {
+	return trades.size() - completed_trades;
 }

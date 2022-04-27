@@ -48,7 +48,6 @@ void Trader_Config_Ex::parse(json::Value data) {
 		paper_trading_src_state = data["pp_source"].getString();
 	}
 
-	json::Value rset = data["reset"];
 	json::Value tmp;
 
 	reset.revision = data["reset_revision"].getUInt();
@@ -56,8 +55,8 @@ void Trader_Config_Ex::parse(json::Value data) {
 	bool reset_alloc_cur_100 = data["reset_alloc_currency_100"].getBool();
 	bool reset_set_position = data["reset_set_position"].getBool();
 
-	if (reset_alloc_pos_100) reset.alloc_position = data["reset_alloc_position"].getNumber();
-	if (reset_alloc_cur_100) reset.alloc_currency = data["reset_alloc_currency"].getNumber();
+	if (!reset_alloc_pos_100) reset.alloc_position = data["reset_alloc_position"].getNumber();
+	if (!reset_alloc_cur_100) reset.alloc_currency = data["reset_alloc_currency"].getNumber();
 	if (reset_set_position) {
 		reset.trade_optimal_position = data["reset_set_optimal_position"].getBool();
 		reset.trade_position= data["reset_set_position_value"].getNumber();

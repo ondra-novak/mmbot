@@ -98,6 +98,10 @@ x-form {
 	display:block;
 }
 
+x-form.broker-pair {text-align: center;}
+
+x-form.broker-pair table.selector {margin: auto;}
+
 x-form-item {
 	display: flex;
 align-items: center;
@@ -180,4 +184,8 @@ x-button-bar {
 	text-align: right;
 	margin-top: 1em;
 	
+}
+
+x-form.broker-pair x-button-bar {
+	text-align: center;
 }

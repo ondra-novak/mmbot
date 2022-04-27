@@ -27,3 +27,10 @@ json::NamedEnum<OrderRequestResult> Strategy3::strOrderRequestResult({
 
 });
 
+json::NamedEnum<MarketEvent> strMarketEvent({
+	{MarketEvent::alert,"alert"},
+	{MarketEvent::idle,"idle"},
+	{MarketEvent::trade,"trade"},
+	{MarketEvent::start,"start"},
+});
+

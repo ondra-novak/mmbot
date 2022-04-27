@@ -72,32 +72,32 @@ protected:
 	bool post_api_user(Req& req, const Args& args);
 	bool delete_api_user(Req& req, const Args& args);
 
-	bool get_api_admin_broker(Req &req, const Args &args);
-	bool get_api_admin_broker_broker(Req &req, const Args &args);
-	bool delete_api_admin_broker(Req &req, const Args &args);
-	bool get_api_admin_broker_icon_png(Req &req, const Args &args);
-	bool get_api_admin_broker_licence(Req &req, const Args &args);
-	bool get_api_admin_broker_apikey(Req &req, const Args &args);
-	bool put_api_admin_broker_apikey(Req &req, const Args &args);
-	bool delete_api_admin_broker_apikey(Req &req, const Args &args);
-	bool get_api_admin_broker_pairs(Req &req, const Args &args);
-	bool get_api_admin_broker_pairs_pair(Req &req, const Args &args);;
-	bool get_api_admin_broker_pairs_ticker(Req &req, const Args &args);
-	bool get_api_admin_broker_pairs_settings(Req &req, const Args &args);
-	bool put_api_admin_broker_pairs_settings(Req &req, const Args &args);
+	bool get_api_broker(Req &req, const Args &args);
+	bool get_api_broker_broker(Req &req, const Args &args);
+	bool delete_api_broker(Req &req, const Args &args);
+	bool get_api_broker_icon_png(Req &req, const Args &args);
+	bool get_api_broker_licence(Req &req, const Args &args);
+	bool get_api_broker_apikey(Req &req, const Args &args);
+	bool put_api_broker_apikey(Req &req, const Args &args);
+	bool delete_api_broker_apikey(Req &req, const Args &args);
+	bool get_api_broker_pairs(Req &req, const Args &args);
+	bool get_api_broker_pairs_pair(Req &req, const Args &args);;
+	bool get_api_broker_pairs_ticker(Req &req, const Args &args);
+	bool get_api_broker_pairs_settings(Req &req, const Args &args);
+	bool put_api_broker_pairs_settings(Req &req, const Args &args);
 
-	bool get_api_admin_broker_pairs_orders(Req &req, const Args &args);
-	bool put_api_admin_broker_pairs_orders(Req &req, const Args &args);
-	bool delete_api_admin_broker_pairs_orders(Req &req, const Args &args);
+	bool get_api_broker_pairs_orders(Req &req, const Args &args);
+	bool put_api_broker_pairs_orders(Req &req, const Args &args);
+	bool delete_api_broker_pairs_orders(Req &req, const Args &args);
 
 	static void send_json(Req &req, const json::Value &v);
 
 	bool post_set_cookie(Req& req, const Args& args);
 
-	bool get_api_admin_config(Req &req, const Args &v);
-	bool post_api_admin_config(Req &req, const Args &v);
+	bool get_api_config(Req &req, const Args &v);
+	bool post_api_config(Req &req, const Args &v);
 
-	bool get_api_admin_form(Req &req, const Args &v);
+	bool get_api_form(Req &req, const Args &v);
 	bool get_api_user_set_password(Req &req, const Args &v);
 	bool get_api_backtest_data(Req &req, const Args &v);
 	bool post_api_backtest_data(Req &req, const Args &v);
@@ -108,6 +108,10 @@ protected:
 	bool get_api_run(Req &req, const Args &v);
 	bool delete_api_run(Req &req, const Args &v);
 	bool post_api_backtest(Req &req, const Args &v);
+	bool post_api_editor(Req &req, const Args &v);
+	bool get_api_wallet(Req &req, const Args &v);
+	bool get_api_utilization(Req &req, const Args &v);
+	bool get_api_broker_wallet(Req &req, const Args &v);
 	static void redir_to_run(int id, Req &req);
 
 	class DataDownloaderTask;

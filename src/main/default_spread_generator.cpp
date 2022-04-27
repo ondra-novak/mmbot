@@ -40,7 +40,7 @@ double AdaptiveSpreadGenerator::get_order_price(double side, double equilibrium,
 PSpreadGenerator AdaptiveSpreadGenerator::add_point(double price) const {
 	if (!state.valid) {
 		return new AdaptiveSpreadGenerator(cfg, {
-				true,DynMult(),price,0.0,price,0.0
+				true,DynMult(),price,price,price,0.0
 		});
 	} else {
 		double k = 2.0/(cfg->sma_interval+1);
