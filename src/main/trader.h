@@ -141,6 +141,8 @@ public:
 	Trader_Config get_config() const {return cfg;}
 
 	PStockApi get_exchange() const;
+
+	const PHistStorage<HistMinuteDataItem> &get_minute_chart() const;
 public:
 	struct AchieveMode {
 		double position;
@@ -180,6 +182,10 @@ public:
 
 	std::optional<AchieveMode> get_achieve_mode() const {
 		return achieve_mode;
+	}
+
+	auto get_trades() const {
+		return trades;
 	}
 
 

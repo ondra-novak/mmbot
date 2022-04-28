@@ -249,27 +249,6 @@ void HttpAPI::init(std::shared_ptr<OpenAPIServer> server) {
 			{OpenAPIServer::ResponseObject{200,"OK",{{ctx_json,"","object","all settings"}}}},
 			}).method(me, &HttpAPI::put_api_broker_pairs_settings);;
 
-	reg("/api/broker/{broker}/pairs/{pair}/orders")
-		.GET("Brokers","Get open orders","",{brokerId,pairId},{
-			{OpenAPIServer::ResponseObject{200, "OK", {{ctx_json, "", "array", "opened orders",{}}}}}
-			}).method(me, &HttpAPI::get_api_broker_pairs_orders)
-		.POST("Brokers","Create order","",{brokerId,pairId},"",{
-			{OpenAPIServer::MediaObject{ctx_json,"","object","Order parameters",{
-				{"price","oneOf","Order price",{
-						{"","enum","Ask or bid",{{"ask"},{"bid"}}},
-						{"","number","price"}
-				}},
-				{"size","number","Order size"},
-				{"replace_id","","ID of order to replace",{},true},
-			}}}
-			},{{201,"Order created",{{ctx_json,"","string","New order ID"}}}})
-			.method(me,&HttpAPI::put_api_broker_pairs_orders)
-		.DELETE("Brokers","Cancel one or all orders","",{brokerId,pairId},"",{
-				{ctx_json, "", "object","",{{"id","string","orderid",{},true}}},
-				{"<empty>","Cancel all orders","string","Empty body"}},
-				{{OpenAPIServer::ResponseObject{202,"Orders are deleted",{{ctx_json,"","boolean","true"}}}}
-				}).method(me, &HttpAPI::delete_api_broker_pairs_orders);
-
 
 	reg("/api/config")
 		.GET("Configuration","Get configuration file","",{},{
@@ -320,6 +299,28 @@ void HttpAPI::init(std::shared_ptr<OpenAPIServer> server) {
 			}}}},
 			{404,"Data are not available, cannot be downloaded"}
 		}).method(me, &HttpAPI::post_api_backtest_historical_data_broker_pair);
+	reg("/api/backtest/trader_data/{trader}")
+		.GET("Backtest","Retrieve trader's data collected during trading","",{
+				traderId,{"withtm","query","boolean","Return prices with timestamps",{},false}
+			},{{200,"OK",{
+				{ctx_json,"data","array","Minute data",{
+						{"","oneOf","",{
+								{"price","number","price"},
+								{"minute","array","minute",{
+										{"tuple","number","tuple of two values, javascript timestamp and price"}
+
+								}}
+						}}
+				}},
+			}},
+				{404,"Trader not found"}
+			}).method(me, &HttpAPI::get_api_backtest_trader_data)
+		.POST("Backtest","Store trader's data to the data storage, returns ID, these data can be used for backtesing","",{traderId},"",{},{
+			{201, "Created", {{ctx_json,"id","object","",{
+					{"id","string","id under data were stored"}
+			}}}},
+				{404,"Trader not found"}
+			}).method(me, &HttpAPI::post_api_backtest_trader_data);
 
 	reg("/api/backtest")
 		.POST("Backtest","Create new backtest. ID of test returned and can be executed through /api/run/<id>","",{
@@ -408,6 +409,28 @@ void HttpAPI::init(std::shared_ptr<OpenAPIServer> server) {
 					.method(me, &HttpAPI::get_api_trader_trader)
 		.DELETE("Trader","Stop trader, cancel all orders","",{traderId},"",{},{{202,"Accepted"},{404,"Not found"}})
 					.method(me, &HttpAPI::delete_api_trader_trader);
+	reg("/api/trader/{trader}/trading")
+		.GET("Trader","Retrieve live data from exchange to allow manual trading, Call this function in period min 20s","",{traderId},{
+				{200,"OK"}
+			}).method(me, &HttpAPI::get_api_trader_trading)
+		.POST("Trader","Create an order","",{traderId},"",{
+				{ctx_json,"","object","Order parameters",{
+						{"price","oneOf","Order price",{
+								{"","enum","Ask or bid",{{"ask"},{"bid"}}},
+								{"","number","price"}
+						}},
+						{"size","number","Order size"},
+						{"replace_id","","ID of order to replace",{},true},
+					}}
+			},{{201,"Order created",{{ctx_json,"","string","New order ID"}}}})
+			.method(me,&HttpAPI::post_api_trader_trading)
+		.DELETE("Trader","Cancel one or all orders","",{traderId},"",{
+				{ctx_json, "", "object","",{{"id","string","orderid",{},true}}},
+				{"<empty>","Cancel all orders","string","Empty body"}},
+				{{OpenAPIServer::ResponseObject{202,"Orders are deleted",{{ctx_json,"","boolean","true"}}}}
+				}).method(me, &HttpAPI::delete_api_trader_trading);
+
+
 
 	server->addSwagBrowser("/swagger");
 

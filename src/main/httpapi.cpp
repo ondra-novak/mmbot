@@ -458,14 +458,6 @@ static json::Value tickerToJSON(const IStockApi::Ticker &tk) {
 	};
 }
 
-static json::Value ordersToJSON(const IStockApi::Orders &ords) {
-	return Value(json::array, ords.begin(), ords.end(),
-			[&](const IStockApi::Order &ord) {
-				return Object({{"price", ord.price},{
-						"size", ord.size},{"clientId",
-						ord.client_id},{"id", ord.id}});
-			});
-}
 
 bool HttpAPI::get_api_broker_pairs_ticker(Req &req, const Args &args) {
 	auto brk = core->get_broker_list()->get_broker(args["broker"]);
@@ -563,102 +555,8 @@ bool HttpAPI::put_api_broker_pairs_settings(Req &req, const Args &args) {
 	return true;
 }
 
-bool HttpAPI::get_api_broker_pairs_orders(Req &req, const Args &args) {
-	if (!check_acl(req, ACL::config_view)) return true;
-	auto brk = core->get_broker_list()->get_broker(args["broker"]);
-	std::string_view pair = args["pair"];
-	if (brk != nullptr) {
-		std::unique_lock lk(core->get_cycle_lock(),std::try_to_lock);
-		try {
-			if (lk.owns_lock()) brk->reset(std::chrono::system_clock::now());
-			send_json(req, ordersToJSON(brk->getOpenOrders(pair)));
-		} catch (AbstractExtern::Exception &e) {
-			if (e.isResponse()) api_error(req,404, e.what()); else throw;
-		}
-	} else {
-		api_error(req,404, "Broker not found");
-	}
-	return true;
-}
-
-bool HttpAPI::put_api_broker_pairs_orders(Req &req, const Args &args) {
-	if (!check_acl(req, ACL::config_edit)) return true;
-	auto brk = core->get_broker_list()->get_broker(args["broker"]);
-	std::string pair ( args["pair"]);
-	if (brk != nullptr) {
-		req->readBody(req, max_upload) >> [brk,pair, me=PHttpAPI(this)](Req &req, std::string_view body) {
-			try {
-				Value parsed = Value::fromString(body);
-				Value price = parsed["price"];
-				if (price.type() == json::string) {
-					std::unique_lock lk(me->core->get_cycle_lock(), std::try_to_lock);
-					if (lk.owns_lock()) brk->reset(std::chrono::system_clock::now());
-					auto ticker = brk->getTicker(pair);
-					if (price.getString() == "ask")
-						price = ticker.ask;
-					else if (price.getString() == "bid")
-						price = ticker.bid;
-					else {
-						me->api_error(req, 400, "Invalid price (bid or ask or number)");
-						return;
-					}
-				}
-				Value res = brk->placeOrder(pair,
-								parsed["size"].getNumber(),
-								price.getNumber(), json::Value(),
-								parsed["replace_id"],0);
-				me->send_json(req, res);
-
-			} catch (ParseError &e) {
-				me->api_error(req,400, e.what());
-			} catch (AbstractExtern::Exception &e) {
-				if (e.isResponse()) me->api_error(req,409,e.what()); else throw;
-			}
-		};
-	} else {
-		api_error(req,404, "Broker not found");
-	}
-	return true;
-}
 
 
-bool HttpAPI::delete_api_broker_pairs_orders(Req &req, const Args &args) {
-	if (!check_acl(req, ACL::config_edit)) return true;
-	auto brk = core->get_broker_list()->get_broker(args["broker"]);
-	std::string pair ( args["pair"]);
-	if (brk != nullptr) {
-		req->readBody(req, max_upload) >> [brk,pair, me=PHttpAPI(this)](Req &req, std::string_view body) {
-			try {
-				Value parsed = body.empty()?Value(json::object):Value::fromString(body);
-				Value id = parsed["id"];
-				if (id.hasValue()) {
-					brk->placeOrder(pair,0,0,json::Value(),id,0);
-				} else {
-					std::unique_lock lk(me->core->get_cycle_lock(), std::try_to_lock);
-					if (lk.owns_lock()) brk->reset(std::chrono::system_clock::now());
-					IStockApi::Orders ords = brk->getOpenOrders(pair);
-					IStockApi::OrderList olist;
-					for (const auto &o : ords) {
-						olist.push_back({
-							pair, 0,0,json::Value(),o.id,0
-						});
-					}
-					IStockApi::OrderIdList rets;
-					IStockApi::OrderPlaceErrorList errs;
-					brk->batchPlaceOrder(olist,rets,errs);
-				}
-				me->send_json(req, true);
-			} catch (ParseError &e) {
-				me->api_error(req,400, e.what());
-			} catch (AbstractExtern::Exception &e) {
-				if (e.isResponse()) me->api_error(req,409,e.what()); else throw;
-			}
-		};
-	} else {
-		api_error(req,404, "Broker not found");
-	}
-	return true;
-}
 
 json::Value HttpAPI::merge_JSON(json::Value src, json::Value diff) {
 	if (diff.type() == json::object) {
@@ -1789,6 +1687,183 @@ bool HttpAPI::delete_api_trader_trader(Req &req, const Args &v) {
 	} else {
 		api_error(req, 404, "Trader not found");
 	}
+	return true;
+
+}
+
+bool HttpAPI::get_api_trader_trading(Req &req, const Args &v) {
+	if (!check_acl(req, ACL::manual_trading)) return true;
+	PTrader tr = core->get_traders().lock_shared()->get_trader(v["trader"]);
+	if (tr == nullptr) {
+		api_error(req, 404, "Trader not found");
+		return true;
+	}
+	auto trl = tr.lock_shared();
+
+
+	const auto &chartx = trl->get_minute_chart();
+	auto data = chartx->read(600);
+
+	PStockApi broker = trl->get_exchange();
+	std::unique_lock  lk(core->get_cycle_lock(),std::try_to_lock);
+	if (lk.owns_lock()) {
+		broker->reset(std::chrono::system_clock::now());
+	}
+	Object out;
+	out.set("chart", Value(json::array,data.begin(), data.end(),[&](const auto &item) {
+		return json::Value({item.timestamp,item.price});
+	}));
+	std::size_t start = data.empty()?0:data[0].timestamp;
+	auto trades = trl->get_trades();
+	out.set("trades", Value(json::array, trades.begin(), trades.end(),[&](auto &&item) {
+		if (item.time >= start) return item.toJSON(); else return Value();
+	}));
+	auto cfg = trl->get_config();
+	auto ticker = broker->getTicker(cfg.pairsymb);
+	auto orders = broker->getOpenOrders(cfg.pairsymb);
+	auto minfo = trl->get_market_info();
+	out.set("ticker", Object({{"ask", ticker.ask},{"bid", ticker.bid},{"last", ticker.last},{"time", ticker.time}}));
+	out.set("orders", Value(json::array, orders.begin(), orders.end(), [](const auto &x){return x.toJSON();}));
+	out.set("broker", cfg.broker);
+	out.set("minfo", minfo.toJSON());
+	out.set("assets", broker->getBalance(minfo.asset_symbol,cfg.pairsymb));
+	out.set("currency", broker->getBalance(minfo.currency_symbol,cfg.pairsymb));
+	send_json(req, out);
+	return true;
+
+}
+
+bool HttpAPI::post_api_trader_trading(Req &req, const Args &v) {
+	if (!check_acl(req, ACL::manual_trading)) return true;
+	PTrader tr = core->get_traders().lock_shared()->get_trader(v["trader"]);
+	if (tr == nullptr) {
+		api_error(req, 404, "Trader not found");
+		return true;
+	}
+	req->readBody(req, max_upload) >> [tr, me=PHttpAPI(this)](Req &req, std::string_view body) {
+		try {
+			auto trl = tr.lock_shared();
+			auto brk = trl->get_exchange();
+			auto cfg = trl->get_config();
+
+			Value parsed = Value::fromString(body);
+			Value price = parsed["price"];
+			if (price.type() == json::string) {
+				std::unique_lock lk(me->core->get_cycle_lock(), std::try_to_lock);
+				if (lk.owns_lock()) brk->reset(std::chrono::system_clock::now());
+				auto ticker = brk->getTicker(cfg.pairsymb);
+				if (price.getString() == "ask")
+					price = ticker.ask;
+				else if (price.getString() == "bid")
+					price = ticker.bid;
+				else {
+					me->api_error(req, 400, "Invalid price (bid or ask or number)");
+					return;
+				}
+			}
+			Value res = brk->placeOrder(cfg.pairsymb,
+							parsed["size"].getNumber(),
+							price.getNumber(), json::Value(),
+							parsed["replace_id"],0);
+			send_json(req, res);
+		} catch (AbstractExtern::Exception &e) {
+			if (e.isResponse()) api_error(req,409,e.what());
+			else throw;
+		} catch (ParseError &e) {
+			api_error(req, 400, e.what());
+		}
+	};
+	return true;
+
+}
+
+bool HttpAPI::delete_api_trader_trading(Req &req, const Args &v) {
+	if (!check_acl(req, ACL::manual_trading)) return true;
+	PTrader tr = core->get_traders().lock_shared()->get_trader(v["trader"]);
+	if (tr == nullptr) {
+		api_error(req, 404, "Trader not found");
+		return true;
+	}
+	req->readBody(req, max_upload) >> [tr, me=PHttpAPI(this)](Req &req, std::string_view body) {
+		try {
+			auto trl = tr.lock_shared();
+			auto brk = trl->get_exchange();
+			auto cfg = trl->get_config();
+
+			Value parsed = body.empty()?Value(json::object):Value::fromString(body);
+			Value id = parsed["id"];
+			if (id.hasValue()) {
+				brk->placeOrder(cfg.pairsymb,0,0,json::Value(),id,0);
+			} else {
+				std::unique_lock lk(me->core->get_cycle_lock(), std::try_to_lock);
+				if (lk.owns_lock()) brk->reset(std::chrono::system_clock::now());
+				IStockApi::Orders ords = brk->getOpenOrders(cfg.pairsymb);
+				IStockApi::OrderList olist;
+				for (const auto &o : ords) {
+					olist.push_back({
+						cfg.pairsymb, 0,0,json::Value(),o.id,0
+					});
+				}
+				IStockApi::OrderIdList rets;
+				IStockApi::OrderPlaceErrorList errs;
+				brk->batchPlaceOrder(olist,rets,errs);
+			}
+			me->send_json(req, true);
+		} catch (ParseError &e) {
+			me->api_error(req,400, e.what());
+		} catch (AbstractExtern::Exception &e) {
+			if (e.isResponse()) me->api_error(req,409,e.what()); else throw;
+		}
+	};
+	return true;
+
+}
+
+bool HttpAPI::get_api_backtest_trader_data(Req &req, const Args &v) {
+	if (!check_acl(req, ACL::backtest)) return true;
+	bool withtm = v["withtm"] == "true";
+	PTrader tr = core->get_traders().lock_shared()->get_trader(v["trader"]);
+		if (tr == nullptr) {
+			api_error(req, 404, "Trader not found");
+			return true;
+		}
+	auto trl = tr.lock_shared();
+	const auto &dt = trl->get_minute_chart();
+	req->setContentType(ctx_json);
+	json::Value out = ([&]{
+		auto rd = dt->read(-1);
+
+		return withtm?json::Value(json::array, rd.begin(), rd.end(), [&](const auto &x){
+			return json::Value({x.timestamp, x.price});
+		}):json::Value(json::array, rd.begin(), rd.end(), [&](const auto &x){
+			return json::Value(x.price);
+		});
+	})();
+
+	send_json(req, out);
+	return true;
+}
+
+bool HttpAPI::post_api_backtest_trader_data(Req &req, const Args &v) {
+	if (!check_acl(req, ACL::backtest)) return true;
+	PTrader tr = core->get_traders().lock_shared()->get_trader(v["trader"]);
+		if (tr == nullptr) {
+			api_error(req, 404, "Trader not found");
+			return true;
+		}
+	auto trl = tr.lock_shared();
+	const auto &dt = trl->get_minute_chart();
+	auto bts = core->get_backtest_storage().lock();
+	json::Value out = ([&]{
+		auto rd = dt->read(-1);
+		return json::Value(json::array, rd.begin(), rd.end(), [&](const auto &x){
+			return json::Value(x.price);
+		});
+	})();
+	std::string id = bts->store_data(out);
+	req->setStatus(201);
+	req->set("Location",std::string(req->getRootPath()).append("/api/backtest/data/").append(id));
+	send_json(req, json::Object({"id", id}));
 	return true;
 
 }

@@ -192,6 +192,8 @@ void Trader::load_state() {
 		last_known_live_balance = state["last_known_live_balance"].getNumber();
 		last_trade_price = state["last_trade_price"].getNumber();
 		last_trade_size = state["last_trade_size"].getNumber();
+		equilibrium=state["equilibrium"].getNumber();
+
 		reset_rev = state["reset_rev"].getUInt();
 		json::Value ach = state["achieve"];
 		if (ach.type() == json::object) {
@@ -234,6 +236,7 @@ void Trader::save_state() {
 		state.set("last_known_live_position", last_known_live_position);
 		state.set("last_known_live_balance", last_known_live_balance);
 		state.set("last_trade_price",last_trade_price);
+		state.set("equilibrium",equilibrium);
 		state.set("last_trade_size", last_trade_size);
 		if (last_trade_eq_extra.has_value()) {
 			state.set("last_trade_eq_extra", *last_trade_eq_extra);
@@ -639,7 +642,7 @@ Trader::MarketStateEx Trader::getMarketState(bool trades_finished) const {
 	IStockApi::Ticker ticker = env.exchange->getTicker(cfg.pairsymb);
 	mst.cur_price = ticker.last;
 	mst.cur_time = ticker.time;
-	double eq = equilibrium?equilibrium:mst.cur_price;
+	double eq = equilibrium?equilibrium:last_trade_price?last_trade_price:mst.cur_price;
 	if (trades_finished) {
 		mst.event = MarketEvent::trade;
 		mst.event_price = last_trade_price;
@@ -869,7 +872,9 @@ Trader::Control::Control(Trader &owner, const MarketState &state)
 
 NewOrderResult Trader::Control::checkBuySize(double price, double size) {
 
-	if (!std::isfinite(price) || price <= 0 || price > state.highest_buy_price) return {OrderRequestResult::invalid_price,0};
+	if (!std::isfinite(price) || price <= 0 || price > state.highest_buy_price) {
+		return {OrderRequestResult::invalid_price,0};
+	}
 	double minsize = state.minfo->getMinSize(price);
 	double sz = owner.minfo.adjValue(size, owner.minfo.asset_step, [](double x){return std::round(x);});
 	if (sz < minsize) return {OrderRequestResult::too_small, minsize};
@@ -941,7 +946,9 @@ inline void Trader::Control::log(std::string_view text) {
 
 NewOrderResult Trader::Control::checkSellSize(double price, double size) {
 
-	if (!std::isfinite(price) || price < state.lowest_sell_price) return {OrderRequestResult::invalid_price,0};
+	if (!std::isfinite(price) || price < state.lowest_sell_price) {
+		return {OrderRequestResult::invalid_price,0};
+	}
 	double minsize = state.minfo->getMinSize(price);
 	double sz = owner.minfo.adjValue(size, owner.minfo.asset_step, [](double x){return std::round(x);});
 
@@ -1271,4 +1278,8 @@ void Trader::stop_trader() {
 	} catch (...) {
 		report_exception();
 	}
+}
+
+const PHistStorage<HistMinuteDataItem> &Trader::get_minute_chart() const {
+	return env.histData;
 }

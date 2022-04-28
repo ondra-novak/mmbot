@@ -87,9 +87,6 @@ protected:
 	bool put_api_broker_pairs_settings(Req &req, const Args &args);
 	bool get_api_broker_pairs_traderinfo(Req &req, const Args &args);
 
-	bool get_api_broker_pairs_orders(Req &req, const Args &args);
-	bool put_api_broker_pairs_orders(Req &req, const Args &args);
-	bool delete_api_broker_pairs_orders(Req &req, const Args &args);
 
 	static void send_json(Req &req, const json::Value &v);
 
@@ -116,6 +113,11 @@ protected:
 	bool get_api_trader(Req &req, const Args &v);
 	bool get_api_trader_trader(Req &req, const Args &v);
 	bool delete_api_trader_trader(Req &req, const Args &v);
+	bool get_api_trader_trading(Req &req, const Args &v);
+	bool post_api_trader_trading(Req &req, const Args &v);
+	bool delete_api_trader_trading(Req &req, const Args &v);
+	bool get_api_backtest_trader_data(Req &req, const Args &v);
+	bool post_api_backtest_trader_data(Req &req, const Args &v);
 	static void redir_to_run(int id, Req &req);
 
 	class DataDownloaderTask;
