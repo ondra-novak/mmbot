@@ -124,9 +124,9 @@ static Value placeOrder(AbstractBrokerAPI &handler, const Value &req) {
 }
 
 struct PlaceOrdersState {
-	std::vector<IStockApi::NewOrder> olist;
-	std::vector<json::Value> ret;
-	std::vector<std::string> errors;
+	IStockApi::NewOrderList olist;
+	IStockApi::ResultList ret;
+	json::Array out;
 
 };
 
@@ -134,9 +134,10 @@ struct PlaceOrdersState {
 static thread_local PlaceOrdersState place_order_state;
 
 static Value placeOrders(AbstractBrokerAPI &handler, const Value &req) {
-	place_order_state.olist.clear();
+	auto &pst = place_order_state;
+	pst.olist.clear();
 	for (json::Value x: req) {
-		place_order_state.olist.push_back({
+		pst.olist.push_back({
 			req["pair"].getString(),
 			req["size"].getNumber(),
 			req["price"].getNumber(),
@@ -145,17 +146,17 @@ static Value placeOrders(AbstractBrokerAPI &handler, const Value &req) {
 			req["replaceOrderSize"].getNumber(),
 		});
 	}
-	place_order_state.errors.clear();
-	place_order_state.ret.clear();
-	handler.batchPlaceOrder(place_order_state.olist, place_order_state.ret, place_order_state.errors);
-	json::Array out;
+	pst.ret.clear();
+	handler.batchPlaceOrder(pst.olist, pst.ret);
+	pst.out.clear();
 	std::size_t i=0, cnt = place_order_state.ret.size();
 	while (i < cnt) {
-		out.push_back({place_order_state.ret[i],place_order_state.errors[i]});
+		const auto &st = pst.ret[i];
+		place_order_state.out.push_back({st.order_id,st.error});
 		++i;
 	}
 
-	return out;
+	return pst.out;
 }
 
 static Value enableDebug(AbstractBrokerAPI &handler, const Value &req) {
@@ -295,10 +296,16 @@ Value enableBinary(AbstractBrokerAPI &handle, const Value &) {
 	return json::undefined;
 }
 
-void AbstractBrokerAPI::batchPlaceOrder(const std::vector<NewOrder> &orders,
-		std::vector<json::Value> &ret_ids,
-		std::vector<std::string> &ret_errors) {
-	throw std::runtime_error("Unsupported");
+void AbstractBrokerAPI::batchPlaceOrder(const NewOrderList &orders, ResultList &result) {
+	result.clear();
+	for (const auto &ord: orders) {
+		try {
+			auto r = placeOrder(ord.symbol, ord.size, ord.price, ord.client_id, ord.replace_order_id, ord.replace_excepted_size);
+			result.push_back({r, json::Value()});
+		} catch (std::exception &e) {
+			result.push_back({json::Value(nullptr), json::Value(e.what())});
+		}
+	}
 }
 
 Value handleSubaccount(AbstractBrokerAPI &handler, const Value &req) {

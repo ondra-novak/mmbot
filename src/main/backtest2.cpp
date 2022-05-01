@@ -24,9 +24,7 @@ public:
 			double replaceSize) override;
 	virtual IStockApi::Ticker getTicker(const std::string_view &piar) override;
 	virtual void reset(const std::chrono::_V2::system_clock::time_point &tp) override;
-	virtual void batchPlaceOrder(const IStockApi::OrderList &orders,
-			IStockApi::OrderIdList &ret_ids,
-			IStockApi::OrderPlaceErrorList &ret_errors) override;
+	virtual void batchPlaceOrder(const NewOrderList &orders, ResultList &result) override;
 
 protected:
 	MarketInfo minfo;
@@ -100,9 +98,7 @@ Backtest::Source::Source(const MarketInfo &minfo, double currency, double assets
 
 }
 
-void Backtest::Source::batchPlaceOrder(
-		const IStockApi::OrderList &orders, IStockApi::OrderIdList &ret_ids,
-		IStockApi::OrderPlaceErrorList &ret_errors) {
+void Backtest::Source::batchPlaceOrder(const NewOrderList &, ResultList &){
 	throw std::runtime_error("not supported");
 }
 

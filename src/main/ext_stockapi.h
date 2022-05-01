@@ -39,7 +39,7 @@ public:
 	virtual json::Value placeOrder(const std::string_view & pair,
 			double size, double price,json::Value clientId,
 			json::Value replaceId,double replaceSize) override;
-	virtual void batchPlaceOrder(const std::vector<NewOrder> &orders, std::vector<json::Value> &ret_ids, std::vector<std::string> &ret_errors) override;
+	virtual void batchPlaceOrder(const NewOrderList &orders, ResultList &result) override;
 	virtual void reset(const std::chrono::system_clock::time_point &tp) override;
 	virtual MarketInfo getMarketInfo(const std::string_view & pair) override;
 	virtual std::vector<std::string> getAllPairs() override;
@@ -83,12 +83,10 @@ protected:
 		void refreshBrokerInfo();
 		std::chrono::system_clock::time_point getLastActivity();
 		json::Value jsonRequestExchange(json::String name, json::Value args);
-		bool supportBatchPlace();
 	protected:
 		std::atomic<int> instance_counter = 0;
 		json::Value broker_info;
 		std::chrono::system_clock::time_point lastActivity;
-		std::optional<bool> batchPlace_supported;
 
 	};
 
@@ -97,10 +95,6 @@ protected:
 	int instance_counter = 0;
 	std::string subaccount;
 	std::chrono::system_clock::time_point lastActivity, lastReset;
-	mutable std::map<std::string, MarketInfo, std::less<> > invert_info;
-
-	bool is_inverted(const std::string_view &pair) const;
-	const MarketInfo * get_inverted_minfo(const std::string_view &pair) const;
 
 	ExtStockApi(std::shared_ptr<Connection> connection, std::string &&subaccid);
 };

@@ -1801,15 +1801,14 @@ bool HttpAPI::delete_api_trader_trading(Req &req, const Args &v) {
 				std::unique_lock lk(me->core->get_cycle_lock(), std::try_to_lock);
 				if (lk.owns_lock()) brk->reset(std::chrono::system_clock::now());
 				IStockApi::Orders ords = brk->getOpenOrders(cfg.pairsymb);
-				IStockApi::OrderList olist;
+				IStockApi::NewOrderList olist;
 				for (const auto &o : ords) {
 					olist.push_back({
 						cfg.pairsymb, 0,0,json::Value(),o.id,0
 					});
 				}
-				IStockApi::OrderIdList rets;
-				IStockApi::OrderPlaceErrorList errs;
-				brk->batchPlaceOrder(olist,rets,errs);
+				IStockApi::ResultList rets;
+				brk->batchPlaceOrder(olist,rets);
 			}
 			me->send_json(req, true);
 		} catch (ParseError &e) {

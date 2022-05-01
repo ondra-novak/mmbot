@@ -28,8 +28,7 @@ public:
 	virtual IStockApi::Orders getOpenOrders(const std::string_view &par) override;
 	virtual json::Value placeOrder(const std::string_view &pair, double size, double price,
 			json::Value clientId, json::Value replaceId, double replaceSize) override;
-	virtual void batchPlaceOrder(const std::vector<NewOrder> &orders,
-			std::vector<json::Value> &ret_ids, std::vector<std::string> &ret_errors) override;
+	virtual void batchPlaceOrder(const NewOrderList &orders, ResultList &result) override;
 
 
 

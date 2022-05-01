@@ -30,9 +30,7 @@ double ExtStockApi::getBalance(const std::string_view & symb, const std::string_
 	double r = requestExchange("getBalance",
 			json::Object({{"pair", pair},
 						{"symbol", symb}})).getNumber();
-	const MarketInfo *m = get_inverted_minfo(pair);
-	if (m && symb == m->asset_symbol) return -r;
-	else return r;
+	return r;
 }
 
 
@@ -41,14 +39,6 @@ ExtStockApi::TradesSync ExtStockApi::syncTrades(json::Value lastId, const std::s
 														{"pair",pair}}));
 	TradeHistory  th;
 	for (json::Value v: r["trades"]) th.push_back(Trade::fromJSON(v));
-	if (is_inverted(pair)) {
-		for (auto &x: th) {
-			x.eff_price = 1.0/x.eff_price;
-			x.price = 1.9/x.price;
-			x.size = -x.size;
-			x.eff_size = -x.eff_size;
-		}
-	}
 	return TradesSync {
 		th, r["lastId"]
 	};
@@ -67,24 +57,12 @@ ExtStockApi::Orders ExtStockApi::getOpenOrders(const std::string_view & pair) {
 		};
 		r.push_back(ord);
 	}
-	if (is_inverted(pair)) {
-		for (auto &x: r) {
-			x.price = 1.0/x.price;
-			x.size = -x.size;
-		}
-	}
 	return r;
 }
 
 ExtStockApi::Ticker ExtStockApi::getTicker(const std::string_view & pair) {
 	auto resp =  requestExchange("getTicker", pair);
-	if (is_inverted(pair)) return Ticker{
-		1.0/resp["ask"].getNumber(),
-		1.0/resp["bid"].getNumber(),
-		1.0/resp["last"].getNumber(),
-		resp["timestamp"].getUIntLong()
-		};
-	else return Ticker {
+	return Ticker {
 		resp["bid"].getNumber(),
 		resp["ask"].getNumber(),
 		resp["last"].getNumber(),
@@ -96,12 +74,6 @@ json::Value  ExtStockApi::placeOrder(const std::string_view & pair,
 		double size, double price,json::Value clientId,
 		json::Value replaceId,double replaceSize) {
 
-	if (is_inverted(pair)) {
-		size = -size;
-		price = 1.0/price;
-		replaceSize = std::abs(replaceSize);
-	}
-
 	return requestExchange("placeOrder",json::Object({
 		{"pair",pair},
 		{"price",price},
@@ -111,41 +83,26 @@ json::Value  ExtStockApi::placeOrder(const std::string_view & pair,
 		{"replaceOrderSize",replaceSize}}));
 }
 
-void ExtStockApi::batchPlaceOrder(const std::vector<NewOrder> &orders, std::vector<json::Value> &ret_ids, std::vector<std::string> &ret_errors)  {
-
-	ret_ids.clear();
-	ret_errors.clear();
-	if (connection->supportBatchPlace()) {
-
-		json::Value req (json::array, orders.begin(), orders.end(), [](const NewOrder &ord){
-					return json::Value(json::object,{
-						json::Value("pair", ord.symbol),
-						json::Value("price", ord.price),
-						json::Value("size", ord.size),
-						json::Value("clientOrderId", ord.client_id),
-						json::Value("replaceOrderId", ord.replace_order_id),
-						json::Value("replaceOrderSize", std::abs(ord.replace_excepted_size)),
-					});
-			}
-		);
-		json::Value out = requestExchange("placeOrders", req);
-		for (json::Value x: out) {
-			ret_ids.push_back(x.isContainer()?x[0]:x);
-			ret_errors.push_back(x[1].getString());
+void ExtStockApi::batchPlaceOrder(const NewOrderList &orders, ResultList &result)  {
+	result.clear();
+	json::Value req (json::array, orders.begin(), orders.end(), [](const NewOrder &ord){
+				return json::Value(json::object,{
+					json::Value("pair", ord.symbol),
+					json::Value("price", ord.price),
+					json::Value("size", ord.size),
+					json::Value("clientOrderId", ord.client_id),
+					json::Value("replaceOrderId", ord.replace_order_id),
+					json::Value("replaceOrderSize", std::abs(ord.replace_excepted_size)),
+				});
 		}
-	} else {
-		for (const auto &x: orders) {
-			try {
-				json::Value id = placeOrder(x.symbol, x.size, x.price, x.client_id, x.replace_order_id, std::abs(x.replace_excepted_size));
-				ret_ids.push_back(id);
-				ret_errors.push_back(std::string());
-			} catch (std::exception &e) {
-				ret_ids.push_back(nullptr);
-				ret_errors.push_back(e.what());
-
-			}
-		}
+	);
+	json::Value out = requestExchange("placeOrders", req);
+	for (json::Value x: out) {
+		result.push_back({
+			x[0],x[1]
+		});
 	}
+
 
 }
 
@@ -169,14 +126,8 @@ ExtStockApi::MarketInfo ExtStockApi::getMarketInfo(const std::string_view & pair
 
 	MarketInfo nfo (MarketInfo::fromJSON(v));
 	std::lock_guard _(connection->getLock());
-	if (nfo.invert_price) {
-		invert_info.emplace(std::string(pair),nfo);
-		nfo.invert_price = false;
-		nfo.type = MarketType::inverted;
-	} else {
-		auto iter = invert_info.find(pair);
-		if (iter != invert_info.end()) invert_info.erase(iter);
-	}
+	if (nfo.invert_price)
+		throw AbstractExtern::Exception("Unsupported inverted market - please update the broker", connection->getName(),"getInfo",true);
 
 	if (nfo.quoted_symbol.empty()) {
 		nfo.quoted_symbol = nfo.currency_symbol;
@@ -425,32 +376,6 @@ json::Value ExtStockApi::Connection::jsonRequestExchange(json::String name, json
 	lastActivity = std::chrono::system_clock::now();
 	return AbstractExtern::jsonRequestExchange(name, args);
 
-}
-
-bool ExtStockApi::Connection::supportBatchPlace() {
-	if (batchPlace_supported.has_value()) return *batchPlace_supported;
-	else {
-		try {
-			AbstractExtern::jsonRequestExchange("placeOrders", json::array);
-			batchPlace_supported = true;
-		} catch (Exception &e) {
-			if (e.isResponse()) batchPlace_supported = false;
-			else throw;
-		}
-		return *batchPlace_supported;
-	}
-}
-
-bool ExtStockApi::is_inverted(const std::string_view &pair) const {
-	std::lock_guard _(connection->getLock());
-	auto iter = invert_info.find(pair);
-	return  iter != invert_info.end();
-}
-
-const ExtStockApi::MarketInfo* ExtStockApi::get_inverted_minfo(const std::string_view &pair) const {
-	std::lock_guard _(connection->getLock());
-	auto iter = invert_info.find(pair);
-	return  iter != invert_info.end()?&iter->second:nullptr;
 }
 
 

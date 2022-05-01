@@ -553,18 +553,18 @@ void Trader::run() {
 			};
 		});
 		if (!newOrders.empty()) {
-			env.exchange->batchPlaceOrder(newOrders, newOrders_ids, newOrders_err);
+			env.exchange->batchPlaceOrder(newOrders, newOrders_ret);
 		}
 		for (std::size_t cnt = newOrders.size(), i = 0; i < cnt; ++i) {
-			if (!newOrders_err[i].empty()) {
+			if (newOrders_ret[i].error.type() == json::string) {
 				if (newOrders[i].size>0) {
-					buy_error = newOrders_err[i];
+					buy_error = newOrders_ret[i].error.getString();
 					rej_buy = true;
 				} else if (newOrders[i].size<0) {
-					sell_error = newOrders_err[i];
+					sell_error = newOrders_ret[i].error.getString();
 					rej_sell = true;
 				} else {
-					gen_error = newOrders_err[i];
+					gen_error = newOrders_ret[i].error.getString();
 				}
 			}
 		}

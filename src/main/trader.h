@@ -355,9 +355,8 @@ protected:
 	json::Value strategy_report_state;
 
 
-	std::vector<IStockApi::NewOrder> newOrders;
-	std::vector<json::Value> newOrders_ids;
-	std::vector<std::string> newOrders_err;
+	IStockApi::NewOrderList newOrders;
+	IStockApi::ResultList newOrders_ret;
 
 	void load_state();
 	void updateEnterPrice();

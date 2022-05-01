@@ -211,26 +211,23 @@ public:
 		double replace_excepted_size;
 	};
 
-	using OrderList = std::vector<NewOrder>;
-	using OrderIdList = std::vector<json::Value>;
-	using OrderPlaceErrorList = std::vector<std::string>;
+	///Result struct contains information about placed order
+	/**
+	 * Order is identified by its position in the list.
+	 */
+	struct NewOrderResult {
+		///If order placed, there is ID of order. If order is only canceled, or when order was not placed, there is null
+		json::Value order_id;
+		///If order was not placed or canceled, reson is carried as JSON string. Otherwise it is set to undefined
+		json::Value error;
+	};
+
+	using NewOrderList = std::vector<NewOrder>;
+	using ResultList = std::vector<NewOrderResult>;
 
 
 	///Place multiple orders
-	/**
-	 * @param pair selected pair - you can place multiple orders for single pair (symbol)
-	 * @param orders list of orders to place
-	 * @param ids when function returns, contains list of IDS of new orders. When null is returned,
-	 * order was not placed
-	 * @param errors for each order, an error can apper. If no error reported, the apropriate string
-	 * is empty
-	 *
-	 * @note for every order there is one item in ids and one item in errors. Only if an item within
-	 * 'errors' is non-empty string means there were an error. It can happen, that null + empty string
-	 * is returned which means, that order was not placed, but no error was generated. This can
-	 * also happen, when order is canceled without placing a new order
-	 */
-	virtual void batchPlaceOrder(const OrderList &orders, OrderIdList &ret_ids, OrderPlaceErrorList &ret_errors) = 0;
+	virtual void batchPlaceOrder(const NewOrderList &orders, ResultList &result) = 0;
 
 	///Reset the API
 	/**
