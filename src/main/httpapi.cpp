@@ -129,7 +129,7 @@ bool HttpAPI::get_api_user(Req &req, const Args &args) {
 	json::Object out;
 	out.set("user", user.name);
 	out.set("exists", user.exists);
-	out.set("jwt", user.jwt);
+	out.set("source", strLoginType[user.ltype]);
 	for (const auto &x: strACL) {
 		out.set(x.name, user.acl.is_set(x.val));
 	}
@@ -204,7 +204,7 @@ bool HttpAPI::post_api_user(Req &req, const Args &args) {
 			json::Object out;
 			out.set("user", user.name);
 			out.set("exists", user.exists);
-			out.set("jwt", user.jwt);
+			out.set("source", strLoginType[user.ltype]);
 			for (const auto &x: strACL) {
 				out.set(x.name, user.acl.is_set(x.val));
 			}
@@ -1481,6 +1481,9 @@ void HttpAPI::trader_info(Req &req, std::string_view trader_id, std::string_view
 			struct Pt {
 				double x,b,h,p,y;
 			};
+
+			bool inv = minfo.type == MarketType::inverted;
+
 			std::vector<Pt> points;
 			double prev_y = 0;
 			for (int i = 0; i < 200; i++) {
@@ -1492,7 +1495,7 @@ void HttpAPI::trader_info(Req &req, std::string_view trader_id, std::string_view
 					if (y < 0) y = prev_y;
 					else prev_y = y;
 					points.push_back({
-						minfo.invert_price?1.0/x:x,
+						inv?1.0/x:x,
 							pt.equity,
 							std::abs(pt.position*x),
 							pt.position,y});
@@ -1508,7 +1511,7 @@ void HttpAPI::trader_info(Req &req, std::string_view trader_id, std::string_view
 			for (int i = -50; i <50;i++) {
 				double x = mst.cur_price+(g_end-g_beg)*(i/200.0);
 				tangent.push_back({
-					minfo.invert_price?1.0/x:x,
+					inv?1.0/x:x,
 					cp.position*(x-mst.cur_price)+cp.equity
 				});
 			}
@@ -1525,7 +1528,7 @@ void HttpAPI::trader_info(Req &req, std::string_view trader_id, std::string_view
 				{"neutral", neutral_price},
 				{"tangent",tangent},
 				{"current",json::Object{
-					{"x",minfo.invert_price?1.0/mst.cur_price:mst.cur_price},
+					{"x",inv?1.0/mst.cur_price:mst.cur_price},
 					{"b",cp.equity},
 					{"h",std::abs(cp.position*mst.cur_price)},
 				}}

@@ -526,7 +526,7 @@ void KucoinIFC::updateSymbols() const {
 			nfo.currency_step = s["priceIncrement"].getNumber();
 			nfo.asset_symbol= s["baseCurrency"].getString();
 			nfo.currency_symbol = s["quoteCurrency"].getString();
-			nfo.feeScheme = currency;
+			nfo.feeScheme = FeeScheme::currency;
 			nfo.fees = -1;
 			nfo.invert_price = false;
 			nfo.leverage = 0;

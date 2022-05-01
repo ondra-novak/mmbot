@@ -307,7 +307,7 @@ inline Interface::MarketInfo Interface::getMarketInfo(const std::string_view &pa
 		csize["contract_size"].getNumber(),
 		0,
 		0,
-		IStockApi::currency,
+		FeeScheme::currency,
 		leverage,
 		true,
 		"USD",

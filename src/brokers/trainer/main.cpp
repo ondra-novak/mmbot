@@ -1018,7 +1018,7 @@ inline Interface::MarketInfo Interface::getMarketInfo(const std::string_view &pa
 		p.asset_step,
 		0,
 		0,
-		AbstractBrokerAPI::currency,
+		FeeScheme::currency,
 		p.futures?1000000.0:0.0,
 		p.inverted,
 		p.currency,

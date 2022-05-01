@@ -103,7 +103,7 @@ public:
 		unsigned int quote_precision;
 		Category cat;
 		std::string label; //for futures
-		std::string type; //for futures
+		std::string ftype; //for futures
 	};
 
 	using Symbols = ondra_shared::linear_map<std::string, MarketInfoEx, std::less<std::string_view> > ;
@@ -246,13 +246,12 @@ static json::Value readTrades(Proxy &proxy, const std::string &command, std::str
 		 auto cpair = remove_prefix(pair);
 		 Value r = readTrades(dapi, "/dapi/v1/userTrades", cpair, lastId);
 		 TradeHistory h(mapJSON(r,[&](Value x){
-			 double size = -x["qty"].getNumber()*minfo.asset_step;
-			 double price = 1.0/x["price"].getNumber();
+			 double size = x["qty"].getNumber()*minfo.asset_step;
+			 double price = x["price"].getNumber();
 			 if (!x["buyer"].getBool()) size = -size;
 			 double comms = x["commission"].getNumber();
 			 double eff_size = size;
-			 double eff_price = price;
-			 eff_price += comms/size;
+			 double eff_price = price * size /(comms*price + size); //Wolfram alpha calculated
 
 			 return Trade {
 				 x["id"],
@@ -470,8 +469,8 @@ Interface::Ticker Interface::getTicker(const std::string_view &pair) {
 			std::vector<Tickers::value_type> tk;
 			Value book = dapi.public_request("/dapi/v1/ticker/bookTicker",Value());
 			for (Value v: book) {
-				double bid = 1.0/v["askPrice"].getNumber();
-				double ask = 1.0/v["bidPrice"].getNumber();
+				double ask = v["askPrice"].getNumber();
+				double bid = v["bidPrice"].getNumber();
 				double midl = std::sqrt(bid * ask);
 				tk.emplace_back(
 					v["symbol"].getString(),
@@ -567,9 +566,8 @@ json::Value Interface::placeOrder(const std::string_view & pair,
 	if (iter == symbols.end()) throw std::runtime_error("Unknown symbol");
 	if (dapi_isSymbol(pair)) {
 		auto cpair = remove_prefix(pair);
-		size = -size/iter->second.asset_step;
+		size = size/iter->second.asset_step;
 		replaceSize = replaceSize/iter->second.asset_step;
-		price = std::round((1.0/price)/iter->second.currency_step)*iter->second.currency_step;
 
 		if (replaceId.defined()) {
 			Value r = dapi.private_request(Proxy::DELETE,"/dapi/v1/order",Object({
@@ -684,7 +682,7 @@ void Interface::initSymbols() {
 				nfo.currency_symbol = smb["quoteAsset"].getString();
 				nfo.currency_step = std::pow(10,-smb["quotePrecision"].getNumber());
 				nfo.asset_step = std::pow(10,-smb["baseAssetPrecision"].getNumber());
-				nfo.feeScheme = income;
+				nfo.feeScheme = FeeScheme::income;
 				nfo.min_size = 0;
 				nfo.min_volume = 0;
 				nfo.fees = getFees(symbol);
@@ -705,8 +703,8 @@ void Interface::initSymbols() {
 				nfo.wallet_id="spot";
 
 				if (feesInBnb) {
-					if (nfo.asset_symbol == "BNB") nfo.feeScheme = assets;
-					else nfo.feeScheme = currency;
+					if (nfo.asset_symbol == "BNB") nfo.feeScheme = FeeScheme::assets;
+					else nfo.feeScheme = FeeScheme::currency;
 				}
 
 				bld.push_back(VT(symbol, nfo));
@@ -722,7 +720,7 @@ void Interface::initSymbols() {
 				nfo.currency_symbol = smb["marginAsset"].getString();
 				nfo.currency_step = std::pow(10,-smb["pricePrecision"].getNumber());
 				nfo.asset_step = smb["contractSize"].getNumber();
-				nfo.feeScheme = currency;
+				nfo.feeScheme = FeeScheme::currency;
 				nfo.fees = getFees(symbol);
 				nfo.min_size = nfo.asset_step;
 				nfo.min_volume = 0;
@@ -739,12 +737,12 @@ void Interface::initSymbols() {
 					}
 				}
 				nfo.leverage = 20;
-				nfo.invert_price = true;
-				nfo.inverted_symbol = smb["quoteAsset"].getString();
+				nfo.quoted_symbol = smb["quoteAsset"].getString();
 				nfo.cat = Category::coin_m;
 				nfo.label = nfo.currency_symbol+"/"+nfo.asset_symbol;
-				nfo.type = smb["contractType"].getString();
+				nfo.ftype = smb["contractType"].getString();
 				nfo.wallet_id = symbol;
+				nfo.MarketInfo::type = MarketType::inverted;
 				bld.push_back(VT(symbol, nfo));
 			}
 			need_more_time();
@@ -759,7 +757,7 @@ void Interface::initSymbols() {
 				nfo.currency_symbol = smb["quoteAsset"].getString();
 				nfo.currency_step = std::pow(10,-smb["pricePrecision"].getNumber());
 				nfo.asset_step = std::pow(10, -smb["quantityPrecision"].getNumber());
-				nfo.feeScheme = currency;
+				nfo.feeScheme = FeeScheme::currency;
 				nfo.fees = getFees(symbol);
 				nfo.min_size = nfo.asset_step;
 				nfo.min_volume = 0;
@@ -776,10 +774,9 @@ void Interface::initSymbols() {
 					}
 				}
 				nfo.leverage = 20;
-				nfo.invert_price = false;
 				nfo.cat = Category::usdt_m;
 				nfo.label = nfo.asset_symbol+"/"+nfo.currency_symbol;
-				nfo.type = "PERPETUAL";
+				nfo.ftype = "PERPETUAL";
 				nfo.wallet_id = "usdt-m";
 				bld.push_back(VT(symbol, nfo));
 			}
@@ -973,7 +970,7 @@ inline double Interface::dapi_getPosition(const std::string_view &pair) {
 		dapi_positions = dapi.private_request(Proxy::GET, "/dapi/v1/positionRisk", Value());
 	}
 	Value z = dapi_positions.find([&](Value item){return item["symbol"].getString() == pair;});
-	return -z["positionAmt"].getNumber();
+	return z["positionAmt"].getNumber();
 }
 
 inline double Interface::dapi_getCollateral(const std::string_view &pair) {
@@ -1016,14 +1013,14 @@ inline json::Value Interface::getMarkets() const {
 	{
 		Map map;
 		for (auto &&v: symbols) if (v.second.cat == Category::coin_m) {
-			map.emplace(std::pair(std::string_view(v.second.label), std::string_view(v.second.type)), v.first);
+			map.emplace(std::pair(std::string_view(v.second.label), std::string_view(v.second.ftype)), v.first);
 		}
 		res.set(coin_m_title,loadToMap(map));
 	}
 	{
 		Map map;
 		for (auto &&v: symbols) if (v.second.cat == Category::usdt_m) {
-			map.emplace(std::pair(std::string_view(v.second.label), std::string_view(v.second.type)), v.first);
+			map.emplace(std::pair(std::string_view(v.second.label), std::string_view(v.second.ftype)), v.first);
 		}
 		res.set(usdt_m_title,loadToMap(map));
 	}

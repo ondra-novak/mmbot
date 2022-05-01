@@ -255,7 +255,7 @@ IStockApi::MarketInfo Interface::getMarketInfo(const std::string_view &pair) {
 	minfo.currency_symbol = symbolMap[symbinfo["quote"].getString()].getString();
 	minfo.asset_step = std::pow(10,-symbinfo["lot_decimals"].getInt());
 	minfo.currency_step = std::pow(10,-symbinfo["pair_decimals"].getInt());
-	minfo.feeScheme = currency;
+	minfo.feeScheme = FeeScheme::currency;
 	minfo.fees=getFees(pair);
 	minfo.invert_price = false;
 	minfo.leverage = 0;

@@ -33,7 +33,16 @@ enum class ACL {
 	must_change_pwd=10
 };
 
+enum class LoginType {
+	unknown,
+	none,
+	session,
+	external,
+	password
+};
+
 extern json::NamedEnum<ACL> strACL;
+extern json::NamedEnum<LoginType> strLoginType;
 
 struct ACLSet {
 	constexpr ACLSet() {}
@@ -65,7 +74,7 @@ public:
 		bool exists = false;
 		std::string_view name;
 		ACLSet acl;
-		bool jwt;
+		LoginType ltype = LoginType::unknown;
 	};
 
 
@@ -109,7 +118,7 @@ protected:
 	struct UserInfo {
 		std::string password_hash;
 		ACLSet acl;
-		bool jwt;
+		LoginType ltype;
 	};
 
 	using UserMap = ondra_shared::linear_map<std::string, UserInfo, std::less<> >;
@@ -119,7 +128,7 @@ protected:
 		std::string token;
 		std::string uname;
 		ACLSet acl;
-		bool jwt;
+		LoginType ltype;
 		std::chrono::system_clock::time_point exp;
 	};
 
@@ -127,7 +136,7 @@ protected:
 
 	static bool cmpTokenCache(const TokenInfo &a, const std::string_view &b);
 
-	void cacheToken(const std::string_view &token, const std::string_view &user, const ACLSet &acl, bool jwt, const std::chrono::system_clock::time_point &now, const std::chrono::system_clock::time_point &exp);
+	void cacheToken(const std::string_view &token, const std::string_view &user, const ACLSet &acl, LoginType ltype, const std::chrono::system_clock::time_point &now, const std::chrono::system_clock::time_point &exp);
 
 	UserMap userMap;
 	TokenCache tokenCache, cache_tmp;

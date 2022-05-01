@@ -17,7 +17,6 @@
 #include <imtjson/binjson.tcc>
 #include <imtjson/binary.h>
 
-#include "../main/istockapi.cpp"
 #include "../shared/stdLogOutput.h"
 using namespace json;
 

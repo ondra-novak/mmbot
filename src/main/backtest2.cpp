@@ -40,7 +40,7 @@ class Backtest::Reporting: public IStatSvc {
 public:
 	Reporting(Backtest &owner):owner(owner) {}
 
-	virtual void reportTrades(double finalPos, ondra_shared::StringView<IStatSvc::TradeRecord> trades) override;
+	virtual void reportTrades(double finalPos, bool inverted, ondra_shared::StringView<IStatSvc::TradeRecord> trades) override;
 	virtual void reportError(const IStatSvc::ErrorObj &errorObj) override;
 	virtual std::size_t getHash() const override;
 	virtual void reportMisc(const IStatSvc::MiscData &miscData, bool initial) override;
@@ -159,9 +159,10 @@ bool Backtest::next() {
 	return true;
 }
 
-inline void Backtest::Reporting::reportTrades(double finalPos, ondra_shared::StringView<IStatSvc::TradeRecord> trades) {
+inline void Backtest::Reporting::reportTrades(double finalPos, bool inverted, ondra_shared::StringView<IStatSvc::TradeRecord> trades) {
 	owner.position = finalPos;
 	owner.trades = trades;
+	owner.inverted_trades = inverted;
 }
 
 inline void Backtest::Reporting::reportError( const IStatSvc::ErrorObj &errorObj) {

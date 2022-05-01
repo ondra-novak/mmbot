@@ -286,7 +286,7 @@ inline Interface::MarketInfo Interface::getMarketInfo(const std::string_view &pa
 		0.00000001,
 		minvol,
 		getFees(pair),
-		income
+		FeeScheme::income
 	};
 }
 

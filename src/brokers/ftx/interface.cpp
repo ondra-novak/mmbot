@@ -81,7 +81,7 @@ void Interface::updatePairs() {
 			minfo.asset_symbol = symbol["baseCurrency"].getString();
 			minfo.currency_step = symbol["priceIncrement"].getNumber();
 			minfo.currency_symbol = symbol["quoteCurrency"].getString();
-			minfo.feeScheme = income;
+			minfo.feeScheme = FeeScheme::income;
 			minfo.fees = account.fees;
 			minfo.invert_price = false;
 			minfo.leverage = 0;
@@ -106,7 +106,7 @@ void Interface::updatePairs() {
 			minfo.asset_symbol = symbol["underlying"].getString();
 			minfo.currency_step = symbol["priceIncrement"].getNumber();
 			minfo.currency_symbol = "USD";
-			minfo.feeScheme = currency;
+			minfo.feeScheme = FeeScheme::currency;
 			minfo.fees = account.fees;
 			minfo.invert_price = false;
 			minfo.leverage = account.leverage;

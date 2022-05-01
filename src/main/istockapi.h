@@ -13,12 +13,15 @@
 #include <imtjson/value.h>
 #include <imtjson/namedEnum.h>
 #include <userver/callback.h>
+#include "market_info.h"
 
 ///Interface definition for accessing a stockmarket
 /** Contains minimal set of operations need to be implemented to access the stockmarket */
 class IStockApi {
 public:
 
+
+	using MarketInfo = ::MarketInfo;
 
 	///Definition of trade
 	struct Trade {
@@ -96,106 +99,7 @@ public:
 		std::uint64_t time;
 	};
 
-	enum FeeScheme {
-		///Fees are substracted from the currency
-		currency,
-		///Fees are substracted from the asset
-		assets,
-		///Fees are substracted from income (buy - assets, sell - currency)
-		income,
-		///Fees are substracted from outcome (buy - currency, sell - assets)
-		outcome
-	};
 
-	///Information about market
-	struct MarketInfo {
-		///Symbol of asset (must match with symbol in balancies)
-		std::string asset_symbol;
-		///Symbol of currency (must match with symbol in balancies)
-		std::string currency_symbol;
-		///Smallest change of amount
-		double asset_step;
-		///Smallest change of currency
-		double currency_step;
-		///Smallest allowed amount
-		double min_size;
-		///Smallest allowed of volume (price*size)
-		double min_volume;
-		///Fees of volume 1 (0.12% => 0.0012)
-		double fees;
-		///How fees are handled
-		FeeScheme feeScheme = currency;
-		///Leverage if margin trading is involved
-		/** Default value is 0, which means no margin is available
-		 * When this field is set, this changes several calculations
-		 * in report. It doesn't affect trading. By setting leverage also
-		 * enables short trades. However you still need to set external_assets
-		 * to specify starting point
-		 *
-		 * @note when leverage is set, command 'achieve' expects position,
-		 * not total assets
-		 */
-		double leverage = 0;
-
-		///The broker inverts price when currency is quoted instead assets
-		/** Currently 'deribit' broker inverts price because the position is quoted
-		 * in currency. This result, that price is returned as 1/x.
-		 *
-		 * By setting this field to true, all prices will be inverted back
-		 * when they are put to the report. The broker should also report
-		 * correct symbol of inverted price
-		 */
-		bool invert_price = false;
-
-		///When invert_price is true, the broker should also supply symbol name of inverted price
-		std::string inverted_symbol;
-
-		///This flag must be true, if the broker is just simulator and doesn't do live trading
-		/** Simulators are not included into daily performance */
-		bool simulator = false;
-
-		///Set this flag to disable of sharing chart data
-		/** Default settings is not shared, however if storage_broker is used, the chart data can
-		 * be shared with other users. This flag is copied into trader_state as "private_chat", which can
-		 * be read by the storage_broker to store chart data which prevents sharing
-		 */
-		bool private_chart = false;
-
-		///Specifies wallet identifier for this pair
-		/**This allows to broker to expose how balance is shared between traders.
-		 * Each pair can use different wallet, so their balances are not shared. If
-		 * the symbols are from the same wallet, the balance is shared between traders
-		 * and each trader can allocate part of balance. Default value is "", which is
-		 * also identified as single wallet
-		 */
-		std::string wallet_id;
-		///Adds fees to values
-		/**
-		 * @param assets reference to current asset change. Negative value is sell,
-		 * positive is buy.
-		 * @param price reference to trade price
-		 *
-		 * Function updates value to reflect current fee scheme. If the fee scheme
-		 * substracts from the currency, the price is adjusted. If the fee scheme
-		 * substracts from the assets, the size is adjusted
-		 */
-		void addFees(double &assets, double &price) const;
-		void removeFees(double &assets, double &price) const;
-
-		double priceAddFees(double price, double side) const;
-		double priceRemoveFees(double price, double side) const;
-
-		template<typename Fn>
-		static double adjValue(double value, double step, Fn &&fn)  {
-			if (step == 0) return value;
-			return fn(value/step) * step;
-		}
-		json::Value toJSON() const;
-		static MarketInfo fromJSON(const json::Value &v);
-		std::int64_t priceToTick(double price) const;
-		double tickToPrice(std::int64_t tick) const;
-		double getMinSize(double price) const;
-	};
 
 
 	struct TradesSync {
@@ -355,7 +259,6 @@ public:
 
 	virtual ~IStockApi() {}
 
-	static json::NamedEnum<IStockApi::FeeScheme> strFeeScheme;
 
 };
 

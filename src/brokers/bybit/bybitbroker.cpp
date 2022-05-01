@@ -216,10 +216,10 @@ json::Value ByBitBroker::getMarkets() const {
 	for(const auto &sdef: symbols) {
 		switch (sdef.second.type) {
 		case inverse_perpetual:
-			inversed.set(sdef.second.currency_symbol+"/"+sdef.second.inverted_symbol, sdef.first);
+			inversed.set(sdef.second.currency_symbol+"/"+sdef.second.quoted_symbol, sdef.first);
 			break;
 		case inverse_futures:
-			exp_futures[sdef.second.expiration].set(sdef.second.currency_symbol+"/"+sdef.second.inverted_symbol, sdef.first);
+			exp_futures[sdef.second.expiration].set(sdef.second.currency_symbol+"/"+sdef.second.quoted_symbol, sdef.first);
 			break;
 		case usdt_perpetual:
 			usdt.set(sdef.second.asset_symbol+"/"+sdef.second.currency_symbol, sdef.first);
@@ -810,7 +810,7 @@ void ByBitBroker::forceUpdateSymbols() const {
 		nfo.min_size = smb["lot_size_filter"]["min_trading_qty"].getNumber();
 		nfo.min_volume = 0;
 		nfo.currency_step = smb["price_filter"]["tick_size"].getNumber();
-		nfo.feeScheme = currency;
+		nfo.feeScheme = FeeScheme::currency;
 		nfo.fees = 0;
 		nfo.leverage = smb["leverage_filter"]["max_leverage"].getNumber();
 		nfo.private_chart = false;
@@ -823,7 +823,7 @@ void ByBitBroker::forceUpdateSymbols() const {
 			nfo.asset_symbol = smb["quote_currency"].getString();
 			nfo.currency_symbol = smb["base_currency"].getString();
 			nfo.invert_price = true;
-			nfo.inverted_symbol = nfo.asset_symbol;
+			nfo.quoted_symbol = nfo.asset_symbol;
 			nfo.type = nfo.expiration.empty()?inverse_perpetual:inverse_futures;
 		} else {
 			nfo.asset_symbol = smb["base_currency"].getString();
@@ -847,7 +847,7 @@ void ByBitBroker::forceUpdateSymbols() const {
 		nfo.currency_step = smb["minPricePrecision"].getNumber();
 		nfo.min_size = smb["minTradeQuantity"].getNumber();
 		nfo.min_volume = smb["minTradeQuantity"].getNumber();
-		nfo.feeScheme = currency;
+		nfo.feeScheme = FeeScheme::currency;
 		nfo.fees = 0;
 		nfo.leverage = 0;
 		nfo.private_chart = false;

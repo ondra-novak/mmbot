@@ -27,10 +27,12 @@ ExtStockApi::ExtStockApi(const std::string_view & workingDir, const std::string_
 
 
 double ExtStockApi::getBalance(const std::string_view & symb, const std::string_view & pair) {
-	return requestExchange("getBalance",
+	double r = requestExchange("getBalance",
 			json::Object({{"pair", pair},
 						{"symbol", symb}})).getNumber();
-
+	const MarketInfo *m = get_inverted_minfo(pair);
+	if (m && symb == m->asset_symbol) return -r;
+	else return r;
 }
 
 
@@ -39,6 +41,14 @@ ExtStockApi::TradesSync ExtStockApi::syncTrades(json::Value lastId, const std::s
 														{"pair",pair}}));
 	TradeHistory  th;
 	for (json::Value v: r["trades"]) th.push_back(Trade::fromJSON(v));
+	if (is_inverted(pair)) {
+		for (auto &x: th) {
+			x.eff_price = 1.0/x.eff_price;
+			x.price = 1.9/x.price;
+			x.size = -x.size;
+			x.eff_size = -x.eff_size;
+		}
+	}
 	return TradesSync {
 		th, r["lastId"]
 	};
@@ -57,12 +67,24 @@ ExtStockApi::Orders ExtStockApi::getOpenOrders(const std::string_view & pair) {
 		};
 		r.push_back(ord);
 	}
+	if (is_inverted(pair)) {
+		for (auto &x: r) {
+			x.price = 1.0/x.price;
+			x.size = -x.size;
+		}
+	}
 	return r;
 }
 
 ExtStockApi::Ticker ExtStockApi::getTicker(const std::string_view & pair) {
 	auto resp =  requestExchange("getTicker", pair);
-	return Ticker {
+	if (is_inverted(pair)) return Ticker{
+		1.0/resp["ask"].getNumber(),
+		1.0/resp["bid"].getNumber(),
+		1.0/resp["last"].getNumber(),
+		resp["timestamp"].getUIntLong()
+		};
+	else return Ticker {
 		resp["bid"].getNumber(),
 		resp["ask"].getNumber(),
 		resp["last"].getNumber(),
@@ -73,6 +95,12 @@ ExtStockApi::Ticker ExtStockApi::getTicker(const std::string_view & pair) {
 json::Value  ExtStockApi::placeOrder(const std::string_view & pair,
 		double size, double price,json::Value clientId,
 		json::Value replaceId,double replaceSize) {
+
+	if (is_inverted(pair)) {
+		size = -size;
+		price = 1.0/price;
+		replaceSize = std::abs(replaceSize);
+	}
 
 	return requestExchange("placeOrder",json::Object({
 		{"pair",pair},
@@ -139,7 +167,22 @@ void ExtStockApi::reset(const std::chrono::system_clock::time_point &tp) {
 ExtStockApi::MarketInfo ExtStockApi::getMarketInfo(const std::string_view & pair) {
 	json::Value v = requestExchange("getInfo",pair);
 
-	return MarketInfo::fromJSON(v);
+	MarketInfo nfo (MarketInfo::fromJSON(v));
+	std::lock_guard _(connection->getLock());
+	if (nfo.invert_price) {
+		invert_info.emplace(std::string(pair),nfo);
+		nfo.invert_price = false;
+		nfo.type = MarketType::inverted;
+	} else {
+		auto iter = invert_info.find(pair);
+		if (iter != invert_info.end()) invert_info.erase(iter);
+	}
+
+	if (nfo.quoted_symbol.empty()) {
+		nfo.quoted_symbol = nfo.currency_symbol;
+	}
+	return nfo;
+
 
 }
 
@@ -364,6 +407,7 @@ bool ExtStockApi::isIdle(const std::chrono::system_clock::time_point &tp) const 
 	return std::chrono::duration_cast<std::chrono::minutes>(idleTime).count() >= 15;
 }
 
+
 ExtStockApi::ExtStockApi(std::shared_ptr<Connection> connection, std::string &&subaccount)
 	:connection(connection),subaccount(std::move(subaccount)) {}
 
@@ -396,3 +440,17 @@ bool ExtStockApi::Connection::supportBatchPlace() {
 		return *batchPlace_supported;
 	}
 }
+
+bool ExtStockApi::is_inverted(const std::string_view &pair) const {
+	std::lock_guard _(connection->getLock());
+	auto iter = invert_info.find(pair);
+	return  iter != invert_info.end();
+}
+
+const ExtStockApi::MarketInfo* ExtStockApi::get_inverted_minfo(const std::string_view &pair) const {
+	std::lock_guard _(connection->getLock());
+	auto iter = invert_info.find(pair);
+	return  iter != invert_info.end()?&iter->second:nullptr;
+}
+
+

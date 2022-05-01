@@ -35,5 +35,6 @@ add_executable (mmbot
 		licence.cpp
 		server.cpp
 		btstore.cpp
+		market_info.cpp
 	)
 target_link_libraries (mmbot LINK_PUBLIC userver imtjson )

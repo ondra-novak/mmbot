@@ -339,7 +339,7 @@ inline Interface::MarketInfo Interface::getMarketInfo(const std::string_view& pa
 		v["base_min_size"].getNumber(),
 		0,
 		getFees(pair),
-		currency,0,false,"",simulator
+		FeeScheme::currency,0,false,"",simulator
 	};
 }
 

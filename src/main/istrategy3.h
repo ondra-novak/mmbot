@@ -39,12 +39,14 @@ enum class MarketEvent {
 
 extern json::NamedEnum<MarketEvent> strMarketEvent;
 
+using AbstractTradeList = AbstractArray<IStockApi::Trade>;
+
 ///market state - constants
 struct MarketState {
 	///market info
 	const IStockApi::MarketInfo *minfo;
 	///all trades
-	const AbstractArray<IStockApi::Trade> *trades;
+	const AbstractTradeList *trades;
 	///Event causing this operation
 	MarketEvent event; //start, idle, trade
 	///Current time - time when the strategy is called
@@ -87,6 +89,7 @@ struct MarketState {
 	double rpnl;
 	///current unrealized pnl
 	double upnl;
+
 	///is set to true, when buy order was rejected by the stock market during previous cycle
 	bool buy_rejected;
 	///is set to true, when sell order was rejected by the stock market during previous cycle
@@ -94,6 +97,11 @@ struct MarketState {
 	///trade now is active. Strategy should place order to be executed as soon as possible
 	/// By default sug_buy_price and sug_sell_price are set accordingly
 	bool trade_now;
+	///All values has been inverted for the strategy because inverted market
+	/** The strategy can calculate same way as for normal market, however, minfo refers to original market
+	 * not inverted version.
+	 */
+	bool inverted;
 };
 
 enum class OrderRequestResult {
@@ -338,6 +346,10 @@ public:
 	 * @param text
 	 */
 	virtual void log(std::string_view text) = 0;
+
+	///Calculate minimal order size at given price
+	/** More accurate funtion than minfo.getMinSize() because it respects inverted markets */
+	virtual double calc_min_size(double price) = 0;
 
 };
 

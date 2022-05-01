@@ -34,7 +34,7 @@ std::pair<IStockApi::MarketInfo,IStockApi::Ticker> InvertBroker::getMarketInfoAn
 		minfo.min_volume,
 		minfo.min_size,
 		minfo.fees,
-		minfo.feeScheme==assets?currency:minfo.feeScheme==currency?assets:minfo.feeScheme,
+		minfo.feeScheme==FeeScheme::assets?FeeScheme::currency:minfo.feeScheme==FeeScheme::currency?FeeScheme::assets:minfo.feeScheme,
 		0,
 		true,
 		minfo.currency_symbol,

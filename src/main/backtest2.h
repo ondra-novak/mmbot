@@ -131,6 +131,7 @@ protected: //reported data;
 	double sim_balance = 0;
 	double sim_equity = 0;
 	double sim_position = 0;
+	bool inverted_trades;
 
 
 

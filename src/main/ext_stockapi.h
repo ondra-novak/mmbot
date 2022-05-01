@@ -9,6 +9,7 @@
 #define SRC_MAIN_EXT_STOCKAPI_H_
 
 #include <limits>
+#include <map>
 
 #include "istockapi.h"
 #include "abstractExtern.h"
@@ -96,6 +97,10 @@ protected:
 	int instance_counter = 0;
 	std::string subaccount;
 	std::chrono::system_clock::time_point lastActivity, lastReset;
+	mutable std::map<std::string, MarketInfo, std::less<> > invert_info;
+
+	bool is_inverted(const std::string_view &pair) const;
+	const MarketInfo * get_inverted_minfo(const std::string_view &pair) const;
 
 	ExtStockApi(std::shared_ptr<Connection> connection, std::string &&subaccid);
 };

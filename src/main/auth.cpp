@@ -35,13 +35,20 @@ json::NamedEnum<ACL> strACL({
 	{ACL::must_change_pwd, "must_change_pwd"},
 });
 
+json::NamedEnum<LoginType> strLoginType({
+	{LoginType::unknown, "unknown"},
+	{LoginType::none, "none"},
+	{LoginType::external, "external"},
+	{LoginType::session, "session"},
+	{LoginType::password, "password"},
+});
 Auth::User Auth::get_user(const std::string_view &token) {
 
 	auto now = std::chrono::system_clock::now();
 
 	auto iter = std::lower_bound(tokenCache.begin(), tokenCache.end(), token, cmpTokenCache);
 	if (iter != tokenCache.end() && iter->token == token && iter->exp > now) {
-		return {true, iter->uname, iter->acl, iter->jwt};
+		return {true, iter->uname, iter->acl, iter->ltype};
 	} else {
 		std::string_view t = token;
 		auto type = userver::splitAt(" ", t);
@@ -54,23 +61,23 @@ Auth::User Auth::get_user(const std::string_view &token) {
 			auto ut = userMap.find(username);
 			if (ut == userMap.end()) return {};
 			if (ut->second.password_hash == pwhash) {
-				cacheToken(token, ut->first, ut->second.acl,false,now, now+std::chrono::hours(1));
-				return {true, ut->first, ut->second.acl,false};
+				cacheToken(token, ut->first, ut->second.acl,LoginType::password,now, now+std::chrono::hours(1));
+				return {true, ut->first, ut->second.acl,LoginType::password};
 			} else {
-				return {false, std::string(), public_acl};
+				return {false, std::string(), public_acl, LoginType::password};
 			}
 		} else if (userver::HeaderValue::iequal(type, "bearer")) {
 			json::Value p = json::parseJWT(t, session_jwt);
-			bool isjwt = false;
+			LoginType ltype = LoginType::session;
 			if (!p.hasValue() && jwtsrv != nullptr) {
 				p = json::parseJWT(t, jwtsrv);
-				isjwt = true;
+				ltype = LoginType::external;
 			}
 			if (!p.hasValue()) {
-				return {false, std::string(), public_acl};
+				return {false, std::string(), public_acl, LoginType::external};
 			}
 			if (!json::checkJWTTime(p, now).hasValue()) {
-				return {false, std::string(), public_acl};
+				return {false, std::string(), public_acl, LoginType::external};
 			}
 			std::optional<ACLSet> aclset;
 			auto uid = p["sub"];
@@ -78,34 +85,34 @@ Auth::User Auth::get_user(const std::string_view &token) {
 			if (acl.type() == json::array) {
 				aclset = acl_from_JSON(acl);
 			} else if (acl.getString() == "session") {
-				isjwt = false;
+				ltype = LoginType::session;
 			}
 			auto exp = std::chrono::system_clock::from_time_t(p["exp"].getUIntLong());
 			if (uid.type() == json::string) {
 				auto ut = userMap.find(uid.getString());
 				if (!aclset.has_value()) {
 					if (ut == userMap.end()) return {};
-					cacheToken(token, ut->first, ut->second.acl,isjwt, now, exp);
-					return {true, ut->first, ut->second.acl,isjwt};
+					cacheToken(token, ut->first, ut->second.acl,ltype, now, exp);
+					return {true, ut->first, ut->second.acl,ltype};
 				} else {
-					cacheToken(token, uid.getString(), *aclset, isjwt,now, exp);
-					return {ut!=userMap.end(), uid.getString(), *aclset,isjwt};
+					cacheToken(token, uid.getString(), *aclset, ltype,now, exp);
+					return {ut!=userMap.end(), uid.getString(), *aclset,ltype};
 				}
 			} else {
 				static std::string_view name("(default)");
 				if (aclset.has_value()) {
-					cacheToken(token, name, *aclset, isjwt,now, exp);
-					return {false, name, *aclset,isjwt};
-				} else if (isjwt) {
-					cacheToken(token, name, jwt_default_acl, isjwt,now, exp);
-					return {false, name, jwt_default_acl,isjwt};
+					cacheToken(token, name, *aclset, ltype,now, exp);
+					return {false, name, *aclset,ltype};
+				} else if (ltype == LoginType::external) {
+					cacheToken(token, name, jwt_default_acl, ltype,now, exp);
+					return {false, name, jwt_default_acl,ltype};
 				} else {
 					return {};
 				}
 
 			}
 		} else {
-			return {false,std::string(), public_acl,false};
+			return {false,std::string(), public_acl, LoginType::none};
 		}
 	}
 
@@ -125,7 +132,7 @@ void Auth::add_user(std::string &&uname, std::string &&hash_pwd, const ACLSet &a
 	auto &x = userMap[std::move(uname)];
 	x.acl = acl;
 	x.password_hash = std::move(hash_pwd);
-	x.jwt = false;
+	x.ltype = LoginType::password;
 }
 
 void Auth::set_secret(const std::string &secret) {
@@ -165,10 +172,10 @@ std::string Auth::encode_password(const std::string_view& user, const std::strin
 }
 
 void Auth::cacheToken(const std::string_view &token, const std::string_view &user,
-					  const ACLSet &acl, bool jwt,
+					  const ACLSet &acl, LoginType ltype,
 					  const std::chrono::system_clock::time_point &now,
 					  const std::chrono::system_clock::time_point &exp) {
-	TokenInfo nwtk { std::string(token), std::string(user), acl, jwt, exp};
+	TokenInfo nwtk { std::string(token), std::string(user), acl, ltype, exp};
 	cache_tmp.clear();
 	TokenCache::iterator iter = tokenCache.begin();
 	TokenCache::iterator end = tokenCache.end();
@@ -219,9 +226,9 @@ ACLSet Auth::acl_from_JSON(json::Value acl) {
 Auth::User Auth::get_user(const std::string_view &username, const std::string_view &password) const {
 	std::string pwdhash = encode_password(username, password);
 	auto iter = userMap.find(username);
-	if (iter == userMap.end() || iter->second.password_hash != pwdhash) return {};
+	if (iter == userMap.end() || iter->second.password_hash != pwdhash) return {false,"",{},LoginType::password};
 	return {
-		true, iter->first, iter->second.acl, false
+		true, iter->first, iter->second.acl, LoginType::password
 	};
 }
 
@@ -287,7 +294,7 @@ AuthService::User AuthService::get_user(const userver::HttpServerRequest  &req) 
 		User u = Auth::get_user(auth_cookie);
 		if (u.exists) return u;
 	}
-	return {false, "", public_acl,false};
+	return {false, "", public_acl,LoginType::none};
 }
 
 

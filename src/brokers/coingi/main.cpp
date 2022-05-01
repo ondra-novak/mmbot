@@ -336,7 +336,7 @@ inline Interface::MarketInfo Interface::getMarketInfo(const std::string_view& pa
 			asset_step,
 			minVol,
 			getFees(pair),
-			income
+			FeeScheme::income
 		};
 	} else {
 		throw std::runtime_error("Unknown pair");

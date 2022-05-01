@@ -435,7 +435,7 @@ void TradeOgreIFC::updateSymbols() const {
 			nfo.currency_step = 0.00000001;
 			nfo.asset_symbol= exs.first;
 			nfo.currency_symbol = exs.second;
-			nfo.feeScheme = currency;
+			nfo.feeScheme = FeeScheme::currency;
 			nfo.fees = 0.002;
 			nfo.invert_price = false;
 			nfo.leverage = 0;

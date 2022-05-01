@@ -184,20 +184,27 @@ static json::NamedEnum<AlertReason> strAlertReason({
 	{AlertReason::initial_reset, "initial_reset"}
 });
 
-void Report::setTrades(std::size_t rev, std::string_view symb, double finalPos, StringView<IStatSvc::TradeRecord> trades) {
+static bool is_similar(double a, double b) {
+	double sum = std::abs(a)+std::abs(b);
+	//sum of numbers are less than normalized minimum, they are both nearly equal to zero
+	if (sum <= std::numeric_limits<double>::min()) return true;
+
+	return (std::abs(a-b) / sum) <= std::numeric_limits<double>::epsilon();
+
+
+
+}
+
+void Report::setTrades(std::size_t rev, std::string_view symb, double finalPos, bool inverted, StringView<IStatSvc::TradeRecord> trades) {
 
 	if (rev != revize) return;
 
-	using ondra_shared::range;
-
 	json::Array records;
 
-	const json::Value &info = infoMap[symb];
-	bool inverted = info["inverted"].getBool();
 	double chng = std::accumulate(trades.begin(), trades.end(), 0.0, [](double x, const IStatSvc::TradeRecord &b){
 		return x+b.eff_size;
 	});
-	double pos = finalPos-chng;
+	double init_pos = finalPos-chng;
 
 	if (!trades.empty()) {
 
@@ -206,94 +213,68 @@ void Report::setTrades(std::size_t rev, std::string_view symb, double finalPos, 
 		std::uint64_t first = last_time - interval_in_ms;
 
 
-		auto tend = trades.end();
-		auto iter = trades.begin();
-		auto &&t = *iter;
+		const auto &t = trades[0];
 
-
-		double init_price = t.eff_price;
-
-
-		double prev_price = init_price;
-		double cur_fromPos = 0;
-		double pnp = 0;
-		double pap = 0;
-
-		ACB acb(init_price, pos);
+		ACB acb(inverted, t.eff_price, init_pos);
+		double norm_profit = 0;
+		double norm_accum = 0;
+		double prev_price = 0;
+		double accum_pos_change = 0;
+		double this_pos_change = 0;
+		int iid = 0;
 		bool normaccum = false;
 
-		std::optional<IStatSvc::TradeRecord> tmpTrade;
-		const IStatSvc::TradeRecord *prevTrade = nullptr;
+		for (const IStatSvc::TradeRecord &rec: trades) {
+
+			double normch = (t.norm_accum - norm_accum) * t.eff_price + (t.norm_profit - norm_profit);
+			normaccum = normaccum || t.norm_accum != 0;
 
 
-		int iid = 0;
-		do {
-			if (iter == tend || (prevTrade && (std::abs(prevTrade->price - iter->price) > std::abs(iter->price*1e-8)
-												|| prevTrade->size * iter->size <= 0
-												|| prevTrade->manual_trade
-												|| iter->manual_trade)))
-				{
+			acb = acb(t.eff_price, t.eff_size);
+			norm_profit+=t.norm_accum;
+			norm_accum+=t.norm_accum;
 
-				auto &&t = *prevTrade;
-
-				double gain = (t.eff_price - prev_price)*pos ;
-
-				prev_price = t.eff_price;
-
-				acb = acb(t.eff_price, t.eff_size);
-
-				cur_fromPos += gain;
-				pos += t.eff_size;
-
-
-
-				double normch = (t.norm_accum - pap) * t.eff_price + (t.norm_profit - pnp);
-				pap = t.norm_accum;
-				pnp = t.norm_profit;
-				normaccum = normaccum || t.norm_accum != 0;
-
-
-
-				if (t.time >= first) {
-					records.push_back(Object({
-						{"id", t.id},
-						{"time", t.time},
-						{"achg", (inverted?-1:1)*t.size},
-						{"gain", gain},
-						{"norm", t.norm_profit},
-						{"normch", normch},
-						{"nacum", normaccum?Value((inverted?-1:1)*t.norm_accum):Value()},
-						{"pos", (inverted?-1:1)*pos},
-						{"pl", cur_fromPos},
-						{"rpl", acb.getRPnL()},
-						{"open", acb.getOpen()},
-						{"iid", std::to_string(iid)},
-						{"price", (inverted?1.0/t.price:t.price)},
-						{"p0",t.neutral_price?Value(inverted?1.0/t.neutral_price:t.neutral_price):Value()},
-						{"volume", fabs(t.eff_price*t.eff_size)},
-						{"man",t.manual_trade},
-						{"alert", t.size == 0?Value(Object{
-							{"reason",strAlertReason[static_cast<AlertReason>(t.alertReason)]},
-							{"side", t.alertSide}
-						}):json::Value()}
-					}));
+			if (t.time >= first) {
+				if (is_similar(prev_price, t.price)) {
+					records.pop_back();
+					iid--;
+				} else {
+					accum_pos_change = 0;
+					prev_price = t.price;
 				}
-				prevTrade = nullptr;
-				if (iter == tend)
-					break;
-			}
-			if (prevTrade == nullptr) {
-				prevTrade = &(*iter);
+				iid++;
+				accum_pos_change += t.size;
+				double volume = acb.isInverted()?accum_pos_change/t.price:-accum_pos_change*t.price;
+				records.push_back(Object({
+					{"id", t.id},
+					{"time", t.time},
+					{"achg", accum_pos_change},
+					{"norm", t.norm_profit},
+					{"normch", normch},
+					{"nacum", Value()},
+					{"pos", acb.getPos()},
+					{"pl", acb.getEquity(t.eff_price)},
+					{"rpl", acb.getRPnL()},
+					{"open", acb.getOpen()},
+					{"iid", std::to_string(iid)},
+					{"price", t.price},
+					{"p0",t.neutral_price?Value(t.neutral_price):Value()},
+					{"volume", fabs(volume)},
+					{"man",t.manual_trade},
+					{"alert", t.size == 0?Value(Object{
+						{"reason",strAlertReason[static_cast<AlertReason>(t.alertReason)]},
+						{"side", t.alertSide}
+					}):json::Value()}
+				}));
 			} else {
-				tmpTrade = sumTrades(*prevTrade, *iter);
-				prevTrade = &(*tmpTrade);
-				--iid;
+				if (is_similar(prev_price, -t.price)) {
+					iid--;
+				} else {
+					iid++;
+					prev_price = -t.price;
+				}
 			}
-
-			++iter;
-			iid++;
-		} while (true);
-
+		}
 	}
 	tradeMap[symb] = records;
 	sendStreamTrades(*this,symb, records);
@@ -355,7 +336,7 @@ void Report::setInfo(std::size_t rev, std::string_view symb, const InfoObj &info
 		{"title",infoObj.title},
 		{"currency", infoObj.minfo.currency_symbol},
 		{"asset", infoObj.minfo.asset_symbol},
-		{"price_symb", infoObj.minfo.invert_price?infoObj.minfo.inverted_symbol:infoObj.minfo.currency_symbol},
+		{"price_symb", infoObj.minfo.quoted_symbol},
 		{"brokerIcon", json::String({"data:image/png;base64,",brokerImg})},
 		{"brokerName", infoObj.brokerName},
 		{"inverted", infoObj.minfo.invert_price},

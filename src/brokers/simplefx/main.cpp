@@ -330,7 +330,7 @@ inline Interface::MarketInfo Interface::getMarketInfo(const std::string_view &pa
 		sinfo.step*sinfo.mult,
 		0,
 		0,
-		currency,
+		FeeScheme::currency,
 		100,
 		false,
 		"",

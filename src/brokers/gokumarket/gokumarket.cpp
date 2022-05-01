@@ -127,7 +127,7 @@ IStockApi::MarketInfo GokumarketIFC::getMarketInfo(const std::string_view &pair)
 	minfo.min_volume = minvol;
 	minfo.currency_step = std::pow(10,-resp["rate_precision"].getNumber());
 	minfo.asset_step = std::pow(10,-resp["quantity_precision"].getNumber());
-	minfo.feeScheme = income;
+	minfo.feeScheme = FeeScheme::income;
 	minfo.fees = feeRatio;
 	minfo.invert_price = false;
 	minfo.leverage = 0;

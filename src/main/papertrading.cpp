@@ -90,7 +90,7 @@ IStockApi::MarketInfo AbstractPaperTrading::getMarketInfo(const std::string_view
 	if (newminfo.leverage && !st.minfo.leverage) {
 		st.ticker = st.source->getTicker(pair);
 		auto b = st.source->getBalance(newminfo.asset_symbol, st.src_pair);
-		st.collateral = ACB(st.ticker.last, b, 0);
+		st.collateral = newminfo.initACB(st.ticker.last, b, 0);
 	}
 	newminfo.simulator = true;
 	st.minfo = std::move(newminfo);
@@ -307,7 +307,6 @@ json::Value PaperTrading::setSettings(json::Value v) {
 	if (state.minfo.leverage) {
 		double pos = state.collateral.getPos();
 		double nv = jpos.getNumber();
-		if (state.minfo.invert_price) nv = -nv;
 		double diff = nv - pos;
 		if (std::abs(diff) > state.minfo.asset_step) {
 			auto now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now())*1000;
@@ -336,7 +335,7 @@ json::Value PaperTrading::getSettings(const std::string_view &pairHint) const {
 			{"name","position"},
 			{"label",state.minfo.asset_symbol},
 			{"type","number"},
-			{"default",state.minfo.leverage?(state.minfo.invert_price?-1:1)*state.collateral.getPos():assets}
+			{"default",state.minfo.leverage?state.collateral.getPos():asset}
 		},
 		json::Object{
 			{"name","currency"},
@@ -403,7 +402,7 @@ void AbstractPaperTrading::importState(TradeState &st, json::Value v) {
 	json::Value state = v["simstate"];
 	if (state.defined()) {
 		auto c = state["c"];
-		st.collateral = ACB(c[2].getNumber(), c[0].getNumber(), c[1].getNumber());
+		st.collateral = st.minfo.initACB(c[2].getNumber(), c[0].getNumber(), c[1].getNumber());
 		loadState(st,state["w"]);
 	}
 }

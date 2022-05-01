@@ -191,17 +191,36 @@ public:
 
 protected:
 
-	class TradesArray: public AbstractArray<IStockApi::Trade> {
+	class TradesArrayBase: public AbstractTradeList {
 	public:
-		TradesArray(Trader &owner):owner(owner) {}
-		virtual std::size_t size() const override;
-		virtual IStockApi::Trade operator [](std::size_t idx) const override;
-		virtual ~TradesArray() {}
-
-
+		TradesArrayBase(Trader &owner):owner(owner) {}
+		TradesArrayBase(const TradesArrayBase &other):owner(other.owner) {}
+		TradesArrayBase &operator=(const TradesArrayBase &) = delete;
+		virtual const TradesArrayBase *invert() const = 0;
 	protected:
 		Trader &owner;
 	};
+
+
+
+	class TradesArray: public TradesArrayBase {
+	public:
+		using TradesArrayBase::TradesArrayBase;
+		virtual std::size_t size() const override;
+		virtual IStockApi::Trade operator [](std::size_t idx) const override;
+		virtual const TradesArrayBase *invert() const override;
+	};
+
+
+	class InvTradesArray: public TradesArrayBase {
+	public:
+		using TradesArrayBase::TradesArrayBase;
+		virtual std::size_t size() const override;
+		virtual IStockApi::Trade operator [](std::size_t idx) const override;
+		virtual const TradesArrayBase *invert() const override;
+
+	};
+
 
 
 	struct MarketStateEx: public MarketState {
@@ -311,6 +330,8 @@ protected:
 	Trades trades;
 	///abstract array to access trades by strategy
 	TradesArray trarr;
+
+	InvTradesArray inv_trarr;
 	///count of confirmed trades (from trades)
 	std::size_t completed_trades = 0;
 
@@ -368,6 +389,8 @@ protected:
 
 	bool mst_valid = false;
 	MarketStateEx mst;
+
+	static MarketState invert_market_state(const MarketState &st);
 
 };
 
