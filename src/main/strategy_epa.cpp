@@ -35,14 +35,16 @@ PStrategy Strategy_Epa::init(double price, double assets, double currency, bool 
 	return out;
 }
 
-double Strategy_Epa::calculateSize(double price, double assets) const {
+std::pair<double, bool> Strategy_Epa::calculateSize(double price, double assets) const {
 	double effectiveAssets = std::min(st.assets, assets);
 	double availableCurrency = std::max(0.0, st.currency - (st.budget * cfg.dip_rescue_perc_of_budget));
 
 	double size;
+	bool alert = false;
 	if (std::isnan(st.enter) || (effectiveAssets * price) < st.budget * cfg.min_asset_perc_of_budget * (1 - cfg.dip_rescue_perc_of_budget)) {
 		// buy
 		size = (availableCurrency * cfg.initial_bet_perc_of_budget) / price;
+		alert = true;
 	}	else if (price < st.enter) {
 		double dist = (st.enter - price) / st.enter;
 		if (dist >= cfg.dip_rescue_enter_price_distance) {
@@ -89,7 +91,7 @@ double Strategy_Epa::calculateSize(double price, double assets) const {
 		size = std::max(size, -effectiveAssets);
 	}
 
-	return size;
+	return {size, alert};
 }
 
 IStrategy::OrderData Strategy_Epa::getNewOrder(
@@ -97,13 +99,15 @@ IStrategy::OrderData Strategy_Epa::getNewOrder(
 		double dir, double assets, double currency, bool rej) const {
 	logInfo("getNewOrder: new_price=$1, assets=$2, currency=$3, dir=$4", new_price, assets, currency, dir);
 
-	double size = calculateSize(new_price, assets);
+	auto res = calculateSize(new_price, assets);
+	double size = res.first;
+	auto alert = res.second ? IStrategy::Alert::enabled : IStrategy::Alert::disabled;
 
-	logInfo("   -> $1", size);
+	logInfo("   -> $1 (alert: $2)", size, res.second);
 
 	// price where order is put. If this field is 0, recommended price is used
   // size of the order, +buy, -sell. If this field is 0, the order is not placed
-	return { 0, size };
+	return { 0, size, alert };
 }
 
 std::pair<IStrategy::OnTradeResult, ondra_shared::RefCntPtr<const IStrategy> > Strategy_Epa::onTrade(
@@ -231,7 +235,7 @@ double Strategy_Epa::calcCurrencyAllocation(double price) const {
 }
 
 IStrategy::ChartPoint Strategy_Epa::calcChart(double price) const {
-	double size = calculateSize(price, st.assets);
+	double size = calculateSize(price, st.assets).first;
 	
 	return ChartPoint{
 		true, //true

@@ -84,7 +84,7 @@ protected:
 	Config cfg;
 	State st;
 
-	double calculateSize(double price, double assets) const;
+	std::pair<double, bool> calculateSize(double price, double assets) const;
 };
 
 #endif /* SRC_MAIN_STRATEGY_EPA_H_ */
