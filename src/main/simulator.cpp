@@ -376,6 +376,7 @@ AbstractPaperTrading::TradeState& Simulator::getState(const std::string_view &sy
 		}
 		ts.needLoadWallet = true;
 		ts.source = ps.exchange;
+		ts.collateral = ts.minfo.initACB();
 		ts.ticker = ps.exchange->getTicker(ps.pair);
 		Wallet &w = wallet[chooseWallet(ts.minfo)];
 		if (w.find(ts.minfo.currency_symbol) == w.end()) {

@@ -38,17 +38,16 @@ class Backtest::Reporting: public IStatSvc {
 public:
 	Reporting(Backtest &owner):owner(owner) {}
 
-	virtual void reportTrades(double finalPos, bool inverted, ondra_shared::StringView<IStatSvc::TradeRecord> trades) override;
+	virtual void reportTrades(double finalPos, bool inverted, ondra_shared::StringView<TradeRecord> trades) override;
 	virtual void reportError(const IStatSvc::ErrorObj &errorObj) override;
 	virtual std::size_t getHash() const override;
 	virtual void reportMisc(const IStatSvc::MiscData &miscData, bool initial) override;
-	virtual void reportOrders(int n, const std::optional<IStockApi::Order> &buy,
-			  	  	  	  	  	     const std::optional<IStockApi::Order> &sell) override;
-	virtual void reportPrice(double price) override;
 	virtual void reportPerformance(const PerformanceReport &repItem) override;
 	virtual void setInfo(const IStatSvc::Info &info) override;
 	virtual void reportLogMsg(uint64_t timestamp, const std::string_view &text) override;
 	virtual void init() override {};
+	virtual void reportOrder(int n, double price, double size, double pl, double np) override;
+	virtual void reportPrice(double price, double pl, double np) override;
 
 protected:
 	Backtest &owner;
@@ -155,7 +154,7 @@ bool Backtest::next() {
 	return true;
 }
 
-inline void Backtest::Reporting::reportTrades(double finalPos, bool inverted, ondra_shared::StringView<IStatSvc::TradeRecord> trades) {
+inline void Backtest::Reporting::reportTrades(double finalPos, bool inverted, ondra_shared::StringView<TradeRecord> trades) {
 	owner.position = finalPos;
 	owner.trades = trades;
 	owner.inverted_trades = inverted;
@@ -176,13 +175,15 @@ inline void Backtest::Reporting::reportMisc(const IStatSvc::MiscData &miscData, 
 	owner.miscData = miscData;
 }
 
-inline void Backtest::Reporting::reportOrders(int, const std::optional<IStockApi::Order> &buy,
-	  	  	     	 	 	 	 	 	 	 	 	 const std::optional<IStockApi::Order> &sell) {
-	owner.buy = buy;
-	owner.sell = sell;
+inline void Backtest::Reporting::reportOrder(int n, double price, double size, double pl, double np) {
+	switch (n) {
+	case -1: owner.sell = {price,size};break;
+	case 1: owner.buy = {price,size};break;
+	default: break;
+	}
 }
 
-inline void Backtest::Reporting::reportPrice(double price) {
+inline void Backtest::Reporting::reportPrice(double price, double , double ) {
 	owner.cur_price = price;
 }
 

@@ -102,59 +102,12 @@ void Report::sendStreamOrder(ME &me, const OKey &key, const OValue &data) {
 	);
 }
 
-void Report::setOrders(std::size_t rev, std::string_view symb, int n, const std::optional<IStockApi::Order> &buy,
-	  	  	  	  	  	  	  	     const std::optional<IStockApi::Order> &sell) {
+void Report::setOrder(std::size_t rev, std::string_view symb, int n, double price, double size, double pl, double np) {
 	if (rev != revize) return;
-	const json::Value &info = infoMap[symb];
-	bool inverted = info["inverted"].getBool();
-
-	int buyid = inverted?-n:n;
-
-	OKey buyKey {std::string(symb), buyid};
-	OKey sellKey {std::string(symb), -buyid};
-	OValue data;
-
-	if (buy.has_value()) {
-		data = {inverted?1.0/buy->price:buy->price, buy->size*buyid};
-	} else{
-		data = {0, 0};
-	}
-
-	orderMap[buyKey] = data;
-	sendStreamOrder(*this,buyKey, data);
-
-
-	if (sell.has_value()) {
-		data = {inverted?1.0/sell->price:sell->price, sell->size*buyid};
-	} else {
-		data = {0, 0};
-	}
-
-	orderMap[sellKey] = data;
-	sendStreamOrder(*this,sellKey, data);
-
-
-}
-
-static double wavg(double a, double wa, double b, double wb) {
-	double s = wa + wb;
-	if (s == 0) return 0;
-	return (a * wa + b * wb)/s;
-}
-
-static IStatSvc::TradeRecord sumTrades(const IStatSvc::TradeRecord &a, const IStatSvc::TradeRecord &b) {
-	return IStatSvc::TradeRecord(
-			IStockApi::Trade {
-				b.id,b.time,
-				a.size+b.size,
-				wavg(a.price,a.size,b.price,b.size),
-				a.eff_size+b.eff_size,
-				wavg(a.eff_price,a.eff_size,b.eff_price,b.eff_size),
-			},
-			b.norm_profit,
-			b.norm_accum,
-			b.neutral_price,b.manual_trade
-	);
+	OKey k{std::string(symb), n};
+	OValue v{price, size, pl, np};
+	orderMap[k] = v;
+	sendStreamOrder(*this,k, v);
 }
 
 template<typename ME>
@@ -195,13 +148,13 @@ static bool is_similar(double a, double b) {
 
 }
 
-void Report::setTrades(std::size_t rev, std::string_view symb, double finalPos, bool inverted, StringView<IStatSvc::TradeRecord> trades) {
+void Report::setTrades(std::size_t rev, std::string_view symb, double finalPos, bool inverted, StringView<TradeRecord> trades) {
 
 	if (rev != revize) return;
 
 	json::Array records;
 
-	double chng = std::accumulate(trades.begin(), trades.end(), 0.0, [](double x, const IStatSvc::TradeRecord &b){
+	double chng = std::accumulate(trades.begin(), trades.end(), 0.0, [](double x, const TradeRecord &b){
 		return x+b.eff_size;
 	});
 	double init_pos = finalPos-chng;
@@ -220,58 +173,56 @@ void Report::setTrades(std::size_t rev, std::string_view symb, double finalPos, 
 		double norm_accum = 0;
 		double prev_price = 0;
 		double accum_pos_change = 0;
-		double this_pos_change = 0;
 		int iid = 0;
 		bool normaccum = false;
 
-		for (const IStatSvc::TradeRecord &rec: trades) {
-
-			double normch = (t.norm_accum - norm_accum) * t.eff_price + (t.norm_profit - norm_profit);
-			normaccum = normaccum || t.norm_accum != 0;
+		for (const TradeRecord &rec: trades) {
 
 
-			acb = acb(t.eff_price, t.eff_size);
-			norm_profit+=t.norm_accum;
-			norm_accum+=t.norm_accum;
+			double normch = (rec.norm_accum - norm_accum) * rec.eff_price + (rec.norm_profit - norm_profit);
+			normaccum = normaccum || rec.norm_accum != 0;
 
-			if (t.time >= first) {
-				if (is_similar(prev_price, t.price)) {
+
+			acb = acb(rec.eff_price, rec.eff_size);
+			norm_profit+=rec.norm_accum;
+			norm_accum+=rec.norm_accum;
+
+			if (rec.time >= first) {
+				if (is_similar(prev_price, rec.price)) {
 					records.pop_back();
 					iid--;
 				} else {
 					accum_pos_change = 0;
-					prev_price = t.price;
+					prev_price = rec.price;
 				}
 				iid++;
-				accum_pos_change += t.size;
-				double volume = acb.isInverted()?accum_pos_change/t.price:-accum_pos_change*t.price;
+				accum_pos_change += rec.size;
+				double volume = acb.isInverted()?accum_pos_change/rec.price:-accum_pos_change*rec.price;
 				records.push_back(Object({
-					{"id", t.id},
-					{"time", t.time},
+					{"id", rec.id},
+					{"time", rec.time},
 					{"achg", accum_pos_change},
-					{"norm", t.norm_profit},
+					{"norm", rec.norm_profit},
 					{"normch", normch},
 					{"nacum", Value()},
 					{"pos", acb.getPos()},
-					{"pl", acb.getEquity(t.eff_price)},
+					{"pl", acb.getEquity(rec.eff_price)},
 					{"rpl", acb.getRPnL()},
 					{"open", acb.getOpen()},
 					{"iid", std::to_string(iid)},
-					{"price", t.price},
-					{"p0",t.neutral_price?Value(t.neutral_price):Value()},
+					{"price", rec.price},
+					{"p0",rec.neutral_price?Value(rec.neutral_price):Value()},
 					{"volume", fabs(volume)},
-					{"man",t.manual_trade},
-					{"alert", t.size == 0?Value(Object{
-						{"reason",strAlertReason[static_cast<AlertReason>(t.alertReason)]},
-						{"side", t.alertSide}
+					{"man",rec.manual_trade},
+					{"alert", rec.size == 0?Value(Object{
+						{"reason",strAlertReason[static_cast<AlertReason>(rec.alertReason)]},
+						{"side", rec.alertSide}
 					}):json::Value()}
 				}));
 			} else {
-				if (is_similar(prev_price, -t.price)) {
-					iid--;
-				} else {
+				if (!is_similar(prev_price, -rec.price)) {
 					iid++;
-					prev_price = -t.price;
+					prev_price = -rec.price;
 				}
 			}
 		}
@@ -350,24 +301,26 @@ void Report::setInfo(std::size_t rev, std::string_view symb, const InfoObj &info
 }
 
 template<typename ME>
-void Report::sendStreamPrice(ME &me, const std::string_view &symb, double data) {
+void Report::sendStreamPrice(ME &me, const std::string_view &symb, const json::Value &data) {
 	me.sendStream(json::Object{
 		{ "type", "price" },
 		{ "symbol",symb }},data );
 }
 
-void Report::setPrice(std::size_t rev, std::string_view symb, double price) {
+void Report::setPrice(std::size_t rev, std::string_view symb, double price, double pl, double np) {
 
 	if (rev != revize) return;
 
-	const json::Value &info = infoMap[symb];
-	bool inverted = info["inverted"].getBool();
+	Value &p = priceMap[symb];
+	p.setItems({
+		{"price",price},
+		{"pl",pl},
+		{"np",np},
+	});
 
-	double data = inverted?1.0/price:price;
-	priceMap[symb] = data;
-
-	sendStreamPrice(*this,symb, data);
+	sendStreamPrice(*this,symb, p);
 }
+
 
 
 void Report::exportOrders(json::Array &&out) {
@@ -628,7 +581,9 @@ void Report::addStream(Stream &&stream) {
 json::Value Report::OValue::toJson() const {
 	return json::Object({
 		{"price",price},
-		{"size",size}
+		{"size",size},
+		{"pl",pl},
+		{"np",np}
 	});
 }
 

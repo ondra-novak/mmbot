@@ -1161,7 +1161,7 @@ bool HttpAPI::post_api_backtest(Req &req, const Args &v) {
 				st.balance = st.equity = st.event_equity = init_balance;
 				st.cur_price = st.open_price = st.event_price = data[0];
 
-				init_position = strategy->calc_initial_position(st);
+				init_position = strategy->calc_initial_position(Trader::create_initial_state(st));
 				if (minfo.leverage <= 0) {
 					init_balance -= init_position * data[0];
 				}
@@ -1272,16 +1272,16 @@ void HttpAPI::BacktestState::run(std::unique_ptr<BacktestState> &&ptr) {
 			if (trade_count) {
 				auto jtrl = output.array("trades");
 				for (int t = 0; t < trade_count; t++) {
-					const IStatSvc::TradeRecord &tr = trades[trades.length-trade_count+t];
+					const TradeRecord &tr = trades[trades.length-trade_count+t];
 					jtrl.push_back(tr.toJSON());
 				}
 			}
 			if (me->output_orders) {
 				auto ord = output.object("orders");
-				std::optional<IStockApi::Order> buy_order = me->bt->get_buy_order();
-				std::optional<IStockApi::Order> sell_order = me->bt->get_buy_order();
-				if (buy_order.has_value()) ord.set("buy",buy_order->toJSON());
-				if (sell_order.has_value()) ord.set("sell",sell_order->toJSON());
+				auto buy_order = me->bt->get_buy_order();
+				auto sell_order = me->bt->get_buy_order();
+				if (buy_order.price) ord.set("buy",{buy_order.price, buy_order.size});
+				if (sell_order.price) ord.set("sell",{sell_order.price, sell_order.size});
 			}
 			if (me->output_stats) {
 				auto stats = output.object("stats");
@@ -1409,7 +1409,7 @@ void HttpAPI::trader_info(Req &req, std::string_view trader_id, std::string_view
 	IStockApi::Orders open_orders;
 	Trader_Config cfg;
 	std::size_t partial_executions = 0;
-	ACB partial_offset(0.0, 0.0);
+	ACB partial_offset(false, 0.0, 0.0);
 	double live_assets = 0;
 	double live_currency = 0;
 	double neutral_price = 0;

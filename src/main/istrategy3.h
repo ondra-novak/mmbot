@@ -9,11 +9,11 @@
 #define SRC_MAIN_ISTRATEGY3_H_
 #include <memory>
 #include <shared/refcnt.h>
-
 #include "abstractarray.h"
 #include "tool_register.h"
 
 #include "istockapi.h"
+#include "traderecord.h"
 
 
 namespace json {
@@ -39,7 +39,7 @@ enum class MarketEvent {
 
 extern json::NamedEnum<MarketEvent> strMarketEvent;
 
-using AbstractTradeList = AbstractArray<IStockApi::Trade>;
+using AbstractTradeList = AbstractArray<TradeRecord>;
 
 ///market state - constants
 struct MarketState {
@@ -101,6 +101,21 @@ struct MarketState {
 	/** The strategy can calculate same way as for normal market, however, minfo refers to original market
 	 * not inverted version.
 	 */
+	bool inverted;
+};
+
+struct InitialState {
+	///market info
+	const MarketInfo *minfo;
+	///current position - allocated
+	double position;
+	///current balance - for leveraged market, there is collateral
+	double balance;
+	///equity
+	double equity;
+	///current price
+	double cur_price;
+	///true if values has been inverted
 	bool inverted;
 };
 
@@ -368,7 +383,7 @@ public:
 	virtual PStrategy3 reset() const = 0;
 	virtual json::Value save() const = 0;
 	virtual ChartPoint get_chart_point(double price) const = 0;
-	virtual double calc_initial_position(const MarketState &st) const = 0;
+	virtual double calc_initial_position(const InitialState &st) const = 0;
 	virtual std::string_view get_id() const = 0;
 };
 

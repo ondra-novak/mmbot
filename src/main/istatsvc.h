@@ -16,6 +16,7 @@
 #include <memory>
 #include <optional>
 
+#include "traderecord.h"
 #include "istockapi.h"
 
 struct MTrader_Config;
@@ -25,12 +26,6 @@ class Strategy;
 class IStatSvc {
 public:
 
-	struct ChartItem {
-		std::uint64_t time;
-		double ask;
-		double bid;
-		double last;
-	};
 
 	struct MiscData {
 		int trade_dir;
@@ -77,49 +72,10 @@ public:
 			: ErrorObj{"",buy_error,sellError} {}
 	};
 
-	struct TradeRecord: public IStockApi::Trade {
 
-		double norm_profit;
-		double norm_accum;
-		double neutral_price;
-		bool manual_trade = false;
-		char alertSide;
-		char alertReason;
-
-		TradeRecord(const IStockApi::Trade &t, double norm_profit, double norm_accum, double neutral_price, bool manual = false, char as = 0, char ar = 0)
-			:IStockApi::Trade(t),norm_profit(norm_profit),norm_accum(norm_accum),neutral_price(neutral_price),manual_trade(manual),alertSide(as),alertReason(ar) {}
-
-
-	    static TradeRecord fromJSON(json::Value v) {
-	    	double np = v["np"].getNumber();
-	    	double ap = v["ap"].getNumber();
-	    	double p0 = v["p0"].getNumber();
-	    	bool m = v["man"].getBool();
-	    	char alertSize = static_cast<char>(v["as"].getInt());
-	    	char alertReason = static_cast<char>(v["ar"].getInt());
-	    	if (!std::isfinite(np)) np = 0;
-	    	if (!std::isfinite(ap)) ap = 0;
-	    	if (!std::isfinite(p0)) p0 = 0;
-	    	return TradeRecord(IStockApi::Trade::fromJSON(v), np, ap, p0, m,alertSize,alertReason);
-	    }
-	    json::Value toJSON() const {
-	    	return IStockApi::Trade::toJSON().merge(json::Value(json::object,{
-	    			json::Value("np",norm_profit),
-					json::Value("ap",norm_accum),
-					json::Value("p0",neutral_price),
-	    			json::Value("man",manual_trade?json::Value(true):json::Value()),
-					json::Value("as", alertSide == 0?json::Value():json::Value(alertSide)),
-					json::Value("ar", alertReason == 0?json::Value():json::Value(alertReason))
-	    	}));
-	    }
-
-
-	};
-
-	virtual void reportOrders(int n, const std::optional<IStockApi::Order> &buy,
-							  const std::optional<IStockApi::Order> &sell) = 0;
+	virtual void reportOrder(int n, double price, double size, double pl, double np) = 0;
+	virtual void reportPrice(double price, double pl, double np) = 0;
 	virtual void reportTrades(double finalPos, bool inverted, ondra_shared::StringView<TradeRecord> trades) = 0;
-	virtual void reportPrice(double price) = 0;
 	virtual void setInfo(const Info &info) = 0;
 	virtual void reportMisc(const MiscData &miscData, bool initial = false) = 0;
 	virtual void reportError(const ErrorObj &errorObj) = 0;

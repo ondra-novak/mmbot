@@ -119,7 +119,7 @@ PStockApi selectStock(PStockApi source,SwapMode3 swap_mode,bool paper_trading);
 class Trader {
 public:
 
-	using Trade = IStatSvc::TradeRecord;
+	using Trade = TradeRecord;
 	using Trades = std::vector<Trade>;
 
 public:
@@ -207,7 +207,7 @@ protected:
 	public:
 		using TradesArrayBase::TradesArrayBase;
 		virtual std::size_t size() const override;
-		virtual IStockApi::Trade operator [](std::size_t idx) const override;
+		virtual TradeRecord operator [](std::size_t idx) const override;
 		virtual const TradesArrayBase *invert() const override;
 	};
 
@@ -216,7 +216,7 @@ protected:
 	public:
 		using TradesArrayBase::TradesArrayBase;
 		virtual std::size_t size() const override;
-		virtual IStockApi::Trade operator [](std::size_t idx) const override;
+		virtual TradeRecord operator [](std::size_t idx) const override;
 		virtual const TradesArrayBase *invert() const override;
 
 	};
@@ -389,7 +389,9 @@ protected:
 	bool mst_valid = false;
 	MarketStateEx mst;
 
+public:
 	static MarketState invert_market_state(const MarketState &st);
+	static InitialState create_initial_state(const MarketState &st);
 
 };
 

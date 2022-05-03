@@ -114,7 +114,7 @@ void AbstractPaperTrading::processTrade(TradeState &st, const Trade &t) {
 		st.collateral = st.collateral.resetRPnL();
 	} else {
 		updateWallet(st, st.minfo.asset_symbol, t.eff_size);
-		updateWallet(st, st.minfo.currency_symbol, - t.eff_size*t.eff_price);
+		updateWallet(st, st.minfo.currency_symbol, st.minfo.calcCurrencyChange(t.eff_size, t.eff_price, true));
 	}
 
 }
@@ -123,12 +123,12 @@ bool AbstractPaperTrading::canCreateOrder(const TradeState &st, double price, do
 	if (st.minfo.leverage) {
 		double equity = st.collateral.getEquity(price) + getRawBalance(st).currency;
 		double pos = st.collateral.getPos();
-		double val = (pos?st.collateral.getOpen():0)*pos;
-		double newval = std::abs(price * size);
+		double val = pos?st.minfo.calcPosValue(pos, st.collateral.getOpen()):0;
+		double newval = st.minfo.calcPosValue(size, price);
 		return (newval+val <= equity * st.minfo.leverage);
 	} else {
 		auto b = getRawBalance(st);
-		double newcur = b.currency - price * size;
+		double newcur = b.currency - st.minfo.calcPosValue(size, price);
 		double newass = b.asset + size;
 		return newass >= -st.minfo.asset_step*0.5 && newcur >= 0;
 	}

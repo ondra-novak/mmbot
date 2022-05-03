@@ -103,7 +103,7 @@ public:
 };
 
 Trader::Trader(const Trader_Config &cfg, Trader_Env &&env)
-:cfg(cfg), env(std::move(env)),pos_diff(0,0),acb_state(0,0),trarr(*this),inv_trarr(*this),safeRange{0, std::numeric_limits<double>::infinity()} {
+:cfg(cfg), env(std::move(env)),pos_diff(false,0,0),acb_state(false,0,0),trarr(*this),inv_trarr(*this),safeRange{0, std::numeric_limits<double>::infinity()} {
 
 	if (env.statsvc != nullptr) {
 		magic = env.statsvc->getHash() & 0xFFFFFFFF;
@@ -290,7 +290,7 @@ std::size_t Trader::TradesArray::size() const {
 	return owner.completed_trades;
 }
 
-IStockApi::Trade Trader::TradesArray::operator [](std::size_t idx) const {
+TradeRecord Trader::TradesArray::operator [](std::size_t idx) const {
 	return owner.trades[idx];
 }
 
@@ -307,7 +307,7 @@ std::size_t Trader::InvTradesArray::size() const {
 	return owner.completed_trades;
 }
 
-IStockApi::Trade Trader::InvTradesArray::operator [](std::size_t idx) const {
+TradeRecord Trader::InvTradesArray::operator [](std::size_t idx) const {
 	auto x = owner.trades[idx];;
 	x.eff_price = 1.0/x.eff_price;
 	x.price = 1.0/x.price;
@@ -426,7 +426,7 @@ void Trader::run() {
 				last_trade_price  = pos_diff.getOpen();
 				last_trade_size  = pos_diff.getPos();
 				position = position + pos_diff.getPos();
-				pos_diff = ACB(0,0);
+				pos_diff = minfo.initACB(0,0);
 				completed_trades = trades.size();
 				equilibrium = last_trade_price;
 			} else {
@@ -571,37 +571,50 @@ void Trader::run() {
 
 		if (env.statsvc != nullptr) {
 
-			std::optional<IStockApi::Order> new_buy, new_sell;
+			LimitOrder new_buy{0,0}, new_sell{0,0};
 
 			if (cur_orders.buy.has_value()) {
-				new_buy = IStockApi::Order({nullptr,nullptr, cur_orders.buy->size, cur_orders.buy->price});
+				new_buy = {cur_orders.buy->price, cur_orders.buy->size};
 			}
 
 			if (cur_orders.sell.has_value()) {
-				new_sell = IStockApi::Order({nullptr,nullptr, cur_orders.sell->size, cur_orders.sell->price});
+				new_sell = {cur_orders.sell->price, cur_orders.sell->size};
 			}
 
 			if (cntr.buy_error.has_value()) {
 				buy_error = cntr.buy_error->get_reason();
 				if (cntr.buy_error->price) {
-					new_buy = IStockApi::Order {nullptr, nullptr, cntr.buy_error->size, cntr.buy_error->price};
+					new_buy = {cntr.buy_error->price,cntr.buy_error->size};
 				}
 			}
 			if (cntr.sell_error.has_value()) {
 				buy_error = cntr.sell_error->get_reason();
 				if (cntr.sell_error->price) {
-					new_sell = IStockApi::Order {nullptr, nullptr, cntr.sell_error->size, cntr.sell_error->price};
+					new_sell = {cntr.sell_error->price,cntr.sell_error->size};
 				}
 			}
 			for (const auto &x: schOrders) {
-				if (x.size<0) new_sell = IStockApi::Order{nullptr, nullptr, x.size, x.price};
-				else if (x.size>0) new_buy = IStockApi::Order{nullptr, nullptr, x.size, x.price};;
+				if (x.size<0) new_sell = {x.price,x.size};
+				else if (x.size>0) new_buy = { x.price,x.size};;
+			}
+
+			double equity;
+			double rel_equity;
+			double cur_np;
+			if (trades.empty()) {
+				equity = rel_equity = cur_np = 0.0;
+			} else {
+				const auto &b = trades.back();
+				equity = acb_state.getEquity(mst.cur_price);
+				cur_np = last_trade_eq_extra.has_value()?(equity - eq_allocation) - *last_trade_eq_extra:0.0;
+				cur_np += b.norm_profit;
 			}
 
 
 			env.statsvc->reportTrades(acb_state.getPos(),acb_state.isInverted(), trades);
-			env.statsvc->reportPrice(mst.cur_price);
-			env.statsvc->reportOrders(1, new_buy, new_sell);
+			env.statsvc->reportPrice(mst.cur_price, equity, cur_np);
+			env.statsvc->reportOrder(1, new_buy.price, new_buy.size, acb_state.getEquity(new_buy.price), 0);
+			env.statsvc->reportOrder(-1, new_sell.price, new_sell.size, acb_state.getEquity(new_sell.price), 0);
 			env.statsvc->reportError({gen_error,buy_error, sell_error});
 			env.statsvc->reportMisc({
 					any_trades?sgn(trades.back().size):0,
@@ -642,6 +655,16 @@ void Trader::report_exception() {
 		try {
 			update_minfo();
 		} catch (...) {
+			if (env.statsvc != nullptr) {
+					env.statsvc->setInfo(
+						IStatSvc::Info {
+						cfg.title,
+						cfg.broker,
+						MarketInfo{},
+						env.exchange,
+						cfg.report_order
+					});
+				}
 			REPORT_UNHANDLED();
 		}
 	}
@@ -708,9 +731,13 @@ Trader::MarketStateEx Trader::getMarketState(bool trades_finished) const {
 	} else {
 		auto wdb = env.walletDB.lock_shared();
 		mst.balance = wdb->adjBalance(WalletDB::KeyQuery(cfg.broker,minfo.wallet_id,minfo.currency_symbol,uid),	currencyUnadjustedBalance);
-		mst.avail_assets = wdb->adjBalance(WalletDB::KeyQuery(cfg.broker,minfo.wallet_id,minfo.asset_symbol,uid), assetsUnadjustedBalance);
 		mst.live_currencies = wdb->adjBalance(WalletDB::KeyQuery(cfg.broker,minfo.wallet_id,minfo.currency_symbol,uid),mst.broker_currency);
-		mst.live_assets = wdb->adjBalance(WalletDB::KeyQuery(cfg.broker,minfo.wallet_id,minfo.asset_symbol,uid),mst.broker_assets);
+		if (!mst.minfo->leverage) {
+			mst.avail_assets = wdb->adjBalance(WalletDB::KeyQuery(cfg.broker,minfo.wallet_id,minfo.asset_symbol,uid), assetsUnadjustedBalance);
+			mst.live_assets = wdb->adjBalance(WalletDB::KeyQuery(cfg.broker,minfo.wallet_id,minfo.asset_symbol,uid),mst.broker_assets);
+		} else {
+			mst.live_assets = mst.avail_assets = mst.broker_assets;
+		}
 
 	}
 	mst.equity = minfo.calcEquity(mst.position,mst.balance, mst.cur_price);
@@ -761,20 +788,22 @@ NewOrderResult Trader::Control::alter_position(double new_pos, double price) {
 	if (diff < 0) {
 		diff = -diff;
 		rs = checkSellSize(price, diff);
-		diff = rs.v;
-		rs.v = orig_state.position - rs.v;
+		double diff2 = rs.v;
+		rs.v = orig_state.minfo->invert_pos_if_needed(orig_state.position - rs.v);
 		if (rs.isOk()) {
-			limit_sell_order = {price, diff};
+			limit_sell_order = {price, diff2};
+			sell_error.reset();
 		} else {
 			set_std_sell_error(rs, price, diff);
 		}
 		return rs;
 	} else if (diff > 0){
 		rs = checkBuySize(price, diff);
-		diff = rs.v;
-		rs.v = orig_state.position + rs.v;
+		double diff2 = rs.v;
+		rs.v = orig_state.minfo->invert_pos_if_needed(orig_state.position + rs.v);
 		if (rs.isOk()) {
-			limit_buy_order = {price, diff};
+			limit_buy_order = {price, diff2};
+			buy_error.reset();
 		} else {
 			set_std_buy_error(rs, price, diff);
 		}
@@ -792,6 +821,7 @@ NewOrderResult Trader::Control::limit_buy(double price, double size) {
 		NewOrderResult rs = checkSellSize(price, size);
 		if (rs.isOk()) {
 			limit_sell_order = {price, rs.v};
+			sell_error.reset();
 		} else {
 			set_std_sell_error(rs, price, size);
 		}
@@ -801,6 +831,7 @@ NewOrderResult Trader::Control::limit_buy(double price, double size) {
 		NewOrderResult rs = checkBuySize(price, size);
 		if (rs.isOk()) {
 			limit_buy_order = {price, rs.v};
+			buy_error.reset();
 		} else {
 			set_std_buy_error(rs, price, size);
 		}
@@ -816,6 +847,7 @@ NewOrderResult Trader::Control::limit_sell(double price, double size) {
 		NewOrderResult rs = checkBuySize(price, size);
 		if (rs.isOk()) {
 			limit_buy_order = {price, rs.v};
+			buy_error.reset();
 		} else {
 			set_std_buy_error(rs, price, size);
 		}
@@ -825,6 +857,7 @@ NewOrderResult Trader::Control::limit_sell(double price, double size) {
 		NewOrderResult rs = checkSellSize(price, size);
 		if (rs.isOk()) {
 			limit_sell_order = {price, rs.v};
+			sell_error.reset();
 		}else {
 			set_std_sell_error(rs, price, size);
 		}
@@ -959,7 +992,7 @@ NewOrderResult Trader::Control::checkBuySize(double price, double size) {
 		return {OrderRequestResult::invalid_price,0};
 	}
 	double minsize = orig_state.minfo->getMinSize(price);
-	double sz = owner.minfo.adjValue(size, owner.minfo.asset_step, [](double x){return std::round(x);});
+	double sz = size;
 	if (sz < minsize) return {OrderRequestResult::too_small, minsize};
 
 
@@ -1021,20 +1054,12 @@ inline void Trader::Control::set_sell_order_error(std::string_view text, double 
 }
 
 inline void Trader::Control::set_std_buy_error(NewOrderResult rs, double price, double size) {
-	if (state.inverted) {
-		sell_error = {1.0/price, size, rs.state};
-	} else {
-		buy_error = {price,size,rs.state};
-	}
+	buy_error = {price,size,rs.state};
 	cancel_buy();
 }
 
 inline void Trader::Control::set_std_sell_error(NewOrderResult rs, double price, double size) {
-	if (state.inverted) {
-		buy_error = {1.0/price, size, rs.state};
-	} else {
-		sell_error = {price,size,rs.state};
-	}
+	sell_error = {price,size,rs.state};
 	cancel_sell();
 }
 
@@ -1050,7 +1075,7 @@ NewOrderResult Trader::Control::checkSellSize(double price, double size) {
 		return {OrderRequestResult::invalid_price,0};
 	}
 	double minsize = orig_state.minfo->getMinSize(price);
-	double sz = owner.minfo.adjValue(size, owner.minfo.asset_step, [](double x){return std::round(x);});
+	double sz = size;
 	if (sz < minsize) return {OrderRequestResult::too_small, minsize};
 
 
@@ -1184,7 +1209,7 @@ void Trader::placeAllOrders(const Control &cntr, const OrderPair &pair) {
 			//add fees to the order
 			minfo.addFees(b.size,b.price);
 			//if final size is below min size
-			if (b.size <= minfo.getMinSize(b.price)) {
+			if (b.size < minfo.getMinSize(b.price)) {
 				//if there is active order, keep it active, otherwise, enforce trade on next cycle
 				if (!pair.buy.has_value()) {
 					//set target buy
@@ -1233,7 +1258,7 @@ void Trader::placeAllOrders(const Control &cntr, const OrderPair &pair) {
 			//add fees to the order
 			minfo.addFees(s.size,s.price);
 			//if final size is below min size
-			if (s.size >= -minfo.getMinSize(s.price)) {
+			if (s.size > -minfo.getMinSize(s.price)) {
 				//if there is active order, keep it active, otherwise, enforce trade on next cycle
 				if (!pair.sell.has_value()) {
 					//set target sell
@@ -1297,19 +1322,23 @@ Trader::OrderPair Trader::fetchOpenOrders(std::size_t magic) {
 void Trader::do_reset(MarketStateEx &st) {
 	auto alloc_pos = cfg.reset.alloc_position;
 	if (!alloc_pos.has_value() && !position_valid) {
-		alloc_pos = std::max(st.avail_assets,0.0);//HACK - what if leverage?
+		if (minfo.type == MarketType::inverted) {
+			alloc_pos = st.avail_assets;
+		} else {
+			alloc_pos = std::max(st.avail_assets,0.0);
+		}
 	}
 
 	if (alloc_pos.has_value()) {
 		if (position_valid) {
 			double dff = *alloc_pos - position;
 			if (std::abs(dff)>minfo.asset_step) {
-				trades.push_back(Trade({
+				trades.push_back(Trade(IStockApi::Trade{
 					st.cur_time,st.cur_time,dff,st.cur_price,dff,st.cur_price,nullptr
 				},0,0,0,true));
 			}
 			acb_state = acb_state(st.cur_price, dff);
-			pos_diff = ACB(0,0);
+			pos_diff = minfo.initACB(0,0);
 			position = *alloc_pos;
 		} else {
 			position = *alloc_pos;
@@ -1319,14 +1348,13 @@ void Trader::do_reset(MarketStateEx &st) {
 				if (minfo.invert_price) openPrice = 1.0/st.cur_price;
 				else openPrice =st.cur_price;
 			}
-			acb_state = ACB(openPrice, position);
-			pos_diff = ACB(0,0);
+			acb_state = minfo.initACB(openPrice, position);
+			pos_diff = minfo.initACB(0,0);
 		}
 	}
 	st.position = position;
 	if (cfg.reset.alloc_currency.has_value()) {
 		st.balance = *cfg.reset.alloc_currency;
-		st.equity = minfo.leverage?st.balance:st.balance+position*st.cur_price;
 	}
 	env.strategy.reset();
 	reset_rev = cfg.reset.revision;
@@ -1338,13 +1366,13 @@ void Trader::do_reset(MarketStateEx &st) {
 		};
 	}
 	if (cfg.reset.trade_optimal_position) {
-		achieve_mode = AchieveMode{
-			env.strategy.calc_initial_position(st),
+		achieve_mode = AchieveMode {
+			env.strategy.calc_initial_position(create_initial_state(st)),
 			st.balance
 		};
 
 	}
-	st.equity = minfo.leverage?st.balance:st.balance+st.cur_price*st.position;
+	st.event_equity = st.equity = minfo.calcEquity(st.position, st.balance, st.cur_price);
 }
 
 PStockApi Trader::get_exchange() const {
@@ -1368,15 +1396,15 @@ void Trader::erase_state() {
 }
 
 bool Trader::do_achieve(const AchieveMode &ach, Control &cntr) {
-	const MarketState &orig_state = cntr.get_orig_state();
-	double diff = ach.position - orig_state.position;
+	const MarketState &state = cntr.get_state();
+	double diff = ach.position - state.position;
 	///difference is less then minimal size, we reached our target
-	if (std::abs(diff) < 2*orig_state.minfo->getMinSize(orig_state.cur_price)) return false;
+	if (std::abs(diff) < 2*cntr.calc_min_size(state.cur_price)) return false;
 
 	cntr.cancel_buy();
 	cntr.cancel_sell();
-	if (diff < 0) cntr.limit_sell(orig_state.lowest_sell_price,-diff);
-	else cntr.limit_buy(orig_state.highest_buy_price,diff);
+	if (diff < 0) cntr.limit_sell(state.lowest_sell_price,-diff);
+	else cntr.limit_buy(state.highest_buy_price,diff);
 	return true;
 }
 
@@ -1398,7 +1426,8 @@ void Trader::stop_trader() {
 			}
 		}
 		env.statsvc->reportError(IStatSvc::ErrorObjEx("Stopped"));
-		env.statsvc->reportOrders(1, {}, {});
+		env.statsvc->reportOrder(1, 0,0,0,0);
+		env.statsvc->reportOrder(-1, 0,0,0,0);
 	} catch (...) {
 		report_exception();
 	}
@@ -1453,5 +1482,19 @@ double Trader::Control::calc_min_size(double price) {
 	default:
 	case MarketType::normal: return state.minfo->getMinSize(price);break;
 	case MarketType::inverted:return state.minfo->getMinSize(1.0/price);break;
+	}
+}
+
+InitialState Trader::create_initial_state(const MarketState &st) {
+	switch (st.minfo->type) {
+	default:
+	case MarketType::normal:
+		return {
+			st.minfo, st.position, st.balance, st.equity, st.cur_price, st.inverted
+		};
+	case MarketType::inverted:
+		return {
+			st.minfo, -st.position, st.balance, st.equity, 1.0/st.cur_price, !st.inverted
+		};
 	}
 }

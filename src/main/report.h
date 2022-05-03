@@ -16,6 +16,8 @@
 #include <shared/stdLogOutput.h>
 #include <shared/stringview.h>
 #include <userver/callback.h>
+#include "traderecord.h"
+
 #include "istockapi.h"
 #include "storage.h"
 #include "istatsvc.h"
@@ -71,11 +73,14 @@ public:
 	template<typename T> using StringView = ondra_shared::StringView<T>;
 	void setOrders(std::size_t rev, std::string_view symb, int n, const std::optional<IStockApi::Order> &buy,
 			  	  	  	  	  	  const std::optional<IStockApi::Order> &sell);
-	void setTrades(std::size_t rev, std::string_view symb, double finalPos, bool inverted,  StringView<IStatSvc::TradeRecord> trades);
+	void setTrades(std::size_t rev, std::string_view symb, double finalPos, bool inverted,  StringView<TradeRecord> trades);
 	void setInfo(std::size_t rev, std::string_view symb, const InfoObj &info);
 	void setMisc(std::size_t rev, std::string_view symb, const MiscData &miscData, bool initial);
 
-	void setPrice(std::size_t rev, std::string_view symb, double price);
+	void setOrder(std::size_t rev, std::string_view symb, int n, double price, double size, double pl, double np);
+	void setPrice(std::size_t rev, std::string_view symb, double price, double pl, double np);
+
+
 	void addLogLine(std::string_view ln);
 	void clear();
 
@@ -104,6 +109,8 @@ protected:
 	struct OValue {
 		double price;
 		double size;
+		double pl;
+		double np;
 		json::Value toJson() const;
 	};
 
@@ -115,7 +122,7 @@ protected:
 	using TradeMap = ondra_shared::linear_map<std::string, json::Value, std::less<> >;
 	using InfoMap = ondra_shared::linear_map<std::string, json::Value, std::less<> >;
 	using MiscMap = ondra_shared::linear_map<std::string, json::Value, std::less<> >;
-	using PriceMap = ondra_shared::linear_map<std::string, double, std::less<> >;
+	using PriceMap = ondra_shared::linear_map<std::string, json::Value, std::less<> >;
 
 	OrderMap orderMap;
 	TradeMap tradeMap;
@@ -155,7 +162,7 @@ protected:
 	template<typename ME> static void sendStreamTrades(ME &me, const std::string_view &symb, const json::Value &records);
 	template<typename ME> static void sendStreamInfo(ME &me, const std::string_view &symb, const json::Value &object);
 	template<typename ME> static void sendStreamMisc(ME &me, const std::string_view &symb, const json::Value &object);
-	template<typename ME> static void sendStreamPrice(ME &me, const std::string_view &symb, double data);
+	template<typename ME> static void sendStreamPrice(ME &me, const std::string_view &symb, const json::Value &data);
 	template<typename ME> static void sendStreamError(ME &me, const std::string_view &symb, const json::Value &obj);
 	template<typename ME> void sendStreamGlobal(ME &me) const;
 	template<typename ME> void sendNewsMessages(ME &me) const;

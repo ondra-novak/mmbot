@@ -88,7 +88,7 @@ public:
 	virtual json::Value save() const override;
 	virtual PStrategy3 run(AbstractTraderControl &cntr) const override;
 	virtual PStrategy3 load(const json::Value &state) const override;
-	virtual double calc_initial_position(const MarketState &st) const override;
+	virtual double calc_initial_position(const InitialState &st) const override;
 	virtual std::string_view get_id() const override;;
 
 	static std::string_view id;

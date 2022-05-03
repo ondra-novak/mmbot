@@ -648,23 +648,14 @@ function app_start(){
 		var pnl = {};
 		var org = {};
 		for (var k in sums) {
-			org[k] = pnl[k] = sums[k][sums[k].length-1].pl;
+			org[k] = sums[k][sums[k].length-1].pl;
+			pnl[k] = 0;
 							
 		}
 		for (var k in charts) {
 			var p = prices[k];
 			if (p) {
-				var ch = charts[k];
-				if (ch.length>3) {
-					var lt = ch[ch.length-1];
-					var price = lt.price;
-					var last_price = prices[k];
-					var pos = lt.pos;
-					var profit = infoMap[k].inverted
-					        ?(1/price-1/last_price)*pos
-					        :(last_price - price)*pos;
-					pnl[infoMap[k].currency]+= profit;
-				}
+				pnl[infoMap[k].currency]+= prices[k].pl;
 			}
 		}		
 		var retpnl = {};
@@ -849,7 +840,9 @@ function app_start(){
 		                    	symb: msg.symbol,
 		                    	dir: msg.dir,
 		                    	price: msg.data.price,
-		                    	size: msg.data.size
+		                    	size: msg.data.size,
+								pl: msg.data.pl,
+								np: msg.data.np
 							});					
                     	} 
 					} else {	
@@ -857,6 +850,8 @@ function app_start(){
 						if (msg.data.price) {
                     		x.price = msg.data.price;
                     		x.size = msg.data.size;
+							x.pl = msg.data.pl;
+							x.np = msg.data.np;
 						} else {
 							stats.orders.splice(opos,1);
 						}
@@ -930,7 +925,6 @@ function app_start(){
 				var s = orders[o.symb] || [];
 				var sz = o.size;
 				var ch =  charts[o.symb];
-				var inv = infoMap[o.symb].inverted;
 				var last;
 				if (!ch || !ch.length) {
 					last = {pl:0,price:o.price,pos:0,norm:0};
@@ -938,20 +932,16 @@ function app_start(){
 					 last = ch[ch.length-1];
 				}
 				var dir = o.dir < 0?"sell":"buy";
-				var norm = o.dir < 0?stats.misc[o.symb].cur_norm_sell:stats.misc[o.symb].cur_norm_buy;				
-				var gain = ((inv?1.0/o.price:o.price) - (inv?1.0/last.price:last.price))* (inv?-1:1)*last.pos;
-				var newpl = last.pl + gain;
+
 				var newpos = last.pos + sz;
-				var newnorm = last.norm + norm;
 				s.push({
 					price: o.price,
-					achg: sz,
-					pl: newpl,
+					achg: o.size,
+					pl: o.pl,
 					pos: newpos,
 					label: "",
-					gain:gain,
 					class: dir,
-					norm: newnorm
+					norm: o.np || undefined
 				})
 				if (Math.abs(o.dir)<2) {
 				    ranges[o.symb][dir] = [o.price,o.size];
@@ -960,23 +950,23 @@ function app_start(){
 			
 			for (var sm in stats.prices) if (infoMap[sm]) {
 				var s = orders[sm];
+				var pricenfo = stats.prices[sm];
 				if (!s) continue;
 				var ch =  charts[sm];
-				var inv = infoMap[sm].inverted;
 				var last;
 				if (!ch || !ch.length) {
-					last = {pl:0,price:stats.prices[sm],pos:0,app:0,norm:0,nacum:0};
+					last = {pl:0,price:pricenfo.price,pos:0,app:0,norm:0,nacum:0};
 				} else {
 					 last = ch[ch.length-1];
-				}
-				var gain = ((inv?1.0/stats.prices[sm]:stats.prices[sm])- (inv?1.0/last.price:last.price))* (inv?-1:1)*last.pos;
+				}		
 				s.push({
-					price: stats.prices[sm],
-					pl: last.pl + gain,
+					price: pricenfo.price,
+					pl: pricenfo.pl,
+					norm: pricenfo.np,
 					label: "",
 					class: "last",
 				})
-				ranges[sm]["last"] = [stats.prices[sm],""];
+				ranges[sm]["last"] = [pricenfo.price,""];
 				ranges[sm].pos = [last.pos,infoMap[sm].asset];
 				var rpos;
 				if (ranges[sm].buy !== undefined) {

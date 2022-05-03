@@ -24,12 +24,12 @@ public:
 	 * @param init_pos initial position
 	 * @param init_rpnl initializes RPnL
 	 */
-	ACB(double init_price, double init_pos, double init_rpnl = 0)
+/*	ACB(double init_price, double init_pos, double init_rpnl = 0)
 		:inverted(false)
 		,suma(init_pos && init_price?init_price * init_pos:0)
 		,pos(init_pos)
 		,rpnl(init_rpnl)
-	{}
+	{}*/
 
 	///Initialize object (new - also calculates profit for inverted markets)
 	/**
@@ -42,7 +42,7 @@ public:
 	ACB(bool inverted, double init_price, double init_pos, double init_rpnl = 0)
 		:inverted(inverted)
 		,suma(init_pos && init_price?(inverted?-init_pos/init_price:init_price * init_pos):0)
-		,pos((inverted?-1.0:1.0)+init_pos)
+		,pos((inverted?-1.0:1.0)*init_pos)
 		,rpnl(init_rpnl)
 	{}
 

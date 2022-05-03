@@ -279,7 +279,7 @@ double Strategy3_Pile::calcPriceFromCurrency(double z, double k, double q) {
 	return std::pow((k/z - k)/q,-1.0/z);
 }
 
-double Strategy3_Pile::calc_initial_position(const MarketState &st) const {
+double Strategy3_Pile::calc_initial_position(const InitialState &st) const {
 	return (st.equity * ratio)/st.cur_price;
 }
 

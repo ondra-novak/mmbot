@@ -45,7 +45,7 @@ protected: //To override
 		Ticker ticker;
 		std::string pair;
 		std::string src_pair;
-		ACB collateral = ACB(0.0,0.0);
+		ACB collateral = ACB(false,0.0,0.0);
 		int orderCounter = 1;
 		bool needLoadWallet = true;
 	};

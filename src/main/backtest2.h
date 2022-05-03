@@ -31,6 +31,10 @@ public:
 
 	class Source;
 
+	struct Order {
+		double price = 0;
+		double size = 0;
+	};
 
 
 	void start(std::vector<float> &&prices, std::uint64_t start_time);
@@ -38,9 +42,8 @@ public:
 
 	Trader &get_trader();
 
-	std::optional<IStockApi::Order> get_buy_order() const {
-		return buy;
-	}
+	Order get_buy_order() const {return buy;}
+	Order get_sell_order() const {return sell;}
 
 	double get_cur_price() const {
 		return cur_price;
@@ -59,11 +62,8 @@ public:
 		return position;
 	}
 
-	std::optional<IStockApi::Order> get_sell_order() const {
-		return sell;
-	}
 
-	const ondra_shared::StringView<IStatSvc::TradeRecord>& get_trades() const {
+	const ondra_shared::StringView<TradeRecord>& get_trades() const {
 		return trades;
 	}
 
@@ -87,8 +87,8 @@ public:
 	struct LogMsg {
 		std::uint64_t time;
 		std::string text;
-
 	};
+
 
 	const std::vector<LogMsg> &get_log_msgs() const;
 
@@ -119,12 +119,11 @@ protected:
 	std::uint64_t start_time = 0;
 
 protected: //reported data;
-	ondra_shared::StringView<IStatSvc::TradeRecord> trades;
+	ondra_shared::StringView<TradeRecord> trades;
 	std::string buy_err, sell_err, gen_err;
 	IStatSvc::MiscData miscData;
 	IStatSvc::Info info;
-	std::optional<IStockApi::Order> buy;
-	std::optional<IStockApi::Order> sell;
+	Order buy, sell;
 	std::vector<LogMsg> log_msgs;
 	double cur_price = 0;
 	double position = 0;
