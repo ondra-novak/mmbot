@@ -144,7 +144,7 @@ IStockApi::MarketInfo ByBitBroker::getMarketInfo(const std::string_view &pair) {
 	MarketInfoEx nfo = getSymbol(pair);
 	if (hasKeys()) {
 		Value pos;
-		switch (nfo.type) {
+		switch (nfo.ftype) {
 		case spot:break;
 		case inverse_futures:
 			pos = getInverseFuturePosition(nfo.name);
@@ -214,7 +214,7 @@ json::Value ByBitBroker::getMarkets() const {
 	ondra_shared::linear_map<std::string_view, Object> exp_futures;
 	updateSymbols();
 	for(const auto &sdef: symbols) {
-		switch (sdef.second.type) {
+		switch (sdef.second.ftype) {
 		case inverse_perpetual:
 			inversed.set(sdef.second.currency_symbol+"/"+sdef.second.quoted_symbol, sdef.first);
 			break;
@@ -242,11 +242,11 @@ json::Value ByBitBroker::getMarkets() const {
 
 double ByBitBroker::getBalance(const std::string_view &symb, const std::string_view &pair) {
 	const MarketInfoEx &market = getSymbol(pair);
-	switch (market.type) {
+	switch (market.ftype) {
 	case inverse_futures: {
 		if (symb == market.asset_symbol) {
 			Value pos = getInverseFuturePosition(market.name);
-			return pos["size"].getNumber() * (pos["side"].getString() == "Sell"?1.0:-1.0);
+			return pos["size"].getNumber() * (pos["side"].getString() == "Sell"?-1.0:1.0);
 		} else {
 			Value coin = getWalletState(symb);
 			return coin["equity"].getNumber();
@@ -266,7 +266,7 @@ double ByBitBroker::getBalance(const std::string_view &symb, const std::string_v
 	case inverse_perpetual: {
 		if (symb == market.asset_symbol) {
 			Value pos = getInversePerpetualPosition(market.name);
-			return pos["size"].getNumber() * (pos["side"].getString() == "Sell"?1.0:-1.0);
+			return pos["size"].getNumber() * (pos["side"].getString() == "Sell"?-1.0:1.0);
 		} else {
 			Value coin = getWalletState(symb);
 			return coin["equity"].getNumber();
@@ -284,7 +284,7 @@ IStockApi::TradesSync ByBitBroker::syncTrades(json::Value lastId, const std::str
 	Value list;
 	Value fltlist;
 	std::uint64_t since;
-	switch (nfo.type) {
+	switch (nfo.ftype) {
 	case inverse_perpetual:
 		if (lastId.hasValue()) {
 			since = lastId["time"].getUIntLong();
@@ -296,14 +296,11 @@ IStockApi::TradesSync ByBitBroker::syncTrades(json::Value lastId, const std::str
 			});
 			if (fltlist.empty() && !list.empty()) since++;
 			return TradesSync{mapJSON(fltlist,[&](Value x){
-				double side = x["side"].getString() == "Buy"?-1:1;
+				double side = x["side"].getString() == "Buy"?1:-1;
 				double size = x["exec_qty"].getNumber()*side;
-				double price = 1/x["exec_price"].getNumber();
+				double price = x["exec_price"].getNumber();
 				double fee = x["exec_fee"].getNumber();
-				double eff_price = price;
-				if (fee > 0) {
-							eff_price += -fee/size;
-						}
+				double eff_price = fee>0?price * size /(fee*price + size):price;
 				return IStockApi::Trade{x["exec_id"],x["trade_time_ms"].getUIntLong(),size,price,size,eff_price};
 			}, TradeHistory()),Object{{"time",since},{"seen",list.map([](Value x){
 				return x["exec_id"];
@@ -351,14 +348,11 @@ IStockApi::TradesSync ByBitBroker::syncTrades(json::Value lastId, const std::str
 					});
 					if (fltlist.empty() && !list.empty()) since++;
 					return TradesSync{mapJSON(fltlist,[&](Value x){
-						double side = x["side"].getString() == "Buy"?-1:1;
+						double side = x["side"].getString() == "Buy"?1:-1;
 						double size = x["exec_qty"].getNumber()*side;
-						double price = 1/x["exec_price"].getNumber();
+						double price = x["exec_price"].getNumber();
 						double fee = x["exec_fee"].getNumber();
-						double eff_price = price;
-						if (fee > 0) {
-									eff_price += -fee/size;
-								}
+						double eff_price = fee>0?price * size /(fee*price + size):price;
 						return IStockApi::Trade{x["exec_id"],x["trade_time_ms"].getUIntLong(),size,price,size,eff_price};
 					}, TradeHistory()),Object{{"time",since},{"seen",list.map([](Value x){
 						return x["exec_id"];
@@ -447,15 +441,15 @@ json::Value ByBitBroker::composeOrderID(json::Value userData) {
 IStockApi::Orders ByBitBroker::getOpenOrders(const std::string_view &pair) {
 	const MarketInfoEx &nfo = getSymbol(pair);
 	Value list;
-	switch (nfo.type) {
+	switch (nfo.ftype) {
 	case inverse_perpetual:
 		list = privateGET("/v2/private/order", Object{{"symbol",nfo.name}});
 		return mapJSON(list, [&](Value x){
 			return IStockApi::Order {
 				x["order_id"],
 				parseOrderID(x["order_link_id"]),
-				x["qty"].getNumber()*(x["side"].getString()=="Buy"?-1:1),
-				1.0/x["price"].getNumber()
+				x["qty"].getNumber()*(x["side"].getString()=="Buy"?1:-1),
+				x["price"].getNumber()
 			};
 		}, IStockApi::Orders());
 	break;
@@ -476,8 +470,8 @@ IStockApi::Orders ByBitBroker::getOpenOrders(const std::string_view &pair) {
 			return IStockApi::Order {
 				x["order_id"],
 				parseOrderID(x["order_link_id"]),
-				x["qty"].getNumber()*(x["side"].getString()=="Buy"?-1:1),
-				1.0/x["price"].getNumber()
+				x["qty"].getNumber()*(x["side"].getString()=="Buy"?1:-1),
+				x["price"].getNumber()
 			};
 		}, IStockApi::Orders());
 	break;
@@ -506,7 +500,7 @@ static Value adjustPrice(double size, double step) {
 json::Value ByBitBroker::placeOrder(const std::string_view &pair, double size, double price, json::Value clientId, json::Value replaceId, double replaceSize) {
 	const MarketInfoEx &nfo = getSymbol(pair);
 	Value list;
-	switch (nfo.type) {
+	switch (nfo.ftype) {
 	case inverse_perpetual:
 		if (replaceId.hasValue()) {
 			Value r = privatePOST("/v2/private/order/cancel",Object{{"symbol",nfo.name},{"order_id",replaceId}});
@@ -514,13 +508,13 @@ json::Value ByBitBroker::placeOrder(const std::string_view &pair, double size, d
 			if (lv < std::abs(replaceSize*0.99)) return nullptr;
 		}
 		if (size) {
-			auto side =[](double s){return s<0?"Buy":"Sell";};
+			auto side =[](double s){return s>0?"Buy":"Sell";};
 			Value r = privatePOST("/v2/private/order/create",Object{
 				{"symbol",nfo.name},
 				{"side",side(size)},
 				{"order_type","Limit"},
 				{"qty",adjustSize(size,nfo.asset_step)},
-				{"price",adjustPrice(1.0/price,nfo.currency_step)},
+				{"price",adjustPrice(price,nfo.currency_step)},
 				{"time_in_force","PostOnly"},
 				{"reduce_only",getInversePerpetualPosition(nfo.name)["side"].getString() == side(-size)},
 				{"order_link_id",composeOrderID(clientId)}
@@ -557,13 +551,13 @@ json::Value ByBitBroker::placeOrder(const std::string_view &pair, double size, d
 			if (lv < std::abs(replaceSize*0.99)) return nullptr;
 		}
 		if (size) {
-			auto side =[](double s){return s<0?"Buy":"Sell";};
+			auto side =[](double s){return s>0?"Buy":"Sell";};
 			Value r = privatePOST("/futures/private/order/create",Object{
 				{"symbol",nfo.name},
 				{"side",side(size)},
 				{"order_type","Limit"},
 				{"qty",adjustSize(size,nfo.asset_step)},
-				{"price",adjustPrice(1.0/price,nfo.currency_step)},
+				{"price",adjustPrice(price,nfo.currency_step)},
 				{"time_in_force","PostOnly"},
 				{"order_link_id",composeOrderID(clientId)},
 				{"reduce_only",getInverseFuturePosition(nfo.name)["side"].getString() == side(-size)},
@@ -582,7 +576,7 @@ json::Value ByBitBroker::placeOrder(const std::string_view &pair, double size, d
 			Value r = privatePOSTSpot("/spot/v1/order",Object{
 				{"symbol",nfo.name},
 				{"side",size>0?"Buy":"Sell"},
-				{"type","LIMIT_MAKER"},
+				{"ftype","LIMIT_MAKER"},
 				{"qty",adjustSize(size,nfo.asset_step)},
 				{"price",adjustPrice(price,nfo.currency_step)},
 				{"time_in_force","GTC"},
@@ -602,7 +596,7 @@ double ByBitBroker::getFees(const std::string_view &pair) {
 
 IStockApi::Ticker ByBitBroker::getTicker(const std::string_view &pair) {
 	const MarketInfoEx &nfo = getSymbol(pair);
-	if (nfo.type == spot) {
+	if (nfo.ftype == spot) {
 		Value resp = publicGET("/spot/quote/v1/ticker/book_ticker?symbol="+nfo.name);
 		auto bid = resp["bidPrice"].getNumber();
 		auto ask = resp["askPrice"].getNumber();
@@ -633,7 +627,7 @@ IBrokerControl::AllWallets ByBitBroker::getWallet() {
 	Wallet w;
 	w.walletId = "futures";
 	for (const auto &x: symbols) {
-		if (x.second.type == inverse_perpetual) {
+		if (x.second.ftype == inverse_perpetual) {
 			w.wallet.push_back({x.second.currency_symbol,getWalletState(x.second.currency_symbol)["equity"].getNumber()});
 		}
 	}
@@ -811,7 +805,7 @@ void ByBitBroker::forceUpdateSymbols() const {
 		nfo.min_volume = 0;
 		nfo.currency_step = smb["price_filter"]["tick_size"].getNumber();
 		nfo.feeScheme = FeeScheme::currency;
-		nfo.fees = 0;
+		nfo.fees = 0.0001;
 		nfo.leverage = smb["leverage_filter"]["max_leverage"].getNumber();
 		nfo.private_chart = false;
 		nfo.simulator = testnet;
@@ -822,14 +816,16 @@ void ByBitBroker::forceUpdateSymbols() const {
 		if (inverted) {
 			nfo.asset_symbol = smb["quote_currency"].getString();
 			nfo.currency_symbol = smb["base_currency"].getString();
-			nfo.invert_price = true;
+			nfo.invert_price = false;
 			nfo.quoted_symbol = nfo.asset_symbol;
-			nfo.type = nfo.expiration.empty()?inverse_perpetual:inverse_futures;
+			nfo.ftype = nfo.expiration.empty()?inverse_perpetual:inverse_futures;
+			nfo.type = ::MarketType::inverted;
 		} else {
 			nfo.asset_symbol = smb["base_currency"].getString();
 			nfo.currency_symbol = smb["quote_currency"].getString();
 			nfo.invert_price = false;
-			nfo.type = usdt_perpetual;
+			nfo.ftype = usdt_perpetual;
+			nfo.type = ::MarketType::normal;
 		}
 		symbolvect.push_back(SymbolMap::value_type{
 			std::string("f_").append(name),std::move(nfo)
@@ -848,12 +844,12 @@ void ByBitBroker::forceUpdateSymbols() const {
 		nfo.min_size = smb["minTradeQuantity"].getNumber();
 		nfo.min_volume = smb["minTradeQuantity"].getNumber();
 		nfo.feeScheme = FeeScheme::currency;
-		nfo.fees = 0;
+		nfo.fees = 0.001;
 		nfo.leverage = 0;
 		nfo.private_chart = false;
 		nfo.simulator = testnet;
 		nfo.wallet_id = "spot";
-		nfo.type = spot;
+		nfo.ftype = spot;
 		symbolvect.push_back(SymbolMap::value_type{
 			std::string("s_").append(name),std::move(nfo)
 		});
@@ -951,12 +947,12 @@ uint64_t ByBitBroker::downloadMinuteData(const std::string_view &asset,
 		if (iter == symbols.end()) return 0;
 	}
 
-	if (iter->second.type == spot) {
+	if (iter->second.ftype == spot) {
 		return 0;
 	} else {
 		auto start = std::max(time_from, time_to - 200*300000);
 		json::Value hdata;
-		if (iter->second.type == usdt_perpetual) {
+		if (iter->second.ftype == usdt_perpetual) {
 			hdata = publicGET("/public/linear/kline?symbol="+iter->second.name+"&interval=5&limit=200&from="+std::to_string(start/1000));
 		} else {
 			hdata = publicGET("/v2/public/kline/list?symbol="+iter->second.name+"&interval=5&limit=200&from="+std::to_string(start/1000));

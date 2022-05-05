@@ -158,7 +158,6 @@ inline double Interface::getBalance(const std::string_view &symb, const std::str
 		}
 		Value x = positionCache.find([&](Value v){return v["symbol"] == symb;});
 		double q = x["currentQty"].getNumber();
-		if (s.inverse) q = -q;
 		return q*s.multiplier;
 	}
 	return 0;
@@ -205,9 +204,9 @@ inline Interface::TradesSync Interface::syncTrades(json::Value lastId,  const st
 		auto side = item["side"].getString();
 		double mult = side=="Buy"?1:side=="Sell"?-1:0;
 		if (mult == 0) continue;
-		if (s.inverse) mult=-mult;
+
 		double size = mult*item["lastQty"].getNumber()*s.multiplier;
-		double price = s.inverse?1.0/item["lastPx"].getNumber():item["lastPx"].getNumber();
+		double price = item["lastPx"].getNumber();
 		resp.trades.push_back(Trade{
 			lastExecId,
 			parseTime(lastExecTime.toString(), ParseTimeFormat::iso),
@@ -246,10 +245,6 @@ inline Interface::Orders Interface::getOpenOrders(const std::string_view &pair) 
 		} catch (...) {
 
 		}
-		if (s.inverse) {
-			mult = -mult;
-			price = 1/price;
-		}
 		resp.push_back(Order {
 			id,clientId,size*s.multiplier*mult,price
 		});
@@ -259,17 +254,17 @@ inline Interface::Orders Interface::getOpenOrders(const std::string_view &pair) 
 }
 
 inline Interface::Ticker Interface::getTicker(const std::string_view &pair) {
-	const SymbolInfo &s = getSymbol(pair);
+//	const SymbolInfo &s = getSymbol(pair);
 	Value resp = px.request("GET","/api/v1/orderBook/L2", Object({{"symbol",pair},{"depth",1}}));
 	double bid = 0;
 	double ask = 0;
 	for (Value v: resp) {
 		double price = v["price"].getNumber();
 		if (v["side"].getString() == "Sell") {
-			if (s.inverse) bid =1/price; else ask = price;
+			ask = price;
 		}
 		else if (v["side"].getString() == "Buy") {
-			if (s.inverse) ask =1/price; else bid = price;
+			bid = price;
 		}
 		if (bid == 0) bid = ask;
 		if (ask == 0) ask = bid;
@@ -289,11 +284,6 @@ inline json::Value Interface::placeOrder(const std::string_view &pair,
 	auto now = px.now()*1000;
 
 	const SymbolInfo &s = getSymbol(pair);
-	if (s.inverse && price) {
-		size = -size;
-		price = 1/price;
-		price = round(price/s.tickSize)*s.tickSize;
-	}
 
 	Value side = size < 0?"Sell":"Buy";
 	Value qty = fabs(size/s.multiplier);
@@ -370,9 +360,13 @@ inline Interface::MarketInfo Interface::getMarketInfo(const std::string_view &pa
 			0,
 			FeeScheme::currency,
 			s.leverage,
-			true,
+			false,
 			"USD",
-			px.testnet
+			px.testnet,
+			false,
+			"",
+			MarketType::inverted
+
 		};
 	} else {
 		return MarketInfo{
@@ -387,7 +381,11 @@ inline Interface::MarketInfo Interface::getMarketInfo(const std::string_view &pa
 			s.leverage,
 			false,
 			"XBT",
-			px.testnet
+			px.testnet,
+			false,
+			"",
+			MarketType::normal
+
 		};
 	}
 }
@@ -403,8 +401,8 @@ Interface::BrokerInfo Interface::getBrokerInfo() {
 		"bitmex",
 		"BitMEX",
 		"https://www.bitmex.com/register/ns01mS",
-		"1.1",
-		R"mit(Copyright (c) 2019 Ondřej Novák
+		"1.5",
+		R"mit(Copyright (c) 2022 Ondřej Novák
 
 Permission is hereby granted, free of charge, to any person
 obtaining a copy of this software and associated documentation

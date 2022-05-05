@@ -58,7 +58,7 @@ protected:
 	};
 
 	struct MarketInfoEx: IStockApi::MarketInfo {
-		MarketType type;
+		MarketType ftype;
 		std::string name;
 		std::string alias;
 		std::string expiration;

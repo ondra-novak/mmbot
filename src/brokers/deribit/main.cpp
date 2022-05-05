@@ -83,7 +83,6 @@ public:
 	virtual json::Value getWallet_direct() override;
 
 
-	ondra_shared::linear_map<std::string, double, std::less<std::string_view> > tick_cache;
 
 	ondra_shared::linear_map<std::string, json::Value, std::less<std::string_view> > openOrdersCache;
 
@@ -105,13 +104,13 @@ int main(int argc, char **argv) {
 
 }
 
-inline double Interface::getBalance(const std::string_view &symb, const std::string_view & ) {
+inline double Interface::getBalance(const std::string_view &symb, const std::string_view &pair ) {
 	if (symb.empty()) return 0;
-	if (symb[0] == '$') {
-		auto instrument = symb.substr(1);
+	if (symb == "CONTRACT") {
+		auto instrument = pair;
 		auto response = px.request("private/get_position", Object({
 			{"instrument_name",instrument}}),true);
-		return -response["size"].getNumber();
+		return response["size"].getNumber();
 	} else {
 		auto response = px.request("private/get_account_summary",Object({
 			{"currency",symb}}),true);
@@ -147,22 +146,19 @@ inline Interface::TradesSync Interface::syncTrades(json::Value lastId,  const st
 
 
 		auto trades = mapJSON(resp, [&](Value itm){
-			double amount = itm["amount"].getNumber();
-			double price = 1.0/itm["price"].getNumber();
+			double size = itm["amount"].getNumber();
+			double price = itm["price"].getNumber();
 			auto dir = itm["direction"].getString();
-			if (dir == "buy") amount = -amount;
+			if (dir == "sell") size = -size;
 			double fee = itm["fee"].getNumber();
-			double eff_price = price;
-			if (fee > 0) {
-				eff_price += -fee/amount;
-			}
+			double eff_price = fee>0?price * size /(fee*price + size):price;
 			lastId = itm["trade_seq"];
 			return Trade{
 				itm["trade_seq"],
 				itm["timestamp"].getUIntLong(),
-				amount,
+				size,
 				price,
-				amount,
+				size,
 				eff_price
 			};
 		},TradeHistory());
@@ -189,11 +185,11 @@ inline Interface::Orders Interface::getOpenOrders(const std::string_view &pair) 
 			}
 		}
 		double size = v["amount"].getNumber() - v["filled_amount"].getNumber();
-		if (v["direction"].getString() == "buy") size = -size;
+		if (v["direction"].getString() == "sell") size = -size;
 
 		double price = -1;
 		Value vprice = v["price"];
-		if (vprice.type() == json::number) price = 1.0/vprice.getNumber();
+		if (vprice.type() == json::number) price = vprice.getNumber();
 
 		return Order {
 			v["order_id"],
@@ -210,9 +206,9 @@ inline Interface::Ticker Interface::getTicker(const std::string_view &pair) {
 	auto response = px.request("public/ticker", Object
 			({{"instrument_name",pair}}), false);
 	return {
-		1.0/response["best_ask_price"].getNumber(),
-		1.0/response["best_bid_price"].getNumber(),
-		1.0/response["last_price"].getNumber(),
+		response["best_bid_price"].getNumber(),
+		response["best_ask_price"].getNumber(),
+		response["last_price"].getNumber(),
 		response["timestamp"].getUIntLong()
 	};
 }
@@ -221,36 +217,15 @@ inline json::Value Interface::placeOrder(const std::string_view &pair,
 		double size, double price, json::Value clientId, json::Value replaceId,
 		double replaceSize) {
 
-	double tick_size;
-	{
-		auto tick_iter = tick_cache.find(pair);
-		if (tick_iter == tick_cache.end()) {
-			getMarketInfo(pair);
-			tick_iter = tick_cache.find(pair);
-		}
-		tick_size = tick_iter->second;
-	}
-
-	double adj_price = 1.0/price;
-	adj_price = std::round(adj_price / tick_size) * tick_size;
-
 	if (replaceId.defined()) {
 
-		Orders ords = getOpenOrders(pair);
-		auto iter = std::find_if(ords.begin(), ords.end(), [&](const Order &o) {
-			return o.id == replaceId && o.client_id == clientId && std::fabs(o.size - size) < 1e-20
-					&& std::fabs(adj_price - 1.0/o.price) < 1e-20;
-		});
-		if (iter != ords.end()) return iter->id;
-
-		auto response = px.request("private/cancel",Object
-				({{"order_id",replaceId}}),true);
+		auto response = px.request("private/cancel",Object({{"order_id",replaceId}}),true);
 		double remain = (response["amount"].getNumber() - response["filled_amount"].getNumber())*1.00001;
 		if (replaceSize > remain) return nullptr;
 	}
 	if (size == 0) return nullptr;
 
-	std::string_view method  = size>0?"private/sell":"private/buy";
+	std::string_view method  = size<0?"private/sell":"private/buy";
 	double amount = std::fabs(size);
 
 	auto resp = px.request(method,Object({
@@ -258,7 +233,7 @@ inline json::Value Interface::placeOrder(const std::string_view &pair,
 		{"amount", amount},
 		{"type", "limit"},
 		{"label", clientId.stringify()},
-		{"price", adj_price},
+		{"price", price},
 		{"post_only", true}}), true);
 
 	return resp["order"]["order_id"];
@@ -298,9 +273,8 @@ inline Interface::MarketInfo Interface::getMarketInfo(const std::string_view &pa
 	else if (bcur == "ETH") leverage=50.0;
 	else leverage = 0;
 
-	tick_cache[pair] = instrument["tick_size"].getNumber();
 	return {
-		std::string("$").append(pair),
+		"CONTRACT",
 		bcur,
 		csize["contract_size"].getNumber(),
 		0,
@@ -309,9 +283,12 @@ inline Interface::MarketInfo Interface::getMarketInfo(const std::string_view &pa
 		0,
 		FeeScheme::currency,
 		leverage,
-		true,
+		false,
 		"USD",
-		px.testnet
+		px.testnet,
+		false,
+		"",
+		MarketType::inverted
 	};
 
 
