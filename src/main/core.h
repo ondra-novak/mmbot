@@ -104,6 +104,13 @@ public:
 		return backtest_broker;
 	}
 
+	const PStorage &get_history() const {return cfg_history;}
+	PStorage &get_history() {return cfg_history;}
+
+	int get_hist_size() const {
+		return hist_size;
+	}
+
 protected:
 
 
@@ -126,6 +133,8 @@ protected:
 	PStorage cfg_storage;
 	PBacktestStorage backtest_storage;
 	PBacktestBroker backtest_broker;
+	PStorage cfg_history;
+	int hist_size;
 	ondra_shared::Semaphore in_progres;
 
 

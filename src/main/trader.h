@@ -111,6 +111,7 @@ struct Trader_Env {
 	PBalanceMap balanceCache;
 	PBalanceMap externalBalance;
 	PBalanceMap conflicts;
+	bool backtest;
 
 };
 

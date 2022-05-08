@@ -122,9 +122,11 @@ BotCore::BotCore(const ondra_shared::IniConfig &cfg)
 ,broker_config(json::object)
 ,news_tm(json::undefined)
 ,traders(PTraders::make(brokerList, storageFactory, histStorageFactory, rpt,perfmod, balanceCache, extBalance))
-,cfg_storage(storageFactory->create("config.json"))
+,cfg_storage(storageFactory->create("config.storage"))
 ,backtest_storage(initBacktestStorage(cfg["backtest"]))
 ,backtest_broker(initBacktestBroker(cfg["backtest"]))
+,cfg_history(storageFactory->create("history.storage"))
+,hist_size(cfg["storage"]["hist_max_revs"].getUInt(100))
 ,in_progres(1)
 {
 

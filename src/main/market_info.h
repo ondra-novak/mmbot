@@ -179,6 +179,7 @@ struct MarketInfo {
 	 */
 	double calcCurrencyChange(double size, double price, bool no_leverage = false) const;
 
+
 	double sizeFromCurrencyChange(double change, double price) const;
 
 	///Initialize ACB object depend on market type;

@@ -102,6 +102,10 @@ struct MarketState {
 	 * not inverted version.
 	 */
 	bool inverted;
+	///true if leveraged market (balance = collateral)
+	bool leveraged;
+	///true if backtest is running (not live)- strategy can skip unneccesery calculations to speed up main process
+	bool backtest;
 };
 
 struct InitialState {
@@ -117,6 +121,10 @@ struct InitialState {
 	double cur_price;
 	///true if values has been inverted
 	bool inverted;
+	///true if leveraged market (balance = collateral)
+	bool leveraged;
+	///true if backtest is running
+	bool backtest;
 };
 
 enum class OrderRequestResult {

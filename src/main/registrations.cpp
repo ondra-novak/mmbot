@@ -11,11 +11,13 @@
 #include "spreadgenerator.h"
 #include "strategy3.h"
 #include "strategy_pile.h"
+#include "strategy_keepvalue.h"
 
 
 void init_registrations() {
 	StrategyRegister &strg = StrategyRegister::getInstance();
 	Strategy3_Pile::reg(strg);
+	Strategy3_KeepValue::reg(strg);
 
 
 	SpreadRegister &sprg = SpreadRegister::getInstance();

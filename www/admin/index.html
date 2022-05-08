@@ -345,6 +345,37 @@
 </x-popup>
 </template>
 
+<template id="wallet_form"><div class="page wallet">
+<h1 data-icon="svg_wallet">Wallet</h1>
+<table>
+<thead>
+<tr><th>Exchange (wallet)</th><th>Allocated</th><th>Balance</th></tr>
+</thead>
+<tbody>
+<tr data-name="allocs[]">
+<tr>
+<td><img data-name="img"> <span data-name="broker"></span> (<span data-name="wallet"></span>)</td>
+<td class="money"><div><span data-name="allocated"></span>&nbsp;<span data-name="symbol"></span></div></td>
+<td><div class="editanch" data-name="editval"><span data-name="balance"></span>&nbsp;<span data-name="symbol"></span></div></td>
+
+</tbody>
+</table>
+<div class="table">
+<div class="hdr">
+<div>Trader</div><div>Wallet</div><div class="money"><div>Allocated</div><div>Balance</div></div>
+</div>
+<div data-name="allocs[]">
+<div><img data-name="img">&nbsp;<span data-name="broker"></span></div>
+<div data-name="wallet"></div>
+<div><div class="money"><div><span data-name="allocated"></span>&nbsp;<span data-name="symbol"></span></div>
+<div><div class="editanch" data-name="editval"><span data-name="balance"></span>&nbsp;<span data-name="symbol"></span></div></div>
+</div></div>
+</div>
+</div>
+</div>
+</template>
+
+
 <script type="text/javascript" src="../res/common.js"></script>
 <script type="text/javascript" src="../res/template.js"></script>
 <script type="text/javascript" src="../res/ui.js"></script>

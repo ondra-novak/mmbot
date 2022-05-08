@@ -588,7 +588,7 @@ void Trader::run() {
 				}
 			}
 			if (cntr.sell_error.has_value()) {
-				buy_error = cntr.sell_error->get_reason();
+				sell_error = cntr.sell_error->get_reason();
 				if (cntr.sell_error->price) {
 					new_sell = {cntr.sell_error->price,cntr.sell_error->size};
 				}
@@ -618,7 +618,7 @@ void Trader::run() {
 			env.statsvc->reportError({gen_error,buy_error, sell_error});
 			env.statsvc->reportMisc({
 					any_trades?sgn(trades.back().size):0,
-					false, //achieve
+					achieve_mode.has_value(), //achieve
 					cfg.enabled,
 					equilibrium,
 					env.spread_gen.get_base_spread()*mst.cur_leverage,
@@ -753,6 +753,8 @@ Trader::MarketStateEx Trader::getMarketState(bool trades_finished) const {
 	mst.inverted = false;
 	mst.buy_rejected = rej_buy;
 	mst.sell_rejected = rej_sell;
+	mst.leveraged = minfo.leverage>0;
+	mst.backtest = env.backtest;
 	return mst;
 
 
@@ -993,7 +995,7 @@ NewOrderResult Trader::Control::checkBuySize(double price, double size) {
 	}
 	double minsize = orig_state.minfo->getMinSize(price);
 	double sz = size;
-	if (sz < minsize) return {OrderRequestResult::too_small, minsize};
+	if (sz - minsize < -std::numeric_limits<double>::epsilon()) return {OrderRequestResult::too_small, minsize};
 
 
 	if (owner.cfg.max_position.has_value()) {
@@ -1076,7 +1078,7 @@ NewOrderResult Trader::Control::checkSellSize(double price, double size) {
 	}
 	double minsize = orig_state.minfo->getMinSize(price);
 	double sz = size;
-	if (sz < minsize) return {OrderRequestResult::too_small, minsize};
+	if (sz - minsize < -std::numeric_limits<double>::epsilon()) return {OrderRequestResult::too_small, minsize};
 
 
 	if (owner.cfg.min_position.has_value()) {
@@ -1473,7 +1475,9 @@ MarketState Trader::invert_market_state(const MarketState &st) {
 		st.sell_rejected,
 		st.buy_rejected,
 		st.trade_now,
-		!st.inverted
+		!st.inverted,
+		st.leveraged,
+		st.backtest
 	};
 }
 
@@ -1490,11 +1494,11 @@ InitialState Trader::create_initial_state(const MarketState &st) {
 	default:
 	case MarketType::normal:
 		return {
-			st.minfo, st.position, st.balance, st.equity, st.cur_price, st.inverted
+			st.minfo, st.position, st.balance, st.equity, st.cur_price, st.inverted, st.leveraged, st.backtest
 		};
 	case MarketType::inverted:
 		return {
-			st.minfo, -st.position, st.balance, st.equity, 1.0/st.cur_price, !st.inverted
+			st.minfo, -st.position, st.balance, st.equity, 1.0/st.cur_price, !st.inverted, st.leveraged, st.backtest
 		};
 	}
 }

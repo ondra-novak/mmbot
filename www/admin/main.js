@@ -227,9 +227,13 @@ class App {
 		this.page_refresh();
 	}
 	page_options_users() {
-		if (!this.config.users) this.config.users = [];
+		if (!this.config.users) this.config.users = {};
 		page_options_users(this, this.config.users);					
 	}
+	page_options_wallet() {
+		page_options_wallet.call(this);
+	}
+	
 	unknown_page() {
 		this.page_root.setData({"workspace":load_template("unknown_page")});
 	}

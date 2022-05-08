@@ -253,10 +253,29 @@ void HttpAPI::init(std::shared_ptr<OpenAPIServer> server) {
 	reg("/api/config")
 		.GET("Configuration","Get configuration file","",{},{
 			{200,"OK",{{ctx_json, "", "object"}}}}).method(me, &HttpAPI::get_api_config)
-		.POST("Configuration","Apply config diff, restart trading and return whole config","",{},"",{
+		.POST("Configuration","Apply config diff, restart trading and return whole config","",{
+				{"history","query","boolean","Control, whether current version will be put into history. Default is true, set false to disable",{},false}
+			},"",{
 			{ctx_json,"","object","Configuration diff (transfer only changed fields, use {} to delete fields)"}},
 			{{202,"Accepted",{{ctx_json,"","object","whole merged configuration"}}}
 			}).method(me, &HttpAPI::post_api_config);
+	reg("/api/config/history")
+		.GET("Configuration","Get configuration history list","",{}, {
+			{200,"OK",{{ctx_json, "", "array", "list", {
+					{"item","object","history item",{
+							{"time","int64","timestamp"},
+							{"id","string","revision id"},
+							{"summary","object","summary"}
+					}}
+			}}}}
+		}).method(me, &HttpAPI::get_api_config_history);
+	reg("/api/config/history/{id}")
+		.GET("Configuration","Get configuration history revision","",{
+				{"id","path","string","Revision id"}
+		}, {
+			{200,"OK",{{ctx_json, "", "object", "stored configuration"}}}
+		}).method(me, &HttpAPI::get_api_config_history_id);
+
 	reg("/api/forms")
 		.GET("Configuration","Retrieve form definition for specified object","",{},
 			{{200,"OK",{{ctx_json,"","object"}}}}).method(me, &HttpAPI::get_api_form);

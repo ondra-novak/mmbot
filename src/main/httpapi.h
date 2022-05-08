@@ -57,8 +57,6 @@ protected:
 
 
 
-	static json::Value merge_JSON(json::Value src, json::Value diff);
-	static json::Value make_JSON_diff(json::Value src, json::Value trg);
 
 	static void api_error(Req &req, int err, std::string_view desc = std::string_view());
 
@@ -119,6 +117,9 @@ protected:
 	bool get_api_backtest_trader_data(Req &req, const Args &v);
 	bool post_api_backtest_trader_data(Req &req, const Args &v);
 	static void redir_to_run(int id, Req &req);
+
+	bool get_api_config_history(Req &req, const Args &v);
+	bool get_api_config_history_id(Req &req, const Args &v);
 
 	class DataDownloaderTask;
 	class BacktestState;

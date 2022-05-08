@@ -79,7 +79,7 @@ json::Value Storage::load() const {
 
 		int x = f.get();
 		f.putback(x);
-		if (x == '{' ) {
+		if (x == '{' || x == '[' ) {
 			return json::Value::fromStream(f);
 		} else {
 			return json::Value::parseBinary([&] {int i = f.get();

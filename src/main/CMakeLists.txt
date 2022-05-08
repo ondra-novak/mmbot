@@ -10,6 +10,7 @@ add_executable (mmbot
 		dynmult.cpp
 		trader_factory.cpp
 		strategy_pile.cpp
+		strategy_keepvalue.cpp
 		istockapi.cpp
 		backtest2.cpp
 		walletDB.cpp
@@ -36,5 +37,6 @@ add_executable (mmbot
 		server.cpp
 		btstore.cpp
 		market_info.cpp
+		jsondiff.cpp
 	)
 target_link_libraries (mmbot LINK_PUBLIC userver imtjson )

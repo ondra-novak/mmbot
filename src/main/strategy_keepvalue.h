@@ -9,64 +9,42 @@
 #define SRC_MAIN_STRATEGY_KEEPVALUE_H_
 #include <chrono>
 
-#include "istrategy.h"
+#include "istrategy3.h"
 
-class Strategy_KeepValue: public IStrategy {
+class Strategy3_KeepValue: public IStrategy3 {
 public:
 
-	struct Config {
-		double ea;
-		double accum;
-		double chngtm;
+	struct State {
+		double k = 0;
+		double c = 0;
 	};
 
-
-	struct State {
-			bool valid = false;
-			double p = 0;
-			double a = 0;
-			double c = 0;
-			double f = 0;
-			std::uint64_t recalc_time = 0;
-			std::uint64_t check_time = 0;
-		};
-
-	Strategy_KeepValue(const Config &cfg, State &&st);
-
-	virtual bool isValid() const override;
-	virtual PStrategy  onIdle(const IStockApi::MarketInfo &minfo, const IStockApi::Ticker &curTicker, double assets, double currency) const override;
-	virtual std::pair<OnTradeResult,PStrategy > onTrade(const IStockApi::MarketInfo &minfo, double tradePrice, double tradeSize, double assetsLeft, double currencyLeft) const override;;
-	virtual json::Value exportState() const override;
-	virtual PStrategy importState(json::Value src,const IStockApi::MarketInfo &minfo) const override;
-	virtual OrderData getNewOrder(const IStockApi::MarketInfo &minfo,  double cur_price,double new_price, double dir, double assets, double currency, bool rej) const override;
-	virtual MinMax calcSafeRange(const IStockApi::MarketInfo &minfo, double assets, double currencies) const override;
-	virtual double getEquilibrium(double assets) const override;
-	virtual PStrategy reset() const override;
-	virtual std::string_view getID() const override;
-	virtual json::Value dumpStatePretty(const IStockApi::MarketInfo &minfo) const override;
-	virtual double calcInitialPosition(const IStockApi::MarketInfo & , double price, double assets, double currency) const override;
-	virtual BudgetInfo getBudgetInfo() const override;
-	virtual double calcCurrencyAllocation(double price) const override;
-	virtual ChartPoint calcChart(double price) const override;
-	virtual double getCenterPrice(double lastPrice, double assets) const override {return getEquilibrium(assets);}
-
-
+	Strategy3_KeepValue();
+	Strategy3_KeepValue(const State &k);
+	virtual ChartPoint get_chart_point(double price) const override;
+	virtual json::Value save() const override;
+	virtual PStrategy3 run(AbstractTraderControl &cntr) const override;
+	virtual PStrategy3 load(const json::Value &state) const override;
+	virtual double calc_initial_position(const InitialState &st) const override;
+	virtual std::string_view get_id() const override {return id;}
 
 	static std::string_view id;
 
+	virtual PStrategy3 reset() const override;
+	static void reg(AbstractStrategyRegister &r);
+
 protected:
-	Config cfg;
+	static double calcPos(const State &st, double price);
+	static double calcBudget(const State &st, double price);
+	static double calcAlloc(const State &st, double price);
+	static double calcPriceFromPos(const State &st, double pos);
+	static double calcPriceFromCurrency(const State &st, double cur);
+	static double calcPriceFromEquity(const State &st, double equity);
+	static State calcConstant(double price, double eq, double position);
+
 	State st;
-
-
-	double calcK() const;
-	static double calcK(const State &st, const Config &cfg);
-	static double calcReqCurrency(const State &st, const Config &cfg, double price);
-	static double calcA(const State &st, const Config &cfg, double price);
-	static double calcAccumulation(const State &st, const Config &cfg, double price, double currencyLeft);
-	static double calcNormalizedProfit(const State &st, const Config &cfg, double tradePrice, double tradeSize);
-
 };
+
 
 
 #endif /* SRC_MAIN_STRATEGY_KEEPVALUE_H_ */

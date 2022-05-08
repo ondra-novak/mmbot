@@ -146,10 +146,11 @@ function page_options_users(app) {
 		dlg.openModal();
 		dlg.setDefaultAction(() => {
 			var d = dlg.readData();
-			var r = { uid: d.user, pwd: d.pwd, acl: app.form_defs.acls.filter(x => d[x]) };
+			var uid = d.user;
+			var r = { pwd: d.pwd, acl: app.form_defs.acls.filter(x => d[x]) };
 			d.config_view = d.config_view || d.config_edit;
-			if (!userlist.find(x => x.uid == r.uid)) {
-				userlist.push(r);
+			if (!userlist[uid]) {
+				userlist[uid] = r;
 				dlg.close();
 				refresh();
 			} else {
@@ -161,7 +162,7 @@ function page_options_users(app) {
 		}, "cancel");
 	};
 
-	const edit_user_dlg = (user) => {
+	const edit_user_dlg = (user,name) => {
 		var fdef = acl_buttons(false);
 		fdef = [{ name: "user", type: "string", event: "input", "disableif": {} },
 		{ name: "set_pwd", type: "checkbox", default: !!user.pwd },
@@ -172,7 +173,7 @@ function page_options_users(app) {
 		{ name: "acls", type: "label" }
 		].concat(fdef);
 		var data = {
-			user: user.uid,
+			user: name,
 			pwd: user.pwd,
 		};
 		user.acl.forEach(x => data[x] = true);
@@ -180,14 +181,14 @@ function page_options_users(app) {
 		dlg.setData(data);
 		dlg.openModal();
 		dlg.setItemEvent("delete", "click", () => {
-			userlist = userlist.filter(x => x.user != user.user);
+			delete userlist[name];
 			dlg.close();
 			refresh();
 		});
 		dlg.setDefaultAction(() => {
 			var d = dlg.readData();
 			d.config_view = d.config_view || d.config_edit;
-			var r = { uid: d.user, acl: app.form_defs.acls.filter(x => d[x]) };
+			var r = { acl: app.form_defs.acls.filter(x => d[x]) };
 			if (d.set_pwd) r.pwd = d.pwd;
 			Object.assign(user, r);
 			dlg.close();
@@ -212,12 +213,11 @@ function page_options_users(app) {
 		var dlg = create_form(fdef, "user_dlg", "", "edit_public_access");
 		dlg.openModal();
 		dlg.setDefaultAction(() => {
-			var pub = userlist.find(x => !!x.public);
-			if (!pub) {
-				pub = { public: true }; userlist.push(pub);
-			}
 			var acl = dlg.readData();
-			pub.acl = app.form_defs.acls.filter(x => acl[x]);
+			userlist[""] = {
+				public:true,
+				acl:app.form_defs.acls.filter(x => acl[x])				
+			}
 			dlg.close();
 			refresh();
 		}, "ok");
@@ -227,15 +227,16 @@ function page_options_users(app) {
 	};
 	const refresh = () => {
 		userlist = theApp.config.users;
-		var pacl_src = (userlist.find(x => !!x.public) || { acl: [] }).acl;
+		var pacl_src = (userlist[""] || { acl: [] }).acl;
 		var pacl = acl_to_list(pacl_src);
 		var fdata = {
 			public_user: { classList: { accdis: pacl.length == 0 }, "!click": () => edit_public_dlg(pacl_src) },
 			public_acl: pacl,
 			add_user: { "!click": new_user_dlg },
-			users: userlist.filter(x => !x.public).map(x => {
+			users: Object.keys(userlist).filter(x => !userlist[x].public).map(n => {
+				var x = userlist[n];
 				var pacl = acl_to_list(x.acl);
-				return { user: x.uid, acl: pacl, "": { classList: { accdis: pacl.length == 0 }, "!click": () => edit_user_dlg(x) } };
+				return { user: n, acl: pacl, "": { classList: { accdis: pacl.length == 0 }, "!click": () => edit_user_dlg(x,n) } };
 			})
 		};
 		page.setData(fdata);
@@ -546,4 +547,151 @@ function pair_select(broker) {
 		form.setItemEvent("name","change",dlgRules);
 		dlgRules();
 	});
+}
+
+
+function page_options_wallet() {
+	var form = TemplateJS.View.fromTemplate("wallet_form");
+	var wallets = [];	
+	var rfr = -1;
+	var ext_assets = this.ext_assets;
+	var incntr = document.createElement("input");	
+	incntr.setAttribute("type","number");
+	incntr.setAttribute("step","none");
+	incntr.setAttribute("class","editval");
+	var incntr_rec={};
+	incntr.addEventListener("blur", function(){
+		if (!incntr_rec.canceled) {			
+			var flt = function(x) {return x.broker == incntr_rec.broker && x.wallet == incntr_rec.wallet && x.symbol == incntr_rec.symbol};
+			var val = incntr.valueAsNumber;
+			if (isNaN(val) || incntr_rec.balance == val) {
+				this.ext_assets = ext_assets = ext_assets.filter(function(z){return !flt(z);});
+			} else {
+				var diff = val - incntr_rec.balance;
+				var ea = ext_assets.find(flt);
+				if (ea) ea.balance = diff;
+				else {
+					var v = Object.assign({},incntr_rec);
+					v.balance = diff;
+					ext_assets.push(v);
+				}
+			}
+		}
+		update();
+		incntr.parentNode.removeChild(incntr);
+	}.bind(this));
+	incntr.addEventListener("keydown",function(ev){
+		if (ev.code == "Enter" || ev.code == "Escape") {
+			ev.preventDefault();
+			ev.stopPropagation();
+			if (ev.code == "Escape") incntr_rec.canceled = true;
+			incntr.blur();
+		}
+	}.bind(this));
+	function format(x) {
+	    var r = x.toFixed(6);
+	    return r;
+	}
+	function update() {			
+		var data = fetch_json("../api/admin/wallet").then(function(data) {
+			var allocs = data.wallet.map(function(x) {
+				var bal = x.balance;
+				var out = Object.assign({},x);
+				var balstr = format(bal);
+				var baltot;
+				var ea = ext_assets.find(function(y){
+					return y.broker == x.broker && y.wallet == x.wallet && y.symbol == x.symbol; 
+				});
+				out.allocated = x.allocated.toFixed(6);
+				var mod;
+				if (ea && ea.balance) {
+					baltot = x.balance+ea.balance;
+					mod = true;
+			    } else {
+			    	mod = false;
+			    	baltot = x.balance;
+					out.balance = {
+						value: format(baltot)
+					}
+				}						
+				out.balance = {value: format(baltot),
+							  title: balstr,
+							  classList:{modified:mod}
+							};
+				out.editval={"!click": function() {
+					incntr_rec={
+						broker:x.broker,
+						wallet:x.wallet,
+						symbol:x.symbol,
+						balance:x.balance,						
+					}
+					this.parentNode.appendChild(incntr);
+					incntr.value = baltot;
+					incntr.focus();
+					incntr.select();
+				}};
+				out.img="../api/admin/brokers/"+encodeURIComponent(x.broker)+"/icon.png";
+				return out;
+			}.bind(this));
+			var brokers = data.entries;
+			var form_data = {allocs:allocs};
+			var wt = brokers.map(function(brk) {	
+				var idx = wallets.findIndex(function(a) {
+					return a["@id"] == brk;
+				});
+				if (idx == -1) {
+					wallets.push({"@id":brk});
+				}							
+				return fetch_json("../api/admin/wallet/"+encodeURIComponent(brk)).then(
+				function(wdata) {
+					var wlts = [];
+					for (var x in wdata) {
+						var assts = [];
+						for (var y in wdata[x]) {
+							assts.push({
+								symbol:y,
+								value: format(parseFloat(wdata[x][y])),
+							});
+						}
+						wlts.push({
+							wallet_name: x,
+							balances: assts
+						});
+					}
+					return {			
+						broker_icon:"../api/admin/brokers/"+encodeURIComponent(brk)+"/icon.png",
+						broker_name:brk,
+						account_wallets: wlts,
+						spinner:{".hidden":true}
+					}
+				}, function(err) {						
+					return null;
+				}).then(function(n) {
+					var idx = wallets.findIndex(function(a) {
+						return a["@id"] == brk;
+					});
+					if (idx!=-1) {
+						if (n != null) {
+						    Object.assign(wallets[idx],n);	
+						} else {
+							wallets.splice(idx,1);
+						}						
+					}
+					form.setData({wallets:wallets});					
+				});
+			});
+			wallets.sort(function(a,b) {
+				return a["@id"]<b["@id"]?-1:a["@id"]<b["@id"]?0:1;
+			});
+			form_data.spinner = {".hidden":true};
+			form.setData(form_data);
+		}.bind(this));
+	}
+	rfr = setInterval(update, 60000);
+	update();	
+	form.save = function() {
+		clearInterval(rfr);
+	}.bind(this);
+	return form;
+	
 }

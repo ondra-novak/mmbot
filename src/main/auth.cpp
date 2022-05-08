@@ -239,16 +239,31 @@ bool Auth::init_from_JSON(json::Value config) {
 	json::Value users = config["users"];
 	if (users.empty()) return false;
 	public_acl.reset_all();
-	for (json::Value u: users) {
-		auto name = u["uid"];
-		auto password = u["pwd_hash"];
-		auto acl = u["acl"];
-		auto public_access = u["public"].getBool();
-		if (public_access) {
-			public_acl = acl_from_JSON(acl);
-		} else {
-			add_user(name.getString(), password.getString(), acl_from_JSON(acl));
+	if (users.type() == json::array) {
+		for (json::Value u: users) {
+			auto name = u["uid"];
+			auto password = u["pwd_hash"];
+			auto acl = u["acl"];
+			auto public_access = u["public"].getBool();
+			if (public_access) {
+				public_acl = acl_from_JSON(acl);
+			} else {
+				add_user(name.getString(), password.getString(), acl_from_JSON(acl));
+			}
 		}
+	} else {
+		for (json::Value u: users) {
+			auto name = u.getKey();
+			auto password = u["pwd_hash"];
+			auto acl = u["acl"];
+			auto public_access = u["public"].getBool();
+			if (public_access) {
+				public_acl = acl_from_JSON(acl);
+			} else {
+				add_user(name, password.getString(), acl_from_JSON(acl));
+			}
+		}
+
 	}
 	set_secret(secret.getString());
 	return true;
@@ -361,16 +376,14 @@ bool AuthService::change_password(json::Value &cfg, const User &user, const std:
 }
 
 json::Value AuthService::conv_pwd_to_hash(json::Value users) {
-	json::Array res;
-	for (json::Value x: users) {
+	return users.map([](json::Value x){
 		if (x["pwd"].defined()) {
-			json::Object y(x);
-			y.set("pwd_hash",  encode_password(x["uid"].getString(), x["pwd"].getString()));
-			y.unset("pwd");
-			res.push_back(y);
-		} else {
-			res.push_back(x);
+			x.setItems({
+				{"pwd_hash", encode_password(x.getKey(), x["pwd"].getString())},
+				{"pwd", json::undefined}
+			});
 		}
-	}
-	return res;
+		return x;
+
+	});
 }

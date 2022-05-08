@@ -12,213 +12,111 @@
 #include "../shared/logOutput.h"
 #include <cmath>
 
-using ondra_shared::logDebug;
+std::string_view Strategy3_KeepValue::id = "kv";
 
-#include "../shared/logOutput.h"
-std::string_view Strategy_KeepValue::id = "keepvalue";
+Strategy3_KeepValue::Strategy3_KeepValue() {}
 
-Strategy_KeepValue::Strategy_KeepValue(const Config &cfg, State &&st)
-:cfg(cfg), st(std::move(st)) {}
+Strategy3_KeepValue::Strategy3_KeepValue(const State &st):st(st) {}
 
 
-bool Strategy_KeepValue::isValid() const {
-	return st.valid && st.p > 0;
-}
-
-double Strategy_KeepValue::calcK(const State &st, const Config &cfg) {
-	double k = st.p * (st.a + cfg.ea);
-	double tm = (st.check_time - st.recalc_time);
-	static double month_msec = 24.0*60.0*60.0*30.0*1000.0;
-	double f = tm / month_msec;
-	return std::max(k + cfg.chngtm * f,0.0);
-
-}
-
-double Strategy_KeepValue::calcK() const {
-	return calcK(st,cfg);
-}
-
-PStrategy Strategy_KeepValue::onIdle(
-		const IStockApi::MarketInfo &,
-		const IStockApi::Ticker &ticker, double assets, double cur) const {
-	if (isValid()) {
-		if (cfg.chngtm) {
-			State nst = st;
-			nst.check_time = ticker.time;
-			if (!nst.recalc_time) nst.recalc_time = ticker.time;
-			return new Strategy_KeepValue(cfg,std::move(nst));
-		} else {
-			return this;
-		}
+PStrategy3 Strategy3_KeepValue::run(AbstractTraderControl &cntr) const {
+	const MarketState &mst = cntr.get_state();
+	if (st.k <= 0) { //if constant is zero, not inited
+		State st = calcConstant(mst.cur_price, mst.equity, mst.position);
+		return (new Strategy3_KeepValue(st))->run(cntr);
 	}
-	else {
-		if (assets+cfg.ea <= 0) {
-			assets = cur/(2 * ticker.last) - cfg.ea;
-		}
-		return new Strategy_KeepValue(cfg,
-				State{true,ticker.last, assets, cur, cur, ticker.time, ticker.time});
+	for (double p: {mst.sug_buy_price, mst.sug_sell_price}) {
+		auto r = cntr.alter_position(calcPos(st, p),p);
+		if (r.state == OrderRequestResult::too_small) cntr.alter_position(r.v, calcPriceFromPos(st, r.v));
 	}
-}
-
-
-
-double Strategy_KeepValue::calcReqCurrency(const State &st, const Config &cfg, double price) {
-	double k = calcK(st, cfg);
-	double v = k * std::log(price/k) + st.c;
-	return v;
-}
-
-
-double Strategy_KeepValue::calcAccumulation(const State &st, const Config &cfg, double price, double currencyLeft) {
-	if (cfg.accum) {
-		double r1 = calcReqCurrency(st,cfg, st.p);
-		double r2 = calcReqCurrency(st,cfg, price);
-		double pl = -price*(calcA(st,cfg,price)-calcA(st,cfg,st.p));
-		double nl = r2 - r1;
-		double ex = pl -nl;
-		double acc = (ex/price)*cfg.accum;
-		return acc;
+	cntr.set_equilibrium_price(calcPriceFromPos(st, mst.position));
+	double budget = calcBudget( st, mst.event_price);
+	double minpos = std::max(cntr.calc_min_size(mst.cur_price), mst.position - mst.live_assets);
+	cntr.set_equity_allocation(budget);
+	if (mst.leveraged) {
+		cntr.set_safe_range({
+			calcPriceFromEquity(st, budget-mst.live_currencies),
+			calcPriceFromPos(st, minpos)
+		});
 	} else {
-		return 0;
+		double alloc = budget - st.k;
+		cntr.set_safe_range({
+			calcPriceFromCurrency(st, alloc-mst.live_currencies),
+			calcPriceFromPos(st, minpos)
+		});
+
 	}
+	return PStrategy3(this);
+
 
 }
 
-double Strategy_KeepValue::calcA(const State &st, const Config &cfg, double price) {
-	double k = calcK(st,cfg);
-	return k/price;
+double Strategy3_KeepValue::calcPos(const State &st, double price) {
+	return st.k/price;
 }
 
-Strategy_KeepValue::BudgetInfo Strategy_KeepValue::getBudgetInfo() const {
-	double cur = calcReqCurrency(st,cfg,st.p);
-	return BudgetInfo{cur+calcK(), st.a+cfg.ea};
+double Strategy3_KeepValue::calcBudget(const State &st, double price) {
+	return st.k * std::log(price/st.k)+ st.c;
 }
 
-double Strategy_KeepValue::calcNormalizedProfit(const State &st, const Config &cfg, double tradePrice, double tradeSize) {
-	double cashflow = -tradePrice*tradeSize;
-	double old_cash = calcReqCurrency(st,cfg, st.p);
-	double new_cash = calcReqCurrency(st,cfg,tradePrice);
-	double diff_cash = new_cash - old_cash;
-	double np = cashflow - diff_cash;
-	return np;
+double Strategy3_KeepValue::calcAlloc(const State &st, double price) {
+	return st.k * std::log(price/st.k)+ st.c - st.k;
+}
+double Strategy3_KeepValue::calcPriceFromPos(const State &st, double pos) {
+	return st.k/pos;
 }
 
-std::pair<Strategy_KeepValue::OnTradeResult, PStrategy> Strategy_KeepValue::onTrade(
-		const IStockApi::MarketInfo &minfo,
-		double tradePrice, double tradeSize, double assetsLeft,
-		double currencyLeft) const {
+double Strategy3_KeepValue::calcPriceFromCurrency(const State &st, double cur) {
+	return st.k*std::exp(cur/st.k-st.c/st.k + 1);
+}
+double Strategy3_KeepValue::calcPriceFromEquity(const State &st, double equity) {
+	return st.k*std::exp(equity/st.k-st.c/st.k);
+}
 
-	if (!isValid()) {
-		Strategy_KeepValue tmp(cfg, State{true,tradePrice, assetsLeft-tradeSize,0,0});
-		return tmp.onTrade(minfo, tradePrice,tradeSize,assetsLeft, currencyLeft);
-	}
-	double k = calcK();
-
-	double accum = calcAccumulation(st,cfg,tradePrice, currencyLeft);
-	double norm = tradeSize == assetsLeft?0:calcNormalizedProfit(st,cfg,tradePrice,tradeSize);
-
-
-	State nst = st;
-	nst.a = k/tradePrice + accum - cfg.ea;
-	nst.recalc_time = st.check_time;
-	nst.p = tradePrice;
-	nst.check_time = st.check_time;
-	nst.valid = true;
-	nst.f = currencyLeft;
-	nst.c = std::max(st.c + calcReqCurrency(st,cfg,tradePrice)-calcReqCurrency(st,cfg,st.p),0.0);
-
-
-	return {
-		OnTradeResult{norm,accum},
-		new Strategy_KeepValue(cfg,  std::move(nst))
+ChartPoint Strategy3_KeepValue::get_chart_point(double price) const {
+	return ChartPoint {
+		true,
+		calcPos(st, price),
+		calcBudget(st, price)
 	};
-
 }
 
-json::Value Strategy_KeepValue::exportState() const {
-	return json::Object({
-		{"p",st.p},
-		{"a",st.a},
-		{"c",st.c},
-		{"f",st.f},
-		{"valid",st.valid},
-		{"rt",st.recalc_time},
-		{"ct",st.check_time}
+json::Value Strategy3_KeepValue::save() const {
+	json::Value r(json::object);
+	r.setItems({
+		{"c", st.c},
+		{"k", st.k}
 	});
+	return r;
 }
 
-PStrategy Strategy_KeepValue::importState(json::Value src,const IStockApi::MarketInfo &) const {
-	State newst;
-	newst.p = src["p"].getNumber();
-	newst.a = src["a"].getNumber();
-	newst.c = src["c"].getNumber();
-	newst.f = src["f"].getNumber();
-	newst.recalc_time = src["rt"].getUIntLong();
-	newst.check_time = src["ct"].getUIntLong();
-	newst.valid = src["valid"].getBool();
-	return new Strategy_KeepValue(cfg, std::move(newst));
+PStrategy3 Strategy3_KeepValue::load(const json::Value &state) const {
+	State nwst{
+		state["k"].getNumber(),
+		state["c"].getNumber()
+	};
+	return new Strategy3_KeepValue(nwst);
 }
 
-IStrategy::OrderData Strategy_KeepValue::getNewOrder(
-		const IStockApi::MarketInfo &,
-		double, double price, double /*dir*/, double assets, double currency, bool ) const {
-	double k = calcK();
-	double na = k / price + calcAccumulation(st,cfg,price, currency);
-	return {
-		0,
-		calcOrderSize(st.a, assets, na - cfg.ea)
+double Strategy3_KeepValue::calc_initial_position(const InitialState &st) const {
+	if (st.leveraged) return st.equity/st.cur_price;
+	return (st.equity*0.59)/st.cur_price;
+}
+
+PStrategy3 Strategy3_KeepValue::reset() const {
+	return new Strategy3_KeepValue();
+}
+
+void Strategy3_KeepValue::reg(AbstractStrategyRegister &r) {
+	r.reg_tool({
+		std::string(id),"Keep Value","spot",json::Value(json::array)
+	}) >> [](json::Value config) {
+		return new Strategy3_KeepValue();
 	};
 }
 
-Strategy_KeepValue::MinMax Strategy_KeepValue::calcSafeRange(
-		const IStockApi::MarketInfo &,
-		double assets,
-		double currencies) const {
-	double k = calcK();
-	double n = st.p*std::exp(-currencies/k);
-	double m = cfg.ea > 0?(k/cfg.ea):std::numeric_limits<double>::infinity();
-	return MinMax {n,m};
-}
-
-double Strategy_KeepValue::getEquilibrium(double assets) const {
-	//na = k / price
-	//price = k / na
-	return  calcK() / (assets+cfg.ea);
-}
-
-std::string_view Strategy_KeepValue::getID() const {
-	return id;
-
-}
-
-PStrategy Strategy_KeepValue::reset() const {
-	return new Strategy_KeepValue(cfg,{});
-}
-
-json::Value Strategy_KeepValue::dumpStatePretty(
-		const IStockApi::MarketInfo &minfo) const {
-
-	return json::Object({
-		{"Assets", st.a},
-		{"Last price", st.p},
-		{"Allocated currency", st.c},
-		{"Budget extra", st.f - st.c},
-		{"Keep", calcK()}});
-
-}
-double Strategy_KeepValue::calcInitialPosition(const IStockApi::MarketInfo &minfo, double price, double assets, double currency) const {
-	if (minfo.leverage) return (currency/price)*0.5;
-	else return (assets +cfg.ea+ currency/price)*0.5;
-}
-
-
-
-double Strategy_KeepValue::calcCurrencyAllocation(double price) const {
-	return st.c;
-}
-
-Strategy_KeepValue::ChartPoint Strategy_KeepValue::calcChart(double price) const {
-	double a = calcA(st, cfg, price);
-	double k = calcK(st, cfg);
-	return {true,a , k*std::log(price/st.c) + a*price};
+Strategy3_KeepValue::State Strategy3_KeepValue::calcConstant(double price, double eq, double position) {
+	double k = position * price;
+	double ref = calcBudget({k,0}, price);
+	return State {k,eq-ref};
 }
