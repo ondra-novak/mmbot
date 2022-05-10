@@ -231,6 +231,7 @@ class App {
 		page_options_users(this, this.config.users);					
 	}
 	page_options_wallet() {
+		if (!this.config.wallet) this.config.wallet = {};
 		page_options_wallet.call(this);
 	}
 	
@@ -240,6 +241,12 @@ class App {
 	page_options_apikeys() {
 		page_options_apikeys.call(this);
 	} 
+	page_options_misc() {
+		page_options_misc.call(this);
+	}
+	page_options_exchanges() {
+		page_options_exchanges.call(this);
+	}
 	
 		
 }

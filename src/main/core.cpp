@@ -173,7 +173,7 @@ void BotCore::run(bool suspended) {
 void BotCore::applyConfig(json::Value cfg) {
 	auto asvc = authService.lock();
 	asvc->init_from_JSON(cfg);
-	extBalance.lock()->load(cfg["ext_assets"]);
+	extBalance.lock()->load(cfg["wallet"]);
 	broker_config = cfg["brokers"].getValueOrDefault(json::object);
 	brokerList->enum_brokers([&](std::string_view name, PStockApi api){
 		json::Value b = broker_config[name];
@@ -185,6 +185,7 @@ void BotCore::applyConfig(json::Value cfg) {
 		}
 	});
 	rpt.lock()->setInterval(cfg["report_interval"].getValueOrDefault(30L*86400000L));
+	rpt.lock()->calcWindowOnly(cfg["report_window_only"].getBool());
 	news_tm = cfg["news_tm"];
 	if (!news_tm.defined()) {
 		news_tm = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();

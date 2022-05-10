@@ -143,5 +143,24 @@
 		"title":"API Klíče",
 		"add":"Přidat klíč",
 		"wait":"Prosím čekejte …"
+	},
+	"wallet_change_value":{
+		"current":"Skutečný stav na účtu",
+		"amount":"Stav viditelný robotem",
+		"ok":"Ok",
+		"cancel":"Storno",
+		"reset":"Vyrovnat",
+		"title":"Nastavit viditelnou balanci"		
+	},
+	"wallet_form":{
+		"title":"Peněženka",
+		"exchange":"Směnárna (peněženka)",
+		"allocated":"Alokováno",
+		"balance":"Viditelný stav"
+	},
+	"misc_form":{
+		"title":"Různá nastavení",
+		"stat_history":"Délka historie ve dnech ve statistikách",
+		"stat_window":"Počítej průměry z zobrazeného intervalu"
 	}
 }

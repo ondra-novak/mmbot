@@ -67,6 +67,7 @@ public:
 	void pingStreams();
 
 	void setInterval(std::uint64_t interval);
+	void calcWindowOnly(bool en);
 	void genReport();
 	json::Value genReport_noStore();
 
@@ -146,6 +147,7 @@ protected:
 	void exportPrices(json::Object &&out);
 	void exportMisc(json::Object &&out);
 	std::uint64_t interval_in_ms;
+	bool calc_window_only = false;
 
 	std::size_t counter;
 	std::size_t revize;

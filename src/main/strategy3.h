@@ -21,8 +21,14 @@ public:
 	Strategy3() {}
 
 	void run(AbstractTraderControl &cntr)  {ptr = ptr->run(cntr);}
-	void load(const json::Value &state) {ptr = ptr->load(state);}
-	json::Value save() const {return ptr->save();}
+	void load(const json::Value &state) {
+		ptr = ptr->load(state[ptr->get_id()]);
+	}
+	json::Value save() const {
+		return json::Value(json::object,{
+				json::Value(ptr->get_id(),ptr->save())
+		});
+	}
 	ChartPoint get_chart_point(double price) const {return ptr->get_chart_point(price);}
 	double calc_initial_position(const InitialState &st) const {return ptr->calc_initial_position(st);}
 	std::string_view get_id() const {return ptr->get_id();}

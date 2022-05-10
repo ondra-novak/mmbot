@@ -359,7 +359,7 @@ bool AuthService::change_password(json::Value &cfg, const User &user, const std:
 	json::Value old_encoded = encode_password(user.name, old_pwd);
 	json::Value new_encoded = encode_password(user.name, new_pwd);
 	json::Value new_users = cfg["users"].map([&](const json::Value &x){
-		if (x["uid"].getString() == user.name && x["pwd_hash"] == old_encoded) {
+		if (x.getKey() == user.name && x["pwd_hash"] == old_encoded) {
 			json::Value m = x;
 			m.setItems({{"pwd_hash", new_encoded}});
 			ok = true;

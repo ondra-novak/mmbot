@@ -86,10 +86,13 @@ public:
 		return ptr->get_base_spread();
 	}
 	json::Value save() const {
-		return ptr->save();
+		return json::Value(json::object,{
+				json::Value(ptr->get_id(),ptr->save())
+		});
+
 	}
-	void load(json::Value data) {
-		ptr = ptr->load(data);
+	void load(json::Value state) {
+		ptr = ptr->load(state[ptr->get_id()]);
 	}
 	std::string_view get_id() const {
 		return ptr->get_id();

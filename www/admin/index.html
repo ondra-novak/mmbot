@@ -220,7 +220,7 @@
 <span data-strid="wallet">Wallet</span></a>
 <a href="#menu=options&submenu=misc" class="block" data-name="misc" data-icon="svg_misc">
 <span data-strid="misc">Misc. settings</span></a>
-<a href="#menu=options&submenu=exchagens" class="block" data-name="exchanges" data-icon="svg_exchanges">
+<a href="#menu=options&submenu=exchanges" class="block" data-name="exchanges" data-icon="svg_exchanges">
 <span data-strid="exchanges">Exchanges</span></a>
 <a href="#menu=options&submenu=arhchive" class="block" data-name="archive" data-icon="svg_archive">
 <span data-strid="archive">Archived traders</span></a>
@@ -346,32 +346,41 @@
 </template>
 
 <template id="wallet_form"><div class="page wallet">
-<h1 data-icon="svg_wallet">Wallet</h1>
+<h1 data-icon="svg_wallet" data-strid="title">Wallet</h1>
 <table>
 <thead>
-<tr><th>Exchange (wallet)</th><th>Allocated</th><th>Balance</th></tr>
+<tr><th data-strid="exchange">Exchange (wallet)</th><th data-strid="allocated">Allocated</th><th data-strid="balance">Balance</th></tr>
 </thead>
 <tbody>
 <tr data-name="allocs[]">
-<tr>
 <td><img data-name="img"> <span data-name="broker"></span> (<span data-name="wallet"></span>)</td>
 <td class="money"><div><span data-name="allocated"></span>&nbsp;<span data-name="symbol"></span></div></td>
-<td><div class="editanch" data-name="editval"><span data-name="balance"></span>&nbsp;<span data-name="symbol"></span></div></td>
-
+<td class="editanch" data-name="editval"><span data-name="balance"></span>&nbsp;<span data-name="symbol"></span></td>
+</tr>
 </tbody>
 </table>
-<div class="table">
-<div class="hdr">
-<div>Trader</div><div>Wallet</div><div class="money"><div>Allocated</div><div>Balance</div></div>
+</template>
+
+<template id="misc_form"><div class="page misc">
+<h1 data-icon="svg_misc" data-strid="title">Misc</h1>
+<div data-name="inner"></div>
 </div>
-<div data-name="allocs[]">
-<div><img data-name="img">&nbsp;<span data-name="broker"></span></div>
-<div data-name="wallet"></div>
-<div><div class="money"><div><span data-name="allocated"></span>&nbsp;<span data-name="symbol"></span></div>
-<div><div class="editanch" data-name="editval"><span data-name="balance"></span>&nbsp;<span data-name="symbol"></span></div></div>
-</div></div>
+</template>
+
+
+<template id="exchanges_form"><div class="page exchanges">
+<h1 data-icon="svg_exchanges" data-strid="title">Exchanges and balances</h1>
+<ul class="horz-sheets">
+<li data-name="exch[]"><img src="" data-name="icon"><span data-name="ename"></span></li>
+</ul>
+<div class="list">
+<div class="section" data-name="sections[]">
+<h2 data-name="name"></h2>
+<table>
+<tr data-name="items[]"><th data-name="symbol"></th><td data-name="value"></td></tr>
+</table>
 </div>
-</div>
+<div style="visibility:hidden"></div><div  style="visibility:hidden"></div>
 </div>
 </template>
 

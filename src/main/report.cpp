@@ -36,6 +36,10 @@ void Report::setInterval(std::uint64_t interval) {
 	this->interval_in_ms = interval;
 }
 
+void Report::calcWindowOnly(bool en) {
+	this->calc_window_only = en;
+}
+
 
 json::Value Report::genReport_noStore() {
 	Object st;
@@ -184,8 +188,8 @@ void Report::setTrades(std::size_t rev, std::string_view symb, double finalPos, 
 
 
 			acb = acb(rec.eff_price, rec.eff_size);
-			norm_profit+=rec.norm_accum;
-			norm_accum+=rec.norm_accum;
+			norm_profit=rec.norm_profit;
+			norm_accum=rec.norm_accum;
 
 			if (rec.time >= first) {
 				if (is_similar(prev_price, rec.price)) {

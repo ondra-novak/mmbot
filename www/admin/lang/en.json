@@ -83,7 +83,7 @@
 	"options_grid":{
 			"apikeys":"API Keys",
 			"wallet":"Wallet",
-			"misc":"Misc.",
+			"misc":"Miscalenous.",
 			"exchanges":"Exchanges and accounts",
 			"archive":"Archived robots",
 			"messages":"Messages from platform",
@@ -144,6 +144,25 @@
 		"title":"API Keys",
 		"add":"Add key",
 		"wait":"Please wait …"
+	},
+	"wallet_change_value":{
+		"current":"Live balance",
+		"amount":"Visible balance for the robot",
+		"ok":"Ok",
+		"cancel":"Cancel",
+		"reset":"Reset",
+		"title":"Change visible balance"		
+	},
+	"wallet_form":{
+		"title":"Wallet",
+		"exchange":"Exchange (wallet)",
+		"allocated":"Allocated",
+		"balance":"Balance"
+	},
+	"misc_form":{
+		"title":"Miscalenous",
+		"stat_history":"Shown history in statistics [days]",
+		"stat_window":"Calc averages from shown charts only"
 	}
 	
 	

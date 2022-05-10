@@ -13,8 +13,9 @@ function load_template(id) {
 }
 
 function dialogBox(formdesc, langcat, title, validate) {
-	return new Promise((ok, cancel) => {
-		var dlg = create_form(formdesc, langcat, "", title);
+	var dlg  = create_form(formdesc, langcat, "", title);
+	var p = new Promise((ok, cancel) => {
+		
 		dlg.setDefaultAction(async () => {
 			var data = dlg.readData();
 			if (!validate || await validate(data, dlg)) {
@@ -28,6 +29,8 @@ function dialogBox(formdesc, langcat, title, validate) {
 		}, "cancel");
 		dlg.openModal();
 	});
+	p.dlg = dlg;
+	return p;
 }
 
 
@@ -551,147 +554,147 @@ function pair_select(broker) {
 
 
 function page_options_wallet() {
-	var form = TemplateJS.View.fromTemplate("wallet_form");
-	var wallets = [];	
-	var rfr = -1;
-	var ext_assets = this.ext_assets;
-	var incntr = document.createElement("input");	
-	incntr.setAttribute("type","number");
-	incntr.setAttribute("step","none");
-	incntr.setAttribute("class","editval");
-	var incntr_rec={};
-	incntr.addEventListener("blur", function(){
-		if (!incntr_rec.canceled) {			
-			var flt = function(x) {return x.broker == incntr_rec.broker && x.wallet == incntr_rec.wallet && x.symbol == incntr_rec.symbol};
-			var val = incntr.valueAsNumber;
-			if (isNaN(val) || incntr_rec.balance == val) {
-				this.ext_assets = ext_assets = ext_assets.filter(function(z){return !flt(z);});
-			} else {
-				var diff = val - incntr_rec.balance;
-				var ea = ext_assets.find(flt);
-				if (ea) ea.balance = diff;
-				else {
-					var v = Object.assign({},incntr_rec);
-					v.balance = diff;
-					ext_assets.push(v);
+	
+	var wlt_cfg = this.config.wallet;
+	const refresh = async ()=>{
+		var wlt = await ui_fetch("/wallet");
+		var rows = wlt.map(x=>{
+			var n = wlt_cfg[x.broker];
+			if (n) n = n[x.wallet];
+			if (n) n = n[x.symbol];
+			if (!n) n = 0;  
+			
+			return {
+				img: broker_path(x.broker,"/icon.png"),
+				broker: x.broker,
+				wallet: x.wallet,
+				symbol: x.symbol,
+				allocated: x.allocated.toFixed(6),
+				balance: {
+					value:(x.balance+n).toFixed(6),
+					tabindex:0
+				},
+				editval: {
+					classList:{modified:n!=0},
+					"!click":async (ev)=>{
+						ev.target.classList.toggle("editing",true);
+						try {
+							var old = x.balance;
+							var nw = await chng_val(old+n, x.balance);
+							var r = isNaN(nw)?0:nw-old;
+							if (r) {
+								var b = wlt_cfg[x.broker];							
+								if (!b) b = wlt_cfg[x.broker] = {};
+								var w = b[x.wallet];
+								if (!w) w = b[x.wallet] = {};
+								w[x.symbol] = r;
+							} else {
+								var b = wlt_cfg[x.broker];
+								if (b) {
+									var w = b[x.wallet];
+									if (w) {
+										delete w[x.symbol];
+									}
+									if (Object.keys(w).length == 0) {
+										delete b[x.wallet];
+										if (Object.keys(b).length == 0) {
+											delete wlt_cfg[x.broker];
+										}
+									}
+								}
+							} 
+							refresh();
+						} catch (e) {
+							if (e) console.error(e);
+						}					
+						ev.target.classList.toggle("editing",false);
+					}	
+				}			
+			};
+		});
+		page.setData({"allocs":rows});
+	};
+
+	const chng_val = async (amount, original) => {
+			var p = dialogBox([
+				{name:"current",type:"number", default: original, disableif:{}},
+				{name:"amount",type:"number", default: amount},
+				{name:"reset", type:"button", bottom:true},
+				{name:"ok", type:"button", bottom:true},
+				{name:"cancel", type:"button", bottom:true},
+				],"wallet_change_value","title");
+			p.dlg.setItemEvent("reset","click",()=>{
+				p.dlg.setData({amount:original});
+			})
+			return (await p).amount;
+	};
+
+	
+	var page = load_template("wallet_form");
+	this.set_active_page(page, refresh);
+	
+}
+
+function page_options_misc() {
+	const refresh = async ()=>{
+		let f = create_form([
+			{name:"stat_history",type:"slider","min":1,"max":90, "default": Math.round((this.config.report_interval || 30*86400000)/86400000)},
+			{name:"stat_window",type:"checkbox", default: !!this.config.report_window_only}
+		],"misc_form");		
+		page.setData({"inner":f});
+		f.setItemEvent("stat_history","change",()=>{
+			const x = f.readData(["stat_history"]);
+			this.config.report_interval = x.stat_history*86400000;
+		});
+		f.setItemEvent("stat_window","change",()=>{
+			const x = f.readData(["stat_window"]);
+			this.config.report_window_only = x.stat_window;
+		})				
+	}
+	
+	var page = load_template("misc_form");
+	this.set_active_page(page, refresh);	
+}
+
+function page_options_exchanges() {
+	var selected_exchange = "";
+	const refresh = async ()=>{
+		const brks = (await ui_fetch("/broker")).filter(x => x.trading_enabled);
+		const update = async () =>{
+			var lst = brks.map(x=>{
+				return {					
+					icon:broker_path(x.name, "/icon.png"),
+					ename:x.exchangeName+(x.subaccount?" ("+x.subaccount+")":""),
+					"":{
+						classList:{selected:x.name == selected_exchange},
+						"!click": ()=>{
+							selected_exchange = x.name;
+							update();
+						}
+					} 	
 				}
+			});
+			page.setData({"exch": lst});
+			if (selected_exchange) {
+				const exch = await ui_fetch(broker_path(selected_exchange,"/wallet"));
+				const data = Object.keys(exch).map(n=>{
+					return {						
+					name:n,
+					items: Object.keys(exch[n]).map(m=>{
+						const v = exch[n][m];
+						return {
+							value:v.toFixed(6),
+							symbol: m
+						}
+					})
+					};
+				});
+				page.setData({"sections": data});
 			}
+			
 		}
 		update();
-		incntr.parentNode.removeChild(incntr);
-	}.bind(this));
-	incntr.addEventListener("keydown",function(ev){
-		if (ev.code == "Enter" || ev.code == "Escape") {
-			ev.preventDefault();
-			ev.stopPropagation();
-			if (ev.code == "Escape") incntr_rec.canceled = true;
-			incntr.blur();
-		}
-	}.bind(this));
-	function format(x) {
-	    var r = x.toFixed(6);
-	    return r;
 	}
-	function update() {			
-		var data = fetch_json("../api/admin/wallet").then(function(data) {
-			var allocs = data.wallet.map(function(x) {
-				var bal = x.balance;
-				var out = Object.assign({},x);
-				var balstr = format(bal);
-				var baltot;
-				var ea = ext_assets.find(function(y){
-					return y.broker == x.broker && y.wallet == x.wallet && y.symbol == x.symbol; 
-				});
-				out.allocated = x.allocated.toFixed(6);
-				var mod;
-				if (ea && ea.balance) {
-					baltot = x.balance+ea.balance;
-					mod = true;
-			    } else {
-			    	mod = false;
-			    	baltot = x.balance;
-					out.balance = {
-						value: format(baltot)
-					}
-				}						
-				out.balance = {value: format(baltot),
-							  title: balstr,
-							  classList:{modified:mod}
-							};
-				out.editval={"!click": function() {
-					incntr_rec={
-						broker:x.broker,
-						wallet:x.wallet,
-						symbol:x.symbol,
-						balance:x.balance,						
-					}
-					this.parentNode.appendChild(incntr);
-					incntr.value = baltot;
-					incntr.focus();
-					incntr.select();
-				}};
-				out.img="../api/admin/brokers/"+encodeURIComponent(x.broker)+"/icon.png";
-				return out;
-			}.bind(this));
-			var brokers = data.entries;
-			var form_data = {allocs:allocs};
-			var wt = brokers.map(function(brk) {	
-				var idx = wallets.findIndex(function(a) {
-					return a["@id"] == brk;
-				});
-				if (idx == -1) {
-					wallets.push({"@id":brk});
-				}							
-				return fetch_json("../api/admin/wallet/"+encodeURIComponent(brk)).then(
-				function(wdata) {
-					var wlts = [];
-					for (var x in wdata) {
-						var assts = [];
-						for (var y in wdata[x]) {
-							assts.push({
-								symbol:y,
-								value: format(parseFloat(wdata[x][y])),
-							});
-						}
-						wlts.push({
-							wallet_name: x,
-							balances: assts
-						});
-					}
-					return {			
-						broker_icon:"../api/admin/brokers/"+encodeURIComponent(brk)+"/icon.png",
-						broker_name:brk,
-						account_wallets: wlts,
-						spinner:{".hidden":true}
-					}
-				}, function(err) {						
-					return null;
-				}).then(function(n) {
-					var idx = wallets.findIndex(function(a) {
-						return a["@id"] == brk;
-					});
-					if (idx!=-1) {
-						if (n != null) {
-						    Object.assign(wallets[idx],n);	
-						} else {
-							wallets.splice(idx,1);
-						}						
-					}
-					form.setData({wallets:wallets});					
-				});
-			});
-			wallets.sort(function(a,b) {
-				return a["@id"]<b["@id"]?-1:a["@id"]<b["@id"]?0:1;
-			});
-			form_data.spinner = {".hidden":true};
-			form.setData(form_data);
-		}.bind(this));
-	}
-	rfr = setInterval(update, 60000);
-	update();	
-	form.save = function() {
-		clearInterval(rfr);
-	}.bind(this);
-	return form;
-	
+	var page = load_template("exchanges_form");
+	this.set_active_page(page, refresh);	
 }

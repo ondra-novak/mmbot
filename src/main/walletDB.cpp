@@ -104,11 +104,15 @@ void BalanceMap::put(const std::string_view &broker, const std::string_view &wal
 void BalanceMap::load(json::Value map) {
 	table.clear();
 	for (json::Value x: map) {
-		auto broker = x["broker"].getString();
-		auto wallet = x["wallet"].getString();
-		auto symbol = x["symbol"].getString();
-		auto val = x["balance"].getNumber();
-		put(broker, wallet, symbol, val);
+		std::string_view broker = x.getKey();
+		for (json::Value y: x) {
+			std::string_view wallet = y.getKey();
+			for (json::Value z: y) {
+				std::string_view symbol = z.getKey();
+				double val = z.getNumber();
+				put(broker, wallet, symbol, val);
+			}
+		}
 	}
 }
 
