@@ -35,8 +35,9 @@ struct State {
 	std::atomic<std::size_t> counter;
 	userver::Callback<void(bool)> done;
 	PUtilization utls;
-	State(std::chrono::system_clock::time_point start, std::size_t sz, userver::Callback<void(bool)> &&done, PUtilization utls)
-		:start(start),counter(sz),done(std::move(done)),utls(utls) {}
+	PReport rpt;
+	State(std::chrono::system_clock::time_point start, std::size_t sz, userver::Callback<void(bool)> &&done, PUtilization utls, PReport rpt)
+		:start(start),counter(sz),done(std::move(done)),utls(utls),rpt(rpt) {}
 
 };
 
@@ -57,7 +58,8 @@ void Traders::run_cycle(ondra_shared::Worker wrk, PUtilization utls, userver::Ca
 		last_reset,
 		traders.size(),
 		std::move(done),
-		utls
+		utls,
+		rpt
 	);
 
 
@@ -72,6 +74,7 @@ void Traders::run_cycle(ondra_shared::Worker wrk, PUtilization utls, userver::Ca
 						trlk->run();
 						auto trend = std::chrono::system_clock::now();
 						st->utls.lock()->report_trader(name,trstr,trend );
+						st->rpt.lock()->setUtilization(name, std::chrono::duration_cast<std::chrono::milliseconds>(trend-trstr).count());
 					}
 				}
 			} catch (...) {
@@ -80,6 +83,7 @@ void Traders::run_cycle(ondra_shared::Worker wrk, PUtilization utls, userver::Ca
 			if (--st->counter == 0) {
 				auto end = std::chrono::system_clock::now();
 				st->utls.lock()->report_overall(st->start,end);
+				st->rpt.lock()->setUtilization("", std::chrono::duration_cast<std::chrono::milliseconds>(end-st->start).count());
 				st->done(!stop.load());
 			}
 		};

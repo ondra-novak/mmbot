@@ -49,6 +49,7 @@ json::Value Report::genReport_noStore() {
 	exportPrices(st.object("prices"));
 	exportMisc(st.object("misc"));
 	st.set("interval", interval_in_ms);
+	st.set("calc_window_only", calc_window_only);
 	st.set("rev", counter);
 	st.set("log", logLines);
 	st.set("performance", perfRep);
@@ -231,15 +232,15 @@ void Report::setTrades(std::size_t rev, std::string_view symb, double finalPos, 
 			}
 		}
 	}
-	tradeMap[symb] = records;
+	traderMap[symb].trades = records;
 	sendStreamTrades(*this,symb, records);
 }
 
 
 void Report::exportCharts(json::Object&& out) {
 
-	for (auto &&rec: tradeMap) {
-		out.set(rec.first, rec.second);
+	for (auto &&rec: traderMap) {
+		out.set(rec.first, rec.second.trades);
 	}
 }
 
@@ -299,7 +300,7 @@ void Report::setInfo(std::size_t rev, std::string_view symb, const InfoObj &info
 		{"emulated",infoObj.minfo.simulator},
 		{"order", infoObj.order}
 	});
-	infoMap[symb] = data;
+	traderMap[symb].info = data;
 	sendStreamInfo(*this,symb, data);
 
 }
@@ -315,7 +316,7 @@ void Report::setPrice(std::size_t rev, std::string_view symb, double price, doub
 
 	if (rev != revize) return;
 
-	Value &p = priceMap[symb];
+	Value &p = traderMap[symb].price;
 	p.setItems({
 		{"price",price},
 		{"pl",pl},
@@ -342,14 +343,14 @@ void Report::exportOrders(json::Array &&out) {
 }
 
 void Report::exportTitles(json::Object&& out) {
-	for (auto &&rec: infoMap) {
-			out.set(rec.first, rec.second);
+	for (auto &&rec: traderMap) {
+			out.set(rec.first, rec.second.info);
 	}
 }
 
 void Report::exportPrices(json::Object &&out) {
-	for (auto &&rec: priceMap) {
-			out.set(rec.first, rec.second);
+	for (auto &&rec: traderMap) {
+			out.set(rec.first, rec.second.price);
 	}
 }
 
@@ -363,23 +364,21 @@ void Report::sendStreamError(ME &me, const std::string_view &symb, const json::V
 void Report::setError(std::size_t rev,std::string_view symb, const ErrorObj &errorObj) {
 	if (rev != revize) return;
 
-	const json::Value &info = infoMap[symb];
+	const json::Value &info = traderMap[symb].info;
 	bool inverted = info["inverted"].getBool();
 
 	Object obj;
 	if (!errorObj.genError.empty()) obj.set("gen", errorObj.genError);
 	if (!errorObj.buyError.empty()) obj.set(inverted?"sell":"buy", errorObj.buyError);
 	if (!errorObj.sellError.empty()) obj.set(inverted?"buy":"sell", errorObj.sellError);
-	errorMap[symb] = obj;
+	traderMap[symb].errors = obj;
 
 	sendStreamError(*this,symb, obj);
 }
 
 void Report::exportMisc(json::Object &&out) {
-	for (auto &&rec: miscMap) {
-			auto erritr = errorMap.find(rec.first);
-			Value err = erritr == errorMap.end()?Value():erritr->second;
-			out.set(rec.first, rec.second.replace("error", err));
+	for (auto &&rec: traderMap) {
+			out.set(rec.first, rec.second.misc.replace("error", rec.second.errors));
 	}
 }
 
@@ -441,8 +440,7 @@ void Report::setMisc(std::size_t rev, std::string_view symb, const MiscData &mis
 
 	if (rev != revize) return;
 
-	if (initial && miscMap.find(symb) != miscMap.end()) return;
-	const json::Value &info = infoMap[symb];
+	const json::Value &info = traderMap[symb].info;
 	bool inverted = info["inverted"].getBool();
 
 	double spread;
@@ -501,18 +499,14 @@ void Report::setMisc(std::size_t rev, std::string_view symb, const MiscData &mis
 			{"ltp", miscData.lastTradePrice}
 		});
 	}
-	miscMap[symb] = output;
+	traderMap[symb].misc = output;
 	sendStreamMisc(*this,symb, output);
 }
 
 
 void Report::clear() {
 	revize++;
-	tradeMap.clear();
-	infoMap.clear();
-	priceMap.clear();
-	miscMap.clear();
-	errorMap.clear();
+	traderMap.clear();
 	orderMap.clear();
 	logLines.clear();
 	refresh_after_clear= true;
@@ -549,6 +543,7 @@ void Report::sendStreamGlobal(ME &me) const {
 		{"type","config"}},
 		Object{
 			{"interval", interval_in_ms},
+			{"calc_window_only", calc_window_only},
 		}
 	);
 	me.sendStream(Object{
@@ -631,20 +626,13 @@ bool Report::stream_refresh(Stream &stream) const  {
 
 	Helper hlp(stream);
 	sendStreamGlobal(hlp);
-	for (const auto &item: infoMap) {
-		sendStreamInfo(hlp,item.first, item.second);
-	}
-	for (const auto &item: tradeMap) {
-		sendStreamTrades(hlp,item.first, item.second);
-	}
-	for (const auto &item: miscMap) {
-		sendStreamMisc(hlp,item.first, item.second);
-	}
-	for (const auto &item: errorMap) {
-		sendStreamError(hlp,item.first, item.second);
-	}
-	for (const auto &item: priceMap) {
-		sendStreamPrice(hlp,item.first, item.second);
+	for (const auto &item: traderMap) {
+		if (item.second.info.defined()) sendStreamInfo(hlp,item.first, item.second.info);
+		if (item.second.trades.defined()) sendStreamTrades(hlp,item.first, item.second.trades);
+		if (item.second.misc.defined()) sendStreamMisc(hlp,item.first, item.second.misc);
+		if (item.second.errors.defined()) sendStreamError(hlp,item.first, item.second.errors);
+		if (item.second.utls.defined()) sendStreamUtils(hlp, item.first, item.second.utls);
+		if (item.second.price.defined()) sendStreamPrice(hlp,item.first, item.second.price);
 	}
 	for (const auto &item: orderMap) {
 		sendStreamOrder(hlp,item.first, item.second);
@@ -652,4 +640,19 @@ bool Report::stream_refresh(Stream &stream) const  {
 	sendNewsMessages(hlp);
 	sendLogMessages(hlp);
 	return hlp.ok;
+}
+
+void Report::setUtilization(std::string_view symb, std::size_t utilms) {
+	json::Value d = utilms;
+	traderMap[symb].utls = d;
+	sendStreamUtils(*this, symb, d);
+}
+
+template<typename ME>
+void Report::sendStreamUtils(ME &me, const std::string_view &symb, const json::Value &object) {
+	me.sendStream(json::Object{
+		{"type","utlz"},
+		{"symbol",std::string_view(symb)}},json::Object({{"value",object}})
+	);
+
 }

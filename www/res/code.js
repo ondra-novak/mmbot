@@ -28,6 +28,8 @@ function app_start(){
 	var chart_padding = document.createElement("div");
 	var last_rev = [0,0]
 	var mmbot_time = 0;
+	var wonly = false;
+	var wsize = 1;
 	
 	try {
 		lastField = localStorage["markettrader_lastfield"];
@@ -298,7 +300,16 @@ function app_start(){
 					var pldiff = lastItem.pl - data[0].pl;
 					var it = intervals[interval][1]*1000;
 					var lt = data[data.length-1];					
+					var ft = data[0];
 					var rate;
+					var tt = wonly?(lt.time-ft.time)/1000:misc.tt;
+					if (wonly) {
+						var c = {};
+						for (var n in lt) {
+							c[n] = lt[n] - ft[n];							
+						}
+						lt = c;
+					}
 //					misc.avgt = last_norm/misc.mt;
 					misc.avgh = lt.norm/misc.tt*it;
 					misc.avgha = lt.nacum*it/misc.tt;
@@ -990,7 +1001,9 @@ function app_start(){
 			
 			localStorage["mmbot_time"] = Date.now();
 
-			
+
+			wsize = stats.interval;
+			wonly = stats.calc_window_only;
 			drawChart = initChart(stats.interval);
 			redraw = function() {
 

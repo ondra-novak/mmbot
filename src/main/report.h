@@ -81,6 +81,8 @@ public:
 	void setOrder(std::size_t rev, std::string_view symb, int n, double price, double size, double pl, double np);
 	void setPrice(std::size_t rev, std::string_view symb, double price, double pl, double np);
 
+	void setUtilization(std::string_view symb, std::size_t utilms);
+
 
 	void addLogLine(std::string_view ln);
 	void clear();
@@ -119,18 +121,17 @@ protected:
 		bool operator()(const OKey &a, const OKey &b) const;
 	};
 
+	struct TraderStats {
+		json::Value trades, info, misc, price, utls, errors;
+	};
+
+	using TraderMap = ondra_shared::linear_map<std::string, TraderStats, std::less<> >;
+
 	using OrderMap = ondra_shared::linear_map<OKey,OValue, OKeyCmp>;
-	using TradeMap = ondra_shared::linear_map<std::string, json::Value, std::less<> >;
-	using InfoMap = ondra_shared::linear_map<std::string, json::Value, std::less<> >;
-	using MiscMap = ondra_shared::linear_map<std::string, json::Value, std::less<> >;
-	using PriceMap = ondra_shared::linear_map<std::string, json::Value, std::less<> >;
+
 
 	OrderMap orderMap;
-	TradeMap tradeMap;
-	InfoMap infoMap;
-	PriceMap priceMap;
-	MiscMap miscMap;
-	MiscMap errorMap;
+	TraderMap traderMap;
 	json::Array logLines;
 	json::Value perfRep;
 
@@ -166,6 +167,7 @@ protected:
 	template<typename ME> static void sendStreamMisc(ME &me, const std::string_view &symb, const json::Value &object);
 	template<typename ME> static void sendStreamPrice(ME &me, const std::string_view &symb, const json::Value &data);
 	template<typename ME> static void sendStreamError(ME &me, const std::string_view &symb, const json::Value &obj);
+	template<typename ME> static void sendStreamUtils(ME &me, const std::string_view &symb, const json::Value &object);
 	template<typename ME> void sendStreamGlobal(ME &me) const;
 	template<typename ME> void sendNewsMessages(ME &me) const;
 	template<typename ME> void sendLogMessages(ME &me) const;
