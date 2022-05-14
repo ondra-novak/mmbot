@@ -26,8 +26,11 @@ PStrategy3 Strategy3_Pile::run(AbstractTraderControl &cntr) const {
 		return (new Strategy3_Pile(ratio,c))->run(cntr);
 	}
 	for (double p: {st.sug_buy_price, st.sug_sell_price}) {
-		auto r = cntr.alter_position(calcPos(ratio, constant, p),p);
-		if (r.state == OrderRequestResult::too_small) cntr.alter_position(r.v, calcPriceFromPos(ratio, constant, r.v));
+		auto r = cntr.alter_position(calcPos(ratio, constant, p),p, calcBudget(ratio, constant, p));
+		if (r.state == OrderRequestResult::too_small) {
+			double pp = calcPriceFromPos(ratio, constant, r.v);
+			cntr.alter_position(r.v, pp, calcBudget(ratio, constant, pp));
+		}
 	}
 	cntr.set_equilibrium_price(calcPriceFromPos(ratio, constant, st.position));
 	double alloc = calcAlloc(ratio, constant, st.last_trade_price);

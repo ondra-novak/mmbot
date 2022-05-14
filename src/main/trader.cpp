@@ -41,11 +41,11 @@ PStockApi selectStock(PStockApi s, SwapMode3 swap_mode, bool paper_trading) {
 class Trader::Control: public AbstractTraderControl {
 public:
 	Control(Trader &owner, const MarketState &state);
-	virtual const MarketState &get_state() const override;
+	const virtual MarketState& get_state() const override;
 	const MarketState &get_orig_state() const;
-	virtual NewOrderResult alter_position(double new_pos, double price) override;
-	virtual NewOrderResult limit_buy(double price, double size) override;
-	virtual NewOrderResult limit_sell(double price, double size) override;
+	virtual NewOrderResult alter_position(double new_pos, double price, double alloc) override;
+	virtual NewOrderResult limit_buy(double price, double size, double alloc) override;
+	virtual NewOrderResult limit_sell(double price, double size, double alloc) override;
 	virtual NewOrderResult market_buy(double size) override;
 	virtual NewOrderResult market_sell(double size) override;
 	virtual void cancel_buy() override;
@@ -82,6 +82,7 @@ public:
 
 	std::optional<LimitOrder> limit_buy_order,limit_sell_order;
 	std::optional<double> market_order;
+	double alloc_buy = 0, alloc_sell = 0;
 
 	struct OrderError: public LimitOrder {
 		OrderRequestResult reason;
@@ -100,6 +101,10 @@ public:
 
 	NewOrderResult checkBuySize(double price, double size);
 	NewOrderResult checkSellSize(double price, double size);
+	double calc_accum_buy(double accum_f) const;
+	double calc_accum_sell(double accum_f) const;
+	double calc_norm_profit_buy() const;
+	double calc_norm_profit_sell() const;
 };
 
 Trader::Trader(const Trader_Config &cfg, Trader_Env &&env)
@@ -209,6 +214,12 @@ void Trader::load_state() {
 		if ((tmp = state["last_trade_eq_extra"]).defined()) {
 			last_trade_eq_extra = tmp.getNumber();
 		}
+		if ((tmp = state["target_buy"]).defined()) {
+			target_buy = TargetPos::fromJSON(tmp);
+		}
+		if ((tmp = state["target_sell"]).defined()) {
+			target_sell= TargetPos::fromJSON(tmp);
+		}
 	}
 
 	trades.clear();
@@ -248,6 +259,12 @@ void Trader::save_state() {
 				{"position", achieve_mode->position},
 				{"balance", achieve_mode->balance},
 			});
+		}
+		if (target_buy.has_value()) {
+			state.set("target_buy", target_buy->toJSON());
+		}
+		if (target_sell.has_value()) {
+			state.set("target_sell", target_sell->toJSON());
 		}
 
 	}
@@ -414,18 +431,21 @@ void Trader::run() {
 
 		bool any_trades = processTrades();
 		bool trades_finished = false;
-		if (target_buy) {
-			trades_finished = trades_finished || (pos_diff.getPos() >= target_buy);
+		double accum = 0;
+		if (target_buy.has_value() && (pos_diff.getPos() >= target_buy->pos)) {
+			trades_finished = true;
+			accum = target_buy->accum;
 		}
-		if (target_sell) {
-			trades_finished = trades_finished ||  (pos_diff.getPos() <= target_sell);
+		if (target_sell.has_value() && pos_diff.getPos() <= target_sell->pos) {
+			trades_finished = true;
+			accum = target_sell->accum;
 		}
 		if (trades_finished) {
 			double open = pos_diff.getOpen();
 			if (std::isfinite(open)) {
 				last_trade_price  = pos_diff.getOpen();
 				last_trade_size  = pos_diff.getPos();
-				position = position + pos_diff.getPos();
+				position = position + pos_diff.getPos() - accum;
 				pos_diff = minfo.initACB(0,0);
 				completed_trades = trades.size();
 				equilibrium = last_trade_price;
@@ -613,8 +633,8 @@ void Trader::run() {
 
 			env.statsvc->reportTrades(acb_state.getPos(),acb_state.isInverted(), trades);
 			env.statsvc->reportPrice(mst.cur_price, equity, cur_np);
-			env.statsvc->reportOrder(1, new_buy.price, new_buy.size, acb_state.getEquity(new_buy.price), 0);
-			env.statsvc->reportOrder(-1, new_sell.price, new_sell.size, acb_state.getEquity(new_sell.price), 0);
+			env.statsvc->reportOrder(1, new_buy.price, new_buy.size, acb_state.getEquity(new_buy.price), target_buy.has_value()?target_buy->norm+cur_np:cur_np);
+			env.statsvc->reportOrder(-1, new_sell.price, new_sell.size, acb_state.getEquity(new_sell.price),  target_sell.has_value()?target_sell->norm+cur_np:cur_np);
 			env.statsvc->reportError({gen_error,buy_error, sell_error});
 			env.statsvc->reportMisc({
 					any_trades?sgn(trades.back().size):0,
@@ -777,7 +797,7 @@ const MarketState& Trader::Control::get_orig_state() const {
 	return orig_state;
 }
 
-NewOrderResult Trader::Control::alter_position(double new_pos, double price) {
+NewOrderResult Trader::Control::alter_position(double new_pos, double price, double alloc) {
 	double diff = new_pos - state.position;
 	if (price <= 0) {
 		price = diff < 0?state.sug_sell_price:state.sug_buy_price;
@@ -794,6 +814,7 @@ NewOrderResult Trader::Control::alter_position(double new_pos, double price) {
 		rs.v = orig_state.minfo->invert_pos_if_needed(orig_state.position - rs.v);
 		if (rs.isOk()) {
 			limit_sell_order = {price, diff2};
+			alloc_sell = alloc;
 			sell_error.reset();
 		} else {
 			set_std_sell_error(rs, price, diff);
@@ -805,6 +826,7 @@ NewOrderResult Trader::Control::alter_position(double new_pos, double price) {
 		rs.v = orig_state.minfo->invert_pos_if_needed(orig_state.position + rs.v);
 		if (rs.isOk()) {
 			limit_buy_order = {price, diff2};
+			alloc_buy = alloc;
 			buy_error.reset();
 		} else {
 			set_std_buy_error(rs, price, diff);
@@ -816,7 +838,7 @@ NewOrderResult Trader::Control::alter_position(double new_pos, double price) {
 }
 
 
-NewOrderResult Trader::Control::limit_buy(double price, double size) {
+NewOrderResult Trader::Control::limit_buy(double price, double size, double alloc) {
 	if (state.inverted) {
 		price = 1.0/price;
 		if (price <= 0) price = state.sug_sell_price;
@@ -824,6 +846,7 @@ NewOrderResult Trader::Control::limit_buy(double price, double size) {
 		if (rs.isOk()) {
 			limit_sell_order = {price, rs.v};
 			sell_error.reset();
+			alloc_sell = alloc;
 		} else {
 			set_std_sell_error(rs, price, size);
 		}
@@ -833,6 +856,7 @@ NewOrderResult Trader::Control::limit_buy(double price, double size) {
 		NewOrderResult rs = checkBuySize(price, size);
 		if (rs.isOk()) {
 			limit_buy_order = {price, rs.v};
+			alloc_buy = alloc;
 			buy_error.reset();
 		} else {
 			set_std_buy_error(rs, price, size);
@@ -842,7 +866,7 @@ NewOrderResult Trader::Control::limit_buy(double price, double size) {
 
 }
 
-NewOrderResult Trader::Control::limit_sell(double price, double size) {
+NewOrderResult Trader::Control::limit_sell(double price, double size, double alloc) {
 	if (state.inverted) {
 		price = 1.0/price;
 		if (price <= 0) price = state.sug_buy_price;
@@ -850,6 +874,7 @@ NewOrderResult Trader::Control::limit_sell(double price, double size) {
 		if (rs.isOk()) {
 			limit_buy_order = {price, rs.v};
 			buy_error.reset();
+			alloc_buy = alloc;
 		} else {
 			set_std_buy_error(rs, price, size);
 		}
@@ -859,6 +884,7 @@ NewOrderResult Trader::Control::limit_sell(double price, double size) {
 		NewOrderResult rs = checkSellSize(price, size);
 		if (rs.isOk()) {
 			limit_sell_order = {price, rs.v};
+			alloc_sell = alloc;
 			sell_error.reset();
 		}else {
 			set_std_sell_error(rs, price, size);
@@ -1193,14 +1219,21 @@ void Trader::placeAllOrders(const Control &cntr, const OrderPair &pair) {
 	auto market_order = cntr.market_order;
 
 
-	target_buy = target_sell = 0;
+	target_buy.reset();
+	target_sell.reset();
 	//buy order ----------------
 	//buy order has been placed
 	if (buy_order.has_value()) {
 		//pick order
 		LimitOrder b = *buy_order;
+
+		double norm = cntr.calc_norm_profit_buy();
+		double accum = minfo.calcPosFromValue(norm*cfg.accum, b.price);
+		norm = norm * (1-cfg.accum);
+
+		b.size+=accum;
 		//set target buy size
-		target_buy = b.size;
+		target_buy = TargetPos{b.size,accum, norm};
 		//decrease size by already realized size
 		b.size -= pos_diff.getPos();
 		//if final size is zero or negative
@@ -1215,7 +1248,7 @@ void Trader::placeAllOrders(const Control &cntr, const OrderPair &pair) {
 				//if there is active order, keep it active, otherwise, enforce trade on next cycle
 				if (!pair.buy.has_value()) {
 					//set target buy
-					target_buy = pos_diff.getPos();
+					target_buy = TargetPos{pos_diff.getPos(),0, 0};
 				}
 				//check whether active order is same
 			}else  if (!isSameOrder(pair.buy, b)) {
@@ -1230,14 +1263,14 @@ void Trader::placeAllOrders(const Control &cntr, const OrderPair &pair) {
 		//if there positive position offset
 		if (pos_diff.getPos() > 0) {
 			//this will be reported as trade on next cycle
-			target_buy = pos_diff.getPos();
+			target_buy = TargetPos{pos_diff.getPos(),0, 0};
 		}
 		//no order placed and there is no active order
 	} else if (!pair.buy.has_value()) {
 		//if there positive position offset
 		if (pos_diff.getPos() > 0) {
 			//this will be reported as trade on next cycle
-			target_buy = pos_diff.getPos();
+			target_buy = TargetPos{pos_diff.getPos(),0 , 0};
 		}
 	}
 
@@ -1246,8 +1279,14 @@ void Trader::placeAllOrders(const Control &cntr, const OrderPair &pair) {
 	if (sell_order.has_value()) {
 		//pick order
 		LimitOrder s = *sell_order;
+
+		double norm = cntr.calc_norm_profit_sell();
+		double accum = minfo.calcPosFromValue(norm*cfg.accum, s.price);
+		norm = norm * (1-cfg.accum);
+
+		s.size -= accum;
 		//set target sell size
-		target_sell = -s.size;
+		target_sell = TargetPos{-s.size,accum, norm};
 		//increase size by already realized size
 		s.size += pos_diff.getPos();
 		//if final size is zero or negative
@@ -1264,7 +1303,7 @@ void Trader::placeAllOrders(const Control &cntr, const OrderPair &pair) {
 				//if there is active order, keep it active, otherwise, enforce trade on next cycle
 				if (!pair.sell.has_value()) {
 					//set target sell
-					target_sell = pos_diff.getPos();
+					target_sell = TargetPos{pos_diff.getPos(),0, 0};
 				}
 				//check whether active order is same
 			}else  if (!isSameOrder(pair.sell, s)) {
@@ -1279,14 +1318,14 @@ void Trader::placeAllOrders(const Control &cntr, const OrderPair &pair) {
 		//if there positive position offset
 		if (pos_diff.getPos() < 0) {
 			//this will be reported as trade on next cycle
-			target_sell = pos_diff.getPos();
+			target_sell = TargetPos{pos_diff.getPos(),0, 0};
 		}
 		//no order placed and there is no active order
 	} else if (!pair.sell.has_value()) {
 		//if there positive position offset
 		if (pos_diff.getPos() < 0) {
 			//this will be reported as trade on next cycle
-			target_sell = pos_diff.getPos();
+			target_sell = TargetPos{pos_diff.getPos(),0, 0};
 		}
 	}
 	if (market_order.has_value()) {
@@ -1405,8 +1444,8 @@ bool Trader::do_achieve(const AchieveMode &ach, Control &cntr) {
 
 	cntr.cancel_buy();
 	cntr.cancel_sell();
-	if (diff < 0) cntr.limit_sell(state.lowest_sell_price,-diff);
-	else cntr.limit_buy(state.highest_buy_price,diff);
+	if (diff < 0) cntr.limit_sell(state.lowest_sell_price,-diff,0);
+	else cntr.limit_buy(state.highest_buy_price,diff,0);
 	return true;
 }
 
@@ -1500,5 +1539,60 @@ InitialState Trader::create_initial_state(const MarketState &st) {
 		return {
 			st.minfo, -st.position, st.balance, st.equity, 1.0/st.cur_price, !st.inverted, st.leveraged, st.backtest
 		};
+	}
+}
+
+json::Value Trader::TargetPos::toJSON() const {
+	return json::Value(json::object,{
+			json::Value("pos", pos),
+			json::Value("accum", accum),
+			json::Value("norm", norm),
+	});
+}
+
+Trader::TargetPos Trader::TargetPos::fromJSON(const json::Value &x) {
+	return TargetPos{
+		x["pos"].getNumber(),
+		x["accum"].getNumber(),
+		x["norm"].getNumber()
+	};
+}
+
+double Trader::Control::calc_accum_buy(double accum_f) const {
+	double norm = calc_norm_profit_buy();
+	if (norm>0 && accum_f>0) {
+		return owner.minfo.calcPosFromValue(norm, limit_buy_order->price);
+	} else {
+		return 0;
+	}
+}
+
+double Trader::Control::calc_accum_sell(double accum_f) const {
+	double norm = calc_norm_profit_sell();
+	if (norm>0 && accum_f>0) {
+		return owner.minfo.calcPosFromValue(norm, limit_sell_order->price);
+	} else {
+		return 0;
+	}
+}
+
+double Trader::Control::calc_norm_profit_buy() const {
+	if (alloc_buy > 0 && limit_buy_order.has_value() && owner.last_trade_eq_extra.has_value()) {
+		double eq_extra = owner.acb_state.getEquity(limit_buy_order->price) - alloc_buy;
+		double chng = owner.last_trade_eq_extra.has_value()?eq_extra - *owner.last_trade_eq_extra:0.0;
+		return chng;
+	} else {
+		return 0;
+	}
+
+}
+
+double Trader::Control::calc_norm_profit_sell() const {
+	if (alloc_sell > 0 && limit_sell_order.has_value() && owner.last_trade_eq_extra.has_value()) {
+		double eq_extra = owner.acb_state.getEquity(limit_sell_order->price) - alloc_sell;
+		double chng = owner.last_trade_eq_extra.has_value()?eq_extra - *owner.last_trade_eq_extra:0.0;
+		return chng;
+	} else {
+		return 0;
 	}
 }

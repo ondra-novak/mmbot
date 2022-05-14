@@ -26,8 +26,11 @@ PStrategy3 Strategy3_KeepValue::run(AbstractTraderControl &cntr) const {
 		return (new Strategy3_KeepValue(st))->run(cntr);
 	}
 	for (double p: {mst.sug_buy_price, mst.sug_sell_price}) {
-		auto r = cntr.alter_position(calcPos(st, p),p);
-		if (r.state == OrderRequestResult::too_small) cntr.alter_position(r.v, calcPriceFromPos(st, r.v));
+		auto r = cntr.alter_position(calcPos(st, p),p, calcBudget(st, p));
+		if (r.state == OrderRequestResult::too_small) {
+			double pp = calcPriceFromPos(st, r.v);
+			cntr.alter_position(r.v, pp, calcBudget(st, pp));
+		}
 	}
 	cntr.set_equilibrium_price(calcPriceFromPos(st, mst.position));
 	double budget = calcBudget( st, mst.event_price);

@@ -79,6 +79,7 @@ struct Trader_Config {
 
 	double min_size;
 	double max_size;
+	double accum;
 	std::optional<double> min_position;
 	std::optional<double> max_position;
 	std::optional<double> max_costs;
@@ -149,6 +150,14 @@ public:
 		double position;
 		double balance;
 	};
+	///Target position, when achieved, trade is finished
+	struct TargetPos {
+		double pos;   //expected position
+		double accum;	//accumulation - must be subtracted after trade
+		double norm;	//norm change
+		json::Value toJSON() const;
+		static TargetPos fromJSON(const json::Value &x);
+	};
 
 
 	//backtest reporting
@@ -173,11 +182,11 @@ public:
 
 	MinMax get_safe_range() const {return safeRange;}
 
-	double get_target_buy() const {
+	std::optional<TargetPos> get_target_buy() const {
 		return target_buy;
 	}
 
-	double get_target_sell() const {
+	std::optional<TargetPos> get_target_sell() const {
 		return target_sell;
 	}
 
@@ -239,6 +248,7 @@ protected:
 		double price;
 		double size;
 	};
+
 
 	class Control;
 
@@ -338,8 +348,9 @@ protected:
 
 	std::uint64_t prevTickerTime = 0;
 
+
 	///target amounts, fetch from orders to determine, when report trade to the strategy
-	double target_buy = 0, target_sell = 0;
+	std::optional<TargetPos> target_buy, target_sell;
 
 	///Buy was previously rejected
 	bool rej_buy = false;

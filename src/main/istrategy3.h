@@ -180,8 +180,8 @@ public:
 	/**
 	 * @param new_pos specifies new position.
 	 * @param price price where the position will be changed. Note that you can increase position only at
-	 * lower price or decrease position on higher price. If you se this on 0 (default), function will use optimal
-	 * price
+	 * lower price or decrease position on higher price.
+	 * @param alloc_equity how many equity will be allocated after execution - use zero if not applicable
 	 * @retval accepted order accepted
 	 * @retval partially accepted order accepted partially. Additional info contains final position after execution
 	 * @retval invalid_price can't place order at specified price
@@ -189,31 +189,33 @@ public:
 	 * @retval max_leverage place failed because max leverage was reached
 	 * @retval user_limited place failed because user limited position somehow (min or max position, max cost etc)
 	 */
-	virtual NewOrderResult alter_position(double new_pos, double price = 0) = 0;
+	virtual NewOrderResult alter_position(double new_pos, double price, double alloc_equity) = 0;
 
 
 	///Place buy order
 	/**
 	 * @param price order price. It can be set to 0, then opt_buy_price will be used
 	 * @param size size of the order. It can be set to 0, then alert will be placed
+	 * @param alloc_equity allocated equity after execution - use zero if not applicable
 	 * @retval result of the operation
 	 *
 	 * @note You cannot place multiple orders. Any additional request replaces previous request.
 	 *
 	 * @note No other is placed or canceled without calling this function.
 	 */
-	virtual NewOrderResult  limit_buy(double price, double size) = 0;
+	virtual NewOrderResult  limit_buy(double price, double size, double alloc_equity) = 0;
 	///Place sell order
 	/**
 	 * @param price order price. It can be set to 0, then opt_sell_price will be used
 	 * @param size size of the order. It can be set to 0, then alert will be placed
+	 * @param alloc_equity allocated equity after execution - use zero if not applicable
 	 * @retval result of the operation
 	 *
 	 * @note You cannot place multiple orders. Any additional request replaces previous request.
 	 *
 	 * @note No order is placed or canceled without calling this function.
 	 */
-	virtual NewOrderResult  limit_sell(double price, double size) = 0;
+	virtual NewOrderResult  limit_sell(double price, double size, double alloc_equity) = 0;
 
 	///Place market buy order
 	/**

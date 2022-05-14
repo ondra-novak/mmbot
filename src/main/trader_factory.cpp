@@ -26,6 +26,7 @@ void Trader_Config_Ex::parse(json::Value data) {
 
 	min_size = data["min_size"].getValueOrDefault(0.0);
 	max_size = data["max_size"].getValueOrDefault(0.0);
+	accum = data["accum"].getValueOrDefault(0.0)*0.01;
 	json::Value min_balance = data["min_balance"];
 	json::Value max_balance = data["max_balance"];
 	json::Value max_costs = data["max_costs"];
@@ -88,6 +89,7 @@ json::Value get_trader_form() {
 	 {"category":"constrains","name":"max_costs","type":"number"},		
 	 {"category":"constrains","name":"max_leverage","type":"number","min":0,"default":4},
 	 {"category":"constrains","name":"trade_within_budget","type":"checkbox","default":false},
+	 {"category":"misc","name":"accum","type":"slider","default":0,"min":0,"max":100,"step":1},		
 	 {"category":"misc","name":"init_open","type":"number","default":0},
 	 {"category":"misc","name":"report_order","type":"number","default":0}
 	])json");

@@ -1337,7 +1337,7 @@ void HttpAPI::trader_info(Req &req, std::string_view trader_id, std::string_view
 	double neutral_price = 0;
 	double eq_alloc = 0;
 	double eq = 0;
-	double target_buy = 0, target_sell =0;
+	std::optional<Trader::TargetPos> target_buy , target_sell;
 	std::optional<Trader::AchieveMode> achieve;
 	if (tr == nullptr) {
 		auto extBal = core->get_ext_balance().lock_shared();
@@ -1514,8 +1514,8 @@ void HttpAPI::trader_info(Req &req, std::string_view trader_id, std::string_view
 			{"trades",partial_executions},
 			{"position_offset",partial_offset.getPos()},
 			{"open_price",partial_offset.getOpen()},
-			{"target_buy",target_buy?Value(target_buy+mst.position):Value(nullptr)},
-			{"target_sell",target_buy?Value(target_sell+mst.position):Value(nullptr)},
+			{"target_buy",target_buy.has_value()?target_buy->toJSON():Value(nullptr)},
+			{"target_sell",target_sell.has_value()?target_sell->toJSON():Value(nullptr)},
 		}},
 		{"achieve",achieve.has_value()?json::Value(json::Object({
 				{"position", achieve->position},
