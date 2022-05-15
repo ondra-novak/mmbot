@@ -172,7 +172,7 @@ IBrokerControl::BrokerInfo Interface::getBrokerInfo() {
 		"ftx",
 		"FTX",
 		"https://ftx.com/#a=3140432",
-		"1.5",
+		"1.5.1",
 		R"mit(Copyright (c) 2019 Ondřej Novák
 
 Permission is hereby granted, free of charge, to any person
@@ -639,6 +639,11 @@ json::Value Interface::checkCancelAndPlace(PConnection conn, std::string_view pa
 		}
 	}
 
+	if (price < 0.000001) {
+		throw std::runtime_error("Price is too low < 0.000001");
+	}
+
+
 	Value req = Object({
 		{"market", pair},
 		{"side", size > 0?"buy":"sell"},
@@ -672,6 +677,7 @@ json::Value Interface::placeOrder(const std::string_view &pair, double size, dou
 			if (!ok) throw std::runtime_error("Waiting for rollover");
 		}
 	}
+
 
 	if (size == 0) {
 		if (replaceId.defined()) {
