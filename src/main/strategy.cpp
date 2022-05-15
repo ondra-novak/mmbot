@@ -13,6 +13,7 @@
 #include "../shared/stringview.h"
 #include "sgn.h"
 #include "strategy_epa.h"
+#include "strategy_btd.h"
 #include "strategy_halfhalf.h"
 #include "strategy_keepvalue.h"
 #include "strategy_exponencial.h"
@@ -78,7 +79,13 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 		cfg.dip_rescue_enter_price_distance = config["dip_rescue_enter_price_distance"].getNumber();
 		cfg.backtest = config["backtest"].getBool();
 		return Strategy(new Strategy_Epa(cfg));
-	} else if (id == Strategy_HalfHalf::id) {
+	} else if (id == Strategy_Btd::id) {
+		Strategy_Btd::Config cfg;
+		cfg.buy_currency_step = config["buy_currency_step"].getNumber();
+		cfg.sell_asset_step = config["sell_asset_step"].getNumber();
+		cfg.sell = config["sell"].getBool();
+		return Strategy(new Strategy_Btd(cfg));
+	}	else if (id == Strategy_HalfHalf::id) {
 		Strategy_HalfHalf::Config cfg;
 		cfg.ea = config["ea"].getNumber();
 		cfg.accum = config["accum"].getNumber();

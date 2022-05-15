@@ -1279,6 +1279,7 @@ label span:hover span.tooltip, div.label span:hover span.tooltip, span.tooltipan
 
 .strategygoal div {display:none;font-style:italic;margin-bottom: 1em;}
 .strategygoal > div.enter_price_angle > div.enter_price_angle {display:block;}
+.strategygoal > div.buy_the_dip > div.buy_the_dip {display:block;}
 .strategygoal > div.halfhalf > div.halfhalf {display:block;}
 .strategygoal > div.stairs > div.stairs {display:block;}
 .strategygoal > div.keepvalue > div.keepvalue {display:block;}
