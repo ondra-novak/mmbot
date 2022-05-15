@@ -78,6 +78,7 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 		cfg.dip_rescue_perc_of_budget = config["dip_rescue_perc_of_budget"].getNumber();
 		cfg.dip_rescue_enter_price_distance = config["dip_rescue_enter_price_distance"].getNumber();
 		cfg.backtest = config["backtest"].getBool();
+		cfg.downtrend = config["downtrend"].getBool();
 		return Strategy(new Strategy_Epa(cfg));
 	} else if (id == Strategy_Btd::id) {
 		Strategy_Btd::Config cfg;

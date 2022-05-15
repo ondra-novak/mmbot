@@ -43,8 +43,13 @@ std::pair<double, bool> Strategy_Epa::calculateSize(double price, double assets)
 	bool alert = false;
 	if (std::isnan(st.enter) || (effectiveAssets * price) < st.budget * cfg.min_asset_perc_of_budget * (1 - cfg.dip_rescue_perc_of_budget)) {
 		// buy
-		size = (availableCurrency * cfg.initial_bet_perc_of_budget) / price;
-		alert = true;
+		if (price > st.last_price) {
+			// Move last price up with alert, unless downtrend mode is enabled
+			alert = !cfg.downtrend;
+			size = 0;
+		} else {
+			size = (availableCurrency * cfg.initial_bet_perc_of_budget) / price;
+		}
 	}	else if (price < st.enter) {
 		double dist = (st.enter - price) / st.enter;
 		if (dist >= cfg.dip_rescue_enter_price_distance) {
