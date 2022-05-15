@@ -49,6 +49,9 @@ std::pair<double, bool> Strategy_Epa::calculateSize(double price, double assets)
 			size = 0;
 		} else {
 			size = (availableCurrency * cfg.initial_bet_perc_of_budget) / price;
+			if (st.alerts > 0) {
+				size *= 0.5;
+			}
 		}
 	}	else if (price < st.enter) {
 		double dist = (st.enter - price) / st.enter;
@@ -135,13 +138,14 @@ std::pair<IStrategy::OnTradeResult, ondra_shared::RefCntPtr<const IStrategy> > S
 	auto norm_profit = effectiveSize >= 0 ? 0 : (tradePrice - st.enter) * -effectiveSize;
 	auto ep = effectiveSize >= 0 ? st.ep + cost : (st.ep / st.assets) * newAsset;
 	auto enter = ep / newAsset;
+	auto alerts = tradeSize == 0 ? (st.alerts + 1) : 0;
 
 	//logInfo("onTrade: tradeSize=$1, assetsLeft=$2, enter=$3, currencyLeft=$4", tradeSize, assetsLeft, enter, currencyLeft);
 
 	return {
 		// norm. p, accum, neutral pos, open price
-		{ norm_profit, 0, std::isnan(enter) ? 0 : enter, 0 },
-		PStrategy(new Strategy_Epa(cfg, State { ep, enter, st.budget, newAsset, std::min(st.budget, st.currency - cost), tradePrice }))
+		{ norm_profit, 0, std::isnan(enter) ? tradePrice : enter, 0 },
+		PStrategy(new Strategy_Epa(cfg, State { ep, enter, st.budget, newAsset, std::min(st.budget, st.currency - cost), tradePrice, alerts }))
 	};
 
 }
@@ -153,7 +157,8 @@ PStrategy Strategy_Epa::importState(json::Value src, const IStockApi::MarketInfo
 			src["budget"].getNumber(),
 			src["assets"].getNumber(),
 			src["currency"].getNumber(),
-			src["last_price"].getNumber()
+			src["last_price"].getNumber(),
+			src["alerts"].getInt()
 	};
 	return new Strategy_Epa(cfg, std::move(st));
 }
@@ -177,6 +182,7 @@ json::Value Strategy_Epa::exportState() const {
 		{"assets", st.assets},
 		{"currency", st.currency},
 		{"last_price", st.last_price},
+		{"alerts", st.alerts},
 	};
 }
 
@@ -267,6 +273,7 @@ json::Value Strategy_Epa::dumpStatePretty(const IStockApi::MarketInfo &minfo) co
 		{"Budget", st.budget},
 		{"Assets", st.assets},
 		{"Currency", st.currency},
-		{"Last price", st.last_price}
+		{"Last price", st.last_price},
+		{"Alert count", st.alerts}
 	};
 }
