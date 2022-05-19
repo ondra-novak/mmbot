@@ -23,6 +23,7 @@ PStrategy3 Strategy3_KeepValue::run(AbstractTraderControl &cntr) const {
 	const MarketState &mst = cntr.get_state();
 	if (st.k <= 0) { //if constant is zero, not inited
 		State st = calcConstant(mst.cur_price, mst.equity, mst.position);
+		if (st.k <= 0) throw std::runtime_error("Strategy failed to initialize (k<0)");
 		return (new Strategy3_KeepValue(st))->run(cntr);
 	}
 	for (double p: {mst.sug_buy_price, mst.sug_sell_price}) {

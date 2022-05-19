@@ -114,7 +114,14 @@ void Backtest::start(std::vector<float> &&prices, std::uint64_t start_time) {
 	this->prices=std::move(prices);
 	this->pos=0;
 	cfg.paper_trading = true;
-	cfg.reset.revision = 1;
+	if (cfg.reset.revision == 0) {
+		cfg.reset.revision = 1;
+		cfg.reset.trade_optimal_position = true;
+		cfg.reset.alloc_currency.reset();
+		cfg.reset.alloc_position.reset();
+		cfg.reset.trade_position.reset();
+	}
+
 
 	trader=std::make_unique<Trader>(cfg,Trader_Env{
 		StrategyRegister::getInstance().create(cfg.strategy_id, cfg.strategy_config),

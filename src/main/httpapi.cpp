@@ -1145,6 +1145,8 @@ bool HttpAPI::post_api_backtest(Req &req, const Args &v) {
 			}
 		} catch (const ParseError &e) {
 			me->api_error(req,400, e.what());
+		} catch (const json::UnknownEnumException &e) {
+			me->api_error(req,400, e.what());
 		}
 	};
 	return true;
@@ -1162,6 +1164,7 @@ void HttpAPI::BacktestState::run(std::unique_ptr<BacktestState> &&ptr) {
 		if (now > me->next_progress_report) {
 			if (!me->sse->on_event({true,Object{
 				{"event","progress"},
+				{"diff",false},
 				{"progress", me->bt->get_progress()}
 			}})) {
 				break;
@@ -1189,6 +1192,7 @@ void HttpAPI::BacktestState::run(std::unique_ptr<BacktestState> &&ptr) {
 			output.setItems({
 				{"time",me->bt->get_cur_time()},
 				{"price",me->bt->get_cur_price()},
+				{"diff",me->output_diff},
 				{"event",trade_count?"trade":err_event?"error":log_event?"log_msg":err_clear_event?"error_clear":"minute"}
 			});
 			if (trade_count) {
@@ -1285,7 +1289,7 @@ void HttpAPI::BacktestState::run(std::unique_ptr<BacktestState> &&ptr) {
 		}
 
 	}
-	me->sse->on_event({true, Object{{"event","done"}}});
+	me->sse->on_event({true, Object{{"event","done"},{"diff",false}}});
 	me->sse->close();
 	me->done();
 }

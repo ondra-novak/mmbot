@@ -20,14 +20,15 @@
 		"min_volume": 0,
 		"private_chart": false,
 		"simulator": false,
-		"wallet_id": "futures"
+		"wallet_id": "futures",
+		"type":"norm"
 	},
 	"trader": {
 		"pair_symbol": "ftx:BTC/USD",
 		"broker": "ftx",
 		"title": "Test",
 		"strategy": {
-			"type": "pile3",
+			"type": "kv",
 			"ratio": 50
 		},
 		"spread": {
