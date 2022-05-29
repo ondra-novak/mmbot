@@ -45,7 +45,7 @@ struct HistMinuteDataItem {
 struct Trader_Reset {
 	///reset revision id - reset is only applied, if revision is different from stored id
 	/** first revision must have 1 */
-	unsigned int revision = 0;
+	unsigned int trigger = 0;
 	///allocate position from current assets/position
 	/**
 	 * If not set, then whole available amount is allocated
@@ -69,6 +69,12 @@ struct Trader_Reset {
 
 };
 
+
+struct Trader_JSON_State {
+    unsigned int trigger = 0;
+    json::Value cfg;
+
+};
 
 
 struct Trader_Config {
@@ -98,6 +104,9 @@ struct Trader_Config {
 	bool trade_within_budget;
 
 	Trader_Reset reset;
+	Trader_JSON_State spread_state;
+	Trader_JSON_State strategy_state;
+
 };
 
 struct Trader_Env {
@@ -131,7 +140,7 @@ struct Triggers {
     unsigned int spread_state_set = 0;
     unsigned int strategy_state_set = 0;
     json::Value toJSON() const;
-    void fromJSON(json::Value src);
+    void fromJSON(const json::Value &src);
 };
 
 class Trader {

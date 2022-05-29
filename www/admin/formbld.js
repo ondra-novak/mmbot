@@ -121,6 +121,9 @@ class FormBuilder {
 			case "checkbox": el = document.createElement("X-CHECKBOX");
 							 this.langobj.set_node_text(el, this.langcat, def.name+":checkbox","");
 							 break;
+            case "trigger": el = document.createElement("X-TRIGGER");
+                             this.langobj.set_node_text(el, this.langcat, def.name+":trigger","");
+                             break;
 			case "slider": el = document.createElement("X-SLIDER");
 							 el.dataset.min = def.min;
 							 el.dataset.max = def.max;
@@ -265,6 +268,8 @@ class FormBuilder {
 			},true);			
 		} else if (typeof(def) == "function") {
 			return def(value);
+		} else if (typeof(def) == "boolean" && value instanceof TriggerValue) {
+			return def == value.b;		
 		} else {
 			return def == value;
 		}

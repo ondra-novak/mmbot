@@ -114,8 +114,8 @@ void Backtest::start(std::vector<float> &&prices, std::uint64_t start_time) {
 	this->prices=std::move(prices);
 	this->pos=0;
 	cfg.paper_trading = true;
-	if (cfg.reset.revision == 0) {
-		cfg.reset.revision = 1;
+	if (cfg.reset.trigger == 0) {
+		cfg.reset.trigger = 1;
 		cfg.reset.trade_optimal_position = true;
 		cfg.reset.alloc_currency.reset();
 		cfg.reset.alloc_position.reset();

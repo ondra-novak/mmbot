@@ -51,7 +51,7 @@ void Trader_Config_Ex::parse(json::Value data) {
 
 	json::Value tmp;
 
-	reset.revision = data["reset_revision"].getUInt();
+	reset.trigger = data["reset_revision"].getUInt();
 	bool reset_alloc_pos_100 = data["reset_alloc_position_100"].getBool();
 	bool reset_alloc_cur_100 = data["reset_alloc_currency_100"].getBool();
 	bool reset_set_position = data["reset_set_position"].getBool();
@@ -62,6 +62,10 @@ void Trader_Config_Ex::parse(json::Value data) {
 		reset.trade_optimal_position = data["reset_set_optimal_position"].getBool();
 		reset.trade_position= data["reset_set_position_value"].getNumber();
 	}
+	strategy_state.trigger = data["strategy_state_trigger"].getUInt();
+    strategy_state.cfg = data["strategy_state"];
+    spread_state.trigger = data["spread_state_trigger"].getUInt();
+    spread_state.cfg = data["spread_state"];
 
 }
 
@@ -74,7 +78,7 @@ json::Value get_trader_form() {
 	 {"category":"general","name":"enabled","type":"checkbox","default":true},
 	 {"category":"general","name":"hidden","type":"checkbox","default":false},
 	 {"category":"general","name":"dont_allocate","type":"checkbox","default":false},
-	 {"category":"init","name":"reset","type":"checkbox","default":false},
+	 {"category":"init","name":"reset","type":"trigger","default":1},
 	 {"category":"init","name":"reset_alloc_position_100","type":"checkbox","default":true,"showif":{"reset":true}},		
 	 {"category":"init","name":"reset_alloc_position","type":"number","default":0,"showif":{"reset":true,"reset_alloc_position_100":false}},		
 	 {"category":"init","name":"reset_alloc_currency_100","type":"checkbox","default":true,"showif":{"reset":true}},		
@@ -91,7 +95,11 @@ json::Value get_trader_form() {
 	 {"category":"constrains","name":"trade_within_budget","type":"checkbox","default":false},
 	 {"category":"misc","name":"accum","type":"slider","default":0,"min":0,"max":100,"step":1},		
 	 {"category":"misc","name":"init_open","type":"number","default":0},
-	 {"category":"misc","name":"report_order","type":"number","default":0}
+	 {"category":"misc","name":"report_order","type":"number","default":0},
+     {"category":"strategy_state","name":"strategy_state_trigger","type":"trigger","default":0},
+     {"category":"strategy_state","name":"strategy_state","type":"textarea","showif":{"strategy_state_trigger":true}},
+     {"category":"spread_state","name":"spread_state_trigger","type":"trigger","default":0},
+     {"category":"spread_state","name":"spread_state","type":"textarea","showif":{"spread_state_trigger":true}}
 	])json");
 
 	return def;

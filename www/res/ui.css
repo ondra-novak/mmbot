@@ -28,22 +28,22 @@ x-slider[disabled]>*{
 }
 
 
-x-checkbox {
+x-checkbox, x-trigger {
 	display: inline;
 	cursor: pointer;
 }
 
-x-checkbox[disabled] {
+x-checkbox[disabled], x-trigger[disabled]{
 	opacity: 0.5;
 	pointer-events: none;
 	cursor: default;
 }
 
-x-checkbox.checked  {
+x-checkbox.checked, x-trigger.checked  {
 	font-weight: bold;
 }
 
-x-checkbox > span:first-child{
+x-checkbox > span:first-child, x-trigger > span:first-child{
 	display: inline-block;
 	height: 1.2em;
 	width: 2.4em;
@@ -55,7 +55,7 @@ x-checkbox > span:first-child{
 	margin: 0.2em;
 }
 
-x-checkbox > span >span {
+x-checkbox > span >span, x-trigger > span >span {
 	display:block;
 	border-radius: 0.35em;
 	background-color: #9a5050;
@@ -68,11 +68,11 @@ x-checkbox > span >span {
 	transition: all 0.2s;
 }
 
-x-checkbox.checked >span:first-child  {
+x-checkbox.checked >span:first-child,x-trigger.checked >span:first-child  {
 	border: 2px solid #dcdcdc;
 }
 
-x-checkbox.checked >span>span  {
+x-checkbox.checked >span>span, x-trigger.checked >span>span  {
 	background-color: #4CAF50;
 	right: 0;
 	left: 50%;

@@ -183,8 +183,6 @@ void Trader::load_state() {
 	json::Value st = env.state_storage->load();
 	if (!st.hasValue()) return ;
 
-	env.strategy.load(st["strategy"]);
-	env.spread_gen.load(st["spread"]);
 	auto state = st["state"];
 	if (state.defined()) {
 		json::Value tmp;
@@ -231,6 +229,23 @@ void Trader::load_state() {
 		trades.push_back(Trade::fromJSON(x));
 	}
 	updateEnterPrice();
+
+    env.strategy.load(st["strategy"]);
+
+	if (triggers.spread_state_set < cfg.spread_state.trigger) {
+	    env.spread_gen.load(cfg.spread_state.cfg);
+	    triggers.spread_state_set = cfg.spread_state.trigger;
+	} else {
+	    env.spread_gen.load(st["spread"]);
+	}
+
+    if (triggers.strategy_state_set < cfg.strategy_state.trigger) {
+        env.strategy.load(cfg.strategy_state.cfg);
+        triggers.strategy_state_set = cfg.strategy_state.trigger;
+    } else {
+        env.strategy.load(st["strategy"]);
+    }
+
 }
 
 void Trader::save_state() {
@@ -472,7 +487,7 @@ void Trader::run() {
 			return;
 		}
 
-		if (triggers.reset < cfg.reset.revision) {
+		if (triggers.reset < cfg.reset.trigger) {
 			do_reset(mst);
 		}
 
@@ -1401,7 +1416,7 @@ void Trader::do_reset(MarketStateEx &st) {
 		st.balance = *cfg.reset.alloc_currency;
 	}
 	env.strategy.reset();
-	triggers.reset = cfg.reset.revision;
+	triggers.reset = cfg.reset.trigger;
 
 	if (cfg.reset.trade_position.has_value()) {
 		achieve_mode = AchieveMode{
@@ -1608,8 +1623,9 @@ json::Value Triggers::toJSON() const {
     };
 }
 
-void Triggers::fromJSON(json::Value src) {
+void Triggers::fromJSON(const json::Value &src) {
     reset = src["reset"].getUInt();
     spread_state_set = src["spread_state_set"].getUInt();
     strategy_state_set = src["strategy_state_set"].getUInt();
 }
+

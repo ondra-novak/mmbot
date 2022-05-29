@@ -57,36 +57,66 @@ TemplateJS.View.regCustomElement("X-SLIDER", new TemplateJS.CustomElement(
 		}
 ));
 
+class TriggerValue extends Number {
+    constructor(val, b) {
+        super(val);
+        this.b = b;      
+    }
+};
+(function(){
 
-TemplateJS.View.regCustomElement("X-CHECKBOX", new TemplateJS.CustomElement(
-		function(elem,val) {
-			var z = elem.querySelector("[data-name=inner");
-			if (z == null) {
-				z = document.createElement("span");
-				z.setAttribute("data-name","inner");				
-				elem.insertBefore(z, elem.firstChild);
-				var w = document.createElement("span");
-				z.appendChild(w);
-				
-				elem.addEventListener("click", function() {
-					elem.classList.toggle("checked");
-					elem.dispatchEvent(new Event("change"));
-				});
-			}
-			var chk = elem.dataset.value !== undefined?(
-					typeof val == "string"?val == elem.dataset.value:
-					Array.isArray(val)?val.indexOf(elem.dataset.value) != -1:!!val):!!val; 			
-			elem.classList.toggle("checked", chk);
-		},
-		function(elem) {
-			var chk =  elem.classList.contains("checked");
-			if (elem.dataset.value !== undefined) return chk?elem.dataset.value:undefined;
-			else return chk;
-			
-		}
-		
-));
+function checkBoxSet(elem,val) {
+            var z = elem.querySelector("[data-name=inner");
+            if (z == null) {
+                z = document.createElement("span");
+                z.setAttribute("data-name","inner");                
+                elem.insertBefore(z, elem.firstChild);
+                var w = document.createElement("span");
+                z.appendChild(w);
+                
+                elem.addEventListener("click", function() {
+                    elem.classList.toggle("checked");
+                    elem.dispatchEvent(new Event("change"));
+                });
+            }
+            var chk = elem.dataset.value !== undefined?(
+                    typeof val == "string"?val == elem.dataset.value:
+                    Array.isArray(val)?val.indexOf(elem.dataset.value) != -1:!!val):!!val;          
+            elem.classList.toggle("checked", chk);
+};
 
+function checkBoxGet(elem) {
+            var chk =  elem.classList.contains("checked");
+            if (elem.dataset.value !== undefined) return chk?elem.dataset.value:undefined;
+            else return chk;
+            
+};   
+
+function triggerSet(elem, val) {
+    if (val >= 0) {
+        elem.dataset.val = val;
+    } else if (val < 0) {
+       elem.dataset.ref = -val;
+    }
+    var r = parseInt(elem.dataset.ref) || 0;
+    var v = parseInt(elem.dataset.val) || 0;
+    checkBoxSet(elem, v > r);       
+} 
+
+
+
+function triggerGet(elem) {
+    var r = parseInt(elem.dataset.ref) || 0;
+    var res = checkBoxGet(elem);
+    var chk = !!res;
+    return new TriggerValue(chk?r+1:r, chk);        
+}
+
+
+TemplateJS.View.regCustomElement("X-CHECKBOX", new TemplateJS.CustomElement(checkBoxSet, checkBoxGet));
+TemplateJS.View.regCustomElement("X-TRIGGER", new TemplateJS.CustomElement(triggerSet, triggerGet));
+
+})();
 TemplateJS.View.regCustomElement("X-SWITCH", new TemplateJS.CustomElement(
 		function(elem, val) {
 			if (elem.dataset.separator) {
