@@ -73,13 +73,13 @@ static OpenAPIServer::ParameterObject traderId = {"trader","path","string","Trad
 
 std::string HttpAPI::ctx_json = "application/json";
 
-void HttpAPI::init(std::shared_ptr<OpenAPIServer> server) {
-	cur_server = server;
+void HttpAPI::init(userver::OpenAPIServer &server) {
+	cur_server = &server;
 	PHttpAPI me = this;
 
-	auto reg = [&](const std::string_view &p) {return server->addPath(p);};
+	auto reg = [&](const std::string_view &p) {return server.addPath(p);};
 
-	server->addPath("",[me](Req &req, const std::string_view &vpath){ return me->get_root(req, vpath);});
+	server.addPath("",[me](Req &req, const std::string_view &vpath){ return me->get_root(req, vpath);});
 
 	reg("/set_cookie")
 		.POST("General","Set cookie", "Content is application/x-www-form-urlencoded, and expects auth=<content>. It directly copies this to the cookie (as session) - this is intended to be used by platform to allow direct entering to the administration using JWT token",{},"",{
@@ -399,7 +399,7 @@ void HttpAPI::init(std::shared_ptr<OpenAPIServer> server) {
 	reg("/api/wallet")
 		.GET("Editor","Shows current wallet state (balance and allocation)","",{},{})
 			.method(me, &HttpAPI::get_api_wallet);
-	server->addSwagBrowser("/swagger");
+	server.addSwagBrowser("/swagger");
 
 	reg("/api/utilization")
 		.GET("Editor","Shows instance utilization","",{
@@ -451,7 +451,7 @@ void HttpAPI::init(std::shared_ptr<OpenAPIServer> server) {
 
 
 
-	server->addSwagBrowser("/swagger");
+	server.addSwagBrowser("/swagger");
 
 }
 

@@ -109,20 +109,20 @@ int main(int argc, char **argv) {
 		setCurrentAsyncProvider(async);
 
 
-		auto server = std::make_shared<Server>();
+		Server server;
 
 		PHttpAPI api = new HttpAPI(std::move(bot_core), max_upload, www_path);
 		api->init(server);
 
 		logProgress("Starting server");
-		server->start(listens, http_threads, async);
-		server->stopOnSignal();
+		server.start(listens, http_threads, async);
+		server.stopOnSignal();
 		logProgress("Send SIGTERM to exit server (pid: $1)", getpid());
-		server->addThread();
+		server.addThread();
 
 		logProgress("Stopping server");
 
-		server->stop();
+		server.stop();
 
 
 

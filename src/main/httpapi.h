@@ -37,7 +37,7 @@ public:
 		,cancel_map(PCancelMap::make()) {}
 
 
-	void init(std::shared_ptr<userver::OpenAPIServer> server);
+	void init(userver::OpenAPIServer &server);
 
 	template<typename ACL>
 	bool check_acl(Req& req, const ACL &acl);
@@ -49,7 +49,7 @@ protected:
 	std::unique_ptr<BotCore> core;
 	userver::StaticWebserver static_pages;
 	std::size_t max_upload;
-	std::shared_ptr<userver::OpenAPIServer> cur_server;
+	userver::OpenAPIServer *cur_server = nullptr;
 	PRegOpMap reg_op_map;
 	PCancelMap cancel_map;
 	std::mutex cfg_lock;

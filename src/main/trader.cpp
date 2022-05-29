@@ -201,7 +201,10 @@ void Trader::load_state() {
 		last_trade_size = state["last_trade_size"].getNumber();
 		equilibrium=state["equilibrium"].getNumber();
 
-		reset_rev = state["reset_rev"].getUInt();
+		triggers.fromJSON(state["triggers"]);
+		if ((tmp = state["reset_rev"]).defined()) {
+		        triggers.reset = state["reset_rev"].getUInt();
+		}
 		json::Value ach = state["achieve"];
 		if (ach.type() == json::object) {
 			achieve_mode = AchieveMode {
@@ -243,7 +246,7 @@ void Trader::save_state() {
 			state.set("position", position);
 			state.set("unconfirmed_position", unconfirmed_position);
 		}
-		state.set("reset_rev", reset_rev);
+		state.set("triggers", triggers.toJSON());
 		state.set("completed_trades", completed_trades);
 		state.set("prevTickerTime", prevTickerTime);
 		state.set("last_known_live_position", last_known_live_position);
@@ -469,7 +472,7 @@ void Trader::run() {
 			return;
 		}
 
-		if (reset_rev < cfg.reset.revision) {
+		if (triggers.reset < cfg.reset.revision) {
 			do_reset(mst);
 		}
 
@@ -1398,7 +1401,7 @@ void Trader::do_reset(MarketStateEx &st) {
 		st.balance = *cfg.reset.alloc_currency;
 	}
 	env.strategy.reset();
-	reset_rev = cfg.reset.revision;
+	triggers.reset = cfg.reset.revision;
 
 	if (cfg.reset.trade_position.has_value()) {
 		achieve_mode = AchieveMode{
@@ -1595,4 +1598,18 @@ double Trader::Control::calc_norm_profit_sell() const {
 	} else {
 		return 0;
 	}
+}
+
+json::Value Triggers::toJSON() const {
+    return json::Object {
+        {"reset",reset},
+        {"spread_state_set",spread_state_set},
+        {"strategy_state_set",strategy_state_set},
+    };
+}
+
+void Triggers::fromJSON(json::Value src) {
+    reset = src["reset"].getUInt();
+    spread_state_set = src["spread_state_set"].getUInt();
+    strategy_state_set = src["strategy_state_set"].getUInt();
 }

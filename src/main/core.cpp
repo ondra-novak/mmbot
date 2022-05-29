@@ -149,6 +149,7 @@ void BotCore::setConfig(json::Value cfg) {
 BotCore::~BotCore() {
 	traders.lock()->stop_cycle();
 	sch.clear();
+	wrk.flush();
 	in_progres.wait();
 }
 

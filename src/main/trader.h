@@ -118,6 +118,22 @@ struct Trader_Env {
 
 PStockApi selectStock(PStockApi source,SwapMode3 swap_mode,bool paper_trading);
 
+///Triggers
+/** Contains state of configuration trigger. The trigger is option
+ * which is activated only once. It is controlled by its value. When option
+ * value is above the saved value, the trigger is activated. After option
+ * is applied, the new value is stored, which disables activation during
+ * next configuration. To activate new option, you need to increase trigger's
+ * option value again.
+ */
+struct Triggers {
+    unsigned int reset = 0;
+    unsigned int spread_state_set = 0;
+    unsigned int strategy_state_set = 0;
+    json::Value toJSON() const;
+    void fromJSON(json::Value src);
+};
+
 class Trader {
 public:
 
@@ -196,6 +212,9 @@ public:
 
 	auto get_trades() const {
 		return trades;
+	}
+	const Triggers &get_triggers() const {
+	    return triggers;
 	}
 
 
@@ -297,7 +316,9 @@ protected:
 	///this field is true when instance has been inited and prepared to run, false if not yet
 	bool inited = false;
 
-	unsigned int reset_rev = 0;
+
+	Triggers triggers;
+
 
 	///current trader position
 	double position = 0;

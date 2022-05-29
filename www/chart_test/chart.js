@@ -545,7 +545,8 @@ class TimeChart {
 
 	///stops any pending rezidual scrolling 
 	stop_scroll() {
-		this.scroll_flag++;
+		this.scroll_flag=(this.scroll_flag+1) % (256*65536);
+		console.log(this.scroll_flag);
 	}
 	
 	scroll_begin(state,clientX) {
@@ -560,14 +561,16 @@ class TimeChart {
 		state.scroll_clientX = clientX;
 		state.stop_inertia();
 		state.flag = this.scroll_flag;
+		if (state.cb) state.cb(this.get_pos());
 	}
 	scroll_move(state,clientX) {
 		const rng = this.calc_time_range();
 		const curpos = this.trange[0]-rng[0];
 		if (state.scroll_clientX !== undefined) {
-			const distance = this.cfg.scroll_trig_distance || 30;
+			const distance = this.cfg.scroll_trig_distance || 20;
 			if (Math.abs(clientX - state.scroll_clientX)>distance) {
 				const pt = this.map_pixel_to_xy(state.scroll_clientX, 0);
+				document.body.style.cursor = this.svg.style.cursor = "ew-resize";
 				state.scroll_pos = curpos;
 				state.scroll_x = pt[0]-this.trange[0];
 				state.scroll_inertia = setInterval(()=>{
@@ -584,15 +587,16 @@ class TimeChart {
 						const newpos = state.scroll_inertia_curpos + speed*0.96;
 						const maxpos = rng[1]-rng[0]-this.window;
 						const finpos = Math.max(0,Math.min(maxpos,newpos));
-						if (Math.abs(finpos - state.scroll_inertia_curpos)<0.5*this.window/this.cfg.width) {
+						if (Math.abs(finpos - state.scroll_inertia_curpos)<0.1*this.window/this.cfg.width) {
 							state.stop_inertia();							
 						} else {
 							state.scroll_inertia_lastpos = state.scroll_inertia_curpos;
 							state.scroll_inertia_curpos = finpos;
-							this.draw(finpos); 
+							this.draw(finpos);
+							if (state.cb) state.cb(finpos); 
 						}
 					}
-				},10);
+				},25);
 				state.scroll_inertia_measure = true;
 				state.scroll_inertia_lastpos = state.scroll_inertia_curpos = curpos;
 				delete state.scroll_clientX;		
@@ -603,7 +607,8 @@ class TimeChart {
 			const diff = pt[0] - state.scroll_x-this.trange[0];
 			const maxpos = rng[1]-rng[0]-this.window;
 			const finpos = Math.max(0,Math.min(maxpos,state.scroll_pos - diff));			
-			this.draw(finpos);			
+			this.draw(finpos);
+			if (state.cb) state.cb(finpos);			
 		}
 	}
 	scroll_end(state,clientX) {		
@@ -616,24 +621,33 @@ class TimeChart {
 			delete state.scroll_pos;
 			state.scroll_inertia_measure = false;
 		}
+		document.body.style.cursor = this.svg.style.cursor = "";
 	}
 	
-	install_scroll_handlers() {
+	install_scroll_handlers(slave_charts) {
 		let state = {};
 		let msmove, msup, tchmove, tchend;
+		if (!slave_charts) slave_charts = [];
+		
+		state.cb = (x)=> {
+			slave_charts.forEach(y=>{
+				y.stop_scroll();
+				y.draw(x);					
+			});
+		};
 	
 		this.svg.addEventListener("mousedown",(ev)=>{
-			if (ev.button == 0) {
-				tc.scroll_begin(state,ev.clientX);
+			if (ev.button == 0) {					
+				this.scroll_begin(state,ev.clientX);
 				msmove = (e)=>{
-					var rect = tc.svg.getBoundingClientRect();
+					var rect = this.svg.getBoundingClientRect();
 	      			var x = e.clientX - rect.left; 
 					this.scroll_move(state,x);
 					e.preventDefault();      			
 				}
 				msup = (e)=>{
 					if (e.button == 0) {
-						var rect = tc.svg.getBoundingClientRect();
+						var rect = this.svg.getBoundingClientRect();
 		      			var x = e.clientX - rect.left; 
 						this.scroll_end(state,x);
 						document.removeEventListener("mousemove",msmove);
@@ -647,17 +661,17 @@ class TimeChart {
 			ev.preventDefault();
 		});
 	
-		tc.svg.addEventListener("touchstart",(ev)=>{
+		this.svg.addEventListener("touchstart",(ev)=>{
 			if (ev.changedTouches[0]) {
-				tc.scroll_begin(state,ev.changedTouches[0].clientX);
+				this.scroll_begin(state,ev.changedTouches[0].clientX);
 				tchmove = (e)=>{
-					var rect = tc.svg.getBoundingClientRect();
+					var rect = this.svg.getBoundingClientRect();
 	      			var x = e.changedTouches[0].clientX - rect.left; 
 					this.scroll_move(state,x);    			
 				}
 				tchend = (e)=>{
 					if (e.changedTouches[0]) {
-						var rect = tc.svg.getBoundingClientRect();
+						var rect = this.svg.getBoundingClientRect();
 		      			var x = e.changedTouches[0].clientX - rect.left; 
 						this.scroll_end(state,x);
 						document.removeEventListener("touchmove",tchmove);

@@ -1341,6 +1341,7 @@ void HttpAPI::trader_info(Req &req, std::string_view trader_id, std::string_view
 	double neutral_price = 0;
 	double eq_alloc = 0;
 	double eq = 0;
+	Triggers triggers;
 	std::optional<Trader::TargetPos> target_buy , target_sell;
 	std::optional<Trader::AchieveMode> achieve;
 	if (tr == nullptr) {
@@ -1397,6 +1398,7 @@ void HttpAPI::trader_info(Req &req, std::string_view trader_id, std::string_view
 		neutral_price = trl->get_neutral_price();
 		live_assets = balCache->get(broker_id, minfo.wallet_id, minfo.asset_symbol);
 		live_currency = balCache->get(broker_id, minfo.wallet_id, minfo.currency_symbol);
+		triggers = trl->get_triggers();
 
 		safe_range = trl->get_safe_range();
 
@@ -1527,6 +1529,7 @@ void HttpAPI::trader_info(Req &req, std::string_view trader_id, std::string_view
 				{"remain", achieve->position - mst.position}
 		})):json::Value(nullptr)}
 	});
+	result.set("triggers", triggers.toJSON());
 	result.set("live", json::Object {
 		{"assets", live_assets},
 		{"currencies", live_currency},

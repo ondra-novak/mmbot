@@ -1,7 +1,65 @@
 
 
+class BTDownloader {
 
-function applyDiff(src, df) {
+	constructor() {
+		this.data = [];
+		this.evsrc = null;
+	}	
+	
+	
+	fetch(id, cb) {
+		if (this.evsrc) this.evsrc.close();
+		if (this.cb) this.cb(null);
+		this.cb = cb;
+		var curobj = {};
+		this.data = [];
+		this.evsrc = new EventSource("../api/run/"+id);
+		this.evsrc.onmessage = msg=>{
+			if (this.cb) {
+				var js = JSON.parse(msg.data);
+				if  (js.diff === false) {
+					if (js.event == "progress") this.cb(["progress", js.progress]);
+					else if (js.event == "done") {
+						this.cb(["done",this.data]);
+						this.cb = null;								
+					}
+				}
+				else {
+					curobj = BTDownloader.applyDiff(curobj, js);
+					if (curobj.trades) {
+						let t = curobj.trades;
+						let env = Object.assign({}, curobj);
+						delete env.trades;
+						t.forEach(tr=>{
+							tr.ctx = env;
+							this.data.push(tr);
+						});
+					}				
+				}
+			}
+		}	
+		this.evsrc.onerror = () => {
+			if (this.cb) this.cb(null);
+			this.evsrc.close();
+		}
+	}
+	
+	abort() {
+		if (this.evsrc) {
+			this.evsrc.close();
+			this.evsrc = null;
+		}
+		if (this.cb) {
+			this.cb(null);
+			this.cb = null;
+		}
+	}
+
+	
+	
+	
+static applyDiff(src, df) {
 	if (Array.isArray(df) || df === null || typeof df != "object") return df;
 	if (Array.isArray(src) || src === null || typeof src != "object") src = {};
 	else src = Object.assign({},src);
@@ -10,7 +68,7 @@ function applyDiff(src, df) {
 	for (var x in df) {
 		empty = false;
 		var z = src[x];
-		z = applyDiff(z, df[x]);
+		z = BTDownloader.applyDiff(z, df[x]);
 		if (z === undefined) {
 			delete src[x];
 		} else {
@@ -19,37 +77,27 @@ function applyDiff(src, df) {
 	}	
 	return empty?undefined:src;	
 }
-
-function readStream(id, cb) {
-	var curobj = {};
-	var estr = new EventSource("../api/run/"+id);
-	estr.onmessage = function(ev) {
-		var js = JSON.parse(ev.data);
-		if  (js.diff === false) cb(js);
-		else {
-			curobj = applyDiff(curobj, js);
-			cb(curobj);
-		}
-	}	
-	estr.onerror = function(ev) {
-		cb(null);
-	}
+	
 	
 }
 
-var tc;
 
-function chartTest(data) {
-	tc = new TimeChart({
+
+
+var tc1;
+
+function chartTest(data, sres) {
+	const tmofs = Date.now()/60000;
+	const cfg = {
 		width:800,
 		height:400,
 		padding:20,
 		xaxis: {
 			step:1440,
-			width: 120,
+			width: 25,
 			line: "axis-x",
 			text: "axis-x-text",
-			label_step:2,
+			label_step:4,
 			label_cb: x=>(new Date(x*60000)).toLocaleDateString(),			
 		},
 		yaxis: {
@@ -58,17 +106,19 @@ function chartTest(data) {
 			text:"axis-y-text",
 			label_cb: x=>adjNum(x),			
 		}
-	});
+	}
+	tc1 = new TimeChart(cfg);
+	
 
-	tc.add_curve({
-		length: Math.floor(data.length/60),
+	tc1.add_curve({
+		length: Math.floor(data.length/240),
 		source: x=>{
-			const idx = x * 60;
+			const idx = x * 240;
 			const o = data[idx];
-			const c = data[idx+59]
-			const l = Math.min.apply(this,data.slice(idx,idx+60));
-			const h = Math.max.apply(this,data.slice(idx,idx+60));
-			return [idx,[o,h,l,c]];
+			const c = data[idx+239]
+			const l = Math.min.apply(this,data.slice(idx,idx+240));
+			const h = Math.max.apply(this,data.slice(idx,idx+240));
+			return [idx+tmofs,[o,h,l,c]];
 		},
 		autoscale:true,
 		ordered:true,
@@ -76,15 +126,19 @@ function chartTest(data) {
 		type:"ohlc"		
 	});
 	
-
-	tc.draw(0);
-	document.body.appendChild(tc.svg);
-	tc.svg.setAttribute("draggable",true);
-	tc.svg.addEventListener("click",(ev)=>{
-		console.log(tc.map_pixel_to_xy(ev.clientX, ev.clientY));
+	tc1.add_curve({
+		length: sres.length,
+		source: x=>[sres[x].time/60000,sres[x].price,sres[x].size>0?"A":"V",sres[x].size>0?"buy":"sell",1],
+		autoscale:true,
+		class:"btcurve",
+		ordered:true
 	});
 
-	tc.install_scroll_handlers();
+
+	tc1.draw(0);
+	document.body.appendChild(tc1.svg);
+
+	tc1.install_scroll_handlers();
 	
 		
 
@@ -94,16 +148,22 @@ async function start() {
 
 	var data = await (fetch("data/btcusd_data.json").then(x=>x.json()));
 	var trader = await (fetch("data/trader.json").then(x=>x.json()));
-	chartTest(data);
-/*	
+	let sres = {
+		
+	}
+
+	
 	var upload_res = await (fetch("../api/backtest/data",{method:"POST",body:JSON.stringify(data)}).then(x=>x.json()));
 	var id = upload_res.id;
 	trader.source = {id:id};
 	var backtest_init = await (fetch("../api/backtest?stream=true",{method:"POST",body:JSON.stringify(trader)}).then(x=>x.json()));
 	var stream_id = backtest_init.id;
-	
-	readStream(stream_id,x=>{
-		console.log(x);
-	})
-	*/
+	let bt = new BTDownloader();
+	bt.fetch(stream_id,ev=>{
+		if (ev[0] == "progress") console.log("progress", ev[1]);
+		else if (ev[0] == "done") {
+			chartTest(data, ev[1]);
+		}
+	});
+
 }
