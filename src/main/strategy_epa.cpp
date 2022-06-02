@@ -82,7 +82,7 @@ std::pair<double, bool> Strategy_Epa::calculateSize(double price, double assets)
 	} else {
 		// sell
 		double dist = (price - st.enter) / price;
-		if (dist < cfg.target_exit_price_distance) {
+		if (dist < cfg.target_exit_price_distance * 0.5) {
 			double maxEp = (st.ep + availableCurrency) * cfg.enter_price_max_asset;
 			// Reduce to maximum allowed held assets on enter price
 			if (st.ep > maxEp) {
