@@ -150,7 +150,7 @@ std::pair<IStrategy::OnTradeResult, ondra_shared::RefCntPtr<const IStrategy> > S
 	auto enter = ep / newAsset;
 	auto alerts = tradeSize == 0 ? (st.alerts + 1) : 0;
 
-	auto dir = tradePrice > st.last_price ? 1 : -1;	
+	auto dir = tradeSize > 0 ? 1 : (tradeSize < 0 ? -1 : (tradePrice > st.last_price ? 1 : -1));
 	int sentiment = st.history[1] + st.history[2] + st.history[3] + st.history[4] + st.history[5] + dir;
 	//logInfo("onTrade: tradeSize=$1, assetsLeft=$2, enter=$3, currencyLeft=$4", tradeSize, assetsLeft, enter, currencyLeft);
 
