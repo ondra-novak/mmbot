@@ -20,6 +20,8 @@ public:
 		double min_asset_perc_of_budget;
     double initial_bet_perc_of_budget;
 
+		double enter_price_max_asset = 1.0d;
+
     double max_enter_price_distance;
     double power_mult;
     double power_cap;

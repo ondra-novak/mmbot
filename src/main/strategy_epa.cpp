@@ -82,9 +82,19 @@ std::pair<double, bool> Strategy_Epa::calculateSize(double price, double assets)
 	} else {
 		// sell
 		double dist = (price - st.enter) / price;
-		double norm = dist / cfg.target_exit_price_distance;
-		double power = std::pow(norm, 4) * cfg.exit_power_mult;
-		size = -assets * power;
+		if (dist < cfg.target_exit_price_distance) {
+			double maxEp = (st.ep + availableCurrency) * cfg.enter_price_max_asset;
+			// Reduce to maximum allowed held assets on enter price
+			if (st.ep > maxEp) {
+				size = maxEp - st.ep;
+			} else {
+				size = 0;
+			}
+		} else {
+			double norm = dist / cfg.target_exit_price_distance;
+			double power = std::pow(norm, 4) * cfg.exit_power_mult;
+			size = -assets * power;
+		}
 	}
 
 	// correction for missing assets on exchange

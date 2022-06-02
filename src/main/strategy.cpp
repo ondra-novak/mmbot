@@ -68,6 +68,7 @@ Strategy Strategy::create(std::string_view id, json::Value config) {
 		Strategy_Epa::Config cfg;
 		cfg.min_asset_perc_of_budget = config["min_asset_perc_of_budget"].getNumber();
 		cfg.initial_bet_perc_of_budget = config["initial_bet_perc_of_budget"].getNumber();
+		cfg.enter_price_max_asset = config["enter_price_max_asset"].getNumber();
 		cfg.max_enter_price_distance = config["max_enter_price_distance"].getNumber();
 		cfg.power_mult = config["power_mult"].getNumber();
 		cfg.power_cap = config["power_cap"].getNumber();
