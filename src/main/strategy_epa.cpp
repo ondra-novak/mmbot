@@ -150,17 +150,21 @@ std::pair<IStrategy::OnTradeResult, ondra_shared::RefCntPtr<const IStrategy> > S
 	auto enter = ep / newAsset;
 	auto alerts = tradeSize == 0 ? (st.alerts + 1) : 0;
 
+	auto dir = tradePrice > st.last_price ? 1 : -1;	
+	int sentiment = st.history[1] + st.history[2] + st.history[3] + st.history[4] + st.history[5] + dir;
 	//logInfo("onTrade: tradeSize=$1, assetsLeft=$2, enter=$3, currencyLeft=$4", tradeSize, assetsLeft, enter, currencyLeft);
 
 	return {
 		// norm. p, accum, neutral pos, open price
 		{ norm_profit, 0, std::isnan(enter) ? tradePrice : enter, 0 },
-		PStrategy(new Strategy_Epa(cfg, State { ep, enter, st.budget, newAsset, std::min(st.budget, st.currency - cost), tradePrice, alerts }))
+		PStrategy(new Strategy_Epa(cfg, State { ep, enter, st.budget, newAsset, std::min(st.budget, st.currency - cost), tradePrice, alerts, 
+			{ st.history[1], st.history[2], st.history[3], st.history[4], st.history[5], dir }, sentiment }))
 	};
 
 }
 
 PStrategy Strategy_Epa::importState(json::Value src, const IStockApi::MarketInfo &minfo) const {
+	auto h = src["history"];
 	State st {
 			src["ep"].getNumber(),
 			src["enter"].getNumber(),
@@ -168,7 +172,9 @@ PStrategy Strategy_Epa::importState(json::Value src, const IStockApi::MarketInfo
 			src["assets"].getNumber(),
 			src["currency"].getNumber(),
 			src["last_price"].getNumber(),
-			src["alerts"].getInt()
+			src["alerts"].getInt(),
+			{ h[0].getInt(), h[1].getInt(), h[2].getInt(), h[3].getInt(), h[4].getInt(), h[5].getInt() },
+			src["sentiment"].getInt()
 	};
 	return new Strategy_Epa(cfg, std::move(st));
 }
@@ -193,6 +199,8 @@ json::Value Strategy_Epa::exportState() const {
 		{"currency", st.currency},
 		{"last_price", st.last_price},
 		{"alerts", st.alerts},
+		{"history", {st.history[0],st.history[1],st.history[2],st.history[3],st.history[4],st.history[5]}},
+		{"sentiment", st.sentiment}
 	};
 }
 
@@ -284,6 +292,8 @@ json::Value Strategy_Epa::dumpStatePretty(const IStockApi::MarketInfo &minfo) co
 		{"Assets", st.assets},
 		{"Currency", st.currency},
 		{"Last price", st.last_price},
-		{"Alert count", st.alerts}
+		{"Alert count", st.alerts},
+		{"Market history", {st.history[0],st.history[1],st.history[2],st.history[3],st.history[4],st.history[5]}},
+		{"Market sentiment", st.sentiment}
 	};
 }
