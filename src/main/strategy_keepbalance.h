@@ -40,7 +40,7 @@ public:
 	virtual std::string_view getID() const override;
 	virtual double calcInitialPosition(const IStockApi::MarketInfo &minfo, double price, double assets, double currency) const override;
 	virtual BudgetInfo getBudgetInfo() const override;
-	virtual double calcCurrencyAllocation(double price) const override;
+	virtual double calcCurrencyAllocation(double price, bool leveraged) const override;
 	virtual ChartPoint calcChart(double price) const override;
 	virtual double getCenterPrice(double lastPrice, double assets) const override {return lastPrice;}
 

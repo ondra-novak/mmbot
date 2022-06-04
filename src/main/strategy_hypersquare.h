@@ -41,7 +41,7 @@ public:
 	virtual PStrategy reset() const override;
 	virtual std::string_view getID() const override;
 	virtual json::Value dumpStatePretty(const IStockApi::MarketInfo &minfo) const override;
-	virtual double calcCurrencyAllocation(double price) const override;
+	virtual double calcCurrencyAllocation(double price, bool leveraged) const override;
 	virtual ChartPoint calcChart(double price) const override;
 	virtual double getCenterPrice(double lastPrice, double assets) const override {return getEquilibrium(assets);}
 

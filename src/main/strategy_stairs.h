@@ -93,7 +93,7 @@ public:
 	virtual std::optional<BudgetExtraInfo> getBudgetExtraInfo(double price, double currency) const {
 		return std::optional<BudgetExtraInfo>();
 	}
-	virtual double calcCurrencyAllocation(double price) const override;
+	virtual double calcCurrencyAllocation(double price, bool leveraged) const override;
 	virtual ChartPoint calcChart(double price) const override {return {false};}
 	virtual double getCenterPrice(double lastPrice, double assets) const override {return lastPrice;}
 

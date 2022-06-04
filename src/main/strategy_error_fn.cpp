@@ -314,7 +314,7 @@ double Strategy_ErrorFn::calcInitialPosition(const IStockApi::MarketInfo &minfo,
 }
 
 
-double Strategy_ErrorFn::calcCurrencyAllocation(double price) const {
+double Strategy_ErrorFn::calcCurrencyAllocation(double price, bool leveraged) const {
 	return calcReqCurrency(st,cfg.ea,price,cfg.rebalance);
 }
 

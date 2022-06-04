@@ -233,7 +233,7 @@ double Strategy_ConstantStep::calcAccountValue(const Consts &cst, double price) 
 	return price*(cst.c-cst.k*std::log(price));
 }
 
-double Strategy_ConstantStep::calcCurrencyAllocation(double price) const {
+double Strategy_ConstantStep::calcCurrencyAllocation(double price, bool leveraged) const {
 	return st.a * price / std::log(st.m/price);
 }
 

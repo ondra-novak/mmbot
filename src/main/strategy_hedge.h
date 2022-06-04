@@ -61,7 +61,7 @@ public:
 			double price, double assets, double currency) const override;
 	virtual IStrategy::BudgetInfo getBudgetInfo() const override;
 	virtual double getEquilibrium(double assets) const override;
-	virtual double calcCurrencyAllocation(double price) const override;
+	virtual double calcCurrencyAllocation(double price, bool leveraged) const override;
 	virtual IStrategy::ChartPoint calcChart(double price) const override;
 	virtual PStrategy onIdle(const IStockApi::MarketInfo &minfo,
 			const IStockApi::Ticker &curTicker, double assets,

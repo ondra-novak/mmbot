@@ -111,7 +111,7 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 				order.size = cfg.max_size*sgn(order.size);
 			}
 
-			if (cfg.trade_within_budget && order.size * pos > 0 && s.calcCurrencyAllocation(order.size)<0) {
+			if (cfg.trade_within_budget && order.size * pos > 0 && s.calcCurrencyAllocation(order.size, minfo.leverage>0)<0) {
 				order.size = 0;
 				bt.event = BTEvent::no_balance;
 			}
@@ -189,7 +189,7 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 				});
 			}
 			if (spend) {
-				double alloc = s.calcCurrencyAllocation(p);
+				double alloc = s.calcCurrencyAllocation(p, minfo.leverage>0);
 				if (alloc>0 && alloc<balance) {
 					total_spend += balance-alloc;
 					balance = alloc;

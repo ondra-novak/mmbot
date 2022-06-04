@@ -516,7 +516,7 @@ typename Strategy_Leveraged<Calc>::BudgetInfo Strategy_Leveraged<Calc>::getBudge
 
 
 template<typename Calc>
-inline double Strategy_Leveraged<Calc>::calcCurrencyAllocation(double) const {
+inline double Strategy_Leveraged<Calc>::calcCurrencyAllocation(double,bool) const {
 	return cfg->external_balance + st.bal - st.val - (st.spot?st.position*st.last_price:0.0);
 }
 

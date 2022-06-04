@@ -619,7 +619,7 @@ void MTrader::perform(bool manually) {
 			{
 //				double last_price = trades.back().eff_price;
 				double locked = wcfg.walletDB.lock_shared()->query(WalletDB::KeyQuery(cfg.broker, minfo.wallet_id, minfo.currency_symbol, uid)).otherTraders;
-				double budget = strategy.calcCurrencyAllocation(status.curPrice);
+				double budget = strategy.calcCurrencyAllocation(status.curPrice, minfo.leverage>0);
 				if (budget) {
 					budget_extra =  status.currencyUnadjustedBalance - locked - budget;
 				}
@@ -1229,7 +1229,7 @@ void MTrader::loadState() {
 	tempPr.simulator = minfo.simulator;
 	tempPr.invert_price = minfo.invert_price;
 	if (strategy.isValid() && !trades.empty()) {
-		wcfg.walletDB.lock()->alloc(getWalletBalanceKey(), strategy.calcCurrencyAllocation(trades.back().eff_price));
+		wcfg.walletDB.lock()->alloc(getWalletBalanceKey(), strategy.calcCurrencyAllocation(trades.back().eff_price, minfo.leverage>0));
 	}
 	if (minfo.leverage == 0) {
 		if (position_valid) {
@@ -1375,7 +1375,7 @@ bool MTrader::processTrades(Status &st) {
 			trades.push_back(TWBItem(t, last_np, last_ap, 0, true));
 		}
 	}
-	wcfg.walletDB.lock()->alloc(getWalletBalanceKey(), strategy.calcCurrencyAllocation(last_price));
+	wcfg.walletDB.lock()->alloc(getWalletBalanceKey(), strategy.calcCurrencyAllocation(last_price, minfo.leverage>0));
 
 	if (position_valid) position = assetBal;
 	else position = st.assetBalance;
@@ -1451,7 +1451,7 @@ void MTrader::reset(const ResetOptions &ropt) {
 		strategy.onIdle(minfo, status.ticker, position, remain);
 		achieve_mode = ropt.achieve;
 		need_initial_reset = false;
-		wcfg.walletDB.lock()->alloc(getWalletBalanceKey(), strategy.calcCurrencyAllocation(status.curPrice));
+		wcfg.walletDB.lock()->alloc(getWalletBalanceKey(), strategy.calcCurrencyAllocation(status.curPrice, minfo.leverage>0));
 		if (minfo.leverage == 0) {
 				wcfg.walletDB.lock()->alloc(getWalletAssetKey(), position+accumulated);
 				wcfg.accumDB.lock()->alloc(getWalletAssetKey(), accumulated);
@@ -1687,7 +1687,7 @@ bool MTrader::checkEquilibriumClose(const Status &st, double lastTradePrice) {
 AlertReason MTrader::checkLeverage(const Order &order,double position, double currency, double &maxSize) const {
 	double whole_pos = order.size + position;
 	if (cfg.trade_within_budget && order.size * position > 0) {
-		double alloc = strategy.calcCurrencyAllocation(order.price);
+		double alloc = strategy.calcCurrencyAllocation(order.price, minfo.leverage);
 		if (alloc < 0) {
 			maxSize = 0;
 			return AlertReason::out_of_budget;

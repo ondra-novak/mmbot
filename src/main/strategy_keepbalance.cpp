@@ -98,7 +98,7 @@ Strategy_KeepBalance::BudgetInfo Strategy_KeepBalance::getBudgetInfo() const {
 	};
 }
 
-double Strategy_KeepBalance::calcCurrencyAllocation(double price) const {
+double Strategy_KeepBalance::calcCurrencyAllocation(double price, bool leveraged) const {
 	return cfg.keep_min;
 }
 

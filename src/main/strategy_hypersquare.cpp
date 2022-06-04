@@ -278,7 +278,7 @@ double Strategy_HyperSquare::calcInitialPosition(const IStockApi::MarketInfo &mi
 
 
 
-double Strategy_HyperSquare::calcCurrencyAllocation(double price) const {
+double Strategy_HyperSquare::calcCurrencyAllocation(double price, bool leveraged) const {
 	return calcReqCurrency(st, cfg.ea, price);
 }
 

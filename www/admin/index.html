@@ -134,8 +134,9 @@
 <x-section data-name="strategy_pile" class="goal" hidden="hidden"><x-section-caption>Pile strategy</x-section-caption>
 <label><span>Ratio [%] (need reset):<span class="tooltip">(advise only, requires to set position during reset)</span></span><x-slider data-name="pile_ratio" data-min="5" data-max="95" data-mult="1" data-fixed="0"></x-slider></label>
 <label><span>Accumulation [%]: <span class="tooltip">Specifies amount of normalized profit used to buy assets. This extra assets are not considered as the position</span></span><x-slider data-name="pile_accum" data-min="0" data-max="100" data-mult="1" data-fixed="0"></x-slider></label>
+<label><span>Boost power [%]: (0=disable)<span class="tooltip">Specifies amount of budget used for boost</span></span><x-slider data-name="pile_bpw" data-min="0" data-max="100" data-mult="1" data-fixed="0"></x-slider></label>
+<label><span>Boost volatility [%] (0=disable): <span class="tooltip">Specifies volatility in percent for specified boost power</span></span><x-slider data-name="pile_bvl" data-min="0" data-max="100" data-mult="1" data-fixed="0"></x-slider></label>
 <x-section>
-<div class="label"><span>Current ratio:</span><span data-name="cur_pile_ratio">---</span></div>
 <div class="label"><span>Recomended initial position:</span><span data-name="range_initial">---</span></div>
 </x-section>
 <div class="rightinfo"><button name="show_backtest" disabled="disabled">Backtest</button></div>

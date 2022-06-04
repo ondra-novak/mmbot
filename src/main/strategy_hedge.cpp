@@ -86,7 +86,7 @@ double Strategy_Hedge::getEquilibrium(double assets) const {
 	return state.last_price;
 }
 
-double Strategy_Hedge::calcCurrencyAllocation(double price) const {
+double Strategy_Hedge::calcCurrencyAllocation(double price, bool leveraged) const {
 	return 0;
 }
 

@@ -433,7 +433,6 @@ App.prototype.fillForm = function (src, trg) {
 		data.type_leveraged={".hidden":pair.leverage == 0};
 		data.type_inverted={".hidden":!pair.invert_price};
 		data.hdr_position = adjNum(invSize(state.position,pair.invert_price));
-		data.cur_pile_ratio = ((state.strategy && state.strategy.Ratio) || 0).toFixed(1);
 		data.rpnl = adjNum(state.rpnl);
 		data.upnl = adjNum(state.enter_price_pos?(pair.price-state.enter_price)*state.enter_price_pos:0);
 		data.enter_price = adjNum(invPrice(state.enter_price,pair.invert_price));
@@ -664,6 +663,8 @@ App.prototype.fillForm = function (src, trg) {
 	data.pincome_exp = 40;
 	data.pile_ratio=50;
 	data.pile_accum=0;
+    data.pile_bpw=0;
+    data.pile_bvl=0;
 	data.kv2_accum=0;
 	data.kv2_chngtm=0;
 	data.kv2_boost=false;
@@ -746,6 +747,8 @@ App.prototype.fillForm = function (src, trg) {
 	} else if (data.strategy == "pile") {
 		data.pile_accum = filledval(src.strategy.accum,0);
 		data.pile_ratio = filledval(src.strategy.ratio,0);
+        data.pile_bvl = filledval(src.strategy.bvl,0);
+        data.pile_bpw = filledval(src.strategy.bpw,0);
 	} else if (data.strategy == "keepvalue2") {
 		data.kv2_accum = filledval(src.strategy.accum,0);
 		data.kv2_boost = filledval(src.strategy.boost,false);
@@ -911,6 +914,8 @@ function getStrategyData(data, inv) {
 			type: data.strategy,
 			accum: data.pile_accum,
 			ratio: data.pile_ratio,
+            bvl: data.pile_bvl,
+            bpw: data.pile_bpw,
 		};
 	} else if (data.strategy == "keepvalue2") {
 		strategy = {
@@ -1910,7 +1915,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		"pincome_exp",
 		"invert_proxy",
 		"hodlshort_z","hodlshort_acc","hodlshort_rinvst","hodlshort_b",
-		"pile_accum","pile_ratio",
+		"pile_accum","pile_ratio","pile_bpw","pile_bvl",
 		"kv2_accum","kv2_boost","kv2_chngtm","kv2_reinvest",
 		"incval_w","incval_r","incval_ms","incval_ri","incval_z",
 		"hedge_short","hedge_long","hedge_drop",

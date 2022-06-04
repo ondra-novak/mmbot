@@ -1076,7 +1076,7 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req)  {
 						rpnl = trl->getRPnL();
 						double price = trades.empty()?pair["price"].getNumber():trades.back().price;
 						double pos = position.getNumber();
-						double cur = stratobj.calcCurrencyAllocation(price);
+						double cur = stratobj.calcCurrencyAllocation(price, minfo.leverage>0);
 						double optmiddle = stratobj.getEquilibrium(stratobj.calcInitialPosition(minfo, price, pos,cur));
 						auto minmax = stratobj.calcSafeRange(minfo, pos, cur);
 						if (optmiddle<minmax.min) minmax.min = (minmax.max>optmiddle*2)?0:2*optmiddle-minmax.max;

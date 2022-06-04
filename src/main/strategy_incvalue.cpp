@@ -101,7 +101,7 @@ IStrategy::MinMax Strategy_IncValue::calcSafeRange(
 	}
 
 	if (st.spot) {
-		double cc = calcCurrencyAllocation(st.p);
+		double cc = calcCurrencyAllocation(st.p, minfo.leverage>0);
 		mx.min = numeric_search_r1(st.k, [&](double x){
 			return cfg.fn.currency(calcW(), st.k, x) + st.b + currencies - cc;
 		});
@@ -151,7 +151,7 @@ double Strategy_IncValue::getEquilibrium(double assets) const {
 	return cfg.fn.root(calcW(), st.k, assets);
 }
 
-double Strategy_IncValue::calcCurrencyAllocation(double p) const {
+double Strategy_IncValue::calcCurrencyAllocation(double p, bool leveraged) const {
 	if (st.spot) return cfg.fn.currency(calcW(), st.k, st.p)+st.b;
 	else return cfg.fn.budget(calcW(), st.k, p)+st.b;
 }

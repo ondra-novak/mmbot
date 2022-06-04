@@ -102,7 +102,7 @@ public:
 	virtual double getCenterPrice(double lastPrice, double assets) const
 			override;
 	virtual IStrategy::ChartPoint calcChart(double price) const override;
-	virtual double calcCurrencyAllocation(double price) const override;
+	virtual double calcCurrencyAllocation(double price, bool leveraged) const override;
 	virtual IStrategy::BudgetInfo getBudgetInfo() const override;
 	virtual double calcInitialPosition(const IStockApi::MarketInfo &minfo,
 			double price, double assets, double currency) const override;

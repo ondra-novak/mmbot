@@ -15,6 +15,20 @@ Strategy_Pile::Strategy_Pile(const Config &cfg, State &&st):cfg(cfg),st(std::mov
 std::string_view Strategy_Pile::id = "pile";
 
 PStrategy Strategy_Pile::init(double price, double assets, double currency, bool leveraged) const {
+    double equity = (leveraged?0:(price*assets))+currency;
+
+    double kmult = calcKMult(price, equity, cfg.ratio);
+    PStrategy out(new Strategy_Pile(cfg, State{
+        price,
+        kmult,
+        equity
+    }));
+    if (!out->isValid()) throw std::runtime_error("Unable to initialize strategy - failed to validate state");
+    return out;
+
+
+/*
+
 	double v = price*assets;
 	double b = leveraged?currency:(v+currency);
 	double r = v/b;
@@ -32,6 +46,13 @@ PStrategy Strategy_Pile::init(double price, double assets, double currency, bool
 	}));
 	if (!out->isValid()) throw std::runtime_error("Unable to initialize strategy - failed to validate state");
 	return out;
+	*/
+}
+
+double Strategy_Pile::calcKMult(double price, double budget, double ratio) {
+    double c = calcBudget(ratio, 1, price);
+    double kmult = budget/c;
+    return kmult;
 }
 
 double Strategy_Pile::calcPosition(double ratio, double kmult, double price) {
@@ -59,23 +80,16 @@ double Strategy_Pile::calcPriceFromCurrency(double ratio, double kmult, double c
 }
 
 
-std::pair<double,double> Strategy_Pile::calcAccum(double new_price) const {
-	double b2 = calcBudget(st.ratio, st.kmult, new_price);
-	double assets = st.pos;
-	double pnl = (assets) * (new_price - st.lastp);
-	double bdiff = b2 - st.budget;
-	double extra = pnl - bdiff;
-	double accum = cfg.accum * (extra / new_price);
-	double normp = (1.0-cfg.accum) * extra;
-	return {normp,accum};
-}
 
 IStrategy::OrderData Strategy_Pile::getNewOrder(
 		const IStockApi::MarketInfo &minfo, double cur_price, double new_price,
 		double dir, double assets, double currency, bool rej) const {
 
-	double finPos = calcPosition(st.ratio, st.kmult, new_price);
-	double accum = calcAccum(new_price).second;
+	double finPos = calcPosition(cfg.ratio, st.kmult, new_price);
+	double finPl = (new_price - st.lastp) * assets;
+	double finBudget = calcBudget(cfg.ratio, st.kmult, new_price);
+	double np = finPl -  (finBudget - st.budget);
+	double accum = cfg.accum * np/new_price;
 	finPos += accum;
 	double diff = finPos - assets;
 	return {0, diff};
@@ -88,43 +102,45 @@ std::pair<IStrategy::OnTradeResult, ondra_shared::RefCntPtr<const IStrategy> > S
 			this->init(tradePrice, assetsLeft-tradeSize, currencyLeft, minfo.leverage != 0)
 				 ->onTrade(minfo, tradePrice, tradeSize, assetsLeft, currencyLeft);
 
-	auto normp = calcAccum(tradePrice);
-	auto cass = calcPosition(st.ratio, st.kmult, tradePrice);
-	auto diff = assetsLeft-cass-normp.second;
+	double prevpos = assetsLeft - tradeSize;
+	double plchange = (tradePrice - st.lastp) * prevpos;
+	double preveq = st.budget;
+	double cureq = calcBudget(cfg.ratio, st.kmult, tradePrice);
+	double budgetchange = cureq - preveq;
+	double np = plchange - budgetchange;
+
+	double accum = np/tradePrice * cfg.accum;
+	np = np * (1-cfg.accum);
 
 	return {
-		{normp.first, normp.second,0,0},
+		{np, accum,0,0},
 		PStrategy(new Strategy_Pile(cfg, State {
-			st.ratio, st.kmult, tradePrice, calcBudget(st.ratio, st.kmult, tradePrice), assetsLeft-normp.second, diff * tradePrice
+		    tradePrice, st.kmult, cureq
 		}))
 	};
 
 }
 
 PStrategy Strategy_Pile::importState(json::Value src, const IStockApi::MarketInfo &minfo) const {
-	State st {
-			src["ratio"].getNumber(),
-			src["kmult"].getNumber(),
-			src["lastp"].getNumber(),
-			src["budget"].getNumber(),
-			src["pos"].getNumber(),
-			src["berror"].getNumber()
-	};
-	return new Strategy_Pile(cfg, std::move(st));
+	State nst;
+    nst.budget = src["budget"].getNumber();
+    nst.lastp = src["lastp"].getNumber();
+    nst.kmult = calcKMult(nst.lastp, nst.budget, cfg.ratio);
+    return new Strategy_Pile(cfg, std::move(nst));
 }
 
 IStrategy::MinMax Strategy_Pile::calcSafeRange(const IStockApi::MarketInfo &minfo, double assets, double currencies) const {
-	double  pos = calcPosition(st.ratio, st.kmult, st.lastp);
+	double  pos = calcPosition(cfg.ratio, st.kmult, st.lastp);
 	MinMax r;
 	if (pos > assets) {
-		r.max = calcEquilibrium(st.ratio, st.kmult, pos - assets);
+		r.max = calcEquilibrium(cfg.ratio, st.kmult, pos - assets);
 	} else {
 		r.max = std::numeric_limits<double>::infinity();
 	}
-	double cur = calcCurrency(st.ratio, st.kmult, st.lastp);
+	double cur = calcCurrency(cfg.ratio, st.kmult, st.lastp);
 	double avail = currencies  + (assets>pos?(assets-pos)*st.lastp:0);
 	if (cur > avail) {
-		r.min = calcPriceFromCurrency(st.ratio, st.kmult, cur-avail);
+		r.min = calcPriceFromCurrency(cfg.ratio, st.kmult, cur-avail);
 	} else {
 		r.min = 0;
 	}
@@ -132,17 +148,13 @@ IStrategy::MinMax Strategy_Pile::calcSafeRange(const IStockApi::MarketInfo &minf
 }
 
 bool Strategy_Pile::isValid() const {
-	return st.budget > 0 && st.kmult > 0 && st.lastp > 0 && st.ratio > 0;
+	return st.budget > 0 && st.kmult > 0 && st.lastp > 0;
 }
 
 json::Value Strategy_Pile::exportState() const {
 	return json::Object {
-		{"ratio", st.ratio},
-		{"kmult",st.kmult},
 		{"lastp",st.lastp},
 		{"budget",st.budget},
-		{"pos",st.pos},
-		{"berror",st.berror}
 	};
 }
 
@@ -161,24 +173,25 @@ double Strategy_Pile::calcInitialPosition(const IStockApi::MarketInfo &minfo, do
 
 IStrategy::BudgetInfo Strategy_Pile::getBudgetInfo() const {
 	return {
-		calcBudget(st.ratio, st.kmult, st.lastp),
-		calcPosition(st.ratio, st.kmult, st.lastp)
+		calcBudget(cfg.ratio, st.kmult, st.lastp),
+		calcPosition(cfg.ratio, st.kmult, st.lastp)
 	};
 }
 
 double Strategy_Pile::getEquilibrium(double assets) const {
-	return calcEquilibrium(st.ratio, st.kmult, assets);
+	return calcEquilibrium(cfg.ratio, st.kmult, assets);
 }
 
-double Strategy_Pile::calcCurrencyAllocation(double price) const {
-	return calcCurrency(st.ratio,st.kmult, st.lastp) +  st.berror;
+double Strategy_Pile::calcCurrencyAllocation(double price, bool leveraged) const {
+    if (leveraged) return calcBudget(cfg.ratio,st.kmult, price);
+	return calcCurrency(cfg.ratio,st.kmult, st.lastp);
 }
 
 IStrategy::ChartPoint Strategy_Pile::calcChart(double price) const {
 	return ChartPoint{
 		true,
-		calcPosition(st.ratio, st.kmult, price),
-		calcBudget(st.ratio, st.kmult, price)
+		calcPosition(cfg.ratio, st.kmult, price),
+		calcBudget(cfg.ratio, st.kmult, price)
 	};
 }
 
@@ -194,19 +207,9 @@ PStrategy Strategy_Pile::reset() const {
 }
 
 json::Value Strategy_Pile::dumpStatePretty(const IStockApi::MarketInfo &minfo) const {
-	double pos = st.pos;
-	double price = st.lastp;
-	if (minfo.invert_price) {
-		price = 1.0/price;
-		pos = -pos;
-	}
 	return json::Object{
-		{"Unprocessed volume",st.berror},
 		{"Budget",st.budget},
 		{"Multiplier",st.kmult},
-		{"Last price",price},
-		{"Ratio",st.ratio*100},
-		{"Position",pos}
 	};
 }
 

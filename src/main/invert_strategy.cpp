@@ -43,14 +43,14 @@ std::pair<IStrategy::OnTradeResult, ondra_shared::RefCntPtr<const IStrategy> > I
 		const IStockApi::MarketInfo &minfo, double tradePrice, double tradeSize,
 		double assetsLeft, double currencyLeft) const {
 
-	double ca = collateral-calcCurrencyAllocation(last_price);
+	double ca = collateral-calcCurrencyAllocation(last_price, true);
 	auto res = target->onTrade(invert(minfo), 1.0/tradePrice, -tradeSize*tradePrice,
 			getPosition(assetsLeft),
 			getBalance(currencyLeft,tradePrice));
 
 	double new_col = collateral + (assetsLeft - tradeSize) * (tradePrice - last_price);
 	PStrategy new_strg = new InvertStrategy(res.second, new_col, tradePrice, assetsLeft);
-	double cb = new_col - new_strg->calcCurrencyAllocation(tradePrice);
+	double cb = new_col - new_strg->calcCurrencyAllocation(tradePrice, true);
 	double removed = cb - ca;
 	new_strg = new InvertStrategy(res.second, new_col-removed, tradePrice, assetsLeft);
 	return {{removed, 0, 1.0/res.first.neutralPrice,0}, new_strg};
@@ -124,8 +124,8 @@ double InvertStrategy::getEquilibrium(double assets) const {
 	return 1.0/target->getEquilibrium(getPosition(assets));
 }
 
-double InvertStrategy::calcCurrencyAllocation(double price) const {
-	return getCurrencyFromBal(target->calcCurrencyAllocation(1.0/price), price);
+double InvertStrategy::calcCurrencyAllocation(double price, bool leveraged) const {
+	return getCurrencyFromBal(target->calcCurrencyAllocation(1.0/price, leveraged), price);
 }
 
 IStrategy::ChartPoint InvertStrategy::calcChart(double price) const {

@@ -381,6 +381,6 @@ Strategy_Stairs::BudgetInfo Strategy_Stairs::getBudgetInfo() const {
 	return BudgetInfo {currency, 0};
 }
 
-double Strategy_Stairs::calcCurrencyAllocation(double) const {
+double Strategy_Stairs::calcCurrencyAllocation(double, bool leveraged) const {
 	return 0;//not applicable
 }

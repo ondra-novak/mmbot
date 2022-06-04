@@ -150,7 +150,7 @@ double Strategy_HalfHalf::calcInitialPosition(const IStockApi::MarketInfo &minfo
 }
 
 
-double Strategy_HalfHalf::calcCurrencyAllocation(double price) const {
+double Strategy_HalfHalf::calcCurrencyAllocation(double price, bool leveraged) const {
 	return price*a;
 }
 

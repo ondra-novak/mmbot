@@ -309,7 +309,7 @@ double Strategy_Hodl_Short::getEquilibrium(double assets) const {
 	return calcPriceFromAssets(st.k, st.w, cfg.z, assets);
 }
 
-double Strategy_Hodl_Short::calcCurrencyAllocation(double ) const {
+double Strategy_Hodl_Short::calcCurrencyAllocation(double , bool leveraged) const {
 	return calcFiat(st.k, st.w, cfg.z, st.lastp)+std::max(0.0,st.accm)-st.uv;
 
 }

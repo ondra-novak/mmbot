@@ -66,7 +66,7 @@ public:
 	virtual json::Value dumpStatePretty(const IStockApi::MarketInfo &minfo) const override;
 	virtual std::string_view getID() const override {return id;}
 	virtual BudgetInfo getBudgetInfo() const override;
-	virtual double calcCurrencyAllocation(double) const override;
+	virtual double calcCurrencyAllocation(double, bool) const override;
 	virtual std::optional<BudgetExtraInfo> getBudgetExtraInfo(double price, double currency) const {
 		return std::optional<BudgetExtraInfo>();
 	}

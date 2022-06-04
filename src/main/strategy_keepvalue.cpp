@@ -213,7 +213,7 @@ double Strategy_KeepValue::calcInitialPosition(const IStockApi::MarketInfo &minf
 
 
 
-double Strategy_KeepValue::calcCurrencyAllocation(double price) const {
+double Strategy_KeepValue::calcCurrencyAllocation(double price, bool leveraged) const {
 	return st.c;
 }
 

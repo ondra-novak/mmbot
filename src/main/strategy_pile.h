@@ -21,12 +21,9 @@ public:
 	};
 
 	struct State {
-		double ratio = 0; // Initialized ratio (during reset)
+	    double lastp = 0; // last trade price
 		double kmult = 0; // multiplication constant
-		double lastp = 0; // last price
-		double budget = 0; // budget at last price
-		double pos = 0;
-		double berror = 0; //budget error
+		double budget = 0;
 	};
 
 	Strategy_Pile(const Config &cfg);
@@ -55,7 +52,7 @@ public:
 			double price, double assets, double currency) const;
 	virtual IStrategy::BudgetInfo getBudgetInfo() const;
 	virtual double getEquilibrium(double assets) const;
-	virtual double calcCurrencyAllocation(double price) const;
+	virtual double calcCurrencyAllocation(double price, bool leveraged) const;
 	virtual IStrategy::ChartPoint calcChart(double price) const;
 	virtual PStrategy onIdle(const IStockApi::MarketInfo &minfo,
 			const IStockApi::Ticker &curTicker, double assets,
@@ -69,14 +66,13 @@ public:
 	static double calcPriceFromBudget(double ratio, double kmul, double budget);
 	static double calcCurrency(double ratio, double kmult, double price);
 	static double calcPriceFromCurrency(double ratio, double kmult, double currency);
-
+    static double calcKMult(double price, double budget, double ratio);
 
 
 protected:
 	Config cfg;
 	State st;
 
-	std::pair<double,double> calcAccum(double new_price) const;
 };
 
 #endif /* SRC_MAIN_STRATEGY_PILE_H_ */

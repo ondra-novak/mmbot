@@ -136,8 +136,8 @@ public:
 	 * @param price specify current price.
 	 * @return amount of currency to allocate, or 0 if the operation is not meaningfull - for leverage markes for example
 	 */
-	double calcCurrencyAllocation(double price) const {
-		return ptr->calcCurrencyAllocation(price);
+	double calcCurrencyAllocation(double price, bool leveraged) const {
+		return ptr->calcCurrencyAllocation(price, leveraged);
 	}
 
 	static Strategy create_base(std::string_view id, json::Value config);

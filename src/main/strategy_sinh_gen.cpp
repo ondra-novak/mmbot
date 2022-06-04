@@ -540,7 +540,7 @@ IStrategy::BudgetInfo Strategy_Sinh_Gen::getBudgetInfo() const {
 	};
 }
 
-double Strategy_Sinh_Gen::calcCurrencyAllocation(double p) const {
+double Strategy_Sinh_Gen::calcCurrencyAllocation(double p, bool leveraged) const {
 	if (st.spot) {
 		return std::max(0.0, st.budget+cfg.calc->budget(st.k, pw, st.p)
 				-cfg.calc->assets(st.k, pw, st.p)*st.p);

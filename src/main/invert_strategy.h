@@ -36,7 +36,7 @@ public:
 			double price, double assets, double currency) const;
 	virtual IStrategy::BudgetInfo getBudgetInfo() const;
 	virtual double getEquilibrium(double assets) const;
-	virtual double calcCurrencyAllocation(double price) const;
+	virtual double calcCurrencyAllocation(double price, bool leveraged) const;
 	virtual IStrategy::ChartPoint calcChart(double price) const;
 	virtual PStrategy onIdle(const IStockApi::MarketInfo &minfo,
 			const IStockApi::Ticker &curTicker, double assets,

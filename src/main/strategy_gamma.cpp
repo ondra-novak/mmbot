@@ -224,7 +224,7 @@ double Strategy_Gamma::getEquilibrium(double assets) const {
 	}
 }
 
-double Strategy_Gamma::calcCurrencyAllocation(double) const {
+double Strategy_Gamma::calcCurrencyAllocation(double, bool leveraged) const {
 	return cfg.intTable->calcBudget(state.kk, state.w, state.p)
 			-cfg.intTable->calcAssets(state.kk, state.w, state.p)*state.p
 			-state.uv;
