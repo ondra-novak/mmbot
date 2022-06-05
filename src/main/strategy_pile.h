@@ -30,13 +30,14 @@ public:
 
 		double boost_neutral_price = 0;
 		double boost_value = 0;
-		double boost_last_price = 0;
+		double boost_pos = 0;
+		double boost_pnl = 0;
 	};
 
 	Strategy_Pile(const Config &cfg);
 	Strategy_Pile(const Config &cfg, State &&st);
 
-	PStrategy init(double price, double assets, double currency) const;
+	PStrategy init(double price, double assets, double currency, bool leveraged) const;
 
 	static std::string_view id;
 
@@ -59,7 +60,7 @@ public:
 			double price, double assets, double currency) const;
 	virtual IStrategy::BudgetInfo getBudgetInfo() const;
 	virtual double getEquilibrium(double assets) const;
-	virtual double calcEquityAllocation(double price) const;
+	virtual double calcCurrencyAllocation(double price, bool leveraged) const;
 	virtual IStrategy::ChartPoint calcChart(double price) const;
 	virtual PStrategy onIdle(const IStockApi::MarketInfo &minfo,
 			const IStockApi::Ticker &curTicker, double assets,
@@ -81,6 +82,10 @@ public:
     static double calcBoostPriceFromPos(double position, double neutral_price, double bpw, double bvl);
     static double calcBoostNeutralFromValue(double position, double value, double price,  double bpw, double bvl);
     static double calcBoostNeutralFromPos(double position, double price,  double bpw, double bvl);
+
+
+
+    double calcNewK(double pos, double price, double pl) const;
 
 protected:
 	Config cfg;

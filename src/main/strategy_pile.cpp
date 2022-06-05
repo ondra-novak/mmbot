@@ -17,7 +17,7 @@ Strategy_Pile::Strategy_Pile(const Config &cfg, State &&st):cfg(cfg),st(std::mov
 
 std::string_view Strategy_Pile::id = "pile";
 
-PStrategy Strategy_Pile::init(double price, double assets, double currency) const {
+PStrategy Strategy_Pile::init(double price, double assets, double currency, bool leveraged) const {
 
     State nst = {};
     nst.budget = (leveraged?0:(price*assets))+currency;
@@ -25,11 +25,11 @@ PStrategy Strategy_Pile::init(double price, double assets, double currency) cons
     nst.lastp = price;
 
     if (cfg.isBoostEnabled()) {
-        double pos = assets - calcPosition(cfg.ratio, st.kmult, price);
-        double bpw = cfg.boost_power * nst.budget;
+        double pos = assets - calcPosition(cfg.ratio, nst.kmult, price);
+        double bpw = cfg.boost_power * nst.budget/price;
         nst.boost_neutral_price = calcBoostNeutralFromPos(pos, price, bpw, cfg.boost_volatility);
-        nst.boost_last_price = price;
         nst.boost_value = calcBoostValue(price, nst.boost_neutral_price, bpw, cfg.boost_volatility);
+        nst.boost_pos = pos;
     }
 
 
@@ -75,6 +75,32 @@ double Strategy_Pile::calcPriceFromCurrency(double ratio, double kmult, double c
 
 
 
+double Strategy_Pile::calcNewK(double pos, double price, double pl) const {
+    if (pl == 0 || pos == 0) return st.boost_neutral_price;
+
+    double bpw = st.budget/st.boost_neutral_price * cfg.boost_power;
+
+    if (pl > 0) {
+        double profit = calcBoostValue(price-st.lastp+st.boost_neutral_price, st.boost_neutral_price, bpw, cfg.boost_volatility);
+        pl += profit;
+        if (pl < 0) return st.boost_neutral_price;
+    }
+
+    double nval = st.boost_value+pl;
+
+
+    if (nval >= 0) {
+        return price;
+    }
+
+    double res =calcBoostNeutralFromValue(pos, nval, price, bpw, cfg.boost_volatility);
+    if (!std::isfinite(res)) return st.boost_neutral_price;
+
+    return res;
+
+
+}
+
 IStrategy::OrderData Strategy_Pile::getNewOrder(
 		const IStockApi::MarketInfo &minfo, double cur_price, double new_price,
 		double dir, double assets, double currency, bool rej) const {
@@ -84,14 +110,13 @@ IStrategy::OrderData Strategy_Pile::getNewOrder(
     double finBudget = calcBudget(cfg.ratio, st.kmult, new_price);
 
 	if (cfg.isBoostEnabled()) {
-	    double bpw = st.budget * cfg.boost_power;
-	    double pos = assets - calcPosition(cfg.ratio, st.kmult, st.boost_last_price);
-	    double bpl = (new_price - st.boost_last_price) * pos;
-	    double v = bpl + st.boost_value;
-	    double newk = v>=0?st.boost_neutral_price:calcBoostNeutralFromValue(pos, v, new_price, bpw, cfg.boost_volatility);
-	    double npos = calcBoostPosition(new_price, newk, bpw, cfg.boost_volatility);
+	    double bpw = st.budget * cfg.boost_power/st.boost_neutral_price;
+	    double pos = st.boost_pos;
+	    double bpl = (new_price - st.lastp) * pos;
+        double newk = calcNewK(pos, new_price, bpl);
+        double npos = calcBoostPosition(new_price, newk, bpw, cfg.boost_volatility);
 	    finPos += npos;
-	    finBudget += v;
+	    finBudget += st.boost_value + bpl;
 	}
 
 	double np = finPl -  (finBudget - st.budget);
@@ -114,24 +139,21 @@ std::pair<IStrategy::OnTradeResult, ondra_shared::RefCntPtr<const IStrategy> > S
 
 	if (cfg.isBoostEnabled()) {
 
-	    double hhpp = calcPosition(cfg.ratio, st.kmult, st.lastp);
+        double pos = st.boost_pos;
+	    double hhpp = assetsLeft-tradeSize-pos;
 	    double hhplch = (tradePrice - st.lastp) * hhpp;
 	    nst.budget = calcBudget(cfg.ratio, st.kmult, tradePrice);
         double budgetchange = nst.budget - st.budget;;
         np = hhplch - budgetchange;
 
-        double hhpos = calcPosition(cfg.ratio, st.kmult, tradePrice);
-        double pos = assetsLeft - hhpos;
-        double bpw_old = cfg.boost_power * st.budget;
-        double bpw = cfg.boost_power * nst.budget;
-        double bbpp = calcBoostPosition(st.boost_last_price, st.boost_neutral_price, bpw_old, cfg.boost_volatility);
-        double eq = calcBoostPriceFromPos(pos, st.boost_neutral_price, bpw_old, cfg.boost_volatility);
-        double bbplch = (eq - st.boost_last_price) * bbpp;
-        double newv = st.boost_value+bbplch;
-        double newk = calcBoostNeutralFromValue(pos, newv, eq, bpw, cfg.boost_volatility);
-        nst.boost_value = calcBoostValue(eq, newk, bpw, cfg.boost_volatility);
+        double bpw_old = cfg.boost_power * st.budget/st.boost_neutral_price;
+        double bpw = cfg.boost_power * nst.budget/st.boost_neutral_price;
+        double bbplch = (tradePrice - st.lastp) * pos;
+        double newk = calcNewK(pos, tradePrice, bbplch);
+        nst.boost_value = calcBoostValue(tradePrice, newk, bpw, cfg.boost_volatility);
         nst.boost_neutral_price = newk;
-        nst.boost_last_price = eq;
+        nst.boost_pos = calcBoostPosition(tradePrice, newk, bpw, cfg.boost_volatility);
+        nst.boost_pnl += bbplch;
         np += bbplch - (nst.boost_value - st.boost_value);
 
 	} else {
@@ -142,8 +164,9 @@ std::pair<IStrategy::OnTradeResult, ondra_shared::RefCntPtr<const IStrategy> > S
 	    np = plchange - budgetchange;
 	    nst.boost_neutral_price = 0;
 	    nst.boost_value = 0;
-	    nst.boost_last_price = 0;
+	    nst.boost_pos = 0;
 	}
+	nst.lastp = tradePrice;
 	double accum = np/tradePrice * cfg.accum;
 	np = np * (1-cfg.accum);
 
@@ -161,7 +184,7 @@ PStrategy Strategy_Pile::importState(json::Value src, const IStockApi::MarketInf
     nst.kmult = calcKMult(nst.lastp, nst.budget, cfg.ratio);
     if (cfg.isBoostEnabled()) {
         auto boost = src["boost"];
-        nst.boost_last_price = boost["p"].getNumber();
+        nst.boost_pos = boost["p"].getNumber();
         nst.boost_neutral_price = boost["k"].getNumber();
         nst.boost_value = boost["v"].getNumber();
     }
@@ -187,19 +210,18 @@ IStrategy::MinMax Strategy_Pile::calcSafeRange(const IStockApi::MarketInfo &minf
 }
 
 bool Strategy_Pile::isValid() const {
-	return st.budget > 0 && st.kmult > 0 && st.lastp > 0 && (!cfg.isBoostEnabled() || (st.boost_last_price > 0 && st.boost_neutral_price > 0));
+	return st.budget > 0 && st.kmult > 0 && st.lastp > 0 && (!cfg.isBoostEnabled() || st.boost_neutral_price > 0);
 }
 
 json::Value Strategy_Pile::exportState() const {
 	return json::Object {
 		{"lastp",st.lastp},
 		{"budget",st.budget},
-		{"boost", std::Object {
+		{"boost", json::Object {
 		    {"k", st.boost_neutral_price},
-		    {"p", st.boost_last_price},
+		    {"p", st.boost_pos},
 		    {"v", st.boost_value}
 		}}
-
 	};
 }
 
@@ -224,23 +246,28 @@ IStrategy::BudgetInfo Strategy_Pile::getBudgetInfo() const {
 }
 
 double Strategy_Pile::getEquilibrium(double assets) const {
+    if (cfg.isBoostEnabled()) {
+        assets -= st.boost_pos;
+    }
+    if (assets < 0) return st.lastp*2;
 	return calcEquilibrium(cfg.ratio, st.kmult, assets);
+
 }
 
-double Strategy_Pile::calcEquityAllocation(double price) const {
+double Strategy_Pile::calcCurrencyAllocation(double price, bool leveraged) const {
     double eq1 = calcBudget(cfg.ratio, st.kmult, price);
-    double eq2 = cfg.isBoostEnabled()?calcBoostValue(price, st.boost_neutral_price, cfg.boost_power * st.budget, cfg.boost_volatility):0;
+    double eq2 = cfg.isBoostEnabled()?calcBoostValue(price, st.boost_neutral_price, cfg.boost_power * st.budget/st.boost_neutral_price, cfg.boost_volatility):0;
     double eq = eq1 + eq2;
     if (leveraged) return eq;
-    double pos = calcPosition(cfg.r, kmult, price)
-	return
+    double pos = calcPosition(cfg.ratio, st.kmult, price) + st.boost_pos;
+	return eq - pos * price;
 }
 
 IStrategy::ChartPoint Strategy_Pile::calcChart(double price) const {
 	return ChartPoint{
 		true,
-		calcPosition(cfg.ratio, st.kmult, price),
-		calcBudget(cfg.ratio, st.kmult, price)
+		calcPosition(cfg.ratio, st.kmult, price) + (cfg.isBoostEnabled()?calcBoostPosition(price, st.boost_neutral_price, cfg.boost_power*st.budget/st.boost_neutral_price, cfg.boost_volatility):0),
+		calcBudget(cfg.ratio, st.kmult, price) + (cfg.isBoostEnabled()?calcBoostValue(price, st.boost_neutral_price,  cfg.boost_power*st.budget/st.boost_neutral_price, cfg.boost_volatility):0)
 	};
 }
 
@@ -256,9 +283,16 @@ PStrategy Strategy_Pile::reset() const {
 }
 
 json::Value Strategy_Pile::dumpStatePretty(const IStockApi::MarketInfo &minfo) const {
+    auto pprice = [&](double x) {return minfo.invert_price?1.0/x:x;};
+    auto ppos = [&](double x) {return  minfo.invert_price?-x:x;};
 	return json::Object{
 		{"Budget",st.budget},
 		{"Multiplier",st.kmult},
+		{"Boost.Value", st.boost_value},
+		{"Boost.Neutral", pprice(st.boost_neutral_price)},
+		{"LastPrice", pprice(st.lastp)},
+		{"Boost.Position", ppos(st.boost_pos)},
+        {"Boost.Profit", ppos(st.boost_pnl)}
 	};
 }
 
@@ -271,13 +305,14 @@ double Strategy_Pile::calcBoostValue(double price, double neutral_price, double 
 }
 
 double Strategy_Pile::calcBoostPriceFromPos(double position, double neutral_price, double bpw, double bvl) {
-    return neutral_price - (neutral_price * bvl * std::asin(position/bpw))/ln2;
+    double s =  neutral_price - (neutral_price * bvl * std::asinh(position/bpw))/ln2;
+    return s;
 }
 
 double Strategy_Pile::calcBoostNeutralFromValue(double position, double value, double price, double bpw, double bvl) {
     auto rtfn = [&](double x) {
       double km = ((price/x-1)*ln2)/bvl;
-      double k0 = (bpw * x * (bvl - bvl * std::cosh(km)))/ln2;
+      double k0 = (bpw * x * (bvl - bvl * std::cosh(km)))/ln2 - value;
       double k1 = bpw*((bvl-bvl*std::cosh(km))/ln2+(price*sinh(km))/x);
       return x - k0/k1;
     };
@@ -286,8 +321,9 @@ double Strategy_Pile::calcBoostNeutralFromValue(double position, double value, d
     double x0 = position<0?price*0.5:price*2; // guess
     for (int i = 0; i < 200; i++) {
         double x1 = rtfn(x0);
-        if (std::abs(x1-x0)/price < 1e-8) return x1;
+        bool e = std::abs(x1-x0)/price < 1e-8;
         x0 = x1;
+        if (e) break;
     }
     return x0;
 }
@@ -297,5 +333,6 @@ bool Strategy_Pile::Config::isBoostEnabled() const {
 }
 
 double Strategy_Pile::calcBoostNeutralFromPos(double position, double price, double bpw, double bvl) {
-    return (price * ln2)/(-bvl* std::asinh(position/bpw) + ln2);
+    double s = (price * ln2)/(-bvl* std::asinh(position/bpw) + ln2);
+    return s;
 }
