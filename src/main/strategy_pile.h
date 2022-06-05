@@ -18,18 +18,25 @@ public:
 	struct Config {
 		double ratio; // requested ratio, however this value is used only for backtest
 		double accum; // accumulation - 0-1
+		double boost_power; //
+		double boost_volatility; //
+		bool isBoostEnabled() const;
 	};
 
 	struct State {
 	    double lastp = 0; // last trade price
 		double kmult = 0; // multiplication constant
 		double budget = 0;
+
+		double boost_neutral_price = 0;
+		double boost_value = 0;
+		double boost_last_price = 0;
 	};
 
 	Strategy_Pile(const Config &cfg);
 	Strategy_Pile(const Config &cfg, State &&st);
 
-	PStrategy init(double price, double assets, double currency, bool leveraged) const;
+	PStrategy init(double price, double assets, double currency) const;
 
 	static std::string_view id;
 
@@ -52,7 +59,7 @@ public:
 			double price, double assets, double currency) const;
 	virtual IStrategy::BudgetInfo getBudgetInfo() const;
 	virtual double getEquilibrium(double assets) const;
-	virtual double calcCurrencyAllocation(double price, bool leveraged) const;
+	virtual double calcEquityAllocation(double price) const;
 	virtual IStrategy::ChartPoint calcChart(double price) const;
 	virtual PStrategy onIdle(const IStockApi::MarketInfo &minfo,
 			const IStockApi::Ticker &curTicker, double assets,
@@ -69,9 +76,17 @@ public:
     static double calcKMult(double price, double budget, double ratio);
 
 
+    static double calcBoostPosition(double price, double neutral_price, double bpw, double bvl);
+    static double calcBoostValue(double price, double neutral_price, double bpw, double bvl);
+    static double calcBoostPriceFromPos(double position, double neutral_price, double bpw, double bvl);
+    static double calcBoostNeutralFromValue(double position, double value, double price,  double bpw, double bvl);
+    static double calcBoostNeutralFromPos(double position, double price,  double bpw, double bvl);
+
 protected:
 	Config cfg;
 	State st;
+
+	static const double ln2;
 
 };
 
