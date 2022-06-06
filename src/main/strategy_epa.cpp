@@ -88,13 +88,13 @@ Strategy_Epa::SizeResult Strategy_Epa::calculateSize(double cur_price, double pr
 		if (dist < reduceTarget) {
 			// Reduce to maximum allowed held assets on enter price
 			if (st.ep > maxEp) {
-				size = maxEp - st.ep;
+				size = (maxEp - st.ep) / st.enter;
 			} else {
 				size = 0;
 			}
 		} else if (cur_price > st.enter && st.ep > maxEp) {
 			target_price = std::max(cur_price, st.enter + (st.enter * reduceTarget));
-			size = maxEp - st.ep;
+			size = (maxEp - st.ep) / st.enter;
 		} else {
 			double norm = dist / cfg.target_exit_price_distance;
 			double power = std::pow(norm, 4) * cfg.exit_power_mult;
