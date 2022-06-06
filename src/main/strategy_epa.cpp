@@ -48,6 +48,10 @@ Strategy_Epa::SizeResult Strategy_Epa::calculateSize(double cur_price, double pr
 			// Move last price up with alert, unless downtrend mode is enabled
 			alert = !cfg.downtrend;
 			size = 0;
+		} else if (st.sentiment > 0) {
+			// Move last price up or down with alert due to uptrend sentiment
+			alert = true;
+			size = 0;
 		} else {
 			size = (availableCurrency * cfg.initial_bet_perc_of_budget) / price;
 			if (st.alerts > 0) {
