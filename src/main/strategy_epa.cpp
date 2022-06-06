@@ -35,11 +35,12 @@ PStrategy Strategy_Epa::init(double price, double assets, double currency, bool 
 	return out;
 }
 
-std::pair<double, bool> Strategy_Epa::calculateSize(double price, double assets) const {
+Strategy_Epa::SizeResult Strategy_Epa::calculateSize(double cur_price, double price, double assets) const {
 	double effectiveAssets = std::min(st.assets, assets);
 	double availableCurrency = std::max(0.0, st.currency - (st.budget * cfg.dip_rescue_perc_of_budget));
 
 	double size;
+	double target_price = 0;
 	bool alert = false;
 	if (std::isnan(st.enter) || (effectiveAssets * price) < st.budget * cfg.min_asset_perc_of_budget * (1 - cfg.dip_rescue_perc_of_budget)) {
 		// buy
@@ -81,15 +82,19 @@ std::pair<double, bool> Strategy_Epa::calculateSize(double price, double assets)
 		}
 	} else {
 		// sell
-		double dist = (price - st.enter) / price;
-		if (dist < cfg.target_exit_price_distance * 0.5) {
-			double maxEp = (st.ep + availableCurrency) * cfg.enter_price_max_asset;
+		double maxEp = (st.ep + availableCurrency) * cfg.enter_price_max_asset;
+		double dist = (price - st.enter) / price;		
+		double reduceTarget = cfg.target_exit_price_distance * 0.5;
+		if (dist < reduceTarget) {
 			// Reduce to maximum allowed held assets on enter price
 			if (st.ep > maxEp) {
 				size = maxEp - st.ep;
 			} else {
 				size = 0;
 			}
+		} else if (cur_price > st.enter && st.ep > maxEp) {
+			target_price = std::max(cur_price, st.enter + (st.enter * reduceTarget));
+			size = maxEp - st.ep;
 		} else {
 			double norm = dist / cfg.target_exit_price_distance;
 			double power = std::pow(norm, 4) * cfg.exit_power_mult;
@@ -109,7 +114,7 @@ std::pair<double, bool> Strategy_Epa::calculateSize(double price, double assets)
 		size = std::max(size, -effectiveAssets);
 	}
 
-	return {size, alert};
+	return {target_price, size, alert};
 }
 
 IStrategy::OrderData Strategy_Epa::getNewOrder(
@@ -117,15 +122,15 @@ IStrategy::OrderData Strategy_Epa::getNewOrder(
 		double dir, double assets, double currency, bool rej) const {
 	logInfo("getNewOrder: new_price=$1, assets=$2, currency=$3, dir=$4", new_price, assets, currency, dir);
 
-	auto res = calculateSize(new_price, assets);
-	double size = res.first;
-	auto alert = res.second ? IStrategy::Alert::enabled : IStrategy::Alert::disabled;
+	auto res = calculateSize(cur_price, new_price, assets);
+	double size = res.size;
+	auto alert = res.alert ? IStrategy::Alert::enabled : IStrategy::Alert::disabled;
 
-	logInfo("   -> $1 (alert: $2)", size, res.second);
+	logInfo("   -> $1 (alert: $2)", size, res.alert);
 
 	// price where order is put. If this field is 0, recommended price is used
   // size of the order, +buy, -sell. If this field is 0, the order is not placed
-	return { 0, size, alert };
+	return { res.price, size, alert };
 }
 
 std::pair<IStrategy::OnTradeResult, ondra_shared::RefCntPtr<const IStrategy> > Strategy_Epa::onTrade(
@@ -264,7 +269,7 @@ double Strategy_Epa::calcCurrencyAllocation(double price) const {
 }
 
 IStrategy::ChartPoint Strategy_Epa::calcChart(double price) const {
-	double size = calculateSize(price, st.assets).first;
+	double size = calculateSize(price, price, st.assets).size;
 	
 	return ChartPoint{
 		true, //true

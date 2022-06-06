@@ -90,7 +90,13 @@ protected:
 	Config cfg;
 	State st;
 
-	std::pair<double, bool> calculateSize(double price, double assets) const;
+	struct SizeResult {
+		double price = 0;
+		double size = 0;
+		bool alert = false;
+	};
+
+	SizeResult calculateSize(double cur_price, double price, double assets) const;
 };
 
 #endif /* SRC_MAIN_STRATEGY_EPA_H_ */
