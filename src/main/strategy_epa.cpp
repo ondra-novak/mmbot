@@ -44,13 +44,9 @@ Strategy_Epa::SizeResult Strategy_Epa::calculateSize(double cur_price, double pr
 	bool alert = false;
 	if (std::isnan(st.enter) || (effectiveAssets * price) < st.budget * cfg.min_asset_perc_of_budget * (1 - cfg.dip_rescue_perc_of_budget)) {
 		// buy
-		if (price > st.last_price) {
-			// Move last price up with alert, unless downtrend mode is enabled
+		if (price > st.last_price || st.sentiment > 0) {
+			// Move last price up or down with alert, unless downtrend mode is enabled
 			alert = !cfg.downtrend;
-			size = 0;
-		} else if (st.sentiment > 0) {
-			// Move last price up or down with alert due to uptrend sentiment
-			alert = true;
 			size = 0;
 		} else {
 			size = (availableCurrency * cfg.initial_bet_perc_of_budget) / price;
