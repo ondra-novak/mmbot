@@ -232,6 +232,8 @@ double Strategy_Sinh_Gen::calcNewK(double tradePrice, double cb, double pnl, int
 			case 10: refb = pnl>0?-yield:2*yield;break;
 			case 11: if (pnl>0) return st.k;refb = 0;break;
 			case 12: if (pnl<0) return st.k;refb = 0;break;
+            case 13: refb = pnl>0?0.0:3*yield;break;
+            case 14: refb = pnl>0?-yield:3*yield;break;
 		}
 
 		double nb = cb+pnl+refb; //current budget + pnl + yield = new budget

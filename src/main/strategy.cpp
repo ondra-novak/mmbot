@@ -76,7 +76,8 @@ Strategy Strategy::create_base(std::string_view id, json::Value config) {
 		cfg.accum = config["accum"].getNumber()*0.01;
 		cfg.ratio= config["ratio"].getNumber()*0.01;
         cfg.boost_power= config["bpw"].getNumber()*0.01;
-        cfg.boost_volatility= config["bvl"].getNumber()*0.01;
+        cfg.boost_volatility= config["bvl"].getNumber();
+        if (cfg.boost_volatility) cfg.boost_volatility = 1.0/cfg.boost_volatility;
         cfg.boost_power *= cfg.boost_volatility;
 		return Strategy(new Strategy_Pile(cfg));
 	} else if (id == Strategy_KeepValue2::id) {

@@ -243,7 +243,6 @@ void StreamState::sendBuffer(ondra_shared::BinaryView b) {
 }
 
 
-
 int main(int argc, char **argv) {
 
 	json::enableParsePreciseNumbers = true;

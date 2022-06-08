@@ -134,8 +134,8 @@
 <x-section data-name="strategy_pile" class="goal" hidden="hidden"><x-section-caption>Pile strategy</x-section-caption>
 <label><span>Ratio [%] (need reset):<span class="tooltip">(advise only, requires to set position during reset)</span></span><x-slider data-name="pile_ratio" data-min="5" data-max="95" data-mult="1" data-fixed="0"></x-slider></label>
 <label><span>Accumulation [%]: <span class="tooltip">Specifies amount of normalized profit used to buy assets. This extra assets are not considered as the position</span></span><x-slider data-name="pile_accum" data-min="0" data-max="100" data-mult="1" data-fixed="0"></x-slider></label>
-<label><span>Boost power [%]: (0=disable)<span class="tooltip">Specifies amount of budget used for boost</span></span><x-slider data-name="pile_bpw" data-min="0" data-max="500" data-mult="1" data-fixed="0"></x-slider></label>
-<label><span>Boost volatility [%] (0=disable): <span class="tooltip">Specifies volatility in percent for specified boost power</span></span><x-slider data-name="pile_bvl" data-min="0" data-max="10" data-mult="0.01" data-fixed="2"></x-slider></label>
+<label><span>Boost power [%]: (0=disable)<span class="tooltip">Specifies amount of budget used for boost</span></span><x-slider data-name="pile_bpw" data-min="0" data-max="50" data-mult="0.1" data-fixed="1"></x-slider></label>
+<label><span>Boost 1/volatility [x] (0=disable): <span class="tooltip">Specifies volatility in percent for specified boost power</span></span><x-slider data-name="pile_bvl" data-min="0" data-max="100" data-mult="1" data-fixed="0"></x-slider></label>
 <x-section>
 <div class="label"><span>Recomended initial position:</span><span data-name="range_initial">---</span></div>
 </x-section>
@@ -317,10 +317,12 @@ to enter a negative value and then the value of the assets held will decrease an
 	<option value="7">(2/0) 2x risk on open, full reduce on close</option>
 	<option value="6">(1/0) open more, full reduce on close</option>
 	<option value="2">(0/2) open less, left 2x yield on close</option>
+	<option value="13">(0/3) open less, left 3x yield on close</option>
 	<option value="1">(1/1) open more, left basic yield on close</option>
 	<option value="0">(0/1) default</option>
 	<option value="3">(0/0) whole profit s used to cover loss</option>
 	<option value="4">(-1/2) reduce more</option>
+    <option value="14">(-1/3) reduce more, left 3x yield on close</option>
 	<option value="5">(-2/4) reduce more</option>
 	<option value="9">(1/-1)</option>
 	<option value="10">(2/-1)</option>

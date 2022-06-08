@@ -23,7 +23,6 @@ PStrategy Strategy_Pile::init(double price, double assets, double currency, bool
     nst.budget = (leveraged?0:(price*assets))+currency;
     nst.kmult = calcKMult(price, nst.budget, cfg.ratio);
     nst.lastp = price;
-
     if (cfg.isBoostEnabled()) {
         double pos = assets - calcPosition(cfg.ratio, nst.kmult, price);
         double bpw = cfg.boost_power * nst.budget/price;
@@ -76,15 +75,17 @@ double Strategy_Pile::calcPriceFromCurrency(double ratio, double kmult, double c
 
 
 double Strategy_Pile::calcNewK(double pos, double price, double pl) const {
-    if (pl == 0 || pos == 0) return st.boost_neutral_price;
+    if (pl == 0
+        || pos == 0
+        || (price-st.boost_neutral_price) * (st.lastp - st.boost_neutral_price) < 0)
+            return st.boost_neutral_price;
 
     double bpw = st.budget/st.boost_neutral_price * cfg.boost_power;
 
-    if (pl > 0) {
-        double profit = calcBoostValue(price-st.lastp+st.boost_neutral_price, st.boost_neutral_price, bpw, cfg.boost_volatility);
-        pl += profit;
-        if (pl < 0) return st.boost_neutral_price;
-    }
+
+    double profit = calcBoostValue(price-st.lastp+st.boost_neutral_price, st.boost_neutral_price, bpw, cfg.boost_volatility);
+    pl += profit;
+    if (pl > 0) return st.boost_neutral_price;
 
     double nval = st.boost_value+pl;
 
@@ -95,6 +96,8 @@ double Strategy_Pile::calcNewK(double pos, double price, double pl) const {
 
     double res =calcBoostNeutralFromValue(pos, nval, price, bpw, cfg.boost_volatility);
     if (!std::isfinite(res)) return st.boost_neutral_price;
+
+    if (abs(res-price)>abs(st.boost_neutral_price-price)) return st.boost_neutral_price;
 
     return res;
 
@@ -146,7 +149,6 @@ std::pair<IStrategy::OnTradeResult, ondra_shared::RefCntPtr<const IStrategy> > S
         double budgetchange = nst.budget - st.budget;;
         np = hhplch - budgetchange;
 
-        double bpw_old = cfg.boost_power * st.budget/st.boost_neutral_price;
         double bpw = cfg.boost_power * nst.budget/st.boost_neutral_price;
         double bbplch = (tradePrice - st.lastp) * pos;
         double newk = calcNewK(pos, tradePrice, bbplch);
@@ -291,6 +293,7 @@ json::Value Strategy_Pile::dumpStatePretty(const IStockApi::MarketInfo &minfo) c
 		{"Boost.Value", st.boost_value},
 		{"Boost.Neutral", pprice(st.boost_neutral_price)},
 		{"LastPrice", pprice(st.lastp)},
+        {"Position", ppos(st.boost_pos + calcPosition(cfg.ratio, st.kmult, st.lastp))},
 		{"Boost.Position", ppos(st.boost_pos)},
         {"Boost.Profit", ppos(st.boost_pnl)}
 	};
