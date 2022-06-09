@@ -66,9 +66,7 @@ public:
 		double budget=0;
 		double pwadj = 1;
 		double val = 0;
-		double last_spread=1.01;
-		double sum_spread=0;
-		int trades=0;
+		double avg_spread=0.001;
 	};
 
 

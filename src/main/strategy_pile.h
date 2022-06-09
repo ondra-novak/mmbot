@@ -31,7 +31,7 @@ public:
 		double boost_neutral_price = 0;
 		double boost_value = 0;
 		double boost_pos = 0;
-		double boost_pnl = 0;
+		double boost_spread = 0;
 	};
 
 	Strategy_Pile(const Config &cfg);

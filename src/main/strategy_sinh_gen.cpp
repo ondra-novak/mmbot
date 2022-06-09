@@ -141,9 +141,7 @@ PStrategy Strategy_Sinh_Gen::init(const IStockApi::MarketInfo &minfo,
 	State nwst;
 	nwst.p = st.p?st.p:price;
 	nwst.spot = minfo.leverage == 0;
-	nwst.sum_spread = st.sum_spread;
-	nwst.trades = st.trades;
-	nwst.last_spread = st.last_spread;
+	nwst.avg_spread= st.avg_spread;
 	nwst.pwadj = 1.0;
 	double pw = cfg.power * currency/price;
 	double zero =  cfg.calc->assets(price, pw, price);;
@@ -210,7 +208,7 @@ double Strategy_Sinh_Gen::calcNewK(double tradePrice, double cb, double pnl, int
 	double newk = st.k;
 	if (st.k != st.p) {
 		if (!pnl) return st.k;
-		double sprd = cfg.avgspread?(1.0+st.sum_spread/std::max(st.trades,10)):(tradePrice/st.p);
+		double sprd = cfg.avgspread?(std::exp(st.avg_spread)):(tradePrice/st.p);
 		double refp = st.k*sprd;
 		double yield_a = cfg.calc->budget(st.k, pw, refp);
 		double yield_b = cfg.calc->budget(st.k, pw, refp/pow2(sprd));
@@ -233,7 +231,12 @@ double Strategy_Sinh_Gen::calcNewK(double tradePrice, double cb, double pnl, int
 			case 11: if (pnl>0) return st.k;refb = 0;break;
 			case 12: if (pnl<0) return st.k;refb = 0;break;
             case 13: refb = pnl>0?0.0:3*yield;break;
-            case 14: refb = pnl>0?-yield:3*yield;break;
+            case 15: refb = cfg.calc->budget(st.k, pw, st.k*1.0001);break;
+            case 16: refb = cfg.calc->budget(st.k, pw, st.k*1.0005);break;
+            case 17: refb = cfg.calc->budget(st.k, pw, st.k*1.0010);break;
+            case 18: refb = cfg.calc->budget(st.k, pw, st.k*1.0050);break;
+            case 19: refb = cfg.calc->budget(st.k, pw, st.k*1.0100);break;
+            case 20: refb = cfg.calc->budget(st.k, pw, st.k*1.0200);break;
 		}
 
 		double nb = cb+pnl+refb; //current budget + pnl + yield = new budget
@@ -327,12 +330,8 @@ std::pair<IStrategy::OnTradeResult, PStrategy> Strategy_Sinh_Gen::onTrade(
 	nwst.k = newk;
 	nwst.p = tradePrice;
 	nwst.pwadj = st.pwadj*pwadj;
-	nwst.last_spread = tradePrice/st.p;
-	if (nwst.last_spread<1.0) nwst.last_spread=1.0/nwst.last_spread;
-	if (nwst.last_spread>1.0) {
-		nwst.trades = st.trades+1;
-		nwst.sum_spread = st.sum_spread + (nwst.last_spread-1.0);
-	}
+	double lspread = std::abs(std::log(tradePrice/st.p));
+	nwst.avg_spread = (199*st.avg_spread+lspread)/200;
 
 	if (st.rebalance) np = 0;
 	return {
@@ -350,9 +349,7 @@ json::Value Strategy_Sinh_Gen::exportState() const {
 			Value("k", st.k),
 			Value("p", st.p),
 			Value("budget", st.budget),
-			Value("last_spread", st.last_spread),
-			Value("sum_spread", st.sum_spread),
-			Value("trades", st.trades),
+			Value("avg_spread", st.avg_spread),
 			Value("val", st.val),
 			Value("pwadj", st.pwadj),
 			Value("hash", cfg.calcConfigHash()),
@@ -371,9 +368,7 @@ PStrategy Strategy_Sinh_Gen::importState(json::Value src, const IStockApi::Marke
 		src["budget"].getNumber(),
 		src["pwadj"].getValueOrDefault(1.0),
 		0,
-		src["last_spread"].getNumber(),
-		src["sum_spread"].getNumber(),
-		static_cast<int>(src["trades"].getInt()),
+		src["avg_spread"].getNumber(),
 	};
 	if (src["hash"].hasValue() && cfg.calcConfigHash() != src["hash"].toString()) {
 		nwst.k = 0; //make settings invalid;
@@ -413,7 +408,7 @@ PStrategy Strategy_Sinh_Gen::importState(json::Value src, const IStockApi::Marke
 json::Value Strategy_Sinh_Gen::dumpStatePretty(const IStockApi::MarketInfo &minfo) const {
 	auto getpx = [&](double px){return minfo.invert_price?1.0/px:px;};
 	auto getpos = [&](double pos){return minfo.invert_price?-pos:pos;};
-	double sprd = cfg.avgspread?(1.0+st.sum_spread/std::max(10,st.trades)):st.last_spread;
+	double sprd = std::exp(st.avg_spread);
 	double a = cfg.calc->assets(st.k, pw, st.p);
 
 	using namespace json;
@@ -448,9 +443,9 @@ IStrategy::OrderData Strategy_Sinh_Gen::getNewOrder(
 	}
 
 	double calc_price = new_price;
-	if (((cfg.lazyopen && dir * assets >= 0) || (cfg.lazyclose && dir * assets < 0)) && !st.rebalance && st.trades>1) {
+	if (((cfg.lazyopen && dir * assets >= 0) || (cfg.lazyclose && dir * assets < 0)) && !st.rebalance && st.avg_spread>0) {
 		//calc_price - use average spread instead current price
-		calc_price = getEquilibrium_inner(assets) * std::exp(-1.5*dir*st.sum_spread/st.trades);
+		calc_price = getEquilibrium_inner(assets) * std::exp(-2*dir*st.avg_spread);
 		if (calc_price*dir < new_price*dir) {
 			//however can't go beyond new_price
 			calc_price = new_price;
