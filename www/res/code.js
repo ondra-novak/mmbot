@@ -308,6 +308,7 @@ function app_start(){
 					misc.avghpl_pp = misc.avghpl/misc.bt*100;
 					misc.rpnl_pp = misc.rpnl/misc.bt*100;
 					misc.upnl_pp = misc.upnl/misc.bt*100;
+                    misc.msp = (misc.ms/ranges.last[0]*100).toFixed(2);
 					misc.p0 = lastItem.p0 == undefined?"---":lastItem.p0
 					misc.pnorm = last_norm;
 					misc.pnormp = 100*last_norm/misc.mv;
