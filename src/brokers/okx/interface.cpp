@@ -282,6 +282,17 @@ IStockApi::Orders Interface::getOpenOrders(const std::string_view &pair) {
 	}, Orders());
 }
 
+static std::string numToStr(double a) {
+    char buff[256];
+    int n = -std::min<int>(static_cast<int>(std::log10(std::abs(a))),0)+6;
+    snprintf(buff,sizeof(buff),"%.*f",n,a);
+    std::string out(buff);
+    while (!out.empty() && out.back() == '0') out.pop_back();
+    if (!out.empty() && out.back() == '.') out.push_back('0');
+
+    return out;
+}
+
 json::Value Interface::placeOrder(const std::string_view &pair, double size,
 		double price, json::Value clientId, json::Value replaceId,
 		double replaceSize) {
@@ -291,8 +302,8 @@ json::Value Interface::placeOrder(const std::string_view &pair, double size,
 			Value res = authReq("POST", "/api/v5/trade/amend-order", Object({
 				{"instId",pair},
 				{"ordId",replaceId},
-				{"newSz", std::abs(size)},
-				{"newPx", price}
+				{"newSz", numToStr(std::abs(size))},
+				{"newPx", numToStr(price)}
 			}));
 			return res["data"][0]["ordId"];
 		} else {
@@ -311,8 +322,8 @@ json::Value Interface::placeOrder(const std::string_view &pair, double size,
 			{"tag", createTag(clientId)},
 			{"side",size<0?"sell":"buy"},
 			{"ordType","post_only"},
-			{"sz", std::abs(size)},
-			{"px",price}
+			{"sz", numToStr(std::abs(size))},
+			{"px",numToStr(price)}
 		})
 				);
 		return res["data"][0]["ordId"];
