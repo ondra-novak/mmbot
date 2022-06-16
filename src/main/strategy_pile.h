@@ -32,6 +32,7 @@ public:
 		double boost_value = 0;
 		double boost_pos = 0;
 		double boost_spread = 0;
+		double np_hidden = 0;
 	};
 
 	Strategy_Pile(const Config &cfg);
@@ -85,11 +86,13 @@ public:
 
 
 
-    double calcNewK(double pos, double price, double pl) const;
+    double calcNewK(double pos, double price, double pl, bool no_profit) const;
+    double calcBPW(const State &st) const;
 
 protected:
 	Config cfg;
 	State st;
+	double bpw;
 
 	static const double ln2;
 

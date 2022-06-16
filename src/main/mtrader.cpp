@@ -619,10 +619,8 @@ void MTrader::perform(bool manually) {
 			{
 //				double last_price = trades.back().eff_price;
 				double locked = wcfg.walletDB.lock_shared()->query(WalletDB::KeyQuery(cfg.broker, minfo.wallet_id, minfo.currency_symbol, uid)).otherTraders;
-				double budget = strategy.calcCurrencyAllocation(status.curPrice, minfo.leverage>0);
-				if (budget) {
-					budget_extra =  status.currencyUnadjustedBalance - locked - budget;
-				}
+				double currency = strategy.calcCurrencyAllocation(status.curPrice, minfo.leverage>0);
+				budget_extra =  status.currencyUnadjustedBalance - locked - currency;
 			}
 
 			statsvc->reportMisc(IStatSvc::MiscData{

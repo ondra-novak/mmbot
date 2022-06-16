@@ -331,7 +331,7 @@ std::pair<IStrategy::OnTradeResult, PStrategy> Strategy_Sinh_Gen::onTrade(
 	nwst.p = tradePrice;
 	nwst.pwadj = st.pwadj*pwadj;
 	double lspread = std::abs(std::log(tradePrice/st.p));
-	nwst.avg_spread = (199*st.avg_spread+lspread)/200;
+	nwst.avg_spread = nwst.avg_spread<=0?lspread*0.5:(199*st.avg_spread+lspread)/200;
 
 	if (st.rebalance) np = 0;
 	return {
