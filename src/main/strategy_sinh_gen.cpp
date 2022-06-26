@@ -151,8 +151,7 @@ PStrategy Strategy_Sinh_Gen::init(const IStockApi::MarketInfo &minfo,
 	nwst.rconst = calcPileKMult(price, budget, cfg.ratio);
 
 	auto srchfn = [&](double x) {
-        double kmult = calcPileKMult(x,  budget, cfg.ratio);
-        return cfg.calc->assets(x, pw, price)+calcPilePosition(cfg.ratio, kmult, price)-pos;
+        return cfg.calc->assets(x, pw, price)+initpos-pos;
     };
 
 	for (int i=0;i < 5;i++) {
@@ -166,8 +165,8 @@ PStrategy Strategy_Sinh_Gen::init(const IStockApi::MarketInfo &minfo,
 		nwst.budget = budget;
 		pw = calcPower(cfg.power ,nwst);
 	}
-	nwst.rconst = calcPileKMult(nwst.k, budget, cfg.ratio);
-	nwst.offset = calcPilePosition(cfg.ratio, nwst.rconst, nwst.k);
+	nwst.rconst = calcPileKMult(nwst.p, budget, cfg.ratio);
+	nwst.offset = calcPilePosition(cfg.ratio, nwst.rconst, nwst.p);
 	nwst.val = cfg.calc->budget(nwst.k, pw,  price);
 	if (st.budget <= 0) {
 		for (int i = 0; i < 10; i++) {
@@ -483,10 +482,10 @@ IStrategy::OrderData Strategy_Sinh_Gen::getNewOrder(
 
 double Strategy_Sinh_Gen::limitPosition(double pos) const {
 	double apos = pos + st.offset;
-	if ((cfg.disableSide<0 || st.spot) && apos<0) {
+	if ((cfg.disableSide<0 || st.spot) && apos<-st.offset) {
 		return -st.offset;
 	}
-	if (cfg.disableSide>0 && apos>0) {
+	if (cfg.disableSide>0 && apos>-st.offset) {
 		return -st.offset;
 	}
 	return pos;
