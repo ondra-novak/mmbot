@@ -15,7 +15,7 @@
 #include <fstream>
 #include <set>
 
-#include "../shared/finally.h"
+#include "../shared/trailer.h"
 using namespace ondra_shared;
 
 

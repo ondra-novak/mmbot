@@ -132,9 +132,9 @@
 	</x-section></div>
 </x-section>
 <x-section data-name="strategy_pile" class="goal" hidden="hidden"><x-section-caption>Pile strategy</x-section-caption>
-<label><span>Ratio [%] (need reset):<span class="tooltip">(advise only, requires to set position during reset)</span></span><x-slider data-name="pile_ratio" data-min="5" data-max="95" data-mult="1" data-fixed="0"></x-slider></label>
+<label><span>Ratio [%] (need reset):<span class="tooltip">(advise only, requires to set position during reset)</span></span><x-slider data-name="pile_ratio" data-min="0" data-max="100" data-mult="1" data-fixed="0"></x-slider></label>
 <label><span>Accumulation [%]: <span class="tooltip">Specifies amount of normalized profit used to buy assets. This extra assets are not considered as the position</span></span><x-slider data-name="pile_accum" data-min="0" data-max="100" data-mult="1" data-fixed="0"></x-slider></label>
-<label><span>Boost power [%]: (0=disable)<span class="tooltip">Specifies amount of budget used for boost</span></span><x-slider data-name="pile_bpw" data-min="0" data-max="100" data-mult="1" data-fixed="0"></x-slider></label>
+<label><span>Boost power [%]: (0=disable)<span class="tooltip">Specifies amount of budget used for boost</span></span><x-slider data-name="pile_bpw" data-min="0" data-max="200" data-mult="0.5" data-fixed="1"></x-slider></label>
 <label><span>Boost 1/volatility [x] (0=disable): <span class="tooltip">Specifies volatility in percent for specified boost power</span></span><x-slider data-name="pile_bvl" data-min="0" data-max="100" data-mult="1" data-fixed="0"></x-slider></label>
 <x-section>
 <div class="label"><span>Recomended initial position:</span><span data-name="range_initial">---</span></div>
@@ -294,6 +294,7 @@ to enter a negative value and then the value of the assets held will decrease an
 </x-section>
 
 <x-section data-name="strategy_sinhgen backtest_anchor" class="goal" hidden="hidden"><x-section-caption>Simple Leveraged</x-section-caption>
+<label><span>Ratio[%]<span class="tooltip">Specifies ratio between assets and currency held on account at neutral price. Default value us zero, which means, that position 0 is neutral position. However, much better results you can get with ratio 50% especially on trending markets. Can be also useful on inverted markets where 100% means hedge position</span></span><x-slider data-name="shg_r" data-min="0" data-max="100" data-mult="1" data-fixed="0"></label>
 <label><span>Power[%]<span class="tooltip">Relative amount of you balance used in calculation in percent</span></span><x-slider data-name="shg_p" data-min="1" data-max="200" data-mult="1" data-fixed="0"></label>
 <label><span>Aggressiveness[%]<span class="tooltip">How much aggresive is strategy is to open positions. In order to ensure sufficient money management, smaller positions may be opened first and larger positions will be opened later </span></span><x-slider data-name="shg_w" data-min="1" data-max="200" data-mult="1" data-fixed="0"></label>
 <label class="adv"><span>Initial boost[%]<span class="tooltip">Boosts position when it is initially opened</span></span><x-slider data-name="shg_b" data-min="0" data-max="10" data-mult="0.1" data-fixed="1"></label>
@@ -335,7 +336,6 @@ to enter a negative value and then the value of the assets held will decrease an
     <option value="19">Fixed yield spread=10.0‰</option>
     <option value="20">Fixed yield spread=20.0‰</option>
 </select></div>
-<label class="adv"><span>Position offset<span class="tooltip">Specify absolute position offset which is considered as neutral (zero position). This can increase the profit in the trend if the value is chosen with respect to the direction of the trend. If the market goes in reversed direction, the result can be a loss. If you do not have a good market analysis to correctly determine the trend, leave the value zero which is default.</span></span><input type="number" step="any" data-name="shg_offset"></label>
 <div class="label"><span>Min price:</span><span data-name="range_min_price">---</span></div>
 <div class="label"><span>Max price:</span><span data-name="range_max_price">---</span></div>
 <div class="label"><span>Recomended initial position:</span><span data-name="range_initial">---</span></div>

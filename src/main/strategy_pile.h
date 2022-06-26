@@ -23,6 +23,7 @@ public:
 		bool isBoostEnabled() const;
 	};
 
+
 	struct State {
 	    double lastp = 0; // last trade price
 		double kmult = 0; // multiplication constant

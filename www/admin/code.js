@@ -515,7 +515,7 @@ App.prototype.fillForm = function (src, trg) {
 			["strategy","external_assets","gs_external_assets", "hp_trend_factor","hp_allowshort","hp_power", "hp_recalc", "hp_asym","hp_powadj", 
 			"hp_extbal", "hp_reduction","hp_dynred","sh_curv","gamma_exp","pincome_exp",
 			"gamma_trend","gamma_fn",
-			"shg_w","shg_p","shg_z","shg_lp","shg_offset",
+			"shg_w","shg_p","shg_z","shg_lp","shg_r",
 			"pile_ratio","hodlshort_z",
 			"incval_w","incval_z",
 			"invert_proxy"
@@ -533,7 +533,7 @@ App.prototype.fillForm = function (src, trg) {
 			data.show_backtest= {"!click": this.init_backtest.bind(this, trg, src.id, src.pair_symbol, src.broker), ".disabled":false};
 			data.inverted_price=pair.invert_price?"true":"false";
 			data.show_invert_proxy = {".hidden":!pair.leverage};
-			var tmp = trg.readData(["cstep","max_pos","shg_lp","shg_offset"]);
+			var tmp = trg.readData(["cstep","max_pos","shg_lp","shg_r"]);
 			if (!src.strategy && typeof state.pair.price == "string" && state.pair.price.startsWith("trainer")){
 			    this.brokerConfig(this.pairURL(broker.name, src.pair_symbol)+"/settings").then(updateHdr,updateHdr);
 			}
@@ -557,8 +557,7 @@ App.prototype.fillForm = function (src, trg) {
 				}.bind(this)			
 			};			
 			if (trg._pair.invert_price) {
-				if (tmp.shg_lp) data.shg_lp = -parseInt(tmp.shg_lp);
-				if (tmp.shg_offset) data.shg_offset = -tmp.shg_offset;
+				if (tmp.shg_lp) data.shg_lp = -parseInt(tmp.shg_lp);				
 			}
 			data.shg_control_pos["!click"] = this.shgControlPosition.bind(this,src.id, trg);	        
 
@@ -658,7 +657,7 @@ App.prototype.fillForm = function (src, trg) {
 	data.shg_lazyopen=false;
 	data.shg_lazyclose=false;
 	data.shg_boostmode=0;
-	data.shg_offset=0;
+	data.shg_r=0;
 	data.shg_show_asym={".hidden":false};
 	data.pincome_exp = 40;
 	data.pile_ratio=50;
@@ -742,7 +741,7 @@ App.prototype.fillForm = function (src, trg) {
 		data.shg_ol=filledval(defval(Math.abs(src.strategy.openlimit),0),0);
 		if (!src.strategy.openlimit || src.strategy.openlimit==0) data.shg_ol.disabled = true;
 		data.shg_olt={value:src.strategy.openlimit>0?1:src.strategy.openlimit<0?-1:0};
-		data.shg_offset = filledval(src.strategy.offset,0);
+		data.shg_r = filledval(src.strategy.ratio,0);
 		data.shg_show_asym = {".hidden": src.strategy.disableSide != 0};		
 	} else if (data.strategy == "pile") {
 		data.pile_accum = filledval(src.strategy.accum,0);
@@ -955,7 +954,7 @@ function getStrategyData(data, inv) {
 			lazyopen:data.shg_lazyopen,
 			lazyclose:data.shg_lazyclose,
 			boostmode:data.shg_boostmode,
-			offset: (inv?-1.0:1.0)*data.shg_offset
+			ratio: data.shg_r
 		};		
 	} else 	if (["hyperbolic","linear","sinh","sinh_val","sinh2"].indexOf(data.strategy) != -1) {
 		strategy = {
@@ -1919,7 +1918,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		"kv2_accum","kv2_boost","kv2_chngtm","kv2_reinvest",
 		"incval_w","incval_r","incval_ms","incval_ri","incval_z",
 		"hedge_short","hedge_long","hedge_drop",
-		"shg_w","shg_p","shg_z","shg_b","shg_olt","shg_ol","shg_lp","shg_rnv","shg_avgsp","shg_boostmode","shg_lazyopen","shg_lazyclose","shg_offset",
+		"shg_w","shg_p","shg_z","shg_b","shg_olt","shg_ol","shg_lp","shg_rnv","shg_avgsp","shg_boostmode","shg_lazyopen","shg_lazyclose","shg_r",
 		"trade_within_budget"];
 	var spread_inputs = ["spread_calc_stdev_hours","secondary_order", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode","dynmult_sliding","dynmult_cap","dynmult_mult","force_spread","spread_mode","spread_freeze"];
 	var leverage = form._pair.leverage != 0;	

@@ -28,7 +28,7 @@ bool Strategy_Sinh_Gen::FnCalc::sortPoints(const Point &a, const Point &b) {
 }
 
 Strategy_Sinh_Gen::FnCalc::FnCalc(double wd, double boost,  double z)
-:wd(wd),boost(boost),z(z) {
+:wd(wd*0.5),boost(boost),z(z) {
 
 		auto fillFn = [&](double x, double y) {
 			itable.push_back({x,y});
@@ -55,7 +55,7 @@ Strategy_Sinh_Gen::FnCalc::FnCalc(double wd, double boost,  double z)
 
 double Strategy_Sinh_Gen::FnCalc::baseFn(double x) const {
 	double y;
-	double arg = wd*(1-std::sqrt(x));
+	double arg = wd*(1-x);
 	y = std::sinh(arg);
 	y = y / (std::pow(x,wd*z+1)*std::sqrt(wd));
 	return y + sgn(y) * boost;
@@ -130,7 +130,7 @@ bool Strategy_Sinh_Gen::isValid() const {
 PStrategy Strategy_Sinh_Gen::onIdle(const IStockApi::MarketInfo &minfo,
 		const IStockApi::Ticker &curTicker, double assets,
 		double currency) const {
-	if (!isValid()) return init(minfo, curTicker.last, assets-cfg.offset, currency);
+	if (!isValid()) return init(minfo, curTicker.last, assets, currency);
 	else return this;
 }
 
@@ -144,31 +144,30 @@ PStrategy Strategy_Sinh_Gen::init(const IStockApi::MarketInfo &minfo,
 	nwst.avg_spread= st.avg_spread;
 	nwst.pwadj = 1.0;
 	double pw = cfg.power * currency/price;
-	double zero =  cfg.calc->assets(price, pw, price);;
+	double prange = budget / price;
+	double small_range = prange * 0.01;
+	double initpos = calcPilePosition(cfg.ratio, calcPileKMult(price, budget, cfg.ratio), price);
+
+	nwst.rconst = calcPileKMult(price, budget, cfg.ratio);
+
+	auto srchfn = [&](double x) {
+        double kmult = calcPileKMult(x,  budget, cfg.ratio);
+        return cfg.calc->assets(x, pw, price)+calcPilePosition(cfg.ratio, kmult, price)-pos;
+    };
 
 	for (int i=0;i < 5;i++) {
-		if (pos > 0) {
-			if (zero>=pos || pos * zero < 0) {
-				nwst.k = price;
-			} else {
-				nwst.k = numeric_search_r2(price, [&](double x) {
-					return cfg.calc->assets(x, pw, price)-pos;
-				});
-			}
-		} else if (pos < 0) {
-			if (zero<=pos || pos * zero < 0) {
-				nwst.k = price;
-			} else {
-				nwst.k = numeric_search_r1(price, [&](double x) {
-					return cfg.calc->assets(x, pw, price)-pos;
-				});
-			}
+		if (pos > initpos + small_range) {
+			nwst.k = numeric_search_r2(price, srchfn);
+		} else if (pos < initpos - small_range) {
+			nwst.k = numeric_search_r1(price, srchfn);
 		} else {
 			nwst.k = price;
 		}
 		nwst.budget = budget;
 		pw = calcPower(cfg.power ,nwst);
 	}
+	nwst.rconst = calcPileKMult(nwst.k, budget, cfg.ratio);
+	nwst.offset = calcPilePosition(cfg.ratio, nwst.rconst, nwst.k);
 	nwst.val = cfg.calc->budget(nwst.k, pw,  price);
 	if (st.budget <= 0) {
 		for (int i = 0; i < 10; i++) {
@@ -285,7 +284,7 @@ std::pair<IStrategy::OnTradeResult, PStrategy> Strategy_Sinh_Gen::onTrade(
 	if (!isValid()) return init(minfo, tradePrice, assetsLeft, currencyLeft)
 				->onTrade(minfo, tradePrice, tradeSize, assetsLeft, currencyLeft);
 
-	assetsLeft-=cfg.offset;
+	assetsLeft-=st.offset;
 
 	assetsLeft = roundZero(assetsLeft, minfo, tradePrice);
 	double prevPos = assetsLeft - tradeSize;
@@ -320,16 +319,23 @@ std::pair<IStrategy::OnTradeResult, PStrategy> Strategy_Sinh_Gen::onTrade(
 	if (posErr < 0.3) rbl = false; //rebalance se vypne, pokud je pozice s mensi chybou, nez je 30%
 
 
+	double ofspnl = st.offset * (tradePrice - st.p);
+	double ofsbchange = calcPileBudget(cfg.ratio, st.rconst, tradePrice) - calcPileBudget(cfg.ratio,st.rconst, st.p);
+	np = np + ofspnl - ofsbchange;
+
 
 	State nwst;
 	nwst.use_last_price = ulp;
 	nwst.spot = minfo.leverage == 0;
 	nwst.rebalance = rbl;
-	nwst.budget = (cfg.reinvest?np:0)+st.budget;
+	nwst.budget = (cfg.reinvest?np:0)+st.budget+ofspnl;
 	nwst.val = nb;
 	nwst.k = newk;
 	nwst.p = tradePrice;
 	nwst.pwadj = st.pwadj*pwadj;
+	nwst.rconst = calcPileKMult(nwst.p, nwst.budget, cfg.ratio);
+	nwst.offset = calcPilePosition(cfg.ratio, nwst.rconst, nwst.p);
+
 	double lspread = std::abs(std::log(tradePrice/st.p));
 	nwst.avg_spread = nwst.avg_spread<=0?lspread*0.5:(199*st.avg_spread+lspread)/200;
 
@@ -352,9 +358,7 @@ json::Value Strategy_Sinh_Gen::exportState() const {
 			Value("avg_spread", st.avg_spread),
 			Value("val", st.val),
 			Value("pwadj", st.pwadj),
-			Value("hash", cfg.calcConfigHash()),
-			Value("offset", json::base64url->encodeBinaryValue(json::BinaryView(
-					reinterpret_cast<const unsigned char *>(&cfg.offset), sizeof(cfg.offset))))
+			Value("hash", cfg.calcConfigHash())
 	});
 }
 
@@ -369,7 +373,12 @@ PStrategy Strategy_Sinh_Gen::importState(json::Value src, const IStockApi::Marke
 		src["pwadj"].getValueOrDefault(1.0),
 		0,
 		src["avg_spread"].getNumber(),
+		0,
+		0,
 	};
+	nwst.rconst = calcPileKMult(nwst.k, nwst.budget, cfg.ratio);
+	nwst.offset = calcPilePosition(cfg.ratio, nwst.rconst, nwst.k);
+
 	if (src["hash"].hasValue() && cfg.calcConfigHash() != src["hash"].toString()) {
 		nwst.k = 0; //make settings invalid;
 	} else {
@@ -396,11 +405,6 @@ PStrategy Strategy_Sinh_Gen::importState(json::Value src, const IStockApi::Marke
 		nwst.use_last_price = false;
 		nwst.rebalance = true;
 	}
-	json::Value binofs=json::base64url->encodeBinaryValue(json::BinaryView(
-						reinterpret_cast<const unsigned char *>(&cfg.offset), sizeof(cfg.offset)));
-	if(src["offset"].hasValue() && binofs != src["offset"]) {
-		nwst.rebalance = true;
-	}
 
 	return new Strategy_Sinh_Gen(cfg, std::move(nwst));
 }
@@ -420,7 +424,8 @@ json::Value Strategy_Sinh_Gen::dumpStatePretty(const IStockApi::MarketInfo &minf
 			Value("Price-neutral", getpx(st.k)),
 			Value("Budget-total", st.budget),
 			Value("Budget-current", st.val+st.budget),
-			Value("Position", getpos(a+cfg.offset)),
+			Value("Position", getpos(a+st.offset)),
+			Value("Position offset", getpos(st.offset)),
 			Value("Use last price",st.use_last_price),
 			Value("Profit per trade", -cfg.calc->budget(st.k, pw, st.k*sprd)),
 			Value("Profit per trade[%]", -cfg.calc->budget(st.k, pw, st.k*sprd)/st.budget*100)
@@ -431,7 +436,7 @@ IStrategy::OrderData Strategy_Sinh_Gen::getNewOrder(
 		const IStockApi::MarketInfo &minfo, double cur_price, double new_price,
 		double dir, double assets, double currency, bool rej) const {
 
-	assets -= cfg.offset;
+	assets -= st.offset;
 
 	assets = roundZero(assets, minfo, st.p);
 
@@ -467,7 +472,7 @@ IStrategy::OrderData Strategy_Sinh_Gen::getNewOrder(
 
 
 	double new_pos = limitPosition(cfg.calc->assets(newk, pw*pwadj, calc_price));
-	if (cfg.disableSide) new_pos = roundZero(new_pos-cfg.offset, minfo, new_price)+cfg.offset;
+	if (cfg.disableSide) new_pos = roundZero(new_pos-st.offset, minfo, new_price)+st.offset;
 	double dfa = new_pos -assets;
 	if ((new_pos * assets <0 || new_pos == 0) && (assets * dir <= 0)){
 		//close current position (force alert)
@@ -477,12 +482,12 @@ IStrategy::OrderData Strategy_Sinh_Gen::getNewOrder(
 }
 
 double Strategy_Sinh_Gen::limitPosition(double pos) const {
-	double apos = pos + cfg.offset;
+	double apos = pos + st.offset;
 	if ((cfg.disableSide<0 || st.spot) && apos<0) {
-		return -cfg.offset;
+		return -st.offset;
 	}
 	if (cfg.disableSide>0 && apos>0) {
-		return -cfg.offset;
+		return -st.offset;
 	}
 	return pos;
 }
@@ -505,7 +510,7 @@ IStrategy::MinMax Strategy_Sinh_Gen::calcSafeRange(
 }
 
 double Strategy_Sinh_Gen::getEquilibrium(double assets) const {
-	return getEquilibrium_inner(assets-cfg.offset);
+	return getEquilibrium_inner(assets-st.offset);
 }
 double Strategy_Sinh_Gen::getEquilibrium_inner(double assets) const {
 	double r = cfg.calc->root(st.k, pw, assets);
@@ -523,11 +528,11 @@ std::string_view Strategy_Sinh_Gen::getID() const {
 double Strategy_Sinh_Gen::calcInitialPosition(
 		const IStockApi::MarketInfo &minfo, double price, double assets,
 		double currency) const {
-	auto me = init(minfo,price,assets,currency);
-	const Strategy_Sinh_Gen *mm = static_cast<const Strategy_Sinh_Gen *>((const IStrategy *)me);
-	double k = mm->st.k;
-	double pw = mm->pw;
-	return cfg.offset+cfg.calc->assets(k,pw,k);
+    double budget = currency + (minfo.leverage?0:(assets * price));
+    double kmult = calcPileKMult(price, budget, cfg.ratio);
+    double pos = calcPilePosition(cfg.ratio, kmult, price);
+    return pos;
+
 }
 
 IStrategy::BudgetInfo Strategy_Sinh_Gen::getBudgetInfo() const {
@@ -553,8 +558,8 @@ double Strategy_Sinh_Gen::calcCurrencyAllocation(double p, bool leveraged) const
 IStrategy::ChartPoint Strategy_Sinh_Gen::calcChart(double price) const {
 	return {
 		true,
-		cfg.calc->assets(st.k, pw, price),
-		cfg.calc->budget(st.k, pw, price)+st.budget,
+		cfg.calc->assets(st.k, pw, price)+st.offset,
+		cfg.calc->budget(st.k, pw, price)+st.budget+st.offset * (price - st.p),
 	};
 }
 
@@ -605,4 +610,38 @@ double Strategy_Sinh_Gen::adjustPower(double a, double newk, double price) const
 		return 1.0/st.pwadj;
 	}
 	return 1.0;
+}
+
+
+double Strategy_Sinh_Gen::calcPileKMult(double price, double budget, double ratio) {
+    double c = calcPileBudget(ratio, 1, price);
+    double kmult = budget/c;
+    return kmult;
+}
+
+double Strategy_Sinh_Gen::calcPilePosition(double ratio, double kmult, double price) {
+    return kmult*ratio*std::pow(price, ratio-1);
+}
+
+double Strategy_Sinh_Gen::calcPileBudget(double ratio, double kmult, double price) {
+    return kmult*std::pow(price,ratio);
+}
+
+double Strategy_Sinh_Gen::calcPileEquilibrium(double ratio, double kmul, double position) {
+    //(c/(k z))^(1/(-1 + z))
+    return std::pow<double>(position/(kmul*ratio),1.0/(ratio-1));
+}
+
+double Strategy_Sinh_Gen::calcPilePriceFromBudget(double ratio, double kmul, double budget) {
+    //(c/k)^(1/z)
+    return std::pow(budget/kmul, 1.0/(ratio));
+}
+
+double Strategy_Sinh_Gen::calcPileCurrency(double ratio, double kmult, double price) {
+    return kmult*std::pow(price,ratio)*(1 - ratio);
+}
+
+double Strategy_Sinh_Gen::calcPilePriceFromCurrency(double ratio, double kmult, double currency) {
+    //((k - k z)/c)^(-1/z)
+    return std::pow((kmult - kmult*ratio)/currency,-1.0/ratio);
 }

@@ -191,7 +191,7 @@ Strategy Strategy::create_base(std::string_view id, json::Value config) {
 		cfg.avgspread= config["avgspread"].getBool();
 		cfg.boostmode= config["boostmode"].getUInt();
 		cfg.openlimit = config["openlimit"].getNumber();
-		cfg.offset = config["offset"].getNumber();
+		cfg.ratio = config["ratio"].getNumber()*0.01;
 		return Strategy(new Strategy_Sinh_Gen(cfg));
 	} else if (id == Strategy_IncValue::id) {
 		Strategy_IncValue::Config cfg;

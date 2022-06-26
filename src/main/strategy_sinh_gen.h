@@ -48,7 +48,7 @@ public:
 		PFnCalc calc;
 		int disableSide;  //-1 disable short, 1 disable long
 		double openlimit;
-		double offset;
+		double ratio;
 		bool reinvest;
 		bool avgspread;
 		bool lazyopen;
@@ -67,6 +67,8 @@ public:
 		double pwadj = 1;
 		double val = 0;
 		double avg_spread=-1;
+		double offset = 0;
+		double rconst = 0;
 	};
 
 
@@ -123,6 +125,15 @@ protected:
 			double tradePrice) const;
 
 	double calcRealPosValue(double k, double pw, double price, double pos) const;
+
+    static double calcPilePosition(double ratio, double kmult, double price);
+    static double calcPileBudget(double ratio, double kmult, double price);
+    static double calcPileEquilibrium(double ratio, double kmul, double position);
+    static double calcPilePriceFromBudget(double ratio, double kmul, double budget);
+    static double calcPileCurrency(double ratio, double kmult, double price);
+    static double calcPilePriceFromCurrency(double ratio, double kmult, double currency);
+    static double calcPileKMult(double price, double budget, double ratio);
+
 };
 
 
