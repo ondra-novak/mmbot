@@ -16,7 +16,7 @@
 #include "../shared/linux_crash_handler.h"
 
 #include "shared/ini_config.h"
-#include "shared/shared_function.h"
+#include "shared/shared_lockable_ptr.h"
 #include "shared/cmdline.h"
 #include "shared/future.h"
 #include "../shared/sch2wrk.h"
@@ -65,7 +65,7 @@ using ondra_shared::RefCntObj;
 using ondra_shared::RefCntPtr;
 using ondra_shared::schedulerGetWorker;
 
-ondra_shared::SharedObject<Traders> traders;
+ondra_shared::shared_lockable_ptr<Traders> traders;
 
 
 static ondra_shared::CrashHandler report_crash([](const char *line) {
@@ -133,7 +133,7 @@ void trader_cycle(PReport rpt, PPerfModule perfmod, Scheduler sch, int pos, std:
 		traders.lock()->resetBrokers();
 	}
 
-	SharedObject<NamedMTrader> selected;
+	shared_lockable_ptr<NamedMTrader> selected;
 	int p = pos;
 	traders.lock_shared()->enumTraders([&](const auto & trinfo){
 		if (p == 0) selected = trinfo.second;
@@ -344,9 +344,9 @@ int main(int argc, char **argv) {
 							std::string workdir;
 							cmdline = dr.getPath();
 							workdir = dr.getCurPath();
-							perfmod = SharedObject<ExtDailyPerfMod>::make(workdir,"performance_module", cmdline, isim, brk_timeout).cast<IDailyPerfModule>();
+							perfmod = shared_lockable_ptr<ExtDailyPerfMod>::make(workdir,"performance_module", cmdline, isim, brk_timeout);
 						} else {
-							perfmod = SharedObject<LocalDailyPerfMonitor>::make(sf->create("_performance_daily"), storagePath+"/_performance_current",isim).cast<IDailyPerfModule>();
+							perfmod = shared_lockable_ptr<LocalDailyPerfMonitor>::make(sf->create("_performance_daily"), storagePath+"/_performance_current",isim);
 						}
 
 
@@ -368,7 +368,7 @@ int main(int argc, char **argv) {
 								jwt=AuthMapper::initJWT(jwt_type, jwt_pubkey);
 							}
 						}
-						SharedObject<WebCfg::State> webcfgstate = SharedObject<WebCfg::State>::make(sf->create("web_admin_conf"),WebCfg::Users{
+						shared_lockable_ptr<WebCfg::State> webcfgstate = shared_lockable_ptr<WebCfg::State>::make(sf->create("web_admin_conf"),WebCfg::Users{
 									new AuthUserList,
 									new AuthUserList,
 									new AuthUserList
@@ -395,7 +395,7 @@ int main(int argc, char **argv) {
 						}
 
 						if (addr.getHandle() != nullptr) {
-							auto phb = SharedObject<AbstractExtern>::make(history_broker.getCurPath(), "history_broker", history_broker.getString(), 55000);
+							auto phb = shared_lockable_ptr<AbstractExtern>::make(history_broker.getCurPath(), "history_broker", history_broker.getString(), 55000);
 
 							srv = std::make_unique<simpleServer::MiniHttpServer>(addr, asyncProvider);
 

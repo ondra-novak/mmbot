@@ -422,14 +422,14 @@ using namespace ondra_shared;
 
 class CaptureLog: public ondra_shared::StdLogProviderFactory {
 public:
-	CaptureLog(const ondra_shared::SharedObject<Report> &rpt, ondra_shared::PStdLogProviderFactory target):rpt(rpt),target(target) {}
+	CaptureLog(const ondra_shared::shared_lockable_ptr<Report> &rpt, ondra_shared::PStdLogProviderFactory target):rpt(rpt),target(target) {}
 
 	virtual void writeToLog(const StrViewA &line, const std::time_t &, LogLevel level) override;
 	virtual bool isLogLevelEnabled(ondra_shared::LogLevel lev) const override;
 
 
 protected:
-	SharedObject<Report> rpt;
+	shared_lockable_ptr<Report> rpt;
 	ondra_shared::PStdLogProviderFactory target;
 };
 
@@ -442,7 +442,7 @@ inline bool CaptureLog::isLogLevelEnabled(ondra_shared::LogLevel lev) const {
 	return target->isLogLevelEnabled(lev);
 }
 
-ondra_shared::PStdLogProviderFactory Report::captureLog(const ondra_shared::SharedObject<Report> &rpt, ondra_shared::PStdLogProviderFactory target) {
+ondra_shared::PStdLogProviderFactory Report::captureLog(const ondra_shared::shared_lockable_ptr<Report> &rpt, ondra_shared::PStdLogProviderFactory target) {
 	return new CaptureLog(rpt, target);
 }
 

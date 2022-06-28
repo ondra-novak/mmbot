@@ -10,7 +10,7 @@
 
 #include <memory>
 
-#include "../shared/shared_object.h"
+#include "../shared/shared_lockable_ptr.h"
 #include "idailyperfmod.h"
 #include "istatsvc.h"
 #include "report.h"
@@ -19,8 +19,8 @@ using CalcSpreadFn = std::function<void()>;
 using CalcSpreadQueue = std::function<void(CalcSpreadFn &&) >;
 
 
-using PReport = ondra_shared::SharedObject<Report>;
-using PPerfModule = ondra_shared::SharedObject<IDailyPerfModule, ondra_shared::SharedObjectVirtualTraits<IDailyPerfModule> >;
+using PReport = ondra_shared::shared_lockable_ptr<Report>;
+using PPerfModule = ondra_shared::shared_lockable_ptr<IDailyPerfModule>;
 
 class Stats2Report: public IStatSvc {
 public:

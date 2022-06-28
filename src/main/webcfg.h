@@ -84,7 +84,7 @@ public:
 		SpreadCache spread_cache;
 		PricesCache prices_cache;
 		std::map<std::size_t,std::pair<json::Value,bool> > progress_map;
-		SharedObject<BacktestStorage> backtest_storage;
+		shared_lockable_ptr<BacktestStorage> backtest_storage;
 		std::string news_url;
 		json::Value news_tm;
 
@@ -96,7 +96,7 @@ public:
 			):
 				  config(std::move(config)),
 				  users(users),
-				  backtest_storage(SharedObject<BacktestStorage>::make(backtest_cache_size,backtest_in_memory)),
+				  backtest_storage(shared_lockable_ptr<BacktestStorage>::make(backtest_cache_size,backtest_in_memory)),
 				  news_url(news_url)
 		{
 		}
@@ -104,7 +104,7 @@ public:
 
 		void init();
 		void init(json::Value v);
-		void applyConfig(SharedObject<Traders> &t);
+		void applyConfig(shared_lockable_ptr<Traders> &t);
 		void setAdminUser(const std::string &uname, const std::string &pwd);
 		ondra_shared::linear_set<std::string> logout_users;
 
@@ -125,21 +125,21 @@ public:
 
 	class Progress {
 	public:
-		SharedObject<State> state;
+		shared_lockable_ptr<State> state;
 		std::size_t id;
-		Progress(const SharedObject<State> &state, std::size_t id);
+		Progress(const shared_lockable_ptr<State> &state, std::size_t id);
 		Progress(Progress &&s);
 		Progress(const Progress &s);
 		~Progress();
 		bool set(json::Value v);
 	};
 
-	WebCfg( const SharedObject<State> &state,
+	WebCfg( const shared_lockable_ptr<State> &state,
 			const std::string &realm,
-			const SharedObject<Traders> &traders,
+			const shared_lockable_ptr<Traders> &traders,
 			Dispatch &&dispatch,
 			json::PJWTCrypto jwt,
-			SharedObject<AbstractExtern> backtest_broker,
+			shared_lockable_ptr<AbstractExtern> backtest_broker,
 			std::size_t upload_limit
 	);
 
@@ -171,7 +171,7 @@ public:
 	};
 
 	AuthMapper auth;
-	SharedObject<Traders> trlist;
+	shared_lockable_ptr<Traders> trlist;
 	Dispatch dispatch;
 	unsigned int serial;
 
@@ -200,10 +200,10 @@ protected:
 
 	using Sync = std::unique_lock<std::recursive_mutex>;
 
-	using PState = SharedObject<State>;
+	using PState = shared_lockable_ptr<State>;
 
 	PState state;
-	SharedObject<AbstractExtern> backtest_broker;
+	shared_lockable_ptr<AbstractExtern> backtest_broker;
 	std::size_t upload_limit;
 
 

@@ -58,12 +58,12 @@ NamedEnum<WebCfg::Command> WebCfg::strCommand({
 	{WebCfg::news, "news"}
 });
 
-WebCfg::WebCfg( const SharedObject<State> &state,
+WebCfg::WebCfg( const shared_lockable_ptr<State> &state,
 		const std::string &realm,
-		const SharedObject<Traders> &traders,
+		const shared_lockable_ptr<Traders> &traders,
 		Dispatch &&dispatch,
 		json::PJWTCrypto jwt,
-		SharedObject<AbstractExtern> backtest_broker,
+		shared_lockable_ptr<AbstractExtern> backtest_broker,
 		std::size_t upload_limit
 )
 	:auth(realm, state.lock_shared()->users.admins,jwt, false)
@@ -872,7 +872,7 @@ void WebCfg::State::init(json::Value data) {
 	}
 
 }
-void WebCfg::State::applyConfig(SharedObject<Traders>  &st) {
+void WebCfg::State::applyConfig(shared_lockable_ptr<Traders>  &st) {
 	auto t = st.lock();
 	t->rpt.lock()->clear();
 	auto data = config->load();
@@ -2270,7 +2270,7 @@ void WebCfg::State::stopProgress(std::size_t i)  {
 	if (iter != progress_map.end()) iter->second.second = true;
 }
 
-WebCfg::Progress::Progress(const SharedObject<State> &state, std::size_t id)
+WebCfg::Progress::Progress(const shared_lockable_ptr<State> &state, std::size_t id)
 	:state(state),id(id) {
 	this->state.lock()->initProgress(id);
 }

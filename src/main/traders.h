@@ -8,14 +8,14 @@
 #ifndef SRC_MAIN_TRADERS_H_
 #define SRC_MAIN_TRADERS_H_
 #include "../shared/scheduler.h"
-#include "../shared/shared_object.h"
+#include "../shared/shared_lockable_ptr.h"
 #include "../shared/worker.h"
 #include "istockapi.h"
 #include "mtrader.h"
 #include "stats2report.h"
 
 using ondra_shared::Worker;
-using ondra_shared::SharedObject;
+using ondra_shared::shared_lockable_ptr;
 
 using StatsSvc = Stats2Report;
 
@@ -31,7 +31,7 @@ class StockSelector: public IStockSelector{
 public:
 	using StockMarketMap =  ondra_shared::linear_map<std::string, PStockApi, std::less<>>;
 	using TemporaryStockMap = std::map<std::string, PStockApi, std::less<> >;
-	using PTemporaryStockMap = ondra_shared::SharedObject<TemporaryStockMap>;
+	using PTemporaryStockMap = ondra_shared::shared_lockable_ptr<TemporaryStockMap>;
 
 	StockMarketMap stock_markets;
 	PTemporaryStockMap temp_markets;
@@ -52,7 +52,7 @@ public:
 class Traders {
 public:
 
-	using TMap = ondra_shared::linear_map<std::string_view, SharedObject<NamedMTrader> >;
+	using TMap = ondra_shared::linear_map<std::string_view, shared_lockable_ptr<NamedMTrader> >;
 	TMap traders;
     StockSelector stockSelector;
 	PStorageFactory &sf;
@@ -88,7 +88,7 @@ public:
 	}
 
 	void resetBrokers();
-	SharedObject<NamedMTrader> find(std::string_view id) const;
+	shared_lockable_ptr<NamedMTrader> find(std::string_view id) const;
 	WalletCfg wcfg;
 
 

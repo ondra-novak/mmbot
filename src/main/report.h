@@ -14,7 +14,7 @@
 #include "istockapi.h"
 #include "storage.h"
 #include "../shared/linear_map.h"
-#include "../shared/shared_object.h"
+#include "../shared/shared_lockable_ptr.h"
 #include "../shared/stdLogOutput.h"
 #include "../shared/stringview.h"
 #include "istatsvc.h"
@@ -76,7 +76,7 @@ public:
 
 	virtual void setError(std::size_t rev,StrViewA symb, const ErrorObj &errorObj);
 
-	static ondra_shared::PStdLogProviderFactory captureLog(const ondra_shared::SharedObject<Report> &rpt, ondra_shared::PStdLogProviderFactory target);
+	static ondra_shared::PStdLogProviderFactory captureLog(const ondra_shared::shared_lockable_ptr<Report> &rpt, ondra_shared::PStdLogProviderFactory target);
 
 	std::size_t getRev() const {
 		return revize;

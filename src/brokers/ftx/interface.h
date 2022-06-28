@@ -13,7 +13,7 @@
 
 #include <imtjson/string.h>
 #include "../../server/src/simpleServer/websockets_stream.h"
-#include "../../shared/shared_object.h"
+#include "../../shared/shared_lockable_ptr.h"
 
 #include "../api.h"
 #include "../httpjson.h"
@@ -77,7 +77,7 @@ protected:
 
 	};
 
-	using PConnection = ondra_shared::SharedObject<Connection>;
+	using PConnection = ondra_shared::shared_lockable_ptr<Connection>;
 	PConnection connection;
 
 	struct MarketInfoEx: MarketInfo {

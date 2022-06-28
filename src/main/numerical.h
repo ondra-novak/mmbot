@@ -145,6 +145,56 @@ static void generateIntTable(Fn &&fn, double a, double b, double error, double y
 	out(b, y+r);
 }
 
+#if 0
+
+class IntegralTable {
+public:
+    template<typename Fn>
+    IntegralTable(Fn &&fn, double a, double b, double error, double y) {
+        generateIntTable([&](double x){
+            return baseFn(x);
+        }, a, b, error, y, [&](double x, double y) {
+            itable.push_back({x,y});
+        });
+    }
+
+    double operator()(double x) const {
+        double r;
+        auto iter = std::lower_bound(itable.begin(), itable.end(), Point(x,0), sortPoints);
+        Point p1,p2;
+        if (iter == itable.begin()) {
+            p1 = *iter;
+            p2 = *(iter+1);
+        } else if (iter == itable.end()) {
+            p1 = itable[itable.size()-2];
+            p2 = itable[itable.size()-1];
+        } else {
+            p1 = *(iter-1);
+            p2 = *(iter);
+        }
+        double f = (x - p1.first)/(p2.first - p1.first);
+        r = p1.second + (p2.second - p1.second) * f;
+        return r;
+    }
+
+    double get_transformed(double sx, double sy, double offs_x, double offs_y, double x) {
+        //sy - scale y - just a constant
+        //sx - scale x = f(sx * x) - replace sx * x with substitution u)
+                // f(u) -> sx * x = u -> sx = du
+        //offs_x - just decrease x by off_x
+        //offs_y -
+    }
 
 
+protected:
+    std::vector<std::pair<double, double> > itable;
+
+    static bool sortPoints(const Point &a, const Point &b) {
+        return a.first < b.first;
+    }
+
+
+};
+
+#endif
 #endif /* SRC_MAIN_NUMERICAL_H_ */

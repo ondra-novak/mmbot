@@ -174,7 +174,7 @@ void Traders::addTrader(const MTrader::Config &mcfg ,ondra_shared::StrViewA n) {
 				}
 			}
 
-			auto t = SharedObject<NamedMTrader>::make(stockSelector, std::move(storage),
+			auto t = shared_lockable_ptr<NamedMTrader>::make(stockSelector, std::move(storage),
 				std::make_unique<StatsSvc>(n, rpt, perfMod), wcfg, mcfg, n);
 			auto lt = t.lock();
 			try {
@@ -246,7 +246,7 @@ Traders::TMap::const_iterator Traders::end() const {
 	return traders.end();
 }
 
-SharedObject<NamedMTrader> Traders::find(std::string_view id) const {
+shared_lockable_ptr<NamedMTrader> Traders::find(std::string_view id) const {
 	auto iter = traders.find(id);
 	if (iter == traders.end()) return nullptr;
 	else return iter->second;

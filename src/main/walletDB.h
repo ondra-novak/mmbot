@@ -9,7 +9,7 @@
 #define SRC_MAIN_WALLETDB_H_
 #include <map>
 
-#include <shared/shared_object.h>
+#include <shared/shared_lockable_ptr.h>
 #include <string_view>
 #include <unordered_map>
 #include <vector>
@@ -99,7 +99,7 @@ protected:
 	AllocTable allocTable;
 };
 
-using PWalletDB = ondra_shared::SharedObject<WalletDB>;
+using PWalletDB = ondra_shared::shared_lockable_ptr<WalletDB>;
 
 class BalanceMap {
 public:
@@ -143,6 +143,6 @@ protected:
 
 };
 
-using PBalanceMap= ondra_shared::SharedObject<BalanceMap>;
+using PBalanceMap= ondra_shared::shared_lockable_ptr<BalanceMap>;
 
 #endif /* SRC_MAIN_WALLETDB_H_ */
