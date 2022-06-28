@@ -435,45 +435,46 @@ IStrategy::OrderData Strategy_Sinh_Gen::getNewOrder(
 		const IStockApi::MarketInfo &minfo, double cur_price, double new_price,
 		double dir, double assets, double currency, bool rej) const {
 
-	assets -= st.offset;
+	double curpos = assets -  st.offset;
 
-	assets = roundZero(assets, minfo, st.p);
+	curpos = roundZero(curpos, minfo, st.p);
 
 	if (st.rebalance) new_price = cur_price;
 
 
-	if (limitPosition(assets) != assets && dir * assets < 0) {
-		return {cur_price, -assets, Alert::forced};
+	if (limitPosition(curpos) != curpos && dir * curpos < 0) {
+		return {cur_price, -curpos, Alert::forced};
 	}
 
 	double calc_price = new_price;
-	if (((cfg.lazyopen && dir * assets >= 0) || (cfg.lazyclose && dir * assets < 0)) && !st.rebalance && st.avg_spread>0) {
+	if (((cfg.lazyopen && dir * curpos >= 0) || (cfg.lazyclose && dir * curpos < 0)) && !st.rebalance && st.avg_spread>0) {
 		//calc_price - use average spread instead current price
-		calc_price = getEquilibrium_inner(assets) * std::exp(-2*dir*st.avg_spread);
+		calc_price = getEquilibrium_inner(curpos) * std::exp(-2*dir*st.avg_spread);
 		if (calc_price*dir < new_price*dir) {
 			//however can't go beyond new_price
 			calc_price = new_price;
 		} else {
 			double a = cfg.calc->assets(st.k, pw, calc_price);
-			if (roundZero(a-assets, minfo, calc_price) == 0) {
+			if (roundZero(a-curpos, minfo, calc_price) == 0) {
 				calc_price = new_price;
 			}
 		}
 	}
 
 	//calculate pnl
-	double pnl = assets*(calc_price - st.p);
+	double pnl = curpos*(calc_price - st.p);
 	//calculate new k for budgetr and pnl
 	double newk = calcNewK(calc_price, st.val, pnl, cfg.boostmode);
 	//calculate minimal allowed budget
 	//	double minbudget = st.budget*(1.0-cfg.stopOnLoss);
-	double pwadj = adjustPower(assets, newk, calc_price);
+	double pwadj = adjustPower(curpos, newk, calc_price);
 
 
 	double new_pos = limitPosition(cfg.calc->assets(newk, pw*pwadj, calc_price));
 	if (cfg.disableSide) new_pos = roundZero(new_pos-st.offset, minfo, new_price)+st.offset;
-	double dfa = new_pos -assets;
-	if ((new_pos * assets <0 || new_pos == 0) && (assets * dir <= 0)){
+	double dfa = new_pos -curpos;
+	double finpos = roundZero(new_pos + st.offset,minfo,new_price);
+	if (finpos == 0){
 		//close current position (force alert)
 		return {calc_price,-assets,Alert::forced};
 	}
