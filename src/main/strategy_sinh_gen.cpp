@@ -57,7 +57,7 @@ double Strategy_Sinh_Gen::FnCalc::baseFn(double x) const {
 	double y;
 	double arg = wd*(1-x);
 	y = std::sinh(arg);
-	y = y / (std::pow(x,wd*z+1)*std::sqrt(wd));
+	y = y / (std::pow(x,2*wd*z+1)*std::sqrt(wd));
 	return y + sgn(y) * boost;
 }
 
