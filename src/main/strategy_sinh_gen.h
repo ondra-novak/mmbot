@@ -68,7 +68,6 @@ public:
 		double val = 0;
 		double avg_spread=-1;
 		double offset = 0;
-		double rconst = 0;
 	};
 
 
@@ -117,8 +116,8 @@ protected:
 	double calcNewK(double tradePrice, double cb, double pnl, int bmode) const;
 	double limitPosition(double pos) const;
 	double adjustPower(double a, double newk, double price) const;
-	static double calcPower(double cfgpw, const State &st);
-	static double calcPower(double cfgpw, const State &st, double k);
+	static double calcPower(const Config &cfg, const State &st);
+	static double calcPower(const Config &cfg,  const State &st, double k);
 	static double calcNewKFromValue(const Config &cfg, const State &st, double tradePrice, double pw, double enf_val);
 	double getEquilibrium_inner(double assets) const;
 	double roundZero(double assetsLeft, const IStockApi::MarketInfo &minfo,

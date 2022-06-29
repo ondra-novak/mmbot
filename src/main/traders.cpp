@@ -196,8 +196,9 @@ void Traders::addTrader(const MTrader::Config &mcfg ,ondra_shared::StrViewA n) {
 
 
 void Traders::removeTrader(ondra_shared::StrViewA n, bool including_state) {
-	auto t = find(n).lock();
-	if (t != nullptr) {
+    auto tr = find(n);
+	if (tr != nullptr) {
+	    auto t = tr.lock();
 		if (including_state) {
 			//stop trader
 			t->stop();

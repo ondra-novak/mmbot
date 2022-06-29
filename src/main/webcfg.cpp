@@ -751,22 +751,20 @@ bool WebCfg::reqTraders(simpleServer::HTTPRequest req, ondra_shared::StrViewA vp
 					out.set("orders", getOpenOrders(broker, trl->getConfig().pairsymb));
 					out.set("broker", trl->getConfig().broker);
 					out.set("pair", getPairInfo(broker, trl->getConfig().pairsymb));
-					if (trl != nullptr) {
-						auto strategy = trl->getStrategy();
-						double assets = *trl->getPosition();
-						double currencies = *trl->getCurrency();
-						auto eq = strategy.getEquilibrium(assets);
-						auto minfo = trl->getMarketInfo();
-						if (stprice) {
-							if (minfo.invert_price) stprice = 1.0/stprice;
-						}else {
-							stprice = ticker.last;
-						}
-						auto order = strategy.getNewOrder(minfo,ticker.last, stprice, sgn(eq - stprice),assets, currencies, false);
-						order.price = stprice;
-						minfo.addFees(order.size, order.price);
-						out.set("strategy",Object({{"size", (minfo.invert_price?-1:1)*order.size}}));
-					}
+                    auto strategy = trl->getStrategy();
+                    double assets = *trl->getPosition();
+                    double currencies = *trl->getCurrency();
+                    auto eq = strategy.getEquilibrium(assets);
+                    auto minfo = trl->getMarketInfo();
+                    if (stprice) {
+                        if (minfo.invert_price) stprice = 1.0/stprice;
+                    }else {
+                        stprice = ticker.last;
+                    }
+                    auto order = strategy.getNewOrder(minfo,ticker.last, stprice, sgn(eq - stprice),assets, currencies, false);
+                    order.price = stprice;
+                    minfo.addFees(order.size, order.price);
+                    out.set("strategy",Object({{"size", (minfo.invert_price?-1:1)*order.size}}));
 					req.sendResponse(std::move(hdr), Value(out).stringify().str());
 				} else if (cmd == "strategy") {
 					if (!req.allowMethods({"GET","PUT"})) return true;
@@ -1018,7 +1016,6 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req)  {
 
 				trlist.lock()->stockSelector.checkBrokerSubaccount(broker.getString());
 				auto tr = trlist.lock_shared()->find(trader.toString().str());
-				auto trl = tr.lock();
 				PStockApi api;
 				IStockApi::MarketInfo minfo;
 				if (tr == nullptr) {
@@ -1031,6 +1028,7 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req)  {
 					uid = 0;
 					exists=false;
 				} else {
+	                auto trl = tr.lock();
 					trl->init();
 					api = trl->getBroker();
 					minfo = trl->getMarketInfo();
@@ -1042,6 +1040,7 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req)  {
 					return req.sendErrorPage(404);
 				}
 				if (tr && !symb.hasValue()) {
+	                auto trl = tr.lock();
 					p = trl->getConfig().pairsymb;
 				} else {
 					p = symb.toString().str();
@@ -1063,6 +1062,7 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req)  {
 				Value rpnl;
 				Value visstrategy;
 				if (tr) {
+	                auto trl = tr.lock();
 					try {
 						Strategy stratobj=trl->getStrategy();
 						strategy = stratobj.dumpStatePretty(trl->getMarketInfo());
@@ -1165,7 +1165,7 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req)  {
 				result.set("enter_price_pos", enter_price_pos);
 				result.set("rpnl", rpnl);
 				result.set("costs", costs);
-				result.set("accumulation", trl == nullptr?0.0:trl->getAccumulated());
+				result.set("accumulation", tr == nullptr?0.0:tr.lock()->getAccumulated());
 				result.set("trades", tradeCnt);
 				result.set("exists", exists);
 				result.set("need_initial_reset",need_initial_reset);
@@ -1332,22 +1332,23 @@ bool WebCfg::reqBacktest(simpleServer::HTTPRequest req, ondra_shared::StrViewA r
 				} else {
 					lkst.release();
 						try {
-							auto tr = trlist.lock_shared()->find(id.getString()).lock_shared();
+							auto tr = trlist.lock_shared()->find(id.getString());
 							if (tr == nullptr) {
 								req.sendErrorPage(404);
 								return;
 							}
+							auto trl = tr.lock_shared();
 
-							const auto &tradeHist = tr->getTrades();
+							const auto &tradeHist = trl->getTrades();
 							BacktestCacheSubj trs;
 							std::transform(tradeHist.begin(),tradeHist.end(),
 									std::back_insert_iterator(trs.prices),[](const IStatSvc::TradeRecord &r) {
 								return BTPrice{r.time, r.price};
 							});
-							trs.minfo = tr->getMarketInfo();
+							trs.minfo = trl->getMarketInfo();
 							trs.inverted = false;
 							trs.reversed = false;
-							tr.release();
+							trl.release();
 
 							state.lock()->backtest_cache = BacktestCache(trs, id.toString().str());
 							process(*trlist.lock(), trs, invert.getBool(), reverse.getBool());
@@ -1458,15 +1459,16 @@ bool WebCfg::reqSpread(simpleServer::HTTPRequest req)  {
 			} else {
 				lkst.release();
 				try {
-					auto tr = trlist.lock_shared()->find(id.getString()).lock_shared();
+					auto tr = trlist.lock_shared()->find(id.getString());
 					if (tr == nullptr) {
 						req.sendErrorPage(404);
 						return;
 					}
+					auto trl = tr.lock_shared();
 					SpreadCacheItem x;
-					x.chart = tr->getChart();
-					x.invert_price = tr->getMarketInfo().invert_price;
-					tr.release();
+					x.chart = trl->getChart();
+					x.invert_price = trl->getMarketInfo().invert_price;
+					trl.release();
 					state.lock()->spread_cache= SpreadCache(x, id.toString().str());
 					process(x);
 				} catch (std::exception &e) {
