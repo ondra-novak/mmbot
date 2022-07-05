@@ -117,7 +117,7 @@ public:
 					  const std::string_view &hint_pair,
 					  std::uint64_t time_from,
 					  std::uint64_t time_to,
-					  std::vector<OHLC> &data
+					  std::vector<double> &data
 				) override;
 
 
@@ -129,6 +129,22 @@ public:
 	virtual void probeKeys();
 
 	virtual bool reset() = 0;
+
+#ifndef MMBOT_BROKER_API_V2
+	virtual TradingStatus getTradingStatus(const std::string_view &pair, json::Value instance) override;
+	virtual void placeOrders(const std::string_view &pair, std::vector<OrderToPlace> &orders, json::Value &instance) override;
+#else
+    virtual double getBalance(const std::string_view & symb, const std::string_view & pair) override;
+    virtual TradesSync syncTrades(json::Value lastId, const std::string_view & pair) override;
+    virtual Orders getOpenOrders(const std::string_view & par) override;
+    virtual json::Value placeOrder(const std::string_view & pair,
+            double size,
+            double price,
+            json::Value clientId = json::Value(),
+            json::Value replaceId = json::Value(),
+            double replaceSize = 0) override;
+
+#endif
 
 
 protected:
@@ -155,6 +171,7 @@ protected:
 	virtual double getFees(const std::string_view &) {return 0;}
 
 };
+
 
 
 

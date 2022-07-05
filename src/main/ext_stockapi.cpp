@@ -296,7 +296,7 @@ bool ExtStockApi::areMinuteDataAvailable(const std::string_view &asset, const st
 std::uint64_t ExtStockApi::downloadMinuteData(const std::string_view &asset,
 		const std::string_view &currency, const std::string_view &hint_pair,
 		std::uint64_t time_from, std::uint64_t time_to,
-		std::vector<OHLC> &data) {
+		std::vector<double> &data) {
 
 	auto resp = requestExchange("downloadMinuteData", json::Object{
 			{"asset",asset},
@@ -309,26 +309,8 @@ std::uint64_t ExtStockApi::downloadMinuteData(const std::string_view &asset,
 		json::Value start_time = resp["start"];
 		data.clear();
 		data.reserve(recv_data.size());
-		double last = 0;
 		for (json::Value v: recv_data) {
-			if (v.type() == json::number) {
-				double d = v.getNumber();
-				last = d;
-				recv_data.push({d,d,d,d});
-			} else if (v.type() == json::array) {
-				double o=last,h=last,l=last,c=last;
-				switch (v.size()) {
-				case 1: h=l=c = v[0].getNumber();break;
-				case 2: h=v[0].getNumber();l =v[1].getNumber();c=std::sqrt(h*l);break;
-				case 3: h=v[0].getNumber();l =v[1].getNumber();c=v[2].getNumber();break;
-				case 4: o=v[0].getNumber();h =v[1].getNumber();l=v[2].getNumber();c=v[3].getNumber();break;
-				}
-				if (o == 0) o = std::sqrt(h*l);
-				h = std::max({o,h,l,c});
-				l = std::min({o,h,l,c});
-				last = c;
-				data.push_back({o,h,l,c});
-			}
+			recv_data.push(v.getNumber());
 		}
 		return start_time.getUIntLong();
 
@@ -356,5 +338,36 @@ std::chrono::system_clock::time_point ExtStockApi::Connection::getLastActivity()
 json::Value ExtStockApi::Connection::jsonRequestExchange(json::String name, json::Value args) {
 	lastActivity = std::chrono::system_clock::now();
 	return AbstractExtern::jsonRequestExchange(name, args);
+}
 
+ExtStockApi::TradingStatus ExtStockApi::getTradingStatus(const std::string_view &pair, json::Value instance) {
+    json::Value out = connection->jsonRequestExchange("getTradingStatus", {pair, instance});
+    return TradingStatus::fromJSON(out);
+}
+
+void ExtStockApi::placeOrders(const std::string_view &pair, std::vector<OrderToPlace> &orders, json::Value &instance) {
+    json::Value x = connection->jsonRequestExchange("placeOrders", {pair,
+            json::Value(json::array,orders.begin(), orders.end(), [&](const OrderToPlace &ord) {
+                return json::Object{
+                    {"price", ord.price},
+                    {"size", ord.size},
+                    {"id_replace", ord.id_replace},
+                    {"size_replace", ord.size_replace}
+                };
+            }),instance});
+    json::Value result = x[0];
+    if (x[1].hasValue()) instance = x[1];
+    if (x.size() != orders.size()) {
+        throw AbstractExtern::Exception("Inconsistent response (broker error)",connection->getName(),"placeOrders",false);
+    }
+    std::size_t pos = 0;
+    for (OrderToPlace &ord: orders) {
+        if (x[pos].type() == json::boolean && x[pos].getBool() == true) {
+            ord.placed = true;
+        } else {
+            ord.placed = false;
+            ord.error = x[pos].toString().str();
+        }
+        pos++;
+    }
 }

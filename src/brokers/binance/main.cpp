@@ -91,7 +91,7 @@ public:
 					  const std::string_view &hint_pair,
 					  std::uint64_t time_from,
 					  std::uint64_t time_to,
-					  std::vector<OHLC> &data
+					  std::vector<double> &data
 				) override;
 
 
@@ -1149,7 +1149,7 @@ bool Interface::areMinuteDataAvailable(const std::string_view &asset, const std:
 std::uint64_t Interface::downloadMinuteData(
 		const std::string_view &asset, const std::string_view &currency,
 		const std::string_view &hint_pair, std::uint64_t time_from,
-		std::uint64_t time_to, std::vector<OHLC> &data) {
+		std::uint64_t time_to, std::vector<double> &data) {
 	std::uint64_t adj_time_from = time_to-1000*300000; //LIMIT 1000 per 5 minute
 	time_from = std::max(adj_time_from, time_from);
 	auto limit = (time_to-time_from-1)/300000;
@@ -1186,7 +1186,7 @@ std::uint64_t Interface::downloadMinuteData(
 		}
 		prev = n;
 		if (inv) n=1/n;
-		data.push_back({n,n,n,n});
+		data.push_back(n);
 	};
 	for (Value v: tmp) {
 		auto tm = v[0].getUIntLong();

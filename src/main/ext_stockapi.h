@@ -61,9 +61,11 @@ public:
 					  const std::string_view &hint_pair,
 					  std::uint64_t time_from,
 					  std::uint64_t time_to,
-					  std::vector<OHLC> &data
+					  std::vector<double> &data
 				) override;
 
+    virtual TradingStatus getTradingStatus(const std::string_view &pair, json::Value instance) override;
+    virtual void placeOrders(const std::string_view &pair, std::vector<OrderToPlace> &orders, json::Value &instance) override;
 
 
 protected:

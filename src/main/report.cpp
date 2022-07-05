@@ -176,7 +176,6 @@ void Report::setTrades(std::size_t rev, StrViewA symb, double finalPos, StringVi
 
 	if (rev != revize) return;
 
-	using ondra_shared::range;
 
 	json::Array records;
 

@@ -95,6 +95,9 @@ public:
 		double last;
 		///Time when read
 		std::uint64_t time;
+
+		static Ticker fromJSON(json::Value v);
+		json::Value toJSON() const;
 	};
 
 	enum FeeScheme {
@@ -290,6 +293,53 @@ public:
 	virtual ~IStockApi() {}
 
 	static json::NamedEnum<IStockApi::FeeScheme> strFeeScheme;
+
+	struct TradingStatus {
+	    json::Value instance;
+	    Orders openOrders;
+	    TradeHistory newTrades;
+        Ticker ticker;
+	    double position;
+	    double balance;
+
+	    json::Value toJSON() const;
+	    static TradingStatus fromJSON(json::Value v);
+	};
+
+	///Retrieve complete market status in one call
+	/**
+	 * @param pair
+	 * @param instance trading instance - use undefined for the first call. Then it is returned
+	 *  as instance field in response - you should call function again with the instance
+	 * @return
+	 */
+	virtual TradingStatus getTradingStatus(const std::string_view &pair, json::Value instance) = 0;
+
+
+	struct OrderToPlace {
+	    //price where to place - set zero to "market order" - reserved feature, not currently supported
+	    double price;
+	    //order size >0 buy, <0 sell, =0 just cancel order (must be exact zero)
+	    double size;
+	    //ID of order to replace = if not defined, create new order
+	    json::Value id_replace;
+	    //size (absolute value) which must the order to have to be replaced (otherwise, operation fails)
+	    double size_replace;
+	    //filled by function, if the order was placed
+	    bool placed = false;
+	    //filled by function, contains error description
+	    std::string error;
+	};
+
+	///Place multiple orders
+	/**
+	 * @param pair pair
+	 * @param orders orders to place. Function modifies the content (filling status)
+	 * @param instance reference to instance JSON. The function can modify the structure. preserve the structure to next call
+	 */
+	virtual void placeOrders(const std::string_view &pair, std::vector<OrderToPlace> &orders, json::Value &instance) = 0;
+
+
 
 };
 

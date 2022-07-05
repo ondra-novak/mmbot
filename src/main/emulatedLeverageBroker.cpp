@@ -118,3 +118,16 @@ EmulatedLeverageBroker::AllWallets EmulatedLeverageBroker::getWallet()  {
 	if (sub == nullptr) return {};
 	return sub->getWallet();
 }
+
+IStockApi::TradingStatus EmulatedLeverageBroker::getTradingStatus(
+        const std::string_view &pair, json::Value instance) {
+    TradingStatus  x = target->getTradingStatus(pair, instance);
+    x.balance = x.balance + x.position * x.ticker.last;
+    return x;
+}
+
+void EmulatedLeverageBroker::placeOrders(const std::string_view &pair,
+        std::vector<IStockApi::OrderToPlace> &orders,
+        json::Value &instance) {
+    target->placeOrders(pair, orders, instance);
+}

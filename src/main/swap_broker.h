@@ -27,6 +27,10 @@ public:
 	virtual IStockApi::Ticker getTicker(const std::string_view &piar) override;
 	virtual IStockApi::TradesSync syncTrades(json::Value lastId,
 			const std::string_view &pair) override;
+    virtual IStockApi::TradingStatus getTradingStatus(const std::string_view &pair,
+            json::Value instance) override;
+    virtual void placeOrders(const std::string_view &pair, std::vector<IStockApi::OrderToPlace> &orders,
+            json::Value &instance) override;
 
 protected:
 	Orders ords;

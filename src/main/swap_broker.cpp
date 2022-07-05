@@ -140,5 +140,73 @@ IStockApi::Ticker InvertBroker::getTicker(const std::string_view &pair) {
 	};
 }
 
+IStockApi::TradingStatus InvertBroker::getTradingStatus(const std::string_view &pair,
+        json::Value instance) {
 
+    TradingStatus ms = target->getTradingStatus(pair, instance);
+    for(auto &x: ms.openOrders) {
+        double price = x.price;
+        x.price = 1.0/price;
+        x.size = -x.size * x.price;
+    }
+    for (auto &x: ms.newTrades) {
+        double p = x.price;
+        double ep = x.eff_price;
+        x.price = 1.0/p;
+        x.eff_price = 1.0/ep;
+        x.size = -p * x.size;
+        x.eff_size = -ep * x.eff_size;
+    }
 
+    return TradingStatus {
+        instance,
+        std::move(ms.openOrders),
+        std::move(ms.newTrades),
+        Ticker {
+            1.0/ms.ticker.ask,
+            1.0/ms.ticker.bid,
+            1.0/ms.ticker.last,
+            ms.ticker.time
+        },
+        ms.balance,
+        ms.position
+    };
+}
+
+void InvertBroker::placeOrders(const std::string_view &pair,
+        std::vector<IStockApi::OrderToPlace> &orders, json::Value &instance) {
+
+    for (auto &o: orders) {
+        double new_size = minfo.adjValue(-o.size * o.price, minfo.asset_step, tozero_fn);
+        double new_price = o.price?minfo.adjValue(1.0/o.price, minfo.currency_step, round_fn):0;
+
+        double new_replace = 0;
+        if (o.id_replace.hasValue()) {
+            auto iter = std::find_if(ords.begin(), ords.end(), [&](const Order &ord){
+                return ord.id == o.id_replace;
+            });
+            if (iter != ords.end()) {
+                new_replace = minfo.adjValue(o.size_replace / iter->price, minfo.asset_step, tozero_fn);
+            }
+        }
+        if (std::abs(new_size) < minfo.min_size) {
+            new_size = minfo.min_size * sgn(new_size);
+        }
+
+        if (new_size > 0) {
+            double remain = getBalance(minfo.currency_symbol, pair)/new_price;
+            remain -= minfo.asset_step;
+            new_size = minfo.adjValue(std::min(remain, new_size), minfo.asset_step, floor_fn);
+            if (new_size < minfo.min_size) {
+                new_size = minfo.min_size;
+            }
+            if (new_size < minfo.min_volume/new_price) {
+                new_size = minfo.min_volume/new_price;
+            }
+        }
+        o.price = new_price;
+        o.size = new_size;
+        o.size_replace = new_replace;
+    }
+
+}

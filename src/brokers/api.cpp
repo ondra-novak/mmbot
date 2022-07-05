@@ -10,12 +10,13 @@
 
 #include <sys/stat.h>
 #include <unordered_map>
+#include <shared/linear_map.h>
 #include <imtjson/string.h>
 #include <imtjson/array.h>
 #include <imtjson/object.h>
-#include <shared/linear_map.h>
 #include <imtjson/binjson.tcc>
 #include <imtjson/binary.h>
+#include <imtjson/operations.h>
 
 #include "../main/istockapi.cpp"
 #include "../shared/stdLogOutput.h"
@@ -240,7 +241,7 @@ Value areMinuteDataAvailable(AbstractBrokerAPI &handler, const Value &req) {
 	return handler.areMinuteDataAvailable(req[0].getString(), req[1].getString());
 }
 Value downloadMinuteData(AbstractBrokerAPI &handler, const Value &req) {
-	std::vector<AbstractBrokerAPI::OHLC> vect;
+	std::vector<double> vect;
 	auto start_time = handler.downloadMinuteData(req["asset"].getString(),
 				req["currency"].getString(),
 				req["hint_pair"].getString(),
@@ -249,8 +250,8 @@ Value downloadMinuteData(AbstractBrokerAPI &handler, const Value &req) {
 
 	return Object{
 		{"start", start_time},
-		{"data",Value(json::array, vect.begin(), vect.end(), [](const AbstractBrokerAPI::OHLC &x){
-			return Value({x.open, x.high, x.low, x.close});
+		{"data",Value(json::array, vect.begin(), vect.end(), [](const double &x){
+			return Value(x);
 		})}
 	};
 }
@@ -311,6 +312,32 @@ Value handleSubaccount(AbstractBrokerAPI &handler, const Value &req) {
 	}
 }
 
+static json::Value getTradingStatus(AbstractBrokerAPI &handler, const Value &request) {
+    std::string_view pair = request[0].getString();
+    json::Value instance = request[1];
+    auto ms = handler.getTradingStatus(pair, instance);
+    return ms.toJSON();
+}
+
+static json::Value placeOrders(AbstractBrokerAPI &handler, const Value &request) {
+    std::string_view pair = request[0].getString();
+    std::vector<AbstractBrokerAPI::OrderToPlace> orders;
+    orders.resize(request[1].size());
+    json::Value instance = request[2];
+    for (Value x: request[1]) {
+        orders.push_back(AbstractBrokerAPI::OrderToPlace{
+            x["price"].getNumber(),
+            x["size"].getNumber(),
+            x["id_replace"],
+            x["size_replace"].getNumber()
+        });
+    }
+    handler.placeOrders(pair, orders, instance);
+    return {json::Value(json::array,orders.begin(), orders.end(),[](const AbstractBrokerAPI::OrderToPlace &ord) {
+       return ord.placed?json::Value(true):json::Value(ord.error);
+    }), instance};
+}
+
 ///Handler function
 using HandlerFn = Value (*)(AbstractBrokerAPI &handler, const Value &request);
 using MethodMap = ondra_shared::linear_map<std::string_view, HandlerFn> ;
@@ -339,6 +366,8 @@ static MethodMap methodMap ({
 			{"areMinuteDataAvailable",&areMinuteDataAvailable},
 			{"downloadMinuteData",&downloadMinuteData},
 			{"bin",&enableBinary},
+			{"getMarketStatus",&getTradingStatus},
+			{"placeOrders",&placeOrders},
 
 	});
 
@@ -537,8 +566,11 @@ bool AbstractBrokerAPI::areMinuteDataAvailable(const std::string_view &, const s
 }
 std::uint64_t AbstractBrokerAPI::downloadMinuteData(const std::string_view &,
 				  const std::string_view &,const std::string_view &,std::uint64_t ,std::uint64_t ,
-				  std::vector<OHLC> &) {
+				  std::vector<double> &) {
 	//if not overridden, there are no historical data available
 	return 0;
 }
 
+#ifdef MMBOT_WRAP_API1
+#else
+#endif

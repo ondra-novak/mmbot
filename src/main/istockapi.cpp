@@ -10,6 +10,7 @@
 
 #include <cmath>
 #include <imtjson/object.h>
+#include <imtjson/operations.h>
 #include <shared/logOutput.h>
 #include "sgn.h"
 
@@ -205,6 +206,49 @@ double IStockApi::MarketInfo::tickToPrice(std::int64_t tick) const {
 	} else {
 		return tick*currency_step;
 	}
+}
+
+IStockApi::Ticker IStockApi::Ticker::fromJSON(json::Value v) {
+    return Ticker{
+        v["bid"].getNumber(),
+        v["ask"].getNumber(),
+        v["last"].getNumber(),
+        v["time"].getUIntLong()
+    };
+}
+json::Value IStockApi::Ticker::toJSON() const {
+    return json::Object{
+        {"bid",bid},
+        {"ask",ask},
+        {"last",last},
+        {"time",time}
+    };
+}
+
+
+json::Value IStockApi::TradingStatus::toJSON() const {
+    return json::Object {
+        {"inst",instance},
+        {"orders", json::Value(json::array, openOrders.begin(), openOrders.end(), [](const Order &order) {
+            return order.toJSON();
+        })},
+        {"fills", json::Value(json::array, newTrades.begin(), newTrades.end(), [](const Trade &trade) {
+            return trade.toJSON();
+        })},
+        {"ticker", ticker.toJSON()},
+        {"position", position},
+        {"balance", balance}
+    };
+}
+IStockApi::TradingStatus IStockApi::TradingStatus::fromJSON(json::Value v) {
+    return TradingStatus {
+        v["inst"],
+        v["orders"].reduce([](auto &&v, json::Value x) {v.push_back(Order::fromJSON(x)); return v;},std::vector<Order>()),
+        v["fills"].reduce([](auto &&v, json::Value x) {v.push_back(Trade::fromJSON(x)); return v;},std::vector<Trade>()),
+        Ticker::fromJSON(v["ticker"]),
+        v["position"].getNumber(),
+        v["balance"].getNumber()
+    };
 }
 
 

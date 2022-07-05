@@ -2323,8 +2323,8 @@ struct WebCfg::DataDownloaderTask {
 	std::string dwnid;
 	AsyncProvider async;
 
-	std::vector<IHistoryDataSource::OHLC> tmpVect;
-	std::stack<std::vector<IHistoryDataSource::OHLC> > datastack;
+	std::vector<double> tmpVect;
+	std::stack<std::vector<double> > datastack;
 	std::uint64_t end_tm ;
 	std::uint64_t start_tm;
 	std::size_t cnt;
@@ -2376,12 +2376,8 @@ void WebCfg::DataDownloaderTask::done() {
 	}
 	Value out = json::array;
 	if (!tmpVect.empty()) {
-		out = Value(json::array, tmpVect.begin(), tmpVect.end(),[&](const auto &ohlc) -> Value {
-			double du = ohlc.high-ohlc.open;
-			double dw = ohlc.open-ohlc.low;
-			if (du > 2*dw) return ohlc.high;
-			if (dw > 2*du) return ohlc.low;
-			return ohlc.close;
+		out = Value(json::array, tmpVect.begin(), tmpVect.end(),[&](const auto &d) -> Value {
+		    return d;
 		});
 	}
 	auto storage = state.lock_shared()->backtest_storage;

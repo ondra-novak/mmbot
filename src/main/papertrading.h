@@ -31,8 +31,10 @@ public:
 
 
 
-
-
+	virtual TradingStatus getTradingStatus(const std::string_view &pair, json::Value instance) override;
+    virtual void placeOrders(const std::string_view &pair,
+            std::vector<IStockApi::OrderToPlace> &orders,
+            json::Value &instance) override;
 
 protected: //To override
 

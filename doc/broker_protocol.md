@@ -57,6 +57,33 @@ terminating charactes.
 **Multithreading note** - Only the thread which is processing messages should 
 send log messages. The log messages can be send only when MMBot waiting for a reply. 
 
+## What is new
+
+### trading instances (v2)
+
+In v2 protocol, old calls marked as v1 are deprecated, and the new brokers don't need to
+implemented at all. The v2 protocol allows to have trading instances. The instance is
+represented as arbitrary JSON object, which is carried as argument of a call and if the
+broker make a change in the instance, it must be also carried with the result out. Then the
+trading instance is stored in the state of the trader. 
+
+The purpose of trading instance is to help brokers to store some intermediate data with
+the state of the trader. It also helps to track orders and distinguish orders placed by the robot and orders placed by the user manually. Optionally it can also track fills made by orders placed by the robots so fills made by orders placed manually cannot influence the trading (however this feature is planned to mmbot 3)
+
+The broker is still considered as stateless, it doesn't need to store and manage trading instances. The trading instance can be anytime discarded without noticing the broker. To cover this case, the broker should include whole state to any new instance (which is requested by passing `null` as instance) - all open orders (but not fills) and anything what was related to other instances in the past.
+
+### new trading calls (v2)
+
+there are two new trading calls that replace old deprecated calls
+
+* getTradingStatus
+* placeOrders
+
+### downloadMinuteData doesn't support OHLC
+
+Currently this call doesn't support OHLC, so it is expected, that each minute is passed as single number. To cover whole OHLC, it is better to use 4min chart with agregated O,H,L,C passed in this order, or use 5 min chart with O,H,(H+L)/2,L,C passed in this order. Backtest is unable to benefit from more accurate data.
+
+
 ## Functions
 
 ### General
@@ -249,6 +276,8 @@ The parameter is retrieved from a form filled by a user. The form is built using
 
 ### Account data and trading
 
+
+
 #### getWallet
 
 ```
@@ -271,8 +300,115 @@ Returns amount for all available assets on the account. Result is divided by wal
 }
 ```
 
+**NOTE**: New version V2 calls. Some brokers don't need to support V1 calls
 
-#### getBalance
+#### getTradingStatus (v2)
+
+```
+[ "getTradingStatus", [ <pair> , <instance> ] ]
+```
+
+Retrieves complete informations about the trading. This function replaces some V1 functions
+
+* **pair** - pair symbol
+* **instance** - arbitrary JSON which is under control of the broker. On the very first
+call, you should pass **null**. The instance is returned in result and should be carried
+to the next call of this function. It is also passed to the `placeOrders`.
+
+Return value
+
+```
+[ {
+    "instance": <instance>,
+    "orders": [ {
+                "id":<any>,
+                "client_id":<any>,
+                "size":<number>,
+                "price":<number>,
+                "partial":<bool>
+                }...],
+    "fills": [ {
+                "size":<number>,
+                "time":<number>,
+                "price":<number>,
+                "eff_price":<number>,
+                "eff_size":<number>,
+                "id":<any>,
+                },...],
+    "ticker": {"ask":<number>,
+               "bid":<number>,
+               "last":<number>, 
+               "time":<number>}
+    "position":<number>,
+    "balance":<number>
+}]
+```
+* **instance** - arbitrary JSON which must be preserved for the next call (optional, if not returned, then instance was not modified)
+* **orders** - open orders related to the current instance, so the only orders placed for this instance should be returned. However, if the instance is set to **null** then all opened orders must be returned.
+    * **id** - id of the order
+    * **client_id** - id associated with the order, for V2 protocol is no longer used and it is presented for compatibility reasons. It is planned to be removed in future versions
+    * **size** - size of the order, >0 buy, <0 sell (remaining size)
+    * **price** - price of the LIMIT order
+    * **partial** - if set true, the order is in partial execution state. This field can be filled only if this information is available.
+* **fills** - new fills executed from last call
+    * **size** - size of the execution (how many items has been traded)
+    * **time** - timestamp of execution (in milliseconds UTC)
+    * **price** - price of execution
+    * **eff_price** - effective price, which is calculated as equivalent price of the trade after fees are substracted, for example, for fee 1%, effective price for execution made on 2100 USD is 2121 USD - so to buy assets at price 2100 USD with such fee is equivalent to buy at 2121 USD without fees
+    * **eff_size** - effective size, which is actual increase or decrease of the position. In some cases, fees can be substracted from the assets (position), not from the balance. This field reflects this size apropriately
+    * **id** - unique id of the trade (unique on given pair)    
+* **ticker** - ticker
+    * **bid** - bid
+    * **ask** - ask
+    * **last** - last price. If not available, set this field to sqrt(bid*ask)
+    * **time** - timestamp of ticker informaton (in milliseconds UTC). The trading is stopped, if the ticker doesn't change 
+* **position** - position (amount of assets)
+* **balance** - balance (currency)
+
+
+
+### placeOrders (v2)
+
+```
+[ "placeOrders", [ <pair> ,[{
+
+        "price": <number>,
+        "size": <number>,
+        "id_replace": <any>,
+        "size_replace": <number>,
+
+    }...], <instance> ]
+```
+
+Places multiple orders 
+
+* **pair** - specifies pair
+* **price** - price of the LIMIT order. Should not be zero. Zero value is reserved for MARKET order, however, it is not yet implemented.
+* **size** - size of the order >0 buy, <0 sell. If set to 0 while `id_replace` is defined, the command just cancels the order
+* **id_replace** - *optional*: specifies the order to amend, replace, or cancel, depend on
+situation. Some exchanges doesn't support amend, so the order is replaced. The replacement
+should be handled carefuly to avoid possibility of double execution. For example, if the
+order is in state PARTIAL_EXECUTED, it should not be replaced, but error should be emited.
+* **size_replace** - *optional*: specifies minimum remaining size of the order in the time
+of replacement to finish the operation. If the order has remaining minimum size less than
+specified size, the order should not be replaced. If the replacing order cannot be safely
+examined without canceling, failing this condition can be solved as not placing the new order and emit an error instead. (note the brokers should favor detection of PARTIAL_EXECUTED orders, which should not be replaced in general, they can be however canceled and let the robot consider how new order will be placed
+* **instance** - an arbitrary JSON retrieved during `getMarketStatus` - contains trading instance
+
+
+**Return value**
+
+```
+[ true, [ [<ok_or_error>,...], <instance> ] ]
+```
+
+* **ok_or_error** - this field can be either `bool` while it is set to true or false if the order was placed (or not placed if cancel requested), or a `string` contains error received by the exchange. The error is shown to user, there is no additional processing of these errors
+
+* **instance** - *optional* : The broker can store anything to the instance, then it must return updated revision of the instance through this result. If the field missing, instance is not changed
+
+                
+
+#### getBalance (v1 - deprecated)
 
 ```
 [ "getBalance", {"pair":"<market>","symbol":"<symbol>" }]
@@ -287,7 +423,7 @@ different currency, then it must be converted to quote currency. For position, i
 
 **TIP**: The most APIs returns account balance for all available symbols at once. The response can be cached for subsequent calls until the **reset** called
 
-#### syncTrades
+#### syncTrades (v1 - deprecated)
 
 ```
 [ "syncTrades" , {"pair":"<market>"} ] 
@@ -326,7 +462,7 @@ It is an array of objects. Objects are ordered by time of creation.
 * **eff_price** (any) - calculated price (after fee is substracted) of the trade. Actually it is the price on which the equivalent trade could happen in case that fee is zero. For example, to buy on 1% fee, the **eff_price** will be 1% above the **price**.
 
   
-#### getOpenOrders
+#### getOpenOrders (v1 - deprecated)
 
 ```
 [ "getOpenorders", "<market>" ] 
@@ -341,7 +477,7 @@ Retrieves currently opened (active) orders (LIMIT orders)
 * **size** - size of the order. The negative value is SELL, the positive value is BUY
 * **clientOrderId** - contains an ID associated with the order which was set by **placeOrder** call. The robot uses this ID to mark orders to distinguish its orders from orders created by the user manually.
 
-#### placeOrder
+#### placeOrder (v1 - deprecated)
 
 ```
 [ "placeOrder", {
