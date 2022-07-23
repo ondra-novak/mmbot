@@ -52,6 +52,8 @@ public:
 	{}
 
 
+    virtual ~Report() = default;
+
 	void addStream(Stream &&stream);
 	void pingStreams();
 

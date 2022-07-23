@@ -19,7 +19,7 @@ class AbstractExtern {
 public:
 
 	AbstractExtern (const std::string_view & workingDir, const std::string_view & name, const std::string_view & cmdline, int timeout);
-	~AbstractExtern ();
+	virtual ~AbstractExtern ();
 
 	bool preload();
 	virtual void onConnect() {}
