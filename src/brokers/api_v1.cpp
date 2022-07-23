@@ -16,6 +16,15 @@
 
 #include <random>
 
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+#elif __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#elif _MSC_VER
+#pragma warning(disable : 4996)
+#endif
 
 // emulate function by collecting data by old api
 AbstractBrokerAPI::TradingStatus AbstractBrokerAPI::getTradingStatus(const std::string_view &pair, json::Value instance) {
@@ -40,7 +49,7 @@ AbstractBrokerAPI::TradingStatus AbstractBrokerAPI::getTradingStatus(const std::
     status.balance = getBalance(instance["c"].getString(), pair);
     status.position = getBalance(instance["a"].getString(), pair);
     status.openOrders = getOpenOrders(pair);
-    status.newTrades = std::move(trades.trades);
+    status.fills = std::move(trades.trades);
     status.ticker = getTicker(pair);
     status.instance = instance;
 

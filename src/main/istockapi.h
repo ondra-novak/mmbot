@@ -195,6 +195,8 @@ public:
 		static MarketInfo fromJSON(const json::Value &v);
 		std::int64_t priceToTick(double price) const;
 		double tickToPrice(std::int64_t tick) const;
+
+		double calcMinOrderSize(double price) const;
 	};
 
 
@@ -211,7 +213,7 @@ public:
 	 * @param pair pair information - helps to broker idenitify which value to return in case to separated balances
 	 * @return available balance
 	 */
-	virtual double getBalance(const std::string_view & symb, const std::string_view & pair) = 0;
+	[[deprecated]] virtual double getBalance(const std::string_view & symb, const std::string_view & pair) = 0;
 	///Retrieves trades
 	/**
 	 * @param lastId last seen trade. Set to json::undefined if you has no trades
@@ -219,14 +221,14 @@ public:
 	 * @param pair specify trading pair
 	 * @return list of trades
 	 */
-	virtual TradesSync syncTrades(json::Value lastId, const std::string_view & pair) = 0;
+	[[deprecated]] virtual TradesSync syncTrades(json::Value lastId, const std::string_view & pair) = 0;
 
 	///Retrieve open orders
 	/**
 	 * @param par trading pair
 	 * @return all opened orders
 	 */
-	virtual Orders getOpenOrders(const std::string_view & par) = 0;
+	[[deprecated]] virtual Orders getOpenOrders(const std::string_view & par) = 0;
 	///Retrieve asset's current price
 	/**
 	 * @param piar trading pair
@@ -259,7 +261,7 @@ public:
 	 * failure of placing order can result to canceling previous order but not placing
 	 * the new one.
 	 */
-	virtual json::Value placeOrder(const std::string_view & pair,
+	[[deprecated]] virtual json::Value placeOrder(const std::string_view & pair,
 			double size,
 			double price,
 			json::Value clientId = json::Value(),
@@ -297,7 +299,7 @@ public:
 	struct TradingStatus {
 	    json::Value instance;
 	    Orders openOrders;
-	    TradeHistory newTrades;
+	    TradeHistory fills;
         Ticker ticker;
 	    double position;
 	    double balance;

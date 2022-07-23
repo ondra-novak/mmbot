@@ -14,6 +14,17 @@
 #include <imtjson/binary.h>
 #include "../imtjson/src/imtjson/object.h"
 
+//TODO - rewrite paper trading
+
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+#elif __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#elif _MSC_VER
+#pragma warning(disable : 4996)
+#endif
 
 PaperTrading::PaperTrading(PStockApi source)
 :state{source}
@@ -458,7 +469,7 @@ AbstractPaperTrading::TradingStatus AbstractPaperTrading::getTradingStatus(const
     status.balance = getBalance(instance["c"].getString(), pair);
     status.position = getBalance(instance["a"].getString(), pair);
     status.openOrders = getOpenOrders(pair);
-    status.newTrades = std::move(trades.trades);
+    status.fills = std::move(trades.trades);
     status.ticker = getTicker(pair);
     status.instance = instance;
 

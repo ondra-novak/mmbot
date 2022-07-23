@@ -200,7 +200,21 @@ const MTrader::TradeHistory& MTrader::getTrades() const {
 	return trades;
 }
 
+bool MTrader::flushExpPos() {
+    if (expPos.partial.getPos()) {
+        strategy.onTrade(minfo, expPos.partial.getOpen(), expPos.partial.getPos(), position, currency);
+        expPos.partial = ACB(0,0,0);
+        expPos.norm_accum = 0;
+        expPos.norm_profit = 0;
+        return true;
+    } else {
+        return false;
+    }
+}
 void MTrader::alertTrigger(const Status &st, double price, int dir, AlertReason reason) {
+
+    flushExpPos();
+
 	IStockApi::Trade tr{
 		json::Value(json::String({"ALERT:",json::Value(st.chartItem.time).toString()})),
 		st.chartItem.time,
@@ -232,7 +246,7 @@ void MTrader::alertTrigger(const Status &st, double price, int dir, AlertReason 
 
 void MTrader::dorovnani(Status &st, double assetBalance, double price) {
 	double diff = st.assetBalance - assetBalance-getAccumulated();
-	st.new_trades.trades.push_back(IStockApi::Trade{
+	st.new_trades.push_back(IStockApi::Trade{
 		json::Value(json::String({"ADJ:",json::Value(st.chartItem.time).toString()})),
 		st.chartItem.time,
 		diff,
@@ -246,6 +260,11 @@ void MTrader::dorovnani(Status &st, double assetBalance, double price) {
 
 void MTrader::perform(bool manually) {
 
+
+    double buy_norm = 0;
+    double sell_norm = 0;
+    int last_trade_dir = 0;
+
 	try {
 		init();
 
@@ -258,327 +277,431 @@ void MTrader::perform(bool manually) {
 			}
 		}
 
-		//Get opened orders
-		auto orders = getOrders();
 		//get current status
 		auto status = getMarketStatus();
+		//load orders to order manager
+		orderMgr.load(std::move(status.openOrders));
+		//update currency from status
+		currency = status.currencyBalance; //TODO check leaked trade
 
+		//if we have brokerCurrencyBalance
 		if (status.brokerCurrencyBalance.has_value()) {
+		    //update balance cache
 			wcfg.balanceCache.lock()->put(cfg.broker, minfo.wallet_id, minfo.currency_symbol, *status.brokerCurrencyBalance);
 		}
+		//if not leverage, we must update allocated assets
 		if (minfo.leverage == 0 && position_valid) {
-			double accum = getAccumulated();
+//			double accum = getAccumulated(); //TODO add accumulation
+		    //update balance cache
 			if (status.brokerAssetBalance.has_value()) wcfg.balanceCache.lock()->put(cfg.broker, minfo.wallet_id, minfo.asset_symbol, *status.brokerAssetBalance);
-			wcfg.walletDB.lock()->alloc(getWalletAssetKey(), position+accum);
-			wcfg.accumDB.lock()->alloc(getWalletAssetKey(), accum);
+			//reserve position
+			wcfg.walletDB.lock()->alloc(getWalletAssetKey(), position);
+			//wcfg.accumDB.lock()->alloc(getWalletAssetKey(), accum);
 		}
 
-		double eq = strategy.getEquilibrium(status.assetBalance);
-		bool delayed_trade_detect = false;
-		std::string buy_order_error;
-		std::string sell_order_error;
-		//process all new trades
-		bool anytrades = processTrades(status);
+		//process reported trades
+		processTrades(status);
 
-		BalanceChangeEvent bche = detectLeakedTrade(status);
-		switch (bche) {
-		default:
-		case BalanceChangeEvent::disabled: break;
-		case BalanceChangeEvent::leak_trade:
-			if (adj_wait>cfg.adj_timeout) {
-				dorovnani(status, position, adj_wait_price);
-				anytrades = processTrades(status);
-				logNote("Adjust added: result - $1", position);
-				adj_wait = 0;
-			} else {
-				if (adj_wait == 0) adj_wait_price = status.curPrice;
-				adj_wait++;
-				logNote("Need adjust $1 => $2, stage: $3/$4 price: $5",  position, status.assetBalance-getAccumulated(), adj_wait ,cfg.adj_timeout, adj_wait_price);
-				delayed_trade_detect = true;
-			}
-			break;
-		case BalanceChangeEvent::withdraw:
-			doWithdraw(status);
-			currency = status.currencyBalance;
-			currency_valid = true;
-			adj_wait = 0;
-			break;
-		case BalanceChangeEvent::no_change:
-			currency = status.currencyBalance;
-			currency_valid = true;
-			adj_wait = 0;
-			break;
-		}
+		//process alerts
+		orderMgr.listAlerts(status.curPrice, [&](const AlertInfo &alrt){
+		    double dir = sgn(alrt.price - status.curPrice);
+		    alertTrigger(status, alrt.price, dir, alrt.reason);
+            update_dynmult(dir>0,dir<0);
 
-		//fast_trade is true, when there is missing order after execution
-		//which assumes, that complete execution achieved
-		//orderwise it is false which can mean, that only partial execution achieved
-		bool fast_trade = false;
+		});
 
-		if (anytrades && ((!orders.buy.has_value() && !buy_alert.has_value())
-				|| (!orders.sell.has_value() && !sell_alert.has_value()))) {
-			recalc = true;
-			fast_trade = true;
-			sell_alert.reset();
-			buy_alert.reset();
-		}
+		orderMgr.initAlerts(status.curPrice);
 
+		//we need alerts, if there the last trade was alert
 		bool need_alerts = trades.empty()?false:trades.back().size == 0;
+		//retrieve last trade size
+		//double lastTradeSize = trades.empty()?0:trades.back().eff_size;
 
-		double lastTradeSize = trades.empty()?0:trades.back().eff_size;
-		if (lastTradePrice == 0 ) {
+		//retrieve last trade prices
+		if (!lastTradePrice) {
 			lastTradePrice = !trades.empty()?trades.back().eff_price:strategy.isValid()?strategy.getEquilibrium(status.assetBalance):status.curPrice;
 			if (!std::isfinite(lastTradePrice)) lastTradePrice = status.curPrice;		}
 
+		//prepare center price
+		double centerPrice = need_alerts?lastTradePrice:strategy.getCenterPrice(lastTradePrice, position - expPos.partial.getPos());
 
-		if (cfg.max_size != 0) need_alerts = true;
-		double centerPrice = need_alerts?lastTradePrice:strategy.getCenterPrice(lastTradePrice, status.assetBalance);
-
+		//depend on mode calculate center price
 		if (cfg.dynmult_sliding) {
 			centerPrice = (centerPrice-lastTradePrice)+lastPriceOffset+status.spreadCenter;
 		}
 
 
-		//only create orders, if there are no trades from previous run
-		if (!anytrades || fast_trade) {
 
-			bool grant_trade = cfg.grant_trade_minutes
-					&& !trades.empty()
-					&& status.ticker.time > trades.back().time
-					&& (status.ticker.time - trades.back().time)/60000 > cfg.grant_trade_minutes;
+		//TODO: trade now + achieve mode
 
+		//call on idle of the strategy
+        strategy.onIdle(minfo, status.ticker, position, currency);
 
-			if (achieve_mode) {
-				achieve_mode = !checkAchieveModeDone(status);
-				grant_trade |= achieve_mode;
-			}
+        if (!cfg.enabled) {
+            if (!cfg.hidden) {
+                statsvc->reportError(IStatSvc::ErrorObj("Automatic trading is disabled"));
+            }
+        } else if (need_initial_reset) {
+            if (!cfg.hidden) {
+                statsvc->reportError(IStatSvc::ErrorObj("Reset required"));
+            }
+        } else if (status.curStep == 0) {
+            if (!cfg.hidden) statsvc->reportError(IStatSvc::ErrorObj("Initializing, please wait\n(5 minutes aprox.)"));
+        } else {
 
-			if (recalc) {
-				double lp = status.curPrice;
-				int fst = 0;
-				if (!trades.empty()) {
-					const auto &tb = trades.back();
-					lp = tb.eff_price;
-					if (tb.size<0) {
-						fst = -1;
-					} else if (tb.size > 0) {
-						fst = 1;
-					} else {
-						fst = frozen_spread_side;
-					}
-					recalc = fast_trade || std::abs(lp-eq)/eq < 0.001;
-					if (!recalc) {
-						auto o = strategy.getNewOrder(minfo, lp, lp, sgn(lastTradeSize), status.assetBalance, status.curPrice, false);
-						double minsz = std::max(minfo.min_size,std::max(minfo.asset_step, minfo.min_volume/lp));
-						auto sz = std::abs(o.size);
-						if (sz < minsz) recalc = true;
-					}
-				}
-				if (recalc) {
-					update_dynmult(lastTradeSize > 0, lastTradeSize < 0);
-					lastTradePrice = lp;
-					lastPriceOffset = lastTradePrice - status.spreadCenter;
-					frozen_spread = status.curStep;
-					frozen_spread_side = fst;
-				}
-			}
+            double lspread = status.curStep*cfg.buy_step_mult;
+            double hspread = status.curStep*cfg.sell_step_mult;
+            if (cfg.freeze_spread) {
+                if (frozen_spread_side<0) {
+                    lspread = std::min(frozen_spread, lspread);
+                } else if (frozen_spread_side>0) {
+                    hspread = std::min(frozen_spread, hspread);
+                }
+            }
 
-			if (grant_trade) {
-				dynmult.reset();
-			}
+            double buyBase;
+            double sellBase;
+            {
+                auto buyTick = minfo.priceToTick((status.ticker.bid+status.ticker.ask)*0.5);
+                auto sellTick = buyTick;
+                auto bidTick = minfo.priceToTick(status.ticker.bid);
+                auto askTick = minfo.priceToTick(status.ticker.ask);
+                while (buyTick >= askTick) buyTick--;
+                while (sellTick <= bidTick) sellTick++;
+                buyBase = minfo.tickToPrice(buyTick);
+                sellBase = minfo.tickToPrice(sellTick);
+            }
 
 
-			if (status.new_trades.trades.empty()) {
-				//process alerts
-				if (sell_alert.has_value() && status.ticker.last >= sell_alert->price) {
-					alertTrigger(status, sell_alert->price,-11,sell_alert->reason);
-					lastTradePrice=sell_alert->price;
-					update_dynmult(false,true);
-					sell_alert.reset();
-				}
-				if (buy_alert.has_value() && status.ticker.last <= buy_alert->price) {
-					alertTrigger(status, buy_alert->price,1,buy_alert->reason);
-					lastTradePrice=buy_alert->price;
-					update_dynmult(true,false);
-					buy_alert.reset();
-				}
-			}
+            double adjpos = position - expPos.partial.getPos();
+
+            hspread = std::max(hspread,1e-10); //spread can't be zero, so put there small number
+            lspread = std::max(lspread,1e-10);
+                //calculate buy order
+            auto buyorder = calculateOrder(strategy,centerPrice,-lspread,
+                    dynmult.getBuyMult(),buyBase,
+                    adjpos,status.currencyBalance,need_alerts);
+                //calculate sell order
+            auto sellorder = calculateOrder(strategy,centerPrice,hspread,
+                    dynmult.getSellMult(),sellBase,
+                    adjpos,status.currencyBalance,need_alerts);
 
 
-			strategy.onIdle(minfo, status.ticker, status.assetBalance, status.currencyBalance);
+            if (buyorder.size - expPos.partial.getPos() < minfo.calcMinOrderSize(buyorder.price)) {
+                buyorder.size = 0;
+                if (flushExpPos()) {
+                    buyorder.alert = IStrategy::Alert::disabled;
+                    last_trade_dir = 1;
+                    update_dynmult(true, false);
+                }
+            } else {
+                buyorder.size -= expPos.partial.getPos();
+            }
 
-			if (status.curStep) {
+            if (sellorder.size - expPos.partial.getPos() > -minfo.calcMinOrderSize(sellorder.price)) {
+                sellorder.size = 0;
+                if (flushExpPos()) {
+                    sellorder.alert = IStrategy::Alert::disabled;
+                    last_trade_dir = -1;
+                    update_dynmult(false, true);
+                }
+            } else {
+                sellorder.size -= expPos.partial.getPos();
+            }
 
-				if (!cfg.enabled || need_initial_reset || delayed_trade_detect)  {
-					if (orders.buy.has_value())
-						stock->placeOrder(cfg.pairsymb,0,0,magic,orders.buy->id,0);
-					if (orders.sell.has_value())
-						stock->placeOrder(cfg.pairsymb,0,0,magic,orders.sell->id,0);
-					if (orders.buy2.has_value())
-						stock->placeOrder(cfg.pairsymb,0,0,magic2,orders.buy2->id,0);
-					if (orders.sell2.has_value())
-						stock->placeOrder(cfg.pairsymb,0,0,magic2,orders.sell2->id,0);
-					if (!cfg.hidden) {
-						if (delayed_trade_detect) {
-							if (adj_wait>1) {
-								statsvc->reportError(IStatSvc::ErrorObj("Trade detected, waiting for confirmation (ADJ Timeout)"));
-							}
-						} else if (!cfg.enabled) {
-							statsvc->reportError(IStatSvc::ErrorObj("Automatic trading is disabled"));
-						} else {
-							statsvc->reportError(IStatSvc::ErrorObj("Reset required"));
-						}
-					}
-				} else {
-					Order buyorder;
-					Order sellorder;
-					double maxPosition;
-					if (need_alerts && checkReduceOnLeverage(status, maxPosition)) {
-						double diff = maxPosition - status.assetBalance;
-						if (diff < 0) {
-							sellorder = Order(diff, status.ticker.ask, IStrategy::Alert::disabled, AlertReason::unknown);
-							buyorder = Order(0, status.ticker.ask/2, IStrategy::Alert::disabled, AlertReason::unknown);
-						} else {
-							buyorder = Order(diff, status.ticker.bid, IStrategy::Alert::disabled, AlertReason::unknown);
-							sellorder = Order(0, status.ticker.bid*2, IStrategy::Alert::disabled, AlertReason::unknown);
-						}
-					} else {
-						double lspread = status.curStep*cfg.buy_step_mult;
-						double hspread = status.curStep*cfg.sell_step_mult;
-						if (cfg.freeze_spread) {
-							if (frozen_spread_side<0) {
-								lspread = std::min(frozen_spread, lspread);
-							} else if (frozen_spread_side>0) {
-								hspread = std::min(frozen_spread, hspread);
-							}
-						}
+            orderMgr.placeOrder(buyorder, 1);
+            orderMgr.placeOrder(sellorder, -1);
 
-						if (grant_trade) {
-							lspread = hspread = 0;
-							need_alerts = false;
-						}
 
-						double buyBase;
-						double sellBase;
-						{
-							auto buyTick = minfo.priceToTick((status.ticker.bid+status.ticker.ask)*0.5);
-							auto sellTick = buyTick;
-							auto bidTick = minfo.priceToTick(status.ticker.bid);
-							auto askTick = minfo.priceToTick(status.ticker.ask);
+            Strategy buy_state = strategy;
+            Strategy sell_state = strategy;
+
+            auto buy_norm_info = buy_state.onTrade(minfo, buyorder.price, buyorder.size, position+buyorder.size, currency);
+            auto sell_norm_info = sell_state.onTrade(minfo, sellorder.price, sellorder.size, position+sellorder.size, currency);
+            buy_norm = buy_norm_info.normProfit;
+            sell_norm = sell_norm_info.normProfit;
+
+            if (cfg.secondary_order_distance>0) {
+                auto buyorder2 = calculateOrder(buy_state,buyorder.price,-status.curStep,
+                                                cfg.secondary_order_distance,
+                                                status.ticker.bid,position+buyorder.size,
+                                                currency,false);
+                auto sellorder2 = calculateOrder(sell_state,sellorder.price,status.curStep,
+                                                cfg.secondary_order_distance,
+                                                status.ticker.bid,position+sellorder.size,
+                                                currency,false);
+                orderMgr.placeOrder(buyorder2, 2);
+                orderMgr.placeOrder(sellorder2, -2);
+            }
+
+        }
+
+        orderMgr.commit(*stock, minfo, cfg.pairsymb, tradingInstance);
+
+        if (!cfg.hidden) {
+
+            auto buy1 = orderMgr.findPlacedOrderById(1);
+            auto sell1 = orderMgr.findPlacedOrderById(-1);
+            auto buy2 = orderMgr.findPlacedOrderById(2);
+            auto sell2 = orderMgr.findPlacedOrderById(-2);
+
+
+            statsvc->reportOrders(1, OrderPlaceResult::getOrder(buy1), OrderPlaceResult::getOrder(sell1));
+            statsvc->reportOrders(2, OrderPlaceResult::getOrder(buy2), OrderPlaceResult::getOrder(sell2));
+            statsvc->reportError(IStatSvc::ErrorObj(OrderPlaceResult::getError(buy1),OrderPlaceResult::getError(sell1)));
+
+            //report trades to UI
+            statsvc->reportTrades(position, trades);
+            //report price to UI
+            statsvc->reportPrice(status.curPrice);
+            //report misc
+            //report misc
+            auto minmax = strategy.calcSafeRange(minfo,status.assetAvailBalance,status.currencyAvailBalance);
+            auto budget = strategy.getBudgetInfo();
+            std::optional<double> budget_extra;
+            if (!trades.empty())
+            {
+//              double last_price = trades.back().eff_price;
+                double locked = wcfg.walletDB.lock_shared()->query(WalletDB::KeyQuery(cfg.broker, minfo.wallet_id, minfo.currency_symbol, uid)).otherTraders;
+                double currency = strategy.calcCurrencyAllocation(status.curPrice, minfo.leverage>0);
+                budget_extra =  status.currencyUnadjustedBalance - locked - currency;
+            }
+
+            statsvc->reportMisc(IStatSvc::MiscData{
+                last_trade_dir,
+                achieve_mode,
+                cfg.enabled,
+                strategy.getEquilibrium(position),
+                status.curStep*0.5*(cfg.buy_step_mult+cfg.sell_step_mult),
+                dynmult.getBuyMult(),
+                dynmult.getSellMult(),
+                minmax.min,
+                minmax.max,
+                budget.total,
+                budget.assets,
+                accumulated,
+                budget_extra,
+                trades.size(),
+                trades.empty()?0:(trades.back().time-trades[0].time),
+                centerPrice,
+                position,
+                buy_norm,
+                sell_norm,
+                acb_state.getOpen(),
+                acb_state.getRPnL(),
+                acb_state.getUPnL(status.curPrice)
+            });
+        }
+
+
+        if (!manually) {
+            if (chart.empty() || chart.back().time < status.chartItem.time) {
+                //store current price (to build chart)
+                chart.push_back(status.chartItem);
+                {
+                    //delete very old data from chart
+                    unsigned int max_count = std::max<unsigned int>(std::max(cfg.spread_calc_sma_hours, cfg.spread_calc_stdev_hours),240*60);
+                    if (chart.size() > max_count)
+                        chart.erase(chart.begin(),chart.end()-max_count);
+                }
+            }
+        }
+
+
+
+
+        //save state
+        saveState();
+        first_cycle = false;
+
+    } catch (std::exception &e) {
+        if (!cfg.hidden) {
+            statsvc->reportTrades(position,trades);
+            std::string error;
+            error.append(e.what());
+            statsvc->reportError(IStatSvc::ErrorObj(error.c_str()));
+            statsvc->reportMisc(IStatSvc::MiscData{
+                0,false,cfg.enabled,0,0,dynmult.getBuyMult(),dynmult.getSellMult(),0,0,0,0,accumulated,0,
+                trades.size(),trades.empty()?0UL:(trades.back().time-trades[0].time),lastTradePrice,position,
+                        0,0,acb_state.getOpen(),acb_state.getRPnL(),acb_state.getUPnL(lastTradePrice)
+            },true);
+            statsvc->reportPrice(trades.empty()?1:trades.back().price);
+            throw;
+        }
+    }
+
+
+#if 0
+
+
+		if (recalc) {
+            double lp = status.curPrice;
+            int fst = 0;
+            if (!trades.empty()) {
+                const auto &tb = trades.back();
+                lp = tb.eff_price;
+                if (tb.size<0) {
+                    fst = -1;
+                } else if (tb.size > 0) {
+                    fst = 1;
+                } else {
+                    fst = frozen_spread_side;
+                }
+                recalc = fast_trade || std::abs(lp-eq)/eq < 0.001;
+                if (!recalc) {
+                    auto o = strategy.getNewOrder(minfo, lp, lp, sgn(lastTradeSize), status.assetBalance, status.curPrice, false);
+                    double minsz = std::max(minfo.min_size,std::max(minfo.asset_step, minfo.min_volume/lp));
+                    auto sz = std::abs(o.size);
+                    if (sz < minsz) recalc = true;
+                }
+            }
+            if (recalc) {
+                update_dynmult(lastTradeSize > 0, lastTradeSize < 0);
+                lastTradePrice = lp;
+                lastPriceOffset = lastTradePrice - status.spreadCenter;
+                frozen_spread = status.curStep;
+                frozen_spread_side = fst;
+            }
+        }
+
+        if (grant_trade) {
+            dynmult.reset();
+        }
+*/
+
+
+        if (status.curStep) {
+
+            if (!cfg.enabled || need_initial_reset || delayed_trade_detect)  {
+                if (!cfg.hidden) {
+                    if (delayed_trade_detect) {
+                        if (adj_wait>1) {
+                            statsvc->reportError(IStatSvc::ErrorObj("Trade detected, waiting for confirmation (ADJ Timeout)"));
+                        }
+                    } else if (!cfg.enabled) {
+                        statsvc->reportError(IStatSvc::ErrorObj("Automatic trading is disabled"));
+                    } else {
+                        statsvc->reportError(IStatSvc::ErrorObj("Reset required"));
+                    }
+                }
+            } else {
+                double maxPosition;
+                if (need_alerts && checkReduceOnLeverage(status, maxPosition)) {
+                    double diff = maxPosition - status.assetBalance;
+                    if (diff < 0) {
+                        sellorder = Order(diff, status.ticker.ask, IStrategy::Alert::disabled, AlertReason::unknown);
+                        buyorder = Order(0, status.ticker.ask/2, IStrategy::Alert::disabled, AlertReason::unknown);
+                    } else {
+                        buyorder = Order(diff, status.ticker.bid, IStrategy::Alert::disabled, AlertReason::unknown);
+                        sellorder = Order(0, status.ticker.bid*2, IStrategy::Alert::disabled, AlertReason::unknown);
+                    }
+                } else {
+                    double lspread = status.curStep*cfg.buy_step_mult;
+                    double hspread = status.curStep*cfg.sell_step_mult;
+                    if (cfg.freeze_spread) {
+                        if (frozen_spread_side<0) {
+                            lspread = std::min(frozen_spread, lspread);
+                        } else if (frozen_spread_side>0) {
+                            hspread = std::min(frozen_spread, hspread);
+                        }
+                    }
+
+                    if (grant_trade) {
+                        lspread = hspread = 0;
+                        need_alerts = false;
+                    }
+
+                    double buyBase;
+                    double sellBase;
+                    {
+                        auto buyTick = minfo.priceToTick((status.ticker.bid+status.ticker.ask)*0.5);
+                        auto sellTick = buyTick;
+                        auto bidTick = minfo.priceToTick(status.ticker.bid);
+                        auto askTick = minfo.priceToTick(status.ticker.ask);
 //							logDebug("TICKS: buyTick=$1, sellTick=$2, bidTick=$3, askTick=$4, step=$5", buyTick, sellTick, bidTick, askTick, minfo.currency_step);
-							while (buyTick >= askTick) buyTick--;
-							while (sellTick <= bidTick) sellTick++;
-							buyBase = minfo.tickToPrice(buyTick);
-							sellBase = minfo.tickToPrice(sellTick);
+                        while (buyTick >= askTick) buyTick--;
+                        while (sellTick <= bidTick) sellTick++;
+                        buyBase = minfo.tickToPrice(buyTick);
+                        sellBase = minfo.tickToPrice(sellTick);
 //							logDebug("TICKS: buyTick=$1, sellTick=$2, bidTick=$3, askTick=$4, step=$5", buyTick, sellTick, bidTick, askTick, minfo.currency_step);
 //							logDebug("TICKS: buyBase=$1, sellBase=$2, 1/buyBase=$3, 1/sellBase=$4", buyBase, sellBase, 1.0/buyBase, 1.0/sellBase);
-						}
+                    }
 
 
 
+                    double adjpos = position - expPos.partial.getPos();
 
-						hspread = std::max(hspread,1e-10); //spread can't be zero, so put there small number
-						lspread = std::max(lspread,1e-10);
-							//calculate buy order
-						buyorder = calculateOrder(strategy,centerPrice,-lspread,
-								dynmult.getBuyMult(),buyBase,
-								position,status.currencyBalance,need_alerts);
-							//calculate sell order
-						sellorder = calculateOrder(strategy,centerPrice,hspread,
-								dynmult.getSellMult(),sellBase,
-								position,status.currencyBalance,need_alerts);
+                    hspread = std::max(hspread,1e-10); //spread can't be zero, so put there small number
+                    lspread = std::max(lspread,1e-10);
+                        //calculate buy order
+                    buyorder = calculateOrder(strategy,centerPrice,-lspread,
+                            dynmult.getBuyMult(),buyBase,
+                            position,status.currencyBalance,need_alerts);
+                        //calculate sell order
+                    sellorder = calculateOrder(strategy,centerPrice,hspread,
+                            dynmult.getSellMult(),sellBase,
+                            position,status.currencyBalance,need_alerts);
 
-						if (cfg.dynmult_sliding && !need_alerts) {
-							double bp = centerPrice*std::exp(-lspread);
-							double sp = centerPrice*std::exp(hspread);
-							if (status.ticker.bid > sp) {
-								auto b2 = calculateOrder(strategy,lastTradePrice,-lspread,
-										1.0,status.ticker.bid,
-										position,status.currencyBalance,true);
-								if (b2.size) buyorder = b2;
-							}
-							if (status.ticker.ask < bp) {
-								auto s2 = calculateOrder(strategy,lastTradePrice,hspread,
-										1.0,status.ticker.ask,
-										position,status.currencyBalance,true);
-								if (s2.size) sellorder = s2;
+                    if (cfg.dynmult_sliding && !need_alerts) {
+                        double bp = centerPrice*std::exp(-lspread);
+                        double sp = centerPrice*std::exp(hspread);
+                        if (status.ticker.bid > sp) {
+                            auto b2 = calculateOrder(strategy,lastTradePrice,-lspread,
+                                    1.0,status.ticker.bid,
+                                    position,status.currencyBalance,true);
+                            if (b2.size) buyorder = b2;
+                        }
+                        if (status.ticker.ask < bp) {
+                            auto s2 = calculateOrder(strategy,lastTradePrice,hspread,
+                                    1.0,status.ticker.ask,
+                                    position,status.currencyBalance,true);
+                            if (s2.size) sellorder = s2;
 
-							}
-						}
+                        }
+                    }
+
+                    if (buyorder->size - expPos.partial.getPos() <= 0 ||
+                        sellorder->size - expPos.partial.getPos() >= 0) {
+
+                        strategy.onTrade(minfo, expPos.partial.getOpen(), expPos.partial.getPos(), position, status.currencyBalance);
+
+                        expPos.hight = buyorder->size;
+                        expPos.low = sellorder->size;
+                        expPos.norm_accum = 0;
+                        expPos.norm_profit = 0;
+                        expPos.partial = ACB();
+                    } else {
+                        expPos.hight = buyorder->size;
+                        expPos.low = sellorder->size;
+                    }
 
 
+                }
 
-					}
 
+                if (achieve_mode) {
+                    sellorder->alert = IStrategy::Alert::disabled;
+                    buyorder->alert = IStrategy::Alert::disabled;
+                }
 
-					if (achieve_mode) {
-						sellorder.alert = IStrategy::Alert::disabled;
-						buyorder.alert = IStrategy::Alert::disabled;
-					}
+                orderMgr.placeOrder(buyorder->price, buyorder->size, 1);
+                orderMgr.placeOrder(sellorder->price, sellorder->size, -1);
 
-					for (int _i=0;_i<2;_i++) {
-						try {
-							setOrder(orders.buy, buyorder, buy_alert, false);
-							if (!orders.buy.has_value()) {
-								acceptLoss(status, 1);
-							}
-							_i=1;
-						} catch (std::exception &e) {
-							if (!orders.buy2.has_value() || _i) {
-								buy_order_error = e.what();
-								acceptLoss(status, 1);
-								_i=1;
-							} else {
-								stock->placeOrder(cfg.pairsymb, 0, 0, json::Value(), orders.buy2->id, 0);
-								orders.buy2.reset();
-								logProgress("Canceled 2nd buy order because error $1",e.what());
-							}
-						}
-					}
-					for (int _i=0;_i<2;_i++) {
-						try {
-							setOrder(orders.sell, sellorder, sell_alert, false);
-							if (!orders.sell.has_value()) {
-								acceptLoss(status, -1);
-							}
-							_i=1;
-						} catch (std::exception &e) {
-							if (!orders.sell2.has_value() || _i) {
- 								sell_order_error = e.what();
-								acceptLoss(status,-1);
-								_i=1;
-							} else {
-								stock->placeOrder(cfg.pairsymb, 0, 0, json::Value(), orders.sell2->id, 0);
-								orders.sell2.reset();
-								logProgress("Canceled 2nd sell order because error $1",e.what());
-							}
-						}
-					}
+                if (buy_alert.has_value() && sell_alert.has_value() && buy_alert->price > sell_alert->price) {
+                    std::swap(buy_alert, sell_alert);
+                }
 
-					if (buy_alert.has_value() && sell_alert.has_value() && buy_alert->price > sell_alert->price) {
-						std::swap(buy_alert, sell_alert);
-					}
+                if (!recalc && !manually) {
+                    update_dynmult(false,false);
+                }
 
-					if (!recalc && !manually) {
-						update_dynmult(false,false);
-					}
+            }
+        } else {
+            if (!cfg.hidden) statsvc->reportError(IStatSvc::ErrorObj("Initializing, please wait\n(5 minutes aprox.)"));
+        }
 
-					//report order errors to UI
-					if (!cfg.hidden) statsvc->reportError(IStatSvc::ErrorObj(buy_order_error, sell_order_error));
+        recalc = false;
 
-				}
-			} else {
-				if (!cfg.hidden) statsvc->reportError(IStatSvc::ErrorObj("Initializing, please wait\n(5 minutes aprox.)"));
-			}
-
-			recalc = false;
-
-		} else {
-
-			recalc = true;
-			sell_alert.reset();
-			buy_alert.reset();
-		}
 
 		Strategy buy_state = strategy;
 		Strategy sell_state = strategy;
@@ -587,15 +710,49 @@ void MTrader::perform(bool manually) {
 		if (!cfg.hidden || cfg.secondary_order_distance>0) {
 			if (sell_alert.has_value()) {
 				sell_norm = sell_state.onTrade(minfo, sell_alert->price, 0, position, status.currencyBalance).normProfit;
-			} else if (orders.sell.has_value()) {
-				sell_norm = sell_state.onTrade(minfo, orders.sell->price, orders.sell->size, position+orders.sell->size, status.currencyBalance).normProfit;
+			} else if (sellorder.has_value()) {
+				sell_norm = sell_state.onTrade(minfo, sellorder->price, sellorder->size, position+sellorder->size, status.currencyBalance).normProfit;
 			}
 			if (buy_alert.has_value()) {
 				buy_norm = buy_state.onTrade(minfo, buy_alert->price, 0, position, status.currencyBalance).normProfit;
-			} else if (orders.buy.has_value()) {
-				buy_norm = buy_state.onTrade(minfo, orders.buy->price, orders.buy->size, position+orders.buy->size, status.currencyBalance).normProfit;
+			} else if (buyorder.has_value()) {
+				buy_norm = buy_state.onTrade(minfo, buyorder->price, buyorder->size, position+buyorder->size, status.currencyBalance).normProfit;
 			}
 		}
+
+
+        if (cfg.secondary_order_distance > 0 && orders.buy.has_value() && orders.buy->price > 0) {
+            std::optional<AlertInfo> alert;
+            try {
+                auto buyorder = calculateOrder(buy_state,orders.buy->price,-status.curStep,
+                                                cfg.secondary_order_distance,
+                                                status.ticker.bid,position+orders.buy->size,
+                                                status.currencyBalance,false);
+                setOrder(orders.buy2, buyorder, alert, true);
+            } catch (std::exception &e) {
+                logError("Failed to create secondary order: $1", e.what());
+            }
+        } else if (orders.buy2.has_value()) {
+            stock->placeOrder(cfg.pairsymb, 0, 0, json::Value(), orders.buy2->id, 0);
+            orders.buy2.reset();
+        }
+
+
+        if (cfg.secondary_order_distance > 0 && orders.sell.has_value() && orders.sell->price > 0) {
+            std::optional<AlertInfo> alert;
+            try {
+                auto sellorder = calculateOrder(sell_state,orders.sell->price, status.curStep,
+                                                     cfg.secondary_order_distance,
+                                                     status.ticker.ask, position+orders.sell->size,
+                                                     status.currencyBalance,false);
+                setOrder(orders.sell2, sellorder, alert, true);
+            } catch (std::exception &e) {
+                logError("Failed to create secondary order: $1", e.what());
+            }
+        } else  if (orders.sell2.has_value()) {
+            stock->placeOrder(cfg.pairsymb, 0, 0, json::Value(), orders.sell2->id, 0);
+            orders.sell2.reset();
+        }
 
 
 		if (!cfg.hidden) {
@@ -663,40 +820,7 @@ void MTrader::perform(bool manually) {
 			}
 		}
 
-		lastTradeId  = status.new_trades.lastId;
 
-		if (cfg.secondary_order_distance > 0 && orders.buy.has_value() && orders.buy->price > 0) {
-			std::optional<AlertInfo> alert;
-			try {
-				auto buyorder = calculateOrder(buy_state,orders.buy->price,-status.curStep,
-												cfg.secondary_order_distance,
-												status.ticker.bid,position+orders.buy->size,
-												status.currencyBalance,false);
-				setOrder(orders.buy2, buyorder, alert, true);
-			} catch (std::exception &e) {
-				logError("Failed to create secondary order: $1", e.what());
-			}
-		} else if (orders.buy2.has_value()) {
-			stock->placeOrder(cfg.pairsymb, 0, 0, json::Value(), orders.buy2->id, 0);
-			orders.buy2.reset();
-		}
-
-
-		if (cfg.secondary_order_distance > 0 && orders.sell.has_value() && orders.sell->price > 0) {
-			std::optional<AlertInfo> alert;
-			try {
-				auto sellorder = calculateOrder(sell_state,orders.sell->price, status.curStep,
-													 cfg.secondary_order_distance,
-													 status.ticker.ask, position+orders.sell->size,
-													 status.currencyBalance,false);
-				setOrder(orders.sell2, sellorder, alert, true);
-			} catch (std::exception &e) {
-				logError("Failed to create secondary order: $1", e.what());
-			}
-		} else 	if (orders.sell2.has_value()) {
-			stock->placeOrder(cfg.pairsymb, 0, 0, json::Value(), orders.sell2->id, 0);
-			orders.sell2.reset();
-		}
 		if (!cfg.hidden) statsvc->reportOrders(2,orders.buy2,orders.sell2);
 
 
@@ -704,74 +828,11 @@ void MTrader::perform(bool manually) {
 		//save state
 		saveState();
 		first_cycle = false;
-
-	} catch (std::exception &e) {
-		if (!cfg.hidden) {
-			statsvc->reportTrades(position,trades);
-			std::string error;
-			error.append(e.what());
-			statsvc->reportError(IStatSvc::ErrorObj(error.c_str()));
-			statsvc->reportMisc(IStatSvc::MiscData{
-				0,false,cfg.enabled,0,0,dynmult.getBuyMult(),dynmult.getSellMult(),0,0,0,0,accumulated,0,
-				trades.size(),trades.empty()?0UL:(trades.back().time-trades[0].time),lastTradePrice,position,
-						0,0,acb_state.getOpen(),acb_state.getRPnL(),acb_state.getUPnL(lastTradePrice)
-			},true);
-			statsvc->reportPrice(trades.empty()?1:trades.back().price);
-			throw;
-		}
-	}
+#endif
 }
 
 
-MTrader::OrderPair MTrader::getOrders() {
-	OrderPair ret;
-	auto data = stock->getOpenOrders(cfg.pairsymb);
-	for (auto &&x: data) {
-		try {
-			if (x.client_id == magic) {
-				IStockApi::Order o(x);
-				if (o.size<0) {
-					if (ret.sell.has_value()) {
-						ondra_shared::logWarning("Multiple sell orders (trying to cancel)");
-						stock->placeOrder(cfg.pairsymb,0,0,json::Value(),x.id);
-					} else {
-						ret.sell = o;
-					}
-				} else {
-					if (ret.buy.has_value()) {
-						ondra_shared::logWarning("Multiple buy orders (trying to cancel)");
-						stock->placeOrder(cfg.pairsymb,0,0,json::Value(),x.id);
-					} else {
-						ret.buy = o;
-					}
-				}
-			}
-			if (x.client_id == magic2) {
-				IStockApi::Order o(x);
-				if (o.size<0) {
-					if (ret.sell2.has_value()) {
-						ondra_shared::logWarning("Multiple secondary sell orders (trying to cancel)");
-						stock->placeOrder(cfg.pairsymb,0,0,json::Value(),x.id);
-					} else {
-						ret.sell2 = o;
-					}
-				} else {
-					if (ret.buy2.has_value()) {
-						ondra_shared::logWarning("Multiple secondary buy orders (trying to cancel)");
-						stock->placeOrder(cfg.pairsymb,0,0,json::Value(),x.id);
-					} else {
-						ret.buy2 = o;
-					}
-				}
-			}
-		} catch (std::exception &e) {
-			ondra_shared::logError("$1", e.what());
-		}
-	}
-	return ret;
-}
-
-
+#if 0
 void MTrader::setOrder(std::optional<IStockApi::Order> &orig, Order neworder, std::optional<AlertInfo> &alert, bool secondary) {
 	alert.reset();
 	try {
@@ -790,6 +851,7 @@ void MTrader::setOrder(std::optional<IStockApi::Order> &orig, Order neworder, st
 		if (neworder.alert == IStrategy::Alert::forced && neworder.size == 0) {
 			if (orig.has_value() && orig->id.hasValue()) {
 				//cancel current order
+			    orderMgr.placeOrder(price, size, custom_id)
 				stock->placeOrder(cfg.pairsymb,0,0,nullptr,orig->id,0);
 			}
 			alert = AlertInfo{neworder.price, neworder.ar};
@@ -839,7 +901,7 @@ void MTrader::setOrder(std::optional<IStockApi::Order> &orig, Order neworder, st
 		throw;
 	}
 }
-
+#endif
 
 template<typename T>
 static std::pair<double,double> sumTrades(const std::pair<double,double> &a, const T &b) {
@@ -856,23 +918,24 @@ MTrader::Status MTrader::getMarketStatus() const {
 
 	IStockApi::Trade ftrade = {json::Value(), 0, 0, 0, 0, 0}, *last_trade = &ftrade;
 
-// merge trades here
-	auto new_trades = stock->syncTrades(lastTradeId, cfg.pairsymb);
-	res.new_trades.lastId = new_trades.lastId;
-	for (auto &&k : new_trades.trades) {
+	IStockApi::TradingStatus tstatus = stock->getTradingStatus(cfg.pairsymb, tradingInstance);
+
+
+
+	for (auto &&k : tstatus.fills) {
 		if (last_trade->price == k.price) {
 			last_trade->eff_price = (last_trade->eff_price * last_trade->size + k.eff_price*k.size)/(last_trade->size+k.size);
 			last_trade->size += k.size;
 			last_trade->eff_size += k.eff_size;
 			last_trade->time = k.time;
 		} else {
-			res.new_trades.trades.push_back(k);
-			last_trade = &res.new_trades.trades.back();
+			res.new_trades.push_back(k);
+			last_trade = &res.new_trades.back();
 		}
 	}
 
-	res.brokerAssetBalance= stock->getBalance(minfo.asset_symbol, cfg.pairsymb);
-	res.brokerCurrencyBalance = stock->getBalance(minfo.currency_symbol, cfg.pairsymb);
+	res.brokerAssetBalance= tstatus.position;
+	res.brokerCurrencyBalance = tstatus.balance;
 	res.currencyUnadjustedBalance = *res.brokerCurrencyBalance + wcfg.externalBalance.lock_shared()->get(cfg.broker, minfo.wallet_id, minfo.currency_symbol);
 	res.assetUnadjustedBalance = *res.brokerAssetBalance +  wcfg.externalBalance.lock_shared()->get(cfg.broker, minfo.wallet_id, minfo.asset_symbol);
 	auto wdb = wcfg.walletDB.lock_shared();
@@ -887,7 +950,7 @@ MTrader::Status MTrader::getMarketStatus() const {
 	res.currencyAvailBalance = wdb->adjBalance(WalletDB::KeyQuery(cfg.broker,minfo.wallet_id,minfo.currency_symbol,uid),*res.brokerCurrencyBalance);
 
 
-	auto ticker = stock->getTicker(cfg.pairsymb);
+	auto ticker = tstatus.ticker;
 	res.ticker = ticker;
 	res.curPrice = std::sqrt(ticker.ask*ticker.bid);
 
@@ -907,6 +970,8 @@ MTrader::Status MTrader::getMarketStatus() const {
 		res.spreadCenter = 0;
 	}
 
+	res.tradingInstance = tstatus.instance;
+	res.openOrders = std::move(tstatus.openOrders);
 
 	return res;
 }
@@ -1173,11 +1238,12 @@ void MTrader::loadState() {
 			recalc = state["recalc"].getBool();
 			std::size_t nuid = state["uid"].getUInt();
 			if (nuid) uid = nuid;
-			lastTradeId = state["lastTradeId"];
+			tradingInstance = state["tradingInstance"];
 			lastPriceOffset = state["lastPriceOffset"].getNumber();
 			lastTradePrice = state["lastTradePrice"].getNumber();
 			frozen_spread_side = state["frozen_side"].getInt();
 			frozen_spread = state["frozen_spread"].getNumber();
+			expPos.fromJSON(state["expPos"]);
 
 			bool cfg_sliding = state["cfg_sliding_spread"].getBool();
 			if (cfg_sliding != cfg.dynmult_sliding)
@@ -1256,7 +1322,7 @@ void MTrader::saveState() {
 			st.set("currency_balance", currency);
 		st.set("recalc",recalc);
 		st.set("uid",uid);
-		st.set("lastTradeId",lastTradeId);
+		st.set("tradingInstance",tradingInstance);
 		st.set("lastPriceOffset",lastPriceOffset);
 		st.set("lastTradePrice", lastTradePrice);
 		st.set("cfg_sliding_spread",cfg.dynmult_sliding);
@@ -1264,6 +1330,7 @@ void MTrader::saveState() {
 		st.set("accumulated",accumulated);
 		st.set("frozen_side", frozen_spread_side);
 		st.set("frozen_spread", frozen_spread);
+		st.set("exp_pos", expPos.toJSON());
 		if (achieve_mode) st.set("achieve_mode", achieve_mode);
 		if (need_initial_reset) st.set("need_initial_reset", need_initial_reset);
 		st.set("adj_wait",adj_wait);
@@ -1312,19 +1379,19 @@ bool MTrader::processTrades(Status &st) {
 	//Remove duplicate trades
 	//which can happen by failed synchronization
 	//while the new trade is already in current trades
-	auto iter = std::remove_if(st.new_trades.trades.begin(), st.new_trades.trades.end(),
+	auto iter = std::remove_if(st.new_trades.begin(), st.new_trades.end(),
 			[&](const IStockApi::Trade &t) {
 				return std::find_if(trades.begin(), trades.end(),[&](const IStockApi::Trade &q) {
 					return t.id == q.id;
 				}) != trades.end();
 	});
 
-	st.new_trades.trades.erase(iter, st.new_trades.trades.end());
+	st.new_trades.erase(iter, st.new_trades.end());
 
 
-	double assetBal = position_valid?position:st.assetBalance;
+	double assetBal = position;
 	double curBal = st.currencyBalance - (minfo.leverage?0:std::accumulate(
-			st.new_trades.trades.begin(), st.new_trades.trades.end(),0,[](double a, const IStockApi::Trade &tr){
+			st.new_trades.begin(), st.new_trades.end(),0,[](double a, const IStockApi::Trade &tr){
 				return a - tr.price*tr.size;
 			}));
 
@@ -1340,7 +1407,8 @@ bool MTrader::processTrades(Status &st) {
 
 	bool res = false;
 
-	for (auto &&t : st.new_trades.trades) {
+
+	for (auto &&t : st.new_trades) {
 		if (t.eff_price <= 0 || t.price <= 0) throw std::runtime_error("Broker error - trade negative price");
 
 		res = true;
@@ -1364,16 +1432,24 @@ bool MTrader::processTrades(Status &st) {
 		assetBal += t.eff_size;
 
 		if (!achieve_mode && (cfg.enabled || first_cycle)) {
-			auto norm = strategy.onTrade(minfo, t.eff_price, t.eff_size, assetBal, curBal);
-			t.eff_size-=norm.normAccum;
-			assetBal -= norm.normAccum;
-			accumulated +=norm.normAccum;
-			trades.push_back(TWBItem(t, last_np+=norm.normProfit, last_ap+=norm.normAccum, norm.neutralPrice));
+		    auto ss = strategy;
+            expPos.partial = expPos.partial(t.eff_price, t.eff_size);
+			auto norm = ss.onTrade(minfo, expPos.partial.getPos(), expPos.partial.getOpen(), assetBal, curBal);
+            double np_diff = norm.normProfit  - expPos.norm_profit + expPos.partial.getRPnL();
+            double na_diff = norm.normAccum - expPos.norm_accum ;
+            expPos.norm_profit += np_diff;
+            expPos.norm_accum += na_diff;
+            last_np += np_diff;
+            last_ap += na_diff;
+            assetBal -= na_diff;
+            t.eff_size-= na_diff;
+            accumulated +=na_diff;
+            trades.push_back(TWBItem(t, last_np, last_ap, 0, true));
 		} else {
 			trades.push_back(TWBItem(t, last_np, last_ap, 0, true));
 		}
 	}
-	wcfg.walletDB.lock()->alloc(getWalletBalanceKey(), strategy.calcCurrencyAllocation(last_price, minfo.leverage>0));
+//	wcfg.walletDB.lock()->alloc(getWalletBalanceKey(), strategy.calcCurrencyAllocation(last_price, minfo.leverage>0));
 
 	if (position_valid) position = assetBal;
 	else position = st.assetBalance;
@@ -1406,15 +1482,9 @@ void MTrader::reset(const ResetOptions &ropt) {
 	init();
 	dynmult.setMult(1, 1);
 	stock->reset(std::chrono::system_clock::now());
-	//check whether lastTradeId is unable to retrieve trades
-	auto syncState = stock->syncTrades(lastTradeId, cfg.pairsymb);
-	//if no trades are received, we can freely reset lastTradeId;
-	if (syncState.trades.empty()) {
-		//so obtain new lastTradeId;
-		syncState = stock->syncTrades(nullptr, cfg.pairsymb);
-		//store it
-		lastTradeId = syncState.lastId;
-	}
+
+	tradingInstance = nullptr;
+
 	lastPriceOffset = 0;
 	double lastPrice = 0;
 	for (auto &&x : trades) {
@@ -1918,3 +1988,126 @@ void MTrader::updateEnterPrice() {
 	}
 	acb_state = acb;
 }
+
+void MTrader::OrderMgr::load(IStockApi::Orders &&opened) {
+    this->opened = std::move(opened);
+    to_place.clear();
+    tmp.clear();
+    place_errors.clear();
+    masked.clear();
+    masked.resize(opened.size(), false);
+}
+
+void MTrader::OrderMgr::placeOrder(const Order &ord, int localId) {
+    if (ord.size || ord.alert == IStrategy::Alert::forced) {
+            to_place.push_back({ord.price,ord.size,ord.ar,localId,0});
+    }
+}
+
+void MTrader::OrderMgr::commit(IStockApi &target, const IStockApi::MarketInfo &minfo, const std::string_view &pair, json::Value &instance) {
+    tmp.clear();
+
+    for (NewOrder &ord: to_place)  {
+        if (ord.size) {
+            auto itr = std::find_if(opened.begin(), opened.end(), [&](const IStockApi::Order &x) -> bool {
+                auto idx = &x - &opened[0];
+                if (!masked[idx] && std::abs(x.price - ord.price) < minfo.currency_step
+                       && std::abs(x.size - ord.size) < minfo.asset_step) {
+                   return true;
+               } else {
+                   return false;
+               }
+            });
+            if (itr != opened.end()) {
+                int d = std::distance(opened.begin(), itr);
+                masked[d] = true;
+                ord.to_place_index = -1;
+                ord.reuse_index = d;
+            }
+        } else {
+            alerts.push_back(AlertInfo{ord.price, ord.ar});
+            ord.to_place_index = -1;
+        }
+    }
+
+    for (NewOrder &ord: to_place) if (ord.to_place_index == 0) {
+        auto distance = std::numeric_limits<double>::max();
+        int best_index = -1;
+        for (std::size_t i = 0, cnt = opened.size(); i < cnt; i++) if (!masked[i]) {
+            if (std::signbit(opened[i].size) == std::signbit(ord.size)) {
+                auto d = std::abs(opened[i].price - ord.price);
+                if (d < distance) best_index = i;
+            }
+        }
+        if (best_index >= 0) {
+            ord.to_place_index = tmp.size();
+            tmp.push_back({
+               ord.price,ord.size,opened[best_index].id,0
+            });
+            masked[best_index] = true;
+        } else {
+            ord.to_place_index = tmp.size();
+            tmp.push_back({
+               ord.price,ord.size,nullptr,0
+            });
+        }
+    }
+    for (std::size_t i = 0, cnt = opened.size(); i < cnt; i++) if (!masked[i]) {
+        tmp.push_back({
+            0,0,opened[i].id,0
+        });
+    }
+
+    target.placeOrders(pair, tmp, instance);
+
+    for (const auto &x: tmp) {
+        if (!x.placed && !x.error.empty()) {
+            place_errors.push_back(x.error);
+        } else {
+            place_errors.push_back({});
+        }
+    }
+
+}
+
+void MTrader::OrderMgr::commit_force_cancel(IStockApi &target, const std::string_view &pair, json::Value &instance) {
+    tmp.clear();
+    for (const auto &o: opened) {
+        tmp.push_back({0,0,o.id,0});
+    }
+    for (auto &o: to_place) {
+        o.to_place_index = tmp.size();
+        tmp.push_back({o.price, o.size, nullptr,0});
+    }
+
+    target.placeOrders(pair, tmp, instance);
+
+    for (const auto &x: tmp) {
+        if (!x.placed && !x.error.empty()) {
+            place_errors.push_back(x.error);
+        } else {
+            place_errors.push_back({});
+        }
+    }
+}
+
+std::optional<MTrader::OrderPlaceResult> MTrader::OrderMgr::findPlacedOrderById(int localId) const {
+    auto iter = std::find_if(to_place.begin(), to_place.end(), [&](const NewOrder &ord) {
+       return ord.custom_id == localId;
+    });
+
+    if (iter == to_place.end()) return {};
+    IStockApi::Order ord{json::Value(), json::Value(),iter->size, iter->price};
+    if (iter->reuse_index >= 0) return OrderPlaceResult{opened[iter->reuse_index]};
+    if (iter->to_place_index>=0) {
+        return OrderPlaceResult{
+            ord,place_errors[iter->to_place_index]
+        };
+    }
+    if (iter->size) return {};
+    return OrderPlaceResult{
+        ord
+    };
+
+}
+

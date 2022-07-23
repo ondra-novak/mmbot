@@ -194,10 +194,11 @@ IStockApi::MarketInfo IStockApi::MarketInfo::fromJSON(const json::Value &v) {
 }
 
 std::int64_t IStockApi::MarketInfo::priceToTick(double price) const {
+    double cst = currency_step?currency_step:1e-6;
 	if (invert_price) {
-		return -static_cast<std::int64_t>(std::round((1.0/price)/currency_step));
+		return -static_cast<std::int64_t>(std::round((1.0/price)/cst));
 	} else {
-		return static_cast<std::int64_t>(std::round(price/currency_step));
+		return static_cast<std::int64_t>(std::round(price/cst));
 	}
 }
 double IStockApi::MarketInfo::tickToPrice(std::int64_t tick) const {
@@ -206,6 +207,10 @@ double IStockApi::MarketInfo::tickToPrice(std::int64_t tick) const {
 	} else {
 		return tick*currency_step;
 	}
+}
+
+double IStockApi::MarketInfo::calcMinOrderSize(double price) const {
+    return std::max({asset_step, min_size, min_volume/price});
 }
 
 IStockApi::Ticker IStockApi::Ticker::fromJSON(json::Value v) {
@@ -232,7 +237,7 @@ json::Value IStockApi::TradingStatus::toJSON() const {
         {"orders", json::Value(json::array, openOrders.begin(), openOrders.end(), [](const Order &order) {
             return order.toJSON();
         })},
-        {"fills", json::Value(json::array, newTrades.begin(), newTrades.end(), [](const Trade &trade) {
+        {"fills", json::Value(json::array, fills.begin(), fills.end(), [](const Trade &trade) {
             return trade.toJSON();
         })},
         {"ticker", ticker.toJSON()},

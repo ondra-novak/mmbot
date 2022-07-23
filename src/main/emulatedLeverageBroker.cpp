@@ -60,14 +60,7 @@ EmulatedLeverageBroker::BrokerInfo EmulatedLeverageBroker::getBrokerInfo() {
 
 
 double EmulatedLeverageBroker::getBalance(const std::string_view &symb, const std::string_view &pair) {
-	double r = target->getBalance(symb, pair);;
-	if (symb == minfo.currency_symbol) {
-		double asset = target->getBalance(minfo.asset_symbol, pair);
-		auto price = target->getTicker(pair);
-		return (r+asset*price.last)/emulatedLeverage;
-	} else {
-		return r;
-	}
+    throw std::runtime_error("unsupported");
 }
 
 json::Value EmulatedLeverageBroker::setSettings(json::Value v) {
@@ -85,7 +78,7 @@ void EmulatedLeverageBroker::restoreSettings(json::Value v) {
 
 IStockApi::TradesSync EmulatedLeverageBroker::syncTrades(json::Value lastId,
 		const std::string_view &pair) {
-	return target->syncTrades(lastId, pair);
+    throw std::runtime_error("unsupported");
 }
 
 void EmulatedLeverageBroker::reset(const std::chrono::system_clock::time_point &tp) {
@@ -93,13 +86,13 @@ void EmulatedLeverageBroker::reset(const std::chrono::system_clock::time_point &
 }
 
 IStockApi::Orders EmulatedLeverageBroker::getOpenOrders(const std::string_view &par) {
-	return target->getOpenOrders(par);
+    throw std::runtime_error("unsupported");
 }
 
 json::Value EmulatedLeverageBroker::placeOrder(const std::string_view &pair,
 	double size, double price, json::Value clientId, json::Value replaceId,
 	double replaceSize) {
-	return target->placeOrder(pair, size, price, clientId, replaceId, replaceSize);
+    throw std::runtime_error("unsupported");
 }
 
 

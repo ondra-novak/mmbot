@@ -52,22 +52,11 @@ IStockApi::MarketInfo SwapBroker::getMarketInfo(const std::string_view &pair) {
 
 
 double InvertBroker::getBalance(const std::string_view &symb, const std::string_view &pair) {
-	return target->getBalance(symb, pair);
+    throw std::runtime_error("unsupported");
 }
 
 IStockApi::TradesSync InvertBroker::syncTrades(json::Value lastId, const std::string_view &pair) {
-	IStockApi::TradesSync data = target->syncTrades(lastId, pair);
-	std::transform(data.trades.begin(), data.trades.end(), data.trades.begin(), [](const Trade &tr){
-		return Trade {
-			tr.id,
-			tr.time,
-			-tr.price*tr.size,
-			1.0/tr.price,
-			-tr.eff_price*tr.eff_size,
-			1.0/tr.eff_price
-		};
-	});
-	return data;
+    throw std::runtime_error("unsupported");
 }
 
 void InvertBroker::reset(const std::chrono::system_clock::time_point &tp) {
@@ -75,17 +64,7 @@ void InvertBroker::reset(const std::chrono::system_clock::time_point &tp) {
 }
 
 IStockApi::Orders InvertBroker::getOpenOrders(const std::string_view &par) {
-	ords = target->getOpenOrders(par);
-	Orders new_orders;
-	std::transform(ords.begin(), ords.end(), std::back_inserter(new_orders), [](const Order &ord){
-		return Order{
-			ord.id,
-			ord.client_id,
-			-ord.size * ord.price,
-			1.0/ord.price
-		};
-	});
-	return new_orders;
+    throw std::runtime_error("unsupported");
 }
 
 static double round_fn(double x) {
@@ -101,7 +80,8 @@ static double floor_fn(double x) {
 }
 
 json::Value InvertBroker::placeOrder(const std::string_view &pair, double size, double price, json::Value clientId, json::Value replaceId, double replaceSize) {
-	double new_size = minfo.adjValue(-size * price, minfo.asset_step, tozero_fn);
+#if 0
+    double new_size = minfo.adjValue(-size * price, minfo.asset_step, tozero_fn);
 	double new_price = price?minfo.adjValue(1.0/price, minfo.currency_step, round_fn):0;
 
 	double new_replace = 0;
@@ -127,6 +107,8 @@ json::Value InvertBroker::placeOrder(const std::string_view &pair, double size, 
 		if (new_size < minfo.min_volume/new_price) return nullptr;
 	}
 	return target->placeOrder(pair, new_size, new_price, clientId, replaceId, new_replace);
+#endif
+	throw std::runtime_error("unsupported");
 }
 
 
@@ -149,7 +131,7 @@ IStockApi::TradingStatus InvertBroker::getTradingStatus(const std::string_view &
         x.price = 1.0/price;
         x.size = -x.size * x.price;
     }
-    for (auto &x: ms.newTrades) {
+    for (auto &x: ms.fills) {
         double p = x.price;
         double ep = x.eff_price;
         x.price = 1.0/p;
@@ -161,7 +143,7 @@ IStockApi::TradingStatus InvertBroker::getTradingStatus(const std::string_view &
     return TradingStatus {
         instance,
         std::move(ms.openOrders),
-        std::move(ms.newTrades),
+        std::move(ms.fills),
         Ticker {
             1.0/ms.ticker.ask,
             1.0/ms.ticker.bid,

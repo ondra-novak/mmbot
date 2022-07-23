@@ -145,8 +145,7 @@ public:
 	void init();
 	bool need_init() const;
 
-	OrderPair getOrders();
-	void setOrder(std::optional<IStockApi::Order> &orig, Order neworder, std::optional<AlertInfo> &alert, bool secondary);
+	//void setOrder(std::optional<IStockApi::Order> &orig, Order neworder, std::optional<AlertInfo> &alert, bool secondary);
 
 
 	using ChartItem = IStatSvc::ChartItem;
@@ -171,16 +170,23 @@ public:
 		double currencyAvailBalance;
 
 		double spreadCenter;
-		IStockApi::TradesSync new_trades;
+		IStockApi::TradeHistory new_trades;
 		ChartItem chartItem;
 		std::size_t enable_alerts_after_minutes;
 		///asset balance reported by the broker - not defined for internal balance = on
 		std::optional<double> brokerAssetBalance;
 		///currency balance reported by the broker - not defined for internal balance = on
 		std::optional<double> brokerCurrencyBalance;
+
+		IStockApi::Orders openOrders;
+
+		json::Value tradingInstance;
 	};
 
 	Status getMarketStatus() const;
+
+
+
 
 	Order calculateOrder(
 			Strategy state,
@@ -270,6 +276,26 @@ public:
 
 protected:
 
+	///Expected position by strategy
+	/**
+	 * Expected position is stored as difference between last position and new position
+	 * If difference is in range low-high, partial execution is handled
+	 *
+	 * If difference is outside range, actual execution is recorded
+	 *
+	 * for
+	 */
+	struct ExpectedPosition {
+	    ACB partial = ACB(0,0,0);            //records average price and current partial position
+	    double norm_profit = 0;     //accumulated norm profit
+	    double norm_accum = 0;      //accumulated norm accum
+
+
+
+	    json::Value toJSON() const;
+	    void fromJSON(json::Value x);
+	};
+
 	PStockApi stock;
 	Config cfg;
 	IStockApi::MarketInfo minfo;
@@ -289,7 +315,8 @@ protected:
 	double lastTradePrice = 0;
 	int frozen_spread_side = 0;
 	double frozen_spread = 0;
-	json::Value lastTradeId = nullptr;
+	json::Value tradingInstance = nullptr;
+	ExpectedPosition expPos;
 	std::optional<AlertInfo> sell_alert, buy_alert;
 
 	using TradeItem = IStockApi::Trade;
@@ -324,6 +351,7 @@ protected:
 
 	void update_dynmult(bool buy_trade,bool sell_trade);
 	void alertTrigger(const Status &st, double price, int dir, AlertReason reason);
+	bool flushExpPos();
 
 	void acceptLoss(const Status &st, double dir);
 	json::Value getTradeLastId() const;
@@ -346,6 +374,75 @@ protected:
 	WalletDB::Key getWalletBalanceKey() const;
 	WalletDB::Key getWalletAssetKey() const;
 
+
+    struct OrderPlaceResult {
+            IStockApi::Order ord;
+            std::optional<std::string> error;
+        static inline std::optional<IStockApi::Order> getOrder(const std::optional<OrderPlaceResult> &ord) {
+            if (ord.has_value()) return ord->ord;
+            else return std::optional<IStockApi::Order>();
+        }
+        static inline std::string getError(const std::optional<OrderPlaceResult> &ord) {
+            if (ord.has_value() && ord->error.has_value()) return *(ord->error);
+            else return std::string();
+        }
+    };
+	class OrderMgr {
+	public:
+
+	    void load(IStockApi::Orders &&opened);
+        void placeOrder(const Order &ord, int localId);
+	    void commit(IStockApi &target, const IStockApi::MarketInfo &minfo, const std::string_view &pair, json::Value &instance);
+	    void commit_force_cancel(IStockApi &target, const std::string_view &pair, json::Value &instance);
+
+	    template<typename Fn>
+	    void listAlerts(double price, Fn &&cb) const {
+	        if (lastCheckPrice) {
+	            if (price > lastCheckPrice) {
+                    for(const AlertInfo &nfo: alerts) {
+                        if (nfo.price > lastCheckPrice && nfo.price < price) cb(nfo);
+                    }
+	            } else {
+                    for(const AlertInfo &nfo: alerts) {
+                        if (nfo.price < lastCheckPrice && nfo.price > price) cb(nfo);
+                    }
+	            }
+	        }
+	    }
+
+	    void initAlerts(double curPrice) {
+	        alerts.clear();
+	        lastCheckPrice = curPrice;
+	    }
+
+        std::optional<OrderPlaceResult> findPlacedOrderById(int localId) const;
+
+
+
+
+	protected:
+	    IStockApi::Orders opened;
+
+	    struct NewOrder {
+	        double price;
+	        double size;
+	        AlertReason ar;
+	        int custom_id;
+	        int to_place_index = 0;
+	        int reuse_index = -1;
+	    };
+
+	    std::vector<NewOrder> to_place;
+	    std::vector<bool> masked;
+	    std::vector<IStockApi::OrderToPlace> tmp;
+	    std::vector<std::optional<std::string> > place_errors;
+        std::vector<AlertInfo> alerts;
+        double lastCheckPrice = 0;
+
+
+	};
+
+	OrderMgr orderMgr;
 
 private:
 	template<typename Iter>

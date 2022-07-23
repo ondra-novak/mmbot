@@ -260,14 +260,6 @@ bool WebCfg::reqSerial(simpleServer::HTTPRequest req) {
 }
 
 
-static double getSafeBalance(const PStockApi &api, std::string_view symb,  std::string_view pair) {
-	try {
-		return api->getBalance(symb,pair);
-	} catch (...) {
-		return 0;
-	}
-}
-
 static json::Value brokerToJSON(const std::string_view &id, const IBrokerControl::BrokerInfo &binfo) {
 	json::String url;
 	if (StrViewA(binfo.exchangeUrl).begins("/")) url = {"./api/brokers/",simpleServer::urlEncode(binfo.name),"/page/"};
@@ -330,7 +322,7 @@ bool WebCfg::reqBrokers(simpleServer::HTTPRequest req, ondra_shared::StrViewA re
 		return reqBrokerSpec(req, splt, api,broker);
 	}
 }
-
+#if 0
 static Value getOpenOrders(const PStockApi &api, const std::string_view &pair) {
 	Value orders = json::array;
 	try {
@@ -377,6 +369,7 @@ static Value getPairInfo(const PStockApi &api, const std::string_view &pair) {
 	return resp;
 
 }
+#endif
 
 bool WebCfg::reqBrokerSpec(simpleServer::HTTPRequest req,
 		ondra_shared::StrViewA vpath, PStockApi api, ondra_shared::StrViewA broker_name)  {
@@ -537,13 +530,7 @@ bool WebCfg::reqBrokerSpec(simpleServer::HTTPRequest req,
 				std::string p = urlDecode(pair);
 
 				try {
-					if (orders.empty()) {
-						if (!req.allowMethods( { "GET" }))
-							return true;
-						Value resp = getPairInfo(api, p).replace("entries",{"orders", "ticker", "settings","info","history"});
-						req.sendResponse(std::move(hdr), resp.stringify().str());
-						return true;
-					} else if (orders == "ticker") {
+					if (orders == "ticker") {
 						if (!req.allowMethods( { "GET" }))
 							return true;
 						auto t = api->getTicker(p);
@@ -551,7 +538,7 @@ bool WebCfg::reqBrokerSpec(simpleServer::HTTPRequest req,
 								"last", t.last},{"time", t.time}});
 						req.sendResponse(std::move(hdr), ticker.stringify().str());
 						return true;
-					}  else if (orders == "info") {
+					}  else if (orders.empty() || orders == "info") {
 						IStockApi::MarketInfo minfo = api->getMarketInfo(p);
 						Value resp = minfo.toJSON();
 						req.sendResponse(std::move(hdr), resp.stringify().str());
@@ -575,46 +562,41 @@ bool WebCfg::reqBrokerSpec(simpleServer::HTTPRequest req,
 							return true;
 						}
 					}else if (orders == "orders") {
-						if (!req.allowMethods( { "GET", "POST", "DELETE" }))
+						if (!req.allowMethods( {  "POST" }))
 							return true;
-						if (req.getMethod() == "GET") {
-							Value orders = getOpenOrders(api, p);
-							req.sendResponse(std::move(hdr),
-									orders.stringify().str());
-							return true;
-						} else if (req.getMethod() == "DELETE") {
-							api->reset(std::chrono::system_clock::now());
-							auto ords = api->getOpenOrders(p);
-							for (auto &&x : ords) {
-								api->placeOrder(p, 0, 0, Value(), x.id, 0);
-							}
-							api->reset(std::chrono::system_clock::now());
-							req.sendResponse(std::move(hdr), "true");
-							return true;
-						} else {
-							api->reset(std::chrono::system_clock::now());
-							Stream s = req.getBodyStream();
-							Value parsed = Value::parse(s);
-							Value price = parsed["price"];
-							if (price.type() == json::string) {
-								auto ticker = api->getTicker(pair);
-								if (price.getString() == "ask")
-									price = ticker.ask;
-								else if (price.getString() == "bid")
-									price = ticker.bid;
-								else {
-									req.sendErrorPage(400, "", "Invalid price");
-									return true;
-								}
-							}
-							Value res = api->placeOrder(pair,
-									parsed["size"].getNumber(),
-									price.getNumber(), parsed["clientId"],
-									parsed["replaceId"],
-									parsed["replaceSize"].getNumber());
-							req.sendResponse(std::move(hdr), res.stringify().str());
-							return true;
-						}
+
+                        api->reset(std::chrono::system_clock::now());
+                        Stream s = req.getBodyStream();
+                        Value parsed = Value::parse(s);
+                        Value price = parsed["price"];
+                        if (price.type() == json::string) {
+                            auto ticker = api->getTicker(pair);
+                            if (price.getString() == "ask")
+                                price = ticker.ask;
+                            else if (price.getString() == "bid")
+                                price = ticker.bid;
+                            else {
+                                req.sendErrorPage(400, "", "Invalid price");
+                                return true;
+                            }
+                        }
+
+                        std::vector<IStockApi::OrderToPlace> ords;
+                        ords.push_back({
+                            price.getNumber(),
+                            parsed["size"].getNumber(),
+                            parsed["replaceId"],
+                            parsed["replaceSize"].getNumber()
+                        });
+
+                        Value inst = parsed["instance"];
+                        api->placeOrders(pair, ords, inst);
+                        if (ords[0].error.empty()) {
+                            req.sendResponse(std::move(hdr),"true");
+                        } else {
+                            req.sendErrorPage(403, "", ords[0].error);
+                        }
+                        return true;
 
 					}else if (orders == "history") {
 						processBrokerHistory(req, state, api, pair);
@@ -731,10 +713,10 @@ bool WebCfg::reqTraders(simpleServer::HTTPRequest req, ondra_shared::StrViewA vp
 					std::string brokerName = trl->getConfig().broker;
 					reqBrokerSpec(req, restpath, (trl->getBroker()), brokerName);
 				} else if (cmd == "trading") {
-					Object out;
 					auto chartx = trl->getChart();
 					ondra_shared::StringView<MTrader::ChartItem> chart(chartx.data(), chartx.size());
 					PStockApi broker = trl->getBroker();
+                    Object out = broker->getTradingStatus(trl->getConfig().pairsymb, nullptr).toJSON();
 					broker->reset(std::chrono::system_clock::now());
 					if (chart.length>600) chart = chart.substr(chart.length-600);
 					out.set("chart", Value(json::array,chart.begin(), chart.end(),[&](auto &&item) {
@@ -747,10 +729,10 @@ bool WebCfg::reqTraders(simpleServer::HTTPRequest req, ondra_shared::StrViewA vp
 					}));
 					auto ticker = broker->getTicker(trl->getConfig().pairsymb);
 					double stprice = strtod(splt().data,0);
-					out.set("ticker", Object({{"ask", ticker.ask},{"bid", ticker.bid},{"last", ticker.last},{"time", ticker.time}}));
+/*					out.set("ticker", Object({{"ask", ticker.ask},{"bid", ticker.bid},{"last", ticker.last},{"time", ticker.time}}));
 					out.set("orders", getOpenOrders(broker, trl->getConfig().pairsymb));
 					out.set("broker", trl->getConfig().broker);
-					out.set("pair", getPairInfo(broker, trl->getConfig().pairsymb));
+					out.set("pair", getPairInfo(broker, trl->getConfig().pairsymb));*/
                     auto strategy = trl->getStrategy();
                     double assets = *trl->getPosition();
                     double currencies = *trl->getCurrency();
@@ -1051,7 +1033,9 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req)  {
 				auto binfo = bc?bc->getBrokerInfo():IBrokerControl::BrokerInfo{};
 
 
-				Value pair = getPairInfo(api, p);
+				json::Value inst (nullptr);
+				auto ts = api->getTradingStatus(p, inst);
+				Value tstatus = ts.toJSON();
 
 				Value strategy;
 				Value position;
@@ -1074,7 +1058,7 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req)  {
 						costs = trl->getCosts();
 						enter_price_pos = trl->getEnterPricePos();
 						rpnl = trl->getRPnL();
-						double price = trades.empty()?pair["price"].getNumber():trades.back().price;
+						double price = trades.empty()?ts.ticker.last:trades.back().price;
 						double pos = position.getNumber();
 						double cur = stratobj.calcCurrencyAllocation(price, minfo.leverage>0);
 						double optmiddle = stratobj.getEquilibrium(stratobj.calcInitialPosition(minfo, price, pos,cur));
@@ -1144,13 +1128,13 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req)  {
 				Object result;
 				result.set("broker",brokerToJSON(binfo.name, binfo));
 				auto alloc = walletDB.lock_shared()->query(WalletDB::KeyQuery(broker.getString(),minfo.wallet_id,minfo.currency_symbol,uid));
-				result.set("pair", pair);
+				result.set("trading", tstatus);
 				result.set("allocations", Object({
 
 						{"asset",walletDB.lock_shared()->adjAssets(
 								WalletDB::KeyQuery(
 													broker.getString(),minfo.wallet_id,minfo.asset_symbol,uid
-												),pair["asset_balance"].getNumber())},
+												),ts.balance)},
 						{"allocated",alloc.thisTrader},
 						{"unavailable",alloc.otherTraders}}));
 				auto extBalL = extBal.lock_shared();
@@ -1158,7 +1142,6 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req)  {
 						{"currency", extBalL->get(broker.getString(), minfo.wallet_id, minfo.currency_symbol)},
 						{"assets", extBalL->get(broker.getString(), minfo.wallet_id, minfo.asset_symbol)}}));
 
-				result.set("orders", getOpenOrders(api, p));
 				result.set("strategy", strategy);
 				result.set("position", position);
 				result.set("enter_price", enter_price);
