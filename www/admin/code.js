@@ -433,6 +433,7 @@ App.prototype.fillForm = function (src, trg) {
 		data.type_leveraged={".hidden":pair.leverage == 0};
 		data.type_inverted={".hidden":!pair.invert_price};
 		data.hdr_position = adjNum(invSize(state.position,pair.invert_price));
+		data.hdr_partial = adjNum(invSize(state.partial,pair.invert_price));
 		data.rpnl = adjNum(state.rpnl);
 		data.upnl = adjNum(state.enter_price_pos?(pair.price-state.enter_price)*state.enter_price_pos:0);
 		data.enter_price = adjNum(invPrice(state.enter_price,pair.invert_price));

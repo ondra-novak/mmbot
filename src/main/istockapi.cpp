@@ -105,6 +105,10 @@ void IStockApi::MarketInfo::addFees(double &assets, double &price) const {
 	assets = adjValue(assets, asset_step, nearZero);
 }
 
+double IStockApi::MarketInfo::calcMinSize(double price) const {
+    return std::ceil(std::min(min_size, min_volume/price)/asset_step+1)*asset_step;
+}
+
 void IStockApi::MarketInfo::removeFees(double &assets, double &price) const {
 	   price = price/(1- sgn(assets)*fees);
 	switch (feeScheme) {

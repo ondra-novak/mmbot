@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 3.1)
 project (mmbot)
 
 EXEC_PROGRAM(uname OUTPUT_VARIABLE SYSTEM_NAME)
@@ -19,6 +19,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin/)
 
 include_directories(BEFORE src/imtjson/src src/server/src src )
 add_compile_options(-std=c++17)
+add_compile_options(-DOPENSSL_API_COMPAT=10101)
 add_compile_options(-Wall -Wno-noexcept-type)
 
 add_subdirectory (src/imtjson/src/imtjson EXCLUDE_FROM_ALL)

@@ -165,13 +165,14 @@ void AbstractPaperTrading::simulate(TradeState &st) {
 	TradeHistory trades;
 	int cnt = 0;
 	//each trade has id <time>-<counter>
+
+
 	auto itr = std::remove_if(st.openOrders.begin(), st.openOrders.end(),[&](const Order &ord){
 
 		cnt++;
 		//matching condition
 		//orders below ticker for sell and orders above ticker for buys are matched
 		if ((ord.price - st.ticker.last)*ord.size >= 0) {
-			//partial execution is not simulated
 
 			char tradeID[100];
 			snprintf(tradeID,100,"%lX-%X", now, cnt);
@@ -214,14 +215,63 @@ void AbstractPaperTrading::simulate(TradeState &st) {
 			return da < db;
 		});
 
-		//process all trades and update balances
-		for (const Trade &t: trades) {
-
-			processTrade(st,t);
-		}
-		//append to list of trades for syncTrades
-		std::copy(trades.begin(), trades.end(), std::back_inserter(st.trades));
+	} else if (st.simPartExeExponent>0) {
+        Orders::iterator selc_order = st.openOrders.end();
+	    Orders::iterator best_sell = selc_order;
+	    Orders::iterator best_buy = selc_order;
+	    std::random_device rnd;
+	    std::uniform_real_distribution<double> rdist(0,1);
+	    double best_sell_price = std::numeric_limits<double>::max();
+	    double best_buy_price = 0;
+        for (auto iter = st.openOrders.begin(); iter != st.openOrders.end(); ++iter) {
+            const Order &o = *iter;
+            if (o.size < 0 && best_sell_price > o.price) {
+                best_sell_price = o.price;
+                best_sell = iter;
+            } else if (o.size > 0 && best_buy_price < o.price) {
+                best_buy_price = o.price;
+                best_buy = iter;
+            }
+        }
+        if (best_sell != selc_order && best_buy != selc_order) {
+            double mid = (best_sell_price + best_buy_price) * 0.5;
+            double dicethrow = rdist(rnd);
+            if (st.ticker.last > mid) {
+                double prob = std::pow((st.ticker.last - mid)/(best_sell_price - mid), st.simPartExeExponent);
+                if (dicethrow < prob) {
+                    selc_order = best_sell;
+                }
+            } else {
+                double prob = std::pow((st.ticker.last - mid)/(best_buy_price - mid), st.simPartExeExponent);
+                if (dicethrow < prob) {
+                    selc_order = best_buy;
+                }
+            }
+        }
+        if (selc_order != st.openOrders.end()) {
+            double dicethrow = rdist(rnd);
+            double amount = selc_order->size * dicethrow;
+            char tradeID[100];
+            snprintf(tradeID,100,"%lX-partial", now);
+            //create trade from order
+            Trade t;
+            t.id = tradeID;
+            t.time = static_cast<uint64_t>(now) * 1000;
+            t.price = selc_order->price;
+            t.size = amount;
+            t.eff_price = t.price;
+            t.eff_size = t.size;
+            //simulate fees
+            st.minfo.removeFees(t.eff_size, t.eff_price);
+            //push to list
+            trades.push_back(t);
+            selc_order->size -= amount;
+        }
 	}
+    //process all trades and update balances
+    for (const Trade &t: trades) processTrade(st,t);
+    //append to list of trades for syncTrades
+    std::copy(trades.begin(), trades.end(), std::back_inserter(st.trades));
 
 }
 
@@ -288,6 +338,7 @@ json::Value PaperTrading::setSettings(json::Value v) {
 	std::lock_guard _(lock);
 	auto jpos = v["position"];
 	auto jcur = v["currency"];
+	auto jprob = v["partial_exponent"];
 	if (state.minfo.leverage) {
 		double pos = state.collateral.getPos();
 		double nv = jpos.getNumber();
@@ -305,6 +356,7 @@ json::Value PaperTrading::setSettings(json::Value v) {
 		asset = jpos.getNumber();
 	}
 	currency = jcur.getNumber();
+	state.simPartExeExponent = jprob.getNumber();
 	return json::undefined;
 }
 
@@ -320,7 +372,7 @@ json::Value PaperTrading::getSettings(const std::string_view &pairHint) const {
 			{"name","position"},
 			{"label",state.minfo.asset_symbol},
 			{"type","number"},
-			{"default",state.minfo.leverage?(state.minfo.invert_price?-1:1)*state.collateral.getPos():assets}
+			{"default",state.minfo.leverage?(state.minfo.invert_price?-1:1)*state.collateral.getPos():this->asset}
 		},
 		json::Object{
 			{"name","currency"},
@@ -330,7 +382,15 @@ json::Value PaperTrading::getSettings(const std::string_view &pairHint) const {
 		},json::Object {
 			{"label","Balances are updated immediately. DO NOT CLICK ON \"Apply settings\" (for next one minute)"},
 			{"type","label"}
-		}
+		},json::Object {
+		    {"label","Simulate partial execution exponent"},
+		    {"type","number"},
+		    {"name","partial_exponent"},
+		    {"default", state.simPartExeExponent}
+        },json::Object {
+            {"label","Exponent must be >0. Higher value means less possibility of partial execution. Optimal value is typically 1"},
+            {"type","label"}
+        }
 	};
 
 }
@@ -379,7 +439,8 @@ json::Value AbstractPaperTrading::exportState(const TradeState &st) {
 			json::Value("simstate",json::Object{
 				{"c", {st.collateral.getPos(),st.collateral.getRPnL(),st.collateral.getOpen()}},
 				{"w", saveState(st)}
-			})
+			}),
+			json::Value("partial",st.simPartExeExponent)
 	});
 }
 
@@ -390,6 +451,7 @@ void AbstractPaperTrading::importState(TradeState &st, json::Value v) {
 		st.collateral = ACB(c[2].getNumber(), c[0].getNumber(), c[1].getNumber());
 		loadState(st,state["w"]);
 	}
+	st.simPartExeExponent = v["partial"].getNumber();
 }
 
 PaperTrading::TradeState& PaperTrading::getState(const std::string_view &symbol) {

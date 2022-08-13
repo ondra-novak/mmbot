@@ -47,6 +47,7 @@ protected: //To override
 		ACB collateral = ACB(0,0,0);
 		int orderCounter = 1;
 		bool needLoadWallet = true;
+		double simPartExeExponent = 0; //exponent for simulating partial execution - 0 =disable
 	};
 
 	virtual void processTrade(TradeState &st, const Trade &t);

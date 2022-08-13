@@ -254,6 +254,7 @@ public:
 	double getEnterPricePos() const;
 	double getCosts() const;
 	double getRPnL() const;
+	double getPartialPosition() const;
 
 
 	void saveState();
@@ -302,7 +303,12 @@ protected:
 	double currency = 0;
 	double accumulated = 0;
 	double spent_currency = 0;
+	double strategy_position = 0; //position reported to strategy - must be updated after process trades
 	ACB acb_state;
+	ACB partial_eff_pos;
+	double partial_position = 0;
+	double target_buy_size = 0;
+	double target_sell_size = 0;
 	bool position_valid = false;
 	bool currency_valid = false;
 	bool refresh_minfo = false;
@@ -373,6 +379,7 @@ private:
 	void doWithdraw(const Status &st);
 	void updateEnterPrice();
 	void update_minfo();
+    void flush_partial(const Status &status);
 };
 
 

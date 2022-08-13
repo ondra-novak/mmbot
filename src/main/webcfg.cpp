@@ -1055,6 +1055,7 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req)  {
 
 				Value strategy;
 				Value position;
+				Value partialPos = 0.0;
 				Value tradeCnt;
 				Value enter_price;
 				Value enter_price_pos;
@@ -1069,6 +1070,7 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req)  {
 						auto trades = trl->getTrades();
 						auto assBal = trl->getPosition();
 						if (assBal.has_value()) position =*assBal;
+						partialPos = trl->getPartialPosition();
 						tradeCnt = trades.size();
 						enter_price = trl->getEnterPrice();
 						costs = trl->getCosts();
@@ -1161,6 +1163,7 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req)  {
 				result.set("orders", getOpenOrders(api, p));
 				result.set("strategy", strategy);
 				result.set("position", position);
+				result.set("partial", partialPos);
 				result.set("enter_price", enter_price);
 				result.set("enter_price_pos", enter_price_pos);
 				result.set("rpnl", rpnl);

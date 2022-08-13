@@ -182,6 +182,7 @@ public:
 		 */
 		void addFees(double &assets, double &price) const;
 		void removeFees(double &assets, double &price) const;
+		double calcMinSize(double price) const;
 
 		template<typename Fn>
 		static double adjValue(double value, double step, Fn &&fn)  {
