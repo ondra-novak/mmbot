@@ -1889,7 +1889,8 @@ bool WebCfg::reqBacktest_v2(simpleServer::HTTPRequest req, ondra_shared::StrView
 					auto trd = trl->getTrades();
 					auto nfo = trl->getMarketInfo();
 					Value chart_data (json::array, trd.begin(), trd.end(), [&](const IStatSvc::TradeRecord &itm)->Value{
-						if (nfo.invert_price) return {itm.time, 1.0/itm.price};
+						if (itm.partial_exec) return json::Value();
+					    if (nfo.invert_price) return {itm.time, 1.0/itm.price};
 						else return {itm.time, itm.price};
 					});
 					std::string id = storage.lock()->store_data(chart_data);

@@ -141,7 +141,9 @@ static IStatSvc::TradeRecord sumTrades(const IStatSvc::TradeRecord &a, const ISt
 			},
 			b.norm_profit,
 			b.norm_accum,
-			b.neutral_price,b.manual_trade
+			b.neutral_price,
+			b.partial_exec && a.partial_exec,
+			b.manual_trade || a.manual_trade
 	);
 }
 
@@ -260,6 +262,7 @@ void Report::setTrades(std::size_t rev, StrViewA symb, double finalPos, StringVi
 						{"p0",t.neutral_price?Value(inverted?1.0/t.neutral_price:t.neutral_price):Value()},
 						{"volume", fabs(t.eff_price*t.eff_size)},
 						{"man",t.manual_trade},
+						{"partial",t.partial_exec},
 						{"alert", t.size == 0?Value(Object{
 							{"reason",strAlertReason[static_cast<AlertReason>(t.alertReason)]},
 							{"side", t.alertSide}

@@ -12,7 +12,10 @@
 #include <random>
 
 #include <imtjson/binary.h>
-#include "../imtjson/src/imtjson/object.h"
+#include <imtjson/object.h>
+#include <shared/logOutput.h>
+
+using ondra_shared::logDebug;
 
 
 PaperTrading::PaperTrading(PStockApi source)
@@ -220,6 +223,7 @@ void AbstractPaperTrading::simulate(TradeState &st) {
 	    Orders::iterator best_sell = selc_order;
 	    Orders::iterator best_buy = selc_order;
 	    std::random_device rnd;
+	    double amount_mpl = 1;
 	    std::uniform_real_distribution<double> rdist(0,1);
 	    double best_sell_price = std::numeric_limits<double>::max();
 	    double best_buy_price = 0;
@@ -238,34 +242,45 @@ void AbstractPaperTrading::simulate(TradeState &st) {
             double dicethrow = rdist(rnd);
             if (st.ticker.last > mid) {
                 double prob = std::pow((st.ticker.last - mid)/(best_sell_price - mid), st.simPartExeExponent);
+                logDebug("(PARTIAL)(SIMULATOR) $3 Sell execution throw : $1, need $2", dicethrow, prob, st.pair);
                 if (dicethrow < prob) {
                     selc_order = best_sell;
+                    amount_mpl = prob * 2;
                 }
             } else {
                 double prob = std::pow((st.ticker.last - mid)/(best_buy_price - mid), st.simPartExeExponent);
+                logDebug("(PARTIAL)(SIMULATOR) $3 Buy execution throw : $1, need $2", dicethrow, prob, st.pair);
                 if (dicethrow < prob) {
                     selc_order = best_buy;
+                    amount_mpl = prob * 2;
                 }
             }
         }
         if (selc_order != st.openOrders.end()) {
             double dicethrow = rdist(rnd);
-            double amount = selc_order->size * dicethrow;
-            char tradeID[100];
-            snprintf(tradeID,100,"%lX-partial", now);
-            //create trade from order
-            Trade t;
-            t.id = tradeID;
-            t.time = static_cast<uint64_t>(now) * 1000;
-            t.price = selc_order->price;
-            t.size = amount;
-            t.eff_price = t.price;
-            t.eff_size = t.size;
-            //simulate fees
-            st.minfo.removeFees(t.eff_size, t.eff_price);
-            //push to list
-            trades.push_back(t);
-            selc_order->size -= amount;
+            double amount = std::min(selc_order->size, selc_order->size * dicethrow * amount_mpl);
+            amount = std::round(amount/st.minfo.asset_step)*st.minfo.asset_step;
+            if (amount) {
+                logDebug("(PARTIAL)(SIMULATOR) $5 Partial executed HIT: throw=$1, max_amount=$2, amount=$3, price=$4", dicethrow*amount_mpl, selc_order->size, amount, selc_order->price, st.pair);
+
+                char tradeID[100];
+                snprintf(tradeID,100,"%lX-partial", now);
+                //create trade from order
+                Trade t;
+                t.id = tradeID;
+                t.time = static_cast<uint64_t>(now) * 1000;
+                t.price = selc_order->price;
+                t.size = amount;
+                t.eff_price = t.price;
+                t.eff_size = t.size;
+                //simulate fees
+                st.minfo.removeFees(t.eff_size, t.eff_price);
+                //push to list
+                trades.push_back(t);
+                selc_order->size -= amount;
+            } else {
+                logDebug("(PARTIAL)(SIMULATOR) $1 failed - amount is to small", st.pair);
+            }
         }
 	}
     //process all trades and update balances
@@ -383,12 +398,12 @@ json::Value PaperTrading::getSettings(const std::string_view &pairHint) const {
 			{"label","Balances are updated immediately. DO NOT CLICK ON \"Apply settings\" (for next one minute)"},
 			{"type","label"}
 		},json::Object {
-		    {"label","Simulate partial execution exponent"},
+		    {"label","Partial exec. - probability exponent (0=disabled)"},
 		    {"type","number"},
 		    {"name","partial_exponent"},
 		    {"default", state.simPartExeExponent}
         },json::Object {
-            {"label","Exponent must be >0. Higher value means less possibility of partial execution. Optimal value is typically 1"},
+            {"label","Higher value, less probability, try 5 at beginning"},
             {"type","label"}
         }
 	};

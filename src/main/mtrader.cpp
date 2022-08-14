@@ -224,9 +224,9 @@ void MTrader::alertTrigger(const Status &st, double price, int dir, AlertReason 
 		tr.eff_size-=norm.normAccum;
 		accumulated +=norm.normAccum;
 		position -=norm.normAccum;
-		trades.push_back(TWBItem(tr, last_np+=norm.normProfit, last_ap+=norm.normAccum, norm.neutralPrice, false, static_cast<char>(dir), static_cast<char>(reason)));
+		trades.push_back(TWBItem(tr, last_np+=norm.normProfit, last_ap+=norm.normAccum, norm.neutralPrice, false,false, static_cast<char>(dir), static_cast<char>(reason)));
 	} else {
-		trades.push_back(TWBItem(tr, last_np, last_ap, 0, true, static_cast<char>(dir), static_cast<char>(reason)));
+		trades.push_back(TWBItem(tr, last_np, last_ap, 0, false, true, static_cast<char>(dir), static_cast<char>(reason)));
 	}
 	refresh_minfo = true;
 }
@@ -1358,26 +1358,13 @@ bool MTrader::processTrades(Status &st) {
 		}
         logDebug("(PARTIAL) Trade partial: price=$1, size=$2, final_price=$3, final_size=$4", t.eff_price, t.eff_size,  partial_eff_pos.getOpen(),partial_eff_pos.getPos());
 		bool manual = achieve_mode || !cfg.enabled;
-		trades.push_back(TWBItem(t, last_np+norm_adv, last_ap, last_neutral, manual));
+		trades.push_back(TWBItem(t, last_np+norm_adv, last_ap, last_neutral, !manual, manual));
 
 		if (partial_position > target_buy_size
 		        || partial_position < target_sell_size) {
 		    flush_partial(st);
 		}
 
-
-
-/*
- * 		if () {
-			auto norm = strategy.onTrade(minfo, t.eff_price, t.eff_size, assetBal, curBal);
-			t.eff_size-=norm.normAccum;
-			assetBal -= norm.normAccum;
-			accumulated +=norm.normAccum;
-			trades.push_back(TWBItem(t, last_np+=norm.normProfit, last_ap+=norm.normAccum, norm.neutralPrice));
-		} else {
-
-		}
-		*/
 	}
 	wcfg.walletDB.lock()->alloc(getWalletBalanceKey(), strategy.calcCurrencyAllocation(last_price, minfo.leverage>0));
 
@@ -1401,6 +1388,7 @@ void MTrader::flush_partial(const Status &status) {
             t.norm_profit+=tstate.normProfit;
             t.norm_accum+=tstate.normAccum;
             t.neutral_price = tstate.neutralPrice;
+            t.partial_exec = false;
         }
 
         frozen_spread_side = sgn(trade_size);
@@ -1817,7 +1805,7 @@ void MTrader::doWithdraw(const Status &st) {
 		"WITHDRAW:"+std::to_string(time),
 		static_cast<std::uint64_t>(time),
 		0, lastTradePrice, 0, lastTradePrice
-	},0,accum,0,true));
+	},0,accum,0,false, true));
 	wcfg.accumDB.lock()->alloc(std::move(wkey), accum);
 }
 
