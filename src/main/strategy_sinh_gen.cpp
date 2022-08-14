@@ -417,18 +417,18 @@ json::Value Strategy_Sinh_Gen::dumpStatePretty(const IStockApi::MarketInfo &minf
 	auto getpx = [&](double px){return minfo.invert_price?1.0/px:px;};
 	auto getpos = [&](double pos){return minfo.invert_price?-pos:pos;};
 	double sprd = std::exp(st.avg_spread);
-	double a = cfg.calc->assets(st.k, pw, st.p);
+	double as = cfg.calc->assets(st.k, pw, st.p);
 
 	using namespace json;
 
 	return Value(object, {
-			Value("Leverage[x]", std::abs(a)*st.p/(st.val+st.budget)),
+			Value("Leverage[x]", std::abs(as)*st.p/(st.val+st.budget)),
 			Value("Power[%]", st.pwadj*100),
 			Value("Price-last", getpx(st.p)),
 			Value("Price-neutral", getpx(st.k)),
 			Value("Budget-total", st.budget),
 			Value("Budget-current", st.val+st.budget),
-			Value("Position", getpos(a+st.offset)),
+			Value("Position", getpos(as+st.offset)),
 			Value("Position offset", getpos(st.offset)),
 			Value("Use last price",st.use_last_price),
 			Value("Profit per trade", -cfg.calc->budget(st.k, pw, st.k*sprd)),
@@ -451,6 +451,7 @@ IStrategy::OrderData Strategy_Sinh_Gen::getNewOrder(
 		return {cur_price, -curpos, Alert::forced};
 	}
 
+
 	double calc_price = new_price;
 	if (((cfg.lazyopen && dir * curpos >= 0) || (cfg.lazyclose && dir * curpos < 0)) && !st.rebalance && st.avg_spread>0) {
 		//calc_price - use average spread instead current price
@@ -470,6 +471,9 @@ IStrategy::OrderData Strategy_Sinh_Gen::getNewOrder(
 	double pnl = curpos*(calc_price - st.p);
 	//calculate new k for budgetr and pnl
 	double newk = calcNewK(calc_price, st.val, pnl, cfg.boostmode);
+
+    double npw = calcPower(cfg, st, newk);;
+
 	//calculate minimal allowed budget
 	//	double minbudget = st.budget*(1.0-cfg.stopOnLoss);
 	double pwadj = adjustPower(curpos, newk, calc_price);
@@ -477,7 +481,7 @@ IStrategy::OrderData Strategy_Sinh_Gen::getNewOrder(
 	double kmult = calcPileKMult(st.p, st.budget, cfg.ratio);
     double new_offset = calcPilePosition(cfg.ratio, kmult, new_price);
 
-    double new_pos = cfg.calc->assets(newk, pw*pwadj, calc_price);
+    double new_pos = cfg.calc->assets(newk, npw*pwadj, calc_price);
     double finpos = new_pos + new_offset;
 
     finpos = roundZero(limitPosition(finpos), minfo, new_price);
@@ -557,7 +561,7 @@ IStrategy::BudgetInfo Strategy_Sinh_Gen::getBudgetInfo() const {
 
 double Strategy_Sinh_Gen::calcCurrencyAllocation(double p, bool leveraged) const {
     double pos = cfg.calc->assets(st.k, pw, st.p)+st.offset;
-    double posval = pos * p;
+    double posval = pos * st.p;
     double posvalchg = pos * (p - st.p);
     if (leveraged) {
         return st.budget + st.val + posvalchg;
