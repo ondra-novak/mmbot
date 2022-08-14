@@ -157,7 +157,16 @@ IStockApi::MarketInfo Interface::getMarketInfo(const std::string_view &pair) {
 	auto iter = smap.find(pair);
 	if (iter == smap.end())
 		throw std::runtime_error("Unknown symbol");
-	return iter->second;
+	MarketInfoEx minfo = iter->second;
+	if (minfo.type == "move") {
+	    std::string n = minfo.asset_symbol+"/"+minfo.currency_symbol;
+	    auto t1 = getTicker(n);
+	    auto t2 = getTicker(iter->first);
+	    double ratio = t1.last/t2.last;
+	    minfo.fees *= ratio;
+	    minfo.leverage /= ratio;
+	}
+	return minfo;
 }
 
 
