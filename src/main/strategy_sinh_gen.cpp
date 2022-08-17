@@ -234,6 +234,16 @@ double Strategy_Sinh_Gen::calcNewK(double tradePrice, double cb, double pnl, int
 			case 11: if (pnl>0) return st.k;refb = 0;break;
 			case 12: if (pnl<0) return st.k;refb = 0;break;
             case 13: refb = pnl>0?0.0:3*yield;break;
+            case 14: {
+                    double np = cfg.calc->assets(st.k, pw, st.p);
+                    double pval = std::abs(np*tradePrice);
+                    if (pval>0) {
+                        double lev = pval/st.budget;
+                        refb = (pnl>0?2.0-lev:0.0)*yield;
+                    } else {
+                        return st.k;
+                    }
+                } break;
             case 15: refb = cfg.calc->budget(st.k, pw, st.k*1.0001);break;
             case 16: refb = cfg.calc->budget(st.k, pw, st.k*1.0005);break;
             case 17: refb = cfg.calc->budget(st.k, pw, st.k*1.0010);break;
@@ -352,7 +362,7 @@ std::pair<IStrategy::OnTradeResult, PStrategy> Strategy_Sinh_Gen::onTrade(
 	nwst.offset = new_offset;
 
 	double lspread = std::abs(std::log(tradePrice/st.p));
-	nwst.avg_spread = nwst.avg_spread<=0?lspread*0.5:(199*st.avg_spread+lspread)/200;
+	nwst.avg_spread = nwst.avg_spread<=0?lspread*0.5:(299*st.avg_spread+lspread)/300;
 
 //	if (st.rebalance) np = 0;
 	return {
