@@ -1155,10 +1155,12 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req)  {
 												),pair["asset_balance"].getNumber())},
 						{"allocated",alloc.thisTrader},
 						{"unavailable",alloc.otherTraders}}));
-				auto extBalL = extBal.lock_shared();
-				result.set("ext_ass", Object({
-						{"currency", extBalL->get(broker.getString(), minfo.wallet_id, minfo.currency_symbol)},
-						{"assets", extBalL->get(broker.getString(), minfo.wallet_id, minfo.asset_symbol)}}));
+				{
+				    auto extBalL = extBal.lock_shared();
+                    result.set("ext_ass", Object({
+                            {"currency", extBalL->get(broker.getString(), minfo.wallet_id, minfo.currency_symbol)},
+                            {"assets", extBalL->get(broker.getString(), minfo.wallet_id, minfo.asset_symbol)}}));
+				}
 
 				result.set("orders", getOpenOrders(api, p));
 				result.set("strategy", strategy);

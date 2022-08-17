@@ -24,6 +24,7 @@ public:
 		double baseFn(double x) const;
 		double root(double x) const;
 		double root(double k, double w, double x) const;
+		double root_of_k(double p, double w, double x) const;
 		double integralBaseFn(double x) const;
 		double assets(double k, double w, double x) const;
 		double budget(double k, double w, double x) const;

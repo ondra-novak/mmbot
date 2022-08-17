@@ -164,7 +164,7 @@ IStockApi::MarketInfo Interface::getMarketInfo(const std::string_view &pair) {
 	    auto t2 = getTicker(iter->first);
 	    double ratio = t1.last/t2.last;
 	    minfo.fees *= ratio;
-	    minfo.leverage /= ratio;
+	    minfo.leverage = std::round(minfo.leverage*100/ratio)/100;
 	}
 	return minfo;
 }

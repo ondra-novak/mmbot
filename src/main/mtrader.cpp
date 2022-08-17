@@ -1362,6 +1362,7 @@ bool MTrader::processTrades(Status &st) {
 
 		if (partial_position > target_buy_size
 		        || partial_position < target_sell_size) {
+		    position = assetBal;
 		    flush_partial(st);
 		}
 

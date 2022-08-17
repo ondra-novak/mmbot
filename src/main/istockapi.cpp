@@ -197,11 +197,17 @@ IStockApi::MarketInfo IStockApi::MarketInfo::fromJSON(const json::Value &v) {
 }
 
 std::int64_t IStockApi::MarketInfo::priceToTick(double price) const {
+    std::int64_t r;
 	if (invert_price) {
-		return -static_cast<std::int64_t>(std::round((1.0/price)/currency_step));
+	     r = -static_cast<std::int64_t>(std::round((1.0/price)/currency_step));
 	} else {
-		return static_cast<std::int64_t>(std::round(price/currency_step));
+	    r = static_cast<std::int64_t>(std::round(price/currency_step));
 	}
+	if (r== std::numeric_limits<std::int64_t>::min() ||
+	        r== std::numeric_limits<std::int64_t>::max()) {
+	    throw std::runtime_error("Incorrect market info. for the symbol - unable to calculate tick size");
+	}
+	return r;
 }
 double IStockApi::MarketInfo::tickToPrice(std::int64_t tick) const {
 	if (invert_price) {

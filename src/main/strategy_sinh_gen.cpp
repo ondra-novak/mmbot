@@ -79,6 +79,10 @@ double Strategy_Sinh_Gen::FnCalc::root(double k, double w, double x) const {
 	double r = root(x/w);
 	return r*k;
 }
+double Strategy_Sinh_Gen::FnCalc::root_of_k(double p, double w, double x) const {
+    double r = root(x/w);
+    return p/r;
+}
 
 double Strategy_Sinh_Gen::FnCalc::integralBaseFn(double x) const {
 	double r;
@@ -306,6 +310,8 @@ std::pair<IStrategy::OnTradeResult, PStrategy> Strategy_Sinh_Gen::onTrade(
 
 	double ppos = cfg.calc->assets(st.k, pw, st.p);
 	double npos = cfg.calc->assets(newk, newpw*pwadj, tradePrice);
+    double newbudget = calcPileBudget(cfg.ratio, kmult, tradePrice);
+/*    newpw = newpw * newbudget / st.b*/
 	npos = limitPosition(npos+new_offset) - new_offset;
 	ppos = limitPosition(ppos+st.offset) - st.offset;
 	if (tradeSize == 0 && st.p == st.k) newk = tradePrice;
@@ -313,6 +319,12 @@ std::pair<IStrategy::OnTradeResult, PStrategy> Strategy_Sinh_Gen::onTrade(
 		if (ppos || !npos) {
 			newk = tradePrice;
 		}
+	}
+
+	if (newk == tradePrice) { //when result of trading should be close position,
+	    //however we have a position
+	    //recalculate k accordingly
+	    newk = cfg.calc->root_of_k(tradePrice, newpw*pwadj, assetsLeft);
 	}
 
 	double nb = cfg.calc->budget(newk, newpw*pwadj, tradePrice);
@@ -323,7 +335,6 @@ std::pair<IStrategy::OnTradeResult, PStrategy> Strategy_Sinh_Gen::onTrade(
 	if (posErr < 0.3) rbl = false; //rebalance se vypne, pokud je pozice s mensi chybou, nez je 30%
 
 
-	double newbudget = calcPileBudget(cfg.ratio, kmult, tradePrice);
 	double ofspnl = st.offset * (tradePrice - st.p);
 	double ofsbchange = newbudget - st.budget;
     np = np + ofspnl - ofsbchange;
@@ -480,8 +491,10 @@ IStrategy::OrderData Strategy_Sinh_Gen::getNewOrder(
 
 	double kmult = calcPileKMult(st.p, st.budget, cfg.ratio);
     double new_offset = calcPilePosition(cfg.ratio, kmult, new_price);
+/*    double pile_budget = calcPileBudget(cfg.ratio, kmult, new_price);
+    double budget_ratio = pile_budget/st.budget;*/
 
-    double new_pos = cfg.calc->assets(newk, npw*pwadj, calc_price);
+    double new_pos = cfg.calc->assets(newk, npw*pwadj/*budget_ratio*/, calc_price);
     double finpos = new_pos + new_offset;
 
     finpos = roundZero(limitPosition(finpos), minfo, new_price);
