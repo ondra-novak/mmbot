@@ -234,7 +234,14 @@ double Strategy_Sinh_Gen::calcNewK(double tradePrice, double cb, double pnl, int
 			case 11: if (pnl>0) return st.k;refb = 0;break;
 			case 12: if (pnl<0) return st.k;refb = 0;break;
             case 13: refb = pnl>0?0.0:3*yield;break;
-            case 14: {
+            case 14: refb = pnl>0?-yield:3*yield;break;
+            case 15: refb = cfg.calc->budget(st.k, pw, st.k*1.0001);break;
+            case 16: refb = cfg.calc->budget(st.k, pw, st.k*1.0005);break;
+            case 17: refb = cfg.calc->budget(st.k, pw, st.k*1.0010);break;
+            case 18: refb = cfg.calc->budget(st.k, pw, st.k*1.0050);break;
+            case 19: refb = cfg.calc->budget(st.k, pw, st.k*1.0100);break;
+            case 20: refb = cfg.calc->budget(st.k, pw, st.k*1.0200);break;
+            case 30: {
                     double np = cfg.calc->assets(st.k, pw, st.p);
                     double pval = std::abs(np*tradePrice);
                     if (pval>0) {
@@ -244,19 +251,16 @@ double Strategy_Sinh_Gen::calcNewK(double tradePrice, double cb, double pnl, int
                         return st.k;
                     }
                 } break;
-            case 15: refb = cfg.calc->budget(st.k, pw, st.k*1.0001);break;
-            case 16: refb = cfg.calc->budget(st.k, pw, st.k*1.0005);break;
-            case 17: refb = cfg.calc->budget(st.k, pw, st.k*1.0010);break;
-            case 18: refb = cfg.calc->budget(st.k, pw, st.k*1.0050);break;
-            case 19: refb = cfg.calc->budget(st.k, pw, st.k*1.0100);break;
-            case 20: refb = cfg.calc->budget(st.k, pw, st.k*1.0200);break;
 		}
 
 		double nb = cb+pnl+refb; //current budget + pnl + yield = new budget
 
 		if (nb > 0) {
-			if (pnl>=0) return st.k;
-			else return tradePrice;
+/*		    if ((st.k - st.p) * (st.k - tradePrice) < 0) {
+		        return st.k;
+		    } else */{
+			    return tradePrice;
+		    }
 		}
 
 		if (st.p < st.k) {
@@ -300,8 +304,8 @@ std::pair<IStrategy::OnTradeResult, PStrategy> Strategy_Sinh_Gen::onTrade(
 
 	assetsLeft-=st.offset;
 
+    double prevPos = roundZero(assetsLeft - tradeSize, minfo, st.p);
 	assetsLeft = roundZero(assetsLeft, minfo, tradePrice);
-	double prevPos = assetsLeft - tradeSize;
 	double cb = st.val;
 	double pnl = prevPos*(tradePrice - st.p);
 	double newk = calcNewK(tradePrice, cb, pnl, cfg.boostmode);
