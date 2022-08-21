@@ -1,5 +1,5 @@
 var CACHE = 'cache-update-and-refresh';
-//serial 23opwkpo124ttt
+//serial wqdsklqoi234254
 
 self.addEventListener('install', function(evt) {
 	  console.log('The service worker is being installed.');
@@ -18,8 +18,12 @@ self.addEventListener('install', function(evt) {
 		      './res/setup.png',
 		      './res/chart.css',
 		      './res/icon64.png',
+		      './res/mode_night.png',
+		      './res/mode_day.png',
+		      './res/chart.js',
+		      './res/zvonek.png',
 		      'https://fonts.googleapis.com/css?family=Ruda&display=swap',
-		      'https://fonts.gstatic.com/s/ruda/v10/k3kfo8YQJOpFqnYdaObJ.woff2'
+		      'https://fonts.gstatic.com/s/ruda/v23/k3kKo8YQJOpFgHQ1mQ5VkEbUKaJFsh_50qk.woff2',
 		    ].map(function(url){
 			return new Request(url, {credentials: 'same-origin'});
 			}));
@@ -38,6 +42,8 @@ self.addEventListener('fetch', function(evt) {
 	  if (evt.request.method != 'GET') return;
 	  if (evt.request.url.indexOf("/api/login") != -1) return;
 	  if (evt.request.url.indexOf("/api/data") != -1) return;
+	  if (evt.request.url.indexOf("/api/ohlc") != -1) return;
+      if (evt.request.url.indexOf("/api/user") != -1) return;
 	  if (evt.request.url.indexOf("/admin/") != -1) return;
 
 	  var p = fromCache(evt.request);

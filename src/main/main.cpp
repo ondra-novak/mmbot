@@ -452,6 +452,51 @@ int main(int argc, char **argv) {
 									return true;
 								}
 							});
+                            paths.push_back({
+                                "/api/ohlc",[&](simpleServer::HTTPRequest req, const ondra_shared::StrViewA &vpath) mutable {
+                                    simpleServer::QueryParser qp(vpath);
+                                    if (qp.getPath().empty()) {
+                                        if (!req.allowMethods({"GET"})) return true;
+                                        AuthMapper auth(name,users.users,jwt, true);
+                                        if (!auth.checkAuth_probe(req).defined()) {
+                                            req.sendErrorPage(403);
+                                            return true;
+                                        }
+                                        auto trader = qp["trader"];
+                                        auto interval = qp["interval"].getUInt();
+                                        if (interval == 0) {
+                                            req.sendErrorPage(404);
+                                        } else {
+                                            auto t = traders.lock_shared()->find(trader);
+                                            if (t != nullptr) {
+                                                json::Value ohlc = t.lock_shared()->getOHLC(interval);
+                                                auto s = req.sendResponse("application/json");
+                                                ohlc.serialize(s);
+                                                s.flush();
+                                            } else {
+                                                req.sendErrorPage(404);
+                                            }
+                                        }
+                                        return true;
+                                    } else {
+
+
+                                        return false;
+                                    }
+
+                                    simpleServer::Stream s = req.sendResponse(simpleServer::HTTPResponse(200)
+                                            .contentType("text/event-stream")
+                                            .disableCache()
+                                            ("Connection","close")
+                                            ("X-Accel-Buffering","no"));
+                                    s.flush();
+                                    rpt.lock()->addStream([state = RefCntPtr<StreamState>(new StreamState(req, s))](const json::Value &v)mutable{
+                                        return state->sendAsync(v);
+                                    });
+
+                                    return true;
+                                }
+                            });
 							paths.push_back({
 								"/api/login",AuthMapper(name,users.users,jwt, true) >>= [&](simpleServer::HTTPRequest req, const ondra_shared::StrViewA &v) mutable {
 									simpleServer::QueryParser qp(v);

@@ -93,3 +93,17 @@ line.marker.sell {
 
 }
 
+.ohlc.bull {
+	fill: #3c923c;
+	stroke: #a1ffa1;
+}
+.ohlc.bear {
+    fill: #cd3a3a;
+	stroke: #ffa1a1;	
+}
+.ohlc.bull.wick {
+	stroke-width: 2px;
+}
+.ohlc.bear.wick {
+stroke-width: 2px;
+}

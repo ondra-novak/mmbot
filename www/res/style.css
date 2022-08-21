@@ -100,6 +100,7 @@ select > option[disabled] {
 	/* min-width: 40%; */
 	overflow: auto;
 	scrollbar-width: none;
+	position: relative;
 }
 
 
@@ -1335,4 +1336,22 @@ body.daymode table.extended td:nth-child(4) b::after {
 @keyframes pulse {
 	0% {background-color: #7aff9c;}
 	100% {background-color: #366d44;}
+}
+
+[data-name=interval_selector] {
+	font-size: 0.8em;
+	white-space: nowrap;
+	display: flex;	
+	justify-content: flex-end;
+}
+
+[data-name=interval_selector] a {
+	display: block;
+	padding: 3px;	
+	
+}
+[data-name=interval_selector] a.selected {
+	color: yellow;
+	text-decoration:none;
+	
 }

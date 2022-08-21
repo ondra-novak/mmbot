@@ -4,12 +4,31 @@ window.addEventListener('DOMContentLoaded', (event) => {
 	   app_start();
 	});
 
+var time_offset = 0;
+function get_server_time() {
+    return Date.now() + time_offset;
+}
+
 
 var changeinterval=null;
 var source_data=null;
 var drawChart=null;
 var svcreg = Promise.resolve(null);
 var notifyTradesFn = null;
+
+function fetch_ohlc(stats, symbol, interval) {
+    if (!stats.ohlc[symbol] || stats.ohlc[symbol].interval != interval) {
+        var p = fetch("api/ohlc?trader="+encodeURIComponent(symbol)+"&interval="+encodeURIComponent(interval))
+			.then(function(x) {return x.json();});
+        p.catch(function(e){
+            console.error(e);
+            delete stats.ohlc[symbol];
+        })
+        p.interval = interval;
+        stats.ohlc[symbol] = p;
+    }
+    return stats.ohlc[symbol];
+}
 
 function app_start(){
 
@@ -23,16 +42,11 @@ function app_start(){
 	}
 	
 	var lastField="";	
-	var donation_repeat = (10*24*60*60*1000);
-	var last_ntf_time=Date.now();
+	var last_ntf_time=get_server_time();
 	var chart_padding = document.createElement("div");
-	var last_rev = [0,0]
-	var mmbot_time = 0;
 	
 	try {
 		lastField = localStorage["markettrader_lastfield"];
-		last_rev = JSON.parse(localStorage["last_rev"] || "[0,0]");
-		mmbot_time = localStorage["mmbot_time"];
 		if (localStorage["mmbot_skin"] == "day") {
 			document.body.classList.toggle("daymode");
 			updateThemeColor();
@@ -47,8 +61,10 @@ function app_start(){
 	
 
 	var chartlist = {};
+	var chartlistobj = new WeakMap;
 	var indicator = document.getElementById("indicator");
 	var eventMap = new WeakMap();
+	var ohlc_interval = 15;
 		
 	var redraw = function() {};
 
@@ -231,20 +247,100 @@ function app_start(){
 	
 	function appendChart(id,  info, data, fld,  orders, ranges, misc) {
 		var curchart = createChart(id, "chart");
-			try {
-				if (!hasChart(data,fld)) {
-					curchart.hidden = true;
-					return;
-				}			
-				setTimeout(function() {
-					var elem_chart = curchart.querySelector("[data-name=chart]");			
-					drawChart(elem_chart, data, fld, orders,  secondary_charts[fld]);
-					fillInfo(id,curchart, info.title,id,  ranges, info.emulated);
-				},0);
-			} catch (e) {
-				curchart.hidden = true;
-			}
+    		try {
+    			if (!hasChart(data,fld)) {
+    				curchart.hidden = true;
+    				return;
+    			}			
+    			setTimeout(function() {
+    				var elem_chart = curchart.querySelector("[data-name=chart]");			
+    				drawChart(elem_chart, data, fld, orders,  secondary_charts[fld]);
+    				fillInfo(id,curchart, info.title,id,  ranges, info.emulated);
+    			},0);
+    		} catch (e) {
+    			curchart.hidden = true;
+    		}
 	}
+	
+	function appendOHLC(id, info, data, orders, ranges) {
+        var curchart = createChart("ohlc_"+id, "chart");
+        fillInfo(id,curchart, info.title,id,  ranges, info.emulated);
+        var sw = curchart.querySelector("[data-name=interval_selector]");
+        if (!sw) {
+            let t = document.getElementById("interval_switch");
+            sw = document.importNode(t.content,true);
+            curchart.appendChild(sw);
+            let links = curchart.querySelectorAll("[data-interval]");
+            Array.prototype.forEach.call(links,x=>{
+               let int = parseInt(x.dataset.interval);
+               x.addEventListener("click",(ev)=>{
+				   ev.preventDefault();
+                   ohlc_interval = int;				    
+                   redraw();
+                });
+
+            });           
+        } 
+         {
+            let links = curchart.querySelectorAll("[data-interval]");
+            Array.prototype.forEach.call(links,x=>{
+                let int = parseInt(x.dataset.interval);
+                x.classList.toggle("selected",ohlc_interval == int);                
+            });
+        }
+        data.then(function(ohlc_data){
+            if (ohlc_data.length == 0) return;
+            let interval = data.interval*60000;
+            let tbeg = ohlc_data[0][0];
+            let elem_chart = curchart.querySelector("[data-name=chart]");
+            let chart = chartlistobj.get(elem_chart);
+            if (!chart || chart.my_interval != interval) {
+                    chart = new TimeChart({
+                    width:1442,
+                    height:502,
+                    padding: 10,
+                    xaxis: {
+                        step: 24*interval,
+                        width: 180,
+                        line: "minoraxe",
+                        text: "textaxisx",
+                        label_step: 2,
+                        label_cb: x=>(new Date(x)).toLocaleString(),
+                    },
+                    yaxis: {
+                        zero_line: "majoraxe",
+                        line:"minoraxe",
+                        text:"textaxis",
+                        label_cb: x=>adjNum(x)
+                    }
+                });
+                if (elem_chart.firstChild)
+                    elem_chart.removeChild(elem_chart.firstChild);
+                elem_chart.appendChild(chart.svg);
+                chartlistobj.set(elem_chart, chart);
+                chart.my_interval = interval;
+            }
+            chart.clear_curves();          
+            chart.add_curve({
+                length: ohlc_data.length,
+                type: "ohlc",
+                source: (x=>ohlc_data[x]),
+                class: "ohlc",
+                autoscale:true,
+                ordered:true
+            });
+            chart.add_curve({
+                length:1,
+                source:(()=>{return [get_server_time()+interval, 
+                            ohlc_data[ohlc_data.length-1][1][3],
+                            "<","textaxis",2]}),
+                class:"textaxis",
+				autoscale:true,
+				ordered:true
+            });
+            chart.draw(chart.get_end_pos());
+        });     
+    }
 
 	function appendList(id, info, ranges, misc) {
 		var curchart = createChart(id, "summary");
@@ -579,7 +675,7 @@ function app_start(){
 			if (Array.isArray(ch) && ch.length > 3) a[k] = ch;
 			return a;
 		},{})
-		var maxDate = Date.now();
+		var maxDate = get_server_time();
 		var minDate = Object.values(charts).reduce(function(a,b) {
 			return a>b[0].time?b[0].time:a;
 		},maxDate);
@@ -823,13 +919,17 @@ function app_start(){
 						misc:{},
 						prices:{},
 						log:[],
-						orders:[]
+						orders:[],
+						ohlc:{}
 					};
 					rf = true;
 		        	setIndikator(1);
 				}
 			} else switch(msg.type) {
-                case "config": Object.assign(stats, msg.data);break;
+                case "config": Object.assign(stats, msg.data);
+                                time_offset = stats.server_time - Date.now();
+                                last_ntf_time = stats.server_time;
+                                break;
                 case "performance": stats.performance = msg.data;break;
                 case "version": stats.version = msg.data;break;
                 case "info": stats.info[msg.symbol] = msg.data;break;
@@ -837,10 +937,33 @@ function app_start(){
                                   stats.charts_by_id[msg.symbol][msg.id] = msg.data;
                                   break;
                 case "misc": stats.misc[msg.symbol] = Object.assign(stats.misc[msg.symbol] || {},msg.data);break;
-                case "price":  stats.prices[msg.symbol] = msg.data;break;
+                case "price":  stats.prices[msg.symbol] = msg.data;
+                            if (stats.ohlc[msg.symbol]) {
+                                stats.ohlc[msg.symbol].then(function(d) {
+                                    let st = get_server_time();
+									let int = ohlc_interval*60000;
+									let p = msg.data;
+									let last_st = d.length?d[d.length-1][0]:0;
+                                    if (Math.floor(last_st/int) == Math.floor(st/int)) {
+                                        let x = d.pop();
+                                        x[1][1] = Math.max(x[1][1],msg.data);
+                                        x[1][2] = Math.min(x[1][2],msg.data);
+                                        x[1][3] = msg.data;
+                                        d.push(x); 
+                                    } else {
+                                        let last_p = d.length?d[d.length-1][1][3]:p;
+                                        d.push([Math.floor(st/interval)*interval,
+                                            [last_p, Math.max(last_p,p), Math.min(last_p,p), p]]);
+                                    }
+                                });
+                            } 
+                            break;
 				case "error": if (!stats.misc[msg.symbol]) stats.misc[msg.symbol] = {};
 				                  stats.misc[msg.symbol].error = msg.data;
                 case "news": stats.news = msg.data.count;break
+                case "minute": if (!stats.minute) stats.minute = {};
+                               stats.minute[msg.symbol] = msg.data;
+                               break;
                 case "order": var opos = stats.orders.findIndex(function(x){
                 	return x.symb == msg.symbol && x.dir == msg.dir;
                     });
@@ -999,7 +1122,6 @@ function app_start(){
 			var sums = calculate_sums(charts,infoMap);
 			var plns = calculate_pnls(charts,infoMap, stats.prices, sums);
 			
-			localStorage["mmbot_time"] = Date.now();
 
 			
 			drawChart = initChart(stats.interval);
@@ -1012,6 +1134,7 @@ function app_start(){
                     	chart: charts[k],
                     	ranges: ranges[k],
                     	misc: stats.misc[k],
+                    	minute: stats.minute && stats.minute[k]
                     }
                 });
                 traders.sort(function(a,b){
@@ -1054,10 +1177,15 @@ function app_start(){
 					chart_padding.hidden = true;
 				} else if (fld.startsWith("!")) {
 					var pair = fld.substr(1);
+					
 					appendSummary("_"+pair,infoMap[pair], charts[pair], ranges[pair], stats.misc[pair],true);
-					for (var k in cats) {						
-						appendChart("!"+k+"_"+pair, {title:cats[k]}, charts[pair], k, orders[pair], stats.misc[k]);
-						
+					for (var k in cats) {
+                        let id = "!"+k+"_"+pair;						
+						if (k == "ohlc") {							
+							appendOHLC(id, {title:cats.ohlc}, fetch_ohlc(stats,pair,ohlc_interval), orders[pair]);
+						} else {
+							appendChart(id, {title:cats[k]}, charts[pair], k, orders[pair], stats.misc[k]);					
+						}
 					}
 					setTimeout(function(pair) {
 						updateLastEvents(charts[pair],pair);
@@ -1071,8 +1199,12 @@ function app_start(){
 					updateLastEventsAll(charts);			
 				} else {
 					traders.forEach(function(t) {
-						appendChart(t.k,t.info, t.chart, fld, orders[t.k],t.ranges, t.misc);
-					});
+						if (fld == "ohlc") {
+                            appendOHLC(t.k, t.info, fetch_ohlc(stats,t.k,ohlc_interval), t.orders, t.ranges);   
+                        } else {
+                            appendChart(t.k,t.info, t.chart, fld, orders[t.k],t.ranges, t.misc);
+                        }
+					});					
 					updateLastEventsAll(charts);
 				}
 				if (lastField) {

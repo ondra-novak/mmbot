@@ -560,6 +560,8 @@ void Report::sendStreamGlobal(ME &me) const {
 		{"type","config"},
 		{"data",Object{
 			{"interval", interval_in_ms},
+			{"server_time", std::chrono::duration_cast<std::chrono::milliseconds>(
+			            std::chrono::system_clock::now().time_since_epoch()).count()}
 		}}
 	});
 	me.sendStream(Object{
