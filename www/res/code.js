@@ -24,6 +24,9 @@ function fetch_ohlc(stats, symbol, interval) {
             console.error(e);
             delete stats.ohlc[symbol];
         })
+        p.then(function() {
+            p.ready = true;
+        })
         p.interval = interval;
         stats.ohlc[symbol] = p;
     }
@@ -262,7 +265,32 @@ function app_start(){
     		}
 	}
 	
-	function appendOHLC(id, info, data, orders, ranges) {
+	function collapsePartials(trades) {
+        var out = [];
+        var last_price = 0;
+        var sum_pos = 0;
+        var last_tm;  
+        trades.forEach(t=>{            
+            if (t.achg * sum_pos<=0 && sum_pos) {
+                out.push([last_tm,last_price, sum_pos]);
+                last_price = 0;
+                sum_pos = 0;
+            }
+            if (t.achg) {
+                last_price=t.price;
+                sum_pos+=t.achg;
+                last_tm = t.time;
+                if (!t.partial) {
+                    out.push([last_tm,last_price, sum_pos]);
+                }
+            } else {
+                out.push([t.time,t.price, 0]);
+            }
+        });
+		return out;
+    }
+	
+	function appendOHLC(id, info, data, trades, orders, ranges) {
         var curchart = createChart("ohlc_"+id, "chart");
         fillInfo(id,curchart, info.title,id,  ranges, info.emulated);
         var sw = curchart.querySelector("[data-name=interval_selector]");
@@ -288,12 +316,19 @@ function app_start(){
                 x.classList.toggle("selected",ohlc_interval == int);                
             });
         }
+        if (!data.ready) {
+            curchart.classList.toggle("loading", true);
+            data.then(function(){
+                curchart.classList.toggle("loading", false);
+            })
+        }
         data.then(function(ohlc_data){
             if (ohlc_data.length == 0) return;
             let interval = data.interval*60000;
             let tbeg = ohlc_data[0][0];
             let elem_chart = curchart.querySelector("[data-name=chart]");
             let chart = chartlistobj.get(elem_chart);
+            let ctrades = collapsePartials(trades);
             if (!chart || chart.my_interval != interval) {
                     chart = new TimeChart({
                     width:1442,
@@ -327,16 +362,57 @@ function app_start(){
                 source: (x=>ohlc_data[x]),
                 class: "ohlc",
                 autoscale:true,
-                ordered:true
+                ordered:true,
+                gap:3,
             });
             chart.add_curve({
                 length:1,
+                type: "markers",
                 source:(()=>{return [get_server_time()+interval, 
                             ohlc_data[ohlc_data.length-1][1][3],
                             "<","textaxis",2]}),
-                class:"textaxis",
 				autoscale:true,
 				ordered:true
+            });
+			chart.add_curve({
+				length: trades.length,
+				autoscale: true,
+				class: "stdline2",
+				ordered:true,
+				source: (x=>{
+					const y = trades[x];
+					return [y.time, y.price, 
+							y.achg>0?"^":y.achg<0?"v":"[]",
+						    y.achg>0?"ohlc marker buy":y.achg<0?"ohlc marker sell":"ohlc marker alert",
+							2];
+				})
+			});
+			chart.add_curve({
+                length: ctrades.length,
+                autoscale: false,
+                type: "markers",
+                ordered:true,
+                source: (x=>{
+                    const y = ctrades[x];
+                    return [y[0], y[1],y[2]?adjNum(y[2]):"ALERT","ohlctrademarker",1]; 
+                })                
+            })
+            if (orders) orders.forEach(x=>{
+                if (x.class=="buy" || x.class=="sell") {
+                    chart.add_curve({
+                        length: 2,
+                        autoscale:true,
+                        ordered: true,
+                        class: "orderline "+x.class,
+                        source: (p=>{
+                            if (p==0) {
+                                return [get_server_time()-24*interval,x.price];
+                            } else { 
+                                return [get_server_time(),x.price,x.achg?adjNum(x.achg):"ALERT","ohlcordermarker "+x.class,1];
+                            }
+                        })                        
+                    });
+                }
             });
             chart.draw(chart.get_end_pos());
         });     
@@ -1134,7 +1210,7 @@ function app_start(){
                     	chart: charts[k],
                     	ranges: ranges[k],
                     	misc: stats.misc[k],
-                    	minute: stats.minute && stats.minute[k]
+      				    orders: orders[k]
                     }
                 });
                 traders.sort(function(a,b){
@@ -1182,7 +1258,7 @@ function app_start(){
 					for (var k in cats) {
                         let id = "!"+k+"_"+pair;						
 						if (k == "ohlc") {							
-							appendOHLC(id, {title:cats.ohlc}, fetch_ohlc(stats,pair,ohlc_interval), orders[pair]);
+							appendOHLC(id, {title:cats.ohlc}, fetch_ohlc(stats,pair,ohlc_interval), charts[pair],orders[pair]);
 						} else {
 							appendChart(id, {title:cats[k]}, charts[pair], k, orders[pair], stats.misc[k]);					
 						}
@@ -1200,7 +1276,7 @@ function app_start(){
 				} else {
 					traders.forEach(function(t) {
 						if (fld == "ohlc") {
-                            appendOHLC(t.k, t.info, fetch_ohlc(stats,t.k,ohlc_interval), t.orders, t.ranges);   
+                            appendOHLC(t.k, t.info, fetch_ohlc(stats,t.k,ohlc_interval), t.chart, t.orders, t.ranges);   
                         } else {
                             appendChart(t.k,t.info, t.chart, fld, orders[t.k],t.ranges, t.misc);
                         }

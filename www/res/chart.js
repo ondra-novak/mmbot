@@ -291,11 +291,13 @@ class TimeChart {
 		})();
 		
 		let markers = {};
+		let text_markers = {};
 		
-		const put_marker = (x,y,v)=>{
+		const put_marker = (x,y,v)=>{			
+			if (v.length<4) return;
 			let mrk = markers[v[3]];
 			if (!mrk) mrk = markers[v[3]] = [];
-			let s = v[4]*4;
+			let s = (v[4] || 1)*4;
 			switch (v[2]) {
 				case 'o': 
 					mrk.push("M",x-s,y,"a",s,s,"0 0 0",s*2,0,"a",s,s,"0 0 0",-s*2,0);
@@ -330,6 +332,15 @@ class TimeChart {
 					mrk.push("h",-2*s);
 					mrk.push("Z");
 					break;
+				default:
+				    var txtgrp_name = v[3]+"."+v[4];
+				    if (!text_markers[txtgrp_name]) text_markers[txtgrp_name]= [];
+				    text_markers[txtgrp_name].push({
+                        x:x,
+                        y:y,
+                        t:v[2]
+                    });
+                    break;
 			}
 		};
 		
@@ -340,12 +351,13 @@ class TimeChart {
 				let bear_path = [];
 				let bull_wick_path = [];
 				let bear_wick_path = [];
+				let gap = c.gap || 0;
 				let lastx = this.map_x(c.source(r[0])[0]);					
 				for (let i = r[0]+1;i < r[1]; i++) {
 					let v = c.source(i);
 					let x = this.map_x(v[0]);
 					if (v[1] === null) {
-						lastx = x;
+						lastx = x+gap;
 					} else {
 						const ohlc = v[1];
 						const yo = this.map_y(ohlc[0]);
@@ -360,7 +372,7 @@ class TimeChart {
 						let wick = yo>yc?bull_wick_path:bear_wick_path;
 						path.push("M",lastx,ym,"h",dx,"v",yn-ym,"h",-dx,"Z");
 						wick.push("M",mx,yn,"v",(yh-yn),"M",mx,ym,"v",(yl-ym));						
-						lastx = x;
+						lastx = x+gap;
 					}
 				}													
 				TimeChart.svg_new("path",{d:bull_path.join(" "),class:c.class+" bull"},curves);
@@ -400,7 +412,16 @@ class TimeChart {
 							}				
 						}
 						flushrpath();
-					} else {
+					} else if (c.type == "markers") {
+                        for (let i = r[0];i < r[1]; i++) {
+                            let v = c.source(i);
+                            if (v[1] !== null) {
+                                let mx = this.map_x(v[0]);
+                                let my = this.map_y(v[1]);
+                                put_marker(mx,my,v);                    
+                            }
+                        }
+                    } else {
 						for (let i = r[0];i < r[1]; i++) {
 							let v = c.source(i);
 							if (v[1]===null) {
@@ -470,7 +491,18 @@ class TimeChart {
 							}
 						}
 						flushrpath();
-					} else {
+					} else if (c.type == "markers") {
+                        for (let i = 0; i < c.length; ++i) {
+                            let v = c.source(i);
+                            if (v[1] !== null) {
+                                if (v[0]>=this.trange[0] && v[0] <= this.trange[1]) {
+                                    let mx = this.map_x(v[0]);
+                                    let my = this.map_y(v[1]);
+                                    put_marker(mx,my,v);                    
+                                 }
+                            }
+                        }
+                    } else {
 						let v = c.source(0);
 						let mx = this.map_x(v[0]);
 						let my = this.map_y(v[1]);
@@ -509,8 +541,17 @@ class TimeChart {
 			}
 		});	
 		for (let n in markers) {
-			TimeChart.svg_new("path",{d:markers[n].join(" "),class:n},mrks);
+			if (markers[n].length) TimeChart.svg_new("path",{d:markers[n].join(" "),class:n},mrks);
 		}
+		for (let n in text_markers) {
+            if (text_markers[n].length) { 
+                let [cls, size] = n.split(".");
+                let grp = TimeChart.svg_new("g",{"class":cls, transform:"scale("+size+" "+size+")"}, mrks);
+                text_markers[n].forEach(t=>{
+                    TimeChart.svg_text(t.x/size,t.y/size,t.t, grp);
+                })
+            }            
+        }
 		return true;		
 	}
 	

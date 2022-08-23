@@ -280,6 +280,23 @@ x-trbgr.hdr {
 	box-sizing: border-box;
 }
 
+.chart_box.loading > .chart::after {
+	content: "";
+	display: block;
+	position: absolute;
+	left: 0;
+	top: 0;
+	right: 0;
+	bottom: 0;
+	width: 2em;
+	height: 2em;
+	margin: auto;
+	border: 5px solid;
+	border-bottom: 5px solid #0000;
+	border-radius: 2em;
+	animation: load3 1.4s infinite linear;
+}
+
 .chart_box > .chart > svg {
 	position: absolute;
 	left: 0;
@@ -1201,6 +1218,29 @@ body.daymode .summary .daystats > div > span:first-child {
 body.daymode table.extended td:nth-child(4) b::after {
     color: #3c3c3c;
 }
+
+body.daymode .ohlctrademarker{
+	fill: black;
+	text-shadow: -2px 0px 2px white, 2px 0px 2px white, 0px -2px 2px white, 0px 2px 2px white;
+}
+body.daymode .ohlcordermarker {
+	text-shadow: 0 0 5px white, 0 0 20px white, 0 0 20px white, 0 0 20px white, 0 0 20px white;
+}
+body.daymode .ohlcordermarker.sell {
+	fill: #b20000;
+	stroke: #b20000;
+}
+body.daymode .ohlcordermarker.buy {
+	fill: #289e00;
+	stroke: #289e00;
+}
+
+body.daymode .ohlc.bull {
+	fill:  white;
+	stroke: #216435;
+}
+
+body.daymode .ohlc.bear {fill: #64212d;stroke: #64212d;}
 
 #news_window {
     position: fixed;    

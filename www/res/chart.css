@@ -6,6 +6,7 @@
 .stdline2 {
 	stroke: #afdeff;
 	stroke-width: 2px;
+	fill: none;
 }
 
 
@@ -20,6 +21,14 @@
 
 .marker.sell {
 	fill: #F44;
+}
+.marker.alert {
+	fill: white;
+}
+
+.marker.ohlc {
+	stroke: black;
+	stroke-width: 2px;
 }
 line.marker.buy {
 	stroke:#4f4;
@@ -94,12 +103,14 @@ line.marker.sell {
 }
 
 .ohlc.bull {
-	fill: #3c923c;
-	stroke: #a1ffa1;
+	fill: #1d3e2ecc;
+	stroke: #51a67ccc;
+	stroke-width: 2px;
 }
 .ohlc.bear {
-    fill: #cd3a3a;
-	stroke: #ffa1a1;	
+    fill: #a67051cc;
+    stroke: #a67051cc;
+    stroke-width: 2px;
 }
 .ohlc.bull.wick {
 	stroke-width: 2px;
@@ -107,3 +118,33 @@ line.marker.sell {
 .ohlc.bear.wick {
 stroke-width: 2px;
 }
+
+.ohlctrademarker,.ohlcordermarker {
+	font-size: 25px;
+	fill: #FFF;
+	text-shadow: 0 0 10px black;
+}
+
+.ohlctrademarker text {
+    text-anchor: end;
+    alignment-baseline: mathematical;
+    transform: translate(-8px,0);
+}
+
+.ohlcordermarker.buy {
+	fill: #88c888;
+}
+
+.ohlcordermarker.sell {
+    fill: #c88888;    
+}
+
+.ohlcordermarker.buy  text {
+	alignment-baseline: before-edge;
+	text-anchor: end;
+}
+.ohlcordermarker.sell text {
+    alignment-baseline: after-edge;
+    text-anchor: end;
+}
+
