@@ -1,5 +1,5 @@
 var CACHE = 'cache-update-and-refresh';
-//serial wqdsklqoi234254
+//serial wqdsklqoi234778
 
 self.addEventListener('install', function(evt) {
 	  console.log('The service worker is being installed.');

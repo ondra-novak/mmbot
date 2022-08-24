@@ -67,7 +67,9 @@ function app_start(){
 	var chartlistobj = new WeakMap;
 	var indicator = document.getElementById("indicator");
 	var eventMap = new WeakMap();
-	var ohlc_interval = 15;
+	var ohlc_interval = parseInt(localStorage["ohlc_interval"]);
+	if (!isFinite(ohlc_interval) || ohlc_interval<1) ohlc_interval=15;
+	
 		
 	var redraw = function() {};
 
@@ -305,7 +307,8 @@ function app_start(){
                let int = parseInt(x.dataset.interval);
                x.addEventListener("click",(ev)=>{
 				   ev.preventDefault();
-                   ohlc_interval = int;				    
+                   ohlc_interval = int;
+                   localStorage["ohlc_interval"] = int;				    
                    redraw();
                 });
 
