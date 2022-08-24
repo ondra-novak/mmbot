@@ -282,6 +282,8 @@ function app_start(){
                 last_tm = t.time;
                 if (!t.partial) {
                     out.push([last_tm,last_price, sum_pos]);
+                    last_price = 0;
+                    sum_pos = 0;
                 }
             } else {
                 out.push([t.time,t.price, 0]);
