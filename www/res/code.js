@@ -338,7 +338,8 @@ function app_start(){
                     chart = new TimeChart({
                     width:1442,
                     height:502,
-                    padding: 10,
+                    padding_x: 10,
+					padding_y: 30,
                     xaxis: {
                         step: 24*interval,
                         width: 180,
@@ -386,7 +387,7 @@ function app_start(){
 				ordered:true,
 				source: (x=>{
 					const y = trades[x];
-					return [y.time, y.price, 
+					return [y.time-interval, y.price, 
 							y.achg>0?"^":y.achg<0?"v":"[]",
 						    y.achg>0?"ohlc marker buy":y.achg<0?"ohlc marker sell":"ohlc marker alert",
 							2];
@@ -399,7 +400,7 @@ function app_start(){
                 ordered:true,
                 source: (x=>{
                     const y = ctrades[x];
-                    return [y[0], y[1],y[2]?adjNum(y[2]):"ALERT","ohlctrademarker",1]; 
+                    return [y[0]-interval, y[1],y[2]?adjNum(y[2]):"ALERT","ohlctrademarker",1]; 
                 })                
             })
             if (orders) orders.forEach(x=>{
