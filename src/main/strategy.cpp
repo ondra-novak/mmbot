@@ -34,14 +34,14 @@
 
 
 
+
 static json::NamedEnum<Strategy_Gamma::Function> strGammaFunction ({
 	{Strategy_Gamma::halfhalf,""},
 	{Strategy_Gamma::halfhalf,"halfhalf"},
 	{Strategy_Gamma::keepvalue,"keepvalue"},
 	{Strategy_Gamma::exponencial,"exponencial"},
 	{Strategy_Gamma::gauss,"gauss"},
-	{Strategy_Gamma::invsqrtsinh,"invsqrtsinh"},
-	{Strategy_Gamma::expwide,"expwide"}
+	{Strategy_Gamma::invsqrtsinh,"invsqrtsinh"}
 
 });
 
