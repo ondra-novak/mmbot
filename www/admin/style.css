@@ -1282,7 +1282,7 @@ label span:hover span.tooltip, div.label span:hover span.tooltip, span.tooltipan
 .strategygoal > div.stairs > div.stairs {display:block;}
 .strategygoal > div.keepvalue > div.keepvalue {display:block;}
 .strategygoal > div.keep_balance > div.keep_balance {display:block;}
-.strategygoal > div.exponencial > div.exponencial {display:block;}
+.strategygoal > div.expwide > div.expwide {display:block;}
 .strategygoal > div.sinh > div.sinh {display:block;}
 .strategygoal > div.hypersquare > div.hypersquare {display:block;}
 .strategygoal > div.errorfn > div.hypersquare {display:block;}

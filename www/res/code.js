@@ -407,12 +407,12 @@ function app_start(){
                 if (x.class=="buy" || x.class=="sell") {
                     chart.add_curve({
                         length: 2,
-                        autoscale:true,
+                        autoscale:false,
                         ordered: true,
                         class: "orderline "+x.class,
                         source: (p=>{
                             if (p==0) {
-                                return [get_server_time()-24*interval,x.price];
+                                return [get_server_time()-96*interval,x.price];
                             } else { 
                                 return [get_server_time(),x.price,x.achg?adjNum(x.achg):"ALERT","ohlcordermarker "+x.class,1];
                             }

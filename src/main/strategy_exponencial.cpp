@@ -1,289 +1,392 @@
 /*
- * strategy_keepvalue.cpp
+ * strategy_exponencial.cpp
  *
- *  Created on: 20. 10. 2019
+ *  Created on: 27. 8. 2022
  *      Author: ondra
  */
 
 #include "strategy_exponencial.h"
-
-#include <chrono>
-#include <imtjson/object.h>
-#include <imtjson/string.h>
-#include "../shared/logOutput.h"
 #include <cmath>
 
-#include "../imtjson/src/imtjson/value.h"
+#include <imtjson/object.h>
+#include "sgn.h"
+
 #include "numerical.h"
-using json::Value;
-using ondra_shared::logDebug;
 
-static constexpr double to_balanced_factor = 2;
 
-#include "../shared/logOutput.h"
-std::string_view Strategy_Exponencial::id = "exponencial";
+std::string_view Strategy_Exponencial::id = "expwide";
 
-Strategy_Exponencial::Strategy_Exponencial(const Config &cfg):cfg(cfg) {
-
+double Strategy_Exponencial::MathModule::findApxRangeEnd(double z) {
+    //Approximation of integration range for given z (returns normalized)
+    /*
+     * z=1, result= 6.8
+     * z=2, result= 2.94
+     * z=4, result= 1.731
+     * etc..
+     */
+    return 5.6*1/std::pow(z, 1.7)+1.2;
 }
 
-Strategy_Exponencial::Strategy_Exponencial(const Config &cfg, State &&st)
-:cfg(cfg), st(std::move(st)) {}
+double Strategy_Exponencial::MathModule::baseFn(double x) const {
+    return std::exp(-std::pow(x, z))/std::pow(x,w);
+}
 
+double Strategy_Exponencial::MathModule::baseFnEx(double x) const {
+    if (x > range) {
+        return baseFn(range) * range/x;
+    } else {
+        return baseFn(x);
+    }
+}
+
+void Strategy_Exponencial::MathModule::initTable(double min, double max) {
+//    double xs = static_cast<double>(1.0)/static_cast<double>(intTableSize)*0.5;
+    double fna = baseFn(min);
+    if (!std::isfinite(fna)) fna = 0;
+    double sum = 0;
+    double ia = min;
+    int_table[0] = 0;
+    for (std::size_t i = 0; i < intTableSize; i++) {
+        double ib = static_cast<double>(i+1)/static_cast<double>(intTableSize)*(max-min)+min;
+        double fnb = baseFn(ib);
+        double fnc = baseFn((2*ia+ib)/3.0);
+        double fnd = baseFn((ia+2*ib)/3.0);
+        double r = (ib - ia)*(fna+3*fnc+3*fnd+fnb)/8.0;
+        ia = ib;
+        fna = fnb;
+        sum += r;
+        int_table[i+1] = sum;
+    }
+}
+
+double Strategy_Exponencial::MathModule::primFn(double x) const {
+    if (x < 0) return int_table[0];
+    if (x > range) return int_table[intTableSize];
+    double findex = x/range*intTableSize;
+    double iindex;
+    double part = std::modf(findex, &iindex);
+    auto i = static_cast<std::size_t>(iindex);
+    double r1 = int_table[i];
+    double r2 = int_table[i+1];
+    return r1 + (r2 - r1) * part;
+}
+
+double Strategy_Exponencial::MathModule::primFnEx(double x) const {
+    if (x > range) {
+        return primFn(range) + baseFn(range)*range*std::log(x/range);
+    } else {
+        return primFn(x);
+    }
+}
+
+double Strategy_Exponencial::MathModule::invFn(double y) const {
+    return numeric_search_r1(range, [&](double x){
+        return baseFn(x)-y;
+    });
+
+}
+double Strategy_Exponencial::MathModule::invFnEx(double y) const {
+    double sr = baseFn(range);
+    if (y>sr) {
+        return invFn(y);
+    } else {
+        return (range * sr)/y;
+    }
+}
+
+double Strategy_Exponencial::MathModule::findEquity(double eq, double k, double w) const {
+    double r = calcRange(k);
+    double sr = calcEquity(r,k,w);
+    if (eq<sr) {
+        return numeric_search_r1(r, [&](double x){
+           return calcEquity(x, k, w) - eq;
+        });
+    } else if (eq > sr) {
+        return numeric_search_r2(r, [&](double x){
+           return calcEquity(x, k, w) - eq;
+        });
+
+    } else {
+        return r;
+    }
+}
+
+double Strategy_Exponencial::MathModule::calcPos(double x, double k, double w) const {
+    return baseFnEx(x/k)*w/k;
+}
+
+double Strategy_Exponencial::MathModule::calcEquity(double x, double k, double w) const {
+    return primFnEx(x/k)*w;
+}
+
+double Strategy_Exponencial::MathModule::findPos(double y, double k, double w) const{
+    return invFnEx(y/w*k)*k;
+}
+
+double Strategy_Exponencial::MathModule::calcCurr(double x, double k, double w) const {
+    double eq = calcEquity(x, k, w);
+    double v = x * calcPos(x, k, w);
+    return eq - v;
+}
+
+double Strategy_Exponencial::MathModule::calcRange(double k) const {
+    return k * range;
+}
+
+double Strategy_Exponencial::MathModule::findCurrency(double c, double k, double w) const {
+    double r = calcRange(k);
+    double sr = calcCurr(r,k,w);
+    if (c<sr) {
+        return numeric_search_r1(r, [&](double x){
+           return calcCurr(x, k, w) - c;
+        });
+    } else if (c < sr) {
+        return numeric_search_r2(r, [&](double x){
+           return calcCurr(x, k, w) - c;
+        });
+
+    } else {
+        return r;
+    }
+}
+
+double Strategy_Exponencial::MathModule::calcRatio(double x, double k) const {
+    return calcPos(x, k, 1.0)*x / calcEquity(x, k, 1.0);
+}
+double Strategy_Exponencial::MathModule::findRatio(double c, double k) const {
+    double r = calcRange(k);
+    double sr = calcRatio(r,k);
+    if (c>sr) {
+        return numeric_search_r1(r, [&](double x){
+           return calcRatio(x, k) - c;
+        });
+    } else if (c < sr) {
+        return numeric_search_r2(r, [&](double x){
+           return calcRatio(x, k) - c;
+        });
+
+    } else {
+        return r;
+    }
+}
+
+
+Strategy_Exponencial::PMathModule Strategy_Exponencial::prepareMath(const Config &cfg) {
+    MathModule m;
+    m.Config::operator=(cfg);
+    double srchEnd = m.findApxRangeEnd(cfg.z);
+    m.initTable(0, srchEnd);
+    double min_ratio = m.baseFn(srchEnd)*srchEnd/m.int_table[intTableSize];
+    m.r = std::max(min_ratio, cfg.r);
+    m.range = srchEnd;
+    if (m.r>min_ratio) {
+        double nr = numeric_search_r1(srchEnd, [&](double x) {
+            double myr = m.baseFn(x) * x / m.primFn(x);
+            return myr - cfg.r;
+        });
+        m.initTable(0, nr);
+        m.range = nr;
+    }
+    return std::make_shared<MathModule>(m);
+}
+
+Strategy_Exponencial::Strategy_Exponencial(const Config &cfg)
+:mcfg(prepareMath(cfg))
+{
+}
+
+Strategy_Exponencial::Strategy_Exponencial(const PMathModule &math, State &&st)
+:mcfg(math), st(std::move(st))
+{
+}
 
 bool Strategy_Exponencial::isValid() const {
-	return st.k > 0 && st.p > 0 && st.a + cfg.ea > 0;
-}
-
-
-PStrategy Strategy_Exponencial::onIdle(
-		const IStockApi::MarketInfo &m,
-		const IStockApi::Ticker &ticker, double assets, double cur) const {
-	if (isValid()) return this;
-	else {
-		return init(m,ticker.last, assets,cur);
-	}
-}
-
-PStrategy Strategy_Exponencial::init(const IStockApi::MarketInfo &m, double price, double assets, double cur) const {
-	if (price <= 0) throw std::runtime_error("Strategy: invalid ticker price");
-	State nst;
-	double a = assets+cfg.ea;
-	double ratio = a * price / (cur+a* price);
-	if (!std::isfinite(ratio) || ratio <=0) {
-		nst.k =price / to_balanced_factor;
-		if (st.p > 0 && st.a + cfg.ea > 0) {
-			nst.a = st.a;
-			nst.p = st.p;
-		} else {
-			if (cfg.ea + assets <= 0) {
-				assets = calcInitialPosition(m,price,assets,cur);
-				if (cfg.ea + assets <= 0) {
-					 throw std::runtime_error("Strategy: Can't trade zero budget");
-				}
-			}
-			nst.a = assets;
-			nst.p = price;
-		}
-	} else {
-		double k = numeric_search_r2(price/100.0,[&](double x){
-			return price*calcA(1,x,price)/calcAccountValue(1,x,price)-ratio;
-		});
-		nst.k = k;
-		nst.p = price;
-		nst.a = assets;
-
-	}
-	nst.f = cur;
-	PStrategy s = new Strategy_Exponencial(cfg, std::move(nst));
-	if (!s->isValid()) throw std::runtime_error("can't initialize strategy");
-	return s;
-}
-
-std::pair<Strategy_Exponencial::OnTradeResult, PStrategy> Strategy_Exponencial::onTrade(
-		const IStockApi::MarketInfo &minfo,
-		double tradePrice, double tradeSize, double assetsLeft,
-		double currencyLeft) const {
-
-	if (!isValid()) {
-		return init(minfo, tradePrice, assetsLeft, currencyLeft)
-				->onTrade(minfo,tradePrice,tradeSize,assetsLeft,currencyLeft);
-	}
-
-	auto prof = tradeSize == assetsLeft?0:calcNormalizedProfit(tradePrice, tradeSize);
-	auto accum = calcAccumulation(st, cfg, tradePrice);
-	auto new_a = calcA(tradePrice) + accum ;
-
-	State nst = st;
-	nst.a = new_a;
-	nst.p = tradePrice;
-	nst.f = currencyLeft;
-	return {
-		OnTradeResult{prof,accum},
-		new Strategy_Exponencial(cfg, std::move(nst))
-	};
-}
-
-json::Value Strategy_Exponencial::exportState() const {
-	return json::Object({
-		{"p",st.p},
-		{"a",st.a},
-		{"k",st.k},
-		{"f",st.f}});
-}
-
-PStrategy Strategy_Exponencial::importState(json::Value src,const IStockApi::MarketInfo &) const {
-	State newst {
-		src["a"].getNumber(),
-		src["p"].getNumber(),
-		src["f"].getNumber(),
-		src["k"].getNumber()
-	};
-	return new Strategy_Exponencial(cfg, std::move(newst));
-}
-
-IStrategy::OrderData Strategy_Exponencial::getNewOrder(
-		const IStockApi::MarketInfo &,
-		double, double price, double /*dir*/, double assets, double /*currency*/, bool /*rej*/) const {
-
-	double newA = calcA(price);
-	double extra = calcAccumulation(st, cfg, price);
-	double ordsz = calcOrderSize(st.a, assets, newA+extra);
-	return {0,ordsz};
-}
-
-Strategy_Exponencial::MinMax Strategy_Exponencial::calcSafeRange(
-		const IStockApi::MarketInfo &,double , double currencies) const {
-	double w = calcW(st.a + cfg.ea, st.k, st.p);
-	double max = cfg.ea > 0? st.k * std::log(w/cfg.ea):std::numeric_limits<double>::infinity();
-	double min = findRoot(w,st.k,st.p, currencies);
-	return MinMax {min,max};
-}
-
-double Strategy_Exponencial::getEquilibrium(double assets) const {
-	double w = calcW(st.a + cfg.ea, st.k, st.p);
-	return  st.k*std::log(w/(assets+cfg.ea));
-}
-
-std::string_view Strategy_Exponencial::getID() const {
-	return id;
-
+    return st.b > 0 && st.k > 0 && st.p > 0;
 }
 
 PStrategy Strategy_Exponencial::reset() const {
-	return new Strategy_Exponencial(cfg,{});
+    return new Strategy_Exponencial(mcfg,{});
 }
 
-json::Value Strategy_Exponencial::dumpStatePretty(
-		const IStockApi::MarketInfo &minfo) const {
-
-	double w = calcW(st.a + cfg.ea, st.k, st.p);
-	return json::Object({{"Assets/Position", (minfo.invert_price?-1:1)*st.a},
-		{"Last price ", minfo.invert_price?1.0/st.p:st.p},
-		{"Power (w)", w},
-		{"Anchor price (k)", minfo.invert_price?1.0/st.k:st.k},
-		{"Budget", calcAccountValue(st, cfg.ea, st.p)},
-		{"Budget Extra(+)/Debt(-)", minfo.leverage?Value():Value(st.f - calcReqCurrency(st,cfg.ea,st.p))}});
-
+PStrategy Strategy_Exponencial::importState(json::Value src, const IStockApi::MarketInfo &minfo) const {
+    return new Strategy_Exponencial(mcfg, State {
+        !minfo.leverage,
+        src["k"].getNumber(),
+        src["p"].getNumber(),
+        src["b"].getNumber(),
+        src["m"].getNumber(),
+    });
 }
 
-double Strategy_Exponencial::calcA(double w, double k, double p) {
-	return w * std::exp(-p/k);
+json::Value Strategy_Exponencial::exportState() const {
+    return json::Object{
+        {"p",st.p},
+        {"k",st.k},
+        {"b",st.b},
+        {"m",st.m}
+    };
 }
 
-double Strategy_Exponencial::calcA(double price) const {
-	double w = calcW(st.a + cfg.ea, st.k, st.p);
-	double a = calcA(w, st.k, price) - cfg.ea;
-	return a;
+std::string_view Strategy_Exponencial::getID() const {
+    return id;
 }
 
-double Strategy_Exponencial::calcAccountValue(double w, double k, double p) {
-	return k*w*(1 - std::exp(-p/k));
+PStrategy Strategy_Exponencial::onIdle(const IStockApi::MarketInfo &minfo,
+        const IStockApi::Ticker &curTicker, double assets,
+        double currency) const {
+    if (!isValid()) {
+        return init(!minfo.leverage, curTicker.last, assets,
+                    minfo.leverage?currency:assets*curTicker.last+currency)
+                ->onIdle(minfo, curTicker, assets, currency);
+    } else {
+        return this;
+    }
 }
 
+IStrategy::OrderData Strategy_Exponencial::getNewOrder(
+        const IStockApi::MarketInfo &minfo, double cur_price, double new_price,
+        double dir, double assets, double currency, bool rej) const {
 
-double Strategy_Exponencial::calcAccountValue(const State &st, double ea, double p) {
-	double w = calcW(st.a + ea, st.k, st.p);
-	return calcAccountValue(w, st.k, p);
-}
-
-
-double Strategy_Exponencial::calcReqCurrency(const State &st, double ea, double price) {
-	double w = calcW(st.a + ea, st.k, st.p);
-	return w * (st.k - std::exp(-price/st.k) * (st.k + price));
-}
-
-double Strategy_Exponencial::calcAccumulation(const State &st, const Config &cfg, double price) {
-	if (cfg.accum) {
-		double w = calcW(st.a + cfg.ea, st.k, st.p);
-		double r1 = calcReqCurrency(st, cfg.ea, st.p);
-		double r2 = calcReqCurrency(st, cfg.ea, price);
-		double pl = -price*(calcA(w, st.k, price)-(st.a + cfg.ea));
-		double nl = r2 - r1;
-		double ex = pl -nl;
-		double acc = (ex/price)*cfg.accum;
-		return acc;
-	} else {
-		return 0;
-	}
+    double newpos = mcfg->calcPos(new_price, st.k, st.m);
+    return {
+        0, newpos - assets
+    };
 
 }
 
+std::pair<IStrategy::OnTradeResult, PStrategy> Strategy_Exponencial::onTrade(
+        const IStockApi::MarketInfo &minfo, double tradePrice, double tradeSize,
+        double assetsLeft, double currencyLeft) const {
 
-double Strategy_Exponencial::calcNormalizedProfit(double tradePrice, double tradeSize) const {
-	double cashflow = -tradePrice*tradeSize;
-	double old_cash = calcReqCurrency(st,cfg.ea, st.p);
-	double new_cash = calcReqCurrency(st, cfg.ea, tradePrice);
-	double diff_cash = new_cash - old_cash;
-	double np = cashflow - diff_cash;
+    double prevPos = assetsLeft - tradeSize;
+    double eqchg = prevPos * (tradePrice - st.p);
+    double budget = mcfg->calcEquity(tradePrice, st.k, st.m);
+    double rprice = mcfg->calcRange(st.k);
+    State nst;
+    nst.spot = !minfo.leverage;
+    nst.p = tradePrice;
+    nst.b = budget;
+    if (rprice < tradePrice) {
+        nst.k = tradePrice/mcfg->range;
+        nst.m =  nst.b/mcfg->calcEquity(tradePrice, nst.k,  1.0);
+    } else if (rprice * mcfg->s > tradePrice) {
+        nst.k = tradePrice/(mcfg->s*mcfg->range);
+        nst.m =  nst.b/mcfg->calcEquity(tradePrice, nst.k,  1.0);
+    } else {
+        nst.k = st.k;
+        nst.m = st.m;
+    }
+    double np = st.b + eqchg - nst.b;
+    return {
+        {np,0},
+        new Strategy_Exponencial(mcfg, std::move(nst))
+    };
 
-	return np;
-}
-Strategy_Exponencial::BudgetInfo Strategy_Exponencial::getBudgetInfo() const {
-	return BudgetInfo {
-		calcAccountValue(st,cfg.ea,st.p),
-		st.a + cfg.ea
-	};
-}
 
-double Strategy_Exponencial::calcW(double a, double k, double p) {
-	return a * std::exp(p/k);
-}
-
-
-double Strategy_Exponencial::findRoot(double w, double k, double p, double c) {
-	auto base_fn = [=](double x) {
-		return w * (k - std::exp(-x/k) * (k + x));
-	};
-
-	//calculate difference between ideal balance and current balance (<0)
-	double diff = c - base_fn(p);
-	//calculate maximum balance - difference must be below maximum
-	double max = w * k;
-	//if difference is positive, we have more money than need, so return 0
-	if (diff >= 0) return 0;
-	//if difference is negative and below maximum, result is infinity - cannot be calculated
-	if (diff < -max) return std::numeric_limits<double>::infinity();
-
-	//function to find root (root = equal zero)
-	auto fn = [=](double x) {
-		return base_fn(x) + diff;
-	};
-
-	double pp = fn(p);
-	double r;
-	if (pp > 0) {
-		r = numeric_search_r1(p, std::move(fn));
-	} else if (pp < 0) {
-		r = numeric_search_r2(p, std::move(fn));
-	} else {
-		r = p;
-	}
-
-	return r;
 }
 
-double Strategy_Exponencial::calcInitialPosition(const IStockApi::MarketInfo &minfo, double price, double assets, double currency) const {
-	double budget = minfo.leverage?currency:assets*price+currency;
-	double k = price / to_balanced_factor;
-	double norm_val = k*(1 - std::exp(-price/k));
-	double w = budget / norm_val;
-	double a= calcA(w,k,price);
-	return a;
-}
+IStrategy::MinMax Strategy_Exponencial::calcSafeRange(
+        const IStockApi::MarketInfo &minfo, double assets,
+        double currencies) const {
 
-std::optional<IStrategy::BudgetExtraInfo> Strategy_Exponencial::getBudgetExtraInfo(double price, double currency) const {
-	double b = calcAccountValue(st,cfg.ea,price);
-	double e = (st.a+cfg.ea) * price + currency - b ;
-	return BudgetExtraInfo {b, e};
+    MinMax minMax;
+    double a = mcfg->calcPos(st.p, st.k, st.m);
+    double minsz = minfo.calcMinSize(st.p);
+    if (assets < a + minsz ) {
+        minMax.max = mcfg->findPos(a - assets + minsz, st.k, st.m);
+        if (minMax.max/1000 > st.p) minMax.max = std::numeric_limits<double>::infinity();
+    } else {
+        minMax.max = std::numeric_limits<double>::infinity();
+    }
+
+    if (st.spot) {
+        double c = mcfg->calcCurr(st.p, st.k, st.m);
+        if (c > currencies) {
+            minMax.min = mcfg->findCurrency(c - currencies,  st.k, st.m);
+        } else {
+            minMax.min = 0;
+        }
+    } else {
+        double c = mcfg->calcEquity(st.p, st.k, st.m);
+        if (c > currencies) {
+            minMax.min = mcfg->findEquity(c - currencies, st.k, st.m);
+        } else {
+            minMax.min = 0;
+        }
+    }
+    if (minMax.max*1000 < st.p) minMax.min = 0;
+    return minMax;
 }
 
 double Strategy_Exponencial::calcCurrencyAllocation(double price, bool leveraged) const {
-	return calcReqCurrency(st, cfg.ea, price);
+    if (st.spot) {
+        return mcfg->calcCurr(st.p, st.k, st.m);
+    } else {
+        return mcfg->calcEquity(st.p, st.k, st.m);
+    }
 }
 
-Strategy_Exponencial::ChartPoint Strategy_Exponencial::calcChart(double price) const  {
-	return {
-		true, calcA(price), calcAccountValue(st, cfg.ea, price)
-	};
+double Strategy_Exponencial::getCenterPrice(double lastPrice, double assets) const {
+    return mcfg->findPos(assets, st.k, st.m);
+}
+
+double Strategy_Exponencial::calcInitialPosition(
+        const IStockApi::MarketInfo &minfo, double price, double assets,
+        double currency) const {
+
+    double p = mcfg->calcPos(price, price, 1.0);
+    double b = mcfg->calcEquity(price, price, 1.0);
+    double eq = minfo.leverage?currency:currency+price*assets;
+    return p*eq/b;
+
+}
+
+IStrategy::BudgetInfo Strategy_Exponencial::getBudgetInfo() const {
+    return {
+        st.b,
+        mcfg->calcPos(st.p, st.k, st.m)
+    };
+}
+
+double Strategy_Exponencial::getEquilibrium(double assets) const {
+    return mcfg->findPos(assets, st.k, st.m);
+}
+
+IStrategy::ChartPoint Strategy_Exponencial::calcChart(double price) const {
+    return {
+        true,
+        mcfg->calcPos(price, st.k, st.m),
+        mcfg->calcEquity(price, st.k, st.m)
+    };
+}
+
+json::Value Strategy_Exponencial::dumpStatePretty(const IStockApi::MarketInfo &minfo) const {
+    auto price = [&](double x){return minfo.invert_price?1.0/x:x;};
+    auto position = [&](double x){return minfo.invert_price?-x:x;};
+    double pos = mcfg->calcPos(st.p,st.k,st.m);
+    return json::Object{
+        {"Budget",st.b},
+        {"Position",position(pos)},
+        {"Expand price", price(mcfg->calcRange(st.k))},
+        {"Shrink price", price(mcfg->calcRange(st.k)*mcfg->s)},
+        {"Ratio", 100*pos*st.p / st.b}
+    };
+}
+
+PStrategy Strategy_Exponencial::init(bool spot, double price, double pos, double equity) const {
+
+    double ratio = pos*price/equity;
+    double p = mcfg->findRatio(ratio, price);
+
+    State st;
+    st.spot = spot;
+    st.k = pow2(price)/p;
+    st.p = price;
+    st.b = equity;
+    st.m = pos/mcfg->calcPos(price, st.k, 1);
+
+    PStrategy s = new Strategy_Exponencial(mcfg, std::move(st));
+    if (!s->isValid()) throw std::runtime_error("Unable to initialize strategy");
+    return s;
+
 }

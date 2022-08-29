@@ -16,7 +16,6 @@
 #include "sgn.h"
 #include "strategy_halfhalf.h"
 #include "strategy_keepvalue.h"
-#include "strategy_exponencial.h"
 #include "strategy_hypersquare.h"
 #include "strategy_sinh.h"
 #include "strategy_constantstep.h"
@@ -31,7 +30,7 @@
 #include "strategy_keepvalue2.h"
 #include "strategy_hodl_short.h"
 #include "strategy_incvalue.h"
-
+#include "strategy_exponencial.h"
 
 
 
@@ -41,7 +40,8 @@ static json::NamedEnum<Strategy_Gamma::Function> strGammaFunction ({
 	{Strategy_Gamma::keepvalue,"keepvalue"},
 	{Strategy_Gamma::exponencial,"exponencial"},
 	{Strategy_Gamma::gauss,"gauss"},
-	{Strategy_Gamma::invsqrtsinh,"invsqrtsinh"}
+	{Strategy_Gamma::invsqrtsinh,"invsqrtsinh"},
+	{Strategy_Gamma::expwide,"expwide"}
 
 });
 
@@ -88,11 +88,6 @@ Strategy Strategy::create_base(std::string_view id, json::Value config) {
 		cfg.rebalance = config["boost"].getBool();
 		cfg.chngtm = config["chngtm"].getNumber();
 		return Strategy(new Strategy_KeepValue2(cfg));
-	} else if (id == Strategy_Exponencial::id) {
-		Strategy_Exponencial::Config cfg;
-		cfg.ea = config["ea"].getNumber();
-		cfg.accum = config["accum"].getNumber();
-		return Strategy(new Strategy_Exponencial(cfg));
 	} else if (id == Strategy_HyperSquare::id) {
 		Strategy_HyperSquare::Config cfg;
 		cfg.ea = config["ea"].getNumber();
@@ -112,6 +107,13 @@ Strategy Strategy::create_base(std::string_view id, json::Value config) {
 		cfg.rebalance.hi_p = config["rb_hi_p"].getValueOrDefault(0.90);
 		cfg.rebalance.lo_p = config["rb_lo_p"].getValueOrDefault(0.20);
 		return Strategy(new Strategy_ErrorFn(cfg));
+    } else if (id == Strategy_Exponencial::id) {
+        Strategy_Exponencial::Config cfg;
+        cfg.r = config["r"].getNumber()*0.01;
+        cfg.z = config["z"].getNumber();
+        cfg.w = 1.0-config["w"].getNumber()*0.01;
+        cfg.s = config["s"].getNumber()*0.01;
+        return Strategy(new Strategy_Exponencial(cfg));
 	} else if (id == Strategy_KeepValue::id) {
 		Strategy_KeepValue::Config cfg;
 		cfg.ea = config["ea"].getNumber();

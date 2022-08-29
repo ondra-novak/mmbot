@@ -86,7 +86,7 @@
 <option value="hodlshort">Hodl + short</option>
 <option value="conststep" data-hidden="true">Linear costs</option>
 <option value="hypersquare" data-hidden="true">Hypersquare</option>
-<option value="exponencial" data-hidden="true">Exponencial</option>
+<option value="expwide">Exponencial (ver2)</option>
 <option value="errorfn">Gauss/error function+rebalance</option>
 <option value="gamma">Gamma</option>
 </optgroup>
@@ -111,7 +111,7 @@
 <div class="plfrompos">A simple strategy for trading on leveraged stock exchanges and futures, generally on stock exchanges with the ability to open long or short positions. This strategy is the only one that works well with a negative value in "assets" (meaning position)</div>
 <div class="halfhalf">This strategy keeps the value of assets and money on the stock exchange in a ratio 1:1. Whenever this ratio is disrupted, the strategy executes a trade in such a volume to achieve the defined ratio. <a href="https://www.desmos.com/calculator/9fdvux8fms">Interactive graph</a></div>
 <div class="keepvalue">This strategy keeps the value of assets on the stock exchange at the same value. If the value of assets falls or rises (due to changing price), the strategy executes a trade in such a volume to achieve the same value of the assets as before.</div>
-<div class="exponencial">Strategy based on exponencial function to trade pairs on exchanges. If correctly configured, it can work in range of (0,infinity) like Half-Half, however, its effectivty ends after 400% gain on the price of the underlying asset. So this strategy is ideal to trade altcoins where is less chance of a long running positive trend. The profit is realized through the normalized profit. <a href="https://www.desmos.com/calculator/gln1sxxgyo" target="_blank">Interactive graph</a></div>
+<div class="expwide">Uses exponencial function to calculate position at given price. You can specify a power of that function which increases profit during a bull market. The strategy can overall benefit from a sideways or a bull market, it is less effective on a bear market (needs a lot of time to recover). However it can optimize the budget to be able to trade after a huge market drop. The strategy is ideal for a spot market</div>
 <div class="hypersquare">This strategi is similar to Exponencial, but it is based on square hyperbolic function. Area for target average price is much wider then exponencial. <a href="https://www.desmos.com/calculator/pbfisabvcm" target="_blank">Interactive graph</a></div>
 <div class="errorfn">The best strategy for exchanges, can reach highest normalized profit. The core of the strategy is based on Gauss Error Function. The optimal range between -50% to +50%. If the price goes out of the optimal range, the Rebalance is performed to keep price in the optimal range<a href="https://www.desmos.com/calculator/uhkqt4ajvp">Interactive graph</a></div>
 <div class="keep_balance">Not quite a strategy, more a utility. It balances the currency balance. If the account has a larger balance than the specified maximum, the excess money will be used to purchase the asset. If the account has a smaller balance than the specified minimum, some assets will be sold to replenish the balance </div>
@@ -164,6 +164,27 @@ to enter a negative value and then the value of the assets held will decrease an
 <label><span>Reinvest accumulated<span class="tooltip">All accumulated assets allocated for the strategy, which increases strategy budget. In this case, accumulation is not reported as accumulation.</span></span><x-checkbox data-name="kv2_reinvest"></x-checkbox></label>
 <label><span>Enable DCA - monthly value increase (<span data-name="currency"></span>/month): <span class="tooltip">Use Keep Value as DCA strategy. Increases kept value over time. The value specifies increase per month</span></span><input data-name="kv2_chngtm" step="any" type="number"></label>
 <label class="adv"><span>Boost up<span class="tooltip">Slightly boost normalized profit during uptrend. On other side, it also increases minimal tradeable price</span></span><x-checkbox data-name="kv2_boost"></x-checkbox></label>
+<x-section>
+<div class="label"><span>Min price:</span><span data-name="range_min_price">---</span></div>
+<div class="label"><span>Max price:</span><span data-name="range_max_price">---</span></div>
+<div class="label"><span>Recomended initial position:</span><span data-name="range_initial">---</span></div>
+</x-section>
+<div class="rightinfo"><button name="show_backtest" disabled="disabled">Backtest</button></div>
+</x-section>
+
+<x-section data-name="strategy_exponencial" class="goal" hidden="hidden"><x-section-caption>Exponencial</x-section-caption>
+<label><span>Exponent (volatility&lt;-&gt;power)<span class="tooltip">
+Defines strategy power. Higher value means higher power, but also expects less volatility. With higher value, the strategy looses power on low prices, but it also have high power on higher prices. Low exponent means that power is spread over whole range. If you expect uptrend, set higher value, otherwise, set lower value.
+</span></span><x-slider data-name="exp_z" data-min="0.1" data-max="10" data-mult="0.1" data-fixed="1"></x-slider></label>
+<label><span>Low end ratio[%]<span class="tooltip">
+Defines target ratio between position value (position × price) and equity at low price. The value 100 means, that strategy can eventually go ALL-IN. Lower value means that strategy always keeps some money to buy on lower prices targeting the specified ratio. 
+</span></span><x-slider data-name="exp_w" data-min="0" data-max="100" data-mult="1"></x-slider></label>
+<label><span>Expand ratio[%]<span class="tooltip">
+Defines target ratio between position value (position × price) and equity when the strategy increases the budget to benefit from higher prices. The value 0 means, that strategy will evenutally sell the whole position. Other values mean, that strategy always keeps some position to be able sell it on higher prices.
+</span></span><x-slider data-name="exp_r" data-min="0" data-max="50" data-mult="0.1" data-fixed="1"></x-slider></label>
+<label><span>Shrink ratio[%]<span class="tooltip">
+Defines shink price as ratio to expand price which is defined by Expand ratio. For example, value 10 means if the expand price is 10000, shrink price is 1000. When the price drops below the shrink price, the strategy shrinks its budget to increase power. This shrink causes a loss on the equity, but can increase speed to recover. 
+</span></span><x-slider data-name="exp_s" data-min="0" data-max="50" data-mult="0.1" data-fixed="1"></x-slider></label>
 <x-section>
 <div class="label"><span>Min price:</span><span data-name="range_min_price">---</span></div>
 <div class="label"><span>Max price:</span><span data-name="range_max_price">---</span></div>
@@ -250,6 +271,7 @@ to enter a negative value and then the value of the assets held will decrease an
 <option value="halfhalf">Half-Half</option>
 <option value="keepvalue">Keep Value</option>
 <option value="exponencial">Exponencial</option>
+<option value="expwide">Exponencial (wide)</option>
 <option value="invsqrtsinh">Cosecant</option>
 <option value="gauss">Gauss</option>
 </select></label>

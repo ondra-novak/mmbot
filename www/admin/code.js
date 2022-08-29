@@ -98,7 +98,8 @@ App.prototype.createTraderForm = function() {
 	var pl = form.findElements("goal_pl")[0];
 	form.dlgRules = function() {
 		var state = this.readData(["strategy","advanced","check_unsupp"]);
-		form.showItem("strategy_halfhalf",state.strategy == "halfhalf" || state.strategy == "keepvalue" || state.strategy == "exponencial"||state.strategy == "hypersquare"||state.strategy == "conststep");
+		form.showItem("strategy_halfhalf",state.strategy == "halfhalf" || state.strategy == "keepvalue" || state.strategy == "hypersquare"||state.strategy == "conststep");
+		form.showItem("strategy_exponencial",state.strategy == "expwide");
 		form.showItem("strategy_pl",state.strategy == "plfrompos");
 		form.showItem("strategy_pile",state.strategy == "pile");
 		form.showItem("strategy_kv2",state.strategy == "keepvalue2");
@@ -515,6 +516,7 @@ App.prototype.fillForm = function (src, trg) {
 		if (first_fetch) {
 			["strategy","external_assets","gs_external_assets", "hp_trend_factor","hp_allowshort","hp_power", "hp_recalc", "hp_asym","hp_powadj", 
 			"hp_extbal", "hp_reduction","hp_dynred","sh_curv","gamma_exp","pincome_exp",
+			"exp_w","exp_z","exp_r","exp_s",
 			"gamma_trend","gamma_fn",
 			"shg_w","shg_p","shg_z","shg_lp","shg_r",
 			"pile_ratio","hodlshort_z",
@@ -678,14 +680,23 @@ App.prototype.fillForm = function (src, trg) {
 	data.incval_r = 100;
 	data.incval_ms = 0;
 	data.incval_ri = false;
+	data.exp_w = 100;
+	data.exp_r = 10;
+	data.exp_z = 3;
+	data.exp_s = 0;
 
 
 	
-	if (data.strategy == "halfhalf" || data.strategy == "keepvalue" || data.strategy == "exponencial"|| data.strategy == "hypersquare"||data.strategy == "conststep") {
+	if (data.strategy == "halfhalf" || data.strategy == "keepvalue" || data.strategy == "hypersquare"||data.strategy == "conststep") {
 		data.acum_factor = filledval(defval(src.strategy.accum,0)*100,0);
 		data.external_assets = filledval(src.strategy.ea,0);
 		data.kv_valinc = filledval(src.strategy.valinc,0);
 		data.kv_halfhalf = filledval(src.strategy.halfhalf,false);
+    } else if (data.strategy == "expwide") {
+        data.exp_r = filledval(src.strategy.r,10);
+        data.exp_w = filledval(src.strategy.w,100);
+        data.exp_z = filledval(src.strategy.z,3);        
+        data.exp_s = filledval(src.strategy.s,0);
 	} else if (data.strategy == "keep_balance" ) {
 		data.kb_keep_min = filledval(src.strategy.keep_min,0);
 		data.kb_keep_max = filledval(src.strategy.keep_max,0);
@@ -872,11 +883,19 @@ App.prototype.fillForm = function (src, trg) {
 function getStrategyData(data, inv) {
 	var strategy = {};
 	strategy.type = data.strategy;
-	if (data.strategy == "halfhalf" || data.strategy == "keepvalue" || data.strategy == "exponencial"|| data.strategy == "hypersquare"||data.strategy == "conststep") {
+	if (data.strategy == "halfhalf" || data.strategy == "keepvalue" || data.strategy == "hypersquare"||data.strategy == "conststep") {
 		strategy.accum = data.acum_factor/100.0;
 		strategy.ea = data.external_assets;
 		strategy.valinc = data.kv_valinc;
 		strategy.halfhalf = data.kv_halfhalf;
+    } else if (data.strategy == "expwide") {
+        strategy = {
+            type: data.strategy,
+            r: data.exp_r,
+            w: data.exp_w,
+            z: data.exp_z,
+            s: data.exp_s
+        };       
 	} else if (data.strategy == "errorfn") {
 		strategy = {
 				type: data.strategy,
@@ -1909,6 +1928,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 	form.enableItem("show_backtest",false);		
 	var inputs = ["strategy","external_assets", "acum_factor","kv_valinc","kv_halfhalf","min_size","max_size","linear_suggest","linear_suggest_maxpos",
 		"dynmult_sliding","accept_loss",
+		"exp_r","exp_w","exp_z","exp_s",
 		"hp_trend_factor","hp_allowshort","hp_reinvest","hp_power","hp_asym","hp_reduction","sh_curv","hp_limit","hp_extbal","hp_powadj","hp_dynred",
 		"gs_external_assets","gs_rb_hi_a","gs_rb_lo_a","gs_rb_hi_p","gs_rb_lo_p",
 		"min_balance","max_balance","max_leverage","reduce_on_leverage","gamma_exp","gamma_rebalance","gamma_trend","gamma_fn","gamma_reinvest","gamma_maxrebal",
@@ -1946,7 +1966,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 				"volatility":1,
 				"noise":1
 			},			
-			show_norm:["halfhalf","pile","keepvalue","exponencial","errorfn","hypersquare","conststep"].indexOf(sttype) != -1?1:0,
+			show_norm:["halfhalf","pile","keepvalue","expwide","errorfn","hypersquare","conststep","gamma"].indexOf(sttype) != -1?1:0,
 			initial_price:form._price,
 			initial_balance:balance,
 			initial_pos:undefined,			
