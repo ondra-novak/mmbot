@@ -140,6 +140,22 @@ App.prototype.createTraderForm = function() {
 	return form;
 }
 
+App.prototype.createTraderFromDialogs = function(res) {
+    var broker = res[0];
+    var pair = res[1];
+    var name = res[2];              
+    var swap_mode = parseInt(res[3]);
+    if (!this.traders[name]) this.traders[name] = {};
+    var t = this.traders[name];
+    t.broker = broker;
+    t.pair_symbol = pair;
+    t.id = name;
+    t.enabled = true;
+    t.swap_symbols = swap_mode;
+    if (!t.title) t.title = pair;
+    return name;
+}
+
 App.prototype.createTraderList = function(form) {
 	if (!form) form = TemplateJS.View.fromTemplate("trader_list");
 	var items = Object.keys(this.traders).map(function(x) {
@@ -237,21 +253,10 @@ App.prototype.createTraderList = function(form) {
 				this.desktop.setItemValue("content", nf);
 				this.curForm = nf;
 			} else if (iid == "add") {
-				this.brokerSelect().then(this.pairSelect.bind(this)).then(function(res) {
-					var broker = res[0];
-					var pair = res[1];
-					var name = res[2];				
-					var swap_mode = parseInt(res[3]);
-					if (!this.traders[name]) this.traders[name] = {};
-					var t = this.traders[name];
-					t.broker = broker;
-					t.pair_symbol = pair;
-					t.id = name;
-					t.enabled = true;
-					t.swap_symbols = swap_mode;
-					if (!t.title) t.title = pair;
+				this.brokerSelect().then(this.pairSelect.bind(this)).then(res=>{
+                    let name = this.createTraderFromDialogs(res);
 					this.updateTopMenu(name);
-				}.bind(this))
+				});
 			}
 		} else if (path[0] == "trader") {
 			var iid = path[1];
@@ -1064,6 +1069,87 @@ App.prototype.openTraderForm = function(trader) {
 	return Promise.resolve(form);	
 }
 
+App.prototype.importFromJSON = function(cfg) {
+        let payload = cfg.payload || {};
+        delete payload.id;
+        delete payload.broker;
+        delete payload.pair_symbol;
+        delete payload.enabled;
+        delete payload.title
+        delete payload.hidden
+        if (this.curForm) {
+            this.curForm.save();
+            this.curForm.close();
+            this.curForm = null;
+        }       
+        
+        const stop = ()=>{         
+            w.close();
+            this.updateTopMenu(null);
+            location.hash="";        
+        }
+        
+        let w = TemplateJS.View.fromTemplate("imported");
+        document.body.appendChild(w.getRoot());
+        w.setCancelAction(stop,"cancel");
+        w.setData({broker:cfg.broker,symbol:cfg.symbol});
+        fetch_json(this.brokerURL(cfg.broker)).then(x=>{
+            w.setData({broker:x.exchangeName});
+        });
+
+        const importToTrader = id =>{
+            return this.dlgbox({"text":this.strtable.askreplace},"confirm")
+            .then(()=>{
+               Object.assign(this.traders[id],cfg.payload || {});               
+               stop();
+               this.updateTopMenu(id);              
+            });
+        }
+
+        const addTrader = ()=> {
+            this.brokerSelect().then(this.pairSelect.bind(this))
+                 .then(res=>{
+                    let name = this.createTraderFromDialogs(res);
+                    Object.assign(this.traders[name],cfg.payload || {});
+                    stop();
+                    this.updateTopMenu(name);
+                });
+        }
+        
+        var items = Object.keys(this.traders).map(x=>{
+            return {
+            image:this.brokerImgURL(this.traders[x].broker),
+            caption: this.traders[x].title,
+            broker: this.traders[x].broker,
+            "":{
+                "!click":importToTrader.bind(this,x)
+            }
+            }});
+        items.push({
+          "image":"../res/add_icon.png",
+          "caption":"New trader",               
+            "":{
+                "!click":addTrader.bind(this)
+            }
+        });
+        this.menu.setData({"item":items});
+}
+
+App.prototype.importFeature = function(url) {
+	fetch_with_error(url).then(this.importFromJSON.bind(this));	
+}
+
+App.prototype.onHashChange = function() {
+        var h = location.hash;
+		const importPfx = "#import="
+        if (h.startsWith(importPfx)) {
+			let url = decodeURIComponent(h.substr(importPfx.length))+"?raw=1";			
+			this.importFeature(url);
+            return true;
+        } else {
+            return false;
+        }        
+}
 
 App.prototype.init = function() {
 	this.strtable = document.getElementById("strtable").dataset;
@@ -1090,12 +1176,13 @@ App.prototype.init = function() {
 		this.menu =  menu;
 		this.desktop.setItemValue("menu", menu);
 		this.stopped = {};
-		var h = location.hash;
-		if (h.startsWith("#")) {
-			menu.select(h.substr(1));
-		}
-		
-		
+		if (!this.onHashChange()) {
+            let h = location.hash;
+            if (h.startsWith("#")) {
+                menu.select(h.substr(1));
+            }
+        }
+		window.addEventListener("hashchange",this.onHashChange.bind(this));
 	}.bind(this));
 	
 }
@@ -3395,7 +3482,68 @@ App.prototype.brokerConfig = function(burl) {
 }
 
 App.prototype.shareForm = function(id, form) {
-	var cfg = this.saveForm(form, {});
+    var cfg = this.saveForm(form, this.traders[id]);
+    delete cfg.title;
+    delete cfg.enable;
+    delete cfg.dry_run;
+    delete cfg.report_order;
+    delete cfg.hidden;
+    let mt = form.findElements("market_type")[0].innerText;
+    mt = mt.substr(0,mt.length-1);
+    let st = form.findElements("strategy")[0];
+    let stn = st.options[st.selectedIndex].text;
+    var env = {
+        payload:cfg,
+        broker: cfg.broker,
+        symbol: cfg.pair_symbol,
+        market: mt,
+        strategy: stn
+    }  
+	let dlg = TemplateJS.View.fromTemplate("newshare");
+	dlg.openModal();
+	dlg.setData({share_mode:"local","form":{".hidden":true},"author":localStorage["share_author"]});
+	dlg.setCancelAction(()=>dlg.close(),"close");
+	dlg.setDefaultAction(()=>{
+        let data = dlg.readData();        
+        if (data.share_mode == "local") {
+            this.importFromJSON(env);
+            dlg.close();
+        } else {
+            localStorage["share_author"] = data["author"];
+			env.author = data.author;
+			env.desc = data.desc;
+			if (!isNaN(data.profit)) env.profit = data.profit.toString();
+            let url;
+            let baseUrl;
+            if (data.share_mode=="link") {
+                url = "../api/admin/share/";
+                baseUrl = location.origin;
+            } else {
+                url = "https://www.mmbot.trade/share.dir/";
+                baseUrl = "https://www.mmbot.trade";
+            }
+            dlg.close();
+            fetch_with_error(url, {
+                method:"POST",
+                headers:{
+                    "Content-Type":"application/json"
+                },
+                body:JSON.stringify(env)
+            }).then(x=>{
+               let share_url = baseUrl+x.public_share;
+               let dlg = TemplateJS.View.fromTemplate("newshare_link");
+               dlg.openModal();
+               dlg.setCancelAction(()=>dlg.close(),"close");
+               dlg.setData({"link":{value:share_url,href:share_url}});			   
+            });
+        }
+	},"ok");
+	dlg.setItemEvent("share_mode","change",(ev)=>{
+        const val = ev.target.dataset.value;
+        dlg.setData({"share_mode":val});
+        dlg.showItem("form", val != "local");
+    });
+/*	var cfg = this.saveForm(form, {});
 	delete cfg.title;
 	delete cfg.enable;
 	delete cfg.dry_run;
@@ -3452,6 +3600,7 @@ App.prototype.shareForm = function(id, form) {
 		}
 		this.dlgbox({"text":this.strtable.import_failed,"cancel":{hidden:true}},"confirm");
 	}.bind(this));
+	*/
 }
 
 App.prototype.editStrategyState = function(id) {

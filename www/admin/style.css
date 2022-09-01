@@ -22,7 +22,8 @@ input,select,button,textarea {
 	color: white;
 	font-family: Ruda;
 	font-size: 0.4cm;
-	box-sizing:border-box;
+	box-sizing:
+	border-box;
 }
 input[type="date"] {
 	padding: 0;
@@ -526,6 +527,21 @@ div.dialog > div {
 	box-sizing: border-box;
 	padding: 5px;
 	max-width: 16cm;
+}
+
+div.newshare >.mode {
+    text-align: left;
+    padding: 1em;
+}
+
+
+div.dialog > .newshare {
+    width: 14cm;
+}
+
+div.dialog > .newshare .buttons {
+    text-align: right;
+    margin-top: 1em;
 }
 
 div.broker  div.keys label>span {
@@ -1621,6 +1637,50 @@ x-section-caption img {
 	white-space: pre-line;
 	padding-bottom: 1em;
 }
+
+.importbox {
+    position: absolute;
+    background-color: #222;
+    bottom: 1vh;
+    left: 1vw;
+    right: 1vw;
+    padding: 0.5em;
+    color: white;
+    border: 1px solid;
+}
+.importbox > div {
+	display:
+	flex;
+	align-items: center;
+	flex-direction: column;
+	gap: 1em;
+	padding: 1em 0;
+	background-color: #4d213f;
+}
+.importbox > div > div > div {
+	position: relative;
+	display: inline-block;
+	width: 7em;
+	height: 1em;
+	vertical-align: baseline;
+	text-align: center;
+}
+
+.importbox > div > div > div > div{
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	z-index: 11;
+	font-weight: bold;
+	width: 100%;
+	box-sizing: border-box;
+	padding: 0 0.2em;
+	overflow-x: hidden;
+	text-overflow: ellipsis;
+}
+
+
 
 div.stabilitytest {}
 div.stabilitytest table {

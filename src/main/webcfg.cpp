@@ -38,7 +38,6 @@ using namespace simpleServer;
 
 NamedEnum<WebCfg::Command> WebCfg::strCommand({
 	{WebCfg::config, "config"},
-	{WebCfg::serialnr, "serial"},
 	{WebCfg::brokers, "brokers"},
 	{WebCfg::traders, "traders"},
 	{WebCfg::stop, "stop"},
@@ -65,7 +64,8 @@ WebCfg::WebCfg( const shared_lockable_ptr<State> &state,
 		Dispatch &&dispatch,
 		json::PJWTCrypto jwt,
 		shared_lockable_ptr<AbstractExtern> backtest_broker,
-		std::size_t upload_limit
+		std::size_t upload_limit,
+        std::size_t share_limit
 )
 	:auth(realm, state.lock_shared()->users.admins,jwt, false)
 	,trlist(traders)
@@ -73,6 +73,7 @@ WebCfg::WebCfg( const shared_lockable_ptr<State> &state,
 	,state(state)
 	,backtest_broker(backtest_broker)
 	,upload_limit(upload_limit)
+    ,share_limit(share_limit)
 {
 
 }
@@ -96,7 +97,6 @@ bool WebCfg::operator ()(const simpleServer::HTTPRequest &req,
 		if (!auth.checkAuth(req)) return true;
 		switch (*cmd) {
 		case config: return reqConfig(req);
-		case serialnr: return reqSerial(req);
 		case brokers: return reqBrokers(req, rest);
 		case stop: return reqStop(req);
 		case traders: return reqTraders(req, rest);
@@ -115,6 +115,7 @@ bool WebCfg::operator ()(const simpleServer::HTTPRequest &req,
 		case progress: return reqProgress(req,rest);
 		case news: return reqNews(req);
 		case share: return reqShare(req, qp);
+		default: return false;
 		}
 	}
 	return false;
@@ -255,11 +256,6 @@ bool WebCfg::reqConfig(simpleServer::HTTPRequest req)  {
 }
 
 
-bool WebCfg::reqSerial(simpleServer::HTTPRequest req) {
-	if (!req.allowMethods({"GET"})) return true;
-	req.sendResponse("text/plain") << serial << "\r\n";
-	return true;
-}
 
 
 static double getSafeBalance(const PStockApi &api, std::string_view symb,  std::string_view pair) {
@@ -2557,6 +2553,7 @@ bool WebCfg::reqShare(simpleServer::HTTPRequest req, simpleServer::QueryParser &
 		}  else {
 			req.readBodyAsync(upload_limit,[this, &sf](HTTPRequest req)  {
 				try {
+				    using namespace std::chrono;
 					std::string name("share.");
 					std::string uri;
 					std::hash<json::Value> hash;
@@ -2564,6 +2561,9 @@ bool WebCfg::reqShare(simpleServer::HTTPRequest req, simpleServer::QueryParser &
 					json::Value data = json::Value::fromString(
 							std::string_view(reinterpret_cast<const char *>(buff.data()), buff.size()));
 					auto h = hash(data);
+                    data.setItems({
+                        {"time",duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count()}
+                    });
 					ondra_shared::unsignedToString(h,[&](char c){uri.push_back(c);},32,8);
 
 					auto lst = sf->create(name+"~list");
@@ -2571,6 +2571,11 @@ bool WebCfg::reqShare(simpleServer::HTTPRequest req, simpleServer::QueryParser &
 					if (lstv.indexOf(uri) == json::Value::npos) {
 						auto s = sf->create(name+uri);
 						lstv.push(uri);
+						while (lstv.size() > share_limit) {
+						    json::Value f = lstv.shift();
+						    auto r = sf->create(name+f.getString().data());
+                            r->erase();
+						}
 						lst->store(lstv);
 						s->store(data);
 					}
@@ -2592,8 +2597,9 @@ bool WebCfg::reqShare(simpleServer::HTTPRequest req, simpleServer::QueryParser &
 		}
 		return true;
 	} else {
+	    auto sn = path.substr(1);
 		auto nn = name.length();
-		name.append(path.data, path.length);
+		name.append(sn.data, sn.length);
 		auto s = sf->create(name);
 		if (!req.allowMethods({"GET","DELETE"})) return true;
 		if (req.getMethod() == "GET") {
@@ -2610,7 +2616,7 @@ bool WebCfg::reqShare(simpleServer::HTTPRequest req, simpleServer::QueryParser &
 			name.append("~list");
 			auto lst = sf->create(name);
 			auto v = lst->load();
-			v = v.filter([&](const json::Value &x){return x.getString() != path;});
+			v = v.filter([&](const json::Value &x){return x.getString() != sn;});
 			lst->store(v);
 			req.sendResponse(simpleServer::HTTPResponse(202)
 					.contentType("application/json")

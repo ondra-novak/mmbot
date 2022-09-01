@@ -3,35 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <title>MMBot share</title>
+  <link rel="stylesheet" href="../admin/style.css">
   <link rel="icon" type="image/png" href="../res/icon64.png" />
   <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
 @import url(https://fonts.googleapis.com/css?family=Ruda&display=swap);
-body {
-    background-color: #222;
-    color: #CDCDCD;
-    font-family: Ruda;
-    margin: 0;
-    font-size: 0.5cm;
-}
-.flexpanel {
-    justify-content: space-between;
-    border-bottom: 2px solid #884;
-    background-color: #332;
-    box-sizing: border-box;
-    padding: 0 1em;
-    margin-bottom: 1em;
-    }
-.flexpanel > *:first-child {
-    white-space: nowrap;
-    flex-shrink: 1;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-.flexpanel > * {
-    line-height: 1.5cm;
-    white-space: nowrap;
-}
 table {
 border-collapse:collapse;
 margin:auto
@@ -49,41 +25,49 @@ text-align: center;
 margin-top: 1em;
 }
 
+.rawcontent {
+    max-height: 20em;
+    overflow: auto;
+}
+div.importpart {
+    max-width: 50em;
+    text-align:center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin: 1em auto;
+    gap: 0.5em;
+}
+div.importpart > * {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;;
+}
 .content {
-	border: 1px solid;
-	margin: 2em;
-	padding: 0.5em;
+    padding: 1em 5vw;
+    
 }
-button {
-	background-color: #444;
-	box-shadow: 2px 2px 5px black;
-	min-width: 5em;
-	margin: 0 0.4em;
-	border: 1px solid #888;
-	padding: 0.1cm;
-	color: white;
-	font-family: Ruda;
-	font-size: 0.4cm;
-	box-sizing:border-box;
+.flexpanel {
+    padding-left: 1em;
 }
-
-button:hover {
-	color: yellow;
+.buttonpanel {
+    text-align: right;
 }
-button:active {
-	box-shadow: 0px 0px 0px black;
-	transform: translate(2px,2px);
-}
-a,.link {color: yellow; text-decoration: underline; cursor: pointer;}
-a:visited {color: #ffa800;}
-
 </style>
 </head>
 <body>
+<div class="desktop">
 <div class="flexpanel">
 <div>MMBot share a strategy</div>
 </div>
+<div class="waitdlg" id="show_spinner">
+<div class="spinner" ></div>
+</div>
+<div class="content" id="show_content">
+<x-section>
+<x-section-caption>Import shared settings</x-section-caption>
 <table>
+<tr><th>Created:</th><td id="date">n/a</td></tr>
 <tr><th>Author:</th><td id="author">n/a</td></tr>
 <tr><th>Broker:</th><td id="broker">n/a</td></tr>
 <tr><th>Symbol:</th><td id="symbol">n/a</td></tr>
@@ -91,25 +75,42 @@ a:visited {color: #ffa800;}
 <tr><th>Expected profit p.a.:</th><td id="profit">n/a</td></tr>
 <tr><th>Stategy:</th><td id="strategy">n/a</td></tr>
 <tr><th>Description:</th><td id="desc">n/a</td></tr>
-<tr><th></th><td><button id="import">Import</button></td></tr>
 </table>
-<div class="seecontent" id="see">
-<a href="#see">See raw content</a>
+</x-section>
+<x-section>
+<div class="importpart">
+<div>Enter or paste an URL to your MMBot instance</div>
+<input type="text" id="boturl" placeholder="https://www.mmbot.trade/live" />
+<div class="buttonpanel"><button id="import">Import</button></div>
 </div>
-<pre class="content" id="content">
-blabla {....}
+</x-section>
+<div class="seecontent" id="see">
+<a href="#see">Show raw content</a>
+</div>
+<x-section id="content">
+<x-section-caption>Raw content</x-section-caption>
+<pre class="rawcontent">
+...
+</pre>
+</x-section>
+</div>
 </div>
 <script type="text/javascript">
 
+document.getElementById("show_content").hidden = true;
 fetch(location.pathname+"?raw="+Date.now()).then(req=>req.json())
 .then(data=>{
-	document.getElementById("content").textContent = JSON.stringify(data,null,"  ");
+	document.querySelector("#content pre").textContent = JSON.stringify(data,null,"  ");
 	
 	["author","broker","desc","market","profit","symbol","strategy"].forEach(x=>{
 		if (data[x]) {
 			document.getElementById(x).textContent = data[x];
 		}
 	});
+    document.getElementById("date").textContent = (new Date(data["time"])).toLocaleString();
+
+    document.getElementById("show_spinner").hidden = true;
+    document.getElementById("show_content").hidden = false;
 });
 
 function checkHash() {
@@ -123,7 +124,7 @@ function checkHash() {
 checkHash();
 window.addEventListener("hashchange", checkHash);
 document.getElementById("import").addEventListener("click",()=>{
-	let boturl = prompt("Enter or paste an URL to the administration page of your instance. The instance doesn't need to be public, it need to be accessible only from your browser. You also need version 2.22.8 or later\n\n<url>/admin/index.html","");
+	let boturl = document.getElementById("boturl").value;
 	if (!boturl) return;
 	if (!boturl.startsWith("http://") && !boturl.startsWith("https://")) {
 		alert("Must be an absolute URL");
@@ -142,11 +143,28 @@ document.getElementById("import").addEventListener("click",()=>{
 	} else if (boturl.endsWith("/index.html")) {
 		boturl = boturl.substr(0,boturl.length-10) + "admin/index.html";
 	} else {
-		boturl = boturl = "/admin/index.html";
+		boturl = boturl + "/admin/index.html";
 	}
+    localStorage["import_bot_url"] = boturl.substr(0,boturl.length-17);
 	let link = boturl+"#import="+encodeURIComponent(location.origin+location.pathname);
 	location.href=link;
 });
+
+var boturl = document.getElementById("boturl"); 
+
+function checkUrl(t) {
+    var s = t.value;
+    var en = (s.length > 8) && (s.startsWith("http://") || s.startsWith("https://"))
+    document.getElementById("import").disabled = !en;
+	
+}
+var saved = localStorage["import_bot_url"];
+if (saved) boturl.value = saved; 
+
+boturl.addEventListener("input",(ev)=>{
+	checkUrl(boturl);
+});
+checkUrl(boturl);
 
 </script>
 </body>

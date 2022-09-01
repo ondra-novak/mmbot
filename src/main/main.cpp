@@ -301,6 +301,7 @@ int main(int argc, char **argv) {
 						auto listen = servicesection["listen"].getString();
 						auto socket = servicesection["socket"].getPath();
 						auto upload_limit = servicesection["upload_limit"].getUInt(10*1024*1024);
+                        auto share_limit = servicesection["share_limit"].getUInt(100);
 						auto brk_timeout = servicesection["broker_timeout"].getInt(10000);
 						auto rptsect = app.config["report"];
 						auto rptpath = rptsect.mandatory["path"].getPath();
@@ -409,7 +410,7 @@ int main(int argc, char **argv) {
 								"/api/admin",ondra_shared::shared_function<bool(simpleServer::HTTPRequest, ondra_shared::StrViewA)>(WebCfg(webcfgstate,
 										name,
 										traders,
-										[=](WebCfg::Action &&a) mutable {sch.immediate() >> std::move(a);},jwt, phb, upload_limit))
+										[=](WebCfg::Action &&a) mutable {sch.immediate() >> std::move(a);},jwt, phb, upload_limit, share_limit))
 							});
 							paths.push_back({
 								"/set_cookie",[](simpleServer::HTTPRequest req, const ondra_shared::StrViewA &) mutable {
