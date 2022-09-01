@@ -497,6 +497,43 @@ int main(int argc, char **argv) {
                                     return true;
                                 }
                             });
+                            paths.push_back({
+                            	"/share",[&](simpleServer::HTTPRequest req, const ondra_shared::StrViewA &vpath) mutable {
+                            		simpleServer::QueryParser qp(vpath);
+                            		auto path=qp.getPath();
+                            		if (!req.allowMethods({"GET"})) return true;
+                            		if (path.length<2 || path[0] != '/') return false;
+                            		auto share_name = path.substr(1);
+                            		for (char c: share_name) if (!std::isalnum(c)) return false;
+
+                            		PStorage s = sf->create(std::string("share.").append(share_name.data, share_name.length));
+                        			auto data = s->load();
+
+                        			if (data.defined()) {
+                        				bool needraw = req["Accept"] == "application/json" || qp["raw"].defined();
+                        				if (!needraw) {
+											std::string p (rptpath);
+											p.append("/share/index.html");
+											if (!req.sendFile(p, "text/html;charset=utf-8", true, 24*60*60)) {
+												needraw = true;
+											} else {
+												return true;
+											}
+                        				}
+                        				if (needraw) {
+											req.sendResponse(simpleServer::HTTPResponse(200)
+                        						.contentType("application/json")
+												("Access-Control-Allow-Origin","*")
+												,data.toString().str());
+											return true;
+										} else {
+											return false;
+										}
+                        			} else {
+                        				return false;
+                        			}
+                            	}
+                            });
 							paths.push_back({
 								"/api/login",AuthMapper(name,users.users,jwt, true) >>= [&](simpleServer::HTTPRequest req, const ondra_shared::StrViewA &v) mutable {
 									simpleServer::QueryParser qp(v);

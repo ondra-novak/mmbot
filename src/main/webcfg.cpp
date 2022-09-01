@@ -55,7 +55,8 @@ NamedEnum<WebCfg::Command> WebCfg::strCommand({
 	{WebCfg::visstrategy, "visstrategy"},
 	{WebCfg::utilization, "utilization"},
 	{WebCfg::progress, "progress"},
-	{WebCfg::news, "news"}
+	{WebCfg::news, "news"},
+	{WebCfg::share, "share"}
 });
 
 WebCfg::WebCfg( const shared_lockable_ptr<State> &state,
@@ -113,6 +114,7 @@ bool WebCfg::operator ()(const simpleServer::HTTPRequest &req,
 		case utilization: return reqUtilization(req, qp);
 		case progress: return reqProgress(req,rest);
 		case news: return reqNews(req);
+		case share: return reqShare(req, qp);
 		}
 	}
 	return false;
@@ -2521,5 +2523,99 @@ void WebCfg::State::markNewsRead(json::Value tm) {
 			{"news_tm", tm}
 		});
 		config->store(data);
+	}
+}
+
+static std::string getSharePath(simpleServer::HTTPRequest &req) {
+	auto p = req.getPath();
+	auto n = std::min(p.indexOf("/api/admin"), p.length);
+	p = p.substr(0,n);
+	return std::string(p.data,p.length).append("/share/");
+}
+
+bool WebCfg::reqShare(simpleServer::HTTPRequest req, simpleServer::QueryParser &qp) {
+	auto path = qp.getPath();
+	path = path.substr(6);
+	if (path == "") {
+		req.redirectToFolderRoot();
+		return true;
+	}
+	std::string name("share.");
+	PStorageFactory &sf = this->trlist.lock_shared()->sf;
+	if (path == "/") {
+		if (!req.allowMethods({"GET","POST"})) return true;
+		if (req.getMethod() == "GET") {
+			name.append("~list");
+			auto lst = sf->create(name);
+			auto v = lst->load();
+			if (!v.defined()) v = json::array;
+			std::string fullurl (std::string_view(req.getPath()));
+			v = v.map([&](const json::Value &v) {
+				return json::Value(json::String({fullurl,v.getString()}));
+			});
+			req.sendResponse("application/json", v.stringify().str());
+		}  else {
+			req.readBodyAsync(upload_limit,[this, &sf](HTTPRequest req)  {
+				try {
+					std::string name("share.");
+					std::string uri;
+					std::hash<json::Value> hash;
+					const auto buff = req.getUserBuffer();
+					json::Value data = json::Value::fromString(
+							std::string_view(reinterpret_cast<const char *>(buff.data()), buff.size()));
+					auto h = hash(data);
+					ondra_shared::unsignedToString(h,[&](char c){uri.push_back(c);},32,8);
+
+					auto lst = sf->create(name+"~list");
+					auto lstv = lst->load();
+					if (lstv.indexOf(uri) == json::Value::npos) {
+						auto s = sf->create(name+uri);
+						lstv.push(uri);
+						lst->store(lstv);
+						s->store(data);
+					}
+					std::string fullurl (std::string_view(req.getPath()));
+					fullurl.append(uri);
+					std::string share_path = getSharePath(req)+uri;
+					req.sendResponse(simpleServer::HTTPResponse(201)
+							.contentType("application/json")
+							("Location",fullurl)
+						,json::Value(json::Object{
+							{"location",fullurl},
+							{"public_share", share_path}
+					}).stringify().str());
+
+				} catch (const std::exception &e) {
+					req.sendErrorPage(400,"",e.what());
+				}
+			});
+		}
+		return true;
+	} else {
+		auto nn = name.length();
+		name.append(path.data, path.length);
+		auto s = sf->create(name);
+		if (!req.allowMethods({"GET","DELETE"})) return true;
+		if (req.getMethod() == "GET") {
+			auto v = s->load();
+			if (v.defined()) {
+				req.sendResponse("application/json", v.stringify().str());
+				return true;
+			} else {
+				return false;
+			}
+		} else {
+			s->erase();
+			name.resize(nn);
+			name.append("~list");
+			auto lst = sf->create(name);
+			auto v = lst->load();
+			v = v.filter([&](const json::Value &x){return x.getString() != path;});
+			lst->store(v);
+			req.sendResponse(simpleServer::HTTPResponse(202)
+					.contentType("application/json")
+				,json::Value(true).stringify().str());
+			return true;
+		}
 	}
 }

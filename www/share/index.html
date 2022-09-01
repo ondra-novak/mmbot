@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>MMBot share</title>
+  <link rel="icon" type="image/png" href="../res/icon64.png" />
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+@import url(https://fonts.googleapis.com/css?family=Ruda&display=swap);
+body {
+    background-color: #222;
+    color: #CDCDCD;
+    font-family: Ruda;
+    margin: 0;
+    font-size: 0.5cm;
+}
+.flexpanel {
+    justify-content: space-between;
+    border-bottom: 2px solid #884;
+    background-color: #332;
+    box-sizing: border-box;
+    padding: 0 1em;
+    margin-bottom: 1em;
+    }
+.flexpanel > *:first-child {
+    white-space: nowrap;
+    flex-shrink: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.flexpanel > * {
+    line-height: 1.5cm;
+    white-space: nowrap;
+}
+table {
+border-collapse:collapse;
+margin:auto
+}
+table th {
+	text-align:right;
+	padding: 0.2em;
+}
+table td {
+	text-align:left;
+	padding: 0.2em;
+}
+.seecontent {
+text-align: center;
+margin-top: 1em;
+}
+
+.content {
+	border: 1px solid;
+	margin: 2em;
+	padding: 0.5em;
+}
+button {
+	background-color: #444;
+	box-shadow: 2px 2px 5px black;
+	min-width: 5em;
+	margin: 0 0.4em;
+	border: 1px solid #888;
+	padding: 0.1cm;
+	color: white;
+	font-family: Ruda;
+	font-size: 0.4cm;
+	box-sizing:border-box;
+}
+
+button:hover {
+	color: yellow;
+}
+button:active {
+	box-shadow: 0px 0px 0px black;
+	transform: translate(2px,2px);
+}
+a,.link {color: yellow; text-decoration: underline; cursor: pointer;}
+a:visited {color: #ffa800;}
+
+</style>
+</head>
+<body>
+<div class="flexpanel">
+<div>MMBot share a strategy</div>
+</div>
+<table>
+<tr><th>Author:</th><td id="author">n/a</td></tr>
+<tr><th>Broker:</th><td id="broker">n/a</td></tr>
+<tr><th>Symbol:</th><td id="symbol">n/a</td></tr>
+<tr><th>Market type:</th><td id="market">n/a</td></tr>
+<tr><th>Expected profit p.a.:</th><td id="profit">n/a</td></tr>
+<tr><th>Stategy:</th><td id="strategy">n/a</td></tr>
+<tr><th>Description:</th><td id="desc">n/a</td></tr>
+<tr><th></th><td><button id="import">Import</button></td></tr>
+</table>
+<div class="seecontent" id="see">
+<a href="#see">See raw content</a>
+</div>
+<pre class="content" id="content">
+blabla {....}
+</div>
+<script type="text/javascript">
+
+fetch(location.pathname+"?raw="+Date.now()).then(req=>req.json())
+.then(data=>{
+	document.getElementById("content").textContent = JSON.stringify(data,null,"  ");
+	
+	["author","broker","desc","market","profit","symbol","strategy"].forEach(x=>{
+		if (data[x]) {
+			document.getElementById(x).textContent = data[x];
+		}
+	});
+});
+
+function checkHash() {
+	var c = document.getElementById("content");
+	var s = document.getElementById("see");
+	var b = location.hash=="#see";
+	s.hidden = b
+	c.hidden = !b
+}
+
+checkHash();
+window.addEventListener("hashchange", checkHash);
+document.getElementById("import").addEventListener("click",()=>{
+	let boturl = prompt("Enter or paste an URL to the administration page of your instance. The instance doesn't need to be public, it need to be accessible only from your browser. You also need version 2.22.8 or later\n\n<url>/admin/index.html","");
+	if (!boturl) return;
+	if (!boturl.startsWith("http://") && !boturl.startsWith("https://")) {
+		alert("Must be an absolute URL");
+		return;
+	}
+	let p = boturl.indexOf("#");
+	if (p != -1) boturl = boturl.substr(0,p);
+	if (boturl.endsWith("/admin/index.html")) {
+		//ok
+	} else if (boturl.endsWith("/admin/")) {
+		boturl = boturl + "index.html";
+	} else if (boturl.endsWith("/admin")) {
+		boturl = boturl + "/index.html";
+	} else if (boturl.endsWith("/")) {
+		boturl = boturl + "admin/index.html";
+	} else if (boturl.endsWith("/index.html")) {
+		boturl = boturl.substr(0,boturl.length-10) + "admin/index.html";
+	} else {
+		boturl = boturl = "/admin/index.html";
+	}
+	let link = boturl+"#import="+encodeURIComponent(location.origin+location.pathname);
+	location.href=link;
+});
+
+</script>
+</body>
+</html>

@@ -167,7 +167,8 @@ public:
 		visstrategy,
 		utilization,
 		progress,
-		news
+		news,
+		share
 	};
 
 	AuthMapper auth;
@@ -197,6 +198,7 @@ protected:
 	bool reqUtilization(simpleServer::HTTPRequest req,  simpleServer::QueryParser &qp);
 	bool reqProgress(simpleServer::HTTPRequest req, ondra_shared::StrViewA rest);
 	bool reqNews(simpleServer::HTTPRequest req);
+	bool reqShare(simpleServer::HTTPRequest req,  simpleServer::QueryParser &qp);
 
 	using Sync = std::unique_lock<std::recursive_mutex>;
 
