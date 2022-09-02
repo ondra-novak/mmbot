@@ -140,7 +140,8 @@ public:
 			Dispatch &&dispatch,
 			json::PJWTCrypto jwt,
 			shared_lockable_ptr<AbstractExtern> backtest_broker,
-			std::size_t upload_limit
+			std::size_t upload_limit,
+			std::size_t share_limit
 	);
 
 	~WebCfg();
@@ -150,7 +151,6 @@ public:
 
 	enum Command {
 		config,
-		serialnr,
 		brokers,
 		traders,
 		stop,
@@ -167,20 +167,21 @@ public:
 		visstrategy,
 		utilization,
 		progress,
-		news
+		news,
+		share
 	};
 
 	AuthMapper auth;
 	shared_lockable_ptr<Traders> trlist;
 	Dispatch dispatch;
-	unsigned int serial;
+
 
 	static json::NamedEnum<Command> strCommand;
 
 
 protected:
 	bool reqConfig(simpleServer::HTTPRequest req);
-	bool reqSerial(simpleServer::HTTPRequest req);
+//	bool reqSerial(simpleServer::HTTPRequest req);
 	bool reqBrokers(simpleServer::HTTPRequest req, ondra_shared::StrViewA rest);
 	bool reqTraders(simpleServer::HTTPRequest req, ondra_shared::StrViewA rest);
 	bool reqLogout(simpleServer::HTTPRequest req, bool commit);
@@ -197,6 +198,7 @@ protected:
 	bool reqUtilization(simpleServer::HTTPRequest req,  simpleServer::QueryParser &qp);
 	bool reqProgress(simpleServer::HTTPRequest req, ondra_shared::StrViewA rest);
 	bool reqNews(simpleServer::HTTPRequest req);
+	bool reqShare(simpleServer::HTTPRequest req,  simpleServer::QueryParser &qp);
 
 	using Sync = std::unique_lock<std::recursive_mutex>;
 
@@ -205,6 +207,8 @@ protected:
 	PState state;
 	shared_lockable_ptr<AbstractExtern> backtest_broker;
 	std::size_t upload_limit;
+    std::size_t share_limit;
+
 
 
 	bool reqBacktest_v2(simpleServer::HTTPRequest req, ondra_shared::StrViewA rest);

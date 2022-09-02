@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>MMBot share</title>
+  <link rel="stylesheet" href="../admin/style.css">
+  <link rel="icon" type="image/png" href="../res/icon64.png" />
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+@import url(https://fonts.googleapis.com/css?family=Ruda&display=swap);
+table {
+border-collapse:collapse;
+margin:auto
+}
+table th {
+	text-align:right;
+	padding: 0.2em;
+}
+table td {
+	text-align:left;
+	padding: 0.2em;
+}
+.seecontent {
+text-align: center;
+margin-top: 1em;
+}
+
+.rawcontent {
+    max-height: 20em;
+    overflow: auto;
+}
+div.importpart {
+    max-width: 50em;
+    text-align:center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin: 1em auto;
+    gap: 0.5em;
+}
+div.importpart > * {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;;
+}
+.content {
+    padding: 1em 5vw;
+    
+}
+.flexpanel {
+    padding-left: 1em;
+}
+.buttonpanel {
+    text-align: right;
+}
+#oldformat {
+    text-align: right;
+}
+div.oldformat {
+    text-align: center;
+    font-family: monospace;
+}
+div.seecontent > span::before {content: " | ";}
+div.seecontent > span:first-child::before {content: "";}
+</style>
+</head>
+<body>
+<div class="desktop">
+<div class="flexpanel">
+<div>MMBot share a strategy</div>
+</div>
+<div class="waitdlg" id="show_spinner">
+<div class="spinner" ></div>
+</div>
+<div class="content" id="show_content">
+<x-section>
+<x-section-caption>Import shared settings</x-section-caption>
+<table>
+<tr><th>Created:</th><td id="date">n/a</td></tr>
+<tr><th>Author:</th><td id="author">n/a</td></tr>
+<tr><th>Broker:</th><td id="broker">n/a</td></tr>
+<tr><th>Symbol:</th><td id="symbol">n/a</td></tr>
+<tr><th>Market type:</th><td id="market">n/a</td></tr>
+<tr><th>Expected profit p.a.:</th><td id="profit">n/a</td></tr>
+<tr><th>Stategy:</th><td id="strategy">n/a</td></tr>
+<tr><th>Description:</th><td id="desc">n/a</td></tr>
+</table>
+</x-section>
+<x-section>
+<div class="importpart">
+<div>Enter or paste an URL to your MMBot instance</div>
+<input type="text" id="boturl" placeholder="https://www.mmbot.trade/live" />
+<div class="buttonpanel"><button id="import">Import</button></div>
+</div>
+</x-section>
+<div class="seecontent" id="see">
+<span data-var="#see"><a href="#see" >Show raw content</a></span>
+<span data-var="#compatibily"><a href="#compatibily" >Old import format</a></span>
+<span data-var="#hide"><a href="#hide" >Hide</a></span>  
+</div>
+<x-section id="content"  data-ivar="#see">
+<x-section-caption>Raw content</x-section-caption>
+<pre class="rawcontent">
+...
+</pre>
+</x-section>
+<x-section id="oldformat" data-ivar="#compatibily">
+<div class="oldformat">
+...
+</div>
+<button id="copy">Copy to clipboard</button>
+</x-section>
+</div>
+</div>
+<script type="text/javascript">
+
+document.getElementById("show_content").hidden = true;
+fetch(location.pathname+"?raw="+Date.now()).then(req=>req.json())
+.then(data=>{
+	document.querySelector("#content pre").textContent = JSON.stringify(data,null,"  ");
+	var splt = "{{"+btoa(JSON.stringify(data.payload || {})).match(/.{1,24}/g).join(" ")+"}}";  
+    document.querySelector("#oldformat div").textContent = splt;
+	["author","broker","desc","market","profit","symbol","strategy"].forEach(x=>{
+		if (data[x]) {
+			document.getElementById(x).textContent = data[x];
+		}
+	});
+    
+    document.getElementById("date").textContent = (new Date(data["time"])).toLocaleString();
+
+    document.getElementById("show_spinner").hidden = true;
+    document.getElementById("show_content").hidden = false;
+    document.getElementById("copy").addEventListener("click",function(){
+    	navigator.clipboard.writeText(splt).then(()=>{
+    		this.textContent = this.textContent+" ✓";
+    	});
+    })
+});
+
+function checkHash() {
+	var h = location.hash || "#hide"
+	Array.prototype.forEach.call(document.querySelectorAll("[data-var]"), x=>{
+		x.hidden = (x.dataset.var == h);
+	})
+    Array.prototype.forEach.call(document.querySelectorAll("[data-ivar]"), x=>{
+        x.hidden = (x.dataset.ivar != h);
+    })
+}
+
+checkHash();
+window.addEventListener("hashchange", checkHash);
+document.getElementById("import").addEventListener("click",()=>{
+	let boturl = document.getElementById("boturl").value;
+	if (!boturl) return;
+	if (!boturl.startsWith("http://") && !boturl.startsWith("https://")) {
+		alert("Must be an absolute URL");
+		return;
+	}
+	let p = boturl.indexOf("#");
+	if (p != -1) boturl = boturl.substr(0,p);
+	if (boturl.endsWith("/admin/index.html")) {
+		//ok
+	} else if (boturl.endsWith("/admin/")) {
+		boturl = boturl + "index.html";
+	} else if (boturl.endsWith("/admin")) {
+		boturl = boturl + "/index.html";
+	} else if (boturl.endsWith("/")) {
+		boturl = boturl + "admin/index.html";
+	} else if (boturl.endsWith("/index.html")) {
+		boturl = boturl.substr(0,boturl.length-10) + "admin/index.html";
+	} else {
+		boturl = boturl + "/admin/index.html";
+	}
+    localStorage["import_bot_url"] = boturl.substr(0,boturl.length-17);
+	let link = boturl+"#import="+encodeURIComponent(location.origin+location.pathname);
+	location.href=link;
+});
+
+var boturl = document.getElementById("boturl"); 
+
+function checkUrl(t) {
+    var s = t.value;    
+    var en = (s.length > 8) && (s.startsWith("http://") || s.startsWith("https://"))
+    document.getElementById("import").disabled = !en;
+	
+}
+var saved = localStorage["import_bot_url"];
+if (saved) boturl.value = saved; 
+
+boturl.addEventListener("input",(ev)=>{
+	checkUrl(boturl);
+});
+checkUrl(boturl);
+
+</script>
+</body>
+</html>

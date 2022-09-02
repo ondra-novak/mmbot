@@ -50,7 +50,7 @@
 <div class="label"><span>Enter price</span><span><span data-name="enter_price"></span> <span data-name="quote" ></span></span></div>
 <div class="label"><span>Current costs</span><span><span data-name="costs"></span> <span data-name="currency" ></span></span></div>
 <div class="label sepabove"><span>Fees</span><span><span data-name="fees"></span>%</span></div>
-<div class="label"><span>Market type:</span><span>
+<div class="label"><span>Market type:</span><span data-name="market_type">
 	<span data-name="type_leveraged" hidden="hidden">Leveraged: <span data-name="leverage"></span></span>
 	<span data-name="type_spot" hidden="hidden">Exchange</span>
 	<span data-name="type_inverted" hidden="hidden">Inverted</span>
@@ -865,6 +865,7 @@ the same order, they are ordered by its ID - this is the default ordering. Modif
     data-askreset="Do you wish to clear statistics for this trader? This operation cannot be undone"
     data-askrepair="This operation resets an internal state of the strategy. The purpose of this operation to solve any strange behaviour of the strategy. However, this can also cause poor performance or loss, because the internal state of the strategy can hold important informations about state of your trading.&#10;&#10;Do you wish to restart strategy for this trader?&#10;&#10;The operation cannot be undone"
     data-askdelete="Confirm trader deletion. This also cancels all orders."
+    data-askreplace="Do you really want to import settings to this trader?"
     data-yes="Yes"
     data-no="No"
     data-need_admin="You need to define at least one user with the administration role"
@@ -1225,6 +1226,79 @@ the same order, they are ordered by its ID - this is the default ordering. Modif
 </x-form>
 </div>
 </div>
+</template>
+
+<template id="imported">
+<div class="importbox">
+<div>
+<div>Trader's configuration is prepared</div>
+<div>Choose target trader or add a new trader</div>
+<div>Broker<div><div data-name="broker">broker</div></div> Symbol <div><div data-name="symbol">symbol</div></div></div>
+<div><button data-name="cancel">Cancel</button></div>
+</div>
+</div>
+</template>
+
+<template id="newshare">
+<div class="dialog">
+<div class="newshare">
+<h2>Share the settings</h2>
+<div class="mode">
+<div><x-checkbox class="radio" data-name="share_mode" data-value="local">Copy the settings to an other trader</x-checkbox></div> 
+<div><x-checkbox class="radio" data-name="share_mode" data-value="link">Get public link</x-checkbox></div> 
+<div><x-checkbox class="radio" data-name="share_mode" data-value="public">Share public on <strong>mmbot.trade</strong></x-checkbox></div> 
+</div>
+<x-form data-name="form">
+<label><span>Your name or nick</span><input type="text" data-name="author"></label>
+<label><span>Expected profit %p.a</span><input type="number" class="percent" data-name="profit" step="0.1"></label>
+<label><span>Description</span><textarea data-name="desc" rows="5"></textarea></label>
+</x-form>
+<div class="buttons">
+<button data-name="ok">OK</button>
+<button data-name="close">Close</button>
+<div class="left"><a href="#shares" data-name="close">Manage shared links</a></div>
+</div>
+</div>
+</div>
+</template>
+
+
+<template id="newshare_link">
+<div class="dialog">
+<div class="newshare">
+<h2>Share the settings - Copy link</h2>
+<div class="copylink"><button data-name="copy">⎘</button>
+<a data-name="link" target="_blank"></a>
+<div data-name="saveok" class="save hide ok" hidden="hidden">✓</div>
+</div>
+<div class="buttons">
+<button data-name="close">Close</button>
+<div class="left"><a href="#shares"  data-name="close">Manage shared links</a></div>
+</div>
+</div>
+</div>
+</template>
+
+<template id="shares_form">
+<x-form class="sharesform">
+<x-section><x-section-caption>Shares</x-section-caption>
+<table>
+<tr data-name="share[]">
+<td><a href="" target="_blank" data-name="url"></a></td>
+<td data-name="date"></td>
+<td><img src="" data-name="broker_image"></td>
+<td data-name="broker"></td>
+<td data-name="pair"></td>
+<td data-name="market"></td>
+<td data-name="strategy"></td>
+<td><x-checkbox class="radio" data-name="delete"></x-checkbox></td>
+</tr>
+</table>
+<div class="buttons">
+<button data-name="delete_marked">Delete selected</button>
+</div>
+</x-section>
+</x-form>
 </template>
 
 <script src="../res/template.js" type="text/javascript"></script>
