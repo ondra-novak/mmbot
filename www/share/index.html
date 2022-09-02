@@ -53,6 +53,15 @@ div.importpart > * {
 .buttonpanel {
     text-align: right;
 }
+#oldformat {
+    text-align: right;
+}
+div.oldformat {
+    text-align: center;
+    font-family: monospace;
+}
+div.seecontent > span::before {content: " | ";}
+div.seecontent > span:first-child::before {content: "";}
 </style>
 </head>
 <body>
@@ -85,13 +94,21 @@ div.importpart > * {
 </div>
 </x-section>
 <div class="seecontent" id="see">
-<a href="#see">Show raw content</a>
+<span data-var="#see"><a href="#see" >Show raw content</a></span>
+<span data-var="#compatibily"><a href="#compatibily" >Old import format</a></span>
+<span data-var="#hide"><a href="#hide" >Hide</a></span>  
 </div>
-<x-section id="content">
+<x-section id="content"  data-ivar="#see">
 <x-section-caption>Raw content</x-section-caption>
 <pre class="rawcontent">
 ...
 </pre>
+</x-section>
+<x-section id="oldformat" data-ivar="#compatibily">
+<div class="oldformat">
+...
+</div>
+<button id="copy">Copy to clipboard</button>
 </x-section>
 </div>
 </div>
@@ -101,24 +118,33 @@ document.getElementById("show_content").hidden = true;
 fetch(location.pathname+"?raw="+Date.now()).then(req=>req.json())
 .then(data=>{
 	document.querySelector("#content pre").textContent = JSON.stringify(data,null,"  ");
-	
+	var splt = "{{"+btoa(JSON.stringify(data.payload || {})).match(/.{1,24}/g).join(" ")+"}}";  
+    document.querySelector("#oldformat div").textContent = splt;
 	["author","broker","desc","market","profit","symbol","strategy"].forEach(x=>{
 		if (data[x]) {
 			document.getElementById(x).textContent = data[x];
 		}
 	});
+    
     document.getElementById("date").textContent = (new Date(data["time"])).toLocaleString();
 
     document.getElementById("show_spinner").hidden = true;
     document.getElementById("show_content").hidden = false;
+    document.getElementById("copy").addEventListener("click",function(){
+    	navigator.clipboard.writeText(splt).then(()=>{
+    		this.textContent = this.textContent+" ✓";
+    	});
+    })
 });
 
 function checkHash() {
-	var c = document.getElementById("content");
-	var s = document.getElementById("see");
-	var b = location.hash=="#see";
-	s.hidden = b
-	c.hidden = !b
+	var h = location.hash || "#hide"
+	Array.prototype.forEach.call(document.querySelectorAll("[data-var]"), x=>{
+		x.hidden = (x.dataset.var == h);
+	})
+    Array.prototype.forEach.call(document.querySelectorAll("[data-ivar]"), x=>{
+        x.hidden = (x.dataset.ivar != h);
+    })
 }
 
 checkHash();
@@ -153,7 +179,7 @@ document.getElementById("import").addEventListener("click",()=>{
 var boturl = document.getElementById("boturl"); 
 
 function checkUrl(t) {
-    var s = t.value;
+    var s = t.value;    
     var en = (s.length > 8) && (s.startsWith("http://") || s.startsWith("https://"))
     document.getElementById("import").disabled = !en;
 	

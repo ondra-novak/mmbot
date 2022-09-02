@@ -1075,8 +1075,9 @@ App.prototype.importFromJSON = function(cfg) {
         delete payload.broker;
         delete payload.pair_symbol;
         delete payload.enabled;
-        delete payload.title
-        delete payload.hidden
+        delete payload.title;
+        delete payload.hidden;
+        delete payload.swap_symbols;
         if (this.curForm) {
             this.curForm.save();
             this.curForm.close();
@@ -1146,6 +1147,14 @@ App.prototype.onHashChange = function() {
 			let url = decodeURIComponent(h.substr(importPfx.length))+"?raw=1";			
 			this.importFeature(url);
             return true;
+        } else if (h == "#shares") {
+            if (this.curForm) {
+                this.curForm.save();                
+               this.curForm = null;
+            }
+            let nf = this.manageSharesForm();
+            this.desktop.setItemValue("content", nf);
+            this.curForm = nf;        
         } else {
             return false;
         }        
@@ -3485,6 +3494,7 @@ App.prototype.shareForm = function(id, form) {
     var cfg = this.saveForm(form, this.traders[id]);
     delete cfg.title;
     delete cfg.enable;
+    delete cfg.swap_symbols;
     delete cfg.dry_run;
     delete cfg.report_order;
     delete cfg.hidden;
@@ -3519,10 +3529,10 @@ App.prototype.shareForm = function(id, form) {
                 url = "../api/admin/share/";
                 baseUrl = location.origin;
             } else {
-                url = "https://www.mmbot.trade/share.dir/";
+                url = "https://www.mmbot.trade/share.link/";
                 baseUrl = "https://www.mmbot.trade";
             }
-            dlg.close();
+            dlg.enableItem("ok",false);
             fetch_with_error(url, {
                 method:"POST",
                 headers:{
@@ -3530,12 +3540,23 @@ App.prototype.shareForm = function(id, form) {
                 },
                 body:JSON.stringify(env)
             }).then(x=>{
+               dlg.close();
                let share_url = baseUrl+x.public_share;
-               let dlg = TemplateJS.View.fromTemplate("newshare_link");
-               dlg.openModal();
-               dlg.setCancelAction(()=>dlg.close(),"close");
-               dlg.setData({"link":{value:share_url,href:share_url}});			   
-            });
+               let dlg2 = TemplateJS.View.fromTemplate("newshare_link");
+			   let tm = null;
+               dlg2.openModal();
+               dlg2.setCancelAction(()=>dlg2.close(),"close");
+               dlg2.setData({"link":{value:share_url,href:share_url}});	
+               dlg2.setItemEvent("copy","click", ()=>{
+                    navigator.clipboard.writeText(share_url).then(()=>{
+						if (tm) clearTimeout(tm);
+						dlg2.showItem("saveok", false);
+						tm = dlg2.findElements("saveok")[0].offsetHeight;
+                        dlg2.showItem("saveok", true);
+                        tm = setTimeout(()=>dlg2.showItem("saveok", false),5000);
+                    });                    
+                })		   
+            },()=>dlg.enableItem("ok",true));
         }
 	},"ok");
 	dlg.setItemEvent("share_mode","change",(ev)=>{
@@ -3764,4 +3785,51 @@ App.prototype.paperTrading = function(id,trg) {
 		}.bind(this));
 
 	}	
+}
+
+App.prototype.manageSharesForm = function() {
+    var form = TemplateJS.View.fromTemplate("shares_form");
+    let infos = {};
+    let brokers = {};
+    const redraw = ()=>{
+        fetch_with_error("../api/admin/share/").then(shares=>{
+	        shares.reverse();
+	        let fdata = shares.map((x,idx)=>{	           
+	           let link = location.origin+x[1];
+	           let url = location.origin+x[0];
+	           let details = infos[url];
+	           if (!details) details = infos[url] = fetch_json(url);       
+	           return {
+                    "@id":url,
+	                url: {
+	                    value: x[1],
+	                    href: link
+	                },
+	                date: details.then(x=>(new Date(x.time).toLocaleString())),
+	                broker: details.then(x=>{
+                             if (!brokers[x.broker]) {
+                                 brokers[x.broker] = fetch_json(this.brokerURL(x.broker))
+	                               .then(y=>y.exchangeName,()=>x.broker)
+	                               }
+	                           return brokers[x.broker];
+	                         }),
+	                pair: details.then(x=>x.symbol),
+	                market: details.then(x=>x.market),
+	                strategy: details.then(x=>x.strategy),
+	                broker_image: details.then(x=>this.brokerImgURL(x.broker)),
+	                delete: false
+	                    	                
+	            };
+	        });
+	        form.setData({"share":fdata});
+	        form.setItemEvent("delete_marked","click",()=>{
+                let d = form.readData(["share"]).share;
+                let todel = d.filter(x=>x.delete).map(x=>x["@id"]);
+                Promise.all(todel.map(x=>fetch_json(x,{"method":"DELETE"}))).then(redraw);
+            })
+		});
+    };
+    form.save = ()=>{};
+    redraw();
+    return form;
 }

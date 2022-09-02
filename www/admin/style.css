@@ -92,6 +92,12 @@ button {
 	margin: 0 0.4em;
 }
 
+.newshare .copylink button {
+    font-size: 2em;
+    min-width: 2em;
+    vertical-align: middle;
+}
+
 button:hover {
 	color: yellow;
 }
@@ -118,6 +124,27 @@ button:active {
 x-form {
 	display:block;
 	position: relative;
+}
+
+x-form.sharesform img {
+    height: 1em;
+    display: block;
+    margin-right: 0;
+    cursor: pointer;
+}
+
+x-form.sharesform table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+x-form.sharesform .buttons {
+	text-align:right;
+}
+
+x-form.sharesform table td {
+    padding: 0.2em;
+    border-bottom: 1px #444 dotted;
 }
 x-form.sections {
 	margin: 0px 2%;
@@ -529,6 +556,10 @@ div.dialog > div {
 	max-width: 16cm;
 }
 
+.newshare .copylink {
+    text-align: left;
+}
+
 div.newshare >.mode {
     text-align: left;
     padding: 1em;
@@ -542,6 +573,12 @@ div.dialog > .newshare {
 div.dialog > .newshare .buttons {
     text-align: right;
     margin-top: 1em;
+    position: relative;
+}
+
+.newshare .left {
+    position: absolute;
+    bottom: 0;
 }
 
 div.broker  div.keys label>span {

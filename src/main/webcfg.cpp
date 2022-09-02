@@ -2547,7 +2547,10 @@ bool WebCfg::reqShare(simpleServer::HTTPRequest req, simpleServer::QueryParser &
 			if (!v.defined()) v = json::array;
 			std::string fullurl (std::string_view(req.getPath()));
 			v = v.map([&](const json::Value &v) {
-				return json::Value(json::String({fullurl,v.getString()}));
+				return json::Value(json::array,{
+				    json::Value(json::String({fullurl,v.getString()})),
+				    json::Value(getSharePath(req).append(v.getString())),
+				});
 			});
 			req.sendResponse("application/json", v.stringify().str());
 		}  else {
