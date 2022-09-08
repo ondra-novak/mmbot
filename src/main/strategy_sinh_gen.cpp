@@ -510,20 +510,13 @@ IStrategy::OrderData Strategy_Sinh_Gen::getNewOrder(
 
     double new_pos = cfg.calc->assets(newk, npw*pwadj/*budget_ratio*/, calc_price);
     double finpos = new_pos + new_offset;
-
-    finpos = roundZero(limitPosition(finpos), minfo, new_price);
-
-
+    double f  = limitPosition(finpos);
+    bool limited = f != finpos;
 
 
-	if (finpos == 0){
-		//close current position (force alert)
-		return {calc_price,-assets,Alert::forced};
-	}
+	double dfa = f - assets;
 
-	double dfa = finpos - assets;
-
-	return {new_price, dfa};
+	return {new_price, dfa, limited?Alert::forced:Alert::enabled};
 }
 
 double Strategy_Sinh_Gen::limitPosition(double pos) const {

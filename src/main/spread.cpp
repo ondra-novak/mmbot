@@ -156,8 +156,9 @@ DefaulSpread::Result DefaulSpread::point(std::unique_ptr<ISpreadState> &state, d
 	if (force_spread) {
 		return {true, force_spread, avg, 0};
 	} else {
+	    double rf = 0.01/std::sqrt(st.sma.size());
 		double dv = st.stdev << (y - avg);
-		return {true,  std::log((avg+dv)/avg), avg, 0};
+		return {true,  std::max(rf,std::log((avg+dv)/avg)), avg, 0};
 	}
 }
 
