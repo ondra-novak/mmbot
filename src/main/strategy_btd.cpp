@@ -176,7 +176,7 @@ double Strategy_Btd::getEquilibrium(double assets) const {
 	return st.last_price;
 }
 
-double Strategy_Btd::calcCurrencyAllocation(double price) const {
+double Strategy_Btd::calcCurrencyAllocation(double price, bool) const {
 	// this is allocation that strategy wants for the given price
 	return st.budget;
 }

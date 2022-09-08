@@ -267,7 +267,7 @@ double Strategy_Epa::getEquilibrium(double assets) const {
 	return st.enter;
 }
 
-double Strategy_Epa::calcCurrencyAllocation(double price) const {
+double Strategy_Epa::calcCurrencyAllocation(double price, bool) const {
 	// this is allocation that strategy wants for the given price
 	return st.budget;
 }
