@@ -14,6 +14,8 @@
 #include "invert_strategy.h"
 
 #include "sgn.h"
+#include "strategy_epa.h"
+#include "strategy_btd.h"
 #include "strategy_halfhalf.h"
 #include "strategy_keepvalue.h"
 #include "strategy_hypersquare.h"
@@ -66,7 +68,30 @@ void initConfig(Cfg &cfg, json::Value config,
 
 Strategy Strategy::create_base(std::string_view id, json::Value config) {
 
-	if (id == Strategy_HalfHalf::id) {
+	if (id == Strategy_Epa::id) {
+		Strategy_Epa::Config cfg;
+		cfg.min_asset_perc_of_budget = config["min_asset_perc_of_budget"].getNumber();
+		cfg.initial_bet_perc_of_budget = config["initial_bet_perc_of_budget"].getNumber();
+		cfg.enter_price_max_asset = config["enter_price_max_asset"].getNumber();
+		cfg.max_enter_price_distance = config["max_enter_price_distance"].getNumber();
+		cfg.power_mult = config["power_mult"].getNumber();
+		cfg.power_cap = config["power_cap"].getNumber();
+		cfg.angle = config["angle"].getNumber();
+		cfg.target_exit_price_distance = config["target_exit_price_distance"].getNumber();
+		cfg.exit_power_mult = config["exit_power_mult"].getNumber();
+		cfg.reduction_midpoint = config["reduction_midpoint"].getNumber();
+		cfg.dip_rescue_perc_of_budget = config["dip_rescue_perc_of_budget"].getNumber();
+		cfg.dip_rescue_enter_price_distance = config["dip_rescue_enter_price_distance"].getNumber();
+		cfg.backtest = config["backtest"].getBool();
+		cfg.downtrend = config["downtrend"].getBool();
+		return Strategy(new Strategy_Epa(cfg));
+	} else if (id == Strategy_Btd::id) {
+		Strategy_Btd::Config cfg;
+		cfg.buy_currency_step = config["buy_currency_step"].getNumber();
+		cfg.sell_asset_step = config["sell_asset_step"].getNumber();
+		cfg.sell = config["sell"].getBool();
+		return Strategy(new Strategy_Btd(cfg));
+	}	else if (id == Strategy_HalfHalf::id) {
 		Strategy_HalfHalf::Config cfg;
 		cfg.ea = config["ea"].getNumber();
 		cfg.accum = config["accum"].getNumber();
