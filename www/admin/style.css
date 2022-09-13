@@ -567,7 +567,7 @@ div.newshare >.mode {
 
 
 div.dialog > .newshare {
-    width: 14cm;
+    max-width: 14cm;
 }
 
 div.dialog > .newshare .buttons {
