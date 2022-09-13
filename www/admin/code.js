@@ -656,15 +656,13 @@ App.prototype.fillForm = function (src, trg) {
 	data.shg_w=50;
 	data.shg_p=50;
 	data.shg_b=0;
-	data.shg_z=0;
+	data.shg_z=50;
 	data.shg_ol=0;
 	data.shg_olt={value:"-1"};
 	data.shg_lp={value:"0"};
 	data.shg_rnv=false;
 	data.shg_avgsp=false;
-	data.shg_lazyopen=false;
-	data.shg_lazyclose=false;
-	data.shg_boostmode=0;
+	data.shg_boostmode=30;
 	data.shg_r=0;
 	data.shg_show_asym={".hidden":false};
 	data.pincome_exp = 40;
@@ -746,13 +744,11 @@ App.prototype.fillForm = function (src, trg) {
 		data.shg_w=filledval(src.strategy.w,50);
 		data.shg_p=filledval(src.strategy.p,100);
 		data.shg_b=filledval(src.strategy.b,0);
-		data.shg_z=filledval(src.strategy.z,0);
+		data.shg_z=filledval(src.strategy.z,50);
 		data.shg_lp=filledval(src.strategy.disableSide,0);
 		data.shg_rnv=filledval(src.strategy.reinvest,false);
 		data.shg_avgsp=filledval(src.strategy.avgspread,false);
-		data.shg_lazyopen=filledval(src.strategy.lazyopen,false);
-		data.shg_lazyclose=filledval(src.strategy.lazyclose,false);
-		data.shg_boostmode=filledval(src.strategy.boostmode,0);
+		data.shg_boostmode=filledval(src.strategy.boostmode,30);
 		data.shg_ol=filledval(defval(Math.abs(src.strategy.openlimit),0),0);
 		if (!src.strategy.openlimit || src.strategy.openlimit==0) data.shg_ol.disabled = true;
 		data.shg_olt={value:src.strategy.openlimit>0?1:src.strategy.openlimit<0?-1:0};
@@ -786,14 +782,14 @@ App.prototype.fillForm = function (src, trg) {
 	data.accept_loss = filledval(src.accept_loss,0);
 	data.grant_trade_hours= filledval(src.grant_trade_hours,0);
 	data.spread_calc_stdev_hours = filledval(src.spread_calc_stdev_hours,4);
-	data.spread_calc_sma_hours = filledval(src.spread_calc_sma_hours,25);
-	data.dynmult_raise = filledval(src.dynmult_raise,440);
+	data.spread_calc_sma_hours = filledval(src.spread_calc_sma_hours,21);
+	data.dynmult_raise = filledval(src.dynmult_raise,500);
 	data.dynmult_cap = filledval(src.dynmult_cap,100);
-	data.dynmult_fall = filledval(src.dynmult_fall, 5);
+	data.dynmult_fall = filledval(src.dynmult_fall, 2.5);
 	data.dynmult_mode = filledval(src.dynmult_mode, "independent");
 	data.dynmult_sliding = filledval(src.dynmult_sliding,false);
 	data.spread_freeze = filledval(src.spread_freeze,false);
-	data.dynmult_mult = filledval(src.dynmult_mult, true);
+	data.dynmult_mult = filledval(src.dynmult_mult, false);
 	data.spread_mult = filledval(Math.log(defval(src.buy_step_mult,1))/Math.log(2)*100,0);
 	data.min_size = filledval(src.min_size,0);
 	data.max_size = filledval(src.max_size,0);
@@ -970,8 +966,6 @@ function getStrategyData(data, inv) {
 			disableSide:inv?""+(-parseInt(data.shg_lp)):data.shg_lp,
 			reinvest:data.shg_rnv,
 			avgspread:data.shg_avgsp,
-			lazyopen:data.shg_lazyopen,
-			lazyclose:data.shg_lazyclose,
 			boostmode:data.shg_boostmode,
 			ratio: data.shg_r
 		};		
@@ -2029,7 +2023,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		"kv2_accum","kv2_boost","kv2_chngtm","kv2_reinvest",
 		"incval_w","incval_r","incval_ms","incval_ri","incval_z",
 		"hedge_short","hedge_long","hedge_drop",
-		"shg_w","shg_p","shg_z","shg_b","shg_olt","shg_ol","shg_lp","shg_rnv","shg_avgsp","shg_boostmode","shg_lazyopen","shg_lazyclose","shg_r",
+		"shg_w","shg_p","shg_z","shg_b","shg_olt","shg_ol","shg_lp","shg_rnv","shg_avgsp","shg_boostmode","shg_r",
 		"trade_within_budget"];
 	var spread_inputs = ["spread_calc_stdev_hours","secondary_order", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode","dynmult_sliding","dynmult_cap","dynmult_mult","force_spread","spread_mode","spread_freeze"];
 	var leverage = form._pair.leverage != 0;	

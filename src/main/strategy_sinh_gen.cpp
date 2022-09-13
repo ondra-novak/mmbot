@@ -335,12 +335,6 @@ std::pair<IStrategy::OnTradeResult, PStrategy> Strategy_Sinh_Gen::onTrade(
 		}
 	}
 
-	if (newk == tradePrice) { //when result of trading should be close position,
-	    //however we have a position
-	    //recalculate k accordingly
-	    newk = cfg.calc->root_of_k(tradePrice, newpw*pwadj, assetsLeft);
-	}
-
 	double nb = cfg.calc->budget(newk, newpw*pwadj, tradePrice);
 	double np = pnl - (nb - cb);
 	double posErr = std::abs(npos - assetsLeft)/(std::abs(assetsLeft)+std::abs(npos)); //< chyba pozice oproti vypoctu
