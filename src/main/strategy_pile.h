@@ -18,22 +18,12 @@ public:
 	struct Config {
 		double ratio; // requested ratio, however this value is used only for backtest
 		double accum; // accumulation - 0-1
-		double boost_power; //
-		double boost_volatility; //
-		bool isBoostEnabled() const;
 	};
-
 
 	struct State {
 	    double lastp = 0; // last trade price
 		double kmult = 0; // multiplication constant
 		double budget = 0;
-
-		double boost_neutral_price = 0;
-		double boost_value = 0;
-		double boost_pos = 0;
-		double boost_spread = 0;
-		double np_hidden = 0;
 	};
 
 	Strategy_Pile(const Config &cfg);
@@ -79,23 +69,9 @@ public:
     static double calcKMult(double price, double budget, double ratio);
 
 
-    static double calcBoostPosition(double price, double neutral_price, double bpw, double bvl);
-    static double calcBoostValue(double price, double neutral_price, double bpw, double bvl);
-    static double calcBoostPriceFromPos(double position, double neutral_price, double bpw, double bvl);
-    static double calcBoostNeutralFromValue(double position, double value, double price,  double bpw, double bvl);
-    static double calcBoostNeutralFromPos(double position, double price,  double bpw, double bvl);
-
-
-
-    double calcNewK(double pos, double price, double pl, bool no_profit) const;
-    double calcBPW(const State &st) const;
-
 protected:
 	Config cfg;
 	State st;
-	double bpw;
-
-	static const double ln2;
 
 };
 
