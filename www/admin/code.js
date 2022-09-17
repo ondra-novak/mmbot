@@ -98,7 +98,8 @@ App.prototype.createTraderForm = function() {
 	var pl = form.findElements("goal_pl")[0];
 	form.dlgRules = function() {
 		var state = this.readData(["strategy","advanced","check_unsupp"]);
-		form.showItem("strategy_halfhalf",state.strategy == "halfhalf" || state.strategy == "keepvalue" || state.strategy == "hypersquare"||state.strategy == "conststep");
+		form.showItem("strategy_halfhalf",state.strategy == "halfhalf" || state.strategy == "keepvalue" || state.strategy == "hypersquare");
+        form.showItem("strategy_zeroconf",state.strategy == "conststep" || state.strategy == "dcashitcoin");
 		form.showItem("strategy_exponencial",state.strategy == "expwide");
 		form.showItem("strategy_pl",state.strategy == "plfrompos");
 		form.showItem("strategy_pile",state.strategy == "pile");
@@ -688,7 +689,7 @@ App.prototype.fillForm = function (src, trg) {
 
 
 	
-	if (data.strategy == "halfhalf" || data.strategy == "keepvalue" || data.strategy == "hypersquare"||data.strategy == "conststep") {
+	if (data.strategy == "halfhalf" || data.strategy == "keepvalue" || data.strategy == "hypersquare") {
 		data.acum_factor = filledval(defval(src.strategy.accum,0)*100,0);
 		data.external_assets = filledval(src.strategy.ea,0);
 		data.kv_valinc = filledval(src.strategy.valinc,0);
@@ -880,7 +881,7 @@ App.prototype.fillForm = function (src, trg) {
 function getStrategyData(data, inv) {
 	var strategy = {};
 	strategy.type = data.strategy;
-	if (data.strategy == "halfhalf" || data.strategy == "keepvalue" || data.strategy == "hypersquare"||data.strategy == "conststep") {
+	if (data.strategy == "halfhalf" || data.strategy == "keepvalue" || data.strategy == "hypersquare") {
 		strategy.accum = data.acum_factor/100.0;
 		strategy.ea = data.external_assets;
 		strategy.valinc = data.kv_valinc;
@@ -2050,7 +2051,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 				"volatility":1,
 				"noise":1
 			},			
-			show_norm:["halfhalf","pile","keepvalue","expwide","errorfn","hypersquare","conststep","gamma"].indexOf(sttype) != -1?1:0,
+			show_norm:["halfhalf","pile","keepvalue","expwide","errorfn","hypersquare","conststep","dcashitcoin","gamma"].indexOf(sttype) != -1?1:0,
 			initial_price:form._price,
 			initial_balance:balance,
 			initial_pos:undefined,			
