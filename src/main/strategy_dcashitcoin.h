@@ -5,25 +5,28 @@
  *      Author: ondra
  */
 
-#ifndef SRC_MAIN_STRATEGY_CONSTANTSTEP_H_
-#define SRC_MAIN_STRATEGY_CONSTANTSTEP_H_
+#ifndef SRC_MAIN_STRATEGY_DCASHITCOIN_H_
+#define SRC_MAIN_STRATEGY_DCASHITCOIN_H_
 
 #include "istrategy.h"
 
-class Strategy_ConstantStep: public IStrategy {
+class Strategy_DcaShitcoin: public IStrategy {
 public:
+    
+    class IntTable;
+    
 	struct Config {
 	};
 
 	struct State {
-	        double k = 0;
-	        double w = 0;
-	        double p = 0;
-		};
+        double k = 0;
+        double w = 0;
+        double p = 0;
+	};
 
 
-	Strategy_ConstantStep(const Config &cfg, State &&st);
-	Strategy_ConstantStep(const Config &cfg);
+	Strategy_DcaShitcoin(const Config &cfg, State &&st);
+	Strategy_DcaShitcoin(const Config &cfg);
 
 	virtual bool isValid() const override;
 	virtual PStrategy  onIdle(const IStockApi::MarketInfo &minfo, const IStockApi::Ticker &curTicker, double assets, double currency) const override;
@@ -48,9 +51,11 @@ public:
 	static double calcPos(double k, double w, double price);
 	static double calcBudget(double k, double w, double price);
 	static double calcPosInv(double k, double w, double pos);
-	static double calcBudgetInv(double k, double w, double budget);
+//	static double calcBudgetInv(double k, double w, double budget);
     static double calcCur(double k, double w, double price);
     static double calcCurInv(double k, double w, double cur);
+    static double calcRatio(double k, double cur);
+    static double calcRatioInv(double x, double ratio);
 
 	static std::string_view id;
 
@@ -60,4 +65,4 @@ protected:
 
 };
 
-#endif /* SRC_MAIN_STRATEGY_CONSTANTSTEP_H_ */
+#endif /* SRC_MAIN_STRATEGY_DCASHITCOIN_H_ */

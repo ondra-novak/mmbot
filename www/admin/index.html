@@ -82,9 +82,10 @@
 <optgroup label="Exchanges">
 <option value="pile">Pile strategy (improved Half-Half)</option>
 <option value="keepvalue2">Keep Value</option>
+<option value="conststep">Classic DCA (zeroconf)</option>
+<option value="dcashitcoin">Shitcoin DCA (zeroconf)</option>
 <option value="inc_value">DCA Enhanced</option>
 <option value="hodlshort">Hodl + short</option>
-<option value="conststep" data-hidden="true">Linear costs</option>
 <option value="hypersquare" data-hidden="true">Hypersquare</option>
 <option value="expwide">Exponencial (ver2)</option>
 <option value="errorfn">Gauss/error function+rebalance</option>
@@ -139,6 +140,16 @@
 </x-section>
 <div class="rightinfo"><button name="show_backtest" disabled="disabled">Backtest</button></div>
 </x-section>
+
+<x-section data-name="strategy_zeroconf" class="goal" hidden="hidden"><x-section-caption>DCA</x-section-caption>
+<p>This strategy has no settings</p>
+<p>Because it is spot strategy, you need to check profit through <b>Normalized profit</b> and <b>Budget extra</b></p>
+<x-section>
+<div class="label"><span>Recomended initial position:</span><span data-name="range_initial">---</span></div>
+</x-section>
+<div class="rightinfo"><button name="show_backtest" disabled="disabled">Backtest</button></div>
+</x-section>
+
 
 <x-section data-name="strategy_halfhalf" class="goal" hidden="hidden"><x-section-caption>Half-Half / Keep Value / Exponencial</x-section-caption>
 <label><span>External assets (<span data-name="asset"></span>)<span class="tooltip">Amount of assets held outside of exchange. They are included into calculations.</span></span><input type="number" step="any" data-name="external_assets"></label>

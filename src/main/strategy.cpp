@@ -31,6 +31,7 @@
 #include "strategy_hodl_short.h"
 #include "strategy_incvalue.h"
 #include "strategy_exponencial.h"
+#include "strategy_dcashitcoin.h"
 
 
 
@@ -91,9 +92,10 @@ Strategy Strategy::create_base(std::string_view id, json::Value config) {
 		return Strategy(new Strategy_HyperSquare(cfg));
 	} else if (id == Strategy_ConstantStep::id) {
 		Strategy_ConstantStep::Config cfg;
-		cfg.ea = config["ea"].getNumber();
-		cfg.accum = config["accum"].getNumber();
 		return Strategy(new Strategy_ConstantStep(cfg));
+    } else if (id == Strategy_DcaShitcoin::id) {
+        Strategy_DcaShitcoin::Config cfg;
+        return Strategy(new Strategy_DcaShitcoin(cfg));
 	} else if (id == Strategy_ErrorFn::id) {
 		Strategy_ErrorFn::Config cfg;
 		cfg.ea = config["ea"].getNumber();

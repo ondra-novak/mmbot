@@ -12,6 +12,7 @@
 #include "../imtjson/src/imtjson/value.h"
 #include "numerical.h"
 
+#include "sgn.h"
 using json::Value;
 
 std::string_view Strategy_ConstantStep::id = "conststep";
@@ -28,7 +29,7 @@ Strategy_ConstantStep::Strategy_ConstantStep(const Config &cfg)
 }
 
 bool Strategy_ConstantStep::isValid() const {
-	return st.m > 0 && st.p > 0 && st.a + cfg.ea > 0;
+	return st.k > 0 && st.w > 0 && st.p>0;
 }
 
 PStrategy Strategy_ConstantStep::onIdle(const IStockApi::MarketInfo &minfo,
@@ -36,7 +37,7 @@ PStrategy Strategy_ConstantStep::onIdle(const IStockApi::MarketInfo &minfo,
 		double currency) const {
 	if (isValid()) return this;
 	else {
-		return init(minfo,ticker.last, assets,currency);
+		return init(!minfo.leverage,ticker.last, assets,currency);
 	}
 }
 
@@ -44,58 +45,38 @@ std::pair<IStrategy::OnTradeResult, PStrategy> Strategy_ConstantStep::onTrade(
 		const IStockApi::MarketInfo &minfo, double tradePrice, double tradeSize,
 		double assetsLeft, double currencyLeft) const {
 
-
-	double newA = calcA(tradePrice);
-
-
-	auto csts = calcConsts(st.a+cfg.ea, st.p, st.m);
-
-	double df = (tradePrice - st.p) * csts.k;
-	double cf = -tradeSize * tradePrice;
-	double na = tradeSize == assetsLeft?0:(cf - df);
-
-	double accum = calcAccumulation(st, cfg, tradePrice);
-
-	State nst (st);
-	nst.a = newA + accum;
-	nst.f = currencyLeft;
-	nst.p = tradePrice;
-
-
-	return {
-		{na, accum},PStrategy(new Strategy_ConstantStep(cfg,std::move(nst)))
-	};
-
-
+    State nst = st;    
+    if (tradePrice > nst.k) {
+        nst.k = tradePrice;        
+    }
+    nst.p = tradePrice;
+    double prevPos = assetsLeft - tradeSize;
+    double pnl = prevPos * (nst.p - st.p);
+    double pb = calcBudget(st.k, st.w, st.p);
+    double nb = calcBudget(nst.k, nst.w, nst.p);
+    double na = pnl - nb + pb;
+    return {
+        {na,0},
+        new Strategy_ConstantStep(cfg, std::move(nst))
+    };
 }
 
 json::Value Strategy_ConstantStep::exportState() const {
 	return json::Object({
 		{"p",st.p},
-		{"a",st.a},
-		{"f",st.f}
+		{"w",st.w},
+		{"k",st.k}
 	});
 }
 
 
-double Strategy_ConstantStep::calcAccumulation(const State &st, const Config &cfg, double price) {
-	auto cst = calcConsts(st.a+cfg.ea, st.p, st.m);
-	double a1 = calcA(cst, st.p);
-	double a2 = calcA(cst, price);
-	double cf1 = -st.p * a1;
-	double cf2 = -price * a2;
-	double cfd = cf2 - cf1;
-	double bfd = (price - st.p) * cst.k;
-	double np = cfd - bfd;
-	return (np/price) * cfg.accum;
-}
 
 PStrategy Strategy_ConstantStep::importState(json::Value src,
 		const IStockApi::MarketInfo &minfo) const {
 	State newst {
-		src["a"].getNumber(),
-		src["p"].getNumber(),
-		src["f"].getNumber()
+		src["k"].getNumber(),
+		src["w"].getNumber(),
+		src["p"].getNumber()
 	};
 	return new Strategy_ConstantStep(cfg, std::move(newst));
 }
@@ -103,25 +84,33 @@ PStrategy Strategy_ConstantStep::importState(json::Value src,
 IStrategy::OrderData Strategy_ConstantStep::getNewOrder(const IStockApi::MarketInfo &minfo,
 		double cur_price, double new_price, double dir, double assets,
 		double currency, bool rej) const {
-	double newA = calcA(new_price);
-	double extra = calcAccumulation(st, cfg, new_price);
-	double ordsz = calcOrderSize(st.a, assets, newA+extra);
-	return {0,ordsz};
+    double pos = calcPos(st.k, st.w, new_price);
+    double diff = pos - assets;
+    return {0, diff, new_price >= st.k?Alert::forced:Alert::enabled};
 }
 
 IStrategy::MinMax Strategy_ConstantStep::calcSafeRange(const IStockApi::MarketInfo &minfo,
 		double assets, double currencies) const {
-	auto consts = calcConsts(st.a+cfg.ea, st.p, st.m);
-	double max = std::exp((consts.c-cfg.ea)/consts.k-1);
-	double min = std::max(0.0, st.p - currencies/consts.k);
+    double pos = calcPos(st.k, st.w, st.p);
+    double max;
+    double minsz = minfo.calcMinSize(st.p);
+    if (pos > assets+minsz) {
+        max = calcPosInv(st.k, st.w, pos - assets);
+    } else {
+        max = st.k;
+    }
+    double min;
+    double cur = calcCur(st.k, st.w, st.p);
+    if (cur > currencies+minsz*st.p) {
+        min = calcCurInv(st.k, st.w, cur - currencies);
+    } else {
+        min = 0;
+    }
 	return {min,max};
 }
 
 double Strategy_ConstantStep::getEquilibrium(double assets) const {
-	double a = assets+cfg.ea;
-	auto consts = calcConsts(a, st.p, st.m);
-	double p = std::exp((consts.c-a)/consts.k-1);
-	return std::max(p,0.0);
+    return calcPosInv(st.k, st.w, assets);
 }
 
 PStrategy Strategy_ConstantStep::reset() const {
@@ -134,114 +123,88 @@ std::string_view Strategy_ConstantStep::getID() const {
 
 json::Value Strategy_ConstantStep::dumpStatePretty(
 		const IStockApi::MarketInfo &minfo) const {
-	auto consts = calcConsts(st.a+cfg.ea, st.p, st.m);
-	return json::Object({{"Assets/Position", (minfo.invert_price?-1:1)*st.a},
-		{"Last price ", minfo.invert_price?1.0/st.p:st.p},
-		{"Power (w)", consts.c},
-		{"Anchor price (k)", consts.k},
-		{"Budget", calcAccountValue(consts, st.p)},
-		{"Budget Extra(+)/Debt(-)", minfo.leverage?Value():Value(st.f - consts.k * st.p)}});
-
+    
+    auto pos = [&](double x) {return (minfo.invert_price?-1:1)* x;};
+    auto price = [&](double x) {return (minfo.invert_price?1/x:x);};
+    
+    return json::Object{
+        {"Current equity", calcBudget(st.k,st.w, st.p)},
+        {"Max equity", st.w},
+        {"Sell all price", price(st.k)},
+        {"Current position", pos(calcPos(st.k, st.w, st.p))},
+    };    
 }
 
-PStrategy Strategy_ConstantStep::init(const IStockApi::MarketInfo &m,
-		double price, double assets, double cur) const {
-
-	State nst = st;
-	double a = assets+cfg.ea;
-	double ratio = a * price / (cur+a * price);
-	if (!std::isfinite(ratio) || ratio <=0) {
-		if (nst.p <= 0) {
-			nst.p = price;
-			nst.a = assets;
-		}
-		double mp = price * 2;
-		if (nst.m <= 0) {
-			if (m.invert_price)
-				nst.m = 1.0/mp;
-			else
-				nst.m = mp;
-		}
-
-		if (nst.m < nst.p) {
-			nst.m = nst.p*2;
-			nst.a = calcInitialPosition(m,price,assets, cur);
-		}
-	} else {
-		double m = numeric_search_r2(price,[&](double x){
-			auto consts = calcConsts(assets, price, x);
-			if (x <= price) return -10.0;
-			double r = price*calcA(consts,price)/calcAccountValue(consts,price);
-			return r - ratio;
-		});
-		nst.m = m;
-		nst.p = price;
-		nst.a = assets;
-
-	}
-
-	nst.f = cur;
-	PStrategy s = new Strategy_ConstantStep(cfg, std::move(nst));
-	if (!s->isValid()) throw std::runtime_error("Unable to initialize strategy");
-	return s;
-
+PStrategy Strategy_ConstantStep::init(bool spot,double price, double assets, double cur) const {
+    double equity = (spot?price*assets:0) + cur;
+    double ratio = assets * price / equity;
+    double k = (price * (ratio - 2))/(2 * (ratio - 1));
+    double b = calcBudget(k, 1, price);
+    double w = equity/b;
+    if (ratio >=1.0) throw std::runtime_error("Can't initialize strategy with zero currency or with leverage above 1x");
+    
+    State nst;
+    nst.k = k;
+    nst.p = price;
+    nst.w = w;
+    PStrategy s = new Strategy_ConstantStep(cfg, std::move(nst));
+    if (s->isValid()) {
+        return s;
+    } else {
+        throw std::runtime_error("Failed to initialize strategy");
+    }
 }
 
-double Strategy_ConstantStep::calcInitialPosition(const IStockApi::MarketInfo& minfo,  double price, double assets, double currency) const {
-	double atot = cfg.ea + assets +  currency/price;
-	double mp = price*2;
-	if (mp <price) mp = price * 2;
-	double m = minfo.invert_price?1.0/mp:mp;
-	double k = atot/(1 + std::log(m/price));
-	double c =  atot + k * std::log(price);
-	double max = std::exp(c/k-1);
-	if (price > max) return 0;
-	//ratio - how much of budget is actually position;
-	double rt = 1-k/(c-k*std::log(price));
-	return atot * rt - cfg.ea;
-
+double Strategy_ConstantStep::calcInitialPosition(const IStockApi::MarketInfo& ,  double , double , double ) const {
+    return 0;
 }
 
 IStrategy::BudgetInfo Strategy_ConstantStep::getBudgetInfo() const {
-	auto consts = calcConsts(st.a+cfg.ea, st.p, st.m);
 	return BudgetInfo {
-		calcAccountValue(consts, st.p),
-		consts.c
+		st.w,
+		0
 	};
 }
 
 
-Strategy_ConstantStep::Consts Strategy_ConstantStep::calcConsts(double a, double p, double max) {
-	double k = max > p?a / std::log(max/p):a;
-	double c = a + k + k*std::log(p);
-	return {k,c};
-}
-
-double Strategy_ConstantStep::calcA(double price) const {
-	auto consts = calcConsts(st.a+cfg.ea, st.p, st.m);
-	return calcA(consts, price) - cfg.ea;
-}
-
-double Strategy_ConstantStep::calcA(const Consts &cst, double price) {
-	double max = std::exp(cst.c/cst.k-1);
-	if (price > max)
-		return 0;
-	else return cst.c - cst.k * (std::log(price) + 1);
-}
-
-double Strategy_ConstantStep::calcAccountValue(const Consts &cst, double price) {
-	return price*(cst.c-cst.k*std::log(price));
-}
-
 double Strategy_ConstantStep::calcCurrencyAllocation(double price, bool leveraged) const {
-	return st.a * price / std::log(st.m/price);
+	if (leveraged) calcBudget(st.k, st.p, price);
+    return calcCur(st.k, st.w, st.p);
 }
 
 Strategy_ConstantStep::ChartPoint Strategy_ConstantStep::calcChart(double price) const {
-	auto consts = calcConsts(st.a, st.p, st.m);
 	return {
 		true,
-		calcA(consts,  price),
-		calcAccountValue(consts,price)
+		calcPos(st.k, st.w, price),
+		calcBudget(st.k, st.w, price)
 	};
+}
+
+double Strategy_ConstantStep::calcPos(double k, double w, double price) {
+    if (price>=k) return 0;
+    return 2*w/k*(1-price/k);
+}
+
+double Strategy_ConstantStep::calcBudget(double k, double w, double price) {
+    if (price>=k) return w;
+    return 2*w/k*(price - pow2(price)/(2*k));
+}
+
+double Strategy_ConstantStep::calcPosInv(double k, double w, double pos) {
+    if (pos < 0) return k;
+    return k - (pos * pow2(k))/(2 * w);
+}
+
+double Strategy_ConstantStep::calcBudgetInv(double k, double w, double budget) {
+    if (budget > w) return k;
+    return (k * w - std::sqrt(pow2(k) * w * (w - budget)))/w;
+}
+
+double Strategy_ConstantStep::calcCur(double k, double w, double price) {
+    return (w * pow2(price))/pow2(k);
+}
+
+double Strategy_ConstantStep::calcCurInv(double k, double w, double cur) {
+    if (cur <= 0) return 0;
+    return k*std::sqrt(cur)/std::sqrt(w);
 }
