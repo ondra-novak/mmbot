@@ -76,7 +76,7 @@ double Strategy_DcaShitcoin::IntTable::getValue(double x) const {
 }
 
 double Strategy_DcaShitcoin::IntTable::baseFn(double x) {
-    return std::exp(4*(1-x))*4/(std::exp(4)-1)*std::exp(-std::pow(x,10));
+    return std::exp(4*(1-x))*4/(std::exp(4)-1)*std::exp(-std::pow(0.97*x,15));
 }
 
 Strategy_DcaShitcoin::Strategy_DcaShitcoin(const Config &cfg, State &&st)
@@ -107,8 +107,8 @@ std::pair<IStrategy::OnTradeResult, PStrategy> Strategy_DcaShitcoin::onTrade(
 		double assetsLeft, double currencyLeft) const {
 
     State nst = st;    
-    if (tradePrice > nst.k && tradePrice<st.p) {
-        nst.k = tradePrice;                
+    if (tradePrice > nst.k && tradePrice < st.p) {
+        nst.k = tradePrice;
     }
     nst.p = tradePrice;
     double prevPos = assetsLeft - tradeSize;
@@ -117,7 +117,7 @@ std::pair<IStrategy::OnTradeResult, PStrategy> Strategy_DcaShitcoin::onTrade(
     double nb = calcBudget(nst.k, nst.w, nst.p);
     double na = pnl - nb + pb;
     return {
-        {na,0},
+        {na,0,nst.k},
         new Strategy_DcaShitcoin(cfg, std::move(nst))
     };
 }
@@ -147,7 +147,12 @@ IStrategy::OrderData Strategy_DcaShitcoin::getNewOrder(const IStockApi::MarketIn
 		double currency, bool rej) const {
     double pos = calcPos(st.k, st.w, new_price);
     double diff = pos - assets;
-    return {0, diff, pos <= minfo.calcMinSize(new_price)?Alert::forced:Alert::enabled};
+    double minsize = minfo.calcMinSize(new_price);
+    if (diff*dir <= minsize || pos < minsize) {
+        return {0, diff, Alert::forced};
+    } else {
+        return {0, diff};
+    }
 }
 
 IStrategy::MinMax Strategy_DcaShitcoin::calcSafeRange(const IStockApi::MarketInfo &minfo,

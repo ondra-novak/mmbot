@@ -56,7 +56,7 @@ std::pair<IStrategy::OnTradeResult, PStrategy> Strategy_ConstantStep::onTrade(
     double nb = calcBudget(nst.k, nst.w, nst.p);
     double na = pnl - nb + pb;
     return {
-        {na,0},
+        {na,0, nst.k},
         new Strategy_ConstantStep(cfg, std::move(nst))
     };
 }
@@ -125,12 +125,11 @@ json::Value Strategy_ConstantStep::dumpStatePretty(
 		const IStockApi::MarketInfo &minfo) const {
     
     auto pos = [&](double x) {return (minfo.invert_price?-1:1)* x;};
-    auto price = [&](double x) {return (minfo.invert_price?1/x:x);};
+//    auto price = [&](double x) {return (minfo.invert_price?1/x:x);};
     
     return json::Object{
         {"Current equity", calcBudget(st.k,st.w, st.p)},
         {"Max equity", st.w},
-        {"Sell all price", price(st.k)},
         {"Current position", pos(calcPos(st.k, st.w, st.p))},
     };    
 }
