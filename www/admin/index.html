@@ -84,6 +84,7 @@
 <option value="keepvalue2">Keep Value</option>
 <option value="conststep">Classic DCA (zeroconf)</option>
 <option value="dcashitcoin">Shitcoin DCA (zeroconf)</option>
+<option value="dcavalue">Value base DCA</option>
 <option value="inc_value">DCA Enhanced</option>
 <option value="hodlshort">Hodl + short</option>
 <option value="hypersquare" data-hidden="true">Hypersquare</option>
@@ -150,6 +151,15 @@
 <div class="rightinfo"><button name="show_backtest" disabled="disabled">Backtest</button></div>
 </x-section>
 
+<x-section data-name="strategy_dcavalue" class="goal" hidden="hidden"><x-section-caption>DCA Value</x-section-caption>
+<label><span>Max price drop [%]:<span class="tooltip">Max price drop from current price how much the strategy can handle</span></span><x-slider data-name="dca_max_drop" data-min="1" data-max="99" data-mult="1" data-fixed="0"></x-slider></label>
+<x-section>
+<div class="label"><span>Min price:</span><span data-name="range_min_price">---</span></div>
+<div class="label"><span>Recomended initial position:</span><span data-name="range_initial">---</span></div>
+<div class="label"><span>Profit of 5% spread:</span><span data-name="dcavalue_profit_per_trade">---</span></div>
+</x-section>
+<div class="rightinfo"><button name="show_backtest" disabled="disabled">Backtest</button></div>
+</x-section>
 
 <x-section data-name="strategy_halfhalf" class="goal" hidden="hidden"><x-section-caption>Half-Half / Keep Value / Exponencial</x-section-caption>
 <label><span>External assets (<span data-name="asset"></span>)<span class="tooltip">Amount of assets held outside of exchange. They are included into calculations.</span></span><input type="number" step="any" data-name="external_assets"></label>

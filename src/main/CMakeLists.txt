@@ -14,7 +14,7 @@ add_executable (mmbot
 	traders.cpp
 	strategy.cpp
 	strategy_halfhalf.cpp
-	strategy_constantstep.cpp
+	strategy_dcaclassic.cpp
 	strategy_keepvalue.cpp
 	strategy_keepvalue2.cpp
 	strategy_hypersquare.cpp
@@ -31,6 +31,7 @@ add_executable (mmbot
 	strategy_pile.cpp
 	strategy_incvalue.cpp
 	strategy_dcashitcoin.cpp
+
 	invert_strategy.cpp
 	simulator.cpp
 	localdailyperfmod.cpp

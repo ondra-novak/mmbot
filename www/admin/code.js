@@ -99,7 +99,8 @@ App.prototype.createTraderForm = function() {
 	form.dlgRules = function() {
 		var state = this.readData(["strategy","advanced","check_unsupp"]);
 		form.showItem("strategy_halfhalf",state.strategy == "halfhalf" || state.strategy == "keepvalue" || state.strategy == "hypersquare");
-        form.showItem("strategy_zeroconf",state.strategy == "conststep" || state.strategy == "dcashitcoin");
+        form.showItem("strategy_zeroconf",state.strategy == "conststep" || state.strategy == "dcashitcoin" || state.strategy == "dcavolume");
+        form.showItem("strategy_dcavalue",state.strategy == "dcavalue" );
 		form.showItem("strategy_exponencial",state.strategy == "expwide");
 		form.showItem("strategy_pl",state.strategy == "plfrompos");
 		form.showItem("strategy_pile",state.strategy == "pile");
@@ -527,7 +528,7 @@ App.prototype.fillForm = function (src, trg) {
 			"shg_w","shg_p","shg_z","shg_lp","shg_r",
 			"pile_ratio","hodlshort_z",
 			"incval_w","incval_z",
-			"invert_proxy"
+			"invert_proxy","dca_max_drop"
 			]
 			.forEach(function(item){
 				trg.findElements(item).forEach(function(elem){
@@ -686,7 +687,7 @@ App.prototype.fillForm = function (src, trg) {
 	data.exp_r = 10;
 	data.exp_z = 3;
 	data.exp_s = 0;
-
+	data.dca_max_drop = {"value":70};
 
 	
 	if (data.strategy == "halfhalf" || data.strategy == "keepvalue" || data.strategy == "hypersquare") {
@@ -694,6 +695,8 @@ App.prototype.fillForm = function (src, trg) {
 		data.external_assets = filledval(src.strategy.ea,0);
 		data.kv_valinc = filledval(src.strategy.valinc,0);
 		data.kv_halfhalf = filledval(src.strategy.halfhalf,false);
+    } else if (data.strategy== "dcavalue") {
+        data.dca_max_drop = filledval(src.strategy.max_drop,70);    
     } else if (data.strategy == "expwide") {
         data.exp_r = filledval(src.strategy.r,10);
         data.exp_w = filledval(src.strategy.w,100);
@@ -777,6 +780,14 @@ App.prototype.fillForm = function (src, trg) {
 	data.shg_lp["!change"] = function() {
 		trg.showItem("shg_show_asym", this.value == "0");
 	};
+	function dcavalue_calc_profit_per_trade(d) {
+        return (-0.120984/Math.log(1.0-d*0.01)).toFixed(3)+"%";
+    };
+	data.dca_max_drop["!change"] = function() {
+        let n = trg.readData(["dca_max_drop"]).dca_max_drop;
+        trg.setItemValue("dcavalue_profit_per_trade", dcavalue_calc_profit_per_trade(n));
+    };
+    data.dcavalue_profit_per_trade = dcavalue_calc_profit_per_trade(data.dca_max_drop.value);
 	data.enabled = src.enabled;
 	data.hidden = !!src.hidden;	
 	data.invert_proxy = filledval(!!(src.strategy && src.strategy.invert_proxy),false);
@@ -886,6 +897,8 @@ function getStrategyData(data, inv) {
 		strategy.ea = data.external_assets;
 		strategy.valinc = data.kv_valinc;
 		strategy.halfhalf = data.kv_halfhalf;
+    } else if (data.strategy == "dcavalue") {
+        strategy.max_drop = data.dca_max_drop;    
     } else if (data.strategy == "expwide") {
         strategy = {
             type: data.strategy,
@@ -2019,6 +2032,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		"min_balance","max_balance","max_leverage","reduce_on_leverage","gamma_exp","gamma_rebalance","gamma_trend","gamma_fn","gamma_reinvest","gamma_maxrebal",
 		"pincome_exp",
 		"invert_proxy",
+		"dca_max_drop",
 		"hodlshort_z","hodlshort_acc","hodlshort_rinvst","hodlshort_b",
 		"pile_accum","pile_ratio",
 		"kv2_accum","kv2_boost","kv2_chngtm","kv2_reinvest",
@@ -2051,7 +2065,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 				"volatility":1,
 				"noise":1
 			},			
-			show_norm:["halfhalf","pile","keepvalue","expwide","errorfn","hypersquare","conststep","dcashitcoin","gamma"].indexOf(sttype) != -1?1:0,
+			show_norm:["halfhalf","pile","keepvalue","expwide","errorfn","hypersquare","conststep","dcashitcoin","gamma","dcavalue","dcavolume"].indexOf(sttype) != -1?1:0,
 			initial_price:form._price,
 			initial_balance:balance,
 			initial_pos:undefined,			

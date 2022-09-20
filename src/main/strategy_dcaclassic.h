@@ -5,16 +5,38 @@
  *      Author: ondra
  */
 
-#ifndef SRC_MAIN_STRATEGY_CONSTANTSTEP_H_
-#define SRC_MAIN_STRATEGY_CONSTANTSTEP_H_
+#ifndef SRC_MAIN_STRATEGY_DCACLASSIC_H_
+#define SRC_MAIN_STRATEGY_DCACLASSIC_H_
 
 #include "istrategy.h"
 
-class Strategy_ConstantStep: public IStrategy {
-public:
-	struct Config {
-	};
+enum class DCAFunction {
+    //linear amount
+    lin_amount,
+    //linear volume
+    lin_volume,
+    //linear value
+    lin_value,
+};
 
+
+
+template<DCAFunction fn>
+struct Strategy_DCA_Config {    
+};
+
+template<>
+struct Strategy_DCA_Config<DCAFunction::lin_value> {
+    double max_drop;
+};
+
+
+
+template<DCAFunction fn>
+class Strategy_DCA: public IStrategy {
+public:
+	using Config = Strategy_DCA_Config<fn>;
+	
 	struct State {
 	        double k = 0;
 	        double w = 0;
@@ -22,8 +44,8 @@ public:
 		};
 
 
-	Strategy_ConstantStep(const Config &cfg, State &&st);
-	Strategy_ConstantStep(const Config &cfg);
+	Strategy_DCA(const Config &cfg, State &&st);
+	Strategy_DCA(const Config &cfg);
 
 	virtual bool isValid() const override;
 	virtual PStrategy  onIdle(const IStockApi::MarketInfo &minfo, const IStockApi::Ticker &curTicker, double assets, double currency) const override;
@@ -45,14 +67,17 @@ public:
 	virtual double getCenterPrice(double lastPrice, double assets) const override {return getEquilibrium(assets);}
 
 
-	static double calcPos(double k, double w, double price);
-	static double calcBudget(double k, double w, double price);
-	static double calcPosInv(double k, double w, double pos);
-	static double calcBudgetInv(double k, double w, double budget);
-    static double calcCur(double k, double w, double price);
-    static double calcCurInv(double k, double w, double cur);
+	static double calcPos(const Config &cfg, double k, double w, double price);
+	static double calcBudget(const Config &cfg, double k, double w, double price);
+	static double calcPosInv(const Config &cfg, double k, double w, double pos);
+//	static double calcBudgetInv(double k, double w, double budget);
+    static double calcCur(const Config &cfg, double k, double w, double price);
+    static double calcCurInv(const Config &cfg, double k, double w, double cur);
+    static double findKFromRatio(const Config &cfg, double price, double ratio);
 
 	static std::string_view id;
+	
+	void handle_alert(State &nst, double tradePrice) const;
 
 protected:
 	Config cfg;
@@ -60,4 +85,9 @@ protected:
 
 };
 
-#endif /* SRC_MAIN_STRATEGY_CONSTANTSTEP_H_ */
+
+using Strategy_DCAClassic = Strategy_DCA<DCAFunction::lin_amount>;
+using Strategy_DCAVolume = Strategy_DCA<DCAFunction::lin_volume>;
+using Strategy_DCAValue = Strategy_DCA<DCAFunction::lin_value>;
+
+#endif /* SRC_MAIN_STRATEGY_DCACLASSIC_H_ */

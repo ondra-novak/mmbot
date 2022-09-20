@@ -14,11 +14,11 @@
 #include "invert_strategy.h"
 
 #include "sgn.h"
+#include "strategy_dcaclassic.h"
 #include "strategy_halfhalf.h"
 #include "strategy_keepvalue.h"
 #include "strategy_hypersquare.h"
 #include "strategy_sinh.h"
-#include "strategy_constantstep.h"
 #include "strategy_error_fn.h"
 #include "strategy_keepbalance.h"
 #include "strategy_sinh_val.h"
@@ -90,9 +90,16 @@ Strategy Strategy::create_base(std::string_view id, json::Value config) {
 		cfg.ea = config["ea"].getNumber();
 		cfg.accum = config["accum"].getNumber();
 		return Strategy(new Strategy_HyperSquare(cfg));
-	} else if (id == Strategy_ConstantStep::id) {
-		Strategy_ConstantStep::Config cfg;
-		return Strategy(new Strategy_ConstantStep(cfg));
+	} else if (id == Strategy_DCAClassic::id) {
+	    Strategy_DCAClassic::Config cfg;
+		return Strategy(new Strategy_DCAClassic(cfg));
+    } else if (id == Strategy_DCAVolume::id) {
+        Strategy_DCAVolume::Config cfg;
+        return Strategy(new Strategy_DCAVolume(cfg));
+    } else if (id == Strategy_DCAValue::id) {
+        Strategy_DCAValue::Config cfg;
+        cfg.max_drop = 1.0 - config["max_drop"].getNumber()*0.01;
+        return Strategy(new Strategy_DCAValue(cfg));
     } else if (id == Strategy_DcaShitcoin::id) {
         Strategy_DcaShitcoin::Config cfg;
         return Strategy(new Strategy_DcaShitcoin(cfg));
