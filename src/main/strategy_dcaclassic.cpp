@@ -460,6 +460,18 @@ void Strategy_DCA<DCAFunction::martingale>::adjust_state(State &nst, double trad
     
 }
 
+template<>
+IStrategy::MinMax Strategy_DCA<DCAFunction::martingale>::calcSafeRange(const IStockApi::MarketInfo &minfo,
+        double assets, double currencies) const {
+    double pos = calcPos(cfg, st.k, st.w, st.p);
+    double max;
+    double minsz = minfo.calcMinSize(st.p);
+    if (pos < assets+minsz) pos = assets+minsz;  
+    max = calcPosInv(cfg, st.k, st.w, pos - assets);
+    double cur = calcCur(cfg, st.k, st.w, st.p);
+    double min = calcCurInv(cfg, st.k, st.w, cur - currencies);
+    return {min,max};
+}
 
 
 template class Strategy_DCA<DCAFunction::lin_amount>;
