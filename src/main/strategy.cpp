@@ -100,6 +100,11 @@ Strategy Strategy::create_base(std::string_view id, json::Value config) {
         Strategy_DCAValue::Config cfg;
         cfg.max_drop = 1.0 - config["max_drop"].getNumber()*0.01;
         return Strategy(new Strategy_DCAValue(cfg));
+    } else if (id == Strategy_DCAMartngale::id) {
+        Strategy_DCAMartngale::Config cfg;
+        cfg.exponent= config["exponent"].getNumber();
+        cfg.initial_step = config["init_step"].getNumber()*0.01;
+        return Strategy(new Strategy_DCAMartngale(cfg));
     } else if (id == Strategy_DcaShitcoin::id) {
         Strategy_DcaShitcoin::Config cfg;
         return Strategy(new Strategy_DcaShitcoin(cfg));

@@ -931,11 +931,11 @@ bool MTrader::calculateOrderFeeLessAdjust(Order &order, double position, double 
 		if (vol < minfo.min_volume) order.size = 0;
 	}
 
-	if (order.size == 0) {
+	if (order.size == 0) {	    
 		order.ar = AlertReason::below_minsize;
-		return false;
-	} else {
 		//in this case, we continue to search better price (don't accept the order)
+		return false;
+	} else {		
 		return true;
 	}
 

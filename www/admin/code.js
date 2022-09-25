@@ -101,6 +101,7 @@ App.prototype.createTraderForm = function() {
 		form.showItem("strategy_halfhalf",state.strategy == "halfhalf" || state.strategy == "keepvalue" || state.strategy == "hypersquare");
         form.showItem("strategy_zeroconf",state.strategy == "conststep" || state.strategy == "dcashitcoin" || state.strategy == "dcavolume");
         form.showItem("strategy_dcavalue",state.strategy == "dcavalue" );
+        form.showItem("strategy_dcamartingale",state.strategy == "dcamartingale" );
 		form.showItem("strategy_exponencial",state.strategy == "expwide");
 		form.showItem("strategy_pl",state.strategy == "plfrompos");
 		form.showItem("strategy_pile",state.strategy == "pile");
@@ -528,7 +529,7 @@ App.prototype.fillForm = function (src, trg) {
 			"shg_w","shg_p","shg_z","shg_lp","shg_r",
 			"pile_ratio","hodlshort_z",
 			"incval_w","incval_z",
-			"invert_proxy","dca_max_drop"
+			"invert_proxy","dca_max_drop","dca_initstep","dca_exponent"
 			]
 			.forEach(function(item){
 				trg.findElements(item).forEach(function(elem){
@@ -688,6 +689,8 @@ App.prototype.fillForm = function (src, trg) {
 	data.exp_z = 3;
 	data.exp_s = 0;
 	data.dca_max_drop = {"value":70};
+	data.dca_initstep = 1;
+	data.dca_exponent =10;
 
 	
 	if (data.strategy == "halfhalf" || data.strategy == "keepvalue" || data.strategy == "hypersquare") {
@@ -697,6 +700,9 @@ App.prototype.fillForm = function (src, trg) {
 		data.kv_halfhalf = filledval(src.strategy.halfhalf,false);
     } else if (data.strategy== "dcavalue") {
         data.dca_max_drop = filledval(src.strategy.max_drop,70);    
+    } else if (data.strategy== "dcamartingale") {
+        data.dca_initstep = filledval(src.strategy.init_step,1);    
+        data.dca_exponent = filledval(src.strategy.exponent,10);
     } else if (data.strategy == "expwide") {
         data.exp_r = filledval(src.strategy.r,10);
         data.exp_w = filledval(src.strategy.w,100);
@@ -899,6 +905,9 @@ function getStrategyData(data, inv) {
 		strategy.halfhalf = data.kv_halfhalf;
     } else if (data.strategy == "dcavalue") {
         strategy.max_drop = data.dca_max_drop;    
+    } else if (data.strategy == "dcamartingale") {
+        strategy.init_step = data.dca_initstep;    
+        strategy.exponent = data.dca_exponent;
     } else if (data.strategy == "expwide") {
         strategy = {
             type: data.strategy,
@@ -2032,7 +2041,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		"min_balance","max_balance","max_leverage","reduce_on_leverage","gamma_exp","gamma_rebalance","gamma_trend","gamma_fn","gamma_reinvest","gamma_maxrebal",
 		"pincome_exp",
 		"invert_proxy",
-		"dca_max_drop",
+		"dca_max_drop","dca_initstep","dca_exponent",
 		"hodlshort_z","hodlshort_acc","hodlshort_rinvst","hodlshort_b",
 		"pile_accum","pile_ratio",
 		"kv2_accum","kv2_boost","kv2_chngtm","kv2_reinvest",

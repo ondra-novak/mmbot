@@ -17,6 +17,8 @@ enum class DCAFunction {
     lin_volume,
     //linear value
     lin_value,
+    //margingale
+    martingale,
 };
 
 
@@ -30,6 +32,12 @@ struct Strategy_DCA_Config<DCAFunction::lin_value> {
     double max_drop;
 };
 
+template<>
+struct Strategy_DCA_Config<DCAFunction::martingale> {
+    double initial_step;
+    double exponent;
+};
+
 
 
 template<DCAFunction fn>
@@ -41,6 +49,7 @@ public:
 	        double k = 0;
 	        double w = 0;
 	        double p = 0;
+	        double hlp = 0;
 		};
 
 
@@ -64,7 +73,7 @@ public:
 	virtual double calcInitialPosition(const IStockApi::MarketInfo & , double price, double assets, double currency) const override;
 	virtual BudgetInfo getBudgetInfo() const override;
 	virtual ChartPoint calcChart(double price) const override;
-	virtual double getCenterPrice(double lastPrice, double assets) const override {return getEquilibrium(assets);}
+	virtual double getCenterPrice(double lastPrice, double assets) const override;
 
 
 	static double calcPos(const Config &cfg, double k, double w, double price);
@@ -76,8 +85,8 @@ public:
     static double findKFromRatio(const Config &cfg, double price, double ratio);
 
 	static std::string_view id;
-	
-	void handle_alert(State &nst, double tradePrice) const;
+		
+	void adjust_state(State &nst, double tradePrice, double tradeSize, double prevPos) const;
 
 protected:
 	Config cfg;
@@ -86,8 +95,10 @@ protected:
 };
 
 
+
 using Strategy_DCAClassic = Strategy_DCA<DCAFunction::lin_amount>;
 using Strategy_DCAVolume = Strategy_DCA<DCAFunction::lin_volume>;
 using Strategy_DCAValue = Strategy_DCA<DCAFunction::lin_value>;
+using Strategy_DCAMartngale = Strategy_DCA<DCAFunction::martingale>;
 
 #endif /* SRC_MAIN_STRATEGY_DCACLASSIC_H_ */
