@@ -36,6 +36,7 @@ template<>
 struct Strategy_DCA_Config<DCAFunction::martingale> {
     double initial_step;
     double exponent;
+    double cutoff;
 };
 
 

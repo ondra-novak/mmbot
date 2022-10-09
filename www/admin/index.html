@@ -85,6 +85,7 @@
 <option value="conststep">Classic DCA (zeroconf)</option>
 <option value="dcashitcoin">Shitcoin DCA (zeroconf)</option>
 <option value="dcavalue">Value base DCA</option>
+<option value="dcamartingale">DCA Martingale</option>
 <option value="inc_value">DCA Enhanced</option>
 <option value="hodlshort">Hodl + short</option>
 <option value="hypersquare" data-hidden="true">Hypersquare</option>
@@ -98,7 +99,6 @@
 <option value="sinh_val">Volume based Sinh (legacy)</option>
 </optgroup>
 <optgroup label="Experimental">
-<option value="dcamartingale">DCA Martingale</option>
 <option value="passive_income" data-hidden="true">Passive Income</option>
 </optgroup>
 <optgroup label="Utility">
@@ -163,8 +163,9 @@
 </x-section>
 
 <x-section data-name="strategy_dcamartingale" class="goal" hidden="hidden"><x-section-caption>DCA Value</x-section-caption>
-<label><span>Initial step [%]:<span class="tooltip"></span></span><x-slider data-name="dca_initstep" data-min="0.01" data-max="10" data-mult="0.01" data-fixed="2"></x-slider></label>
+<label><span>Initial step [%]:<span class="tooltip"></span></span><x-slider data-name="dca_initstep" data-min="0.1" data-max="50" data-mult="0.1" data-fixed="1"></x-slider></label>
 <label><span>Exponent:<span class="tooltip"></span></span><x-slider data-name="dca_exponent" data-min="1" data-max="100" data-mult="0.1" data-fixed="1"></x-slider></label>
+<label class="adv"><span>Cut-off:<span class="tooltip"></span></span><x-slider data-name="dca_cutoff" data-min="1" data-max="40" data-mult="0.1" data-fixed="1"></x-slider></label>
 <x-section>
 <div class="label"><span>Min price:</span><span data-name="range_min_price">---</span></div>
 <div class="label"><span>Recomended initial position:</span><span data-name="range_initial">---</span></div>

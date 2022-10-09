@@ -104,6 +104,8 @@ Strategy Strategy::create_base(std::string_view id, json::Value config) {
         Strategy_DCAMartngale::Config cfg;
         cfg.exponent= config["exponent"].getNumber();
         cfg.initial_step = config["init_step"].getNumber()*0.01;
+        cfg.cutoff = config["cutoff"].getNumber()
+                ;
         return Strategy(new Strategy_DCAMartngale(cfg));
     } else if (id == Strategy_DcaShitcoin::id) {
         Strategy_DcaShitcoin::Config cfg;
