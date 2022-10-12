@@ -477,6 +477,7 @@ void MTrader::perform(bool manually) {
 
                     if (!buyorder.size || !sellorder.size) {
                         flush_partial(status);
+                        update_dynmult(false, false);
                     } else if (buyorder.size - partial_position <= minfo.asset_step) {
                         flush_partial(status);
                         buyorder.size = 0;
@@ -499,6 +500,10 @@ void MTrader::perform(bool manually) {
                 if (achieve_mode) {
                     sellorder.alert = IStrategy::Alert::disabled;
                     buyorder.alert = IStrategy::Alert::disabled;
+                }
+                if (first_cycle) {
+                    sellorder.size = 0;sellorder.alert = IStrategy::Alert::disabled;
+                    buyorder.size = 0;buyorder.alert = IStrategy::Alert::disabled;
                 }
 
                 for (int _i=0;_i<2;_i++) {
@@ -544,9 +549,7 @@ void MTrader::perform(bool manually) {
                     std::swap(buy_alert, sell_alert);
                 }
 
-                if (!recalc && !manually) {
-                    update_dynmult(false,false);
-                }
+               
 
                 //report order errors to UI
                 if (!cfg.hidden) statsvc->reportError(IStatSvc::ErrorObj(buy_order_error, sell_order_error));
@@ -1144,7 +1147,6 @@ void MTrader::loadState() {
 			}
 			if (state["currency_balance"].hasValue()) {currency = state["currency_balance"].getNumber(); currency_valid = true;}
 			json::Value accval = state["account_value"];
-			recalc = state["recalc"].getBool();
 			std::size_t nuid = state["uid"].getUInt();
 			if (nuid) uid = nuid;
 			lastTradeId = state["lastTradeId"];
@@ -1233,7 +1235,6 @@ void MTrader::saveState() {
 			st.set("internal_balance", position);
 		if (currency_valid)
 			st.set("currency_balance", currency);
-		st.set("recalc",recalc);
 		st.set("uid",uid);
 		st.set("lastTradeId",lastTradeId);
 		st.set("lastPriceOffset",lastPriceOffset);
@@ -1400,6 +1401,8 @@ void MTrader::flush_partial(const Status &status) {
         logDebug("(PARTIAL) Trade commit to strategy: price=$1, size=$2, norm_profit=$3", trade_price, trade_size, tstate.normProfit);
         partial_eff_pos = ACB(0,0);
         partial_position = 0;
+    } else {
+        update_dynmult(false, false);
     }
 }
 
