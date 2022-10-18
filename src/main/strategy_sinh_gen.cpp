@@ -503,6 +503,7 @@ IStrategy::OrderData Strategy_Sinh_Gen::getNewOrder(
     double budget_ratio = pile_budget/st.budget;*/
 
     double new_pos = cfg.calc->assets(newk, npw*pwadj/*budget_ratio*/, calc_price);
+    if (new_pos * curpos < 0) new_pos = 0; //force close position, if goes to other side
     double finpos = new_pos + new_offset;
     double f  = limitPosition(finpos);
     bool limited = f != finpos;
