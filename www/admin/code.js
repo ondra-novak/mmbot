@@ -589,7 +589,11 @@ App.prototype.fillForm = function (src, trg) {
 				chart.initRange(yld.concat([[c.x,0]]));
 				chart.drawArea(yld,"yield");
 				chart.drawLines(yld,"yield");
-				chart.initRange(bg.filter(function(x) {return x[1]>=0;}).concat([[c.x,c.h],[c.x,0]]));
+				var maxhld = Math.max.apply(Math,bg.map(function(x){return x[1];}))*2;
+				chart.initRange(bg.filter(
+								function(x) {return x[1]>=0;})
+								.concat([[c.x,Math.min(c.h, maxhld)],[c.x,0]]
+						));
 				chart.drawAxes("axes");
 				chart.drawLines(bg,"budget");			
 				chart.drawLines(hld,"held");	

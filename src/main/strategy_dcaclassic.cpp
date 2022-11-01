@@ -366,7 +366,10 @@ double Strategy_DCA<DCAFunction::lin_volume>::findKFromRatio(const Config &, dou
 
 //z*e^(-z*x)*s/(x*z*e^-z)
 static double martingaleBasicFn(const Strategy_DCA<DCAFunction::martingale>::Config &cfg, double price) {
-    double pos = (cfg.exponent*std::exp(-cfg.exponent*price)*cfg.initial_step)/(price*cfg.exponent*std::exp(-cfg.exponent))*std::exp(-std::pow(price,cfg.cutoff));
+    double pos = (cfg.exponent*std::exp(-cfg.exponent*price)*cfg.initial_step)/(price*cfg.exponent*std::exp(-cfg.exponent));
+    if (price > 1.0) {
+        pos = pos * std::exp(1)/std::exp(std::pow(price,cfg.cutoff));
+    }
     return pos;
 }
 

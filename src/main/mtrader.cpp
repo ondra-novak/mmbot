@@ -1951,13 +1951,11 @@ void MTrader::updateEnterPrice() {
 json::Value MTrader::getOHLC(std::uint64_t interval) const {
     json::Array out;
     interval *= 60000; //60milliseconds
-    std::uint64_t tm = 0;
-    std::uint64_t lasttm = 0;
+    std::uint64_t tm = 0;    
     double last = 0;
     double ohlc[4];
 
-    for (const auto &item : chart) {
-        lasttm = item.time;
+    for (const auto &item : chart) {        
         double v = item.last;
         if (minfo.invert_price) v = 1.0/v;
         std::size_t x = static_cast<std::size_t>(item.time/interval);
