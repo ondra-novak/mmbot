@@ -87,7 +87,7 @@ public:
 
 	static std::string_view id;
 		
-	void adjust_state(State &nst, double tradePrice, double tradeSize, double prevPos) const;
+	void adjust_state(State &nst, double tradePrice, double tradeSize, double prevPos, double minstep) const;
 
 protected:
 	Config cfg;

@@ -525,20 +525,32 @@ double Strategy_Sinh_Gen::limitPosition(double pos) const {
 }
 
 IStrategy::MinMax Strategy_Sinh_Gen::calcSafeRange(
-		const IStockApi::MarketInfo &minfo, double ,
+		const IStockApi::MarketInfo &minfo, double assets,
 		double currencies) const {
 
-	double b = currencies;
-	MinMax ret;
-	ret.min = numeric_search_r1(st.k, [&](double x){
-		return cfg.calc->budget(st.k, pw, x)+b;
-	});
-	if (ret.min < 1e-100) ret.min = 0;
-	ret.max = numeric_search_r2(st.k, [&](double x){
-		return cfg.calc->budget(st.k, pw, x)+b;
-	});
-	if (ret.max > 1e100) ret.max = std::numeric_limits<double>::infinity();
-	return ret;
+    if (minfo.leverage) {
+        double b = currencies;
+        MinMax ret;
+        ret.min = numeric_search_r1(st.k, [&](double x){
+            return cfg.calc->budget(st.k, pw, x)+b;
+        });
+        if (ret.min < 1e-100) ret.min = 0;
+        ret.max = numeric_search_r2(st.k, [&](double x){
+            return cfg.calc->budget(st.k, pw, x)+b;
+        });
+        if (ret.max > 1e100) ret.max = std::numeric_limits<double>::infinity();
+        return ret;
+    } else {
+        MinMax ret;
+        ret.max = numeric_search_r2(st.k, [&](double x){
+           return cfg.calc->assets(st.k, pw, x)  + st.offset;
+        });
+        ret.min = numeric_search_r1(st.k, [&](double x){
+           return cfg.calc->budget(st.k, pw, x) - 
+                   x*(cfg.calc->assets(st.k, pw, x) + st.offset) + st.budget;
+        });
+        return ret;
+    }
 }
 
 double Strategy_Sinh_Gen::getEquilibrium(double assets) const {

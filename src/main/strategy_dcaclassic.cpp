@@ -60,7 +60,7 @@ std::pair<IStrategy::OnTradeResult, PStrategy> Strategy_DCA<fn>::onTrade(
 
     State nst = st;    
     double prevPos = assetsLeft - tradeSize;    
-    adjust_state(nst, tradePrice, tradeSize, prevPos);
+    adjust_state(nst, tradePrice, tradeSize, prevPos, minfo.calcMinSize(tradePrice));
     
     nst.p = tradePrice;
     double pnl = prevPos * (nst.p - st.p);
@@ -74,7 +74,7 @@ std::pair<IStrategy::OnTradeResult, PStrategy> Strategy_DCA<fn>::onTrade(
 }
 
 template<DCAFunction fn>
-void Strategy_DCA<fn>::adjust_state(State &nst, double tradePrice, double tradeSize, double prevPos) const {
+void Strategy_DCA<fn>::adjust_state(State &nst, double tradePrice, double tradeSize, double prevPos, double) const {
     if (tradePrice > nst.k) {
         nst.k = tradePrice;        
     }
@@ -291,7 +291,7 @@ double Strategy_DCA<DCAFunction::lin_value>::calcCurInv(const Config &cfg, doubl
 }
 
 template<>
-void Strategy_DCA<DCAFunction::lin_value>::adjust_state(State &nst, double tradePrice, double tradeSize, double prevPos) const {
+void Strategy_DCA<DCAFunction::lin_value>::adjust_state(State &nst, double tradePrice, double tradeSize, double prevPos, double) const {
     if (tradePrice > nst.k) {
         nst.k = tradePrice;        
     }
@@ -437,10 +437,26 @@ double Strategy_DCA<DCAFunction::martingale>::calcInitialPosition(const IStockAp
 
 
 template<>
-void Strategy_DCA<DCAFunction::martingale>::adjust_state(State &nst, double tradePrice, double tradeSize, double prevPos) const {
+void Strategy_DCA<DCAFunction::martingale>::adjust_state(State &nst, double tradePrice, double tradeSize, double prevPos, double minstep) const {
     if (tradePrice>nst.k) {
-        if (tradePrice < nst.p) nst.k = tradePrice;
-        return;    
+        double newpos;
+        if (tradeSize == 0) {
+            newpos = minstep;
+        } else {
+            double prevPrice = nst.p;
+            double pnl = (tradePrice-prevPrice)*prevPos;
+            double oldb = calcBudget(cfg, nst.k, nst.w, prevPrice);
+            double budget = calcBudget(cfg, nst.k, nst.w, tradePrice);
+            double eq = oldb+pnl;
+            double extra = eq- budget;
+            newpos = calcPos(cfg, nst.k, nst.w, tradePrice) + extra/tradePrice;
+        }
+        double k = numeric_search_r2(nst.k/2, [&](double k){
+            return calcPos(cfg, k, nst.w, tradePrice) - newpos; 
+        });    
+        if (k > nst.k * 2) k = nst.k;
+        nst.k = std::max(nst.k,k);
+        return;
     } else {
         if (tradeSize == 0 && tradePrice < nst.p) {
             if (nst.hlp == 0) nst.hlp = tradePrice; 
