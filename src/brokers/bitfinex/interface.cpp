@@ -44,7 +44,7 @@ Interface::Interface(const std::string &secure_storage_path)
 			"https://api.bitfinex.com"),
 	orderDB(secure_storage_path+".db")
 {
-	nonce = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now())*10;
+	nonce = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count()/100;
 	order_nonce = nonce & 0xFFFFFFF;
 }
 
