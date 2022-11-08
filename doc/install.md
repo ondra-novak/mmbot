@@ -265,7 +265,7 @@ Then you have to wait. Process of adding new IP takes a quite long time (12 - 24
 
 Installing certbot on your server as root:
 ```
-apt install python-certbot-nginx
+apt install python3-certbot-nginx
 ```
 
 Add your domain to nginx:
