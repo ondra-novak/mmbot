@@ -360,12 +360,14 @@ void MTrader::perform(bool manually) {
                 lastTradePrice=sell_alert->price;
                 update_dynmult(false,true);
                 sell_alert.reset();
+                trade_now_mode = false;
             }
             if (buy_alert.has_value() && status.ticker.last <= buy_alert->price) {
                 alertTrigger(status, buy_alert->price,1,buy_alert->reason);
                 lastTradePrice=buy_alert->price;
                 update_dynmult(true,false);
                 buy_alert.reset();
+                trade_now_mode = false;
             }
         }
 
@@ -440,6 +442,7 @@ void MTrader::perform(bool manually) {
                     }
 
 
+                    if (trade_now_mode) hspread = lspread = 0;
 
 
                     hspread = std::max(hspread,1e-10); //spread can't be zero, so put there small number
@@ -604,6 +607,7 @@ void MTrader::perform(bool manually) {
 				last_trade_dir,
 				achieve_mode,
 				cfg.enabled,
+				trade_now_mode,
 				eq,
 				status.curStep*0.5*(cfg.buy_step_mult+cfg.sell_step_mult),
 				dynmult.getBuyMult(),
@@ -689,7 +693,7 @@ void MTrader::perform(bool manually) {
 			error.append(e.what());
 			statsvc->reportError(IStatSvc::ErrorObj(error.c_str()));
 			statsvc->reportMisc(IStatSvc::MiscData{
-				0,false,cfg.enabled,0,0,dynmult.getBuyMult(),dynmult.getSellMult(),0,0,0,0,accumulated,0,
+				0,false,cfg.enabled,trade_now_mode,0,0,dynmult.getBuyMult(),dynmult.getSellMult(),0,0,0,0,accumulated,0,
 				trades.size(),trades.empty()?0UL:(trades.back().time-trades[0].time),lastTradePrice,position,
 						0,0,acb_state.getOpen(),acb_state.getRPnL(),acb_state.getUPnL(lastTradePrice)
 			},true);
@@ -1154,6 +1158,7 @@ void MTrader::loadState() {
 			lastTradePrice = state["lastTradePrice"].getNumber();
 			frozen_spread_side = state["frozen_side"].getInt();
 			frozen_spread = state["frozen_spread"].getNumber();
+			trade_now_mode = state["trade_now_mode"].getBool();
 
 			bool cfg_sliding = state["cfg_sliding_spread"].getBool();
 			if (cfg_sliding != cfg.dynmult_sliding)
@@ -1244,6 +1249,7 @@ void MTrader::saveState() {
 		st.set("accumulated",accumulated);
 		st.set("frozen_side", frozen_spread_side);
 		st.set("frozen_spread", frozen_spread);
+		st.set("trade_now_mode", trade_now_mode);
 		if (achieve_mode) st.set("achieve_mode", achieve_mode);
 		if (need_initial_reset) st.set("need_initial_reset", need_initial_reset);
 		st.set("adj_wait",adj_wait);
@@ -1401,6 +1407,7 @@ void MTrader::flush_partial(const Status &status) {
         logDebug("(PARTIAL) Trade commit to strategy: price=$1, size=$2, norm_profit=$3", trade_price, trade_size, tstate.normProfit);
         partial_eff_pos = ACB(0,0);
         partial_position = 0;
+        trade_now_mode = false;
     } else {
         update_dynmult(false, false);
     }

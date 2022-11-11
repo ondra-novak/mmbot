@@ -15,6 +15,7 @@ var source_data=null;
 var drawChart=null;
 var svcreg = Promise.resolve(null);
 var notifyTradesFn = null;
+var is_admin = null;
 
 function fetch_ohlc(stats, symbol, interval) {
     if (!stats.ohlc[symbol] || stats.ohlc[symbol].interval != interval) {
@@ -109,7 +110,9 @@ function app_start(){
 			if (typeof value == "number") {
 				value = adjNum(value, x.dataset.decimals);
 			}
-			x.innerText = value;
+			if (typeof value == "string") {
+				x.innerText = value;
+			}
 			if (classes) for (var k in classes) {
 				x.classList.toggle(k, classes[k]);
 			}
@@ -514,8 +517,35 @@ function app_start(){
 				for (var n in misc)
 					setField(curchart, n, misc[n], {
 						pos:misc[n]>0,
-						neg:misc[n]<0
+						neg:misc[n]<0,
 					});
+				
+                if (is_admin === null) {
+                    is_admin = fetch("api/user").then(x=>x.json())
+                    .then(u=>{
+                        return u.admin;
+                    })
+                }
+                is_admin.then(a=>{
+                    let x = curchart.querySelector("[data-name=tradenow]");
+                    if (x) {
+                        x.classList.toggle("disabled", !a);
+                        x.classList.toggle("active", a && misc.tn);
+                        x.onclick = function() {
+                            var activate = !this.classList.contains("active");
+                            var me = this;
+                            fetch("api/admin/traders/"+encodeURIComponent(id.substr(1))+"/trade_now",{
+                                method:"POST",
+                                body:activate?"true":"false"
+                            }).then(x=>x.json())
+                            .then(x=>{
+								misc.tn = activate;
+                                me.classList.toggle("active", activate);
+                            });                            
+                        };
+                    }
+                });                    
+				
 			}
 			var ext =curchart.getElementsByClassName("extended")[0];
 			ext.hidden = !extra;
@@ -940,8 +970,11 @@ function app_start(){
             setIndikator(-1,"Connection lost - reconnecting");
             fetch("api/user")
                     .then(function(req){return req.json()})
-                    .then(function(x){
+                    .then(function(x){                    
                     	if (!x.viewer) location.href="api/login?redir="+encodeURIComponent(location.href);
+                    	else {
+                            is_admin = Promise.resolve(x.admin);
+                        }
                     });
             updateFromSSE(null);
             initSSE.handle.close();

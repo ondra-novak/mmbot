@@ -269,6 +269,10 @@ public:
 
 	static PStockApi selectStock(IStockSelector &stock_selector, std::string_view broker_name, SwapMode swap_mode, int emulate_leverage, bool paper_trading);
 	json::Value getOHLC(std::uint64_t interval) const;
+	
+	void set_trade_now(bool t) {
+	    trade_now_mode = t;	   
+	}
 
 protected:
 
@@ -284,6 +288,7 @@ protected:
 	bool recalc = true;
 	bool first_cycle = true;
 	bool achieve_mode = false;
+	bool trade_now_mode = false;
 	bool need_initial_reset = true;
 	unsigned int adj_wait = 0;
 	double adj_wait_price = 0;

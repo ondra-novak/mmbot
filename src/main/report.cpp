@@ -483,6 +483,7 @@ void Report::setMisc(std::size_t rev, StrViewA symb, const MiscData &miscData, b
 		{"mt",miscData.total_trades},
 		{"tt",miscData.total_time},
 		{"bt",miscData.budget_total},
+		{"tn",miscData.trade_now},
 		{"a",miscData.achieve_mode},
 		{"accum",miscData.accumulated},
 		{"ba",miscData.budget_assets},

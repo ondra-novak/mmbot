@@ -1395,3 +1395,33 @@ body.daymode .ohlc.bear {fill: #64212d;stroke: #64212d;}
 	text-decoration:none;
 	
 }
+.tradenow {
+	text-align: right;
+}
+.tradenow div {
+    display: inline-block;	
+    border: 1px solid #444;
+    color: yellow;
+    cursor: pointer;
+	padding: 0 5px;
+}
+
+.tradenow div:hover {
+	background-color: #888;
+}
+@keyframes tradenow {
+	0%{color:white;background-color:black;}
+	49.9%{color:white;background-color:black;}
+	50%{background-color:white;color:black;}
+	100%{background-color:white;color:black;}
+}
+
+.tradenow div.active {
+    	animation: tradenow 1s infinite;
+}
+
+.tradenow div.disabled {
+        display: none;
+}
+
+

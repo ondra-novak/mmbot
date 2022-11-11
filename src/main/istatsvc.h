@@ -34,6 +34,7 @@ public:
 		int trade_dir;
 		bool achieve_mode;
 		bool enabled;
+		bool trade_now;
 		double calc_price;
 		double spread;
 		double dynmult_buy;

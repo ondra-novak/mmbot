@@ -673,7 +673,7 @@ bool WebCfg::reqTraders(simpleServer::HTTPRequest req, ondra_shared::StrViewA vp
 					req.sendResponse(std::move(hdr), "true");
 				} else {
 					req.sendResponse(std::move(hdr),
-						Value(Object({{"entries",{"stop","clear_stats","reset","broker","trading","strategy"}}})).stringify().str());
+						Value(Object({{"entries",{"stop","clear_stats","reset","broker","trading","strategy","trade_now"}}})).stringify().str());
 				}
 			} else {
 				auto trl = tr.lock();
@@ -695,6 +695,16 @@ bool WebCfg::reqTraders(simpleServer::HTTPRequest req, ondra_shared::StrViewA vp
 						return true;
 					}
 					req.sendResponse(std::move(hdr), "true");
+				} else if (cmd == "trade_now") {
+                    Stream s = req.getBodyStream();
+                    Value v = Value::parse(s);
+                    if (v.type() == json::boolean) {
+                        trl->set_trade_now(v.getBool());
+                        req.sendResponse(std::move(hdr), "true");
+                    } else {
+                        req.sendErrorPage(400,"","Expected boolean");
+                    }
+				    
 				} else if (cmd == "stop") {
 					if (!req.allowMethods({"POST"})) return true;
 					trl->stop();
