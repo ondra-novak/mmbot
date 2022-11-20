@@ -1,9 +1,7 @@
 cmake_minimum_required(VERSION 3.1) 
-add_compile_options(-std=c++17)
-file(GLOB main_SRC "*.cpp" )
-file(GLOB main_HDR "*.h" "*.tcc")
+
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin/brokers/)
 
-add_executable (coinbase main.cpp )
+add_executable (coinbase coinbase_advanced.cpp )
 target_link_libraries (coinbase LINK_PUBLIC brokers_common simpleServer imtjson)
