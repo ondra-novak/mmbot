@@ -580,10 +580,7 @@ double Strategy_Sinh_Gen::calcInitialPosition(
 }
 
 IStrategy::BudgetInfo Strategy_Sinh_Gen::getBudgetInfo() const {
-	return {
-		cfg.calc->budget(st.k, pw, st.p)+st.budget,
-		cfg.calc->assets(st.k, pw, st.p)
-	};
+	return {st.budget,0};
 }
 
 double Strategy_Sinh_Gen::calcCurrencyAllocation(double p, bool leveraged) const {
