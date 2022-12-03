@@ -90,6 +90,9 @@ IStockApi::MarketInfo AbstractPaperTrading::getMarketInfo(const std::string_view
 	TradeState &st = getState(pair);
 
 	auto newminfo = st.source->getMarketInfo(st.src_pair);
+	if (st.fee_override.has_value()) {
+	    newminfo.fees = *st.fee_override;
+	}
 	if (newminfo.leverage && !st.minfo.leverage) {
 		st.ticker = st.source->getTicker(pair);
 		auto b = st.source->getBalance(newminfo.asset_symbol, st.src_pair);

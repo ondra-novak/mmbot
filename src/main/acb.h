@@ -7,6 +7,7 @@
 
 #ifndef SRC_MAIN_ACB_H_
 #define SRC_MAIN_ACB_H_
+#include <cstdlib>
 
 ///Calculates UPnL and RPnL based on trades
 /**

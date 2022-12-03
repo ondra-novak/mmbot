@@ -39,6 +39,7 @@ protected: //To override
 	struct TradeState {
 		PStockApi source;
 		MarketInfo minfo;
+		std::optional<double> fee_override;
 		Orders openOrders;
 		TradeHistory trades;
 		Ticker ticker;
