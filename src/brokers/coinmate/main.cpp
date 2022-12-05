@@ -5,6 +5,7 @@
  *      Author: ondra
  */
 #include <iostream>
+#include <sstream>
 #include <unordered_map>
 
 #include <rpc/rpcServer.h>
@@ -73,6 +74,7 @@ public:
 		std::chrono::system_clock::time_point expiration;
 	};
 
+	
 	ondra_shared::linear_map<String, FeeInfo> feeMap;
 
 	virtual bool areMinuteDataAvailable(const std::string_view &asset, const std::string_view &currency) override;
@@ -212,6 +214,13 @@ Interface::TradesSync Interface::syncTrades(json::Value lastId, const std::strin
 static const char *place[] = {"sellLimit","buyLimit"};
 //static const char *replace[] = {"replaceBySellLimit","replaceByBuyLimit"};
 
+static Value number_to_decimal(double v, unsigned int precision) {
+    std::ostringstream buff;
+    buff.precision(precision);
+    buff << std::fixed << v;
+    return buff.str();
+}
+
 
 json::Value Interface::placeOrder(const std::string_view & pair,
 		double size,
@@ -243,9 +252,22 @@ json::Value Interface::placeOrder(const std::string_view & pair,
 		return null;
 	}
 
+	if (!all_pairs.defined()) {
+	    getAllPairs();
+	}
+	
+    auto iter = std::find_if(all_pairs.begin(), all_pairs.end(), [&](Value v) {
+        return v["name"].getString() == pair;
+    });
+    if (iter == all_pairs.end()) throw std::runtime_error("Pair not found");
+    Value pinfo(*iter);
+    int price_precs = pinfo["priceDecimals"].getInt();
+    int amount_precs = pinfo["lotDecimals"].getInt();
+	
+	
 	json::Value args(json::object,{
-		json::Value("amount", amount),
-		json::Value("price", price),
+		json::Value("amount", number_to_decimal(amount, amount_precs)),
+		json::Value("price", number_to_decimal(price, price_precs)),
 		json::Value("currencyPair", pair),
 		json::Value("clientOrderId",clientId)
 	});
