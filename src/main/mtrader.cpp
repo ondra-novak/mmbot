@@ -326,8 +326,8 @@ void MTrader::perform(bool manually) {
 			lastTradePrice = !trades.empty()?trades.back().eff_price:strategy.isValid()?strategy.getEquilibrium(status.assetBalance):status.curPrice;
 			if (!std::isfinite(lastTradePrice)) lastTradePrice = status.curPrice;		}
 
-
-		if (cfg.max_size != 0) need_alerts = true;
+//let's try this to relax
+//		if (cfg.max_size != 0) need_alerts = true; 
 		double centerPrice = need_alerts?lastTradePrice:strategy.getCenterPrice(lastTradePrice, strategy_position);
 
 		if (cfg.dynmult_sliding) {
