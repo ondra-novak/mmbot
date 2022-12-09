@@ -89,16 +89,12 @@ IStockApi::MarketInfo AbstractPaperTrading::getMarketInfo(const std::string_view
 	std::lock_guard _(lock);
 	TradeState &st = getState(pair);
 
-	auto newminfo = st.source->getMarketInfo(st.src_pair);
-	if (st.fee_override.has_value()) {
-	    newminfo.fees = *st.fee_override;
-	}
+	auto newminfo = fetchMarketInfo(st);
 	if (newminfo.leverage && !st.minfo.leverage) {
 		st.ticker = st.source->getTicker(pair);
 		auto b = st.source->getBalance(newminfo.asset_symbol, st.src_pair);
 		st.collateral = ACB(st.ticker.last, b, 0);
 	}
-	newminfo.simulator = true;
 	st.minfo = std::move(newminfo);
 	return st.minfo;
 }
@@ -513,4 +509,13 @@ json::Value PaperTrading::saveState(const AbstractPaperTrading::TradeState &st) 
 		{st.minfo.asset_symbol, asset_valid?json::Value(asset):json::Value()},
 		{st.minfo.currency_symbol, currency_valid?json::Value(currency):json::Value()}
 	};
+}
+
+IStockApi::MarketInfo AbstractPaperTrading::fetchMarketInfo(const TradeState &st) {
+    auto x = st.source->getMarketInfo(st.src_pair);
+    if (st.fee_override.has_value()) {
+        x.fees = *st.fee_override;
+    }
+    x.simulator = true;
+    return x;
 }
