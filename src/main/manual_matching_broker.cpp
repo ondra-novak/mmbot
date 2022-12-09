@@ -240,7 +240,14 @@ json::Value ManualMatchingBroker::getSettings(const std::string_view &pairHint) 
             {"showif",is_trade},
         },
         Object {
-            {"label","Advised size"},{"type","number"},{"default",advised_size?Value(advised_size):Value()},{"name","trade_size"},
+            {"label","Advised size in "+st.minfo.asset_symbol},{"type","number"},{"default",advised_size?Value(advised_size):Value()},{"name","trade_size"},
+            {"attrs",Object{
+                {"readonly","readonly"}
+            }},
+            {"showif",is_trade}
+        },
+        Object {
+            {"label","Advised size in "+st.minfo.currency_symbol},{"type","number"},{"default",advised_size?Value(-advised_size*advised_price):Value()},{"name","trade_size"},
             {"attrs",Object{
                 {"readonly","readonly"}
             }},
@@ -272,6 +279,11 @@ json::Value ManualMatchingBroker::getSettings(const std::string_view &pairHint) 
             {"type","rotext"},
             {"label",""},
             {"default","Specify expected fees for further trades"}
+        },
+        Object{
+            {"type","rotext"},
+            {"label",""},
+            {"default","(this option requires to press APPLY SETTINGS)"}
         }
     };
 }
