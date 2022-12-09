@@ -18,6 +18,7 @@
 
 #include "ext_stockapi.h"
 
+#include "manual_matching_broker.h"
 using ondra_shared::Countdown;
 using ondra_shared::logError;
 NamedMTrader::NamedMTrader(IStockSelector &sel, StoragePtr &&storage, PStatSvc statsvc, const WalletCfg &wcfg, Config cfg, std::string &&name)
@@ -58,6 +59,8 @@ void StockSelector::loadBrokers(const ondra_shared::IniConfig::Section &ini, boo
 void StockSelector::appendSimulator() {
 	PStockApi sim = std::make_shared<Simulator>(this);
 	stock_markets.emplace(dynamic_cast<IBrokerControl *>(sim.get())->getBrokerInfo().name, sim);
+    PStockApi man = std::make_shared<ManualMatchingBroker>(this);
+    stock_markets.emplace(dynamic_cast<IBrokerControl *>(man.get())->getBrokerInfo().name, man);
 }
 
 bool StockSelector::checkBrokerSubaccount(const std::string &name) {

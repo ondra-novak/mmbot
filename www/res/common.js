@@ -466,12 +466,30 @@ function formBuilder(format) {
 		case "label":
 			return {
 				tag:"p",
+				text:itm.label,
+				attrs: {
+					style: "text-align: justify; margin: 1em 2em",					
+				}
+			};
+		case "rotext":
+			el ={tag:"span",
+				 text:itm.default || "",
+				 attrs:{},
+			};break;
+		case "hr":
+			return {
+				tag:"hr",
+			};
+		case "header":
+			return {
+				tag:"h3",
 				text:itm.label
 			};
 		default:
 			el = {tag:"span",text:"unknown: "+itm.type};
 			break;
 		}
+		if (el.attrs && itm.attrs) Object.assign(el.attrs, itm.attrs);
 		if (el.attrs && itm.name) el.attrs["data-name"]=itm.name;
 		return {
 			tag:"label",

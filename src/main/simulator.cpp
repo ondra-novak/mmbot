@@ -96,11 +96,15 @@ json::Value Simulator::getSettings(const std::string_view &pairHint) const {
 
 	for (int i = 0; i < 2; i++) {
 		const Wallet &w = wallet[i];
-		out.push_back(json::Object{
-			{"label",i?"Futures wallet":"Spot wallet"},
-			{"type","label"}
-		});
+		bool puthdr = true;
 		for (const auto &x: w) {
+		    if (puthdr) {
+		        out.push_back(json::Object{
+		            {"label",i?"Futures wallet":"Spot wallet"},
+		            {"type","header"}
+		        });
+		        puthdr = false;
+		    }
 			out.push_back(json::Object{
 				{"name",json::String({i?"f":"s",x.first})},
 				{"label",x.first},
@@ -111,7 +115,7 @@ json::Value Simulator::getSettings(const std::string_view &pairHint) const {
 	}
 	out.push_back(json::Object{
 	    {"label","Fee control"},
-	    {"type","label"}
+	    {"type","header"}
 	});
     out.push_back(json::Object{
         {"label","Fee control"},
@@ -303,7 +307,7 @@ json::Value Simulator::setSettings(json::Value v) {
 	if (custom_fee) {
 	    _custom_fees[pair] = fee;
 	    if (siter == state.end()) {
-	        siter->second.fee_override = fee;
+	        siter->second.fee_override = fee*0.01;
 	    }
 	}
 	else {
@@ -312,6 +316,10 @@ json::Value Simulator::setSettings(json::Value v) {
             siter->second.fee_override = {};
         }
 	}
+	return generateSettings();
+}
+	
+json::Value Simulator::generateSettings() {
 	return json::Object({
 	    {"custom_fees",json::Value(json::object,
 	            _custom_fees.begin(),_custom_fees.end(),[&](const auto &x){
@@ -443,19 +451,19 @@ AbstractPaperTrading::TradeState& Simulator::getState(const std::string_view &sy
 	    
 		SourceInfo ps = parseSymbol(symbol);
 		TradeState ts;
+        ts.source = ps.exchange;
 		ts.pair = symbol;
 		ts.src_pair = ps.pair;
-		ts.minfo = ps.exchange->getMarketInfo(ps.pair);
+        ts.needLoadWallet = true;
 		if (cfiter != _custom_fees.end()) {
 		    ts.fee_override = cfiter->second*0.01;
 		}
+        ts.minfo = fetchMarketInfo(ts);
 		if (ts.minfo.leverage) {
 			ts.minfo.wallet_id="futures";
 		} else {
 			ts.minfo.wallet_id="spot";
 		}
-		ts.needLoadWallet = true;
-		ts.source = ps.exchange;
 		ts.ticker = ps.exchange->getTicker(ps.pair);
 		Wallet &w = wallet[chooseWallet(ts.minfo)];
 		if (w.find(ts.minfo.currency_symbol) == w.end()) {
