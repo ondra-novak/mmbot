@@ -307,7 +307,7 @@ json::Value Simulator::setSettings(json::Value v) {
 	if (custom_fee) {
 	    _custom_fees[pair] = fee;
 	    if (siter == state.end()) {
-	        siter->second.fee_override = fee;
+	        siter->second.fee_override = fee*0.01;
 	    }
 	}
 	else {
@@ -316,6 +316,10 @@ json::Value Simulator::setSettings(json::Value v) {
             siter->second.fee_override = {};
         }
 	}
+	return generateSettings();
+}
+	
+json::Value Simulator::generateSettings() {
 	return json::Object({
 	    {"custom_fees",json::Value(json::object,
 	            _custom_fees.begin(),_custom_fees.end(),[&](const auto &x){

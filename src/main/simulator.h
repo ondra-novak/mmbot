@@ -82,6 +82,8 @@ protected:
 	SourceInfo parseSymbol(const std::string_view &symbol);
 
 	PStockApi findSuitableHistoryBroker(const std::string_view &asset, const std::string_view &currency);
+
+	json::Value generateSettings();
 };
 
 

@@ -3,6 +3,7 @@
 #include <imtjson/object.h>
 #include <imtjson/array.h>
 
+#include <cmath>
 
 IBrokerControl::BrokerInfo ManualMatchingBroker::getBrokerInfo() {
     
@@ -140,9 +141,6 @@ json::Value ManualMatchingBroker::getApiKeyFields() const {
     };
 }
 
-json::Value ManualMatchingBroker::setSettings(json::Value v) {
-    return Simulator::setSettings(v);
-}
 
 void ManualMatchingBroker::simulate(AbstractPaperTrading::TradeState &st) {
     st.ticker = st.source->getTicker(st.src_pair);
@@ -159,7 +157,7 @@ json::Value ManualMatchingBroker::placeOrder(const std::string_view &pair,
     
     if (replaceId.hasValue()) {
         auto iter = std::find_if(st.openOrders.begin(), st.openOrders.end(), [&](const Order &ord){
-            return (ord.id == replaceId);
+            return (ord.id == replaceId && (ord.price - st.ticker.last)*ord.size >= 0);
         });
         marked = iter != st.openOrders.end();
     }
@@ -179,13 +177,15 @@ IStockApi::MarketInfo ManualMatchingBroker::fetchMarketInfo(const AbstractPaperT
     r.simulator = false;
     r.leverage = 0;
     r.feeScheme = FeeScheme::currency;
+    std::shared_ptr<int> x;
     return r;
 }
 
 json::Value ManualMatchingBroker::getSettings(const std::string_view &pairHint) const {
+    using namespace json;
+
     std::lock_guard _(lock);
     const AbstractPaperTrading::TradeState &st =  const_cast<ManualMatchingBroker *>(this)->getState(pairHint);
-    using namespace json;
     double asset = 0;
     double currency = 0;
     auto iter = wallet[wallet_spot].find(st.minfo.asset_symbol);
@@ -266,7 +266,7 @@ json::Value ManualMatchingBroker::getSettings(const std::string_view &pairHint) 
             {"label","Expected fees [%]"},
             {"type","number"},
             {"name","_customfee"},
-            {"default",st.fee_override.has_value()?Value(*st.fee_override):Value()}        
+            {"default",st.fee_override.has_value()?Value(*st.fee_override*100):Value()}        
         },
         Object{
             {"type","rotext"},
@@ -274,6 +274,78 @@ json::Value ManualMatchingBroker::getSettings(const std::string_view &pairHint) 
             {"default","Specify expected fees for further trades"}
         }
     };
-    
-    
 }
+
+json::Value ManualMatchingBroker::setSettings(json::Value v) {
+    std::lock_guard _(lock);
+    std::string pair = v["pair"].getString();
+    AbstractPaperTrading::TradeState &st =  this->getState(pair);
+    double asset = v["asset"].getNumber();
+    double currency = v["currency"].getNumber();
+    wallet[wallet_spot][st.minfo.asset_symbol] = {asset,true};
+    wallet[wallet_spot][st.minfo.currency_symbol] = {currency,true};
+    json::Value fee = v["_customfee"];
+    double dfee = 0.0;
+    if (fee.hasValue()) {
+        _custom_fees[pair] = fee.getNumber();
+        st.fee_override = fee.getNumber()*0.01;
+        dfee = *st.fee_override;
+    } else {
+        _custom_fees.erase(pair);
+        st.fee_override.reset();
+        dfee = st.minfo.fees;
+    }
+    
+    if (v["report_en"].getString() == "yes") {
+        json::Value jtp = v["trade_price"];
+        json::Value jfc = v["final_currency"];
+        json::Value jfa = v["final_asset"];
+        if (!jtp.hasValue()  || !jfc.hasValue() || !jfa.hasValue()) {
+            throw std::runtime_error("No trade were recorder, you need to fill all fields");
+        }
+        double trade_price = jtp.getNumber();
+        double final_currenct = jfc.getNumber();
+        double final_asset = jfa.getNumber();
+
+        if (!std::isfinite(trade_price) || trade_price <= 0) {
+            throw std::runtime_error("Invalid value entered for Execution price");
+        }
+
+        double difference = final_asset - asset;
+        if (difference == 0) {
+            throw std::runtime_error("Nothing traded");
+        }
+        
+        double value =currency-final_currenct;
+        double calc_price = value/difference;
+        if (!std::isfinite(calc_price) || calc_price<=0) {
+            throw std::runtime_error("Invalid values for the trade. Calculated Execution price is : " + std::to_string(calc_price));
+        }
+        
+        double pdist = std::abs(calc_price - trade_price);
+        double calcfee = pdist / trade_price;
+        
+        if (calcfee > 2*dfee) {
+            throw std::runtime_error("Trade was not recorded: "
+                    "Calculated fee is too high. "
+                    "Check entered values or update 'Expected fees' accordingly. "
+                    "Calculated fee is "+std::to_string(calcfee*100)+" %");
+        }
+        std::uint64_t time = std::chrono::duration_cast<std::chrono::milliseconds>(
+                std::chrono::system_clock::now().time_since_epoch()).count();
+        Trade tr{
+            time,
+            time,
+            difference,
+            trade_price,
+            difference,
+            calc_price
+        };
+        st.trades.push_back(tr);
+        processTrade(st, tr);
+        _ready_orders.erase(pair);
+    }
+    
+    return generateSettings();
+}
+
