@@ -154,10 +154,14 @@ json::Value ManualMatchingBroker::placeOrder(const std::string_view &pair,
 
     AbstractPaperTrading::TradeState &st = getState(pair);
     bool marked = false;
+        
     
     if (replaceId.hasValue()) {
+        double min_c = st.ticker.bid * std::exp(-st.minfo.fees*0.5);
+        double max_c = st.ticker.ask * std::exp(+st.minfo.fees*0.5);
+
         auto iter = std::find_if(st.openOrders.begin(), st.openOrders.end(), [&](const Order &ord){
-            return (ord.id == replaceId && (ord.price - st.ticker.last)*ord.size >= 0);
+            return (ord.id == replaceId && ((ord.price - min_c)*ord.size >= 0 || (ord.price - max_c)*ord.size >= 0));
         });
         marked = iter != st.openOrders.end();
     }
@@ -233,11 +237,14 @@ json::Value ManualMatchingBroker::getSettings(const std::string_view &pairHint) 
             }
         },
         Object {
-            {"label","Execution price (you can modify)"},
+            {"label","Advised price"},
             {"type","number"},
             {"default",advised_price},
             {"name","trade_price"},
             {"showif",is_trade},
+            {"attrs",Object{
+                {"readonly","readonly"}
+            }},
         },
         Object {
             {"label","Advised size in "+st.minfo.asset_symbol},{"type","number"},{"default",advised_size?Value(advised_size):Value()},{"name","trade_size"},
@@ -309,24 +316,31 @@ json::Value ManualMatchingBroker::setSettings(json::Value v) {
     }
     
     if (v["report_en"].getString() == "yes") {
-        json::Value jtp = v["trade_price"];
+        
         json::Value jfc = v["final_currency"];
         json::Value jfa = v["final_asset"];
-        if (!jtp.hasValue()  || !jfc.hasValue() || !jfa.hasValue()) {
+        if (!jfc.hasValue() || !jfa.hasValue()) {
             throw std::runtime_error("No trade were recorder, you need to fill all fields");
         }
-        double trade_price = jtp.getNumber();
         double final_currenct = jfc.getNumber();
         double final_asset = jfa.getNumber();
-
-        if (!std::isfinite(trade_price) || trade_price <= 0) {
-            throw std::runtime_error("Invalid value entered for Execution price");
-        }
 
         double difference = final_asset - asset;
         if (difference == 0) {
             throw std::runtime_error("Nothing traded");
         }
+        
+        auto orditer = std::min_element(st.openOrders.begin(), st.openOrders.end(), [&](
+                const Order &a, const Order &b
+        ){
+           return a.size - difference < b.size - difference ;
+        });
+        if (orditer == st.openOrders.end() || orditer->size * difference < 0 ) { 
+            throw std::runtime_error("No matching order found");
+        }
+        
+        double order_price = orditer->price;
+        double order_size = orditer->size;
         
         double value =currency-final_currenct;
         double calc_price = value/difference;
@@ -334,8 +348,8 @@ json::Value ManualMatchingBroker::setSettings(json::Value v) {
             throw std::runtime_error("Invalid values for the trade. Calculated Execution price is : " + std::to_string(calc_price));
         }
         
-        double pdist = std::abs(calc_price - trade_price);
-        double calcfee = pdist / trade_price;
+        double pdist = std::abs(calc_price - order_price);
+        double calcfee = pdist / order_price;
         
         if (calcfee > 2*dfee) {
             throw std::runtime_error("Trade was not recorded: "
@@ -348,8 +362,8 @@ json::Value ManualMatchingBroker::setSettings(json::Value v) {
         Trade tr{
             time,
             time,
-            difference,
-            trade_price,
+            order_size,
+            order_price,
             difference,
             calc_price
         };
