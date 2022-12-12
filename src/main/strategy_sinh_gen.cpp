@@ -329,10 +329,11 @@ std::pair<IStrategy::OnTradeResult, PStrategy> Strategy_Sinh_Gen::onTrade(
 	npos = limitPosition(npos+new_offset) - new_offset;
 	ppos = limitPosition(ppos+st.offset) - st.offset;
 	if (tradeSize == 0 && st.p == st.k) newk = tradePrice;
-	if (npos*ppos <= 0) {
-		if (ppos || !npos) {
-			newk = tradePrice;
-		}
+	if (assetsLeft*prevPos <= 0 && (prevPos || !assetsLeft)) {
+	        double p = cfg.calc->root(tradePrice, newpw*pwadj, assetsLeft);	        
+			newk = 2*tradePrice-p;
+			ulp = true; //use last price when position should switch
+		
 	}
 
 	double nb = cfg.calc->budget(newk, newpw*pwadj, tradePrice);
@@ -360,7 +361,7 @@ std::pair<IStrategy::OnTradeResult, PStrategy> Strategy_Sinh_Gen::onTrade(
 	nwst.offset = new_offset;
 
 	double lspread = std::abs(std::log(tradePrice/st.p));
-	nwst.avg_spread = nwst.avg_spread<=0?lspread*0.5:(299*st.avg_spread+lspread)/300;
+	nwst.avg_spread = st.avg_spread<=0?(lspread*0.5):((299*st.avg_spread+lspread)/300);
 
 //	if (st.rebalance) np = 0;
 	return {
@@ -435,7 +436,7 @@ PStrategy Strategy_Sinh_Gen::importState(json::Value src, const IStockApi::Marke
 json::Value Strategy_Sinh_Gen::dumpStatePretty(const IStockApi::MarketInfo &minfo) const {
 	auto getpx = [&](double px){return minfo.invert_price?1.0/px:px;};
 	auto getpos = [&](double pos){return minfo.invert_price?-pos:pos;};
-	double sprd = std::exp(st.avg_spread);
+//	double sprd = std::exp(st.avg_spread);
 	double as = cfg.calc->assets(st.k, pw, st.p);
 
 	using namespace json;
@@ -450,8 +451,7 @@ json::Value Strategy_Sinh_Gen::dumpStatePretty(const IStockApi::MarketInfo &minf
 			Value("Position", getpos(as+st.offset)),
 			Value("Position offset", getpos(st.offset)),
 			Value("Use last price",st.use_last_price),
-			Value("Profit per trade", -cfg.calc->budget(st.k, pw, st.k*sprd)),
-			Value("Profit per trade[%]", -cfg.calc->budget(st.k, pw, st.k*sprd)/st.budget*100)
+			Value("Spread-average[%]", st.avg_spread*100)
 	});
 }
 

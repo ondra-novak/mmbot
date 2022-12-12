@@ -527,9 +527,10 @@ function app_start(){
                     })
                 }
                 is_admin.then(a=>{
+					const isman =  misc.error && (misc.error.sell == "Order HIT (manual trade)" || misc.error.buy == "Order HIT (manual trade)");
                     let x = curchart.querySelector("[data-name=tradenow]");
                     if (x) {
-                        x.classList.toggle("disabled", !a);
+                        x.classList.toggle("disabled", !a || (isman && !misc.tn));
                         x.classList.toggle("active", a && misc.tn);
                         x.onclick = function() {
                             var activate = !this.classList.contains("active");
@@ -543,7 +544,14 @@ function app_start(){
                                 me.classList.toggle("active", activate);
                             });                            
                         };
-                    }
+                    }                    
+                    x = curchart.querySelector("[data-name=executenow]");
+                    if (x) {
+                        x.onclick = function() {
+                            location.href="./admin/index.html#brokerOptions="+encodeURIComponent(id.substr(1));  
+                        };
+    					x.classList.toggle("disabled", !a || !isman);
+    				}
                 });                    
 				
 			}
