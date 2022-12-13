@@ -333,7 +333,7 @@ json::Value ManualMatchingBroker::setSettings(json::Value v) {
         auto orditer = std::min_element(st.openOrders.begin(), st.openOrders.end(), [&](
                 const Order &a, const Order &b
         ){
-           return a.size - difference < b.size - difference ;
+           return std::abs(a.size - difference) < std::abs(b.size - difference) ;
         });
         if (orditer == st.openOrders.end() || orditer->size * difference < 0 ) { 
             throw std::runtime_error("No matching order found");
