@@ -171,8 +171,14 @@ json::Value ManualMatchingBroker::placeOrder(const std::string_view &pair,
             out, clientId, size,price
         };
         throw std::runtime_error("Order HIT (manual trade)");
-    } 
-    _ready_orders.erase(std::string(pair));
+    }
+    else
+    {
+        auto iter = _ready_orders.find(pair);
+        if (iter != _ready_orders.end() && iter->second.size * size > 0) {
+            _ready_orders.erase(iter);
+        }
+    }
     return out;
 }
 

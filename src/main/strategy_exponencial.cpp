@@ -269,6 +269,18 @@ std::pair<IStrategy::OnTradeResult, PStrategy> Strategy_Exponencial::onTrade(
     if (rprice < tradePrice) {
         nst.k = tradePrice/mcfg->range;
         nst.m =  nst.b/mcfg->calcEquity(tradePrice, nst.k,  1.0);
+    } else if (mcfg->s < 0 && tradePrice < st.p && tradePrice < st.k) {
+        double rt = tradePrice/st.p;
+        double refp = rt * st.k;
+        double eq1 = mcfg->calcEquity(st.k, st.k, st.m);
+        double eq2 = mcfg->calcEquity(refp, st.k, st.m);
+        budget=std::min(eq1, budget+(eq1-eq2)*(-mcfg->s));
+        double newk = numeric_search_r1(st.k*1.1, [&](double nk){
+            return mcfg->calcEquity(tradePrice, nk, st.m) - budget;
+        });
+        nst.k = newk;
+        nst.m = st.m;
+        nst.b = budget;
     } else if (rprice * mcfg->s > tradePrice) {
         nst.k = tradePrice/(mcfg->s*mcfg->range);
         nst.m =  nst.b/mcfg->calcEquity(tradePrice, nst.k,  1.0);
