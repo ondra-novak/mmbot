@@ -163,10 +163,13 @@ PStrategy Strategy_Sinh_Gen::init(const IStockApi::MarketInfo &minfo,
 	for (int i=0;i < 5;i++) {
 		if (pos > initpos + small_range) {
 			nwst.k = numeric_search_r2(price, srchfn);
+			nwst.at_zero = false;
 		} else if (pos < initpos - small_range) {
 			nwst.k = numeric_search_r1(price, srchfn);
+			nwst.at_zero = false;
 		} else {
 			nwst.k = price;
+			nwst.at_zero = true;
 		}
 		nwst.budget = budget;
 		pw = calcPower(cfg ,nwst);
@@ -204,83 +207,77 @@ double Strategy_Sinh_Gen::calcNewKFromValue(const Config &cfg, const State &st, 
 
 double Strategy_Sinh_Gen::calcNewK(double tradePrice, double cb, double pnl, int bmode) const {
 	if (st.rebalance) return st.k;
-	if (cb > 0) {
-		if (pnl >= 0) return st.k;
-		else return tradePrice;
-	}
+	
+	if (st.at_zero) return std::sqrt(st.k*tradePrice);
+//	if (st.at_zero) return st.k;
+
 	double newk = st.k;
-	if (st.k != st.p) {
-		if (!pnl) return st.k;
-		double sprd = cfg.avgspread?(std::exp(st.avg_spread)):(tradePrice/st.p);
-		double refp = st.k*sprd;
-		double yield_a = cfg.calc->budget(st.k, pw, refp);
-		double yield_b = cfg.calc->budget(st.k, pw, refp/pow2(sprd));
-		double yield = std::min(yield_b,yield_a);
-		double yield2 = yield+cfg.power*cfg.calc->getBoost()*std::abs(refp-st.k);
-		double refb;
-		switch (bmode) {
-		default:
-			case 0: refb = pnl>0?yield:0.0;break;
-			case 1: refb = yield;break;
-			case 2: refb = pnl>0?2*yield:0.0;break;
-			case 3: refb = 0;break;
-			case 4: refb = pnl>0?yield2*2:-yield2;break;
-			case 5: refb = pnl>0?yield2*4:-2*yield2;break;
-			case 6: refb = pnl>0?0.0:yield;break;
-			case 7: refb = pnl>0?0.0:2*yield;break;
-			case 8: refb = 2*yield;break;
-			case 9: refb = pnl>0?-yield:yield;break;
-			case 10: refb = pnl>0?-yield:2*yield;break;
-			case 11: if (pnl>0) return st.k;refb = 0;break;
-			case 12: if (pnl<0) return st.k;refb = 0;break;
-            case 13: refb = pnl>0?0.0:3*yield;break;
-            case 14: refb = pnl>0?-yield:3*yield;break;
-            case 15: refb = cfg.calc->budget(st.k, pw, st.k*1.0001);break;
-            case 16: refb = cfg.calc->budget(st.k, pw, st.k*1.0005);break;
-            case 17: refb = cfg.calc->budget(st.k, pw, st.k*1.0010);break;
-            case 18: refb = cfg.calc->budget(st.k, pw, st.k*1.0050);break;
-            case 19: refb = cfg.calc->budget(st.k, pw, st.k*1.0100);break;
-            case 20: refb = cfg.calc->budget(st.k, pw, st.k*1.0200);break;
-            case 30: {
-                    double np = cfg.calc->assets(st.k, pw, st.p);
-                    double pval = std::abs(np*tradePrice);
-                    if (pval>0) {
-                        double lev = pval/st.budget;
-                        refb = (pnl>0?2.0-lev:0.0)*yield;
-                    } else {
-                        return st.k;
-                    }
-                } break;
-		}
+    if (!pnl) return st.k;
+    double sprd = cfg.avgspread?(std::exp(st.avg_spread)):(tradePrice/st.p);
+    double refp = st.k*sprd;
+    double yield_a = cfg.calc->budget(st.k, pw, refp);
+    double yield_b = cfg.calc->budget(st.k, pw, refp/pow2(sprd));
+    double yield = std::min(yield_b,yield_a);
+    double yield2 = yield+cfg.power*cfg.calc->getBoost()*std::abs(refp-st.k);
+    double refb;
+    switch (bmode) {
+    default:
+        case 0: refb = pnl>0?yield:0.0;break;
+        case 1: refb = yield;break;
+        case 2: refb = pnl>0?2*yield:0.0;break;
+        case 3: refb = 0;break;
+        case 4: refb = pnl>0?yield2*2:-yield2;break;
+        case 5: refb = pnl>0?yield2*4:-2*yield2;break;
+        case 6: refb = pnl>0?0.0:yield;break;
+        case 7: refb = pnl>0?0.0:2*yield;break;
+        case 8: refb = 2*yield;break;
+        case 9: refb = pnl>0?-yield:yield;break;
+        case 10: refb = pnl>0?-yield:2*yield;break;
+        case 11: if (pnl>0) return st.k;refb = 0;break;
+        case 12: if (pnl<0) return st.k;refb = 0;break;
+        case 13: refb = pnl>0?0.0:3*yield;break;
+        case 14: refb = pnl>0?-yield:3*yield;break;
+        case 15: refb = cfg.calc->budget(st.k, pw, st.k*1.0001);break;
+        case 16: refb = cfg.calc->budget(st.k, pw, st.k*1.0005);break;
+        case 17: refb = cfg.calc->budget(st.k, pw, st.k*1.0010);break;
+        case 18: refb = cfg.calc->budget(st.k, pw, st.k*1.0050);break;
+        case 19: refb = cfg.calc->budget(st.k, pw, st.k*1.0100);break;
+        case 20: refb = cfg.calc->budget(st.k, pw, st.k*1.0200);break;
+        case 30: {
+                double np = cfg.calc->assets(st.k, pw, st.p);
+                double pval = std::abs(np*tradePrice);
+                if (pval>0) {
+                    double lev = pval/st.budget;
+                    refb = (pnl>0?2.0-lev:0.0)*yield;
+                } else {
+                    return st.k;
+                }
+            } break;
+    }
 
-		double nb = cb+pnl+refb; //current budget + pnl + yield = new budget
+    double nb = cb+pnl+refb; //current budget + pnl + yield = new budget
 
-		if (nb > 0) {
-/*		    if ((st.k - st.p) * (st.k - tradePrice) < 0) {
-		        return st.k;
-		    } else */{
-			    return tradePrice;
-		    }
-		}
+    if (nb > 0) {       //budget can't be positive, in this case, we close position at tradePrice
+        return tradePrice;
+    }
 
-		if (st.p < st.k) {
-			newk = numeric_search_r2(tradePrice, [&](double k){
-				return cfg.calc->budget(k, calcPower(cfg ,st,k), tradePrice)-nb;
-			});
-			if (newk>1e300) newk = st.k;
-		} else if (st.p > st.k) {
-			newk = numeric_search_r1(tradePrice, [&](double k){
-				return cfg.calc->budget(k, calcPower(cfg , st,k), tradePrice)-nb;
-			});
-			if (newk<1e-200) newk = st.k;
-		}
-	} else {
-		newk = st.k;
-	}
+    if (st.p < st.k) {
+        newk = numeric_search_r2(tradePrice, [&](double k){
+            return cfg.calc->budget(k, calcPower(cfg ,st,k), tradePrice)-nb;
+        });
+        if (newk>1e300) newk = st.k; //failed to search
+    } else if (st.p > st.k) {
+        newk = numeric_search_r1(tradePrice, [&](double k){
+            return cfg.calc->budget(k, calcPower(cfg , st,k), tradePrice)-nb;
+        });
+        if (newk<1e-200) newk = st.k; //failed to search
+    }
 
-	if (!((newk <= tradePrice && newk >=st.k) || (newk>=tradePrice && newk <= st.k))) {
-		newk = st.k;
-	}
+    ///distance newk from tradePrice must be less then previous distance
+    if (std::abs(newk - tradePrice) > std::abs(st.k - tradePrice)) {
+        //otherwise, don't change k
+        newk = st.k;
+    }
 	return newk;
 
 }
@@ -304,6 +301,16 @@ std::pair<IStrategy::OnTradeResult, PStrategy> Strategy_Sinh_Gen::onTrade(
 
 	assetsLeft-=st.offset;
 
+	if (tradeSize == 0 && st.p2 && (assetsLeft * (st.p2 - tradePrice) > 0)) {
+	    State nwst = st;
+	    nwst.p2 = tradePrice;
+	    nwst.use_last_price = true;
+	    return {
+	        {0,0,nwst.k,0},
+	        new Strategy_Sinh_Gen(cfg, std::move(nwst))
+	    };
+	}
+	
     double prevPos = roundZero(assetsLeft - tradeSize, minfo, st.p);
 	assetsLeft = roundZero(assetsLeft, minfo, tradePrice);
 	double cb = st.val;
@@ -312,6 +319,7 @@ std::pair<IStrategy::OnTradeResult, PStrategy> Strategy_Sinh_Gen::onTrade(
 	double pwadj = adjustPower(prevPos, newk, tradePrice);
 	double newpw = calcPower(cfg, st, newk);
 	bool ulp = false;
+	bool atz = newk == tradePrice; // @suppress("Direct float comparison")
 
 	if (pwadj<1.0) {
 		ulp = true;   //pokud se zmenil power, prepni na use_last_price
@@ -321,18 +329,21 @@ std::pair<IStrategy::OnTradeResult, PStrategy> Strategy_Sinh_Gen::onTrade(
 	double kmult = calcPileKMult(st.p, st.budget, cfg.ratio);
 	double new_offset = calcPilePosition(cfg.ratio, kmult, tradePrice);
 
-
 	double ppos = cfg.calc->assets(st.k, pw, st.p);
 	double npos = cfg.calc->assets(newk, newpw*pwadj, tradePrice);
-    double newbudget = calcPileBudget(cfg.ratio, kmult, tradePrice);
-/*    newpw = newpw * newbudget / st.b*/
+
+	double newbudget = calcPileBudget(cfg.ratio, kmult, tradePrice);
+  
 	npos = limitPosition(npos+new_offset) - new_offset;
 	ppos = limitPosition(ppos+st.offset) - st.offset;
-	if (tradeSize == 0 && st.p == st.k) newk = tradePrice;
-	if (npos*ppos <= 0) {
-		if (ppos || !npos) {
-			newk = tradePrice;
-		}
+
+	if (tradeSize == 0 && st.at_zero) { //if alert but we are at zero 
+	    newk = tradePrice;  //new k is at trade price
+	    atz = true;         //we are still at zero
+	}
+	if (npos * ppos <= 0 && !st.at_zero) {   //if side changed and we are not at zero
+	    newk = tradePrice;  //set new k to trade price
+	    atz = true;         //now we are at zero
 	}
 
 	double nb = cfg.calc->budget(newk, newpw*pwadj, tradePrice);
@@ -352,15 +363,17 @@ std::pair<IStrategy::OnTradeResult, PStrategy> Strategy_Sinh_Gen::onTrade(
 	nwst.use_last_price = ulp;
 	nwst.spot = minfo.leverage == 0;
 	nwst.rebalance = rbl;
+	nwst.at_zero = atz;
 	nwst.budget = (cfg.reinvest?np:0)+newbudget;
 	nwst.val = nb;
 	nwst.k = newk;
 	nwst.p = tradePrice;
 	nwst.pwadj = st.pwadj*pwadj;
 	nwst.offset = new_offset;
+	nwst.p2 = tradePrice;
 
 	double lspread = std::abs(std::log(tradePrice/st.p));
-	nwst.avg_spread = nwst.avg_spread<=0?lspread*0.5:(299*st.avg_spread+lspread)/300;
+	nwst.avg_spread = st.avg_spread<=0?(lspread*0.5):((299*st.avg_spread+lspread)/300);
 
 //	if (st.rebalance) np = 0;
 	return {
@@ -375,13 +388,14 @@ json::Value Strategy_Sinh_Gen::exportState() const {
 	return Value(object,{
 			Value("ulp", st.use_last_price),
 			Value("rbl", st.rebalance),
+			Value("atz", st.at_zero),
 			Value("k", st.k),
 			Value("p", st.p),
+			Value("p2", st.p2),
 			Value("budget", st.budget),
 			Value("avg_spread", st.avg_spread),
 			Value("val", st.val),
-			Value("pwadj", st.pwadj),
-			Value("hash", cfg.calcConfigHash())
+			Value("pwadj", st.pwadj)
 	});
 }
 
@@ -390,8 +404,10 @@ PStrategy Strategy_Sinh_Gen::importState(json::Value src, const IStockApi::Marke
 		minfo.leverage == 0,
 		src["ulp"].getBool(),
 		src["rbl"].getBool(),
+		src["atz"].getBool(),
 		src["k"].getNumber(),
 		src["p"].getNumber(),
+        src["p2"].getNumber(),
 		src["budget"].getNumber(),
 		src["pwadj"].getValueOrDefault(1.0),
 		0,
@@ -402,16 +418,12 @@ PStrategy Strategy_Sinh_Gen::importState(json::Value src, const IStockApi::Marke
 	                               calcPileKMult(nwst.p, nwst.budget, cfg.ratio),
 	                               nwst.p);
 
-	if (src["hash"].hasValue() && cfg.calcConfigHash() != src["hash"].toString()) {
-		nwst.k = 0; //make settings invalid;
-	} else {
-		json::Value val = src["val"];
-		if (val.defined()) {
-			nwst.val = val.getNumber();
-		} else {
-			nwst.val = cfg.calc->budget(nwst.k, calcPower(cfg,nwst), nwst.p);
-		}
-	}
+    json::Value val = src["val"];
+    if (val.defined()) {
+        nwst.val = val.getNumber();
+    } else {
+        nwst.val = cfg.calc->budget(nwst.k, calcPower(cfg,nwst), nwst.p);
+    }
 	if (src["find_k"].defined()) {
 		double find_k = src["find_k"].getNumber();
 		nwst.k = calcNewKFromValue(cfg,nwst, nwst.p, calcPower(cfg, nwst), find_k);
@@ -435,7 +447,7 @@ PStrategy Strategy_Sinh_Gen::importState(json::Value src, const IStockApi::Marke
 json::Value Strategy_Sinh_Gen::dumpStatePretty(const IStockApi::MarketInfo &minfo) const {
 	auto getpx = [&](double px){return minfo.invert_price?1.0/px:px;};
 	auto getpos = [&](double pos){return minfo.invert_price?-pos:pos;};
-	double sprd = std::exp(st.avg_spread);
+//	double sprd = std::exp(st.avg_spread);
 	double as = cfg.calc->assets(st.k, pw, st.p);
 
 	using namespace json;
@@ -450,8 +462,8 @@ json::Value Strategy_Sinh_Gen::dumpStatePretty(const IStockApi::MarketInfo &minf
 			Value("Position", getpos(as+st.offset)),
 			Value("Position offset", getpos(st.offset)),
 			Value("Use last price",st.use_last_price),
-			Value("Profit per trade", -cfg.calc->budget(st.k, pw, st.k*sprd)),
-			Value("Profit per trade[%]", -cfg.calc->budget(st.k, pw, st.k*sprd)/st.budget*100)
+			Value("Spread-average[%]", st.avg_spread*100),
+			Value("At zero", st.at_zero)
 	});
 }
 
@@ -465,14 +477,13 @@ IStrategy::OrderData Strategy_Sinh_Gen::getNewOrder(
 
 	if (st.rebalance) new_price = cur_price;
 
-
+	//this closes position if it out of limit
 	if (limitPosition(curpos+st.offset)-st.offset != curpos && dir * curpos < 0) {
 		return {cur_price, -curpos, Alert::forced};
 	}
 
-
 	double calc_price = new_price;
-	if (((cfg.lazyopen && dir * curpos >= 0) || (cfg.lazyclose && dir * curpos < 0)) && !st.rebalance && st.avg_spread>0) {
+/*	if (((cfg.lazyopen && dir * curpos >= 0) || (cfg.lazyclose && dir * curpos < 0)) && !st.rebalance && st.avg_spread>0) {
 		//calc_price - use average spread instead current price
 		calc_price = getEquilibrium_inner(curpos) * std::exp(-2*dir*st.avg_spread);
 		if (calc_price*dir < new_price*dir) {
@@ -485,7 +496,7 @@ IStrategy::OrderData Strategy_Sinh_Gen::getNewOrder(
 			}
 		}
 	}
-
+*/
 	//calculate pnl
 	double pnl = curpos*(calc_price - st.p);
 	//calculate new k for budgetr and pnl
@@ -503,13 +514,16 @@ IStrategy::OrderData Strategy_Sinh_Gen::getNewOrder(
     double budget_ratio = pile_budget/st.budget;*/
 
     double new_pos = cfg.calc->assets(newk, npw*pwadj/*budget_ratio*/, calc_price);
-    if (new_pos * curpos < 0) new_pos = 0; //force close position, if goes to other side
+    //if we not at zero and position goes to otherside
+    if (!st.at_zero && new_pos * curpos < 0) {
+        //try to close position
+        new_pos = 0; 
+    }
     double finpos = new_pos + new_offset;
     double f  = limitPosition(finpos);
     bool limited = f != finpos;
 
-
-	double dfa = f - assets;
+    double dfa = f - assets;
 
 	return {new_price, dfa, limited?Alert::forced:Alert::enabled};
 }
@@ -580,10 +594,7 @@ double Strategy_Sinh_Gen::calcInitialPosition(
 }
 
 IStrategy::BudgetInfo Strategy_Sinh_Gen::getBudgetInfo() const {
-	return {
-		cfg.calc->budget(st.k, pw, st.p)+st.budget,
-		cfg.calc->assets(st.k, pw, st.p)
-	};
+	return {st.budget,0};
 }
 
 double Strategy_Sinh_Gen::calcCurrencyAllocation(double p, bool leveraged) const {
@@ -595,17 +606,7 @@ double Strategy_Sinh_Gen::calcCurrencyAllocation(double p, bool leveraged) const
     } else {
         return st.budget + st.val - posval;
     }
-/*	if (st.spot) {
-		return std::max(0.0, st.budget+cfg.calc->budget(st.k, pw, st.p)
-				-cfg.calc->assets(st.k, pw, st.p)*st.p);
-	} else {
-		double assets = cfg.calc->assets(st.k, pw, st.p);
-		double pnl = (p - st.p) * assets;
-		double newk = calcNewK(p, st.val, pnl, cfg.boostmode);
-		return std::max(0.0, st.budget+cfg.calc->budget(newk, calcPower(cfg, st, newk), p));
-	}*/
 }
-
 
 IStrategy::ChartPoint Strategy_Sinh_Gen::calcChart(double price) const {
 	return {
@@ -618,11 +619,6 @@ IStrategy::ChartPoint Strategy_Sinh_Gen::calcChart(double price) const {
 double Strategy_Sinh_Gen::getCenterPrice(double lastPrice,double assets) const {
 	if (st.use_last_price) return lastPrice;
 	else return getEquilibrium(assets);
-}
-
-json::String Strategy_Sinh_Gen::Config::calcConfigHash() const {
-	std::hash<json::Value> h;
-	return json::Value(h({power, calc->getWD()})).toString();
 }
 
 double Strategy_Sinh_Gen::adjustPower(double a, double newk, double price) const {

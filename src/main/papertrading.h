@@ -33,12 +33,12 @@ public:
 
 
 
-
 protected: //To override
 
 	struct TradeState {
 		PStockApi source;
 		MarketInfo minfo;
+		std::optional<double> fee_override;
 		Orders openOrders;
 		TradeHistory trades;
 		Ticker ticker;
@@ -77,12 +77,14 @@ protected: //To override
 
 	virtual bool canCreateOrder(const TradeState &st, double price, double size);
 
+    virtual IStockApi::MarketInfo fetchMarketInfo(const TradeState &st);
+
 protected:
 
 	json::Value exportState(const TradeState &st);
 	void importState(TradeState &st, json::Value v);
 
-	void simulate(TradeState &state);
+	virtual void simulate(TradeState &state);
 
 	mutable std::recursive_mutex lock;
 

@@ -326,8 +326,8 @@ void MTrader::perform(bool manually) {
 			lastTradePrice = !trades.empty()?trades.back().eff_price:strategy.isValid()?strategy.getEquilibrium(status.assetBalance):status.curPrice;
 			if (!std::isfinite(lastTradePrice)) lastTradePrice = status.curPrice;		}
 
-
-		if (cfg.max_size != 0) need_alerts = true;
+//let's try this to relax
+//		if (cfg.max_size != 0) need_alerts = true; 
 		double centerPrice = need_alerts?lastTradePrice:strategy.getCenterPrice(lastTradePrice, strategy_position);
 
 		if (cfg.dynmult_sliding) {
@@ -585,15 +585,15 @@ void MTrader::perform(bool manually) {
 			int last_trade_dir = !anytrades?0:sgn(lastTradeSize);
             if (last_trade_dir < 0) orders.sell.reset();
             if (last_trade_dir > 0) orders.buy.reset();
+            auto minmax = strategy.calcSafeRange(minfo,status.assetAvailBalance,status.currencyAvailBalance);
+            auto budget = strategy.getBudgetInfo();
 			//report orders to UI
 			statsvc->reportOrders(1,orders.buy,orders.sell);
 			//report trades to UI
-			statsvc->reportTrades(position, trades);
+			statsvc->reportTrades({position,minfo.invert_price,budget.total}, trades);
 			//report price to UI
 			statsvc->reportPrice(status.curPrice);
 			//report misc
-			auto minmax = strategy.calcSafeRange(minfo,status.assetAvailBalance,status.currencyAvailBalance);
-			auto budget = strategy.getBudgetInfo();
 			std::optional<double> budget_extra;
 			if (!trades.empty())
 			{
@@ -688,7 +688,7 @@ void MTrader::perform(bool manually) {
 
 	} catch (std::exception &e) {
 		if (!cfg.hidden) {
-			statsvc->reportTrades(position,trades);
+			statsvc->reportTrades({position,false,0},trades);
 			std::string error;
 			error.append(e.what());
 			statsvc->reportError(IStatSvc::ErrorObj(error.c_str()));

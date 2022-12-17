@@ -52,18 +52,19 @@ public:
 		double ratio;
 		bool reinvest;
 		bool avgspread;
-		bool lazyopen;
-		bool lazyclose;
+//		bool lazyopen;  //lazy open and lazy close has been disabled
+//		bool lazyclose;
 		int boostmode;
-		json::String calcConfigHash() const;
 	};
 
 	struct State {
 		bool spot = false;
 		bool use_last_price = false;
 		bool rebalance = false; //pokud je true, pak neprovadi redukci ani jine nutne vypocty
+		bool at_zero = false; //if set, then strategy is at zero, some calculations are skipped
 		double k = 0;
-		double p = 0;
+		double p = 0;       //price of last trade
+        double p2 = 0;      //price of last trade or alert - when trading was skipped because alert
 		double budget=0;
 		double pwadj = 1;
 		double val = 0;

@@ -1,30 +1,33 @@
+#include "acb.h"
+#include "istockapi.h"
+#include "simulator_initcurrency.h"
+
 #include "simulator.h"
 
-#include <bits/stdint-uintn.h>
+#include <imtjson/array.h>
+#include <imtjson/binary.h>
+#include <imtjson/ivalue.h>
+#include <imtjson/object.h>
+#include <imtjson/operations.h>
+#include <imtjson/string.h>
+#include <imtjson/value.h>
+#include <shared/countdown.h>
+#include <shared/linear_map.h>
+#include <shared/worker.h>
+
 #include <algorithm>
+#include <bits/stdint-uintn.h>
+#include <chrono>
 #include <cstddef>
-#include <initializer_list>
 #include <iterator>
+#include <map>
 #include <memory>
 #include <mutex>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
-
-#include "../imtjson/src/imtjson/array.h"
-#include "../imtjson/src/imtjson/binary.h"
-#include "../imtjson/src/imtjson/ivalue.h"
-#include "../imtjson/src/imtjson/object.h"
-#include "../imtjson/src/imtjson/operations.h"
-#include "../imtjson/src/imtjson/string.h"
-#include "../imtjson/src/imtjson/value.h"
-#include "../shared/countdown.h"
-#include "../shared/worker.h"
-
-#include "acb.h"
-#include "istockapi.h"
-#include "simulator_initcurrency.h"
 
 static inline double getInitialBalance(const std::string_view &symb) {
 	auto iter = std::lower_bound(std::begin(initialBalance), std::end(initialBalance), std::pair{symb,0.0});
@@ -89,14 +92,19 @@ json::Value Simulator::getSettings(const std::string_view &pairHint) const {
 
 	json::Array out;
 
+	auto cf_iter = _custom_fees.find(pairHint);
 
 	for (int i = 0; i < 2; i++) {
 		const Wallet &w = wallet[i];
-		out.push_back(json::Object{
-			{"label",i?"Futures wallet":"Spot wallet"},
-			{"type","label"}
-		});
+		bool puthdr = true;
 		for (const auto &x: w) {
+		    if (puthdr) {
+		        out.push_back(json::Object{
+		            {"label",i?"Futures wallet":"Spot wallet"},
+		            {"type","header"}
+		        });
+		        puthdr = false;
+		    }
 			out.push_back(json::Object{
 				{"name",json::String({i?"f":"s",x.first})},
 				{"label",x.first},
@@ -105,6 +113,37 @@ json::Value Simulator::getSettings(const std::string_view &pairHint) const {
 			});
 		}
 	}
+	out.push_back(json::Object{
+	    {"label","Fee control"},
+	    {"type","header"}
+	});
+    out.push_back(json::Object{
+        {"label","Fee control"},
+        {"type","enum"},
+        {"name","_feec"},
+        {"options",json::Object{
+            {"default","Standard fee"},
+            {"custom","Custom fee"},
+        }},
+        {"default",cf_iter == _custom_fees.end()?"default":"custom"}
+        
+    });
+    out.push_back(json::Object{
+        {"label","Custom fee [%]"},
+        {"type","number"},
+        {"name","_customfee"},
+        {"showif",json::Object{
+            {"_feec","custom"},            
+        }},
+        {"default",cf_iter == _custom_fees.end()?0.0:cf_iter->second}        
+    });
+    out.push_back(json::Object{
+        {"label","pair"},
+        {"type","string"},
+        {"name","_pair"},
+        {"showif",json::object},
+        {"default",pairHint}        
+    });
 	return out;
 }
 
@@ -246,20 +285,64 @@ double Simulator::getBalance(const std::string_view &symb, const std::string_vie
 
 json::Value Simulator::setSettings(json::Value v) {
 	std::lock_guard _(lock);
+	
 	for (json::Value x: v) {
 		double val = x.getNumber();
 		auto n = x.getKey();
 		if (n.empty()) continue;
 		char c = n[0];
 		auto symb = n.substr(1);
-		int wid = c=='f'?wallet_futures:wallet_spot;
-		Wallet &w = wallet[wid];
-		w[symb] = {val,true};
+		if (c != '_') {
+            int wid = c=='f'?wallet_futures:wallet_spot;
+            Wallet &w = wallet[wid];
+            w[symb] = {val,true};
+		}
 	}
-	return json::Value();
+	
+	std::string pair = v["_pair"].getString();
+	bool custom_fee = v["_feec"].getString() == "custom";
+	double fee = v["_customfee"].getNumber();
+	
+	auto siter = state.find(pair);
+	if (custom_fee) {
+	    _custom_fees[pair] = fee;
+	    if (siter == state.end()) {
+	        siter->second.fee_override = fee*0.01;
+	    }
+	}
+	else {
+	    _custom_fees.erase(pair);
+        if (siter == state.end()) {
+            siter->second.fee_override = {};
+        }
+	}
+	return generateSettings();
+}
+	
+json::Value Simulator::generateSettings() {
+	return json::Object({
+	    {"custom_fees",json::Value(json::object,
+	            _custom_fees.begin(),_custom_fees.end(),[&](const auto &x){
+	      auto iter = state.find(x.first);
+	      if (iter == state.end()) return json::Value();
+	      else return json::Value(x.first, x.second);
+	    })
+	    }
+	});	
 }
 
 void Simulator::restoreSettings(json::Value v) {
+    json::Value f = v["custom_fees"];
+    for (json::Value x: f) {
+        auto k = x.getKey(); 
+        double fees = x.getNumber();
+        _custom_fees[k] = fees;
+        auto iter = state.find(k);
+        if (iter != state.end()) {
+            iter->second.fee_override = fees*0.01;
+        }
+        
+    }    
 }
 
 
@@ -364,18 +447,23 @@ AbstractPaperTrading::TradeState& Simulator::getState(const std::string_view &sy
 	auto f = state.find(symbol);
 	if (f == state.end()) {
 
+	    auto cfiter = _custom_fees.find(symbol);	    
+	    
 		SourceInfo ps = parseSymbol(symbol);
 		TradeState ts;
+        ts.source = ps.exchange;
 		ts.pair = symbol;
 		ts.src_pair = ps.pair;
-		ts.minfo = ps.exchange->getMarketInfo(ps.pair);
+        ts.needLoadWallet = true;
+		if (cfiter != _custom_fees.end()) {
+		    ts.fee_override = cfiter->second*0.01;
+		}
+        ts.minfo = fetchMarketInfo(ts);
 		if (ts.minfo.leverage) {
 			ts.minfo.wallet_id="futures";
 		} else {
 			ts.minfo.wallet_id="spot";
 		}
-		ts.needLoadWallet = true;
-		ts.source = ps.exchange;
 		ts.ticker = ps.exchange->getTicker(ps.pair);
 		Wallet &w = wallet[chooseWallet(ts.minfo)];
 		if (w.find(ts.minfo.currency_symbol) == w.end()) {

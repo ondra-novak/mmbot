@@ -142,8 +142,7 @@ double Strategy_IncValue::calcInitialPosition(const IStockApi::MarketInfo &, dou
 
 IStrategy::BudgetInfo Strategy_IncValue::getBudgetInfo() const {
 	return {
-		cfg.fn.budget(calcW(), st.k, st.p)+st.b,
-		cfg.fn.pos(calcW(), st.k, st.p),
+		st.b,0
 	};
 }
 

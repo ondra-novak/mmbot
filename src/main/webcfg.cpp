@@ -673,7 +673,7 @@ bool WebCfg::reqTraders(simpleServer::HTTPRequest req, ondra_shared::StrViewA vp
 					req.sendResponse(std::move(hdr), "true");
 				} else {
 					req.sendResponse(std::move(hdr),
-						Value(Object({{"entries",{"stop","clear_stats","reset","broker","trading","strategy","trade_now"}}})).stringify().str());
+						Value(Object({{"entries",{"stop","info","clear_stats","reset","broker","trading","strategy","trade_now"}}})).stringify().str());
 				}
 			} else {
 				auto trl = tr.lock();
@@ -738,6 +738,11 @@ bool WebCfg::reqTraders(simpleServer::HTTPRequest req, ondra_shared::StrViewA vp
 					StrViewA restpath = vpath.substr(nx.data - vpath.data);
 					std::string brokerName = trl->getConfig().broker;
 					reqBrokerSpec(req, restpath, (trl->getBroker()), brokerName);
+				} else if (cmd == "info") {
+				    auto minfo = trl->getMarketInfo();
+				    json::Value j = minfo.toJSON();
+				    j = j.replace("pair", trl->getConfig().pairsymb);
+                    req.sendResponse(std::move(hdr), j.stringify().str());                    
 				} else if (cmd == "trading") {
 					Object out;
 					auto chartx = trl->getChart();

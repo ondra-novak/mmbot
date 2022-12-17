@@ -31,6 +31,7 @@ add_executable (mmbot
 	strategy_pile.cpp
 	strategy_incvalue.cpp
 	strategy_dcashitcoin.cpp
+	manual_matching_broker.cpp
 
 	invert_strategy.cpp
 	simulator.cpp

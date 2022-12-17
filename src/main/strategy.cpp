@@ -199,8 +199,6 @@ Strategy Strategy::create_base(std::string_view id, json::Value config) {
 		double z = -cfg.disableSide?0:config["z"].getNumber()*0.002;
 		cfg.calc = std::make_shared<Strategy_Sinh_Gen::FnCalc>(w,b*0.01,z);
 		cfg.power = p;
-		cfg.lazyopen = config["lazyopen"].getBool();
-		cfg.lazyclose = config["lazyclose"].getBool();
 		cfg.reinvest = config["reinvest"].getBool();
 		cfg.avgspread= config["avgspread"].getBool();
 		cfg.boostmode= config["boostmode"].getUInt();

@@ -80,6 +80,12 @@ public:
 			: buyError(buy_error),sellError(sell_error) {}
 
 	};
+	
+	struct TradesInfo {
+	    double finalPos;
+	    bool inverted;
+	    double total_budget;
+	};
 
 	struct TradeRecord: public IStockApi::Trade {
 
@@ -125,7 +131,7 @@ public:
 
 	virtual void reportOrders(int n, const std::optional<IStockApi::Order> &buy,
 							  const std::optional<IStockApi::Order> &sell) = 0;
-	virtual void reportTrades(double finalPos, ondra_shared::StringView<TradeRecord> trades) = 0;
+	virtual void reportTrades(const TradesInfo &tinfo, ondra_shared::StringView<TradeRecord> trades) = 0;
 	virtual void reportPrice(double price) = 0;
 	virtual void setInfo(const Info &info) = 0;
 	virtual void reportMisc(const MiscData &miscData, bool initial = false) = 0;

@@ -174,7 +174,7 @@ static json::NamedEnum<AlertReason> strAlertReason({
 	{AlertReason::initial_reset, "initial_reset"}
 });
 
-void Report::setTrades(std::size_t rev, StrViewA symb, double finalPos, StringView<IStatSvc::TradeRecord> trades) {
+void Report::setTrades(std::size_t rev, StrViewA symb, const IStatSvc::TradesInfo &tinfo, StringView<IStatSvc::TradeRecord> trades) {
 
 	if (rev != revize) return;
 
@@ -182,12 +182,11 @@ void Report::setTrades(std::size_t rev, StrViewA symb, double finalPos, StringVi
 
 	json::Array records;
 
-	const json::Value &info = infoMap[symb];
-	bool inverted = info["inverted"].getBool();
+	
 	double chng = std::accumulate(trades.begin(), trades.end(), 0.0, [](double x, const IStatSvc::TradeRecord &b){
 		return x+b.eff_size;
 	});
-	double pos = finalPos-chng;
+	double pos = tinfo.finalPos-chng;
 
 	if (!trades.empty()) {
 
@@ -234,8 +233,7 @@ void Report::setTrades(std::size_t rev, StrViewA symb, double finalPos, StringVi
 
 				cur_fromPos += gain;
 				pos += t.eff_size;
-
-
+				
 
 				double normch = (t.norm_accum - pap) * t.eff_price + (t.norm_profit - pnp);
 				pap = t.norm_accum;
@@ -248,18 +246,19 @@ void Report::setTrades(std::size_t rev, StrViewA symb, double finalPos, StringVi
 					records.push_back(Object({
 						{"id", t.id},
 						{"time", t.time},
-						{"achg", (inverted?-1:1)*t.size},
+						{"achg", (tinfo.inverted?-1:1)*t.size},
 						{"gain", gain},
 						{"norm", t.norm_profit},
 						{"normch", normch},
-						{"nacum", normaccum?Value((inverted?-1:1)*t.norm_accum):Value()},
-						{"pos", (inverted?-1:1)*pos},
+						{"nacum", normaccum?Value((tinfo.inverted?-1:1)*t.norm_accum):Value()},
+						{"pos", (tinfo.inverted?-1:1)*pos},
 						{"pl", cur_fromPos},
 						{"rpl", acb.getRPnL()},
+						{"bpw", (tinfo.total_budget*(1/t.price  - 1/init_price) + cur_fromPos/t.price)}, 
 						{"open", acb.getOpen()},
 						{"iid", std::to_string(iid)},
-						{"price", (inverted?1.0/t.price:t.price)},
-						{"p0",t.neutral_price?Value(inverted?1.0/t.neutral_price:t.neutral_price):Value()},
+						{"price", (tinfo.inverted?1.0/t.price:t.price)},
+						{"p0",t.neutral_price?Value(tinfo.inverted?1.0/t.neutral_price:t.neutral_price):Value()},
 						{"volume", fabs(t.eff_price*t.eff_size)},
 						{"man",t.manual_trade},
 						{"partial",t.partial_exec},

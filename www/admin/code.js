@@ -1160,7 +1160,8 @@ App.prototype.importFeature = function(url) {
 
 App.prototype.onHashChange = function() {
         var h = location.hash;
-		const importPfx = "#import="
+		const importPfx = "#import=";
+		const brokerOptionsPfx = "#brokerOptions=";
         if (h.startsWith(importPfx)) {
 			let url = decodeURIComponent(h.substr(importPfx.length))+"?raw=1";			
 			this.importFeature(url);
@@ -1172,7 +1173,12 @@ App.prototype.onHashChange = function() {
             }
             let nf = this.manageSharesForm();
             this.desktop.setItemValue("content", nf);
-            this.curForm = nf;        
+            this.curForm = nf;
+        } else if (h.startsWith(brokerOptionsPfx)){
+            let id = h.substr(brokerOptionsPfx.length);
+            fetch_with_error(this.traderURL(id)+"/info").then(function(x){
+                this.brokerConfig(this.traderPairURL(id, x.pair)+"/settings");
+            }.bind(this));
         } else {
             return false;
         }        
