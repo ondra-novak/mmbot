@@ -29,50 +29,46 @@ class WsInstance {
 public:
         
     
-    using Handler = std::function<bool(bool ok, json::Value data)>;
+    enum class EventType {
+        data,       //<data arrived
+        exception,      //<exception arrived
+        connect,      //<connect happen - you probably need to resubscribe
+        disconnect,     //<disconnect happen - probably to fail waitings
+    };
+    
+    using Handler = std::function<bool(EventType event, json::Value data)>;
     
     WsInstance(simpleServer::HttpClient &client, std::string wsurl);
     WsInstance(const WsInstance &other) = delete;
     WsInstance &operator=(const WsInstance &other) = delete;
     ~WsInstance();
 
-    
-    void start(json::Value hdrs);
+
+    virtual json::Value generate_headers() {return json::Value();};
     
     void regHandler(Handler &&h);
+    void regMonitor(Handler &&h);    //monitor just monitors data and events,
 
     void worker(std::promise<void> *start_p);
     
     void send(json::Value v);
    
-    void lock() {
-        _mx.lock();
-    }
-    
-    void unlock() {
-        _mx.unlock();
-    }
-    
-    bool try_lock() {
-        return _mx.try_lock();
-    }
     
 protected:
     simpleServer::HttpClient &_client;
     std::string _wsurl;
     simpleServer::WebSocketStream _ws;
-    std::mutex _mx;
+    std::recursive_mutex _mx;
     std::vector<Handler> _handlers;
+    std::vector<Handler> _monitors;
     std::thread _thr;
-    bool _close = false;
     bool _running = false;
-    json::Value _headers;
 
-    void broadcast(bool ok, json::Value data);
+    void broadcast(EventType event, json::Value data);
     void process_message(std::string_view msg);
-    void ensure_start(std::unique_lock<std::mutex> &lk);
+    void ensure_start(std::unique_lock<std::recursive_mutex> &lk);
 
-    void close_lk(std::unique_lock<std::mutex> &lk);
+    void close_lk(std::unique_lock<std::recursive_mutex> &lk);
 };
 
 

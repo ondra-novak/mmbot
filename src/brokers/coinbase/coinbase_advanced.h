@@ -42,10 +42,20 @@ public:
     virtual bool reset() override;
 protected:
     mutable HTTPJson httpc;
-    WsInstance ws;
+    
+    class MyWsInstance: public WsInstance {
+    public:
+        MyWsInstance(CoinbaseAdv &owner, simpleServer::HttpClient &client, std::string url); 
+        virtual json::Value generate_headers() override;
+    protected:
+        CoinbaseAdv &_owner;
+    };
+    
+    MyWsInstance ws;
     
     std::string api_key;
     std::string api_secret;
+    json::Value user_details;
     
     std::optional<double> fee;
 
@@ -64,11 +74,24 @@ protected:
     struct OrderBook {
         std::map<double, double> _buy, _sell;
         std::optional<std::promise<void> > _wait;
+        std::chrono::system_clock::time_point _expires;
     };
     
-    std::map<std::string, OrderBook> _orderBooks;
-     
+    std::mutex _ws_mx;
+    std::map<std::string, OrderBook,std::less<> > _orderBooks;
+
+    struct OrderInfo {
+        std::map<std::string,Order, std::less<> > _orders;
+        std::optional<std::promise<void> > _waiter;
+        std::chrono::system_clock::time_point _expires;
+        bool _wait_error;
+    };
     
+    std::map<std::string, OrderInfo, std::less<> > _openOrders;
+    
+    json::Value ws_subscribe(bool unsubscribe, std::vector<std::string_view> products, std::string_view channel);
+    
+    void reject_all_tickers();
     
     
     

@@ -37,8 +37,8 @@ CoinbaseAdv::CoinbaseAdv(const std::string &path)
         {"type", "string"}
     })
 })
-,httpc(simpleServer::HttpClient("MMBot Mozilla/5.0 (compatible; MMBot/2.0; +https://github.com/ondra-novak/mmbot.git)", simpleServer::newHttpsProvider(), nullptr, nullptr),"https://coinbase.com")
-,ws(httpc.getClient(), "https://advanced-trade-ws.coinbase.com")
+,httpc(simpleServer::HttpClient("MMBot Mozilla/5.0 (compatible; MMBot/2.0; +https://github.com/ondra-novak/mmbot.git)", simpleServer::newHttpsProvider(), nullptr, nullptr),"https://api.coinbase.com")
+,ws(*this, httpc.getClient(), "https://advanced-trade-ws.coinbase.com")
 {
 }
 
@@ -105,7 +105,8 @@ json::Value CoinbaseAdv::headers(std::string_view method,std::string_view reqpat
         {"Content-Type",method == "GET"?json::Value():json::Value("application/json")},
         {"CB-ACCESS-KEY",api_key},
         {"CB-ACCESS-SIGN",calculate_signature(tm, method, reqpath, body)},
-        {"CB-ACCESS-TIMESTAMP", tm}
+        {"CB-ACCESS-TIMESTAMP", tm},
+        {"CB-VERSION","2022-12-16"}
     };
     if (debug_mode) {
         std::cerr << v.toString() << std::endl;
@@ -278,61 +279,109 @@ json::Value CoinbaseAdv::placeOrder(const std::string_view &pair, double size,
     throw std::runtime_error("Not yet supported");
 }
 
+
+void CoinbaseAdv::reject_all_tickers() {
+    for (auto &x: _orderBooks) {
+        x.second._buy.clear();
+        x.second._sell.clear();
+        if (x.second._wait.has_value()) {
+            x.second._wait->set_value();
+            x.second._wait.reset();
+        }        
+    }
+}
+
 IStockApi::Ticker CoinbaseAdv::getTicker(const std::string_view &pair) {
     std::string p(pair);
-    std::unique_lock _(ws);
+    std::unique_lock _(_ws_mx);
     if (_orderBooks.empty()) {
-        _.unlock();
-        ws.regHandler([this](bool ok, json::Value data){
-            if (ok) {
-                std::string_view type = data["type"].getString();
-                if (type == "update" || type == "snapshot") {
-                    bool snapshot = data["type"].getString() == "snapshot";
-                    std::string product = data["product_id"].getString();
-                    auto &o = _orderBooks[product];
-                    if (snapshot) {
-                        o._buy.clear();
-                        o._sell.clear();
+        ws.regHandler([this](WsInstance::EventType event, json::Value data){
+            std::unique_lock _(_ws_mx);
+            switch (event) {
+                case WsInstance::EventType::data: {
+                    if (data["channel"].getString() == "l2_data") {
+                        for (json::Value event: data["events"]) {
+                            std::string_view type = event["type"].getString();
+                            if (type == "update" || type == "snapshot") {
+                                bool snapshot = event["type"].getString() == "snapshot";
+                                std::string_view product = event["product_id"].getString();
+                                auto iter = _orderBooks.find(product);
+                                
+                                if (iter == _orderBooks.end() || iter->second._expires < std::chrono::system_clock::now()) {
+                                    ws.send(ws_subscribe(true, {product}, "level2"));
+                                    if (iter != _orderBooks.end()) _orderBooks.erase(iter);
+                                    continue;                                
+                                }
+                                auto &o = iter->second;
+                                for (json::Value v: event["updates"]) {
+                                    auto &side = v["side"].getString()=="bid"?o._buy:o._sell;
+                                    double q = v["new_quantity"].getNumber();
+                                    double p = v["price_level"].getNumber();
+                                    if (q == 0) side.erase(p);
+                                    else side[p] = q;
+                                }
+                                if (o._wait.has_value()) {
+                                    o._wait->set_value();
+                                    o._wait.reset();
+                                }                        
+                            } else {
+                                std::cerr << data.toString() << std::endl;
+                                reject_all_tickers();
+                            }
+                        }
+                    } else {
+                        std::cerr << data.toString() << std::endl;
                     }
-                    for (json::Value v: data["updates"]) {
-                        auto &side = v["side"].getString()=="buy"?o._buy:o._sell;
-                        double q = v["new_quantity"].getNumber();
-                        double p = v["price_level"].getNumber();
-                        if (q == 0) side.erase(p);
-                        else side[p] = q;
+                }break;
+                case WsInstance::EventType::connect: {
+                    std::vector<std::string_view> products;                    
+                    std::transform(_orderBooks.begin(), _orderBooks.end(), std::back_inserter(products),[](auto &x) -> std::string_view{
+                        return x.first;
+                    });
+                    if (!products.empty()) {
+                       ws.send(ws_subscribe(false,products, "level2"));
                     }
-                    if (o._wait.has_value()) {
-                        o._wait->set_value();
-                        o._wait.reset();
-                    }
+                        
+                }break;
+                case WsInstance::EventType::disconnect: 
+                case WsInstance::EventType::exception: {
+                    std::unique_lock _(_ws_mx);
+                    reject_all_tickers();
                 }
+                break;                
             }
-            return true;
+            return !_orderBooks.empty();
         });
-        _.lock();
     }
+    auto newexp = std::chrono::system_clock::now()+std::chrono::minutes(2);
     auto iter = _orderBooks.find(p);
-    if (iter == _orderBooks.end()) {
+    if (iter == _orderBooks.end() || iter->second._buy.empty() || iter->second._sell.empty()) {
         auto &o = _orderBooks[p];
         o._wait.emplace();
+        o._expires = newexp;
         auto f = o._wait->get_future();
+        bool ok;
         _.unlock();
-        ws.send(json::Object{
-           {"type","subscribe"},
-           {"product_ids",json::Value(json::array,{p})},
-           {"channel","level2"}
-        });
-        f.wait();
+        ws.send(ws_subscribe(false,{p}, "level2"));
+        ok =  f.wait_for(std::chrono::seconds(5)) ==std::future_status::ready; 
+        if (!ok) {
+            ws.send(ws_subscribe(true,{p}, "level2"));
+        }
         _.lock();
+        if (!ok) {
+            _orderBooks.erase(p);            
+            throw std::runtime_error("Failed to get ticker");
+        }
     }
     iter = _orderBooks.find(p);
-    if (iter == _orderBooks.end()) {
+    if (iter == _orderBooks.end() || iter->second._buy.empty() || iter->second._sell.empty()) {
         throw std::runtime_error("Failed to get ticker");
     }
     auto biditer = iter->second._buy.rbegin();
     auto askiter = iter->second._sell.begin();
-    double bid = biditer == iter->second._buy.rend()?0:biditer->second;
-    double ask = askiter == iter->second._sell.end()?bid:askiter->second;
+    double bid = biditer->first;
+    double ask = askiter->first;
+    iter->second._expires = newexp; 
     return Ticker{
         bid,ask,(bid+ask)*0.5,
                 static_cast<std::uint64_t>(
@@ -347,8 +396,99 @@ json::Value CoinbaseAdv::getSettings(const std::string_view &pairHint) const {
     return {};
 }
 
-IStockApi::Orders CoinbaseAdv::getOpenOrders(const std::string_view &par) {
-    return {};
+IStockApi::Orders CoinbaseAdv::getOpenOrders(const std::string_view &pair) {
+    std::string p(pair);
+    std::unique_lock _(_ws_mx);
+    if (_openOrders.empty()) {
+        ws.regHandler([=](WsInstance::EventType event, json::Value data){
+            std::unique_lock _(_ws_mx);
+           switch (event) {
+               case WsInstance::EventType::connect: {
+                   std::vector<std::string_view> p;
+                   std::transform(_openOrders.begin(), _openOrders.end(), std::back_inserter(p),
+                      [](const auto &x) -> std::string_view {
+                       return x.first; 
+                   });
+                   if (!p.empty()) {
+                       ws_subscribe(false, p, "user");
+                       return true;
+                   } else {
+                       return false;
+                   }                     
+               }break;
+               case WsInstance::EventType::exception:
+               case WsInstance::EventType::disconnect: {
+                   for (auto &c: _openOrders) {
+                       if (c.second._waiter.has_value()) {
+                           c.second._wait_error = true;
+                           c.second._waiter->set_value();
+                           c.second._waiter.reset();
+                       }
+                   }
+               }break;
+               case WsInstance::EventType::data: {
+                   std::cerr << data.stringify() << std::endl;
+                   if (data["channel"].getString() == "users") {
+                       for (json::Value event: data["events"]) {
+                           std::string_view product = event["product_id"].getString();
+                           auto iter = _openOrders.find(product);
+                           if (iter == _openOrders.end() || iter->second._expires < std::chrono::system_clock::now()) {
+                               ws.send(ws_subscribe(true, {product}, "user"));
+                               if (iter != _openOrders.end()) _openOrders.erase(iter);
+                               continue;                                
+                           }   
+                           OrderInfo &o = iter->second;
+                           for (json::Value update: event["updates"]) {
+                               std::string_view status = update["status"].getString();
+                               std::string id = update["order_id"].getString();
+                               if (status != "OPEN") {
+                                   _openOrders.erase(id);
+                               } else {
+                                   Order &order = o._orders[id];
+                                   order.id = id;
+                                   order.client_id = update["client_order_id"];
+                                   order.size = update["leaves_quantity"].getNumber();                                   
+                               }
+                           }
+                       }
+                   } 
+ 
+               }break;
+               
+           } 
+           return !_openOrders.empty();
+        });
+    }
+    auto newexp = std::chrono::system_clock::now()+std::chrono::minutes(2);
+    auto iter = _openOrders.find(p);
+    if (iter == _openOrders.end()) {
+        auto &o = _openOrders[std::string(p)];
+        o._waiter.emplace();
+        o._expires = newexp;        
+        auto f = o._waiter->get_future();
+        bool ok;
+        _.unlock();
+        ws.send(ws_subscribe(false,{p}, "user"));
+        ok =  f.wait_for(std::chrono::seconds(5)) ==std::future_status::ready; 
+        if (!ok) {
+            ws.send(ws_subscribe(true,{p}, "user"));
+        }
+        _.lock();
+        if (!ok) {
+            _openOrders.erase(std::string(p));            
+            throw std::runtime_error("Failed to get orders");
+        }
+    }
+    iter = _openOrders.find(p);
+    if (iter == _openOrders.end()) {
+        throw std::runtime_error("Failed to get ticker");
+    }
+    Orders res;
+    std::transform(iter->second._orders.begin(), 
+                    iter->second._orders.end(),
+                    std::back_inserter(res),
+                    [](const auto &x){return x.second;});
+    return res;
 }
 
 IStockApi::MarketInfo CoinbaseAdv::getMarketInfo(const std::string_view &pair) {
@@ -412,8 +552,26 @@ IStockApi::TradesSync CoinbaseAdv::syncTrades(json::Value lastId, const std::str
 
 void CoinbaseAdv::onLoadApiKey(json::Value keyData) {
     api_key = keyData["key"].getString();
-    api_secret = keyData["secret"].getString();    
-    ws.start(headers("GET", "", ""));    
+    api_secret = keyData["secret"].getString();
+    if (!api_key.empty() && !api_secret.empty()) {
+        user_details = GET("/v2/user", json::Value())["data"];
+/*        ws.regMonitor([this](WsInstance::EventType event, json::Value){
+           if (event == WsInstance::EventType::connect) {
+               auto tm = std::chrono::duration_cast<std::chrono::seconds>(httpc.now().time_since_epoch()).count();
+               json::Value req = json::Object {
+                       {"type","users"},
+                       {"user_id", user_details["id"]},
+                       {"api_key",api_key},
+                       {"timestamp",json::Value(tm).toString()},
+                       {"signature",calculate_signature(tm, user_details["id"].getString(), "", "")}
+               };
+               std::cerr << req.toString() << std::endl;
+               ws.send(req);
+           } 
+           return true;
+        });*/
+    }
+    
 }
 
 json::Value CoinbaseAdv::testCall(const std::string_view &method,
@@ -483,4 +641,38 @@ std::string CoinbaseAdv::get_wallet_uuid(std::string_view currency) {
     } else {
         return iter->second;
     }
+}
+
+json::Value CoinbaseAdv::ws_subscribe(bool unsubscribe, std::vector<std::string_view> products, std::string_view channel) {
+    auto tm = std::chrono::duration_cast<std::chrono::seconds>(httpc.now().time_since_epoch()).count();
+    std::ostringstream plist;
+    json::Array jpl;
+    for (std::size_t i = 0; i < products.size(); ++i) {
+        if (i) plist.put(',');
+        plist << products[i];
+        jpl.push_back(products[i]);
+    }
+
+    json::Value v = json::Object{
+        {"type",unsubscribe?"unsubscribe":"subscribe"},
+        {"product_ids",jpl},
+        {"channel",channel},
+        {"api_key",api_key},
+        {"timestamp",json::Value(tm).toString()},
+        {"signature",calculate_signature(tm, channel, plist.str(), "")}
+    };    
+    if  (debug_mode) {
+        std::cerr << v.toString() << std::endl;
+    }
+    return v;
+}
+
+json::Value CoinbaseAdv::MyWsInstance::generate_headers() {
+    return json::Value();//_owner.headers("GET", "", "");
+}
+
+CoinbaseAdv::MyWsInstance::MyWsInstance(CoinbaseAdv &owner,
+        simpleServer::HttpClient &client, std::string url)
+:WsInstance(client, url), _owner(owner) 
+{
 }
