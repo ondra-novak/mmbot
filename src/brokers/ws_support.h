@@ -49,7 +49,7 @@ public:
     void regHandler(Handler &&h);
     void regMonitor(Handler &&h);    //monitor just monitors data and events,
 
-    void worker(std::promise<void> *start_p);
+    void worker(std::promise<std::exception_ptr> *start_p);
     
     void send(json::Value v);
    

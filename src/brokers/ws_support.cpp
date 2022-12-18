@@ -12,7 +12,12 @@ WsInstance::WsInstance(simpleServer::HttpClient &client, std::string wsurl)
 void WsInstance::regHandler(Handler &&h) {
     std::unique_lock lk(_mx);
     _handlers.push_back(std::move(h));
-    ensure_start(lk);
+    try {
+        ensure_start(lk);
+    } catch (...) {
+        _handlers.pop_back();
+        throw;
+    }
 }
 void WsInstance::regMonitor(Handler &&h) {
     std::unique_lock lk(_mx);
@@ -20,7 +25,7 @@ void WsInstance::regMonitor(Handler &&h) {
 }
 
 void process_message(std::string_view msg);
-void WsInstance::worker(std::promise<void> *start_p) {
+void WsInstance::worker(std::promise<std::exception_ptr> *start_p) {
     using simpleServer::WSFrameType;
 
     std::unique_lock lk(_mx);
@@ -34,7 +39,7 @@ void WsInstance::worker(std::promise<void> *start_p) {
             _ws = simpleServer::connectWebSocket(_client, _wsurl, std::move(hdrs));
             _ws->getStream()->setIOTimeout(15000);                
             if (start_p) {
-                start_p->set_value();
+                start_p->set_value(nullptr);
                 start_p = nullptr;
             }
             broadcast(EventType::connect, json::Value());
@@ -74,8 +79,17 @@ void WsInstance::worker(std::promise<void> *start_p) {
             broadcast(EventType::disconnect, json::Value());
         } catch (std::exception &e) {
             _ws = nullptr;
+            if (start_p) {
+                start_p->set_value(std::current_exception());
+                _running = false;
+                return;
+            }
             broadcast(EventType::exception, e.what());
+            if (lk.owns_lock()) {
+                lk.unlock(); //unlock temporalily
+            }
             std::this_thread::sleep_for(std::chrono::seconds(5));
+            lk.lock();
         }
         
         
@@ -107,13 +121,17 @@ void WsInstance::send(json::Value v) {
 void WsInstance::ensure_start(std::unique_lock<std::recursive_mutex> &lk) {
     if (!_running) {
         _running= true;
-        std::promise<void> p;
+        std::promise<std::exception_ptr> p;
         _thr = std::thread([this,&p]{
             worker(&p);
         });
         auto f = p.get_future();
         lk.unlock();
-        f.get();
+        std::exception_ptr e = f.get();
+        if (e) {
+            _thr.join();
+            std::rethrow_exception(e);
+        }
     }
 }
 

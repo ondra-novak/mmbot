@@ -6,6 +6,10 @@
 #include "../isotime.h"
 #include "../ws_support.h"
 
+#include "orderbook.h"
+
+#include "orderlist.h"
+
 #include <future>
 #include <optional>
 
@@ -51,11 +55,18 @@ protected:
         CoinbaseAdv &_owner;
     };
     
+    class MyOrderList: public OrderList {
+    public:
+        MyOrderList(CoinbaseAdv &owner):_owner(owner) {}
+        virtual OrderList::Order fetch_order(const std::string_view &id) override;
+    protected:
+        CoinbaseAdv &_owner;
+    };
+    
     MyWsInstance ws;
     
     std::string api_key;
     std::string api_secret;
-    json::Value user_details;
     
     std::optional<double> fee;
 
@@ -71,23 +82,11 @@ protected:
     std::string get_wallet_uuid(std::string_view currency);
     void processError(HTTPJson::UnknownStatusException &e) const;
     
-    struct OrderBook {
-        std::map<double, double> _buy, _sell;
-        std::optional<std::promise<void> > _wait;
-        std::chrono::system_clock::time_point _expires;
-    };
-    
     std::mutex _ws_mx;
-    std::map<std::string, OrderBook,std::less<> > _orderBooks;
+    OrderBook _orderbook;
+    MyOrderList _orders;    
 
-    struct OrderInfo {
-        std::map<std::string,Order, std::less<> > _orders;
-        std::optional<std::promise<void> > _waiter;
-        std::chrono::system_clock::time_point _expires;
-        bool _wait_error;
-    };
     
-    std::map<std::string, OrderInfo, std::less<> > _openOrders;
     
     json::Value ws_subscribe(bool unsubscribe, std::vector<std::string_view> products, std::string_view channel);
     
