@@ -32,6 +32,22 @@ int main(int argc, char **argv) {
 CoinbaseAdv::CoinbaseAdv(const std::string &path)
 :AbstractBrokerAPI(path,{
     Object({
+        {"type","hr"}
+    }),
+    Object({
+        {"type","textarea"},
+        {"label","Mandatory permissions"},
+        {"name","permissions"},
+        {"default","wallet:accounts:read\r\nwallet:buys:create\r\nwallet:buys:read\r\nwallet:transactions:read\r\nwallet:user:read"},
+        {"attrs",json::Object{
+            {"readonly","readonly"},
+            {"style","border: 0"}
+        }}
+    }),
+    Object({
+        {"type","hr"}
+    }),
+    Object({
         {"name","key"},
         {"label","API Key"},
         {"type", "string"}
@@ -126,8 +142,8 @@ json::Value CoinbaseAdv::headers(std::string_view method,std::string_view reqpat
 IBrokerControl::BrokerInfo CoinbaseAdv::getBrokerInfo() {
     return {
         !api_key.empty() && !api_secret.empty(),
-        "Coinbase",
-        "Coinbase",
+        "Coinbase Advanced",
+        "Coinbase Advanced",
         "https://coinbase.com/join/novk_3k?src=referral-link",
         "1.0.0",
         "MIT Licence",
