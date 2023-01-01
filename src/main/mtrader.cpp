@@ -475,17 +475,17 @@ void MTrader::perform(bool manually) {
                         }
                     }
 
-                    target_buy_size = buyorder.size-minfo.asset_step;
-                    target_sell_size = sellorder.size+minfo.asset_step;
+                    target_buy_size = std::max(buyorder.size-minfo.asset_step,minfo.asset_step);
+                    target_sell_size = std::min(sellorder.size+minfo.asset_step,-minfo.asset_step);
 
                     if (!buyorder.size || !sellorder.size) {
                         flush_partial(status);
                         update_dynmult(false, false);
-                    } else if (buyorder.size - partial_position <= minfo.asset_step) {
+                    } else if (buyorder.size - partial_position < minfo.asset_step) {
                         flush_partial(status);
                         buyorder.size = 0;
                         buyorder.alert = IStrategy::Alert::enabled;
-                    } else if (sellorder.size - partial_position >= -minfo.asset_step) {
+                    } else if (sellorder.size - partial_position > -minfo.asset_step) {
                         flush_partial(status);
                         sellorder.size = 0;
                         sellorder.alert = IStrategy::Alert::enabled;
@@ -1025,7 +1025,7 @@ MTrader::Order MTrader::calculateOrderFeeLess(
 			cnt++;
 			m = m*1.1;
 
-		} while (cnt < 1000 && order.size == 0 && ((sz - prevSz)*dir>0  || cnt < 10));
+		} while (cnt < 1000 && order.size == 0 && ((sz - prevSz)*dir>0  || cnt < 10)); // @suppress("Direct float comparison")
 	}
 	auto lmsz = limitOrderMinMaxBalance(position, order.size, order.price);
 	if (lmsz.first != AlertReason::unknown) {
