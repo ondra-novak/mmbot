@@ -11,6 +11,7 @@ public:
     
     struct Order: IStockApi::Order {    
         std::string product_id;
+        json::Value client_id;
     };
 
     void add(Order order);
@@ -40,8 +41,7 @@ public:
     std::future<bool> get_ready();
     
     virtual Order fetch_order(const std::string_view &id) = 0;
-    
-    
+        
     
 protected:
     

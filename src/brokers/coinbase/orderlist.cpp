@@ -1,9 +1,10 @@
 #include "orderlist.h"
+#include "../../main/sgn.h"
 
 void OrderList::add(Order order) {
-    remove(order.id.getString());
+    remove(order.client_id.getString());
     std::size_t index = _orders.size();
-    _index.emplace(order.id.getString(), index);
+    _index.emplace(order.client_id.getString(), index);
     _orders.push_back(std::move(order));
 }
 
@@ -15,7 +16,7 @@ void OrderList::remove(const std::string_view id) {
     _index.erase(iter);
     if (this_index != last_index) {
         std::swap(_orders[iter->second], _orders[last_index]);
-        _index[_orders[this_index].id.getString()] = this_index;
+        _index[_orders[this_index].client_id.getString()] = this_index;
     } 
     _orders.pop_back();
 }
@@ -49,21 +50,23 @@ bool OrderList::process_data(json::Value data) {
     for (json::Value event: data["events"]) {
       std::string_view type = event["type"].getString();
       if (type == "update" || type == "snapshot") {
-          auto now = std::chrono::system_clock::now();
+//          auto now = std::chrono::system_clock::now();
           bool snapshot = event["type"].getString() == "snapshot";
           if (snapshot) {
               clear();
           }
           for (json::Value v: event["orders"]) {
-              std::string_view id = v["order_id"].getString();
+              json::Value id = v["order_id"].stripKey();
+              std::string_view client_id = v["client_order_id"].getString();
               std::string_view status = v["status"].getString();
-              if (status == "OPEN") {
+              if (status == "OPEN" || status == "PENDING") {
                   auto update_fn = [&](Order &o) {
-                      o.size = v["leaves_quantity"].getNumber();
+                      o.size = sgn(o.size)*v["leaves_quantity"].getNumber();
+                      o.id = id;
                   };                  
-                  if (!update(id, update_fn)) {
+                  if (!update(client_id, update_fn)) {
                       try {
-                          Order x = fetch_order(id);
+                          Order x = fetch_order(id.getString());
                           update_fn(x);
                           add(std::move(x));
                       } catch (...) {
@@ -78,7 +81,7 @@ bool OrderList::process_data(json::Value data) {
                       }
                   }
               } else {
-                  remove(id);
+                  remove(client_id);
               }
           }
           if (_orders_wait.has_value()) {

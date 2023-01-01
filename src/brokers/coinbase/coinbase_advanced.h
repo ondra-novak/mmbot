@@ -63,7 +63,6 @@ protected:
         CoinbaseAdv &_owner;
     };
     
-    MyWsInstance ws;
     
     std::string api_key;
     std::string api_secret;
@@ -76,23 +75,30 @@ protected:
     json::Value GET(std::string_view uri, json::Value query) const;
     json::Value POST(std::string_view uri, json::Value body);
     
-    std::map<std::string, std::string, std::less<> > cur_uuid;
     std::map<std::string, double, std::less<>> balance_cache;
+    bool _need_update_balance = true;
     
-    std::string get_wallet_uuid(std::string_view currency);
+
+    void update_balances();
+
     void processError(HTTPJson::UnknownStatusException &e) const;
     
     std::mutex _ws_mx;
     OrderBook _orderbook;
     MyOrderList _orders;    
 
+    MyWsInstance ws;
     
     
     json::Value ws_subscribe(bool unsubscribe, std::vector<std::string_view> products, std::string_view channel);
     
-    void reject_all_tickers();
+//    void reject_all_tickers();
     
+    std::size_t _orderCounter;
     
+
+    json::Value genUniqOrderID(json::Value orderClientID);
+    static json::Value parseUniqOrderID(json::Value uniqId);
     
     
     

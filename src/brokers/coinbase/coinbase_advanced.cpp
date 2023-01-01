@@ -2,6 +2,8 @@
 
 #include <imtjson/object.h>
 #include <imtjson/parser.h>
+#include <imtjson/binary.h>
+#include <imtjson/binjson.tcc>
 #include <simpleServer/urlencode.h>
 
 #include <shared/logOutput.h>
@@ -41,10 +43,12 @@ CoinbaseAdv::CoinbaseAdv(const std::string &path)
     })
 })
 ,httpc(simpleServer::HttpClient("MMBot Mozilla/5.0 (compatible; MMBot/2.0; +https://github.com/ondra-novak/mmbot.git)", simpleServer::newHttpsProvider(), nullptr, nullptr),"https://api.coinbase.com")
-,ws(*this, httpc.getClient(), "https://advanced-trade-ws.coinbase.com")
 ,_orders(*this)
+,ws(*this, httpc.getClient(), "https://advanced-trade-ws.coinbase.com")
+,_orderCounter(static_cast<std::size_t>(std::time(nullptr)))
 {
 }
+
 
 std::string CoinbaseAdv::calculate_signature(std::uint64_t timestamp,
                         std::string_view method, std::string_view reqpath,
@@ -89,6 +93,7 @@ json::Value CoinbaseAdv::GET(std::string_view uri, json::Value query) const {
     return httpc.GET(request.str(), headers("GET", uri, ""));
  } catch (HTTPJson::UnknownStatusException &e) {
      processError(e);
+     throw;
  }
 }
 
@@ -99,6 +104,7 @@ json::Value CoinbaseAdv::POST(std::string_view uri, json::Value body) {
     return httpc.POST(uri, b, headers("POST", uri, b));
  } catch (HTTPJson::UnknownStatusException &e) {
      processError(e);
+     throw;
  }
 
 }
@@ -272,12 +278,60 @@ AbstractBrokerAPI* CoinbaseAdv::createSubaccount(
 
 bool CoinbaseAdv::areMinuteDataAvailable(const std::string_view &asset,
         const std::string_view &currency) {
+    return false;
+}
+
+static json::String numberToString(double x) {
+    std::ostringstream s;
+    s.precision(std::max(0, static_cast<int>(-std::log10(x))+8));
+    s << std::fixed << x;
+    return json::String(s.str());
 }
 
 json::Value CoinbaseAdv::placeOrder(const std::string_view &pair, double size,
         double price, json::Value clientId, json::Value replaceId,
         double replaceSize) {
-    throw std::runtime_error("Not yet supported");
+    json::Value myOrderId = genUniqOrderID(clientId);
+    if (replaceId.defined()) {
+        POST("/api/v3/brokerage/orders/batch_cancel/",json::Object{
+            {"order_ids", json::Value(json::array,{replaceId})}
+        });
+    }
+    if (size) {
+        {
+            std::unique_lock _(_ws_mx);
+            _orders.add(OrderList::Order {
+                nullptr,clientId,size,price,std::string(pair),myOrderId.getString()
+            });
+        }
+        json::Value r = POST("/api/v3/brokerage/orders/", json::Object{
+            {"client_order_id", myOrderId},
+            {"product_id", pair},
+            {"side", size<0?"SELL":"BUY"},
+            {"order_configuration",json::Object{
+                {"limitLimitGtc", json::Object{
+                    {"baseSize", numberToString(std::abs(size))},
+                    {"limitPrice", numberToString(price)},
+                    {"postOnly", true}
+                }}            
+            }}
+        });
+        if (r["success"].getBool()) {
+            json::Value id = r["success_response"]["order_id"].stripKey();; 
+/*            std::unique_lock _(_ws_mx);
+            _orders.update(myOrderId.getString(), [&](Order &r){
+                r.id = id;
+            });*/
+            return id;
+        } else {
+            std::unique_lock _(_ws_mx);
+            _orders.remove(myOrderId.getString());
+            json::Value err = r["error_response"]["error"];
+            throw std::runtime_error(err.toString().c_str());
+        }
+    }
+    
+    return nullptr;
 }
 
 
@@ -316,7 +370,7 @@ IStockApi::Ticker CoinbaseAdv::getTicker(const std::string_view &pair) {
             throw std::runtime_error("Failed to get ticker (subscribe failed)");
         }
     }
-    auto res = _orderbook.getTicker(pair);
+    auto res = _orderbook.getTicker(pair);    
     if (!res.has_value()) {
         throw std::runtime_error("Failed to get ticker (invalid ticker data)");
     } 
@@ -395,6 +449,7 @@ uint64_t CoinbaseAdv::downloadMinuteData(const std::string_view &asset,
         const std::string_view &currency, const std::string_view &hint_pair,
         uint64_t time_from, uint64_t time_to,
         std::vector<IHistoryDataSource::OHLC> &data) {
+    return 0;
 }
 
 IBrokerControl::AllWallets CoinbaseAdv::getWallet() {
@@ -446,6 +501,7 @@ IStockApi::TradesSync CoinbaseAdv::syncTrades(json::Value lastId, const std::str
                 eff_price
             };
         }, TradeHistory());
+        if (!h.empty()) _need_update_balance = true;
         std::sort(h.begin(), h.end(), [](const Trade &a, const Trade &b){
             return a.time < b.time;
         });
@@ -503,45 +559,24 @@ json::Value CoinbaseAdv::testCall(const std::string_view &method,
 }
 
 double CoinbaseAdv::getBalance(const std::string_view &symb, const std::string_view &pair) {
+    if (_need_update_balance) update_balances();
     auto iter = balance_cache.find(symb);
-    if (iter != balance_cache.end()) return iter->second;
-    auto uuid = get_wallet_uuid(symb);
-    if (uuid.empty()) return 0;
-    std::string path = "/api/v3/brokerage/accounts/";
-    path.append(uuid);
-    json::Value v = GET(path,json::Value());
-    double b = v["account"]["available_balance"]["value"].getNumber();
-    balance_cache.emplace(std::string(symb), b);
-    return b;
+    return iter == balance_cache.end()?0.0:iter->second;
+    
 }
 
 json::Value CoinbaseAdv::setSettings(json::Value v) {
+    return {};
 }
 
 void CoinbaseAdv::restoreSettings(json::Value v) {
 }
 
 bool CoinbaseAdv::reset() {
-    
+    _need_update_balance = true;
+    return true;
 }
 
-std::string CoinbaseAdv::get_wallet_uuid(std::string_view currency) {
-    auto iter = cur_uuid.find(currency);
-    if (iter == cur_uuid.end()) {
-        
-        json::Value v = GET("/api/v3/brokerage/accounts", json::Object{{"limit",250}});
-        for (json::Value x:v["accounts"]) {
-            cur_uuid[std::string(x["currency"].getString())] = x["uuid"].getString();
-        }        
-        
-        iter = cur_uuid.find(currency);
-    }
-    if (iter == cur_uuid.end()) {
-        return std::string();
-    } else {
-        return iter->second;
-    }
-}
 
 json::Value CoinbaseAdv::ws_subscribe(bool unsubscribe, std::vector<std::string_view> products, std::string_view channel) {
     auto tm = std::chrono::duration_cast<std::chrono::seconds>(httpc.now().time_since_epoch()).count();
@@ -584,12 +619,43 @@ OrderList::Order CoinbaseAdv::MyOrderList::fetch_order(const std::string_view &i
     double filled_sz = o["filled_size"].getNumber();
     double limit_price = o["order_configuration"][0]["limit_price"].getNumber();
     double remain_sz = base_sz - filled_sz;
-    if (v["side"].getString() != "BUY") remain_sz = -remain_sz;
+    if (o["side"].getString() != "BUY") {
+        remain_sz = -remain_sz;
+    }
     return Order {
-        o["order_id"],
-        o["client_order_id"],
+        o["order_id"].stripKey(),
+        parseUniqOrderID(o["client_order_id"])[0],
         remain_sz,
         limit_price,
-        o["product_id"].getString()
+        o["product_id"].getString(),
+        o["client_order_id"].getString()
     };
+}
+
+json::Value CoinbaseAdv::genUniqOrderID(json::Value orderClientID) {
+    std::size_t id = _orderCounter++;
+    json::Value decoded(json::array,{orderClientID.stripKey(), id},false);
+    std::string s; 
+    decoded.serializeBinary([&](char c){s.push_back(c);});
+    return json::base64url->encodeBinaryValue(json::map_str2bin(s));
+}
+
+void CoinbaseAdv::update_balances() {
+    json::Value accounts = GET("/api/v3/brokerage/accounts/", json::Object{{"limit",250}});
+    for (json::Value a: accounts["accounts"]) {
+        std::string currency = a["currency"].getString();
+        double avail = a["available_balance"]["value"].getNumber();
+        double hold =  a["hold"]["value"].getNumber();
+        balance_cache[currency] = avail+hold;
+    }
+    _need_update_balance = false;
+}
+
+json::Value CoinbaseAdv::parseUniqOrderID(json::Value uniqId) {
+    json::Value v = json::base64url->decodeBinaryValue(uniqId.getString());
+    auto b = v.getBinary();
+    auto iter = b.begin();
+    return json::Value::parseBinary([&]{
+        return *iter++;
+    });
 }

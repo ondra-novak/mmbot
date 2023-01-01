@@ -1,5 +1,9 @@
 #include "orderbook.h"
 
+#include <shared/logOutput.h>
+
+using ondra_shared::logDebug;
+
 
 void OrderBook::clear() {
     for (auto &[id, ob]: _orderBooks) {
@@ -42,6 +46,7 @@ std::optional<IStockApi::Ticker> OrderBook::getTicker(std::string_view product) 
     std::uint64_t tm = std::chrono::duration_cast<std::chrono::milliseconds>(
             o._last_update.time_since_epoch()
     ).count();   
+    logDebug("getTicker-stats: SYMBOL=$1, LEVELS=$2, UPDATES=$3", product, o._buy.size()+o._sell.size(), o._updates);
     o._expires = std::chrono::system_clock::now()+std::chrono::seconds(collect_timeout_sec);
     return IStockApi::Ticker {bid,ask,mid,tm};    
 }
@@ -89,6 +94,7 @@ std::string_view OrderBook::process_data(json::Value data) {
             if (q == 0) side.erase(p);
             else side[p] = q;
         }
+        ++o._updates;
         if (o._wait.has_value()) {
             o._wait->set_value(true);
             o._wait.reset();

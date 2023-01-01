@@ -43,6 +43,7 @@ protected:
         std::optional<std::promise<bool> > _wait;
         std::chrono::system_clock::time_point _expires;
         std::chrono::system_clock::time_point _last_update;
+        std::size_t _updates = 0;
         
     };
     
