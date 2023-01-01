@@ -126,6 +126,19 @@ protected:
 			double tradePrice) const;
 
 	double calcRealPosValue(double k, double pw, double price, double pos) const;
+	
+	struct NewPosInfo {
+	    double pnl;
+	    double newk;
+	    double newpos;
+	    double newpw;
+	    double newpwadj;
+	    double newofs;
+	    double pilekmul;
+	    bool is_close;
+	};
+	
+	NewPosInfo calcNewPos(const IStockApi::MarketInfo &minfo, double new_price, double assets) const;
 
     static double calcPilePosition(double ratio, double kmult, double price);
     static double calcPileBudget(double ratio, double kmult, double price);

@@ -211,6 +211,11 @@ double Strategy_Sinh_Gen::calcNewK(double tradePrice, double cb, double pnl, int
 	if (st.at_zero) return std::sqrt(st.k*tradePrice);
 //	if (st.at_zero) return st.k;
 
+    if ((tradePrice - st.k) * (st.p - st.k) < 0) {
+        return tradePrice;
+    }
+
+	
 	double newk = st.k;
     if (!pnl) return st.k;
     double sprd = cfg.avgspread?(std::exp(st.avg_spread)):(tradePrice/st.p);
@@ -285,8 +290,7 @@ double Strategy_Sinh_Gen::calcNewK(double tradePrice, double cb, double pnl, int
 double Strategy_Sinh_Gen::roundZero(double assetsLeft,
 		const IStockApi::MarketInfo &minfo, double tradePrice) const {
 	double absass = std::abs(assetsLeft);
-	if (absass < minfo.min_size || absass * tradePrice < minfo.min_volume
-			|| absass < (st.budget / 1e8) / tradePrice) {
+	if (absass < minfo.calcMinSize(tradePrice)) {
 		assetsLeft = 0;
 	}
 	return assetsLeft;
@@ -299,6 +303,61 @@ std::pair<IStrategy::OnTradeResult, PStrategy> Strategy_Sinh_Gen::onTrade(
 	if (!isValid()) return init(minfo, tradePrice, assetsLeft, currencyLeft)
 				->onTrade(minfo, tradePrice, tradeSize, assetsLeft, currencyLeft);
 
+    if (tradeSize == 0 && st.p2 && (assetsLeft * (st.p2 - tradePrice) > 0)) {
+        State nwst = st;
+        nwst.p2 = tradePrice;
+        nwst.use_last_price = true;
+        return {
+            {0,0,nwst.k,0},
+            new Strategy_Sinh_Gen(cfg, std::move(nwst))
+        };
+    }
+    
+
+	
+	NewPosInfo npinfo = calcNewPos(minfo, tradePrice, assetsLeft - tradeSize);
+	
+	double newbudget = calcPileBudget(cfg.ratio, npinfo.pilekmul, tradePrice);
+	
+	State nwst;
+	nwst.at_zero = npinfo.is_close;
+	nwst.budget = newbudget;
+	nwst.k = npinfo.newk;
+	nwst.offset = npinfo.newofs;
+	nwst.p = tradePrice;
+	nwst.p2 = tradePrice;
+	nwst.pwadj = npinfo.newpwadj;
+	nwst.rebalance = st.rebalance;
+	nwst.use_last_price = false;
+	nwst.spot = st.spot;
+	nwst.val = cfg.calc->budget(npinfo.newk, npinfo.newpw*npinfo.newpwadj, tradePrice);
+	double lspread = std::abs(std::log(tradePrice/st.p));
+	nwst.avg_spread = st.avg_spread<=0?(lspread*0.5):((299*st.avg_spread+lspread)/300); 
+	
+	double vnp = npinfo.pnl - nwst.val + st.val;
+
+	double ofspnl = st.offset * (tradePrice - st.p);
+    double ofsnp =  ofspnl - newbudget + st.budget;;
+    
+    if (cfg.reinvest) nwst.budget+=vnp;
+    
+    double posErr = std::abs(npinfo.newpos - assetsLeft)/(std::abs(assetsLeft)+std::abs(npinfo.newpos)); //< chyba pozice oproti vypoctu
+    nwst.use_last_price = nwst.use_last_price || (tradeSize == 0 && posErr>0.3); //pokud je alert a chyba pozice je vetsi nez 30% prepni na use_last_price    
+    if (posErr < 0.3) nwst.rebalance = false; //rebalance se vypne, pokud je pozice s mensi chybou, nez je 30%
+    
+    return {
+        OnTradeResult{vnp+ofsnp,0,npinfo.newk,0},
+        PStrategy(new Strategy_Sinh_Gen(cfg, std::move(nwst)))
+    };
+	
+	
+	
+#if 0
+	
+	double actual_pos = assetsLeft - st.offset;
+	double calc_pos = cfg.calc->assets(st.k, pw, tradePrice);
+	double prev_pos = actual_pos - tradeSize;
+	double prev_calc_pos = cfg.calc->assets(st.k, pw, st.p);
 	assetsLeft-=st.offset;
 
 	if (tradeSize == 0 && st.p2 && (assetsLeft * (st.p2 - tradePrice) > 0)) {
@@ -319,7 +378,8 @@ std::pair<IStrategy::OnTradeResult, PStrategy> Strategy_Sinh_Gen::onTrade(
 	double pwadj = adjustPower(prevPos, newk, tradePrice);
 	double newpw = calcPower(cfg, st, newk);
 	bool ulp = false;
-	bool atz = newk == tradePrice; // @suppress("Direct float comparison")
+	bool atz = newk == tradePrice || assetsLeft == 0; // @suppress("Direct float comparison")
+	if (atz) newk = tradePrice;
 
 	if (pwadj<1.0) {
 		ulp = true;   //pokud se zmenil power, prepni na use_last_price
@@ -380,6 +440,7 @@ std::pair<IStrategy::OnTradeResult, PStrategy> Strategy_Sinh_Gen::onTrade(
 		OnTradeResult{np,0,newk,0},
 		PStrategy(new Strategy_Sinh_Gen(cfg, std::move(nwst)))
 	};
+#endif
 }
 
 
@@ -467,13 +528,69 @@ json::Value Strategy_Sinh_Gen::dumpStatePretty(const IStockApi::MarketInfo &minf
 	});
 }
 
+Strategy_Sinh_Gen::NewPosInfo Strategy_Sinh_Gen::calcNewPos(const IStockApi::MarketInfo &minfo, double new_price, double assets) const {
+    
+    double curpos = assets - st.offset;
+
+    curpos = roundZero(curpos, minfo, st.p);
+    double cur_calc_pos = cfg.calc->assets(st.k, pw, st.p);
+
+    double pnl = curpos*(new_price - st.p);
+    double newk = calcNewK(new_price, st.val, pnl, cfg.boostmode);
+    double npw = calcPower(cfg, st, newk);
+    double pwadj = adjustPower(curpos, newk, new_price);
+    double new_pos = cfg.calc->assets(newk, npw*pwadj, new_price);
+    double kmult = calcPileKMult(st.p, st.budget, cfg.ratio);
+    double new_offset = calcPilePosition(cfg.ratio, kmult, new_price);
+    bool is_close = false;
+    //if we not at zero and position goes to otherside
+    if (new_pos * cur_calc_pos < 0) {
+        if (!st.at_zero && curpos) {
+            new_pos = 0;
+            is_close = true;
+            newk = new_price; 
+        } else {
+            newk = (new_price + st.p)*0.5;
+            npw = calcPower(cfg, st, newk);
+            pwadj = 1.0;
+            new_pos = cfg.calc->assets(newk, npw*pwadj, new_price);
+        }
+    }
+    if (roundZero(new_pos, minfo, new_price) == 0) { 
+        is_close = true;
+    }
+    return {
+        pnl,
+        newk,
+        new_pos,
+        npw,
+        pwadj,
+        new_offset,
+        kmult,
+        is_close
+    };
+
+    
+    
+}
+
 IStrategy::OrderData Strategy_Sinh_Gen::getNewOrder(
 		const IStockApi::MarketInfo &minfo, double cur_price, double new_price,
 		double dir, double assets, double currency, bool rej) const {
 
-	double curpos = assets -  st.offset;
+    
+    NewPosInfo nposinfo = calcNewPos(minfo, new_price, assets);
+    
+    double f = nposinfo.newpos+nposinfo.newofs;
+    double lf = limitPosition(f);
+    
+    double df = f - assets;
+    
+    return {new_price, df, f != lf?Alert::forced:Alert::enabled};
+#if 0    
+	double curpos = cfg.calc->assets(st.k, pw, new_price);
 
-	curpos = roundZero(curpos, minfo, st.p);
+//	curpos = roundZero(curpos, minfo, st.p);
 
 	if (st.rebalance) new_price = cur_price;
 
@@ -526,6 +643,7 @@ IStrategy::OrderData Strategy_Sinh_Gen::getNewOrder(
     double dfa = f - assets;
 
 	return {new_price, dfa, limited?Alert::forced:Alert::enabled};
+#endif
 }
 
 double Strategy_Sinh_Gen::limitPosition(double pos) const {
