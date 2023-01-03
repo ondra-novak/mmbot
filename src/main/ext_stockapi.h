@@ -61,7 +61,7 @@ public:
 					  const std::string_view &hint_pair,
 					  std::uint64_t time_from,
 					  std::uint64_t time_to,
-					  std::vector<OHLC> &data
+					  HistData &data
 				) override;
 
 

@@ -181,7 +181,7 @@ public:
 	virtual bool areMinuteDataAvailable(const std::string_view &asset,
 			const std::string_view &currency)override;
 	virtual uint64_t downloadMinuteData(const std::string_view &asset, const std::string_view &currency, const std::string_view &hint_pair, uint64_t time_from, uint64_t time_to,
-			std::vector<IHistoryDataSource::OHLC> &data)override;
+			HistData &data)override;
 	virtual json::Value callMethod(std::string_view name, json::Value args) override;
 	virtual AllWallets getWallet() override;
 
@@ -812,15 +812,18 @@ inline bool Interface::areMinuteDataAvailable(const std::string_view &asset, con
 
 inline uint64_t Interface::downloadMinuteData(const std::string_view &asset,
 		const std::string_view &currency, const std::string_view &hint_pair, uint64_t time_from,
-		uint64_t time_to, std::vector<IHistoryDataSource::OHLC > &data) {
+		uint64_t time_to, HistData &xdata) {
 	getSymbolInfo(std::string(asset));
+	
+	MinuteData data;
+	
 	int sets[] = {300,900,1800,3600,14400};
 	for (int curset: sets) {
 		std::ostringstream buff;
 		buff << "/GetCandles?symbol="<<asset<<"&cPeriod="<<curset<<"&timeFrom="<<time_from/1000<<"&timeTo="<<time_to/1000;
 		int dups = curset/300;
 		auto insert_val = [&](double n){
-				for (int i = 0; i < dups; i++) data.push_back({n,n,n,n});
+				for (int i = 0; i < dups; i++) data.push_back(n);
 		};
 
 		Value hdata=hjsn_c.GET(buff.str());
@@ -844,6 +847,7 @@ inline uint64_t Interface::downloadMinuteData(const std::string_view &asset,
 			}
 		}
 		if (!data.empty()) {
+		    xdata = std::move(data);
 			return minDate;
 		}
 	}

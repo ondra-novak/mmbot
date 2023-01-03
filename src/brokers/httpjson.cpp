@@ -86,25 +86,55 @@ json::Value HTTPJson::parseResponse(simpleServer::HttpResponse &resp, json::Valu
 
 json::Value HTTPJson::GET(const std::string_view &path, json::Value &&headers, unsigned int expectedCode) {
 	std::string url = baseUrl;
+	int redir_count = 0;
 	url.append(path);
 
-	logDebug("GET $1", url);
+	do {
+        
+        logDebug("GET $1", url);
+    
+        auto resp = httpc.request("GET", url, hdrs(headers));
+        const simpleServer::ReceivedHeaders &hdrs = resp.getHeaders();
+        simpleServer::HeaderValue datehdr = hdrs["Date"];
+        if (datehdr.defined()) {
+            if (parseHttpDate(datehdr, lastServerTime)) {
+                lastLocalTime = std::chrono::steady_clock::now();
+            }
+        }
+        unsigned int st = resp.getStatus();
+        if (st == 301 || st == 302 || st == 303 || st == 307) {
+            url = handleLocation(url, resp.getHeaders()["Location"]); // @suppress("Invalid arguments") // @suppress("Method cannot be resolved")
+            if (!url.empty() && redir_count< 16) {
+                redir_count++;
+                continue;
+            }
+        }
+        if ((expectedCode && st != expectedCode) || (!expectedCode && st/100 != 2)) {
+            throw UnknownStatusException(st, resp.getMessage(),resp);
+        }
+        json::Value r = parseResponse(resp, headers);
+        logDebug("RECV: $1", r);
+        return r;
+	} while (true);
+}
 
-	auto resp = httpc.request("GET", url, hdrs(headers));
-	const simpleServer::ReceivedHeaders &hdrs = resp.getHeaders();
-	simpleServer::HeaderValue datehdr = hdrs["Date"];
-	if (datehdr.defined()) {
-		if (parseHttpDate(datehdr, lastServerTime)) {
-			lastLocalTime = std::chrono::steady_clock::now();
-		}
-	}
-	unsigned int st = resp.getStatus();
-	if ((expectedCode && st != expectedCode) || (!expectedCode && st/100 != 2)) {
-		throw UnknownStatusException(st, resp.getMessage(),resp);
-	}
-	json::Value r = parseResponse(resp, headers);
-	logDebug("RECV: $1", r);
-	return r;
+std::string HTTPJson::handleLocation(std::string_view url, simpleServer::HeaderValue loc) {
+    if (!loc.defined()) return {};
+    std::string_view location = loc;
+    auto sep0 = url.find('?');
+    if (sep0 != url.npos) {
+        url = url.substr(0,sep0);
+    }
+    if (location.empty()) return std::string(url);
+    if (location.find("://") != location.npos) return std::string(location);
+    auto sep1 = url.find("://");
+    auto sep2 = url.find("/", sep1);
+    if (location[0] == '/') {
+        if (sep2 == url.npos) return std::string(url).append(location);
+        else return std::string(url.substr(0, sep2)).append(location);
+    } else {
+        return std::string(url).append(location);
+    }
 }
 
 

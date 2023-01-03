@@ -639,7 +639,7 @@ bool Interface::areMinuteDataAvailable(const std::string_view &asset, const std:
 
 uint64_t Interface::downloadMinuteData(const std::string_view &asset, const std::string_view &currency,
 		const std::string_view &hint_pair, uint64_t time_from, uint64_t time_to,
-		std::vector<IHistoryDataSource::OHLC> &data) {
+		HistData &xdata) {
 	const PairList &pls = getPairs();
 	auto iter = pls.find(stripMargin(hint_pair));
 	if (iter == pls.end()) {
@@ -648,13 +648,16 @@ uint64_t Interface::downloadMinuteData(const std::string_view &asset, const std:
 		});
 	}
 	if (iter == pls.end()) return 0;
+	
+	MinuteData data;
+	
 	std::uint64_t max_items = 10000;
 	auto start = std::max(time_to - max_items*4*60000, time_from);
 	std::ostringstream buff;
 	buff << "/v2/candles/trade:5m:" << iter->second.tsymbol << "/hist?limit=10000&start="<<start<<"&end="<<time_to<<"&sort=1";
 	json::Value hdata = publicGET(buff.str());
 	auto insert_val = [&](double n){
-			data.push_back({n,n,n,n});
+			data.push_back(n);
 	};
 	std::uint64_t minDate = time_to;
 
@@ -675,6 +678,7 @@ uint64_t Interface::downloadMinuteData(const std::string_view &asset, const std:
 		}
 	}
 	if (!data.empty()) {
+	    xdata = std::move(data);
 		return minDate;
 	} else {
 		return 0;

@@ -11,6 +11,7 @@
 
 #include <imtjson/value.h>
 #include <imtjson/string.h>
+#include <variant>
 
 class IBrokerControl {
 public:
@@ -114,6 +115,10 @@ public:
 		double low;
 		double close;
 	};
+	
+	using OHLCData = std::vector<OHLC>;
+	using MinuteData = std::vector<double>;
+	using HistData = std::variant<OHLCData, MinuteData>;
 
 	///Asks to broker, whether there are available historical minute data
 	/**
@@ -126,11 +131,11 @@ public:
 	///Downloads data
 	/**
 	 *  Downloads data as much as possible into history. Function allows download data in block which
-	 *  is necesery when a large portion of the data must be downloaded, the process can take more time that timeout. So
+	 *  is necessary when a large portion of the data must be downloaded, the process can take more time that timeout. So
 	 *  broker can return less then requested data, but the returned block must be recent.
 	 *
-	 *  For example, the user want to download data from january to jul. However, the broker can download only one month
-	 *  at once, so the broker returns data for jul only. Then additional requests are generated to retrieve rest of the data
+	 *  For example, the user want to download data from January to July. However, the broker can download only one month
+	 *  at once, so the broker returns data for July only. Then additional requests are generated to retrieve rest of the data
 	 *
 	 *  @param asset asset
 	 *  @param currency currency
@@ -149,7 +154,7 @@ public:
 					  const std::string_view &hint_pair,
 					  std::uint64_t time_from,
 					  std::uint64_t time_to,
-					  std::vector<OHLC> &data
+					  HistData &data
 				) = 0;
 
 };

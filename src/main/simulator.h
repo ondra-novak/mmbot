@@ -29,7 +29,7 @@ public:
 	virtual json::Value getSettings(const std::string_view &pairHint) const override;
 	virtual uint64_t downloadMinuteData(const std::string_view &asset, const std::string_view &currency,
 			const std::string_view &hint_pair, uint64_t time_from, uint64_t time_to,
-			std::vector<IHistoryDataSource::OHLC> &data) override;
+			IHistoryDataSource::HistData &data) override;
 	virtual IBrokerControl::BrokerInfo getBrokerInfo() override;
 	virtual json::Value getMarkets() const override;
 	virtual double getBalance(const std::string_view &symb, const std::string_view &pair) override;

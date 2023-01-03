@@ -4,7 +4,7 @@
 	cd new_web
 	wget -q --save-cookies cookies.txt --load-cookies cookies.txt -N https://github.com/Matasx/mmbot-web-ui/releases/latest/download/release.zip
 	
-	if [ -e files.sha ] && sha1sum --quiet -c files.sha 
+	if [ -e files.sha ] && sha1sum --quiet --status -c files.sha 
 	then
 	 echo new web is already up to date
 	else 

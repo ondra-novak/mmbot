@@ -141,7 +141,7 @@ void KucoinIFC::onLoadApiKey(json::Value keyData) {
 
 uint64_t KucoinIFC::downloadMinuteData(const std::string_view &asset, const std::string_view &currency,
 		const std::string_view &hint_pair, uint64_t time_from, uint64_t time_to,
-		std::vector<IHistoryDataSource::OHLC> &data) {
+		HistData &xdata) {
 	updateSymbols();
 	auto iter = symbolMap.find(hint_pair);
 	if (iter == symbolMap.end()) {
@@ -149,6 +149,7 @@ uint64_t KucoinIFC::downloadMinuteData(const std::string_view &asset, const std:
 			return x.second.currency_symbol == currency && x.second.asset_symbol == asset;
 		});
 	}
+	MinuteData data;
 	time_from/=1000;
 	time_to/=1000;
 	if (iter != symbolMap.end()) {
@@ -169,20 +170,21 @@ uint64_t KucoinIFC::downloadMinuteData(const std::string_view &asset, const std:
 				double m = std::sqrt(h*l);
 				while (tm+5*60 < minTime) {
 					minTime-=60;
-					data.push_back({c,c,c,c});
+					data.push_back(c);
 				}
-				data.push_back({c,c,c,c});
-				data.push_back({l,l,l,l});
-				data.push_back({m,m,m,m});
-				data.push_back({h,h,h,h});
-				data.push_back({o,o,o,o});
+				data.push_back(c);
+				data.push_back(l);
+				data.push_back(m);
+				data.push_back(h);
+				data.push_back(o);
 				minTime = tm;
 			}
 		}
 		std::reverse(data.begin(), data.end());
-		if (data.empty()) {
+		if (data.empty()) {		    
 			return 0;
 		} else {
+		    xdata = std::move(data);
 			return minTime*1000;
 		}
 

@@ -68,6 +68,7 @@ public:
 	void setForceJSON(bool force) {force_json = force;}
 	bool getForceJSON() const {return force_json;}
 
+	
 protected:
 	simpleServer::HttpClient httpc;
 	std::string baseUrl;
@@ -79,6 +80,7 @@ protected:
 
 	static bool parseHttpDate(const std::string_view &date, std::chrono::system_clock::time_point & tp);
 	json::Value parseResponse(simpleServer::HttpResponse &resp, json::Value &headers);
+	std::string handleLocation(std::string_view url, simpleServer::HeaderValue loc);
 };
 
 
