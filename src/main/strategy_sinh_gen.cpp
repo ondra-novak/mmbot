@@ -316,6 +316,13 @@ std::pair<IStrategy::OnTradeResult, PStrategy> Strategy_Sinh_Gen::onTrade(
 
 	
 	NewPosInfo npinfo = calcNewPos(minfo, tradePrice, assetsLeft - tradeSize);
+
+    if (tradeSize == 0 && roundZero(assetsLeft-st.offset, minfo, tradePrice) == 0) {
+        npinfo.is_close = true;
+        npinfo.newk = tradePrice;
+        npinfo.newpos = 0;        
+    }
+
 	
 	double newbudget = calcPileBudget(cfg.ratio, npinfo.pilekmul, tradePrice);
 	
