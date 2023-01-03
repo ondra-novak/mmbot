@@ -149,7 +149,7 @@ json::Value Simulator::getSettings(const std::string_view &pairHint) const {
 
 uint64_t Simulator::downloadMinuteData(const std::string_view &asset, const std::string_view &currency,
 		const std::string_view &hint_pair, uint64_t time_from, uint64_t time_to,
-		std::vector<IHistoryDataSource::OHLC> &data) {
+		IHistoryDataSource::HistData &data) {
 	std::lock_guard _(lock);
 	SourceInfo p = parseSymbol(hint_pair);
 	IHistoryDataSource *src = dynamic_cast<IHistoryDataSource *>(p.exchange.get());

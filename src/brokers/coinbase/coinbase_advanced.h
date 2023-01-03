@@ -32,7 +32,7 @@ public:
     virtual uint64_t downloadMinuteData(const std::string_view &asset,
             const std::string_view &currency, const std::string_view &hint_pair,
             uint64_t time_from, uint64_t time_to,
-            std::vector<IHistoryDataSource::OHLC> &data) override;
+            HistData &data) override;
     virtual IBrokerControl::AllWallets getWallet() override;
     virtual IStockApi::TradesSync syncTrades(json::Value lastId,
             const std::string_view &pair) override;

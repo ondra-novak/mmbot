@@ -2342,8 +2342,8 @@ struct WebCfg::DataDownloaderTask {
 	std::string dwnid;
 	AsyncProvider async;
 
-	std::vector<IHistoryDataSource::OHLC> tmpVect;
-	std::stack<std::vector<IHistoryDataSource::OHLC> > datastack;
+	IHistoryDataSource::HistData tmpVect;
+	std::stack<IHistoryDataSource::HistData> datastack;
 	std::uint64_t end_tm ;
 	std::uint64_t start_tm;
 	std::size_t cnt;
@@ -2377,9 +2377,8 @@ void WebCfg::DataDownloaderTask::operator()() {
 			async.runAsync(std::move(*this));
 			return;
 		}
-		cnt+=tmpVect.size();
-		datastack.push(std::move(tmpVect));
-		tmpVect.clear();
+        cnt+=std::visit([](const auto &x){return x.size();},tmpVect);
+		datastack.push(std::move(tmpVect));		
 		async.runAsync(std::move(*this));
 	} else {
 		done();
@@ -2387,22 +2386,33 @@ void WebCfg::DataDownloaderTask::operator()() {
 
 }
 void WebCfg::DataDownloaderTask::done() {
-	tmpVect.reserve(cnt);
-	while (!datastack.empty()) {
-		const auto &p = datastack.top();
-		tmpVect.insert(tmpVect.end(), p.begin(), p.end());
-		datastack.pop();
-	}
-	Value out = json::array;
-	if (!tmpVect.empty()) {
-		out = Value(json::array, tmpVect.begin(), tmpVect.end(),[&](const auto &ohlc) -> Value {
-			double du = ohlc.high-ohlc.open;
-			double dw = ohlc.open-ohlc.low;
-			if (du > 2*dw) return ohlc.high;
-			if (dw > 2*du) return ohlc.low;
-			return ohlc.close;
-		});
-	}
+	Array out;
+	out.reserve(cnt);
+    while (!datastack.empty()) {
+        const auto &p = datastack.top();
+        std::visit([&](const auto &x){
+           using T = std::remove_const_t<std::remove_reference_t<decltype(x)> >;
+           if constexpr(std::is_same_v<T, IHistoryDataSource::MinuteData>) {
+               for (double d: x) {
+                   out.push_back(d);
+               }
+           } else {
+               for (const auto &ohlc: x) {
+                   double du = ohlc.high-ohlc.open;
+                   double dw = ohlc.open-ohlc.low;
+                   if (du > 2*dw) {
+                       out.push_back(ohlc.high);
+                   } else if (dw > 2*du) {
+                       out.push_back(ohlc.low);
+                   } else {
+                       out.push_back(ohlc.close);
+                   }
+               }
+           }
+        }, p);
+        datastack.pop();
+    }
+	
 	auto storage = state.lock_shared()->backtest_storage;
 	storage.lock()->store_data(out, dwnid);
 }

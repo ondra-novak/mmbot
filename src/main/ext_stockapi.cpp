@@ -296,7 +296,7 @@ bool ExtStockApi::areMinuteDataAvailable(const std::string_view &asset, const st
 std::uint64_t ExtStockApi::downloadMinuteData(const std::string_view &asset,
 		const std::string_view &currency, const std::string_view &hint_pair,
 		std::uint64_t time_from, std::uint64_t time_to,
-		std::vector<OHLC> &data) {
+		HistData &xdata) {
 
 	auto resp = requestExchange("downloadMinuteData", json::Object{
 			{"asset",asset},
@@ -305,32 +305,28 @@ std::uint64_t ExtStockApi::downloadMinuteData(const std::string_view &asset,
 			{"time_from",time_from},
 			{"time_to",time_to},
 		});
-		json::Value recv_data = resp["data"];
-		json::Value start_time = resp["start"];
-		data.clear();
-		data.reserve(recv_data.size());
-		double last = 0;
-		for (json::Value v: recv_data) {
-			if (v.type() == json::number) {
-				double d = v.getNumber();
-				last = d;
-				recv_data.push({d,d,d,d});
-			} else if (v.type() == json::array) {
-				double o=last,h=last,l=last,c=last;
-				switch (v.size()) {
-				case 1: h=l=c = v[0].getNumber();break;
-				case 2: h=v[0].getNumber();l =v[1].getNumber();c=std::sqrt(h*l);break;
-				case 3: h=v[0].getNumber();l =v[1].getNumber();c=v[2].getNumber();break;
-				case 4: o=v[0].getNumber();h =v[1].getNumber();l=v[2].getNumber();c=v[3].getNumber();break;
-				}
-				if (o == 0) o = std::sqrt(h*l);
-				h = std::max({o,h,l,c});
-				l = std::min({o,h,l,c});
-				last = c;
-				data.push_back({o,h,l,c});
-			}
-		}
-		return start_time.getUIntLong();
+    json::Value recv_data = resp["data"];
+    json::Value start_time = resp["start"];
+    if (recv_data.empty() || !recv_data[0].isContainer())  {
+        MinuteData data;
+        for (json::Value v: recv_data) {
+            data.push_back(v.getNumber());
+        }
+        xdata = std::move(data);
+    } else {
+        OHLCData data;
+        for (json::Value v: recv_data) {
+            data.push_back({
+                v[0].getNumber(),
+                v[1].getNumber(),
+                v[2].getNumber(),
+                v[3].getNumber(),
+            });
+        }
+        
+        xdata = std::move(data);
+    }
+    return start_time.getUIntLong();
 
 
 }

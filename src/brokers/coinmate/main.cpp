@@ -80,7 +80,7 @@ public:
 	virtual bool areMinuteDataAvailable(const std::string_view &asset, const std::string_view &currency) override;
 	virtual uint64_t downloadMinuteData(const std::string_view &asset, const std::string_view &currency,
 			const std::string_view &hint_pair, uint64_t time_from, uint64_t time_to,
-			std::vector<IHistoryDataSource::OHLC> &data) override;
+			IHistoryDataSource::HistData &data) override;
 	json::Value findSymbol(const std::string_view &asset, const std::string_view &currency);
 };
 
@@ -462,7 +462,7 @@ HistDataSet histDataSets[] = {
 
 inline uint64_t Interface::downloadMinuteData(const std::string_view &asset,
 		const std::string_view &currency, const std::string_view &hint_pair, uint64_t time_from,
-		uint64_t time_to, std::vector<IHistoryDataSource::OHLC> &data) {
+		uint64_t time_to, HistData &xdata) {
 	auto f =findSymbol(asset, currency);
 	auto name = f["name"];
 	auto now = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
@@ -476,9 +476,11 @@ inline uint64_t Interface::downloadMinuteData(const std::string_view &asset,
 	std::uint64_t start = std::max(now - st->toMS(), time_from);
 	json::Value hdata = hapi.GET(std::string("guirest/rateGraph?currencyPairName=").append(name.getString()).append("&interval=").append(std::to_string(st->interval)));
 
+	MinuteData data;
+	
 	auto insert_val = [&,inv=f["firstCurrency"].getString() == currency](double n){
 			if (inv) n=1/n;
-			for (int i = 0; i < st->duplcnt; i++) data.push_back({n,n,n,n});
+			for (int i = 0; i < st->duplcnt; i++) data.push_back(n);
 		};
 
 	for (Value row: hdata) {
@@ -496,6 +498,7 @@ inline uint64_t Interface::downloadMinuteData(const std::string_view &asset,
 			insert_val(c);
 		}
 	}
+	xdata = std::move(data);
 	return start;
 
 }

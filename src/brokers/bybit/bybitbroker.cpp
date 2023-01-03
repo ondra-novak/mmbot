@@ -941,7 +941,7 @@ bool ByBitBroker::areMinuteDataAvailable(const std::string_view &asset, const st
 
 uint64_t ByBitBroker::downloadMinuteData(const std::string_view &asset,
 		const std::string_view &currency, const std::string_view &hint_pair, uint64_t time_from,
-		uint64_t time_to, std::vector<IHistoryDataSource::OHLC> &data) {
+		uint64_t time_to, IHistoryDataSource::HistData &xdata) {
 	updateSymbols();
 	auto iter = symbols.find(hint_pair);
 	if (iter == symbols.end()) {
@@ -951,6 +951,8 @@ uint64_t ByBitBroker::downloadMinuteData(const std::string_view &asset,
 		if (iter == symbols.end()) return 0;
 	}
 
+	MinuteData data;
+	
 	if (iter->second.type == spot) {
 		return 0;
 	} else {
@@ -969,14 +971,15 @@ uint64_t ByBitBroker::downloadMinuteData(const std::string_view &asset,
 				double l = x["low"].getNumber();
 				double c = x["close"].getNumber();
 				double m = std::sqrt(h*l);
-				data.push_back({o,o,o,o});
-				data.push_back({l,l,l,l});
-				data.push_back({m,m,m,m});
-				data.push_back({h,h,h,h});
-				data.push_back({c,c,c,c});
+				data.push_back(o);
+				data.push_back(l);
+				data.push_back(m);
+				data.push_back(h);
+				data.push_back(c);
 			}
 		}
 		if (data.size()){
+	        xdata = std::move(data);
 			return start;
 		} else {
 			return 0;

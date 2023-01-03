@@ -292,8 +292,13 @@ AbstractBrokerAPI* CoinbaseAdv::createSubaccount(
     return new CoinbaseAdv(secure_storage_path);
 }
 
-bool CoinbaseAdv::areMinuteDataAvailable(const std::string_view &asset,
-        const std::string_view &currency) {
+bool CoinbaseAdv::areMinuteDataAvailable(const std::string_view &asset, const std::string_view &currency) {
+    json::Value res = GET("/api/v3/brokerage/products",nullptr);
+    for (json::Value v: res["products"]) {
+        std::string_view base = v["base_currency_id"].getString();
+        std::string_view quote = v["quote_currency_id"].getString();
+        if(base == asset && quote == currency) return true;
+    } 
     return false;
 }
 
@@ -464,8 +469,43 @@ IStockApi::MarketInfo CoinbaseAdv::getMarketInfo(const std::string_view &pair) {
 uint64_t CoinbaseAdv::downloadMinuteData(const std::string_view &asset,
         const std::string_view &currency, const std::string_view &hint_pair,
         uint64_t time_from, uint64_t time_to,
-        std::vector<IHistoryDataSource::OHLC> &data) {
-    return 0;
+        HistData &xdata) {    
+
+    std::uint64_t start_time = std::max(time_from, time_to - 5*300*60*1000);
+    json::Value v = GET(std::string("/api/v3/brokerage/products/")
+                        .append(hint_pair)
+                        .append("/candles"),
+                        json::Object {
+                            {"start", start_time/1000},
+                            {"end", time_to/1000},
+                            {"granularity","FIVE_MINUTE"}
+    });
+    MinuteData data;
+    data.reserve(300*5);
+    std::uint64_t lowest = time_to;
+    for (json::Value w: v["candles"]) {
+        auto tm = w["start"].getUIntLong()*1000;
+        if (tm >= time_to) {
+            continue;
+        }
+        if (tm < lowest) lowest = tm;
+        double c = w["close"].getNumber();
+        double h = w["high"].getNumber();
+        double l = w["low"].getNumber();
+        double o = w["open"].getNumber();
+        double m = std::sqrt(h*l);
+        data.push_back(c);
+        data.push_back(l);
+        data.push_back(m);
+        data.push_back(h);
+        data.push_back(o);
+    }
+    
+    if (data.empty()) return 0;
+    auto next_end = lowest;
+    std::reverse(data.begin(), data.end());
+    xdata = std::move(data);
+    return next_end;
 }
 
 IBrokerControl::AllWallets CoinbaseAdv::getWallet() {

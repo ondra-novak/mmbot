@@ -91,7 +91,7 @@ public:
 					  const std::string_view &hint_pair,
 					  std::uint64_t time_from,
 					  std::uint64_t time_to,
-					  std::vector<OHLC> &data
+					  HistData &data
 				) override;
 
 
@@ -1149,11 +1149,12 @@ bool Interface::areMinuteDataAvailable(const std::string_view &asset, const std:
 std::uint64_t Interface::downloadMinuteData(
 		const std::string_view &asset, const std::string_view &currency,
 		const std::string_view &hint_pair, std::uint64_t time_from,
-		std::uint64_t time_to, std::vector<OHLC> &data) {
+		std::uint64_t time_to, HistData &xdata) {
 	std::uint64_t adj_time_from = time_to-1000*300000; //LIMIT 1000 per 5 minute
 	time_from = std::max(adj_time_from, time_from);
 	auto limit = (time_to-time_from-1)/300000;
 	if (limit <= 0) return 0;
+	MinuteData data;
 	initSymbols();
 	auto iter = symbols.find(hint_pair);
 	if (iter == symbols.end() || !isMatchedPair(iter->second, asset, currency)) {
@@ -1186,7 +1187,7 @@ std::uint64_t Interface::downloadMinuteData(
 		}
 		prev = n;
 		if (inv) n=1/n;
-		data.push_back({n,n,n,n});
+		data.push_back(n);
 	};
 	for (Value v: tmp) {
 		auto tm = v[0].getUIntLong();
@@ -1203,6 +1204,7 @@ std::uint64_t Interface::downloadMinuteData(
 		insert_val(c);
 	}
 	if (data.empty()) return 0;
+	xdata = std::move(data);
 	return tmp[0][0].getUIntLong();
 }
 
