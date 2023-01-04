@@ -206,16 +206,25 @@ to enter a negative value and then the value of the assets held will decrease an
 <x-section data-name="strategy_exponencial" class="goal" hidden="hidden"><x-section-caption>Exponencial</x-section-caption>
 <label><span>Exponent (volatility&lt;-&gt;power)<span class="tooltip">
 Defines strategy power. Higher value means higher power, but also expects less volatility. With higher value, the strategy looses power on low prices, but it also have high power on higher prices. Low exponent means that power is spread over whole range. If you expect uptrend, set higher value, otherwise, set lower value.
-</span></span><x-slider data-name="exp_z" data-min="0.1" data-max="10" data-mult="0.1" data-fixed="1"></x-slider></label>
+</span></span><x-slider data-name="exp_z" data-min="0.1" data-max="20" data-mult="0.5" data-fixed="1"></x-slider></label>
+<label><span>Secondary exponent<span class="tooltip">
+Lower values helps to spread profit to wider range. This is more effective with high value of primary exponent. Recommended value is (primary exponent / 10)
+</span></span><x-slider data-name="exp_z2" data-min="0" data-max="4" data-mult="0.1" data-fixed="1"></x-slider></label>
+<label><span>Shift<span class="tooltip">
+With higher values shifts the most profitable area to the lower prices. 
+</span></span><x-slider data-name="exp_m" data-min="0" data-max="5" data-mult="0.1" data-fixed="1"></x-slider></label>
 <label><span>Low end ratio[%]<span class="tooltip">
 Defines target ratio between position value (position × price) and equity at low price. The value 100 means, that strategy can eventually go ALL-IN. Lower value means that strategy always keeps some money to buy on lower prices targeting the specified ratio. 
 </span></span><x-slider data-name="exp_w" data-min="0" data-max="100" data-mult="1"></x-slider></label>
 <label><span>Expand ratio[%]<span class="tooltip">
 Defines target ratio between position value (position × price) and equity when the strategy increases the budget to benefit from higher prices. The value 0 means, that strategy will evenutally sell the whole position. Other values mean, that strategy always keeps some position to be able sell it on higher prices.
 </span></span><x-slider data-name="exp_r" data-min="0" data-max="50" data-mult="0.1" data-fixed="1"></x-slider></label>
-<label><span>Shrink ratio[%]<span class="tooltip">
+<label class="adv"><span>Shrink ratio[%]<span class="tooltip">
 Defines shink price as ratio to expand price which is defined by Expand ratio. For example, value 10 means if the expand price is 10000, shrink price is 1000. When the price drops below the shrink price, the strategy shrinks its budget to increase power. This shrink causes a loss on the equity, but can increase speed to recover. 
 </span></span><x-slider data-name="exp_s" data-min="0" data-max="50" data-mult="0.1" data-fixed="1"></x-slider></label>
+<label class="adv"><span>Don't reduce<span class="tooltip">
+Prevents reduction after buy. By default the strategy reinvests money saved by buying assets at cheaper price. Turn this on to disable this feature 
+</span></span><x-checkbox data-name="exp_dnrdc"></x-checkbox></label>
 <x-section>
 <div class="label"><span>Min price:</span><span data-name="range_min_price">---</span></div>
 <div class="label"><span>Max price:</span><span data-name="range_max_price">---</span></div>

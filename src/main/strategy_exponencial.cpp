@@ -28,7 +28,7 @@ double Strategy_Exponencial::MathModule::findApxRangeEnd(double z) {
 }
 
 double Strategy_Exponencial::MathModule::baseFn(double x) const {
-    return std::exp(-std::pow(x, z))/std::pow(x,w);
+    return std::exp(-m*(std::pow(x, z)+std::pow(x, z2)))/std::pow(x,w);
 }
 
 double Strategy_Exponencial::MathModule::baseFnEx(double x) const {
@@ -94,6 +94,22 @@ double Strategy_Exponencial::MathModule::invFnEx(double y) const {
     }
 }
 
+double Strategy_Exponencial::MathModule::findK(double eq, double p, double w) const {
+    double refeq = calcEquity(p, p, w);
+    double newk;
+    if (refeq>eq) {
+        newk = numeric_search_r2(p, [&](double x){
+            return calcEquity(p, x, w) - eq;
+        });    
+    } else if (refeq < eq) {
+        newk = numeric_search_r1(p, [&](double x){
+                    return calcEquity(p, x, w) - eq;
+        });
+    } else {
+        newk = p;
+    }
+    return newk;
+}
 double Strategy_Exponencial::MathModule::findEquity(double eq, double k, double w) const {
     double r = calcRange(k);
     double sr = calcEquity(r,k,w);
@@ -247,7 +263,16 @@ IStrategy::OrderData Strategy_Exponencial::getNewOrder(
         const IStockApi::MarketInfo &minfo, double cur_price, double new_price,
         double dir, double assets, double currency, bool rej) const {
 
-    double newpos = mcfg->calcPos(new_price, st.k, st.m);
+    double newk = st.k;
+  /*  if (mcfg->reduce && new_price < st.p && new_price < mcfg->calcRange(newk)) {
+        double eq = mcfg->calcEquity(st.p, st.k, st.m)+assets*(new_price - st.p);
+        newk = mcfg->findK(eq, new_price, st.m);
+    }*/
+    
+    double newpos = mcfg->calcPos(new_price, newk, st.m);
+    if (rej && dir <0 && newpos < minfo.calcMinSize(new_price)*2) {
+        return {0,0, Alert::forced};
+    }
     return {
         0, newpos - assets
     };
@@ -261,6 +286,7 @@ std::pair<IStrategy::OnTradeResult, PStrategy> Strategy_Exponencial::onTrade(
     double prevPos = assetsLeft - tradeSize;
     double eqchg = prevPos * (tradePrice - st.p);
     double budget = mcfg->calcEquity(tradePrice, st.k, st.m);
+    double prev_budget = mcfg->calcEquity(st.p, st.k, st.m);
     double rprice = mcfg->calcRange(st.k);
     State nst;
     nst.spot = !minfo.leverage;
@@ -268,29 +294,27 @@ std::pair<IStrategy::OnTradeResult, PStrategy> Strategy_Exponencial::onTrade(
     nst.b = budget;
     if (rprice < tradePrice) {
         nst.k = tradePrice/mcfg->range;
-        nst.m =  nst.b/mcfg->calcEquity(tradePrice, nst.k,  1.0);
-    } else if (mcfg->s < 0 && tradePrice < st.p && tradePrice < st.k) {
-        double rt = tradePrice/st.p;
-        double refp = rt * st.k;
-        double eq1 = mcfg->calcEquity(st.k, st.k, st.m);
-        double eq2 = mcfg->calcEquity(refp, st.k, st.m);
-        budget=std::min(eq1, budget+(eq1-eq2)*(-mcfg->s));
-        double newk = numeric_search_r1(st.k*1.1, [&](double nk){
-            return mcfg->calcEquity(tradePrice, nk, st.m) - budget;
-        });
-        nst.k = newk;
-        nst.m = st.m;
-        nst.b = budget;
+        nst.m =  nst.b/mcfg->calcEquity(tradePrice, nst.k,  1.0);    
     } else if (rprice * mcfg->s > tradePrice) {
         nst.k = tradePrice/(mcfg->s*mcfg->range);
         nst.m =  nst.b/mcfg->calcEquity(tradePrice, nst.k,  1.0);
+    } else if (mcfg->reduce && tradePrice < st.p && st.p < st.k) {
+        double realbudget = prev_budget+eqchg;
+        nst.k = mcfg->findK(realbudget, tradePrice, st.m);
+/*        double calcpos = mcfg->calcPos(tradePrice, st.k, st.m);
+        double newratio = calcpos * tradePrice / realbudget;
+        double p=mcfg->findRatio(newratio, tradePrice);*/
+//        nst.k = pow2(tradePrice)/p;
+        nst.m = realbudget/mcfg->calcEquity(tradePrice, nst.k,  1.0);        
+        nst.b = mcfg->calcEquity(tradePrice, nst.k, nst.m);
     } else {
         nst.k = st.k;
         nst.m = st.m;
     }
+    
     double np = st.b + eqchg - nst.b;
     return {
-        {np,0},
+        {np,0, nst.k},
         new Strategy_Exponencial(mcfg, std::move(nst))
     };
 
@@ -387,8 +411,12 @@ json::Value Strategy_Exponencial::dumpStatePretty(const IStockApi::MarketInfo &m
 
 PStrategy Strategy_Exponencial::init(bool spot, double price, double pos, double equity) const {
 
-    double ratio = pos*price/equity;
+    double ratio = pos*price/equity;    
     double p = mcfg->findRatio(ratio, price);
+    if (p>price*100000) {
+        p = price;
+        pos = mcfg->calcRatio(p, p) * equity/p;
+    }
 
     State st;
     st.spot = spot;

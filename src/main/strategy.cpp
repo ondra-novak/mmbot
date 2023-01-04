@@ -125,6 +125,9 @@ Strategy Strategy::create_base(std::string_view id, json::Value config) {
         cfg.z = config["z"].getNumber();
         cfg.w = 1.0-config["w"].getNumber()*0.01;
         cfg.s = config["s"].getNumber()*0.01;
+        cfg.z2 = config["z2"].getNumber();
+        cfg.m = config["m"].getValueOrDefault(1.0);
+        cfg.reduce = !config["dnrdc"].getBool();
         return Strategy(new Strategy_Exponencial(cfg));
 	} else if (id == Strategy_KeepValue::id) {
 		Strategy_KeepValue::Config cfg;

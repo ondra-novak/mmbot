@@ -22,6 +22,9 @@ public:
         double w;       //denominator exponent
         double r;       //ratio at reference point
         double s;       //shrink ratio
+        double z2;      //second exponent
+        double m;       //exponent multiplier (shift)
+        bool reduce;    //reduce for buy
     };
 
     struct MathModule: Config {
@@ -44,6 +47,7 @@ public:
         double calcRatio(double x, double k) const;
         double findRatio(double r, double k) const;
         double findEquity(double eq, double k, double w) const;
+        double findK(double eq, double p, double w) const;
 
     };
 

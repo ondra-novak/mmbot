@@ -524,7 +524,7 @@ App.prototype.fillForm = function (src, trg) {
 		if (first_fetch) {
 			["strategy","external_assets","gs_external_assets", "hp_trend_factor","hp_allowshort","hp_power", "hp_recalc", "hp_asym","hp_powadj", 
 			"hp_extbal", "hp_reduction","hp_dynred","sh_curv","gamma_exp","pincome_exp",
-			"exp_w","exp_z","exp_r","exp_s",
+			"exp_w","exp_z","exp_r","exp_s","exp_z2","exp_m","exp_dnrdc",
 			"gamma_trend","gamma_fn",
 			"shg_w","shg_p","shg_z","shg_lp","shg_r",
 			"pile_ratio","hodlshort_z",
@@ -691,7 +691,10 @@ App.prototype.fillForm = function (src, trg) {
 	data.exp_w = 100;
 	data.exp_r = 10;
 	data.exp_z = 3;
+	data.exp_z2 = 0;
+	data.exp_m = 1;
 	data.exp_s = 0;
+	data.exp_dnrdc = false;
 	data.dca_max_drop = {"value":70};
 	data.dca_initstep = 1;
 	data.dca_exponent =10;
@@ -713,7 +716,10 @@ App.prototype.fillForm = function (src, trg) {
         data.exp_r = filledval(src.strategy.r,10);
         data.exp_w = filledval(src.strategy.w,100);
         data.exp_z = filledval(src.strategy.z,3);        
+        data.exp_z2 = filledval(src.strategy.z2,0);        
+        data.exp_m = filledval(src.strategy.m,1);        
         data.exp_s = filledval(src.strategy.s,0);
+        data.exp_dnrdc = filledval(src.strategy.dnrdc,false);        
 	} else if (data.strategy == "keep_balance" ) {
 		data.kb_keep_min = filledval(src.strategy.keep_min,0);
 		data.kb_keep_max = filledval(src.strategy.keep_max,0);
@@ -921,7 +927,10 @@ function getStrategyData(data, inv) {
             r: data.exp_r,
             w: data.exp_w,
             z: data.exp_z,
-            s: data.exp_s
+            z2: data.exp_z2,
+            m: data.exp_m,
+            s: data.exp_s,
+            dnrdc: data.exp_dnrdc            
         };       
 	} else if (data.strategy == "errorfn") {
 		strategy = {
@@ -2048,7 +2057,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 	form.enableItem("show_backtest",false);		
 	var inputs = ["strategy","external_assets", "acum_factor","kv_valinc","kv_halfhalf","min_size","max_size","linear_suggest","linear_suggest_maxpos",
 		"dynmult_sliding","accept_loss",
-		"exp_r","exp_w","exp_z","exp_s",
+		"exp_r","exp_w","exp_z","exp_s","exp_m","exp_z2","exp_dnrdc",
 		"hp_trend_factor","hp_allowshort","hp_reinvest","hp_power","hp_asym","hp_reduction","sh_curv","hp_limit","hp_extbal","hp_powadj","hp_dynred",
 		"gs_external_assets","gs_rb_hi_a","gs_rb_lo_a","gs_rb_hi_p","gs_rb_lo_p",
 		"min_balance","max_balance","max_leverage","reduce_on_leverage","gamma_exp","gamma_rebalance","gamma_trend","gamma_fn","gamma_reinvest","gamma_maxrebal",
