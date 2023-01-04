@@ -268,13 +268,17 @@ IStrategy::OrderData Strategy_Exponencial::getNewOrder(
         double eq = mcfg->calcEquity(st.p, st.k, st.m)+assets*(new_price - st.p);
         newk = mcfg->findK(eq, new_price, st.m);
     }*/
-    
+    double minpos_thr = minfo.calcMinSize(new_price)*1.5;
     double newpos = mcfg->calcPos(new_price, newk, st.m);
-    if (rej && dir <0 && newpos < minfo.calcMinSize(new_price)*2) {
+    double diff = newpos - assets;
+    if (rej && dir <0 && (newpos < minpos_thr || diff < minpos_thr)) {
         return {0,0, Alert::forced};
     }
+    if (rej && dir > 1 && (newpos < minpos_thr || diff < minpos_thr)) {
+        return {0,minpos_thr,Alert::enabled};
+    }
     return {
-        0, newpos - assets
+        0, diff
     };
 
 }
@@ -292,7 +296,7 @@ std::pair<IStrategy::OnTradeResult, PStrategy> Strategy_Exponencial::onTrade(
     nst.spot = !minfo.leverage;
     nst.p = tradePrice;
     nst.b = budget;
-    if (rprice < tradePrice) {
+    if ((prevPos < minfo.calcMinSize(st.p) && tradeSize>0) || rprice < tradePrice) {
         nst.k = tradePrice/mcfg->range;
         nst.m =  nst.b/mcfg->calcEquity(tradePrice, nst.k,  1.0);    
     } else if (rprice * mcfg->s > tradePrice) {
@@ -334,6 +338,7 @@ IStrategy::MinMax Strategy_Exponencial::calcSafeRange(
     } else {
         minMax.max = std::numeric_limits<double>::infinity();
     }
+    minMax.max = std::min(minMax.max, mcfg->calcRange(st.k));
 
     if (st.spot) {
         double c = mcfg->calcCurr(st.p, st.k, st.m);

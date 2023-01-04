@@ -54,24 +54,39 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 			double dir = p>eq?-1:1;
 			s.onIdle(minfo,tk,pos,balance);
 			double adjbal = std::max(balance,0.0);
-			Strategy::OrderData order = s.getNewOrder(minfo, bt.price*0.9+p*0.1, p, dir, pos, adjbal,false);
-
-			if (order.price) {
-				p = order.price;
-			}
+			bool rej = false;
+			bool invalid = false;
+			double orgsize = 0;
+			Strategy::OrderData order;
+			do {
+                order = s.getNewOrder(minfo, bt.price*0.9+p*0.1, p, dir, pos, adjbal,rej);
+    
+                if (order.price) {
+                    p = order.price;
+                }
+    
+    
+                if (order.size && order.size * dir < 0) {
+                    order.size = 0;
+                }
+                orgsize = order.size;
+    
+                if (std::abs(order.size) < minfo.calcMinSize(bt.price)) {
+                    order.size = 0;
+                }
+                
+                order.size  = IStockApi::MarketInfo::adjValue(order.size,minfo.asset_step,round);
+                invalid = order.size == 0;
+                if (rej) invalid = false;
+                rej = true;
+			} while (invalid);
 
 			double dprice = (p - bt.price);
-			double pchange = pos * dprice;
-			pl = pl + pchange;
-			if (minfo.leverage) balance += pchange;
-
-			if (order.size && order.size * dir < 0) {
-				order.size = 0;
-			}
-			double orgsize = order.size;
-
-			order.size  = IStockApi::MarketInfo::adjValue(order.size,minfo.asset_step,round);
-			if (cfg.max_balance.has_value()) {
+            double pchange = pos * dprice;
+            pl = pl + pchange;
+            if (minfo.leverage) balance += pchange;
+			
+            if (cfg.max_balance.has_value()) {
 				if (pos > *cfg.max_balance) order.size = 0;
 				else if (order.size + pos > *cfg.max_balance) order.size = *cfg.max_balance - pos;
 			}

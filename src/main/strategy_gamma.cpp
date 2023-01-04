@@ -188,7 +188,7 @@ std::string_view Strategy_Gamma::getID() const {
 }
 
 double Strategy_Gamma::getCenterPrice(double lastPrice, double assets) const {
-	if (assets == 0) return lastPrice;
+	if (lastPrice > state.k ) return lastPrice;
 	return getEquilibrium(assets);
 }
 
