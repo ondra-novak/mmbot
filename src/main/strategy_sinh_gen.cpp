@@ -37,6 +37,7 @@ Strategy_Sinh_Gen::FnCalc::FnCalc(double wd, double boost,  double z)
 		double a = numeric_search_r1(1, [&](double x) {
 			return baseFn(x) - INT_RANGE; //should be enough (1000000x leverage)
 		});
+		a = std::max(a,0.1);
 		double b = numeric_search_r2(1, [&](double x) {
 			return baseFn(x) + INT_RANGE; //should be enough (1000000x leverage)
 		});
@@ -591,7 +592,7 @@ IStrategy::OrderData Strategy_Sinh_Gen::getNewOrder(
     double f = nposinfo.newpos+nposinfo.newofs;
     double lf = limitPosition(f);
     
-    double df = f - assets;
+    double df = lf - assets;
     
     return {new_price, df, f != lf?Alert::forced:Alert::enabled};
 #if 0    
