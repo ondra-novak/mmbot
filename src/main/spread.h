@@ -10,6 +10,8 @@
 
 #include <memory>
 #include <optional>
+#include <variant>
+#include <imtjson/value.h>
 #include "dynmult.h"
 
 class ISpreadState {
@@ -31,14 +33,29 @@ public:
 
 	virtual std::unique_ptr<ISpreadState> start() const = 0;
 	virtual Result point(std::unique_ptr<ISpreadState> &state, double y) const = 0;
+	virtual std::size_t time_range() const = 0;
 	virtual ~ISpreadFunction() {}
 };
 
 
-std::unique_ptr<ISpreadFunction> defaultSpreadFunction(
-		double sma,
-		double stdev,
-		double force_spread);
+struct AdaptiveSpreadConfig {
+    double sma_range;
+    double stdev;
+};
+
+struct FixedSpreadConfig {
+    double sma;
+    double spread;
+};
+
+struct RangeSpreadConfig {
+    double range;
+};
+
+using SpreadConfig = std::variant<AdaptiveSpreadConfig, FixedSpreadConfig, RangeSpreadConfig>;
+
+std::unique_ptr<ISpreadFunction> defaultSpreadFunction(const SpreadConfig &cfg);
+
 
 class VisSpread {
 public:
@@ -77,6 +94,14 @@ protected:
 	double frozen_spread = 0;
 };
 
+///Parse spread config
+/**
+ * @param v config in json
+ * @param mtrader valid for compatibility only (read old config) - true if
+ * config is read from mtrader, false if read from strategy testing
+ * @return
+ */
+SpreadConfig parseSpreadConfig(const json::Value &v, bool mtrader);
 
 
 #endif /* SRC_MAIN_SPREAD_H_ */

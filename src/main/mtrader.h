@@ -58,15 +58,17 @@ struct MTrader_Config {
 	unsigned int accept_loss;
 	unsigned int adj_timeout;
 
-	double force_spread;
+	//double force_spread;
 	double report_order;
 	double max_leverage;
 	double emulate_leveraged;
 	double secondary_order_distance;
 	unsigned int grant_trade_minutes;
 
-	double spread_calc_stdev_hours;
-	double spread_calc_sma_hours;
+	//double spread_calc_stdev_hours;
+	//double spread_calc_sma_hours;
+
+	SpreadConfig spread_cfg;
 
 	double init_open;
 
@@ -269,9 +271,9 @@ public:
 
 	static PStockApi selectStock(IStockSelector &stock_selector, std::string_view broker_name, SwapMode swap_mode, int emulate_leverage, bool paper_trading);
 	json::Value getOHLC(std::uint64_t interval) const;
-	
+
 	void set_trade_now(bool t) {
-	    trade_now_mode = t;	   
+	    trade_now_mode = t;
 	}
 
 protected:

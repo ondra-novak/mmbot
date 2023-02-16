@@ -79,13 +79,11 @@ void MTrader_Config::loadConfig(json::Value data) {
 	adj_timeout = std::max<unsigned int>(5,data["adj_timeout"].getUInt());
 	max_leverage = data["max_leverage"].getValueOrDefault(0.0);
 
-	force_spread = data["force_spread"].getValueOrDefault(0.0);
 	report_order = data["report_order"].getValueOrDefault(0.0);
 	secondary_order_distance = data["secondary_order"].getValueOrDefault(0.0)*0.01;
 	grant_trade_minutes = static_cast<unsigned int>(data["grant_trade_hours"].getValueOrDefault(0.0)*60);
 
-	spread_calc_sma_hours = data["spread_calc_sma_hours"].getValueOrDefault(24.0);
-	spread_calc_stdev_hours = data["spread_calc_stdev_hours"].getValueOrDefault(4.0);
+	spread_cfg = parseSpreadConfig(data, true);
 
 	if (data["dry_run"].getBool() == true) throw std::runtime_error("Paper trading option is no longer supported");
 	paper_trading = data["paper_trading"].getValueOrDefault(false);
@@ -125,7 +123,7 @@ MTrader::MTrader(IStockSelector &stock_selector,
 ,dynmult({cfg.dynmult_raise,cfg.dynmult_fall, cfg.dynmult_cap, cfg.dynmult_mode, cfg.dynmult_mult})
 ,acb_state(0,0)
 ,partial_eff_pos(0,0)
-,spread_fn(defaultSpreadFunction(cfg.spread_calc_sma_hours, cfg.spread_calc_stdev_hours, cfg.force_spread))
+,spread_fn(defaultSpreadFunction(cfg.spread_cfg))
 {
 	magic = this->statsvc->getHash() & 0xFFFFFFFF;
 	magic2 = (~magic) & 0xFFFFFFFF;; //magic number for secondary orders
@@ -327,7 +325,7 @@ void MTrader::perform(bool manually) {
 			if (!std::isfinite(lastTradePrice)) lastTradePrice = status.curPrice;		}
 
 //let's try this to relax
-//		if (cfg.max_size != 0) need_alerts = true; 
+//		if (cfg.max_size != 0) need_alerts = true;
 		double centerPrice = need_alerts?lastTradePrice:strategy.getCenterPrice(lastTradePrice, strategy_position);
 
 		if (cfg.dynmult_sliding) {
@@ -552,7 +550,7 @@ void MTrader::perform(bool manually) {
                     std::swap(buy_alert, sell_alert);
                 }
 
-               
+
 
                 //report order errors to UI
                 if (!cfg.hidden) statsvc->reportError(IStatSvc::ErrorObj(buy_order_error, sell_order_error));
@@ -637,7 +635,7 @@ void MTrader::perform(bool manually) {
 				chart.push_back(status.chartItem);
 				{
 					//delete very old data from chart
-					unsigned int max_count = std::max<unsigned int>(std::max(cfg.spread_calc_sma_hours, cfg.spread_calc_stdev_hours),240*60);
+					unsigned int max_count = std::max<unsigned int>(spread_fn->time_range(),240*60);
 					if (chart.size() > max_count)
 						chart.erase(chart.begin(),chart.end()-max_count);
 				}
@@ -938,11 +936,11 @@ bool MTrader::calculateOrderFeeLessAdjust(Order &order, double position, double 
 		if (vol < minfo.min_volume) order.size = 0;
 	}
 
-	if (order.size == 0) {	    
+	if (order.size == 0) {
 		order.ar = AlertReason::below_minsize;
 		//in this case, we continue to search better price (don't accept the order)
 		return false;
-	} else {		
+	} else {
 		return true;
 	}
 
@@ -1958,11 +1956,11 @@ void MTrader::updateEnterPrice() {
 json::Value MTrader::getOHLC(std::uint64_t interval) const {
     json::Array out;
     interval *= 60000; //60milliseconds
-    std::uint64_t tm = 0;    
+    std::uint64_t tm = 0;
     double last = 0;
     double ohlc[4];
 
-    for (const auto &item : chart) {        
+    for (const auto &item : chart) {
         double v = item.last;
         if (minfo.invert_price) v = 1.0/v;
         std::size_t x = static_cast<std::size_t>(item.time/interval);

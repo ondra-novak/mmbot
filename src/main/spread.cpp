@@ -13,6 +13,7 @@
 
 #include <cmath>
 #include <memory>
+#include <stdexcept>
 
 class DefaulSpread: public ISpreadFunction {
 public:
@@ -30,7 +31,7 @@ public:
 
 	virtual std::unique_ptr<ISpreadState> start() const ;
 	virtual Result point(std::unique_ptr<ISpreadState> &state, double y) const;
-
+	virtual std::size_t time_range() const;
 
 protected:
 	double sma;
@@ -39,10 +40,45 @@ protected:
 
 };
 
-std::unique_ptr<ISpreadFunction> defaultSpreadFunction(double sma, double stdev, double force_spread) {
-	return std::make_unique<DefaulSpread>(sma, stdev, force_spread);
+class RangeSpread: public ISpreadFunction {
+public:
+
+    class State: public ISpreadState {
+    public:
+        std::queue<double> prices;
+        std::size_t _interval;
+
+        State(std::size_t interval);
+    };
+
+    RangeSpread(double interval);
+
+    virtual std::unique_ptr<ISpreadState> start() const ;
+    virtual Result point(std::unique_ptr<ISpreadState> &state, double y) const;
+    virtual std::size_t time_range() const;
 
 
+protected:
+    double _interval;
+
+};
+
+
+std::unique_ptr<ISpreadFunction> defaultSpreadFunction(const SpreadConfig &cfg) {
+    return std::visit([](const auto &cfg)->std::unique_ptr<ISpreadFunction>{
+        using T = std::decay_t<decltype(cfg)>;
+        if constexpr(std::is_same_v<T, AdaptiveSpreadConfig>) {
+            return std::make_unique<DefaulSpread>(cfg.sma_range,cfg.stdev, 0);
+
+        } else if constexpr(std::is_same_v<T, FixedSpreadConfig>) {
+            return std::make_unique<DefaulSpread>(cfg.sma,0, cfg.spread);
+
+        } else if constexpr(std::is_same_v<T, RangeSpreadConfig>) {
+            return std::make_unique<RangeSpread>(cfg.range);
+        } else {
+            throw std::runtime_error("Strange spread config type");
+        }
+    }, cfg);
 }
 
 VisSpread::VisSpread(const std::unique_ptr<ISpreadFunction> &fn, const Config &cfg)
@@ -166,4 +202,90 @@ inline DefaulSpread::State::State(std::size_t sma_interval, std::size_t stdev_in
 	:sma(sma_interval), stdev(stdev_interval),maxSpread(10)
 {
 
+}
+
+inline RangeSpread::State::State(std::size_t interval)
+:_interval(interval)
+{
+
+}
+
+inline RangeSpread::RangeSpread(double interval)
+:_interval(interval)
+{
+}
+
+inline std::unique_ptr<ISpreadState> RangeSpread::start() const {
+    return std::make_unique<State>(std::max<std::size_t>(1,static_cast<std::size_t>(_interval*60)));
+}
+
+inline RangeSpread::Result RangeSpread::point(
+        std::unique_ptr<ISpreadState> &state, double y) const {
+    State &st = static_cast<State &>(*state);
+    if (st.prices.size()>st._interval) st.prices.pop();
+    st.prices.push(y);
+    double f = st.prices.front();
+    double range = std::abs(f-y)*24*60/st._interval;
+    double center = (f + y)*0.5;
+    double spread = std::log((center+range*0.5)/center);
+    return {
+        range > 0,
+        spread,
+        center
+    };
+}
+
+SpreadConfig parseSpreadConfig(const json::Value &v, bool mtrader) {
+    json::Value s = v["spread"];
+    if (s.defined()) {
+        std::string_view type = s["type"].getString();
+        if (type == "fixed") {
+            return FixedSpreadConfig{
+                s["sma"].getNumber(),
+                s["force_spread"].getNumber()
+            };
+        } else if (type == "adaptive") {
+            return AdaptiveSpreadConfig{
+                s["sma"].getNumber(),
+                s["stdev"].getNumber()
+            };
+        } else if (type == "range") {
+            return RangeSpreadConfig {
+                s["range"].getNumber()
+            };
+        } else {
+            throw std::runtime_error("Unknown spread type");
+        }
+    } else { //compatibility mode
+        json::Value sma, stdev, force_spread;
+        if (mtrader) {
+            force_spread = v["force_spread"];
+            sma= v["spread_calc_sma_hours"];
+            stdev = v["spread_calc_stdev_hours"];
+        } else {
+            sma = v["sma"];
+            stdev = v["stdev"];
+            force_spread = v["force_spread"];
+        }
+        if (force_spread.getNumber() == 0) {
+            return AdaptiveSpreadConfig{
+                sma.getNumber(),
+                stdev.getNumber()
+            };
+        } else {
+            return FixedSpreadConfig{
+                sma.getNumber(),
+                force_spread.getNumber()
+            };
+        }
+
+    }
+}
+
+inline std::size_t DefaulSpread::time_range() const {
+    return static_cast<std::size_t >(std::max(sma*60, stdev*60));
+}
+
+inline std::size_t RangeSpread::time_range() const {
+    return static_cast<std::size_t >(_interval);
 }

@@ -791,6 +791,32 @@ App.prototype.fillForm = function (src, trg) {
 		data.incval_ms = filledval(src.strategy.ms,0);
 		data.incval_ri = filledval(src.strategy.ri,false);
 	}
+	const spread_mode = src.spread && src.spread.type;
+    data.spread_mode = filledval(spread_mode, "adaptive");
+	data.force_spread = filledval(1,1);
+	data.spread_calc_stdev_hours = 4;
+	data.spread_calc_sma_hours = 21;
+	data.spread_calc_range_hours = 24;
+	switch (spread_mode) {
+        default:
+			data.spread_calc_stdev_hours = filledval(src.spread_calc_stdev_hours,4);
+			data.spread_calc_sma_hours = filledval(src.spread_calc_sma_hours,21);
+			data.spread_calc_range_hours = filledval(src.spread_calc_range_hours,24);
+			data.force_spread = filledval((Math.exp(src.force_spread || Math.log(1.01))*100-100).toFixed(3),"1.000");
+			data.spread_mode = filledval(src.force_spread?"fixed":"adaptive","adaptive");
+			break;
+        case "adaptive":
+            data.spread_calc_sma_hours = filledval(src.spread.sma,21);
+            data.spread_calc_stdev_hours = filledval(src.spread.stdev,4);
+            break;
+        case "fixed":
+            data.spread_calc_sma_hours = filledval(src.spread.sma,21);
+            data.force_spread = filledval((Math.exp(src.spread.force_spread || Math.log(1.01))*100-100).toFixed(3),"1.000");
+            break;
+        case "range":
+            data.spread_calc_range_hours = filledval(src.spread.range,24);
+            break;
+    }
 	data.shg_olt["!change"] = function() {
 		trg.enableItem("shg_ol", this.value != "0");
 		if (!trg.readData(["shg_ol"]).shg_ol) trg.setData({shg_ol:2});
@@ -811,8 +837,6 @@ App.prototype.fillForm = function (src, trg) {
 	data.invert_proxy = filledval(!!(src.strategy && src.strategy.invert_proxy),false);
 	data.accept_loss = filledval(src.accept_loss,0);
 	data.grant_trade_hours= filledval(src.grant_trade_hours,0);
-	data.spread_calc_stdev_hours = filledval(src.spread_calc_stdev_hours,4);
-	data.spread_calc_sma_hours = filledval(src.spread_calc_sma_hours,21);
 	data.dynmult_raise = filledval(src.dynmult_raise,500);
 	data.dynmult_cap = filledval(src.dynmult_cap,100);
 	data.dynmult_fall = filledval(src.dynmult_fall, 2.5);
@@ -826,8 +850,6 @@ App.prototype.fillForm = function (src, trg) {
 	data.secondary_order = filledval(src.secondary_order,0);
 	data.dont_allocate = filledval(src.dont_allocate,false);
 	data.report_order = filledval(src.report_order,0);
-	data.force_spread = filledval((Math.exp(src.force_spread || Math.log(1.01))*100-100).toFixed(3),"1.000");
-	data.spread_mode = filledval(src.force_spread?"fixed":"adaptive","adaptive");
 	data.max_balance = filledval(src.max_balance,"");
 	data.min_balance = filledval(src.min_balance,"");
 	data.max_leverage = filledval(src.max_leverage,5);
@@ -1038,6 +1060,22 @@ function getStrategyData(data, inv) {
 	return strategy;
 }
 
+App.prototype.saveFormSpread = function(data) {
+    var spread= {};   
+    spread.type =data.spread_mode;
+    switch (spread.type) {
+        case "adaptive": spread.sma = data.spread_calc_sma_hours;
+                         spread.stdev = data.spread_calc_stdev_hours;
+                         break;
+        case "fixed":    spread.sma = data.spread_calc_sma_hours;
+                         spread.force_spread = Math.log(data.force_spread/100+1);
+                         break;
+        case "range":    spread.range = data.spread_calc_range_hours;
+                         break;
+    };
+    return spread;
+}
+
 App.prototype.saveForm = function(form, src) {
 
 	var data = form.readData();
@@ -1053,8 +1091,7 @@ App.prototype.saveForm = function(form, src) {
 	this.advanced = data.advanced;
 	trader.accept_loss = data.accept_loss;
 	trader.grant_trade_hours = data.grant_trade_hours;
-	trader.spread_calc_stdev_hours =data.spread_calc_stdev_hours ;
-	trader.spread_calc_sma_hours  = data.spread_calc_sma_hours;
+	trader.spread = this.saveFormSpread(data);
 	trader.dynmult_raise = data.dynmult_raise;
 	trader.dynmult_fall = data.dynmult_fall;
 	trader.dynmult_mode = data.dynmult_mode;
@@ -1070,9 +1107,6 @@ App.prototype.saveForm = function(form, src) {
 	trader.secondary_order = data.secondary_order;
 	trader.dont_allocate = data.dont_allocate;
 	trader.report_order = data.report_order;
-	if (data.spread_mode == "fixed") {
-		trader.force_spread = Math.log(data.force_spread/100+1);
-	}
 	trader.emulate_leveraged = data.emul_leverage;
 	trader.trade_within_budget = data.trade_within_budget;
 	trader.adj_timeout = data.adj_timeout;
@@ -1954,16 +1988,14 @@ App.prototype.gen_backtest = function(form,anchor, template, inputs, updatefn) {
 App.prototype.init_spreadvis = function(form, id) {
 	var url = "../api/admin/spread"
 	form.enableItem("vis_spread",false);
-	var inputs = ["spread_calc_stdev_hours","secondary_order", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode","dynmult_sliding","dynmult_cap","dynmult_mult","force_spread","spread_mode","spread_freeze"];
+	var inputs = ["spread_calc_stdev_hours","secondary_order", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode","dynmult_sliding","dynmult_cap","dynmult_mult","force_spread","spread_mode","spread_freeze","spread_calc_range_hours"];
 	this.gen_backtest(form,"spread_vis_anchor", "spread_vis",inputs,function(cntr){
 
 		cntr.showSpinner();
 		var data = form.readData(inputs);
 		var mult = Math.pow(2,data.spread_mult*0.01);
 		var req = {
-			sma:data.spread_calc_sma_hours,
-			stdev:data.spread_calc_stdev_hours,
-			force_spread:data.spread_mode=="fixed"?Math.log(data.force_spread/100+1):0,
+            spread: this.saveFormSpread(data),
 			mult:mult,
 			raise:data.dynmult_raise,
 			cap:data.dynmult_cap,
@@ -2071,7 +2103,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		"hedge_short","hedge_long","hedge_drop",
 		"shg_w","shg_p","shg_z","shg_b","shg_olt","shg_ol","shg_lp","shg_rnv","shg_avgsp","shg_boostmode","shg_r",
 		"trade_within_budget"];
-	var spread_inputs = ["spread_calc_stdev_hours","secondary_order", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode","dynmult_sliding","dynmult_cap","dynmult_mult","force_spread","spread_mode","spread_freeze"];
+	var spread_inputs = ["spread_calc_stdev_hours","spread_calc_range_hours","secondary_order", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode","dynmult_sliding","dynmult_cap","dynmult_mult","force_spread","spread_mode","spread_freeze"];
 	var leverage = form._pair.leverage != 0;	
 	var pairinfo = form._pair;
 	var invert_price = form._pair.invert_price;
@@ -2416,14 +2448,12 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
     var show_info_fn = function(ev) {
     }    
 
-	function gen_spread(offset) {
+	var gen_spread = (offset) => {
 		var data = form.readData(spread_inputs);
 		var mult = Math.pow(2,data.spread_mult*0.01);
 		offset = offset || 0;
 		var sreq = {
-			sma:data.spread_calc_sma_hours,
-			stdev:data.spread_calc_stdev_hours,
-			force_spread:data.spread_mode=="fixed"?Math.log(data.force_spread/100+1):0,
+            spread: this.saveFormSpread(data),
 			mult:mult,
 			raise:data.dynmult_raise,
 			cap:data.dynmult_cap,

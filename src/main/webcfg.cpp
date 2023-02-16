@@ -704,7 +704,7 @@ bool WebCfg::reqTraders(simpleServer::HTTPRequest req, ondra_shared::StrViewA vp
                     } else {
                         req.sendErrorPage(400,"","Expected boolean");
                     }
-				    
+
 				} else if (cmd == "stop") {
 					if (!req.allowMethods({"POST"})) return true;
 					trl->stop();
@@ -742,7 +742,7 @@ bool WebCfg::reqTraders(simpleServer::HTTPRequest req, ondra_shared::StrViewA vp
 				    auto minfo = trl->getMarketInfo();
 				    json::Value j = minfo.toJSON();
 				    j = j.replace("pair", trl->getConfig().pairsymb);
-                    req.sendResponse(std::move(hdr), j.stringify().str());                    
+                    req.sendResponse(std::move(hdr), j.stringify().str());
 				} else if (cmd == "trading") {
 					Object out;
 					auto chartx = trl->getChart();
@@ -1417,7 +1417,7 @@ bool WebCfg::reqSpread(simpleServer::HTTPRequest req)  {
 				Value order2 = args["order2"];
 				Value spread_freeze = args["spread_freeze"];
 
-				auto fn = defaultSpreadFunction(sma.getNumber(), stdev.getNumber(), force_spread.getNumber());
+				auto fn = defaultSpreadFunction(parseSpreadConfig(args,false));
 				VisSpread vs(fn, {
 						{
 								dynmult_raise.getValueOrDefault(1.0),
@@ -1983,7 +1983,7 @@ bool WebCfg::reqBacktest_v2(simpleServer::HTTPRequest req, ondra_shared::StrView
 						return;
 					}
 
-					auto fn = defaultSpreadFunction(sma.getNumber(), stdev.getNumber(), force_spread.getNumber());
+					auto fn = defaultSpreadFunction(parseSpreadConfig(args,false));
 					VisSpread spreadCalc(fn,{
 						{
 								dynmult_raise.getValueOrDefault(1.0),
@@ -2378,7 +2378,7 @@ void WebCfg::DataDownloaderTask::operator()() {
 			return;
 		}
         cnt+=std::visit([](const auto &x){return x.size();},tmpVect);
-		datastack.push(std::move(tmpVect));		
+		datastack.push(std::move(tmpVect));
 		async.runAsync(std::move(*this));
 	} else {
 		done();
@@ -2412,7 +2412,7 @@ void WebCfg::DataDownloaderTask::done() {
         }, p);
         datastack.pop();
     }
-	
+
 	auto storage = state.lock_shared()->backtest_storage;
 	storage.lock()->store_data(out, dwnid);
 }
