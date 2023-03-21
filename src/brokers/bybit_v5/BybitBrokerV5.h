@@ -78,6 +78,7 @@ protected:
 
     json::Value publicGET(std::string path, json::Value query);
     json::Value privateGET(std::string path, json::Value query);
+    static json::Value category_to_value(Category cat);
 };
 
 

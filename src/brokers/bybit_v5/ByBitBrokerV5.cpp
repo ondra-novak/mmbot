@@ -270,6 +270,7 @@ json::Value ByBitBrokerV5::getMarkets() const {
 }
 
 ByBitBrokerV5::AllWallets ByBitBrokerV5::getWallet() {
+    return {};
 }
 
 json::Value ByBitBrokerV5::testCall(const std::string_view &method,json::Value args) {
@@ -278,12 +279,13 @@ json::Value ByBitBrokerV5::testCall(const std::string_view &method,json::Value a
 
 bool ByBitBrokerV5::areMinuteDataAvailable(const std::string_view &asset,
         const std::string_view &currency) {
-    false;
+    return false;
 }
 
 std::uint64_t ByBitBrokerV5::downloadMinuteData(const std::string_view &asset,
         const std::string_view &currency, const std::string_view &hint_pair,
         std::uint64_t time_from, std::uint64_t time_to, HistData &data) {
+    return 0;
 }
 
 void ByBitBrokerV5::probeKeys() {
@@ -308,15 +310,18 @@ void ByBitBrokerV5::probeKeys() {
 }
 
 bool ByBitBrokerV5::reset() {
+    return true;
 }
 
 IStockApi::TradesSync ByBitBrokerV5::syncTrades(json::Value lastId,
         const std::string_view &pair) {
+    return {};
 }
 
 json::Value ByBitBrokerV5::placeOrder(const std::string_view &pair, double size,
         double price, json::Value clientId, json::Value replaceId,
         double replaceSize) {
+    return nullptr;
 }
 
 std::vector<std::string> ByBitBrokerV5::getAllPairs() {
@@ -328,10 +333,33 @@ std::vector<std::string> ByBitBrokerV5::getAllPairs() {
     return out;
 }
 
-IStockApi::Ticker ByBitBrokerV5::getTicker(const std::string_view &piar) {
+IStockApi::Ticker ByBitBrokerV5::getTicker(const std::string_view &pair) {
+    const auto &s = getSymbols();
+    auto iter = s.find(pair);
+    if (iter == s.end()) throw std::runtime_error("Unknown symbol");
+    json::Value v = publicGET("/v5/market/tickers", json::Object{
+        {"category", category_to_value(iter->second.cat)},
+        {"symbol", iter->second.api_symbol},
+    });
+    auto t = v["list"][0];
+    Ticker ticker{
+        t["bid1Price"].getNumber(),
+        t["ask1Price"].getNumber(),
+        t["lastPrice"].getNumber(),
+        static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(httpc->now().time_since_epoch()).count())
+    };
+    if (iter->second.invert_price) {
+        double z = ticker.ask;
+        ticker.ask = 1.0/ticker.bid;
+        ticker.bid = 1.0/z;
+        ticker.last = 1.0/ticker.last;
+    }
+    return ticker;
+
 }
 
 IStockApi::Orders ByBitBrokerV5::getOpenOrders(const std::string_view &par) {
+    return {};
 }
 
 IStockApi::MarketInfo ByBitBrokerV5::getMarketInfo(const std::string_view &pair) {
@@ -343,9 +371,11 @@ IStockApi::MarketInfo ByBitBrokerV5::getMarketInfo(const std::string_view &pair)
 
 double ByBitBrokerV5::getBalance(const std::string_view &symb,
         const std::string_view &pair) {
+    return 0;
 }
 
 double ByBitBrokerV5::getFees(const std::string_view &char_traits) {
+    return 0.001;
 }
 
 bool ByBitBrokerV5::has_keys() const {
@@ -490,6 +520,7 @@ json::Value ByBitBrokerV5::publicGET(std::string path, json::Value query) {
         return handleResponse(httpc->GET(path,json::Value()));
     } catch (HTTPJson::UnknownStatusException &e) {
         handleError(e);
+        throw;
     }
 }
 
@@ -501,7 +532,17 @@ json::Value ByBitBrokerV5::privateGET(std::string path, json::Value query) {
         return handleResponse(httpc->GET(path,std::move(hdrs)));
     } catch (HTTPJson::UnknownStatusException &e) {
         handleError(e);
+        throw;
     }
 
 
+}
+
+json::Value ByBitBrokerV5::category_to_value(Category cat) {
+    switch (cat) {
+        case Category::spot:return "spot";
+        case Category::linear: return "linear";
+        case Category::inverse: return "inverse";
+    }
+    return "unknown";
 }
