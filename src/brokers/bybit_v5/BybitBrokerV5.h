@@ -13,6 +13,7 @@
 
 #include "rsa_tools.h"
 #include <memory>
+#include <optional>
 class ByBitBrokerV5: public AbstractBrokerAPI {
 public:
     ByBitBrokerV5(std::string secure_path);
@@ -51,8 +52,16 @@ public:
 
 
 protected:
+    enum class AccountType {
+        unknown = 0,
+        regular = 1,
+        unified_margin = 2,
+        unified_trade = 3
+    };
+
     std::unique_ptr<HTTPJson> httpc;
     bool is_paper = false;
+    AccountType unified_mode = AccountType::unknown;
 
     std::string cur_api_key;
     PEVP_PKEY cur_priv_key;
@@ -67,6 +76,8 @@ protected:
         Category cat;
         std::string api_symbol;
         std::string future_id;
+        std::string priceToString(double v) const;
+        std::string sizeToString(double v) const;
     };
 
     using SymbolMap = std::map<std::string, MarketInfoEx, std::less<>>;
@@ -74,11 +85,19 @@ protected:
     SymbolMap _symbol_map;
     std::chrono::system_clock::time_point _symbol_map_expire;
 
+
     const SymbolMap &getSymbols();
+    const MarketInfoEx &getSymbol(std::string_view symbol);
 
     json::Value publicGET(std::string path, json::Value query);
     json::Value privateGET(std::string path, json::Value query);
+    json::Value privatePOST(std::string path, json::Value payload);
     static json::Value category_to_value(Category cat);
+    AccountType getAccountType();
+
+    static json::Value parseLinkId(json::Value linkId);
+    static json::Value createLinkId(json::Value tag);
+    static json::Value cat2Val(Category cat);
 };
 
 
