@@ -223,6 +223,9 @@ void ByBitBrokerV5::onLoadApiKey(json::Value keyData) {
 }
 
 void ByBitBrokerV5::onInit() {
+    if (!httpc) {
+        httpc = std::make_unique<HTTPJson>(simpleServer::HttpClient(userAgent, simpleServer::newHttpsProvider(), nullptr, simpleServer::newCachedDNSProvider(15)),"https://api.bybit.com");
+    }
 }
 
 json::Value ByBitBrokerV5::getMarkets() const {

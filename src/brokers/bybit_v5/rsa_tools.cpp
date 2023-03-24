@@ -24,7 +24,7 @@ using PEVP_PKEY_CTX = OSSL_Ptr<EVP_PKEY_CTX, &EVP_PKEY_CTX_free>;
 using PBIO = OSSL_Ptr<BIO, &BIO_free_all>;
 using PRSA = OSSL_Ptr<RSA, &RSA_free>;
 using PEVP_MD_CTX = OSSL_Ptr<EVP_MD_CTX, EVP_MD_CTX_free>;
-using PEVP_MD = OSSL_Ptr<EVP_MD, EVP_MD_free>;
+
 
 inline constexpr int recv_window = 15000;
 
