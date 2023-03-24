@@ -74,11 +74,11 @@ std::string CoinbaseAdv::calculate_signature(std::uint64_t timestamp,
     std::string s (std::move(buff.str()));
     unsigned char digest[50];
     unsigned int digest_size = sizeof(digest);
-    HMAC(EVP_sha256(),api_secret.data(), api_secret.size(), 
+    HMAC(EVP_sha256(),api_secret.data(), api_secret.size(),
             reinterpret_cast<const unsigned char *>(s.data()), s.size(), digest, &digest_size);
     buff.str(std::string());
     for (unsigned int i = 0; i < digest_size; i++) {
-        buff << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(digest[i]); 
+        buff << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(digest[i]);
     }
     return buff.str();
 }
@@ -92,7 +92,7 @@ void CoinbaseAdv::processError(HTTPJson::UnknownStatusException &e) const{
         throw e;
     }
     throw std::runtime_error(std::string(e.what()).append(" ").append(v.toString()));
-    
+
 }
 
 json::Value CoinbaseAdv::GET(std::string_view uri, json::Value query) const {
@@ -101,7 +101,7 @@ json::Value CoinbaseAdv::GET(std::string_view uri, json::Value query) const {
     request << uri;
     if (!query.empty()) {
         char c = '?';
-        for (json::Value v: query) { 
+        for (json::Value v: query) {
             request << c << v.getKey() << "=" << simpleServer::urlEncode(v.toString());
             c = '&';
         }
@@ -271,18 +271,18 @@ std::vector<std::string> CoinbaseAdv::getAllPairs() {
 }
 
 json::Value CoinbaseAdv::getMarkets() const {
-    std::map<json::String, json::Object> ids; 
+    std::map<json::String, json::Object> ids;
     json::Value res = GET("/api/v3/brokerage/products",nullptr);
     for (json::Value v: res["products"]) {
         if (v["product_type"].getString() == "SPOT" && !v["is_disabled"].getBool()) {
             auto qn = v["quote_name"].toString();
             ids[qn].set(v["base_name"].getString(), v["product_id"]);
         }
-    }    
+    }
     return json::Value(json::object, ids.begin(), ids.end(), [](const auto &v){
         return json::Value(v.first, v.second);
     });
-    
+
 }
 
 
@@ -298,7 +298,7 @@ bool CoinbaseAdv::areMinuteDataAvailable(const std::string_view &asset, const st
         std::string_view base = v["base_currency_id"].getString();
         std::string_view quote = v["quote_currency_id"].getString();
         if(base == asset && quote == currency) return true;
-    } 
+    }
     return false;
 }
 
@@ -319,39 +319,42 @@ json::Value CoinbaseAdv::placeOrder(const std::string_view &pair, double size,
         });
     }
     if (size) {
-        {
-            std::unique_lock _(_ws_mx);
-            _orders.add(OrderList::Order {
-                nullptr,clientId,size,price,std::string(pair),myOrderId.getString()
-            });
-        }
-        json::Value r = POST("/api/v3/brokerage/orders/", json::Object{
-            {"client_order_id", myOrderId},
-            {"product_id", pair},
-            {"side", size<0?"SELL":"BUY"},
-            {"order_configuration",json::Object{
-                {"limitLimitGtc", json::Object{
-                    {"baseSize", numberToString(std::abs(size))},
-                    {"limitPrice", numberToString(price)},
-                    {"postOnly", true}
-                }}            
-            }}
+        json::Value r;
+        std::unique_lock _(_ws_mx);
+
+        _orders.add(OrderList::Order {
+            nullptr,clientId,size,price,std::string(pair),myOrderId.getString()
         });
-        if (r["success"].getBool()) {
-            json::Value id = r["success_response"]["order_id"].stripKey();; 
-/*            std::unique_lock _(_ws_mx);
-            _orders.update(myOrderId.getString(), [&](Order &r){
-                r.id = id;
-            });*/
-            return id;
-        } else {
-            std::unique_lock _(_ws_mx);
-            _orders.remove(myOrderId.getString());
-            json::Value err = r["error_response"]["error"];
-            throw std::runtime_error(err.toString().c_str());
+        std::exception_ptr e;
+        try {
+            r = POST("/api/v3/brokerage/orders/", json::Object{
+                {"client_order_id", myOrderId},
+                {"product_id", pair},
+                {"side", size<0?"SELL":"BUY"},
+                {"order_configuration",json::Object{
+                    {"limitLimitGtc", json::Object{
+                        {"baseSize", numberToString(std::abs(size))},
+                        {"limitPrice", numberToString(price)},
+                        {"postOnly", true}
+                    }}
+                }}
+            });
+            if (r["success"].getBool()) {
+                json::Value id = r["success_response"]["order_id"].stripKey();;
+                _orders.update(myOrderId.getString(), [&](Order &r){
+                    r.id = id;
+                });
+                return id;
+            }
+        } catch (...) {
+            e = std::current_exception();
         }
+        _orders.remove(myOrderId.getString());
+        if (e) std::rethrow_exception(e);
+        json::Value err = r["error_response"]["error"];
+        throw std::runtime_error(err.toString().c_str());
     }
-    
+
     return nullptr;
 }
 
@@ -360,8 +363,8 @@ json::Value CoinbaseAdv::placeOrder(const std::string_view &pair, double size,
 IStockApi::Ticker CoinbaseAdv::getTicker(const std::string_view &pair) {
     std::string p(pair);
     std::unique_lock _(_ws_mx);
-    
-    if (!_orderbook.any_product()) {        
+
+    if (!_orderbook.any_product()) {
         ws.regHandler([this](WsInstance::EventType event, json::Value data){
             bool goon;
             std::unique_lock _(_ws_mx);
@@ -382,7 +385,7 @@ IStockApi::Ticker CoinbaseAdv::getTicker(const std::string_view &pair) {
             ok = false;
         } else {
             ok = f.get();
-        }        
+        }
         _.lock();
         if (!ok) {
             _orderbook.erase_product(pair);
@@ -391,10 +394,10 @@ IStockApi::Ticker CoinbaseAdv::getTicker(const std::string_view &pair) {
             throw std::runtime_error("Failed to get ticker (subscribe failed)");
         }
     }
-    auto res = _orderbook.getTicker(pair);    
+    auto res = _orderbook.getTicker(pair);
     if (!res.has_value()) {
         throw std::runtime_error("Failed to get ticker (invalid ticker data)");
-    } 
+    }
     return *res;
 }
 
@@ -412,13 +415,13 @@ IStockApi::Orders CoinbaseAdv::getOpenOrders(const std::string_view &pair) {
             std::unique_lock _(_ws_mx);
            return _orders.process_events(event, data);
         });
-        
+
         auto p = _orders.get_ready();
         _.unlock();
         ws.send(ws_subscribe(false,{}, "user"));
         bool ok;
         if (p.wait_for(std::chrono::seconds(5)) == std::future_status::timeout) {
-            ok = false;            
+            ok = false;
         } else {
             ok = p.get();
         }
@@ -440,8 +443,8 @@ IStockApi::MarketInfo CoinbaseAdv::getMarketInfo(const std::string_view &pair) {
         });
         fee = v["fee_tier"]["maker_fee_rate"].getNumber();
     }
-    
-    
+
+
     std::string url = "/api/v3/brokerage/products/";
     url.append(pair);
     json::Value v = GET(url, json::Value());
@@ -469,7 +472,7 @@ IStockApi::MarketInfo CoinbaseAdv::getMarketInfo(const std::string_view &pair) {
 uint64_t CoinbaseAdv::downloadMinuteData(const std::string_view &asset,
         const std::string_view &currency, const std::string_view &hint_pair,
         uint64_t time_from, uint64_t time_to,
-        HistData &xdata) {    
+        HistData &xdata) {
 
     std::uint64_t start_time = std::max(time_from, time_to - 5*300*60*1000);
     json::Value v = GET(std::string("/api/v3/brokerage/products/")
@@ -500,7 +503,7 @@ uint64_t CoinbaseAdv::downloadMinuteData(const std::string_view &asset,
         data.push_back(h);
         data.push_back(o);
     }
-    
+
     if (data.empty()) return 0;
     auto next_end = lowest;
     std::reverse(data.begin(), data.end());
@@ -510,7 +513,7 @@ uint64_t CoinbaseAdv::downloadMinuteData(const std::string_view &asset,
 
 IBrokerControl::AllWallets CoinbaseAdv::getWallet() {
     Wallet w;
-    w.walletId = "spot";    
+    w.walletId = "spot";
     json::Value v = GET("/api/v3/brokerage/accounts", json::Object{{"limit",250}});
     for (json::Value x:v["accounts"]) {
         w.wallet.push_back({
@@ -528,10 +531,10 @@ IBrokerControl::AllWallets CoinbaseAdv::getWallet() {
 IStockApi::TradesSync CoinbaseAdv::syncTrades(json::Value lastId, const std::string_view &pair) {
     TradeHistory h;
     if (lastId.hasValue()) {
-        json::Value v = GET("/api/v3/brokerage/orders/historical/fills/", 
+        json::Value v = GET("/api/v3/brokerage/orders/historical/fills/",
                 json::Object{
             {"product_id", pair},
-            {"start_sequence_timestamp", lastId}            
+            {"start_sequence_timestamp", lastId}
         });
         std::string_view new_last_id;
         h = mapJSON(v["fills"], [&](json::Value x){
@@ -539,7 +542,7 @@ IStockApi::TradesSync CoinbaseAdv::syncTrades(json::Value lastId, const std::str
             auto sqtm = x["sequence_timestamp"];
             std::string_view stm = sqtm.getString();
             if (stm > new_last_id) new_last_id = stm;
-            std::uint64_t timestamp = parseTime(sqtm.toString(), ParseTimeFormat::iso);            
+            std::uint64_t timestamp = parseTime(sqtm.toString(), ParseTimeFormat::iso);
             double price = x["price"].getNumber();
             double size = x["size"].getNumber();
             bool sinq = x["size_in_quote"].getBool();
@@ -561,7 +564,7 @@ IStockApi::TradesSync CoinbaseAdv::syncTrades(json::Value lastId, const std::str
         std::sort(h.begin(), h.end(), [](const Trade &a, const Trade &b){
             return a.time < b.time;
         });
-        if (!new_last_id.empty()) lastId = new_last_id;        
+        if (!new_last_id.empty()) lastId = new_last_id;
     } else {
         std::time_t now = std::chrono::system_clock::to_time_t(httpc.now());
         std::ostringstream buff;
@@ -580,7 +583,7 @@ void CoinbaseAdv::onLoadApiKey(json::Value keyData) {
                if (data["channel"].getString() == "subscriptions") {
                    logDebug("WS: $1",data.stringify().str());
              }
-           } 
+           }
            return true;
         });
     }
@@ -589,7 +592,7 @@ void CoinbaseAdv::onLoadApiKey(json::Value keyData) {
 json::Value CoinbaseAdv::testCall(const std::string_view &method,
         json::Value args) {
     if (method == "probeKeys") {
-        probeKeys();        
+        probeKeys();
     } else if (method == "GET") {
         if (args.defined()) {
             std::string url = args["command"].getString();
@@ -606,11 +609,11 @@ json::Value CoinbaseAdv::testCall(const std::string_view &method,
         } else {
             return {"POST",json::Object{{"command",""},{"body",json::object}}};
         }
-    
+
     } else {
         return {"probeKeys","GET","POST"};
     }
-    
+
     return json::Value();
 }
 
@@ -618,7 +621,7 @@ double CoinbaseAdv::getBalance(const std::string_view &symb, const std::string_v
     if (_need_update_balance) update_balances();
     auto iter = balance_cache.find(symb);
     return iter == balance_cache.end()?0.0:iter->second;
-    
+
 }
 
 json::Value CoinbaseAdv::setSettings(json::Value v) {
@@ -651,7 +654,7 @@ json::Value CoinbaseAdv::ws_subscribe(bool unsubscribe, std::vector<std::string_
         {"api_key",api_key},
         {"timestamp",json::Value(tm).toString()},
         {"signature",calculate_signature(tm, channel, plist.str(), "")}
-    };    
+    };
     return v;
 }
 
@@ -661,7 +664,7 @@ json::Value CoinbaseAdv::MyWsInstance::generate_headers() {
 
 CoinbaseAdv::MyWsInstance::MyWsInstance(CoinbaseAdv &owner,
         simpleServer::HttpClient &client, std::string url)
-:WsInstance(client, url), _owner(owner) 
+:WsInstance(client, url), _owner(owner)
 {
 }
 
@@ -691,7 +694,7 @@ OrderList::Order CoinbaseAdv::MyOrderList::fetch_order(const std::string_view &i
 json::Value CoinbaseAdv::genUniqOrderID(json::Value orderClientID) {
     std::size_t id = _orderCounter++;
     json::Value decoded(json::array,{orderClientID.stripKey(), id},false);
-    std::string s; 
+    std::string s;
     decoded.serializeBinary([&](char c){s.push_back(c);});
     return json::base64url->encodeBinaryValue(json::map_str2bin(s));
 }
