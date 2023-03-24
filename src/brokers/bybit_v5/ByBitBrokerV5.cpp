@@ -328,7 +328,14 @@ IStockApi::TradesSync ByBitBrokerV5::syncTrades(json::Value lastId,
             {"endTime", endTime},
             {"limit", 100}
         });
-        TradeHistory hist = mapJSON(v["list"], [&](json::Value v){
+        auto st = startTime;
+        json::Value lst = v["list"].filter([&](json::Value x){
+            auto execType = x["execType"].getString();
+            auto execTime = x["execTime"].getIntLong();
+            if (st < execTime && st >= startTime) st = execTime;
+            return s.cat == Category::spot || execType == "Trade" || execType == "AdlTrade" || execType == "BustTrade" || execType == "Delivery" ;
+        });
+        TradeHistory hist = mapJSON(lst, [&](json::Value v){
             double eff_size;
             double eff_price;
             double fee = v["execFee"].getNumber();
@@ -368,10 +375,8 @@ IStockApi::TradesSync ByBitBrokerV5::syncTrades(json::Value lastId,
             };
 
         }, TradeHistory());
-        if (hist.empty()) return TradesSync{{},startTime};
         std::reverse(hist.begin(), hist.end());
-
-        return TradesSync{hist, hist.back().time+1};
+        return TradesSync{hist, st+1};
 
     } else{
         return IStockApi::TradesSync{{},endTime};
