@@ -475,8 +475,12 @@ void MTrader::perform(bool manually) {
                         }
                     }
 
-                    target_buy_size = std::max(buyorder.size-minfo.asset_step,minfo.asset_step);
-                    target_sell_size = std::min(sellorder.size+minfo.asset_step,-minfo.asset_step);
+                    //set target slightly below requested order to avoid rounding errors
+                    //use half of asset step as threshold
+                    target_buy_size = buyorder.size-minfo.asset_step*0.5;
+                    //set target slightly above requested order to avoid rounding errors
+                    //use half of asset step as threshold
+                    target_sell_size = sellorder.size+minfo.asset_step*0.5;
 
                     if (!buyorder.size || !sellorder.size) {
                         flush_partial(status);
@@ -1367,8 +1371,8 @@ bool MTrader::processTrades(Status &st) {
 		bool manual = achieve_mode || !cfg.enabled;
 		trades.push_back(TWBItem(t, last_np+norm_adv, last_ap, last_neutral, !manual, manual));
 
-		if (partial_position >= target_buy_size
-		        || partial_position <= target_sell_size) {
+		if (partial_position > target_buy_size
+		        || partial_position < target_sell_size) {
 		    position = assetBal;
 		    flush_partial(st);
 		}
