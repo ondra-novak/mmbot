@@ -275,7 +275,7 @@ int main(int argc, char **argv) {
 				report_crash.install();
 
 
-				return simpleServer::ServiceControl::create(name, pidfile, cmd,
+			return simpleServer::ServiceControl::create(name, pidfile, cmd,
 					[&](simpleServer::ServiceControl cntr, ondra_shared::StrViewA name, simpleServer::ArgList arglist) mutable {
 
 					{

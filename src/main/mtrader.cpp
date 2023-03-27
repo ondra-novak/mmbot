@@ -327,7 +327,7 @@ void MTrader::perform(bool manually) {
 			if (!std::isfinite(lastTradePrice)) lastTradePrice = status.curPrice;		}
 
 //let's try this to relax
-//		if (cfg.max_size != 0) need_alerts = true; 
+//		if (cfg.max_size != 0) need_alerts = true;
 		double centerPrice = need_alerts?lastTradePrice:strategy.getCenterPrice(lastTradePrice, strategy_position);
 
 		if (cfg.dynmult_sliding) {
@@ -475,8 +475,12 @@ void MTrader::perform(bool manually) {
                         }
                     }
 
-                    target_buy_size = std::max(buyorder.size-minfo.asset_step,minfo.asset_step);
-                    target_sell_size = std::min(sellorder.size+minfo.asset_step,-minfo.asset_step);
+                    //set target slightly below requested order to avoid rounding errors
+                    //use half of asset step as threshold
+                    target_buy_size = buyorder.size-minfo.asset_step*0.5;
+                    //set target slightly above requested order to avoid rounding errors
+                    //use half of asset step as threshold
+                    target_sell_size = sellorder.size+minfo.asset_step*0.5;
 
                     if (!buyorder.size || !sellorder.size) {
                         flush_partial(status);
@@ -484,11 +488,11 @@ void MTrader::perform(bool manually) {
                     } else if (buyorder.size - partial_position < minfo.asset_step) {
                         flush_partial(status);
                         buyorder.size = 0;
-                        buyorder.alert = IStrategy::Alert::enabled;
+                        buyorder.alert = IStrategy::Alert::disabled;
                     } else if (sellorder.size - partial_position > -minfo.asset_step) {
                         flush_partial(status);
                         sellorder.size = 0;
-                        sellorder.alert = IStrategy::Alert::enabled;
+                        sellorder.alert = IStrategy::Alert::disabled;
                     } else {
                         buyorder.size -= partial_position;
                         sellorder.size -= partial_position;
@@ -552,7 +556,7 @@ void MTrader::perform(bool manually) {
                     std::swap(buy_alert, sell_alert);
                 }
 
-               
+
 
                 //report order errors to UI
                 if (!cfg.hidden) statsvc->reportError(IStatSvc::ErrorObj(buy_order_error, sell_order_error));
@@ -938,11 +942,11 @@ bool MTrader::calculateOrderFeeLessAdjust(Order &order, double position, double 
 		if (vol < minfo.min_volume) order.size = 0;
 	}
 
-	if (order.size == 0) {	    
+	if (order.size == 0) {
 		order.ar = AlertReason::below_minsize;
 		//in this case, we continue to search better price (don't accept the order)
 		return false;
-	} else {		
+	} else {
 		return true;
 	}
 
@@ -1958,11 +1962,11 @@ void MTrader::updateEnterPrice() {
 json::Value MTrader::getOHLC(std::uint64_t interval) const {
     json::Array out;
     interval *= 60000; //60milliseconds
-    std::uint64_t tm = 0;    
+    std::uint64_t tm = 0;
     double last = 0;
     double ohlc[4];
 
-    for (const auto &item : chart) {        
+    for (const auto &item : chart) {
         double v = item.last;
         if (minfo.invert_price) v = 1.0/v;
         std::size_t x = static_cast<std::size_t>(item.time/interval);

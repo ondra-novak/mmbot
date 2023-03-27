@@ -1,5 +1,9 @@
 #include "orderlist.h"
 #include "../../main/sgn.h"
+#include <shared/logOutput.h>
+#include <imtjson/string.h>
+
+using ondra_shared::logDebug;
 
 void OrderList::add(Order order) {
     remove(order.client_id.getString());
@@ -17,23 +21,24 @@ void OrderList::remove(const std::string_view id) {
     if (this_index != last_index) {
         std::swap(_orders[iter->second], _orders[last_index]);
         _index[_orders[this_index].client_id.getString()] = this_index;
-    } 
+    }
     _orders.pop_back();
 }
 
 bool OrderList::process_events(WsInstance::EventType event, json::Value data) {
     switch (event) {
-        case WsInstance::EventType::data: 
+        case WsInstance::EventType::data:
             return process_data(data);
         case WsInstance::EventType::exception:
-        case WsInstance::EventType::disconnect: 
+        case WsInstance::EventType::disconnect:
             clear();
+            logDebug("WS Event orders disconnected!");
             _orders_ready = false;
             if (_orders_wait.has_value()) {
                 _orders_wait->set_value(false);
                 _orders_wait.reset();
             }
-            return false; 
+            return false;
         default:
             return true;
     }
@@ -42,10 +47,10 @@ bool OrderList::process_events(WsInstance::EventType event, json::Value data) {
 void OrderList::clear() {
     _orders.clear();
     _index.clear();
-    
+
 }
 
-bool OrderList::process_data(json::Value data) {    
+bool OrderList::process_data(json::Value data) {
     if (data["channel"].getString() != "user") return true;
     for (json::Value event: data["events"]) {
       std::string_view type = event["type"].getString();
@@ -60,10 +65,11 @@ bool OrderList::process_data(json::Value data) {
               std::string_view client_id = v["client_order_id"].getString();
               std::string_view status = v["status"].getString();
               if (status == "OPEN" || status == "PENDING") {
+                  logDebug("WS Event: Order updated $1", v.toString().str());
                   auto update_fn = [&](Order &o) {
                       o.size = sgn(o.size)*v["leaves_quantity"].getNumber();
                       o.id = id;
-                  };                  
+                  };
                   if (!update(client_id, update_fn)) {
                       try {
                           Order x = fetch_order(id.getString());
@@ -71,7 +77,7 @@ bool OrderList::process_data(json::Value data) {
                           add(std::move(x));
                       } catch (...) {
                           if (_orders_wait.has_value()) {
-                              _orders_ready = true; 
+                              _orders_ready = true;
                               _orders_wait->set_value(false);
                               _orders_wait.reset();
                           }
@@ -81,11 +87,12 @@ bool OrderList::process_data(json::Value data) {
                       }
                   }
               } else {
+                  logDebug("WS Event: Order removed $1", v.toString().str());
                   remove(client_id);
               }
           }
           if (_orders_wait.has_value()) {
-              _orders_ready = true; 
+              _orders_ready = true;
               _orders_wait->set_value(true);
               _orders_wait.reset();
           }

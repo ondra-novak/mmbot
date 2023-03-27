@@ -428,7 +428,7 @@ function formBuilder(format) {
 		var el;
 		var lb = {
 	        	tag:"span",
-	        	text: itm.label
+	        	text: itm.label || ""
 	        };
 		
 		switch (itm.type) {
@@ -475,6 +475,14 @@ function formBuilder(format) {
 			el ={tag:"span",
 				 text:itm.default || "",
 				 attrs:{},
+			};break;
+		case "link":
+			el ={tag:"a",
+				 text:itm.default || "",
+				 attrs:{
+				 	href:itm.href,
+				 	target:"bybit_window"
+				 },
 			};break;
 		case "hr":
 			return {
