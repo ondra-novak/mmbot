@@ -6,10 +6,10 @@
 
 class OrderList {
 public:
-    
-    
-    
-    struct Order: IStockApi::Order {    
+
+
+
+    struct Order: IStockApi::Order {
         std::string product_id;
         json::Value client_id;
     };
@@ -17,7 +17,7 @@ public:
     void add(Order order);
     void remove(const std::string_view id);
     void clear();
-   
+
     template<typename Fn>
     void by_product(std::string_view product, Fn &&fn) const {
         for (const auto &order: _orders) {
@@ -26,7 +26,7 @@ public:
             }
         }
     }
-    
+
     template<typename Fn>
     bool update(std::string_view id, Fn &&fn) {
         auto iter = _index.find(id);
@@ -34,22 +34,26 @@ public:
         fn(_orders[iter->second]);
         return true;
     }
-    
+
     bool process_events(WsInstance::EventType event, json::Value data);
 
     bool is_ready() const;
     std::future<bool> get_ready();
-    
+
     virtual Order fetch_order(const std::string_view &id) = 0;
-        
-    
+
+    auto get_updates() const {
+        return _updates;
+    }
+
 protected:
-    
+
     std::unordered_map<std::string_view, std::size_t> _index;
     std::vector<Order> _orders;
     bool _orders_ready = false;
     std::optional<std::promise<bool> > _orders_wait;
-    
+    std::size_t _updates = 0;
+
     bool process_data(json::Value data);
 
 };

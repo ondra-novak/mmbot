@@ -52,6 +52,7 @@ void OrderList::clear() {
 
 bool OrderList::process_data(json::Value data) {
     if (data["channel"].getString() != "user") return true;
+    ++_updates;
     for (json::Value event: data["events"]) {
       std::string_view type = event["type"].getString();
       if (type == "update" || type == "snapshot") {

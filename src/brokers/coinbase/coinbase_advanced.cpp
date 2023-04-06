@@ -317,6 +317,7 @@ json::Value CoinbaseAdv::placeOrder(const std::string_view &pair, double size,
         POST("/api/v3/brokerage/orders/batch_cancel/",json::Object{
             {"order_ids", json::Value(json::array,{replaceId})}
         });
+        _order_changes = true;
     }
     if (size) {
         json::Value r;
@@ -344,6 +345,7 @@ json::Value CoinbaseAdv::placeOrder(const std::string_view &pair, double size,
                 _orders.update(myOrderId.getString(), [&](Order &r){
                     r.id = id;
                 });
+                _order_changes = true;
                 return id;
             }
         } catch (...) {
@@ -353,6 +355,7 @@ json::Value CoinbaseAdv::placeOrder(const std::string_view &pair, double size,
         if (e) std::rethrow_exception(e);
         json::Value err = r["error_response"]["error"];
         throw std::runtime_error(err.toString().c_str());
+
     }
 
     return nullptr;
@@ -527,7 +530,6 @@ IBrokerControl::AllWallets CoinbaseAdv::getWallet() {
 }
 
 
-
 IStockApi::TradesSync CoinbaseAdv::syncTrades(json::Value lastId, const std::string_view &pair) {
     TradeHistory h;
     if (lastId.hasValue()) {
@@ -633,6 +635,18 @@ void CoinbaseAdv::restoreSettings(json::Value v) {
 
 bool CoinbaseAdv::reset() {
     _need_update_balance = true;
+    std::lock_guard lk(_ws_mx);
+    if (_order_changes) {
+        auto up = _orders.get_updates();
+        logDebug("Websocket updates: $1, last $2", up, _orders_updates);
+        if (_orders_updates == up) {
+            std::cerr << "Websocket stuck" << std::endl;
+            exit(1);
+        }
+        _orders_updates = up;
+        _order_changes = false;
+    }
+
     return true;
 }
 

@@ -1,2 +1,2 @@
 #define MMBOT_VERSION \
- "2.22.2-128-g6e495e1"
+ "2.22.2-130-g09beabf"
