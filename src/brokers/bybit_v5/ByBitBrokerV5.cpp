@@ -283,13 +283,61 @@ json::Value ByBitBrokerV5::testCall(const std::string_view &method,json::Value a
 
 bool ByBitBrokerV5::areMinuteDataAvailable(const std::string_view &asset,
         const std::string_view &currency) {
-    return false;
+    const auto &s = getSymbols();
+    auto iter = std::find_if(s.begin(), s.end(),[&](const auto &x){
+            return x.second.currency_symbol == currency && x.second.asset_symbol == asset;
+    });
+    return (iter != s.end());
 }
 
 std::uint64_t ByBitBrokerV5::downloadMinuteData(const std::string_view &asset,
         const std::string_view &currency, const std::string_view &hint_pair,
-        std::uint64_t time_from, std::uint64_t time_to, HistData &data) {
-    return 0;
+        std::uint64_t time_from, std::uint64_t time_to, HistData &xdata) {
+    const auto &s = getSymbols();
+    auto iter = s.find(hint_pair);
+    if (iter == s.end()) {
+        iter = std::find_if(s.begin(), s.end(),[&](const auto &x){
+                return x.second.currency_symbol == currency && x.second.asset_symbol == asset;
+        });
+        if (iter == s.end()) return 0;
+    }
+
+    MinuteData data;
+
+    auto start = std::max(time_from, time_to - 200*300000);
+    json::Value hdata = publicGET("/v5/market/kline", json::Object{
+        {"category", cat2Val(iter->second.cat)},
+        {"symbol", iter->second.api_symbol},
+        {"interval", "5"},
+        {"start", start},
+        {"end", time_to},
+        {"limit", 200}
+    });
+    json::ULongInt end = time_to;
+    for (json::Value x: hdata["list"]) {
+        auto tm = x[0].getUIntLong();
+        if (tm >= time_from && tm < time_to) {
+            double o = x[1].getNumber();
+            double h = x[2].getNumber();
+            double l = x[3].getNumber();
+            double c = x[4].getNumber();
+            double m = std::sqrt(h*l);
+            data.push_back(o);
+            data.push_back(l);
+            data.push_back(m);
+            data.push_back(h);
+            data.push_back(c);
+            end = std::min(tm, end);
+        }
+    }
+    if (data.size()){
+        std::reverse(data.begin(), data.end());
+        xdata = std::move(data);
+        return end;
+    } else {
+        return 0;
+    }
+
 }
 
 void ByBitBrokerV5::probeKeys() {
