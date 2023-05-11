@@ -29,7 +29,17 @@
 
 using namespace json;
 
-static Value keyFormat = {Object({
+static Value keyFormat = {
+                         Object({
+                             {"name","server"},
+                             {"type","enum"},
+                             {"options",Object {
+                                 {"default","Binance (non-US)"},
+                                 {"us","Binance US"},
+                             }},
+                             {"label","Server"}
+                         }),
+                         Object({
 							{"name","pubKey"},
 							{"type","string"},
 							{"label","Public key"}}),
@@ -53,12 +63,14 @@ public:
 	Proxy px;
 	Proxy dapi;
 	Proxy fapi;
+	Proxy us;
 
 
 	Interface(const std::string &path):AbstractBrokerAPI(path, keyFormat)
 		,px("https://api.binance.com", "/api/v3/time")
 		,dapi("https://dapi.binance.com", "/dapi/v1/time")
 		,fapi("https://fapi.binance.com", "/fapi/v1/time")
+	    ,us("https://api.binance.us", "/api/v3/time")
 	{}
 
 
@@ -99,6 +111,11 @@ public:
 		spot, coin_m, usdt_m
 	};
 
+	enum class Server {
+	    global,
+	    us
+	};
+
 	struct MarketInfoEx: MarketInfo {
 		unsigned int size_precision;
 		unsigned int quote_precision;
@@ -116,6 +133,9 @@ public:
 	Value feeInfo;
 	std::chrono::system_clock::time_point feeInfoExpiration;
 	Symbols symbols;
+	Server server;
+
+
 
 
 	void updateBalCache();
@@ -136,6 +156,8 @@ public:
 	bool feesInBnb = false;
 
 	static bool isMatchedPair(const MarketInfo &minfo, const std::string_view &asset, const std::string_view &currency);
+
+	Proxy &spot() {return server==Server::us?us:px;}
 
 protected:
 	bool dapi_isSymbol(const std::string_view &pair);
@@ -160,7 +182,7 @@ private:
 	Value fapi_account;
 	Value fapi_positions;
 	Tickers fapi_tickers;
-	
+
 	using OrderMap=std::map<std::string, std::vector<Order> >;
 	OrderMap orderMap;
 
@@ -170,7 +192,7 @@ private:
 
 void Interface::updateBalCache() {
 	 if (!balanceCache.defined()) {
-		 balanceCache = px.private_request(Proxy::GET,"/api/v3/account",json::object);
+		 balanceCache = spot().private_request(Proxy::GET,"/api/v3/account",json::object);
 		 feeInfo = balanceCache["makerCommission"].getNumber()/10000.0;
 		 Object r;
 		 for (Value x : balanceCache["balances"]) {
@@ -407,7 +429,7 @@ Interface::Orders Interface::getOpenOrders(const std::string_view & pair) {
 		json::String spair(pair);
 		Orders orders;
 
-		json::Value resp = px.private_request(Proxy::GET,"/api/v3/openOrders", Object({{"symbol",spair}}));
+		json::Value resp = spot().private_request(Proxy::GET,"/api/v3/openOrders", Object({{"symbol",spair}}));
 		orders =  mapJSON(resp, [&](Value x) {
 			Value id = x["clientOrderId"];
 			Value eoid = extractOrderID(id.getString());
@@ -430,7 +452,7 @@ Interface::Orders Interface::getOpenOrders(const std::string_view & pair) {
 					new_oo.push_back(c);
 				} else {
 					try {
-						Value resp = px.private_request(Proxy::GET,"/api/v3/order", Object({{"symbol",spair},{"orderId", c.id}}));
+						Value resp = spot().private_request(Proxy::GET,"/api/v3/order", Object({{"symbol",spair},{"orderId", c.id}}));
 						auto status = resp["status"];
 						if (status == "NEW" || status == "PARTIALLY_FILLED") {
 							c.size = (resp["side"].getString() == "SELL"?-1:1)*(resp["origQty"].getNumber() - resp["executedQty"].getNumber());
@@ -509,8 +531,8 @@ Interface::Ticker Interface::getTicker(const std::string_view &pair) {
 	} else {
 		if (tickerCache.empty()) {
 
-			 Value book = indexBySymbol(px.public_request("/api/v3/ticker/bookTicker", Value()));
-			 Value price = indexBySymbol(px.public_request("/api/v3/ticker/price", Value()));
+			 Value book = indexBySymbol(spot().public_request("/api/v3/ticker/bookTicker", Value()));
+			 Value price = indexBySymbol(spot().public_request("/api/v3/ticker/price", Value()));
 			 auto bs = ondra_shared::iterator_stream(book);
 			 auto ps = ondra_shared::iterator_stream(price);
 			 std::vector<Tickers::value_type> tk;
@@ -625,7 +647,7 @@ json::Value Interface::placeOrder(const std::string_view & pair,
 	} else {
 
 		if (replaceId.defined()) {
-			Value r = px.private_request(Proxy::DELETE,"/api/v3/order",Object({
+			Value r = spot().private_request(Proxy::DELETE,"/api/v3/order",Object({
 					{"symbol", pair},
 					{"orderId", replaceId}}));
 			double remain = r["origQty"].getNumber() - r["executedQty"].getNumber();
@@ -641,7 +663,7 @@ json::Value Interface::placeOrder(const std::string_view & pair,
 		if (size == 0) return nullptr;
 
 		Value clientOrderId = generateOrderId(clientId);
-		json::Value resp = px.private_request(Proxy::POST,"/api/v3/order",Object({
+		json::Value resp = spot().private_request(Proxy::POST,"/api/v3/order",Object({
 				{"symbol", pair},
 				{"side", size<0?"SELL":"BUY"},
 				{"type","LIMIT_MAKER"},
@@ -674,7 +696,7 @@ bool Interface::reset() {
 void Interface::initSymbols() {
 	auto now = std::chrono::steady_clock::now();
 	if (symbols.empty() || symbolsExpire < now) {
-			Value res = px.public_request("/api/v1/exchangeInfo",Value());
+			Value res = spot().public_request("/api/v1/exchangeInfo",Value());
 
 			using VT = Symbols::value_type;
 			std::vector<VT> bld;
@@ -712,77 +734,79 @@ void Interface::initSymbols() {
 
 				bld.push_back(VT(symbol, nfo));
 			}
-			need_more_time();
-			res = dapi.public_request("/dapi/v1/exchangeInfo",Value());
-			std::string symbol(COIN_M_PREFIX);
-			for (Value smb: res["symbols"]) {
-				symbol.resize(COIN_M_PREFIX.length());
-				symbol.append(smb["symbol"].getString());
-				MarketInfoEx nfo;
-				nfo.asset_symbol = smb["quoteAsset"].getString();
-				nfo.currency_symbol = smb["marginAsset"].getString();
-				nfo.currency_step = std::pow(10,-smb["pricePrecision"].getNumber());
-				nfo.asset_step = smb["contractSize"].getNumber();
-				nfo.feeScheme = currency;
-				nfo.fees = getFees(symbol);
-				nfo.min_size = nfo.asset_step;
-				nfo.min_volume = 0;
-				nfo.size_precision = 0;
-				nfo.quote_precision = smb["quotePrecision"].getUInt();
-				for (Value f: smb["filters"]) {
-					auto ft = f["filterType"].getString();
-					if (ft == "LOT_SIZE") {
-						nfo.min_size = f["minQty"].getNumber()*nfo.asset_step;
-					} else if (ft == "PRICE_FILTER") {
-						nfo.currency_step = f["tickSize"].getNumber();
-					} else if (ft == "MIN_NOTIONAL") {
-						nfo.min_volume = f["minNotional"].getNumber();
-					}
-				}
-				nfo.leverage = 20;
-				nfo.invert_price = true;
-				nfo.inverted_symbol = smb["quoteAsset"].getString();
-				nfo.cat = Category::coin_m;
-				nfo.label = nfo.currency_symbol+"/"+nfo.asset_symbol;
-				nfo.type = smb["contractType"].getString();
-				nfo.wallet_id = symbol;
-				bld.push_back(VT(symbol, nfo));
-			}
-			need_more_time();
-			res = fapi.public_request("/fapi/v1/exchangeInfo",Value());
-			symbol = USDT_M_PREFIX;
-			for (Value smb: res["symbols"]) {
-				if (smb["status"].getString() != "TRADING") continue;
-				symbol.resize(USDT_M_PREFIX.length());
-				symbol.append(smb["symbol"].getString());
-				MarketInfoEx nfo;
-				nfo.asset_symbol = smb["baseAsset"].getString();
-				nfo.currency_symbol = smb["quoteAsset"].getString();
-				nfo.currency_step = std::pow(10,-smb["pricePrecision"].getNumber());
-				nfo.asset_step = std::pow(10, -smb["quantityPrecision"].getNumber());
-				nfo.feeScheme = currency;
-				nfo.fees = getFees(symbol);
-				nfo.min_size = nfo.asset_step;
-				nfo.min_volume = 0;
-				nfo.size_precision = smb["baseAssetPrecision"].getUInt();
-				nfo.quote_precision = smb["quotePrecision"].getUInt();
-				for (Value f: smb["filters"]) {
-					auto ft = f["filterType"].getString();
-					if (ft == "LOT_SIZE") {
-						nfo.min_size = f["minQty"].getNumber()*nfo.asset_step;
-					} else if (ft == "PRICE_FILTER") {
-						nfo.currency_step = f["tickSize"].getNumber();
-					} else if (ft == "MIN_NOTIONAL") {
-						nfo.min_volume = f["notional"].getNumber();
-					}
-				}
-				nfo.leverage = 20;
-				nfo.invert_price = false;
-				nfo.cat = Category::usdt_m;
-				nfo.label = nfo.asset_symbol+"/"+nfo.currency_symbol;
-				nfo.type = "PERPETUAL";
-				nfo.wallet_id = "usdt-m";
-				bld.push_back(VT(symbol, nfo));
+			if (server == Server::global) {
+                need_more_time();
+                res = dapi.public_request("/dapi/v1/exchangeInfo",Value());
+                std::string symbol(COIN_M_PREFIX);
+                for (Value smb: res["symbols"]) {
+                    symbol.resize(COIN_M_PREFIX.length());
+                    symbol.append(smb["symbol"].getString());
+                    MarketInfoEx nfo;
+                    nfo.asset_symbol = smb["quoteAsset"].getString();
+                    nfo.currency_symbol = smb["marginAsset"].getString();
+                    nfo.currency_step = std::pow(10,-smb["pricePrecision"].getNumber());
+                    nfo.asset_step = smb["contractSize"].getNumber();
+                    nfo.feeScheme = currency;
+                    nfo.fees = getFees(symbol);
+                    nfo.min_size = nfo.asset_step;
+                    nfo.min_volume = 0;
+                    nfo.size_precision = 0;
+                    nfo.quote_precision = smb["quotePrecision"].getUInt();
+                    for (Value f: smb["filters"]) {
+                        auto ft = f["filterType"].getString();
+                        if (ft == "LOT_SIZE") {
+                            nfo.min_size = f["minQty"].getNumber()*nfo.asset_step;
+                        } else if (ft == "PRICE_FILTER") {
+                            nfo.currency_step = f["tickSize"].getNumber();
+                        } else if (ft == "MIN_NOTIONAL") {
+                            nfo.min_volume = f["minNotional"].getNumber();
+                        }
+                    }
+                    nfo.leverage = 20;
+                    nfo.invert_price = true;
+                    nfo.inverted_symbol = smb["quoteAsset"].getString();
+                    nfo.cat = Category::coin_m;
+                    nfo.label = nfo.currency_symbol+"/"+nfo.asset_symbol;
+                    nfo.type = smb["contractType"].getString();
+                    nfo.wallet_id = symbol;
+                    bld.push_back(VT(symbol, nfo));
+                }
+                need_more_time();
+                res = fapi.public_request("/fapi/v1/exchangeInfo",Value());
+                symbol = USDT_M_PREFIX;
+                for (Value smb: res["symbols"]) {
+                    if (smb["status"].getString() != "TRADING") continue;
+                    symbol.resize(USDT_M_PREFIX.length());
+                    symbol.append(smb["symbol"].getString());
+                    MarketInfoEx nfo;
+                    nfo.asset_symbol = smb["baseAsset"].getString();
+                    nfo.currency_symbol = smb["quoteAsset"].getString();
+                    nfo.currency_step = std::pow(10,-smb["pricePrecision"].getNumber());
+                    nfo.asset_step = std::pow(10, -smb["quantityPrecision"].getNumber());
+                    nfo.feeScheme = currency;
+                    nfo.fees = getFees(symbol);
+                    nfo.min_size = nfo.asset_step;
+                    nfo.min_volume = 0;
+                    nfo.size_precision = smb["baseAssetPrecision"].getUInt();
+                    nfo.quote_precision = smb["quotePrecision"].getUInt();
+                    for (Value f: smb["filters"]) {
+                        auto ft = f["filterType"].getString();
+                        if (ft == "LOT_SIZE") {
+                            nfo.min_size = f["minQty"].getNumber()*nfo.asset_step;
+                        } else if (ft == "PRICE_FILTER") {
+                            nfo.currency_step = f["tickSize"].getNumber();
+                        } else if (ft == "MIN_NOTIONAL") {
+                            nfo.min_volume = f["notional"].getNumber();
+                        }
+                    }
+                    nfo.leverage = 20;
+                    nfo.invert_price = false;
+                    nfo.cat = Category::usdt_m;
+                    nfo.label = nfo.asset_symbol+"/"+nfo.currency_symbol;
+                    nfo.type = "PERPETUAL";
+                    nfo.wallet_id = "usdt-m";
+                    bld.push_back(VT(symbol, nfo));
+                }
 			}
 
 			symbols = Symbols(std::move(bld));
@@ -818,7 +842,7 @@ bool Interface::dapi_isSymbol(const std::string_view &pair) {
 }
 
 inline double Interface::getFees(const std::string_view &pair) {
-	if (px.hasKey()) {
+	if (spot().hasKey()) {
 		if (dapi_isSymbol(pair)) {
 			return dapi_getFees();
 		} else if (fapi_isSymbol(pair)) {
@@ -845,11 +869,14 @@ inline double Interface::getFees(const std::string_view &pair) {
 inline void Interface::onLoadApiKey(json::Value keyData) {
 	px.privKey = keyData["privKey"].getString();
 	px.pubKey = keyData["pubKey"].getString();
+	us.privKey = px.privKey;
+	us.pubKey = px.pubKey;
 	dapi.privKey = px.privKey;
 	dapi.pubKey = px.pubKey;
 	fapi.privKey = px.privKey;
 	fapi.pubKey = px.pubKey;
 	symbols.clear();
+	server = keyData["server"].getString() == "us"?Server::us:Server::global;
 }
 
 inline Value Interface::generateOrderId(Value clientId) {
@@ -1014,19 +1041,21 @@ inline json::Value Interface::getMarkets() const {
 		}
 		res.set("Spot",loadToMap(map));
 	}
-	{
-		Map map;
-		for (auto &&v: symbols) if (v.second.cat == Category::coin_m) {
-			map.emplace(std::pair(std::string_view(v.second.label), std::string_view(v.second.type)), v.first);
-		}
-		res.set(coin_m_title,loadToMap(map));
-	}
-	{
-		Map map;
-		for (auto &&v: symbols) if (v.second.cat == Category::usdt_m) {
-			map.emplace(std::pair(std::string_view(v.second.label), std::string_view(v.second.type)), v.first);
-		}
-		res.set(usdt_m_title,loadToMap(map));
+	if (server == Server::global) {
+        {
+            Map map;
+            for (auto &&v: symbols) if (v.second.cat == Category::coin_m) {
+                map.emplace(std::pair(std::string_view(v.second.label), std::string_view(v.second.type)), v.first);
+            }
+            res.set(coin_m_title,loadToMap(map));
+        }
+        {
+            Map map;
+            for (auto &&v: symbols) if (v.second.cat == Category::usdt_m) {
+                map.emplace(std::pair(std::string_view(v.second.label), std::string_view(v.second.type)), v.first);
+            }
+            res.set(usdt_m_title,loadToMap(map));
+        }
 	}
 
 
@@ -1093,41 +1122,43 @@ Value Interface::getWallet_direct()  {
 		double n = x["free"].getNumber()+x["locked"].getNumber();
 		if (n) return Value(n); else return Value();
 	}));
-	try {
-		Object fut;
-		fut.set("USDT", fapi_getCollateral("USDT"));
-		fut.set("BUSD", fapi_getCollateral("BUSD"));
-		Value dacc = dapi_readAccount();
-		for (Value x:dacc["assets"]) {
-			double n = x["walletBalance"].getNumber()+x["unrealizedProfit"].getNumber();
-			if (n) {
-				fut.set(x["asset"].getString(), n);
-			}
-		}
-		out.set("futures", fut);
+	if (server == Server::global) {
+        try {
+            Object fut;
+            fut.set("USDT", fapi_getCollateral("USDT"));
+            fut.set("BUSD", fapi_getCollateral("BUSD"));
+            Value dacc = dapi_readAccount();
+            for (Value x:dacc["assets"]) {
+                double n = x["walletBalance"].getNumber()+x["unrealizedProfit"].getNumber();
+                if (n) {
+                    fut.set(x["asset"].getString(), n);
+                }
+            }
+            out.set("futures", fut);
 
-		fapi_getPosition("");
+            fapi_getPosition("");
 
-		Object poss;
-		for (Value x:fapi_positions) {
-			double n = x["positionAmt"].getNumber();
-			if (n) {
-				poss.set(x["symbol"].getString(), n);
-			}
-		}
+            Object poss;
+            for (Value x:fapi_positions) {
+                double n = x["positionAmt"].getNumber();
+                if (n) {
+                    poss.set(x["symbol"].getString(), n);
+                }
+            }
 
 
 
-		dapi_getPosition("");
-		for (Value x:dapi_positions) {
-			double n = x["positionAmt"].getNumber();
-			if (n) {
-				poss.set(x["symbol"].getString(), n);
-			}
-		}
-		out.set("positions", poss);
-	} catch (...) {
-		//empty
+            dapi_getPosition("");
+            for (Value x:dapi_positions) {
+                double n = x["positionAmt"].getNumber();
+                if (n) {
+                    poss.set(x["symbol"].getString(), n);
+                }
+            }
+            out.set("positions", poss);
+        } catch (...) {
+            //empty
+        }
 	}
 	return out;
 
@@ -1167,7 +1198,7 @@ std::uint64_t Interface::downloadMinuteData(
 	auto smb = remove_prefix(iter->first);
 	switch (iter->second.cat) {
 	case Category::spot:
-		tmp = px.public_request("/api/v3/klines",Object{{"symbol",smb},{"interval","5m"},{"limit",1000},{"startTime",time_from},{"endTime",time_to}});
+		tmp = spot().public_request("/api/v3/klines",Object{{"symbol",smb},{"interval","5m"},{"limit",1000},{"startTime",time_from},{"endTime",time_to}});
 		break;
 	case Category::usdt_m:
 		tmp = fapi.public_request("/fapi/v1/klines",Object{{"symbol",smb},{"interval","5m"},{"limit",1000},{"startTime",time_from},{"endTime",time_to}});
