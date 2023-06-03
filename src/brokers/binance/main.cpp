@@ -329,7 +329,7 @@ static json::Value readTrades(Proxy &proxy, const std::string &command, std::str
 			 lastId
 		 };
 	 } else {
-		 Value r = readTrades(px, "/api/v3/myTrades", pair, lastId);
+		 Value r = readTrades(spot(), "/api/v3/myTrades", pair, lastId);
 
 		 TradeHistory h(mapJSON(r,[&](Value x){
 			 double size = x["qty"].getNumber();
