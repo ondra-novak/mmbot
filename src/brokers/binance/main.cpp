@@ -25,7 +25,7 @@
 #include <imtjson/binjson.tcc>
 #include "../../shared/logOutput.h"
 #include "names.h"
-
+#include <map>
 
 using namespace json;
 
@@ -50,7 +50,27 @@ static Value keyFormat = {
 
 static std::string_view COIN_M_PREFIX = "COIN-M:";
 static std::string_view USDT_M_PREFIX = "USDT-M:";
+//static std::string_view BTC_PREFIX = "BTC";
+//static std::string_view ETH_PREFIX = "ETH:";
 
+static std::unordered_map<std::string_view, int> bnus_free = {
+    { "BTCBUSD", 1},
+    { "BTCUSD", 1},
+    { "BTCUSDC", 1},
+    { "BTCUSDT", 1},
+    { "ETHBUSD", 1},
+    { "ETHUSD", 1},
+    { "ETHUSDC", 1},
+    { "ETHUSDT", 1},
+    { "BUSDBTC", 1},
+    { "USDBTC", 1},
+    { "USDCBTC", 1},
+    { "USDTBTC", 1},
+    { "BUSDETH", 1},
+    { "USDETH", 1},
+    { "USDCETH", 1},
+    { "USDTETH", 1}
+};
 static std::string_view remove_prefix(const std::string_view &pair) {
 	auto p =  pair.find(':');
 	if (p == pair.npos) return pair;
@@ -848,10 +868,16 @@ inline double Interface::getFees(const std::string_view &pair) {
 		} else if (fapi_isSymbol(pair)) {
 			return fapi_getFees();
 		} else {
-			 if (!feeInfo.defined()) {
-				 updateBalCache();
-			 }
-			 return feeInfo.getNumber();
+			if (!feeInfo.defined()) {
+				updateBalCache();
+			}
+			if (server==Server::us) {
+				//if (pair.substr(0, BTC_PREFIX.length()) == BTC_PREFIX) return 0.0;
+				//if (pair.substr(0, ETH_PREFIX.length()) == ETH_PREFIX) return 0.0;
+				if (bnus_free.find(pair)!= bnus_free.end()) return 0.0;
+				if (feesInBnb) return feeInfo.getNumber()*0.75;
+			}
+			return feeInfo.getNumber();
 		}
 	} else {
 		if (dapi_isSymbol(pair)) {
