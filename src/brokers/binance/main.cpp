@@ -595,6 +595,11 @@ static Value number_to_decimal(double v, unsigned int precision) {
 	return buff.str();
 }
 
+/*static void print_order_table(std::string_view pair, const Interface::Orders &orders) {
+	for(const auto &c: orders) {
+		std::cerr << "OrderTable - Pair: " << pair << ", Id: "<< c.id.toString() << " size=" << c.size << " price=" << c.price << std::endl;
+	}
+}*/
 
 json::Value Interface::placeOrder(const std::string_view & pair,
 		double size,
@@ -665,6 +670,17 @@ json::Value Interface::placeOrder(const std::string_view & pair,
 	} else {
 
 		if (replaceId.defined()) {
+			Orders ords = getOpenOrders(pair);
+			auto iter = std::find_if(ords.begin(), ords.end(), [&](const Order &o) {
+				return o.id == replaceId && o.client_id == clientId && std::fabs(o.size - size) < 1e-20
+						&& std::fabs(price - o.price) < 1e-20;
+			});
+			if (iter != ords.end()) {
+				std::cerr << "placeOrder: Match " << pair << ", Id: "<< iter->id.toString() << " size=" << iter->size << " price=" << iter->price << std::endl;
+				std::cerr << "placeOrder: Match " << pair << ", Id: "<< iter->id.toString() << " size=" << size << " price=" << price << std::endl;
+				return iter->id;
+			} else std::cerr << "placeOrder: No Match " << pair << " size=" << size << " price=" << price << std::endl;
+
 			Value r = spot().private_request(Proxy::DELETE,"/api/v3/order",Object({
 					{"symbol", pair},
 					{"orderId", replaceId}}));
