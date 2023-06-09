@@ -53,19 +53,15 @@ static std::string_view USDT_M_PREFIX = "USDT-M:";
 
 static std::unordered_map<std::string_view, int> bnus_free = {
     { "BTCBUSD", 1},
-    { "BTCUSD", 1},
     { "BTCUSDC", 1},
     { "BTCUSDT", 1},
     { "ETHBUSD", 1},
-    { "ETHUSD", 1},
     { "ETHUSDC", 1},
     { "ETHUSDT", 1},
     { "BUSDBTC", 1}, // These may not be valid pair names
-    { "USDBTC", 1},
     { "USDCBTC", 1},
     { "USDTBTC", 1},
     { "BUSDETH", 1},
-    { "USDETH", 1},
     { "USDCETH", 1},
     { "USDTETH", 1}
 };
@@ -672,15 +668,14 @@ json::Value Interface::placeOrder(const std::string_view & pair,
 		if (replaceId.defined()) {
 			Orders ords = getOpenOrders(pair);
 			MarketInfo res = getMarketInfo(pair);
+			double cost = price * size;
 			auto iter = std::find_if(ords.begin(), ords.end(), [&](const Order &o) {
 				return o.id == replaceId && o.client_id == clientId && std::fabs(o.size - size) < 1e-20
-						&& std::fabs(price - o.price) < 1e-20;
+						&& std::fabs(cost - o.price*o.size) < res.currency_step;
 			});
 			if (iter != ords.end()) {
-				std::cerr << "placeOrder: Match " << pair << ", Id: "<< iter->id.toString() << " size=" << iter->size << " price=" << iter->price << std::endl;
-				std::cerr << "placeOrder: Match " << pair << ", Id: "<< iter->id.toString() << " size=" << size << " price=" << price << std::endl;
 				return iter->id;
-			} else std::cerr << "placeOrder: No Match " << pair << " size=" << size << " price=" << price << " step " << res.currency_step << std::endl;
+			}
 
 			Value r = spot().private_request(Proxy::DELETE,"/api/v3/order",Object({
 					{"symbol", pair},
