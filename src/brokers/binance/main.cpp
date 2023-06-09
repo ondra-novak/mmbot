@@ -671,6 +671,7 @@ json::Value Interface::placeOrder(const std::string_view & pair,
 
 		if (replaceId.defined()) {
 			Orders ords = getOpenOrders(pair);
+			MarketInfo res = getMarketInfo(pair);
 			auto iter = std::find_if(ords.begin(), ords.end(), [&](const Order &o) {
 				return o.id == replaceId && o.client_id == clientId && std::fabs(o.size - size) < 1e-20
 						&& std::fabs(price - o.price) < 1e-20;
@@ -679,7 +680,7 @@ json::Value Interface::placeOrder(const std::string_view & pair,
 				std::cerr << "placeOrder: Match " << pair << ", Id: "<< iter->id.toString() << " size=" << iter->size << " price=" << iter->price << std::endl;
 				std::cerr << "placeOrder: Match " << pair << ", Id: "<< iter->id.toString() << " size=" << size << " price=" << price << std::endl;
 				return iter->id;
-			} else std::cerr << "placeOrder: No Match " << pair << " size=" << size << " price=" << price << std::endl;
+			} else std::cerr << "placeOrder: No Match " << pair << " size=" << size << " price=" << price << " step " << res.currency_step << std::endl;
 
 			Value r = spot().private_request(Proxy::DELETE,"/api/v3/order",Object({
 					{"symbol", pair},
