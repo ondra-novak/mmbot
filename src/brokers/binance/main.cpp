@@ -591,12 +591,6 @@ static Value number_to_decimal(double v, unsigned int precision) {
 	return buff.str();
 }
 
-/*static void print_order_table(std::string_view pair, const Interface::Orders &orders) {
-	for(const auto &c: orders) {
-		std::cerr << "OrderTable - Pair: " << pair << ", Id: "<< c.id.toString() << " size=" << c.size << " price=" << c.price << std::endl;
-	}
-}*/
-
 json::Value Interface::placeOrder(const std::string_view & pair,
 		double size,
 		double price,
