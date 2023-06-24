@@ -447,7 +447,7 @@ void TradeOgreIFC::updateSymbols() const {
 			nfo.invert_price = false;
 			nfo.leverage = 0;
 			nfo.min_size = 0.00000001;
-			nfo.min_volume = 0.00000001;
+			nfo.min_volume = 0.00005;
 			nfo.private_chart = false;
 			nfo.simulator = false;
 			nfo.wallet_id = "";
