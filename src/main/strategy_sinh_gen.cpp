@@ -520,7 +520,13 @@ IStrategy::OrderData Strategy_Sinh_Gen::getNewOrder(
 
     NewPosInfo nposinfo = calcNewPos(minfo, new_price, assets,false);
 
-    double f = nposinfo.newpos+nposinfo.newofs;
+    double l = nposinfo.newpos;
+    if (std::abs(l) < minfo.calcMinSize(new_price)) {
+        l = 0;
+    }
+
+
+    double f = l+nposinfo.newofs;
     double lf = limitPosition(f);
 
     double df = lf - assets;

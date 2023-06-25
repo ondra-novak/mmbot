@@ -12,8 +12,9 @@ using TradeRec=IStatSvc::TradeRecord;
 using Trade=IStockApi::Trade;
 using Ticker=IStockApi::Ticker;
 
-BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, const IStockApi::MarketInfo &minfo, std::optional<double> init_pos, double balance, bool neg_bal, bool spend) {
+BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, const IStockApi::MarketInfo &minforef, std::optional<double> init_pos, double balance, bool neg_bal, bool spend) {
 
+    IStockApi::MarketInfo minfo = minforef;
 	BTTrades trades;
 	try {
 		std::optional<BTPrice> price = priceSource();
@@ -42,7 +43,7 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 		double total_spend = 0;
 		double pl = 0;
 		for (price = priceSource();price.has_value();price = priceSource()) {
-			double minsize = std::max(minfo.min_size, cfg.min_size);
+			minfo.min_size = std::max(minfo.min_size, cfg.min_size);
 			if (std::abs(price->price-bt.price) == 0) continue;
 			bt.event = BTEvent::no_event;
 			double p = price->price;
@@ -111,10 +112,7 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 					orgsize = 0;
 				}
 			}
-			if (minfo.min_volume) {
-				double mvs = minfo.min_volume/bt.price;
-				minsize = std::max(minsize, mvs);
-			}
+			double minsize = minfo.calcMinSize(bt.price);
 			if (order.size && std::abs(order.size) < minsize) {
 				if (std::abs(order.size)<minsize*0.5) {
 					order.size = 0;
