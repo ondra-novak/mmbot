@@ -259,6 +259,28 @@ double Strategy_Sinh_Gen::calcNewK(double tradePrice, double cb, double pnl, int
                     return st.k;
                 }
             } break;
+
+        case 32: refb = pnl>0?cfg.calc->budget(st.k, pw, st.k*(1+cfg.custom_spread)):0.0;break;
+        case 33:
+            if (pnl > 0) {
+                double sp = -cfg.calc->budget(st.k, pw, st.k*(1+cfg.custom_spread));
+                refb = sp - pnl;
+            } else {
+                refb = 0;
+            }
+            break;
+        case 34:
+            if (pnl > 0) {
+                return st.k;
+            } else {
+                double sp = cfg.calc->budget(st.k, pw, st.k*(1+cfg.custom_spread));
+                refb = -sp;
+            }
+            break;
+        case 35:
+            return st.k;
+            break;
+
     }
 
     double nb = cb+pnl+refb; //current budget + pnl + yield = new budget
@@ -314,9 +336,7 @@ std::pair<IStrategy::OnTradeResult, PStrategy> Strategy_Sinh_Gen::onTrade(
         };
     }
 
-
-
-	NewPosInfo npinfo = calcNewPos(minfo, tradePrice, assetsLeft - tradeSize);
+	NewPosInfo npinfo = calcNewPos(minfo, tradePrice, assetsLeft - tradeSize, tradeSize == 0);
 
     if (tradeSize == 0 && roundZero(assetsLeft-st.offset, minfo, tradePrice) == 0) {
         npinfo.is_close = true;
@@ -360,95 +380,6 @@ std::pair<IStrategy::OnTradeResult, PStrategy> Strategy_Sinh_Gen::onTrade(
 
 
 
-#if 0
-
-	double actual_pos = assetsLeft - st.offset;
-	double calc_pos = cfg.calc->assets(st.k, pw, tradePrice);
-	double prev_pos = actual_pos - tradeSize;
-	double prev_calc_pos = cfg.calc->assets(st.k, pw, st.p);
-	assetsLeft-=st.offset;
-
-	if (tradeSize == 0 && st.p2 && (assetsLeft * (st.p2 - tradePrice) > 0)) {
-	    State nwst = st;
-	    nwst.p2 = tradePrice;
-	    nwst.use_last_price = true;
-	    return {
-	        {0,0,nwst.k,0},
-	        new Strategy_Sinh_Gen(cfg, std::move(nwst))
-	    };
-	}
-
-    double prevPos = roundZero(assetsLeft - tradeSize, minfo, st.p);
-	assetsLeft = roundZero(assetsLeft, minfo, tradePrice);
-	double cb = st.val;
-	double pnl = prevPos*(tradePrice - st.p);
-	double newk = calcNewK(tradePrice, cb, pnl, cfg.boostmode);
-	double pwadj = adjustPower(prevPos, newk, tradePrice);
-	double newpw = calcPower(cfg, st, newk);
-	bool ulp = false;
-	bool atz = newk == tradePrice || assetsLeft == 0; // @suppress("Direct float comparison")
-	if (atz) newk = tradePrice;
-
-	if (pwadj<1.0) {
-		ulp = true;   //pokud se zmenil power, prepni na use_last_price
-		pwadj = std::sqrt(pwadj); //a sniz zmenu poweru o mocninu... - aby nebyla tak drasticka redukce
-	}
-
-	double kmult = calcPileKMult(st.p, st.budget, cfg.ratio);
-	double new_offset = calcPilePosition(cfg.ratio, kmult, tradePrice);
-
-	double ppos = cfg.calc->assets(st.k, pw, st.p);
-	double npos = cfg.calc->assets(newk, newpw*pwadj, tradePrice);
-
-	double newbudget = calcPileBudget(cfg.ratio, kmult, tradePrice);
-
-	npos = limitPosition(npos+new_offset) - new_offset;
-	ppos = limitPosition(ppos+st.offset) - st.offset;
-
-	if (tradeSize == 0 && st.at_zero) { //if alert but we are at zero
-	    newk = tradePrice;  //new k is at trade price
-	    atz = true;         //we are still at zero
-	}
-	if (npos * ppos <= 0 && !st.at_zero) {   //if side changed and we are not at zero
-	    newk = tradePrice;  //set new k to trade price
-	    atz = true;         //now we are at zero
-	}
-
-	double nb = cfg.calc->budget(newk, newpw*pwadj, tradePrice);
-	double np = pnl - (nb - cb);
-	double posErr = std::abs(npos - assetsLeft)/(std::abs(assetsLeft)+std::abs(npos)); //< chyba pozice oproti vypoctu
-	ulp = ulp || (tradeSize == 0 && posErr>0.3); //pokud je alert a chyba pozice je vetsi nez 30% prepni na use_last_price
-	bool rbl = st.rebalance;
-	if (posErr < 0.3) rbl = false; //rebalance se vypne, pokud je pozice s mensi chybou, nez je 30%
-
-
-	double ofspnl = st.offset * (tradePrice - st.p);
-	double ofsbchange = newbudget - st.budget;
-    np = np + ofspnl - ofsbchange;
-
-
-	State nwst;
-	nwst.use_last_price = ulp;
-	nwst.spot = minfo.leverage == 0;
-	nwst.rebalance = rbl;
-	nwst.at_zero = atz;
-	nwst.budget = (cfg.reinvest?np:0)+newbudget;
-	nwst.val = nb;
-	nwst.k = newk;
-	nwst.p = tradePrice;
-	nwst.pwadj = st.pwadj*pwadj;
-	nwst.offset = new_offset;
-	nwst.p2 = tradePrice;
-
-	double lspread = std::abs(std::log(tradePrice/st.p));
-	nwst.avg_spread = st.avg_spread<=0?(lspread*0.5):((299*st.avg_spread+lspread)/300);
-
-//	if (st.rebalance) np = 0;
-	return {
-		OnTradeResult{np,0,newk,0},
-		PStrategy(new Strategy_Sinh_Gen(cfg, std::move(nwst)))
-	};
-#endif
 }
 
 
@@ -536,7 +467,7 @@ json::Value Strategy_Sinh_Gen::dumpStatePretty(const IStockApi::MarketInfo &minf
 	});
 }
 
-Strategy_Sinh_Gen::NewPosInfo Strategy_Sinh_Gen::calcNewPos(const IStockApi::MarketInfo &minfo, double new_price, double assets) const {
+Strategy_Sinh_Gen::NewPosInfo Strategy_Sinh_Gen::calcNewPos(const IStockApi::MarketInfo &minfo, double new_price, double assets, bool alert) const {
 
     double curpos = assets - st.offset;
 
@@ -544,7 +475,7 @@ Strategy_Sinh_Gen::NewPosInfo Strategy_Sinh_Gen::calcNewPos(const IStockApi::Mar
     double cur_calc_pos = cfg.calc->assets(st.k, pw, st.p);
 
     double pnl = curpos*(new_price - st.p);
-    double newk = calcNewK(new_price, st.val, pnl, cfg.boostmode);
+    double newk = calcNewK(new_price, st.val, pnl, alert?3:cfg.boostmode);
     double npw = calcPower(cfg, st, newk);
     double pwadj = adjustPower(curpos, newk, new_price);
     double new_pos = cfg.calc->assets(newk, npw*pwadj, new_price);
@@ -587,7 +518,7 @@ IStrategy::OrderData Strategy_Sinh_Gen::getNewOrder(
 		double dir, double assets, double currency, bool rej) const {
 
 
-    NewPosInfo nposinfo = calcNewPos(minfo, new_price, assets);
+    NewPosInfo nposinfo = calcNewPos(minfo, new_price, assets,false);
 
     double f = nposinfo.newpos+nposinfo.newofs;
     double lf = limitPosition(f);
@@ -595,63 +526,6 @@ IStrategy::OrderData Strategy_Sinh_Gen::getNewOrder(
     double df = lf - assets;
 
     return {new_price, df, f != lf?Alert::forced:Alert::enabled};
-#if 0
-	double curpos = cfg.calc->assets(st.k, pw, new_price);
-
-//	curpos = roundZero(curpos, minfo, st.p);
-
-	if (st.rebalance) new_price = cur_price;
-
-	//this closes position if it out of limit
-	if (limitPosition(curpos+st.offset)-st.offset != curpos && dir * curpos < 0) {
-		return {cur_price, -curpos, Alert::forced};
-	}
-
-	double calc_price = new_price;
-/*	if (((cfg.lazyopen && dir * curpos >= 0) || (cfg.lazyclose && dir * curpos < 0)) && !st.rebalance && st.avg_spread>0) {
-		//calc_price - use average spread instead current price
-		calc_price = getEquilibrium_inner(curpos) * std::exp(-2*dir*st.avg_spread);
-		if (calc_price*dir < new_price*dir) {
-			//however can't go beyond new_price
-			calc_price = new_price;
-		} else {
-			double a = cfg.calc->assets(st.k, pw, calc_price);
-			if (roundZero(a-curpos, minfo, calc_price) == 0) {
-				calc_price = new_price;
-			}
-		}
-	}
-*/
-	//calculate pnl
-	double pnl = curpos*(calc_price - st.p);
-	//calculate new k for budgetr and pnl
-	double newk = calcNewK(calc_price, st.val, pnl, cfg.boostmode);
-
-    double npw = calcPower(cfg, st, newk);;
-
-	//calculate minimal allowed budget
-	//	double minbudget = st.budget*(1.0-cfg.stopOnLoss);
-	double pwadj = adjustPower(curpos, newk, calc_price);
-
-	double kmult = calcPileKMult(st.p, st.budget, cfg.ratio);
-    double new_offset = calcPilePosition(cfg.ratio, kmult, new_price);
-/*    double pile_budget = calcPileBudget(cfg.ratio, kmult, new_price);
-    double budget_ratio = pile_budget/st.budget;*/
-
-    double new_pos = cfg.calc->assets(newk, npw*pwadj/*budget_ratio*/, calc_price);
-    //if we not at zero and position goes to otherside
-    if (!st.at_zero && new_pos * curpos < 0) {
-        //try to close position
-        new_pos = 0;
-    }
-    double finpos = new_pos + new_offset;
-    double f  = limitPosition(finpos);
-    bool limited = f != finpos;
-
-    double dfa = f - assets;
-
-	return {new_price, dfa, limited?Alert::forced:Alert::enabled};
-#endif
 }
 
 double Strategy_Sinh_Gen::limitPosition(double pos) const {

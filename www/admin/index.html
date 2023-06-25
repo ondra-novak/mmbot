@@ -373,11 +373,8 @@ Prevents reduction after buy. By default the strategy reinvests money saved by b
 <div class="label"><span>Reinvest profit<span class="tooltip">Increase the collateral by realized profit</span></span><x-checkbox data-name="shg_rnv"></x-checkbox></div>
 <div class="label adv"><span>Derive profit from avg.spread<span class="tooltip">Instead using current spread, use average spread</span></span><x-checkbox data-name="shg_avgsp"></x-checkbox></div>
 <div class="label adv"><span>Reduction pattern (open/close)<span class="tooltip">After every trade a basic "yield" is calculated depend on spread. The profit can be used to cover looses, or it can be added to overall profit. Adding more yield increases profit but decreases effectivness of the reduction. You can choose the most suitable pattern. Each item defines multiplication of basic yield for opening and closing trade. A negative value means acceptance of a loss which can help with reduction</span></span><select data-name="shg_boostmode">
-	<option value="8">(2/2) boost profit for the lowest reduction (high risk)</option>
-	<option value="7">(2/0) 2x risk on open, full reduce on close</option>
-	<option value="6">(1/0) open more, full reduce on close</option>
+    <option value="13">(0/3) open less, left 3x yield on close</option>
 	<option value="2">(0/2) open less, left 2x yield on close</option>
-	<option value="13">(0/3) open less, left 3x yield on close</option>
 	<option value="1">(1/1) open more, left basic yield on close</option>
 	<option value="0">(0/1) default</option>
 	<option value="3">(0/0) whole profit s used to cover loss</option>
@@ -389,13 +386,12 @@ Prevents reduction after buy. By default the strategy reinvests money saved by b
 	<option value="11">(0/-) dilution (special)</option>
 	<option value="12">(-/0) cover loss (special)</option>
 	<option value="30">dynamic (by target leverage)</option>
-    <option value="15">Fixed yield spread= 0.1‰</option>
-    <option value="16">Fixed yield spread= 0.5‰</option>
-    <option value="17">Fixed yield spread= 1.0‰</option>
-    <option value="18">Fixed yield spread= 5.0‰</option>
-    <option value="19">Fixed yield spread=10.0‰</option>
-    <option value="20">Fixed yield spread=20.0‰</option>
+	<option value="32">Fixed spread (yield) </option>
+	<option value="33">Fixed spread (reduction)</option>
+	<option value="34">Fixed spread (open position) </option>
 </select></div>
+<label class="adv" data-name="shg_boost_custom_show" hidden><span>Fixed yield/reduction spread[%]<span class="tooltip">Specified spread with used to calculate yield/reduction </span></span><x-slider data-name="shg_boost_custom" data-min="0" data-max="10" data-mult="0.01" data-fixed="2"></label>
+
 <div class="label"><span>Min price:</span><span data-name="range_min_price">---</span></div>
 <div class="label"><span>Max price:</span><span data-name="range_max_price">---</span></div>
 <div class="label"><span>Recomended initial position:</span><span data-name="range_initial">---</span></div>

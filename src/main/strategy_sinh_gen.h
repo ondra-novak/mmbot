@@ -55,6 +55,7 @@ public:
 //		bool lazyopen;  //lazy open and lazy close has been disabled
 //		bool lazyclose;
 		int boostmode;
+		double custom_spread;
 	};
 
 	struct State {
@@ -126,7 +127,7 @@ protected:
 			double tradePrice) const;
 
 	double calcRealPosValue(double k, double pw, double price, double pos) const;
-	
+
 	struct NewPosInfo {
 	    double pnl;
 	    double newk;
@@ -137,8 +138,8 @@ protected:
 	    double pilekmul;
 	    bool is_close;
 	};
-	
-	NewPosInfo calcNewPos(const IStockApi::MarketInfo &minfo, double new_price, double assets) const;
+
+	NewPosInfo calcNewPos(const IStockApi::MarketInfo &minfo, double new_price, double assets, bool alert) const;
 
     static double calcPilePosition(double ratio, double kmult, double price);
     static double calcPileBudget(double ratio, double kmult, double price);

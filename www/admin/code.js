@@ -670,6 +670,7 @@ App.prototype.fillForm = function (src, trg) {
 	data.shg_rnv=false;
 	data.shg_avgsp=false;
 	data.shg_boostmode=30;
+	data.shg_boost_custom=1;
 	data.shg_r=0;
 	data.shg_show_asym={".hidden":false};
 	data.pincome_exp = 40;
@@ -770,12 +771,20 @@ App.prototype.fillForm = function (src, trg) {
 		data.shg_lp=filledval(src.strategy.disableSide,0);
 		data.shg_rnv=filledval(src.strategy.reinvest,false);
 		data.shg_avgsp=filledval(src.strategy.avgspread,false);
-		data.shg_boostmode=filledval(src.strategy.boostmode,30);
+		let bm = parseInt(src.strategy.boostmode) || 30;
+		let bmcv = parseInt(src.strategy.custom_spread) || 0;
+		if (bm >= 15 && bm <= 20) {
+		       bmcv = ([0.02,0.1,0.2,1,2,4])[bm-15];
+		       bm = 32;
+	    }
+		data.shg_boostmode=filledval(bm,30);
+		data.shg_boost_custom=filledval(bmcv,0);
 		data.shg_ol=filledval(defval(Math.abs(src.strategy.openlimit),0),0);
 		if (!src.strategy.openlimit || src.strategy.openlimit==0) data.shg_ol.disabled = true;
 		data.shg_olt={value:src.strategy.openlimit>0?1:src.strategy.openlimit<0?-1:0};
 		data.shg_r = filledval(src.strategy.ratio,0);
 		data.shg_show_asym = {".hidden": src.strategy.disableSide != 0};		
+		data.shg_boost_custom_show = {".hidden": bm != 32 && bm != 33 && bm != 34};
 	} else if (data.strategy == "pile") {
 		data.pile_accum = filledval(src.strategy.accum,0);
 		data.pile_ratio = filledval(src.strategy.ratio,0);
@@ -798,6 +807,9 @@ App.prototype.fillForm = function (src, trg) {
 	data.shg_lp["!change"] = function() {
 		trg.showItem("shg_show_asym", this.value == "0");
 	};
+    data.shg_boostmode["!change"] = function() {
+        trg.showItem("shg_boost_custom_show", this.value == "32" || this.value == "33" || this.value == "34");
+    };
 	function dcavalue_calc_profit_per_trade(d) {
         return (-0.120984/Math.log(1.0-d*0.01)).toFixed(3)+"%";
     };
@@ -1006,6 +1018,7 @@ function getStrategyData(data, inv) {
 			reinvest:data.shg_rnv,
 			avgspread:data.shg_avgsp,
 			boostmode:data.shg_boostmode,
+			custom_spread:data.shg_boost_custom,
 			ratio: data.shg_r
 		};		
 	} else 	if (["hyperbolic","linear","sinh","sinh_val","sinh2"].indexOf(data.strategy) != -1) {
@@ -2069,7 +2082,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		"kv2_accum","kv2_boost","kv2_chngtm","kv2_reinvest",
 		"incval_w","incval_r","incval_ms","incval_ri","incval_z",
 		"hedge_short","hedge_long","hedge_drop",
-		"shg_w","shg_p","shg_z","shg_b","shg_olt","shg_ol","shg_lp","shg_rnv","shg_avgsp","shg_boostmode","shg_r",
+		"shg_w","shg_p","shg_z","shg_b","shg_olt","shg_ol","shg_lp","shg_rnv","shg_avgsp","shg_boostmode","shg_boost_custom","shg_r",
 		"trade_within_budget"];
 	var spread_inputs = ["spread_calc_stdev_hours","secondary_order", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode","dynmult_sliding","dynmult_cap","dynmult_mult","force_spread","spread_mode","spread_freeze"];
 	var leverage = form._pair.leverage != 0;	

@@ -60,21 +60,21 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 			Strategy::OrderData order;
 			do {
                 order = s.getNewOrder(minfo, bt.price*0.9+p*0.1, p, dir, pos, adjbal,rej);
-    
+
                 if (order.price) {
                     p = order.price;
                 }
-    
-    
+
+
                 if (order.size && order.size * dir < 0) {
                     order.size = 0;
                 }
                 orgsize = order.size;
-    
+
                 if (std::abs(order.size) < minfo.calcMinSize(bt.price)) {
                     order.size = 0;
                 }
-                
+
                 order.size  = IStockApi::MarketInfo::adjValue(order.size,minfo.asset_step,round);
                 invalid = order.size == 0;
                 if (rej) invalid = false;
@@ -85,7 +85,7 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
             double pchange = pos * dprice;
             pl = pl + pchange;
             if (minfo.leverage) balance += pchange;
-			
+
             if (cfg.max_balance.has_value()) {
 				if (pos > *cfg.max_balance) order.size = 0;
 				else if (order.size + pos > *cfg.max_balance) order.size = *cfg.max_balance - pos;
@@ -241,6 +241,7 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 						double df = pos * (bt.price - p);
 						pl += df;
 						balance += df;
+						pos = 0;
 						bt.pos = 0;
 						bt.bal = balance + total_spend;
 						bt.unspend_balance = balance;
