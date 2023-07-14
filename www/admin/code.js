@@ -771,13 +771,14 @@ App.prototype.fillForm = function (src, trg) {
 		data.shg_lp=filledval(src.strategy.disableSide,0);
 		data.shg_rnv=filledval(src.strategy.reinvest,false);
 		data.shg_avgsp=filledval(src.strategy.avgspread,false);
-		let bm = parseInt(src.strategy.boostmode) || 30;
-		let bmcv = parseInt(src.strategy.custom_spread) || 0;
+		let bm = parseInt(src.strategy.boostmode);
+		if (isNaN(bm) || bm === undefined) bm = 0;
+		let bmcv = parseFloat(src.strategy.custom_spread) || 0;
 		if (bm >= 15 && bm <= 20) {
 		       bmcv = ([0.02,0.1,0.2,1,2,4])[bm-15];
 		       bm = 32;
 	    }
-		data.shg_boostmode=filledval(bm,30);
+		data.shg_boostmode=filledval(bm,0);
 		data.shg_boost_custom=filledval(bmcv,0);
 		data.shg_ol=filledval(defval(Math.abs(src.strategy.openlimit),0),0);
 		if (!src.strategy.openlimit || src.strategy.openlimit==0) data.shg_ol.disabled = true;
