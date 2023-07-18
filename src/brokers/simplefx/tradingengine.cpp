@@ -140,7 +140,11 @@ void TradingEngine::onPriceChange(const IStockApi::Ticker &price, Sync &hlck) {
 
 	ticker.ask = std::min(maxPrice, price.ask);
 	ticker.bid = std::max(minPrice, price.bid);
-	ticker.last = sqrt(ticker.ask*ticker.bid);
+	if (ticker.last) {
+        ticker.last = std::max(std::min(ticker.last, ticker.ask), ticker.bid);
+	} else {
+        ticker.last = sqrt(ticker.ask*ticker.bid);
+	}
 	ticker.time = price.time;
 
 
