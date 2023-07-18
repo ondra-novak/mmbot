@@ -175,6 +175,7 @@ public:
 	mutable std::unordered_map<std::string, SymbolSettings> symcfg;
 	mutable std::chrono::system_clock::time_point smbexpire;
 
+	inline unsigned int getLoginForSymbol(const std::string& symbol) const;
 	Account &getAccount(const std::string &symbol);
 	Account &getAccount(unsigned int login);
 
@@ -431,12 +432,17 @@ inline void Interface::onLoadApiKey(json::Value keyData) {
 	authAccount = keyData["account"].getString();
 }
 
+inline unsigned int Interface::getLoginForSymbol(const std::string& symbol) const {
+    auto iter = symcfg.find(symbol);
+    unsigned int login;
+    if (iter == symcfg.end()) login = defaultAccount;
+    else login = iter->second.account;
+    return login;
+}
+
+
 inline Interface::Account& Interface::getAccount(const std::string& symbol) {
-	auto iter = symcfg.find(symbol);
-	unsigned int login;
-	if (iter == symcfg.end()) login = defaultAccount;
-	else login = iter->second.account;
-	return getAccount(login);
+    return getAccount(getLoginForSymbol(symbol));
 }
 
 inline Interface::Account& Interface::getAccount(unsigned int login) {
@@ -727,10 +733,13 @@ inline void Interface::updatePositions() {
 				for (Value v : morders) {
 					std::string symbol = v["symbol"].getString();
 					SymbolInfo &sinfo = getSymbolInfo(symbol);
-					double volume = v["volume"].getNumber();
-					if (v["side"].getString() == "SELL") volume = -volume;
-					updatePosition(symbol, volume * sinfo.mult);
-					position_list[symbol].push_back({v["id"].getUIntLong(), volume});
+					auto lg =  getLoginForSymbol(symbol);
+					if (a.second.login == lg) {
+                        double volume = v["volume"].getNumber();
+                        if (v["side"].getString() == "SELL") volume = -volume;
+                        updatePosition(symbol, volume * sinfo.mult);
+                        position_list[symbol].push_back({v["id"].getUIntLong(), volume});
+					}
 				}
 		}
 
