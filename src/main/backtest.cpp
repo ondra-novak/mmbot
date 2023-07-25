@@ -209,6 +209,7 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 				}
 			}
 
+			pos = minfo.adjValue(pos, minfo.asset_step, [](auto x){return std::round(x);});
 			bt.size = order.size;
 			bt.price = p;
 			bt.time = price->time;

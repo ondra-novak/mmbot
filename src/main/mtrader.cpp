@@ -596,7 +596,7 @@ void MTrader::perform(bool manually) {
 			//report trades to UI
 			statsvc->reportTrades({position,minfo.invert_price,budget.total}, trades);
 			//report price to UI
-			statsvc->reportPrice(status.curPrice);
+			statsvc->reportPrice(status.ticker.last);
 			//report misc
 			std::optional<double> budget_extra;
 			if (!trades.empty())
