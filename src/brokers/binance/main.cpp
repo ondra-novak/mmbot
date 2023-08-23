@@ -52,18 +52,10 @@ static std::string_view COIN_M_PREFIX = "COIN-M:";
 static std::string_view USDT_M_PREFIX = "USDT-M:";
 
 static std::unordered_map<std::string_view, int> bnus_free = {
-    { "BTCBUSD", 1},
     { "BTCUSDC", 1},
     { "BTCUSDT", 1},
-    { "ETHBUSD", 1},
-    { "ETHUSDC", 1},
-    { "ETHUSDT", 1},
-    { "BUSDBTC", 1}, // These may not be valid pair names
-    { "USDCBTC", 1},
-    { "USDTBTC", 1},
-    { "BUSDETH", 1},
-    { "USDCETH", 1},
-    { "USDTETH", 1}
+    { "USDCBTC", 1}, // These may not be valid pair names
+    { "USDTBTC", 1}
 };
 static std::string_view remove_prefix(const std::string_view &pair) {
 	auto p =  pair.find(':');
