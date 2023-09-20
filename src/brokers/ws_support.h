@@ -1,21 +1,6 @@
-/*
- * ws_support.h
- *
- *  Created on: 20. 11. 2022
- *      Author: ondra
- */
-
+#pragma once
 #ifndef SRC_BROKERS_WS_SUPPORT_H_
 #define SRC_BROKERS_WS_SUPPORT_H_
-
-
-/*
- * ws_support.cpp
- *
- *  Created on: 20. 11. 2022
- *      Author: ondra
- */
-
 
 #include <imtjson/value.h>
 #include <simpleServer/http_client.h>
@@ -27,33 +12,36 @@
 
 class WsInstance {
 public:
-        
-    
+
+
     enum class EventType {
         data,       //<data arrived
         exception,      //<exception arrived
         connect,      //<connect happen - you probably need to resubscribe
         disconnect,     //<disconnect happen - probably to fail waitings
     };
-    
+
     using Handler = std::function<bool(EventType event, json::Value data)>;
-    
+
     WsInstance(simpleServer::HttpClient &client, std::string wsurl);
     WsInstance(const WsInstance &other) = delete;
     WsInstance &operator=(const WsInstance &other) = delete;
-    ~WsInstance();
+    virtual ~WsInstance();
 
 
     virtual json::Value generate_headers() {return json::Value();};
-    
+    virtual void on_ping();
+    virtual void on_connect();
+    virtual void on_disconnect();
+
     void regHandler(Handler &&h);
     void regMonitor(Handler &&h);    //monitor just monitors data and events,
 
     void worker(std::promise<std::exception_ptr> *start_p);
-    
+
     void send(json::Value v);
-   
-    
+
+
 protected:
     simpleServer::HttpClient &_client;
     std::string _wsurl;
