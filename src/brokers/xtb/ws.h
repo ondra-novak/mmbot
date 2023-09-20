@@ -10,18 +10,15 @@ public:
 
     using WsInstance::WsInstance;
 
+    using Logger = std::function<void(bool outbound, EventType type, const json::Value &data)>;
+
     virtual void on_ping() override {
         WsInstance::on_ping();
         auto now = std::chrono::system_clock::now();
         if (now > _ping_expire) {
             send_command("ping", json::object);
+            update_interval();
         }
-        update_interval();
-    }
-
-    virtual void on_connect() override {
-        WsInstance::on_connect();
-        update_interval();
     }
 
     virtual void send_command(std::string_view command, json::Value data) {
@@ -29,8 +26,26 @@ public:
         send(data);
     }
 
+    void set_logger(Logger logger) {
+        std::lock_guard _(_mx);
+        _logger = std::move(logger);
+    }
+
+    virtual void send(json::Value v) override {
+        if (_logger) _logger(true, EventType::data, v);
+        WsInstance::send(std::move(v));
+    }
+
 protected:
+    Logger _logger;
     std::chrono::system_clock::time_point _ping_expire;
+
+    virtual void broadcast(WsInstance::EventType event, const json::Value &data) override {
+        if (event == EventType::connect) update_interval();
+        if (_logger) _logger(false, event, data);
+        WsInstance::broadcast(event, std::move(data));
+    }
+
     void update_interval() {
         _ping_expire = std::chrono::system_clock::now()+ std::chrono::minutes(5);
     }

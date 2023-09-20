@@ -1,7 +1,10 @@
 #include "client.h"
 
 #include "streaming.h"
+
+#include <future>
 #include <memory>
+#include <imtjson/object.h>
 
 const XTBClient::Error XTBClient::error_disconnect = {
         "CDIS","Disconnect"
@@ -25,25 +28,33 @@ XTBClient::XTBClient(simpleServer::HttpClient &httpc, std::string control_url, s
 }
 
 json::Value XTBClient::Credentials::toJson() const {
-    return {
+    return json::Object{
         {"userId", userId},
         {"password",password},
         {"appName", appName}
      };
 }
 
-void XTBClient::login(Credentials c) {
+bool XTBClient::login(Credentials c, bool sync) {
+    std::promise<bool> p;
     json::Value arg = c.toJson();
-    this->operator ()("login", arg) >> [this, c = std::move(c)](const Result &res) mutable {
-      if (isResult(res)) {
+    this->operator ()("login", arg) >> [this, sync, &p, c = std::move(c)](const Result &res) mutable {
+      if (is_result(res)) {
           std::lock_guard _(_mx);
           _credents = std::move(c);
-          on_login(getResult(res));
+          on_login(get_result(res));
           _credents->loginCB(res);
+          if (sync) p.set_value(true);
       } else {
           c.loginCB(res);
+          if (sync) p.set_value(false);
       }
     };
+    if (sync) {
+        return p.get_future().get();
+    } else {
+        return true;
+    }
 }
 
 bool XTBClient::data_input(WsInstance::EventType event, json::Value data) {
@@ -52,11 +63,11 @@ bool XTBClient::data_input(WsInstance::EventType event, json::Value data) {
             if (_credents.has_value()) {
                 this->operator ()("login", _credents->toJson()) >> [this](const Result &res) {
                     auto cb = std::move(_credents->loginCB);
-                    if (isError(res)) {
-                        std::lock_guard _(_mx);
+                    std::lock_guard _(_mx);
+                    if (is_error(res)) {
                         _credents.reset();
                     } else {
-                        on_login(getResult(res));
+                        on_login(get_result(res));
                     }
                     cb(res);
                 };
@@ -102,10 +113,13 @@ void XTBClient::route_result(const json::Value res) {
         auto iter = _requests.find(tag);
         if (iter == _requests.end()) return;
         cb = std::move(iter->second);
+        _requests.erase(iter);
     }
     bool st = res["status"].getBool();
     if (st) {
-        cb(res["returnData"]);
+        json::Value data = res["returnData"];
+        if (!data.defined()) data = res;
+        cb(data);
     } else {
         cb(Error{
             res["errorCode"].getString(),
@@ -126,19 +140,19 @@ void XTBClient::Request::operator >>(ResultCallback cb) {
     owner.send_command(command, arguments, std::move(cb));
 }
 
-bool XTBClient::isError(const Result &res) {
+bool XTBClient::is_error(const Result &res) {
     return std::holds_alternative<Error>(res);
 }
 
-bool XTBClient::isResult(const Result &res) {
+bool XTBClient::is_result(const Result &res) {
     return std::holds_alternative<json::Value>(res);
 }
 
-const json::Value& XTBClient::getResult(const Result &res) {
+const json::Value& XTBClient::get_result(const Result &res) {
     return std::get<json::Value>(res);
 }
 
-const XTBClient::Error XTBClient::getError(const Result &res) {
+const XTBClient::Error XTBClient::get_error(const Result &res) {
     return std::get<Error>(res);
 
 }
@@ -151,14 +165,35 @@ void XTBClient::send_command(const std::string &command, const json::Value &args
         ++_counter;
         _requests.emplace(tag, std::move(cb));
     }
-    _wscntr.send({
+    _wscntr.send(json::Object{
         {"command", command},
         {"arguments", args},
         {"customTag", tag}
     });
 }
 
+void XTBClient::set_logger(Logger logger) {
+    if (logger) {
+        _wscntr.set_logger([logger](bool out, WsInstance::EventType ev, const json::Value &data){
+            logger(out?LogEventType::command:LogEventType::result, ev, data);
+        });
+        _streaming->set_logger([logger](bool out, WsInstance::EventType ev, const json::Value &data){
+            logger(out?LogEventType::stream_request:LogEventType::stream_data, ev, data);
+        });
+    } else {
+        _wscntr.set_logger(nullptr);
+        _streaming->set_logger(nullptr);
+    }
+}
+
 void XTBClient::on_login(const json::Value &res) {
-    std::lock_guard _(_mx);
     _streaming->set_session_id(res["streamSessionId"].getString());
+}
+
+XTBClient::Request::operator Result() const {
+    std::promise<Result> res;
+    owner.send_command(command, arguments, [&](Result x){
+       res.set_value(std::move(x));
+    });
+    return res.get_future().get();
 }

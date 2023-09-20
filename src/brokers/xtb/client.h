@@ -24,12 +24,20 @@ public:
     static const Error error_disconnect;
     static const Error error_exception;
 
-    using Result = std::variant<json::Value, Error>;
+    enum class LogEventType {
+        command,
+        result,
+        stream_request,
+        stream_data
+    };
 
-    static bool isError(const Result &res);
-    static bool isResult(const Result &res);
-    static const Error getError(const Result &res);
-    static const json::Value &getResult(const Result &res);
+    using Result = std::variant<json::Value, Error>;
+    using Logger = std::function<void(LogEventType, WsInstance::EventType, const json::Value &data)>;
+
+    static bool is_error(const Result &res);
+    static bool is_result(const Result &res);
+    static const Error get_error(const Result &res);
+    static const json::Value &get_result(const Result &res);
 
 
     using ResultCallback = std::function<void(const Result &result)>;
@@ -38,6 +46,7 @@ public:
     public:
         Request (XTBClient &owner,std::string command,json::Value arguments);
         void operator>>(ResultCallback cb);
+        operator Result() const;
     protected:
         XTBClient &owner;
         std::string command;
@@ -55,22 +64,24 @@ public:
     };
 
 
-    void login(Credentials c);
+    bool login(Credentials c, bool sync);
 
+    void set_logger(Logger logger);
+
+
+    XTBStreaming &get_streaming() const {return *_streaming;}
 
 
 protected:
-
-    std::optional<Credentials> _credents;
-
-    XTBWsInstance _wscntr;
-    std::shared_ptr<XTBStreaming> _streaming;
     using RequestMap = std::unordered_map<std::string, ResultCallback>;
+
 
     std::mutex _mx;
     RequestMap _requests;
+    XTBWsInstance _wscntr;
+    std::optional<Credentials> _credents;
+    std::shared_ptr<XTBStreaming> _streaming;
     unsigned int _counter = 1;
-
 
 
     bool data_input(WsInstance::EventType event, json::Value data);

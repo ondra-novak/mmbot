@@ -62,15 +62,17 @@ void WsInstance::worker(std::promise<std::exception_ptr> *start_p) {
             bool pinged = false;
             lk.unlock();
             while (_running && cont) {
+                cont = false;
+                bool cycle = true;
                 try {
-                    while (_running && cont && _ws->read()) {
+                    while (_running && cycle &&_ws->read()) {
                         std::unique_lock lk2(_mx);
                         switch (_ws.getFrameType()) {
                         default:
                         case WSFrameType::binary: break;
                         case WSFrameType::incomplete:break;
                         case WSFrameType::connClose:
-                            cont = false;
+                            cycle = false;
                         break;
                         case WSFrameType::text: process_message(_ws.getText());
                                                 break;
@@ -87,6 +89,7 @@ void WsInstance::worker(std::promise<std::exception_ptr> *start_p) {
                         } else {
                             pinged = true;
                             on_ping();
+                            cont = true;
                             continue;
                         }
                     }
@@ -154,7 +157,7 @@ void WsInstance::ensure_start(std::unique_lock<std::recursive_mutex> &lk) {
     }
 }
 
-void WsInstance::broadcast(EventType ok, json::Value data) {
+void WsInstance::broadcast(EventType ok, const json::Value &data) {
     _monitors.erase(std::remove_if(_monitors.begin(), _monitors.end(), [&](const Handler &h){
         return !h(ok, data);
     }),_monitors.end());

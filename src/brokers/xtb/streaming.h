@@ -14,6 +14,7 @@ public:
     struct Quote {
         double bid;
         double ask;
+        std::uint64_t timestamp;
     };
 
     using StreamCallback = std::function<void(const Quote &)>;
@@ -25,10 +26,10 @@ public:
     public:
 
         SubscriptionImpl(std::shared_ptr<XTBStreaming> hub, std::string symbol, StreamCallback cb)
-            :_hub(std::move(hub)),_symbol(std::move(symbol)), _cb(std::move(cb)) {}
+            :_owner(std::move(hub)),_symbol(std::move(symbol)), _cb(std::move(cb)) {}
         ~SubscriptionImpl();
     protected:
-        std::weak_ptr<XTBStreaming> _hub;
+        std::weak_ptr<XTBStreaming> _owner;
         std::string _symbol;
         StreamCallback _cb;
         friend class XTBStreaming;
@@ -44,6 +45,10 @@ public:
 
     void set_session_id(std::string session_id);
 
+
+    void set_logger(XTBWsInstance::Logger log) {
+        _wsstream.set_logger(log);
+    }
 protected:
 
     class Ws: public XTBWsInstance {
@@ -64,6 +69,7 @@ protected:
     XTBSendBlock<std::chrono::milliseconds> _send_block = {std::chrono::milliseconds(200)};
     std::chrono::system_clock::time_point _ping_expire;
     bool _need_init = true;
+    bool _need_reconnect = false;
 
 
     void unsubscribe(const std::string &symbol, SubscriptionImpl *ptr);

@@ -31,15 +31,15 @@ public:
 
     virtual json::Value generate_headers() {return json::Value();};
     virtual void on_ping();
-    virtual void on_connect();
-    virtual void on_disconnect();
+    void on_connect();
+    void on_disconnect();
 
     void regHandler(Handler &&h);
     void regMonitor(Handler &&h);    //monitor just monitors data and events,
 
     void worker(std::promise<std::exception_ptr> *start_p);
 
-    void send(json::Value v);
+    virtual void send(json::Value v);
 
 
 protected:
@@ -52,7 +52,7 @@ protected:
     std::thread _thr;
     bool _running = false;
 
-    void broadcast(EventType event, json::Value data);
+    virtual void broadcast(EventType event, const json::Value &data);
     void process_message(std::string_view msg);
     void ensure_start(std::unique_lock<std::recursive_mutex> &lk);
 
