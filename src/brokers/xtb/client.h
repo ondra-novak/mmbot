@@ -71,6 +71,14 @@ public:
 
     XTBStreaming &get_streaming() const {return *_streaming;}
 
+    using Quote = XTBStreaming::Quote;
+    using QuoteSubscription = XTBStreaming::QuoteSubscription;
+    using Trade = XTBStreaming::Trade;
+    using TradeSubscription = XTBStreaming::TradeSubscription;
+    QuoteSubscription subscribe_quotes(std::string symbol, XTBStreaming::StreamCallback<Quote> cb);
+    TradeSubscription subscribe_trades(XTBStreaming::StreamCallback<Trade> cb);
+
+
 
 protected:
     using RequestMap = std::unordered_map<std::string, ResultCallback>;

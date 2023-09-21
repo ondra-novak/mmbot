@@ -5,6 +5,7 @@
 #include <future>
 #include <memory>
 #include <imtjson/object.h>
+#include <imtjson/array.h>
 
 const XTBClient::Error XTBClient::error_disconnect = {
         "CDIS","Disconnect"
@@ -196,4 +197,35 @@ XTBClient::Request::operator Result() const {
        res.set_value(std::move(x));
     });
     return res.get_future().get();
+}
+
+XTBClient::QuoteSubscription XTBClient::subscribe_quotes(std::string symbol,XTBStreaming::StreamCallback<Quote> cb) {
+    auto s = _streaming->subscribe_quotes(symbol, std::move(cb));
+    (*this)("getTickPrices", json::Object{
+        {"level", 0},
+        {"symbols",json::Array{symbol}},
+        {"timestamp",0}
+    }) >> [s](const Result &res) {
+        if (is_result(res)) {
+            json::Value v = get_result(res);
+            s->post_data(v["quotations"][0]);
+        }
+    };
+    return s;
+}
+
+
+XTBClient::TradeSubscription XTBClient::subscribe_trades(XTBStreaming::StreamCallback<Trade> cb) {
+    auto s = _streaming->subscribe_trades(std::move(cb));
+    (*this)("getTrades", json::Object{
+        {"openedOnly", true}
+    }) >> [s](const Result &res) {
+        if (is_result(res)) {
+            json::Value v = get_result(res);
+            for (json::Value x: v) {
+                s->post_data(x);
+            }
+        }
+    };
+    return s;
 }

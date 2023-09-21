@@ -1,3 +1,4 @@
+#include "test.h"
 #include "client.h"
 #include <simpleServer/http_client.h>
 
@@ -31,15 +32,19 @@ int main(int, char **) {
     });
 
     client.login({
-        "########",  //fill with credentials
-        "########",
+        ACCOUNT_NUMBER,
+        ACCOUNT_PASSWORD,
         "mmbot",
         [](const auto &...){}
     }, true);
 
-    auto sub = client.get_streaming().subscribe("BITCOIN", [&](const XTBStreaming::Quote &qt){
+    auto sub = client.subscribe_quotes("BITCOIN", [&](const XTBStreaming::Quote &qt){
         std::lock_guard _(console_lock);
         std::cout << "Quote:  bid: " << qt.bid << ", ask " <<  qt.ask << std::endl;
+    });
+    auto trsub = client.subscribe_trades([&](const XTBStreaming::Trade &tr){
+        std::lock_guard _(console_lock);
+
     });
 
     std::string s;

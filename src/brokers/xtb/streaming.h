@@ -17,34 +17,39 @@ public:
         std::uint64_t timestamp;
     };
 
-    using StreamCallback = std::function<void(const Quote &)>;
+    struct Trade {
+
+    };
+
+    template<typename DataType>
+    using StreamCallback = std::function<void(const DataType &)>;
 
     XTBStreaming(simpleServer::HttpClient &httpc, std::string stream_url);
 
 
-    class SubscriptionImpl {
+    template<typename DataType>
+    class Subscription {
     public:
 
-        SubscriptionImpl(std::shared_ptr<XTBStreaming> hub, std::string symbol, StreamCallback cb)
+        Subscription(std::shared_ptr<XTBStreaming> hub, std::string symbol, StreamCallback<DataType> cb)
             :_owner(std::move(hub)),_symbol(std::move(symbol)), _cb(std::move(cb)) {}
-        ~SubscriptionImpl();
+        ~Subscription();
+
+        void post_data(const json::Value &data);
     protected:
         std::weak_ptr<XTBStreaming> _owner;
         std::string _symbol;
-        StreamCallback _cb;
+        StreamCallback<DataType> _cb;
         friend class XTBStreaming;
     };
 
-
-
-
-    using Subscription = std::unique_ptr<SubscriptionImpl>;
-
-    Subscription subscribe(std::string symbol, StreamCallback cb);
+    using QuoteSubscription = std::shared_ptr<Subscription<Quote> >;
+    QuoteSubscription subscribe_quotes(std::string symbol, StreamCallback<Quote> cb);
+    using TradeSubscription = std::shared_ptr<Subscription<Trade> >;
+    TradeSubscription subscribe_trades(StreamCallback<Trade> cb);
 
 
     void set_session_id(std::string session_id);
-
 
     void set_logger(XTBWsInstance::Logger log) {
         _wsstream.set_logger(log);
@@ -60,30 +65,36 @@ protected:
 
     Ws _wsstream;
 
-    using Lst = std::vector<SubscriptionImpl *> ;
-    using SubMap = std::unordered_map<std::string, Lst>;
+
+    template<typename DataType>
+    using Lst = std::vector<Subscription<DataType> *> ;
+    template<typename DataType>
+    using SubMap = std::unordered_map<std::string, Lst<DataType> >;
 
     std::recursive_mutex _mx;
-    SubMap _submap;
-    Lst _tmplst;
+    SubMap<Quote> _quote_submap;
+    Lst<Quote> _quote_tmplst;
+    Lst<Trade> _trade_submap;
+    Lst<Trade> _trade_tmplst;
     XTBSendBlock<std::chrono::milliseconds> _send_block = {std::chrono::milliseconds(200)};
     std::chrono::system_clock::time_point _ping_expire;
     bool _need_init = true;
     bool _need_reconnect = false;
 
 
-    void unsubscribe(const std::string &symbol, SubscriptionImpl *ptr);
+    void unsubscribe(const std::string &symbol, Subscription<Quote> *ptr);
+    void unsubscribe(const std::string &dummy, Subscription<Trade> *ptr);
     void init_handler();
 
     bool data_input(WsInstance::EventType event, json::Value data);
 
-    void subscribe_symbol(const std::string &symbol);
+    void subscribe_symbol_quotes(const std::string &symbol);
+    void unsubscribe_symbol_quotes(const std::string &symbol);
+    void subscribe_trades();
+    void unsubscribe_trades();
     void reconnect();
     void on_data(json::Value data);
-    void unsubscribe_symbol(const std::string &symbol);
 };
-
-
 
 
 #endif /* SRC_BROKERS_XTB_STREAMING_H_ */
