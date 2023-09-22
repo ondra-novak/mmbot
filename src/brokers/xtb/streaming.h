@@ -5,6 +5,9 @@
 
 #include "ws.h"
 #include "send_block.h"
+
+#include "types.h"
+
 #include <memory>
 
 
@@ -15,10 +18,7 @@ public:
         double bid;
         double ask;
         std::uint64_t timestamp;
-    };
-
-    struct Trade {
-
+        bool snapshot;
     };
 
     template<typename DataType>
@@ -35,7 +35,7 @@ public:
             :_owner(std::move(hub)),_symbol(std::move(symbol)), _cb(std::move(cb)) {}
         ~Subscription();
 
-        void post_data(const json::Value &data);
+        void post_data(const json::Value &data, bool snapshot);
     protected:
         std::weak_ptr<XTBStreaming> _owner;
         std::string _symbol;
@@ -45,8 +45,8 @@ public:
 
     using QuoteSubscription = std::shared_ptr<Subscription<Quote> >;
     QuoteSubscription subscribe_quotes(std::string symbol, StreamCallback<Quote> cb);
-    using TradeSubscription = std::shared_ptr<Subscription<Trade> >;
-    TradeSubscription subscribe_trades(StreamCallback<Trade> cb);
+    using TradeSubscription = std::shared_ptr<Subscription<Position> >;
+    TradeSubscription subscribe_trades(StreamCallback<Position> cb);
 
 
     void set_session_id(std::string session_id);
@@ -74,8 +74,8 @@ protected:
     std::recursive_mutex _mx;
     SubMap<Quote> _quote_submap;
     Lst<Quote> _quote_tmplst;
-    Lst<Trade> _trade_submap;
-    Lst<Trade> _trade_tmplst;
+    Lst<Position> _trade_submap;
+    Lst<Position> _trade_tmplst;
     XTBSendBlock<std::chrono::milliseconds> _send_block = {std::chrono::milliseconds(200)};
     std::chrono::system_clock::time_point _ping_expire;
     bool _need_init = true;
@@ -83,7 +83,7 @@ protected:
 
 
     void unsubscribe(const std::string &symbol, Subscription<Quote> *ptr);
-    void unsubscribe(const std::string &dummy, Subscription<Trade> *ptr);
+    void unsubscribe(const std::string &dummy, Subscription<Position> *ptr);
     void init_handler();
 
     bool data_input(WsInstance::EventType event, json::Value data);

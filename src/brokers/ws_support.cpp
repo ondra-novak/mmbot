@@ -44,6 +44,7 @@ void WsInstance::worker(std::promise<std::exception_ptr> *start_p) {
     using simpleServer::WSFrameType;
 
     std::unique_lock lk(_mx);
+    auto next_reconnect = std::chrono::system_clock::now();
     while (_running) {
 
         try {
@@ -51,6 +52,8 @@ void WsInstance::worker(std::promise<std::exception_ptr> *start_p) {
             for (json::Value x: generate_headers()) {
                 hdrs(x.getKey(), x.getString());
             }
+            std::this_thread::sleep_until(next_reconnect);
+            next_reconnect = std::chrono::system_clock::now() + std::chrono::seconds(5);
             _ws = simpleServer::connectWebSocket(_client, _wsurl, std::move(hdrs));
             _ws->getStream()->setIOTimeout(15000);
             if (start_p) {
@@ -110,7 +113,6 @@ void WsInstance::worker(std::promise<std::exception_ptr> *start_p) {
             if (lk.owns_lock()) {
                 lk.unlock(); //unlock temporalily
             }
-            std::this_thread::sleep_for(std::chrono::seconds(5));
             lk.lock();
         }
 

@@ -7,5 +7,7 @@ add_executable (xtb
     client.cpp
     streaming.cpp
     test.cpp
+    types.cpp
+    position_control.cpp
 )
 target_link_libraries (xtb LINK_PUBLIC brokers_common simpleServer imtjson )

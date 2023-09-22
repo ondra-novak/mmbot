@@ -108,8 +108,8 @@ void XTBStreaming::reconnect() {
     if (!_trade_submap.empty()) subscribe_trades();
 }
 
-XTBStreaming::TradeSubscription XTBStreaming::subscribe_trades( StreamCallback<Trade> cb) {
-    auto ptr = std::make_shared<XTBStreaming::Subscription<Trade> >(shared_from_this(), "", std::move(cb));
+XTBStreaming::TradeSubscription XTBStreaming::subscribe_trades( StreamCallback<Position> cb) {
+    auto ptr = std::make_shared<XTBStreaming::Subscription<Position> >(shared_from_this(), "", std::move(cb));
     bool do_subs = false;
     {
         std::lock_guard _(_mx);
@@ -123,7 +123,7 @@ XTBStreaming::TradeSubscription XTBStreaming::subscribe_trades( StreamCallback<T
     return ptr;
 }
 
-void XTBStreaming::unsubscribe(const std::string &dummy, Subscription<Trade> *ptr) {
+void XTBStreaming::unsubscribe(const std::string &dummy, Subscription<Position> *ptr) {
     bool do_unsub = false;
     {
         std::lock_guard _(_mx);
@@ -141,12 +141,12 @@ void XTBStreaming::unsubscribe(const std::string &dummy, Subscription<Trade> *pt
 }
 
 template<>
-void XTBStreaming::Subscription<XTBStreaming::Quote>::post_data(const json::Value &data) {
-    _cb(Quote{data["bid"].getNumber(),data["ask"].getNumber(),data["timestamp"].getUIntLong()});
+void XTBStreaming::Subscription<XTBStreaming::Quote>::post_data(const json::Value &data, bool snapshot) {
+    _cb(Quote{data["bid"].getNumber(),data["ask"].getNumber(),data["timestamp"].getUIntLong(), snapshot});
 }
 template<>
-void XTBStreaming::Subscription<XTBStreaming::Trade>::post_data(const json::Value &data) {
-    _cb(Trade{});
+void XTBStreaming::Subscription<Position>::post_data(const json::Value &data, bool snapshot) {
+    _cb(Position::fromJSON(data, snapshot));
 }
 
 
@@ -159,7 +159,7 @@ void XTBStreaming::on_data(json::Value packet) {
         if (iter == _quote_submap.end()) return;
         _quote_tmplst = iter->second;
         for (auto x: _quote_tmplst) {
-            x->post_data(data);
+            x->post_data(data, false);
         }
     }
     if (packet["command"].getString() == "trade") {
@@ -167,7 +167,7 @@ void XTBStreaming::on_data(json::Value packet) {
         std::lock_guard _(_mx);
         _trade_tmplst = _trade_submap;
         for (auto x: _trade_tmplst) {
-            x->post_data(data);
+            x->post_data(data, false);
         }
 
     }

@@ -1,6 +1,8 @@
 #include "test.h"
 #include "client.h"
+#include "position_control.h"
 #include <simpleServer/http_client.h>
+
 
 int main(int, char **) {
 
@@ -37,18 +39,34 @@ int main(int, char **) {
         "mmbot",
         [](const auto &...){}
     }, true);
-
+/*
     auto sub = client.subscribe_quotes("BITCOIN", [&](const XTBStreaming::Quote &qt){
         std::lock_guard _(console_lock);
         std::cout << "Quote:  bid: " << qt.bid << ", ask " <<  qt.ask << std::endl;
+    });*/
+    auto poscntr = PositionControl::subscribe(client, [&](PositionControl &pc, const std::string &symbol){
+        auto position = pc.getPosition(symbol);
+        std::cout << "Position change: symbol=" << symbol << ", position=" << position.getPos() << ", open_price=" << position.getOpen() << std::endl;
+        while (pc.any_trade()) {
+            auto t = pc.pop_trade();
+            std::cout << "Trade: id=" << t.id << ", symbol=" << t.symbol << ", price=" << t.price << ", size=" << t.size << std::endl;
+        }
     });
-    auto trsub = client.subscribe_trades([&](const XTBStreaming::Trade &tr){
-        std::lock_guard _(console_lock);
 
-    });
-
+    std::cout << "Trade amount (+long, -short), 'q' = quit" << std::endl;
     std::string s;
-    std::getline(std::cin, s);
+    do {
+        std::getline(std::cin, s);
+        if (s == "q") break;
+        if (s.empty()) continue;
+        double pos = std::strtod(s.c_str(),nullptr);
+        if (pos) {
+            poscntr->execute_trade("BITCOIN", pos, 1, XTBExecutor(client));
+            std::cout << "Change position delta:" << pos << std::endl;
+        } else {
+            std::cout << "No position change" << std::endl;
+        }
+    } while (true);
 
 
     return 0;

@@ -208,14 +208,14 @@ XTBClient::QuoteSubscription XTBClient::subscribe_quotes(std::string symbol,XTBS
     }) >> [s](const Result &res) {
         if (is_result(res)) {
             json::Value v = get_result(res);
-            s->post_data(v["quotations"][0]);
+            s->post_data(v["quotations"][0], true);
         }
     };
     return s;
 }
 
 
-XTBClient::TradeSubscription XTBClient::subscribe_trades(XTBStreaming::StreamCallback<Trade> cb) {
+XTBClient::TradeSubscription XTBClient::subscribe_trades(XTBStreaming::StreamCallback<Position> cb) {
     auto s = _streaming->subscribe_trades(std::move(cb));
     (*this)("getTrades", json::Object{
         {"openedOnly", true}
@@ -223,7 +223,7 @@ XTBClient::TradeSubscription XTBClient::subscribe_trades(XTBStreaming::StreamCal
         if (is_result(res)) {
             json::Value v = get_result(res);
             for (json::Value x: v) {
-                s->post_data(x);
+                s->post_data(x, true);
             }
         }
     };

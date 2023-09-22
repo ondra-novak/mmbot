@@ -73,10 +73,9 @@ public:
 
     using Quote = XTBStreaming::Quote;
     using QuoteSubscription = XTBStreaming::QuoteSubscription;
-    using Trade = XTBStreaming::Trade;
     using TradeSubscription = XTBStreaming::TradeSubscription;
     QuoteSubscription subscribe_quotes(std::string symbol, XTBStreaming::StreamCallback<Quote> cb);
-    TradeSubscription subscribe_trades(XTBStreaming::StreamCallback<Trade> cb);
+    TradeSubscription subscribe_trades(XTBStreaming::StreamCallback<Position> cb);
 
 
 
