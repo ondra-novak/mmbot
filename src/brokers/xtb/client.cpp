@@ -81,7 +81,7 @@ bool XTBClient::data_input(WsInstance::EventType event, json::Value data) {
             try {
                 throw;
             } catch (const std::exception &e) {
-                reject_all(Error{error_exception.code, e.what()});
+                reject_all(Error(error_exception._code, e.what()));
             }
             break;
         case WsInstance::EventType::data:
@@ -187,6 +187,17 @@ void XTBClient::set_logger(Logger logger) {
     }
 }
 
+void XTBClient::refresh(TradeSubscription s) {
+    (*this)("getTrades", json::Object{
+        {"openedOnly", true}
+    }) >> [s](const Result &res) {
+        if (is_result(res)) {
+            s->post_events(get_result(res), true);
+        }
+    };
+
+}
+
 void XTBClient::on_login(const json::Value &res) {
     _streaming->set_session_id(res["streamSessionId"].getString());
 }
@@ -208,24 +219,29 @@ XTBClient::QuoteSubscription XTBClient::subscribe_quotes(std::string symbol,XTBS
     }) >> [s](const Result &res) {
         if (is_result(res)) {
             json::Value v = get_result(res);
-            s->post_data(v["quotations"][0], true);
+            s->post_events(v["quotations"][0], true);
         }
     };
     return s;
 }
 
 
+
 XTBClient::TradeSubscription XTBClient::subscribe_trades(XTBStreaming::StreamCallback<Position> cb) {
     auto s = _streaming->subscribe_trades(std::move(cb));
-    (*this)("getTrades", json::Object{
-        {"openedOnly", true}
-    }) >> [s](const Result &res) {
-        if (is_result(res)) {
-            json::Value v = get_result(res);
-            for (json::Value x: v) {
-                s->post_data(x, true);
-            }
-        }
-    };
+    refresh(s);
     return s;
+}
+
+const char* XTBClient::Error::what() const noexcept {
+    if (_buff.empty()) _buff = get_what();
+    return _buff.c_str();
+}
+
+std::string XTBClient::Error::get_what() const {
+    return "XTB Error: " + _code + ": " + _description;
+}
+
+XTBClient::TradeStatusSubscription XTBClient::subscribe_tradeStatus(XTBStreaming::StreamCallback<TradeStatus> cb) {
+    return _streaming->subscribe_tradeStatus(std::move(cb));
 }

@@ -85,6 +85,29 @@ struct Position {
     static Position fromJSON(json::Value v, bool snapshot);
 };
 
+struct Quote {
+    double bid;
+    double ask;
+    Time timestamp;
+    bool snapshot;
+};
+
+struct TradeStatus {
+
+    enum Status {
+        ERROR = 0,
+        PENDING = 1,
+        ACCEPTED = 2,
+        REJECTED = 3
+    };
+    Status status;
+    double price;
+    std::string message;
+    std::string customComment;
+    OrderID order;
+
+};
+
 
 
 

@@ -16,9 +16,17 @@ public:
 
     XTBClient(simpleServer::HttpClient &httpc, std::string control_url, std::string streaming_url);
 
-    struct Error {
-        std::string code;
-        std::string description;
+    class Error: public std::exception {
+    public:
+        Error(std::string code, std::string description)
+            :_code(std::move(code)), _description(std::move(description)) {}
+        std::string _code;
+        std::string _description;
+        virtual const char *what() const noexcept override;
+        std::string get_what() const;
+    protected:
+        mutable std::string _buff;
+
     };
 
     static const Error error_disconnect;
@@ -71,13 +79,15 @@ public:
 
     XTBStreaming &get_streaming() const {return *_streaming;}
 
-    using Quote = XTBStreaming::Quote;
     using QuoteSubscription = XTBStreaming::QuoteSubscription;
     using TradeSubscription = XTBStreaming::TradeSubscription;
+    using TradeStatusSubscription = XTBStreaming::TradeStatusSubscription;
     QuoteSubscription subscribe_quotes(std::string symbol, XTBStreaming::StreamCallback<Quote> cb);
     TradeSubscription subscribe_trades(XTBStreaming::StreamCallback<Position> cb);
+    TradeStatusSubscription subscribe_tradeStatus(XTBStreaming::StreamCallback<TradeStatus> cb);
 
 
+    void refresh(TradeSubscription sub);
 
 protected:
     using RequestMap = std::unordered_map<std::string, ResultCallback>;

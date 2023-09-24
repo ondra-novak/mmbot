@@ -4,6 +4,7 @@
 #include "client.h"
 #include "types.h"
 #include "../../main/acb.h"
+#include "../../main/sgn.h"
 
 #include <queue>
 #include <memory>
@@ -19,13 +20,16 @@ public:
         std::string id;
         double price;
         double size;
+        double commision;
+        Time time;
     };
 
-    bool on_trade(const Position &pos);
+    bool on_trades(const std::vector<Position> &pos) ;
     bool any_trade() const;
     Trade pop_trade();
 
     ACB getPosition(const std::string &symbol) const;
+    std::vector<std::pair<std::string, ACB> > getPositionSummary() const;
 
     template<typename CB>
     static std::shared_ptr<PositionControl> subscribe(XTBClient &client, CB cb);
@@ -40,6 +44,9 @@ public:
 
     template<typename CB>
     void execute_trade(const std::string &symbol, double size, double price_hint, CB &&cb_CMD);
+
+
+    void refresh(XTBClient &client);
 
 protected:
 
@@ -60,16 +67,18 @@ protected:
 
     std::vector<const Position *> _skipped;
 
+    ACB aggregate_position(const OpenPosition &lst) const;
+
 };
 
 template<typename CB>
 inline std::shared_ptr<PositionControl> PositionControl::subscribe(XTBClient &client, CB cb) {
     auto pc = std::make_shared<PositionControl>();
-    pc->_sub = client.subscribe_trades([cb = std::move(cb), wk = std::weak_ptr<PositionControl>(pc)](const Position &pos) mutable {
+    pc->_sub = client.subscribe_trades([cb = std::move(cb), wk = std::weak_ptr<PositionControl>(pc)](const std::vector<Position> &pos) mutable {
         auto pc = wk.lock();
         if (pc) {
-            if (pc->on_trade(pos)) {
-                cb(*pc, pos.symbol);
+            if (pc->on_trades(pos)) {
+                cb(*pc);
             }
         }
     });
@@ -92,7 +101,10 @@ inline void PositionControl::execute_trade(const std::string &symbol, double siz
     _skipped.clear();
     for (const Position &pos: lst) {
         if (pos.cmd == close_cmd) {
-            if (pos.volume <= sz + 1e-16) {
+            if (similar(pos.volume, sz)) {
+                cb_CMD(symbol, Cmd{pos.cmd, Position::Type::CLOSE, pos.order, pos.volume,price_hint});
+                sz = 0.0;
+            } else if (pos.volume < sz) {
                 cb_CMD(symbol, Cmd{pos.cmd, Position::Type::CLOSE, pos.order, pos.volume,price_hint});
                 sz -= pos.volume;
             } else {
@@ -100,7 +112,7 @@ inline void PositionControl::execute_trade(const std::string &symbol, double siz
             }
         }
     }
-    if (sz > 1e-16) {
+    if (sz > 0.0) {
         if (!_skipped.empty()) {
             const Position &pos = *_skipped.front();
             cb_CMD(symbol, Cmd{pos.cmd, Position::Type::CLOSE, pos.order, sz,price_hint});

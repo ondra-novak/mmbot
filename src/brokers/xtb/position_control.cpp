@@ -8,25 +8,35 @@ PositionControl::PositionControl()
 
 }
 
-bool PositionControl::on_trade(const Position &pos) {
+bool PositionControl::on_trades(const std::vector<Position> &trades) {
+    if (trades.empty()) return false;
     std::lock_guard _(_mx);
-    switch(pos.type) {
-        case Position::Type::OPEN:
-            on_open(pos);
-            return true;
-        case Position::Type::CLOSE:
-            on_close(pos);
-            return true;
-        default:
-            return false;
+    if (trades.front().snapshot) {
+        _symbol_pos_map.clear();
     }
+    bool traded = false;
+    for (const auto &pos: trades) {
+        switch(pos.type) {
+            case Position::Type::OPEN:
+                on_open(pos);
+                traded = true;
+                break;
+            case Position::Type::CLOSE:
+                on_close(pos);
+                traded = true;
+                break;
+            default:
+                return false;
+        }
+    }
+    return traded;
 
 }
 
 void PositionControl::on_open(const Position &pos) {
     auto &p = _symbol_pos_map[pos.symbol];
     auto iter = std::find_if(p.begin(), p.end(), [&](const Position &z){
-        return z.order2 == pos.position;
+        return z.position == pos.position;
     });
     if (iter == p.end()) {
         p.push_back(pos);
@@ -35,7 +45,9 @@ void PositionControl::on_open(const Position &pos) {
                 pos.symbol,
                 gen_id(pos),
                 pos.open_price,
-                pos.volume*signByCmd(pos.cmd)
+                pos.volume*signByCmd(pos.cmd),
+                pos.commission,
+                std::chrono::system_clock::now()
             });
         }
     } else {
@@ -46,20 +58,24 @@ void PositionControl::on_open(const Position &pos) {
 
 ACB PositionControl::getPosition(const std::string &symbol) const {
     std::lock_guard _(_mx);
-    ACB pos{0,0,0};
     auto iter = _symbol_pos_map.find(symbol);
     if (iter != _symbol_pos_map.end())  {
-        const OpenPosition &p = iter->second;
-        for (const auto &x: p) {
-            double sign = signByCmd(x.cmd);
-            double sz = x.volume;
-            double price = x.open_price;
-            pos = pos(price, sz * sign);
-        }
+        return aggregate_position(iter->second);
+    } else {
+        return ACB{0,0,0};
+    }
+}
+
+ACB PositionControl::aggregate_position(const OpenPosition &lst) const {
+    ACB pos{0,0,0};
+    for (const auto &x: lst) {
+        double sign = signByCmd(x.cmd);
+        double sz = x.volume;
+        double price = x.open_price;
+        pos = pos(price, sz * sign);
     }
     return pos;
 }
-
 bool PositionControl::any_trade() const {
     return !_trades.empty();
 }
@@ -77,16 +93,19 @@ void PositionControl::on_close(const Position &pos) {
             pos.symbol,
             gen_id(pos),
             pos.close_price,
-            -pos.volume*signByCmd(pos.cmd)
+            -pos.volume*signByCmd(pos.cmd),
+            pos.commission,
+            std::chrono::system_clock::now(),
         });
         auto &p = _symbol_pos_map[pos.symbol];
         auto iter = std::find_if(p.begin(), p.end(), [&](const Position &z){
              return z.position == pos.position;
          });
         if (iter != p.end()) {
-            auto remain = iter->volume - pos.volume;
-            if (remain <= 1e-20) {
+            if (similar(iter->volume, pos.volume)) {
                 p.erase(iter);
+            } else {
+                iter->volume -= pos.volume;
             }
         }
     }
@@ -106,6 +125,12 @@ double PositionControl::signByCmd(Position::Command cmd) {
     }
     return sign;
 
+}
+
+void PositionControl::refresh(XTBClient &client) {
+    std::lock_guard _(_mx);
+    _symbol_pos_map.clear();
+    client.refresh(_sub);
 }
 
 std::string PositionControl::gen_id(const Position &pos) {
@@ -128,5 +153,17 @@ void XTBExecutor::operator ()(const std::string &symbol,const PositionControl::C
         auto v = XTBClient::get_result(res);
         OrderID order = v["order"].getUIntLong();
         res = _client("tradeTransactionStatus",json::Object{{"order",order}});
+        if (_client.is_error(res)) throw _client.get_error(res);
+    } else {
+        throw _client.get_error(res);
     }
+}
+
+std::vector<std::pair<std::string, ACB> > PositionControl::getPositionSummary() const {
+    std::lock_guard _(_mx);
+    std::vector<std::pair<std::string, ACB> > out;
+    for (const auto &[symbol, poslist]: _symbol_pos_map) {
+        out.push_back({symbol, aggregate_position(poslist)});
+    }
+    return out;
 }
