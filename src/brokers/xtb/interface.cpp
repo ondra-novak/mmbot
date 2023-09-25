@@ -1,6 +1,9 @@
 #include <imtjson/object.h>
+#include <shared/logOutput.h>
 
 #include "interface.h"
+
+using ondra_shared::logDebug;
 
 static XTBInterface::BrokerInfo broker_info = {
         false,
@@ -118,6 +121,27 @@ void XTBInterface::onLoadApiKey(json::Value keyData) {
         throw std::runtime_error("Invalid credentials (login failed)");
     }
 
+    _client->set_logger([&](XTBClient::LogEventType log_ev, WsInstance::EventType ev, const json::Value &v){
+        std::string_view evtype;
+        std::string_view action;
+        switch (log_ev) {
+            case XTBClient::LogEventType::command: evtype = "command";break;
+            case XTBClient::LogEventType::result: evtype = "response";break;
+            case XTBClient::LogEventType::stream_request: evtype = "stream_request";break;
+            case XTBClient::LogEventType::stream_data: evtype = "stream_data";break;
+            default: break;
+        }
+        switch(ev) {
+            case WsInstance::EventType::connect: action = "connect";break;
+            case WsInstance::EventType::disconnect: action = "disconnect";break;
+            case WsInstance::EventType::data: action = "data";break;
+            case WsInstance::EventType::exception: action = "exception";break;
+            default: break;
+        }
+        logDebug("$1/$2: $3", evtype, action, v.toString().substr(0, 1000));
+    });
+
+
     _assets = std::make_unique<XTBAssets>();
     _position_control = PositionControl::subscribe(*_client, [this](auto &&...){});
     _rates = std::make_unique<RatioTable>();
@@ -175,7 +199,7 @@ double XTBInterface::getBalance(const std::string_view &symb, const std::string_
         auto pos = _position_control->getPosition(symbol);
         return pos.getPos() * sinfo->contract_size;
     } else {
-        double rate = _rates->get_ratio({std::string(symb), _base_currency}, *_assets, *_client);
+        double rate = _rates->get_ratio({_base_currency, std::string(symb) }, *_assets, *_client);
         return rate * _equity;
     }
 }

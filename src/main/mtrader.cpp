@@ -1466,6 +1466,9 @@ void MTrader::reset(const ResetOptions &ropt) {
 	double assets;
 	if (position_valid && !trades.empty()) {
 		assets = position;
+	} else if (minfo.leverage){
+	    position = assets = stock->getBalance(minfo.asset_symbol, cfg.pairsymb);
+	    accumulated = 0;
 	} else {
 		position = assets = wcfg.walletDB.lock_shared()->adjBalance(getWalletAssetKey(), status.assetUnadjustedBalance)-accumulated;
 		accumulated = 0;
