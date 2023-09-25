@@ -97,8 +97,8 @@ struct TradeStatus {
     enum Status {
         ERROR = 0,
         PENDING = 1,
-        ACCEPTED = 2,
-        REJECTED = 3
+        ACCEPTED = 3,
+        REJECTED = 4
     };
     Status status;
     double price;

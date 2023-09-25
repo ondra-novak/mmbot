@@ -26,7 +26,7 @@ public:
         bool executed = false;
     };
 
-    std::vector<IStockApi::Order> get_orders(const std::string &symbol) const;
+    std::vector<Order> get_orders(const std::string &symbol) const;
 
     IStockApi::Ticker get_ticker(const std::string &symbol) ;
 
@@ -38,11 +38,12 @@ protected:
         std::chrono::system_clock::time_point _last_exec;
         XTBClient::QuoteSubscription _subs;
         std::weak_ptr<XTBOrderbookEmulator> _owner;
-        IStockApi::Ticker _ticker;
+        std::optional<IStockApi::Ticker> _ticker;
     };
 
     using OrdersPerSymbol = std::unordered_map<std::string, std::unique_ptr<OrderList>  >;
     mutable std::mutex _mx;
+    std::condition_variable _ntf;
     XTBClient &_client;
     std::shared_ptr<PositionControl> _positions;
     XTBClient::TradeStatusSubscription _trade_status_subs;

@@ -146,6 +146,7 @@ void XTBInterface::onLoadApiKey(json::Value keyData) {
     _position_control = PositionControl::subscribe(*_client, [this](auto &&...){});
     _rates = std::make_unique<RatioTable>();
     _orderbook = std::make_unique<XTBOrderbookEmulator>(*_client, _position_control);
+    _assets->update(*_client);
     update_equity();
 }
 
@@ -155,6 +156,7 @@ bool XTBInterface::logged_in() const {
 
 bool XTBInterface::reset() {
     update_equity();
+    _position_control->refresh(*_client);
     return true;
 }
 
@@ -207,16 +209,21 @@ double XTBInterface::getBalance(const std::string_view &symb, const std::string_
 IStockApi::TradesSync XTBInterface::syncTrades(json::Value lastId, const std::string_view &pair) {
     test_login();
     TradeHistory thist;
+    std::string symbol(pair);
+    auto sinfo = _assets->get(symbol);
+    if (!sinfo.has_value()) return {};
+
     while (_position_control->any_trade()) {
         _trades.push_back(_position_control->pop_trade());
     }
     std::swap(_trades, _trades_tmp);
     _trades.clear();
     for (auto &t: _trades_tmp) {
-        if (pair == t.symbol) {
+        if (symbol == t.symbol) {
             if (t.size) {
+                double size = t.size*sinfo->contract_size;
                 thist.push_back({
-                    t.id,t.time.get_millis(),t.size,t.price,t.size,t.price-t.commision/t.size
+                    t.id,t.time.get_millis(),size,t.price,size,t.price-t.commision/size
                 });
             }
         } else {
@@ -230,7 +237,15 @@ void XTBInterface::onInit() {}
 
 IStockApi::Orders XTBInterface::getOpenOrders(const std::string_view &par) {
     test_login();
-    return _orderbook->get_orders(std::string(par));
+    std::string symbol(par);
+    auto sinfo = _assets->get(symbol);
+    if (!sinfo.has_value()) return {};
+    auto ordlst = _orderbook->get_orders(symbol);
+    Orders out;
+    std::transform(ordlst.begin(), ordlst.end(), std::back_inserter(out), [&](const Order &x){
+        return IStockApi::Order{x.id,x.client_id,x.size*sinfo->contract_size,x.price};
+    });
+    return out;
 }
 
 json::Value XTBInterface::placeOrder(const std::string_view &pair, double size,

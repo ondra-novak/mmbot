@@ -51,6 +51,8 @@ void PositionControl::on_open(const Position &pos) {
             });
         }
     } else {
+        iter->order = pos.order;
+        iter->order2 = pos.order2;
         //position can't change unless there is partial close
         //in this case, closed position will be processed
     }
@@ -77,10 +79,12 @@ ACB PositionControl::aggregate_position(const OpenPosition &lst) const {
     return pos;
 }
 bool PositionControl::any_trade() const {
+    std::lock_guard _(_mx);
     return !_trades.empty();
 }
 
 PositionControl::Trade PositionControl::pop_trade() {
+    std::lock_guard _(_mx);
    Trade p = std::move(_trades.front());
    _trades.pop();
    return p;
@@ -128,8 +132,6 @@ double PositionControl::signByCmd(Position::Command cmd) {
 }
 
 void PositionControl::refresh(XTBClient &client) {
-    std::lock_guard _(_mx);
-    _symbol_pos_map.clear();
     client.refresh(_sub);
 }
 

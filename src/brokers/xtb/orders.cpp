@@ -95,22 +95,21 @@ void XTBOrderbookEmulator::on_trade_status(const TradeStatus &status) {
     }
 }
 
-std::vector<IStockApi::Order> XTBOrderbookEmulator::get_orders(const std::string &symbol) const {
-    std::vector<IStockApi::Order>  out;
+std::vector<XTBOrderbookEmulator::Order> XTBOrderbookEmulator::get_orders(const std::string &symbol) const {
     std::unique_lock lk(_mx);
     OrderList *olist = get_orderbook_ptr(symbol);
     if (olist) {
-        std::transform(olist->_list.begin(), olist->_list.end(), std::back_inserter(out), [&](const Order &x){
-            return x;
-        });
+        return olist->_list;
+    } else {
+        return {};
     }
-    return out;
 }
 
 IStockApi::Ticker XTBOrderbookEmulator::get_ticker(const std::string &symbol) {
     std::unique_lock lk(_mx);
     OrderList &olist = get_orderbook(lk, symbol);
-    return olist._ticker;
+    _ntf.wait(lk, [&]{return olist._ticker.has_value();});
+    return *olist._ticker;
 
 }
 
@@ -141,6 +140,16 @@ void XTBOrderbookEmulator::on_quote(const std::string &symbol,Quote quote) {
     comment.append(symbol);
     comment.append("/");
 
+    if (!orderbook->_ticker.has_value()) {
+        orderbook->_ticker.emplace();
+        _ntf.notify_all();
+    }
+
+    IStockApi::Ticker &ticker = *orderbook->_ticker;
+    ticker.ask = quote.ask;
+    ticker.bid = quote.bid;
+
+
     for (Order &ord: orderbook->_list) {
         comment.resize(symbol.size()+order_tag.size()+1);
         if (ord.executed) continue;
@@ -150,15 +159,19 @@ void XTBOrderbookEmulator::on_quote(const std::string &symbol,Quote quote) {
                     ord.executed = true;
                     _positions->execute_trade(symbol, ord.size, quote.ask, get_executor(_client, comment));
             }
+            if (ord.size < 0) {
+                ticker.ask = std::min(ticker.ask, ord.price);
+            } else if (ord.size > 0) {
+                ticker.bid = std::max(ticker.bid, ord.price);
+            }
         } catch (const std::exception &e) {
             ord.last_exec_error = e.what();
         }
     }
 
-    orderbook->_ticker.ask = quote.ask;
-    orderbook->_ticker.bid = quote.bid;
-    orderbook->_ticker.time = quote.timestamp.get_millis();
-    orderbook->_ticker.last = std::max(std::min(orderbook->_ticker.last, quote.ask), quote.bid);
+    ticker.time = quote.timestamp.get_millis();
+    ticker.last = std::max(std::min(ticker.last, quote.ask), quote.bid);
+    _ntf.notify_all();
 
 }
 

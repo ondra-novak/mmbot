@@ -10,6 +10,12 @@ std::optional<XTBAssets::MarketInfo> XTBAssets::get(const std::string &symbol) c
 }
 
 XTBAssets::MarketInfo XTBAssets::update_symbol(XTBClient &client, const std::string &symbol) {
+    if (_symbols.empty()) {
+        update(client);
+        auto r = get(symbol);
+        if (r.has_value()) return *r;
+        else throw std::runtime_error("Symbol not found");
+    }
     XTBClient::Result resp = client("getSymbol",json::Object{
         {"symbol", symbol}
     });
@@ -173,7 +179,7 @@ XTBAssets::MarketInfo XTBAssets::parse_symbol(json::Value v) {
     out.leverage = 100.0/v["leverage"].getNumber();
     out.fees = 0;
     out.invert_price = false;
-    out.min_size = v["lotMin"].getNumber();
+    out.min_size = v["lotMin"].getNumber()*out.contract_size;
     out.min_volume = 0;
     out.private_chart = false;
     out.simulator = false;
