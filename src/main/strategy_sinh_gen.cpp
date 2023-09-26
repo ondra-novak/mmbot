@@ -364,6 +364,13 @@ std::pair<IStrategy::OnTradeResult, PStrategy> Strategy_Sinh_Gen::onTrade(
 	double lspread = std::abs(std::log(tradePrice/st.p));
 	nwst.avg_spread = st.avg_spread<=0?(lspread*0.5):((299*st.avg_spread+lspread)/300);
 
+    if (std::abs(assetsLeft - st.offset) < minfo.calcMinSize(tradePrice)) {
+        nwst.at_zero = true;
+        nwst.k = tradePrice;
+    }
+
+
+
 	double vnp = npinfo.pnl - nwst.val + st.val;
 
 	double ofspnl = st.offset * (tradePrice - st.p);
@@ -523,9 +530,6 @@ IStrategy::OrderData Strategy_Sinh_Gen::getNewOrder(
     NewPosInfo nposinfo = calcNewPos(minfo, new_price, assets,false);
 
     double l = nposinfo.newpos;
-    if (std::abs(l) < minfo.calcMinSize(new_price)) {
-        l = 0;
-    }
 
 
     double f = l+nposinfo.newofs;

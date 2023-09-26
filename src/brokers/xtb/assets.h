@@ -22,8 +22,8 @@ public:
 
     std::optional<MarketInfo> get(const std::string &symbol) const;
     std::optional<std::string> find_combination(const std::string_view &asset, const std::string_view currency) const;
-    void update(XTBClient &client);
-    MarketInfo update_symbol(XTBClient &client, const std::string &symbol);
+    void update(XTBClient &client, bool demo_account);
+    MarketInfo update_symbol(XTBClient &client, const std::string &symbol, bool demo_account);
 
     template<typename Fn>
     bool with_symbol(const std::string &symbol, Fn fn) const {
@@ -46,7 +46,7 @@ public:
 protected:
     mutable std::mutex _mx;
     std::unordered_map<std::string, MarketInfo> _symbols;
-    static MarketInfo parse_symbol(json::Value v);
+    static MarketInfo parse_symbol(json::Value v, bool demo_account);
 
     struct RatioOperation {
         std::string symbol;

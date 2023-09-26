@@ -9,9 +9,9 @@ std::optional<XTBAssets::MarketInfo> XTBAssets::get(const std::string &symbol) c
     return iter->second;
 }
 
-XTBAssets::MarketInfo XTBAssets::update_symbol(XTBClient &client, const std::string &symbol) {
+XTBAssets::MarketInfo XTBAssets::update_symbol(XTBClient &client, const std::string &symbol, bool demo_account) {
     if (_symbols.empty()) {
-        update(client);
+        update(client, demo_account);
         auto r = get(symbol);
         if (r.has_value()) return *r;
         else throw std::runtime_error("Symbol not found");
@@ -22,7 +22,7 @@ XTBAssets::MarketInfo XTBAssets::update_symbol(XTBClient &client, const std::str
     if (client.is_error(resp)) throw client.get_error(resp);
     json::Value s = client.get_result(resp);
     std::lock_guard _(_mx);
-    return _symbols[symbol] = parse_symbol(s);
+    return _symbols[symbol] = parse_symbol(s, demo_account);
 }
 
 std::optional<std::string> XTBAssets::find_combination(
@@ -141,9 +141,6 @@ bool XTBAssets::empty() const {
 }
 
 std::shared_ptr<IFXRate> XTBAssets::get_ratio(const std::string &source_currency, const std::string &target_currency, XTBClient &client) {
-    if (empty()) {
-        update(client);
-    }
     return const_cast<const XTBAssets *>(this)->get_ratio(source_currency, target_currency, client);
 }
 
@@ -172,7 +169,7 @@ std::shared_ptr<IFXRate> XTBAssets::get_ratio(
     return cur;
 }
 
-XTBAssets::MarketInfo XTBAssets::parse_symbol(json::Value v) {
+XTBAssets::MarketInfo XTBAssets::parse_symbol(json::Value v, bool demo_account) {
     MarketInfo out = {};
     out.contract_size = v["contractSize"].getNumber();
     out.group = v["groupName"].getString();
@@ -191,12 +188,12 @@ XTBAssets::MarketInfo XTBAssets::parse_symbol(json::Value v) {
     out.min_size = v["lotMin"].getNumber()*out.contract_size;
     out.min_volume = 0;
     out.private_chart = false;
-    out.simulator = false;
+    out.simulator = demo_account;
     out.wallet_id = "";
     return out;
 }
 
-void XTBAssets::update(XTBClient &client) {
+void XTBAssets::update(XTBClient &client, bool demo_account) {
     XTBClient::Result resp = client("getAllSymbols",{});
     if (client.is_error(resp)) throw client.get_error(resp);
     json::Value symbols = client.get_result(resp);
@@ -204,7 +201,7 @@ void XTBAssets::update(XTBClient &client) {
     _symbols.clear();
     for (json::Value s: symbols) {
         std::string symbol = s["symbol"].getString();
-        auto minfo = parse_symbol(s);
+        auto minfo = parse_symbol(s, demo_account);
         _symbols[symbol] = minfo;
     }
 }

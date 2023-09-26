@@ -53,6 +53,7 @@ public:
 
     double _equity;
     std::string _base_currency;
+    bool _is_demo;
 
     void stop_client();
     bool logged_in() const;

@@ -9,7 +9,7 @@ static XTBInterface::BrokerInfo broker_info = {
         false,
         "XTB/XOpenHub",
         "XTB",
-        "https://www.xtb.com",
+        "https://www.xtb.com/cz/realny-ucet",
         "1.0.0",
         "Copyright (c) 2023 Ondřej Novák\n\n"
 
@@ -88,13 +88,14 @@ struct ServerInfo {
     std::string name;
     std::string control_url;
     std::string stream_url;
+    bool demo;
 };
 
 static ServerInfo server_ports[] = {
-        {"0","wss://ws.xtb.com/real","wss://ws.xtb.com/realStream"},
-        {"1","wss://ws.xtb.com/demo","wss://ws.xtb.com/demoStream"},
-        {"2","wss://ws.xapi.pro/real","wss://ws.xapi.pro/realStream"},
-        {"3","wss://ws.xapi.pro/demo","wss://ws.xapi.pro/demoStream"},
+        {"0","wss://ws.xtb.com/real","wss://ws.xtb.com/realStream",false},
+        {"1","wss://ws.xtb.com/demo","wss://ws.xtb.com/demoStream",true},
+        {"2","wss://ws.xapi.pro/real","wss://ws.xapi.pro/realStream",false},
+        {"3","wss://ws.xapi.pro/demo","wss://ws.xapi.pro/demoStream",true},
 };
 
 void XTBInterface::stop_client() {
@@ -142,11 +143,12 @@ void XTBInterface::onLoadApiKey(json::Value keyData) {
     });
 
 
+    _is_demo = iter->demo;
     _assets = std::make_unique<XTBAssets>();
     _position_control = PositionControl::subscribe(*_client, [this](auto &&...){});
     _rates = std::make_unique<RatioTable>();
     _orderbook = std::make_unique<XTBOrderbookEmulator>(*_client, _position_control);
-    _assets->update(*_client);
+    _assets->update(*_client, _is_demo);
     update_equity();
 }
 
@@ -166,7 +168,7 @@ void XTBInterface::test_login() const {
 
 std::vector<std::string> XTBInterface::getAllPairs() {
     test_login();
-    _assets->update(*_client);
+    _assets->update(*_client,_is_demo);
     auto symbols =_assets->get_all_symbols();
     std::vector<std::string> res;
     std::transform(symbols.begin(), symbols.end(),std::back_inserter(res),
@@ -179,7 +181,7 @@ std::vector<std::string> XTBInterface::getAllPairs() {
 
 IStockApi::MarketInfo XTBInterface::getMarketInfo(const std::string_view &pair) {
     test_login();
-    return _assets->update_symbol(*_client, std::string(pair));
+    return _assets->update_symbol(*_client, std::string(pair), _is_demo);
 }
 
 
@@ -291,7 +293,7 @@ static json::Value treeToObject(const std::map<std::string, Y> &tree) {
 json::Value XTBInterface::getMarkets() const {
     test_login();
     std::map<std::string, std::map<std::string, std::map<std::string, std::map<std::string, std::string> > > >tree;
-    _assets->update(*_client);
+    _assets->update(*_client, _is_demo);
     auto symbs = _assets->get_all_symbols();
     for (const auto &[symbol, info]: symbs) {
         auto &l1 = tree[info.category];
