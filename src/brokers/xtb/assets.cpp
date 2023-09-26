@@ -25,6 +25,15 @@ XTBAssets::MarketInfo XTBAssets::update_symbol(XTBClient &client, const std::str
     return _symbols[symbol] = parse_symbol(s);
 }
 
+std::optional<std::string> XTBAssets::find_combination(
+        const std::string_view &asset, const std::string_view currency) const {
+    auto iter = std::find_if(_symbols.begin(), _symbols.end(), [&](const auto &item){
+        const MarketInfo &m = item.second;
+        return m.asset_symbol == asset && m.currency_symbol == currency;
+    });
+    if (iter != _symbols.end()) return iter->first;
+    else return {};
+}
 
 std::vector<XTBAssets::RatioOperation> XTBAssets::calc_conversion_path(const std::string &source_currency, const std::string &target_currency) const {
     std::vector<RatioOperation> path;

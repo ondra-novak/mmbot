@@ -21,6 +21,7 @@ public:
     };
 
     std::optional<MarketInfo> get(const std::string &symbol) const;
+    std::optional<std::string> find_combination(const std::string_view &asset, const std::string_view currency) const;
     void update(XTBClient &client);
     MarketInfo update_symbol(XTBClient &client, const std::string &symbol);
 

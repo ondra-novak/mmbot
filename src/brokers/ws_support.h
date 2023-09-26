@@ -41,7 +41,6 @@ public:
 
     virtual void send(json::Value v);
 
-
 protected:
     simpleServer::HttpClient &_client;
     std::string _wsurl;

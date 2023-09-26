@@ -36,25 +36,26 @@ bool PositionControl::on_trades(const std::vector<Position> &trades) {
 void PositionControl::on_open(const Position &pos) {
     auto &p = _symbol_pos_map[pos.symbol];
     auto iter = std::find_if(p.begin(), p.end(), [&](const Position &z){
-        return z.position == pos.position;
+        return z.order2 == pos.order2;
     });
     if (iter == p.end()) {
         p.push_back(pos);
-        if (!pos.snapshot) {
+        if (!pos.snapshot && pos.state == Position::State::Modified) {
             _trades.push({
                 pos.symbol,
                 gen_id(pos),
                 pos.open_price,
                 pos.volume*signByCmd(pos.cmd),
-                pos.commission,
+                0,
                 std::chrono::system_clock::now()
             });
         }
     } else {
-        iter->order = pos.order;
-        iter->order2 = pos.order2;
-        //position can't change unless there is partial close
-        //in this case, closed position will be processed
+        if (pos.state == Position::State::Deleted) {
+            p.erase(iter);
+        } else {
+            *iter = pos;
+        }
     }
 }
 
@@ -101,17 +102,6 @@ void PositionControl::on_close(const Position &pos) {
             pos.commission,
             std::chrono::system_clock::now(),
         });
-        auto &p = _symbol_pos_map[pos.symbol];
-        auto iter = std::find_if(p.begin(), p.end(), [&](const Position &z){
-             return z.position == pos.position;
-         });
-        if (iter != p.end()) {
-            if (similar(iter->volume, pos.volume)) {
-                p.erase(iter);
-            } else {
-                iter->volume -= pos.volume;
-            }
-        }
     }
 
 }

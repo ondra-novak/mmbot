@@ -343,7 +343,9 @@ std::pair<IStrategy::OnTradeResult, PStrategy> Strategy_Sinh_Gen::onTrade(
         npinfo.newk = tradePrice;
         npinfo.newpos = 0;
     }
-
+    if (tradeSize == 0 && st.at_zero) {
+        npinfo.newk = st.k;
+    }
 
 	double newbudget = calcPileBudget(cfg.ratio, npinfo.pilekmul, tradePrice);
 

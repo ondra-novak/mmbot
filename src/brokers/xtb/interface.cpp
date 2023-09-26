@@ -324,14 +324,73 @@ XTBInterface::AllWallets XTBInterface::getWallet() {
 }
 
 bool XTBInterface::areMinuteDataAvailable(const std::string_view &asset,const std::string_view &currency) {
-    return false;
+    test_login();
+    auto f = _assets->find_combination(asset, currency);
+    return f.has_value();
 }
 
 uint64_t XTBInterface::downloadMinuteData(const std::string_view &asset,
         const std::string_view &currency, const std::string_view &hint_pair,
         uint64_t time_from, uint64_t time_to,
         IHistoryDataSource::HistData &data) {
-    return 0;
+    test_login();
+    std::string symbol(hint_pair);
+    auto sinfo = _assets->get(symbol);
+    if (!sinfo.has_value()) {
+        auto s  = _assets->find_combination(asset, currency);
+        if (!s.has_value()) throw std::runtime_error("Data are unavailable");
+        symbol = *s;
+    }
+
+    static constexpr unsigned int intervals[] = {5,15,30,60,240,1440,10080,43200};
+
+    IHistoryDataSource::MinuteData out;
+
+    std::uint64_t start = std::max(time_from, time_to-2592000000);
+    std::uint64_t to = time_to -1;
+    std::uint64_t fetch_start = 0;
+    auto interval_iter = std::begin(intervals);
+    auto interval_end =  std::end(intervals);
+    while (out.empty() && interval_iter != interval_end) {
+        XTBClient::Result res = (*_client)("getChartRangeRequest", json::Object{
+            {"info",json::Object{
+                {"start", start},
+                {"end", to},
+                {"period", *interval_iter},
+                {"symbol", symbol}
+            }}
+        });
+        if (XTBClient::is_error(res)) throw XTBClient::get_error(res);
+        unsigned int rep = *interval_iter / 5;
+        json::Value result = XTBClient::get_result(res);
+        json::Value values = result["rateInfos"];
+        double digits = result["digits"].getNumber();
+        double power = std::pow(10,-digits);
+        fetch_start = values[0]["ctm"].getUIntLong();
+        for (json::Value item:values) {
+            double open = item["open"].getNumber();
+            double close = open+item["close"].getNumber();
+            double high = open+item["high"].getNumber();
+            double low = open+item["low"].getNumber();
+            double mid = std::sqrt(high*low);
+            open *= power;
+            close *= power;
+            high *= power;
+            low *= power;
+            mid *= power;
+
+            for (unsigned int i = 0; i < rep; i++) out.push_back(open);
+            for (unsigned int i = 0; i < rep; i++) out.push_back(high);
+            for (unsigned int i = 0; i < rep; i++) out.push_back(mid);
+            for (unsigned int i = 0; i < rep; i++) out.push_back(low);
+            for (unsigned int i = 0; i < rep; i++) out.push_back(close);
+        }
+       ++interval_iter;
+    }
+
+    data = std::move(out);
+
+    return fetch_start;
 }
 
 void XTBInterface::update_equity() {

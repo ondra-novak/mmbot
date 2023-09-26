@@ -39,7 +39,6 @@ void WsInstance::on_disconnect() {
     broadcast(EventType::disconnect, json::Value());
 }
 
-
 void WsInstance::worker(std::promise<std::exception_ptr> *start_p) {
     using simpleServer::WSFrameType;
 

@@ -33,12 +33,16 @@ public:
 
     virtual void send(json::Value v) override {
         if (_logger) _logger(true, EventType::data, v);
+        std::lock_guard _(_mx);
+        std::this_thread::sleep_until(_block_expire);
         WsInstance::send(std::move(v));
+        _block_expire = std::chrono::system_clock::now()+std::chrono::milliseconds(220);
     }
 
 protected:
     Logger _logger;
     std::chrono::system_clock::time_point _ping_expire;
+    std::chrono::system_clock::time_point _block_expire;
 
     virtual void broadcast(WsInstance::EventType event, const json::Value &data) override {
         if (event == EventType::connect) update_interval();
