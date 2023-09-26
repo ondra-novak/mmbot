@@ -258,5 +258,5 @@ void XTBStreaming::Ws::send_command(std::string_view command, json::Value data) 
 template<typename DataType>
 XTBStreaming::Subscription<DataType>::~Subscription() {
     auto s = _owner.lock();
-    s->unsubscribe(_symbol, this);
+    if (s) s->unsubscribe(_symbol, this);
 }

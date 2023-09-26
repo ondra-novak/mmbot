@@ -41,6 +41,7 @@ public:
     virtual uint64_t downloadMinuteData(const std::string_view &asset, const std::string_view &currency,
             const std::string_view &hint_pair, uint64_t time_from, uint64_t time_to,
             IHistoryDataSource::HistData &data) override;
+    virtual void probeKeys() override;
 
 public:
     simpleServer::HttpClient _httpc;

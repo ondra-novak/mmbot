@@ -61,12 +61,19 @@ XTBInterface::XTBInterface(const std::string &secure_storage_path)
             {
                         json::Object({
                             {"name","userid"},
-                            {"label","User ID"},
-                            {"type","string"}}),
+                            {"label","Account number"},
+                            {"type","string"},
+                            {"attrs",json::Object{
+                                {"style","text-align:center"}
+                            }}}),
                         json::Object({
                             {"name","password"},
                             {"label","Password"},
-                            {"type","string"}}),
+                            {"type","string"},
+                            {"attrs",json::Object{
+                                {"type","password"},
+                                {"style","text-align:center"}
+                            }}}),
                         json::Object({
                             {"name","server"},
                             {"label","Server"},
@@ -114,13 +121,15 @@ void XTBInterface::onLoadApiKey(json::Value keyData) {
         return server.name == sname;
     });
     if (iter == std::end(server_ports)) return;
-    _client = std::make_unique<XTBClient>(_httpc, iter->control_url, iter->stream_url);
-    if (!_client->login(XTBClient::Credentials{
+    auto client = std::make_unique<XTBClient>(_httpc, iter->control_url, iter->stream_url);
+    if (!client->login(XTBClient::Credentials{
         userid, password, std::string("mmbot"), [](const auto &...){}
     }, true)) {
-        _client.reset();
         throw std::runtime_error("Invalid credentials (login failed)");
     }
+
+    stop_client();
+    _client = std::move(client);
 
     _client->set_logger([&](XTBClient::LogEventType log_ev, WsInstance::EventType ev, const json::Value &v){
         std::string_view evtype;
@@ -148,7 +157,6 @@ void XTBInterface::onLoadApiKey(json::Value keyData) {
     _position_control = PositionControl::subscribe(*_client, [this](auto &&...){});
     _rates = std::make_unique<RatioTable>();
     _orderbook = std::make_unique<XTBOrderbookEmulator>(*_client, _position_control);
-    _assets->update(*_client, _is_demo);
     update_equity();
 }
 
@@ -157,6 +165,7 @@ bool XTBInterface::logged_in() const {
 }
 
 bool XTBInterface::reset() {
+    test_login();
     update_equity();
     _position_control->refresh(*_client);
     return true;
@@ -164,6 +173,9 @@ bool XTBInterface::reset() {
 
 void XTBInterface::test_login() const {
     if (!_client) throw std::runtime_error("Not logged (API key is not set)");
+    if (_assets->empty()) {
+        _assets->update(*_client, _is_demo);
+    }
 }
 
 std::vector<std::string> XTBInterface::getAllPairs() {
@@ -291,7 +303,7 @@ static json::Value treeToObject(const std::map<std::string, Y> &tree) {
 }
 
 json::Value XTBInterface::getMarkets() const {
-    test_login();
+    if (!logged_in()) return {};
     std::map<std::string, std::map<std::string, std::map<std::string, std::map<std::string, std::string> > > >tree;
     _assets->update(*_client, _is_demo);
     auto symbs = _assets->get_all_symbols();
@@ -393,6 +405,10 @@ uint64_t XTBInterface::downloadMinuteData(const std::string_view &asset,
     data = std::move(out);
 
     return fetch_start;
+}
+
+void XTBInterface::probeKeys() {
+    //no probing is needed
 }
 
 void XTBInterface::update_equity() {
