@@ -209,15 +209,49 @@ double Strategy_Sinh_Gen::calcNewKFromValue(const Config &cfg, const State &st, 
 double Strategy_Sinh_Gen::calcNewK(double tradePrice, double cb, double pnl, int bmode) const {
 	if (st.rebalance) return st.k;
 
-	if (st.at_zero) return std::sqrt(st.k*tradePrice);
-//	if (st.at_zero) return st.k;
-
     if ((tradePrice - st.k) * (st.p - st.k) < 0) {
         return tradePrice;
     }
 
+    double newk = st.k;
 
-	double newk = st.k;
+    if (bmode == 35) {
+        double nb = st.val;
+        nb += pnl;
+        double profit = -st.budget * cfg.custom_spread * 0.01;
+        if (pnl < 0) profit = 0;
+        else if (st.k == st.p) profit*=0.5;
+        nb += profit;
+        if (nb < 0) {
+            if (tradePrice > st.k) {
+                newk = numeric_search_r1(tradePrice, [&](double k){
+                    return cfg.calc->budget(k, calcPower(cfg , st,k), tradePrice)-nb;
+                });
+                if (newk<1e-200) newk = st.k; //failed to search
+            }
+            else if (tradePrice < st.k) {
+                newk = numeric_search_r2(tradePrice, [&](double k){
+                    return cfg.calc->budget(k, calcPower(cfg ,st,k), tradePrice)-nb;
+                });
+                if (newk>1e300) newk = st.k; //failed to search
+            }
+        }
+        if (st.k == st.p) {
+            double newk2 = std::sqrt(st.k*tradePrice);
+            if (tradePrice < st.k) newk = std::max(newk, newk2);
+            else newk = std::min(newk,newk2);
+        }
+        return newk;
+
+    }
+
+
+
+	if (st.at_zero) return std::sqrt(st.k*tradePrice);
+//	if (st.at_zero) return st.k;
+
+
+
     if (!pnl) return st.k;
     double sprd = cfg.avgspread?(std::exp(st.avg_spread)):(tradePrice/st.p);
     double refp = st.k*sprd;
