@@ -43,7 +43,12 @@ public:
             IHistoryDataSource::HistData &data) override;
     virtual void probeKeys() override;
 
-public:
+    virtual json::Value setSettings(json::Value v) override;
+    virtual void restoreSettings(json::Value v) override;
+    virtual json::Value getSettings(const std::string_view &pairHint) const override;
+
+
+protected:
     simpleServer::HttpClient _httpc;
     std::unique_ptr<XTBClient> _client;
     std::shared_ptr<XTBOrderbookEmulator> _orderbook;

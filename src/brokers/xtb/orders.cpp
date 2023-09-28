@@ -7,26 +7,6 @@ XTBOrderbookEmulator::XTBOrderbookEmulator(XTBClient &client, std::shared_ptr<Po
 {
 }
 
-auto get_executor(XTBClient &client, const std::string &comment) {
-    return [&](const std::string &symbol, const PositionControl::Cmd &c) {
-        XTBClient::Result res = client("tradeTransaction", json::Object{
-            {"tradeTransInfo",json::Object{
-               {"cmd",static_cast<int>(c.cmd)},
-               {"order",c.order2},
-               {"price", c.price_hint},
-               {"symbol", symbol},
-               {"type", static_cast<int>(c.type)},
-               {"customComment", comment},
-               {"volume", c.volume}
-            }}
-        });
-        if (XTBClient::is_error(res)) {
-            const auto &err =XTBClient::get_error(res);
-            throw err;
-        }
-    };
-}
-
 json::Value XTBOrderbookEmulator::placeOrder(const std::string &symbol,
         double size, double price, json::Value clientId, json::Value replaceId) {
 
@@ -130,6 +110,53 @@ std::shared_ptr<XTBOrderbookEmulator> XTBOrderbookEmulator::create(XTBClient &cl
     return std::make_shared<XTBOrderbookEmulator>(client, positions);
 }
 
+auto get_executor(XTBClient &client, const std::string &comment) {
+    return [&](const std::string &symbol, const PositionControl::Cmd &c) {
+        XTBClient::Result res = client("tradeTransaction", json::Object{
+            {"tradeTransInfo",json::Object{
+               {"cmd",static_cast<int>(c.cmd)},
+               {"order",c.order2},
+               {"price", c.price_hint},
+               {"symbol", symbol},
+               {"type", static_cast<int>(c.type)},
+               {"customComment", comment},
+               {"volume", c.volume}
+            }}
+        });
+        if (XTBClient::is_error(res)) {
+            const auto &err =XTBClient::get_error(res);
+            throw err;
+        }
+    };
+}
+
+
+
+struct Executor {
+    std::vector<PositionControl::Cmd> _commands;
+    void operator()(const std::string &, PositionControl::Cmd cmd) {
+        _commands.push_back(std::move(cmd));
+    }
+    void flush(XTBClient &client, const std::string &symbol, const std::string &comment) {
+        for (const auto &c: _commands) {
+            XTBClient::Result res = client("tradeTransaction", json::Object{
+                {"tradeTransInfo",json::Object{
+                   {"cmd",static_cast<int>(c.cmd)},
+                   {"order",c.order2},
+                   {"price", c.price_hint},
+                   {"symbol", symbol},
+                   {"type", static_cast<int>(c.type)},
+                   {"customComment", comment},
+                   {"volume", c.volume}
+                }}
+            });
+            if (XTBClient::is_error(res)) {
+                const auto &err =XTBClient::get_error(res);
+                throw err;
+            }
+        }
+    }
+};
 
 void XTBOrderbookEmulator::on_quote(const std::string &symbol,Quote quote) {
     std::unique_lock lk(_mx);
@@ -157,7 +184,13 @@ void XTBOrderbookEmulator::on_quote(const std::string &symbol,Quote quote) {
             if ((ord.size > 0 && ord.price > quote.ask) || (ord.size < 0 && ord.price < quote.bid)) {
                     comment.append(ord.id.getString());
                     ord.executed = true;
-                    _positions->execute_trade(symbol, ord.size, quote.ask, get_executor(_client, comment));
+                    Executor exec;
+                    _positions->execute_trade(symbol, ord.size, quote.ask, exec);
+                    try {
+                        exec.flush(_client,symbol, comment);
+                    } catch (const std::exception &e) {
+                        ord.last_exec_error = e.what();
+                    }
             }
             if (ord.size < 0) {
                 ticker.ask = std::min(ticker.ask, ord.price);

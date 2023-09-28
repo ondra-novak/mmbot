@@ -63,12 +63,13 @@ bool XTBClient::data_input(WsInstance::EventType event, json::Value data) {
         case WsInstance::EventType::connect:
             if (_credents.has_value()) {
                 this->operator ()("login", _credents->toJson()) >> [this](const Result &res) {
-                    std::lock_guard _(_mx);
                     if (is_error(res)) {
+                        std::lock_guard _(_mx);
                         _credents->loginCB(res);
                         _credents.reset();
                     } else {
                         on_login(get_result(res));
+                        std::lock_guard _(_mx);
                         _credents->loginCB(res);
                     }
                 };

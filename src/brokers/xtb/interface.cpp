@@ -50,7 +50,7 @@ static XTBInterface::BrokerInfo broker_info = {
 "VFE0wbbxZcGcAn63udgX2oQJ2XGfCSdTfuUJbXPbjMTSNchdGWS2tg2DM6zIAK5nSo6I1F/J7430"
 "KGwvbpKbKzhS3w4m6d25sX9mSg2G/SU72d4BDcS3rJw7CfB+AGg0kausBHrBsMrHs4BPIBjUM5AC"
 "KIACKIACKEA7AAcFDAfT7/4H+hGWPy5EUJYAAAAASUVORK5CYII=",
-false,true,false,false};
+true,true,false,false};
 
 
 
@@ -417,4 +417,33 @@ void XTBInterface::update_equity() {
     json::Value v = XTBClient::get_result(res);
     _base_currency = v["currency"].getString();
     _equity = v["equity"].getNumber();
+}
+
+json::Value XTBInterface::setSettings(json::Value v) {
+    restoreSettings(v);
+    return v;
+}
+
+void XTBInterface::restoreSettings(json::Value v) {
+    test_login();
+    _position_control->set_close_ordering(static_cast<CloseOrdering>(v["close_ordering"].getUInt()));
+}
+
+json::Value XTBInterface::getSettings(const std::string_view &pairHint) const {
+    test_login();
+    std::string v = std::to_string(static_cast<int>(_position_control->get_close_ordering()));
+    return {
+        json::Object({
+            {"name","close_ordering"},
+            {"label","Order of closing trades"},
+            {"type","enum"},
+            {"default", v},
+            {"options",json::Object{
+                {"0","Fifo"},
+                {"1","Small trades first"},
+                {"2","Profit trades first"},
+                {"3","Losing trades first"},
+            }}
+        }),
+    };
 }
