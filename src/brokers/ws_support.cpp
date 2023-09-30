@@ -51,7 +51,6 @@ void WsInstance::worker(std::promise<std::exception_ptr> *start_p) {
             for (json::Value x: generate_headers()) {
                 hdrs(x.getKey(), x.getString());
             }
-            std::this_thread::sleep_until(next_reconnect);
             next_reconnect = std::chrono::system_clock::now() + std::chrono::seconds(5);
             _ws = simpleServer::connectWebSocket(_client, _wsurl, std::move(hdrs));
             _ws->getStream()->setIOTimeout(15000);
@@ -109,13 +108,14 @@ void WsInstance::worker(std::promise<std::exception_ptr> *start_p) {
                 return;
             }
             broadcast(EventType::exception, e.what());
-            if (lk.owns_lock()) {
-                lk.unlock(); //unlock temporalily
+            if (!lk.owns_lock()) {
+                lk.lock();
             }
-            lk.lock();
         }
-
-
+        _ws = nullptr;
+        lk.unlock();
+        std::this_thread::sleep_until(next_reconnect);
+        lk.lock();
     }
 }
 
@@ -123,7 +123,7 @@ void WsInstance::worker(std::promise<std::exception_ptr> *start_p) {
 void WsInstance::close_lk(std::unique_lock<std::recursive_mutex> &lk) {
     if (_running) {
        _running = false;
-       _ws->close();
+       if (_ws) _ws->close();
        lk.unlock();
        _thr.join();
     }
@@ -137,7 +137,13 @@ WsInstance::~WsInstance() {
 void WsInstance::send(json::Value v) {
     std::unique_lock lk(_mx);
     ensure_start(lk);
-    _ws->postText(v.stringify().str());
+    if (lk.owns_lock()) {
+        if (_ws) {
+            _ws->postText(v.stringify().str());
+        } else {
+            throw std::runtime_error("Send failed - connection lost");
+        }
+    }
 }
 
 

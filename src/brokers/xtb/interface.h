@@ -57,14 +57,20 @@ protected:
     std::shared_ptr<PositionControl> _position_control;
     std::vector<PositionControl::Trade> _trades, _trades_tmp;
 
+    std::string _userid;
+    std::string _password;
+    std::string _sname;
+    CloseOrdering _current_close_ordering;
+
     double _equity;
     std::string _base_currency;
     bool _is_demo;
 
     void stop_client();
-    bool logged_in() const;
-    void test_login() const;
+//    bool logged_in() ;
+    void ensure_logged_in(bool skip_update_assets = false) ;
     void update_equity();
+    bool on_login();
 };
 
 

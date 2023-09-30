@@ -109,13 +109,17 @@ bool XTBStreaming::data_input(WsInstance::EventType event, json::Value data) {
 }
 
 void XTBStreaming::reconnect() {
-    std::lock_guard _(_mx);
-    _ping_expire = std::chrono::system_clock::now()+std::chrono::minutes(6);
-    for (const auto &[symbol, lst]: _quote_submap) {
-        subscribe_symbol_quotes(symbol);
+    try {
+        std::lock_guard _(_mx);
+        _ping_expire = std::chrono::system_clock::now()+std::chrono::minutes(6);
+        for (const auto &[symbol, lst]: _quote_submap) {
+            subscribe_symbol_quotes(symbol);
+        }
+        if (!_trade_submap.empty()) subscribe_trades();
+        if (!_tradeStatus_submap.empty()) subscribe_tradeStatus();
+    } catch (...) {
+        //can't handle connection errors here, so ignore
     }
-    if (!_trade_submap.empty()) subscribe_trades();
-    if (!_tradeStatus_submap.empty()) subscribe_tradeStatus();
 }
 
 XTBStreaming::TradeSubscription XTBStreaming::subscribe_trades( StreamCallback<Position> cb) {

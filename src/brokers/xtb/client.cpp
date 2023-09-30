@@ -62,23 +62,26 @@ bool XTBClient::data_input(WsInstance::EventType event, json::Value data) {
     switch (event) {
         case WsInstance::EventType::connect:
             if (_credents.has_value()) {
-                this->operator ()("login", _credents->toJson()) >> [this](const Result &res) {
-                    if (is_error(res)) {
-                        std::lock_guard _(_mx);
-                        _credents->loginCB(res);
-                        _credents.reset();
-                    } else {
-                        on_login(get_result(res));
-                        std::lock_guard _(_mx);
-                        _credents->loginCB(res);
-                    }
-                };
+                try {
+                    this->operator ()("login", _credents->toJson()) >> [this](const Result &res) {
+                        if (is_error(res)) {
+                            std::lock_guard _(_mx);
+                            _credents->loginCB(res);
+                            _credents.reset();
+                        } else {
+                            on_login(get_result(res));
+                            std::lock_guard _(_mx);
+                            _credents->loginCB(res);
+                        }
+                    };
+                } catch (...) {}
             }
             break;
         case WsInstance::EventType::disconnect:
             reject_all(error_disconnect);
             break;
         case WsInstance::EventType::exception:
+            reject_all(error_disconnect);
             try {
                 throw;
             } catch (const std::exception &e) {
@@ -167,11 +170,15 @@ void XTBClient::send_command(const std::string &command, const json::Value &args
         ++_counter;
         _requests.emplace(tag, std::move(cb));
     }
-    _wscntr.send(json::Object{
-        {"command", command},
-        {"arguments", args},
-        {"customTag", tag}
-    });
+    try {
+        _wscntr.send(json::Object{
+            {"command", command},
+            {"arguments", args},
+            {"customTag", tag}
+        });
+    } catch (...) {
+        reject_all(error_disconnect);
+    }
 }
 
 void XTBClient::set_logger(Logger logger) {

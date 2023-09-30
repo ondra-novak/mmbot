@@ -113,43 +113,43 @@ void XTBInterface::stop_client() {
     _client.reset();
 }
 
-void XTBInterface::onLoadApiKey(json::Value keyData) {
-    std::string userid = keyData["userid"].getString();
-    std::string password = keyData["password"].getString();
-    std::string sname = keyData["server"].getString();
+bool XTBInterface::on_login() {
+    if (_userid.empty() || _password.empty() || _sname.empty()) return false;
     auto iter = std::find_if(std::begin(server_ports), std::end(server_ports),[&](const ServerInfo &server){
-        return server.name == sname;
+        return server.name == _sname;
     });
-    if (iter == std::end(server_ports)) return;
+    if (iter == std::end(server_ports)) return false;
+
     auto client = std::make_unique<XTBClient>(_httpc, iter->control_url, iter->stream_url);
     if (!client->login(XTBClient::Credentials{
-        userid, password, std::string("mmbot"), [](const auto &...){}
+        _userid, _password, std::string("mmbot"), [](const auto &...){}
     }, true)) {
         throw std::runtime_error("Invalid credentials (login failed)");
     }
 
-    stop_client();
     _client = std::move(client);
 
-    _client->set_logger([&](XTBClient::LogEventType log_ev, WsInstance::EventType ev, const json::Value &v){
-        std::string_view evtype;
-        std::string_view action;
-        switch (log_ev) {
-            case XTBClient::LogEventType::command: evtype = "command";break;
-            case XTBClient::LogEventType::result: evtype = "response";break;
-            case XTBClient::LogEventType::stream_request: evtype = "stream_request";break;
-            case XTBClient::LogEventType::stream_data: evtype = "stream_data";break;
-            default: break;
-        }
-        switch(ev) {
-            case WsInstance::EventType::connect: action = "connect";break;
-            case WsInstance::EventType::disconnect: action = "disconnect";break;
-            case WsInstance::EventType::data: action = "data";break;
-            case WsInstance::EventType::exception: action = "exception";break;
-            default: break;
-        }
-        logDebug("$1/$2: $3", evtype, action, v.toString().substr(0, 1000));
-    });
+    if (this->debug_mode) {
+        _client->set_logger([&](XTBClient::LogEventType log_ev, WsInstance::EventType ev, const json::Value &v){
+            std::string_view evtype;
+            std::string_view action;
+            switch (log_ev) {
+                case XTBClient::LogEventType::command: evtype = "command";break;
+                case XTBClient::LogEventType::result: evtype = "response";break;
+                case XTBClient::LogEventType::stream_request: evtype = "stream_request";break;
+                case XTBClient::LogEventType::stream_data: evtype = "stream_data";break;
+                default: break;
+            }
+            switch(ev) {
+                case WsInstance::EventType::connect: action = "connect";break;
+                case WsInstance::EventType::disconnect: action = "disconnect";break;
+                case WsInstance::EventType::data: action = "data";break;
+                case WsInstance::EventType::exception: action = "exception";break;
+                default: break;
+            }
+            logDebug("$1/$2: $3", evtype, action, v.toString().substr(0, 1000));
+        });
+    }
 
 
     _is_demo = iter->demo;
@@ -157,29 +157,42 @@ void XTBInterface::onLoadApiKey(json::Value keyData) {
     _position_control = PositionControl::subscribe(*_client, [this](auto &&...){});
     _rates = std::make_unique<RatioTable>();
     _orderbook = std::make_unique<XTBOrderbookEmulator>(*_client, _position_control);
+    _position_control->set_close_ordering(_current_close_ordering);
     update_equity();
-}
-
-bool XTBInterface::logged_in() const {
-    return _client != nullptr;
-}
-
-bool XTBInterface::reset() {
-    test_login();
-    update_equity();
-    _position_control->refresh(*_client);
     return true;
 }
 
-void XTBInterface::test_login() const {
-    if (!_client) throw std::runtime_error("Not logged (API key is not set)");
-    if (_assets->empty()) {
+void XTBInterface::onLoadApiKey(json::Value keyData) {
+    _userid = keyData["userid"].getString();
+    _password = keyData["password"].getString();
+    _sname = keyData["server"].getString();
+    stop_client();
+}
+
+
+bool XTBInterface::reset() {
+    try {
+        ensure_logged_in();
+        update_equity();
+        _position_control->refresh(*_client);
+        return true;
+    } catch (std::exception &e) {
+        ondra_shared::logError("RESET: $1", e.what());
+        return true;
+    }
+}
+
+void XTBInterface::ensure_logged_in(bool skip_update_assets) {
+    if (!_client) {
+        if (!on_login()) throw std::runtime_error("Operation need valid API key");
+    }
+    if (!skip_update_assets && _assets->empty()) {
         _assets->update(*_client, _is_demo);
     }
 }
 
 std::vector<std::string> XTBInterface::getAllPairs() {
-    test_login();
+    ensure_logged_in();
     _assets->update(*_client,_is_demo);
     auto symbols =_assets->get_all_symbols();
     std::vector<std::string> res;
@@ -192,7 +205,7 @@ std::vector<std::string> XTBInterface::getAllPairs() {
 
 
 IStockApi::MarketInfo XTBInterface::getMarketInfo(const std::string_view &pair) {
-    test_login();
+    ensure_logged_in();
     return _assets->update_symbol(*_client, std::string(pair), _is_demo);
 }
 
@@ -202,12 +215,12 @@ AbstractBrokerAPI* XTBInterface::createSubaccount(const std::string &secure_stor
 }
 
 XTBInterface::BrokerInfo XTBInterface::getBrokerInfo() {
-    broker_info.trading_enabled = logged_in();
+    broker_info.trading_enabled = !_userid.empty() && !_password.empty() && !_sname.empty();
     return broker_info;
 }
 
 double XTBInterface::getBalance(const std::string_view &symb, const std::string_view &pair) {
-    test_login();
+    ensure_logged_in();
     std::string symbol(pair);
     auto sinfo = _assets->get(symbol);
     if (!sinfo.has_value()) return 0.0;
@@ -221,7 +234,7 @@ double XTBInterface::getBalance(const std::string_view &symb, const std::string_
 }
 
 IStockApi::TradesSync XTBInterface::syncTrades(json::Value lastId, const std::string_view &pair) {
-    test_login();
+    ensure_logged_in();
     TradeHistory thist;
     std::string symbol(pair);
     auto sinfo = _assets->get(symbol);
@@ -250,7 +263,7 @@ IStockApi::TradesSync XTBInterface::syncTrades(json::Value lastId, const std::st
 void XTBInterface::onInit() {}
 
 IStockApi::Orders XTBInterface::getOpenOrders(const std::string_view &par) {
-    test_login();
+    ensure_logged_in();
     std::string symbol(par);
     auto sinfo = _assets->get(symbol);
     if (!sinfo.has_value()) return {};
@@ -265,7 +278,7 @@ IStockApi::Orders XTBInterface::getOpenOrders(const std::string_view &par) {
 json::Value XTBInterface::placeOrder(const std::string_view &pair, double size,
         double price, json::Value clientId, json::Value replaceId,
         double replaceSize) {
-    test_login();
+    ensure_logged_in();
     std::string symbol(pair);
     auto info = _assets->get(symbol);
     if (!info.has_value()) throw std::runtime_error("Unknown symbol");
@@ -278,7 +291,7 @@ double XTBInterface::getFees(const std::string_view &) {
 }
 
 IStockApi::Ticker XTBInterface::getTicker(const std::string_view &piar) {
-    test_login();
+    ensure_logged_in();
     return _orderbook->get_ticker(std::string(piar));
 }
 
@@ -303,7 +316,7 @@ static json::Value treeToObject(const std::map<std::string, Y> &tree) {
 }
 
 json::Value XTBInterface::getMarkets() const {
-    if (!logged_in()) return {};
+    const_cast<XTBInterface *>(this)->ensure_logged_in(true);
     std::map<std::string, std::map<std::string, std::map<std::string, std::map<std::string, std::string> > > >tree;
     _assets->update(*_client, _is_demo);
     auto symbs = _assets->get_all_symbols();
@@ -329,7 +342,7 @@ json::Value XTBInterface::getMarkets() const {
 }
 
 XTBInterface::AllWallets XTBInterface::getWallet() {
-    test_login();
+    ensure_logged_in();
     return {
         {"equity",{
                 {_base_currency, _equity}}
@@ -338,7 +351,7 @@ XTBInterface::AllWallets XTBInterface::getWallet() {
 }
 
 bool XTBInterface::areMinuteDataAvailable(const std::string_view &asset,const std::string_view &currency) {
-    test_login();
+    ensure_logged_in();
     auto f = _assets->find_combination(asset, currency);
     return f.has_value();
 }
@@ -347,7 +360,7 @@ uint64_t XTBInterface::downloadMinuteData(const std::string_view &asset,
         const std::string_view &currency, const std::string_view &hint_pair,
         uint64_t time_from, uint64_t time_to,
         IHistoryDataSource::HistData &data) {
-    test_login();
+    ensure_logged_in();
     std::string symbol(hint_pair);
     auto sinfo = _assets->get(symbol);
     if (!sinfo.has_value()) {
@@ -408,7 +421,7 @@ uint64_t XTBInterface::downloadMinuteData(const std::string_view &asset,
 }
 
 void XTBInterface::probeKeys() {
-    //no probing is needed
+    ensure_logged_in(true);
 }
 
 void XTBInterface::update_equity() {
@@ -425,13 +438,12 @@ json::Value XTBInterface::setSettings(json::Value v) {
 }
 
 void XTBInterface::restoreSettings(json::Value v) {
-    test_login();
-    _position_control->set_close_ordering(static_cast<CloseOrdering>(v["close_ordering"].getUInt()));
+    _current_close_ordering = static_cast<CloseOrdering>(v["close_ordering"].getUInt());
+    if (_position_control) _position_control->set_close_ordering(_current_close_ordering);
 }
 
 json::Value XTBInterface::getSettings(const std::string_view &pairHint) const {
-    test_login();
-    std::string v = std::to_string(static_cast<int>(_position_control->get_close_ordering()));
+    std::string v = std::to_string(static_cast<int>(_current_close_ordering));
     return {
         json::Object({
             {"name","close_ordering"},
