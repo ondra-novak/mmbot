@@ -859,13 +859,14 @@ MTrader::Status MTrader::getMarketStatus() const {
 	res.brokerAssetBalance= stock->getBalance(minfo.asset_symbol, cfg.pairsymb);
 	res.brokerCurrencyBalance = stock->getBalance(minfo.currency_symbol, cfg.pairsymb);
 	res.currencyUnadjustedBalance = *res.brokerCurrencyBalance + wcfg.externalBalance.lock_shared()->get(cfg.broker, minfo.wallet_id, minfo.currency_symbol);
-	res.assetUnadjustedBalance = *res.brokerAssetBalance +  wcfg.externalBalance.lock_shared()->get(cfg.broker, minfo.wallet_id, minfo.asset_symbol);
 	auto wdb = wcfg.walletDB.lock_shared();
 	if (minfo.leverage == 0) {
+	    res.assetUnadjustedBalance = *res.brokerAssetBalance +  wcfg.externalBalance.lock_shared()->get(cfg.broker, minfo.wallet_id, minfo.asset_symbol);
 		res.assetBalance = wdb->adjAssets(WalletDB::KeyQuery(cfg.broker,minfo.wallet_id,minfo.asset_symbol,uid),res.assetUnadjustedBalance);
 		res.assetAvailBalance = wdb->adjAssets(WalletDB::KeyQuery(cfg.broker,minfo.wallet_id,minfo.asset_symbol,uid),*res.brokerAssetBalance);
 	} else {
-		res.assetBalance = res.assetUnadjustedBalance;
+	    res.assetUnadjustedBalance = *res.brokerAssetBalance;
+		res.assetBalance = *res.brokerAssetBalance;
 		res.assetAvailBalance = res.assetBalance;
 	}
 	res.currencyBalance = wdb->adjBalance(WalletDB::KeyQuery(cfg.broker,minfo.wallet_id,minfo.currency_symbol,uid),	res.currencyUnadjustedBalance);
@@ -1466,6 +1467,9 @@ void MTrader::reset(const ResetOptions &ropt) {
 	double assets;
 	if (position_valid && !trades.empty()) {
 		assets = position;
+	} else if (minfo.leverage){
+	    position = assets = stock->getBalance(minfo.asset_symbol, cfg.pairsymb);
+	    accumulated = 0;
 	} else {
 		position = assets = wcfg.walletDB.lock_shared()->adjBalance(getWalletAssetKey(), status.assetUnadjustedBalance)-accumulated;
 		accumulated = 0;

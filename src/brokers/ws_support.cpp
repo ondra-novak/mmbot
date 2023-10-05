@@ -6,7 +6,7 @@
 WsInstance::WsInstance(simpleServer::HttpClient &client, std::string wsurl)
 :_client(client), _wsurl(wsurl)
 {
-    
+
 }
 
 void WsInstance::regHandler(Handler &&h) {
@@ -25,37 +25,55 @@ void WsInstance::regMonitor(Handler &&h) {
 }
 
 void process_message(std::string_view msg);
+
+
+void WsInstance::on_ping() {
+    _ws->ping({});
+}
+
+void WsInstance::on_connect() {
+    broadcast(EventType::connect, json::Value());
+
+}
+void WsInstance::on_disconnect() {
+    broadcast(EventType::disconnect, json::Value());
+}
+
 void WsInstance::worker(std::promise<std::exception_ptr> *start_p) {
     using simpleServer::WSFrameType;
 
     std::unique_lock lk(_mx);
+    auto next_reconnect = std::chrono::system_clock::now();
     while (_running) {
-        
+
         try {
             simpleServer::SendHeaders hdrs;
             for (json::Value x: generate_headers()) {
                 hdrs(x.getKey(), x.getString());
             }
+            next_reconnect = std::chrono::system_clock::now() + std::chrono::seconds(5);
             _ws = simpleServer::connectWebSocket(_client, _wsurl, std::move(hdrs));
-            _ws->getStream()->setIOTimeout(15000);                
+            _ws->getStream()->setIOTimeout(15000);
             if (start_p) {
                 start_p->set_value(nullptr);
                 start_p = nullptr;
             }
-            broadcast(EventType::connect, json::Value());
+            on_connect();
             bool cont = true;
             bool pinged = false;
             lk.unlock();
             while (_running && cont) {
+                cont = false;
+                bool cycle = true;
                 try {
-                    while (_running && cont && _ws->read()) {
+                    while (_running && cycle &&_ws->read()) {
                         std::unique_lock lk2(_mx);
                         switch (_ws.getFrameType()) {
                         default:
                         case WSFrameType::binary: break;
                         case WSFrameType::incomplete:break;
-                        case WSFrameType::connClose: 
-                            cont = false;
+                        case WSFrameType::connClose:
+                            cycle = false;
                         break;
                         case WSFrameType::text: process_message(_ws.getText());
                                                 break;
@@ -66,17 +84,22 @@ void WsInstance::worker(std::promise<std::exception_ptr> *start_p) {
                     if (_handlers.empty()) {
                         _running = false;
                         _thr.detach();
+                    } else {
+                        if (pinged) {
+                            cont = false;
+                        } else {
+                            pinged = true;
+                            on_ping();
+                            cont = true;
+                            continue;
+                        }
                     }
-                    if (pinged) cont = false;
-                    pinged = true;
-                    _ws->ping({});
-                    continue;                        
                 }
             }
             pinged = false;
             lk.lock();
 
-            broadcast(EventType::disconnect, json::Value());
+            on_disconnect();
         } catch (std::exception &e) {
             _ws = nullptr;
             if (start_p) {
@@ -85,14 +108,14 @@ void WsInstance::worker(std::promise<std::exception_ptr> *start_p) {
                 return;
             }
             broadcast(EventType::exception, e.what());
-            if (lk.owns_lock()) {
-                lk.unlock(); //unlock temporalily
+            if (!lk.owns_lock()) {
+                lk.lock();
             }
-            std::this_thread::sleep_for(std::chrono::seconds(5));
-            lk.lock();
         }
-        
-        
+        _ws = nullptr;
+        lk.unlock();
+        std::this_thread::sleep_until(next_reconnect);
+        lk.lock();
     }
 }
 
@@ -100,10 +123,10 @@ void WsInstance::worker(std::promise<std::exception_ptr> *start_p) {
 void WsInstance::close_lk(std::unique_lock<std::recursive_mutex> &lk) {
     if (_running) {
        _running = false;
-       _ws->close();
+       if (_ws) _ws->close();
        lk.unlock();
        _thr.join();
-    }    
+    }
 }
 
 WsInstance::~WsInstance() {
@@ -114,7 +137,13 @@ WsInstance::~WsInstance() {
 void WsInstance::send(json::Value v) {
     std::unique_lock lk(_mx);
     ensure_start(lk);
-    _ws->postText(v.stringify().str());
+    if (lk.owns_lock()) {
+        if (_ws) {
+            _ws->postText(v.stringify().str());
+        } else {
+            throw std::runtime_error("Send failed - connection lost");
+        }
+    }
 }
 
 
@@ -135,7 +164,7 @@ void WsInstance::ensure_start(std::unique_lock<std::recursive_mutex> &lk) {
     }
 }
 
-void WsInstance::broadcast(EventType ok, json::Value data) {
+void WsInstance::broadcast(EventType ok, const json::Value &data) {
     _monitors.erase(std::remove_if(_monitors.begin(), _monitors.end(), [&](const Handler &h){
         return !h(ok, data);
     }),_monitors.end());
