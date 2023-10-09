@@ -49,6 +49,7 @@ void PositionControl::on_open(const Position &pos) {
                 0,
                 std::chrono::system_clock::now()
             });
+            ++_trade_counter;
         }
     } else {
         if (pos.state == Position::State::Deleted) {
@@ -102,6 +103,7 @@ void PositionControl::on_close(const Position &pos) {
             pos.commission,
             std::chrono::system_clock::now(),
         });
+        ++_trade_counter;
     }
 
 }
@@ -158,4 +160,32 @@ std::vector<std::pair<std::string, ACB> > PositionControl::getPositionSummary() 
         out.push_back({symbol, aggregate_position(poslist)});
     }
     return out;
+}
+
+unsigned int PositionControl::get_trade_counter() const {
+    return _trade_counter;
+}
+
+bool PositionControl::check_consistency(const PositionControl &backup, unsigned int &trade_counter) const {
+    std::lock_guard _(_mx);
+    if (_trade_counter != trade_counter) {
+        trade_counter = _trade_counter;
+        return true;
+    }
+    auto sum1 = getPositionSummary();
+    auto sum2 = backup.getPositionSummary();
+    if (sum1.size() != sum2.size()) return false;
+    std::sort(sum1.begin(), sum1.end(),[](const auto &a, const auto &b) {return a.first < b.first;});
+    std::sort(sum2.begin(), sum2.end(),[](const auto &a, const auto &b) {return a.first < b.first;});
+    for (std::size_t i = 0, cnt = sum1.size(); i < cnt; ++i) {
+        if (sum1[i].first != sum2[i].first || !similar(sum1[i].second.getPos(), sum2[i].second.getPos())) return false;
+    }
+    return true;
+
+
+}
+
+void PositionControl::update_from_backup(const PositionControl &backup)  {
+    std::lock_guard _(_mx);
+    _symbol_pos_map = backup._symbol_pos_map;
 }

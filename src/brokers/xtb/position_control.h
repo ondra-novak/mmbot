@@ -57,15 +57,20 @@ public:
         return _close_ordering ;
     }
 
-
     template<typename CB>
     void execute_trade(const std::string &symbol, double size, double price_hint,  CB &&cb_CMD);
 
+    unsigned int get_trade_counter() const;
+
+    bool check_consistency(const PositionControl &backup, unsigned int &trade_counter) const;
+
+    void update_from_backup(const PositionControl &backup) ;
 
     void refresh(XTBClient &client);
 
 protected:
 
+    unsigned int _trade_counter;
 
     using OpenPosition = std::vector<Position>;
     using SymbolPosMap = std::unordered_map<std::string, OpenPosition>;

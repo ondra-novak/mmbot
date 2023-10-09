@@ -55,6 +55,7 @@ protected:
     std::unique_ptr<RatioTable> _rates;
     std::unique_ptr<XTBAssets> _assets;
     std::shared_ptr<PositionControl> _position_control;
+    std::shared_ptr<PositionControl> _position_control_backup;
     std::vector<PositionControl::Trade> _trades, _trades_tmp;
 
     std::string _userid;
@@ -65,6 +66,11 @@ protected:
     double _equity;
     std::string _base_currency;
     bool _is_demo;
+    //global trade counter - can detect reported trades, which can postpone check position consistency
+    //if there is trade between resets, check is not performed to avoid race conditions
+    unsigned int _trade_counter = 0;
+    //is true, if previous check failed, so next time, position state will be updated from the backup
+    bool _position_inconsistent = false;
 
     void stop_client();
 //    bool logged_in() ;

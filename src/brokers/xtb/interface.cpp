@@ -4,6 +4,8 @@
 #include "interface.h"
 
 using ondra_shared::logDebug;
+using ondra_shared::logError;
+using ondra_shared::logWarning;
 
 static XTBInterface::BrokerInfo broker_info = {
         false,
@@ -107,6 +109,7 @@ static ServerInfo server_ports[] = {
 
 void XTBInterface::stop_client() {
     _position_control.reset();
+    _position_control_backup.reset();
     _assets.reset();
     _rates.reset();
     _orderbook.reset();
@@ -155,9 +158,12 @@ bool XTBInterface::on_login() {
     _is_demo = iter->demo;
     _assets = std::make_unique<XTBAssets>();
     _position_control = PositionControl::subscribe(*_client, [this](auto &&...){});
+    _position_control_backup = std::make_shared<PositionControl>();
     _rates = std::make_unique<RatioTable>();
     _orderbook = std::make_unique<XTBOrderbookEmulator>(*_client, _position_control);
     _position_control->set_close_ordering(_current_close_ordering);
+    _trade_counter  = _position_control->get_trade_counter();
+    _position_inconsistent = false;
     update_equity();
     return true;
 }
@@ -174,7 +180,30 @@ bool XTBInterface::reset() {
     try {
         ensure_logged_in();
         update_equity();
-        _position_control->refresh(*_client);
+        //refresh position into backup
+        _position_control_backup->refresh(*_client);
+        //check consistency with backup and trade counter
+        if (!_position_control->check_consistency(*_position_control_backup, _trade_counter)) {
+            //if position is not consistent
+            //previous check was also not ok?
+            if (_position_inconsistent) {
+                //update from fresh data
+                logError("Position inconsistency reported - update from backup");
+                _position_control->update_from_backup(*_position_control_backup);
+                //clear state
+                _position_inconsistent = false;
+            } else {
+                logWarning("Position inconsistency reported - first time ");
+                //mark position inconsistent now
+                _position_inconsistent = true;
+            }
+        } else {
+            if (_position_inconsistent) {
+                logWarning("Position inconsistency fixed this time");
+            }
+            //clear state, position is consistent
+            _position_inconsistent = false;
+        }
         return true;
     } catch (std::exception &e) {
         ondra_shared::logError("RESET: $1", e.what());
