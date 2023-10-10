@@ -360,7 +360,7 @@ std::pair<IStrategy::OnTradeResult, PStrategy> Strategy_Sinh_Gen::onTrade(
 	if (!isValid()) return init(minfo, tradePrice, assetsLeft, currencyLeft)
 				->onTrade(minfo, tradePrice, tradeSize, assetsLeft, currencyLeft);
 
-    if (tradeSize == 0 && st.p2 && (assetsLeft * (st.p2 - tradePrice) > 0)) {
+    if (tradeSize == 0 && !st.at_zero && st.p2 && (assetsLeft * (st.p2 - tradePrice) > 0)) {
         State nwst = st;
         nwst.p2 = tradePrice;
         nwst.use_last_price = true;
@@ -378,7 +378,9 @@ std::pair<IStrategy::OnTradeResult, PStrategy> Strategy_Sinh_Gen::onTrade(
         npinfo.newpos = 0;
     }
     if (tradeSize == 0 && st.at_zero) {
-        npinfo.newk = st.k;
+        double dff = tradePrice - st.p;
+        if (!cfg.disableSide * dff >= 0) return {{0,0,st.k,0}, this};
+
     }
 
 	double newbudget = calcPileBudget(cfg.ratio, npinfo.pilekmul, tradePrice);
