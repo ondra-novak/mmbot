@@ -140,14 +140,19 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 					if (neg_bal) {
 						bt.event = BTEvent::no_balance;
 					} else {
-						if (cfg.accept_loss) {
-							s.reset();
-							s.onIdle(minfo, tk, pos, adjbal);
-							bt.event = BTEvent::accept_loss;
-						}
-						order.size = 0;
-						orgsize = 0; //allow alert this time
-						chg = 0;
+					    order.size = balance / order.price;
+					    order.size = minfo.adjValue(order.size, minfo.asset_step, [&](double x){return std::floor(x);});
+					    if (order.size < minsize) {
+					        bt.event = BTEvent::no_balance;
+					        order.size = 0;
+	                        orgsize = 0; //allow alert this time
+                            if (cfg.accept_loss) {
+                                s.reset();
+                                s.onIdle(minfo, tk, pos, adjbal);
+                                bt.event = BTEvent::accept_loss;
+                            }
+					    }
+                        chg = order.size*p;
 					}
 				}
 				balance -= chg;
