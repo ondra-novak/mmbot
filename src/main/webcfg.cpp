@@ -704,7 +704,7 @@ bool WebCfg::reqTraders(simpleServer::HTTPRequest req, ondra_shared::StrViewA vp
                     } else {
                         req.sendErrorPage(400,"","Expected boolean");
                     }
-				    
+
 				} else if (cmd == "stop") {
 					if (!req.allowMethods({"POST"})) return true;
 					trl->stop();
@@ -742,7 +742,7 @@ bool WebCfg::reqTraders(simpleServer::HTTPRequest req, ondra_shared::StrViewA vp
 				    auto minfo = trl->getMarketInfo();
 				    json::Value j = minfo.toJSON();
 				    j = j.replace("pair", trl->getConfig().pairsymb);
-                    req.sendResponse(std::move(hdr), j.stringify().str());                    
+                    req.sendResponse(std::move(hdr), j.stringify().str());
 				} else if (cmd == "trading") {
 					Object out;
 					auto chartx = trl->getChart();
@@ -900,6 +900,27 @@ void WebCfg::State::applyConfig(shared_lockable_ptr<Traders>  &st) {
 
 	t->initExternalAssets(data["ext_assets"]);
 
+    Value bc = data["brokers"];
+    broker_config = bc;
+
+    std::unordered_set<IBrokerControl *> restored_settings;
+
+	for (Value v: data["traders"]) {
+        MTrader_Config cfg;
+        cfg.loadConfig(v);
+        Value bcfg = bc[cfg.broker];
+        if (bcfg.hasValue()) {
+            PStockApi api = t->stockSelector.getStock(cfg.broker);
+            IBrokerControl *eapi = dynamic_cast<IBrokerControl *>(api.get());
+            if (eapi) {
+                if (restored_settings.find(eapi) == restored_settings.end()) {
+                    eapi->restoreSettings(bcfg);
+                    restored_settings.insert(eapi);
+                }
+            }
+        }
+	}
+
 	for (Value v: data["traders"]) {
 		try {
 			MTrader_Config cfg;
@@ -911,17 +932,6 @@ void WebCfg::State::applyConfig(shared_lockable_ptr<Traders>  &st) {
 		}
 	}
 
-	Value bc = data["brokers"];
-	broker_config = bc;
-	t->stockSelector.forEachStock([&](std::string_view name, const PStockApi &api) {
-		Value b = bc[name];
-		if (b.defined()) {
-			IBrokerControl *eapi = dynamic_cast<IBrokerControl *>(api.get());
-			if (eapi) {
-				eapi->restoreSettings(b);
-			}
-		}
-	});
 
 	Value newInterval = data["report_interval"];
 	if (newInterval.defined()) {
@@ -2378,7 +2388,7 @@ void WebCfg::DataDownloaderTask::operator()() {
 			return;
 		}
         cnt+=std::visit([](const auto &x){return x.size();},tmpVect);
-		datastack.push(std::move(tmpVect));		
+		datastack.push(std::move(tmpVect));
 		async.runAsync(std::move(*this));
 	} else {
 		done();
@@ -2412,7 +2422,7 @@ void WebCfg::DataDownloaderTask::done() {
         }, p);
         datastack.pop();
     }
-	
+
 	auto storage = state.lock_shared()->backtest_storage;
 	storage.lock()->store_data(out, dwnid);
 }
