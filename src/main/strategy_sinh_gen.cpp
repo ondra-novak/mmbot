@@ -379,7 +379,7 @@ std::pair<IStrategy::OnTradeResult, PStrategy> Strategy_Sinh_Gen::onTrade(
     }
     if (tradeSize == 0 && st.at_zero) {
         double dff = tradePrice - st.p;
-        if (!cfg.disableSide * dff >= 0) return {{0,0,st.k,0}, this};
+        if (cfg.disableSide * dff >= 0) return {{0,0,st.k,0}, this};
 
     }
 
