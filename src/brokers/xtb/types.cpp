@@ -22,7 +22,7 @@ Position Position::fromJSON(json::Value v, bool snapshot) {
     pos.position= v["position"].getUIntLong();
     pos.profit = v["profit"].getNumber();
     pos.sl= v["sl"].getNumber();
-    pos.state= v["state"].getString() == "Modified"?State::Modified:State::Deleted;
+    pos.state= v["state"].getString() == "Modified"?State::Modified:v["state"].getString() == "Deleted"?State::Deleted:State::NotSet;
     pos.storage = v["storage"].getNumber();
     pos.symbol= v["symbol"].getString();
     pos.tp = v["tp"].getNumber();

@@ -9,7 +9,7 @@ WsInstance::WsInstance(simpleServer::HttpClient &client, std::string wsurl)
 
 }
 
-void WsInstance::regHandler(Handler &&h) {
+void WsInstance::regHandler_2(PHandler &&h) {
     std::unique_lock lk(_mx);
     _handlers.push_back(std::move(h));
     try {
@@ -19,7 +19,7 @@ void WsInstance::regHandler(Handler &&h) {
         throw;
     }
 }
-void WsInstance::regMonitor(Handler &&h) {
+void WsInstance::regMonitor_2(PHandler &&h) {
     std::unique_lock lk(_mx);
     _monitors.push_back(std::move(h));
 }
@@ -31,12 +31,12 @@ void WsInstance::on_ping() {
     _ws->ping({});
 }
 
-void WsInstance::on_connect() {
-    broadcast(EventType::connect, json::Value());
+void WsInstance::on_connect(std::unique_lock<std::recursive_mutex> &lk) {
+    broadcast(EventType::connect, json::Value(), lk);
 
 }
-void WsInstance::on_disconnect() {
-    broadcast(EventType::disconnect, json::Value());
+void WsInstance::on_disconnect(std::unique_lock<std::recursive_mutex> &lk) {
+    broadcast(EventType::disconnect, json::Value(), lk);
 }
 
 void WsInstance::worker(std::promise<std::exception_ptr> *start_p) {
@@ -58,7 +58,7 @@ void WsInstance::worker(std::promise<std::exception_ptr> *start_p) {
                 start_p->set_value(nullptr);
                 start_p = nullptr;
             }
-            on_connect();
+            on_connect(lk);
             bool cont = true;
             bool pinged = false;
             lk.unlock();
@@ -75,7 +75,7 @@ void WsInstance::worker(std::promise<std::exception_ptr> *start_p) {
                         case WSFrameType::connClose:
                             cycle = false;
                         break;
-                        case WSFrameType::text: process_message(_ws.getText());
+                        case WSFrameType::text: process_message(_ws.getText(), lk2);
                                                 break;
                         }
                         pinged = false;
@@ -99,7 +99,7 @@ void WsInstance::worker(std::promise<std::exception_ptr> *start_p) {
             pinged = false;
             lk.lock();
 
-            on_disconnect();
+            on_disconnect(lk);
         } catch (std::exception &e) {
             _ws = nullptr;
             if (start_p) {
@@ -107,10 +107,10 @@ void WsInstance::worker(std::promise<std::exception_ptr> *start_p) {
                 _running = false;
                 return;
             }
-            broadcast(EventType::exception, e.what());
             if (!lk.owns_lock()) {
                 lk.lock();
             }
+            broadcast(EventType::exception, e.what(), lk);
         }
         _ws = nullptr;
         lk.unlock();
@@ -164,16 +164,27 @@ void WsInstance::ensure_start(std::unique_lock<std::recursive_mutex> &lk) {
     }
 }
 
-void WsInstance::broadcast(EventType ok, const json::Value &data) {
-    _monitors.erase(std::remove_if(_monitors.begin(), _monitors.end(), [&](const Handler &h){
-        return !h(ok, data);
-    }),_monitors.end());
-    _handlers.erase(std::remove_if(_handlers.begin(), _handlers.end(), [&](const Handler &h){
-        return !h(ok, data);
-    }),_handlers.end());
+void WsInstance::broadcast(EventType ok, const json::Value &data, std::unique_lock<std::recursive_mutex> &lk) {
+    _tmphandlers.clear();
+    _tmphandlers_erase.clear();
+    for (const auto &x: _monitors) _tmphandlers.push_back(x);
+    for (const auto &x: _handlers) _tmphandlers.push_back(x);
+    lk.unlock();
+    for (auto &x: _tmphandlers) {
+        if (!(x->run(ok, data))) _tmphandlers_erase.push_back(x);
+    }
+    lk.lock();
+    if (!_tmphandlers_erase.empty()) {
+        for (const auto &x: _tmphandlers_erase) {
+            auto iter = std::remove(_monitors.begin(), _monitors.end(), x);
+            _monitors.erase(iter, _monitors.end());
+            iter = std::remove(_handlers.begin(), _handlers.end(), x);
+            _handlers.erase(iter, _handlers.end());
+        }
+    }
 }
 
-void WsInstance::process_message(std::string_view msg) {
+void WsInstance::process_message(std::string_view msg, std::unique_lock<std::recursive_mutex> &lk) {
     json::Value v = json::Value::fromString(msg);
-    broadcast(EventType::data, v);
+    broadcast(EventType::data, v, lk);
 }

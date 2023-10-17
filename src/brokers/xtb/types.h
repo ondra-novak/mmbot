@@ -43,6 +43,7 @@ struct Position {
     };
 
     enum class State: unsigned char {
+        NotSet,
         Modified,
         Deleted,
     };

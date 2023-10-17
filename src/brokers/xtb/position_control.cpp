@@ -12,6 +12,14 @@ bool PositionControl::on_trades(const std::vector<Position> &trades) {
     if (trades.empty()) return false;
     std::lock_guard _(_mx);
     if (trades.front().snapshot) {
+        if (_is_refresh) {
+            _no_report_trades.clear();
+            for (const auto &[symb, poslist]: _symbol_pos_map) {
+                for (const auto &p: poslist) {
+                    _no_report_trades.emplace(p.order2);
+                }
+            }
+        }
         _symbol_pos_map.clear();
     }
     bool traded = false;
@@ -39,16 +47,19 @@ void PositionControl::on_open(const Position &pos) {
         return z.order2 == pos.order2;
     });
     if (iter == p.end()) {
-        p.push_back(pos);
-        if (!pos.snapshot && pos.state == Position::State::Modified) {
-            _trades.push({
-                pos.symbol,
-                gen_id(pos),
-                pos.open_price,
-                pos.volume*signByCmd(pos.cmd),
-                0,
-                std::chrono::system_clock::now()
-            });
+        if (pos.state != Position::State::Deleted) {
+            p.push_back(pos);
+            if ((_is_refresh && _no_report_trades.find(pos.order2) == _no_report_trades.end())
+                || !pos.snapshot) {
+                    _trades.push({
+                        pos.symbol,
+                        gen_id(pos),
+                        pos.open_price,
+                        pos.volume*signByCmd(pos.cmd),
+                        0,
+                        std::chrono::system_clock::now()
+                    });
+            }
         }
     } else {
         if (pos.state == Position::State::Deleted) {
@@ -122,6 +133,8 @@ double PositionControl::signByCmd(Position::Command cmd) {
 }
 
 void PositionControl::refresh(XTBClient &client) {
+    std::lock_guard _(_mx);
+    _is_refresh = true;
     client.refresh(_sub);
 }
 

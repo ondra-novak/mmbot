@@ -44,10 +44,10 @@ protected:
     std::chrono::system_clock::time_point _ping_expire;
     std::chrono::system_clock::time_point _block_expire;
 
-    virtual void broadcast(WsInstance::EventType event, const json::Value &data) override {
+    virtual void broadcast(WsInstance::EventType event, const json::Value &data, std::unique_lock<std::recursive_mutex> &lk) override {
         if (event == EventType::connect) update_interval();
         if (_logger) _logger(false, event, data);
-        WsInstance::broadcast(event, std::move(data));
+        WsInstance::broadcast(event, std::move(data), lk);
     }
 
     void update_interval() {

@@ -215,10 +215,12 @@ double Strategy_Sinh_Gen::calcNewK(double tradePrice, double cb, double pnl, int
 
     double newk = st.k;
 
-    if (bmode == 35) {
+    if (bmode == 35 || bmode == 36) {
         double nb = st.val;
         nb += pnl;
-        double profit = -st.budget * cfg.custom_spread * 0.01;
+        double spread = 1.0 - std::min(st.p, tradePrice) / std::max(st.p, tradePrice);
+        if (bmode == 35) spread = 0.01;
+        double profit = -st.budget * cfg.custom_spread * spread;
         if (pnl < 0) profit = 0;
         else if (st.k == st.p) profit*=0.5;
         nb += profit;

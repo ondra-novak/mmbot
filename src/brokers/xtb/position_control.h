@@ -8,6 +8,7 @@
 
 #include <queue>
 #include <memory>
+#include <unordered_set>
 
 enum class CloseOrdering {
     fifo = 0,
@@ -85,6 +86,8 @@ protected:
     std::vector<const Position *> _close_candidate;
 
     ACB aggregate_position(const OpenPosition &lst) const;
+    std::unordered_set<unsigned int> _no_report_trades;
+    bool _is_refresh = false;
 
 
     static auto position_profit(const Position &p, double price) {
