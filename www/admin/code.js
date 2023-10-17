@@ -785,7 +785,7 @@ App.prototype.fillForm = function (src, trg) {
 		data.shg_olt={value:src.strategy.openlimit>0?1:src.strategy.openlimit<0?-1:0};
 		data.shg_r = filledval(src.strategy.ratio,0);
 		data.shg_show_asym = {".hidden": src.strategy.disableSide != 0};		
-		data.shg_boost_custom_show = {".hidden": bm != 32 && bm != 33 && bm != 34 && bm != 35};
+		data.shg_boost_custom_show = {".hidden": bm != 32 && bm != 33 && bm != 34 && bm != 35 && bm != 36};
 	} else if (data.strategy == "pile") {
 		data.pile_accum = filledval(src.strategy.accum,0);
 		data.pile_ratio = filledval(src.strategy.ratio,0);
@@ -809,7 +809,7 @@ App.prototype.fillForm = function (src, trg) {
 		trg.showItem("shg_show_asym", this.value == "0");
 	};
     data.shg_boostmode["!change"] = function() {
-        trg.showItem("shg_boost_custom_show", this.value == "32" || this.value == "33" || this.value == "34"|| this.value == "35");
+        trg.showItem("shg_boost_custom_show", this.value == "32" || this.value == "33" || this.value == "34"|| this.value == "35"|| this.value == "36");
     };
 	function dcavalue_calc_profit_per_trade(d) {
         return (-0.120984/Math.log(1.0-d*0.01)).toFixed(3)+"%";
