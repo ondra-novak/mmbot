@@ -1405,6 +1405,37 @@ public:
 	}
 };
 
+
+auto initializeSpreadGenerator(json::Value args) {
+    Value sma = args["sma"];
+    Value stdev = args["stdev"];
+    Value force_spread = args["force_spread"];
+    Value mult = args["mult"];
+    Value dynmult_raise = args["raise"];
+    Value dynmult_fall = args["fall"];
+    Value dynmult_cap= args["cap"];
+    Value dynmult_mode = args["mode"];
+    Value dynmult_sliding = args["sliding"];
+    Value dynmult_mult = args["dyn_mult"];
+    Value spread_freeze = args["spread_freeze"];
+
+    return legacySpreadGen({
+        {
+            dynmult_raise.getValueOrDefault(1.0),
+            dynmult_fall.getValueOrDefault(1.0),
+            dynmult_cap.getValueOrDefault(100.0),
+            strDynmult_mode[dynmult_mode.getValueOrDefault("independent")],
+            dynmult_mult.getBool()
+        },
+        std::max(10U,static_cast<unsigned int>(sma.getNumber())*60),
+        std::max(10U,static_cast<unsigned int>(stdev.getNumber())*60),
+        force_spread.getNumber(),
+        mult.getNumber(),
+        dynmult_sliding.getBool(),
+        spread_freeze.getBool()
+    });
+}
+
 bool WebCfg::reqSpread(simpleServer::HTTPRequest req)  {
 	if (!req.allowMethods({"POST"})) return true;
 		req.readBodyAsync(50000,[trlist = this->trlist,state =  this->state](simpleServer::HTTPRequest req)mutable{
@@ -1413,67 +1444,55 @@ bool WebCfg::reqSpread(simpleServer::HTTPRequest req)  {
 			Value id = args["id"];
 			auto process = [=](const SpreadCacheItem &data) {
 
-
-				Value sma = args["sma"];
-				Value stdev = args["stdev"];
-				Value force_spread = args["force_spread"];
-				Value mult = args["mult"];
-				Value dynmult_raise = args["raise"];
-				Value dynmult_fall = args["fall"];
-				Value dynmult_cap= args["cap"];
-				Value dynmult_mode = args["mode"];
-				Value dynmult_sliding = args["sliding"];
-				Value dynmult_mult = args["dyn_mult"];
-				Value order2 = args["order2"];
-				Value spread_freeze = args["spread_freeze"];
-
-				auto fn = defaultSpreadFunction(sma.getNumber(), stdev.getNumber(), force_spread.getNumber());
-				VisSpread vs(fn, {
-						{
-								dynmult_raise.getValueOrDefault(1.0),
-								dynmult_fall.getValueOrDefault(1.0),
-								dynmult_cap.getValueOrDefault(100.0),
-								strDynmult_mode[dynmult_mode.getValueOrDefault("independent")],
-								dynmult_mult.getBool()
-						},
-						mult.getNumber(),
-						order2.getNumber(),
-						dynmult_sliding.getBool(),
-						spread_freeze.getBool()
-				});
-
-				json::Array chart;
-				for (const auto &d: data.chart) {
-					auto spinfo = vs.point(d.last);
-					if (spinfo.valid) {
-						double p = d.last;
-						if (data.invert_price) {
-							p = 1.0/p;
-							spinfo = VisSpread::Result{
-								true,1.0/spinfo.price,1.0/spinfo.high,1.0/spinfo.low,-spinfo.trade,1.0/spinfo.price2,-spinfo.trade2
-							};
-						}
-						chart.push_back(Value(json::object,{
-								Value("p",p),
-								Value("x",spinfo.price),
-								Value("l",spinfo.low),
-								Value("h",spinfo.high),
-								Value("s",spinfo.trade),
-								Value("t",d.time)
-						}));
-						if (spinfo.trade2) {
-							chart.push_back(Value(json::object,{
-									Value("p",p),
-									Value("x",spinfo.price2),
-									Value("l",spinfo.low),
-									Value("h",spinfo.high),
-									Value("s",spinfo.trade2),
-									Value("t",d.time)
-							}));
-						}
-					}
-				}
-
+			    auto fn = initializeSpreadGenerator(args);
+			    auto iter = data.chart.begin();
+			    auto iter_end = data.chart.end();
+			    json::Array chart;
+			    if (iter != iter_end) {
+			        double price = iter->last;
+                    double last_exec_price = price;
+			        auto state = fn->start();
+			        fn->point(state, iter->last, false);
+			        ++iter;
+			        while (iter != iter_end) {
+			            auto orders =  fn->get_result(state, last_exec_price);
+			            double price = iter->last;
+			            int side;
+			            json::Value vmin;
+			            json::Value vmax;
+			            if (orders.buy.has_value()) {
+			                vmin = data.invert_price?1.0 / *orders.sell:*orders.buy;
+			            }
+			            if (orders.sell.has_value()) {
+			                vmax = data.invert_price?1.0 / *orders.buy:*orders.sell;
+			            }
+			            if (orders.buy.has_value() && *orders.buy >= price) {
+			                last_exec_price = *orders.buy;
+			                side = 1;
+			            } else if (orders.sell.has_value() && *orders.sell <= price) {
+			                last_exec_price = *orders.sell;
+			                side =-1;
+			            } else {
+			                side = 0;
+			            }
+			            json::Value s = (data.invert_price?-1:1) * side;
+			            json::Value last = side?json::Value(data.invert_price?1.0/last_exec_price:last_exec_price):json::Value();
+			            if (side) {
+			                fn->point(state,last_exec_price, true);
+			            }
+			            json::Value p = data.invert_price?1.0/price:price;
+                        chart.push_back(json::Object{
+                            {"p",p},
+                            {"x",last},
+                            {"l",vmin},
+                            {"h",vmax},
+                            {"s",s},
+                            {"t",iter->time},
+                        });
+			            fn->point(state, price, false);
+			            ++iter;
+			        }
+			    }
 
 
 				Value out (json::object,{Value("chart",chart)});
@@ -1967,25 +1986,16 @@ bool WebCfg::reqBacktest_v2(simpleServer::HTTPRequest req, ondra_shared::StrView
 				}break;
 				case BTAction::gen_trades: {
 					Value source = args["source"];
-					Value sma = args["sma"];
-					Value stdev = args["stdev"];
-					Value force_spread = args["force_spread"];
-					Value mult = args["mult"];
-					Value dynmult_raise = args["raise"];
-					Value dynmult_fall = args["fall"];
-					Value dynmult_cap = args["cap"];
-					Value dynmult_mode = args["mode"];
-					Value dynmult_sliding = args["sliding"];
-					Value dynmult_mult = args["dyn_mult"];
+					auto fn = initializeSpreadGenerator(args);
 					Value reverse=args["reverse"];
 					Value invert=args["invert"];
 					Value ifutures=args["ifutures"];
-					Value order2 =args["order2"];
-					Value spread_freeze = args["spread_freeze"];
 					Value offset = args["offset"];
 					Value limit = args["limit"];
 					Value begin_time = args["begin_time"];
 					auto swap = args["swap"].getBool();
+
+					auto state = fn->start();
 
 					Value srcminute = storage.lock()->load_data(source.getString());
 					if (!srcminute.defined()) {
@@ -1993,20 +2003,6 @@ bool WebCfg::reqBacktest_v2(simpleServer::HTTPRequest req, ondra_shared::StrView
 						return;
 					}
 
-					auto fn = defaultSpreadFunction(sma.getNumber(), stdev.getNumber(), force_spread.getNumber());
-					VisSpread spreadCalc(fn,{
-						{
-								dynmult_raise.getValueOrDefault(1.0),
-								dynmult_fall.getValueOrDefault(1.0),
-								dynmult_cap.getValueOrDefault(100.0),
-								strDynmult_mode[dynmult_mode.getValueOrDefault("independent")],
-								dynmult_mult.getBool()
-						},
-						mult.getNumber(),
-						order2.getNumber(),
-						dynmult_sliding.getBool(),
-						spread_freeze.getBool()
-					});
 					if (reverse.getBool()) {
 						srcminute = srcminute.reverse();
 					}
@@ -2018,7 +2014,7 @@ bool WebCfg::reqBacktest_v2(simpleServer::HTTPRequest req, ondra_shared::StrView
 					std::uint64_t t = !begin_time.defined()?std::chrono::duration_cast<std::chrono::milliseconds>((std::chrono::system_clock::now() - std::chrono::minutes(srcminute.size())).time_since_epoch()).count()
 								:begin_time.getUIntLong();
 					BTPrice tmp;
-					BTPrice *last = &tmp;
+					BTPrice *last = nullptr;
 					std::size_t ofs = offset.getUInt();
 					std::size_t lim = std::min<std::size_t>(limit.defined()?limit.getUInt()+ofs:static_cast<std::size_t>(-1),srcminute.size());
 					for (std::size_t pos = ofs; pos < lim;++pos) {
@@ -2033,21 +2029,32 @@ bool WebCfg::reqBacktest_v2(simpleServer::HTTPRequest req, ondra_shared::StrView
 						if (ifut) {
 							v = 1.0/v;
 						}
-						auto res = spreadCalc.point(v);
-						if (res.trade && res.valid) {
-							double p = ifut?1.0/res.price:res.price;
+						if (!last) {
+						    last = &tmp;
+						    tmp = {t,v,v,v};
+						}
+						auto orders = fn->get_result(state, last->price);
+						bool exec = false;
+						double execp = 0;
+						if (orders.buy.has_value() && *orders.buy > v) {
+						    execp = *orders.buy;
+						    exec = true;
+						    fn->point(state, execp, true);
+						} else if (orders.sell.has_value() && *orders.sell < v) {
+						    execp = *orders.sell;
+						    exec = true;
+						    fn->point(state, execp, true);
+						}
+						if (exec) {
+							double p = ifut?1.0/execp:execp;
 							out.push_back({t, p,p,p});
 							last = &out.back();
-							if (res.trade2) {
-								double p = ifut?1.0/res.price2:res.price2;
-								out.push_back({t, p,p,p});
-								last = &out.back();
-							}
 						} else if (w<last->pmin) {
 							last->pmin = w;
 						} else if (w>last->pmax) {
 							last->pmax = w;
 						}
+						fn->point(state, v, false);
 
 						t+=60000;
 					}

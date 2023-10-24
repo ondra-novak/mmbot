@@ -24,6 +24,7 @@ json::Value XTBOrderbookEmulator::placeOrder(const std::string &symbol,
             iter->client_id = clientId;
             iter->price = price;
             iter->size = size;
+            iter->executed = false;
         } else {
             orderbook._list.erase(iter);
             return nullptr;
