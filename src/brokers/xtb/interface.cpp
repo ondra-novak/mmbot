@@ -455,6 +455,7 @@ json::Value XTBInterface::getSettings(const std::string_view &pairHint) const {
                 {"1","Small trades first"},
                 {"2","Profit trades first"},
                 {"3","Losing trades first"},
+                {"4","Lowest swap first"},
             }}
         }),
     };

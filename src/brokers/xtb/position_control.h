@@ -15,6 +15,7 @@ enum class CloseOrdering {
     small_first = 1,
     profit_first = 2,
     loss_first = 3,
+    cheap_first = 4,
 };
 
 class PositionControl {
@@ -143,6 +144,11 @@ inline void PositionControl::execute_trade(const std::string &symbol, double siz
         case CloseOrdering::profit_first: std::stable_sort(_close_candidate.begin(), _close_candidate.end(),
                 [&](const Position *p1, const Position *p2) {
                     return position_profit(*p1, price_hint) > position_profit(*p2, price_hint);
+                });
+                break;
+        case CloseOrdering::cheap_first: std::stable_sort(_close_candidate.begin(), _close_candidate.end(),
+                [&](const Position *p1, const Position *p2) {
+                    return std::abs(p1->storage) < std::abs(p2->storage);
                 });
                 break;
     }
