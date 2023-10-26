@@ -478,7 +478,7 @@ void MTrader::perform(bool manually) {
 				budget_extra =  status.currencyUnadjustedBalance - locked - currency;
 			}
 
-			auto spread_stat = cfg.spread->get_stats(spread_state);
+			auto spread_stat = cfg.spread->get_stats(spread_state, centerPrice  );
 
 			statsvc->reportMisc(IStatSvc::MiscData{
 				last_trade_dir,

@@ -90,7 +90,7 @@ public:
 
     virtual ISpreadGen *clone() const = 0;
 
-    virtual SpreadStats get_stats(PState &state) const = 0;
+    virtual SpreadStats get_stats(PState &state, double equilibrium) const = 0;
 };
 
 struct LegacySpreadGenConfig {
@@ -105,6 +105,8 @@ struct LegacySpreadGenConfig {
 };
 
 clone_ptr<ISpreadGen> legacySpreadGen(LegacySpreadGenConfig cfg);
+
+clone_ptr<ISpreadGen> create_spread_generator(json::Value v);
 
 
 

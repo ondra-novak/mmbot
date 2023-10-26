@@ -10,11 +10,13 @@
 
 #include "spread.h"
 #include "series.h"
+#include "bollinger_spread.h"
 
 #include <cmath>
 #include <memory>
 #include <imtjson/value.h>
 
+#include <stdexcept>
 class DefaulSpread: public ISpreadFunction {
 public:
 
@@ -210,7 +212,7 @@ public:
         return new LegacySpreadGen(*this);
     }
 
-    virtual SpreadStats get_stats(PState &state) const {
+    virtual SpreadStats get_stats(PState &state, double) const override {
         auto &st = static_cast<const MyState &>(*state);
         return {
             st.result.spread * mult,
@@ -234,4 +236,41 @@ clone_ptr<ISpreadGen> legacySpreadGen(LegacySpreadGenConfig cfg) {
 
 }
 
+clone_ptr<ISpreadGen> create_spread_generator(json::Value v) {
+    json::Value def = v["spread"];
+    if (def.hasValue()) {
+        std::string_view type = def["type"].getString();
+        if (type == "legacy") return legacySpreadGen({ {
+                        def["dynmult_raise"].getValueOrDefault(0.0),
+                        def["dynmult_fall"].getValueOrDefault(1.0),
+                        def["dynmult_cap"].getValueOrDefault(100.0),
+                        strDynmult_mode[def["dynmult_mode"].getValueOrDefault("half_alternate")],
+                        def["dynmult_mult"].getValueOrDefault(false),
+                    },
+                    std::max(10U,static_cast<unsigned int>(def["spread_calc_sma_hours"].getValueOrDefault(24.0)*60)),
+                    std::max(10U,static_cast<unsigned int>(def["spread_calc_stdev_hours"].getValueOrDefault(4.0)*60)),
+                    def["force_spread"].getValueOrDefault(0.0),
+                    def["mult"].getValueOrDefault(1.0),
+                    def["dynmult_sliding"].getValueOrDefault(false),
+                    def["spread_freeze"].getBool(),
+                });
 
+        if (type == "bollinger") return bollingerSpreadGen(def);
+        throw std::runtime_error("Undefined spread type" + std::string(type));
+    }
+    return legacySpreadGen({ {
+            v["dynmult_raise"].getValueOrDefault(0.0),
+            v["dynmult_fall"].getValueOrDefault(1.0),
+            v["dynmult_cap"].getValueOrDefault(100.0),
+            strDynmult_mode[v["dynmult_mode"].getValueOrDefault("half_alternate")],
+            v["dynmult_mult"].getValueOrDefault(false),
+        },
+        std::max(10U,static_cast<unsigned int>(v["spread_calc_sma_hours"].getValueOrDefault(24.0)*60)),
+        std::max(10U,static_cast<unsigned int>(v["spread_calc_stdev_hours"].getValueOrDefault(4.0)*60)),
+        v["force_spread"].getValueOrDefault(0.0),
+        v["buy_step_mult"].getValueOrDefault(1.0),
+        v["dynmult_sliding"].getValueOrDefault(false),
+        v["spread_freeze"].getBool(),
+    });
+
+}

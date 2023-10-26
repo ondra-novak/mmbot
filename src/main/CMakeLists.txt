@@ -32,7 +32,7 @@ add_executable (mmbot
 	strategy_incvalue.cpp
 	strategy_dcashitcoin.cpp
 	manual_matching_broker.cpp
-
+    bollinger_spread.cpp
 	invert_strategy.cpp
 	simulator.cpp
 	localdailyperfmod.cpp
