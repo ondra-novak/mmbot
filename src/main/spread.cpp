@@ -132,12 +132,12 @@ public:
                 if (diff < 0) { // buy
                     st.dynmult.update(true, false);
                     st.frozen_spread = st.result.spread;
-                    st.frozen_side = -1;
+                    st.frozen_side = 1;
                     st.was_exec = true;
                 } else { // sell
                     st.dynmult.update(false, true);
                     st.frozen_spread = st.result.spread;
-                    st.frozen_side = 1;
+                    st.frozen_side = -1;
                     st.was_exec = true;
                 }
             }

@@ -69,20 +69,7 @@ void MTrader_Config::loadConfig(json::Value data) {
 	if (max_costs.type() == json::number) this->max_costs = max_costs.getNumber();
 
 
-	spread = legacySpreadGen({ {
-            data["dynmult_raise"].getValueOrDefault(0.0),
-            data["dynmult_fall"].getValueOrDefault(1.0),
-            data["dynmult_cap"].getValueOrDefault(100.0),
-            strDynmult_mode[data["dynmult_mode"].getValueOrDefault("half_alternate")],
-            data["dynmult_mult"].getValueOrDefault(false),
-        },
-	    std::max(10U,static_cast<unsigned int>(data["spread_calc_sma_hours"].getValueOrDefault(24.0)*60)),
-	    std::max(10U,static_cast<unsigned int>(data["spread_calc_stdev_hours"].getValueOrDefault(4.0)*60)),
-	    data["force_spread"].getValueOrDefault(0.0),
-	    data["buy_step_mult"].getValueOrDefault(1.0),
-	    data["dynmult_sliding"].getValueOrDefault(false),
-	    data["spread_freeze"].getBool(),
-	});
+	spread = create_spread_generator(data);
 
 
 	adj_timeout = std::max<unsigned int>(5,data["adj_timeout"].getUInt());

@@ -1407,33 +1407,7 @@ public:
 
 
 auto initializeSpreadGenerator(json::Value args) {
-    Value sma = args["sma"];
-    Value stdev = args["stdev"];
-    Value force_spread = args["force_spread"];
-    Value mult = args["mult"];
-    Value dynmult_raise = args["raise"];
-    Value dynmult_fall = args["fall"];
-    Value dynmult_cap= args["cap"];
-    Value dynmult_mode = args["mode"];
-    Value dynmult_sliding = args["sliding"];
-    Value dynmult_mult = args["dyn_mult"];
-    Value spread_freeze = args["spread_freeze"];
-
-    return legacySpreadGen({
-        {
-            dynmult_raise.getValueOrDefault(1.0),
-            dynmult_fall.getValueOrDefault(1.0),
-            dynmult_cap.getValueOrDefault(100.0),
-            strDynmult_mode[dynmult_mode.getValueOrDefault("independent")],
-            dynmult_mult.getBool()
-        },
-        std::max(10U,static_cast<unsigned int>(sma.getNumber())*60),
-        std::max(10U,static_cast<unsigned int>(stdev.getNumber())*60),
-        force_spread.getNumber(),
-        mult.getNumber(),
-        dynmult_sliding.getBool(),
-        spread_freeze.getBool()
-    });
+    return create_spread_generator(args);
 }
 
 bool WebCfg::reqSpread(simpleServer::HTTPRequest req)  {

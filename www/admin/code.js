@@ -1067,17 +1067,21 @@ App.prototype.saveForm = function(form, src) {
 	this.advanced = data.advanced;
 	trader.accept_loss = data.accept_loss;
 	trader.grant_trade_hours = data.grant_trade_hours;
-	trader.spread_calc_stdev_hours =data.spread_calc_stdev_hours ;
-	trader.spread_calc_sma_hours  = data.spread_calc_sma_hours;
-	trader.dynmult_raise = data.dynmult_raise;
-	trader.dynmult_fall = data.dynmult_fall;
-	trader.dynmult_mode = data.dynmult_mode;
-	trader.dynmult_sliding = data.dynmult_sliding;
-	trader.spread_freeze = data.spread_freeze;
-	trader.dynmult_mult = data.dynmult_mult;
-	trader.dynmult_cap = data.dynmult_cap;
-	trader.buy_step_mult = Math.pow(2,data.spread_mult*0.01)
-	trader.sell_step_mult = Math.pow(2,data.spread_mult*0.01)
+	trader.spread  ={
+        type: "legacy",
+        dynmult_raise: data.dynmult_raise,
+        dynmult_fall: data.dynmult_fall,
+        dynmult_cap: data.dynmult_cap,
+        dynmult_mode: data.dynmult_mode,
+        dynmult_mult: data.dynmult_mult,
+        spread_calc_sma_hours: data.spread_calc_sma_hours ,
+        spread_calc_stdev_hours: data.spread_calc_stdev_hours ,
+        force_spread: data.spread_mode == "fixed"?Math.log(data.force_spread/100+1):0.0,
+        mult: Math.pow(2,data.spread_mult*0.01),
+        dynmult_sliding: data.dynmult_sliding,
+        spread_freeze: data.spread_freeze
+        
+    };
 	trader.min_size = data.min_size;
 	trader.max_size = data.max_size;
 	trader.max_leverage = data.max_leverage;
@@ -1972,23 +1976,8 @@ App.prototype.init_spreadvis = function(form, id) {
 	this.gen_backtest(form,"spread_vis_anchor", "spread_vis",inputs,function(cntr){
 
 		cntr.showSpinner();
-		var data = form.readData(inputs);
-		var mult = Math.pow(2,data.spread_mult*0.01);
-		var req = {
-			sma:data.spread_calc_sma_hours,
-			stdev:data.spread_calc_stdev_hours,
-			force_spread:data.spread_mode=="fixed"?Math.log(data.force_spread/100+1):0,
-			mult:mult,
-			raise:data.dynmult_raise,
-			cap:data.dynmult_cap,
-			fall:data.dynmult_fall,
-			mode:data.dynmult_mode,
-			sliding:data.dynmult_sliding,
-			spread_freeze:data.spread_freeze,
-			dyn_mult:data.dynmult_mult,
-			order2: data.secondary_order,
-			id: id
-		}
+		var data = this.saveForm(form, {});
+		var req = {spread:data.spread, id:id};
 		
 		return fetch_with_error(url, {method:"POST", body:JSON.stringify(req)}).then(function(v) {			
 			var c = v.chart.map(function(x) {
@@ -2430,32 +2419,20 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
     var show_info_fn = function(ev) {
     }    
 
-	function gen_spread(offset) {
-		var data = form.readData(spread_inputs);
-		var mult = Math.pow(2,data.spread_mult*0.01);
+	var gen_spread = function(offset) {
+		var data = this.saveForm(form, {});
 		offset = offset || 0;
 		var sreq = {
-			sma:data.spread_calc_sma_hours,
-			stdev:data.spread_calc_stdev_hours,
-			force_spread:data.spread_mode=="fixed"?Math.log(data.force_spread/100+1):0,
-			mult:mult,
-			raise:data.dynmult_raise,
-			cap:data.dynmult_cap,
-			fall:data.dynmult_fall,
-			mode:data.dynmult_mode,
-			sliding:data.dynmult_sliding,
-			spread_freeze:data.spread_freeze,
-			dyn_mult:data.dynmult_mult,
+		    spread: data.spread,
 			reverse: btopts.reverse_chart,
 			invert: btopts.invert_chart,
 			ifutures: invert_price,			
 			source: this_bt.minute.id,
-			order2: data.secondary_order,
 			offset: offset,
 			swap:  form._swap_symbols == 1
 		}
 		return fetch_json(url+"/gen_trades",{method:"POST",body:JSON.stringify(sreq)});
-	}
+	}.bind(this);
  	
 
 	this.gen_backtest(form,"backtest_anchor", "backtest_vis",inputs,function(cntr){
