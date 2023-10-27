@@ -244,7 +244,7 @@ clone_ptr<ISpreadGen> create_spread_generator(json::Value v) {
                         def["dynmult_raise"].getValueOrDefault(0.0),
                         def["dynmult_fall"].getValueOrDefault(1.0),
                         def["dynmult_cap"].getValueOrDefault(100.0),
-                        strDynmult_mode[def["dynmult_mode"].getValueOrDefault("half_alternate")],
+                        strDynmult_mode[def["dynmult_mode"].getValueOrDefault(std::string_view("half_alternate"))],
                         def["dynmult_mult"].getValueOrDefault(false),
                     },
                     std::max(10U,static_cast<unsigned int>(def["spread_calc_sma_hours"].getValueOrDefault(24.0)*60)),

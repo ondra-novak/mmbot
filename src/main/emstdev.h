@@ -38,7 +38,7 @@ public:
         _variance.set_initial(pow2(variace));
     }
     double operator()(double x) const {
-        return _mean() + _variance() * x;
+        return get_mean() + get_stdev() * x;
     }
 
 protected:

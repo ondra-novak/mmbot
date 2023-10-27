@@ -404,9 +404,6 @@ Prevents reduction after buy. By default the strategy reinvests money saved by b
 
 
 <x-section class="adv"  ><x-section-caption>Orders</x-section-caption>
-<label class="adv"><span>Secondary order distance [%](experimental, 0=disabled)<span class="tooltip">Enables secondary order sets.
- It places additional buy and additional sell order at specifed distance as percent of current spread. This feature is heavily experimental</span></span>
-<x-slider data-name="secondary_order" data-min="0" data-max="200" data-mult="1"></x-slider></label>
 <label  class="adv"><span>Minimum order size (0&nbsp;=&nbsp;disabled)<span class="tooltip">
 Specifies minimal order size. If disabled, minimal size is defined by the exchange. This also
 specifies size of the "dust order"
@@ -417,15 +414,6 @@ Specifies maximal order size.
 <label  class="adv"><span>Maximum leverage (0&nbsp;=&nbsp;disabled)<span class="tooltip">
 Specifies maximal allowed leverage. If the size of the order is larger then specified leverage, then the order is not placed. This can also trigger <b>Accept loss</b> feature when it is enabled  
 </span></span><input type="number" data-name="max_leverage" step="1"></label>
-<label  class="adv"><span>Reduce on maximum leverage<span class="tooltip">
-Perform reduction of the position, when current position is over leverage. Note that reduction is not happen always, it is still controlled by spread, so this still doesn't protect against liquidation when liquidation price reached first. Also note that any such reduction a lot decreases any future profit as well  
-</span></span><span><x-checkbox data-name="reduce_on_leverage"></x-checkbox></span></label>
-<label class="adv"><span>Accept loss after hours (0&nbsp;=&nbsp;disabled)<span class="tooltip">
-Enable to the Bot accept partial loss, when trading is not possible due insufficient balance or when
-"Hard max position" is reached. The value specified amount of hours after last trade, when
-extra "virtual" trade with zero size is generated to shift the center of the spread. This can
-reenable trading, but it also finally costs some profit
-</span></span><input type="number" data-name="accept_loss" step="0.1"></label>
 <label class="adv"><span>Enforce a trade after (hours) (0&nbsp;=&nbsp;disabled)<span class="tooltip">
 If there is no trade after given hours, the bot tries to put an order to a top of the orderbook,
 which increases chance to execute a trade. The size of the order is calculated by the strategy. Not
@@ -443,44 +431,89 @@ Specifies maximum allowed asset balance (or position, for short use negative val
 Specifies maximum costs can be used by this trader. Orders which increases costs over specified limit are rejected.
 </span></span><input type="number" data-name="max_costs" step="any"></label>
 </x-section>
+
 <x-section class="adv" data-name="spread_vis_anchor"><x-section-caption>Spread</x-section-caption>
-<label  class="adv"><span>Spread mode</span><select data-name="spread_mode"><option value="adaptive">Adaptive</option><option value="fixed">Fixed</option></select></label>
-<x-switch data-name="spread_mode" data-value="fixed"  class="block">
-<label  class="adv"><span>Fixed spread [%] <span class="tooltip"
->Specifies fixed spread. Dynamic spread is still applied unless it is disabled</span></span><input type="number" step="any" data-name="force_spread"></x-slider></label></x-switch>
-<x-switch data-name="spread_mode" data-value="adaptive" class="block">
-<label  class="adv"><span>Spread width: st.dev hours <span class="tooltip"
->Specifies how many hours is used to calculate a standard deviation for spread value</span></span><x-slider data-name="spread_calc_stdev_hours" data-min="1" data-max="240" data-mult="1"></x-slider></label>
-<label  class="adv"><span>Spread width: smooth hours <span class="tooltip"
->Specifies smooth in hours. The program uses SMA (simple moving average) to calculate volatility smooth. By setting 1, it means, deviation longest than 1 hour is not considered as local deviation.</span></span><x-slider data-name="spread_calc_sma_hours" data-min="1" data-max="240" data-mult="1"></x-slider></label>
-<label  class="adv"><span>Spread width: manual adjust <span class="tooltip"
->Specify manual adjust. Values above zero causes wider spread up to 2x. Values below zero causes narrow spread up to 1/2</span></span><x-slider data-name="spread_mult" data-min="-100" data-max="100" data-mult="1" data-fixed="0"></x-slider></label>
+<label  class="adv"><span>Spread mode</span><select data-name="spread_mode">
+    <option value="adaptive">Adaptive (legacy)</option>
+    <option value="fixed">Fixed (legacy)</option>
+    <option value="bollinger">Bollinger (new)</option></select>
+</label>
+<x-switch data-name="spread_mode_switch" data-value="bollinger" class="block">
+    <label><span>Lookup interval [hours]<span class="tooltip">Defines the basic time period in which the volatility is measured in hours</span> </span>
+            </span><x-slider data-name="bollinger_interval" data-min="1" data-max="240" data-mult="1"></x-slider>           
+    </label>
+    <label class="adv"><span>Deviation strength [%]<span class="tooltip">Ratio between interval for standard deviation and mean</span> </span>
+            </span><x-slider data-name="bollinger_deviation" data-min="-100" data-max="100" data-mult="1"></x-slider>           
+    </label>
+    <label><span>Count of levels</span><div style="display:flex"><div style="flex-basis: 5em"><select data-name="bollinger_levels" style="text-align:center;width: 100%">
+    <option value="1">1</option>
+    <option value="2">2</option>
+    <option value="3">3</option>
+    <option value="4">4</option>
+    <option value="5">5</option>
+    </select></div><x-checkbox data-name="bollinger_level_0" style="flex-grow: 1; display:block; padding-left: 1em">Enable level 0<x-checkbox></div></label>
+    <label><span>StDev Level 1</span>
+            </span><x-slider data-name="bollinger_level_1" data-min="0.1" data-max="10" data-mult="0.1" data-fixed="1"></x-slider>           
+    </label>
+    <x-switch data-name="bollinger_level_sel" data-value="2,3,4,5" data-separator="," class="block" >
+    <label><span>StDev Level 2</span>
+            </span><x-slider data-name="bollinger_level_2" data-min="0.1" data-max="10" data-mult="0.1" data-fixed="1"></x-slider>           
+    </label>
+    </x-switch>
+    <x-switch data-name="bollinger_level_sel" data-value="3,4,5" data-separator="," class="block">
+    <label><span>StDev Level 3</span>
+            </span><x-slider data-name="bollinger_level_3" data-min="0.1" data-max="10" data-mult="0.1" data-fixed="1"></x-slider>           
+    </label>
+    </x-switch>
+    <x-switch data-name="bollinger_level_sel" data-value="4,5"  data-separator="," class="block">
+    <label><span>StDev Level 4</span>
+            </span><x-slider data-name="bollinger_level_4" data-min="0.1" data-max="10" data-mult="0.1" data-fixed="1"></x-slider>           
+    </label>
+    </x-switch>
+    <x-switch data-name="bollinger_level_sel" data-value="5">
+    <label><span>StDev Level 5</span>
+            </span><x-slider data-name="bollinger_level_5" data-min="0.1" data-max="10" data-mult="0.1" data-fixed="1"></x-slider>           
+    </label>
+    </x-switch>
 </x-switch>
-<label class="adv"><span>Dynamic spread behaviour</span><select data-name="dynmult_mode">
-<option value="disabled">Disabled</option>
-<option value="independent"  selected="selected">Independent</option>
-<option value="together">Together</option>
-<option value="alternate">Alternate</option>
-<option value="half_alternate">Half alternate</option>
-</select></label>
-<x-switch data-name="dynmult_mode" data-separator="," data-value="independent,together,alternate,half_alternate" class="block">
-<label class="adv"><span>Dynamic spread mult. raise<span class="tooltip"
->Specifies [in %] how much is dynamic multiplicator raised after trade.</span></span><x-slider data-name="dynmult_raise" data-min="1" data-max="1000" data-mult="1"></x-slider></label>
-<label class="adv"><span>Dynamic spread mult. fall<span class="tooltip"
->Specifies [in %] how much is dynamic multiplicator falls every minute without trade.</span></span><x-slider data-name="dynmult_fall" data-min="0.1" data-max="10" data-mult="0.1" data-fixed="1"></x-slider></label>
-<label class="adv"><span>Dynamic spread mult. cap<span class="tooltip"
->Specifies cap for spread multiplicator.</span></span><input type="number" step="1" data-name="dynmult_cap"></label>
-</x-switch>
-<div class="label adv"><span>Options</span><div>
-<div>
-<x-switch data-name="dynmult_mode" data-separator="," data-value="independent,together,alternate,half_alternate">
-<x-checkbox data-name="dynmult_mult">Multiply factor</x-checkbox>
-</x-switch>
-</div>
-<div><x-checkbox data-name="dynmult_sliding">Sliding</x-checkbox></div>
-<div>
-<x-switch data-name="spread_mode" data-value="adaptive" class="block">
-<x-checkbox data-name="spread_freeze">Freeze other side spread</x-checkbox>
+<x-switch data-name="spread_mode_switch" data-value="fixed,adaptive"  data-separator=",">
+    <x-switch data-name="spread_mode" data-value="fixed"  class="block">
+    <label  class="adv"><span>Fixed spread [%] <span class="tooltip"
+    >Specifies fixed spread. Dynamic spread is still applied unless it is disabled</span></span><input type="number" step="any" data-name="force_spread"></label></x-switch>
+    <x-switch data-name="spread_mode" data-value="adaptive" class="block">
+    <label  class="adv"><span>Spread width: st.dev hours <span class="tooltip"
+    >Specifies how many hours is used to calculate a standard deviation for spread value</span></span><x-slider data-name="spread_calc_stdev_hours" data-min="1" data-max="240" data-mult="1"></x-slider></label>
+    <label  class="adv"><span>Spread width: smooth hours <span class="tooltip"
+    >Specifies smooth in hours. The program uses SMA (simple moving average) to calculate volatility smooth. By setting 1, it means, deviation longest than 1 hour is not considered as local deviation.</span></span><x-slider data-name="spread_calc_sma_hours" data-min="1" data-max="240" data-mult="1"></x-slider></label>
+    <label  class="adv"><span>Spread width: manual adjust <span class="tooltip"
+    >Specify manual adjust. Values above zero causes wider spread up to 2x. Values below zero causes narrow spread up to 1/2</span></span><x-slider data-name="spread_mult" data-min="-100" data-max="100" data-mult="1" data-fixed="0"></x-slider></label>
+    </x-switch>
+    <label class="adv"><span>Dynamic spread behaviour</span><select data-name="dynmult_mode">
+    <option value="disabled">Disabled</option>
+    <option value="independent"  selected="selected">Independent</option>
+    <option value="together">Together</option>
+    <option value="alternate">Alternate</option>
+    <option value="half_alternate">Half alternate</option>
+    </select></label>
+    <x-switch data-name="dynmult_mode" data-separator="," data-value="independent,together,alternate,half_alternate" class="block">
+    <label class="adv"><span>Dynamic spread mult. raise<span class="tooltip"
+    >Specifies [in %] how much is dynamic multiplicator raised after trade.</span></span><x-slider data-name="dynmult_raise" data-min="1" data-max="1000" data-mult="1"></x-slider></label>
+    <label class="adv"><span>Dynamic spread mult. fall<span class="tooltip"
+    >Specifies [in %] how much is dynamic multiplicator falls every minute without trade.</span></span><x-slider data-name="dynmult_fall" data-min="0.1" data-max="10" data-mult="0.1" data-fixed="1"></x-slider></label>
+    <label class="adv"><span>Dynamic spread mult. cap<span class="tooltip"
+    >Specifies cap for spread multiplicator.</span></span><input type="number" step="1" data-name="dynmult_cap"></label>
+    </x-switch>
+    <div class="label adv"><span>Options</span><div>
+    <div>
+    <x-switch data-name="dynmult_mode" data-separator="," data-value="independent,together,alternate,half_alternate">
+    <x-checkbox data-name="dynmult_mult">Multiply factor</x-checkbox>
+    </x-switch>
+    </div>
+    <div><x-checkbox data-name="dynmult_sliding">Sliding</x-checkbox></div>
+    <div>
+    <x-switch data-name="spread_mode" data-value="adaptive" class="block">
+    <x-checkbox data-name="spread_freeze">Freeze other side spread</x-checkbox>
+    </x-switch>
 </x-switch>
 </div>
 </div></div>

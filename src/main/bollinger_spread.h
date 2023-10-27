@@ -5,6 +5,7 @@
 #include "spread.h"
 
 #include <vector>
+#include <fstream>
 class BollingerSpread: public ISpreadGen {
 public:
 
@@ -28,13 +29,25 @@ protected:
     class State: public ISpreadGen::State {
     public:
 
+        using Iter = const double *;
+
         std::vector<double> _curves;
         EMStDev _stdev;
-        unsigned int _active_line = 0;
+        Iter _disabled_curve;
+        Iter _sell_curve;
+        Iter _buy_curve;
         bool _inited = false;
+/*        std::shared_ptr<std::ofstream> debug;*/
 
-        State(std::vector<double> c, EMStDev stdev):_curves(c), _stdev(stdev) {}
+        State(std::vector<double> c, EMStDev stdev):_curves(c), _stdev(stdev) {
+/*            debug = std::make_shared<std::ofstream>("/tmp/spread.csv", std::ios::out|std::ios::trunc);*/
+        }
         virtual ISpreadGen::State* clone() const override;
+
+        Iter next_buy(Iter x) const;
+        Iter next_sell(Iter x) const;
+        bool below(Iter x) const;
+        bool above(Iter x) const;
     };
 
     static State &get_state(PState &st);
