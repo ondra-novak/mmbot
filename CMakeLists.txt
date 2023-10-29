@@ -46,6 +46,7 @@ add_subdirectory (src/brokers/southxchange)
 add_subdirectory (src/brokers/tradeogre)
 add_subdirectory (src/brokers/trainer)
 add_subdirectory (src/brokers/couchdb_storage)
+add_subdirectory (src/brokers/replay)
 
 if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
   set(CMAKE_INSTALL_PREFIX "/opt/mmbot" CACHE PATH "Default path to install" FORCE)
