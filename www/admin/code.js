@@ -699,7 +699,7 @@ App.prototype.fillForm = function (src, trg) {
 	data.dca_initstep = 1;
 	data.dca_exponent =10;
 	data.dca_cutoff = 1;
-	data.bollinger_interval = 8;
+	data.bollinger_interval = 15;
 	data.bollinger_deviation = 0;
 	data.bollinger_levels = {"value":2};
 	data.bollinger_level_sel = ""+data.bollinger_levels.value;
@@ -861,7 +861,7 @@ App.prototype.fillForm = function (src, trg) {
 		    data.spread_mode_switch = data.spread_mode.value;
 	   } else if (src.spread.type == "bollinger") {
 		   data.dynmult_mode = filledval(src.spread.type,"bollinger");
-	       data.bollinger_interval = filledval(src.spread.interval,16);
+	       data.bollinger_interval = filledval(src.spread.interval,15);
 	       data.bollinger_deviation = filledval(src.spread.deviation,0);
 	       data.bollinger_levels = filledval(src.spread.curves.length,2);
 	       data.bollinger_level_sel = ""+src.spread.curves.length;
