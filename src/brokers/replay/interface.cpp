@@ -16,7 +16,7 @@ public:
     virtual IStockApi::Ticker getTicker(const std::string_view &) override {return _owner.create_ticker();}
     virtual IStockApi::Orders getOpenOrders(const std::string_view &par) override {return {};}
     virtual IStockApi::MarketInfo getMarketInfo(const std::string_view &) override {return _owner.get_market();}
-    virtual double getBalance(const std::string_view &symb, const std::string_view &pair) override {return 0;}
+    virtual double getBalance(const std::string_view &symb, const std::string_view &pair) override {return _owner.getInitialBalance(symb);}
     virtual void reset(const std::chrono::_V2::system_clock::time_point &tp) override {}
 protected:
     ReplayInterface &_owner;
@@ -94,8 +94,13 @@ ReplayInterface::ReplayInterface(const std::string &secure_storage_path)
                               {"default","0"},
                           }),
                           json::Object({
+                              {"name", "init_price"},
+                              {"label","Initial price"},
+                              {"type","number"}
+                          }),
+                          json::Object({
                               {"name","asset"},
-                              {"label","Asset symbol"},
+                              {"label","Asset symbol *"},
                               {"type","string"},
                               {"default","BTC"},
                               {"attrs",json::Object{
@@ -103,7 +108,7 @@ ReplayInterface::ReplayInterface(const std::string &secure_storage_path)
                               }}}),
                           json::Object({
                               {"name","currency"},
-                              {"label","Currency symbol"},
+                              {"label","Currency symbol *"},
                               {"type","string"},
                               {"default","USD"},
                               {"attrs",json::Object{
@@ -111,7 +116,7 @@ ReplayInterface::ReplayInterface(const std::string &secure_storage_path)
                               }}}),
                           json::Object({
                               {"name","leverage"},
-                              {"label","Leverage"},
+                              {"label","Leverage *"},
                               {"type","enum"},
                               {"options",json::Object{
                                   {"0","Disabled - Spot market"},
@@ -151,10 +156,11 @@ ReplayInterface::ReplayInterface(const std::string &secure_storage_path)
                           }),
                           json::Object({
                               {"name", "fees"},
-                              {"label","Fees [%]"},
+                              {"label","Fees [%] *"},
                               {"type","number"},
                               {"default","0"},
-                          })
+                          }),
+
               })
 ,_paper(std::make_unique<Source>(*this))
 {
@@ -168,6 +174,7 @@ ReplayInterface::BrokerInfo ReplayInterface::getBrokerInfo() {
 
 void ReplayInterface::onLoadApiKey(json::Value keyData) {
     _market.reset();
+    if (!keyData.hasValue()) return;
     std::string_view data = keyData["replay_content"].getString();
     MarketInfoEx minfo;
     std::istringstream input((std::string(data)));
@@ -177,6 +184,7 @@ void ReplayInterface::onLoadApiKey(json::Value keyData) {
         if (v>0) minfo.data.push_back(v);
     }
     double offset = keyData["offset"].getNumber();
+    double init_price = keyData["init_price"].getNumber();
     minfo.asset_symbol = keyData["asset"].getString();
     minfo.currency_symbol = keyData["currency"].getString();
     minfo.leverage = keyData["leverage"].getNumber();
@@ -184,9 +192,11 @@ void ReplayInterface::onLoadApiKey(json::Value keyData) {
     minfo.currency_step= keyData["lotsize"].getNumber();
     minfo.min_size= keyData["minsize"].getNumber();
     minfo.min_volume= keyData["minvolume"].getNumber();
-    minfo.fees= keyData["fees"].getNumber();
+    minfo.fees= keyData["fees"].getNumber()*0.01;
     minfo.feeScheme = minfo.leverage?IStockApi::currency:IStockApi::income;
     minfo.simulator = true;
+    minfo.private_chart = true;
+    minfo.price_mult = init_price>0?init_price/minfo.data[0]:1.0;
 
     if (minfo.asset_symbol.empty()) throw std::runtime_error("Asset symbol can't be empty");
     if (minfo.currency_symbol.empty()) throw std::runtime_error("Currency symbol can't be empty");
@@ -195,17 +205,19 @@ void ReplayInterface::onLoadApiKey(json::Value keyData) {
 
     auto max = std::max_element(minfo.data.begin(), minfo.data.end());
     if (*max <= 1e-16) return;
+    double maxval = *max * minfo.price_mult;
 
     if (minfo.currency_step <= 1e-16) {
-        double tick_size = std::pow(10, std::floor(std::log10(*max)-6));
+        double tick_size = std::pow(10, std::floor(std::log10(maxval)-6));
         minfo.currency_step = tick_size;
     }
     if (minfo.asset_step <= 1e-16) {
-        minfo.asset_step = std::pow(10, std::floor(std::log10(1.0/ *max)));
+        minfo.asset_step = std::pow(10, std::floor(std::log10(1.0/ maxval)));
     }
     minfo.min_size = std::max(minfo.asset_step, minfo.min_size);
     minfo.start_time = std::chrono::system_clock::from_time_t(keyData["timestamp"].getIntLong())
                 + std::chrono::seconds(static_cast<unsigned int>(offset * 24*60*60));
+    minfo.init_equity = (minfo.asset_step *10000) * minfo.data[0]*minfo.price_mult;
     _market = minfo;
 }
 
@@ -220,7 +232,7 @@ IStockApi::MarketInfo ReplayInterface::getMarketInfo(const std::string_view &pai
 }
 
 void ReplayInterface::setApiKey(json::Value keyData) {
-    if (!keyData["timestamp"].hasValue()) {
+    if (keyData.hasValue() && !keyData["timestamp"].hasValue()) {
         auto now = std::chrono::system_clock::now();
         keyData.setItems({
            {"timestamp", std::chrono::system_clock::to_time_t(now)}
@@ -323,11 +335,17 @@ ReplayInterface::Ticker ReplayInterface::create_ticker() const {
     auto dist = now - m.start_time;
     auto pos = std::chrono::duration_cast<std::chrono::minutes>(dist).count();
     auto idx = (pos % m.data.size());
-    auto idx2 = ((pos+1) % m.data.size());
+    auto v1 = m.data[idx]*m.price_mult;
     return Ticker {
-        std::min(m.data[idx], m.data[idx2]),
-        std::max(m.data[idx], m.data[idx2]),
-        m.data[idx],
+        v1 - m.currency_step,
+        v1 + m.currency_step,
+        v1,
         static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count())
     };
+}
+
+double ReplayInterface::getInitialBalance(std::string_view symb) const {
+    const auto &m = get_market();
+    if (symb == m.currency_symbol) return m.init_equity;
+    else return 0.0;
 }

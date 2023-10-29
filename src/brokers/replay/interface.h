@@ -46,6 +46,8 @@ protected:
     struct MarketInfoEx : MarketInfo {
         std::vector<double> data;
         std::chrono::system_clock::time_point start_time;
+        double price_mult;
+        double init_equity;
     };
 
     std::optional<MarketInfoEx> _market;
@@ -55,6 +57,8 @@ protected:
     virtual void setApiKey(json::Value keyData) override;
     const MarketInfoEx& get_market() const;
     Ticker create_ticker() const;
+
+    double getInitialBalance(std::string_view symb) const;
 };
 
 

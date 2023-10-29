@@ -145,15 +145,14 @@ SpreadStats BollingerSpread::get_stats(ISpreadGen::PState &state, double equilib
     const State &st = get_state(state);
     SpreadStats out;
     out.spread = st._stdev.get_stdev()/st._stdev.get_mean();
-    double y = st._stdev(*st._disabled_curve);
     Result res =get_result(state,  equilibrium);
     if (res.buy.has_value()) {
-        out.mult_buy = (y - *res.buy) / st._stdev.get_stdev();
+        out.mult_buy = *st._buy_curve;
     } else {
         out.mult_buy = std::numeric_limits<double>::infinity();
     }
     if (res.sell.has_value()) {
-        out.mult_sell= (*res.sell - y) / st._stdev.get_stdev();
+        out.mult_sell= *st._sell_curve;
     } else {
         out.mult_sell = std::numeric_limits<double>::infinity();
     }

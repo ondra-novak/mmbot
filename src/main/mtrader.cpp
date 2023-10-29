@@ -1759,6 +1759,7 @@ MTrader::Order MTrader::calcBuyOrderSize(const Status &status, double base, bool
         ord_tick = minfo.priceToTickDown(ord.price);
         if (ask_tick-1 >= ord_tick) {
             if (calculateOrderFeeLessAdjust(ord, status.assetBalance, status.currencyBalance, 1, enable_alerts, fees)) {
+                ord.price = minfo.tickToPrice(ord_tick);
                 return calcOrderTrailer(ord, base);
             }
         }
@@ -1784,6 +1785,7 @@ MTrader::Order MTrader::calcSellOrderSize(const Status &status, double base, boo
         ord_tick = minfo.priceToTickUp(ord.price);
         if (bid_tick+1 <= ord_tick) {
             if (calculateOrderFeeLessAdjust(ord, status.assetBalance, status.currencyBalance, -1, enable_alerts, fees)) {
+                ord.price = minfo.tickToPrice(ord_tick);
                 return calcOrderTrailer(ord, base);
             }
         }
