@@ -857,6 +857,8 @@ App.prototype.fillForm = function (src, trg) {
             data.dynmult_mult = filledval(src.spread.dynmult_mult, false);
             data.spread_mult = filledval(Math.log(defval(src.spread.mult,1))/Math.log(2)*100,0);	   
 	        data.force_spread = filledval((Math.exp(src.force_spread || Math.log(1.01))*100-100).toFixed(3),"1.000");
+	        data.spread_mode = filledval(src.force_spread?"fixed":"adaptive","adaptive");
+		    data.spread_mode_switch = data.spread_mode.value;
 	   } else if (src.spread.type == "bollinger") {
 		   data.dynmult_mode = filledval(src.spread.type,"bollinger");
 	       data.bollinger_interval = filledval(src.spread.interval,16);
