@@ -83,26 +83,13 @@ void BollingerSpread::point(ISpreadGen::PState &state, double y,
     if (st._inited) {
         if (execution) {
 
-            if (!st.below(st._buy_curve)) {
-                double buy_ref = st._stdev(*st._buy_curve);
-                while (y < buy_ref || similar(y, buy_ref)) {
-                    st._disabled_curve = st._buy_curve;
-                    --st._buy_curve;
-                    if (st.below(st._buy_curve)) break;
-                    buy_ref = st._stdev(*st._buy_curve);
-                }
-                st._sell_curve = st._disabled_curve + 1;
-            }
-            else if (!st.above(st._sell_curve)) {
-                double sell_ref = st._stdev(*st._sell_curve);
-                while (y > sell_ref || similar(y, sell_ref)) {
-                    st._disabled_curve = st._sell_curve;
-                    ++st._sell_curve;
-                    if (st.above(st._sell_curve)) break;
-                    sell_ref = st._stdev(*st._sell_curve);
-                }
-                st._sell_curve = st._disabled_curve - 1;
-            }
+            auto near  = std::min_element(st._curves.begin(), st._curves.end(), [&](double a, double b){
+                return std::abs(st._stdev(a) - y) < std::abs(st._stdev(b) - y);
+            });
+
+            st._disabled_curve = &(*near);
+            st._buy_curve = &(*near)-1;
+            st._sell_curve = &(*near)+1;
 
 
         } else {
@@ -144,19 +131,36 @@ unsigned int BollingerSpread::get_required_history_length() const {
 SpreadStats BollingerSpread::get_stats(ISpreadGen::PState &state, double equilibrium) const {
     const State &st = get_state(state);
     SpreadStats out;
+    out.mult_buy = -std::numeric_limits<double>::infinity();
+    out.mult_sell = std::numeric_limits<double>::infinity();
+    out.spread = 0;
+    if (!st._inited) return out;
+
     out.spread = st._stdev.get_stdev()/st._stdev.get_mean();
-    Result res =get_result(state,  equilibrium);
-    if (res.buy.has_value()) {
-        out.mult_buy = *st._buy_curve;
-    } else {
-        out.mult_buy = std::numeric_limits<double>::infinity();
-    }
-    if (res.sell.has_value()) {
-        out.mult_sell= *st._sell_curve;
-    } else {
-        out.mult_sell = std::numeric_limits<double>::infinity();
-    }
-    return out;
+     {
+         auto iter = st._buy_curve;
+         while (!st.below(iter)) {
+             auto b = st._stdev(*iter);
+             if (b < equilibrium) {
+                 out.mult_buy = *iter;
+                 break;
+             }
+             --iter;
+         }
+     }
+
+     {
+         auto iter = st._sell_curve;
+         while (!st.above(iter)) {
+             auto s = st._stdev(*iter);
+             if (s > equilibrium) {
+                 out.mult_sell = *iter;
+                 break;
+             }
+             ++iter;
+         }
+     }
+     return out;
 }
 
 const BollingerSpread::State& BollingerSpread::get_state(const PState &st) {
