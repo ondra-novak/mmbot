@@ -1,7 +1,9 @@
 #include "bollinger_spread.h"
 #include <imtjson/value.h>
-
+#include <shared/logOutput.h>
 #include "sgn.h"
+
+using ondra_shared::logDebug;
 BollingerSpread::BollingerSpread(unsigned int mean_points,
         unsigned int stdev_points, std::vector<double> curves,
         bool zero_line)
@@ -90,6 +92,17 @@ void BollingerSpread::point(ISpreadGen::PState &state, double y,
             st._disabled_curve = &(*near);
             st._buy_curve = &(*near)-1;
             st._sell_curve = &(*near)+1;
+
+            logDebug("Execution at $1 - curves (buy, disabled, sell) - $5 $6 $7 - $2 $3 $4",
+                    y,
+                    (st.below(st._buy_curve)?-9999:st._stdev(*st._buy_curve)),
+                    st._stdev(*st._disabled_curve),
+                    (st.above(st._sell_curve)?9999:st._stdev(*st._sell_curve)),
+                    (st.below(st._buy_curve)?-9999:*st._buy_curve),
+                    *st._disabled_curve,
+                    (st.above(st._sell_curve)?9999:*st._sell_curve)
+
+            );
 
 
         } else {

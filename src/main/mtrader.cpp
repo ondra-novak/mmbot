@@ -333,7 +333,7 @@ void MTrader::perform(bool manually) {
             if (buy_alert.has_value() && status.ticker.last <= buy_alert->price) {
                 alertTrigger(status, buy_alert->price,1,buy_alert->reason);
                 lastTradePrice=buy_alert->price;
-                cfg.spread->point(spread_state, sell_alert->price, true);
+                cfg.spread->point(spread_state, buy_alert->price, true);
                 buy_alert.reset();
                 trade_now_mode = false;
             }
@@ -393,13 +393,13 @@ void MTrader::perform(bool manually) {
                 sellorder.size = 0;
                 sellorder.alert = IStrategy::Alert::disabled;
             } else {
-                buyorder.size -= partial_position;
-                sellorder.size -= partial_position;
+                buyorder.size = std::min(buyorder.size, buyorder.size - partial_position);
+                sellorder.size = std::max(sellorder.size, sellorder.size - partial_position);
                 buyorder.size = std::max(buyorder.size, minfo.calcMinSize(buyorder.price));
                 sellorder.size = std::min(sellorder.size, -minfo.calcMinSize(sellorder.price));
             }
 
-            if (first_cycle) {
+            if (first_cycle || anytrades) {
                 sellorder.size = 0;sellorder.alert = IStrategy::Alert::disabled;
                 buyorder.size = 0;buyorder.alert = IStrategy::Alert::disabled;
             }
@@ -1246,7 +1246,7 @@ void MTrader::flush_partial(const Status &status) {
             t.partial_exec = false;
         }
 
-        cfg.spread->point(spread_state, trade_price, true);
+        cfg.spread->point(spread_state, trades.back().price, true);
         lastTradePrice = trade_price;
         logDebug("(PARTIAL) Trade commit to strategy: price=$1, size=$2, norm_profit=$3", trade_price, trade_size, tstate.normProfit);
         partial_eff_pos = ACB(0,0);
