@@ -360,8 +360,8 @@ private:
 	void update_minfo();
     void flush_partial(const Status &status);
     void initializeSpread();
-    Order calcBuyOrderSize(const Status &status, double base, bool enable_alerts) const;
-    Order calcSellOrderSize(const Status &status, double base, bool enable_alerts) const;
+    Order calcBuyOrderSize(const Status &status, double base, double center, bool enable_alerts) const;
+    Order calcSellOrderSize(const Status &status, double base, double center, bool enable_alerts) const;
     Order calcOrderTrailer(Order order, double origPrice) const;
 };
 
