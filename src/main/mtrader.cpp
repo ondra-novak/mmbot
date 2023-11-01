@@ -689,65 +689,9 @@ MTrader::Status MTrader::getMarketStatus() const {
 	return res;
 }
 
-bool MTrader::calculateOrderFeeLessAdjust(Order &order, double position, double currency, int dir, bool alerts, double min_size) const {
+bool MTrader::calculateOrderFeeLessAdjust(Order &order, double position, double currency, int dir, bool alerts, double asset_fees, bool no_leverage_check) const {
 
-	//order is reversed to requested direction
-	if (order.size * dir < 0) {
-		//we can't trade this, so assume, that order size is zero
-		order.size = 0;
-		order.ar = AlertReason::strategy_outofsync;
-	}
-
-	if (order.size == 0) {
-		//for forced, stoploss, disabled, we accept current order
-		//otherwise it depends on "alerts enabled"
-		if (order.alert != IStrategy::Alert::enabled) return true;
-		else return alerts;
-	}
-
-	//check leverage
-	double d;
-	auto chkres = checkLeverage(order, position, currency, d);
-	if (chkres != AlertReason::unknown)  {
-		//adjust order when leverage reached
-		order.size = d;
-		//if result is zero
-		if (d == 0) {
-			//force alert
-			order.alert = IStrategy::Alert::forced;
-			order.ar = chkres;
-			return true;
-		}
-	}
-
-	//if size of order is above max_size, adjust to max_size
-	if (cfg.max_size && std::fabs(order.size) > cfg.max_size) {
-		order.size = cfg.max_size*dir;
-	}
-	//if order size is below min_size, adjust to zero
-	if (std::fabs(order.size) < min_size) order.size = 0;
-	//if order volume is below min volume (after add fees), adjust order to zero
-	if (minfo.min_volume) {
-		double op = order.price;
-		double os = order.size;
-		minfo.addFees(os,op);
-		double vol = std::fabs(op * os);
-		if (vol < minfo.min_volume) order.size = 0;
-	}
-
-	if (order.size == 0) {
-		order.ar = AlertReason::below_minsize;
-		//in this case, we continue to search better price (don't accept the order)
-		return false;
-	} else {
-		return true;
-	}
-
-}
-
-bool MTrader::calculateOrderFeeLessAdjust(Order &order, double position, double currency, int dir, bool alerts, const IStockApi::MarketInfo::FeeInfo &fees) const {
-
-    order.size /= fees.asset_multiplier;
+    order.size /= asset_fees;
 
     //order is reversed to requested direction
     if (order.size * dir < 0) {
@@ -763,20 +707,6 @@ bool MTrader::calculateOrderFeeLessAdjust(Order &order, double position, double 
         else return alerts;
     }
 
-    //check leverage
-    double d;
-    auto chkres = checkLeverage(order, position, currency, d);
-    if (chkres != AlertReason::unknown)  {
-        //adjust order when leverage reached
-        order.size = d;
-        //if result is zero
-        if (d == 0) {
-            //force alert
-            order.alert = IStrategy::Alert::forced;
-            order.ar = chkres;
-            return true;
-        }
-    }
 
     constexpr auto adjust_assets = [](double v) {
         if (v < 0) return std::ceil(v);
@@ -799,127 +729,30 @@ bool MTrader::calculateOrderFeeLessAdjust(Order &order, double position, double 
         order.ar = AlertReason::below_minsize;
         //in this case, we continue to search better price (don't accept the order)
         return false;
-    } else {
-        return true;
     }
 
-}
 
-MTrader::Order MTrader::calculateOrderFeeLess(
-		Strategy state,
-		double prevPrice,
-		double step,
-		double dynmult,
-		double curPrice,
-		double position,
-		double currency,
-		bool alerts) const {
-
-	double m = 1;
-
-	int cnt = 0;
-	double prevSz = 0;
-	double sz = 0;
-	Order order;
-
-	double min_size = std::max(cfg.min_size, minfo.min_size);
-	double dir = sgn(-step);
-
-	double newPrice = prevPrice *exp(step*dynmult*m);
-	if ((newPrice - curPrice) * dir > 0 || !std::isfinite(newPrice) || newPrice <= 0) {
-		newPrice = curPrice;
-		prevPrice = newPrice /exp(step*dynmult*m);
-	}
+    //check leverage
+    double d;
+    auto chkres = checkLeverage(order, position, currency, d);
+    if (chkres != AlertReason::unknown)  {
+        //adjust order when leverage reached
+        order.size = d;
+        //if result is zero
+        if (d == 0 || no_leverage_check) {
+            //force alert
+            order.alert = IStrategy::Alert::forced;
+            order.ar = chkres;
+            return true;
+        } else {
+            return calculateOrderFeeLessAdjust(order, position, currency, dir, alerts, 1.0, true);
+        }
+    }
 
 
-
-	order= Order(
-			state.getNewOrder(minfo,curPrice, newPrice,dir, position, currency, false),
-			AlertReason::strategy_enforced
-			);
-
-	//Strategy can disable to place order using size=0 and disable alert
-	if (order.size == 0 && order.alert == IStrategy::Alert::disabled) return order;
-
-	bool skipcycle = false;
-
-	if (order.price <= 0) order.price = newPrice;
-	if ((order.price - curPrice) * dir < 0) {
-		if (calculateOrderFeeLessAdjust(order, position, currency, dir, alerts, min_size)) skipcycle = true;;
-	}
-	double origOrderPrice = newPrice;
+    return true;
 
 
-	if (!skipcycle) {
-
-
-		do {
-			prevSz = sz;
-
-			newPrice = prevPrice * exp(step*dynmult*m);
-
-			if ((newPrice - curPrice) * dir > 0) {
-				newPrice = curPrice;
-			}
-
-
-			order= Order(
-					state.getNewOrder(minfo,curPrice, newPrice,dir, position, currency, true),
-					AlertReason::strategy_enforced
-					);
-
-
-
-			if (order.price <= 0) order.price = newPrice;
-			if ((order.price - curPrice) * dir > 0) {
-				order.price = curPrice;
-			}
-
-			sz = order.size;
-
-			if (calculateOrderFeeLessAdjust(order, position, currency, dir, alerts, min_size)) break;;
-
-			cnt++;
-			m = m*1.1;
-
-		} while (cnt < 1000 && order.size == 0 && ((sz - prevSz)*dir>0  || cnt < 10)); // @suppress("Direct float comparison")
-	}
-	auto lmsz = limitOrderMinMaxBalance(position, order.size, order.price);
-	if (lmsz.first != AlertReason::unknown) {
-		order.size = lmsz.second;
-		if (!order.size) {
-			order.alert = IStrategy::Alert::forced;
-		}
-		order.ar = lmsz.first;
-	}
-	if (order.size == 0 && order.alert != IStrategy::Alert::disabled) {
-		order.price = origOrderPrice;
-		order.alert = IStrategy::Alert::forced;
-	}
-
-	return order;
-
-}
-
-MTrader::Order MTrader::calculateOrder(
-		Strategy state,
-		double lastTradePrice,
-		double step,
-		double dynmult,
-		double curPrice,
-		double balance,
-		double currency,
-		bool alerts) const {
-
-		double fakeSize = -step;
-		//remove fees from curPrice to effectively put order inside of bid/ask spread
-		minfo.removeFees(fakeSize, curPrice);
-		//calculate order
-		Order order(calculateOrderFeeLess(state,lastTradePrice, step,dynmult,curPrice,balance,currency,alerts));
-		//apply fees
-		if (order.alert != IStrategy::Alert::stoploss && order.size) minfo.addFees(order.size, order.price);
-
-		return order;
 
 }
 
@@ -1758,7 +1591,7 @@ MTrader::Order MTrader::calcBuyOrderSize(const Status &status, double base, bool
         else ord.price = minfo.addFees(ord.price,1).adjusted_price;
         ord_tick = minfo.priceToTickDown(ord.price);
         if (ask_tick-1 >= ord_tick) {
-            if (calculateOrderFeeLessAdjust(ord, status.assetBalance, status.currencyBalance, 1, enable_alerts, fees)) {
+            if (calculateOrderFeeLessAdjust(ord, status.assetBalance, status.currencyBalance, 1, enable_alerts, fees.asset_multiplier)) {
                 ord.price = minfo.tickToPrice(ord_tick);
                 return calcOrderTrailer(ord, base);
             }
@@ -1784,7 +1617,7 @@ MTrader::Order MTrader::calcSellOrderSize(const Status &status, double base, boo
         else ord.price = minfo.addFees(ord.price,-1).adjusted_price;
         ord_tick = minfo.priceToTickUp(ord.price);
         if (bid_tick+1 <= ord_tick) {
-            if (calculateOrderFeeLessAdjust(ord, status.assetBalance, status.currencyBalance, -1, enable_alerts, fees)) {
+            if (calculateOrderFeeLessAdjust(ord, status.assetBalance, status.currencyBalance, -1, enable_alerts, fees.asset_multiplier)) {
                 ord.price = minfo.tickToPrice(ord_tick);
                 return calcOrderTrailer(ord, base);
             }

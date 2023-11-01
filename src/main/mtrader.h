@@ -167,28 +167,8 @@ public:
 
 	Status getMarketStatus() const;
 
-	Order calculateOrder(
-			Strategy state,
-			double lastTradePrice,
-			double step,
-			double dynmult,
-			double curPrice,
-			double balance,
-			double currency,
-			bool alerts) const;
-	Order calculateOrderFeeLess(
-			Strategy state,
-			double lastTradePrice,
-			double step,
-			double dynmult,
-			double curPrice,
-			double balance,
-			double currency,
-			bool alerts) const;
-	bool calculateOrderFeeLessAdjust(Order &order,double assets, double currency,
-			int dir, bool alert, double min_size) const;
     bool calculateOrderFeeLessAdjust(Order &order,double assets, double currency,
-            int dir, bool alert, const IStockApi::MarketInfo::FeeInfo &fees) const;
+            int dir, bool alert, double asset_fees, bool no_leverage_check = false) const;
 
 
 	Config getConfig() {return cfg;}
