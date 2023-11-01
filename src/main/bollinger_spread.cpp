@@ -85,25 +85,21 @@ void BollingerSpread::point(ISpreadGen::PState &state, double y,
     if (st._inited) {
         if (execution) {
 
-            auto near  = std::min_element(st._curves.begin(), st._curves.end(), [&](double a, double b){
-                return std::abs(st._stdev(a) - y) < std::abs(st._stdev(b) - y);
-            });
+            auto near = st._disabled_curve;
+            double best = std::numeric_limits<double>::max();
+            for (const auto &c: st._curves) {
+                if (&c == st._disabled_curve) continue;
+                double p = st._stdev(c);
+                double dist = std::abs(p - y);
+                if (dist < best) {
+                    best = dist;
+                    near = &c;
+                }
+            }
 
             st._disabled_curve = &(*near);
             st._buy_curve = &(*near)-1;
             st._sell_curve = &(*near)+1;
-
-            logDebug("Execution at $1 - curves (buy, disabled, sell) - $5 $6 $7 - $2 $3 $4",
-                    y,
-                    (st.below(st._buy_curve)?-9999:st._stdev(*st._buy_curve)),
-                    st._stdev(*st._disabled_curve),
-                    (st.above(st._sell_curve)?9999:st._stdev(*st._sell_curve)),
-                    (st.below(st._buy_curve)?-9999:*st._buy_curve),
-                    *st._disabled_curve,
-                    (st.above(st._sell_curve)?9999:*st._sell_curve)
-
-            );
-
 
         } else {
             st._stdev += y;

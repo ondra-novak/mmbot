@@ -1574,6 +1574,10 @@ void MTrader::initializeSpread() {
 }
 
 MTrader::Order MTrader::calcBuyOrderSize(const Status &status, double base, double center, bool enable_alerts) const {
+
+    double c = minfo.addFees(center - minfo.currency_step, 1).adjusted_price;
+    if (c < base) base = c;
+
     double ask_level = status.ticker.ask;
     auto ask_tick = minfo.priceToTick(ask_level);
     auto ord_tick = minfo.priceToTickDown(base);
@@ -1585,7 +1589,6 @@ MTrader::Order MTrader::calcBuyOrderSize(const Status &status, double base, doub
     for (double i = 1.0; i > 0.5; i-=0.01) {
         double base_price = base * i;
         auto fees = minfo.removeFees(base_price, 1);
-        if (fees.adjusted_price >= center) continue;
         Order ord (strategy.getNewOrder(minfo, ask_level, fees.adjusted_price, 1, status.assetBalance, status.currencyBalance, rej),
                     AlertReason::strategy_enforced);
         if (ord.price <= 0) ord.price = base_price;
@@ -1601,6 +1604,10 @@ MTrader::Order MTrader::calcBuyOrderSize(const Status &status, double base, doub
     return Order(0, base, IStrategy::Alert::forced, AlertReason::below_minsize);
 }
 MTrader::Order MTrader::calcSellOrderSize(const Status &status, double base, double center, bool enable_alerts) const {
+
+    double c = minfo.addFees(center + minfo.currency_step, -1).adjusted_price;
+    if (c > base) base = c;
+
     double bid_level = status.ticker.bid;
     auto bid_tick = minfo.priceToTick(bid_level);
     auto ord_tick = minfo.priceToTickUp(base);
@@ -1612,7 +1619,6 @@ MTrader::Order MTrader::calcSellOrderSize(const Status &status, double base, dou
     for (double i = 1.0; i < 2.0; i+=0.01) {
         double base_price = base * i;
         auto fees = minfo.removeFees(base_price, -1);
-        if (fees.adjusted_price <= center) continue;
         Order ord (strategy.getNewOrder(minfo, bid_level, fees.adjusted_price, -1, status.assetBalance, status.currencyBalance, rej),
                     AlertReason::strategy_enforced);
         if (ord.price <= 0) ord.price = base_price;
