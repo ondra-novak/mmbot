@@ -701,13 +701,13 @@ App.prototype.fillForm = function (src, trg) {
 	data.dca_cutoff = 1;
 	data.bollinger_interval = 15;
 	data.bollinger_deviation = 0;
-	data.bollinger_levels = {"value":2};
+	data.bollinger_levels = {"value":3};
 	data.bollinger_level_sel = ""+data.bollinger_levels.value;
 	data.bollinger_level_1 = 1;
 	data.bollinger_level_2 = 3;
 	data.bollinger_level_3 = 5;
 	data.bollinger_level_4 = 7;
-	data.bollinger_level_5 = 10;
+	data.bollinger_level_5 = 9;
 	data.bollinger_level_0 = true;
     data.spread_calc_stdev_hours = 4;
     data.spread_calc_sma_hours = 24;
@@ -718,7 +718,9 @@ App.prototype.fillForm = function (src, trg) {
     data.spread_freeze = false;
     data.dynmult_mult = false;
     data.spread_mult = 1;
-    data.spread_mode_switch="adaptive";
+	data.dynmult_mode = "independent";
+
+	
 
 	
 	if (data.strategy == "halfhalf" || data.strategy == "keepvalue" || data.strategy == "hypersquare") {
@@ -884,7 +886,11 @@ App.prototype.fillForm = function (src, trg) {
     	data.dynmult_mult = filledval(src.dynmult_mult, false);
     	data.spread_mult = filledval(Math.log(defval(src.buy_step_mult,1))/Math.log(2)*100,0);
         data.force_spread = filledval((Math.exp(src.force_spread || Math.log(1.01))*100-100).toFixed(3),"1.000");
-        data.spread_mode = filledval(src.force_spread?"fixed":"adaptive","adaptive");
+        if (src.force_spread !== undefined) {
+			data.spread_mode = filledval(src.force_spread?"fixed":"adaptive","adaptive");
+		} else {
+			data.spread_mode = {"value":"bollinger"};
+		}
         data.spread_mode_switch = data.spread_mode.value; 
     }
 	data.min_size = filledval(src.min_size,0);
