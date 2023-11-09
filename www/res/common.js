@@ -454,8 +454,17 @@ function interpolate(beg, end, cur, a, b) {
 	return a+(b-a)*n;
 }
 
+function copyFileToTextArea(file, textarea) {
+    var reader = new FileReader();
+    reader.onload = function() {
+        textarea.value = reader.result;
+    }
+    reader.readAsText(file);
+}
+
 
 function formBuilder(format) {
+    var files = [];
 	var items = format.map(function(itm) {
 		var el;
 		var lb = {
@@ -475,6 +484,25 @@ function formBuilder(format) {
 					step:"any",
 					value:itm.default
 				}};break;
+        case "file": el = {
+                    tag: "span",
+                    content:[{
+                            tag:"input",
+                            attrs: {
+                                "data-name":itm.name+"_file",
+                                "type":"file",
+                                "onchange":"copyFileToTextArea(this.files[0], this.nextElementSibling);"
+                            }
+                        },{
+                            tag:"textarea",
+                            attrs:{
+                                "data-name":itm.name+"_content",
+                                "hidden":"hidden"
+                            }
+                            
+                        }]
+                    };            
+                break;
 		case "textarea": el ={tag:"textarea",
 				text:itm.default || "",
 				attrs: {

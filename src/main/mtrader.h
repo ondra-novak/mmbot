@@ -42,31 +42,21 @@ struct MTrader_Config {
 
 	std::string paper_trading_src_state;
 
-	double buy_step_mult;
-	double sell_step_mult;
 	double min_size;
 	double max_size;
 	std::optional<double> min_balance;
 	std::optional<double> max_balance;
 	std::optional<double> max_costs;
 
-	double dynmult_raise;
-	double dynmult_fall;
-	double dynmult_cap;
-	Dynmult_mode dynmult_mode;
 
-	unsigned int accept_loss;
 	unsigned int adj_timeout;
 
-	double force_spread;
 	double report_order;
 	double max_leverage;
 	double emulate_leveraged;
 	double secondary_order_distance;
 	unsigned int grant_trade_minutes;
 
-	double spread_calc_stdev_hours;
-	double spread_calc_sma_hours;
 
 	double init_open;
 
@@ -76,13 +66,10 @@ struct MTrader_Config {
 	bool dont_allocate;
 	bool enabled;
 	bool hidden;
-	bool dynmult_sliding;
-	bool dynmult_mult;
-	bool reduce_on_leverage;
-	bool freeze_spread;
 	bool trade_within_budget;
 
 	Strategy strategy = Strategy(nullptr);
+	clone_ptr<ISpreadGen> spread;
 
 	void loadConfig(json::Value data);
 
@@ -103,7 +90,7 @@ public:
 	using Config = MTrader_Config;
 
 	struct Order: public Strategy::OrderData {
-		AlertReason ar;
+		AlertReason ar = AlertReason::unknown;
 		bool isSimilarTo(const IStockApi::Order &other, double step, bool inverted);
 		Order(const Strategy::OrderData& o, AlertReason ar):Strategy::OrderData(o),ar(ar) {}
 		Order() {}
@@ -126,7 +113,7 @@ public:
 	};
 
 	struct OrderPair {
-		std::optional<IStockApi::Order> buy,sell,buy2,sell2;
+		std::optional<IStockApi::Order> buy,sell;
 	};
 
 
@@ -156,7 +143,6 @@ public:
 	struct Status {
 		IStockApi::Ticker ticker;
 		double curPrice;
-		double curStep;
 		///asset balance allocated for this trader (including external assets)
 		double assetBalance;
 		///total asset balance available for all traders (including external assets)
@@ -170,7 +156,6 @@ public:
 		///available balance on exchange (external assets not counted) for this trader
 		double currencyAvailBalance;
 
-		double spreadCenter;
 		IStockApi::TradesSync new_trades;
 		ChartItem chartItem;
 		std::size_t enable_alerts_after_minutes;
@@ -182,26 +167,8 @@ public:
 
 	Status getMarketStatus() const;
 
-	Order calculateOrder(
-			Strategy state,
-			double lastTradePrice,
-			double step,
-			double dynmult,
-			double curPrice,
-			double balance,
-			double currency,
-			bool alerts) const;
-	Order calculateOrderFeeLess(
-			Strategy state,
-			double lastTradePrice,
-			double step,
-			double dynmult,
-			double curPrice,
-			double balance,
-			double currency,
-			bool alerts) const;
-	bool calculateOrderFeeLessAdjust(Order &order,double assets, double currency,
-			int dir, bool alert, double min_size) const;
+    bool calculateOrderFeeLessAdjust(Order &order,double assets, double currency,
+            int dir, bool alert, double asset_fees, bool no_leverage_check = false) const;
 
 
 	Config getConfig() {return cfg;}
@@ -269,9 +236,9 @@ public:
 
 	static PStockApi selectStock(IStockSelector &stock_selector, std::string_view broker_name, SwapMode swap_mode, int emulate_leverage, bool paper_trading);
 	json::Value getOHLC(std::uint64_t interval) const;
-	
+
 	void set_trade_now(bool t) {
-	    trade_now_mode = t;	   
+	    trade_now_mode = t;
 	}
 
 protected:
@@ -283,7 +250,6 @@ protected:
 	PStatSvc statsvc;
 	WalletCfg wcfg;
 	Strategy strategy;
-	DynMultControl dynmult;
 	bool need_load = true;
 	bool recalc = true;
 	bool first_cycle = true;
@@ -294,8 +260,6 @@ protected:
 	double adj_wait_price = 0;
 	double lastPriceOffset = 0;
 	double lastTradePrice = 0;
-	int frozen_spread_side = 0;
-	double frozen_spread = 0;
 	json::Value lastTradeId = nullptr;
 	std::optional<AlertInfo> sell_alert, buy_alert;
 
@@ -304,6 +268,7 @@ protected:
 
 	std::vector<ChartItem> chart;
 	TradeHistory trades;
+	clone_ptr<ISpreadGen::State> spread_state;
 
 	double position = 0;
 	double currency = 0;
@@ -330,24 +295,15 @@ protected:
 
 	void loadState();
 
-	double raise_fall(double v, bool raise) const;
 
 	bool processTrades(Status &st);
 
-	void update_dynmult(bool buy_trade,bool sell_trade);
 	void alertTrigger(const Status &st, double price, int dir, AlertReason reason);
 
-	void acceptLoss(const Status &st, double dir);
 	json::Value getTradeLastId() const;
 
 
-	struct SpreadCalcResult {
-		double spread;
-		double center;
-	};
 
-
-	SpreadCalcResult calcSpread() const;
 	bool checkMinMaxBalance(double newBalance, double dir, double price) const;
 	std::pair<AlertReason, double> limitOrderMinMaxBalance(double balance, double orderSize, double price) const;
 
@@ -360,9 +316,6 @@ protected:
 
 
 private:
-	template<typename Iter>
-	static SpreadCalcResult stCalcSpread(Iter beg, Iter end, unsigned int input_sma, unsigned int input_stdev);
-
 
 	void initialize();
 	mutable std::uint64_t period_cache = 0;
@@ -386,6 +339,10 @@ private:
 	void updateEnterPrice();
 	void update_minfo();
     void flush_partial(const Status &status);
+    void initializeSpread();
+    Order calcBuyOrderSize(const Status &status, double base, double center, bool enable_alerts) const;
+    Order calcSellOrderSize(const Status &status, double base, double center, bool enable_alerts) const;
+    Order calcOrderTrailer(Order order, double origPrice) const;
 };
 
 

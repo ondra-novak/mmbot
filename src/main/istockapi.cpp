@@ -78,6 +78,47 @@ static double rounded(double v) {
 	return std::round(v);
 }
 
+IStockApi::MarketInfo::FeeInfo IStockApi::MarketInfo::addFees(double price, int dir) const {
+    price = price*(1 - dir*fees);
+    double assets = 1.0;
+    switch (feeScheme) {
+    case IStockApi::currency:
+                   break;
+    case IStockApi::assets:
+                    assets = assets*(1+fees);
+                    break;
+    case IStockApi::income:
+                    if (dir>0 ) {
+                        assets = assets*(1+fees);
+                    }
+                    break;
+    case IStockApi::outcome:
+                    if (dir<0 ) {
+                        assets = assets*(1+fees);
+                    }
+                    break;
+    }
+    return {price, assets};
+}
+
+IStockApi::MarketInfo::FeeInfo IStockApi::MarketInfo::removeFees(double price, int dir) const {
+ price = price/(1- dir*fees);
+ double assets = 1.0;
+ switch (feeScheme) {
+ case IStockApi::currency:
+                break;
+ case IStockApi::assets:
+                 assets = assets/(1+fees);
+                 break;
+ case IStockApi::income:
+                 if (dir>0 ) assets = assets/(1+fees);
+                 break;
+ case IStockApi::outcome:
+                 if (dir<0 ) assets = assets/(1+fees);
+                 break;
+ }
+ return {price, assets};
+}
 
 void IStockApi::MarketInfo::addFees(double &assets, double &price) const {
 	//always shift price
@@ -208,6 +249,33 @@ std::int64_t IStockApi::MarketInfo::priceToTick(double price) const {
 	    throw std::runtime_error("Incorrect market info. for the symbol - unable to calculate tick size");
 	}
 	return r;
+}
+
+std::int64_t IStockApi::MarketInfo::priceToTickDown(double price) const {
+    std::int64_t r;
+    if (invert_price) {
+         r = -static_cast<std::int64_t>(std::floor((1.0/price)/currency_step));
+    } else {
+        r = static_cast<std::int64_t>(std::floor(price/currency_step));
+    }
+    if (r== std::numeric_limits<std::int64_t>::min() ||
+            r== std::numeric_limits<std::int64_t>::max()) {
+        throw std::runtime_error("Incorrect market info. for the symbol - unable to calculate tick size");
+    }
+    return r;
+}
+std::int64_t IStockApi::MarketInfo::priceToTickUp(double price) const {
+    std::int64_t r;
+    if (invert_price) {
+         r = -static_cast<std::int64_t>(std::ceil((1.0/price)/currency_step));
+    } else {
+        r = static_cast<std::int64_t>(std::ceil(price/currency_step));
+    }
+    if (r== std::numeric_limits<std::int64_t>::min() ||
+            r== std::numeric_limits<std::int64_t>::max()) {
+        throw std::runtime_error("Incorrect market info. for the symbol - unable to calculate tick size");
+    }
+    return r;
 }
 double IStockApi::MarketInfo::tickToPrice(std::int64_t tick) const {
 	if (invert_price) {
