@@ -19,12 +19,22 @@ inline double pow2(double x) {
 	return x*x;
 }
 
-inline bool similar(double a, double b, double e) {
-	double c1 = std::fabs(a-b);
-	double c2 = (std::fabs(a)+std::fabs(b))/2;
+inline bool similar(double a, double b, double e = 1e-8) {
+    if (a == b) return true; // @suppress("Direct float comparison")
 
-	return c1 <= c2*e;
+    double absA = std::abs(a);
+    double absB = std::abs(b);
+    double diff = std::abs(a - b);
+    double sumAB = absA+absB;
 
+    if ((a == 0) | (b == 0) | (sumAB < std::numeric_limits<double>::min())) { // @suppress("Direct float comparison")
+        // a or b is zero or both are extremely close to it
+        // relative error is less meaningful here
+        return diff <=  e * std::numeric_limits<double>::min();
+    }
+    // use relative error
+    return diff / std::min(sumAB, std::numeric_limits<double>::max()) < e;
 }
+
 
 #endif /* SRC_MAIN_SGN_H_ */

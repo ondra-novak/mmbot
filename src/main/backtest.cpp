@@ -12,8 +12,9 @@ using TradeRec=IStatSvc::TradeRecord;
 using Trade=IStockApi::Trade;
 using Ticker=IStockApi::Ticker;
 
-BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, const IStockApi::MarketInfo &minfo, std::optional<double> init_pos, double balance, bool neg_bal, bool spend) {
+BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, const IStockApi::MarketInfo &minforef, std::optional<double> init_pos, double balance, bool neg_bal, bool spend) {
 
+    IStockApi::MarketInfo minfo = minforef;
 	BTTrades trades;
 	try {
 		std::optional<BTPrice> price = priceSource();
@@ -42,7 +43,7 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 		double total_spend = 0;
 		double pl = 0;
 		for (price = priceSource();price.has_value();price = priceSource()) {
-			double minsize = std::max(minfo.min_size, cfg.min_size);
+			minfo.min_size = std::max(minfo.min_size, cfg.min_size);
 			if (std::abs(price->price-bt.price) == 0) continue;
 			bt.event = BTEvent::no_event;
 			double p = price->price;
@@ -60,21 +61,21 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 			Strategy::OrderData order;
 			do {
                 order = s.getNewOrder(minfo, bt.price*0.9+p*0.1, p, dir, pos, adjbal,rej);
-    
+
                 if (order.price) {
                     p = order.price;
                 }
-    
-    
+
+
                 if (order.size && order.size * dir < 0) {
                     order.size = 0;
                 }
                 orgsize = order.size;
-    
+
                 if (std::abs(order.size) < minfo.calcMinSize(bt.price)) {
                     order.size = 0;
                 }
-                
+
                 order.size  = IStockApi::MarketInfo::adjValue(order.size,minfo.asset_step,round);
                 invalid = order.size == 0;
                 if (rej) invalid = false;
@@ -85,7 +86,7 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
             double pchange = pos * dprice;
             pl = pl + pchange;
             if (minfo.leverage) balance += pchange;
-			
+
             if (cfg.max_balance.has_value()) {
 				if (pos > *cfg.max_balance) order.size = 0;
 				else if (order.size + pos > *cfg.max_balance) order.size = *cfg.max_balance - pos;
@@ -100,21 +101,12 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 				double new_pos = std::abs(pos + order.size);
 				double cur_pos = std::abs(pos);
 				if (new_pos > cur_pos && new_pos > max_abs_pos) {
-					if (cfg.accept_loss) {
-						s.reset();
-						s.onIdle(minfo, tk, pos, adjbal);
-						bt.event = BTEvent::accept_loss;
-					} else {
-						bt.event = BTEvent::margin_call;
-					}
+				    bt.event = BTEvent::margin_call;
 					order.size = 0;
 					orgsize = 0;
 				}
 			}
-			if (minfo.min_volume) {
-				double mvs = minfo.min_volume/bt.price;
-				minsize = std::max(minsize, mvs);
-			}
+			double minsize = minfo.calcMinSize(bt.price);
 			if (order.size && std::abs(order.size) < minsize) {
 				if (std::abs(order.size)<minsize*0.5) {
 					order.size = 0;
@@ -142,14 +134,14 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 					if (neg_bal) {
 						bt.event = BTEvent::no_balance;
 					} else {
-						if (cfg.accept_loss) {
-							s.reset();
-							s.onIdle(minfo, tk, pos, adjbal);
-							bt.event = BTEvent::accept_loss;
-						}
-						order.size = 0;
-						orgsize = 0; //allow alert this time
-						chg = 0;
+					    order.size = balance / order.price;
+					    order.size = minfo.adjValue(order.size, minfo.asset_step, [&](double x){return std::floor(x);});
+					    if (order.size < minsize) {
+					        bt.event = BTEvent::no_balance;
+					        order.size = 0;
+	                        orgsize = 0; //allow alert this time
+					    }
+                        chg = order.size*p;
 					}
 				}
 				balance -= chg;
@@ -167,16 +159,6 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 						if (mb < 0) {
 							bt.event = BTEvent::margin_call;
 						}
-					}
-				}
-				if (order.size == 0 && cfg.max_leverage && cfg.reduce_on_leverage) {
-					double maxPos = adjbal/p;
-					if (maxPos < std::abs(pos)) {
-						maxPos = maxPos*sgn(pos);
-						double diff = maxPos - pos;
-						order.alert = IStrategy::Alert::disabled;
-						order.price = p;
-						order.size = diff;
 					}
 				}
 				pos += order.size;
@@ -211,6 +193,7 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 				}
 			}
 
+			pos = minfo.adjValue(pos, minfo.asset_step, [](auto x){return std::round(x);});
 			bt.size = order.size;
 			bt.price = p;
 			bt.time = price->time;
@@ -241,6 +224,7 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 						double df = pos * (bt.price - p);
 						pl += df;
 						balance += df;
+						pos = 0;
 						bt.pos = 0;
 						bt.bal = balance + total_spend;
 						bt.unspend_balance = balance;

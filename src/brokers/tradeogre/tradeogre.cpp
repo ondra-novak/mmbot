@@ -86,7 +86,7 @@ static Value apiKeyFmt ({
 static std::pair<std::string_view,std::string_view> extractSymbols(std::string_view market) {
 	auto pos = market.find('-');
 	if (pos == market.npos) throw std::runtime_error("Unknown symbol");
-	return {market.substr(pos+1),market.substr(0,pos)};
+	return {market.substr(0,pos),market.substr(pos+1)};
 }
 
 
@@ -104,7 +104,7 @@ IBrokerControl::BrokerInfo TradeOgreIFC::getBrokerInfo() {
 		"tradeogre",
 		"TradeOgre",
 		"https://tradeogre.com/",
-		"1.0",
+		"1.1",
 		std::string(licence),
 		std::string(favicon),
 		false,
@@ -447,7 +447,7 @@ void TradeOgreIFC::updateSymbols() const {
 			nfo.invert_price = false;
 			nfo.leverage = 0;
 			nfo.min_size = 0.00000001;
-			nfo.min_volume = 0.00000001;
+			nfo.min_volume = 0.00005;
 			nfo.private_chart = false;
 			nfo.simulator = false;
 			nfo.wallet_id = "";

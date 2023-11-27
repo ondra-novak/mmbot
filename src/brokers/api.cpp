@@ -386,10 +386,10 @@ void AbstractBrokerAPI::dispatch(std::istream& input, std::ostream& output, std:
 
 	bool inited = false;
 	handler.logProvider->setDefault();
+    bool binmode = false;
 	try {
 		Value v = Value::fromStream(input);
 		handler.connectStreams(error, output);
-		bool binmode = false;
 		while (true) {
 			if (!inited) {
 				auto cmd = v[0].getString();
@@ -420,8 +420,14 @@ void AbstractBrokerAPI::dispatch(std::istream& input, std::ostream& output, std:
 			handler.connectStreams(error, output);
 		}
 	} catch (std::exception &e) {
-		Value({false, e.what()}).toStream(output);
-		output << std::endl;
+		Value res({false, e.what()});
+        if (binmode) {
+            res.serializeBinary([&](char c){output.put(c);}, json::compressKeys);
+            output.flush();
+        } else {
+            res.toStream(output);
+            output << std::endl;
+        }
 	}
 	handler.logStream = nullptr;
 }
@@ -439,16 +445,12 @@ logProvider->disconnect();
 }
 
 void AbstractBrokerAPI::loadKeys() {
-	try {
-		std::ifstream f(secure_storage_path);
-		if (!f) return;
-		Value key = json::Value::parseBinary([&] {
-			return f.get();
-		}, base64);
-		onLoadApiKey(key);
-	} catch (std::exception &e) {
-		std::cerr << e.what();
-	}
+    std::ifstream f(secure_storage_path);
+    if (!f) return;
+    Value key = json::Value::parseBinary([&] {
+        return f.get();
+    }, base64);
+    onLoadApiKey(key);
 }
 
 void AbstractBrokerAPI::dispatch() {

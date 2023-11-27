@@ -648,7 +648,6 @@ App.prototype.fillForm = function (src, trg) {
 	data.hp_fastclose=true;
 	data.hp_slowopen=false;
 	data.max_leverage = 5;
-	data.secondary_order = 0;
 	data.kb_keep_min = 0;
 	data.kb_keep_max = 100;
 	data.gamma_exp=2;
@@ -669,7 +668,8 @@ App.prototype.fillForm = function (src, trg) {
 	data.shg_lp={value:"0"};
 	data.shg_rnv=false;
 	data.shg_avgsp=false;
-	data.shg_boostmode=30;
+	data.shg_boostmode={value:"30"};
+	data.shg_boost_custom=1;
 	data.shg_r=0;
 	data.shg_show_asym={".hidden":false};
 	data.pincome_exp = 40;
@@ -699,6 +699,28 @@ App.prototype.fillForm = function (src, trg) {
 	data.dca_initstep = 1;
 	data.dca_exponent =10;
 	data.dca_cutoff = 1;
+	data.bollinger_interval = 15;
+	data.bollinger_deviation = 0;
+	data.bollinger_levels = {"value":3};
+	data.bollinger_level_sel = ""+data.bollinger_levels.value;
+	data.bollinger_level_1 = 1;
+	data.bollinger_level_2 = 3;
+	data.bollinger_level_3 = 5;
+	data.bollinger_level_4 = 7;
+	data.bollinger_level_5 = 9;
+	data.bollinger_level_0 = true;
+    data.spread_calc_stdev_hours = 4;
+    data.spread_calc_sma_hours = 24;
+    data.dynmult_raise = 500;
+    data.dynmult_cap = 20;
+    data.dynmult_fall = 2.5;
+    data.dynmult_sliding = false;
+    data.spread_freeze = false;
+    data.dynmult_mult = false;
+    data.spread_mult = 1;
+	data.dynmult_mode = "independent";
+
+	
 
 	
 	if (data.strategy == "halfhalf" || data.strategy == "keepvalue" || data.strategy == "hypersquare") {
@@ -770,12 +792,21 @@ App.prototype.fillForm = function (src, trg) {
 		data.shg_lp=filledval(src.strategy.disableSide,0);
 		data.shg_rnv=filledval(src.strategy.reinvest,false);
 		data.shg_avgsp=filledval(src.strategy.avgspread,false);
-		data.shg_boostmode=filledval(src.strategy.boostmode,30);
+		let bm = parseInt(src.strategy.boostmode);
+		if (isNaN(bm) || bm === undefined) bm = 0;
+		let bmcv = parseFloat(src.strategy.custom_spread) || 0;
+		if (bm >= 15 && bm <= 20) {
+		       bmcv = ([0.02,0.1,0.2,1,2,4])[bm-15];
+		       bm = 32;
+	    }
+		data.shg_boostmode=filledval(bm,0);
+		data.shg_boost_custom=filledval(bmcv,0);
 		data.shg_ol=filledval(defval(Math.abs(src.strategy.openlimit),0),0);
 		if (!src.strategy.openlimit || src.strategy.openlimit==0) data.shg_ol.disabled = true;
 		data.shg_olt={value:src.strategy.openlimit>0?1:src.strategy.openlimit<0?-1:0};
 		data.shg_r = filledval(src.strategy.ratio,0);
 		data.shg_show_asym = {".hidden": src.strategy.disableSide != 0};		
+		data.shg_boost_custom_show = {".hidden": bm != 32 && bm != 33 && bm != 34 && bm != 35 && bm != 36};
 	} else if (data.strategy == "pile") {
 		data.pile_accum = filledval(src.strategy.accum,0);
 		data.pile_ratio = filledval(src.strategy.ratio,0);
@@ -798,6 +829,9 @@ App.prototype.fillForm = function (src, trg) {
 	data.shg_lp["!change"] = function() {
 		trg.showItem("shg_show_asym", this.value == "0");
 	};
+    data.shg_boostmode["!change"] = function() {
+        trg.showItem("shg_boost_custom_show", this.value == "32" || this.value == "33" || this.value == "34"|| this.value == "35"|| this.value == "36");
+    };
 	function dcavalue_calc_profit_per_trade(d) {
         return (-0.120984/Math.log(1.0-d*0.01)).toFixed(3)+"%";
     };
@@ -809,35 +843,68 @@ App.prototype.fillForm = function (src, trg) {
 	data.enabled = src.enabled;
 	data.hidden = !!src.hidden;	
 	data.invert_proxy = filledval(!!(src.strategy && src.strategy.invert_proxy),false);
-	data.accept_loss = filledval(src.accept_loss,0);
 	data.grant_trade_hours= filledval(src.grant_trade_hours,0);
-	data.spread_calc_stdev_hours = filledval(src.spread_calc_stdev_hours,4);
-	data.spread_calc_sma_hours = filledval(src.spread_calc_sma_hours,21);
-	data.dynmult_raise = filledval(src.dynmult_raise,500);
-	data.dynmult_cap = filledval(src.dynmult_cap,100);
-	data.dynmult_fall = filledval(src.dynmult_fall, 2.5);
-	data.dynmult_mode = filledval(src.dynmult_mode, "independent");
-	data.dynmult_sliding = filledval(src.dynmult_sliding,false);
-	data.spread_freeze = filledval(src.spread_freeze,false);
-	data.dynmult_mult = filledval(src.dynmult_mult, false);
-	data.spread_mult = filledval(Math.log(defval(src.buy_step_mult,1))/Math.log(2)*100,0);
+	if (src.spread) {
+	    data.spread_mode = filledval(src.spread.type,"adaptive");
+		data.spread_mode_switch = data.spread_mode.value;
+	   if (src.spread.type == "legacy") {
+            data.spread_calc_stdev_hours = filledval(src.spread.spread_calc_stdev_hours,4);
+            data.spread_calc_sma_hours = filledval(src.spread.spread_calc_sma_hours,21);
+            data.dynmult_raise = filledval(src.spread.dynmult_raise,500);
+            data.dynmult_cap = filledval(src.spread.dynmult_cap,100);
+            data.dynmult_fall = filledval(src.spread.dynmult_fall, 2.5);
+            data.dynmult_mode = filledval(src.spread.dynmult_mode, "independent");
+            data.dynmult_sliding = filledval(src.spread.dynmult_sliding,false);
+            data.spread_freeze = filledval(src.spread.spread_freeze,false);
+            data.dynmult_mult = filledval(src.spread.dynmult_mult, false);
+            data.spread_mult = filledval(Math.log(defval(src.spread.mult,1))/Math.log(2)*100,0);	   
+	        data.force_spread = filledval((Math.exp(src.force_spread || Math.log(1.01))*100-100).toFixed(3),"1.000");
+	        data.spread_mode = filledval(src.force_spread?"fixed":"adaptive","adaptive");
+		    data.spread_mode_switch = data.spread_mode.value;
+	   } else if (src.spread.type == "bollinger") {
+		   data.dynmult_mode = filledval(src.spread.type,"bollinger");
+	       data.bollinger_interval = filledval(src.spread.interval,15);
+	       data.bollinger_deviation = filledval(src.spread.deviation,0);
+	       data.bollinger_levels = filledval(src.spread.curves.length,2);
+	       data.bollinger_level_sel = ""+src.spread.curves.length;
+	       if (src.spread.curves.length > 0) data.bollinger_level_1 = src.spread.curves[0];
+	       if (src.spread.curves.length > 1) data.bollinger_level_2 = src.spread.curves[1];  
+	       if (src.spread.curves.length > 2) data.bollinger_level_3 = src.spread.curves[2];
+	       if (src.spread.curves.length > 3) data.bollinger_level_4 = src.spread.curves[3];
+	       if (src.spread.curves.length > 4) data.bollinger_level_5 = src.spread.curves[4];
+	       data.bollinger_level_0 = src.spread.zero_curve;
+	   }
+	} else {
+    	data.spread_calc_stdev_hours = filledval(src.spread_calc_stdev_hours,4);
+    	data.spread_calc_sma_hours = filledval(src.spread_calc_sma_hours,21);
+    	data.dynmult_raise = filledval(src.dynmult_raise,500);
+    	data.dynmult_cap = filledval(src.dynmult_cap,100);
+    	data.dynmult_fall = filledval(src.dynmult_fall, 2.5);
+    	data.dynmult_mode = filledval(src.dynmult_mode, "independent");
+    	data.dynmult_sliding = filledval(src.dynmult_sliding,false);
+    	data.spread_freeze = filledval(src.spread_freeze,false);
+    	data.dynmult_mult = filledval(src.dynmult_mult, false);
+    	data.spread_mult = filledval(Math.log(defval(src.buy_step_mult,1))/Math.log(2)*100,0);
+        data.force_spread = filledval((Math.exp(src.force_spread || Math.log(1.01))*100-100).toFixed(3),"1.000");
+        if (src.force_spread !== undefined) {
+			data.spread_mode = filledval(src.force_spread?"fixed":"adaptive","adaptive");
+		} else {
+			data.spread_mode = {"value":"bollinger"};
+		}
+        data.spread_mode_switch = data.spread_mode.value; 
+    }
 	data.min_size = filledval(src.min_size,0);
 	data.max_size = filledval(src.max_size,0);
-	data.secondary_order = filledval(src.secondary_order,0);
 	data.dont_allocate = filledval(src.dont_allocate,false);
 	data.report_order = filledval(src.report_order,0);
-	data.force_spread = filledval((Math.exp(src.force_spread || Math.log(1.01))*100-100).toFixed(3),"1.000");
-	data.spread_mode = filledval(src.force_spread?"fixed":"adaptive","adaptive");
 	data.max_balance = filledval(src.max_balance,"");
 	data.min_balance = filledval(src.min_balance,"");
 	data.max_leverage = filledval(src.max_leverage,5);
-	data.reduce_on_leverage = filledval(src.reduce_on_leverage, false);
 	data.adj_timeout = filledval(src.adj_timeout,60);
 	data.emul_leverage = filledval(src.emulate_leveraged,0);
 	data.trade_within_budget = filledval(src.trade_within_budget,false);
 	data.max_costs = filledval(src.max_costs, "");
 	data.init_open = filledval(src.init_open, 0);
-
 	
 	data.icon_reset={"!click": function() {
 		this.resetTrader(src.id,initial_pos, trg._budget, trg._balance);
@@ -851,9 +918,13 @@ App.prototype.fillForm = function (src, trg) {
 	data.advedit = {"!click": this.editStrategyState.bind(this, src.id)};
 	data.spread_mode["!change"] = function() {
 		trg.setItemValue(this.dataset.name,this.value);
+		trg.setItemValue("spread_mode_switch", this.value);
 	};
 	data.dynmult_mode["!change"] = function() {
 		trg.setItemValue(this.dataset.name,this.value);
+	};
+	data.bollinger_levels["!change"] = function() {
+	   trg.setItemValue("bollinger_level_sel", this.value);
 	};
 	
     var timeout_id = null;
@@ -1006,6 +1077,7 @@ function getStrategyData(data, inv) {
 			reinvest:data.shg_rnv,
 			avgspread:data.shg_avgsp,
 			boostmode:data.shg_boostmode,
+			custom_spread:data.shg_boost_custom,
 			ratio: data.shg_r
 		};		
 	} else 	if (["hyperbolic","linear","sinh","sinh_val","sinh2"].indexOf(data.strategy) != -1) {
@@ -1051,23 +1123,36 @@ App.prototype.saveForm = function(form, src) {
 	trader.enabled = data.enabled;	
 	trader.hidden = data.hidden;	
 	this.advanced = data.advanced;
-	trader.accept_loss = data.accept_loss;
 	trader.grant_trade_hours = data.grant_trade_hours;
-	trader.spread_calc_stdev_hours =data.spread_calc_stdev_hours ;
-	trader.spread_calc_sma_hours  = data.spread_calc_sma_hours;
-	trader.dynmult_raise = data.dynmult_raise;
-	trader.dynmult_fall = data.dynmult_fall;
-	trader.dynmult_mode = data.dynmult_mode;
-	trader.dynmult_sliding = data.dynmult_sliding;
-	trader.spread_freeze = data.spread_freeze;
-	trader.dynmult_mult = data.dynmult_mult;
-	trader.dynmult_cap = data.dynmult_cap;
-	trader.buy_step_mult = Math.pow(2,data.spread_mult*0.01)
-	trader.sell_step_mult = Math.pow(2,data.spread_mult*0.01)
+	if (data.spread_mode == "fixed" || data.spread_mode == "adaptive") {  
+    	trader.spread  ={
+            type: "legacy",
+            dynmult_raise: data.dynmult_raise,
+            dynmult_fall: data.dynmult_fall,
+            dynmult_cap: data.dynmult_cap,
+            dynmult_mode: data.dynmult_mode,
+            dynmult_mult: data.dynmult_mult,
+            spread_calc_sma_hours: data.spread_calc_sma_hours ,
+            spread_calc_stdev_hours: data.spread_calc_stdev_hours ,
+            force_spread: data.spread_mode == "fixed"?Math.log(data.force_spread/100+1):0.0,
+            mult: Math.pow(2,data.spread_mult*0.01),
+            dynmult_sliding: data.dynmult_sliding,
+            spread_freeze: data.spread_freeze
+            
+        };
+    } else if (data.spread_mode == "bollinger") {
+        trader.spread = {
+            type: data.spread_mode,
+            interval: data.bollinger_interval,
+            deviation: data.bollinger_deviation,
+            curves: [data.bollinger_level_1,data.bollinger_level_2,data.bollinger_level_3,data.bollinger_level_4,data.bollinger_level_5]
+                    .slice(0, data.bollinger_levels),
+            zero_curve: data.bollinger_level_0
+        };
+    }
 	trader.min_size = data.min_size;
 	trader.max_size = data.max_size;
 	trader.max_leverage = data.max_leverage;
-	trader.secondary_order = data.secondary_order;
 	trader.dont_allocate = data.dont_allocate;
 	trader.report_order = data.report_order;
 	if (data.spread_mode == "fixed") {
@@ -1076,7 +1161,6 @@ App.prototype.saveForm = function(form, src) {
 	trader.emulate_leveraged = data.emul_leverage;
 	trader.trade_within_budget = data.trade_within_budget;
 	trader.adj_timeout = data.adj_timeout;
-	trader.reduce_on_leverage = data.reduce_on_leverage;
 	if (isFinite(data.min_balance)) trader.min_balance = data.min_balance;
 	if (isFinite(data.max_balance)) trader.max_balance = data.max_balance;
 	if (isFinite(data.max_costs)) trader.max_costs = data.max_costs;
@@ -1954,27 +2038,16 @@ App.prototype.gen_backtest = function(form,anchor, template, inputs, updatefn) {
 App.prototype.init_spreadvis = function(form, id) {
 	var url = "../api/admin/spread"
 	form.enableItem("vis_spread",false);
-	var inputs = ["spread_calc_stdev_hours","secondary_order", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode","dynmult_sliding","dynmult_cap","dynmult_mult","force_spread","spread_mode","spread_freeze"];
+	var inputs = [
+         "spread_calc_stdev_hours", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode","dynmult_sliding","dynmult_cap","dynmult_mult","force_spread","spread_mode","spread_freeze",
+         "bollinger_interval","bollinger_deviation","bollinger_levels","bollinger_level_0","bollinger_level_1","bollinger_level_2","bollinger_level_3","bollinger_level_4","bollinger_level_5"
+           ];
+
 	this.gen_backtest(form,"spread_vis_anchor", "spread_vis",inputs,function(cntr){
 
 		cntr.showSpinner();
-		var data = form.readData(inputs);
-		var mult = Math.pow(2,data.spread_mult*0.01);
-		var req = {
-			sma:data.spread_calc_sma_hours,
-			stdev:data.spread_calc_stdev_hours,
-			force_spread:data.spread_mode=="fixed"?Math.log(data.force_spread/100+1):0,
-			mult:mult,
-			raise:data.dynmult_raise,
-			cap:data.dynmult_cap,
-			fall:data.dynmult_fall,
-			mode:data.dynmult_mode,
-			sliding:data.dynmult_sliding,
-			spread_freeze:data.spread_freeze,
-			dyn_mult:data.dynmult_mult,
-			order2: data.secondary_order,
-			id: id
-		}
+		var data = this.saveForm(form, {});
+		var req = {spread:data.spread, id:id};
 		
 		return fetch_with_error(url, {method:"POST", body:JSON.stringify(req)}).then(function(v) {			
 			var c = v.chart.map(function(x) {
@@ -2056,11 +2129,11 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 	var url = "../api/admin/backtest2";
 	form.enableItem("show_backtest",false);		
 	var inputs = ["strategy","external_assets", "acum_factor","kv_valinc","kv_halfhalf","min_size","max_size","linear_suggest","linear_suggest_maxpos",
-		"dynmult_sliding","accept_loss",
+		"dynmult_sliding",
 		"exp_r","exp_w","exp_z","exp_s","exp_m","exp_z2","exp_dnrdc",
 		"hp_trend_factor","hp_allowshort","hp_reinvest","hp_power","hp_asym","hp_reduction","sh_curv","hp_limit","hp_extbal","hp_powadj","hp_dynred",
 		"gs_external_assets","gs_rb_hi_a","gs_rb_lo_a","gs_rb_hi_p","gs_rb_lo_p",
-		"min_balance","max_balance","max_leverage","reduce_on_leverage","gamma_exp","gamma_rebalance","gamma_trend","gamma_fn","gamma_reinvest","gamma_maxrebal",
+		"min_balance","max_balance","max_leverage","gamma_exp","gamma_rebalance","gamma_trend","gamma_fn","gamma_reinvest","gamma_maxrebal",
 		"pincome_exp",
 		"invert_proxy",
 		"dca_max_drop","dca_initstep","dca_exponent","dca_cutoff",
@@ -2069,9 +2142,12 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		"kv2_accum","kv2_boost","kv2_chngtm","kv2_reinvest",
 		"incval_w","incval_r","incval_ms","incval_ri","incval_z",
 		"hedge_short","hedge_long","hedge_drop",
-		"shg_w","shg_p","shg_z","shg_b","shg_olt","shg_ol","shg_lp","shg_rnv","shg_avgsp","shg_boostmode","shg_r",
+		"shg_w","shg_p","shg_z","shg_b","shg_olt","shg_ol","shg_lp","shg_rnv","shg_avgsp","shg_boostmode","shg_boost_custom","shg_r",
 		"trade_within_budget"];
-	var spread_inputs = ["spread_calc_stdev_hours","secondary_order", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode","dynmult_sliding","dynmult_cap","dynmult_mult","force_spread","spread_mode","spread_freeze"];
+	var spread_inputs = [
+	     "spread_calc_stdev_hours", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode","dynmult_sliding","dynmult_cap","dynmult_mult","force_spread","spread_mode","spread_freeze",
+	     "bollinger_interval","bollinger_deviation","bollinger_levels","bollinger_level_0","bollinger_level_1","bollinger_level_2","bollinger_level_3","bollinger_level_4","bollinger_level_5"
+	       ];
 	var leverage = form._pair.leverage != 0;	
 	var pairinfo = form._pair;
 	var invert_price = form._pair.invert_price;
@@ -2416,32 +2492,20 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
     var show_info_fn = function(ev) {
     }    
 
-	function gen_spread(offset) {
-		var data = form.readData(spread_inputs);
-		var mult = Math.pow(2,data.spread_mult*0.01);
+	var gen_spread = function(offset) {
+		var data = this.saveForm(form, {});
 		offset = offset || 0;
 		var sreq = {
-			sma:data.spread_calc_sma_hours,
-			stdev:data.spread_calc_stdev_hours,
-			force_spread:data.spread_mode=="fixed"?Math.log(data.force_spread/100+1):0,
-			mult:mult,
-			raise:data.dynmult_raise,
-			cap:data.dynmult_cap,
-			fall:data.dynmult_fall,
-			mode:data.dynmult_mode,
-			sliding:data.dynmult_sliding,
-			spread_freeze:data.spread_freeze,
-			dyn_mult:data.dynmult_mult,
+		    spread: data.spread,
 			reverse: btopts.reverse_chart,
 			invert: btopts.invert_chart,
 			ifutures: invert_price,			
 			source: this_bt.minute.id,
-			order2: data.secondary_order,
 			offset: offset,
 			swap:  form._swap_symbols == 1
 		}
 		return fetch_json(url+"/gen_trades",{method:"POST",body:JSON.stringify(sreq)});
-	}
+	}.bind(this);
  	
 
 	this.gen_backtest(form,"backtest_anchor", "backtest_vis",inputs,function(cntr){

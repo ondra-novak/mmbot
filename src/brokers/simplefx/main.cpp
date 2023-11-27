@@ -124,7 +124,6 @@ public:
 	std::string authSecret;
 	std::string authAccount;
 	unsigned int defaultAccount;
-	double refBalance;
 
 
 	struct Account {
@@ -152,13 +151,31 @@ public:
 		//SettlementMode settlMode;
 	};
 
+	struct PositionInfo {
+	    json::ULongInt id;
+	    double volume;
+	};
+
+	class PositionList : public  std::vector<PositionInfo> {
+	public:
+	    using std::vector<PositionInfo>::vector;
+
+	    double volume() const {
+	        return std::accumulate(begin(), end(),0.0, [](double a, const PositionInfo &pos){
+	            return a + pos.volume;
+	        });
+	    }
+	};
+
 
 	mutable std::unordered_map<std::string, SymbolInfo> smbinfo;
 	mutable std::unordered_map<std::string, double> position;
+	mutable std::unordered_map<std::string, PositionList> position_list;
 	mutable std::unordered_map<unsigned int, Account> accounts;
 	mutable std::unordered_map<std::string, SymbolSettings> symcfg;
 	mutable std::chrono::system_clock::time_point smbexpire;
 
+	inline unsigned int getLoginForSymbol(const std::string& symbol) const;
 	Account &getAccount(const std::string &symbol);
 	Account &getAccount(unsigned int login);
 
@@ -363,7 +380,7 @@ inline Interface::BrokerInfo Interface::getBrokerInfo() {
 		"simplefx",
 		"$impleFX",
 		"https://simplefx.com/n/_13219",
-		"1.0",
+		"1.1",
 		"Copyright (c) 2019 Ondřej Novák\n\n"
 
 "Permission is hereby granted, free of charge, to any person "
@@ -415,12 +432,17 @@ inline void Interface::onLoadApiKey(json::Value keyData) {
 	authAccount = keyData["account"].getString();
 }
 
+inline unsigned int Interface::getLoginForSymbol(const std::string& symbol) const {
+    auto iter = symcfg.find(symbol);
+    unsigned int login;
+    if (iter == symcfg.end()) login = defaultAccount;
+    else login = iter->second.account;
+    return login;
+}
+
+
 inline Interface::Account& Interface::getAccount(const std::string& symbol) {
-	auto iter = symcfg.find(symbol);
-	unsigned int login;
-	if (iter == symcfg.end()) login = defaultAccount;
-	else login = iter->second.account;
-	return getAccount(login);
+    return getAccount(getLoginForSymbol(symbol));
 }
 
 inline Interface::Account& Interface::getAccount(unsigned int login) {
@@ -502,8 +524,7 @@ void Interface::updatePosition(const std::string& symbol, double amount) {
 	else
 		piter->second += amount;
 
-	logDebug("Positions updated - $1 changed by $2, currently $3",
-			symbol, amount, LogRange(position.begin(), position.end(), ","));
+	logDebug("Positions updated - $1 changed by $2", symbol, amount);
 
 }
 
@@ -513,8 +534,27 @@ inline double Interface::execCommand(const std::string &symbol, double amount, d
 	SymbolInfo &sinfo = getSymbolInfo(symbol);
 	Account &a = getAccount(symbol);
 	double adjamount = amount / sinfo.mult;
+
+	auto poslistiter = position_list.find(symbol);
+	if (poslistiter != position_list.end()) {
+	    PositionList &lst = poslistiter->second;
+	    double adjamount2 = std::abs(adjamount * 1.0001);
+	    json::Array candidates;
+	    for (const auto &ord: lst) {
+	        double absvol = std::abs(ord.volume);
+	        if (ord.volume * adjamount < 0 && absvol < adjamount2) {
+	            candidates.push_back(ord.id);
+                adjamount2 -= absvol;
+	            logDebug("Candidate to close symbol=$1, id=$2, volume=$3, remain=$4", symbol, ord.id, ord.volume, adjamount2);
+	        }
+	    }
+	    //todo
+	}
+
+	Value v;
+
 	try {
-		Value v = getData(hjsn.POST("/api/v3/trading/orders/market",json::Object({
+		v = getData(hjsn.POST("/api/v3/trading/orders/market",json::Object({
 			{"Reality",a.reality},
 			{"Login", a.login},
 			{"Symbol", symbol},
@@ -569,7 +609,7 @@ inline void Interface::login() {
 				{"clientSecret",authSecret}})));
 			Value token = v["token"];
 			this->token = token.getString();
-			tokenExpire = now + 15*60000;
+			tokenExpire = now + 6*60000;
 			Value alist = getData(hjsn.GET("/api/v3/accounts", tokenHeader()));
 			accounts.clear();
 			defaultAccount = 0;
@@ -585,7 +625,7 @@ inline void Interface::login() {
 				accounts.emplace(login.getUInt(),Account {
 					reality.getString(),
 					static_cast<unsigned int>(login.getUInt()),
-					v["freeMargin"].getNumber(),
+					v["equity"].getNumber(),
 					c["multiplier"].getValueOrDefault(1.0),
 					c["displayCurrency"].getValueOrDefault(currency).getString()
 				});
@@ -682,7 +722,7 @@ inline void Interface::updatePositions() {
 	std::swap(save, this->position);
 
 	try {
-
+        position_list.clear();
 		for (auto &a : accounts) {
 			Value data = getData(hjsn.POST("/api/v3/trading/orders/active", Object({
 						{"login",a.second.login},
@@ -693,10 +733,20 @@ inline void Interface::updatePositions() {
 				for (Value v : morders) {
 					std::string symbol = v["symbol"].getString();
 					SymbolInfo &sinfo = getSymbolInfo(symbol);
-					double volume = v["volume"].getNumber() * sinfo.mult;
-					if (v["side"].getString() == "SELL") volume = -volume;
-					updatePosition(symbol, volume);
-			}
+					auto lg =  getLoginForSymbol(symbol);
+					if (a.second.login == lg) {
+                        double volume = v["volume"].getNumber();
+                        if (v["side"].getString() == "SELL") volume = -volume;
+                        updatePosition(symbol, volume * sinfo.mult);
+                        position_list[symbol].push_back({v["id"].getUIntLong(), volume});
+					}
+				}
+		}
+
+		for (const auto &p: position_list) {
+		    for (const auto &q: p.second) {
+		        logDebug("Symbol: $1, Order: $2, Volume $3", p.first, q.id, q.volume);
+		    }
 		}
 
 		for (auto &a: this->position) {
@@ -814,9 +864,9 @@ inline uint64_t Interface::downloadMinuteData(const std::string_view &asset,
 		const std::string_view &currency, const std::string_view &hint_pair, uint64_t time_from,
 		uint64_t time_to, HistData &xdata) {
 	getSymbolInfo(std::string(asset));
-	
+
 	MinuteData data;
-	
+
 	int sets[] = {300,900,1800,3600,14400};
 	for (int curset: sets) {
 		std::ostringstream buff;

@@ -1,6 +1,7 @@
 .stdline {
 	stroke: #FF8;
 	stroke-width: 2px;
+	fill: none;
 }
 
 .stdline2 {

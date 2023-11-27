@@ -234,7 +234,8 @@ function initChart(chart_interval, ratio, base_interval, objret) {
 	var rowbeg= Math.floor(minmax.min/rowstep);
 	var rowend= Math.floor(minmax.max/rowstep);	
 
-	var svg = new_svg_el("svg",{viewBox:"0 0 "+(activewidth+axis)+" "+(activeheight+axis+label)},elem);
+	var svg = new_svg_el("svg",{viewBox:"0 0 "+(activewidth+axis+1)+" "+(activeheight+axis+label+1)},elem);
+	var pathstr = "";	
 	new_svg_el("line",{x1:axis, y1:0,x2:axis,y2:activeheight+axis,class:"lineaxis"},svg);
 	new_svg_el("line",{x1:0, y1:activeheight+1,x2:activewidth+axis,y2:activeheight+1,class:"lineaxis"},svg);
 	var cnt = chart.length;
@@ -254,66 +255,97 @@ function initChart(chart_interval, ratio, base_interval, objret) {
 	}
 
 	if (!isFinite(rowbeg) || !isFinite(rowend)) return;
+
+    var grp = new_svg_el("g",{},svg);
 	
 	for (var i = rowbeg; i <=rowend; i++) {
 		var v = i*rowstep;
 		var maj = Math.abs(v)<rowstep/2;
 		var y = map_y(v);
-		new_svg_el("line",{x1:0,y1:y,x2:activewidth+axis,y2:y,class:maj?"majoraxe":"minoraxe"},svg);
+		if (maj) {
+		  new_svg_el("line",{x1:0,y1:y,x2:activewidth+axis,y2:y,class:"majoraxe"},svg);
+		} else {
+            pathstr += "M 0 "+y+"h "+(activewidth+axis)+" ";
+        }
 		new_svg_el("text",{x:axis+2,y:y,class:"textaxis"},svg).appendChild(document.createTextNode(adjNum(i*rowstep)));
 	}
-	
 	var xtmpos = activewidth/step-skiphours;
 	while (xtmpos > 0) {
 		var xtm = map_x(xtmpos);
-		new_svg_el("line",{x1:xtm,y1:0,x2:xtm,y2:activeheight,class:"minoraxe"},svg);
+		pathstr += "M "+xtm+" 0 v "+activeheight+" ";
 		xtmpos-=daystep;
 	}
+    new_svg_el("path",{d:pathstr,class:"minoraxe"}, grp);
+    
+    pathstr = "";
+
 	xtmpos = activewidth/step-skiphours;
 	while (xtmpos > 0) {
 		var xtm = map_x(xtmpos);
 		new_svg_el("text",{x:xtm,y:activeheight,class:"textaxisx"},svg).appendChild(document.createTextNode(bday.toLocaleDateString()));
 		bday.setDate(bday.getDate()-dattextstep);
-		new_svg_el("line",{x1:xtm,y1:activeheight-5,x2:xtm,y2:activeheight,class:"majoraxe"},svg);
+		pathstr += "M " + xtm + " " +  (activeheight-5) + " v -5 ";		
 		xtmpos-=daystep*dattextstep;
 	}
+    new_svg_el("path",{d:pathstr,class:"majoraxe"}, svg);
+
 	var tmstart=(now/base_interval-activewidth/step)
-	for (var i = 0; i <cnt-1; i++) {
-		var pos = "stdline";
-		var x1 = map_x(chart[i].time/base_interval-tmstart);
-		var x2 = map_x(chart[i+1].time/base_interval-tmstart);
-		var y1 = map_y(chart[i][fld]);
-		var y2 = map_y(chart[i+1][fld]);
-		new_svg_el("line",{x1:x1,y1:y1,x2:x2,y2:y2,class:pos},svg);
+    pathstr = "";
+	var nxt = false;
+	for (var i = 0; i <cnt; i++) {
+        var v = chart[i][fld];
+        if (v === undefined) {
+            nxt = false;            
+        } else {
+    		if (nxt) pathstr = pathstr + "L "; else pathstr = pathstr + "M "
+    		nxt = true;
+    		var x = map_x(chart[i].time/base_interval-tmstart);
+    		var y = map_y(v);
+    		pathstr = pathstr + x + " " + y + " ";    		
+    	}
 	}
+	new_svg_el("path",{d:pathstr,class:"stdline"},svg);
+	
 	var args = Array.prototype.slice.call(arguments,4);
 	args.forEach(function(fld2) {
 		if (fld2) {
-			for (var i = 0; i <cnt-1; i++) {
-				var pos = "stdline2";
-				var v1 = chart[i][fld2];
-				var v2 = chart[i+1][fld2];
-				if (v1 == undefined || v2 == undefined) continue;
-				var x1 = map_x(chart[i].time/base_interval-tmstart);
-				var x2 = map_x(chart[i+1].time/base_interval-tmstart);
-				var y1 = map_y(v1);
-				var y2 = map_y(v2);
-				new_svg_el("line",{x1:x1,y1:y1,x2:x2,y2:y2,class:pos},svg);
+            var pathstr = "";
+            var nxt = false;
+			for (var i = 0; i <cnt; i++) {
+                var v = chart[i][fld2];
+                if (v === undefined) {
+                    nxt = false;            
+                } else {
+                    if (nxt) pathstr = pathstr + "L "; else pathstr = pathstr + "M "
+                    nxt = true;
+                    var x = map_x(chart[i].time/base_interval-tmstart);
+                    var y = map_y(v);
+                    pathstr = pathstr + x + " " + y + " ";
+                }
 			}
+            new_svg_el("path",{d:pathstr,class:"stdline2"},svg);
 		}
 	})
-	for (var i = 0; i <cnt; i++) if (chart[i].achg) {
-		var x1 = map_x(chart[i].time/base_interval-tmstart);
-		var y1 = map_y(chart[i][fld]);
-		var man = chart[i].man;
-		var marker = "marker "+(chart[i].achg<0?"sell":"buy") 
-		if (man) {
-			new_svg_el("line",{x1:x1-5,y1:y1-5,x2:x1+5,y2:y1+5,class:marker},svg);
-			new_svg_el("line",{x1:x1+5,y1:y1-5,x2:x1-5,y2:y1+5,class:marker},svg);
-		} else {				
-			new_svg_el("circle",{cx:x1,cy:y1,r:4,class:marker},svg);
-		}
-	}
+	
+	
+	var markers = [["sell",-1],["buy",1]]; 
+    markers.forEach(function(m){
+        var marker = "marker "+m[0];
+        var side = m[1];
+        var pathstr = "";
+    	for (var i = 0; i <cnt; i++) if (chart[i].achg * side > 0) {
+    		var x1 = map_x(chart[i].time/base_interval-tmstart);
+    		var y1 = map_y(chart[i][fld]);
+    		var man = chart[i].man;
+    		if (man) {
+                pathstr +="M " + (x1-5) +" " + (y1-5) +" l 10 10 " 
+                       +"M " + (x1+5) +" " + (y1-5) +" l -10 10 "
+    		} else {
+                pathstr += "M " + (x1-4) + " " + (y1-4) + " h 8 v 8 h -8 v -8 ";    			
+    		}    		
+    	}
+    	new_svg_el("path",{d:pathstr, class:marker},svg);
+	});
 	
 	if (lines === undefined) {
 		lines=[];
@@ -422,8 +454,17 @@ function interpolate(beg, end, cur, a, b) {
 	return a+(b-a)*n;
 }
 
+function copyFileToTextArea(file, textarea) {
+    var reader = new FileReader();
+    reader.onload = function() {
+        textarea.value = reader.result;
+    }
+    reader.readAsText(file);
+}
+
 
 function formBuilder(format) {
+    var files = [];
 	var items = format.map(function(itm) {
 		var el;
 		var lb = {
@@ -443,6 +484,25 @@ function formBuilder(format) {
 					step:"any",
 					value:itm.default
 				}};break;
+        case "file": el = {
+                    tag: "span",
+                    content:[{
+                            tag:"input",
+                            attrs: {
+                                "data-name":itm.name+"_file",
+                                "type":"file",
+                                "onchange":"copyFileToTextArea(this.files[0], this.nextElementSibling);"
+                            }
+                        },{
+                            tag:"textarea",
+                            attrs:{
+                                "data-name":itm.name+"_content",
+                                "hidden":"hidden"
+                            }
+                            
+                        }]
+                    };            
+                break;
 		case "textarea": el ={tag:"textarea",
 				text:itm.default || "",
 				attrs: {
