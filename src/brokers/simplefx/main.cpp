@@ -14,6 +14,7 @@
 #include <imtjson/object.h>
 #include <imtjson/string.h>
 #include <imtjson/operations.h>
+#include <imtjson/parser.h>
 
 #include <shared/stdLogOutput.h>
 #include <shared/first_match.h>
@@ -60,6 +61,8 @@ public:
 	HTTPJson hjsn_utils;
 	std::unique_ptr<QuoteStream> qstream;
 	std::unique_ptr<Market> market;
+
+
 
 
 	double execCommand(const std::string &symbol, double amount, double last_price);
@@ -195,12 +198,21 @@ public:
 	using Sync = std::unique_lock<std::recursive_mutex>;
 	std::recursive_mutex lock;
 
+	struct Errors {
+	    std::string buy_order_error;
+	    std::string sell_order_error;
+	};
+	std::map<std::string, Errors, std::less<> > _errors;
+
+
 	virtual bool areMinuteDataAvailable(const std::string_view &asset,
 			const std::string_view &currency)override;
 	virtual uint64_t downloadMinuteData(const std::string_view &asset, const std::string_view &currency, const std::string_view &hint_pair, uint64_t time_from, uint64_t time_to,
 			HistData &data)override;
 	virtual json::Value callMethod(std::string_view name, json::Value args) override;
 	virtual AllWallets getWallet() override;
+
+	void throwOrderError(const std::string_view &symbol, double side);
 
 protected:
 	void updatePosition(const std::string& symbol, double amount);
@@ -310,6 +322,8 @@ inline Interface::Ticker Interface::getTicker(const std::string_view &pair) {
 inline json::Value Interface::placeOrder(const std::string_view &pair,
 		double size, double price, json::Value clientId, json::Value replaceId,
 		double replaceSize) {
+
+    throwOrderError(pair, size);
 
 	std::string p(pair);
 
@@ -580,9 +594,24 @@ inline double Interface::execCommand(const std::string &symbol, double amount, d
 				}
 			}
 		}
-	} catch (std::exception &e) {
+	} catch (const std::exception &e) {
+	    json::Value resp;
+	    auto est = dynamic_cast<const HTTPJson::UnknownStatusException *>(&e);
+	    if (est) {
+	        try {
+	            auto s = est->response.getBody();
+	            resp = json::Value::parse(s);
+	        } catch (...) {
+
+	        }
+	    }
+	    std::string err = e.what();
+	    if (resp.hasValue()) err.append(" - ").append(resp.toString());
+	    auto &errors = _errors[symbol];
+	    if (adjamount<0) errors.sell_order_error = err;
+	    else errors.buy_order_error = err;
 		_.unlock();
-		logError("Unable to execute trade - %1", e.what());
+		logError("Unable to execute trade - $1", err);
 		//actually we don't know, whether the order has been executed.
 		//but current experience found, that mostly it did.
 		while (true) {
@@ -592,7 +621,7 @@ inline double Interface::execCommand(const std::string &symbol, double amount, d
 				updatePositions();
 				return -1;
 			} catch (std::exception &e) {
-				logError("Unable to execute trade - recovery failed:  %1", e.what());
+				logError("Unable to execute trade - recovery failed:  $1", e.what());
 				_.unlock();
 			}
 			std::this_thread::sleep_for(std::chrono::seconds(4));
@@ -649,6 +678,20 @@ inline Value Interface::tokenHeader() {
 	} else {
 		return Value();
 	}
+}
+
+inline void Interface::throwOrderError(const std::string_view &symbol, double side) {
+    std::lock_guard _(lock);
+    auto iter = _errors.find(symbol);
+    if (iter == _errors.end()) return;
+    if (side < 0 && !iter->second.sell_order_error.empty()) {
+        auto x= std::move(iter->second.sell_order_error);
+        throw std::runtime_error(x);
+    }
+    if (side > 0 && !iter->second.buy_order_error.empty()) {
+        auto x = std::move(iter->second.buy_order_error);
+        throw std::runtime_error(x);
+    }
 }
 
 std::string Interface::getSettingsFile() {
