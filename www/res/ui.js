@@ -10,6 +10,8 @@ TemplateJS.View.regCustomElement("X-SLIDER", new TemplateJS.CustomElement(
 				if (!isNaN(fixed)) return parseFloat(v).toFixed(fixed);
 				else return v;
 			}
+            var min = parseFloat(elem.dataset.min);
+            var max = parseFloat(elem.dataset.max);
 			if (!range) {
 				range = document.createElement("input");
 				range.setAttribute("type","range");
@@ -18,8 +20,6 @@ TemplateJS.View.regCustomElement("X-SLIDER", new TemplateJS.CustomElement(
 				number.setAttribute("step",mult);
 				var env1 = document.createElement("div");
 				var env2 = document.createElement("div");
-				var min = parseFloat(elem.dataset.min);
-				var max = parseFloat(elem.dataset.max);
 				var rmin = Math.floor(min/mult);
 				var rmax = Math.floor(max/mult);
 				range.setAttribute("min",rmin);
@@ -33,6 +33,14 @@ TemplateJS.View.regCustomElement("X-SLIDER", new TemplateJS.CustomElement(
 				number.addEventListener("change", function() {
 					var v = parseFloat(this.value);
 					var val = v / mult;
+					var curmin = parseFloat(range.min);
+					var curmax = parseFloat(range.max);
+                    if (elem.dataset.extend == "max" && v > curmax) {
+                        range.setAttribute("max", val);
+                    }
+                    if (elem.dataset.extend == "min" && v < curmin) {
+                        range.setAttribute("min", val);
+                    }
 					range.value = val;
 					elem.dispatchEvent(new Event("change"));
 				});				
@@ -41,10 +49,14 @@ TemplateJS.View.regCustomElement("X-SLIDER", new TemplateJS.CustomElement(
 				elem.appendChild(env1);
 				elem.appendChild(env2);
 			}
-			range.value = val / mult;
-			number.value = toFixed(val);
-
-			
+			if (elem.dataset.extend == "max" && val > (0.75*max+0.25*min)) {
+                range.setAttribute("max", ((val - min) * 1.5 + min)/mult);
+            }
+            if (elem.dataset.extend == "min" && val < (0.25*max+0.75*min)) {
+                range.setAttribute("min", ((val - max) * 1.5 + max)/mult);
+            }
+            range.value = val / mult;
+            number.value = toFixed(val);
 		},
 		function(elem) {
 			var number = elem.querySelector("input[type=number]");
