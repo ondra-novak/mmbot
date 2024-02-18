@@ -23,7 +23,6 @@ add_executable (mmbot
 	strategy_sinh.cpp
 	strategy_sinh_gen.cpp
 	strategy_sinh_val.cpp
-	strategy_stairs.cpp
 	strategy_hodl_short.cpp
 	strategy_keepbalance.cpp
 	strategy_gamma.cpp
