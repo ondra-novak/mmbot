@@ -325,65 +325,77 @@ json::Value AbstractExtern::jsonExchange(json::Value request) {
 		kill();
 	}
 	do {
-		try {
-			struct pollfd fds[2];
-			fds[0].fd = extout;
-			fds[0].events = POLLIN;
-			fds[0].revents = 0;
-			fds[1].fd = exterr;
-			fds[1].events = POLLIN;
-			fds[1].revents = 0;
-			int r = poll(fds,2,timeout);
-			if (r == 0) report_timeout();
-			if (r < 0) report_error("poll");
-			if (fds[1].revents) {
-				Reader errrd(exterr, timeout);
-				bool rep;
-				do {
-					lastStdErr = std::move(z);
-					do {
-						auto buff = errrd.read();
-						if (buff.empty()) {
-							throw std::runtime_error(json::String({
-								"Connection to API lost: ",
-								request.toString()," - err: ",
-									lastStdErr.empty()?"N/A": lastStdErr.c_str()}).c_str());
-						}
-						auto pos = buff.find('\n');
-						if (pos == buff.npos) z.append(buff);
-						else {
-							z.append(buff.substr(0,pos));
-							errrd.putback(buff.substr(pos+1));
-							rep = pos+1 < buff.length();
-							log.note("stderr: $1",  z);
-							break;
-						}
-					} while (true);
-				}while (rep);
-			}
-			if (fds[0].revents) {
-					Reader rd(extout, timeout);
-					auto buff = rd.read();
-					while (!buff.empty() && isspace(buff[0])) {
-						buff = buff.substr(1);
-					}
-					if (!buff.empty()) {
-						rd.putback(buff);
-						auto ret = binary_mode
-								?json::Value::parseBinary<Reader &>(rd, json::base64)
-								:json::Value::parse<Reader &>(rd);
-						if (verbose) log.debug("RECV: $1", ret.toString().substr(0,512));
-						return ret;
-					} else {
-						log.debug("Broker requested more time");
-					}
-			}
-		} catch (...) {
-			kill();
-			throw;
-		}
-	}
-	while (true);
+	    bool no_extra_time = true;
+	    //limit max timeout 10 minutes
+	    unsigned int utimeout = timeout;
+        auto tmpt = std::chrono::system_clock::now()+std::chrono::milliseconds(std::min(utimeout, 10U*60U*1000U));
+        do {
+            try {
+                int tm;
+                auto now = std::chrono::system_clock::now();
+                if (now >= tmpt) report_timeout();
+                else tm =std::chrono::duration_cast<std::chrono::milliseconds>(tmpt - now).count();
+
+                struct pollfd fds[2];
+                fds[0].fd = extout;
+                fds[0].events = POLLIN;
+                fds[0].revents = 0;
+                fds[1].fd = exterr;
+                fds[1].events = POLLIN;
+                fds[1].revents = 0;
+                int r = poll(fds,2,tm);
+                if (r == 0) report_timeout();
+                if (r < 0) report_error("poll");
+                if (fds[1].revents) {
+                    Reader errrd(exterr, timeout);
+                    bool rep;
+                    do {
+                        lastStdErr = std::move(z);
+                        do {
+                            auto buff = errrd.read();
+                            if (buff.empty()) {
+                                throw std::runtime_error(json::String({
+                                    "Connection to API lost: ",
+                                    request.toString()," - err: ",
+                                        lastStdErr.empty()?"N/A": lastStdErr.c_str()}).c_str());
+                            }
+                            auto pos = buff.find('\n');
+                            if (pos == buff.npos) z.append(buff);
+                            else {
+                                z.append(buff.substr(0,pos));
+                                errrd.putback(buff.substr(pos+1));
+                                rep = pos+1 < buff.length();
+                                log.note("stderr: $1",  z);
+                                break;
+                            }
+                        } while (true);
+                    }while (rep);
+                }
+                if (fds[0].revents) {
+                        Reader rd(extout, timeout);
+                        auto buff = rd.read();
+                        while (!buff.empty() && isspace(buff[0])) {
+                            buff = buff.substr(1);
+                        }
+                        if (!buff.empty()) {
+                            rd.putback(buff);
+                            auto ret = binary_mode
+                                    ?json::Value::parseBinary<Reader &>(rd, json::base64)
+                                    :json::Value::parse<Reader &>(rd);
+                            if (verbose) log.debug("RECV: $1", ret.toString().substr(0,512));
+                            return ret;
+                        } else {
+                            log.debug("Broker requested more time");
+                            no_extra_time  = false;
+                        }
+                }
+            } catch (...) {
+                kill();
+                throw;
+            }
+        }
+        while (no_extra_time);
+	} while (true);
 }
 
 json::Value AbstractExtern::jsonRequestExchange(json::String name, json::Value args) {
