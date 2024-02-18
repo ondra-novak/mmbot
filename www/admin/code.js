@@ -364,8 +364,8 @@ App.prototype.fillForm = function (src, trg) {
 			};
 			fetch_json("../api/admin/strategy", {method:"POST",body:JSON.stringify(req)}).then(
 				function(r){
-					trg.setData({range_min_price:adjNum(r.min), range_max_price:adjNum(r.max), range_initial:adjNum(r.initial)});
-					initial_pos = adjNumN(r.initial);
+					trg.setData({range_min_price:adjNum(r.min), range_max_price:adjNum(r.max), range_initial:adjNum(r.initial+data.position_offset)});
+					initial_pos = adjNumN(r.initial+data.position_offset);
 				},function(e){
 					console.error(e);
 			});
@@ -895,6 +895,7 @@ App.prototype.fillForm = function (src, trg) {
     }
 	data.min_size = filledval(src.min_size,0);
 	data.max_size = filledval(src.max_size,0);
+	data.position_offset = filledval(src.position_offset,0);
 	data.dont_allocate = filledval(src.dont_allocate,false);
 	data.report_order = filledval(src.report_order,0);
 	data.max_balance = filledval(src.max_balance,"");
@@ -1152,6 +1153,7 @@ App.prototype.saveForm = function(form, src) {
     }
 	trader.min_size = data.min_size;
 	trader.max_size = data.max_size;
+	trader.position_offset = data.position_offset;
 	trader.max_leverage = data.max_leverage;
 	trader.dont_allocate = data.dont_allocate;
 	trader.report_order = data.report_order;
@@ -2128,7 +2130,7 @@ function DelayUpdate(fn) {
 App.prototype.init_backtest = function(form, id, pair, broker) {
 	var url = "../api/admin/backtest2";
 	form.enableItem("show_backtest",false);		
-	var inputs = ["strategy","external_assets", "acum_factor","kv_valinc","kv_halfhalf","min_size","max_size","linear_suggest","linear_suggest_maxpos",
+	var inputs = ["strategy","external_assets", "acum_factor","kv_valinc","kv_halfhalf","min_size","max_size","position_offset","linear_suggest","linear_suggest_maxpos",
 		"dynmult_sliding",
 		"exp_r","exp_w","exp_z","exp_s","exp_m","exp_z2","exp_dnrdc",
 		"hp_trend_factor","hp_allowshort","hp_reinvest","hp_power","hp_asym","hp_reduction","sh_curv","hp_limit","hp_extbal","hp_powadj","hp_dynred",

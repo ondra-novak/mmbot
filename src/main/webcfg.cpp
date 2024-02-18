@@ -765,7 +765,7 @@ bool WebCfg::reqTraders(simpleServer::HTTPRequest req, ondra_shared::StrViewA vp
 					out.set("broker", trl->getConfig().broker);
 					out.set("pair", getPairInfo(broker, trl->getConfig().pairsymb));
                     auto strategy = trl->getStrategy();
-                    double assets = *trl->getPosition();
+                    double assets = trl->getStrategyPosition();
                     double currencies = *trl->getCurrency();
                     auto eq = strategy.getEquilibrium(assets);
                     auto minfo = trl->getMarketInfo();
@@ -803,7 +803,7 @@ bool WebCfg::reqTraders(simpleServer::HTTPRequest req, ondra_shared::StrViewA vp
 						auto pos = trl->getPosition();
 						auto cur = trl->getCurrency();
 						MTrader::Status mst = trl->getMarketStatus();
-						strategy.onIdle(trl->getMarketInfo(), mst.ticker, *pos, *cur);
+						strategy.onIdle(trl->getMarketInfo(), mst.ticker, pos, *cur);
 						if (!strategy.isValid()) {
 							req.sendErrorPage(409,"","Settings was not accepted");
 						} else {
@@ -1092,7 +1092,7 @@ bool WebCfg::reqEditor(simpleServer::HTTPRequest req)  {
 						strategy = stratobj.dumpStatePretty(trl->getMarketInfo());
 						auto trades = trl->getTrades();
 						auto assBal = trl->getPosition();
-						if (assBal.has_value()) position =*assBal;
+						position =assBal;
 						partialPos = trl->getPartialPosition();
 						tradeCnt = trades.size();
 						enter_price = trl->getEnterPrice();

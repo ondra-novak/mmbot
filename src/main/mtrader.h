@@ -44,6 +44,7 @@ struct MTrader_Config {
 
 	double min_size;
 	double max_size;
+	double position_offset;
 	std::optional<double> min_balance;
 	std::optional<double> max_balance;
 	std::optional<double> max_costs;
@@ -215,7 +216,8 @@ public:
 
 
 
-	std::optional<double> getPosition() const;
+	double getPosition() const;
+	double getStrategyPosition() const;
 	std::optional<double> getCurrency() const;
 	double getEnterPrice() const;
 	double getEnterPricePos() const;

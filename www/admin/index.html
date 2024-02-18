@@ -411,6 +411,9 @@ specifies size of the "dust order"
 <label  class="adv"><span>Maximum order size (0&nbsp;=&nbsp;disabled)<span class="tooltip">
 Specifies maximal order size. 
 </span></span><input type="number" data-name="max_size" step="any"></label>
+<label  class="adv"><span>Position offset<span class="tooltip">
+Specifies which position is considered as position 0. This can affect performace as the strategy is enforced to target given position. This option can be useful if you need to keep a hedge position 
+</span></span><input type="number" data-name="position_offset" step="any"></label>
 <label  class="adv"><span>Maximum leverage (0&nbsp;=&nbsp;disabled)<span class="tooltip">
 Specifies maximal allowed leverage. If the size of the order is larger then specified leverage, then the order is not placed. This can also trigger <b>Accept loss</b> feature when it is enabled  
 </span></span><input type="number" data-name="max_leverage" step="1"></label>

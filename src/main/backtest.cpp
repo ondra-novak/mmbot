@@ -31,7 +31,7 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 			pos = *init_pos;
 			if (minfo.invert_price) pos = -pos;
 		}else {
-			pos = s.calcInitialPosition(minfo,bt.price,0,balance);
+			pos = s.calcInitialPosition(minfo,bt.price,0,balance)+cfg.position_offset;
 			if (!minfo.leverage) balance -= pos * bt.price;
 			bt.size = pos;
 		}
@@ -51,16 +51,16 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 			double prev_bal = balance;
 			bool enable_alert = true;
 
-			double eq = s.getCenterPrice(bt.price,pos);
+			double eq = s.getCenterPrice(bt.price,pos-cfg.position_offset);
 			double dir = p>eq?-1:1;
-			s.onIdle(minfo,tk,pos,balance);
+			s.onIdle(minfo,tk,pos-cfg.position_offset,balance);
 			double adjbal = std::max(balance,0.0);
 			bool rej = false;
 			bool invalid = false;
 			double orgsize = 0;
 			Strategy::OrderData order;
 			do {
-                order = s.getNewOrder(minfo, bt.price*0.9+p*0.1, p, dir, pos, adjbal,rej);
+                order = s.getNewOrder(minfo, bt.price*0.9+p*0.1, p, dir, pos-cfg.position_offset, adjbal,rej);
 
                 if (order.price) {
                     p = order.price;
@@ -169,7 +169,7 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 			}
 
 			if (enable_alert) {
-				auto tres = s.onTrade(minfo, p, order.size, pos, balance);
+				auto tres = s.onTrade(minfo, p, order.size, pos-cfg.position_offset, balance);
 				bt.neutral_price = tres.neutralPrice;
 				double norm_accum = std::isfinite(tres.normAccum)?tres.normAccum:0;
 				bt.norm_accum += norm_accum;

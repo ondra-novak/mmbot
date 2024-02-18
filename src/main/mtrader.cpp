@@ -61,6 +61,7 @@ void MTrader_Config::loadConfig(json::Value data) {
 
 	min_size = data["min_size"].getValueOrDefault(0.0);
 	max_size = data["max_size"].getValueOrDefault(0.0);
+	position_offset = data["position_offset"].getValueOrDefault(0.0);
 	json::Value min_balance = data["min_balance"];
 	json::Value max_balance = data["max_balance"];
 	json::Value max_costs = data["max_costs"];
@@ -194,7 +195,7 @@ void MTrader::alertTrigger(const Status &st, double price, int dir, AlertReason 
 
 
 	if (!achieve_mode) {
-		auto norm = strategy.onTrade(minfo, price, 0, position, st.currencyBalance);
+		auto norm = strategy.onTrade(minfo, price, 0, position-cfg.position_offset, st.currencyBalance);
 		tr.eff_size-=norm.normAccum;
 		accumulated +=norm.normAccum;
 		position -=norm.normAccum;
@@ -258,7 +259,7 @@ void MTrader::perform(bool manually) {
 		    flush_partial(status);
 		}
 
-		strategy_position = position-partial_position;
+		strategy_position = position-partial_position-cfg.position_offset;
 
         double eq = strategy.getEquilibrium(strategy_position);
 
@@ -297,7 +298,7 @@ void MTrader::perform(bool manually) {
 
 		double lastTradeSize = trades.empty()?0:trades.back().eff_size;
 		if (lastTradePrice == 0 ) {
-			lastTradePrice = !trades.empty()?trades.back().eff_price:strategy.isValid()?strategy.getEquilibrium(status.assetBalance):status.curPrice;
+			lastTradePrice = !trades.empty()?trades.back().eff_price:strategy.isValid()?strategy.getEquilibrium(strategy_position):status.curPrice;
 			if (!std::isfinite(lastTradePrice)) lastTradePrice = status.curPrice;		}
 
 		double centerPrice = need_alerts?lastTradePrice:strategy.getCenterPrice(lastTradePrice, strategy_position);
@@ -447,7 +448,7 @@ void MTrader::perform(bool manually) {
 			int last_trade_dir = !anytrades?0:sgn(lastTradeSize);
             if (last_trade_dir < 0) orders.sell.reset();
             if (last_trade_dir > 0) orders.buy.reset();
-            auto minmax = strategy.calcSafeRange(minfo,status.assetAvailBalance,status.currencyAvailBalance);
+            auto minmax = strategy.calcSafeRange(minfo,strategy_position,status.currencyAvailBalance);
             auto budget = strategy.getBudgetInfo();
 			//report orders to UI
 			statsvc->reportOrders(1,orders.buy,orders.sell);
@@ -1067,7 +1068,7 @@ void MTrader::flush_partial(const Status &status) {
     double trade_size = partial_eff_pos.getPos();
     if (trade_size) {
         double trade_price = partial_eff_pos.getOpen();
-        auto tstate = strategy.onTrade(minfo, trade_price, trade_size, position, currency);
+        auto tstate = strategy.onTrade(minfo, trade_price, trade_size, position-cfg.position_offset, currency);
         if (!trades.empty()) {
             auto &t = trades.back();
             t.eff_size-=tstate.normAccum;
@@ -1153,7 +1154,7 @@ void MTrader::reset(const ResetOptions &ropt) {
 	logInfo("RESET strategy: price=$1, cur_pos=$2, new_pos=$3, diff=$4, volume=$5, remain=$6", status.curPrice, assets, position, diff, vol, remain);
 	strategy.reset();
 	try {
-		strategy.onIdle(minfo, status.ticker, position, remain);
+		strategy.onIdle(minfo, status.ticker, position-cfg.position_offset, remain);
 		achieve_mode = ropt.achieve;
 		need_initial_reset = false;
 		wcfg.walletDB.lock()->alloc(getWalletBalanceKey(), strategy.calcCurrencyAllocation(status.curPrice, minfo.leverage>0));
@@ -1188,8 +1189,12 @@ void MTrader::dropState() {
 
 
 
-std::optional<double> MTrader::getPosition() const {
+double MTrader::getPosition() const {
 	return position;
+}
+
+double MTrader::getStrategyPosition() const {
+    return position-cfg.position_offset;
 }
 
 double MTrader::getPartialPosition() const {
@@ -1263,7 +1268,7 @@ WalletDB::Key MTrader::getWalletAssetKey() const {
 }
 
 bool MTrader::checkEquilibriumClose(const Status &st, double lastTradePrice) {
-    double eq = strategy.getEquilibrium(st.assetBalance);
+    double eq = strategy.getEquilibrium(st.assetBalance-cfg.position_offset);
     if (!std::isfinite(eq)) return false;
     auto orders = cfg.spread->get_result(spread_state, eq);
     if (orders.buy.has_value() && orders.sell.has_value()) {
@@ -1589,7 +1594,7 @@ MTrader::Order MTrader::calcBuyOrderSize(const Status &status, double base, doub
     for (double i = 1.0; i > 0.5; i-=0.01) {
         double base_price = base * i;
         auto fees = minfo.removeFees(base_price, 1);
-        Order ord (strategy.getNewOrder(minfo, ask_level, fees.adjusted_price, 1, status.assetBalance, status.currencyBalance, rej),
+        Order ord (strategy.getNewOrder(minfo, ask_level, fees.adjusted_price, 1, status.assetBalance-cfg.position_offset, status.currencyBalance, rej),
                     AlertReason::strategy_enforced);
         if (ord.price <= 0) ord.price = base_price;
         else ord.price = minfo.addFees(ord.price,1).adjusted_price;
@@ -1619,7 +1624,7 @@ MTrader::Order MTrader::calcSellOrderSize(const Status &status, double base, dou
     for (double i = 1.0; i < 2.0; i+=0.01) {
         double base_price = base * i;
         auto fees = minfo.removeFees(base_price, -1);
-        Order ord (strategy.getNewOrder(minfo, bid_level, fees.adjusted_price, -1, status.assetBalance, status.currencyBalance, rej),
+        Order ord (strategy.getNewOrder(minfo, bid_level, fees.adjusted_price, -1, status.assetBalance-cfg.position_offset, status.currencyBalance, rej),
                     AlertReason::strategy_enforced);
         if (ord.price <= 0) ord.price = base_price;
         else ord.price = minfo.addFees(ord.price,-1).adjusted_price;
