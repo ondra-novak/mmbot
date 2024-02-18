@@ -906,19 +906,23 @@ void WebCfg::State::applyConfig(shared_lockable_ptr<Traders>  &st) {
     std::unordered_set<IBrokerControl *> restored_settings;
 
 	for (Value v: data["traders"]) {
-        MTrader_Config cfg;
-        cfg.loadConfig(v);
-        Value bcfg = bc[cfg.broker];
-        if (bcfg.hasValue()) {
-            PStockApi api = t->stockSelector.getStock(cfg.broker);
-            IBrokerControl *eapi = dynamic_cast<IBrokerControl *>(api.get());
-            if (eapi) {
-                if (restored_settings.find(eapi) == restored_settings.end()) {
-                    eapi->restoreSettings(bcfg);
-                    restored_settings.insert(eapi);
+	    try {
+            MTrader_Config cfg;
+            cfg.loadConfig(v);
+            Value bcfg = bc[cfg.broker];
+            if (bcfg.hasValue()) {
+                PStockApi api = t->stockSelector.getStock(cfg.broker);
+                IBrokerControl *eapi = dynamic_cast<IBrokerControl *>(api.get());
+                if (eapi) {
+                    if (restored_settings.find(eapi) == restored_settings.end()) {
+                        eapi->restoreSettings(bcfg);
+                        restored_settings.insert(eapi);
+                    }
                 }
             }
-        }
+	    } catch (std::exception &e) {
+	        logError("Failed to initialized trader $1 - $2", v.getKey(), e.what());
+	    }
 	}
 
 	for (Value v: data["traders"]) {

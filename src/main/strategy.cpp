@@ -32,6 +32,7 @@
 #include "strategy_incvalue.h"
 #include "strategy_exponencial.h"
 #include "strategy_dcashitcoin.h"
+#include "strategy_powern.h"
 
 
 
@@ -217,6 +218,14 @@ Strategy Strategy::create_base(std::string_view id, json::Value config) {
 		cfg.ms = config["ms"].getNumber()*0.01;
 		cfg.reinvest = config["ri"].getBool();
 		return Strategy(new Strategy_IncValue(cfg));
+	} else if (id == Strategy_PowerN::id) {
+	    Strategy_PowerN::Config cfg;
+	    cfg.initial_budget = config["initial_budget"].getNumber();
+	    cfg.initial_yield_mult = config["initial_yield_mult"].getNumber();
+	    cfg.multiplier = config["multipler"].getNumber();
+	    cfg.power = config["power"].getNumber();
+	    cfg.yield_mult = config["yield_mult"].getNumber();
+	    return Strategy(new Strategy_PowerN(cfg));
 	} else {
 		throw std::runtime_error(std::string("Unknown strategy: ").append(id));
 	}
