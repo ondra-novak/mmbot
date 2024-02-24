@@ -9,19 +9,21 @@
 #define SRC_MAIN_STRATEGY_POWERN_H_
 
 #include "istrategy.h"
+#include "integral.h"
 
 
-class Strategy_PowerN : public IStrategy {
+template<typename BaseFn>
+class Strategy_DCAM : public IStrategy {
 public:
 
-    static constexpr std::string_view id = "power_n";
+    static constexpr std::string_view id = "DCAM";
 
     struct Config {
-        double power; //w
         double multiplier; //c
         double initial_budget; //p
         double initial_yield_mult;
         double yield_mult;
+        BaseFn baseFn;
     };
 
     struct State {
@@ -34,8 +36,8 @@ public:
     virtual bool isValid() const override;
 
 
-    Strategy_PowerN(Config cfg);
-    Strategy_PowerN(Config cfg, State state);
+    Strategy_DCAM(Config cfg);
+    Strategy_DCAM(Config cfg, State state);
 
     virtual IStrategy::OrderData getNewOrder(const IStockApi::MarketInfo &minfo,
             double cur_price, double new_price, double dir, double assets,
@@ -69,28 +71,24 @@ protected:
     Config _cfg;
     State _state;
 
-    double find_k(double w, double c, double p, double price, double val, double pos) const;
-    double find_k_from_pos(double w, double c, double p, double price, double pos) const;
-
-    static double fnx(double p, double w, double k, double c, double x);
-    static double integral_fnx(double p, double w, double k, double c, double x);
-    static double invert_fnx(double p, double w, double k, double c, double x);
+    double find_k( double c, double p, double price, double val, double pos) const;
+    double find_k_from_pos(double c, double p, double price, double pos) const;
 
     double calc_position(const Config &cfg, double k, double x) const {
-        return fnx(cfg.initial_budget, cfg.power, k, cfg.multiplier, x);
+        return _cfg.baseFn.fnx(cfg.initial_budget, k, cfg.multiplier, x);
     }
     double calc_value(const Config &cfg, double k, double x) const {
-        return integral_fnx(cfg.initial_budget, cfg.power, k, cfg.multiplier, x);
+        return _cfg.baseFn.integral_fnx(cfg.initial_budget, k, cfg.multiplier, x);
     }
     double find_price_from_pos(const Config &cfg, double k, double x) const {
-        return invert_fnx(cfg.initial_budget, cfg.power, k, cfg.multiplier, x);
+        return _cfg.baseFn.invert_fnx(cfg.initial_budget, k, cfg.multiplier, x);
     }
 
     double find_k(const Config &cfg, double price, double val, double pos) const{
-        return find_k(cfg.power, cfg.multiplier, cfg.initial_budget, price, val, pos);
+        return find_k(cfg.multiplier, cfg.initial_budget, price, val, pos);
     }
     double find_k_from_pos(const Config &cfg, double price, double pos) const{
-        return find_k_from_pos(cfg.power, cfg.multiplier, cfg.initial_budget, price, pos);
+        return find_k_from_pos(cfg.multiplier, cfg.initial_budget, price, pos);
     }
 
 
@@ -105,11 +103,52 @@ protected:
     PStrategy init(const IStockApi::MarketInfo &minfo,double price, double assets, double currency) const;
 
     double calc_order(double price, double side) const;
+};
 
+struct FunctionSinH {
+    double w = 1.0;
+    double fnx(double p, double k, double c, double x) const;
+    double integral_fnx(double p, double k, double c, double x) const;
+    double invert_fnx(double p, double k, double c, double x) const;
 
+    FunctionSinH() = default;
+    FunctionSinH(double w);
+};
+struct FunctionPowerN {
+    double w = 1.0;
+    double fnx(double p, double k, double c, double x) const;
+    double integral_fnx(double p, double k, double c, double x)const;
+    double invert_fnx(double p, double k, double c, double x)const;
+
+    FunctionPowerN() = default;
+    FunctionPowerN(double w);
+};
+
+struct FunctionVolumeSinH {
+
+    double w;
+    NumericIntegralT<double, double> integral_table;
+    double fnx(double p, double k, double c, double x) const;
+    double integral_fnx(double p, double k, double c, double x)const;
+    double invert_fnx(double p, double k, double c, double x)const;
+
+    FunctionVolumeSinH() = default;
+    FunctionVolumeSinH(double w);
 
 };
 
+using Strategy_PowerN = Strategy_DCAM<FunctionPowerN>;
+
+enum class DCAM_type {
+    sinh,
+    powern,
+    volume_sinh
+};
+
+
+PStrategy create_DCAM(DCAM_type type, double multiplier,
+        double initial_budget, double initial_yield_mult,
+        double yield_mult, double power);
 
 
 

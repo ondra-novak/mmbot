@@ -219,13 +219,18 @@ Strategy Strategy::create_base(std::string_view id, json::Value config) {
 		cfg.reinvest = config["ri"].getBool();
 		return Strategy(new Strategy_IncValue(cfg));
 	} else if (id == Strategy_PowerN::id) {
-	    Strategy_PowerN::Config cfg;
-	    cfg.initial_budget = config["initial_budget"].getNumber();
-	    cfg.initial_yield_mult = config["initial_yield_mult"].getNumber();
-	    cfg.multiplier = config["multipler"].getNumber();
-	    cfg.power = config["power"].getNumber();
-	    cfg.yield_mult = config["yield_mult"].getNumber();
-	    return Strategy(new Strategy_PowerN(cfg));
+        double initial_budget = config["initial_budget"].getNumber();
+        double initial_yield_mult = config["initial_yield_mult"].getNumber();
+        double multiplier = config["multipler"].getNumber();
+        double power = config["power"].getNumber();
+        double yield_mult = config["yield_mult"].getNumber();
+        std::string_view type = config["fn_type"].getString();
+        DCAM_type dtype;
+        if (type == "sinh") dtype = DCAM_type::sinh;
+        else if (type == "powern") dtype = DCAM_type::powern;
+        else if (type == "volume_sinh") dtype = DCAM_type::volume_sinh;
+        else throw std::runtime_error(std::string("DCAM: unknown function:").append(type));
+        return create_DCAM(dtype, multiplier, initial_budget, initial_yield_mult, yield_mult, power);
 	} else {
 		throw std::runtime_error(std::string("Unknown strategy: ").append(id));
 	}

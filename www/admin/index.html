@@ -95,7 +95,7 @@
 </optgroup>
 <optgroup label="Leveraged (advanced traders)">
 <option value="sinh_gen">Simple leveraged</option>
-<option value="power_n">PowerN</option>
+<option value="DCAM">DCAM</option>
 <option value="sinh">Sinh/exponencial (legacy)</option>
 <option value="sinh_val">Volume based Sinh (legacy)</option>
 </optgroup>
@@ -355,22 +355,23 @@ Prevents reduction after buy. By default the strategy reinvests money saved by b
 <label><span>Trailing sell<span class="tooltip">Sell or open short when price going down and close when price goes up</span></span><x-checkbox data-name="hedge_short"></label>
 </x-section>
 
-<x-section data-name="strategy_power_n" class="goal" hidden="hidden"><x-section-caption>PowerN</x-section-caption>
+<x-section data-name="strategy_power_n" class="goal" hidden="hidden"><x-section-caption>DCAM</x-section-caption>
+    <label><span>Function</span><select data-name="dcam_type"><option value="sinh">SinH</option><option value="powern">PowerN</option><option value="volume_sinh">Value SinH</option></select></label>
     <label><span>Budget<span class="tooltip">Total budget reserved for trading, this value if fixed</span></span>
-        <input type="number" data-name="powern_budget"></label>
+        <input type="number" data-name="dcam_budget"></label>
     <label><span>Power<span class="tooltip">Power value - defines exponent in the function, so how much position is
                 increased when price is far from a fair price</span></span>
-        <x-slider data-name="powern_pown" data-min="0" data-max="100" data-mult="0.1" data-extend="max" data-fixed="1"></x-slider></label>
+        <x-slider data-name="dcam_pown" data-min="0" data-max="100" data-mult="0.1" data-extend="max" data-fixed="1"></x-slider></label>
     <label><span>Multiplier<span class="tooltip">Linear multiplier, multiplies initial budget value</span></span>
-        <x-slider data-name="powern_mult" data-min="0" data-max="2" data-mult="0.01" data-extend="max" data-fixed="2"></x-slider></label>
+        <x-slider data-name="dcam_mult" data-min="0" data-max="2" data-mult="0.01" data-extend="max" data-fixed="2"></x-slider></label>
     <label><span>Initial target multiplier<span class="tooltip">Specifies multiplier of initial target (open position).
                 The target itself is determined from both above values, you can increase or decrease yield determined
                 from opening position</span></span>
-        <x-slider data-name="powern_iym" data-min="0" data-max="2" data-mult="0.01" data-extend="max" data-fixed="2"></x-slider></label>
+        <x-slider data-name="dcam_iym" data-min="0" data-max="2" data-mult="0.01" data-extend="max" data-fixed="2"></x-slider></label>
     <label><span>Increase target multiplier<span class="tooltip">Target is increased slighly when particular position is
                 closed. This value defines multiplier how much the target is increased. This value can be zero or even
                 negative</span></span>
-        <x-slider data-name="powern_ym" data-min="-1" data-max="2" data-mult="0.01" data-extend="max" data-fixed="2"></x-slider></label>            
+        <x-slider data-name="dcam_ym" data-min="-1" data-max="2" data-mult="0.01" data-extend="max" data-fixed="2"></x-slider></label>            
 <div class="rightinfo"><button name="shg_control_pos hide_on_new" disabled="disabled">Control position</button> <button name="show_backtest" disabled="disabled">Backtest</button></div>
 </x-section>
 

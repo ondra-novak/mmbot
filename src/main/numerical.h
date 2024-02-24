@@ -8,9 +8,11 @@
 #ifndef SRC_MAIN_NUMERICAL_H_
 #define SRC_MAIN_NUMERICAL_H_
 
+#include <algorithm>
 #include <cmath>
 #include <cstdlib>
 #include <type_traits>
+#include <vector>
 
 namespace {
 

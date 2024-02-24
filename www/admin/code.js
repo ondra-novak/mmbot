@@ -115,7 +115,7 @@ App.prototype.createTraderForm = function() {
 		form.showItem("strategy_passive_income",state.strategy == "passive_income");
 		form.showItem("strategy_incvalue",state.strategy == "inc_value");
 		form.showItem("strategy_hodl_short",state.strategy == "hodlshort");
-        form.showItem("strategy_power_n",state.strategy == "power_n");
+        form.showItem("strategy_power_n",state.strategy == "DCAM");
 		form.showItem("strategy_hyperbolic",["hyperbolic","linear","sinh","sinh_val","sinh2"].indexOf(state.strategy) != -1);
 		form.showItem("kv_valinc_h",state.strategy == "keepvalue");
 		form.showItem("show_curvature",["sinh","sinh_val","sinh2"].indexOf(state.strategy) != -1);
@@ -720,11 +720,12 @@ App.prototype.fillForm = function (src, trg) {
     data.dynmult_mult = false;
     data.spread_mult = 1;
 	data.dynmult_mode = "independent";
-    data.powern_budget = 0;
-    data.powern_pown = 25;
-    data.powern_mult = 1;
-    data.powern_iym = 1;
-    data.powern_ym = 0;
+	data.dcam_type = "volume_sinh";
+    data.dcam_budget = 0;
+    data.dcam_pown = 25;
+    data.dcam_mult = 1;
+    data.dcam_iym = 1;
+    data.dcam_ym = 0;
 
 	
 	if (data.strategy == "halfhalf" || data.strategy == "keepvalue" || data.strategy == "hypersquare") {
@@ -788,12 +789,13 @@ App.prototype.fillForm = function (src, trg) {
 		data.hedge_drop = filledval(src.strategy.drop,1);
 		data.hedge_long = filledval(src.strategy.long,true);
 		data.hedge_short = filledval(src.strategy.short,true);
-	} else if (data.strategy == "power_n") {
-        data.powern_budget = filledval(src.strategy.initial_budget, 0);
-        data.powern_pown = filledval(src.strategy.power, 25);
-        data.powern_mult = filledval(src.strategy.multipler, 1);
-        data.powern_iym = filledval(src.strategy.initial_yield_mult, 1);
-        data.powern_ym = filledval(src.strategy.yield_mult, 0);
+	} else if (data.strategy == "DCAM") {
+        data.dcam_type = filledval(src.strategy.fn_type, "value_sinh");
+        data.dcam_budget = filledval(src.strategy.initial_budget, 0);
+        data.dcam_pown = filledval(src.strategy.power, 25);
+        data.dcam_mult = filledval(src.strategy.multipler, 1);
+        data.dcam_iym = filledval(src.strategy.initial_yield_mult, 1);
+        data.dcam_ym = filledval(src.strategy.yield_mult, 0);
 	} else if (data.strategy == "sinh_gen") {
 		data.shg_w=filledval(src.strategy.w,50);
 		data.shg_p=filledval(src.strategy.p,100);
@@ -1076,14 +1078,15 @@ function getStrategyData(data, inv) {
 			long: data.hedge_long,
 			short: data.hedge_short,
 		};		
-	} else if (data.strategy == "power_n") {
+	} else if (data.strategy == "DCAM") {
         strategy  ={
             type: data.strategy,
-            initial_budget:data.powern_budget,
-            initial_yield_mult:data.powern_iym,
-            multipler:data.powern_mult,
-            power:data.powern_pown,
-            yield_mult:data.powern_ym,            
+            fn_type: data.dcam_type,
+            initial_budget:data.dcam_budget,
+            initial_yield_mult:data.dcam_iym,
+            multipler:data.dcam_mult,
+            power:data.dcam_pown,
+            yield_mult:data.dcam_ym,            
         };
             
 	} else if (data.strategy == "sinh_gen") {
@@ -2165,7 +2168,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		"incval_w","incval_r","incval_ms","incval_ri","incval_z",
 		"hedge_short","hedge_long","hedge_drop",
 		"shg_w","shg_p","shg_z","shg_b","shg_olt","shg_ol","shg_lp","shg_rnv","shg_avgsp","shg_boostmode","shg_boost_custom","shg_r",
-		"powern_budget","powern_pown","powern_mult","powern_iym","powern_ym",
+		"dcam_budget","dcam_pown","dcam_mult","dcam_iym","dcam_ym","dcam_type",
 		"trade_within_budget"];
 	var spread_inputs = [
 	     "spread_calc_stdev_hours", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode","dynmult_sliding","dynmult_cap","dynmult_mult","force_spread","spread_mode","spread_freeze",
