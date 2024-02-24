@@ -2,7 +2,6 @@
 #ifndef SRC_MAIN_INTEGRAL_H_
 #define SRC_MAIN_INTEGRAL_H_
 
-#include <concepts>
 
 template<typename X, typename Y>
 class NumericIntegralImplT {
