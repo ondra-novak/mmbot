@@ -42,12 +42,12 @@ Robota v tuto chvíli není možné nastavit aby provozoval skalpovací strategi
  
 1. použijte `git clone https://github.com/ondra-novak/mmbot.git` 
 2. přejděte do adresáře `mmbot` 
-3. spusťte `./update`
+3. spusťte `./build`
 
 Dosta pravděpodobně instalace selže, protože na vašem systému nejsou nainstalované důležité baliky. Získejte následující balíky 
 
 ```
-cmake make g++ git libcurl4-openssl-dev libssl-dev libcurlpp-dev
+sudo apt-get install g++ git libcurl4-openssl-dev libssl-dev libcurlpp-dev
 ```
 
 Jakmile instalace projde, najdete aplikaci ve složce bin/mmbot
