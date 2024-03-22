@@ -2,6 +2,7 @@
 #include "numerical.h"
 #include <imtjson/object.h>
 
+#include "sgn.h"
 //smallest value - default count of steps of find_root is 32, so smallest unit is aprx 1e-10
 constexpr double epsilon = 1e-14;
 
@@ -49,15 +50,17 @@ typename Strategy_DCAM<BaseFn>::RuleResult Strategy_DCAM<BaseFn>::find_k_rule(do
     double aprx_pnl = _state._pos * (new_price - _state._p);
     double new_val = _state._val + aprx_pnl;
     double new_k = _state._k;
-    double yield = calc_value(_cfg, _state._p,new_price);
+    double spread = _state._k * new_price/_state._p - _state._k;
     if ((_state._p -_state._k) * (new_price - _state._k) < 0) {
             new_k = new_price;
     } else {
-        if (aprx_pnl < 0 || alert) {
+        if (alert) {
+            new_k = find_k(_cfg, new_price, -std::sqrt(new_val * _state._val), _state._pos);
+        }else if (aprx_pnl < 0 ) {
             new_k = find_k(_cfg, new_price, new_val, _state._pos);
-        } else if (new_val < 0 || !_state._pos) {
+        } else  {
                 double y = _state._pos?_cfg.yield_mult:_cfg.initial_yield_mult;
-                double extra_val = yield * y;
+                double extra_val = calc_value(_cfg, _state._k, _state._k + spread * std::abs(y)) * sgn(y);
                 new_val += extra_val;
                 new_k = find_k(_cfg, new_price, new_val, _state._pos?_state._pos:(_state._p - new_price));
         }
