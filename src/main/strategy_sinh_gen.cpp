@@ -209,6 +209,9 @@ double Strategy_Sinh_Gen::calcNewKFromValue(const Config &cfg, const State &st, 
 double Strategy_Sinh_Gen::calcNewK(double tradePrice, double cb, double pnl, int bmode) const {
 	if (st.rebalance) return st.k;
 
+    if (st.at_zero) return std::sqrt(st.k*tradePrice);
+
+
     if ((tradePrice - st.k) * (st.p - st.k) < 0) {
         return tradePrice;
     }
@@ -249,8 +252,6 @@ double Strategy_Sinh_Gen::calcNewK(double tradePrice, double cb, double pnl, int
 
 
 
-	if (st.at_zero) return std::sqrt(st.k*tradePrice);
-//	if (st.at_zero) return st.k;
 
 
 
@@ -743,3 +744,4 @@ double Strategy_Sinh_Gen::calcPilePriceFromCurrency(double ratio, double kmult, 
     //((k - k z)/c)^(-1/z)
     return std::pow((kmult - kmult*ratio)/currency,-1.0/ratio);
 }
+
