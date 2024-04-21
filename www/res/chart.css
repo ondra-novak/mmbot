@@ -27,6 +27,9 @@
 .marker.alert {
 	fill: #ffffff80;
 }
+.marker.event {
+	fill: yellow
+}
 
 .marker.ohlc {
 	stroke: black;
