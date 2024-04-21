@@ -326,25 +326,23 @@ function initChart(chart_interval, ratio, base_interval, objret) {
             new_svg_el("path",{d:pathstr,class:"stdline2"},svg);
 		}
 	})
-	
-	
-	var markers = [["sell",-1],["buy",1]]; 
-    markers.forEach(function(m){
-        var marker = "marker "+m[0];
-        var side = m[1];
-        var pathstr = "";
-    	for (var i = 0; i <cnt; i++) if (chart[i].achg * side > 0) {
-    		var x1 = map_x(chart[i].time/base_interval-tmstart);
-    		var y1 = map_y(chart[i][fld]);
-    		var man = chart[i].man;
-    		if (man) {
-                pathstr +="M " + (x1-5) +" " + (y1-5) +" l 10 10 " 
-                       +"M " + (x1+5) +" " + (y1-5) +" l -10 10 "
-    		} else {
-                pathstr += "M " + (x1-4) + " " + (y1-4) + " h 8 v 8 h -8 v -8 ";    			
-    		}    		
-    	}
-    	new_svg_el("path",{d:pathstr, class:marker},svg);
+
+	var marker_paths = [["sell",""],["alert",""],["buy",""],["event",""]];
+	for (var i = 0; i <cnt; i++)  {
+		var chng = chart[i].achg;
+		if (chng === undefined) continue;
+		var idx = Math.sign(chng)+1;
+		var x1 = map_x(chart[i].time/base_interval-tmstart);
+		var y1 = map_y(chart[i][fld]);
+		marker_paths[idx][1] += "M " + (x1-4) + " " + (y1-4) + " h 8 v 8 h -8 v -8 ";    					    	
+		if (chart[i].event) {
+			marker_paths[3][1] += "M "+(x1-4) + " " + (y1) + " l -15 -10 v 20 l 15 -10 ";
+		}
+	}
+	marker_paths.forEach(function(m) {
+		var marker = "marker "+m[0];
+		var pathstr = m[1];
+		new_svg_el("path",{d:pathstr, class:marker},svg);
 	});
 	
 	if (lines === undefined) {

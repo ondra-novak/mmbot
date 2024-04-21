@@ -224,7 +224,6 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 						double df = pos * (bt.price - p);
 						pl += df;
 						balance += df;
-						pos = 0;
 						bt.pos = 0;
 						bt.bal = balance + total_spend;
 						bt.unspend_balance = balance;
@@ -236,6 +235,7 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 						bt.pl = pl;
 						bt.info = json::object;
 						trades.push_back(bt);
+                        pos = 0;
 					}
 
 				}

@@ -18,13 +18,14 @@
 
 .marker.buy {
 	fill: #4F4;
+	stroke: #4F4;
 }
 
 .marker.sell {
 	fill: #F44;
 }
 .marker.alert {
-	fill: white;
+	fill: #ffffff80;
 }
 
 .marker.ohlc {

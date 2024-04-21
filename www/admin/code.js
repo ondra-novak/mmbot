@@ -2247,7 +2247,6 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 			if (nacp || acp) {
 				x.achg = x.sz;
 				x.time = x.tm;
-				x.man = x.event !== undefined;
 				if (ilst) {
 				    c.push(ilst);
 					ilst = null;
