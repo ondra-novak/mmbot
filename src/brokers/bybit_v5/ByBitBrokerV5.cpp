@@ -371,6 +371,8 @@ IStockApi::TradesSync ByBitBrokerV5::syncTrades(json::Value lastId,
     auto now = httpc->now();
     auto endTime = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count()-5000;
     auto startTime = lastId.getIntLong();
+    static constexpr std::int64_t max_window = 600000000LL; //6 days and 23 hours
+    if (endTime - startTime > max_window) startTime = endTime - max_window;
     if (lastId.hasValue()) {
         json::Value v = privateGET("/v5/execution/list", json::Object{
             {"category", cat2Val(s.cat)},
