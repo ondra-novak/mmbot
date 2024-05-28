@@ -366,7 +366,7 @@ int main(int argc, char **argv) {
 							auto jwt_type = login_section["jwt_type"].getString();
 							auto jwt_pubkey = login_section["jwt_pubkey"].getPath();
 							if (!jwt_type.empty() && !jwt_pubkey.empty()) {
-								jwt=AuthMapper::initJWT(jwt_type, jwt_pubkey);
+								jwt=AuthMapper::initJWT(std::string(jwt_type), jwt_pubkey);
 							}
 						}
 						shared_lockable_ptr<WebCfg::State> webcfgstate = shared_lockable_ptr<WebCfg::State>::make(sf->create("web_admin_conf"),WebCfg::Users{

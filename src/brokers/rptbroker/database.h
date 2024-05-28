@@ -8,6 +8,7 @@
 #ifndef SRC_BROKERS_RPTBROKER_DATABASE_H_
 #define SRC_BROKERS_RPTBROKER_DATABASE_H_
 
+#include <cstdint>
 #include <fstream>
 #include <map>
 

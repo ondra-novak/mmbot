@@ -7,6 +7,7 @@
 
 #ifndef SRC_MAIN_IDAILYPERFMOD_H_
 #define SRC_MAIN_IDAILYPERFMOD_H_
+#include <cstdint>
 #include <string>
 #include <optional>
 

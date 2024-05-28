@@ -1522,7 +1522,7 @@ json::Value MTrader::getOHLC(std::uint64_t interval) const {
     interval *= 60000; //60milliseconds
     std::uint64_t tm = 0;
     double last = 0;
-    double ohlc[4];
+    double ohlc[4] = {0,0,0,0};
 
     for (const auto &item : chart) {
         double v = item.last;

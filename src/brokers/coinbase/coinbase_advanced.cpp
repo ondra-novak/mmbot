@@ -71,7 +71,7 @@ std::string CoinbaseAdv::calculate_signature(std::uint64_t timestamp,
                         std::string_view body) const {
     std::ostringstream buff;
     buff << timestamp << method << reqpath << body;
-    std::string s (std::move(buff.str()));
+    std::string s (buff.str());
     unsigned char digest[50];
     unsigned int digest_size = sizeof(digest);
     HMAC(EVP_sha256(),api_secret.data(), api_secret.size(),

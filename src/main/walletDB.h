@@ -10,6 +10,8 @@
 #include <map>
 
 #include <shared/shared_lockable_ptr.h>
+
+#include <string>
 #include <string_view>
 #include <unordered_map>
 #include <vector>
