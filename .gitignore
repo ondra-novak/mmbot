@@ -22,3 +22,5 @@ www/src/.cache
 /core
 /new_web
 /www/new
+/.idea
+/.vscode
