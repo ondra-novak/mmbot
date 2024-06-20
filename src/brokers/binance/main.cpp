@@ -25,7 +25,7 @@
 #include <imtjson/binjson.tcc>
 #include "../../shared/logOutput.h"
 #include "names.h"
-
+#include <map>
 
 using namespace json;
 
@@ -51,6 +51,12 @@ static Value keyFormat = {
 static std::string_view COIN_M_PREFIX = "COIN-M:";
 static std::string_view USDT_M_PREFIX = "USDT-M:";
 
+static std::unordered_map<std::string_view, int> bnus_free = {
+    { "BTCUSDC", 1},
+    { "BTCUSDT", 1},
+    { "USDCBTC", 1}, // These may not be valid pair names
+    { "USDTBTC", 1}
+};
 static std::string_view remove_prefix(const std::string_view &pair) {
 	auto p =  pair.find(':');
 	if (p == pair.npos) return pair;
@@ -577,7 +583,6 @@ static Value number_to_decimal(double v, unsigned int precision) {
 	return buff.str();
 }
 
-
 json::Value Interface::placeOrder(const std::string_view & pair,
 		double size,
 		double price,
@@ -647,6 +652,17 @@ json::Value Interface::placeOrder(const std::string_view & pair,
 	} else {
 
 		if (replaceId.defined()) {
+			Orders ords = getOpenOrders(pair);
+			MarketInfo res = getMarketInfo(pair);
+			double cost = price * size;
+			auto iter = std::find_if(ords.begin(), ords.end(), [&](const Order &o) {
+				return o.id == replaceId && o.client_id == clientId && std::fabs(o.size - size) < 1e-20
+						&& std::fabs(cost - o.price*o.size) < res.currency_step;
+			});
+			if (iter != ords.end()) {
+				return iter->id;
+			}
+
 			Value r = spot().private_request(Proxy::DELETE,"/api/v3/order",Object({
 					{"symbol", pair},
 					{"orderId", replaceId}}));
@@ -848,10 +864,14 @@ inline double Interface::getFees(const std::string_view &pair) {
 		} else if (fapi_isSymbol(pair)) {
 			return fapi_getFees();
 		} else {
-			 if (!feeInfo.defined()) {
-				 updateBalCache();
-			 }
-			 return feeInfo.getNumber();
+			if (!feeInfo.defined()) {
+				updateBalCache();
+			}
+			if (server==Server::us) {
+				if (bnus_free.find(pair)!= bnus_free.end()) return 0.0;
+				if (feesInBnb) return feeInfo.getNumber()*0.75;
+			}
+			return feeInfo.getNumber();
 		}
 	} else {
 		if (dapi_isSymbol(pair)) {
