@@ -7,7 +7,7 @@
 
 #include <imtjson/object.h>
 #include "strategy_pile.h"
-
+#include <stdexcept>
 #include <cmath>
 Strategy_Pile::Strategy_Pile(const Config &cfg):cfg(cfg) {}
 Strategy_Pile::Strategy_Pile(const Config &cfg, State &&st):cfg(cfg),st(std::move(st)) {}

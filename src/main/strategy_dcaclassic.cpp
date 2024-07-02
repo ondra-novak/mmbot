@@ -12,6 +12,8 @@
 
 #include "sgn.h"
 #include "strategy_dcaclassic.h"
+
+#include <stdexcept>
 using json::Value;
 
 
@@ -58,10 +60,10 @@ std::pair<IStrategy::OnTradeResult, PStrategy> Strategy_DCA<fn>::onTrade(
 		const IStockApi::MarketInfo &minfo, double tradePrice, double tradeSize,
 		double assetsLeft, double currencyLeft) const {
 
-    State nst = st;    
-    double prevPos = assetsLeft - tradeSize;    
+    State nst = st;
+    double prevPos = assetsLeft - tradeSize;
     adjust_state(nst, tradePrice, tradeSize, prevPos, minfo.calcMinSize(tradePrice));
-    
+
     nst.p = tradePrice;
     double pnl = prevPos * (nst.p - st.p);
     double pb = calcBudget(cfg, st.k, st.w, st.p);
@@ -76,7 +78,7 @@ std::pair<IStrategy::OnTradeResult, PStrategy> Strategy_DCA<fn>::onTrade(
 template<DCAFunction fn>
 void Strategy_DCA<fn>::adjust_state(State &nst, double tradePrice, double tradeSize, double prevPos, double) const {
     if (tradePrice > nst.k) {
-        nst.k = tradePrice;        
+        nst.k = tradePrice;
     }
 }
 
@@ -164,15 +166,15 @@ std::string_view Strategy_DCA<fn>::getID() const {
 template<DCAFunction fn>
 json::Value Strategy_DCA<fn>::dumpStatePretty(
 		const IStockApi::MarketInfo &minfo) const {
-    
+
     auto pos = [&](double x) {return (minfo.invert_price?-1:1)* x;};
 //    auto price = [&](double x) {return (minfo.invert_price?1/x:x);};
-    
+
     return json::Object{
         {"Current equity", calcBudget(cfg, st.k,st.w, st.p)},
         {"Max equity", st.w},
         {"Current position", pos(calcPos(cfg, st.k, st.w, st.p))},
-    };    
+    };
 }
 
 template<DCAFunction fn>
@@ -183,7 +185,7 @@ PStrategy Strategy_DCA<fn>::init(bool spot,double price, double assets, double c
     double k = findKFromRatio(cfg, price, ratio);
     double b = calcBudget(cfg, k, 1, price);
     double w = equity/b;
-    
+
     State nst;
     nst.k = k;
     nst.p = price;
@@ -293,18 +295,18 @@ double Strategy_DCA<DCAFunction::lin_value>::calcCurInv(const Config &cfg, doubl
 template<>
 void Strategy_DCA<DCAFunction::lin_value>::adjust_state(State &nst, double tradePrice, double tradeSize, double prevPos, double) const {
     if (tradePrice > nst.k) {
-        nst.k = tradePrice;        
+        nst.k = tradePrice;
     }
     if (tradeSize == 0) {
         double min_price = nst.k * cfg.max_drop;
         if (tradePrice/min_price > 1.15 || tradePrice<st.p) return;
-        nst.k = std::min(st.k, (19*st.k + tradePrice/cfg.max_drop)/20);        
+        nst.k = std::min(st.k, (19*st.k + tradePrice/cfg.max_drop)/20);
     }
 }
 
 
 template<>
-double Strategy_DCA<DCAFunction::lin_value>::findKFromRatio(const Config &cfg, double price, double ratio) {    
+double Strategy_DCA<DCAFunction::lin_value>::findKFromRatio(const Config &cfg, double price, double ratio) {
     double newk = numeric_search_r2(price, [&](double k){
         return calcPos(cfg, k, 1, price)*price/calcBudget(cfg, k, 1, price) - ratio;
     });
@@ -337,7 +339,7 @@ double Strategy_DCA<DCAFunction::lin_volume>::calcPos(const Config &cfg, double 
 template<>
 double Strategy_DCA<DCAFunction::lin_volume>::calcBudget(const Config &cfg, double k, double w, double price) {
     if (price>=k) return w;
-    return (w * price * (1 + std::log(k/price)))/k; 
+    return (w * price * (1 + std::log(k/price)))/k;
 }
 
 template<>
@@ -374,7 +376,7 @@ static double martingaleBasicFn(const Strategy_DCA<DCAFunction::martingale>::Con
 }
 
 template<>
-double Strategy_DCA<DCAFunction::martingale>::calcPos(const Config &cfg, double k, double w, double price) {    
+double Strategy_DCA<DCAFunction::martingale>::calcPos(const Config &cfg, double k, double w, double price) {
     return w/k*martingaleBasicFn(cfg, price/k);
 }
 
@@ -388,7 +390,7 @@ double Strategy_DCA<DCAFunction::martingale>::calcBudget(const Config &cfg, doub
 
 template<>
 double Strategy_DCA<DCAFunction::martingale>::calcPosInv(const Config &cfg, double k, double w, double pos) {
-    if (pos <= 0) return k;   
+    if (pos <= 0) return k;
     double npos = pos*k/w;
     double x =numeric_search_r1(10, [&](double x){
         return martingaleBasicFn(cfg, x)-npos;
@@ -421,7 +423,7 @@ double Strategy_DCA<DCAFunction::martingale>::findKFromRatio(const Config &cfg, 
     double r1 = minrat;
     while (r1 < ratio) {
         start *= 1.1;
-        r1 = calcPos(cfg,start,1,price)*price/calcBudget(cfg, start, 1, price);        
+        r1 = calcPos(cfg,start,1,price)*price/calcBudget(cfg, start, 1, price);
     }
     double c = numeric_search_r1(start, [&](double k) {
         return  calcPos(cfg,k,1,price)*price/calcBudget(cfg, k, 1, price)- ratio;
@@ -452,32 +454,32 @@ void Strategy_DCA<DCAFunction::martingale>::adjust_state(State &nst, double trad
             newpos = calcPos(cfg, nst.k, nst.w, tradePrice) + extra/tradePrice;
         }
         double k = numeric_search_r2(nst.k/2, [&](double k){
-            return calcPos(cfg, k, nst.w, tradePrice) - newpos; 
-        });    
+            return calcPos(cfg, k, nst.w, tradePrice) - newpos;
+        });
         if (k > nst.k * 2) k = nst.k;
         nst.k = std::max(nst.k,k);
         return;
     } else {
         if (tradeSize == 0 && tradePrice < nst.p) {
-            if (nst.hlp == 0) nst.hlp = tradePrice; 
+            if (nst.hlp == 0) nst.hlp = tradePrice;
             return;
-        } 
+        }
         double prevPrice = nst.hlp?nst.hlp:nst.p;
         nst.hlp = 0;
-        double pnl = (tradePrice-prevPrice)*prevPos;        
+        double pnl = (tradePrice-prevPrice)*prevPos;
         double oldb = calcBudget(cfg, nst.k, nst.w, prevPrice);
         double needb = oldb + pnl;
         if (tradePrice > prevPrice && tradeSize) needb -= cfg.initial_step*nst.w;
         if (needb >= nst.w) {
             nst.k = tradeSize?tradePrice:nst.k;
-        } else {                  
+        } else {
             double k = numeric_search_r2(tradePrice, [&](double k){
                 return calcBudget(cfg, k, nst.w, tradePrice) - needb;
             });
             nst.k = std::min(k, st.k);
         }
     }
-    
+
 }
 
 template<>
@@ -486,7 +488,7 @@ IStrategy::MinMax Strategy_DCA<DCAFunction::martingale>::calcSafeRange(const ISt
     double pos = calcPos(cfg, st.k, st.w, st.p);
     double max;
     double minsz = minfo.calcMinSize(st.p);
-    if (pos < assets+minsz) pos = assets+minsz;  
+    if (pos < assets+minsz) pos = assets+minsz;
     max = calcPosInv(cfg, st.k, st.w, pos - assets);
     double cur = calcCur(cfg, st.k, st.w, st.p);
     double min = calcCurInv(cfg, st.k, st.w, cur - currencies);

@@ -6,7 +6,7 @@
  */
 
 #include "strategy_keepbalance.h"
-
+#include <stdexcept>
 #include "../imtjson/src/imtjson/object.h"
 
 const std::string_view Strategy_KeepBalance::id = "keep_balance";

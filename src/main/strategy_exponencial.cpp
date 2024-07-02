@@ -12,7 +12,7 @@
 #include "sgn.h"
 
 #include "numerical.h"
-
+#include <stdexcept>
 
 std::string_view Strategy_Exponencial::id = "expwide";
 
@@ -100,7 +100,7 @@ double Strategy_Exponencial::MathModule::findK(double eq, double p, double w) co
     if (refeq>eq) {
         newk = numeric_search_r2(p, [&](double x){
             return calcEquity(p, x, w) - eq;
-        });    
+        });
     } else if (refeq < eq) {
         newk = numeric_search_r1(p, [&](double x){
                     return calcEquity(p, x, w) - eq;
@@ -298,7 +298,7 @@ std::pair<IStrategy::OnTradeResult, PStrategy> Strategy_Exponencial::onTrade(
     nst.b = budget;
     if ((prevPos < minfo.calcMinSize(st.p) && tradeSize>0) || rprice < tradePrice) {
         nst.k = tradePrice/mcfg->range;
-        nst.m =  nst.b/mcfg->calcEquity(tradePrice, nst.k,  1.0);    
+        nst.m =  nst.b/mcfg->calcEquity(tradePrice, nst.k,  1.0);
     } else if (rprice * mcfg->s > tradePrice) {
         nst.k = tradePrice/(mcfg->s*mcfg->range);
         nst.m =  nst.b/mcfg->calcEquity(tradePrice, nst.k,  1.0);
@@ -309,13 +309,13 @@ std::pair<IStrategy::OnTradeResult, PStrategy> Strategy_Exponencial::onTrade(
         double newratio = calcpos * tradePrice / realbudget;
         double p=mcfg->findRatio(newratio, tradePrice);*/
 //        nst.k = pow2(tradePrice)/p;
-        nst.m = realbudget/mcfg->calcEquity(tradePrice, nst.k,  1.0);        
+        nst.m = realbudget/mcfg->calcEquity(tradePrice, nst.k,  1.0);
         nst.b = mcfg->calcEquity(tradePrice, nst.k, nst.m);
     } else {
         nst.k = st.k;
         nst.m = st.m;
     }
-    
+
     double np = st.b + eqchg - nst.b;
     return {
         {np,0, nst.k},
@@ -416,7 +416,7 @@ json::Value Strategy_Exponencial::dumpStatePretty(const IStockApi::MarketInfo &m
 
 PStrategy Strategy_Exponencial::init(bool spot, double price, double pos, double equity) const {
 
-    double ratio = pos*price/equity;    
+    double ratio = pos*price/equity;
     double p = mcfg->findRatio(ratio, price);
     if (p>price*100000) {
         p = price;

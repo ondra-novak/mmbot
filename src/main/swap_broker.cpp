@@ -9,6 +9,7 @@
 #include "swap_broker.h"
 
 #include <cmath>
+#include <stdexcept>
 
 #include "sgn.h"
 InvertBroker::InvertBroker(PStockApi target):AbstractBrokerProxy(target) {

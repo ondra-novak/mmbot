@@ -6,6 +6,7 @@
  */
 
 #include "emulatedLeverageBroker.h"
+#include <stdexcept>
 
 EmulatedLeverageBroker::EmulatedLeverageBroker(PStockApi target, double emulatedLeverage)
 	:target(target),emulatedLeverage(emulatedLeverage)

@@ -1,6 +1,7 @@
 #include "strategy_powern.h"
 #include "numerical.h"
 #include <imtjson/object.h>
+#include <stdexcept>
 
 #include "sgn.h"
 //smallest value - default count of steps of find_root is 32, so smallest unit is aprx 1e-10

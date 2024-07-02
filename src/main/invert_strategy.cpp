@@ -6,7 +6,7 @@
  */
 
 #include "invert_strategy.h"
-
+#include <stdexcept>
 #include <imtjson/object.h>
 InvertStrategy::InvertStrategy(PStrategy target):target(target),inited(false) {
 

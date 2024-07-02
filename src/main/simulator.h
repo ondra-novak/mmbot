@@ -9,6 +9,7 @@
 #define SRC_MAIN_SIMULATOR_H_
 #include "ibrokercontrol.h"
 #include "papertrading.h"
+#include <shared/linear_map.h>
 
 class Simulator: public AbstractPaperTrading,
 				 public IBrokerControl,
@@ -76,7 +77,7 @@ protected:
 		PStockApi exchange;
 		std::string_view pair;
 	};
-	
+
 	std::map<std::string, double, std::less<> > _custom_fees;
 
 	SourceInfo parseSymbol(const std::string_view &symbol);

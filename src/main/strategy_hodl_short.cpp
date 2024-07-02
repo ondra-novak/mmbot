@@ -8,7 +8,7 @@
 #include <cmath>
 #include <imtjson/object.h>
 #include "strategy_hodl_short.h"
-
+#include <stdexcept>
 #include "sgn.h"
 #include "numerical.h"
 Strategy_Hodl_Short::Strategy_Hodl_Short(const Config &cfg):cfg(cfg) {}

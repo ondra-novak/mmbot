@@ -8,7 +8,7 @@
 #include "strategy_incvalue.h"
 
 #include <cmath>
-
+#include <stdexcept>
 #include "../imtjson/src/imtjson/object.h"
 #include "numerical.h"
 std::string_view Strategy_IncValue::id = "inc_value";

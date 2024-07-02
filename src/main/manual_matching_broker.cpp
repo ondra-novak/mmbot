@@ -2,11 +2,12 @@
 #include <imtjson/binary.h>
 #include <imtjson/object.h>
 #include <imtjson/array.h>
+#include <stdexcept>
 
 #include <cmath>
 
 IBrokerControl::BrokerInfo ManualMatchingBroker::getBrokerInfo() {
-    
+
     static json::Value bin = json::base64->decodeBinaryValue(
             "iVBORw0KGgoAAAANSUhEUgAAAQAAAAEACAMAAABrrFhUAAAAM1BMVEUAAAAA"
             "AAAZGxgnKSY2ODVERkNVV1VjZWJzdnOAgn+SlJGkpqOztbLGyMXU1tPo6uf/"
@@ -89,7 +90,7 @@ IBrokerControl::BrokerInfo ManualMatchingBroker::getBrokerInfo() {
         false,
         false,
     };
-    
+
 
 }
 
@@ -113,10 +114,10 @@ json::Value ManualMatchingBroker::getApiKeyFields() const {
             {"type","label"}
         },
         Object {
-            {"label","This broker doesn't execute orders. "                    
+            {"label","This broker doesn't execute orders. "
                     "When the price reaches an order, "
                     "that order is marked with an exclamation mark. "
-                    "You can read the price and volume of the order. "                    
+                    "You can read the price and volume of the order. "
                     "These values can be used as an advice to execute "
                     "the trade manually. Visit your favorite DEX or OTC "
                     "exchange and trade as advised above. Once the trade "
@@ -154,8 +155,8 @@ json::Value ManualMatchingBroker::placeOrder(const std::string_view &pair,
 
     AbstractPaperTrading::TradeState &st = getState(pair);
     bool marked = false;
-        
-    
+
+
     if (replaceId.hasValue()) {
         double min_c = st.ticker.bid * std::exp(-st.minfo.fees*0.5);
         double max_c = st.ticker.ask * std::exp(+st.minfo.fees*0.5);
@@ -217,7 +218,7 @@ json::Value ManualMatchingBroker::getSettings(const std::string_view &pairHint) 
             {"label","hidden"},{"name","pair"},{"type","string"},{"default",pairHint},{"showif",object}
         },
         Object {
-            {"label","Balances"},{"type","header"}            
+            {"label","Balances"},{"type","header"}
         },
         Object {
             {"label",st.minfo.asset_symbol},
@@ -232,7 +233,7 @@ json::Value ManualMatchingBroker::getSettings(const std::string_view &pairHint) 
             {"default", currency}
         },
         Object {
-            {"label","Trade"},{"type","header"}            
+            {"label","Trade"},{"type","header"}
         },
         Object {
             {"label",""},{"type","enum"},{"default",rep_trade},{"name","report_en"},{
@@ -286,7 +287,7 @@ json::Value ManualMatchingBroker::getSettings(const std::string_view &pairHint) 
             {"label","Expected fees [%]"},
             {"type","number"},
             {"name","_customfee"},
-            {"default",st.fee_override.has_value()?Value(*st.fee_override*100):Value()}        
+            {"default",st.fee_override.has_value()?Value(*st.fee_override*100):Value()}
         },
         Object{
             {"type","rotext"},
@@ -320,9 +321,9 @@ json::Value ManualMatchingBroker::setSettings(json::Value v) {
         st.fee_override.reset();
         dfee = st.minfo.fees;
     }
-    
+
     if (v["report_en"].getString() == "yes") {
-        
+
         json::Value jfc = v["final_currency"];
         json::Value jfa = v["final_asset"];
         if (!jfc.hasValue() || !jfa.hasValue()) {
@@ -335,28 +336,28 @@ json::Value ManualMatchingBroker::setSettings(json::Value v) {
         if (difference == 0) {
             throw std::runtime_error("Nothing traded");
         }
-        
+
         auto orditer = std::min_element(st.openOrders.begin(), st.openOrders.end(), [&](
                 const Order &a, const Order &b
         ){
            return std::abs(a.size - difference) < std::abs(b.size - difference) ;
         });
-        if (orditer == st.openOrders.end() || orditer->size * difference < 0 ) { 
+        if (orditer == st.openOrders.end() || orditer->size * difference < 0 ) {
             throw std::runtime_error("No matching order found");
         }
-        
+
         double order_price = orditer->price;
         double order_size = orditer->size;
-        
+
         double value =currency-final_currenct;
         double calc_price = value/difference;
         if (!std::isfinite(calc_price) || calc_price<=0) {
             throw std::runtime_error("Invalid values for the trade. Calculated Execution price is : " + std::to_string(calc_price));
         }
-        
+
         double pdist = std::abs(calc_price - order_price);
         double calcfee = pdist / order_price;
-        
+
         if (calcfee > 2*dfee) {
             throw std::runtime_error("Trade was not recorded: "
                     "Calculated fee is too high. "
@@ -377,7 +378,7 @@ json::Value ManualMatchingBroker::setSettings(json::Value v) {
         processTrade(st, tr);
         _ready_orders.erase(pair);
     }
-    
+
     return generateSettings();
 }
 

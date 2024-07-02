@@ -12,6 +12,7 @@
 #include "../imtjson/src/imtjson/value.h"
 #include "numerical.h"
 
+#include <stdexcept>
 #include "sgn.h"
 using json::Value;
 
@@ -22,14 +23,14 @@ public:
     IntTable();
     double getValue(double x) const;
     static const IntTable &getInstance();
-    
+
     static double baseFn(double x);
 protected:
     static const std::size_t _table_size = 140000;
-    
+
     std::array<double, _table_size> _table;
-    
-    
+
+
 };
 
 const Strategy_DcaShitcoin::IntTable &Strategy_DcaShitcoin::IntTable::getInstance() {
@@ -54,7 +55,7 @@ Strategy_DcaShitcoin::IntTable::IntTable() {
         fna = fnb;
         res += r;
         _table[i] = res;
-    }    
+    }
 }
 
 double Strategy_DcaShitcoin::IntTable::getValue(double x) const {
@@ -106,7 +107,7 @@ std::pair<IStrategy::OnTradeResult, PStrategy> Strategy_DcaShitcoin::onTrade(
 		const IStockApi::MarketInfo &minfo, double tradePrice, double tradeSize,
 		double assetsLeft, double currencyLeft) const {
 
-    State nst = st;    
+    State nst = st;
     if (tradePrice > nst.k && tradePrice < st.p) {
         nst.k = tradePrice;
     }
@@ -189,25 +190,25 @@ std::string_view Strategy_DcaShitcoin::getID() const {
 
 json::Value Strategy_DcaShitcoin::dumpStatePretty(
 		const IStockApi::MarketInfo &minfo) const {
-    
+
     auto pos = [&](double x) {return (minfo.invert_price?-1:1)* x;};
 //    auto price = [&](double x) {return (minfo.invert_price?1/x:x);};
-    
+
     return json::Object{
         {"Current equity", calcBudget(st.k,st.w, st.p)},
         {"Max equity", st.w},
         {"Current position", pos(calcPos(st.k, st.w, st.p))},
-    };    
+    };
 }
 
 PStrategy Strategy_DcaShitcoin::init(bool spot,double price, double assets, double cur) const {
     double equity = (spot?price*assets:0) + cur;
     double ratio = assets * price / equity;
-    if (ratio >=1.0) throw std::runtime_error("Can't initialize strategy with zero currency or with leverage above 1x");    
+    if (ratio >=1.0) throw std::runtime_error("Can't initialize strategy with zero currency or with leverage above 1x");
     double k = calcRatio(1, 1)>ratio?price:calcRatioInv(price, ratio);
     double b = calcBudget(k, 1, price);
     double w = equity/b;
-    
+
     State nst;
     nst.k = k;
     nst.p = price;
@@ -224,7 +225,7 @@ double Strategy_DcaShitcoin::calcInitialPosition(const IStockApi::MarketInfo &mi
     double eq = (minfo.leverage?0:price*assets)+currency;
     double dv = calcBudget(price, 1, price);
     double w = eq/dv;
-    return calcPos(price, w, price);    
+    return calcPos(price, w, price);
 }
 
 IStrategy::BudgetInfo Strategy_DcaShitcoin::getBudgetInfo() const {
@@ -256,12 +257,12 @@ double Strategy_DcaShitcoin::calcBudget(double k, double w, double price) {
     return IntTable::getInstance().getValue(price/k)*w;
 }
 
-double Strategy_DcaShitcoin::calcPosInv(double k, double w, double pos) {    
+double Strategy_DcaShitcoin::calcPosInv(double k, double w, double pos) {
     double x = numeric_search_r1(k*1.5, [&](double x){
         return calcPos(k, w, x) - pos;
     });
     if (x<1e-100) return k*1.5;
-    return x ;        
+    return x ;
 }
 
 /*double Strategy_DcaShitcoin::calcBudgetInv(double k, double w, double budget) {
@@ -273,11 +274,11 @@ double Strategy_DcaShitcoin::calcCur(double k, double w, double price) {
     return calcBudget(k, w, price)-calcPos(k, w, price)*price;
 }
 
-double Strategy_DcaShitcoin::calcCurInv(double k, double w, double cur) {    
+double Strategy_DcaShitcoin::calcCurInv(double k, double w, double cur) {
     double x = numeric_search_r1(2*k, [&](double x){
         return calcCur(k, w, x) - cur;
     });
-    return x;        
+    return x;
 
 }
 
