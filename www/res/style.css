@@ -861,9 +861,11 @@ form button {
 			text-shadow: 0 0px 0px white;
 	}
 	78%{
-	background-color: #FF54;
+        width:100%;
+    	background-color: #FF54;
 	}
 	100% {
+        width:100%;
 		background-color: #FFF0;
 		transform: translate(0,0) scale(1,1);
 		max-height: 10em;
@@ -1197,9 +1199,9 @@ body.daymode a{
 	color: blue;
 }
 
-body.daymode select > option[disabled] {
+select .divider {
 	font-size: 1px;
-	background-color: #dcdcdc;
+	background-color: #A0A0A040;
 }
 body.daymode #logfileactivate {background-color: #aaa;}
 
