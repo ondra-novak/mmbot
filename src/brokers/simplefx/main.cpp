@@ -76,7 +76,7 @@ public:
 		try {
 			if (market == nullptr) {
 				PQuoteDistributor qdist = new QuoteDistributor();
-				qstream = std::make_unique<QuoteStream>(httpc,"https://web-quotes.simplefx.com/signalr/", qdist->createReceiveFn());
+				qstream = std::make_unique<QuoteStream>(httpc,"https://web-quotes-core.simplefx.com/websocket/quotes", qdist->createReceiveFn());
 				qdist->connect(qstream->connect());
 				market = std::make_unique<Market>(qdist, [this](const std::string &symbol, double amount, double last_price){
 					auto z = this->execCommand(symbol, amount, last_price);
@@ -437,7 +437,7 @@ inline Interface::BrokerInfo Interface::getBrokerInfo() {
 		"simplefx",
 		"$impleFX",
 		"https://simplefx.com/n/_13219",
-		"1.1",
+		"1.2",
 		"Copyright (c) 2019 Ondřej Novák\n\n"
 
 "Permission is hereby granted, free of charge, to any person "

@@ -37,108 +37,61 @@ QuoteStream::~QuoteStream() {
 	}
 }
 
+
+
 SubscribeFn QuoteStream::connect() {
 	Sync _(lock);
 
-	HTTPJson hj(simpleServer::HttpClient(httpc),url);
-	json::Value headers;
-	json::Value v = hj.GET("negotiate?clientProtocol=1.5&connectionData=%5B%7B%22name%22%3A%22quotessubscribehub%22%7D%5D&_="+std::to_string(TradingEngine::now()),std::move(headers));
-	json::Value cookie = headers["set-cookie"];
-	std::string cookeText = StrViewA(StrViewA(cookie.getString()).split(";")()).trim(isspace);
-	json::Value reqhdrs = json::Object({{"cookie", cookeText}});
+	ws = simpleServer::connectWebSocket(httpc, url);
+    ws.getStream().setIOTimeout(30000);
+    thr = std::thread([this]{
+        processMessages();
+    });
+    if (!subscribed.empty()) {
+        json::Value data = json::Object({
+            {"p","/subscribe/addList"},
+            {"i", cnt++},
+            {"d", json::Value(json::array, subscribed.begin(), subscribed.end())}
+        });
+        auto str = data.stringify();
+        logDebug("WebSocket: $1", str.str());
+        ws.postText(str.str());
+    }
 
+    return [this](const std::string_view &symbol) {
+        Sync _(lock);
+        if (subscribed.insert(std::string(symbol)).second) {
+            json::Value data = json::Object({
+                {"p","/subscribe/addList"},
+                {"i", cnt++},
+                {"d", {symbol}}
+            });
+            auto str = data.stringify();
+            logDebug("WebSocket: $1", str.str());
+            ws.postText(str.str());
+        }
+    };
 
-
-	std::string enctoken = simpleServer::urlEncode(v["ConnectionToken"].toString());
-
-	std::string wsurl = url+"connect?transport=webSockets&ConnectionToken="+enctoken+"&clientProtocol=1.5&connectionData=%5B%7B%22name%22%3A%22quotessubscribehub%22%7D%5D";
-	logDebug("Opening stream: $1", wsurl);
-
-	ws = simpleServer::connectWebSocket(httpc, wsurl, simpleServer::SendHeaders()("cookie", cookeText));
-	ws.getStream().setIOTimeout(30000);
-
-	ondra_shared::Countdown cnt(1);
-
-	std::thread t2([this, &cnt]{
-		bool rr = ws.readFrame();
-		while (rr && ws.getFrameType() != simpleServer::WSFrameType::text) {
-			logDebug("Received frame type: $1", (int)ws.getFrameType());
-			rr = ws.readFrame();
-		}
-		logDebug("Received initial frame : $1 - connected", ws.getText());
-		cnt.dec();
-		try {
-			if (rr) processMessages(); else {
-				std::this_thread::sleep_for(std::chrono::seconds(10));
-				reconnect();
-			}
-		} catch (std::exception &e) {
-			logError("Stream error: $1 - reconnect", e.what());
-			reconnect();
-		}
-	});
-	cnt.wait();
-	thr = std::move(t2);
-
-	std::string starturl = "start?transport=webSockets&ConnectionToken="+enctoken+"&clientProtocol=1.5&connectionData=%5B%7B%22name%22%3A%22quotessubscribehub%22%7D%5D&_="+std::to_string(TradingEngine::now());
-	try {
-		hj.GET(starturl,std::move(reqhdrs));
-	} catch (const HTTPJson::UnknownStatusException &e) {
-		std::string s;
-		auto body = e.response.getBody();
-		StrViewA c = StrViewA(body.read());
-		while (!c.empty()) {
-			s.append(c.data, c.length);
-			c = StrViewA(body.read());
-		}
-		logError("Unable to start stream: $1", s);
-		throw;
-	}
-
-	auto subscribeFn = [this](const std::string_view &symbol) {
-		Sync _(lock);
-
-		json::Value A = json::Value(json::array,{json::Value(json::array,{symbol})});
-		json::Value data = json::Object({
-			{"H","quotessubscribehub"},
-			{"M","getLastPrices"},
-			{"A",A},
-			{"I",this->cnt++}});
-		ws.postText(data.stringify().str());
-		data = json::Object({
-			{"H","quotessubscribehub"},
-			{"M","subscribeList"},
-			{"A",A},
-			{"I",this->cnt++}});
-		ws.postText(data.stringify().str());
-
-		subscribed.insert(std::string(symbol));
-		logDebug("+++ Subscribed $1, currently: $2", symbol, LogRange<decltype(subscribed.begin())>(subscribed.begin(), subscribed.end(), ","));
-	};
-
-	auto oldlst = std::move(subscribed);
-	for (auto &&x: oldlst) subscribeFn(x);
-
-	return subscribeFn;
 }
 
-void QuoteStream::processQuotes(const json::Value& quotes) {
+void QuoteStream::processQuotes(const json::Value& quotes, bool first_frame) {
 	for (json::Value q : quotes) {
 		json::Value s = q["s"];
 		json::Value a = q["a"];
 		json::Value b = q["b"];
 		json::Value t = q["t"];
-		if (!cb(s.getString(), b.getNumber(), a.getNumber(), t.getUIntLong()*1000)) {
+		if (!cb(s.getString(), b.getNumber(), a.getNumber(), t.getUIntLong()*1000) && !first_frame) {
 			Sync _(lock);
 
 			json::Value data = json::Object({
-					{"H", "quotessubscribehub"},
-					{"M","unsubscribeList"},
-					{"A", json::Value(json::array, {json::Value(json::array, { s }) })},
-					{"I", this->cnt++}});
-			ws.postText(data.stringify().str());
+					{"p", "/subscribe/removeList"},
+					{"i",cnt++},
+					{"d", json::Value(json::array,{s})}
+			    });
+	        auto str = data.stringify();
+	        logDebug("WebSocket: $1", str.str());
+			ws.postText(str.str());
 			subscribed.erase(s.getString());
-			logDebug("--- Unsubscribed $1, currently: $2", s, LogRange<decltype(subscribed.begin())>(subscribed.begin(), subscribed.end(), ","));
 		}
 	}
 }
@@ -154,35 +107,33 @@ json::NamedEnum<simpleServer::WSFrameType> frameTypes({
 });
 
 void QuoteStream::processMessages() {
-	do {
+    bool no_data = false;
+    bool first_frame = true;
+	while (ws.readFrame()) {
 		if (ws.getFrameType() == simpleServer::WSFrameType::text) {
+		    logDebug("WebSocket income: $1", ws.getText());
+		    no_data = false;
 			try {
 				json::Value data = json::Value::fromString(ws.getText());
-
-				json::Value R = data["R"];
-				if (R.defined()) {
-					json::Value quotes = R["data"];
-					processQuotes(quotes);
-				} else {
-					json::Value C = data["C"];
-					if (C.defined()) {
-						json::Value M = data["M"];
-						for (json::Value x: M) {
-							json::Value H = x["H"];
-							json::Value M = x["M"];
-							json::Value A = x["A"];
-							if (H.getString() == "QuotesSubscribeHub" && M == "ReceiveQuotes") {
-								json::Value quotes = A[0];
-								processQuotes(quotes);
-							}
-						}
-					}
+				if (data["p"] == "/quotes/subscribed") {
+				    processQuotes(data["d"], first_frame);
+				    first_frame = false;
 				}
 			} catch (std::exception &e) {
 				logError("Exception: $1 (discarded frame: $2)", e.what(), ws.getText());
 			}
+		} else if (ws.getFrameType() == simpleServer::WSFrameType::incomplete) {
+		    if (no_data) {
+		        logDebug("WebSocket frozen");
+		        break;
+		    }
+            logDebug("WebSocket ping");
+		    no_data = true;
+		    ws->ping({});
+		} else {
+		    no_data = false;
 		}
-	} while (ws.readFrame());
+	}
 
 	logWarning("Stream closed - reconnect (frameType: $1)", frameTypes[ws.getFrameType()]);
 
