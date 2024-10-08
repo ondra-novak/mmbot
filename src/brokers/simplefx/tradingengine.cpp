@@ -148,7 +148,6 @@ void TradingEngine::onPriceChange(const IStockApi::Ticker &price, Sync &hlck) {
 	ticker.time = price.time;
 
 
-	logDebug("Quote received: ask: $1, bid $2", ticker.ask, ticker.bid);
 
 	if (ticker.ask < minPrice || ticker.bid > maxPrice) {
 		std::vector<Order> pending;
@@ -203,7 +202,7 @@ std::uint64_t TradingEngine::now() {
 
 void TradingEngine::runQuotes() const {
 	if (quotesStopped) startListenPrices();
-	quoteStop = now()+(5*60000);
+	quoteStop = now()+(10*60000);
 }
 
 void TradingEngine::runSettlement(double amount) {

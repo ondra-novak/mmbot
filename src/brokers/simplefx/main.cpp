@@ -26,6 +26,8 @@
 #include "quotestream.h"
 #include "tradingengine.h"
 
+#include <queue>
+#include <unordered_set>
 using json::Object;
 using json::String;
 using json::Value;
@@ -146,7 +148,6 @@ public:
 		std::string type;
 		double mult;
 		double step;
-		double price;
 	};
 
 	struct SymbolSettings {
@@ -170,6 +171,14 @@ public:
 	    }
 	};
 
+	struct CurrencyConvPathItem {
+	    std::string symbol;
+	    int exponent;
+
+	};
+
+	using CurrencyConvPath = std::vector<CurrencyConvPathItem>;
+
 
 	mutable std::unordered_map<std::string, SymbolInfo> smbinfo;
 	mutable std::unordered_map<std::string, double> position;
@@ -177,6 +186,7 @@ public:
 	mutable std::unordered_map<unsigned int, Account> accounts;
 	mutable std::unordered_map<std::string, SymbolSettings> symcfg;
 	mutable std::chrono::system_clock::time_point smbexpire;
+	mutable std::map<std::pair<std::string, std::string>, CurrencyConvPath, std::less<> > cur_conv;
 
 	inline unsigned int getLoginForSymbol(const std::string& symbol) const;
 	Account &getAccount(const std::string &symbol);
@@ -250,27 +260,59 @@ static Value getData(Value resp) {
 	return resp["data"];
 }
 
+struct FindConvRatePathItem {
+    std::size_t prev_index;
+    std::string_view symbol;
+    std::string_view target_currency;
+    int exponent;
+};
 
 double Interface::findConvRate(std::string fromCurrency, std::string toCurrency) {
-	std::unordered_map<std::string, double> toTarget;
-	toTarget[fromCurrency] = 1.0;
-	std::size_t sz = -1;
-	while (toTarget.find(toCurrency) == toTarget.end() && toTarget.size() != sz) {
-		sz = toTarget.size();
-		for (auto &&k : smbinfo) {
-			auto iter = toTarget.find(k.second.asset_symbol);
-			if (iter != toTarget.end()) {
-				toTarget.emplace(k.second.currency_symbol, iter->second*k.second.price);
-			}
-			iter = toTarget.find(k.second.currency_symbol);
-			if (iter != toTarget.end()) {
-					toTarget.emplace(k.second.asset_symbol, iter->second/k.second.price);
-			}
-		}
-	}
-	auto res = toTarget.find(toCurrency);
-	if (res == toTarget.end()) return 0;
-	else return res->second;
+    if (fromCurrency == toCurrency) return 1.0;
+    auto cur_path = cur_conv.find(std::pair(fromCurrency, toCurrency));
+    if (cur_path == cur_conv.end()) {
+
+        std::unordered_set<std::string_view> visited;
+        std::vector<FindConvRatePathItem > path;
+        std::size_t index = 0;
+        path.push_back({0,{}, toCurrency, 0});
+        while (index < path.size()) {
+            const FindConvRatePathItem &itm = path[index];
+            if (itm.target_currency == fromCurrency) break;
+            if (visited.insert(itm.target_currency).second) {
+                for (auto &&k : smbinfo) {
+                    if (k.second.currency_symbol == itm.target_currency && visited.find(k.second.asset_symbol) == visited.end()) {
+                        path.push_back({index, k.second.symbol, k.second.asset_symbol,1});
+                    } else if (k.second.asset_symbol == itm.target_currency  && visited.find(k.second.currency_symbol) == visited.end()) {
+                        path.push_back({index, k.second.symbol, k.second.currency_symbol,-1});
+                    }
+                }
+            }
+            ++index;
+        }
+
+        if (index < path.size()) {
+            CurrencyConvPath p;
+            while (index != 0) {
+                const auto &i = path[index];
+                p.push_back({std::string(i.symbol), i.exponent});
+                index = i.prev_index;
+            }
+            cur_path = cur_conv.insert(std::pair(std::pair(fromCurrency, toCurrency), std::move(p))).first;
+        } else {
+            cur_path = cur_conv.insert(std::pair(std::pair(fromCurrency, toCurrency), CurrencyConvPath())).first;
+        }
+
+    }
+    const CurrencyConvPath &p = cur_path->second;
+    double rate = 1;
+    for (const CurrencyConvPathItem &itm: p) {
+        PTradingEngine m = getEngine(itm.symbol);
+        Ticker tk = m->getTicker();
+        if (itm.exponent>0) rate *= tk.last;
+        else rate /= tk.last;
+    }
+    return rate;
 
 }
 
@@ -280,8 +322,9 @@ inline double Interface::getBalance(const std::string_view& symb,
 	std::string p (pair);
 	if (smbinfo.empty()) updateSymbols();
 	Account &a = getAccount(p);
-	if (symb == pair) {
-		auto iter = position.find(symbol);
+	const SymbolInfo &s = getSymbolInfo(p);
+	if (symb == s.asset_symbol) {
+		auto iter = position.find(p);
 		if (iter == position.end()) return 0;
 		else return iter->second;
 	} else {
@@ -357,7 +400,7 @@ inline Interface::MarketInfo Interface::getMarketInfo(const std::string_view &pa
 		isdemo = true;
 	}
 	return MarketInfo {
-		std::string(pair),
+		sinfo.asset_symbol,
 		sinfo.currency_symbol,
 		sinfo.step*sinfo.mult,
 		0.00001,
@@ -737,10 +780,9 @@ inline void Interface::updateSymbols() {
 		if (z["tradeMode"].getUInt() == 0) continue;
 		std::string symbol = z["symbol"].getString();
 		std::string curSymb = z["priceCurrency"].getString();
-		std::string assSymb = z["marginCurrency"].getString();
 		std::string type = z["type"].getString();
+        std::string assSymb = (type == "Forex" || type == "Crypto")?symbol.substr(0,3):symbol;
 		std::string label = z["description"].getString();
-		double quote = sqrt(z["quote"]["a"].getNumber()*z["quote"]["b"].getNumber());
 		smbinfo.emplace(symbol, SymbolInfo {
 			symbol,
 			curSymb,
@@ -749,7 +791,6 @@ inline void Interface::updateSymbols() {
 			type,
 			z["contractSize"].getNumber(),
 			z["step"].getNumber(),
-			quote
 		});
 	}
 
