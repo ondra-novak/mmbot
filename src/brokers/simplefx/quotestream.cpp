@@ -61,14 +61,26 @@ SubscribeFn QuoteStream::connect() {
     return [this](const std::string_view &symbol) {
         Sync _(lock);
         if (subscribed.insert(std::string(symbol)).second) {
-            json::Value data = json::Object({
-                {"p","/subscribe/addList"},
-                {"i", cnt++},
-                {"d", {symbol}}
-            });
-            auto str = data.stringify();
-            logDebug("WebSocket: $1", str.str());
-            ws.postText(str.str());
+            {
+                json::Value data = json::Object({
+                    {"p","/lastprices/list"},
+                    {"i", cnt++},
+                    {"d", {symbol}}
+                });
+                auto str = data.stringify();
+                logDebug("WebSocket: $1", str.str());
+                ws.postText(str.str());
+            }
+            {
+                json::Value data = json::Object({
+                    {"p","/subscribe/addList"},
+                    {"i", cnt++},
+                    {"d", {symbol}}
+                });
+                auto str = data.stringify();
+                logDebug("WebSocket: $1", str.str());
+                ws.postText(str.str());
+            }
         }
     };
 
@@ -91,6 +103,7 @@ void QuoteStream::processQuotes(const json::Value& quotes, bool first_frame) {
 	        auto str = data.stringify();
 	        logDebug("WebSocket: $1", str.str());
 			ws.postText(str.str());
+
 			subscribed.erase(s.getString());
 		}
 	}
@@ -115,7 +128,7 @@ void QuoteStream::processMessages() {
 		    no_data = false;
 			try {
 				json::Value data = json::Value::fromString(ws.getText());
-				if (data["p"] == "/quotes/subscribed") {
+				if (data["p"] == "/quotes/subscribed" || data["p"] == "/lastprices/list") {
 				    processQuotes(data["d"], first_frame);
 				    first_frame = false;
 				}
