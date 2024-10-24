@@ -128,7 +128,7 @@ public:
 	std::string authKey;
 	std::string authSecret;
 	std::string authAccount;
-	unsigned int defaultAccount;
+	unsigned int defaultAccount = 0;
 
 
 	struct Account {
@@ -936,8 +936,11 @@ json::Value Interface::getMarkets() const {
 
 inline bool Interface::areMinuteDataAvailable(const std::string_view &asset, const std::string_view &currency) {
 	try {
-		getSymbolInfo(std::string(asset));
-		return true;
+	    updateSymbols();
+	    for (const auto &x: smbinfo) {
+	        if (x.second.asset_symbol == asset && x.second.currency_symbol == currency) return true;
+	    }
+		return false;
 	} catch (...) {
 		return false;
 	}
@@ -947,14 +950,14 @@ inline bool Interface::areMinuteDataAvailable(const std::string_view &asset, con
 inline uint64_t Interface::downloadMinuteData(const std::string_view &asset,
 		const std::string_view &currency, const std::string_view &hint_pair, uint64_t time_from,
 		uint64_t time_to, HistData &xdata) {
-	getSymbolInfo(std::string(asset));
+	getSymbolInfo(std::string(hint_pair));
 
 	MinuteData data;
 
 	int sets[] = {300,900,1800,3600,14400};
 	for (int curset: sets) {
 		std::ostringstream buff;
-		buff << "/GetCandles?symbol="<<asset<<"&cPeriod="<<curset<<"&timeFrom="<<time_from/1000<<"&timeTo="<<time_to/1000;
+		buff << "/GetCandles?symbol="<<hint_pair<<"&cPeriod="<<curset<<"&timeFrom="<<time_from/1000<<"&timeTo="<<time_to/1000;
 		int dups = curset/300;
 		auto insert_val = [&](double n){
 				for (int i = 0; i < dups; i++) data.push_back(n);
