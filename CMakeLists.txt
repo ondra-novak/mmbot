@@ -1,19 +1,19 @@
-cmake_minimum_required(VERSION 3.1)
+cmake_minimum_required(VERSION 3.5)
 project (mmbot)
 
-EXEC_PROGRAM(uname OUTPUT_VARIABLE SYSTEM_NAME)
-SET(SYSTEM_NAME "${SYSTEM_NAME}" CACHE INTERNAL "")
+execute_process(COMMAND uname OUTPUT_VARIABLE SYSTEM_NAME OUTPUT_STRIP_TRAILING_WHITESPACE)
 
-IF(SYSTEM_NAME STREQUAL "Linux")
-   MESSAGE("-- Detected Linux system")
-   LINK_LIBRARIES( stdc++fs)
-ENDIF(SYSTEM_NAME STREQUAL "Linux")
+if(SYSTEM_NAME STREQUAL "Linux")
+   message(STATUS "Detected Linux system")
+   link_libraries(stdc++fs)
+elseif(SYSTEM_NAME STREQUAL "FreeBSD")
+   message(STATUS "Detected FreeBSD system")
+   link_libraries(execinfo)
+elseif(SYSTEM_NAME STREQUAL "Darwin")
+   message(STATUS "Detected macOS system")
+endif()
 
-IF(SYSTEM_NAME STREQUAL "FreeBSD")
-   MESSAGE("-- Detected FreeBSD system")
-   LINK_LIBRARIES(execinfo)   
-ENDIF(SYSTEM_NAME STREQUAL "FreeBSD")
-LINK_LIBRARIES(ssl crypto pthread)
+link_libraries(ssl crypto pthread)
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin/)
 

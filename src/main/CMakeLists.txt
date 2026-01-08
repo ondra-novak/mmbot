@@ -31,6 +31,7 @@ add_executable (mmbot
 	strategy_incvalue.cpp
 	strategy_dcashitcoin.cpp
 	strategy_powern.cpp
+	strategy_trending.cpp
 	manual_matching_broker.cpp
     bollinger_spread.cpp
 	invert_strategy.cpp

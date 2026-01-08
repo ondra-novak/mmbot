@@ -1,0 +1,156 @@
+#include "strategy_trending.h"
+#include <stdexcept>
+#include <imtjson/array.h>
+#include <imtjson/object.h>
+#include "sgn.h"
+
+Strategy_Trending::Strategy_Trending(const Config &cfg) : cfg(std::make_shared<const Config>(cfg)), state() {}
+Strategy_Trending::Strategy_Trending(const std::shared_ptr<const Config > &cfg, State &&state) : cfg(cfg), state(std::move(state)) {}
+
+
+double Strategy_Trending::calc_ema(double prev_ema, double cur_value, int interval) {
+    double m = 2.0/(interval+1);
+    return (cur_value - prev_ema)*m + prev_ema;
+}
+
+double Strategy_Trending::get_trend() const {
+    if (state.ema_history.empty()) return 0;
+    return sgn(state.ema_history.front() - state.ema_history.back());
+}
+
+bool Strategy_Trending::isValid() const{
+    return state.budget > 0;
+}
+PStrategy Strategy_Trending::onIdle(const IStockApi::MarketInfo &minfo, const IStockApi::Ticker &curTicker, double assets, double currency) const{
+    if (!this->isValid()) {
+        auto s = init_strategy(minfo.leverage > 0, curTicker.bid, assets, currency);
+        if (s->isValid()) return s->onIdle(minfo, curTicker, assets, currency);
+        else throw std::runtime_error("Can't initialize strategy");
+    } else {
+        auto ellapsed = curTicker.time - state.last_calc_time;
+        State nw = state;
+        nw.ema_history = state.ema_history;
+        double e = nw.ema_history.empty()?curTicker.last:nw.ema_history.back();
+        nw.last_calc_time = curTicker.time;
+        while (ellapsed >= 60000) {
+            e= calc_ema(e, curTicker.last, cfg->ema_period);
+            nw.ema_history.push_front(e);
+            while (nw.ema_history.size() > cfg->ema_compare_history) nw.ema_history.pop_back();
+        }
+        return new Strategy_Trending(cfg, std::move(nw));
+    }
+
+}
+std::pair<Strategy_Trending::OnTradeResult, PStrategy > Strategy_Trending::onTrade(const IStockApi::MarketInfo &minfo, double tradePrice, double tradeSize, double assetsLeft, double currencyLeft) const{
+
+    if (!this->isValid()) return {{},this};
+
+    auto loc = getLocationInfo(tradePrice);
+    State nwstate = state;
+    nwstate.last_trade_price = tradePrice;
+    nwstate.total_loss = loc.new_loss;
+    if (cfg->reinvest) nwstate.budget += loc.fut_profit;
+    return {
+        {loc.fut_profit}, new Strategy_Trending(cfg, std::move(nwstate))
+    };
+
+}
+json::Value Strategy_Trending::exportState() const{
+    json::Array q;
+    for (double v: state.ema_history) q.push_back(v);
+    return json::Object({
+        {"tm",state.last_calc_time},
+        {"eh",q},
+        {"tl", state.total_loss},
+        {"ltp", state.last_trade_price},
+        {"b",state.budget},
+        {"p",state.position}
+    });
+}
+json::Value Strategy_Trending::dumpStatePretty(const IStockApi::MarketInfo &minfo) const{
+    return json::Object({
+          {"Total loss", state.total_loss},
+          {"Budget",state.budget},
+          {"Position",state.position},
+          {"Trend",get_trend()},
+      });
+}
+PStrategy Strategy_Trending::importState(json::Value src, const IStockApi::MarketInfo &minfo) const{
+    const auto q = src["eh"];
+    State st;
+    for (auto v: q) st.ema_history.push_back(v.getNumber());
+    st.last_calc_time = src["tm"].getUIntLong();
+    st.total_loss = src["tl"].getNumber();
+    st.last_trade_price = src["ltp"].getNumber();
+    st.budget = src["b"].getNumber();
+    st.position = src["p"].getNumber();
+    return new Strategy_Trending(cfg,std::move(st));
+}
+Strategy_Trending::OrderData Strategy_Trending::getNewOrder(const IStockApi::MarketInfo &minfo, double cur_price, double new_price, double dir, double assets, double currency, bool rej) const{
+    LocationInfo linfo = getLocationInfo(new_price);
+    double newpos = linfo.new_trend_pos;
+    if (dir * linfo.trend > 0) {//dir=-1 sell, and go up, or buy and go down
+        newpos -= linfo.new_rev_pos * dir;
+    } else {
+        newpos += linfo.new_rev_pos * dir;
+    }
+    return {0, newpos - assets};
+}
+Strategy_Trending::MinMax Strategy_Trending::calcSafeRange(const IStockApi::MarketInfo &minfo, double assets, double currencies) const{
+    if (state.position) {
+        double tp = state.last_trade_price - (state.budget-2*state.total_loss) / state.position;
+        return { state.position > 0? tp: 0.0, state.position < 0?tp:std::numeric_limits<double>::infinity()};
+    }
+    return { 0.0, std::numeric_limits<double>::infinity()};
+
+}
+double Strategy_Trending::getEquilibrium(double assets) const{
+    return state.last_trade_price;
+}
+PStrategy Strategy_Trending::reset() const{
+    return new Strategy_Trending(cfg, {});
+}
+std::string_view Strategy_Trending::getID() const{
+    return id;
+}
+double Strategy_Trending::calcInitialPosition(const IStockApi::MarketInfo &minfo, double price, double assets, double currency) const{
+    return true;
+}
+Strategy_Trending::BudgetInfo Strategy_Trending::getBudgetInfo() const{
+    return {state.budget, state.position};
+}
+double Strategy_Trending::calcCurrencyAllocation(double price, bool leveraged) const {
+    return state.budget - state.total_loss;
+}
+Strategy_Trending::ChartPoint Strategy_Trending::calcChart(double price) const{
+    return {false,0,0};
+}
+double Strategy_Trending::getCenterPrice(double lastPrice, double assets) const{
+    return lastPrice;
+}
+
+PStrategy Strategy_Trending::init_strategy(bool leverage, double price, double assets, double currency) const {
+    double b = leverage? currency: currency + assets*price;
+    if (b <= 0) throw std::runtime_error("Can't initialize strategy: no budget");
+    State st;
+    st.budget = b;
+    st.ema_history.push_front(price);
+    st.last_trade_price = price;
+    st.position = assets;
+    st.total_loss = 0;
+    return new Strategy_Trending(cfg, std::move(st));
+}
+
+Strategy_Trending::LocationInfo Strategy_Trending::getLocationInfo(double price) const {
+    double trend = sgn(state.ema_history.empty()?0.0:price - state.ema_history.back());
+    double n = state.budget*cfg->base_investment_percent/std::min(state.last_trade_price, price);
+    double pos = n * trend;
+    double fut_profit = (price - state.last_trade_price) * pos;
+    double profit = (price - state.last_trade_price) * state.position;
+    double rev_profit = profit - fut_profit;
+    double new_loss = std::max(0.0,state.total_loss - rev_profit);
+    double new_rev_pos = new_loss * cfg->reversal_power / price;
+
+    return {trend, new_loss, fut_profit, pos, new_rev_pos};
+}
+
