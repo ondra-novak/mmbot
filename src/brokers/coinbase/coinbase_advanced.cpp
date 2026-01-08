@@ -324,7 +324,7 @@ json::Value CoinbaseAdv::placeOrder(const std::string_view &pair, double size,
         std::unique_lock _(_ws_mx);
 
         _orders.add(OrderList::Order {
-            nullptr,clientId,size,price,std::string(pair),myOrderId.getString()
+            {nullptr,clientId,size,price},std::string(pair),myOrderId.getString()
         });
         std::exception_ptr e;
         try {
@@ -696,10 +696,10 @@ OrderList::Order CoinbaseAdv::MyOrderList::fetch_order(const std::string_view &i
         remain_sz = -remain_sz;
     }
     return Order {
-        o["order_id"].stripKey(),
+        {o["order_id"].stripKey(),
         parseUniqOrderID(o["client_order_id"])[0],
         remain_sz,
-        limit_price,
+        limit_price},
         o["product_id"].getString(),
         o["client_order_id"].getString()
     };

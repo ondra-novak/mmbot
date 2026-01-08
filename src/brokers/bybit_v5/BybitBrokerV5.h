@@ -27,7 +27,7 @@ public:
     virtual json::Value getMarkets() const override;
     virtual json::Value getApiKeyFields() const override;
     virtual AllWallets getWallet() override;
-    virtual json::Value testCall(const std::string_view &method, json::Value args) ;
+    virtual json::Value testCall(const std::string_view &method, json::Value args) override;
     virtual bool areMinuteDataAvailable(const std::string_view &asset, const std::string_view &currency) override;
     virtual std::uint64_t downloadMinuteData(const std::string_view &asset,
                       const std::string_view &currency,

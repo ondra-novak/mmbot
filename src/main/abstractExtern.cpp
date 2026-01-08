@@ -331,7 +331,7 @@ json::Value AbstractExtern::jsonExchange(json::Value request) {
         auto tmpt = std::chrono::system_clock::now()+std::chrono::milliseconds(std::min(utimeout, 10U*60U*1000U));
         do {
             try {
-                int tm;
+                int tm = {};
                 auto now = std::chrono::system_clock::now();
                 if (now >= tmpt) report_timeout();
                 else tm =std::chrono::duration_cast<std::chrono::milliseconds>(tmpt - now).count();

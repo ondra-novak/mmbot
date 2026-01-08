@@ -993,12 +993,12 @@ bool MTrader::processTrades(Status &st) {
 
 
 	double assetBal = position_valid?position:st.assetBalance;
-	double curBal = st.currencyBalance - (minfo.leverage?0:std::accumulate(
+/**	double curBal = st.currencyBalance - (minfo.leverage?0:std::accumulate(
 			st.new_trades.trades.begin(), st.new_trades.trades.end(),0,[](double a, const IStockApi::Trade &tr){
 				return a - tr.price*tr.size;
 			}));
 
-
+*/
 	double last_np = 0;
 	double last_ap = 0;
 	double last_price = 0;
@@ -1028,7 +1028,7 @@ bool MTrader::processTrades(Status &st) {
 		tempPr.position = assetBal+t.eff_size;
 		if (last_price) statsvc->reportPerformance(tempPr);
 		last_price = t.eff_price;
-		if (minfo.leverage == 0) curBal -= t.price * t.size;
+//		if (minfo.leverage == 0) curBal -= t.price * t.size;
 		spent_currency += t.price*t.size;
 
 		acb_state = new_acb;

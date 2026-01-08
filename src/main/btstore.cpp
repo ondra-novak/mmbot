@@ -5,6 +5,7 @@
  *      Author: ondra
  */
 
+#include <algorithm>
 #include <fstream>
 #include <string>
 #include <shared/filesystem.h>

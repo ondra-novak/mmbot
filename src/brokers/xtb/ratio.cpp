@@ -1,12 +1,13 @@
 #include "ratio.h"
 #include "assets.h"
 #include "client.h"
+#include <mutex>
 
 double RatioTable::get_ratio(const Pair &pair, const XTBAssets &assets, XTBClient &client) {
     if (pair.from == pair.to) return 1.0;
     std::shared_ptr<IFXRate> r;
     {
-        std::mutex _mx;
+        std::lock_guard _(_mx);
         auto iter = _pairs.find(pair);
         if (iter == _pairs.end()) {
             auto p = assets.get_ratio(pair.from, pair.to, client);
@@ -29,6 +30,6 @@ std::size_t RatioTable::HashPair::operator ()(const Pair &a) const {
 }
 
 void RatioTable::clear() {
-    std::mutex _mx;
+    std::lock_guard _(_mx);
     _pairs.clear();
 }

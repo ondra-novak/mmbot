@@ -380,13 +380,13 @@ IStockApi::TradesSync ByBitBroker::syncTrades(json::Value lastId, const std::str
 				double size = x["qty"].getNumber()*side;
 				double price = x["price"].getNumber();
 				double fee = x["commission"].getNumber();
-				bool assetFee = x["commissionAsset"].getString() == nfo.asset_symbol;
+//				bool assetFee = x["commissionAsset"].getString() == nfo.asset_symbol;
 				bool currencyFee = x["commissionAsset"].getString() == nfo.currency_symbol;
 				double eff_price = price;
-				double eff_size = size;
-				if (assetFee) {
+//				double eff_size = size;
+/*				if (assetFee) {
 					eff_size -= fee;
-				}
+				}*/
 				if (currencyFee) {
 					eff_price += fee/size;
 				}

@@ -14,7 +14,7 @@ public:
 
     using std::unique_ptr<T, Deleter>::unique_ptr;
     clone_ptr(const clone_ptr &other)
-        :std::unique_ptr<T, Deleter>(_cln(other.get()))
+        :std::unique_ptr<T, Deleter>(other._cln(other.get()))
         ,_cln(other._cln) {}
     clone_ptr(std::unique_ptr<T,Deleter> &&other, Cloner &&cloner = Cloner())
         :std::unique_ptr<T,Deleter>(std::move(other))
