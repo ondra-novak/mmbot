@@ -94,7 +94,9 @@
 <option value="gamma">Gamma</option>
 </optgroup>
 <optgroup label="Leveraged (advanced traders)">
+<option value="trending">Trending</option>
 <option value="sinh_gen">Simple leveraged</option>
+<option value="DCAM">DCAM</option>
 <option value="DCAM">DCAM</option>
 <option value="sinh">Sinh/exponencial (legacy)</option>
 <option value="sinh_val">Volume based Sinh (legacy)</option>
@@ -420,8 +422,19 @@ Prevents reduction after buy. By default the strategy reinvests money saved by b
 <div class="label"><span>Recomended initial position:</span><span data-name="range_initial">---</span></div>
 <div class="rightinfo"><button name="shg_control_pos hide_on_new" disabled="disabled">Control position</button> <button name="show_backtest" disabled="disabled">Backtest</button></div>
 </x-section>
-
-
+<x-section data-name="strategy_trending backtest_anchor" class="goal" hidden="hidden"><x-section-caption>Trending</x-section-caption>
+    <label><span>Investment percentage [%]</span><input type="number" min="0" max="1000000" step="1" data-name="trnd_bip"></label>    
+    <label><span>EMA interval (in minutes)</span><input type="number" min="0" max="9999999999" step="60" data-name="trnd_ema"></label>    
+    <label><span>EMA history compare (in minutes)</span><input type="number" min="0" max="9999999999" step="60" data-name="trnd_ech"></label>    
+    <label><span>Reversal power [x]</span><input type="number" min="0" max="100" step="1" data-name="trnd_p"></label>    
+    <label><span>Reversal strategy</span><select data-name="trnd_rst">
+        <option value="0">Reduce</option>
+        <option value="1">Reverse to trend</option>
+        <option value="2">Always reverse</option></select>
+    </label>    
+    <div class="label"><span>Reinvest profit<span class="tooltip">Increase the collateral by realized profit</span></span><x-checkbox data-name="shg_rnv"></x-checkbox></div>
+    <button name="show_backtest" disabled="disabled">Backtest</button></div>
+</x-section>
 
 
 <x-section class="adv"  ><x-section-caption>Orders</x-section-caption>

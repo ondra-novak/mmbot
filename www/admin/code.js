@@ -114,6 +114,7 @@ App.prototype.createTraderForm = function() {
 		form.showItem("strategy_sinhgen",state.strategy == "sinh_gen");
 		form.showItem("strategy_passive_income",state.strategy == "passive_income");
 		form.showItem("strategy_incvalue",state.strategy == "inc_value");
+		form.showItem("strategy_trending", state.strategy == "trending");
 		form.showItem("strategy_hodl_short",state.strategy == "hodlshort");
         form.showItem("strategy_power_n",state.strategy == "DCAM");
 		form.showItem("strategy_hyperbolic",["hyperbolic","linear","sinh","sinh_val","sinh2"].indexOf(state.strategy) != -1);
@@ -726,6 +727,11 @@ App.prototype.fillForm = function (src, trg) {
     data.dcam_mult = 1;
     data.dcam_iym = 1;
     data.dcam_ym = 0;
+	data.trnd_bip = 1;
+	data.trnd_ema = 1440;
+	data.trnd_ech = 144;
+	data.trnd_rst = "0";
+	data.trnd_p = 0;
 
 	
 	if (data.strategy == "halfhalf" || data.strategy == "keepvalue" || data.strategy == "hypersquare") {
@@ -796,6 +802,13 @@ App.prototype.fillForm = function (src, trg) {
         data.dcam_mult = filledval(src.strategy.multipler, 1);
         data.dcam_iym = filledval(src.strategy.initial_yield_mult, 1);
         data.dcam_ym = filledval(src.strategy.yield_mult, 0);
+	} else if (data.strategy == "trending") {
+		data.trnd_bip = filledval(src.strategy.bip, data.trnd_bip);
+		data.trnd_ema = filledval(src.strategy.ema, data.trnd_ema);
+		data.trnd_ech = filledval(src.strategy.ech, data.trnd_ech);
+		data.trnd_rst = filledval(src.strategy.rst, data.trnd_rst);
+		data.trnd_p = filledval(src.strategy.p, data.trnd_p);
+		data.shg_rnv=filledval(src.strategy.r,false);
 	} else if (data.strategy == "sinh_gen") {
 		data.shg_w=filledval(src.strategy.w,50);
 		data.shg_p=filledval(src.strategy.p,100);
@@ -1089,6 +1102,16 @@ function getStrategyData(data, inv) {
             yield_mult:data.dcam_ym,            
         };
             
+	} else if (data.strategy == "trending") {
+		strategy = {
+			type: data.strategy,
+			ema: data.trnd_ema,
+			bip: data.trnd_bip,
+			ech: data.trnd_ech,
+			rst: data.trnd_rst,
+			p: data.trnd_p,
+			r: data.shg_rnv
+		}
 	} else if (data.strategy == "sinh_gen") {
 		strategy = {
 			type: data.strategy,
@@ -2168,6 +2191,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		"incval_w","incval_r","incval_ms","incval_ri","incval_z",
 		"hedge_short","hedge_long","hedge_drop",
 		"shg_w","shg_p","shg_z","shg_b","shg_olt","shg_ol","shg_lp","shg_rnv","shg_avgsp","shg_boostmode","shg_boost_custom","shg_r",
+		"trnd_bip","trnd_ema","trnd_ech","trnd_p","trnd_rst",
 		"dcam_budget","dcam_pown","dcam_mult","dcam_iym","dcam_ym","dcam_type",
 		"trade_within_budget"];
 	var spread_inputs = [

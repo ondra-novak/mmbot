@@ -33,6 +33,7 @@
 #include "strategy_exponencial.h"
 #include "strategy_dcashitcoin.h"
 #include "strategy_powern.h"
+#include "strategy_trending.h"
 
 
 
@@ -218,6 +219,15 @@ Strategy Strategy::create_base(std::string_view id, json::Value config) {
 		cfg.ms = config["ms"].getNumber()*0.01;
 		cfg.reinvest = config["ri"].getBool();
 		return Strategy(new Strategy_IncValue(cfg));
+	} else if (id == Strategy_Trending::id) {
+		Strategy_Trending::Config cfg;
+		cfg.base_investment_percent = config["bip"].getNumber()*0.01;
+		cfg.ema_compare_history = config["ech"].getUInt();
+		cfg.ema_period = config["ema"].getUInt();
+		cfg.reinvest = config["r"].getBool();
+		cfg.reversal_power = config["p"].getNumber();
+		cfg.rev_str = static_cast<Strategy_Trending::ReversalStrategy>(config["rst"].getUInt());
+		return Strategy(new Strategy_Trending(cfg));
 	} else if (id == Strategy_PowerN::id) {
         double initial_budget = config["initial_budget"].getNumber();
         double initial_yield_mult = config["initial_yield_mult"].getNumber();

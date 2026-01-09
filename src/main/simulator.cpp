@@ -154,11 +154,11 @@ uint64_t Simulator::downloadMinuteData(const std::string_view &asset, const std:
 	SourceInfo p = parseSymbol(hint_pair);
 	IHistoryDataSource *src = dynamic_cast<IHistoryDataSource *>(p.exchange.get());
 	if (src && src->areMinuteDataAvailable(asset, currency)) {
-		return src->downloadMinuteData(asset, currency, hint_pair, time_from, time_to, data);
+		return src->downloadMinuteData(asset, currency, p.pair, time_from, time_to, data);
 	} else {
 		PStockApi s = findSuitableHistoryBroker(asset, currency);
 		IHistoryDataSource *src = dynamic_cast<IHistoryDataSource *>(s.get());
-		return src->downloadMinuteData(asset, currency, hint_pair, time_from, time_to, data);
+		return src->downloadMinuteData(asset, currency, p.pair, time_from, time_to, data);
 	}
 }
 

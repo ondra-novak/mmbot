@@ -59,11 +59,12 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 			bool invalid = false;
 			double orgsize = 0;
 			Strategy::OrderData order;
+     		double ord_price = p;
 			do {
                 order = s.getNewOrder(minfo, bt.price*0.9+p*0.1, p, dir, pos-cfg.position_offset, adjbal,rej);
 
                 if (order.price) {
-                    p = order.price;
+                    ord_price = order.price;
                 }
 
 
@@ -82,7 +83,7 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
                 rej = true;
 			} while (invalid);
 
-			double dprice = (p - bt.price);
+			double dprice = (ord_price - bt.price);
             double pchange = pos * dprice;
             pl = pl + pchange;
             if (minfo.leverage) balance += pchange;
@@ -129,7 +130,7 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 					order.size = -pos;
 					orgsize = order.size; //if zero - allow alert
 				}
-				double chg = order.size*p;
+				double chg = order.size*ord_price;
 				if (balance - chg < 0 || pos + order.size < -(std::abs(pos) + std::abs(order.size))*1e-10) {
 					if (neg_bal) {
 						bt.event = BTEvent::no_balance;
@@ -141,7 +142,7 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 					        order.size = 0;
 	                        orgsize = 0; //allow alert this time
 					    }
-                        chg = order.size*p;
+                        chg = order.size*ord_price;
 					}
 				}
 				balance -= chg;
@@ -169,7 +170,7 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 			}
 
 			if (enable_alert) {
-				auto tres = s.onTrade(minfo, p, order.size, pos-cfg.position_offset, balance);
+				auto tres = s.onTrade(minfo, ord_price, order.size, pos-cfg.position_offset, balance);
 				bt.neutral_price = tres.neutralPrice;
 				double norm_accum = std::isfinite(tres.normAccum)?tres.normAccum:0;
 				bt.norm_accum += norm_accum;
@@ -186,7 +187,7 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 				});
 			}
 			if (spend) {
-				double alloc = s.calcCurrencyAllocation(p, minfo.leverage>0);
+				double alloc = s.calcCurrencyAllocation(ord_price, minfo.leverage>0);
 				if (alloc>0 && alloc<balance) {
 					total_spend += balance-alloc;
 					balance = alloc;
@@ -201,17 +202,17 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 			bt.pos = pos;
 			bt.bal = balance+total_spend;
 			bt.unspend_balance= balance;
-			bt.norm_profit_total = bt.norm_profit + bt.norm_accum * p;
+			bt.norm_profit_total = bt.norm_profit + bt.norm_accum * ord_price;
 
 
 
 			trades.push_back(bt);
 
 			if (minfo.leverage) {
-				double minbal = std::abs(pos) * p/(2*minfo.leverage);
+				double minbal = std::abs(pos) * ord_price/(2*minfo.leverage);
 				if (balance > minbal) {
-					double rbal1 = balance + pos * (price->pmin-p);
-					double rbal2 = balance + pos * (price->pmax-p);
+					double rbal1 = balance + pos * (price->pmin-ord_price);
+					double rbal2 = balance + pos * (price->pmax-ord_price);
 					bool trig = false;
 					if (rbal1 <= minbal) {
 						trig = true;
@@ -221,7 +222,7 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 						bt.price = price->pmax;
 					}
 					if (trig) {
-						double df = pos * (bt.price - p);
+						double df = pos * (bt.price - ord_price);
 						pl += df;
 						balance += df;
 						bt.pos = 0;
