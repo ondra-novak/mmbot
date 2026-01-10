@@ -1594,7 +1594,7 @@ MTrader::Order MTrader::calcBuyOrderSize(const Status &status, double base, doub
     for (double i = 1.0; i > 0.5; i-=0.01) {
         double base_price = base * i;
         auto fees = minfo.removeFees(base_price, 1);
-        Order ord (strategy.getNewOrder(minfo, ask_level, fees.adjusted_price, 1, status.assetBalance-cfg.position_offset, status.currencyBalance, rej),
+        Order ord (strategy.getNewOrder(minfo, status.ticker.bid, fees.adjusted_price, 1, status.assetBalance-cfg.position_offset, status.currencyBalance, rej),
                     AlertReason::strategy_enforced);
         if (ord.price <= 0) ord.price = base_price;
         else ord.price = minfo.addFees(ord.price,1).adjusted_price;
@@ -1624,7 +1624,7 @@ MTrader::Order MTrader::calcSellOrderSize(const Status &status, double base, dou
     for (double i = 1.0; i < 2.0; i+=0.01) {
         double base_price = base * i;
         auto fees = minfo.removeFees(base_price, -1);
-        Order ord (strategy.getNewOrder(minfo, bid_level, fees.adjusted_price, -1, status.assetBalance-cfg.position_offset, status.currencyBalance, rej),
+        Order ord (strategy.getNewOrder(minfo,  status.ticker.ask, fees.adjusted_price, -1, status.assetBalance-cfg.position_offset, status.currencyBalance, rej),
                     AlertReason::strategy_enforced);
         if (ord.price <= 0) ord.price = base_price;
         else ord.price = minfo.addFees(ord.price,-1).adjusted_price;

@@ -226,6 +226,7 @@ Strategy Strategy::create_base(std::string_view id, json::Value config) {
 		cfg.ema_period = config["ema"].getUInt();
 		cfg.reinvest = config["r"].getBool();
 		cfg.reversal_power = config["p"].getNumber();
+		cfg.fast = config["fast"].getBool();
 		cfg.rev_str = static_cast<Strategy_Trending::ReversalStrategy>(config["rst"].getUInt());
 		return Strategy(new Strategy_Trending(cfg));
 	} else if (id == Strategy_PowerN::id) {

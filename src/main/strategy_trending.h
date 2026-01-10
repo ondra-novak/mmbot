@@ -1,8 +1,7 @@
 #pragma once
 #include "istrategy.h"
-#include <atomic>
 #include <imtjson/value.h>
-#include <queue>
+#include <deque>
 
 class Strategy_Trending: public IStrategy {
 public:
@@ -20,6 +19,7 @@ public:
         double base_investment_percent;
         double reversal_power;
         bool reinvest;
+        bool fast;
         ReversalStrategy rev_str;
     };
 

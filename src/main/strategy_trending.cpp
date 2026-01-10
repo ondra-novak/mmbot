@@ -19,7 +19,7 @@ double Strategy_Trending::get_trend() const {
 }
 
 double Strategy_Trending::get_trend(double price) const {
-    if (state.ema_history.empty()) return 0;
+    if (state.ema_history.size() < cfg->ema_compare_history) return 0;
     return sgn(price - state.ema_history.back());
 }
 
@@ -33,18 +33,7 @@ PStrategy Strategy_Trending::onIdle(const IStockApi::MarketInfo &minfo, const IS
         if (s->isValid()) return s->onIdle(minfo, curTicker, assets, currency);
         else throw std::runtime_error("Can't initialize strategy");
     } else {
-        std::int64_t ellapsed = curTicker.time - state.last_calc_time;
-        State nw = state;
-        nw.ema_history = state.ema_history;
-        double e = nw.ema_history.empty()?curTicker.last:nw.ema_history.back();
-        while (ellapsed >= 60000) {
-            e= calc_ema(e, curTicker.last, cfg->ema_period);
-            nw.ema_history.push_front(e);
-            while (nw.ema_history.size() > cfg->ema_compare_history) nw.ema_history.pop_back();
-            ellapsed -= 60000;
-            nw.last_calc_time += 60000;
-        }
-        return new Strategy_Trending(cfg, std::move(nw));
+        return this;
     }
 
 }
@@ -57,7 +46,17 @@ std::pair<Strategy_Trending::OnTradeResult, PStrategy > Strategy_Trending::onTra
     nwstate.last_trade_price = tradePrice;
     nwstate.total_loss = loc.new_loss;
     nwstate.position = assetsLeft;
-    nwstate.loss_position = loc.new_rev_pos;
+    nwstate.loss_position = loc.new_rev_pos;    
+    double e;
+    if (nwstate.ema_history.empty()) {
+        e = tradePrice;
+        loc.fut_profit+=state.total_loss;
+    } else {
+        e = calc_ema(state.ema_history.front(), tradePrice, cfg->ema_period);
+    }
+    nwstate.ema_history.push_front(e);
+    while (nwstate.ema_history.size() > cfg->ema_compare_history+1) nwstate.ema_history.pop_back();
+    
     if (cfg->reinvest) nwstate.budget += loc.fut_profit;
     return {
         {loc.fut_profit}, new Strategy_Trending(cfg, std::move(nwstate))
@@ -107,13 +106,15 @@ Strategy_Trending::OrderData Strategy_Trending::getNewOrder(const IStockApi::Mar
     double newpos = linfo.new_trend_pos + linfo.new_rev_pos;
     double diff = newpos - assets;
     double p = new_price;
-    if (diff * dir < 0 && !rej) {
+    auto alert = Alert::forced;
+    if (cfg->fast && diff * dir < 0 && !rej) {
         p = cur_price;
         linfo = getLocationInfo(cur_price);;
         newpos = linfo.new_trend_pos + linfo.new_rev_pos;
         diff = newpos - assets;
+        alert = Alert::disabled;
     }
-    return {p, diff};
+    return {p, diff, alert};
 }
 Strategy_Trending::MinMax Strategy_Trending::calcSafeRange(const IStockApi::MarketInfo &minfo, double assets, double currencies) const{
     if (state.position) {
@@ -153,10 +154,9 @@ PStrategy Strategy_Trending::init_strategy(bool leverage, double price, double a
     if (b <= 0) throw std::runtime_error("Can't initialize strategy: no budget");
     State st;
     st.budget = b;
-    st.ema_history.push_front(price);
     st.last_trade_price = price;
     st.position = assets;
-    st.total_loss = 0;
+    st.total_loss = 0.01 * b;
     st.last_calc_time = time;
     return new Strategy_Trending(cfg, std::move(st));
 }
@@ -169,7 +169,7 @@ Strategy_Trending::LocationInfo Strategy_Trending::getLocationInfo(double price)
     double profit = (price - state.last_trade_price) * state.position;
     double rev_profit = profit - fut_profit;
     double new_loss = std::max(0.0,state.total_loss - rev_profit);
-    double new_rev_pos_abs = new_loss * cfg->reversal_power / price;
+    double new_rev_pos_abs = new_loss * cfg->reversal_power / state.last_trade_price;
     double dir = sgn(price - state.last_trade_price);
     double new_rev_pos;
     double seldir = sgn(state.position);

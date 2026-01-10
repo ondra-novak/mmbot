@@ -423,16 +423,32 @@ Prevents reduction after buy. By default the strategy reinvests money saved by b
 <div class="rightinfo"><button name="shg_control_pos hide_on_new" disabled="disabled">Control position</button> <button name="show_backtest" disabled="disabled">Backtest</button></div>
 </x-section>
 <x-section data-name="strategy_trending backtest_anchor" class="goal" hidden="hidden"><x-section-caption>Trending</x-section-caption>
-    <label><span>Investment percentage [%]</span><input type="number" min="0" max="1000000" step="1" data-name="trnd_bip"></label>    
-    <label><span>EMA interval (in minutes)</span><input type="number" min="0" max="9999999999" step="60" data-name="trnd_ema"></label>    
-    <label><span>EMA history compare (in minutes)</span><input type="number" min="0" max="9999999999" step="60" data-name="trnd_ech"></label>    
-    <label><span>Reversal power [x]</span><input type="number" min="0" max="100" step="1" data-name="trnd_p"></label>    
-    <label><span>Reversal strategy</span><select data-name="trnd_rst">
-        <option value="0">Reduce</option>
+    <label><span>Investment percentage [%]<span class="tooltip">
+            The parameter specifies the percentage of the budget used to calculate the trend-following position. This means that the strategy will buy or sell at this volume to take a position in the direction of the trend.
+    </span></span><input type="number" min="0" max="1000000" step="1" data-name="trnd_bip"></label>    
+    <label><span>EMA interval (trades)<span class="tooltip">
+            Specifies the interval of the EMA indicator. This indicator is updated only when a trade is executed - it is not time-bound or otherwise. The value is therefore the interval in the number of trades
+    </span></span><input type="number" min="0" max="9999999999" step="1" data-name="trnd_ema"></label>    
+    <label><span>EMA history compare (trades)<span class="tooltip">
+            It determines how many trades in the history the EMA is compared to the current value. This determines the current trend.
+    </span></span><input type="number" min="0" max="9999999999" step="1" data-name="trnd_ech"></label>    
+    <label><span>Recovery Power [x]<span class="tooltip">
+            Defines how strongly the strategy attempts to recover from underperformance. For example if parameter is 2 and the strategy
+            has 100 USD underperformance, it attempts to open position about 200 USD to recovery. If loss gets greater,
+            it will eventually open higher position for recovery
+    </span></span><input type="number" min="0" max="100" step="1" data-name="trnd_p"></label>    
+    <label><span>Recovery strategy<span class="tooltip">
+            Determines the way the strategy tries to recover from a loss<br>
+            <b>Keep side</b> - Remains in position, only increasing or reducing position until loss is eliminated<br>
+            <b>Reverse to trend</b> - It tries to reverse a position whenever the current position is against the trend. However, to do this, it needs the price to go against the trend in the short term.<br>
+            <b>Always reverse</b> - Changes to long when the price goes down and short when the price goes up
+    </span></span><select data-name="trnd_rst">
+        <option value="0">Keep side</option>
         <option value="1">Reverse to trend</option>
         <option value="2">Always reverse</option></select>
     </label>    
     <div class="label"><span>Reinvest profit<span class="tooltip">Increase the collateral by realized profit</span></span><x-checkbox data-name="shg_rnv"></x-checkbox></div>
+    <div class="label"><span>Faster reaction<span class="tooltip">Attempt to open position without waiting to proper spread value. The reaction to trend change is faster however this can however cause oscilations (can't be correctly tested by current backtest) </span></span><x-checkbox data-name="trnd_fast"></x-checkbox></div>
     <button name="show_backtest" disabled="disabled">Backtest</button></div>
 </x-section>
 
