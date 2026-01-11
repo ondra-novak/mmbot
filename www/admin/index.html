@@ -437,6 +437,9 @@ Prevents reduction after buy. By default the strategy reinvests money saved by b
             has 100 USD underperformance, it attempts to open position about 200 USD to recovery. If loss gets greater,
             it will eventually open higher position for recovery
     </span></span><input type="number" min="0" max="100" step="1" data-name="trnd_p"></label>    
+    <label><span>Limit loss for recovery [%]<span class="tooltip">
+            Limits the maximum loss that can be used to calculate the position for recovery. This will not stop any further loss, it will only prevent the position from increasing. Entered as a percentage of the budget
+    </span></span><input type="number" min="0" max="100" step="1" data-name="trnd_lim"></label>    
     <label><span>Recovery strategy<span class="tooltip">
             Determines the way the strategy tries to recover from a loss<br>
             <b>Keep side</b> - Remains in position, only increasing or reducing position until loss is eliminated<br>

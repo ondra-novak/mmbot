@@ -21,6 +21,7 @@ mkdir -p ./data
 mkdir -p ./secure_data
 mkdir -p ./log
 mkdir -p ./run
+mkdir -p ./.build
 
 if [ -f update_version ] ; then
 	GIT=`which git`

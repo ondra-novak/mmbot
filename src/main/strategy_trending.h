@@ -18,6 +18,7 @@ public:
         unsigned int ema_compare_history;
         double base_investment_percent;
         double reversal_power;
+        double limit_loss_percent;
         bool reinvest;
         bool fast;
         ReversalStrategy rev_str;

@@ -77,9 +77,11 @@ json::Value Strategy_Trending::exportState() const{
     });
 }
 json::Value Strategy_Trending::dumpStatePretty(const IStockApi::MarketInfo &minfo) const{
-    
+    double trend = get_trend(state.last_trade_price);
+    double n = state.budget*cfg->base_investment_percent/std::min(state.last_trade_price, state.last_trade_price);
     return json::Object({
           {"Total loss", state.total_loss},
+          {"Trend position", n * trend},
           {"Budget",state.budget},
           {"Position",state.position},
           {"Trend",get_trend()},
@@ -114,6 +116,7 @@ Strategy_Trending::OrderData Strategy_Trending::getNewOrder(const IStockApi::Mar
         diff = newpos - assets;
         alert = Alert::disabled;
     }
+    if (diff * dir < 0) diff = 0;
     return {p, diff, alert};
 }
 Strategy_Trending::MinMax Strategy_Trending::calcSafeRange(const IStockApi::MarketInfo &minfo, double assets, double currencies) const{
@@ -161,7 +164,7 @@ PStrategy Strategy_Trending::init_strategy(bool leverage, double price, double a
     return new Strategy_Trending(cfg, std::move(st));
 }
 
-Strategy_Trending::LocationInfo Strategy_Trending::getLocationInfo(double price) const {
+Strategy_Trending::LocationInfo Strategy_Trending::getLocationInfo(double price) const {    
     double trend = get_trend(price);
     double n = state.budget*cfg->base_investment_percent/std::min(state.last_trade_price, price);
     double pos = n * trend;
@@ -169,7 +172,12 @@ Strategy_Trending::LocationInfo Strategy_Trending::getLocationInfo(double price)
     double profit = (price - state.last_trade_price) * state.position;
     double rev_profit = profit - fut_profit;
     double new_loss = std::max(0.0,state.total_loss - rev_profit);
-    double new_rev_pos_abs = new_loss * cfg->reversal_power / state.last_trade_price;
+    double limit_loss = state.budget * cfg->limit_loss_percent;
+    if (limit_loss < new_loss && fut_profit > 0) {
+        new_loss = std::max(0.0,new_loss - fut_profit);;     //stop benchmark
+        fut_profit = 0;        
+    }
+    double new_rev_pos_abs = std::min(limit_loss,new_loss) * cfg->reversal_power / state.last_trade_price;
     double dir = sgn(price - state.last_trade_price);
     double new_rev_pos;
     double seldir = sgn(state.position);
