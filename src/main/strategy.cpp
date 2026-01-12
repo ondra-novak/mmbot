@@ -228,6 +228,7 @@ Strategy Strategy::create_base(std::string_view id, json::Value config) {
 		cfg.reversal_power = config["p"].getNumber();
 		cfg.fast = config["fast"].getBool();
 		cfg.limit_loss_percent = config["lim"].getNumber()*0.01;
+		cfg.histersis_percent = config["hst"].getNumber()*0.01;
 		cfg.rev_str = static_cast<Strategy_Trending::ReversalStrategy>(config["rst"].getUInt());
 		return Strategy(new Strategy_Trending(cfg));
 	} else if (id == Strategy_PowerN::id) {

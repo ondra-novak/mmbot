@@ -20,9 +20,14 @@ double Strategy_Trending::get_trend() const {
 
 double Strategy_Trending::get_trend(double price) const {
     if (state.ema_history.size() < cfg->ema_compare_history) return 0;
-    return sgn(price - state.ema_history.back());
-}
+    double zone = std::abs(cfg->histersis_percent * state.last_trade_price);
+    double cmp_price = state.ema_history.back();
 
+    double diff = price - cmp_price;
+    if (std::abs(diff) < zone) return cfg->histersis_percent < 0?0:state.previous_trend;
+    else return sgn(diff);
+   
+}
 
 bool Strategy_Trending::isValid() const{
     return state.budget > 0;
@@ -47,6 +52,7 @@ std::pair<Strategy_Trending::OnTradeResult, PStrategy > Strategy_Trending::onTra
     nwstate.total_loss = loc.new_loss;
     nwstate.position = assetsLeft;
     nwstate.loss_position = loc.new_rev_pos;    
+    nwstate.previous_trend = loc.trend;
     double e;
     if (nwstate.ema_history.empty()) {
         e = tradePrice;
@@ -73,7 +79,8 @@ json::Value Strategy_Trending::exportState() const{
         {"ltp", state.last_trade_price},
         {"b",state.budget},
         {"sp",state.loss_position},
-        {"p",state.position}
+        {"p",state.position},
+        {"pt",state.previous_trend}
     });
 }
 json::Value Strategy_Trending::dumpStatePretty(const IStockApi::MarketInfo &minfo) const{
@@ -100,7 +107,8 @@ PStrategy Strategy_Trending::importState(json::Value src, const IStockApi::Marke
     st.last_trade_price = src["ltp"].getNumber();
     st.budget = src["b"].getNumber();
     st.position = src["p"].getNumber();
-    st.loss_position = src["lp"].getNumber();
+    st.loss_position = src["sp"].getNumber();
+    st.previous_trend = src["pt"].getNumber();
     return new Strategy_Trending(cfg,std::move(st));
 }
 Strategy_Trending::OrderData Strategy_Trending::getNewOrder(const IStockApi::MarketInfo &minfo, double cur_price, double new_price, double dir, double assets, double currency, bool rej) const{

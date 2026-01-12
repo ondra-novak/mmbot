@@ -19,6 +19,7 @@ public:
         double base_investment_percent;
         double reversal_power;
         double limit_loss_percent;
+        double histersis_percent;
         bool reinvest;
         bool fast;
         ReversalStrategy rev_str;
@@ -32,6 +33,7 @@ public:
         double budget = 0;
         double position = 0;
         double loss_position = 0;
+        double previous_trend = 0;
 
 
     };
