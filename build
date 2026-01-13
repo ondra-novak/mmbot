@@ -30,7 +30,7 @@ if [ -f update_version ] ; then
 	echo " \"$VER\"" >> ./version.h
 fi
 
-cmake -DCMAKE_BUILD_TYPE=$BUILDTYPE .
+cmake -DCMAKE_BUILD_TYPE=$BUILDTYPE -B.build -S .
 echo "Building in $PROCS thread(s)"
-make all -j$PROCS
+(cd .build;make all -j$PROCS)
 echo Done >&2

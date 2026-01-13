@@ -65,7 +65,7 @@ std::pair<Strategy_Trending::OnTradeResult, PStrategy > Strategy_Trending::onTra
     
     if (cfg->reinvest) nwstate.budget += loc.fut_profit;
     return {
-        {loc.fut_profit}, new Strategy_Trending(cfg, std::move(nwstate))
+        {loc.fut_profit,0, nwstate.ema_history.back()}, new Strategy_Trending(cfg, std::move(nwstate))
     };
 
 }
