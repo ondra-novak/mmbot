@@ -25,7 +25,7 @@ double Strategy_Trending::get_trend(double price) const {
 
     double diff = price - cmp_price;
     if (std::abs(diff) < zone) return cfg->histersis_percent < 0?0:state.previous_trend;
-    else return sgn(diff);
+    else return state.spot?std::max(0,sgn(diff)):sgn(diff);
    
 }
 
@@ -48,11 +48,15 @@ std::pair<Strategy_Trending::OnTradeResult, PStrategy > Strategy_Trending::onTra
 
     auto loc = getLocationInfo(tradePrice);
     State nwstate = state;
+    int dir = static_cast<int>(sgn(tradeSize));
+
     nwstate.last_trade_price = tradePrice;
     nwstate.total_loss = loc.new_loss;
     nwstate.position = assetsLeft;
     nwstate.loss_position = loc.new_rev_pos;    
     nwstate.previous_trend = loc.trend;
+    nwstate.skip_fast = dir && dir == faster_side;
+    nwstate.spot = minfo.leverage == 0;
     double e;
     if (nwstate.ema_history.empty()) {
         e = tradePrice;
@@ -80,7 +84,9 @@ json::Value Strategy_Trending::exportState() const{
         {"b",state.budget},
         {"sp",state.loss_position},
         {"p",state.position},
-        {"pt",state.previous_trend}
+        {"pt",state.previous_trend},
+        {"skf",state.skip_fast},
+        {"spot", state.spot},
     });
 }
 json::Value Strategy_Trending::dumpStatePretty(const IStockApi::MarketInfo &minfo) const{
@@ -88,14 +94,14 @@ json::Value Strategy_Trending::dumpStatePretty(const IStockApi::MarketInfo &minf
     double n = state.budget*cfg->base_investment_percent/std::min(state.last_trade_price, state.last_trade_price);
     return json::Object({
           {"Total loss", state.total_loss},
-          {"Trend position", n * trend},
+          {"Position.Trend", n * trend},
           {"Budget",state.budget},
           {"Position",state.position},
           {"Trend",get_trend()},
-          {"Rev want position", state.loss_position},
-          {"Last trade price", state.last_trade_price},
+          {"Position.Recover", state.loss_position},
           {"Ema", state.ema_history.empty()?0:state.ema_history.front()},
-          {"Ema compare", state.ema_history.empty()?0:state.ema_history.back()}
+          {"Ema compare", state.ema_history.empty()?0:state.ema_history.back()},
+          {"Skip fast", state.skip_fast}
       });
 }
 PStrategy Strategy_Trending::importState(json::Value src, const IStockApi::MarketInfo &minfo) const{
@@ -109,6 +115,8 @@ PStrategy Strategy_Trending::importState(json::Value src, const IStockApi::Marke
     st.position = src["p"].getNumber();
     st.loss_position = src["sp"].getNumber();
     st.previous_trend = src["pt"].getNumber();
+    st.skip_fast = src["skf"].getBool();
+    st.spot = src["spot"].getBool();
     return new Strategy_Trending(cfg,std::move(st));
 }
 Strategy_Trending::OrderData Strategy_Trending::getNewOrder(const IStockApi::MarketInfo &minfo, double cur_price, double new_price, double dir, double assets, double currency, bool rej) const{
@@ -117,12 +125,13 @@ Strategy_Trending::OrderData Strategy_Trending::getNewOrder(const IStockApi::Mar
     double diff = newpos - assets;
     double p = new_price;
     auto alert = Alert::forced;
-    if (cfg->fast && diff * dir < 0 && !rej) {
+    if (cfg->fast && diff * dir < 0 && !rej && !state.skip_fast) {
         p = cur_price;
         linfo = getLocationInfo(cur_price);;
         newpos = linfo.new_trend_pos + linfo.new_rev_pos;
         diff = newpos - assets;
         alert = Alert::disabled;
+        faster_side = dir;
     }
     if (diff * dir < 0) diff = 0;
     return {p, diff, alert};
@@ -169,12 +178,13 @@ PStrategy Strategy_Trending::init_strategy(bool leverage, double price, double a
     st.position = assets;
     st.total_loss = 0.01 * b;
     st.last_calc_time = time;
+    st.spot = !leverage;
     return new Strategy_Trending(cfg, std::move(st));
 }
 
 Strategy_Trending::LocationInfo Strategy_Trending::getLocationInfo(double price) const {    
     double trend = get_trend(price);
-    double n = state.budget*cfg->base_investment_percent/std::min(state.last_trade_price, price);
+    double n = state.budget*cfg->base_investment_percent/std::min(state.last_trade_price, price);    
     double pos = n * trend;
     double fut_profit = (price - state.last_trade_price) * pos;
     double profit = (price - state.last_trade_price) * state.position;
@@ -204,6 +214,7 @@ Strategy_Trending::LocationInfo Strategy_Trending::getLocationInfo(double price)
             break;
         }
 
+    if (state.spot && new_rev_pos < 0) new_rev_pos = 0;
     return {trend, new_loss, fut_profit, pos, new_rev_pos};
 }
 

@@ -34,6 +34,8 @@ public:
         double position = 0;
         double loss_position = 0;
         double previous_trend = 0;
+        bool skip_fast = false;
+        bool spot = false;
 
 
     };
@@ -64,6 +66,7 @@ protected:
 
     std::shared_ptr<const Config> cfg;
     State state;
+    mutable int faster_side = 0;
 
     PStrategy init_strategy(bool leverage, double price, double assets, double currency, std::uint64_t time) const;
     static double calc_ema(double prev_ema, double cur_value, int interval);

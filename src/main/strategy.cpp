@@ -222,8 +222,8 @@ Strategy Strategy::create_base(std::string_view id, json::Value config) {
 	} else if (id == Strategy_Trending::id) {
 		Strategy_Trending::Config cfg;
 		cfg.base_investment_percent = config["bip"].getNumber()*0.01;
-		cfg.ema_compare_history = config["ech"].getUInt();
-		cfg.ema_period = config["ema"].getUInt();
+		cfg.ema_compare_history = std::max<unsigned int>(config["ech"].getUInt(),1);
+		cfg.ema_period = std::max<unsigned int>(config["ema"].getUInt(),1);
 		cfg.reinvest = config["r"].getBool();
 		cfg.reversal_power = config["p"].getNumber();
 		cfg.fast = config["fast"].getBool();
