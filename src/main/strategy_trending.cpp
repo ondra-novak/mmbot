@@ -38,6 +38,29 @@ PStrategy Strategy_Trending::onIdle(const IStockApi::MarketInfo &minfo, const IS
         if (s->isValid()) return s->onIdle(minfo, curTicker, assets, currency);
         else throw std::runtime_error("Can't initialize strategy");
     } else {
+        if (cfg->rev_str == ReversalStrategy::reverse_by_trend_fast && !state.was_fast_reverse) {
+            int order_dir = static_cast<int>(sgn(state.last_trade_price - curTicker.last));
+            auto loc = getLocationInfo(curTicker.last);
+            double new_pos = loc.new_trend_pos + loc.new_trend_pos;
+            if (new_pos * state.position <  0) {
+                double pos_diff = new_pos - state.position;
+                int pos_sgn = static_cast<int>(sgn(pos_diff));
+                if (pos_sgn != order_dir) {
+                    auto st = state;
+                    if (st.fast_reverse_to != pos_sgn) {
+                        st.fast_reverse_to = pos_sgn;
+                        return new Strategy_Trending(cfg, std::move(st));
+                    } else {
+                        return this;
+                    }
+                }
+            }
+        }
+        if (state.fast_reverse_to) {
+                auto st = state;
+                st.fast_reverse_to = 0;
+                return new Strategy_Trending(cfg, std::move(st));
+        }        
         return this;
     }
 
@@ -48,15 +71,16 @@ std::pair<Strategy_Trending::OnTradeResult, PStrategy > Strategy_Trending::onTra
 
     auto loc = getLocationInfo(tradePrice);
     State nwstate = state;
-    int dir = static_cast<int>(sgn(tradeSize));
+    int dir = static_cast<int>(sgn(tradePrice - state.last_trade_price));
 
     nwstate.last_trade_price = tradePrice;
     nwstate.total_loss = loc.new_loss;
     nwstate.position = assetsLeft;
     nwstate.loss_position = loc.new_rev_pos;    
     nwstate.previous_trend = loc.trend;
-    nwstate.skip_fast = dir && dir == faster_side;
     nwstate.spot = minfo.leverage == 0;
+    nwstate.fast_reverse_to = 0;
+    nwstate.was_fast_reverse = state.fast_reverse_to == dir;
     double e;
     if (nwstate.ema_history.empty()) {
         e = tradePrice;
@@ -85,7 +109,6 @@ json::Value Strategy_Trending::exportState() const{
         {"sp",state.loss_position},
         {"p",state.position},
         {"pt",state.previous_trend},
-        {"skf",state.skip_fast},
         {"spot", state.spot},
     });
 }
@@ -101,7 +124,8 @@ json::Value Strategy_Trending::dumpStatePretty(const IStockApi::MarketInfo &minf
           {"Position.Recover", state.loss_position},
           {"Ema", state.ema_history.empty()?0:state.ema_history.front()},
           {"Ema compare", state.ema_history.empty()?0:state.ema_history.back()},
-          {"Skip fast", state.skip_fast}
+          {"Fast reverse blocked", state.was_fast_reverse},
+          {"Fast reverse to", state.fast_reverse_to}
       });
 }
 PStrategy Strategy_Trending::importState(json::Value src, const IStockApi::MarketInfo &minfo) const{
@@ -115,24 +139,17 @@ PStrategy Strategy_Trending::importState(json::Value src, const IStockApi::Marke
     st.position = src["p"].getNumber();
     st.loss_position = src["sp"].getNumber();
     st.previous_trend = src["pt"].getNumber();
-    st.skip_fast = src["skf"].getBool();
     st.spot = src["spot"].getBool();
     return new Strategy_Trending(cfg,std::move(st));
 }
 Strategy_Trending::OrderData Strategy_Trending::getNewOrder(const IStockApi::MarketInfo &minfo, double cur_price, double new_price, double dir, double assets, double currency, bool rej) const{
-    LocationInfo linfo = getLocationInfo(new_price);
+    bool fast_rev = !rej && state.fast_reverse_to == dir;
+    auto fut_price = fast_rev? cur_price: new_price;
+    LocationInfo linfo = getLocationInfo(fut_price);
     double newpos = linfo.new_trend_pos + linfo.new_rev_pos;
     double diff = newpos - assets;
-    double p = new_price;
-    auto alert = Alert::forced;
-    if (cfg->fast && diff * dir < 0 && !rej && !state.skip_fast) {
-        p = cur_price;
-        linfo = getLocationInfo(cur_price);;
-        newpos = linfo.new_trend_pos + linfo.new_rev_pos;
-        diff = newpos - assets;
-        alert = Alert::disabled;
-        faster_side = dir;
-    }
+    double p = fut_price;
+    auto alert = fast_rev?Alert::disabled:Alert::forced;
     if (diff * dir < 0) diff = 0;
     return {p, diff, alert};
 }

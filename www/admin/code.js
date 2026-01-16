@@ -727,14 +727,13 @@ App.prototype.fillForm = function (src, trg) {
     data.dcam_mult = 1;
     data.dcam_iym = 1;
     data.dcam_ym = 0;
-	data.trnd_bip = 1;
-	data.trnd_ema = 8;
+	data.trnd_bip = 2;
+	data.trnd_ema = 12;
 	data.trnd_ech = 2;
-	data.trnd_lim = 100;
+	data.trnd_lim = 10;
 	data.trnd_rst = "0";
-	data.trnd_fast = false;
-	data.trnd_hst = 0;
-	data.trnd_p = 0;
+	data.trnd_hst = 0.05;
+	data.trnd_p = 10;
 
 	
 	if (data.strategy == "halfhalf" || data.strategy == "keepvalue" || data.strategy == "hypersquare") {
@@ -810,7 +809,6 @@ App.prototype.fillForm = function (src, trg) {
 		data.trnd_ema = filledval(src.strategy.ema, data.trnd_ema);
 		data.trnd_ech = filledval(src.strategy.ech, data.trnd_ech);
 		data.trnd_rst = filledval(src.strategy.rst, data.trnd_rst);
-		data.trnd_fast = filledval(src.strategy.fast, data.trnd_fast);
 		data.trnd_lim = filledval(src.strategy.lim, data.trnd_lim);
 		data.trnd_hst = filledval(src.strategy.hst, data.trnd_hst);
 		data.trnd_p = filledval(src.strategy.p, data.trnd_p);
@@ -1117,7 +1115,6 @@ function getStrategyData(data, inv) {
 			rst: data.trnd_rst,
 			lim: data.trnd_lim,
 			hst: data.trnd_hst,
-			fast: data.trnd_fast,
 			p: data.trnd_p,
 			r: data.shg_rnv
 		}
@@ -2200,7 +2197,7 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		"incval_w","incval_r","incval_ms","incval_ri","incval_z",
 		"hedge_short","hedge_long","hedge_drop",
 		"shg_w","shg_p","shg_z","shg_b","shg_olt","shg_ol","shg_lp","shg_rnv","shg_avgsp","shg_boostmode","shg_boost_custom","shg_r",
-		"trnd_bip","trnd_ema","trnd_ech","trnd_p","trnd_rst","trnd_fast","trnd_lim","trnd_hst",
+		"trnd_bip","trnd_ema","trnd_ech","trnd_p","trnd_rst","trnd_lim","trnd_hst",
 		"dcam_budget","dcam_pown","dcam_mult","dcam_iym","dcam_ym","dcam_type",
 		"trade_within_budget"];
 	var spread_inputs = [

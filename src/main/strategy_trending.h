@@ -9,7 +9,8 @@ public:
     enum class ReversalStrategy {
         reduce = 0,
         reverse_by_trend = 1,
-        reverse_always = 2
+        reverse_by_trend_fast = 2,
+        reverse_always = 3
     };
 
 
@@ -21,7 +22,6 @@ public:
         double limit_loss_percent;
         double histersis_percent;
         bool reinvest;
-        bool fast;
         ReversalStrategy rev_str;
     };
 
@@ -34,8 +34,10 @@ public:
         double position = 0;
         double loss_position = 0;
         double previous_trend = 0;
-        bool skip_fast = false;
         bool spot = false;
+        int fast_reverse_to = 0;
+        bool was_fast_reverse = false;
+        
 
 
     };
@@ -66,7 +68,6 @@ protected:
 
     std::shared_ptr<const Config> cfg;
     State state;
-    mutable int faster_side = 0;
 
     PStrategy init_strategy(bool leverage, double price, double assets, double currency, std::uint64_t time) const;
     static double calc_ema(double prev_ema, double cur_value, int interval);

@@ -226,7 +226,6 @@ Strategy Strategy::create_base(std::string_view id, json::Value config) {
 		cfg.ema_period = std::max<unsigned int>(config["ema"].getUInt(),1);
 		cfg.reinvest = config["r"].getBool();
 		cfg.reversal_power = config["p"].getNumber();
-		cfg.fast = config["fast"].getBool();
 		cfg.limit_loss_percent = config["lim"].getNumber()*0.01;
 		cfg.histersis_percent = config["hst"].getNumber()*0.01;
 		cfg.rev_str = static_cast<Strategy_Trending::ReversalStrategy>(config["rst"].getUInt());

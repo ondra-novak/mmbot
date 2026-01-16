@@ -435,7 +435,7 @@ Prevents reduction after buy. By default the strategy reinvests money saved by b
     <label><span>Hystersis/Dead zone [%]<span class="tooltip">
             <b>Negative number</b> defines a dead zone around the EMA where no trend is detected. This prevents frequent changes in trend direction when the price is close to the EMA. <br>
             <b>Positive number</b> defines a hystersis, which means that the trend direction is changed only when the price moves beyond the EMA by the defined amount.
-    </span></span><input type="number" min="-100" max="100" step="0.1" data-name="trnd_hst"></label>    
+    </span></span><input type="number" min="-100" max="100" step="0.01" data-name="trnd_hst"></label>    
     <label><span>Recovery Power [x]<span class="tooltip">
             Defines how strongly the strategy attempts to recover from underperformance. For example if parameter is 2 and the strategy
             has 100 USD underperformance, it attempts to open position about 200 USD to recovery. If loss gets greater,
@@ -452,10 +452,10 @@ Prevents reduction after buy. By default the strategy reinvests money saved by b
     </span></span><select data-name="trnd_rst">
         <option value="0">Keep side</option>
         <option value="1">Reverse to trend</option>
-        <option value="2">Always reverse</option></select>
+        <option value="2">Reverse to trend (faster)</option>
+        <option value="3">Always reverse</option></select>
     </label>    
     <div class="label"><span>Reinvest profit<span class="tooltip">Increase the collateral by realized profit</span></span><x-checkbox data-name="shg_rnv"></x-checkbox></div>
-    <div class="label"><span>Faster reaction<span class="tooltip">Attempt to open position without waiting to proper spread value. The reaction to trend change is faster however this can however cause oscilations (can't be correctly tested by current backtest) </span></span><x-checkbox data-name="trnd_fast"></x-checkbox></div>
     <button name="show_backtest" disabled="disabled">Backtest</button></div>
 </x-section>
 
