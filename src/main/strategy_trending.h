@@ -9,8 +9,9 @@ public:
     enum class ReversalStrategy {
         reduce = 0,
         reverse_by_trend = 1,
-        reverse_by_trend_fast = 2,
-        reverse_always = 3
+        reverse_by_trend_2 = 2,
+        reverse_always = 3,
+        reduce2 = 4,
     };
 
 
@@ -35,10 +36,6 @@ public:
         double loss_position = 0;
         double previous_trend = 0;
         bool spot = false;
-        int fast_reverse_to = 0;
-        bool was_fast_reverse = false;
-        
-
 
     };
     static constexpr auto id = std::string_view("trending");
@@ -73,6 +70,7 @@ protected:
     static double calc_ema(double prev_ema, double cur_value, int interval);
     double get_trend() const;
     double get_trend(double price) const;
+    double get_trend(double price, double compare) const;
 
     struct LocationInfo {
         double trend;
@@ -82,6 +80,6 @@ protected:
         double new_rev_pos;
     };
 
-    LocationInfo getLocationInfo(double price) const;
+    LocationInfo getLocationInfo(double price, int dir) const;
 
 };

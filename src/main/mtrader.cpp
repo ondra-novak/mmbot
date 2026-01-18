@@ -3,6 +3,7 @@
 #include <imtjson/binary.h>
 #include "istockapi.h"
 #include "mtrader.h"
+#include "main/istrategy.h"
 #include "strategy.h"
 
 #include <chrono>
@@ -729,6 +730,7 @@ bool MTrader::calculateOrderFeeLessAdjust(Order &order, double position, double 
     if (order.size == 0) {
         order.ar = AlertReason::below_minsize;
         //in this case, we continue to search better price (don't accept the order)
+		if (order.alert == IStrategy::Alert::stoploss) return true;
         return false;
     }
 

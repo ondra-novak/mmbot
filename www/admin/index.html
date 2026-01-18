@@ -447,12 +447,16 @@ Prevents reduction after buy. By default the strategy reinvests money saved by b
     <label><span>Recovery strategy<span class="tooltip">
             Determines the way the strategy tries to recover from a loss<br>
             <b>Keep side</b> - Remains in position, only increasing or reducing position until loss is eliminated<br>
-            <b>Reverse to trend</b> - It tries to reverse a position whenever the current position is against the trend. However, to do this, it needs the price to go against the trend in the short term.<br>
+            <b>Keep side/Rev.wh. no trend</b> - Like keep side, but reverses when no trend is detected<br>
+            <b>Reverse to trend</b> - It tries to reverse a position whenever the current position is against the trend. However, to do this, it needs the price to go against the trend in the short term.
+            The passive version often generates alerts in case when trade is not possible. Active version attempts to
+            continue as "keep side" if reverse is not currently possible<br>
             <b>Always reverse</b> - Changes to long when the price goes down and short when the price goes up
     </span></span><select data-name="trnd_rst">
         <option value="0">Keep side</option>
-        <option value="1">Reverse to trend</option>
-        <option value="2">Reverse to trend (faster)</option>
+        <option value="4">Keep side / Rev.wh. no trend</option>
+        <option value="1">Reverse to trend (passive)</option>
+        <option value="2">Reverse to trend (active)</option>
         <option value="3">Always reverse</option></select>
     </label>    
     <div class="label"><span>Reinvest profit<span class="tooltip">Increase the collateral by realized profit</span></span><x-checkbox data-name="shg_rnv"></x-checkbox></div>

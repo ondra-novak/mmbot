@@ -47,6 +47,7 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 			minfo.min_size = std::max(minfo.min_size, cfg.min_size);
 			if (std::abs(price->price-prev_price) == 0) continue;
 			double ord_price;
+			bool run_test_rev = true;
 			do {
 
 				bt.event = BTEvent::no_event;
@@ -63,17 +64,30 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 				bool invalid = false;
 				double orgsize = 0;
 				Strategy::OrderData order;
-				ord_price = p;
+				ord_price = p;				
 				do {
 					auto cur_price = prev_price*0.9+p*0.1;
-					tk = Ticker{cur_price,cur_price,cur_price, price->time};
-					s.onIdle(minfo,tk,pos-cfg.position_offset,balance);
-				
-					order = s.getNewOrder(minfo, cur_price, p, dir, pos-cfg.position_offset, adjbal,rej);
-					auto order2 = s.getNewOrder(minfo, cur_price, 2*prev_price - p, -dir, pos-cfg.position_offset, adjbal,rej);
-					if (order2.price == cur_price && static_cast<int>(sgn(order2.size)) == -dir) {
-						order = order2;
-						dir = -dir;
+					auto rev_price =2*prev_price - p;
+					auto tst_rev_price = p>prev_price?price->pmin:p<prev_price?price->pmax:0;
+					bool have_order = false;
+					if (run_test_rev && tst_rev_price) {
+						run_test_rev = false;
+						double cur_rev_price =2*prev_price - cur_price;
+						s.onIdle(minfo,{tst_rev_price, tst_rev_price, tst_rev_price, price->time},pos-cfg.position_offset,balance);	
+						auto order2 = s.getNewOrder(minfo, cur_rev_price, rev_price, -dir, pos-cfg.position_offset, adjbal,rej);											
+						if (order2.price == cur_rev_price && static_cast<int>(sgn(order2.size)) == -dir) {
+							order = order2;
+							have_order = true;
+						}
+					}
+					if (!have_order) {
+						s.onIdle(minfo,{cur_price,cur_price,cur_price, price->time},pos-cfg.position_offset,balance);
+						order = s.getNewOrder(minfo, cur_price, p, dir, pos-cfg.position_offset, adjbal,rej);
+						auto order2 = s.getNewOrder(minfo, cur_price, rev_price, -dir, pos-cfg.position_offset, adjbal,rej);
+						if (order2.price == cur_price && static_cast<int>(sgn(order2.size)) == -dir) {
+							order = order2;
+							dir = -dir;
+						}
 					}
 
 					if (order.price) {
