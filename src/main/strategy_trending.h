@@ -12,6 +12,7 @@ public:
         reverse_by_trend_2 = 2,
         reverse_always = 3,
         reduce2 = 4,
+        reverse_by_trend_fast = 5
     };
 
 

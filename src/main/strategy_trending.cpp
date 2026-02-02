@@ -122,13 +122,36 @@ PStrategy Strategy_Trending::importState(json::Value src, const IStockApi::Marke
 }
 Strategy_Trending::OrderData Strategy_Trending::getNewOrder(const IStockApi::MarketInfo &minfo, double cur_price, double new_price, double dir, double assets, double currency, bool rej) const{
     auto fut_price =  new_price;
-    LocationInfo linfo = getLocationInfo(fut_price,dir);
-    double newpos = linfo.new_trend_pos + linfo.new_rev_pos;
-    if (newpos < 0 && state.spot) newpos = 0;
-    double diff = newpos - assets;
-    double p = fut_price;
+
+    const auto calc_order_for_price = [&](double price) {
+        auto linfo = getLocationInfo(price,dir);
+        double newpos = linfo.new_trend_pos + linfo.new_rev_pos;
+        if (newpos < 0 && state.spot) newpos = 0;
+        double diff = newpos - assets;
+        return diff;
+    };
+
+    double diff2 = 0;
+
+    if (!rej && cfg->rev_str == ReversalStrategy::reverse_by_trend_fast && dir == get_trend(cur_price)) {
+        diff2 = calc_order_for_price(cur_price);
+        if (diff2 * dir < minfo.calcMinSize(cur_price)) {
+            diff2 = 0;
+        }   
+    } 
+
+
+    double diff = calc_order_for_price(fut_price);
     auto alert = Alert::stoploss;
-    if (diff * dir < 0) diff = 0;
+    auto p = fut_price;
+    if (diff * dir < minfo.calcMinSize(p)) {        
+        diff = 0;
+    }
+    if (diff2 * dir > diff * dir) {
+        p = cur_price;
+        diff = diff2;
+        alert = Alert::disabled;
+    }
     return {p, diff, alert};
 }
 Strategy_Trending::MinMax Strategy_Trending::calcSafeRange(const IStockApi::MarketInfo &minfo, double assets, double currencies) const{
