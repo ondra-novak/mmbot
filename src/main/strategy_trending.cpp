@@ -205,6 +205,7 @@ Strategy_Trending::LocationInfo Strategy_Trending::getLocationInfo(double price,
     double n = state.budget*cfg->base_investment_percent/std::min(state.last_trade_price, price);    
     double pos = n * trend;    
     double fut_profit = (price - state.last_trade_price) * pos;
+    bool limited = false;
     if (state.spot && pos < 0) 
         fut_profit = 0;
     double profit = (price - state.last_trade_price) * state.position;
@@ -213,7 +214,8 @@ Strategy_Trending::LocationInfo Strategy_Trending::getLocationInfo(double price,
     double limit_loss = state.budget * cfg->limit_loss_percent;
     if (limit_loss < new_loss && fut_profit > 0) {
         new_loss = std::max(0.0,new_loss - fut_profit);;     //stop benchmark
-        fut_profit = 0;        
+        fut_profit = 0;  
+        limited = true;      
     }
     double new_rev_pos_abs = std::min(limit_loss,new_loss) * cfg->reversal_power / state.last_trade_price;
     int dir = orddir?-orddir:static_cast<int>(sgn(price - state.last_trade_price));
@@ -231,16 +233,22 @@ Strategy_Trending::LocationInfo Strategy_Trending::getLocationInfo(double price,
             }
             break;
         case ReversalStrategy::reverse_always:
-            new_rev_pos = -new_rev_pos_abs * dir; break;
+            new_rev_pos = -new_rev_pos_abs * dir; 
+            break;
+            
         default:
-            if (trend * dir >= 0) {
+            if (trend * dir >= 0 || limited) {
                 new_rev_pos = new_rev_pos_abs * seldir;
             } else {                
                 new_rev_pos = trend*new_rev_pos_abs;
+                auto order_dir = static_cast<int>(sgn(pos + new_rev_pos - state.position));
+                if (order_dir * dir != -1) {
+                    new_rev_pos = new_rev_pos_abs * seldir;                     
+                }                            
             } 
             if (cfg->rev_str == ReversalStrategy::reverse_by_trend_2) {
                 if ((new_rev_pos + pos - state.position) * dir > 0 && new_loss < limit_loss) {
-                    new_rev_pos = -new_rev_pos;
+                    new_rev_pos = -new_rev_pos;                  
                 }
             }
 
