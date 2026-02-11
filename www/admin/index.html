@@ -444,6 +444,9 @@ Prevents reduction after buy. By default the strategy reinvests money saved by b
     <label><span>Limit loss for recovery [%]<span class="tooltip">
             Limits the maximum loss that can be used to calculate the position for recovery. This will not stop any further loss, it will only prevent the position from increasing. Entered as a percentage of the budget
     </span></span><input type="number" min="0" max="100" step="1" data-name="trnd_lim"></label>    
+    <label class="adv"><span>Min loss for calculation [%]<span class="tooltip">
+            When strategy has less total loss or zero, this sets total loss for given fraction of budget. This can increase profit in trending market
+    </span></span><input type="number" min="0" max="10" step="0.01" data-name="trnd_min"></label>    
     <label><span>Recovery strategy<span class="tooltip">
             Determines the way the strategy tries to recover from a loss<br>
             <b>Keep side</b> - Remains in position, only increasing or reducing position until loss is eliminated<br>
@@ -457,8 +460,8 @@ Prevents reduction after buy. By default the strategy reinvests money saved by b
         <option value="4">Keep side / Rev.wh. no trend</option>
         <option value="1">Reverse to trend (passive)</option>
         <option value="2">Reverse to trend (active)</option>
-        <option value="5">Reverse to trend (fast/not-testable)</option>
-        <option value="3">Always reverse</option></select>
+        <option value="3">Always reverse</option>
+        <option value="7">Two step reverse</option></select>
     </label>    
     <div class="label"><span>Reinvest profit<span class="tooltip">Increase the collateral by realized profit</span></span><x-checkbox data-name="shg_rnv"></x-checkbox></div>
     <button name="show_backtest" disabled="disabled">Backtest</button></div>

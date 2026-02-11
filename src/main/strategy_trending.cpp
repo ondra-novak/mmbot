@@ -55,22 +55,21 @@ std::pair<Strategy_Trending::OnTradeResult, PStrategy > Strategy_Trending::onTra
     auto loc = getLocationInfo(tradePrice,dir);
     State nwstate = state;
 
+
     nwstate.last_trade_price = tradePrice;
     nwstate.total_loss = loc.new_loss;
     nwstate.position = assetsLeft;
     nwstate.loss_position = loc.new_rev_pos;    
     nwstate.previous_trend = loc.trend;
-    nwstate.spot = minfo.leverage == 0;
+    nwstate.spot = minfo.leverage == 0; 
     double e;
-    if (nwstate.ema_history.empty()) {
-        e = tradePrice;
-        loc.fut_profit+=state.total_loss;
-    } else {
-        e = calc_ema(state.ema_history.front(), tradePrice, cfg->ema_period);
-    }
-    nwstate.ema_history.push_front(e);
-    while (nwstate.ema_history.size() > cfg->ema_compare_history+1) nwstate.ema_history.pop_back();
-    
+        if (nwstate.ema_history.empty()) {
+            e = tradePrice;
+        } else {
+            e = calc_ema(state.ema_history.front(), tradePrice, cfg->ema_period);
+        }
+        nwstate.ema_history.push_front(e);
+        while (nwstate.ema_history.size() > cfg->ema_compare_history+1) nwstate.ema_history.pop_back();
     if (cfg->reinvest) nwstate.budget += loc.fut_profit;
     return {
         {loc.fut_profit,0, nwstate.ema_history.back()}, new Strategy_Trending(cfg, std::move(nwstate))
@@ -121,42 +120,48 @@ PStrategy Strategy_Trending::importState(json::Value src, const IStockApi::Marke
     return new Strategy_Trending(cfg,std::move(st));
 }
 Strategy_Trending::OrderData Strategy_Trending::getNewOrder(const IStockApi::MarketInfo &minfo, double cur_price, double new_price, double dir, double assets, double currency, bool rej) const{
-    auto fut_price =  new_price;
 
-    const auto calc_order_for_price = [&](double price) {
-        auto linfo = getLocationInfo(price,dir);
-        double newpos = linfo.new_trend_pos + linfo.new_rev_pos;
-        if (newpos < 0 && state.spot) newpos = 0;
-        double diff = newpos - assets;
-        return diff;
-    };
+    auto loc_new = getLocationInfo(new_price,  dir);
+    auto loc_cur = getLocationInfo(cur_price,dir);
 
-    double diff2 = 0;
-
-    if (!rej && cfg->rev_str == ReversalStrategy::reverse_by_trend_fast && dir == get_trend(cur_price)) {
-        diff2 = calc_order_for_price(cur_price);
-        if (diff2 * dir < minfo.calcMinSize(cur_price)) {
-            diff2 = 0;
-        }   
-    } 
-
-
-    double diff = calc_order_for_price(fut_price);
-    auto alert = Alert::stoploss;
-    auto p = fut_price;
-    if (diff * dir < minfo.calcMinSize(p)) {        
-        diff = 0;
+    if (cfg->rev_str == ReversalStrategy::two_step_reverse && (std::abs(assets) > minfo.min_size)) {
+        return {new_price, -assets, Alert::stoploss};
     }
-    if (diff2 * dir > diff * dir) {
-        p = cur_price;
-        diff = diff2;
-        alert = Alert::disabled;
+
+
+
+    if (loc_new.trend != loc_cur.trend && loc_cur.trend == dir) {
+        if (cfg->rev_str == ReversalStrategy::reverse_by_trend_fast) {
+            double new_pos = loc_new.new_rev_pos+loc_new.new_trend_pos;
+            double order = new_pos-assets;
+            if (order * dir  >= minfo.calcMinSize(cur_price)) {
+                return {cur_price, order, Alert::stoploss};
+            }        
+        }
     }
-    return {p, diff, alert};
+    {
+        double new_pos = loc_new.new_rev_pos+loc_new.new_trend_pos;
+        double order = new_pos-assets;
+        if (order * dir < 0) {
+            if (cfg->rev_str == ReversalStrategy::reverse_by_trend_fast_zero) {
+                auto prev = getLocationInfo(state.last_trade_price,dir);
+                double np2 = prev.new_trend_pos+prev.new_rev_pos;
+                double ord2 = np2-assets;
+                if (ord2 * dir > 0) {
+                    order = ord2;
+                    new_price = cur_price;
+                }
+            } else {
+                order = 0;
+            }
+        }
+        return {new_price, order, Alert::stoploss};
+    }
+
 }
 Strategy_Trending::MinMax Strategy_Trending::calcSafeRange(const IStockApi::MarketInfo &minfo, double assets, double currencies) const{
     if (state.position) {
-        double tp = state.last_trade_price - (state.budget-2*state.total_loss) / state.position;
+        double tp = state.last_trade_price - (currencies + (minfo.leverage?0:assets*state.last_trade_price)) / state.position;
         return { state.position > 0? tp: 0.0, state.position < 0?tp:std::numeric_limits<double>::infinity()};
     }
     return { 0.0, std::numeric_limits<double>::infinity()};
@@ -194,7 +199,6 @@ PStrategy Strategy_Trending::init_strategy(bool leverage, double price, double a
     st.budget = b;
     st.last_trade_price = price;
     st.position = assets;
-    st.total_loss = 0.01 * b;
     st.last_calc_time = time;
     st.spot = !leverage;
     return new Strategy_Trending(cfg, std::move(st));
@@ -210,12 +214,15 @@ Strategy_Trending::LocationInfo Strategy_Trending::getLocationInfo(double price,
         fut_profit = 0;
     double profit = (price - state.last_trade_price) * state.position;
     double rev_profit = profit - fut_profit;
-    double new_loss = std::max(0.0,state.total_loss - rev_profit);
+    double new_loss = std::max(0.0,state.total_loss - rev_profit);    
     double limit_loss = state.budget * cfg->limit_loss_percent;
+    double min_loss = state.budget * cfg->min_loss_percent;
     if (limit_loss < new_loss && fut_profit > 0) {
         new_loss = std::max(0.0,new_loss - fut_profit);;     //stop benchmark
         fut_profit = 0;  
         limited = true;      
+    } else if (min_loss > new_loss) {
+        new_loss = min_loss;
     }
     double new_rev_pos_abs = std::min(limit_loss,new_loss) * cfg->reversal_power / state.last_trade_price;
     int dir = orddir?-orddir:static_cast<int>(sgn(price - state.last_trade_price));
@@ -230,25 +237,24 @@ Strategy_Trending::LocationInfo Strategy_Trending::getLocationInfo(double price,
             new_rev_pos = new_rev_pos_abs * seldir; 
             if ((new_rev_pos + pos - state.position) * dir > 0 && new_loss < limit_loss) {
                  new_rev_pos = -new_rev_pos;
+                 pos = -pos;
             }
             break;
+        case ReversalStrategy::two_step_reverse:
         case ReversalStrategy::reverse_always:
             new_rev_pos = -new_rev_pos_abs * dir; 
             break;
             
         default:
-            if (trend * dir >= 0 || limited) {
+            if (trend == 0 || limited) {
                 new_rev_pos = new_rev_pos_abs * seldir;
             } else {                
-                new_rev_pos = trend*new_rev_pos_abs;
-                auto order_dir = static_cast<int>(sgn(pos + new_rev_pos - state.position));
-                if (order_dir * dir != -1) {
-                    new_rev_pos = new_rev_pos_abs * seldir;                     
-                }                            
-            } 
-            if (cfg->rev_str == ReversalStrategy::reverse_by_trend_2) {
-                if ((new_rev_pos + pos - state.position) * dir > 0 && new_loss < limit_loss) {
-                    new_rev_pos = -new_rev_pos;                  
+                new_rev_pos = trend*new_rev_pos_abs;            
+                if (cfg->rev_str == ReversalStrategy::reverse_by_trend_2) {
+                    if ((new_rev_pos + pos - state.position) * dir > 0 && new_loss < limit_loss) {
+                        new_rev_pos = -new_rev_pos;                  
+                        pos = -pos;
+                    }
                 }
             }
 

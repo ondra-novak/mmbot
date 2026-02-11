@@ -12,7 +12,9 @@ public:
         reverse_by_trend_2 = 2,
         reverse_always = 3,
         reduce2 = 4,
-        reverse_by_trend_fast = 5
+        reverse_by_trend_fast = 5,
+        reverse_by_trend_fast_zero = 6,
+        two_step_reverse=7
     };
 
 
@@ -23,6 +25,7 @@ public:
         double reversal_power;
         double limit_loss_percent;
         double histersis_percent;
+        double min_loss_percent;
         bool reinvest;
         ReversalStrategy rev_str;
     };

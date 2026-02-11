@@ -105,7 +105,7 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 					}
 
 					order.size  = IStockApi::MarketInfo::adjValue(order.size,minfo.asset_step,round);
-					invalid = order.size == 0;
+					invalid = order.size == 0 && (order.alert == IStrategy::Alert::disabled || order.alert == IStrategy::Alert::enabled);
 					if (rej) invalid = false;
 					rej = true;
 				} while (invalid);
@@ -192,7 +192,7 @@ BTTrades backtest_cycle(const MTrader_Config &cfg, BTPriceSource &&priceSource, 
 					pos += order.size;
 				}
 
-				if (order.size == 0 && orgsize != 0 && order.alert != IStrategy::Alert::forced) {
+				if (order.size == 0 && orgsize != 0 && (order.alert == IStrategy::Alert::enabled || order.alert == IStrategy::Alert::disabled)) {
 					enable_alert = false;
 				}
 

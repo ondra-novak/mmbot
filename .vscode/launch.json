@@ -10,7 +10,7 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/bin/mmbot",
-            "args": ["-dvp","8088","run"],
+            "args": ["-dvp","8080","run"],
             "stopAtEntry": false,
             "cwd": "${fileDirname}",
             "environment": [],
