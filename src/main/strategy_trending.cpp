@@ -242,7 +242,11 @@ Strategy_Trending::LocationInfo Strategy_Trending::getLocationInfo(double price,
             break;
         case ReversalStrategy::two_step_reverse:
         case ReversalStrategy::reverse_always:
-            new_rev_pos = -new_rev_pos_abs * dir; 
+            if (limited ) {
+                new_rev_pos = new_rev_pos_abs * seldir; 
+            } else {
+                new_rev_pos = -new_rev_pos_abs * dir; 
+            }
             break;
             
         default:
