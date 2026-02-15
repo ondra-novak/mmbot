@@ -209,7 +209,6 @@ Strategy_Trending::LocationInfo Strategy_Trending::getLocationInfo(double price,
     double n = state.budget*cfg->base_investment_percent/std::min(state.last_trade_price, price);    
     double pos = n * trend;    
     double fut_profit = (price - state.last_trade_price) * pos;
-    bool limited = false;
     if (state.spot && pos < 0) 
         fut_profit = 0;
     double profit = (price - state.last_trade_price) * state.position;
@@ -217,14 +216,20 @@ Strategy_Trending::LocationInfo Strategy_Trending::getLocationInfo(double price,
     double new_loss = std::max(0.0,state.total_loss - rev_profit);    
     double limit_loss = state.budget * cfg->limit_loss_percent;
     double min_loss = state.budget * cfg->min_loss_percent;
-    if (limit_loss < new_loss && fut_profit > 0) {
-        new_loss = std::max(0.0,new_loss - fut_profit);;     //stop benchmark
-        fut_profit = 0;  
-        limited = true;      
+    double calc_loss = new_loss;
+    if (limit_loss < new_loss) {
+        if (fut_profit > 0) {
+            new_loss = std::max(0.0,new_loss - fut_profit);     //stop benchmark        
+            fut_profit = 0;  
+        }
+        calc_loss = std::min(limit_loss,new_loss);
+        if (profit > 0) calc_loss -= std::min(calc_loss, profit);
     } else if (min_loss > new_loss) {
-        new_loss = min_loss;
+        calc_loss = new_loss = min_loss;
+    } else {
+        calc_loss = new_loss;
     }
-    double new_rev_pos_abs = std::min(limit_loss,new_loss) * cfg->reversal_power / state.last_trade_price;
+    double new_rev_pos_abs = calc_loss * cfg->reversal_power / state.last_trade_price;
     int dir = orddir?-orddir:static_cast<int>(sgn(price - state.last_trade_price));
     double new_rev_pos;
     double seldir = sgn(state.position);
@@ -242,15 +247,11 @@ Strategy_Trending::LocationInfo Strategy_Trending::getLocationInfo(double price,
             break;
         case ReversalStrategy::two_step_reverse:
         case ReversalStrategy::reverse_always:
-            if (limited ) {
-                new_rev_pos = new_rev_pos_abs * seldir; 
-            } else {
-                new_rev_pos = -new_rev_pos_abs * dir; 
-            }
+            new_rev_pos = -new_rev_pos_abs * dir; 
             break;
             
         default:
-            if (trend == 0 || limited) {
+            if (trend == 0) {
                 new_rev_pos = new_rev_pos_abs * seldir;
             } else {                
                 new_rev_pos = trend*new_rev_pos_abs;            
