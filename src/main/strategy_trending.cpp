@@ -223,13 +223,13 @@ Strategy_Trending::LocationInfo Strategy_Trending::getLocationInfo(double price,
             fut_profit = 0;  
         }
         calc_loss = std::min(limit_loss,new_loss);
-        if (profit > 0) calc_loss -= std::min(calc_loss, profit);
+        if (profit > 0) calc_loss = (std::abs(state.position)-n) /(cfg->reversal_power / state.last_trade_price) - profit;
     } else if (min_loss > new_loss) {
         calc_loss = new_loss = min_loss;
     } else {
         calc_loss = new_loss;
     }
-    double new_rev_pos_abs = calc_loss * cfg->reversal_power / state.last_trade_price;
+    double new_rev_pos_abs = calc_loss * cfg->reversal_power / price;
     int dir = orddir?-orddir:static_cast<int>(sgn(price - state.last_trade_price));
     double new_rev_pos;
     double seldir = sgn(state.position);
