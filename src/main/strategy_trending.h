@@ -9,10 +9,8 @@ public:
     enum class ReversalStrategy {
         reduce = 0,
         reverse_by_trend = 1,
-        reverse_by_trend_2 = 2,
         reverse_always = 3,
         reduce2 = 4,
-        reverse_by_trend_fast = 5,
         reverse_by_trend_fast_zero = 6,
         two_step_reverse=7
     };
@@ -40,6 +38,7 @@ public:
         double loss_position = 0;
         double previous_trend = 0;
         bool spot = false;
+        bool stoploss = false;  //when true, perform stoploss as soon as possible
 
     };
     static constexpr auto id = std::string_view("trending");
@@ -82,6 +81,8 @@ protected:
         double fut_profit;
         double new_trend_pos;
         double new_rev_pos;
+        double new_pos;
+        bool stoploss;   //contains direction for stoploss
     };
 
     LocationInfo getLocationInfo(double price, int dir) const;
