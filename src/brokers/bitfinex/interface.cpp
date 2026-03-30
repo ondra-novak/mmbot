@@ -389,8 +389,9 @@ json::Value Interface::placeOrder(const std::string_view &pair, double size, dou
 					{"symbol", tpair},
 					{"price",numberToFixed(price,8)},
 					{"amount",numberToFixed(size,8)},
-					{"flags", 4096},
-					{"meta", Object({{"aff_code","QoenTafCw"}})}}));
+					{"flags", 0},
+					//{"meta", Object({{"aff_code","QoenTafCw"}})}
+                }));
 			return resp[4][0][0];
 		} else {
 			return nullptr;

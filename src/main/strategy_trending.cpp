@@ -135,7 +135,7 @@ Strategy_Trending::OrderData Strategy_Trending::getNewOrder(const IStockApi::Mar
     }
 
 
-    double new_pos = loc_new.new_rev_pos+loc_new.new_trend_pos;
+    double new_pos = loc_new.new_pos;
     double order = new_pos-assets;
     double dirchk = order*dir;
 
