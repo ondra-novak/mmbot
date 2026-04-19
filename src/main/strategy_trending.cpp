@@ -58,6 +58,7 @@ std::pair<Strategy_Trending::OnTradeResult, PStrategy > Strategy_Trending::onTra
 
     nwstate.last_trade_price = tradePrice;
     nwstate.total_loss = loc.new_loss;
+    nwstate.calc_loss = loc.new_calc_loss;
     nwstate.position = assetsLeft;
     nwstate.loss_position = loc.new_rev_pos;    
     nwstate.previous_trend = loc.trend;
@@ -81,7 +82,6 @@ json::Value Strategy_Trending::exportState() const{
     json::Array q;
     for (double v: state.ema_history) q.push_back(v);
     return json::Object({
-        {"tm",state.last_calc_time},
         {"eh",q},
         {"tl", state.total_loss},
         {"ltp", state.last_trade_price},
@@ -90,6 +90,7 @@ json::Value Strategy_Trending::exportState() const{
         {"p",state.position},
         {"pt",state.previous_trend},
         {"spot", state.spot},
+        {"cl",state.calc_loss},
         {"sl", state.stoploss},
     });
 }
@@ -98,6 +99,7 @@ json::Value Strategy_Trending::dumpStatePretty(const IStockApi::MarketInfo &minf
     double n = state.budget*cfg->base_investment_percent/std::min(state.last_trade_price, state.last_trade_price);
     return json::Object({
           {"Total loss", state.total_loss},
+          {"Total loss (calc)", state.calc_loss},
           {"Position.Trend", n * trend},
           {"Budget",state.budget},
           {"Position",state.position},
@@ -111,7 +113,6 @@ PStrategy Strategy_Trending::importState(json::Value src, const IStockApi::Marke
     const auto q = src["eh"];
     State st;
     for (auto v: q) st.ema_history.push_back(v.getNumber());
-    st.last_calc_time = src["tm"].getUIntLong();
     st.total_loss = src["tl"].getNumber();
     st.last_trade_price = src["ltp"].getNumber();
     st.budget = src["b"].getNumber();
@@ -120,6 +121,7 @@ PStrategy Strategy_Trending::importState(json::Value src, const IStockApi::Marke
     st.previous_trend = src["pt"].getNumber();
     st.spot = src["spot"].getBool();
     st.stoploss = src["sl"].getBool();
+    st.calc_loss = src["cl"].getNumber();
     return new Strategy_Trending(cfg,std::move(st));
 }
 Strategy_Trending::OrderData Strategy_Trending::getNewOrder(const IStockApi::MarketInfo &minfo, double cur_price, double new_price, double dir, double assets, double currency, bool rej) const{
@@ -186,7 +188,6 @@ PStrategy Strategy_Trending::init_strategy(bool leverage, double price, double a
     st.budget = b;
     st.last_trade_price = price;
     st.position = assets;
-    st.last_calc_time = time;
     st.spot = !leverage;
     return new Strategy_Trending(cfg, std::move(st));
 }
@@ -203,20 +204,16 @@ Strategy_Trending::LocationInfo Strategy_Trending::getLocationInfo(double price,
     double new_loss = std::max(0.0,state.total_loss - rev_profit);    
     double limit_loss = state.budget * cfg->limit_loss_percent;
     double min_loss = state.budget * cfg->min_loss_percent;
-    double calc_loss = new_loss;
     bool stoploss = false;
+    double calc_loss = std::min({new_loss, limit_loss, std::max(0.0,state.calc_loss - rev_profit* (profit<0?2:1))});
+
     if (limit_loss < new_loss) {
         if (fut_profit > 0) {
             new_loss = std::max(0.0,new_loss - fut_profit);     //stop benchmark        
             fut_profit = 0;  
         }
-        calc_loss = std::min(limit_loss,new_loss);
-        if (profit > 0) calc_loss = (std::abs(state.position)-n) /(cfg->reversal_power / state.last_trade_price) - profit;
-    } else if (min_loss > new_loss) {
-        calc_loss = new_loss = min_loss;
-    } else {
-        calc_loss = new_loss;
-    }
+    } 
+    if (calc_loss < min_loss) calc_loss = min_loss;
     double new_rev_pos_abs = calc_loss * cfg->reversal_power / price;
     int dir = orddir?orddir:static_cast<int>(sgn(state.last_trade_price - price));
     double new_rev_pos;
@@ -264,6 +261,7 @@ Strategy_Trending::LocationInfo Strategy_Trending::getLocationInfo(double price,
             break;
         }
 
-    return {trend, new_loss, fut_profit, pos, new_rev_pos, new_pos, stoploss};
+    return {trend, new_loss, calc_loss, fut_profit, 
+        pos, new_rev_pos, new_pos, stoploss};
 }
 

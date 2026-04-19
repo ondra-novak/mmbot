@@ -29,10 +29,10 @@ public:
     };
 
     struct State {
-        std::uint64_t last_calc_time = 0;
         std::deque<double> ema_history = {};
         double total_loss = 0;
-        double last_trade_price = 0;
+        double calc_loss = 0;
+        double last_trade_price = 0;        
         double budget = 0;
         double position = 0;
         double loss_position = 0;
@@ -78,6 +78,7 @@ protected:
     struct LocationInfo {
         double trend;
         double new_loss;
+        double new_calc_loss;
         double fut_profit;
         double new_trend_pos;
         double new_rev_pos;
