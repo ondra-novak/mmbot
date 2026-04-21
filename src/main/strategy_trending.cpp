@@ -201,19 +201,18 @@ Strategy_Trending::LocationInfo Strategy_Trending::getLocationInfo(double price,
         fut_profit = 0;
     double profit = (price - state.last_trade_price) * state.position;
     double rev_profit = profit - fut_profit;
-    double new_loss = std::max(0.0,state.total_loss - rev_profit);    
     double limit_loss = state.budget * cfg->limit_loss_percent;
     double min_loss = state.budget * cfg->min_loss_percent;
+    double new_loss = std::max(min_loss,state.total_loss - rev_profit);    
     bool stoploss = false;
-    double calc_loss = std::min({new_loss, limit_loss, std::max(0.0,state.calc_loss - rev_profit* (profit<0?2:1))});
+    double calc_loss = std::min({new_loss, limit_loss, std::max(min_loss,state.calc_loss - rev_profit* (profit<0?2:1))});
 
     if (limit_loss < new_loss) {
         if (fut_profit > 0) {
-            new_loss = std::max(0.0,new_loss - fut_profit);     //stop benchmark        
+            new_loss = std::max(min_loss,new_loss - fut_profit);     //stop benchmark        
             fut_profit = 0;  
         }
     } 
-    if (calc_loss < min_loss) calc_loss = min_loss;
     double new_rev_pos_abs = calc_loss * cfg->reversal_power / price;
     int dir = orddir?orddir:static_cast<int>(sgn(state.last_trade_price - price));
     double new_rev_pos;

@@ -662,6 +662,8 @@ uint64_t Interface::downloadMinuteData(const std::string_view &asset, const std:
 	};
 	std::uint64_t minDate = time_to;
 
+    double po = 0;
+
 	for (Value row: hdata) {
 		auto date = row[0].getUIntLong();
 		if (date >= time_from && date < time_to) {
@@ -670,6 +672,8 @@ uint64_t Interface::downloadMinuteData(const std::string_view &asset, const std:
 				double l = row[3].getNumber();
 				double c = row[4].getNumber();
 				double m = std::sqrt(h*l);
+                if (po > o) std::swap(h,l);
+                po = o;
 				insert_val(o);
 				insert_val(h);
 				insert_val(m);
