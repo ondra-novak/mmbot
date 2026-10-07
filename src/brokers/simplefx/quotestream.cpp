@@ -92,7 +92,9 @@ void QuoteStream::processQuotes(const json::Value& quotes, bool first_frame) {
 		json::Value a = q["a"];
 		json::Value b = q["b"];
 		json::Value t = q["t"];
-		if (!cb(s.getString(), b.getNumber(), a.getNumber(), t.getUIntLong()*1000) && !first_frame) {
+        auto tm = t.getUIntLong();
+        if (tm < 100000000000ULL) tm = tm * 1000; //simplefx incompetence fix
+		if (!cb(s.getString(), b.getNumber(), a.getNumber(), tm) && !first_frame) {
 			Sync _(lock);
 
 			json::Value data = json::Object({

@@ -407,6 +407,8 @@ json::Value Interface::placeOrder(const std::string_view &pair, double size, dou
 }
 
 double Interface::getFees(const std::string_view &pair) {
+    return 0;
+/*    
 	auto iter = fees.find(pair);
 	if (iter == fees.end()) {
 		try {
@@ -418,6 +420,7 @@ double Interface::getFees(const std::string_view &pair) {
 	}
 	if (iter == fees.end())	return 0.001;
 	return std::min(iter->second,0.002);
+    */
 }
 
 

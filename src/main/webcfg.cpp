@@ -8,6 +8,7 @@
 
 #include "webcfg.h"
 
+#include <chrono>
 #include <random>
 #include <unordered_set>
 
@@ -1972,6 +1973,7 @@ bool WebCfg::reqBacktest_v2(simpleServer::HTTPRequest req, ondra_shared::StrView
 					Value limit = args["limit"];
 					Value begin_time = args["begin_time"];
 					auto swap = args["swap"].getBool();
+                    auto force_trade = args["force_trades"].getNumber();
 
 					auto state = fn->start();
 
@@ -1995,6 +1997,9 @@ bool WebCfg::reqBacktest_v2(simpleServer::HTTPRequest req, ondra_shared::StrView
 					BTPrice *last = nullptr;
 					std::size_t ofs = offset.getUInt();
 					std::size_t lim = std::min<std::size_t>(limit.defined()?limit.getUInt()+ofs:static_cast<std::size_t>(-1),srcminute.size());
+                    std::optional<std::size_t> force_trade_int;
+                    if (force_trade) force_trade_int = static_cast<std::size_t>(force_trade*60)+1; //add one minute to wait on order execition
+                    std::size_t force_trade_cnt = 0;
 					for (std::size_t pos = ofs; pos < lim;++pos) {
 						const auto &itm =  srcminute[pos];
 						double w = itm.getNumber();
@@ -2022,11 +2027,18 @@ bool WebCfg::reqBacktest_v2(simpleServer::HTTPRequest req, ondra_shared::StrView
 						    execp = *orders.sell;
 						    exec = true;
 						    fn->point(state, execp, true);
-						}
+						} else if (force_trade_int && force_trade_cnt >= *force_trade_int) {
+						    exec = true;
+                            execp = v;
+						    fn->point(state, v, true);
+                        }
+                        
+                        force_trade_cnt++;
 						if (exec) {
 							double p = ifut?1.0/execp:execp;
 							out.push_back({t, p,p,p});
 							last = &out.back();
+                            force_trade_cnt = 0;
 						} else if (w<last->pmin) {
 							last->pmin = w;
 						} else if (w>last->pmax) {

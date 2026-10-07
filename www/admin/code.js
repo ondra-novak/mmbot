@@ -809,6 +809,7 @@ App.prototype.fillForm = function (src, trg) {
 		data.trnd_bip = filledval(src.strategy.bip, data.trnd_bip);
 		data.trnd_ema = filledval(src.strategy.ema, data.trnd_ema);
 		data.trnd_ech = filledval(src.strategy.ech, data.trnd_ech);
+        data.trnd_lti = filledval(src.strategy.lti, data.trnd_lti);
 		data.trnd_rst = filledval(src.strategy.rst, data.trnd_rst);
 		data.trnd_lim = filledval(src.strategy.lim, data.trnd_lim);
 		data.trnd_min = filledval(src.strategy.min, data.trnd_min);
@@ -1114,6 +1115,7 @@ function getStrategyData(data, inv) {
 			ema: data.trnd_ema,
 			bip: data.trnd_bip,
 			ech: data.trnd_ech,
+            lti: data.trnd_lti,
 			rst: data.trnd_rst,
 			lim: data.trnd_lim,
 			min: data.trnd_min,
@@ -2205,7 +2207,8 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 		"trade_within_budget"];
 	var spread_inputs = [
 	     "spread_calc_stdev_hours", "spread_calc_sma_hours","spread_mult","dynmult_raise","dynmult_fall","dynmult_mode","dynmult_sliding","dynmult_cap","dynmult_mult","force_spread","spread_mode","spread_freeze",
-	     "bollinger_interval","bollinger_deviation","bollinger_levels","bollinger_level_0","bollinger_level_1","bollinger_level_2","bollinger_level_3","bollinger_level_4","bollinger_level_5"
+	     "bollinger_interval","bollinger_deviation","bollinger_levels","bollinger_level_0","bollinger_level_1","bollinger_level_2","bollinger_level_3","bollinger_level_4","bollinger_level_5",
+         "grant_trade_hours"
 	       ];
 	var leverage = form._pair.leverage != 0;	
 	var pairinfo = form._pair;
@@ -2560,7 +2563,8 @@ App.prototype.init_backtest = function(form, id, pair, broker) {
 			ifutures: invert_price,			
 			source: this_bt.minute.id,
 			offset: offset,
-			swap:  form._swap_symbols == 1
+			swap:  form._swap_symbols == 1,
+            force_trades: data.grant_trade_hours,
 		}
 		return fetch_json(url+"/gen_trades",{method:"POST",body:JSON.stringify(sreq)});
 	}.bind(this);
