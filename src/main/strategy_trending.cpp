@@ -249,6 +249,8 @@ Strategy_Trending::LocationInfo Strategy_Trending::getLocationInfo(double price,
                         if (trend == state.previous_trend) { //thend no longer changing
                             if (cfg->rev_str == ReversalStrategy::reverse_by_trend_fast_zero) { //for this strategy
                                 stoploss = true; //mark - we need stoploss
+                            } else if (cfg->rev_str == ReversalStrategy::reverse_by_trend_no_alert) { //for this strategy
+                                new_pos = -new_pos; //keep current dir;    
                             }
                         } else {
                             new_pos = -new_pos; //keep current dir;

@@ -11,6 +11,7 @@ public:
         reverse_by_trend = 1,
         reverse_always = 3,
         reduce2 = 4,
+        reverse_by_trend_no_alert = 5,
         reverse_by_trend_fast_zero = 6,
         two_step_reverse=7
     };
